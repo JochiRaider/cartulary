@@ -7867,8 +7867,11 @@
       "name": "frontend-fallow-static",
       "backing_scripts": [
         "tools/harness/static-analysis/fallow-static-cli.mjs",
+        "tools/harness/static-analysis/fallow-reachability.mjs",
         ".fallowrc.json",
+        "tools/fallow/reachability_owner.json",
         "tools/fallow/cartulary-boundaries.rulepack.json",
+        "tools/schemas/cartulary.fallow_reachability_owner.v1.schema.json",
         "tools/schemas/cartulary.fallow_static_summary.v1.schema.json"
       ],
       "output_policy": {
@@ -11103,8 +11106,11 @@
       "name": "harness-smoke-fallow-static",
       "backing_scripts": [
         "tools/harness/static-analysis/tests/test-fallow-static.sh",
+        "tools/harness/static-analysis/fallow-reachability.mjs",
         ".fallowrc.json",
+        "tools/fallow/reachability_owner.json",
         "tools/fallow/cartulary-boundaries.rulepack.json",
+        "tools/schemas/cartulary.fallow_reachability_owner.v1.schema.json",
         "tools/schemas/cartulary.fallow_static_summary.v1.schema.json"
       ]
     },

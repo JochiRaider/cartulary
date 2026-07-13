@@ -157,3 +157,298 @@ if (adapterMatches.length !== 0) {
   throw new Error("expected no grid-adapter react-data-grid policy violation");
 }
 EOF
+
+reachability_root="$(mktemp -d)"
+cleanup_paths+=("$reachability_root")
+
+mkdir -p \
+  "$reachability_root/apps/web/src/testing" \
+  "$reachability_root/apps/web/public/assets/fonts/inter" \
+  "$reachability_root/packages/example/src" \
+  "$reachability_root/tools/fallow" \
+  "$reachability_root/tools/harness/static-analysis" \
+  "$reachability_root/tools/release-evidence"
+
+cat >"$reachability_root/package.json" <<'JSON'
+{
+  "private": true,
+  "workspaces": [
+    "apps/web",
+    "packages/*"
+  ],
+  "devDependencies": {
+    "@cyclonedx/cdxgen": "12.3.1",
+    "unused-tool": "1.0.0"
+  }
+}
+JSON
+
+cat >"$reachability_root/apps/web/package.json" <<'JSON'
+{
+  "name": "@cartulary/web",
+  "private": true,
+  "devDependencies": {
+    "vitest": "4.1.4",
+    "vite": "8.0.8"
+  }
+}
+JSON
+
+cat >"$reachability_root/packages/example/package.json" <<'JSON'
+{
+  "name": "@cartulary/example",
+  "private": true
+}
+JSON
+
+cat >"$reachability_root/.fallowrc.json" <<'JSON'
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": [
+    "apps/web/src/main.tsx"
+  ],
+  "workspaces": {
+    "patterns": ["apps/web", "packages/*"]
+  },
+  "rules": {
+    "unused-files": "warn",
+    "unused-exports": "warn",
+    "unused-types": "warn",
+    "unused-dependencies": "off",
+    "unused-dev-dependencies": "warn",
+    "unlisted-dependencies": "off",
+    "unresolved-imports": "warn",
+    "policy-violation": "off"
+  }
+}
+JSON
+
+cat >"$reachability_root/apps/web/vite.config.ts" <<'TS'
+export default {};
+TS
+
+cat >"$reachability_root/apps/web/index.html" <<'HTML'
+<html>
+  <head>
+    <link rel="preload" href="/assets/fonts/inter/InterVariable.woff2" as="font" />
+    <link rel="stylesheet" href="/assets/fonts/fonts.css" />
+  </head>
+  <body>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+HTML
+
+cat >"$reachability_root/apps/web/public/assets/fonts/fonts.css" <<'CSS'
+@font-face {
+  font-family: Inter;
+  src: url("./inter/InterVariable.woff2") format("woff2");
+}
+CSS
+
+printf 'font\n' >"$reachability_root/apps/web/public/assets/fonts/inter/InterVariable.woff2"
+
+cat >"$reachability_root/apps/web/src/main.tsx" <<'TS'
+export const app = "cartulary";
+TS
+
+cat >"$reachability_root/apps/web/src/testing/testSetup.ts" <<'TS'
+export const setup = "vitest";
+TS
+
+cat >"$reachability_root/apps/web/src/testing/testSetup.dom.ts" <<'TS'
+export const setupDom = "vitest-dom";
+TS
+
+cat >"$reachability_root/tools/harness/static-analysis/example-cli.mjs" <<'JS'
+export const exampleCli = true;
+JS
+
+cat >"$reachability_root/tools/harness/static-analysis/example-test.mjs" <<'JS'
+export const exampleTest = true;
+JS
+
+cat >"$reachability_root/tools/release-evidence/generate-sbom-license-evidence.mjs" <<'JS'
+import { spawnSync } from "node:child_process";
+
+export function runCdxgen(pnpm = "pnpm") {
+  return spawnSync(pnpm, ["exec", "cdxgen", "--version"]);
+}
+JS
+
+cat >"$reachability_root/tools/task_surface_owner.json" <<'JSON'
+{
+  "schema_id": "cartulary.task_surface_owner.v1",
+  "targets": [
+    {
+      "name": "example-tool",
+      "backing_scripts": [
+        "tools/harness/static-analysis/example-cli.mjs"
+      ]
+    }
+  ],
+  "harness_checks": [
+    {
+      "name": "harness-smoke-example",
+      "backing_scripts": [
+        "tools/harness/static-analysis/example-test.mjs"
+      ],
+      "command": [
+        "node",
+        "./tools/harness/static-analysis/example-test.mjs"
+      ]
+    }
+  ],
+  "make_recipes": {
+    "example-tool": {
+      "type": "node_tool"
+    }
+  }
+}
+JSON
+
+cat >"$reachability_root/tools/fallow/reachability_owner.json" <<'JSON'
+{
+  "schema_id": "cartulary.fallow_reachability_owner.v1",
+  "base_config": {
+    "path": ".fallowrc.json"
+  },
+  "task_surface": {
+    "owner_path": "tools/task_surface_owner.json",
+    "script_extensions": [".cjs", ".cts", ".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"],
+    "required_node_tool_backing_scripts": true
+  },
+  "vitest": {
+    "config_file": "apps/web/vite.config.ts",
+    "setup_files": [
+      "apps/web/src/testing/testSetup.ts",
+      "apps/web/src/testing/testSetup.dom.ts"
+    ],
+    "test_entry_globs": [
+      "apps/web/src/**/*.test.ts",
+      "apps/web/src/**/*.test.tsx"
+    ]
+  },
+  "vite_public_assets": {
+    "public_root": "apps/web/public",
+    "html_entry_files": ["apps/web/index.html"],
+    "url_prefixes": ["/assets/"],
+    "always_used_files": ["apps/web/public/assets/fonts/fonts.css"]
+  },
+  "executable_tooling_dependencies": [
+    {
+      "package_name": "@cyclonedx/cdxgen",
+      "owner_script": "tools/release-evidence/generate-sbom-license-evidence.mjs",
+      "command": ["pnpm", "exec", "cdxgen"]
+    }
+  ],
+  "static_policy": {
+    "runtime_enabled": false,
+    "per_file_suppression_growth": false
+  },
+  "extensions": {}
+}
+JSON
+
+resolved_config="$reachability_root/resolved-fallowrc.json"
+"$NODE_BIN" --input-type=module - "$ROOT_DIR" "$reachability_root" "$resolved_config" <<'EOF'
+import { pathToFileURL } from "node:url";
+
+const [rootDir, fixtureRoot, resolvedConfig] = process.argv.slice(2);
+const { buildResolvedFallowConfig } = await import(
+  pathToFileURL(`${rootDir}/tools/harness/static-analysis/fallow-reachability.mjs`).href
+);
+const result = buildResolvedFallowConfig({
+  root: fixtureRoot,
+  outputFile: resolvedConfig,
+});
+if (result.stats.task_surface_entry_points < 2) {
+  throw new Error("expected task-surface scripts in resolved Fallow config");
+}
+EOF
+
+reachability_output="$reachability_root/fallow-reachability.json"
+"$NODE_BIN" "$FALLOW_SCRIPT" dead-code \
+  --root "$reachability_root" \
+  --config "$resolved_config" \
+  --format json \
+  --quiet \
+  --no-cache \
+  --output-file "$reachability_output" >/dev/null
+
+"$NODE_BIN" --input-type=module - "$reachability_output" <<'EOF'
+import { readFileSync } from "node:fs";
+
+const [file] = process.argv.slice(2);
+const data = JSON.parse(readFileSync(file, "utf8"));
+const text = JSON.stringify(data);
+if (text.includes("apps/web/src/testing/testSetup.ts")) {
+  throw new Error("expected Vitest setup file to be owner-reachable");
+}
+if (text.includes("apps/web/src/testing/testSetup.dom.ts")) {
+  throw new Error("expected DOM Vitest setup file to be owner-reachable");
+}
+if (text.includes("apps/web/public/assets/fonts/fonts.css")) {
+  throw new Error("expected Vite public stylesheet to be owner-reachable");
+}
+if (text.includes('"/assets/fonts/fonts.css"')) {
+  throw new Error("expected Vite public asset URL to be validated before Fallow");
+}
+if (text.includes("@cyclonedx/cdxgen")) {
+  throw new Error("expected executable tooling dependency to be owner-reachable");
+}
+if (!text.includes("unused-tool")) {
+  throw new Error("expected unrelated unused dev dependency to remain reported");
+}
+EOF
+
+missing_asset_root="$(mktemp -d)"
+cleanup_paths+=("$missing_asset_root")
+cp -R "$reachability_root/." "$missing_asset_root/"
+rm -f "$missing_asset_root/apps/web/public/assets/fonts/fonts.css"
+if "$NODE_BIN" --input-type=module - "$ROOT_DIR" "$missing_asset_root" "$missing_asset_root/resolved.json" <<'EOF'
+import { pathToFileURL } from "node:url";
+
+const [rootDir, fixtureRoot, resolvedConfig] = process.argv.slice(2);
+const { buildResolvedFallowConfig } = await import(
+  pathToFileURL(`${rootDir}/tools/harness/static-analysis/fallow-reachability.mjs`).href
+);
+buildResolvedFallowConfig({ root: fixtureRoot, outputFile: resolvedConfig });
+EOF
+then
+  fail "expected missing public asset to fail Fallow reachability owner validation"
+fi
+
+missing_script_root="$(mktemp -d)"
+cleanup_paths+=("$missing_script_root")
+cp -R "$reachability_root/." "$missing_script_root/"
+rm -f "$missing_script_root/tools/harness/static-analysis/example-cli.mjs"
+if "$NODE_BIN" --input-type=module - "$ROOT_DIR" "$missing_script_root" "$missing_script_root/resolved.json" <<'EOF'
+import { pathToFileURL } from "node:url";
+
+const [rootDir, fixtureRoot, resolvedConfig] = process.argv.slice(2);
+const { buildResolvedFallowConfig } = await import(
+  pathToFileURL(`${rootDir}/tools/harness/static-analysis/fallow-reachability.mjs`).href
+);
+buildResolvedFallowConfig({ root: fixtureRoot, outputFile: resolvedConfig });
+EOF
+then
+  fail "expected missing task-surface backing script to fail Fallow reachability owner validation"
+fi
+
+missing_setup_root="$(mktemp -d)"
+cleanup_paths+=("$missing_setup_root")
+cp -R "$reachability_root/." "$missing_setup_root/"
+rm -f "$missing_setup_root/apps/web/src/testing/testSetup.ts"
+if "$NODE_BIN" --input-type=module - "$ROOT_DIR" "$missing_setup_root" "$missing_setup_root/resolved.json" <<'EOF'
+import { pathToFileURL } from "node:url";
+
+const [rootDir, fixtureRoot, resolvedConfig] = process.argv.slice(2);
+const { buildResolvedFallowConfig } = await import(
+  pathToFileURL(`${rootDir}/tools/harness/static-analysis/fallow-reachability.mjs`).href
+);
+buildResolvedFallowConfig({ root: fixtureRoot, outputFile: resolvedConfig });
+EOF
+then
+  fail "expected missing Vitest setup file to fail Fallow reachability owner validation"
+fi

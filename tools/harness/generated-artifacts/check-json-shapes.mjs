@@ -78,6 +78,8 @@ const bootstrapAdminSchemaID = "cartulary.bootstrap_admin.v1";
 const serviceBackedMakeTargetBaselineSchemaID =
   "cartulary.scheduler_work_unit_duration_baselines.v2";
 const toolRunSummarySchemaID = "cartulary.tool_run_summary.v4";
+const fallowReachabilityOwnerSchemaID =
+  "cartulary.fallow_reachability_owner.v1";
 const fallowStaticSummarySchemaID = "cartulary.fallow_static_summary.v1";
 const agentFinalizeSummarySchemaID = "cartulary.agent_finalize_summary.v3";
 const frontendPhaseRegistrySchemaID = "cartulary.frontend_phase_registry.v5";
@@ -4207,6 +4209,13 @@ function validateHarnessRequirementIDs(root) {
   }
 }
 
+function validateFallowReachabilityOwnerShape(file) {
+  validateSchemaSync(
+    fallowReachabilityOwnerSchemaID,
+    readShapeFile(file, file),
+  );
+}
+
 function validateKind(kind, file, root = repoRoot) {
   switch (kind) {
     case "phase-registry":
@@ -4253,6 +4262,9 @@ function validateKind(kind, file, root = repoRoot) {
       return;
     case "tool-run-summary":
       validateToolRunSummaryShape(file);
+      return;
+    case "fallow-reachability-owner":
+      validateFallowReachabilityOwnerShape(file);
       return;
     case "fallow-static-summary":
       validateSchemaSync(
@@ -4344,6 +4356,9 @@ function validateAll(root) {
 
   validateGeneratedArtifactPolicyShape(
     repoFile(root, "tools/generated_artifact_policy.json"),
+  );
+  validateFallowReachabilityOwnerShape(
+    repoFile(root, "tools/fallow/reachability_owner.json"),
   );
   validateContractFamilyRegistryShape(repoFile(root, "contracts/index.json"));
   validateFrontendImportBoundariesShape(

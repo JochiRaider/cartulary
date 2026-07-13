@@ -1,0 +1,44 @@
+{
+  "schema_id": "cartulary.fallow_reachability_owner.v1",
+  "base_config": {
+    "path": ".fallowrc.json"
+  },
+  "task_surface": {
+    "owner_path": "tools/task_surface_owner.json",
+    "script_extensions": [".cjs", ".cts", ".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"],
+    "required_node_tool_backing_scripts": true
+  },
+  "vitest": {
+    "config_file": "apps/web/vite.config.ts",
+    "setup_files": [
+      "apps/web/src/testing/testSetup.ts",
+      "apps/web/src/testing/testSetup.dom.ts"
+    ],
+    "test_entry_globs": [
+      "apps/web/src/**/*.test.ts",
+      "apps/web/src/**/*.test.tsx",
+      "apps/web/src/**/*.spec.ts",
+      "apps/web/src/**/*.spec.tsx",
+      "packages/*/src/**/*.test.ts",
+      "packages/*/src/**/*.test.tsx"
+    ]
+  },
+  "vite_public_assets": {
+    "public_root": "apps/web/public",
+    "html_entry_files": ["apps/web/index.html"],
+    "url_prefixes": ["/assets/"],
+    "always_used_files": ["apps/web/public/assets/fonts/fonts.css"]
+  },
+  "executable_tooling_dependencies": [
+    {
+      "package_name": "@cyclonedx/cdxgen",
+      "owner_script": "tools/release-evidence/generate-sbom-license-evidence.mjs",
+      "command": ["pnpm", "exec", "cdxgen"]
+    }
+  ],
+  "static_policy": {
+    "runtime_enabled": false,
+    "per_file_suppression_growth": false
+  },
+  "extensions": {}
+}

@@ -18,7 +18,7 @@ deletion, or suppression of findings.
 | Fallow identity | Fallow `2.93.0`, dead-code schema `7`, analysis run `run_6327d4e5abc7b521` |
 | Finding count | 1,656 |
 | Output path | `docs/handoffs/dead-code-clean-up-tracker.md` |
-| Current status | Tracker creation only; remediation requires a later authorized task. |
+| Current status | DC-002 implemented; corrected Fallow baseline recorded; DC-003 unblocked for batch reconciliation. |
 
 Source and authority posture:
 
@@ -158,6 +158,20 @@ Therefore `UF-0005..UF-0246` and `UE-0028..UE-1359` are quarantined from
 deletion until DC-002 and DC-003 complete. A corrected rerun may prove some
 members genuinely unused, but it must do so from accurate reachability.
 
+DC-002 was implemented on 2026-07-13. The corrected canonical Fallow run at
+`.cartulary/test-results/20260713T171113Z-p616212` uses the retained effective
+configuration at
+`.cartulary/test-results/20260713T171113Z-p616212/frontend-fallow-static/fallow/resolved-fallowrc.json`.
+Its `dead-code.json` SHA-256 is
+`bbf66bb19c207cf2c1b3dfab6744085f2c4c54f8130a8112da963b67954cc0f6`.
+The corrected counts are 38 unused files, 316 unused exports, 20 unused types,
+zero unused development dependencies, four unused class members, zero unresolved
+imports, 19 duplicate exports, and 20 circular dependencies. Known reachability
+false positives for the Vitest setup files, `/assets/fonts/fonts.css`, the
+public font stylesheet, and `@cyclonedx/cdxgen` are absent. Tool findings fell
+from 242 to 37 unused files and from 1,332 to 289 unused exports; DC-003 must
+map or close the surviving tool findings before deletion authority is granted.
+
 ## 4. Counted Tool Reachability Batches
 
 These batches preserve auditable coverage of the 1,574 quarantined tool
@@ -167,25 +181,25 @@ whose `path` begins with the listed prefix.
 
 | Batch | Path area | Unused files | Unused exports | Status | Initial disposition |
 | --- | --- | ---: | ---: | --- | --- |
-| TR-01 | `tools/harness/phase-accounting/**` | 53 | 320 | BLOCKED | FALSE_POSITIVE_CONFIG pending rerun |
-| TR-02 | `tools/harness/scheduler/**` | 29 | 254 | BLOCKED | FALSE_POSITIVE_CONFIG pending rerun |
-| TR-03 | `tools/harness/generated-artifacts/**` | 28 | 124 | BLOCKED | FALSE_POSITIVE_CONFIG pending rerun |
-| TR-04 | `tools/harness/backend/**` | 27 | 129 | BLOCKED | FALSE_POSITIVE_CONFIG pending rerun |
-| TR-05 | `tools/harness/output/**` | 22 | 80 | BLOCKED | FALSE_POSITIVE_CONFIG pending rerun |
-| TR-06 | `tools/harness/diagnostics/**` | 15 | 50 | BLOCKED | FALSE_POSITIVE_CONFIG pending rerun |
-| TR-07 | `tools/harness/execution/**` | 13 | 78 | BLOCKED | FALSE_POSITIVE_CONFIG pending rerun |
-| TR-08 | `tools/harness/contract/**` | 12 | 167 | BLOCKED | FALSE_POSITIVE_CONFIG pending rerun |
-| TR-09 | Other `tools/**` paths outside the named harness areas | 9 | 40 | BLOCKED | FALSE_POSITIVE_CONFIG pending rerun |
-| TR-10 | `tools/harness/static-analysis/**` | 9 | 12 | BLOCKED | FALSE_POSITIVE_CONFIG pending rerun |
-| TR-11 | `tools/harness/browser/**` | 7 | 31 | BLOCKED | FALSE_POSITIVE_CONFIG pending rerun |
-| TR-12 | `tools/harness/duration-accounting/**` | 6 | 14 | BLOCKED | FALSE_POSITIVE_CONFIG pending rerun |
-| TR-13 | `tools/harness/finalization/**` | 4 | 10 | BLOCKED | FALSE_POSITIVE_CONFIG pending rerun |
-| TR-14 | `tools/harness/readiness/**` | 2 | 0 | BLOCKED | FALSE_POSITIVE_CONFIG pending rerun |
-| TR-15 | `tools/harness/test-support/**` | 2 | 0 | BLOCKED | FALSE_POSITIVE_CONFIG pending rerun |
-| TR-16 | `tools/harness/command-surface/**` | 1 | 10 | BLOCKED | FALSE_POSITIVE_CONFIG pending rerun |
-| TR-17 | `tools/harness/runtime-binary-registry.mjs` | 1 | 13 | BLOCKED | FALSE_POSITIVE_CONFIG pending rerun |
-| TR-18 | `tools/harness/smoke/**` | 1 | 0 | BLOCKED | FALSE_POSITIVE_CONFIG pending rerun |
-| TR-19 | `tools/harness/tests/**` | 1 | 0 | BLOCKED | FALSE_POSITIVE_CONFIG pending rerun |
+| TR-01 | `tools/harness/phase-accounting/**` | 53 | 320 | TODO | Corrected-run reconciliation required in DC-003 |
+| TR-02 | `tools/harness/scheduler/**` | 29 | 254 | TODO | Corrected-run reconciliation required in DC-003 |
+| TR-03 | `tools/harness/generated-artifacts/**` | 28 | 124 | TODO | Corrected-run reconciliation required in DC-003 |
+| TR-04 | `tools/harness/backend/**` | 27 | 129 | TODO | Corrected-run reconciliation required in DC-003 |
+| TR-05 | `tools/harness/output/**` | 22 | 80 | TODO | Corrected-run reconciliation required in DC-003 |
+| TR-06 | `tools/harness/diagnostics/**` | 15 | 50 | TODO | Corrected-run reconciliation required in DC-003 |
+| TR-07 | `tools/harness/execution/**` | 13 | 78 | TODO | Corrected-run reconciliation required in DC-003 |
+| TR-08 | `tools/harness/contract/**` | 12 | 167 | TODO | Corrected-run reconciliation required in DC-003 |
+| TR-09 | Other `tools/**` paths outside the named harness areas | 9 | 40 | TODO | Corrected-run reconciliation required in DC-003 |
+| TR-10 | `tools/harness/static-analysis/**` | 9 | 12 | TODO | Corrected-run reconciliation required in DC-003 |
+| TR-11 | `tools/harness/browser/**` | 7 | 31 | TODO | Corrected-run reconciliation required in DC-003 |
+| TR-12 | `tools/harness/duration-accounting/**` | 6 | 14 | TODO | Corrected-run reconciliation required in DC-003 |
+| TR-13 | `tools/harness/finalization/**` | 4 | 10 | TODO | Corrected-run reconciliation required in DC-003 |
+| TR-14 | `tools/harness/readiness/**` | 2 | 0 | TODO | Corrected-run reconciliation required in DC-003 |
+| TR-15 | `tools/harness/test-support/**` | 2 | 0 | TODO | Corrected-run reconciliation required in DC-003 |
+| TR-16 | `tools/harness/command-surface/**` | 1 | 10 | TODO | Corrected-run reconciliation required in DC-003 |
+| TR-17 | `tools/harness/runtime-binary-registry.mjs` | 1 | 13 | TODO | Corrected-run reconciliation required in DC-003 |
+| TR-18 | `tools/harness/smoke/**` | 1 | 0 | TODO | Corrected-run reconciliation required in DC-003 |
+| TR-19 | `tools/harness/tests/**` | 1 | 0 | TODO | Corrected-run reconciliation required in DC-003 |
 | **Total** | `UF-0005..UF-0246`; `UE-0028..UE-1359` | **242** | **1,332** |  |  |
 
 The initial disposition is a quarantine posture, not a final claim that every
@@ -343,8 +357,8 @@ hidden by a suppression or broad barrel.
 | ID | Work item | Status | Depends on | Affected owner | Evidence or artifact | Exit condition |
 | --- | --- | --- | --- | --- | --- | --- |
 | DC-001 | Freeze source identity, counts, authority, and command posture. | DONE | none | Tracker | Sections 1-3 | Fingerprint and all 1,656 findings reconcile. |
-| DC-002 | Repair Fallow reachability for Vitest setup, Make/manifest CLIs, browser assets, and executable dependencies. | TODO | DC-001 | `.fallowrc.json`, harness static analysis | Config diff; caller and manifest inventory; `make harness-contract` when harness metadata changes | Reachability represents durable owner patterns without per-file suppression growth. |
-| DC-003 | Run canonical Fallow and reconcile the quarantined tool batches. | BLOCKED | DC-002 | Fallow harness | Retained `make frontend-fallow-static` run root and raw `dead-code.json` fingerprint | Every old ID/batch is closed or mapped to a new finding; no count silently disappears. |
+| DC-002 | Repair Fallow reachability for Vitest setup, Make/manifest CLIs, browser assets, and executable dependencies. | DONE | DC-001 | `.fallowrc.json`, harness static analysis | Config diff; caller and manifest inventory; retained `frontend-fallow-static` run root `.cartulary/test-results/20260713T171113Z-p616212`; `make harness-contract` passed | Reachability represents durable owner patterns without per-file suppression growth. |
+| DC-003 | Run canonical Fallow and reconcile the quarantined tool batches. | TODO | DC-002 | Fallow harness | Corrected Fallow fingerprint `bbf66bb19c207cf2c1b3dfab6744085f2c4c54f8130a8112da963b67954cc0f6`; surviving tool counts 37 unused files and 289 unused exports | Every old ID/batch is closed or mapped to a new finding; no count silently disappears. |
 | DC-004 | Resolve four application file findings and remove the obsolete compatibility barrel if no continuing consumer exists. | BLOCKED | DC-003 | Web app, assets, frontend tests | Import searches, Vite config, frontend unit evidence | Runtime/test-loaded files are modeled accurately; valueless barrel is removed. |
 | DC-005 | Internalize or remove the 27 live exports, 20 types, and four class members in cohesive owner slices. | BLOCKED | DC-003 | App shell and workbook owners | Symbol searches, characterization tests, frontend checks | Public surface is smaller without product behavior drift or speculative compatibility exports. |
 | DC-006 | Consolidate five duplicate exports under semantic owners. | BLOCKED | DC-003 | App shell, Timeline, services, test support | Caller migration and owner-local tests | One definition or deliberately private per-owner definition remains for each name. |
@@ -395,6 +409,7 @@ Failure handling:
 | Date | Work item | Source or command | Result | Impact and next action |
 | --- | --- | --- | --- | --- |
 | 2026-07-12 | DC-001 | Frozen JSON inspection, repository searches, `.fallowrc.json`, Vite config, task metadata, harness wrapper, domain and harness owner docs | Baseline and reachability diagnosis recorded; no implementation changed. | Begin DC-002 only under later authorization. |
+| 2026-07-13 | DC-002 | Harness NLSpec, `.fallowrc.json`, `tools/fallow/reachability_owner.json`, Fallow reachability builder, Fallow wrapper, task-surface owner/manifest, JSON-shape validation, harness static-analysis tests | Owner-driven reachability implemented; corrected Fallow run recorded; Vitest setup, Vite public assets, task-surface CLIs, and `@cyclonedx/cdxgen` executable dependency are no longer false positive findings. | Begin DC-003 batch reconciliation using `.cartulary/test-results/20260713T171113Z-p616212/frontend-fallow-static/fallow/dead-code.json`. |
 
 ### 9.2 Retained-exception ledger
 
@@ -412,7 +427,7 @@ be removed or marked `BLOCKED` pending a named owner decision.
 
 | ID | Risk or blocker | Blocking work | Resolution condition |
 | --- | --- | --- | --- |
-| DR-001 | Current Fallow entry coverage does not represent Make/manifest-driven tool execution. | Tool file/export cleanup | DC-002 and a retained DC-003 rerun complete. |
+| DR-001 | Frozen Fallow entry coverage did not represent Make/manifest-driven tool execution. | Tool file/export cleanup | DC-002 is complete; DC-003 must map the surviving corrected-run tool findings before cleanup. |
 | DR-002 | Removing pending-queue methods without characterization could change retry, conflict, or auth-recovery behavior. | UCM-0001 through UCM-0004 | Relevant frontend unit/behavior coverage is inspected and passing. |
 | DR-003 | Breaking cycles through a new shared barrel could reproduce the same coupling under another path. | DC-007 | Leaf dependency direction is documented and the corrected graph has no cycle. |
 | DR-004 | Compatibility barrels and duplicate types can obscure real ownership. | UF-0002 and DE-0001 through DE-0005 | One semantic owner is selected; callers migrate without dual paths. |
@@ -487,3 +502,24 @@ The cleanup program is complete only when all of the following are true:
 | Validation | `make lint-markdown` passed; `make generated-artifact-policy-check` passed at `.cartulary/test-results/20260713T005154Z-p69886`; `make json-shape-check` passed at `.cartulary/test-results/20260713T005154Z-p69879`; `git diff --check` passed. |
 | Skipped checks | `make check` and `make agent-finalize` were not run because this was a documentation-only tracker change and no broader verification was needed. Retained-run maintenance was not requested. |
 | Next authorized work | DC-002, analyzer reachability repair. |
+
+## 13. DC-002 Implementation Handoff
+
+| Field | Value |
+| --- | --- |
+| Date/time | 2026-07-13 13:17:13 EDT |
+| Branch/commit | `main` at `12abcf036ea900e7cae75cbef9ef236fefdffc00` with uncommitted DC-002 changes |
+| Authorized work items | DC-002 plus handoff needed to start DC-003 |
+| Finding IDs or batches touched | UF-0001, UF-0003, UF-0004, UDD-0001, URI-0001, TR-01 through TR-19 |
+| Dispositions changed | DC-002 `DONE`; DC-003 `TODO`; tool batches unblocked for corrected-run reconciliation |
+| Files inspected | Harness NLSpec; `.fallowrc.json`; Vite/Vitest config and setup files; web public asset path; task-surface owner/manifest; Fallow wrapper and summary schema; release-evidence `cdxgen` caller; Fallow frozen and corrected reports |
+| Files changed | `.fallowrc.json`; `docs/testing-harness-nlspec.md`; `docs/handoffs/dead-code-clean-up-tracker.md`; `tools/fallow/reachability_owner.json`; `tools/schemas/cartulary.fallow_reachability_owner.v1.schema.json`; `tools/harness/static-analysis/fallow-reachability.mjs`; `tools/harness/static-analysis/fallow-static-cli.mjs`; `tools/harness/static-analysis/tests/test-fallow-static.sh`; `tools/harness/generated-artifacts/check-json-shapes.mjs`; `tools/harness_schema_attachments.json`; `tools/task_surface_owner.json`; generated task-surface/topology/scheduler and duration-baseline artifacts refreshed by Make/finalizer |
+| Commands run | `make phase-schedules`; `make json-shape-check`; `make generated-artifact-policy-check`; `make lint-scripts`; `make generate-drift`; `make phase-schedule-drift`; `make harness-contract`; `make lint-markdown`; `make frontend-unit`; `make frontend-fallow-static`; `make sbom`; `make agent-finalize`; `make check`; `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260713T171331Z-p635102`; `git diff --check` |
+| Passing validation and run roots | Final `make json-shape-check` passed at `.cartulary/test-results/20260713T171612Z-p719261`; final `make generated-artifact-policy-check` passed at `.cartulary/test-results/20260713T171612Z-p719276`; final `make generate-drift` passed at `.cartulary/test-results/20260713T171612Z-p719258`; `make phase-schedule-drift` passed at `.cartulary/test-results/20260713T171054Z-p613781` and again inside finalizer `.cartulary/test-results/20260713T171520Z-p716915`; `make frontend-unit` passed at `.cartulary/test-results/20260713T171113Z-p616178`; `make frontend-fallow-static` passed at `.cartulary/test-results/20260713T171113Z-p616212`; `make sbom` passed at `.cartulary/test-results/20260713T171303Z-p633465`; `make check` passed at `.cartulary/test-results/20260713T171331Z-p635102`; final `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260713T171331Z-p635102` passed at `.cartulary/test-results/20260713T171520Z-p716915` |
+| Failing validation and run roots | An intermediate `make frontend-fallow-static` run failed at `.cartulary/test-results/20260713T170635Z-p607006` due to Fallow summary artifact-ref schema shape; fixed by emitting summary-local Fallow artifact refs while preserving tool-run artifact refs |
+| Fallow before/after fingerprint and counts | Frozen SHA-256 `bbfb9b7354e1fea0fac4d91b813dfd483051e2ffad0475c62eeb9e061bb9da68`: 246 unused files, 1,359 unused exports, 20 unused types, one unused dev dependency, four unused class members, one unresolved import, five duplicate exports, 20 cycles. Corrected SHA-256 `bbf66bb19c207cf2c1b3dfab6744085f2c4c54f8130a8112da963b67954cc0f6`: 38 unused files, 316 unused exports, 20 unused types, zero unused dev dependencies, four unused class members, zero unresolved imports, 19 duplicate exports, 20 cycles. |
+| Generated outputs | `tools/task_surface_manifest.json`, `tools/execution_topology_render_index.json`, `tools/scheduler_manifest.json`, `tools/browser_e2e_duration_baselines.json`, `tools/go_test_duration_baselines.json`, `tools/harness_smoke_duration_baselines.json`, and `tools/service_backed_make_target_duration_baselines.json` were refreshed by Make/finalizer targets. |
+| Decisions and continuing-value evidence | Reachability is modeled from durable owners, not per-file suppressions: Vitest setup from owner config, task-surface scripts from `tools/task_surface_owner.json`, Vite `/assets/**` public URLs from the declared public root, and `@cyclonedx/cdxgen` from release-evidence executable dependency ownership. `frontend-fallow-static` remains non-blocking, static-only, and Fallow Runtime remains disabled. |
+| Open blockers and residual risks | DC-003 still needs to map or close surviving corrected-run tool findings; duplicate-export count increased under the corrected analyzer and must be handled in later cleanup; circular dependencies remain unchanged. |
+| Next work item | DC-003, corrected-run reconciliation of TR-01 through TR-19 and surviving non-tool findings. |
+| Safe restart command | `make frontend-fallow-static && make harness-contract` |

@@ -21,11 +21,16 @@ import {
   normalizeOutputMode,
   toolSummaryPath,
 } from "../output/index.mjs";
+import {
+  buildResolvedFallowConfig,
+  defaultFallowReachabilityOwnerPath,
+} from "./fallow-reachability.mjs";
 
 const target = "frontend-fallow-static";
 const fallowSummarySchemaID = "cartulary.fallow_static_summary.v1";
 const fallowScript = path.join(repoRoot, "node_modules", "fallow", "bin", "fallow");
 const configPath = path.join(repoRoot, ".fallowrc.json");
+const reachabilityOwnerPath = path.join(repoRoot, defaultFallowReachabilityOwnerPath);
 const issueArrayKeys = new Set([
   "boundary_violations",
   "boundaryviolations",
@@ -146,6 +151,14 @@ function writeText(file, content) {
   secureWriteFile(file, content ?? "");
 }
 
+function fallowArtifactRef(role, file, kind = "json") {
+  return {
+    role,
+    kind,
+    path: file,
+  };
+}
+
 function runFallow(reportRoot, name, args, outputFile) {
   const stdoutFile = path.join(reportRoot, `${name}.stdout.log`);
   const stderrFile = path.join(reportRoot, `${name}.stderr.log`);
@@ -177,12 +190,13 @@ function runFallow(reportRoot, name, args, outputFile) {
 function reportFromRun(run) {
   const data = existsSync(run.outputFile) ? readJSON(run.outputFile) : {};
   const counts = collectIssueCounts(data);
+  const artifactRole = `${run.name.replaceAll("-", "_")}_json`;
   return {
     name: run.name,
     command: run.command,
     status: run.status,
     exit_code: run.exitCode,
-    artifact: fileArtifactRef(`${run.name}_json`, repoRel(run.outputFile), "json"),
+    artifact: fallowArtifactRef(artifactRole, repoRel(run.outputFile), "json"),
     issue_count: counts.issueCount,
     by_rule: counts.byRule,
     by_severity: counts.bySeverity,
@@ -270,12 +284,33 @@ function main() {
         failureReason: "configuration_error",
       });
     }
+    if (!existsSync(reachabilityOwnerPath)) {
+      throw Object.assign(new Error(`${defaultFallowReachabilityOwnerPath} is required`), {
+        failureClass: "config",
+        failureReason: "configuration_error",
+      });
+    }
     if (!existsSync(fallowScript)) {
       throw Object.assign(new Error("fallow package binary was not found; run make frontend-install"), {
         failureClass: "config",
         failureReason: "configuration_error",
       });
     }
+
+    const resolvedConfig = path.join(reportRoot, "resolved-fallowrc.json");
+    let reachability;
+    try {
+      reachability = buildResolvedFallowConfig({
+        root: repoRoot,
+        outputFile: resolvedConfig,
+      });
+    } catch (error) {
+      throw Object.assign(error, {
+        failureClass: "config",
+        failureReason: "configuration_error",
+      });
+    }
+    const resolvedConfigRel = repoRel(resolvedConfig);
 
     const deadCodeJSON = path.join(reportRoot, "dead-code.json");
     const deadCodeSARIF = path.join(reportRoot, "dead-code.sarif");
@@ -285,6 +320,8 @@ function main() {
 
     runs.push(runFallow(reportRoot, "dead-code", [
       "dead-code",
+      "--config",
+      resolvedConfigRel,
       "--format",
       "json",
       "--quiet",
@@ -296,6 +333,8 @@ function main() {
     ], deadCodeJSON));
     runs.push(runFallow(reportRoot, "dead-code-markdown", [
       "dead-code",
+      "--config",
+      resolvedConfigRel,
       "--format",
       "markdown",
       "--quiet",
@@ -305,6 +344,8 @@ function main() {
     ], deadCodeMarkdown));
     runs.push(runFallow(reportRoot, "dupes", [
       "dupes",
+      "--config",
+      resolvedConfigRel,
       "--format",
       "json",
       "--quiet",
@@ -314,6 +355,8 @@ function main() {
     ], dupesJSON));
     runs.push(runFallow(reportRoot, "health", [
       "health",
+      "--config",
+      resolvedConfigRel,
       "--format",
       "json",
       "--quiet",
@@ -390,20 +433,24 @@ function main() {
       });
     }
 
-    const fallowArtifacts = [
-      fileArtifactRef("dead_code_json", repoRel(deadCodeJSON), "json"),
-      fileArtifactRef("dead_code_sarif", repoRel(deadCodeSARIF), "sarif"),
-      fileArtifactRef("dead_code_markdown", repoRel(deadCodeMarkdown), "markdown"),
-      fileArtifactRef("dupes_json", repoRel(dupesJSON), "json"),
-      fileArtifactRef("health_json", repoRel(healthJSON), "json"),
+    const artifactFiles = [
+      ["resolved_fallow_config", repoRel(resolvedConfig), "json"],
+      ["dead_code_json", repoRel(deadCodeJSON), "json"],
+      ["dead_code_sarif", repoRel(deadCodeSARIF), "sarif"],
+      ["dead_code_markdown", repoRel(deadCodeMarkdown), "markdown"],
+      ["dupes_json", repoRel(dupesJSON), "json"],
+      ["health_json", repoRel(healthJSON), "json"],
     ];
+    const fallowArtifacts = artifactFiles.map(([role, artifactPath, kind]) =>
+      fallowArtifactRef(role, artifactPath, kind),
+    );
     const fallowSummary = {
       schema_id: fallowSummarySchemaID,
       target,
       generated_at: nowUTC(),
       mode: "phase_a_report",
       config: {
-        path: ".fallowrc.json",
+        path: repoRel(resolvedConfig),
         static_layer: "open",
         runtime_enabled: false,
       },
@@ -419,14 +466,23 @@ function main() {
       },
       artifacts: fallowArtifacts,
       warnings,
-      extensions: {},
+      extensions: {
+        "cartulary.fallow_reachability": {
+          owner_path: defaultFallowReachabilityOwnerPath,
+          base_config_path: ".fallowrc.json",
+          resolved_config_path: repoRel(resolvedConfig),
+          stats: reachability.stats,
+        },
+      },
     };
     validateSchemaSync(fallowSummarySchemaID, fallowSummary);
     const fallowSummaryFile = path.join(targetRoot, "fallow-static-summary.json");
     secureWriteFile(fallowSummaryFile, `${JSON.stringify(fallowSummary, null, 2)}\n`);
     summaryArtifacts.push(
       fileArtifactRef("fallow_static_summary", repoRel(fallowSummaryFile), "json"),
-      ...fallowArtifacts,
+      ...artifactFiles.map(([role, artifactPath, kind]) =>
+        fileArtifactRef(role, artifactPath, kind),
+      ),
     );
 
     makeToolSummary({

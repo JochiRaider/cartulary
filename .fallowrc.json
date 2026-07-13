@@ -2,8 +2,8 @@
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
   "entry": [
     "apps/web/src/main.tsx",
-    "apps/web/src/testSetup.ts",
-    "apps/web/src/testSetup.dom.ts",
+    "apps/web/src/testing/testSetup.ts",
+    "apps/web/src/testing/testSetup.dom.ts",
     "apps/web/e2e/**/*.ts",
     "apps/web/*.config.ts",
     "packages/grid-adapter/src/index.tsx",
