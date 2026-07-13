@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-025",
+  "assertion": "Source item identifier content violation admitted as a failed run with fixed digests and one itemized issue.",
+  "test_symbol": "TestGPFIX025Remediation"
+}

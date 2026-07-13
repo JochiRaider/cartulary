@@ -80,14 +80,14 @@ func TestServiceLifecycleFacadeAndDirectQueries(t *testing.T) {
 	service := NewService(ServiceOptions{Repository: store, Now: fixedTime, NewNonce: func() (string, error) { return "service-run", nil }})
 	ctx := context.Background()
 	input := mustJSON(t, incidentGraphInput(t))
-	accepted, err := service.CreateProjection(ctx, CreateProjectionRequest{ProjectionInput: input, IdempotencyKey: "service-idempotency"})
+	accepted, err := service.CreateProjection(ctx, CreateProjectionRequest{ProjectionInput: input, IdempotencyKey: ValueOf("service-idempotency")})
 	if err != nil {
 		t.Fatalf("service create projection: %v", err)
 	}
 	if accepted.State != RunStateAccepted || accepted.IdempotencyExpiresAt == nil {
 		t.Fatalf("accepted summary = %#v", accepted)
 	}
-	run, err := service.GetProjectionRun(ctx, accepted.GraphViewID, accepted.ProjectionRunID)
+	run, err := service.GetProjectionRun(ctx, GetProjectionRunRequest{GraphViewID: accepted.GraphViewID, ProjectionRunID: accepted.ProjectionRunID})
 	if err != nil || run.State != RunStateAvailable || run.StartedAt == nil || run.GeneratedAt == nil {
 		t.Fatalf("terminal run = %#v err=%v", run, err)
 	}
@@ -99,17 +99,17 @@ func TestServiceLifecycleFacadeAndDirectQueries(t *testing.T) {
 			t.Fatalf("second create error = %#v", err)
 		}
 	}
-	graph, err := service.GetGraphView(ctx, accepted.GraphViewID, accepted.ProjectionRunID)
+	graph, err := service.GetGraphView(ctx, GetGraphViewRequest{GraphViewID: accepted.GraphViewID, ProjectionRunID: ValueOf(accepted.ProjectionRunID)})
 	if err != nil || len(graph.Vertices) == 0 || len(graph.Edges) == 0 {
 		t.Fatalf("service graph = %#v err=%v", graph, err)
 	}
-	if _, err := service.GetVertex(ctx, accepted.GraphViewID, accepted.ProjectionRunID, graph.Vertices[0].VertexID); err != nil {
+	if _, err := service.GetVertex(ctx, GetVertexRequest{GraphViewID: accepted.GraphViewID, ProjectionRunID: ValueOf(accepted.ProjectionRunID), VertexID: graph.Vertices[0].VertexID}); err != nil {
 		t.Fatalf("direct vertex lookup: %v", err)
 	}
-	if _, err := service.GetEdge(ctx, accepted.GraphViewID, accepted.ProjectionRunID, graph.Edges[0].EdgeID); err != nil {
+	if _, err := service.GetEdge(ctx, GetEdgeRequest{GraphViewID: accepted.GraphViewID, ProjectionRunID: ValueOf(accepted.ProjectionRunID), EdgeID: graph.Edges[0].EdgeID}); err != nil {
 		t.Fatalf("direct edge lookup: %v", err)
 	}
-	invalidationRequest := InvalidateProjectionRunRequest{GraphViewID: accepted.GraphViewID, ProjectionRunID: accepted.ProjectionRunID, ReasonCode: "security_withdrawal", RequestedAt: "2026-05-30T00:00:00Z", RequestedBy: "fixture", IdempotencyKey: "invalidate-service-run"}
+	invalidationRequest := InvalidateProjectionRunRequest{GraphViewID: accepted.GraphViewID, ProjectionRunID: accepted.ProjectionRunID, ReasonCode: "security_withdrawal", RequestedAt: "2026-05-30T00:00:00Z", RequestedBy: "fixture", IdempotencyKey: ValueOf("invalidate-service-run")}
 	summary, err := service.InvalidateProjectionRun(ctx, invalidationRequest)
 	if err != nil {
 		t.Fatalf("invalidate selected projection run: %v", err)
@@ -121,7 +121,7 @@ func TestServiceLifecycleFacadeAndDirectQueries(t *testing.T) {
 	if err != nil || replayedSummary.InvalidatedAt != summary.InvalidatedAt || replayedSummary.IdempotencyExpiresAt == nil {
 		t.Fatalf("run invalidation replay = %#v err=%v", replayedSummary, err)
 	}
-	if _, err := service.GetGraphView(ctx, accepted.GraphViewID, accepted.ProjectionRunID); !errors.Is(err, ErrGraphViewUnavailable) {
+	if _, err := service.GetGraphView(ctx, GetGraphViewRequest{GraphViewID: accepted.GraphViewID, ProjectionRunID: ValueOf(accepted.ProjectionRunID)}); !errors.Is(err, ErrGraphViewUnavailable) {
 		t.Fatalf("invalidated graph view lookup err = %v", err)
 	}
 }
@@ -260,7 +260,8 @@ INSERT INTO graph_projection_runs (
 
 func TestListGraphViewsPagination(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "graphprojection-idempotency")
-	store := postgresstore.NewWithClock(db, fixedTime)
+	clock := fixedTime()
+	store := postgresstore.NewWithClock(db, func() time.Time { return clock })
 	ctx := context.Background()
 	input := mustJSON(t, incidentGraphInput(t))
 
@@ -296,7 +297,7 @@ func TestListGraphViewsPagination(t *testing.T) {
 	}
 
 	limitOne := 1
-	page, cursor, err := store.ListGraphViews(ctx, ListGraphViewsOptions{Limit: &limitOne, Now: fixedTime(), QueryShapeDigest: "visible-graphs", VisibilityScopeDigest: "scope-a"})
+	page, cursor, err := store.ListGraphViews(ctx, ListGraphViewsOptions{Limit: &limitOne, QueryShapeDigest: "visible-graphs", VisibilityScopeDigest: "scope-a"})
 	if err != nil {
 		t.Fatalf("list first page: %v", err)
 	}
@@ -306,17 +307,20 @@ func TestListGraphViewsPagination(t *testing.T) {
 	if _, err := db.Exec(ctx, `DELETE FROM graph_projection_views WHERE graph_view_id = $1`, page[0].GraphViewID); err != nil {
 		t.Fatalf("delete cursor anchor: %v", err)
 	}
-	next, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{Limit: &limitOne, CursorToken: cursor, Now: fixedTime().Add(time.Minute), QueryShapeDigest: "visible-graphs", VisibilityScopeDigest: "scope-a"})
+	clock = clock.Add(time.Minute)
+	next, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{Limit: &limitOne, CursorToken: cursor, QueryShapeDigest: "visible-graphs", VisibilityScopeDigest: "scope-a"})
 	if err != nil {
 		t.Fatalf("list second page: %v", err)
 	}
 	if len(next) != 1 || next[0].GraphViewID == page[0].GraphViewID {
 		t.Fatalf("bad second page: first=%#v next=%#v", page, next)
 	}
-	if _, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{CursorToken: cursor, Now: fixedTime().Add(15 * time.Minute), QueryShapeDigest: "visible-graphs", VisibilityScopeDigest: "scope-a"}); !IsOperationError(err, "cursor_invalid", "expired") {
+	clock = fixedTime().Add(15 * time.Minute)
+	if _, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{CursorToken: cursor, QueryShapeDigest: "visible-graphs", VisibilityScopeDigest: "scope-a"}); !IsOperationError(err, "cursor_invalid", "expired") {
 		t.Fatalf("expired cursor err = %v", err)
 	}
-	if _, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{CursorToken: cursor, Now: fixedTime().Add(time.Minute), QueryShapeDigest: "visible-graphs", VisibilityScopeDigest: "scope-b"}); !IsOperationError(err, "cursor_invalid", "wrong_query_shape") {
+	clock = fixedTime().Add(time.Minute)
+	if _, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{CursorToken: cursor, QueryShapeDigest: "visible-graphs", VisibilityScopeDigest: "scope-b"}); !IsOperationError(err, "cursor_invalid", "wrong_query_shape") {
 		t.Fatalf("wrong-scope cursor err = %v", err)
 	}
 	tamperedSuffix := "A"
@@ -324,10 +328,10 @@ func TestListGraphViewsPagination(t *testing.T) {
 		tamperedSuffix = "B"
 	}
 	tampered := cursor[:len(cursor)-1] + tamperedSuffix
-	if _, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{CursorToken: tampered, Now: fixedTime().Add(time.Minute), QueryShapeDigest: "visible-graphs", VisibilityScopeDigest: "scope-a"}); !IsOperationError(err, "cursor_invalid", "malformed") {
+	if _, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{CursorToken: tampered, QueryShapeDigest: "visible-graphs", VisibilityScopeDigest: "scope-a"}); !IsOperationError(err, "cursor_invalid", "malformed") {
 		t.Fatalf("tampered cursor err = %v", err)
 	}
-	if _, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{CursorToken: strings.Repeat("x", 4097), Now: fixedTime().Add(time.Hour)}); !IsOperationError(err, "cursor_invalid", "cursor_token_too_long") {
+	if _, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{CursorToken: strings.Repeat("x", 4097)}); !IsOperationError(err, "cursor_invalid", "cursor_token_too_long") {
 		t.Fatalf("oversized cursor precedence err = %v", err)
 	}
 	invalidLimit := 1001

@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-019",
+  "input_kind": "operation_sequence",
+  "coverage": "Invalidation summary graph-view cascade."
+}

@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-008",
+  "assertion": "Aggregation count ignores source_field_path candidate evaluation.",
+  "test_symbol": "TestGPFIX008Remediation"
+}

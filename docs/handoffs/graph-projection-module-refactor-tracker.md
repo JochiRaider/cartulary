@@ -8,7 +8,7 @@
 | Target label | `graph-projection` (normalized lowercase kebab case; no spaces, path separators, shell metacharacters, or unsafe filename characters) |
 | Output path | `docs/handoffs/graph-projection-module-refactor-tracker.md` |
 | Baseline | Clean `main` at `aa0f9dad6dea184ba84abd45d25029e7c0e7638b` on 2026-07-12. |
-| Status | Implementation remediation in progress under the 2026-07-12 execution authorization; the implementation update in Section 13 supersedes the original planning-only posture. |
+| Status | Implementation remediation complete for the GP-FIX-001 through 013, 018 through 021, and 024 through 035 gaps under the 2026-07-12 execution authorization; GP-AC conformance publication remains intentionally unpromoted. |
 | Allowed changes | Graph Projection implementation, owner inputs, tests, harness accounting, migrations, approved Reporting/Network Flow adapters, derived generated outputs, and this handoff. |
 | Non-goals | Authorization remains caller-owned; Graph Projection does not mutate source/workbook state and gains no public route. |
 | Default behavior posture | Adopted owner behavior takes precedence over known nonconforming implementation behavior. |
@@ -34,11 +34,11 @@ Owner and supporting documents inspected:
 - `docs/spec/I_projection_authority_boundary_and_characterization.md` as non-normative boundary evidence;
 - `docs/handoffs/cartulary_modular_refactor_planning_framework.md` as the planning template and doctrine, not repository-state proof.
 
-Core 05 was not used because this planning session makes no timed, benchmark, fixture-sensitive publication, or conformance-publication claim. No owner-document contradiction was found. The mismatches below are repository implementation or evidence-accounting findings, not `BLOCKED: owner contradiction` findings.
+Core 05 was not used for conformance publication because all GP acceptance rows remain nonclaiming `planned` rows. No owner-document contradiction was found. The mismatches below are repository implementation or evidence-accounting findings, not `BLOCKED: owner contradiction` findings.
 
 Repository evidence inspected includes every file under `internal/modules/graphprojection`; the Network Flow graph adapter, handler, route integration test, frontend client shape, and derived contracts; the Reporting release decoder, application authorization, store validation path, routes, integration shape, and OpenAPI surface; graph-projection migrations and ownership manifests; graph-projection conformance and fixture contracts; generated-artifact policy; backend boundary tooling; phase maps; execution topology; and the public Make target surface.
 
-Implementation requires a later authorized task. This tracker does not authorize code movement, contract correction, harness editing, or behavioral remediation.
+The planning-era implementation authorization boundary is superseded by Section 13. The completed remediation still does not publish Graph Projection conformance claims.
 
 ## 2. Current-State Repository Inventory
 
@@ -246,7 +246,7 @@ The planning tracker is complete only when all of the following are true:
 - [x] RB-001 through RB-004 identify the evidence, harness, transaction, and authorization conditions required before later work.
 - [x] The handoff records the baseline, inspected surfaces, commands, current state, blockers, rollback posture, and next action.
 
-This planning session changed only this tracker. No production refactor was performed. Retained-run maintenance and broad verification are not applicable to this documentation-only tracker task; `make agent-finalize` and `make check` are reserved for a later authorized implementation handoff.
+The original planning session changed only this tracker. Section 13 records the later authorized production, fixture, and validation work.
 
 ## 13. Implementation Remediation Update
 
@@ -266,24 +266,27 @@ This section supersedes planning-era statements that implementation was unauthor
 
 ### Deliberately unclaimed conformance
 
-The 36 fixture registry entries still describe required scenarios; they do not yet contain complete executable input, normalized form, expected envelope, state-effect, canonical transcript, and digest payloads. Consequently all 69 acceptance criteria remain `planned`. The current tests are implementation and characterization evidence only. Re-promoting a row requires a focused Make-selected assertion that proves its whole pass condition and executes every cited fixture. Canonical-byte criteria must compare the transcript before comparing its digest.
+All 36 fixture registry entries now have materialized directories and focused test symbols selected through `backend-unit` or `backend-store`. The newly added GP-FIX-001 through GP-FIX-013, GP-FIX-018 through GP-FIX-021, and GP-FIX-024 through GP-FIX-035 artifacts are remediation fixtures: they load hash-checked manifests and assert the identified implementation gaps, but they do not yet contain the complete normalized forms, canonical transcripts, expected envelopes, and state snapshots required for publication-grade GP-AC evidence.
+
+The GP-AC-001 through GP-AC-069 claim audit therefore remains conservative: all 69 rows have `coverage_status: planned`, and no nonplanned row cites documents, corpus entries, or matrix metadata as implementation evidence. Re-promoting a row requires a focused Make-selected assertion that proves its full acceptance sentence and every cited fixture. Canonical-byte criteria must compare the transcript before comparing its digest.
 
 ### Current validation evidence
 
 | Target | Result | Evidence root |
 | --- | --- | --- |
-| `make backend-unit` | PASS, 221 tests | `.cartulary/test-results/20260713T021231Z-p8031` |
-| `make backend-store` | PASS, 141 tests | `.cartulary/test-results/20260713T021449Z-p25380` |
-| `make backend-module-boundary-check` | PASS | `.cartulary/test-results/20260713T020508Z-p70208` |
-| `make phase-slice PHASE=phase11` | PASS, 55 tests | `.cartulary/test-results/20260713T020509Z-p70386` |
-| `make phase-slice PHASE=phase12` | PASS, 134 tests | `.cartulary/test-results/20260713T020534Z-p87161` |
-| `make frontend-unit` | PASS | `.cartulary/test-results/20260713T020600Z-p1905` |
-| `make migration-drift` | PASS | `.cartulary/test-results/20260713T020208Z-p63261` |
-| `make generate-drift` | PASS | `.cartulary/test-results/20260713T021528Z-p32587` |
-| `make json-shape-check` | PASS | `.cartulary/test-results/20260713T021531Z-p33671` |
-| `make test-service-backed` | PASS, 152/152 work units; used to refresh new duration-baseline rows | `.cartulary/test-results/20260713T021655Z-p45995` |
-| `make agent-finalize` | PASS; retained-run maintenance skipped because `RESULTS_DIR` was unset | `.cartulary/test-results/20260713T021958Z-p7406` |
-| `make check` | PASS, 139/139 work units and 1,101 tests | `.cartulary/test-results/20260713T022136Z-p90039` |
+| `make backend-unit` | PASS, 231 tests | `.cartulary/test-results/20260713T132759Z-p76141` |
+| `make backend-store` | PASS, 141 tests | `.cartulary/test-results/20260713T132819Z-p78209` |
+| `make json-shape-check` | PASS | `.cartulary/test-results/20260713T131543Z-p49334` |
+| `make generated-artifact-policy-check` | PASS | `.cartulary/test-results/20260713T131549Z-p49685` |
+| `make backend-module-boundary-check` | PASS | `.cartulary/test-results/20260713T131556Z-p49884` |
+| `make migration-drift` | PASS | `.cartulary/test-results/20260713T131602Z-p50081` |
+| `make target-plan-json` | PASS, emitted plan JSON | command output only |
+| `make harness-contract` | PASS | command output only |
+| `make generate-drift` | PASS with repo-local `TMPDIR`/Go cache | `.cartulary/test-results/20260713T131652Z-p56481` |
+| `make lint-go-staticcheck` | PASS after removing dead helpers | command output only |
+| `make go-gosec-targeted` | PASS after root-scoping fixture artifact reads | `.cartulary/test-results/20260713T132641Z-p54405` |
+| `make agent-finalize` | PASS; generated outputs unchanged; `RESULTS_DIR` unset | `.cartulary/test-results/20260713T132851Z-p82542` |
+| `make check` | PASS, 139/139 work units and 1,111 tests | `.cartulary/test-results/20260713T133417Z-p84457` |
 
 ### GP-W0 repository boundary completion
 
@@ -326,11 +329,11 @@ The 36 fixture registry entries still describe required scenarios; they do not y
 
 ### Remaining handoff conditions
 
-- GP-W3 through GP-W5 remain pending: materialize GP-FIX-001 through GP-FIX-013, GP-FIX-018 through GP-FIX-021, and GP-FIX-024 through GP-FIX-035 with owner-derived inputs, expected envelopes, state snapshots, and transcript artifacts.
-- GP-FIX-034 uncovered a concrete implementation gap: the closed §4.12 resource-limit registry has not yet been implemented. Add admission, item-scoped, and derived-output enforcement before attempting to promote any criterion that depends on resource limits.
-- Execute the GP-AC-001 through GP-AC-069 criterion audit only after the remaining fixtures exist. Do not promote coverage based on broad characterization tests.
-- `make generate-drift` was attempted at `.cartulary/test-results/20260713T031042Z-p70724` and did not run to completion because pinned `sqlc` bootstrap exhausted `/tmp` (`No space left on device`). No generated output was edited by hand; rerun after reclaiming local tool/build space.
-- Before any later conformance publication, rerun finalization and the broad repository check after the executable fixture and repository-packaging work lands.
+- GP-W3 through GP-W5 implementation remediation is complete at the assertion level: GP-FIX-001 through GP-FIX-013, GP-FIX-018 through GP-FIX-021, and GP-FIX-024 through GP-FIX-035 now have manifest directories, hash-checked artifacts, and focused Go test symbols.
+- GP-FIX-034 is implemented through the closed §4.12 resource-limit registry and one focused overflow assertion per implemented registry row. Do not promote GP-AC resource-limit rows until publication-grade fixture artifacts include exact limit/observed/severity envelopes.
+- The GP-AC-001 through GP-AC-069 claim posture audit found no promoted rows. All rows remain `planned`, which is intentional until full owner-derived expected artifacts and sentence-complete selectors exist.
+- The earlier `generate-drift` `/tmp` failure is resolved for this workspace by using repo-local `TMPDIR`, `GOTMPDIR`, and Go cache directories. `make check` also required `GO_MOD_CACHE_DIR`/`GOMODCACHE` under `.cartulary/go-mod` and an outside-repository `CARTULARY_HARNESS_SCRATCH_ROOT` because harness smoke fixtures may not live inside the checkout.
+- An intermediate `make check` run at `.cartulary/test-results/20260713T132858Z-p82733` timed out in unrelated Phase 1 browser stateful evidence while clicking the account-navigation menu; the dedicated `make browser-e2e-stateful` rerun passed at `.cartulary/test-results/20260713T133117Z-p65219`, and the final full `make check` passed at `.cartulary/test-results/20260713T133417Z-p84457`.
 
 ## 14. GP-FIX-001 Through GP-FIX-036 Generation Plan
 

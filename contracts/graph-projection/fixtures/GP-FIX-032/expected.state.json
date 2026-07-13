@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-032",
+  "assertion": "Invalidated-run count-bound expiry before duration expiry, including replaced-to-invalidated bucket migration.",
+  "test_symbol": "TestGPFIX032Remediation"
+}

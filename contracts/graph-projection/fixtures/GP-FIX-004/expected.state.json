@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-004",
+  "assertion": "Admitted invalid mapping creates retained failed run.",
+  "test_symbol": "TestGPFIX004Remediation"
+}

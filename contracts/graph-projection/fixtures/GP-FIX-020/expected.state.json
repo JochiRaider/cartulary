@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-020",
+  "assertion": "Graph-view summary state matrix.",
+  "test_symbol": "TestGPFIX020Remediation"
+}

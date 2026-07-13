@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-034",
+  "input_kind": "projection_input",
+  "coverage": "Representative overflow from the added resource-limit families returns the required limit code and severity."
+}

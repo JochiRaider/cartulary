@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-010",
+  "assertion": "Missing aggregated endpoint key with exclude.",
+  "test_symbol": "TestGPFIX010Remediation"
+}

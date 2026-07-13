@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-018",
+  "assertion": "Lifecycle idempotency exact replay and conflict.",
+  "test_symbol": "TestGPFIX018Remediation"
+}

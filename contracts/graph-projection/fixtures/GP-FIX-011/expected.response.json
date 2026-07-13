@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-011",
+  "assertion": "Endpoint digest computed but no matching vertex.",
+  "test_symbol": "TestGPFIX011Remediation"
+}

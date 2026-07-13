@@ -38,7 +38,7 @@ func TestLoadRejectsUnsafeAndCorruptArtifacts(t *testing.T) {
 }
 
 func TestContainedPathRejectsTraversal(t *testing.T) {
-	if _, err := containedPath("/tmp/fixture", "../outside.json"); err == nil {
+	if _, err := cleanRelativePath("../outside.json"); err == nil {
 		t.Fatal("traversal path unexpectedly accepted")
 	}
 }

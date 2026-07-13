@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-026",
+  "assertion": "Duplicate valid source IDs admitted as fatal duplicate_identifier with deterministic normalized ordering and full digest transcript.",
+  "test_symbol": "TestGPFIX026Remediation"
+}

@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-012",
+  "assertion": "Schema registry default labels, mapping labels, and source label preservation indicator.",
+  "test_symbol": "TestGPFIX012Remediation"
+}

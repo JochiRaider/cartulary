@@ -95,7 +95,7 @@ func TestProjectDirectReverseAndAggregation(t *testing.T) {
 	if run.GraphView == nil {
 		t.Fatal("missing graph view")
 	}
-	graphBytes, err := canonicalJSON(graphViewResource(*run.GraphView))
+	graphBytes, err := canonicalJSON(graphViewCanonicalResource(*run.GraphView))
 	if err != nil {
 		t.Fatalf("canonical graph view: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestFilterTruthTable(t *testing.T) {
 	input := incidentGraphInput(t)
 	input["filters"] = map[string]any{
 		"entity_filters": []any{
-			map[string]any{"field_path": "properties.hostname", "operator": "eq", "value": "WS-023"},
+			map[string]any{"field_path": "properties.hostname", "op": "equals", "value": "WS-023"},
 		},
 		"relationship_filters": []any{},
 		"logic":                "and",

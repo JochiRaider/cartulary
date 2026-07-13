@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"sort"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 
-	. "github.com/JochiRaider/cartulary/internal/modules/graphprojection"
+	graphprojection "github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -18,6 +19,11 @@ type Store struct {
 	pool        postgres.DB
 	cursorCodec *graphCursorCodec
 	now         func() time.Time
+	hooks       Hooks
+}
+
+type Hooks struct {
+	BeforePublication func(context.Context, graphprojection.ProjectionRun) error
 }
 
 func New(pool postgres.DB) *Store {
@@ -48,6 +54,12 @@ func NewWithClock(pool postgres.DB, now func() time.Time) *Store {
 	return store
 }
 
+func NewWithClockAndHooks(pool postgres.DB, now func() time.Time, hooks Hooks) *Store {
+	store := NewWithClock(pool, now)
+	store.hooks = hooks
+	return store
+}
+
 func newStoreWithCursorKeyAndClock(pool postgres.DB, key []byte, now func() time.Time) (*Store, error) {
 	codec, err := newGraphCursorCodec(key)
 	if err != nil {
@@ -59,33 +71,33 @@ func newStoreWithCursorKeyAndClock(pool postgres.DB, key []byte, now func() time
 	return &Store{pool: pool, cursorCodec: codec, now: now}, nil
 }
 
-func (s *Store) CreateProjection(ctx context.Context, data []byte, options RetainedProjectionOptions) (ProjectionRun, error) {
+func (s *Store) CreateProjection(ctx context.Context, data []byte, options graphprojection.RetainedProjectionOptions) (graphprojection.ProjectionRun, error) {
 	return s.projectRetained(ctx, "create_projection", data, options)
 }
 
-func (s *Store) RefreshProjection(ctx context.Context, data []byte, options RetainedProjectionOptions) (ProjectionRun, error) {
+func (s *Store) RefreshProjection(ctx context.Context, data []byte, options graphprojection.RetainedProjectionOptions) (graphprojection.ProjectionRun, error) {
 	return s.projectRetained(ctx, "refresh_projection", data, options)
 }
 
-func (s *Store) projectRetained(ctx context.Context, operation string, data []byte, options RetainedProjectionOptions) (ProjectionRun, error) {
-	run, err := AdmitRetainedProjection(data, options.ProjectionRunNonce, options.AcceptedAt)
+func (s *Store) projectRetained(ctx context.Context, operation string, data []byte, options graphprojection.RetainedProjectionOptions) (graphprojection.ProjectionRun, error) {
+	run, err := graphprojection.AdmitRetainedProjection(data, options.ProjectionRunNonce, options.AcceptedAt)
 	if err != nil {
-		return ProjectionRun{}, err
+		return graphprojection.ProjectionRun{}, err
 	}
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return ProjectionRun{}, fmt.Errorf("begin graph projection admission: %w", err)
+		return graphprojection.ProjectionRun{}, fmt.Errorf("begin graph projection admission: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	if options.IdempotencyKey != "" {
 		fingerprint, err := retainedReplayFingerprint(operation, run)
 		if err != nil {
-			return ProjectionRun{}, err
+			return graphprojection.ProjectionRun{}, err
 		}
 		replayed, replay, err := s.checkIdempotencyTx(ctx, tx, operation, run.GraphViewID, options.IdempotencyKey, fingerprint, run.AcceptedAt)
 		if err != nil {
-			return ProjectionRun{}, err
+			return graphprojection.ProjectionRun{}, err
 		}
 		if replay {
 			return replayed, nil
@@ -95,28 +107,32 @@ func (s *Store) projectRetained(ctx context.Context, operation string, data []by
 	var currentViewState string
 	var currentLatestRunID string
 	var currentSelectedRunID string
-	viewErr := tx.QueryRow(ctx, `SELECT state, COALESCE(latest_projection_run_id, ''), COALESCE(selected_projection_run_id, latest_projection_run_id, '') FROM graph_projection_views WHERE graph_view_id = $1 FOR UPDATE`, run.GraphViewID).Scan(&currentViewState, &currentLatestRunID, &currentSelectedRunID)
+	var currentUpdatedAt time.Time
+	viewErr := tx.QueryRow(ctx, `SELECT state, COALESCE(latest_projection_run_id, ''), COALESCE(selected_projection_run_id, latest_projection_run_id, ''), updated_at FROM graph_projection_views WHERE graph_view_id = $1 FOR UPDATE`, run.GraphViewID).Scan(&currentViewState, &currentLatestRunID, &currentSelectedRunID, &currentUpdatedAt)
 	viewExists := viewErr == nil
 	if viewErr != nil && !errors.Is(viewErr, pgx.ErrNoRows) {
-		return ProjectionRun{}, fmt.Errorf("load graph projection lifecycle state: %w", viewErr)
+		return graphprojection.ProjectionRun{}, fmt.Errorf("load graph projection lifecycle state: %w", viewErr)
+	}
+	if viewExists && !run.AcceptedAt.After(currentUpdatedAt) {
+		run.AcceptedAt = currentUpdatedAt.Add(time.Microsecond)
 	}
 	if operation == "create_projection" && viewExists {
-		switch GraphViewState(currentViewState) {
-		case GraphViewStateCreating, GraphViewStateRefreshing:
-			return ProjectionRun{}, &OperationError{Code: "operation_conflict", ReasonCode: "run_already_active", Details: map[string]any{"operation": operation, "reason_code": "run_already_active", "active_projection_run_id": currentLatestRunID}}
-		case GraphViewStateAvailable, GraphViewStateInvalidated:
-			return ProjectionRun{}, &OperationError{Code: "invalid_operation", ReasonCode: "graph_view_already_exists", Details: map[string]any{"operation": operation, "reason_code": "graph_view_already_exists"}}
+		switch graphprojection.GraphViewState(currentViewState) {
+		case graphprojection.GraphViewStateCreating, graphprojection.GraphViewStateRefreshing:
+			return graphprojection.ProjectionRun{}, &graphprojection.OperationError{Code: "operation_conflict", ReasonCode: "run_already_active", Details: map[string]any{"operation": operation, "reason_code": "run_already_active", "active_projection_run_id": currentLatestRunID}}
+		case graphprojection.GraphViewStateAvailable, graphprojection.GraphViewStateInvalidated:
+			return graphprojection.ProjectionRun{}, &graphprojection.OperationError{Code: "invalid_operation", ReasonCode: "graph_view_already_exists", Details: map[string]any{"operation": operation, "reason_code": "graph_view_already_exists"}}
 		}
 	}
 	if operation == "refresh_projection" {
 		if !viewExists {
-			return ProjectionRun{}, ErrGraphViewNotFound
+			return graphprojection.ProjectionRun{}, graphprojection.ErrGraphViewNotFound
 		}
-		switch GraphViewState(currentViewState) {
-		case GraphViewStateCreating, GraphViewStateRefreshing:
-			return ProjectionRun{}, &OperationError{Code: "operation_conflict", ReasonCode: "run_already_active", Details: map[string]any{"operation": operation, "reason_code": "run_already_active", "active_projection_run_id": currentLatestRunID}}
-		case GraphViewStateFailed:
-			return ProjectionRun{}, &OperationError{Code: "invalid_operation", ReasonCode: "no_consumable_prior_run", Details: map[string]any{"operation": operation, "reason_code": "no_consumable_prior_run"}}
+		switch graphprojection.GraphViewState(currentViewState) {
+		case graphprojection.GraphViewStateCreating, graphprojection.GraphViewStateRefreshing:
+			return graphprojection.ProjectionRun{}, &graphprojection.OperationError{Code: "operation_conflict", ReasonCode: "run_already_active", Details: map[string]any{"operation": operation, "reason_code": "run_already_active", "active_projection_run_id": currentLatestRunID}}
+		case graphprojection.GraphViewStateFailed:
+			return graphprojection.ProjectionRun{}, &graphprojection.OperationError{Code: "invalid_operation", ReasonCode: "no_consumable_prior_run", Details: map[string]any{"operation": operation, "reason_code": "no_consumable_prior_run"}}
 		}
 	}
 
@@ -125,80 +141,94 @@ func (s *Store) projectRetained(ctx context.Context, operation string, data []by
 		previousRunID = &currentSelectedRunID
 		run.PreviousProjectionRunID = previousRunID
 	}
-	admissionViewState := GraphViewStateCreating
+	admissionViewState := graphprojection.GraphViewStateCreating
 	if operation == "refresh_projection" {
-		admissionViewState = GraphViewStateRefreshing
+		admissionViewState = graphprojection.GraphViewStateRefreshing
 	}
 	if err := s.persistAcceptedRunTx(ctx, tx, run, admissionViewState, currentSelectedRunID); err != nil {
-		return ProjectionRun{}, err
+		return graphprojection.ProjectionRun{}, err
 	}
 	if options.IdempotencyKey != "" {
 		fingerprint, err := retainedReplayFingerprint(operation, run)
 		if err != nil {
-			return ProjectionRun{}, err
+			return graphprojection.ProjectionRun{}, err
 		}
 		if err := s.recordIdempotencyTx(ctx, tx, operation, run.GraphViewID, options.IdempotencyKey, fingerprint, run); err != nil {
-			return ProjectionRun{}, err
+			return graphprojection.ProjectionRun{}, err
 		}
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return ProjectionRun{}, fmt.Errorf("commit graph projection admission: %w", err)
+		return graphprojection.ProjectionRun{}, fmt.Errorf("commit graph projection admission: %w", err)
 	}
 
-	startedAt := run.AcceptedAt.UTC()
+	startedAt := options.GeneratedAt.UTC()
+	if !startedAt.After(run.AcceptedAt) {
+		startedAt = run.AcceptedAt.Add(time.Microsecond)
+	}
 	run.StartedAt = &startedAt
-	run.State = RunStateComputing
+	run.State = graphprojection.RunStateComputing
 	if _, err := s.pool.Exec(ctx, `UPDATE graph_projection_runs SET state = 'computing', started_at = $2 WHERE projection_run_id = $1 AND state = 'accepted'`, run.ProjectionRunID, startedAt); err != nil {
-		return ProjectionRun{}, fmt.Errorf("start graph projection run: %w", err)
+		return graphprojection.ProjectionRun{}, fmt.Errorf("start graph projection run: %w", err)
 	}
 
-	result := ProjectAdmittedRetainedProjection(run, options.GeneratedAt, previousRunID)
+	generatedAt := options.GeneratedAt.UTC()
+	if !generatedAt.After(startedAt) {
+		generatedAt = startedAt.Add(time.Microsecond)
+	}
+	result := graphprojection.ProjectAdmittedRetainedProjection(run, generatedAt, previousRunID)
+	completedAt := generatedAt.Add(time.Microsecond)
+	result.CompletedAt = &completedAt
+	if s.hooks.BeforePublication != nil {
+		if err := s.hooks.BeforePublication(ctx, result); err != nil {
+			return graphprojection.ProjectionRun{}, err
+		}
+	}
 	terminalTx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return ProjectionRun{}, fmt.Errorf("begin graph projection publication: %w", err)
+		return graphprojection.ProjectionRun{}, fmt.Errorf("begin graph projection publication: %w", err)
 	}
 	defer func() { _ = terminalTx.Rollback(ctx) }()
 	var terminalViewState string
 	var terminalSelectedRunID string
 	var invalidationJSON []byte
 	if err := terminalTx.QueryRow(ctx, `SELECT state, COALESCE(selected_projection_run_id, ''), COALESCE(invalidation_json, 'null'::jsonb) FROM graph_projection_views WHERE graph_view_id = $1 FOR UPDATE`, result.GraphViewID).Scan(&terminalViewState, &terminalSelectedRunID, &invalidationJSON); err != nil {
-		return ProjectionRun{}, err
+		return graphprojection.ProjectionRun{}, err
 	}
-	wasInvalidated := GraphViewState(terminalViewState) == GraphViewStateInvalidated || string(invalidationJSON) != "null"
-	if wasInvalidated && result.State == RunStateAvailable {
-		result.State = RunStateInvalidated
-		result.InvalidatedAt = result.CompletedAt
+	wasInvalidated := graphprojection.GraphViewState(terminalViewState) == graphprojection.GraphViewStateInvalidated || string(invalidationJSON) != "null"
+	if wasInvalidated && result.State == graphprojection.RunStateAvailable {
+		result.State = graphprojection.RunStateInvalidated
 		result.PreviousProjectionRunID = nil
-		if result.GraphView != nil {
-			result.GraphView.State = RunStateInvalidated
-			result.GraphView.Metadata.PreviousProjectionRunID = nil
-			var invalidation InvalidationSummary
-			if string(invalidationJSON) != "null" && json.Unmarshal(invalidationJSON, &invalidation) == nil {
-				result.GraphView.Metadata.Invalidation = &invalidation
+		var invalidation graphprojection.Invalidation
+		if string(invalidationJSON) != "null" && json.Unmarshal(invalidationJSON, &invalidation) == nil {
+			result.Invalidation = &invalidation
+			if timestamp, parseErr := time.Parse("2006-01-02T15:04:05.999999Z", invalidation.InvalidatedAt); parseErr == nil {
+				result.InvalidatedAt = &timestamp
 			}
 		}
+		result.GraphView = nil
+		result.ProjectionOutputDigest = ""
 	}
-	publicationPriorState := GraphViewState(terminalViewState)
+	publicationPriorState := graphprojection.GraphViewState(terminalViewState)
 	if wasInvalidated {
-		publicationPriorState = GraphViewStateInvalidated
+		publicationPriorState = graphprojection.GraphViewStateInvalidated
 	}
 	if err := s.publishProjectionRunTx(ctx, terminalTx, result, operation, publicationPriorState, terminalSelectedRunID); err != nil {
-		return ProjectionRun{}, err
+		return graphprojection.ProjectionRun{}, err
 	}
 	queryReceivedAt := result.AcceptedAt
 	if result.CompletedAt != nil {
 		queryReceivedAt = *result.CompletedAt
 	}
 	if err := s.pruneRetentionTx(ctx, terminalTx, result.GraphViewID, result.Request.ProjectionConfig.RetentionPolicy, queryReceivedAt); err != nil {
-		return ProjectionRun{}, err
+		return graphprojection.ProjectionRun{}, err
 	}
 	if err := terminalTx.Commit(ctx); err != nil {
-		return ProjectionRun{}, fmt.Errorf("commit graph projection publication: %w", err)
+		return graphprojection.ProjectionRun{}, fmt.Errorf("commit graph projection publication: %w", err)
 	}
 	return result, nil
 }
 
-func (s *Store) persistAcceptedRunTx(ctx context.Context, tx pgx.Tx, run ProjectionRun, viewState GraphViewState, selectedRunID string) error {
+func (s *Store) persistAcceptedRunTx(ctx context.Context, tx pgx.Tx, run graphprojection.ProjectionRun, viewState graphprojection.GraphViewState, selectedRunID string) error {
 	retentionPolicyJSON, err := json.Marshal(run.Request.ProjectionConfig.RetentionPolicy)
 	if err != nil {
 		return fmt.Errorf("marshal graph projection retention policy: %w", err)
@@ -247,7 +277,7 @@ INSERT INTO graph_projection_runs (
 	return nil
 }
 
-func (s *Store) publishProjectionRunTx(ctx context.Context, tx pgx.Tx, run ProjectionRun, operation string, priorViewState GraphViewState, selectedRunID string) error {
+func (s *Store) publishProjectionRunTx(ctx context.Context, tx pgx.Tx, run graphprojection.ProjectionRun, operation string, priorViewState graphprojection.GraphViewState, selectedRunID string) error {
 	summaryJSON, err := json.Marshal(run.ValidationSummary)
 	if err != nil {
 		return fmt.Errorf("marshal validation summary: %w", err)
@@ -259,8 +289,15 @@ func (s *Store) publishProjectionRunTx(ctx context.Context, tx pgx.Tx, run Proje
 			return fmt.Errorf("marshal graph view: %w", err)
 		}
 	}
+	var runInvalidationJSON []byte
+	if run.Invalidation != nil {
+		runInvalidationJSON, err = json.Marshal(run.Invalidation)
+		if err != nil {
+			return fmt.Errorf("marshal graph projection invalidation: %w", err)
+		}
+	}
 	var retentionExpiresAt any
-	if run.State == RunStateFailed && operation == "refresh_projection" && run.CompletedAt != nil {
+	if run.State == graphprojection.RunStateFailed && operation == "refresh_projection" && run.CompletedAt != nil {
 		retentionExpiresAt = run.CompletedAt.Add(time.Duration(run.Request.ProjectionConfig.RetentionPolicy.FailedRetentionDurationSecs) * time.Second)
 	}
 	if _, err := tx.Exec(ctx, `
@@ -272,11 +309,12 @@ UPDATE graph_projection_runs
        invalidated_at = $6,
        validation_summary_json = $7::jsonb,
        failure_reason = $8,
-       graph_view_json = $9::jsonb,
-	   retention_expires_at = $10
+	       graph_view_json = $9::jsonb,
+	   retention_expires_at = $10,
+	   invalidation_json = $11::jsonb
  WHERE projection_run_id = $1
    AND state = 'computing'
-`, run.ProjectionRunID, string(run.State), nullString(run.ProjectionOutputDigest), run.GeneratedAt, run.CompletedAt, run.InvalidatedAt, string(summaryJSON), nullString(run.FailureReason), nullJSON(graphJSON), retentionExpiresAt); err != nil {
+`, run.ProjectionRunID, string(run.State), nullString(run.ProjectionOutputDigest), run.GeneratedAt, run.CompletedAt, run.InvalidatedAt, string(summaryJSON), nullString(run.FailureReason), nullJSON(graphJSON), retentionExpiresAt, nullJSON(runInvalidationJSON)); err != nil {
 		return fmt.Errorf("publish graph projection run: %w", err)
 	}
 
@@ -284,7 +322,7 @@ UPDATE graph_projection_runs
 	if run.CompletedAt != nil {
 		updatedAt = *run.CompletedAt
 	}
-	viewState := GraphViewStateFailed
+	viewState := graphprojection.GraphViewStateFailed
 	viewLatestRunID := run.ProjectionRunID
 	viewSelectedRunID := ""
 	validationStatus := run.ValidationSummary.Status
@@ -293,8 +331,8 @@ UPDATE graph_projection_runs
 	}
 	preserveInvalidation := false
 	switch run.State {
-	case RunStateAvailable:
-		viewState = GraphViewStateAvailable
+	case graphprojection.RunStateAvailable:
+		viewState = graphprojection.GraphViewStateAvailable
 		viewSelectedRunID = run.ProjectionRunID
 		if selectedRunID != "" && selectedRunID != run.ProjectionRunID {
 			retentionExpiresAt := updatedAt.Add(time.Duration(run.Request.ProjectionConfig.RetentionPolicy.RetentionDurationSeconds) * time.Second)
@@ -302,22 +340,21 @@ UPDATE graph_projection_runs
 				return fmt.Errorf("replace prior graph projection run: %w", err)
 			}
 		}
-	case RunStateInvalidated:
-		viewState = GraphViewStateInvalidated
+	case graphprojection.RunStateInvalidated:
+		viewState = graphprojection.GraphViewStateInvalidated
 		viewSelectedRunID = run.ProjectionRunID
 		validationStatus = "invalidated"
 		preserveInvalidation = true
-	case RunStateFailed:
+	case graphprojection.RunStateFailed:
 		if operation == "refresh_projection" && selectedRunID != "" {
-			viewLatestRunID = selectedRunID
 			viewSelectedRunID = selectedRunID
-			if priorViewState == GraphViewStateInvalidated {
-				viewState = GraphViewStateInvalidated
+			if priorViewState == graphprojection.GraphViewStateInvalidated {
+				viewState = graphprojection.GraphViewStateInvalidated
 				validationStatus = "invalidated"
 				preserveInvalidation = true
 			} else {
-				viewState = GraphViewStateAvailable
-				validationStatus = "valid"
+				viewState = graphprojection.GraphViewStateAvailable
+				validationStatus = "passed"
 			}
 		}
 	}
@@ -380,10 +417,10 @@ INSERT INTO graph_projection_edges (
 	return nil
 }
 
-func (s *Store) GetProjectionRun(ctx context.Context, projectionRunID string) (ProjectionRun, error) {
+func (s *Store) GetProjectionRun(ctx context.Context, projectionRunID string) (graphprojection.ProjectionRun, error) {
 	queryReceivedAt := s.now().UTC()
 	if _, err := s.pool.Exec(ctx, `DELETE FROM graph_projection_runs WHERE projection_run_id = $1 AND retention_expires_at IS NOT NULL AND $2::timestamptz >= retention_expires_at`, projectionRunID, queryReceivedAt); err != nil {
-		return ProjectionRun{}, fmt.Errorf("expire graph projection run: %w", err)
+		return graphprojection.ProjectionRun{}, fmt.Errorf("expire graph projection run: %w", err)
 	}
 	row := s.pool.QueryRow(ctx, `
 SELECT graph_view_id,
@@ -402,27 +439,29 @@ SELECT graph_view_id,
 	   invalidated_at,
        validation_summary_json,
        COALESCE(failure_reason, ''),
-       graph_view_json,
-       retention_expires_at
+	       graph_view_json,
+	   invalidation_json,
+	       retention_expires_at
   FROM graph_projection_runs
  WHERE projection_run_id = $1
 `, projectionRunID)
-	var run ProjectionRun
+	var run graphprojection.ProjectionRun
 	var state string
 	var summaryJSON []byte
 	var graphJSON []byte
+	var invalidationJSON []byte
 	var failureReason string
 	var projectionOutputDigest *string
 	var completedAt *time.Time
 	var retentionExpiresAt *time.Time
-	if err := row.Scan(&run.GraphViewID, &run.Request.SourceSnapshotID, &run.Request.ProjectionConfig.ProjectionVersion, &state, &run.ProjectionRunNonce, &run.ProjectionConfigDigest, &run.ProjectionSourceDigest, &projectionOutputDigest, &run.AcceptedAt, &run.StartedAt, &run.GeneratedAt, &completedAt, &run.ReplacedAt, &run.InvalidatedAt, &summaryJSON, &failureReason, &graphJSON, &retentionExpiresAt); err != nil {
+	if err := row.Scan(&run.GraphViewID, &run.Request.SourceSnapshotID, &run.Request.ProjectionConfig.ProjectionVersion, &state, &run.ProjectionRunNonce, &run.ProjectionConfigDigest, &run.ProjectionSourceDigest, &projectionOutputDigest, &run.AcceptedAt, &run.StartedAt, &run.GeneratedAt, &completedAt, &run.ReplacedAt, &run.InvalidatedAt, &summaryJSON, &failureReason, &graphJSON, &invalidationJSON, &retentionExpiresAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ProjectionRun{}, ErrProjectionRunNotFound
+			return graphprojection.ProjectionRun{}, graphprojection.ErrProjectionRunNotFound
 		}
-		return ProjectionRun{}, fmt.Errorf("get graph projection run: %w", err)
+		return graphprojection.ProjectionRun{}, fmt.Errorf("get graph projection run: %w", err)
 	}
 	run.ProjectionRunID = projectionRunID
-	run.State = RunState(state)
+	run.State = graphprojection.RunState(state)
 	run.CompletedAt = completedAt
 	if projectionOutputDigest != nil {
 		run.ProjectionOutputDigest = *projectionOutputDigest
@@ -431,117 +470,140 @@ SELECT graph_view_id,
 	run.RetentionExpiresAt = retentionExpiresAt
 	if len(summaryJSON) > 0 {
 		if err := json.Unmarshal(summaryJSON, &run.ValidationSummary); err != nil {
-			return ProjectionRun{}, fmt.Errorf("decode validation summary: %w", err)
+			return graphprojection.ProjectionRun{}, fmt.Errorf("decode validation summary: %w", err)
 		}
 	}
 	if len(graphJSON) > 0 {
-		var graphView GraphView
+		var graphView graphprojection.GraphView
 		if err := json.Unmarshal(graphJSON, &graphView); err != nil {
-			return ProjectionRun{}, fmt.Errorf("decode graph view: %w", err)
+			return graphprojection.ProjectionRun{}, fmt.Errorf("decode graph view: %w", err)
 		}
 		run.GraphView = &graphView
+	}
+	if len(invalidationJSON) > 0 {
+		var invalidation graphprojection.Invalidation
+		if err := json.Unmarshal(invalidationJSON, &invalidation); err != nil {
+			return graphprojection.ProjectionRun{}, fmt.Errorf("decode graph projection invalidation: %w", err)
+		}
+		run.Invalidation = &invalidation
 	}
 	return run, nil
 }
 
-func (s *Store) GetGraphView(ctx context.Context, graphViewID string, projectionRunID string) (GraphView, error) {
-	if projectionRunID == "" {
-		row := s.pool.QueryRow(ctx, `SELECT COALESCE(selected_projection_run_id, latest_projection_run_id) FROM graph_projection_views WHERE graph_view_id = $1`, graphViewID)
-		if err := row.Scan(&projectionRunID); err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return GraphView{}, ErrGraphViewNotFound
-			}
-			return GraphView{}, fmt.Errorf("load latest graph projection run: %w", err)
-		}
-	}
-	run, err := s.GetProjectionRun(ctx, projectionRunID)
+func (s *Store) GetGraphView(ctx context.Context, graphViewID string, projectionRunID string) (graphprojection.GraphView, error) {
+	resolvedRunID, err := s.resolveReadableRunID(ctx, graphViewID, projectionRunID)
 	if err != nil {
-		return GraphView{}, err
+		return graphprojection.GraphView{}, err
 	}
-	if run.GraphView == nil || (run.State != RunStateAvailable && run.State != RunStateReplaced) {
-		return GraphView{}, ErrGraphViewUnavailable
+	run, err := s.GetProjectionRun(ctx, resolvedRunID)
+	if err != nil {
+		return graphprojection.GraphView{}, err
+	}
+	if run.GraphView == nil || (run.State != graphprojection.RunStateAvailable && run.State != graphprojection.RunStateReplaced) {
+		return graphprojection.GraphView{}, graphprojection.ErrGraphViewUnavailable
 	}
 	if run.GraphViewID != graphViewID {
-		return GraphView{}, ErrProjectionRunNotFound
+		return graphprojection.GraphView{}, graphprojection.ErrProjectionRunNotFound
 	}
 	return *run.GraphView, nil
 }
 
-func (s *Store) GetVertex(ctx context.Context, graphViewID, projectionRunID, vertexID string) (Vertex, error) {
+func (s *Store) GetVertex(ctx context.Context, graphViewID, projectionRunID, vertexID string) (graphprojection.Vertex, error) {
 	projectionRunID, err := s.resolveReadableRunID(ctx, graphViewID, projectionRunID)
 	if err != nil {
-		return Vertex{}, err
+		return graphprojection.Vertex{}, err
 	}
 	var payload []byte
 	if err := s.pool.QueryRow(ctx, `SELECT vertex_json FROM graph_projection_vertices WHERE graph_view_id = $1 AND projection_run_id = $2 AND vertex_id = $3`, graphViewID, projectionRunID, vertexID).Scan(&payload); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return Vertex{}, ErrVertexNotFound
+			return graphprojection.Vertex{}, graphprojection.ErrVertexNotFound
 		}
-		return Vertex{}, fmt.Errorf("get graph projection vertex: %w", err)
+		return graphprojection.Vertex{}, fmt.Errorf("get graph projection vertex: %w", err)
 	}
-	var vertex Vertex
+	var vertex graphprojection.Vertex
 	if err := json.Unmarshal(payload, &vertex); err != nil {
-		return Vertex{}, fmt.Errorf("decode graph projection vertex: %w", err)
+		return graphprojection.Vertex{}, fmt.Errorf("decode graph projection vertex: %w", err)
 	}
 	return vertex, nil
 }
 
-func (s *Store) GetEdge(ctx context.Context, graphViewID, projectionRunID, edgeID string) (Edge, error) {
+func (s *Store) GetEdge(ctx context.Context, graphViewID, projectionRunID, edgeID string) (graphprojection.Edge, error) {
 	projectionRunID, err := s.resolveReadableRunID(ctx, graphViewID, projectionRunID)
 	if err != nil {
-		return Edge{}, err
+		return graphprojection.Edge{}, err
 	}
 	var payload []byte
 	if err := s.pool.QueryRow(ctx, `SELECT edge_json FROM graph_projection_edges WHERE graph_view_id = $1 AND projection_run_id = $2 AND edge_id = $3`, graphViewID, projectionRunID, edgeID).Scan(&payload); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return Edge{}, ErrEdgeNotFound
+			return graphprojection.Edge{}, graphprojection.ErrEdgeNotFound
 		}
-		return Edge{}, fmt.Errorf("get graph projection edge: %w", err)
+		return graphprojection.Edge{}, fmt.Errorf("get graph projection edge: %w", err)
 	}
-	var edge Edge
+	var edge graphprojection.Edge
 	if err := json.Unmarshal(payload, &edge); err != nil {
-		return Edge{}, fmt.Errorf("decode graph projection edge: %w", err)
+		return graphprojection.Edge{}, fmt.Errorf("decode graph projection edge: %w", err)
 	}
 	return edge, nil
 }
 
 func (s *Store) resolveReadableRunID(ctx context.Context, graphViewID, projectionRunID string) (string, error) {
+	suppliedRun := projectionRunID != ""
 	if projectionRunID == "" {
-		if err := s.pool.QueryRow(ctx, `SELECT COALESCE(selected_projection_run_id, latest_projection_run_id) FROM graph_projection_views WHERE graph_view_id = $1`, graphViewID).Scan(&projectionRunID); err != nil {
+		var viewState string
+		if err := s.pool.QueryRow(ctx, `SELECT state, COALESCE(selected_projection_run_id, '') FROM graph_projection_views WHERE graph_view_id = $1`, graphViewID).Scan(&viewState, &projectionRunID); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return "", ErrGraphViewNotFound
+				return "", graphprojection.NewOperationError("graph_view_not_found", "", map[string]any{"graph_view_id": graphViewID}, graphprojection.ErrGraphViewNotFound)
 			}
 			return "", fmt.Errorf("resolve selected graph projection run: %w", err)
 		}
+		if projectionRunID == "" || graphprojection.GraphViewState(viewState) == graphprojection.GraphViewStateCreating || graphprojection.GraphViewState(viewState) == graphprojection.GraphViewStateRefreshing || graphprojection.GraphViewState(viewState) == graphprojection.GraphViewStateFailed || graphprojection.GraphViewState(viewState) == graphprojection.GraphViewStateInvalidated {
+			return "", graphprojection.NewOperationError("projection_not_available", viewState, map[string]any{"graph_view_id": graphViewID, "state": viewState}, graphprojection.ErrGraphViewUnavailable)
+		}
 	}
 	var state string
-	if err := s.pool.QueryRow(ctx, `SELECT state FROM graph_projection_runs WHERE graph_view_id = $1 AND projection_run_id = $2`, graphViewID, projectionRunID).Scan(&state); err != nil {
+	var invalidationJSON []byte
+	if err := s.pool.QueryRow(ctx, `SELECT state, COALESCE(invalidation_json, 'null'::jsonb) FROM graph_projection_runs WHERE graph_view_id = $1 AND projection_run_id = $2`, graphViewID, projectionRunID).Scan(&state, &invalidationJSON); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", ErrProjectionRunNotFound
+			return "", graphprojection.NewOperationError("projection_run_not_found", "", map[string]any{"graph_view_id": graphViewID, "projection_run_id": projectionRunID}, graphprojection.ErrProjectionRunNotFound)
 		}
 		return "", fmt.Errorf("resolve graph projection run: %w", err)
 	}
-	if RunState(state) != RunStateAvailable && RunState(state) != RunStateReplaced {
-		return "", ErrGraphViewUnavailable
+	switch graphprojection.RunState(state) {
+	case graphprojection.RunStateAvailable, graphprojection.RunStateReplaced:
+		return projectionRunID, nil
+	case graphprojection.RunStateAccepted, graphprojection.RunStateComputing:
+		return "", graphprojection.NewOperationError("projection_not_available", state, map[string]any{"graph_view_id": graphViewID, "state": state}, graphprojection.ErrGraphViewUnavailable)
+	case graphprojection.RunStateFailed:
+		return "", graphprojection.NewOperationError("projection_run_failed", "", map[string]any{"graph_view_id": graphViewID, "projection_run_id": projectionRunID}, graphprojection.ErrGraphViewUnavailable)
+	case graphprojection.RunStateInvalidated:
+		if !suppliedRun {
+			return "", graphprojection.NewOperationError("projection_not_available", string(graphprojection.GraphViewStateInvalidated), map[string]any{"graph_view_id": graphViewID, "state": graphprojection.GraphViewStateInvalidated}, graphprojection.ErrGraphViewUnavailable)
+		}
+		invalidationDetails := map[string]any{"reason_code": nil, "invalidated_at": nil}
+		details := map[string]any{"graph_view_id": graphViewID, "projection_run_id": projectionRunID, "invalidation": invalidationDetails}
+		var invalidation graphprojection.Invalidation
+		if string(invalidationJSON) != "null" && json.Unmarshal(invalidationJSON, &invalidation) == nil {
+			invalidationDetails["reason_code"] = invalidation.ReasonCode
+			invalidationDetails["invalidated_at"] = invalidation.InvalidatedAt
+		}
+		return "", graphprojection.NewOperationError("projection_run_invalidated", "", details, graphprojection.ErrGraphViewUnavailable)
+	default:
+		return "", graphprojection.NewOperationError("projection_run_not_found", "", map[string]any{"graph_view_id": graphViewID, "projection_run_id": projectionRunID}, graphprojection.ErrProjectionRunNotFound)
 	}
-	return projectionRunID, nil
 }
 
-func (s *Store) ListGraphViews(ctx context.Context, options ListGraphViewsOptions) ([]GraphViewSummary, string, error) {
+func (s *Store) ListGraphViews(ctx context.Context, options graphprojection.ListGraphViewsOptions) ([]graphprojection.GraphViewSummary, string, error) {
 	limit := 100
 	if options.Limit != nil {
 		limit = *options.Limit
-		if limit < 1 || limit > 1000 {
-			return nil, "", &OperationError{Code: "invalid_argument", ReasonCode: "invalid_limit", Field: "limit", Details: map[string]any{"field": "limit"}}
+		if limit < 1 || limit > graphprojection.ResourceLimits().MaxListGraphViewsLimit {
+			return nil, "", &graphprojection.OperationError{Code: "invalid_argument", ReasonCode: "invalid_limit", Field: "limit", Details: map[string]any{"field": "limit"}}
 		}
 	}
 	after := ""
-	now := options.Now.UTC()
-	if now.IsZero() {
-		now = time.Now().UTC()
-	}
+	now := s.now().UTC()
 	if options.CursorToken != "" {
-		if len(options.CursorToken) > 4096 {
+		if utf8.RuneCountInString(options.CursorToken) > graphprojection.ResourceLimits().MaxCursorTokenLength {
 			return nil, "", cursorInvalid("cursor_token_too_long")
 		}
 		cursor, err := s.cursorCodec.decode(options.CursorToken)
@@ -574,14 +636,14 @@ SELECT graph_view_id,
 		return nil, "", fmt.Errorf("list graph views: %w", err)
 	}
 	defer rows.Close()
-	summaries := []GraphViewSummary{}
+	summaries := []graphprojection.GraphViewSummary{}
 	for rows.Next() {
-		var summary GraphViewSummary
+		var summary graphprojection.GraphViewSummary
 		var state string
 		if err := rows.Scan(&summary.GraphViewID, &summary.GraphViewKey, &state, &summary.LatestProjectionRunID, &summary.LatestSourceSnapshotID, &summary.ProjectionVersion, &summary.UpdatedAt, &summary.ValidationStatus); err != nil {
 			return nil, "", fmt.Errorf("scan graph view summary: %w", err)
 		}
-		summary.State = GraphViewState(state)
+		summary.State = graphprojection.GraphViewState(state)
 		summaries = append(summaries, summary)
 	}
 	if rows.Err() != nil {
@@ -599,36 +661,36 @@ SELECT graph_view_id,
 	return summaries, nextCursor, nil
 }
 
-func (s *Store) Traverse(ctx context.Context, request TraverseRequest) (TraverseResult, error) {
+func (s *Store) Traverse(ctx context.Context, request graphprojection.TraverseRequest) (graphprojection.TraverseResult, error) {
 	graphView, err := s.GetGraphView(ctx, request.GraphViewID, request.ProjectionRunID)
 	if err != nil {
-		return TraverseResult{}, err
+		return graphprojection.TraverseResult{}, err
 	}
 	maxDepth := 1
 	if request.MaxDepth != nil {
 		maxDepth = *request.MaxDepth
 	}
-	if maxDepth < 0 || maxDepth > 16 {
-		return TraverseResult{}, &OperationError{Code: "invalid_argument", ReasonCode: "invalid_max_depth", Details: map[string]any{"field": "max_depth"}}
+	if maxDepth < 0 || maxDepth > graphprojection.ResourceLimits().MaxTraversalDepth {
+		return graphprojection.TraverseResult{}, &graphprojection.OperationError{Code: "invalid_argument", ReasonCode: "invalid_max_depth", Details: map[string]any{"field": "max_depth"}}
 	}
 	direction := request.Direction
 	if direction == "" {
 		direction = "outbound"
 	}
 	if direction != "outbound" && direction != "inbound" && direction != "any" {
-		return TraverseResult{}, &OperationError{Code: "invalid_argument", ReasonCode: "invalid_direction", Details: map[string]any{"field": "direction"}}
+		return graphprojection.TraverseResult{}, &graphprojection.OperationError{Code: "invalid_argument", ReasonCode: "invalid_direction", Details: map[string]any{"field": "direction"}}
 	}
-	if len(request.SeedVertexIDs) > 1024 || len(request.VertexKinds) > 1024 || len(request.EdgeKinds) > 1024 {
-		return TraverseResult{}, &OperationError{Code: "invalid_argument", ReasonCode: "collection_limit_exceeded", Details: map[string]any{"field": "traverse"}}
+	if len(request.SeedVertexIDs) > graphprojection.ResourceLimits().MaxTraversalSeedVertices || len(request.VertexKinds) > graphprojection.ResourceLimits().MaxTraversalKindFilters || len(request.EdgeKinds) > graphprojection.ResourceLimits().MaxTraversalKindFilters {
+		return graphprojection.TraverseResult{}, &graphprojection.OperationError{Code: "invalid_argument", ReasonCode: "collection_limit_exceeded", Details: map[string]any{"field": "traverse"}}
 	}
 	if hasDuplicateStrings(request.VertexKinds) || hasDuplicateStrings(request.EdgeKinds) {
-		return TraverseResult{}, &OperationError{Code: "invalid_argument", ReasonCode: "duplicate_filter_value", Details: map[string]any{"field": "traverse"}}
+		return graphprojection.TraverseResult{}, &graphprojection.OperationError{Code: "invalid_argument", ReasonCode: "duplicate_filter_value", Details: map[string]any{"field": "traverse"}}
 	}
 	vertexKinds := stringSet(request.VertexKinds)
 	edgeKinds := stringSet(request.EdgeKinds)
 	filterVertexKinds := request.VertexKinds != nil
 	filterEdgeKinds := request.EdgeKinds != nil
-	vertexByID := map[string]Vertex{}
+	vertexByID := map[string]graphprojection.Vertex{}
 	for _, vertex := range graphView.Vertices {
 		vertexByID[vertex.VertexID] = vertex
 	}
@@ -638,7 +700,7 @@ func (s *Store) Traverse(ctx context.Context, request TraverseRequest) (Traverse
 	seenSeeds := map[string]bool{}
 	for _, seed := range request.SeedVertexIDs {
 		if seenSeeds[seed] {
-			return TraverseResult{}, &OperationError{Code: "invalid_argument", ReasonCode: "duplicate_seed_vertex_id", Details: map[string]any{"field": "seed_vertex_ids"}}
+			return graphprojection.TraverseResult{}, &graphprojection.OperationError{Code: "invalid_argument", ReasonCode: "duplicate_seed_vertex_id", Details: map[string]any{"field": "seed_vertex_ids"}}
 		}
 		seenSeeds[seed] = true
 		if _, ok := vertexByID[seed]; ok {
@@ -648,7 +710,7 @@ func (s *Store) Traverse(ctx context.Context, request TraverseRequest) (Traverse
 			omittedSeeds = append(omittedSeeds, seed)
 		}
 	}
-	selectedEdges := map[string]Edge{}
+	selectedEdges := map[string]graphprojection.Edge{}
 	for depth := 0; depth < maxDepth && len(frontier) > 0; depth++ {
 		next := []string{}
 		for _, current := range frontier {
@@ -674,16 +736,16 @@ func (s *Store) Traverse(ctx context.Context, request TraverseRequest) (Traverse
 		sort.Strings(next)
 		frontier = next
 	}
-	vertices := []Vertex{}
+	vertices := []graphprojection.Vertex{}
 	for vertexID := range visited {
 		vertices = append(vertices, vertexByID[vertexID])
 	}
-	edges := []Edge{}
+	edges := []graphprojection.Edge{}
 	for _, edge := range selectedEdges {
 		edges = append(edges, edge)
 	}
-	SortVertices(vertices)
-	SortEdges(edges)
+	graphprojection.SortVertices(vertices)
+	graphprojection.SortEdges(edges)
 	seeds := make([]string, 0, len(request.SeedVertexIDs)-len(omittedSeeds))
 	requestedSeeds := stringSet(request.SeedVertexIDs)
 	for _, vertex := range graphView.Vertices {
@@ -691,10 +753,10 @@ func (s *Store) Traverse(ctx context.Context, request TraverseRequest) (Traverse
 			seeds = append(seeds, vertex.VertexID)
 		}
 	}
-	return TraverseResult{GraphViewID: graphView.GraphViewID, ProjectionRunID: graphView.ProjectionRunID, SeedVertexIDs: seeds, OmittedSeedVertexIDs: omittedSeeds, Vertices: vertices, Edges: edges, Metadata: map[string]any{}}, nil
+	return graphprojection.TraverseResult{GraphViewID: graphView.GraphViewID, ProjectionRunID: graphView.ProjectionRunID, SeedVertexIDs: seeds, OmittedSeedVertexIDs: omittedSeeds, Vertices: vertices, Edges: edges, Metadata: map[string]any{}}, nil
 }
 
-func traversalNeighbor(edge Edge, current, requestedDirection string) string {
+func traversalNeighbor(edge graphprojection.Edge, current, requestedDirection string) string {
 	if edge.Direction == "undirected" || edge.Direction == "bidirectional" || requestedDirection == "any" {
 		if edge.SrcVertexID == current {
 			return edge.DstVertexID
@@ -732,89 +794,93 @@ func stringSet(values []string) map[string]bool {
 	return set
 }
 
-func (s *Store) InvalidateGraphView(ctx context.Context, request RetainedInvalidation) (InvalidationSummary, error) {
+func (s *Store) InvalidateGraphView(ctx context.Context, request graphprojection.RetainedInvalidation) (graphprojection.InvalidationSummary, error) {
 	return s.invalidateGraphViewAt(ctx, request.GraphViewID, request.ReasonCode, request.RequestedAt, request.RequestedBy, request.IdempotencyKey, request.InvalidatedAt)
 }
 
-func (s *Store) invalidateGraphViewAt(ctx context.Context, graphViewID, reasonCode, requestedAt, requestedBy, idempotencyKey string, invalidatedAt time.Time) (InvalidationSummary, error) {
+func (s *Store) invalidateGraphViewAt(ctx context.Context, graphViewID, reasonCode, requestedAt, requestedBy, idempotencyKey string, invalidatedAt time.Time) (graphprojection.InvalidationSummary, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return InvalidationSummary{}, fmt.Errorf("begin graph projection invalidation: %w", err)
+		return graphprojection.InvalidationSummary{}, fmt.Errorf("begin graph projection invalidation: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	fingerprint, err := invalidationReplayFingerprint("invalidate_graph_view", graphViewID, "", reasonCode, requestedAt, requestedBy)
+	fingerprint, err := invalidationReplayFingerprint("invalidate_graph_view", graphViewID, "", reasonCode, requestedBy)
 	if err != nil {
-		return InvalidationSummary{}, err
+		return graphprojection.InvalidationSummary{}, err
 	}
 	if idempotencyKey != "" {
 		if replayed, replay, err := s.checkInvalidationIdempotencyTx(ctx, tx, "invalidate_graph_view", graphViewID, idempotencyKey, fingerprint, invalidatedAt); err != nil {
-			return InvalidationSummary{}, err
+			return graphprojection.InvalidationSummary{}, err
 		} else if replay {
 			return replayed, nil
 		}
 	}
 	var selectedRunID string
 	var retentionPolicyJSON []byte
+	var currentUpdatedAt time.Time
 	if err := tx.QueryRow(ctx, `
-SELECT COALESCE(graph_view.selected_projection_run_id, graph_view.latest_projection_run_id), run.retention_policy_json
+SELECT COALESCE(graph_view.selected_projection_run_id, graph_view.latest_projection_run_id), run.retention_policy_json, graph_view.updated_at
   FROM graph_projection_views AS graph_view
   JOIN graph_projection_runs AS run ON run.projection_run_id = COALESCE(graph_view.selected_projection_run_id, graph_view.latest_projection_run_id)
  WHERE graph_view.graph_view_id = $1
  FOR UPDATE OF graph_view, run
-`, graphViewID).Scan(&selectedRunID, &retentionPolicyJSON); err != nil {
+`, graphViewID).Scan(&selectedRunID, &retentionPolicyJSON, &currentUpdatedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return InvalidationSummary{}, ErrGraphViewNotFound
+			return graphprojection.InvalidationSummary{}, graphprojection.ErrGraphViewNotFound
 		}
-		return InvalidationSummary{}, err
+		return graphprojection.InvalidationSummary{}, err
 	}
-	var retentionPolicy RetentionPolicy
+	var retentionPolicy graphprojection.RetentionPolicy
 	if err := json.Unmarshal(retentionPolicyJSON, &retentionPolicy); err != nil {
-		return InvalidationSummary{}, fmt.Errorf("decode graph projection retention policy: %w", err)
+		return graphprojection.InvalidationSummary{}, fmt.Errorf("decode graph projection retention policy: %w", err)
+	}
+	if !invalidatedAt.After(currentUpdatedAt) {
+		invalidatedAt = currentUpdatedAt.Add(time.Microsecond)
 	}
 	rows, err := tx.Query(ctx, `SELECT projection_run_id FROM graph_projection_runs WHERE graph_view_id = $1 AND state IN ('available', 'replaced') ORDER BY projection_run_id ASC`, graphViewID)
 	if err != nil {
-		return InvalidationSummary{}, fmt.Errorf("list invalidation targets: %w", err)
+		return graphprojection.InvalidationSummary{}, fmt.Errorf("list invalidation targets: %w", err)
 	}
 	runIDs := []string{}
 	for rows.Next() {
 		var runID string
 		if err := rows.Scan(&runID); err != nil {
 			rows.Close()
-			return InvalidationSummary{}, err
+			return graphprojection.InvalidationSummary{}, err
 		}
 		runIDs = append(runIDs, runID)
 	}
 	rows.Close()
 	if len(runIDs) == 0 {
-		return InvalidationSummary{}, ErrGraphViewNotFound
+		return graphprojection.InvalidationSummary{}, graphprojection.ErrGraphViewNotFound
 	}
-	summary := InvalidationSummary{GraphViewID: graphViewID, TargetScope: "graph_view", InvalidatedRunIDs: runIDs, GraphViewStateAfter: GraphViewStateInvalidated, InvalidatedAt: FormatLifecycleTimestamp(invalidatedAt), ReasonCode: reasonCode, RequestedAt: requestedAt, RequestedBy: requestedBy}
+	summary := graphprojection.InvalidationSummary{GraphViewID: graphViewID, TargetScope: "graph_view", InvalidatedRunIDs: runIDs, GraphViewStateAfter: graphprojection.GraphViewStateInvalidated, InvalidatedAt: graphprojection.FormatLifecycleTimestamp(invalidatedAt), ReasonCode: reasonCode, RequestedAt: requestedAt, RequestedBy: requestedBy}
 	if idempotencyKey != "" {
-		expiresAt := FormatLifecycleTimestamp(invalidatedAt.Add(24 * time.Hour))
+		expiresAt := graphprojection.FormatLifecycleTimestamp(invalidatedAt.Add(24 * time.Hour))
 		summary.IdempotencyExpiresAt = &expiresAt
 	}
-	summaryJSON, _ := json.Marshal(summary)
-	if _, err := tx.Exec(ctx, `UPDATE graph_projection_runs SET state = 'invalidated', invalidated_at = $2::timestamptz, retention_expires_at = CASE WHEN projection_run_id = $4 THEN NULL ELSE $2::timestamptz + make_interval(secs => $5::integer) END, invalidation_json = $3::jsonb WHERE graph_view_id = $1 AND state IN ('available', 'replaced')`, graphViewID, invalidatedAt, string(summaryJSON), selectedRunID, retentionPolicy.RetentionDurationSeconds); err != nil {
-		return InvalidationSummary{}, fmt.Errorf("invalidate graph projection runs: %w", err)
+	invalidationJSON, _ := json.Marshal(graphprojection.Invalidation{InvalidatedAt: summary.InvalidatedAt, ReasonCode: reasonCode, RequestedBy: requestedBy, TargetScope: "graph_view"})
+	if _, err := tx.Exec(ctx, `UPDATE graph_projection_runs SET state = 'invalidated', invalidated_at = $2::timestamptz, retention_expires_at = CASE WHEN projection_run_id = $4 THEN NULL ELSE $2::timestamptz + make_interval(secs => $5::integer) END, invalidation_json = $3::jsonb WHERE graph_view_id = $1 AND state IN ('available', 'replaced')`, graphViewID, invalidatedAt, string(invalidationJSON), selectedRunID, retentionPolicy.RetentionDurationSeconds); err != nil {
+		return graphprojection.InvalidationSummary{}, fmt.Errorf("invalidate graph projection runs: %w", err)
 	}
-	if _, err := tx.Exec(ctx, `UPDATE graph_projection_views SET state = 'invalidated', validation_status = 'invalidated', updated_at = $2, invalidation_json = $3::jsonb WHERE graph_view_id = $1`, graphViewID, invalidatedAt, string(summaryJSON)); err != nil {
-		return InvalidationSummary{}, fmt.Errorf("invalidate graph projection view: %w", err)
+	if _, err := tx.Exec(ctx, `UPDATE graph_projection_views SET state = 'invalidated', validation_status = 'invalidated', updated_at = $2, invalidation_json = $3::jsonb WHERE graph_view_id = $1`, graphViewID, invalidatedAt, string(invalidationJSON)); err != nil {
+		return graphprojection.InvalidationSummary{}, fmt.Errorf("invalidate graph projection view: %w", err)
 	}
 	if err := s.pruneInvalidatedRetentionTx(ctx, tx, graphViewID, selectedRunID, retentionPolicy, invalidatedAt); err != nil {
-		return InvalidationSummary{}, err
+		return graphprojection.InvalidationSummary{}, err
 	}
 	if idempotencyKey != "" {
 		if err := s.recordInvalidationIdempotencyTx(ctx, tx, "invalidate_graph_view", graphViewID, idempotencyKey, fingerprint, summary, invalidatedAt); err != nil {
-			return InvalidationSummary{}, err
+			return graphprojection.InvalidationSummary{}, err
 		}
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return InvalidationSummary{}, fmt.Errorf("commit graph projection invalidation: %w", err)
+		return graphprojection.InvalidationSummary{}, fmt.Errorf("commit graph projection invalidation: %w", err)
 	}
 	return summary, nil
 }
 
-func (s *Store) pruneInvalidatedRetentionTx(ctx context.Context, tx pgx.Tx, graphViewID, selectedRunID string, policy RetentionPolicy, queryReceivedAt time.Time) error {
+func (s *Store) pruneInvalidatedRetentionTx(ctx context.Context, tx pgx.Tx, graphViewID, selectedRunID string, policy graphprojection.RetentionPolicy, queryReceivedAt time.Time) error {
 	if _, err := tx.Exec(ctx, `
 WITH ranked AS (
     SELECT projection_run_id,
@@ -837,23 +903,24 @@ DELETE FROM graph_projection_runs AS run
 	return nil
 }
 
-func (s *Store) InvalidateProjectionRun(ctx context.Context, request RetainedInvalidation) (InvalidationSummary, error) {
+func (s *Store) InvalidateProjectionRun(ctx context.Context, request graphprojection.RetainedInvalidation) (graphprojection.InvalidationSummary, error) {
 	return s.invalidateProjectionRunAt(ctx, request.GraphViewID, request.ProjectionRunID, request.ReasonCode, request.RequestedAt, request.RequestedBy, request.IdempotencyKey, request.InvalidatedAt)
 }
 
-func (s *Store) invalidateProjectionRunAt(ctx context.Context, graphViewID, projectionRunID, reasonCode, requestedAt, requestedBy, idempotencyKey string, invalidatedAt time.Time) (InvalidationSummary, error) {
+func (s *Store) invalidateProjectionRunAt(ctx context.Context, graphViewID, projectionRunID, reasonCode, requestedAt, requestedBy, idempotencyKey string, invalidatedAt time.Time) (graphprojection.InvalidationSummary, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return InvalidationSummary{}, fmt.Errorf("begin graph projection run invalidation: %w", err)
+		return graphprojection.InvalidationSummary{}, fmt.Errorf("begin graph projection run invalidation: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	fingerprint, err := invalidationReplayFingerprint("invalidate_projection_run", graphViewID, projectionRunID, reasonCode, requestedAt, requestedBy)
+	fingerprint, err := invalidationReplayFingerprint("invalidate_projection_run", graphViewID, projectionRunID, reasonCode, requestedBy)
 	if err != nil {
-		return InvalidationSummary{}, err
+		return graphprojection.InvalidationSummary{}, err
 	}
 	if idempotencyKey != "" {
-		if replayed, replay, err := s.checkInvalidationIdempotencyTx(ctx, tx, "invalidate_projection_run", graphViewID, idempotencyKey, fingerprint, invalidatedAt); err != nil {
-			return InvalidationSummary{}, err
+		scopeKey := graphViewID + "\n" + projectionRunID
+		if replayed, replay, err := s.checkInvalidationIdempotencyTx(ctx, tx, "invalidate_projection_run", scopeKey, idempotencyKey, fingerprint, invalidatedAt); err != nil {
+			return graphprojection.InvalidationSummary{}, err
 		} else if replay {
 			return replayed, nil
 		}
@@ -861,68 +928,74 @@ func (s *Store) invalidateProjectionRunAt(ctx context.Context, graphViewID, proj
 	var state string
 	if err := tx.QueryRow(ctx, `SELECT state FROM graph_projection_runs WHERE graph_view_id = $1 AND projection_run_id = $2 FOR UPDATE`, graphViewID, projectionRunID).Scan(&state); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return InvalidationSummary{}, ErrProjectionRunNotFound
+			return graphprojection.InvalidationSummary{}, graphprojection.ErrProjectionRunNotFound
 		}
-		return InvalidationSummary{}, err
+		return graphprojection.InvalidationSummary{}, err
 	}
-	if state != string(RunStateAvailable) && state != string(RunStateReplaced) {
-		return InvalidationSummary{}, &OperationError{Code: "invalid_operation", ReasonCode: "invalid_invalidation_target", Details: map[string]any{"operation": "invalidate_projection_run", "reason_code": "invalid_invalidation_target"}}
+	if state != string(graphprojection.RunStateAvailable) && state != string(graphprojection.RunStateReplaced) {
+		return graphprojection.InvalidationSummary{}, &graphprojection.OperationError{Code: "invalid_operation", ReasonCode: "invalid_invalidation_target", Details: map[string]any{"operation": "invalidate_projection_run", "reason_code": "invalid_invalidation_target"}}
 	}
-	graphViewStateAfter := GraphViewStateAvailable
+	graphViewStateAfter := graphprojection.GraphViewStateAvailable
 	var selectedRunID string
 	var currentViewState string
 	var retentionPolicyJSON []byte
+	var currentUpdatedAt time.Time
 	if err := tx.QueryRow(ctx, `
 SELECT COALESCE(graph_view.selected_projection_run_id, graph_view.latest_projection_run_id, ''),
        graph_view.state,
-       selected_run.retention_policy_json
+       selected_run.retention_policy_json,
+       graph_view.updated_at
   FROM graph_projection_views AS graph_view
   JOIN graph_projection_runs AS selected_run
     ON selected_run.projection_run_id = COALESCE(graph_view.selected_projection_run_id, graph_view.latest_projection_run_id)
  WHERE graph_view.graph_view_id = $1
  FOR UPDATE OF graph_view, selected_run
-`, graphViewID).Scan(&selectedRunID, &currentViewState, &retentionPolicyJSON); err != nil {
-		return InvalidationSummary{}, err
+`, graphViewID).Scan(&selectedRunID, &currentViewState, &retentionPolicyJSON, &currentUpdatedAt); err != nil {
+		return graphprojection.InvalidationSummary{}, err
 	}
-	var retentionPolicy RetentionPolicy
+	var retentionPolicy graphprojection.RetentionPolicy
 	if err := json.Unmarshal(retentionPolicyJSON, &retentionPolicy); err != nil {
-		return InvalidationSummary{}, fmt.Errorf("decode graph projection retention policy: %w", err)
+		return graphprojection.InvalidationSummary{}, fmt.Errorf("decode graph projection retention policy: %w", err)
 	}
-	if currentViewState == string(GraphViewStateInvalidated) || selectedRunID == projectionRunID {
-		graphViewStateAfter = GraphViewStateInvalidated
+	if !invalidatedAt.After(currentUpdatedAt) {
+		invalidatedAt = currentUpdatedAt.Add(time.Microsecond)
 	}
-	summary := InvalidationSummary{GraphViewID: graphViewID, TargetScope: "projection_run", TargetProjectionRunID: &projectionRunID, InvalidatedRunIDs: []string{projectionRunID}, GraphViewStateAfter: graphViewStateAfter, InvalidatedAt: FormatLifecycleTimestamp(invalidatedAt), ReasonCode: reasonCode, RequestedAt: requestedAt, RequestedBy: requestedBy}
+	if currentViewState == string(graphprojection.GraphViewStateInvalidated) || selectedRunID == projectionRunID {
+		graphViewStateAfter = graphprojection.GraphViewStateInvalidated
+	}
+	summary := graphprojection.InvalidationSummary{GraphViewID: graphViewID, TargetScope: "projection_run", TargetProjectionRunID: &projectionRunID, InvalidatedRunIDs: []string{projectionRunID}, GraphViewStateAfter: graphViewStateAfter, InvalidatedAt: graphprojection.FormatLifecycleTimestamp(invalidatedAt), ReasonCode: reasonCode, RequestedAt: requestedAt, RequestedBy: requestedBy}
 	if idempotencyKey != "" {
-		expiresAt := FormatLifecycleTimestamp(invalidatedAt.Add(24 * time.Hour))
+		expiresAt := graphprojection.FormatLifecycleTimestamp(invalidatedAt.Add(24 * time.Hour))
 		summary.IdempotencyExpiresAt = &expiresAt
 	}
-	summaryJSON, err := json.Marshal(summary)
+	invalidationJSON, err := json.Marshal(graphprojection.Invalidation{InvalidatedAt: summary.InvalidatedAt, ReasonCode: reasonCode, RequestedBy: requestedBy, TargetScope: "projection_run", TargetProjectionRunID: &projectionRunID})
 	if err != nil {
-		return InvalidationSummary{}, err
+		return graphprojection.InvalidationSummary{}, err
 	}
-	if _, err := tx.Exec(ctx, `UPDATE graph_projection_runs SET state = 'invalidated', completed_at = COALESCE(completed_at, $3), invalidated_at = $3, retention_expires_at = CASE WHEN $2 = $5 THEN NULL ELSE $3::timestamptz + make_interval(secs => $6::integer) END, invalidation_json = $4::jsonb WHERE graph_view_id = $1 AND projection_run_id = $2`, graphViewID, projectionRunID, invalidatedAt, string(summaryJSON), selectedRunID, retentionPolicy.RetentionDurationSeconds); err != nil {
-		return InvalidationSummary{}, err
+	if _, err := tx.Exec(ctx, `UPDATE graph_projection_runs SET state = 'invalidated', completed_at = COALESCE(completed_at, $3), invalidated_at = $3, retention_expires_at = CASE WHEN $2 = $5 THEN NULL ELSE $3::timestamptz + make_interval(secs => $6::integer) END, invalidation_json = $4::jsonb WHERE graph_view_id = $1 AND projection_run_id = $2`, graphViewID, projectionRunID, invalidatedAt, string(invalidationJSON), selectedRunID, retentionPolicy.RetentionDurationSeconds); err != nil {
+		return graphprojection.InvalidationSummary{}, err
 	}
-	if graphViewStateAfter == GraphViewStateInvalidated {
-		if _, err := tx.Exec(ctx, `UPDATE graph_projection_views SET state = 'invalidated', validation_status = 'invalidated', updated_at = $2, invalidation_json = $3::jsonb WHERE graph_view_id = $1`, graphViewID, invalidatedAt, string(summaryJSON)); err != nil {
-			return InvalidationSummary{}, err
+	if graphViewStateAfter == graphprojection.GraphViewStateInvalidated {
+		if _, err := tx.Exec(ctx, `UPDATE graph_projection_views SET state = 'invalidated', validation_status = 'invalidated', updated_at = $2, invalidation_json = $3::jsonb WHERE graph_view_id = $1`, graphViewID, invalidatedAt, string(invalidationJSON)); err != nil {
+			return graphprojection.InvalidationSummary{}, err
 		}
 	}
 	if err := s.pruneInvalidatedRetentionTx(ctx, tx, graphViewID, selectedRunID, retentionPolicy, invalidatedAt); err != nil {
-		return InvalidationSummary{}, err
+		return graphprojection.InvalidationSummary{}, err
 	}
 	if idempotencyKey != "" {
-		if err := s.recordInvalidationIdempotencyTx(ctx, tx, "invalidate_projection_run", graphViewID, idempotencyKey, fingerprint, summary, invalidatedAt); err != nil {
-			return InvalidationSummary{}, err
+		scopeKey := graphViewID + "\n" + projectionRunID
+		if err := s.recordInvalidationIdempotencyTx(ctx, tx, "invalidate_projection_run", scopeKey, idempotencyKey, fingerprint, summary, invalidatedAt); err != nil {
+			return graphprojection.InvalidationSummary{}, err
 		}
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return InvalidationSummary{}, err
+		return graphprojection.InvalidationSummary{}, err
 	}
 	return summary, nil
 }
 
-func (s *Store) pruneRetentionTx(ctx context.Context, tx pgx.Tx, graphViewID string, policy RetentionPolicy, queryReceivedAt time.Time) error {
+func (s *Store) pruneRetentionTx(ctx context.Context, tx pgx.Tx, graphViewID string, policy graphprojection.RetentionPolicy, queryReceivedAt time.Time) error {
 	if _, err := tx.Exec(ctx, `
 WITH ranked AS (
     SELECT projection_run_id,
@@ -967,49 +1040,46 @@ DELETE FROM graph_projection_runs AS run
 	return nil
 }
 
-func invalidationReplayFingerprint(operation, graphViewID, projectionRunID, reasonCode, requestedAt, requestedBy string) (string, error) {
-	bytes, err := CanonicalJSON(map[string]any{
-		"operation":         operation,
-		"graph_view_id":     graphViewID,
-		"projection_run_id": projectionRunID,
-		"reason_code":       reasonCode,
-		"requested_at":      requestedAt,
-		"requested_by":      requestedBy,
-	})
+func invalidationReplayFingerprint(operation, graphViewID, projectionRunID, reasonCode, requestedBy string) (string, error) {
+	comparison := map[string]any{"operation": operation, "graph_view_id": graphViewID, "reason_code": reasonCode, "requested_by": requestedBy}
+	if projectionRunID != "" {
+		comparison["projection_run_id"] = projectionRunID
+	}
+	bytes, err := graphprojection.CanonicalJSON(comparison)
 	if err != nil {
 		return "", err
 	}
 	return string(bytes), nil
 }
 
-func (s *Store) checkInvalidationIdempotencyTx(ctx context.Context, tx pgx.Tx, operation, scopeKey, key, fingerprint string, queryReceivedAt time.Time) (InvalidationSummary, bool, error) {
+func (s *Store) checkInvalidationIdempotencyTx(ctx context.Context, tx pgx.Tx, operation, scopeKey, key, fingerprint string, queryReceivedAt time.Time) (graphprojection.InvalidationSummary, bool, error) {
 	row := tx.QueryRow(ctx, `SELECT request_fingerprint, response_json, expires_at FROM graph_projection_idempotency WHERE operation = $1 AND scope_key = $2 AND idempotency_key = $3 FOR UPDATE`, operation, scopeKey, key)
 	var existingFingerprint string
 	var responseJSON []byte
 	var expiresAt time.Time
 	if err := row.Scan(&existingFingerprint, &responseJSON, &expiresAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return InvalidationSummary{}, false, nil
+			return graphprojection.InvalidationSummary{}, false, nil
 		}
-		return InvalidationSummary{}, false, fmt.Errorf("load graph projection invalidation idempotency: %w", err)
+		return graphprojection.InvalidationSummary{}, false, fmt.Errorf("load graph projection invalidation idempotency: %w", err)
 	}
 	if !queryReceivedAt.Before(expiresAt) {
 		if _, err := tx.Exec(ctx, `DELETE FROM graph_projection_idempotency WHERE operation = $1 AND scope_key = $2 AND idempotency_key = $3`, operation, scopeKey, key); err != nil {
-			return InvalidationSummary{}, false, err
+			return graphprojection.InvalidationSummary{}, false, err
 		}
-		return InvalidationSummary{}, false, nil
+		return graphprojection.InvalidationSummary{}, false, nil
 	}
 	if existingFingerprint != fingerprint {
-		return InvalidationSummary{}, false, &OperationError{Code: "operation_conflict", ReasonCode: "idempotency_key_conflict", Details: map[string]any{"operation": operation, "reason_code": "idempotency_key_conflict"}}
+		return graphprojection.InvalidationSummary{}, false, &graphprojection.OperationError{Code: "operation_conflict", ReasonCode: "idempotency_key_conflict", Details: map[string]any{"operation": operation, "reason_code": "idempotency_key_conflict"}}
 	}
-	var summary InvalidationSummary
+	var summary graphprojection.InvalidationSummary
 	if err := json.Unmarshal(responseJSON, &summary); err != nil {
-		return InvalidationSummary{}, false, fmt.Errorf("decode graph projection invalidation replay: %w", err)
+		return graphprojection.InvalidationSummary{}, false, fmt.Errorf("decode graph projection invalidation replay: %w", err)
 	}
 	return summary, true, nil
 }
 
-func (s *Store) recordInvalidationIdempotencyTx(ctx context.Context, tx pgx.Tx, operation, scopeKey, key, fingerprint string, summary InvalidationSummary, createdAt time.Time) error {
+func (s *Store) recordInvalidationIdempotencyTx(ctx context.Context, tx pgx.Tx, operation, scopeKey, key, fingerprint string, summary graphprojection.InvalidationSummary, createdAt time.Time) error {
 	responseJSON, err := json.Marshal(summary)
 	if err != nil {
 		return err
@@ -1037,32 +1107,42 @@ INSERT INTO graph_projection_idempotency (
 	return nil
 }
 
-func (s *Store) checkIdempotencyTx(ctx context.Context, tx pgx.Tx, operation, scopeKey, key, fingerprint string, queryReceivedAt time.Time) (ProjectionRun, bool, error) {
-	row := tx.QueryRow(ctx, `SELECT request_fingerprint, projection_run_id, expires_at FROM graph_projection_idempotency WHERE operation = $1 AND scope_key = $2 AND idempotency_key = $3 FOR UPDATE`, operation, scopeKey, key)
+func (s *Store) checkIdempotencyTx(ctx context.Context, tx pgx.Tx, operation, scopeKey, key, fingerprint string, queryReceivedAt time.Time) (graphprojection.ProjectionRun, bool, error) {
+	row := tx.QueryRow(ctx, `SELECT request_fingerprint, response_json, expires_at FROM graph_projection_idempotency WHERE operation = $1 AND scope_key = $2 AND idempotency_key = $3 FOR UPDATE`, operation, scopeKey, key)
 	var existingFingerprint string
-	var projectionRunID string
+	var responseJSON []byte
 	var expiresAt time.Time
-	if err := row.Scan(&existingFingerprint, &projectionRunID, &expiresAt); err != nil {
+	if err := row.Scan(&existingFingerprint, &responseJSON, &expiresAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ProjectionRun{}, false, nil
+			return graphprojection.ProjectionRun{}, false, nil
 		}
-		return ProjectionRun{}, false, fmt.Errorf("load graph projection idempotency: %w", err)
+		return graphprojection.ProjectionRun{}, false, fmt.Errorf("load graph projection idempotency: %w", err)
 	}
 	if !queryReceivedAt.Before(expiresAt) {
 		if _, err := tx.Exec(ctx, `DELETE FROM graph_projection_idempotency WHERE operation = $1 AND scope_key = $2 AND idempotency_key = $3`, operation, scopeKey, key); err != nil {
-			return ProjectionRun{}, false, err
+			return graphprojection.ProjectionRun{}, false, err
 		}
-		return ProjectionRun{}, false, nil
+		return graphprojection.ProjectionRun{}, false, nil
 	}
 	if existingFingerprint != fingerprint {
-		return ProjectionRun{}, false, &OperationError{Code: "operation_conflict", ReasonCode: "idempotency_key_conflict", Details: map[string]any{"operation": operation, "reason_code": "idempotency_key_conflict"}}
+		return graphprojection.ProjectionRun{}, false, &graphprojection.OperationError{Code: "operation_conflict", ReasonCode: "idempotency_key_conflict", Details: map[string]any{"operation": operation, "reason_code": "idempotency_key_conflict"}}
 	}
-	run, err := s.GetProjectionRun(ctx, projectionRunID)
-	return run, true, err
+	var response graphprojection.AcceptedRunSummary
+	if err := json.Unmarshal(responseJSON, &response); err != nil {
+		return graphprojection.ProjectionRun{}, false, fmt.Errorf("decode graph projection accepted replay: %w", err)
+	}
+	acceptedAt, err := time.Parse("2006-01-02T15:04:05.999999Z", response.AcceptedAt)
+	if err != nil {
+		return graphprojection.ProjectionRun{}, false, fmt.Errorf("decode graph projection accepted replay timestamp: %w", err)
+	}
+	run := graphprojection.ProjectionRun{GraphViewID: response.GraphViewID, ProjectionRunID: response.ProjectionRunID, State: graphprojection.RunStateAccepted, AcceptedAt: acceptedAt, AcceptedReplay: &response}
+	run.Request.SourceSnapshotID = response.SourceSnapshotID
+	run.Request.ProjectionConfig.ProjectionVersion = response.ProjectionVersion
+	return run, true, nil
 }
 
-func retainedReplayFingerprint(operation string, run ProjectionRun) (string, error) {
-	bytes, err := CanonicalJSON(map[string]any{
+func retainedReplayFingerprint(operation string, run graphprojection.ProjectionRun) (string, error) {
+	bytes, err := graphprojection.CanonicalJSON(map[string]any{
 		"operation":                operation,
 		"graph_view_id":            run.GraphViewID,
 		"projection_config_digest": run.ProjectionConfigDigest,
@@ -1074,8 +1154,17 @@ func retainedReplayFingerprint(operation string, run ProjectionRun) (string, err
 	return string(bytes), nil
 }
 
-func (s *Store) recordIdempotencyTx(ctx context.Context, tx pgx.Tx, operation, scopeKey, key, fingerprint string, run ProjectionRun) error {
-	responseJSON, err := json.Marshal(map[string]any{"projection_run_id": run.ProjectionRunID, "graph_view_id": run.GraphViewID, "status": run.State})
+func (s *Store) recordIdempotencyTx(ctx context.Context, tx pgx.Tx, operation, scopeKey, key, fingerprint string, run graphprojection.ProjectionRun) error {
+	expiresAt := graphprojection.FormatLifecycleTimestamp(run.AcceptedAt.Add(24 * time.Hour))
+	responseJSON, err := json.Marshal(graphprojection.AcceptedRunSummary{
+		GraphViewID:          run.GraphViewID,
+		ProjectionRunID:      run.ProjectionRunID,
+		State:                graphprojection.RunStateAccepted,
+		SourceSnapshotID:     run.Request.SourceSnapshotID,
+		ProjectionVersion:    run.Request.ProjectionConfig.ProjectionVersion,
+		AcceptedAt:           graphprojection.FormatLifecycleTimestamp(run.AcceptedAt),
+		IdempotencyExpiresAt: &expiresAt,
+	})
 	if err != nil {
 		return err
 	}
@@ -1107,7 +1196,7 @@ type listCursor struct {
 }
 
 func cursorInvalid(reason string) error {
-	return NewOperationError("cursor_invalid", reason, map[string]any{"reason_code": reason}, ErrCursorInvalid)
+	return graphprojection.NewOperationError("cursor_invalid", reason, map[string]any{"reason_code": reason}, graphprojection.ErrCursorInvalid)
 }
 
 func nullString(value string) any {

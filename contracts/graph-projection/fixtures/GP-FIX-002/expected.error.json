@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-002",
+  "assertion": "Duplicate object member pre-admission rejection.",
+  "test_symbol": "TestGPFIX002Remediation"
+}

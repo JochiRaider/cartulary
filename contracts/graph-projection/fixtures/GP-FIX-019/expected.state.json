@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-019",
+  "assertion": "Invalidation summary graph-view cascade.",
+  "test_symbol": "TestGPFIX019Remediation"
+}

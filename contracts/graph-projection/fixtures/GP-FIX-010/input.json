@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-010",
+  "input_kind": "projection_input",
+  "coverage": "Missing aggregated endpoint key with exclude."
+}

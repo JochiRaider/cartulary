@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-013",
+  "assertion": "Wildcard property and metadata registry expansion.",
+  "test_symbol": "TestGPFIX013Remediation"
+}

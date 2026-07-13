@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-027",
+  "input_kind": "digest_transcript",
+  "coverage": "Aggregation grouping key over mapped metadata succeeds and records the expected grouping-digest transcript."
+}

@@ -871,11 +871,12 @@ func (s *Service) projectNetworkFlowGraph(ctx context.Context, actorUserID uuid.
 		}
 		return nil, graphProjectionFailed("adapter_contract_rejected")
 	}
-	summary, ok := result.Data["validation_summary"].(map[string]any)
+	projectionResource := result.Resource()
+	summary, ok := projectionResource["validation_summary"].(map[string]any)
 	if !ok || summary["fatal_count"] != 0 || summary["error_count"] != 0 || summary["warning_count"] != 0 || summary["info_count"] != 0 {
 		return nil, graphProjectionFailed("adapter_contract_rejected")
 	}
-	return result.Data, nil
+	return projectionResource, nil
 }
 
 func networkFlowProjectionConfig(graphViewKey string) map[string]any {

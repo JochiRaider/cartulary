@@ -3,9 +3,12 @@ package graphprojection
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -15,7 +18,10 @@ import (
 var (
 	finiteIntegerPattern = regexp.MustCompile(`^(0|-?[1-9][0-9]*)$`)
 	generatedIDPattern   = regexp.MustCompile(`^(gv|gpr|vx|ed|gpi)_[0-9a-f]{64}$`)
+	timestampPattern     = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$`)
 )
+
+const maxFiniteInteger = int64(9007199254740991)
 
 const (
 	defaultRetentionCount              = 5
@@ -29,32 +35,54 @@ type admitOptions struct {
 	AcceptedAt         time.Time
 	InvocationIDPrefix string
 	InvocationDomain   string
+	Operation          string
 }
 
-func admitProjectionInput(data []byte, options admitOptions) (ProjectionRun, error) {
+type projectionInputSource interface {
+	Len() int
+	Bytes() []byte
+}
+
+type byteProjectionInput []byte
+
+func (input byteProjectionInput) Len() int      { return len(input) }
+func (input byteProjectionInput) Bytes() []byte { return []byte(input) }
+
+func admitProjectionInput(data []byte, options admitOptions) (run ProjectionRun, err error) {
+	return admitProjectionInputSource(byteProjectionInput(data), options)
+}
+
+func admitProjectionInputSource(source projectionInputSource, options admitOptions) (run ProjectionRun, err error) {
+	operation := options.Operation
+	if operation == "" {
+		operation = "create_projection"
+	}
+	defer func() { err = annotateAdmissionError(err, operation) }()
+	if source.Len() > graphProjectionLimits.MaxInputBytes {
+		return ProjectionRun{}, schemaError("whole_input_limit_exceeded", "$", "resource_limit_exceeded")
+	}
+	data := source.Bytes()
 	request, normalizedRaw, err := parseProjectionInput(data)
 	if err != nil {
 		return ProjectionRun{}, err
 	}
 	if request.ProjectionSchemaID != ProjectionSchemaID {
-		return ProjectionRun{}, invalidRequest("invalid_projection_schema", "$.projection_schema_id", nil)
+		return ProjectionRun{}, invalidRequest("invalid_projection_schema", "$.projection_schema_id", map[string]any{"validation_code": "invalid_projection_schema"})
 	}
 	expectedGraphViewID, err := deriveGraphViewID(request.ProjectionConfig.GraphViewKey)
 	if err != nil {
 		return ProjectionRun{}, invalidRequest("invalid_projection_request", "$.projection_config.graph_view_key", nil)
 	}
 	if request.GraphViewID != expectedGraphViewID {
-		return ProjectionRun{}, invalidRequest("invalid_graph_view_id", "$.graph_view_id", map[string]any{
-			"expected_value": expectedGraphViewID,
-		})
+		return ProjectionRun{}, invalidRequest("invalid_graph_view_id", "$.graph_view_id", map[string]any{"validation_code": "graph_view_id_mismatch"})
 	}
 	configDigest, err := projectionConfigDigest(request)
 	if err != nil {
-		return ProjectionRun{}, invalidRequest("invalid_projection_request", "", map[string]any{"reason": err.Error()})
+		return ProjectionRun{}, invalidRequest("invalid_projection_request", "", map[string]any{"validation_code": "canonicalization_failed"})
 	}
 	sourceDigest, err := projectionSourceDigest(request)
 	if err != nil {
-		return ProjectionRun{}, invalidRequest("invalid_projection_request", "", map[string]any{"reason": err.Error()})
+		return ProjectionRun{}, invalidRequest("invalid_projection_request", "", map[string]any{"validation_code": "canonicalization_failed"})
 	}
 	nonce := strings.TrimSpace(options.ProjectionRunNonce)
 	if nonce == "" {
@@ -70,7 +98,7 @@ func admitProjectionInput(data []byte, options admitOptions) (ProjectionRun, err
 	}
 	runID, err := generatedID(idPrefix, domain, "projection_run", ProjectionSchemaID, expectedGraphViewID, request.SourceSnapshotID, configDigest, sourceDigest, nonce)
 	if err != nil {
-		return ProjectionRun{}, invalidRequest("invalid_projection_request", "", map[string]any{"reason": err.Error()})
+		return ProjectionRun{}, invalidRequest("invalid_projection_request", "", map[string]any{"validation_code": "identity_derivation_failed"})
 	}
 	acceptedAt := options.AcceptedAt.UTC()
 	if acceptedAt.IsZero() {
@@ -109,35 +137,28 @@ func parseProjectionInput(data []byte) (ProjectionRequest, map[string]any, error
 		return ProjectionRequest{}, nil, invalidRequest("invalid_utf8", "", nil)
 	}
 	if err := rejectDuplicateObjectMembers(data); err != nil {
-		return ProjectionRequest{}, nil, invalidRequest("duplicate_object_member", err.Error(), nil)
+		var duplicate duplicateMemberError
+		if errors.As(err, &duplicate) {
+			return ProjectionRequest{}, nil, invalidRequest("duplicate_object_member", duplicate.path, nil)
+		}
+		return ProjectionRequest{}, nil, invalidRequest("invalid_json_syntax", "", nil)
 	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.UseNumber()
 	var raw any
 	if err := decoder.Decode(&raw); err != nil {
-		return ProjectionRequest{}, nil, invalidRequest("invalid_json", "", nil)
+		return ProjectionRequest{}, nil, invalidRequest("invalid_json_syntax", "", nil)
 	}
 	root, ok := raw.(map[string]any)
 	if !ok {
 		return ProjectionRequest{}, nil, invalidRequest("top_level_not_object", "$", nil)
 	}
-	if decoder.More() {
-		return ProjectionRequest{}, nil, invalidRequest("invalid_json", "", nil)
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		return ProjectionRequest{}, nil, invalidRequest("invalid_json_syntax", "", nil)
 	}
-	allowed := set("projection_schema_id", "graph_view_id", "source_snapshot_id", "projection_config", "source_entities", "source_relationships", "source_metadata", "filters", "relationship_definitions", "property_definitions", "requested_at", "requested_by")
-	for key := range root {
-		if !allowed[key] {
-			return ProjectionRequest{}, nil, invalidRequest("unknown_top_level_member", "$."+key, nil)
-		}
-	}
-	for _, key := range []string{"projection_schema_id", "graph_view_id", "source_snapshot_id", "projection_config", "source_entities", "source_relationships", "requested_at", "requested_by"} {
-		value, ok := root[key]
-		if !ok {
-			return ProjectionRequest{}, nil, invalidRequest("missing_required_input", "$."+key, nil)
-		}
-		if value == nil {
-			return ProjectionRequest{}, nil, invalidRequest("explicit_null_not_allowed", "$."+key, nil)
-		}
+	if err := validateProjectionInputSchema(root); err != nil {
+		return ProjectionRequest{}, nil, err
 	}
 	request := ProjectionRequest{
 		ProjectionSchemaID:   mustString(root["projection_schema_id"], "$.projection_schema_id"),
@@ -150,25 +171,21 @@ func parseProjectionInput(data []byte) (ProjectionRequest, map[string]any, error
 		RelationshipMappings: parseRelationshipMappings(arrayValue(root["relationship_definitions"], "$.relationship_definitions")),
 		PropertyDefinitions:  parsePropertyDefinitions(arrayValue(root["property_definitions"], "$.property_definitions")),
 	}
-	if !validIdentifier(request.SourceSnapshotID) {
-		return ProjectionRequest{}, nil, invalidRequest("invalid_source_snapshot_id", "$.source_snapshot_id", nil)
-	}
-	if !validIdentifier(request.RequestedBy) {
-		return ProjectionRequest{}, nil, invalidRequest("invalid_requested_by", "$.requested_by", nil)
-	}
-	if _, err := parseTimestamp(request.RequestedAt); err != nil {
-		return ProjectionRequest{}, nil, invalidRequest("invalid_timestamp", "$.requested_at", nil)
-	}
 	if !generatedIDPattern.MatchString(request.GraphViewID) || !strings.HasPrefix(request.GraphViewID, "gv_") {
 		return ProjectionRequest{}, nil, invalidRequest("invalid_graph_view_id", "$.graph_view_id", nil)
 	}
 	request.ProjectionConfig = parseProjectionConfig(mustObject(root["projection_config"], "$.projection_config"))
+	request.RelationshipMappingSourceConflict = len(request.RelationshipMappings) > 0 && len(request.ProjectionConfig.RelationshipMappings) > 0
 	request.SourceEntities = parseSourceEntities(arrayValue(root["source_entities"], "$.source_entities"))
 	request.SourceRelationships = parseSourceRelationships(arrayValue(root["source_relationships"], "$.source_relationships"))
 	normalizeProjectionRequest(&request)
 	normalizedRaw := normalizedRequestObject(request)
 	return request, normalizedRaw, nil
 }
+
+type duplicateMemberError struct{ path string }
+
+func (err duplicateMemberError) Error() string { return err.path }
 
 func rejectDuplicateObjectMembers(data []byte) error {
 	decoder := json.NewDecoder(bytes.NewReader(data))
@@ -190,13 +207,13 @@ func rejectDuplicateObjectMembers(data []byte) error {
 					}
 					key, ok := keyToken.(string)
 					if !ok {
-						return fmt.Errorf("%s", path)
+						return fmt.Errorf("object member at %s is not a string", path)
 					}
 					if _, exists := seen[key]; exists {
-						return fmt.Errorf("%s.%s", path, key)
+						return duplicateMemberError{path: canonicalInputMemberPath(path, key)}
 					}
 					seen[key] = struct{}{}
-					childPath := path + "." + key
+					childPath := canonicalInputMemberPath(path, key)
 					if err := parseValue(childPath); err != nil {
 						return err
 					}
@@ -214,7 +231,7 @@ func rejectDuplicateObjectMembers(data []byte) error {
 				_, err := decoder.Token()
 				return err
 			default:
-				return fmt.Errorf("%s", path)
+				return fmt.Errorf("unexpected delimiter at %s", path)
 			}
 		}
 		return nil
@@ -223,7 +240,7 @@ func rejectDuplicateObjectMembers(data []byte) error {
 		return err
 	}
 	if decoder.More() {
-		return fmt.Errorf("$")
+		return fmt.Errorf("trailing input")
 	}
 	return nil
 }
@@ -248,14 +265,21 @@ func parseProjectionConfig(raw map[string]any) ProjectionConfig {
 }
 
 func parseRetentionPolicy(raw map[string]any) RetentionPolicy {
-	return RetentionPolicy{
+	policy := RetentionPolicy{
 		RetainReplacedResults:       boolDefault(raw["retain_replaced_results"], true),
 		RetentionCount:              intDefault(raw["retention_count"], defaultRetentionCount),
 		RetentionDurationSeconds:    intDefault(raw["retention_duration_seconds"], defaultRetentionDurationSeconds),
 		RetainFailedResults:         boolDefault(raw["retain_failed_results"], true),
 		FailedRetentionCount:        intDefault(raw["failed_retention_count"], defaultFailedRetentionCount),
 		FailedRetentionDurationSecs: intDefault(raw["failed_retention_duration_seconds"], defaultFailedRetentionDurationSecs),
+		RawIntegerLexemes:           map[string]string{},
 	}
+	for _, key := range []string{"retention_count", "retention_duration_seconds", "failed_retention_count", "failed_retention_duration_seconds"} {
+		if number, ok := raw[key].(json.Number); ok {
+			policy.RawIntegerLexemes[key] = number.String()
+		}
+	}
+	return policy
 }
 
 func parseEntityMappings(raw []any) []EntityMapping {
@@ -272,6 +296,7 @@ func parseEntityMappings(raw []any) []EntityMapping {
 			RequiredPropertyKeys: uniqueSortedStrings(stringArray(object["required_property_keys"])),
 			OptionalPropertyKeys: uniqueSortedStrings(stringArray(object["optional_property_keys"])),
 		}
+		mapping.InclusionPredicate, mapping.InclusionFilter = parseInclusionPredicate(object["inclusion_predicate"])
 		mapping.MappingIdentityDigest, _ = digestTuple("GPMAPENTITY1\n", mapping.MappingRuleID, mapping.SourceEntityKind, mapping.ProjectedVertexKind)
 		mappings = append(mappings, mapping)
 	}
@@ -297,6 +322,8 @@ func parseRelationshipMappings(raw []any) []RelationshipMapping {
 			RequiredPropertyKeys:   uniqueSortedStrings(stringArray(object["required_property_keys"])),
 			OptionalPropertyKeys:   uniqueSortedStrings(stringArray(object["optional_property_keys"])),
 		}
+		_, mapping.ReverseEdgeKindSupplied = object["reverse_edge_kind"]
+		mapping.InclusionPredicate, mapping.InclusionFilter = parseInclusionPredicate(object["inclusion_predicate"])
 		mapping.MappingIdentityDigest, _ = digestTuple("GPMAPREL1\n", mapping.MappingRuleID, mapping.SourceRelationshipKind, mapping.ProjectedEdgeKind, mapping.DirectionPolicy, mapping.EmitReverseEdge, mapping.ReverseEdgeKind)
 		mappings = append(mappings, mapping)
 	}
@@ -337,7 +364,7 @@ func parseMetadataMappings(raw []any) []MetadataMapping {
 	for _, entry := range raw {
 		object := mustObject(entry, "metadata_mapping")
 		required := boolDefault(object["required"], false)
-		mappings = append(mappings, MetadataMapping{
+		mapping := MetadataMapping{
 			MetadataMappingID:    mustString(object["metadata_mapping_id"], "metadata_mapping_id"),
 			TargetScope:          mustString(object["target_scope"], "target_scope"),
 			TargetKind:           mustString(object["target_kind"], "target_kind"),
@@ -349,7 +376,12 @@ func parseMetadataMappings(raw []any) []MetadataMapping {
 			SourceNullBehavior:   stringDefault(object["source_null_behavior"], defaultMissingBehavior(required)),
 			NullOutputPolicy:     stringDefault(object["null_output_policy"], "omit"),
 			MergeBehavior:        stringDefault(object["merge_behavior"], "single_value"),
-		})
+		}
+		if value, ok := object["default_value"]; ok {
+			mapping.DefaultValue = value
+			mapping.HasDefaultValue = true
+		}
+		mappings = append(mappings, mapping)
 	}
 	sort.Slice(mappings, func(i, j int) bool { return mappings[i].MetadataMappingID < mappings[j].MetadataMappingID })
 	return mappings
@@ -409,7 +441,7 @@ func parseSourceEntities(raw []any) []SourceEntity {
 			Labels:           uniqueSortedStrings(stringArray(object["labels"])),
 		})
 	}
-	sort.Slice(entities, func(i, j int) bool { return entities[i].SourceEntityID < entities[j].SourceEntityID })
+	sort.SliceStable(entities, func(i, j int) bool { return entities[i].SourceEntityID < entities[j].SourceEntityID })
 	return entities
 }
 
@@ -428,7 +460,7 @@ func parseSourceRelationships(raw []any) []SourceRelationship {
 			Labels:                 uniqueSortedStrings(stringArray(object["labels"])),
 		})
 	}
-	sort.Slice(relationships, func(i, j int) bool {
+	sort.SliceStable(relationships, func(i, j int) bool {
 		return relationships[i].SourceRelationshipID < relationships[j].SourceRelationshipID
 	})
 	return relationships
@@ -446,23 +478,41 @@ func parseFilterPredicates(raw []any) []FilterPredicate {
 	predicates := make([]FilterPredicate, 0, len(raw))
 	for _, entry := range raw {
 		object := mustObject(entry, "filter")
+		value, hasValue := object["value"]
 		predicates = append(predicates, FilterPredicate{
-			FieldPath: mustString(object["field_path"], "field_path"),
-			Operator:  mustString(object["operator"], "operator"),
-			Value:     object["value"],
+			FieldPath: mustString(object["field_path"], "field_path"), Operator: mustString(object["op"], "op"),
+			Value: value, HasValue: hasValue, IncludeIfMissing: boolDefault(object["include_if_missing"], false),
 		})
 	}
 	return predicates
 }
 
+func parseInclusionPredicate(value any) (string, *FilterPredicate) {
+	if value == nil {
+		return "always", nil
+	}
+	if token, ok := value.(string); ok {
+		return token, nil
+	}
+	object := mustObject(value, "inclusion_predicate")
+	parsed := parseFilterPredicates([]any{object})
+	return "filter", &parsed[0]
+}
+
 func normalizeProjectionRequest(request *ProjectionRequest) {
-	request.ProjectionConfig.DeclaredSourceEntityKinds = uniqueSortedStrings(request.ProjectionConfig.DeclaredSourceEntityKinds)
-	request.ProjectionConfig.DeclaredSourceRelationshipKinds = uniqueSortedStrings(request.ProjectionConfig.DeclaredSourceRelationshipKinds)
+	request.ProjectionConfig.DeclaredSourceEntityKinds = sortedStrings(request.ProjectionConfig.DeclaredSourceEntityKinds)
+	request.ProjectionConfig.DeclaredSourceRelationshipKinds = sortedStrings(request.ProjectionConfig.DeclaredSourceRelationshipKinds)
 	request.ProjectionConfig.DefaultVertexLabels = uniqueSortedStrings(request.ProjectionConfig.DefaultVertexLabels)
 	request.ProjectionConfig.DefaultEdgeLabels = uniqueSortedStrings(request.ProjectionConfig.DefaultEdgeLabels)
 	if len(request.ProjectionConfig.RelationshipMappings) > 0 {
 		request.RelationshipMappings = request.ProjectionConfig.RelationshipMappings
 	}
+}
+
+func sortedStrings(values []string) []string {
+	out := append([]string(nil), values...)
+	sort.Strings(out)
+	return out
 }
 
 func normalizedRequestObject(request ProjectionRequest) map[string]any {
@@ -497,11 +547,11 @@ func normalizedConfigObject(config ProjectionConfig) map[string]any {
 		"allow_empty_kind_registry":          config.AllowEmptyKindRegistry,
 		"retention_policy": map[string]any{
 			"retain_replaced_results":           config.RetentionPolicy.RetainReplacedResults,
-			"retention_count":                   config.RetentionPolicy.RetentionCount,
-			"retention_duration_seconds":        config.RetentionPolicy.RetentionDurationSeconds,
+			"retention_count":                   retentionInteger(config.RetentionPolicy, "retention_count", config.RetentionPolicy.RetentionCount),
+			"retention_duration_seconds":        retentionInteger(config.RetentionPolicy, "retention_duration_seconds", config.RetentionPolicy.RetentionDurationSeconds),
 			"retain_failed_results":             config.RetentionPolicy.RetainFailedResults,
-			"failed_retention_count":            config.RetentionPolicy.FailedRetentionCount,
-			"failed_retention_duration_seconds": config.RetentionPolicy.FailedRetentionDurationSecs,
+			"failed_retention_count":            retentionInteger(config.RetentionPolicy, "failed_retention_count", config.RetentionPolicy.FailedRetentionCount),
+			"failed_retention_duration_seconds": retentionInteger(config.RetentionPolicy, "failed_retention_duration_seconds", config.RetentionPolicy.FailedRetentionDurationSecs),
 		},
 		"custom_config": config.CustomConfig,
 	}
@@ -528,11 +578,11 @@ func projectionConfigDigestTranscript(request ProjectionRequest) ([]byte, error)
 		canonicalMember{Name: "allow_empty_kind_registry", Value: request.ProjectionConfig.AllowEmptyKindRegistry},
 		canonicalMember{Name: "retention_policy", Value: canonicalFields(
 			canonicalMember{Name: "retain_replaced_results", Value: retention.RetainReplacedResults},
-			canonicalMember{Name: "retention_count", Value: retention.RetentionCount},
-			canonicalMember{Name: "retention_duration_seconds", Value: retention.RetentionDurationSeconds},
+			canonicalMember{Name: "retention_count", Value: retentionInteger(retention, "retention_count", retention.RetentionCount)},
+			canonicalMember{Name: "retention_duration_seconds", Value: retentionInteger(retention, "retention_duration_seconds", retention.RetentionDurationSeconds)},
 			canonicalMember{Name: "retain_failed_results", Value: retention.RetainFailedResults},
-			canonicalMember{Name: "failed_retention_count", Value: retention.FailedRetentionCount},
-			canonicalMember{Name: "failed_retention_duration_seconds", Value: retention.FailedRetentionDurationSecs},
+			canonicalMember{Name: "failed_retention_count", Value: retentionInteger(retention, "failed_retention_count", retention.FailedRetentionCount)},
+			canonicalMember{Name: "failed_retention_duration_seconds", Value: retentionInteger(retention, "failed_retention_duration_seconds", retention.FailedRetentionDurationSecs)},
 		)},
 	)
 	source := "none"
@@ -542,7 +592,14 @@ func projectionConfigDigestTranscript(request ProjectionRequest) ([]byte, error)
 	if len(request.ProjectionConfig.RelationshipMappings) > 0 {
 		source = "projection_config_relationship_mappings"
 	}
-	return tupleBytes("GPCONFIG1\n", request.ProjectionSchemaID, configCore, source, relationshipMappingsObject(request.RelationshipMappings), filtersObject(request.Filters), propertyDefinitionsObject(request.PropertyDefinitions), metadataMappingsObject(request.ProjectionConfig.MetadataMappings), aggregationRulesObject(request.ProjectionConfig.AggregationRules))
+	return tupleBytesInput("GPCONFIG1\n", request.ProjectionSchemaID, configCore, source, relationshipMappingsObject(request.RelationshipMappings), filtersObject(request.Filters), propertyDefinitionsObject(request.PropertyDefinitions), metadataMappingsObject(request.ProjectionConfig.MetadataMappings), aggregationRulesObject(request.ProjectionConfig.AggregationRules))
+}
+
+func retentionInteger(policy RetentionPolicy, key string, value int) any {
+	if lexeme, ok := policy.RawIntegerLexemes[key]; ok {
+		return json.Number(lexeme)
+	}
+	return value
 }
 
 func projectionSourceDigest(request ProjectionRequest) (string, error) {
@@ -554,7 +611,7 @@ func projectionSourceDigest(request ProjectionRequest) (string, error) {
 }
 
 func projectionSourceDigestTranscript(request ProjectionRequest) ([]byte, error) {
-	return tupleBytes("GPSOURCE1\n", request.ProjectionSchemaID, request.SourceSnapshotID, sourceEntitiesObject(request.SourceEntities), sourceRelationshipsObject(request.SourceRelationships), request.SourceMetadata)
+	return tupleBytesInput("GPSOURCE1\n", request.ProjectionSchemaID, request.SourceSnapshotID, sourceEntitiesObject(request.SourceEntities), sourceRelationshipsObject(request.SourceRelationships), request.SourceMetadata)
 }
 
 func defaultMissingBehavior(required bool) string {
@@ -562,14 +619,6 @@ func defaultMissingBehavior(required bool) string {
 		return "error"
 	}
 	return "omit"
-}
-
-func set(values ...string) map[string]bool {
-	out := map[string]bool{}
-	for _, value := range values {
-		out[value] = true
-	}
-	return out
 }
 
 func validIdentifier(value string) bool {
@@ -613,10 +662,14 @@ func isSpecWhitespace(r rune) bool {
 }
 
 func parseTimestamp(value string) (time.Time, error) {
-	if strings.Contains(value, ".") {
-		return time.Parse("2006-01-02T15:04:05.999999Z", value)
+	if !timestampPattern.MatchString(value) {
+		return time.Time{}, fmt.Errorf("invalid timestamp")
 	}
-	return time.Parse("2006-01-02T15:04:05Z", value)
+	parsed, err := time.Parse(time.RFC3339Nano, value)
+	if err != nil || parsed.Year() < 1 || parsed.Year() > 9999 {
+		return time.Time{}, fmt.Errorf("invalid timestamp")
+	}
+	return parsed, nil
 }
 
 func mustString(value any, _ string) string {
@@ -700,13 +753,21 @@ func boolDefault(value any, fallback bool) bool {
 }
 
 func intDefault(value any, fallback int) int {
-	if number, ok := value.(json.Number); ok && finiteIntegerPattern.MatchString(number.String()) {
+	if number, ok := value.(json.Number); ok && validFiniteInteger(number.String()) {
 		parsed, err := number.Int64()
 		if err == nil {
 			return int(parsed)
 		}
 	}
 	return fallback
+}
+
+func validFiniteInteger(value string) bool {
+	if !finiteIntegerPattern.MatchString(value) {
+		return false
+	}
+	parsed, err := strconv.ParseInt(value, 10, 64)
+	return err == nil && parsed >= -maxFiniteInteger && parsed <= maxFiniteInteger
 }
 
 func uniqueSortedStrings(values []string) []string {

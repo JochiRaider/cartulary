@@ -76,11 +76,16 @@ func Load(root, fixtureID string) (Manifest, string, error) {
 		return Manifest{}, "", fmt.Errorf("fixturetest: invalid fixture id %q", fixtureID)
 	}
 	directory := filepath.Join(root, "contracts", "graph-projection", "fixtures", fixtureID)
-	manifestPath := filepath.Join(directory, "fixture.json")
-	body, err := os.ReadFile(manifestPath)
+	fixtureRoot, err := os.OpenRoot(directory)
 	if err != nil {
 		return Manifest{}, "", err
 	}
+	defer fixtureRoot.Close()
+	body, err := fixtureRoot.ReadFile("fixture.json")
+	if err != nil {
+		return Manifest{}, "", err
+	}
+	manifestPath := filepath.Join(directory, "fixture.json")
 	decoder := json.NewDecoder(strings.NewReader(string(body)))
 	decoder.DisallowUnknownFields()
 	var manifest Manifest
@@ -99,18 +104,18 @@ func Load(root, fixtureID string) (Manifest, string, error) {
 			return Manifest{}, "", fmt.Errorf("fixture %s has duplicate or empty artifact path", fixtureID)
 		}
 		seen[artifact.Path] = true
-		path, err := containedPath(directory, artifact.Path)
+		path, err := cleanRelativePath(artifact.Path)
 		if err != nil {
 			return Manifest{}, "", err
 		}
-		info, err := os.Lstat(path)
+		info, err := fixtureRoot.Lstat(path)
 		if err != nil {
 			return Manifest{}, "", err
 		}
 		if info.Mode()&fs.ModeSymlink != 0 || !info.Mode().IsRegular() {
 			return Manifest{}, "", fmt.Errorf("fixture %s artifact %s is not a regular file", fixtureID, artifact.Path)
 		}
-		bytes, err := os.ReadFile(path)
+		bytes, err := fixtureRoot.ReadFile(path)
 		if err != nil {
 			return Manifest{}, "", err
 		}
@@ -123,27 +128,51 @@ func Load(root, fixtureID string) (Manifest, string, error) {
 }
 
 func ReadArtifact(directory, relativePath string) ([]byte, error) {
-	path, err := containedPath(directory, relativePath)
+	path, err := cleanRelativePath(relativePath)
 	if err != nil {
 		return nil, err
 	}
-	return os.ReadFile(path)
+	fixtureRoot, err := os.OpenRoot(directory)
+	if err != nil {
+		return nil, err
+	}
+	defer fixtureRoot.Close()
+	return fixtureRoot.ReadFile(path)
 }
 
 func CompareBytes(name string, actual, expected []byte) error {
 	if string(actual) == string(expected) {
 		return nil
 	}
-	return fmt.Errorf("%s differs: actual_len=%d expected_len=%d", name, len(actual), len(expected))
+	limit := len(actual)
+	if len(expected) < limit {
+		limit = len(expected)
+	}
+	first := 0
+	for first < limit && actual[first] == expected[first] {
+		first++
+	}
+	windowStart := first - 16
+	if windowStart < 0 {
+		windowStart = 0
+	}
+	actualEnd := first + 16
+	if actualEnd > len(actual) {
+		actualEnd = len(actual)
+	}
+	expectedEnd := first + 16
+	if expectedEnd > len(expected) {
+		expectedEnd = len(expected)
+	}
+	return fmt.Errorf("%s differs at byte %d: actual_len=%d expected_len=%d actual_window=%q expected_window=%q", name, first, len(actual), len(expected), actual[windowStart:actualEnd], expected[windowStart:expectedEnd])
 }
 
-func containedPath(directory, relativePath string) (string, error) {
+func cleanRelativePath(relativePath string) (string, error) {
 	if relativePath == "" || filepath.IsAbs(relativePath) || strings.Contains(relativePath, "\\") {
 		return "", fmt.Errorf("unsafe fixture artifact path %q", relativePath)
 	}
-	path := filepath.Clean(filepath.Join(directory, filepath.FromSlash(relativePath)))
-	rel, err := filepath.Rel(directory, path)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+	path := filepath.Clean(filepath.FromSlash(relativePath))
+	if path == "." || path == ".." || strings.HasPrefix(path, ".."+string(filepath.Separator)) {
 		return "", fmt.Errorf("unsafe fixture artifact path %q", relativePath)
 	}
 	return path, nil

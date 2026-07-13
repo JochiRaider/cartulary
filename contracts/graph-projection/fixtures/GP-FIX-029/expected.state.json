@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-029",
+  "assertion": "Graph-view invalidation during refreshing causes an in-flight successful run to become invalidated and never consumable.",
+  "test_symbol": "TestGPFIX029Remediation"
+}

@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-026",
+  "input_kind": "digest_transcript",
+  "coverage": "Duplicate valid source IDs admitted as fatal duplicate_identifier with deterministic normalized ordering and full digest transcript."
+}

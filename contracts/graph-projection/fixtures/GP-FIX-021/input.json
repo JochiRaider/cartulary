@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-021",
+  "input_kind": "operation_sequence",
+  "coverage": "Count-bound retention expiry before duration expiry."
+}

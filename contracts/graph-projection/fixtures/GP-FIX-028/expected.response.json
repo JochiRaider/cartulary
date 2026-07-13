@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-028",
+  "assertion": "projected.metadata.mapping_rule_id is rejected as a system metadata field path with invalid_field_path.",
+  "test_symbol": "TestGPFIX028Remediation"
+}

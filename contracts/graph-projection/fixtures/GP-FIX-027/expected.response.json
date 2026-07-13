@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-027",
+  "assertion": "Aggregation grouping key over mapped metadata succeeds and records the expected grouping-digest transcript.",
+  "test_symbol": "TestGPFIX027Remediation"
+}

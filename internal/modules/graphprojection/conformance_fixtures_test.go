@@ -39,13 +39,13 @@ func TestGPFIX014CanonicalJSONString(t *testing.T) {
 
 func TestGPFIX015IntegerLexicalBoundaries(t *testing.T) {
 	assertFixtureLoaded(t, "GP-FIX-015")
-	for _, value := range []string{"0", "-1", "9223372036854775807"} {
-		if !finiteIntegerPattern.MatchString(value) {
+	for _, value := range []string{"0", "-1", "9007199254740991", "-9007199254740991"} {
+		if !validFiniteInteger(value) {
 			t.Fatalf("valid integer %q rejected", value)
 		}
 	}
-	for _, value := range []string{"01", "-0", "+1", "1.0", "1e2", ""} {
-		if finiteIntegerPattern.MatchString(value) {
+	for _, value := range []string{"01", "-0", "+1", "1.0", "1e2", "", "9007199254740992", "-9007199254740992"} {
+		if validFiniteInteger(value) {
 			t.Fatalf("invalid integer %q accepted", value)
 		}
 	}

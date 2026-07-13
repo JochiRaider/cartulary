@@ -5,112 +5,1249 @@
   "matrix_version": 1,
   "authority": "adopted_graph_projection_nlspec",
   "acceptance_criteria": [
-    { "id": "GP-AC-001", "owner": "graphprojection", "coverage_status": "planned", "areas": ["specification", "implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestAdmissionAndNormalization"], "fixture_ids": ["GP-FIX-022"] },
-    { "id": "GP-AC-002", "owner": "graphprojection", "coverage_status": "planned", "areas": ["specification", "implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestAdmissionAndNormalization"], "fixture_ids": ["GP-FIX-003"] },
-    { "id": "GP-AC-003", "owner": "graphprojection", "coverage_status": "planned", "areas": ["specification", "implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestCanonicalDigestAndIDs"], "fixture_ids": ["GP-FIX-022", "GP-FIX-023"] },
-    { "id": "GP-AC-004", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestAdmissionRejectsInvalidGraphViewID"], "fixture_ids": ["GP-FIX-003"] },
-    { "id": "GP-AC-005", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestScalarAndFieldPathValidation"], "fixture_ids": ["GP-FIX-028"] },
-    { "id": "GP-AC-006", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestScalarAndFieldPathValidation"], "fixture_ids": ["GP-FIX-015", "GP-FIX-034"] },
-    { "id": "GP-AC-007", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestFailedRunInspectionShape"], "fixture_ids": ["GP-FIX-004"] },
-    { "id": "GP-AC-008", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestCanonicalDigestAndIDs"], "fixture_ids": [] },
-    { "id": "GP-AC-009", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestFilterTruthTable"], "fixture_ids": [] },
-    { "id": "GP-AC-010", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"], "fixture_ids": ["GP-FIX-015", "GP-FIX-016"] },
-    { "id": "GP-AC-011", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"], "fixture_ids": [] },
-    { "id": "GP-AC-012", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"], "fixture_ids": [] },
-    { "id": "GP-AC-013", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"], "fixture_ids": [] },
-    { "id": "GP-AC-014", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"], "fixture_ids": ["GP-FIX-006", "GP-FIX-007", "GP-FIX-008"] },
-    { "id": "GP-AC-015", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"], "fixture_ids": ["GP-FIX-012"] },
-    { "id": "GP-AC-016", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"], "fixture_ids": ["GP-FIX-012", "GP-FIX-013"] },
-    { "id": "GP-AC-017", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"], "fixture_ids": [] },
-    { "id": "GP-AC-018", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestCanonicalDigestAndIDs"], "fixture_ids": ["GP-FIX-022", "GP-FIX-023"] },
-    { "id": "GP-AC-019", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestFailedRunInspectionShape"], "fixture_ids": ["GP-FIX-005"] },
-    { "id": "GP-AC-020", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestFailedRunInspectionShape"], "fixture_ids": ["GP-FIX-004"] },
-    { "id": "GP-AC-021", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestFilterTruthTable"], "fixture_ids": [] },
-    { "id": "GP-AC-022", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests", "migration"], "evidence_selectors": ["internal/modules/graphprojection::TestQueryLifecycleStateMatrix", "internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation"], "fixture_ids": ["GP-FIX-020"] },
-    { "id": "GP-AC-023", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests", "migration"], "evidence_selectors": ["internal/modules/graphprojection::TestQueryLifecycleStateMatrix"], "fixture_ids": ["GP-FIX-004"] },
-    { "id": "GP-AC-024", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests", "migration"], "evidence_selectors": ["internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation"], "fixture_ids": ["GP-FIX-021"] },
-    { "id": "GP-AC-025", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestQueryLifecycleStateMatrix"], "fixture_ids": ["GP-FIX-020"] },
-    { "id": "GP-AC-026", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestTraverseDeterminism"], "fixture_ids": [] },
-    { "id": "GP-AC-027", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestListGraphViewsPagination"], "fixture_ids": [] },
-    { "id": "GP-AC-028", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestCanonicalJSON"], "fixture_ids": ["GP-FIX-014"] },
-    { "id": "GP-AC-029", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestGraphProjectionProductionImportBoundaries", "internal/modules/graphprojection::TestNoPublicGraphProjectionRoutes"], "fixture_ids": [] },
-    { "id": "GP-AC-030", "owner": "graphprojection", "coverage_status": "planned", "areas": ["specification", "contracts", "tests"], "evidence_selectors": ["docs/graph_projection_nlspec.md::GP-AC-030"], "fixture_ids": [] },
-    { "id": "GP-AC-031", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestDuplicateObjectMembersRejected"], "fixture_ids": ["GP-FIX-002"] },
-    { "id": "GP-AC-032", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestCanonicalDigestAndIDs"], "fixture_ids": ["GP-FIX-022", "GP-FIX-023"] },
-    { "id": "GP-AC-033", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests", "migration"], "evidence_selectors": ["internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation", "internal/modules/graphprojection::TestListGraphViewsPagination"], "fixture_ids": ["GP-FIX-018", "GP-FIX-019"] },
-    { "id": "GP-AC-034", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests", "migration"], "evidence_selectors": ["internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation"], "fixture_ids": ["GP-FIX-021"] },
-    { "id": "GP-AC-035", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests", "migration"], "evidence_selectors": ["internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation"], "fixture_ids": ["GP-FIX-019"] },
-    { "id": "GP-AC-036", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestFailedRunInspectionShape"], "fixture_ids": ["GP-FIX-005"] },
-    { "id": "GP-AC-037", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestFailedRunInspectionShape"], "fixture_ids": ["GP-FIX-005"] },
-    { "id": "GP-AC-038", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestFailedRunInspectionShape"], "fixture_ids": [] },
-    { "id": "GP-AC-039", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"], "fixture_ids": ["GP-FIX-013"] },
-    { "id": "GP-AC-040", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"], "fixture_ids": [] },
-    { "id": "GP-AC-041", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"], "fixture_ids": [] },
-    { "id": "GP-AC-042", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestFailedRunInspectionShape"], "fixture_ids": [] },
-    { "id": "GP-AC-043", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"], "fixture_ids": ["GP-FIX-009", "GP-FIX-010", "GP-FIX-011"] },
-    { "id": "GP-AC-044", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"], "fixture_ids": ["GP-FIX-006", "GP-FIX-007", "GP-FIX-008"] },
-    { "id": "GP-AC-045", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"], "fixture_ids": ["GP-FIX-027", "GP-FIX-028"] },
-    { "id": "GP-AC-046", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestQueryLifecycleStateMatrix", "internal/modules/graphprojection::TestTraverseDeterminism"], "fixture_ids": [] },
-    { "id": "GP-AC-047", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestQueryLifecycleStateMatrix"], "fixture_ids": ["GP-FIX-020"] },
-    { "id": "GP-AC-048", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestListGraphViewsPagination"], "fixture_ids": ["GP-FIX-035"] },
-    { "id": "GP-AC-049", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestTraverseDeterminism"], "fixture_ids": [] },
-    { "id": "GP-AC-050", "owner": "graphprojection", "coverage_status": "planned", "areas": ["contracts", "tests"], "evidence_selectors": ["contracts/graph-projection/fixtures/corpus.v1.json"], "fixture_ids": ["GP-FIX-022", "GP-FIX-023"] },
-    { "id": "GP-AC-051", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests", "migration"], "evidence_selectors": ["internal/modules/graphprojection::TestStorePreAdmissionFailureTouchesNoState", "internal/modules/graphprojection::TestDuplicateObjectMembersRejected", "internal/modules/graphprojection::TestAdmissionRejectsInvalidGraphViewID"], "fixture_ids": ["GP-FIX-001", "GP-FIX-002", "GP-FIX-003"] },
-    { "id": "GP-AC-052", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests", "migration"], "evidence_selectors": ["internal/modules/graphprojection::TestQueryLifecycleStateMatrix"], "fixture_ids": ["GP-FIX-004"] },
-    { "id": "GP-AC-053", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation", "internal/modules/graphprojection::TestListGraphViewsPagination"], "fixture_ids": ["GP-FIX-018"] },
-    { "id": "GP-AC-054", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation"], "fixture_ids": ["GP-FIX-019"] },
-    { "id": "GP-AC-055", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests", "migration"], "evidence_selectors": ["internal/modules/graphprojection::TestListGraphViewsPagination"], "fixture_ids": ["GP-FIX-018"] },
-    { "id": "GP-AC-056", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestStorePreAdmissionFailureTouchesNoState", "internal/modules/graphprojection::TestDuplicateObjectMembersRejected"], "fixture_ids": ["GP-FIX-001", "GP-FIX-002", "GP-FIX-003"] },
-    { "id": "GP-AC-057", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"], "fixture_ids": ["GP-FIX-006"] },
-    { "id": "GP-AC-058", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"], "fixture_ids": ["GP-FIX-009", "GP-FIX-010", "GP-FIX-011"] },
-    { "id": "GP-AC-059", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"], "fixture_ids": ["GP-FIX-006"] },
-    { "id": "GP-AC-060", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"], "fixture_ids": ["GP-FIX-012", "GP-FIX-013"] },
-    { "id": "GP-AC-061", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestFailedRunInspectionShape", "internal/modules/graphprojection::TestQueryLifecycleStateMatrix"], "fixture_ids": ["GP-FIX-004", "GP-FIX-005"] },
-    { "id": "GP-AC-062", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestCanonicalJSON"], "fixture_ids": ["GP-FIX-014", "GP-FIX-036"] },
-    { "id": "GP-AC-063", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestScalarAndFieldPathValidation"], "fixture_ids": ["GP-FIX-015", "GP-FIX-016", "GP-FIX-017"] },
-    { "id": "GP-AC-064", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests", "migration"], "evidence_selectors": ["internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation"], "fixture_ids": [] },
-    { "id": "GP-AC-065", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestQueryLifecycleStateMatrix", "internal/modules/graphprojection::TestListGraphViewsPagination"], "fixture_ids": ["GP-FIX-020"] },
-    { "id": "GP-AC-066", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests", "migration"], "evidence_selectors": ["internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation"], "fixture_ids": ["GP-FIX-021", "GP-FIX-032"] },
-    { "id": "GP-AC-067", "owner": "graphprojection", "coverage_status": "planned", "areas": ["implementation", "tests"], "evidence_selectors": ["internal/modules/graphprojection::TestCanonicalDigestAndIDs"], "fixture_ids": ["GP-FIX-022", "GP-FIX-023"] },
-    { "id": "GP-AC-068", "owner": "graphprojection", "coverage_status": "planned", "areas": ["contracts", "tests"], "evidence_selectors": ["docs/graph_projection_nlspec.md::GP-AC-068"], "fixture_ids": ["GP-FIX-024", "GP-FIX-025", "GP-FIX-026"] },
-    { "id": "GP-AC-069", "owner": "graphprojection", "coverage_status": "planned", "areas": ["contracts", "tests", "migration"], "evidence_selectors": ["docs/graph_projection_nlspec.md::GP-AC-069", "contracts/graph-projection/fixtures/corpus.v1.json::GP-FIX-029", "contracts/graph-projection/fixtures/corpus.v1.json::GP-FIX-030", "contracts/graph-projection/fixtures/corpus.v1.json::GP-FIX-031", "contracts/graph-projection/fixtures/corpus.v1.json::GP-FIX-033"], "fixture_ids": ["GP-FIX-029", "GP-FIX-030", "GP-FIX-031", "GP-FIX-033"] }
+    {
+      "id": "GP-AC-001",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "specification",
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestAdmissionAndNormalization"
+      ],
+      "fixture_ids": [
+        "GP-FIX-022"
+      ]
+    },
+    {
+      "id": "GP-AC-002",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "specification",
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestAdmissionAndNormalization"
+      ],
+      "fixture_ids": [
+        "GP-FIX-003"
+      ]
+    },
+    {
+      "id": "GP-AC-003",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "specification",
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestCanonicalDigestAndIDs"
+      ],
+      "fixture_ids": [
+        "GP-FIX-022",
+        "GP-FIX-023"
+      ]
+    },
+    {
+      "id": "GP-AC-004",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestAdmissionRejectsInvalidGraphViewID"
+      ],
+      "fixture_ids": [
+        "GP-FIX-003"
+      ]
+    },
+    {
+      "id": "GP-AC-005",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestScalarAndFieldPathValidation"
+      ],
+      "fixture_ids": [
+        "GP-FIX-028"
+      ]
+    },
+    {
+      "id": "GP-AC-006",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestScalarAndFieldPathValidation"
+      ],
+      "fixture_ids": [
+        "GP-FIX-015",
+        "GP-FIX-034"
+      ]
+    },
+    {
+      "id": "GP-AC-007",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestFailedRunInspectionShape"
+      ],
+      "fixture_ids": [
+        "GP-FIX-004"
+      ]
+    },
+    {
+      "id": "GP-AC-008",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestCanonicalDigestAndIDs"
+      ],
+      "fixture_ids": []
+    },
+    {
+      "id": "GP-AC-009",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestFilterTruthTable"
+      ],
+      "fixture_ids": []
+    },
+    {
+      "id": "GP-AC-010",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
+      ],
+      "fixture_ids": [
+        "GP-FIX-015",
+        "GP-FIX-016"
+      ]
+    },
+    {
+      "id": "GP-AC-011",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
+      ],
+      "fixture_ids": []
+    },
+    {
+      "id": "GP-AC-012",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
+      ],
+      "fixture_ids": []
+    },
+    {
+      "id": "GP-AC-013",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
+      ],
+      "fixture_ids": []
+    },
+    {
+      "id": "GP-AC-014",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
+      ],
+      "fixture_ids": [
+        "GP-FIX-006",
+        "GP-FIX-007",
+        "GP-FIX-008"
+      ]
+    },
+    {
+      "id": "GP-AC-015",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
+      ],
+      "fixture_ids": [
+        "GP-FIX-012"
+      ]
+    },
+    {
+      "id": "GP-AC-016",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
+      ],
+      "fixture_ids": [
+        "GP-FIX-012",
+        "GP-FIX-013"
+      ]
+    },
+    {
+      "id": "GP-AC-017",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
+      ],
+      "fixture_ids": []
+    },
+    {
+      "id": "GP-AC-018",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestCanonicalDigestAndIDs"
+      ],
+      "fixture_ids": [
+        "GP-FIX-022",
+        "GP-FIX-023"
+      ]
+    },
+    {
+      "id": "GP-AC-019",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestFailedRunInspectionShape"
+      ],
+      "fixture_ids": [
+        "GP-FIX-005"
+      ]
+    },
+    {
+      "id": "GP-AC-020",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestFailedRunInspectionShape"
+      ],
+      "fixture_ids": [
+        "GP-FIX-004"
+      ]
+    },
+    {
+      "id": "GP-AC-021",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestFilterTruthTable"
+      ],
+      "fixture_ids": []
+    },
+    {
+      "id": "GP-AC-022",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests",
+        "migration"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestQueryLifecycleStateMatrix",
+        "internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation"
+      ],
+      "fixture_ids": [
+        "GP-FIX-020"
+      ]
+    },
+    {
+      "id": "GP-AC-023",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests",
+        "migration"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestQueryLifecycleStateMatrix"
+      ],
+      "fixture_ids": [
+        "GP-FIX-004"
+      ]
+    },
+    {
+      "id": "GP-AC-024",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests",
+        "migration"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation"
+      ],
+      "fixture_ids": [
+        "GP-FIX-021"
+      ]
+    },
+    {
+      "id": "GP-AC-025",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestQueryLifecycleStateMatrix"
+      ],
+      "fixture_ids": [
+        "GP-FIX-020"
+      ]
+    },
+    {
+      "id": "GP-AC-026",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestTraverseDeterminism"
+      ],
+      "fixture_ids": []
+    },
+    {
+      "id": "GP-AC-027",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestListGraphViewsPagination"
+      ],
+      "fixture_ids": []
+    },
+    {
+      "id": "GP-AC-028",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestCanonicalJSON"
+      ],
+      "fixture_ids": [
+        "GP-FIX-014"
+      ]
+    },
+    {
+      "id": "GP-AC-029",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestGraphProjectionProductionImportBoundaries",
+        "internal/modules/graphprojection::TestNoPublicGraphProjectionRoutes"
+      ],
+      "fixture_ids": []
+    },
+    {
+      "id": "GP-AC-030",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "specification",
+        "contracts",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "docs/graph_projection_nlspec.md::GP-AC-030"
+      ],
+      "fixture_ids": []
+    },
+    {
+      "id": "GP-AC-031",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestDuplicateObjectMembersRejected"
+      ],
+      "fixture_ids": [
+        "GP-FIX-002"
+      ]
+    },
+    {
+      "id": "GP-AC-032",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestCanonicalDigestAndIDs"
+      ],
+      "fixture_ids": [
+        "GP-FIX-022",
+        "GP-FIX-023"
+      ]
+    },
+    {
+      "id": "GP-AC-033",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests",
+        "migration"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation",
+        "internal/modules/graphprojection::TestListGraphViewsPagination"
+      ],
+      "fixture_ids": [
+        "GP-FIX-018",
+        "GP-FIX-019"
+      ]
+    },
+    {
+      "id": "GP-AC-034",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests",
+        "migration"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation"
+      ],
+      "fixture_ids": [
+        "GP-FIX-021"
+      ]
+    },
+    {
+      "id": "GP-AC-035",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests",
+        "migration"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation"
+      ],
+      "fixture_ids": [
+        "GP-FIX-019"
+      ]
+    },
+    {
+      "id": "GP-AC-036",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestFailedRunInspectionShape"
+      ],
+      "fixture_ids": [
+        "GP-FIX-005"
+      ]
+    },
+    {
+      "id": "GP-AC-037",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestFailedRunInspectionShape"
+      ],
+      "fixture_ids": [
+        "GP-FIX-005"
+      ]
+    },
+    {
+      "id": "GP-AC-038",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestFailedRunInspectionShape"
+      ],
+      "fixture_ids": []
+    },
+    {
+      "id": "GP-AC-039",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
+      ],
+      "fixture_ids": [
+        "GP-FIX-013"
+      ]
+    },
+    {
+      "id": "GP-AC-040",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
+      ],
+      "fixture_ids": []
+    },
+    {
+      "id": "GP-AC-041",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
+      ],
+      "fixture_ids": []
+    },
+    {
+      "id": "GP-AC-042",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestFailedRunInspectionShape"
+      ],
+      "fixture_ids": []
+    },
+    {
+      "id": "GP-AC-043",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
+      ],
+      "fixture_ids": [
+        "GP-FIX-009",
+        "GP-FIX-010",
+        "GP-FIX-011"
+      ]
+    },
+    {
+      "id": "GP-AC-044",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
+      ],
+      "fixture_ids": [
+        "GP-FIX-006",
+        "GP-FIX-007",
+        "GP-FIX-008"
+      ]
+    },
+    {
+      "id": "GP-AC-045",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
+      ],
+      "fixture_ids": [
+        "GP-FIX-027",
+        "GP-FIX-028"
+      ]
+    },
+    {
+      "id": "GP-AC-046",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestQueryLifecycleStateMatrix",
+        "internal/modules/graphprojection::TestTraverseDeterminism"
+      ],
+      "fixture_ids": []
+    },
+    {
+      "id": "GP-AC-047",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestQueryLifecycleStateMatrix"
+      ],
+      "fixture_ids": [
+        "GP-FIX-020"
+      ]
+    },
+    {
+      "id": "GP-AC-048",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestListGraphViewsPagination"
+      ],
+      "fixture_ids": [
+        "GP-FIX-035"
+      ]
+    },
+    {
+      "id": "GP-AC-049",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestTraverseDeterminism"
+      ],
+      "fixture_ids": []
+    },
+    {
+      "id": "GP-AC-050",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "contracts",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "contracts/graph-projection/fixtures/corpus.v1.json"
+      ],
+      "fixture_ids": [
+        "GP-FIX-022",
+        "GP-FIX-023"
+      ]
+    },
+    {
+      "id": "GP-AC-051",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests",
+        "migration"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestStorePreAdmissionFailureTouchesNoState",
+        "internal/modules/graphprojection::TestDuplicateObjectMembersRejected",
+        "internal/modules/graphprojection::TestAdmissionRejectsInvalidGraphViewID"
+      ],
+      "fixture_ids": [
+        "GP-FIX-001",
+        "GP-FIX-002",
+        "GP-FIX-003"
+      ]
+    },
+    {
+      "id": "GP-AC-052",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests",
+        "migration"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestQueryLifecycleStateMatrix"
+      ],
+      "fixture_ids": [
+        "GP-FIX-004"
+      ]
+    },
+    {
+      "id": "GP-AC-053",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation",
+        "internal/modules/graphprojection::TestListGraphViewsPagination"
+      ],
+      "fixture_ids": [
+        "GP-FIX-018"
+      ]
+    },
+    {
+      "id": "GP-AC-054",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation"
+      ],
+      "fixture_ids": [
+        "GP-FIX-019"
+      ]
+    },
+    {
+      "id": "GP-AC-055",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests",
+        "migration"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestListGraphViewsPagination"
+      ],
+      "fixture_ids": [
+        "GP-FIX-018"
+      ]
+    },
+    {
+      "id": "GP-AC-056",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestStorePreAdmissionFailureTouchesNoState",
+        "internal/modules/graphprojection::TestDuplicateObjectMembersRejected"
+      ],
+      "fixture_ids": [
+        "GP-FIX-001",
+        "GP-FIX-002",
+        "GP-FIX-003"
+      ]
+    },
+    {
+      "id": "GP-AC-057",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
+      ],
+      "fixture_ids": [
+        "GP-FIX-006"
+      ]
+    },
+    {
+      "id": "GP-AC-058",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
+      ],
+      "fixture_ids": [
+        "GP-FIX-009",
+        "GP-FIX-010",
+        "GP-FIX-011"
+      ]
+    },
+    {
+      "id": "GP-AC-059",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
+      ],
+      "fixture_ids": [
+        "GP-FIX-006"
+      ]
+    },
+    {
+      "id": "GP-AC-060",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
+      ],
+      "fixture_ids": [
+        "GP-FIX-012",
+        "GP-FIX-013"
+      ]
+    },
+    {
+      "id": "GP-AC-061",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestFailedRunInspectionShape",
+        "internal/modules/graphprojection::TestQueryLifecycleStateMatrix"
+      ],
+      "fixture_ids": [
+        "GP-FIX-004",
+        "GP-FIX-005"
+      ]
+    },
+    {
+      "id": "GP-AC-062",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestCanonicalJSON"
+      ],
+      "fixture_ids": [
+        "GP-FIX-014",
+        "GP-FIX-036"
+      ]
+    },
+    {
+      "id": "GP-AC-063",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestScalarAndFieldPathValidation"
+      ],
+      "fixture_ids": [
+        "GP-FIX-015",
+        "GP-FIX-016",
+        "GP-FIX-017"
+      ]
+    },
+    {
+      "id": "GP-AC-064",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests",
+        "migration"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation"
+      ],
+      "fixture_ids": []
+    },
+    {
+      "id": "GP-AC-065",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestQueryLifecycleStateMatrix",
+        "internal/modules/graphprojection::TestListGraphViewsPagination"
+      ],
+      "fixture_ids": [
+        "GP-FIX-020"
+      ]
+    },
+    {
+      "id": "GP-AC-066",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests",
+        "migration"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation"
+      ],
+      "fixture_ids": [
+        "GP-FIX-021",
+        "GP-FIX-032"
+      ]
+    },
+    {
+      "id": "GP-AC-067",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "implementation",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "internal/modules/graphprojection::TestCanonicalDigestAndIDs"
+      ],
+      "fixture_ids": [
+        "GP-FIX-022",
+        "GP-FIX-023"
+      ]
+    },
+    {
+      "id": "GP-AC-068",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "contracts",
+        "tests"
+      ],
+      "evidence_selectors": [
+        "docs/graph_projection_nlspec.md::GP-AC-068"
+      ],
+      "fixture_ids": [
+        "GP-FIX-024",
+        "GP-FIX-025",
+        "GP-FIX-026"
+      ]
+    },
+    {
+      "id": "GP-AC-069",
+      "owner": "graphprojection",
+      "coverage_status": "planned",
+      "areas": [
+        "contracts",
+        "tests",
+        "migration"
+      ],
+      "evidence_selectors": [
+        "docs/graph_projection_nlspec.md::GP-AC-069",
+        "contracts/graph-projection/fixtures/corpus.v1.json::GP-FIX-029",
+        "contracts/graph-projection/fixtures/corpus.v1.json::GP-FIX-030",
+        "contracts/graph-projection/fixtures/corpus.v1.json::GP-FIX-031",
+        "contracts/graph-projection/fixtures/corpus.v1.json::GP-FIX-033"
+      ],
+      "fixture_ids": [
+        "GP-FIX-029",
+        "GP-FIX-030",
+        "GP-FIX-031",
+        "GP-FIX-033"
+      ]
+    }
   ],
   "fixture_registry": [
-    { "fixture_id": "GP-FIX-001", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Malformed JSON pre-admission rejection." },
-    { "fixture_id": "GP-FIX-002", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Duplicate object member pre-admission rejection." },
-    { "fixture_id": "GP-FIX-003", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Invalid derived graph_view_id pre-admission rejection." },
-    { "fixture_id": "GP-FIX-004", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Admitted invalid mapping creates retained failed run." },
-    { "fixture_id": "GP-FIX-005", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Issue cap final ordering." },
-    { "fixture_id": "GP-FIX-006", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Aggregated property missing/default/null candidate behavior." },
-    { "fixture_id": "GP-FIX-007", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Aggregation single_value merge conflict after default materialization." },
-    { "fixture_id": "GP-FIX-008", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Aggregation count ignores source_field_path candidate evaluation." },
-    { "fixture_id": "GP-FIX-009", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Missing aggregated endpoint key with error." },
-    { "fixture_id": "GP-FIX-010", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Missing aggregated endpoint key with exclude." },
-    { "fixture_id": "GP-FIX-011", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Endpoint digest computed but no matching vertex." },
-    { "fixture_id": "GP-FIX-012", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Schema registry default labels, mapping labels, and source label preservation indicator." },
-    { "fixture_id": "GP-FIX-013", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Wildcard property and metadata registry expansion." },
-    { "fixture_id": "GP-FIX-014", "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-014/fixture.json", "coverage": "Canonical JSON string escaping." },
-    { "fixture_id": "GP-FIX-015", "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-015/fixture.json", "coverage": "Integer lexical forms." },
-    { "fixture_id": "GP-FIX-016", "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-016/fixture.json", "coverage": "Timestamp calendar validity." },
-    { "fixture_id": "GP-FIX-017", "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-017/fixture.json", "coverage": "Identifier Unicode whitespace boundary." },
-    { "fixture_id": "GP-FIX-018", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Lifecycle idempotency exact replay and conflict." },
-    { "fixture_id": "GP-FIX-019", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Invalidation summary graph-view cascade." },
-    { "fixture_id": "GP-FIX-020", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Graph-view summary state matrix." },
-    { "fixture_id": "GP-FIX-021", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Count-bound retention expiry before duration expiry." },
-    { "fixture_id": "GP-FIX-022", "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-022/fixture.json", "coverage": "Full digest byte transcript for minimal empty graph." },
-    { "fixture_id": "GP-FIX-023", "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-023/fixture.json", "coverage": "Full digest byte transcript for one host property graph." },
-    { "fixture_id": "GP-FIX-024", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Nested unknown member rejected pre-admission with no run, no digests, and no validation issue." },
-    { "fixture_id": "GP-FIX-025", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Source item identifier content violation admitted as a failed run with fixed digests and one itemized issue." },
-    { "fixture_id": "GP-FIX-026", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Duplicate valid source IDs admitted as fatal duplicate_identifier with deterministic normalized ordering and full digest transcript." },
-    { "fixture_id": "GP-FIX-027", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Aggregation grouping key over mapped metadata succeeds and records the expected grouping-digest transcript." },
-    { "fixture_id": "GP-FIX-028", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "projected.metadata.mapping_rule_id is rejected as a system metadata field path with invalid_field_path." },
-    { "fixture_id": "GP-FIX-029", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Graph-view invalidation during refreshing causes an in-flight successful run to become invalidated and never consumable." },
-    { "fixture_id": "GP-FIX-030", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Refresh from invalidated fails and returns the graph view to invalidated." },
-    { "fixture_id": "GP-FIX-031", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "create_projection on an invalidated graph view returns invalid_operation, reason_code=graph_view_already_exists." },
-    { "fixture_id": "GP-FIX-032", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Invalidated-run count-bound expiry before duration expiry, including replaced-to-invalidated bucket migration." },
-    { "fixture_id": "GP-FIX-033", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "refresh_projection on failed returns invalid_operation, reason_code=no_consumable_prior_run." },
-    { "fixture_id": "GP-FIX-034", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Representative overflow from the added resource-limit families returns the required limit code and severity." },
-    { "fixture_id": "GP-FIX-035", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Cursor validation precedence chooses cursor_token_too_long for a token that is simultaneously oversized, malformed, and expired." },
-    { "fixture_id": "GP-FIX-036", "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-036/fixture.json", "coverage": "distinct_sorted_array with quote-bearing and reverse-solidus-bearing strings follows canonical JSON byte order." }
+    {
+      "fixture_id": "GP-FIX-001",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-001/fixture.json",
+      "coverage": "Malformed JSON pre-admission rejection."
+    },
+    {
+      "fixture_id": "GP-FIX-002",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-002/fixture.json",
+      "coverage": "Duplicate object member pre-admission rejection."
+    },
+    {
+      "fixture_id": "GP-FIX-003",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-003/fixture.json",
+      "coverage": "Invalid derived graph_view_id pre-admission rejection."
+    },
+    {
+      "fixture_id": "GP-FIX-004",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-004/fixture.json",
+      "coverage": "Admitted invalid mapping creates retained failed run."
+    },
+    {
+      "fixture_id": "GP-FIX-005",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-005/fixture.json",
+      "coverage": "Issue cap final ordering."
+    },
+    {
+      "fixture_id": "GP-FIX-006",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-006/fixture.json",
+      "coverage": "Aggregated property missing/default/null candidate behavior."
+    },
+    {
+      "fixture_id": "GP-FIX-007",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-007/fixture.json",
+      "coverage": "Aggregation single_value merge conflict after default materialization."
+    },
+    {
+      "fixture_id": "GP-FIX-008",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-008/fixture.json",
+      "coverage": "Aggregation count ignores source_field_path candidate evaluation."
+    },
+    {
+      "fixture_id": "GP-FIX-009",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-009/fixture.json",
+      "coverage": "Missing aggregated endpoint key with error."
+    },
+    {
+      "fixture_id": "GP-FIX-010",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-010/fixture.json",
+      "coverage": "Missing aggregated endpoint key with exclude."
+    },
+    {
+      "fixture_id": "GP-FIX-011",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-011/fixture.json",
+      "coverage": "Endpoint digest computed but no matching vertex."
+    },
+    {
+      "fixture_id": "GP-FIX-012",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-012/fixture.json",
+      "coverage": "Schema registry default labels, mapping labels, and source label preservation indicator."
+    },
+    {
+      "fixture_id": "GP-FIX-013",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-013/fixture.json",
+      "coverage": "Wildcard property and metadata registry expansion."
+    },
+    {
+      "fixture_id": "GP-FIX-014",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-014/fixture.json",
+      "coverage": "Canonical JSON string escaping."
+    },
+    {
+      "fixture_id": "GP-FIX-015",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-015/fixture.json",
+      "coverage": "Integer lexical forms."
+    },
+    {
+      "fixture_id": "GP-FIX-016",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-016/fixture.json",
+      "coverage": "Timestamp calendar validity."
+    },
+    {
+      "fixture_id": "GP-FIX-017",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-017/fixture.json",
+      "coverage": "Identifier Unicode whitespace boundary."
+    },
+    {
+      "fixture_id": "GP-FIX-018",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-018/fixture.json",
+      "coverage": "Lifecycle idempotency exact replay and conflict."
+    },
+    {
+      "fixture_id": "GP-FIX-019",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-019/fixture.json",
+      "coverage": "Invalidation summary graph-view cascade."
+    },
+    {
+      "fixture_id": "GP-FIX-020",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-020/fixture.json",
+      "coverage": "Graph-view summary state matrix."
+    },
+    {
+      "fixture_id": "GP-FIX-021",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-021/fixture.json",
+      "coverage": "Count-bound retention expiry before duration expiry."
+    },
+    {
+      "fixture_id": "GP-FIX-022",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-022/fixture.json",
+      "coverage": "Full digest byte transcript for minimal empty graph."
+    },
+    {
+      "fixture_id": "GP-FIX-023",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-023/fixture.json",
+      "coverage": "Full digest byte transcript for one host property graph."
+    },
+    {
+      "fixture_id": "GP-FIX-024",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-024/fixture.json",
+      "coverage": "Nested unknown member rejected pre-admission with no run, no digests, and no validation issue."
+    },
+    {
+      "fixture_id": "GP-FIX-025",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-025/fixture.json",
+      "coverage": "Source item identifier content violation admitted as a failed run with fixed digests and one itemized issue."
+    },
+    {
+      "fixture_id": "GP-FIX-026",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-026/fixture.json",
+      "coverage": "Duplicate valid source IDs admitted as fatal duplicate_identifier with deterministic normalized ordering and full digest transcript."
+    },
+    {
+      "fixture_id": "GP-FIX-027",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-027/fixture.json",
+      "coverage": "Aggregation grouping key over mapped metadata succeeds and records the expected grouping-digest transcript."
+    },
+    {
+      "fixture_id": "GP-FIX-028",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-028/fixture.json",
+      "coverage": "projected.metadata.mapping_rule_id is rejected as a system metadata field path with invalid_field_path."
+    },
+    {
+      "fixture_id": "GP-FIX-029",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-029/fixture.json",
+      "coverage": "Graph-view invalidation during refreshing causes an in-flight successful run to become invalidated and never consumable."
+    },
+    {
+      "fixture_id": "GP-FIX-030",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-030/fixture.json",
+      "coverage": "Refresh from invalidated fails and returns the graph view to invalidated."
+    },
+    {
+      "fixture_id": "GP-FIX-031",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-031/fixture.json",
+      "coverage": "create_projection on an invalidated graph view returns invalid_operation, reason_code=graph_view_already_exists."
+    },
+    {
+      "fixture_id": "GP-FIX-032",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-032/fixture.json",
+      "coverage": "Invalidated-run count-bound expiry before duration expiry, including replaced-to-invalidated bucket migration."
+    },
+    {
+      "fixture_id": "GP-FIX-033",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-033/fixture.json",
+      "coverage": "refresh_projection on failed returns invalid_operation, reason_code=no_consumable_prior_run."
+    },
+    {
+      "fixture_id": "GP-FIX-034",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-034/fixture.json",
+      "coverage": "Representative overflow from the added resource-limit families returns the required limit code and severity."
+    },
+    {
+      "fixture_id": "GP-FIX-035",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-035/fixture.json",
+      "coverage": "Cursor validation precedence chooses cursor_token_too_long for a token that is simultaneously oversized, malformed, and expired."
+    },
+    {
+      "fixture_id": "GP-FIX-036",
+      "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-036/fixture.json",
+      "coverage": "distinct_sorted_array with quote-bearing and reverse-solidus-bearing strings follows canonical JSON byte order."
+    }
   ]
 }

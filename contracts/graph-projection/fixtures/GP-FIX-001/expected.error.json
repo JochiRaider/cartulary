@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-001",
+  "assertion": "Malformed JSON pre-admission rejection.",
+  "test_symbol": "TestGPFIX001Remediation"
+}

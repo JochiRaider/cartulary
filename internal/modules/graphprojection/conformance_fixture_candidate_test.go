@@ -46,7 +46,7 @@ func TestGraphProjectionFixtureCandidate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("candidate projection: %v", err)
 	}
-	body, err := json.MarshalIndent(result.Data, "", "  ")
+	body, err := json.MarshalIndent(result.Resource(), "", "  ")
 	if err != nil {
 		t.Fatal(err)
 	}

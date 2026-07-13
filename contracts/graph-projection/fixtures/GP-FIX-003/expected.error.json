@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-003",
+  "assertion": "Invalid derived graph_view_id pre-admission rejection.",
+  "test_symbol": "TestGPFIX003Remediation"
+}

@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-033",
+  "input_kind": "operation_sequence",
+  "coverage": "refresh_projection on failed returns invalid_operation, reason_code=no_consumable_prior_run."
+}

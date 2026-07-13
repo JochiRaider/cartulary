@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-005",
+  "assertion": "Issue cap final ordering.",
+  "test_symbol": "TestGPFIX005Remediation"
+}

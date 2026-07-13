@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-030",
+  "assertion": "Refresh from invalidated fails and returns the graph view to invalidated.",
+  "test_symbol": "TestGPFIX030Remediation"
+}

@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-008",
+  "input_kind": "projection_input",
+  "coverage": "Aggregation count ignores source_field_path candidate evaluation."
+}

@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-003",
+  "input_kind": "projection_input",
+  "coverage": "Invalid derived graph_view_id pre-admission rejection."
+}

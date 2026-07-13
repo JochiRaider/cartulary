@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-007",
+  "input_kind": "projection_input",
+  "coverage": "Aggregation single_value merge conflict after default materialization."
+}

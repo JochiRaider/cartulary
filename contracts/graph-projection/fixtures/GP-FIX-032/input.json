@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-032",
+  "input_kind": "operation_sequence",
+  "coverage": "Invalidated-run count-bound expiry before duration expiry, including replaced-to-invalidated bucket migration."
+}

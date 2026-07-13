@@ -37,6 +37,86 @@ func graphViewResource(view GraphView) map[string]any {
 	}
 }
 
+func graphViewCanonicalResource(view GraphView) canonicalObject {
+	resource := graphViewResource(view)
+	metadata := resource["metadata"].(map[string]any)
+	if invalidation, ok := metadata["invalidation"].(map[string]any); ok {
+		metadata["invalidation"] = orderedResource(invalidation, "invalidated_at", "reason_code", "requested_by", "target_scope", "target_projection_run_id")
+	}
+	resource["metadata"] = orderedResource(metadata, "previous_projection_run_id", "projection_config_digest", "projection_source_digest", "mapped_metadata", "invalidation")
+
+	registry := resource["schema_registry"].(map[string]any)
+	registry["vertex_kinds"] = orderedResourceArray(registry["vertex_kinds"], func(item map[string]any) canonicalObject {
+		item["properties"] = orderedResourceArray(item["properties"], func(property map[string]any) canonicalObject {
+			return orderedResource(property, "projected_key", "projected_type", "required", "nullable_output")
+		})
+		return orderedResource(item, "vertex_kind", "source_entity_kinds", "aggregation_rule_ids", "labels", "source_labels_preserved", "properties")
+	})
+	registry["edge_kinds"] = orderedResourceArray(registry["edge_kinds"], func(item map[string]any) canonicalObject {
+		item["properties"] = orderedResourceArray(item["properties"], func(property map[string]any) canonicalObject {
+			return orderedResource(property, "projected_key", "projected_type", "required", "nullable_output")
+		})
+		return orderedResource(item, "edge_kind", "source_relationship_kinds", "aggregation_rule_ids", "directions", "labels", "source_labels_preserved", "properties")
+	})
+	registry["property_keys"] = orderedResourceArray(registry["property_keys"], func(item map[string]any) canonicalObject {
+		return orderedResource(item, "target_scope", "target_kind", "projected_key", "projected_type", "required", "nullable_output", "missing_behavior", "source_null_behavior")
+	})
+	registry["metadata_keys"] = orderedResourceArray(registry["metadata_keys"], func(item map[string]any) canonicalObject {
+		return orderedResource(item, "target_scope", "target_kind", "projected_metadata_key", "projected_type", "required", "nullable_output", "missing_behavior", "source_null_behavior")
+	})
+	resource["schema_registry"] = orderedResource(registry, "vertex_kinds", "edge_kinds", "property_keys", "metadata_keys")
+
+	resource["vertices"] = orderedResourceArray(resource["vertices"], func(vertex map[string]any) canonicalObject {
+		metadata := vertex["metadata"].(map[string]any)
+		metadata["aggregation_source_refs"] = orderedResourceArray(metadata["aggregation_source_refs"], canonicalSourceRefResource)
+		vertex["metadata"] = orderedResource(metadata, "mapping_rule_id", "aggregation_rule_id", "aggregation_source_refs", "mapped_metadata")
+		if source, ok := vertex["source_entity_ref"].(map[string]any); ok {
+			vertex["source_entity_ref"] = orderedResource(source, "source_entity_id", "source_entity_kind", "mapping_rule_id")
+		}
+		return orderedResource(vertex, "vertex_id", "vertex_kind", "vertex_family", "labels", "properties", "metadata", "source_entity_ref", "sort_key")
+	})
+	resource["edges"] = orderedResourceArray(resource["edges"], func(edge map[string]any) canonicalObject {
+		metadata := edge["metadata"].(map[string]any)
+		metadata["aggregation_source_refs"] = orderedResourceArray(metadata["aggregation_source_refs"], canonicalSourceRefResource)
+		edge["metadata"] = orderedResource(metadata, "mapping_rule_id", "aggregation_rule_id", "aggregation_source_refs", "is_reverse_edge", "reverse_of_edge_id", "mapped_metadata")
+		if source, ok := edge["source_relationship_ref"].(map[string]any); ok {
+			edge["source_relationship_ref"] = orderedResource(source, "source_relationship_id", "source_relationship_kind", "mapping_rule_id")
+		}
+		return orderedResource(edge, "edge_id", "edge_kind", "edge_family", "src_vertex_id", "dst_vertex_id", "direction", "labels", "properties", "metadata", "source_relationship_ref", "sort_key")
+	})
+
+	validation := resource["validation_summary"].(map[string]any)
+	validation["issues"] = orderedResourceArray(validation["issues"], func(issue map[string]any) canonicalObject {
+		return orderedResource(issue, "issue_id", "severity", "code", "target_kind", "target_id", "field_path", "message", "details")
+	})
+	resource["validation_summary"] = orderedResource(validation, "status", "fatal_count", "error_count", "warning_count", "info_count", "issues")
+	capabilities := resource["consumer_capabilities"].(map[string]any)
+	resource["consumer_capabilities"] = orderedResource(capabilities, "query_shapes", "supports_direct_vertex_lookup", "supports_direct_edge_lookup", "supports_breadth_first_traversal", "supports_alternate_traversal_order", "max_traversal_depth", "max_traversal_seed_vertices", "max_kind_filters")
+
+	return orderedResource(resource, "projection_schema_id", "graph_view_id", "graph_view_key", "projection_run_id", "source_snapshot_id", "projection_version", "generated_at", "state", "properties", "metadata", "schema_registry", "vertices", "edges", "validation_summary", "consumer_capabilities")
+}
+
+func canonicalSourceRefResource(item map[string]any) canonicalObject {
+	return orderedResource(item, "ref_kind", "ref_id", "ref_kind_name", "contributor_sort_key")
+}
+
+func orderedResource(resource map[string]any, names ...string) canonicalObject {
+	object := make(canonicalObject, 0, len(names))
+	for _, name := range names {
+		object = append(object, canonicalMember{Name: name, Value: resource[name]})
+	}
+	return object
+}
+
+func orderedResourceArray(value any, transform func(map[string]any) canonicalObject) []any {
+	items, _ := value.([]any)
+	ordered := make([]any, 0, len(items))
+	for _, item := range items {
+		ordered = append(ordered, transform(item.(map[string]any)))
+	}
+	return ordered
+}
+
 func graphMetadataResource(metadata GraphMetadata) map[string]any {
 	return map[string]any{
 		"previous_projection_run_id": nullableString(metadata.PreviousProjectionRunID),
@@ -113,7 +193,7 @@ func edgeResource(edge Edge) map[string]any {
 }
 
 func sourceRefResource(ref SourceRef) map[string]any {
-	return map[string]any{"ref_kind": ref.RefKind, "ref_id": ref.RefID, "contributor_sort_key": ref.ContributorSortKey}
+	return map[string]any{"ref_kind": ref.RefKind, "ref_id": ref.RefID, "ref_kind_name": ref.RefKindName, "contributor_sort_key": ref.ContributorSortKey}
 }
 
 func validationSummaryResource(summary ValidationSummary) map[string]any {
@@ -123,7 +203,7 @@ func validationSummaryResource(summary ValidationSummary) map[string]any {
 		counts[issue.Severity]++
 		issues = append(issues, map[string]any{
 			"issue_id": issue.IssueID, "severity": issue.Severity, "code": issue.Code,
-			"target_kind": issue.TargetKind, "target_id": issue.TargetID, "field": nullableString(issue.Field),
+			"target_kind": issue.TargetKind, "target_id": issue.TargetID, "field_path": nullableString(issue.Field),
 			"message": issue.Message, "details": nonNilMap(issue.Details),
 		})
 	}
@@ -182,19 +262,15 @@ func nullableString(value *string) any {
 	return *value
 }
 
-func invalidationResource(value *InvalidationSummary) any {
+func invalidationResource(value *Invalidation) any {
 	if value == nil {
 		return nil
 	}
 	return map[string]any{
-		"graph_view_id":                  value.GraphViewID,
-		"target_scope":                   value.TargetScope,
-		"target_projection_run_id":       nullableString(value.TargetProjectionRunID),
-		"invalidated_projection_run_ids": nonNilStrings(value.InvalidatedRunIDs),
-		"graph_view_state_after":         string(value.GraphViewStateAfter),
-		"invalidated_at":                 value.InvalidatedAt,
-		"reason_code":                    value.ReasonCode,
-		"requested_by":                   value.RequestedBy,
-		"idempotency_expires_at":         nullableString(value.IdempotencyExpiresAt),
+		"invalidated_at":           value.InvalidatedAt,
+		"reason_code":              value.ReasonCode,
+		"requested_by":             value.RequestedBy,
+		"target_scope":             value.TargetScope,
+		"target_projection_run_id": nullableString(value.TargetProjectionRunID),
 	}
 }

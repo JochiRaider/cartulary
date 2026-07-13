@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-013",
+  "input_kind": "projection_input",
+  "coverage": "Wildcard property and metadata registry expansion."
+}

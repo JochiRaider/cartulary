@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-004",
+  "input_kind": "projection_input",
+  "coverage": "Admitted invalid mapping creates retained failed run."
+}

@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-025",
+  "input_kind": "projection_input",
+  "coverage": "Source item identifier content violation admitted as a failed run with fixed digests and one itemized issue."
+}

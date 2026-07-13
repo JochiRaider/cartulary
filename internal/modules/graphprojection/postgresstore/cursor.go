@@ -1,14 +1,16 @@
 package postgresstore
 
-import . "github.com/JochiRaider/cartulary/internal/modules/graphprojection"
-
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
+
+	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 )
 
 const graphCursorVersion = "graphprojection.cursor.v1"
@@ -53,19 +55,25 @@ func (c *graphCursorCodec) encode(cursor listCursor) (string, error) {
 func (c *graphCursorCodec) decode(token string) (listCursor, error) {
 	sealed, err := base64.RawURLEncoding.DecodeString(token)
 	if err != nil || len(sealed) < c.aead.NonceSize() {
-		return listCursor{}, ErrCursorInvalid
+		return listCursor{}, graphprojection.ErrCursorInvalid
 	}
 	if base64.RawURLEncoding.EncodeToString(sealed) != token {
-		return listCursor{}, ErrCursorInvalid
+		return listCursor{}, graphprojection.ErrCursorInvalid
 	}
 	nonce := sealed[:c.aead.NonceSize()]
 	payload, err := c.aead.Open(nil, nonce, sealed[c.aead.NonceSize():], []byte(graphCursorVersion))
 	if err != nil {
-		return listCursor{}, ErrCursorInvalid
+		return listCursor{}, graphprojection.ErrCursorInvalid
 	}
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.DisallowUnknownFields()
 	var cursor listCursor
-	if err := json.Unmarshal(payload, &cursor); err != nil {
-		return listCursor{}, ErrCursorInvalid
+	if err := decoder.Decode(&cursor); err != nil {
+		return listCursor{}, graphprojection.ErrCursorInvalid
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		return listCursor{}, graphprojection.ErrCursorInvalid
 	}
 	return cursor, nil
 }

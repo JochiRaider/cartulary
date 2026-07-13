@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-024",
+  "input_kind": "projection_input",
+  "coverage": "Nested unknown member rejected pre-admission with no run, no digests, and no validation issue."
+}

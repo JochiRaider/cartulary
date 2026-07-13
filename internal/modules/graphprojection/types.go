@@ -4,6 +4,15 @@ import "time"
 
 const ProjectionSchemaID = "graph_projection.v1"
 
+type Optional[T any] struct {
+	Present bool
+	Null    bool
+	Value   T
+}
+
+func ValueOf[T any](value T) Optional[T] { return Optional[T]{Present: true, Value: value} }
+func ExplicitNull[T any]() Optional[T]   { return Optional[T]{Present: true, Null: true} }
+
 type RunState string
 
 const (
@@ -58,19 +67,20 @@ func (err *OperationError) Error() string {
 }
 
 type ProjectionRequest struct {
-	ProjectionSchemaID   string
-	GraphViewID          string
-	SourceSnapshotID     string
-	ProjectionConfig     ProjectionConfig
-	SourceEntities       []SourceEntity
-	SourceRelationships  []SourceRelationship
-	SourceMetadata       map[string]any
-	Filters              Filters
-	RelationshipMappings []RelationshipMapping
-	PropertyDefinitions  []PropertyDefinition
-	RequestedAt          string
-	RequestedBy          string
-	Normalized           map[string]any
+	ProjectionSchemaID                string
+	GraphViewID                       string
+	SourceSnapshotID                  string
+	ProjectionConfig                  ProjectionConfig
+	SourceEntities                    []SourceEntity
+	SourceRelationships               []SourceRelationship
+	SourceMetadata                    map[string]any
+	Filters                           Filters
+	RelationshipMappings              []RelationshipMapping
+	PropertyDefinitions               []PropertyDefinition
+	RequestedAt                       string
+	RequestedBy                       string
+	Normalized                        map[string]any
+	RelationshipMappingSourceConflict bool
 }
 
 type ProjectionConfig struct {
@@ -90,12 +100,13 @@ type ProjectionConfig struct {
 }
 
 type RetentionPolicy struct {
-	RetainReplacedResults       bool `json:"retain_replaced_results"`
-	RetentionCount              int  `json:"retention_count"`
-	RetentionDurationSeconds    int  `json:"retention_duration_seconds"`
-	RetainFailedResults         bool `json:"retain_failed_results"`
-	FailedRetentionCount        int  `json:"failed_retention_count"`
-	FailedRetentionDurationSecs int  `json:"failed_retention_duration_seconds"`
+	RetainReplacedResults       bool              `json:"retain_replaced_results"`
+	RetentionCount              int               `json:"retention_count"`
+	RetentionDurationSeconds    int               `json:"retention_duration_seconds"`
+	RetainFailedResults         bool              `json:"retain_failed_results"`
+	FailedRetentionCount        int               `json:"failed_retention_count"`
+	FailedRetentionDurationSecs int               `json:"failed_retention_duration_seconds"`
+	RawIntegerLexemes           map[string]string `json:"-"`
 }
 
 type EntityMapping struct {
@@ -103,6 +114,7 @@ type EntityMapping struct {
 	SourceEntityKind      string
 	ProjectedVertexKind   string
 	InclusionPredicate    string
+	InclusionFilter       *FilterPredicate
 	LabelPolicy           string
 	MappingLabels         []string
 	RequiredPropertyKeys  []string
@@ -111,18 +123,20 @@ type EntityMapping struct {
 }
 
 type RelationshipMapping struct {
-	MappingRuleID          string
-	SourceRelationshipKind string
-	ProjectedEdgeKind      string
-	InclusionPredicate     string
-	DirectionPolicy        string
-	EmitReverseEdge        bool
-	ReverseEdgeKind        string
-	LabelPolicy            string
-	MappingLabels          []string
-	RequiredPropertyKeys   []string
-	OptionalPropertyKeys   []string
-	MappingIdentityDigest  string
+	MappingRuleID           string
+	SourceRelationshipKind  string
+	ProjectedEdgeKind       string
+	InclusionPredicate      string
+	InclusionFilter         *FilterPredicate
+	DirectionPolicy         string
+	EmitReverseEdge         bool
+	ReverseEdgeKind         string
+	ReverseEdgeKindSupplied bool
+	LabelPolicy             string
+	MappingLabels           []string
+	RequiredPropertyKeys    []string
+	OptionalPropertyKeys    []string
+	MappingIdentityDigest   string
 }
 
 type MetadataMapping struct {
@@ -133,6 +147,8 @@ type MetadataMapping struct {
 	ProjectedMetadataKey string
 	ProjectedType        string
 	Required             bool
+	DefaultValue         any
+	HasDefaultValue      bool
 	MissingBehavior      string
 	SourceNullBehavior   string
 	NullOutputPolicy     string
@@ -168,9 +184,11 @@ type Filters struct {
 }
 
 type FilterPredicate struct {
-	FieldPath string
-	Operator  string
-	Value     any
+	FieldPath        string
+	Operator         string
+	Value            any
+	HasValue         bool
+	IncludeIfMissing bool
 }
 
 type SourceEntity struct {
@@ -222,6 +240,8 @@ type ProjectionRun struct {
 	CompletedAt             *time.Time
 	ReplacedAt              *time.Time
 	InvalidatedAt           *time.Time
+	Invalidation            *Invalidation
+	AcceptedReplay          *AcceptedRunSummary
 	State                   RunState
 	GraphView               *GraphView
 	ValidationSummary       ValidationSummary
@@ -252,7 +272,7 @@ type GraphMetadata struct {
 	ProjectionConfigDigest  string
 	ProjectionSourceDigest  string
 	PreviousProjectionRunID *string
-	Invalidation            *InvalidationSummary
+	Invalidation            *Invalidation
 	MappedMetadata          map[string]any
 }
 
@@ -367,6 +387,7 @@ type SourceRelationshipRef struct {
 type SourceRef struct {
 	RefKind            string
 	RefID              string
+	RefKindName        string
 	ContributorSortKey string
 }
 
@@ -409,4 +430,12 @@ type InvalidationSummary struct {
 	RequestedAt           string         `json:"requested_at,omitempty"`
 	RequestedBy           string         `json:"requested_by"`
 	IdempotencyExpiresAt  *string        `json:"idempotency_expires_at"`
+}
+
+type Invalidation struct {
+	InvalidatedAt         string  `json:"invalidated_at"`
+	ReasonCode            string  `json:"reason_code"`
+	RequestedBy           string  `json:"requested_by"`
+	TargetScope           string  `json:"target_scope"`
+	TargetProjectionRunID *string `json:"target_projection_run_id"`
 }

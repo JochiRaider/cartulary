@@ -1,0 +1,5 @@
+{
+  "fixture_id": "GP-FIX-006",
+  "assertion": "Aggregated property missing/default/null candidate behavior.",
+  "test_symbol": "TestGPFIX006Remediation"
+}

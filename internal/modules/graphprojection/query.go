@@ -14,10 +14,31 @@ var (
 	ErrEdgeNotFound          = errors.New("graphprojection: edge not found")
 )
 
+type GetGraphViewRequest struct {
+	GraphViewID     string
+	ProjectionRunID Optional[string]
+}
+
+type GetProjectionRunRequest struct {
+	GraphViewID     string
+	ProjectionRunID string
+}
+
+type GetVertexRequest struct {
+	GraphViewID     string
+	ProjectionRunID Optional[string]
+	VertexID        string
+}
+
+type GetEdgeRequest struct {
+	GraphViewID     string
+	ProjectionRunID Optional[string]
+	EdgeID          string
+}
+
 type ListGraphViewsOptions struct {
 	Limit                 *int
 	CursorToken           string
-	Now                   time.Time
 	QueryShapeDigest      string
 	VisibilityScopeDigest string
 }

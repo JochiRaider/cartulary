@@ -14,7 +14,19 @@ type EphemeralProjectionRequest struct {
 }
 
 type EphemeralProjectionResult struct {
-	Data map[string]any
+	GraphView             GraphView
+	EphemeralProjectionID string
+}
+
+func (result EphemeralProjectionResult) Resource() map[string]any {
+	data := graphViewResource(result.GraphView)
+	delete(data, "projection_run_id")
+	data["ephemeral_projection_id"] = result.EphemeralProjectionID
+	data["state"] = "ephemeral_available"
+	metadata := data["metadata"].(map[string]any)
+	metadata["previous_projection_run_id"] = nil
+	metadata["invalidation"] = nil
+	return data
 }
 
 type ServiceOptions struct {
@@ -43,13 +55,13 @@ func NewService(options ServiceOptions) *Service {
 
 type CreateProjectionRequest struct {
 	ProjectionInput []byte
-	IdempotencyKey  string
+	IdempotencyKey  Optional[string]
 }
 
 type RefreshProjectionRequest struct {
 	GraphViewID     string
 	ProjectionInput []byte
-	IdempotencyKey  string
+	IdempotencyKey  Optional[string]
 }
 
 type AcceptedRunSummary struct {
@@ -67,7 +79,7 @@ type InvalidateGraphViewRequest struct {
 	ReasonCode     string
 	RequestedAt    string
 	RequestedBy    string
-	IdempotencyKey string
+	IdempotencyKey Optional[string]
 }
 
 type InvalidateProjectionRunRequest struct {
@@ -76,7 +88,7 @@ type InvalidateProjectionRunRequest struct {
 	ReasonCode      string
 	RequestedAt     string
 	RequestedBy     string
-	IdempotencyKey  string
+	IdempotencyKey  Optional[string]
 }
 
 func (s *Service) CreateProjection(ctx context.Context, request CreateProjectionRequest) (AcceptedRunSummary, error) {
@@ -93,7 +105,18 @@ func (s *Service) RefreshProjection(ctx context.Context, request RefreshProjecti
 	return s.runRetained(ctx, "refresh_projection", request.GraphViewID, request.ProjectionInput, request.IdempotencyKey)
 }
 
-func (s *Service) runRetained(ctx context.Context, operation, graphViewID string, input []byte, idempotencyKey string) (AcceptedRunSummary, error) {
+func (s *Service) runRetained(ctx context.Context, operation, graphViewID string, input []byte, idempotency Optional[string]) (AcceptedRunSummary, error) {
+	idempotencyKey, err := resolveIdempotencyKey(operation, idempotency)
+	if err != nil {
+		return AcceptedRunSummary{}, err
+	}
+	derived, err := deriveGraphViewIDFromInput(input, operation)
+	if err != nil {
+		return AcceptedRunSummary{}, err
+	}
+	if operation == "refresh_projection" && (graphViewID == "" || graphViewID != derived) {
+		return AcceptedRunSummary{}, &OperationError{Code: "invalid_projection_request", ReasonCode: "invalid_graph_view_id", Details: map[string]any{"operation": operation, "reason_code": "invalid_graph_view_id", "field": nil, "validation_code": "invalid_graph_view_id"}}
+	}
 	nonce, err := s.newNonce()
 	if err != nil {
 		return AcceptedRunSummary{}, err
@@ -102,13 +125,6 @@ func (s *Service) runRetained(ctx context.Context, operation, graphViewID string
 	options := RetainedProjectionOptions{ProjectionRunNonce: nonce, AcceptedAt: now, GeneratedAt: now, IdempotencyKey: idempotencyKey}
 	var run ProjectionRun
 	if operation == "refresh_projection" {
-		derived, deriveErr := deriveGraphViewIDFromInput(input)
-		if deriveErr != nil {
-			return AcceptedRunSummary{}, deriveErr
-		}
-		if graphViewID == "" || graphViewID != derived {
-			return AcceptedRunSummary{}, &OperationError{Code: "invalid_projection_request", ReasonCode: "invalid_graph_view_id", Details: map[string]any{"operation": operation, "reason_code": "invalid_graph_view_id", "field": nil, "validation_code": "invalid_graph_view_id"}}
-		}
 		run, err = s.repository.RefreshProjection(ctx, input, options)
 	} else {
 		run, err = s.repository.CreateProjection(ctx, input, options)
@@ -116,16 +132,31 @@ func (s *Service) runRetained(ctx context.Context, operation, graphViewID string
 	if err != nil {
 		return AcceptedRunSummary{}, err
 	}
+	if run.AcceptedReplay != nil {
+		return *run.AcceptedReplay, nil
+	}
+	return acceptedRunSummary(run, idempotencyKey != ""), nil
+}
+
+func acceptedRunSummary(run ProjectionRun, includeIdempotencyExpiry bool) AcceptedRunSummary {
 	var expiresAt *string
-	if idempotencyKey != "" {
+	if includeIdempotencyExpiry {
 		formatted := formatLifecycleTimestamp(run.AcceptedAt.Add(24 * time.Hour))
 		expiresAt = &formatted
 	}
-	return AcceptedRunSummary{GraphViewID: run.GraphViewID, ProjectionRunID: run.ProjectionRunID, State: RunStateAccepted, SourceSnapshotID: run.Request.SourceSnapshotID, ProjectionVersion: run.Request.ProjectionConfig.ProjectionVersion, AcceptedAt: formatLifecycleTimestamp(run.AcceptedAt), IdempotencyExpiresAt: expiresAt}, nil
+	return AcceptedRunSummary{
+		GraphViewID:          run.GraphViewID,
+		ProjectionRunID:      run.ProjectionRunID,
+		State:                RunStateAccepted,
+		SourceSnapshotID:     run.Request.SourceSnapshotID,
+		ProjectionVersion:    run.Request.ProjectionConfig.ProjectionVersion,
+		AcceptedAt:           formatLifecycleTimestamp(run.AcceptedAt),
+		IdempotencyExpiresAt: expiresAt,
+	}
 }
 
-func deriveGraphViewIDFromInput(input []byte) (string, error) {
-	run, err := admitProjectionInput(input, admitOptions{ProjectionRunNonce: "derive-only", AcceptedAt: time.Unix(0, 0).UTC()})
+func deriveGraphViewIDFromInput(input []byte, operation string) (string, error) {
+	run, err := admitProjectionInput(input, admitOptions{ProjectionRunNonce: "derive-only", AcceptedAt: time.Unix(0, 0).UTC(), Operation: operation})
 	if err != nil {
 		return "", err
 	}
@@ -136,39 +167,95 @@ func (s *Service) GraphViewID(graphViewKey string) (string, error) {
 	return deriveGraphViewID(graphViewKey)
 }
 
-func (s *Service) GetGraphView(ctx context.Context, graphViewID, projectionRunID string) (GraphView, error) {
+func (s *Service) GetGraphView(ctx context.Context, request GetGraphViewRequest) (GraphView, error) {
+	projectionRunID, err := validateOptionalGeneratedID(request.ProjectionRunID, "projection_run_id", "gpr_")
+	if err != nil {
+		return GraphView{}, err
+	}
+	if err := validateGeneratedIDArgument(request.GraphViewID, "graph_view_id", "gv_"); err != nil {
+		return GraphView{}, err
+	}
 	if s.repository == nil {
 		return GraphView{}, errors.New("graphprojection: query service unavailable")
 	}
-	return s.repository.GetGraphView(ctx, graphViewID, projectionRunID)
+	return s.repository.GetGraphView(ctx, request.GraphViewID, projectionRunID)
 }
 
-func (s *Service) GetProjectionRun(ctx context.Context, graphViewID, projectionRunID string) (ProjectionRun, error) {
+func (s *Service) GetProjectionRun(ctx context.Context, request GetProjectionRunRequest) (ProjectionRun, error) {
+	if err := validateGeneratedIDArgument(request.GraphViewID, "graph_view_id", "gv_"); err != nil {
+		return ProjectionRun{}, err
+	}
+	if err := validateGeneratedIDArgument(request.ProjectionRunID, "projection_run_id", "gpr_"); err != nil {
+		return ProjectionRun{}, err
+	}
 	if s.repository == nil {
 		return ProjectionRun{}, errors.New("graphprojection: query service unavailable")
 	}
-	run, err := s.repository.GetProjectionRun(ctx, projectionRunID)
+	run, err := s.repository.GetProjectionRun(ctx, request.ProjectionRunID)
 	if err != nil {
 		return ProjectionRun{}, err
 	}
-	if run.GraphViewID != graphViewID {
+	if run.GraphViewID != request.GraphViewID {
 		return ProjectionRun{}, ErrProjectionRunNotFound
 	}
 	return run, nil
 }
 
-func (s *Service) GetVertex(ctx context.Context, graphViewID, projectionRunID, vertexID string) (Vertex, error) {
+func (s *Service) GetVertex(ctx context.Context, request GetVertexRequest) (Vertex, error) {
+	projectionRunID, err := validateOptionalGeneratedID(request.ProjectionRunID, "projection_run_id", "gpr_")
+	if err != nil {
+		return Vertex{}, err
+	}
+	if err := validateGeneratedIDArgument(request.GraphViewID, "graph_view_id", "gv_"); err != nil {
+		return Vertex{}, err
+	}
+	if err := validateGeneratedIDArgument(request.VertexID, "vertex_id", "vx_"); err != nil {
+		return Vertex{}, err
+	}
 	if s.repository == nil {
 		return Vertex{}, errors.New("graphprojection: query service unavailable")
 	}
-	return s.repository.GetVertex(ctx, graphViewID, projectionRunID, vertexID)
+	return s.repository.GetVertex(ctx, request.GraphViewID, projectionRunID, request.VertexID)
 }
 
-func (s *Service) GetEdge(ctx context.Context, graphViewID, projectionRunID, edgeID string) (Edge, error) {
+func (s *Service) GetEdge(ctx context.Context, request GetEdgeRequest) (Edge, error) {
+	projectionRunID, err := validateOptionalGeneratedID(request.ProjectionRunID, "projection_run_id", "gpr_")
+	if err != nil {
+		return Edge{}, err
+	}
+	if err := validateGeneratedIDArgument(request.GraphViewID, "graph_view_id", "gv_"); err != nil {
+		return Edge{}, err
+	}
+	if err := validateGeneratedIDArgument(request.EdgeID, "edge_id", "ed_"); err != nil {
+		return Edge{}, err
+	}
 	if s.repository == nil {
 		return Edge{}, errors.New("graphprojection: query service unavailable")
 	}
-	return s.repository.GetEdge(ctx, graphViewID, projectionRunID, edgeID)
+	return s.repository.GetEdge(ctx, request.GraphViewID, projectionRunID, request.EdgeID)
+}
+
+func validateOptionalGeneratedID(optional Optional[string], field, prefix string) (string, error) {
+	if !optional.Present {
+		return "", nil
+	}
+	if optional.Null {
+		return "", &OperationError{Code: "invalid_argument", ReasonCode: "explicit_null_not_allowed", Field: field, Details: map[string]any{"field": field, "reason_code": "explicit_null_not_allowed"}}
+	}
+	if err := validateGeneratedIDArgument(optional.Value, field, prefix); err != nil {
+		return "", err
+	}
+	return optional.Value, nil
+}
+
+func validateGeneratedIDArgument(value, field, prefix string) error {
+	if value == "" {
+		return &OperationError{Code: "invalid_argument", ReasonCode: "missing_required_parameter", Field: field, Details: map[string]any{"field": field, "reason_code": "missing_required_parameter"}}
+	}
+	if !generatedIDPattern.MatchString(value) || !strings.HasPrefix(value, prefix) {
+		return &OperationError{Code: "invalid_argument", ReasonCode: "invalid_type", Field: field, Details: map[string]any{"field": field, "reason_code": "invalid_type"}}
+	}
+	return nil
 }
 
 func (s *Service) ListGraphViews(ctx context.Context, options ListGraphViewsOptions) ([]GraphViewSummary, string, error) {
@@ -179,6 +266,19 @@ func (s *Service) ListGraphViews(ctx context.Context, options ListGraphViewsOpti
 }
 
 func (s *Service) Traverse(ctx context.Context, request TraverseRequest) (TraverseResult, error) {
+	if err := validateGeneratedIDArgument(request.GraphViewID, "graph_view_id", "gv_"); err != nil {
+		return TraverseResult{}, err
+	}
+	if request.ProjectionRunID != "" {
+		if err := validateGeneratedIDArgument(request.ProjectionRunID, "projection_run_id", "gpr_"); err != nil {
+			return TraverseResult{}, err
+		}
+	}
+	for _, seed := range request.SeedVertexIDs {
+		if err := validateGeneratedIDArgument(seed, "seed_vertex_ids", "vx_"); err != nil {
+			return TraverseResult{}, err
+		}
+	}
 	if s.repository == nil {
 		return TraverseResult{}, errors.New("graphprojection: query service unavailable")
 	}
@@ -189,12 +289,16 @@ func (s *Service) InvalidateGraphView(ctx context.Context, request InvalidateGra
 	if s.repository == nil {
 		return InvalidationSummary{}, errors.New("graphprojection: retained lifecycle unavailable")
 	}
-	if err := validateInvalidationRequest(request.GraphViewID, "", request.ReasonCode, request.RequestedAt, request.RequestedBy, request.IdempotencyKey); err != nil {
+	idempotencyKey, err := resolveIdempotencyKey("invalidate_graph_view", request.IdempotencyKey)
+	if err != nil {
+		return InvalidationSummary{}, err
+	}
+	if err := validateInvalidationRequest(request.GraphViewID, "", request.ReasonCode, request.RequestedAt, request.RequestedBy); err != nil {
 		return InvalidationSummary{}, err
 	}
 	return s.repository.InvalidateGraphView(ctx, RetainedInvalidation{
 		GraphViewID: request.GraphViewID, ReasonCode: request.ReasonCode, RequestedAt: request.RequestedAt,
-		RequestedBy: request.RequestedBy, IdempotencyKey: request.IdempotencyKey, InvalidatedAt: s.now().UTC(),
+		RequestedBy: request.RequestedBy, IdempotencyKey: idempotencyKey, InvalidatedAt: s.now().UTC(),
 	})
 }
 
@@ -202,17 +306,21 @@ func (s *Service) InvalidateProjectionRun(ctx context.Context, request Invalidat
 	if s.repository == nil {
 		return InvalidationSummary{}, errors.New("graphprojection: retained lifecycle unavailable")
 	}
-	if err := validateInvalidationRequest(request.GraphViewID, request.ProjectionRunID, request.ReasonCode, request.RequestedAt, request.RequestedBy, request.IdempotencyKey); err != nil {
+	idempotencyKey, err := resolveIdempotencyKey("invalidate_projection_run", request.IdempotencyKey)
+	if err != nil {
+		return InvalidationSummary{}, err
+	}
+	if err := validateInvalidationRequest(request.GraphViewID, request.ProjectionRunID, request.ReasonCode, request.RequestedAt, request.RequestedBy); err != nil {
 		return InvalidationSummary{}, err
 	}
 	return s.repository.InvalidateProjectionRun(ctx, RetainedInvalidation{
 		GraphViewID: request.GraphViewID, ProjectionRunID: request.ProjectionRunID, ReasonCode: request.ReasonCode,
-		RequestedAt: request.RequestedAt, RequestedBy: request.RequestedBy, IdempotencyKey: request.IdempotencyKey,
+		RequestedAt: request.RequestedAt, RequestedBy: request.RequestedBy, IdempotencyKey: idempotencyKey,
 		InvalidatedAt: s.now().UTC(),
 	})
 }
 
-func validateInvalidationRequest(graphViewID, projectionRunID, reasonCode, requestedAt, requestedBy, idempotencyKey string) error {
+func validateInvalidationRequest(graphViewID, projectionRunID, reasonCode, requestedAt, requestedBy string) error {
 	if !generatedIDPattern.MatchString(graphViewID) || !strings.HasPrefix(graphViewID, "gv_") {
 		return &OperationError{Code: "invalid_argument", ReasonCode: "invalid_graph_view_id", Field: "graph_view_id", Details: map[string]any{"field": "graph_view_id"}}
 	}
@@ -229,10 +337,41 @@ func validateInvalidationRequest(graphViewID, projectionRunID, reasonCode, reque
 	if !validIdentifier(requestedBy) {
 		return &OperationError{Code: "invalid_argument", ReasonCode: "invalid_requested_by", Field: "requested_by", Details: map[string]any{"field": "requested_by"}}
 	}
-	if len(idempotencyKey) > 256 {
-		return &OperationError{Code: "invalid_argument", ReasonCode: "invalid_idempotency_key", Field: "idempotency_key", Details: map[string]any{"field": "idempotency_key"}}
-	}
 	return nil
+}
+
+func resolveIdempotencyKey(operation string, optional Optional[string]) (string, error) {
+	if !optional.Present {
+		return "", nil
+	}
+	if optional.Null {
+		return "", &OperationError{Code: "invalid_operation", ReasonCode: "explicit_null_not_allowed", Details: map[string]any{"operation": operation, "reason_code": "explicit_null_not_allowed"}}
+	}
+	if optional.Value == "" {
+		return "", &OperationError{Code: "invalid_operation", ReasonCode: "invalid_idempotency_key", Details: map[string]any{"operation": operation, "reason_code": "invalid_idempotency_key"}}
+	}
+	if err := validateIdempotencyKey(operation, optional.Value); err != nil {
+		return "", err
+	}
+	return optional.Value, nil
+}
+
+func validateIdempotencyKey(operation, value string) error {
+	if value == "" {
+		return nil
+	}
+	runes := []rune(value)
+	valid := len(runes) <= 128 && !isSpecWhitespace(runes[0]) && !isSpecWhitespace(runes[len(runes)-1])
+	for _, r := range runes {
+		if r == 0 || r <= 0x1f || (r >= 0x80 && r <= 0x9f) || (r >= 0xd800 && r <= 0xdfff) {
+			valid = false
+			break
+		}
+	}
+	if valid {
+		return nil
+	}
+	return &OperationError{Code: "invalid_operation", ReasonCode: "invalid_idempotency_key", Details: map[string]any{"operation": operation, "reason_code": "invalid_idempotency_key"}}
 }
 
 func (s *Service) ProjectEphemeral(ctx context.Context, request EphemeralProjectionRequest) (EphemeralProjectionResult, error) {
@@ -247,7 +386,7 @@ func (s *Service) ProjectEphemeral(ctx context.Context, request EphemeralProject
 		return EphemeralProjectionResult{}, err
 	}
 	now := s.now().UTC()
-	run, err := project(request.ProjectionInput, projectOptions{ProjectionRunNonce: nonce, AcceptedAt: now, GeneratedAt: now, InvocationIDPrefix: "gpe_", InvocationDomain: "GPEPHEMERAL1\n"})
+	run, err := project(request.ProjectionInput, projectOptions{ProjectionRunNonce: nonce, AcceptedAt: now, GeneratedAt: now, InvocationIDPrefix: "gpe_", InvocationDomain: "GPEPHEMERAL1\n", Operation: "project_ephemeral"})
 	if err != nil {
 		return EphemeralProjectionResult{}, err
 	}
@@ -257,14 +396,7 @@ func (s *Service) ProjectEphemeral(ctx context.Context, request EphemeralProject
 	if run.State != RunStateAvailable || run.GraphView == nil {
 		return EphemeralProjectionResult{}, &OperationError{Code: "ephemeral_projection_failed", ReasonCode: "fatal_validation", Details: map[string]any{"operation": "project_ephemeral", "reason_code": "fatal_validation", "graph_view_id": run.GraphViewID, "ephemeral_projection_id": run.ProjectionRunID, "validation_summary": validationSummaryResource(run.ValidationSummary)}}
 	}
-	data := graphViewResource(*run.GraphView)
-	delete(data, "projection_run_id")
-	data["ephemeral_projection_id"] = run.ProjectionRunID
-	data["state"] = "ephemeral_available"
-	metadata := data["metadata"].(map[string]any)
-	metadata["previous_projection_run_id"] = nil
-	metadata["invalidation"] = nil
-	return EphemeralProjectionResult{Data: data}, nil
+	return EphemeralProjectionResult{GraphView: *run.GraphView, EphemeralProjectionID: run.ProjectionRunID}, nil
 }
 
 func secureInvocationNonce() (string, error) {
