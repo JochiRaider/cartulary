@@ -3,7 +3,7 @@
 .cache/
 .vscode/
 tmp/
-.cartulary/runtime/
+.cartulary/
 
 # Dependencies
 /node_modules
