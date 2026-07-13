@@ -1,0 +1,29 @@
+{
+  "schema_id": "cartulary.network_flow_key_rings.v1",
+  "cursor_key_ring": {
+    "algorithm": "aes_256_gcm_v1",
+    "keys": [
+      {
+        "cursor_key_id": "dev-cursor-2026-07",
+        "state": "active",
+        "secret_ref": {
+          "kind": "env",
+          "name": "network-flow-cursor-active"
+        }
+      }
+    ]
+  },
+  "safe_digest_key_ring": {
+    "algorithm": "hmac_sha256_v1",
+    "keys": [
+      {
+        "safe_digest_key_id": "dev-safe-digest-2026-07",
+        "state": "active",
+        "secret_ref": {
+          "kind": "env",
+          "name": "network-flow-safe-digest-active"
+        }
+      }
+    ]
+  }
+}

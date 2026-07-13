@@ -10,6 +10,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
+	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -109,7 +110,12 @@ func TestPhase8_WorkbookStartupFallback_I_8_02(t *testing.T) {
 			profiles[index].Claimed = true
 		}
 	}
-	harness := runtime.StartServerWithDependencies(t, "phase8-workbook-startup-i-8-02", httpapi.DependencySet{ExtensionProfiles: profiles})
+	harness := runtime.StartServerWithDependencies(t, "phase8-workbook-startup-i-8-02", httpapi.DependencySet{
+		ExtensionProfiles: profiles,
+		ModuleOverrides: map[string]any{
+			networkflow.KeyRingsOverrideKey: phase8NetworkFlowHarnessKeyRings(t),
+		},
+	})
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-i-8-02-incident",
@@ -233,6 +239,22 @@ func TestPhase8_WorkbookStartupFallback_I_8_02(t *testing.T) {
 		httptestx.WithCookies(viewerSession),
 	)
 	httptestx.RequireErrorEnvelope(t, legacyWorkspaceAlias, http.StatusBadRequest, "invalid_startup_request")
+}
+
+func phase8NetworkFlowHarnessKeyRings(t testing.TB) *networkflow.KeyRings {
+	t.Helper()
+	rings, err := networkflow.ParseKeyRings([]byte(`{
+  "schema_id":"cartulary.network_flow_key_rings.v1",
+  "cursor_key_ring":{"algorithm":"aes_256_gcm_v1","keys":[{"cursor_key_id":"phase8-harness-cursor","state":"active","secret_ref":{"kind":"env","name":"phase8-harness-cursor"}}]},
+  "safe_digest_key_ring":{"algorithm":"hmac_sha256_v1","keys":[{"safe_digest_key_id":"phase8-harness-safe","state":"active","secret_ref":{"kind":"env","name":"phase8-harness-safe"}}]}
+}`), map[string]string{
+		"CARTULARY_SECRET_PHASE8_HARNESS_CURSOR": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+		"CARTULARY_SECRET_PHASE8_HARNESS_SAFE":   "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+	}, time.Date(2026, 7, 13, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("parse Phase 8 Network Flow harness key rings: %v", err)
+	}
+	return rings
 }
 
 func TestPhase8_WorkbookStartupBaseSurfaceDoesNotRequireSavedView_I_8_02(t *testing.T) {

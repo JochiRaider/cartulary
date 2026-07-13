@@ -23,6 +23,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/secretpurpose"
 )
 
 const (
@@ -101,6 +102,10 @@ func ReconcileProviderManifest(ctx context.Context, cfg config.Config, env map[s
 	if err != nil {
 		return err
 	}
+	return ReconcileProviderDefinitions(ctx, definitions, store, now)
+}
+
+func ReconcileProviderDefinitions(ctx context.Context, definitions []authn.EnterpriseAuthProviderDefinition, store ProviderReconciliationStore, now time.Time) error {
 	if err := store.ReconcileEnterpriseAuthProviders(ctx, definitions, now); err != nil {
 		if errors.Is(err, authn.ErrAuthProviderTypeChangeNotSupported) {
 			return providerConfigError(providerManifestPathKey, "provider_type_change_not_supported", "enterprise provider type changes require an explicit owner migration")
@@ -112,6 +117,22 @@ func ReconcileProviderManifest(ctx context.Context, cfg config.Config, env map[s
 
 func LoadProviderManifest(cfg config.Config, env map[string]string) ([]authn.EnterpriseAuthProviderDefinition, error) {
 	return loadProviderManifest(cfg, env, osProviderManifestFS{})
+}
+
+func RegisterProviderSecretPurposes(definitions []authn.EnterpriseAuthProviderDefinition, env map[string]string, registry *secretpurpose.Registry) error {
+	for index, definition := range definitions {
+		if definition.ClientSecretRefName == nil {
+			continue
+		}
+		value, ok := lookupEnv(env, secretRefEnvName(*definition.ClientSecretRefName))
+		if !ok || !isValidResolvedSecret(value) {
+			return providerConfigError(providerPath(index, "client_secret_ref"), "provider_manifest_secret_missing", "secret_ref_v1 could not be resolved to a safe value")
+		}
+		if err := registry.Register(*definition.ClientSecretRefName, "enterprise_authentication.oidc."+definition.ProviderKey, []byte(value)); err != nil {
+			return providerConfigError(providerPath(index, "client_secret_ref"), "provider_manifest_secret_ref_invalid", "secret reference or resolved material is already registered for another startup purpose")
+		}
+	}
+	return nil
 }
 
 func loadProviderManifest(cfg config.Config, env map[string]string, manifestFS providerManifestFS) ([]authn.EnterpriseAuthProviderDefinition, error) {

@@ -295,55 +295,56 @@ func (s *Service) commitIndicatorLinkRoute(ctx context.Context, incidentID uuid.
 	if request.Target.Mode == "create_indicator" && request.Target.IndicatorType != targetType {
 		return nil, 0, invalidIndicatorTarget("indicator_type", "target_type_mismatch")
 	}
-	tx, err := s.store.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return nil, 0, httpapi.InternalAPIError(err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	target, apiErr := s.resolveIndicatorTargetTx(ctx, tx, incidentID, actor, request, resolved.CandidateValue, targetType)
-	if apiErr != nil {
-		if payload, status, replayed, replayErr := s.replayIndicatorLinkIfPresent(ctx, idempotencyKey, requestHash, incidentID); replayed || replayErr != nil {
-			return payload, status, replayErr
+	var binding IndicatorBindingRecord
+	var duplicate bool
+	var payload map[string]any
+	var status int
+	var transactionAPIError *httpapi.APIError
+	err := s.store.transactionRun.WithinTx(ctx, pgx.TxOptions{}, func(tx pgx.Tx) error {
+		target, apiErr := s.resolveIndicatorTargetTx(ctx, tx, incidentID, actor, request, resolved.CandidateValue, targetType)
+		if apiErr != nil {
+			transactionAPIError = apiErr
+			return errors.New("network flow indicator target resolution rejected")
 		}
-		return nil, 0, apiErr
-	}
-	binding, duplicate, err := s.store.CreateOrReuseIndicatorBindingTx(ctx, tx, CreateIndicatorBindingParams{
-		IncidentID:              incidentID,
-		ActorUserID:             actor.ID,
-		TargetIndicator:         target,
-		SelectorKind:            resolved.SelectorKind,
-		CandidateValue:          resolved.CandidateValue,
-		SourceRowRefs:           resolved.SourceRowRefs,
-		SourceRowRefsTruncated:  resolved.SourceRowRefsTruncated,
-		SourceRowRefsTotalCount: resolved.SourceRowRefsTotalCount,
-		ClientTxnID:             request.ClientTxnID,
-		RequestID:               requestID,
-		CandidateDigestKeyID:    s.safeDigestKeyID,
-		CandidateDigestKey:      s.safeDigestKey,
-		Now:                     s.now(),
+		var err error
+		binding, duplicate, err = s.store.CreateOrReuseIndicatorBindingTx(ctx, tx, CreateIndicatorBindingParams{
+			IncidentID:              incidentID,
+			ActorUserID:             actor.ID,
+			TargetIndicator:         target,
+			SelectorKind:            resolved.SelectorKind,
+			CandidateValue:          resolved.CandidateValue,
+			SourceRowRefs:           resolved.SourceRowRefs,
+			SourceRowRefsTruncated:  resolved.SourceRowRefsTruncated,
+			SourceRowRefsTotalCount: resolved.SourceRowRefsTotalCount,
+			ClientTxnID:             request.ClientTxnID,
+			RequestID:               requestID,
+			SafeDigester:            s.safeDigester,
+			Now:                     s.now(),
+		})
+		if err != nil {
+			return err
+		}
+		status = http.StatusCreated
+		if duplicate {
+			status = http.StatusOK
+		}
+		payload = indicatorLinkPayload(binding, duplicate)
+		return authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, status, payload)
 	})
 	if err != nil {
 		if payload, status, replayed, replayErr := s.replayIndicatorLinkIfPresent(ctx, idempotencyKey, requestHash, incidentID); replayed || replayErr != nil {
 			return payload, status, replayErr
 		}
+		if transactionAPIError != nil {
+			return nil, 0, transactionAPIError
+		}
+		if authn.IsUniqueViolation(err) {
+			return nil, 0, httpapi.ClientTxnConflictError(request.ClientTxnID)
+		}
 		if errors.Is(err, ErrInvalidStorageArgument) {
 			return nil, 0, invalidIndicatorTarget("target", "target_value_mismatch")
 		}
 		return nil, 0, httpapi.InternalAPIError(err)
-	}
-	status := http.StatusCreated
-	if duplicate {
-		status = http.StatusOK
-	}
-	payload := indicatorLinkPayload(binding, duplicate)
-	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, status, payload); err != nil {
-		if authn.IsUniqueViolation(err) {
-			return nil, 0, httpapi.ClientTxnConflictError(request.ClientTxnID)
-		}
-		return nil, 0, httpapi.InternalAPIError(err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return nil, 0, httpapi.InternalAPIError(fmt.Errorf("commit network flow indicator link route: %w", err))
 	}
 	return payload, status, nil
 }
@@ -351,17 +352,22 @@ func (s *Service) commitIndicatorLinkRoute(ctx context.Context, incidentID uuid.
 func (s *Service) resolveIndicatorTargetTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, actor authn.UserRecord, request indicatorLinkRequest, candidateValue string, targetType string) (indicators.IndicatorRecord, *httpapi.APIError) {
 	switch request.Target.Mode {
 	case "existing_indicator":
-		record, err := getActiveIndicator(ctx, tx, incidentID, request.Target.IndicatorID)
+		if s.store.indicators == nil {
+			return indicators.IndicatorRecord{}, httpapi.InternalAPIError(fmt.Errorf("network flow indicator participant unavailable"))
+		}
+		record, err := s.store.indicators.GetActiveIndicatorParticipantTx(ctx, tx, incidentID, request.Target.IndicatorID)
 		if err != nil {
-			if errors.Is(err, ErrTableNotFound) {
+			if errors.Is(err, indicators.ErrIndicatorNotFound) {
 				return indicators.IndicatorRecord{}, indicatorLinkForbidden(request.Selector.Kind, request.Selector.FieldKey, request.Target.Mode, "target_not_visible")
 			}
 			return indicators.IndicatorRecord{}, httpapi.InternalAPIError(err)
 		}
 		return validateIndicatorTarget(record, candidateValue, targetType, request.Selector.Kind, request.Selector.FieldKey, request.Target.Mode)
 	case "create_indicator":
-		indicatorStore := indicators.NewStore(s.store.pool)
-		result, err := indicatorStore.FindOrCreateIndicatorParticipantTx(ctx, tx, indicators.IndicatorFindOrCreateParticipantCommand{
+		if s.store.indicators == nil {
+			return indicators.IndicatorRecord{}, httpapi.InternalAPIError(fmt.Errorf("network flow indicator participant unavailable"))
+		}
+		result, err := s.store.indicators.FindOrCreateIndicatorParticipantTx(ctx, tx, indicators.IndicatorFindOrCreateParticipantCommand{
 			IncidentID:        incidentID,
 			Actor:             actor,
 			IndicatorType:     request.Target.IndicatorType,

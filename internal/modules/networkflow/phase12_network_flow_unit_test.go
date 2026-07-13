@@ -215,8 +215,9 @@ func phase12AssertUnitSelector(t *testing.T, acID string) {
 	case "NF-AC-106":
 		phase12AssertAdoptionPrerequisitesConcrete(t)
 	default:
-		phase12AssertFixtureEvidence(t, acID)
+		t.Fatalf("unmapped Phase 12 Network Flow unit selector %s", acID)
 	}
+	phase12AssertFixtureRuntimeEvidenceIfPresent(t, acID)
 }
 
 func phase12AssertCiscoSNARequiredFields(t *testing.T) {
@@ -273,6 +274,7 @@ func phase12AssertCSVParserEdges(t *testing.T) {
 
 func phase12AssertDigestAlgorithms(t *testing.T) {
 	t.Helper()
+	assertUnicode17TextCanonicalization(t)
 	rowDigest := SourceRowDigest(ParserProfileRFC4180HeaderedCSV, 2, []string{"192.0.2.10", "443"})
 	if !hex64(rowDigest) {
 		t.Fatalf("source row digest is not sha256 hex: %q", rowDigest)
@@ -322,6 +324,8 @@ func phase12AssertTimestampRules(t *testing.T) {
 	if got, err := parseTimestamp("2026-07-10T12:00:00Z", profile); err != nil || !got.Equal(time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)) {
 		t.Fatalf("valid timestamp got %s err=%v", got, err)
 	}
+	assertTimestampProfileExactGrammarPrecisionAndZoneTransitions(t)
+	assertNetFlowSystemUptimeTimestampAndMappingOrdinals(t)
 }
 
 func phase12AssertIPCanonicalization(t *testing.T) {
@@ -570,6 +574,64 @@ func phase12AssertFixtureEvidence(t *testing.T, acID string) {
 		}
 		if len(manifest.TranscriptFiles) == 0 {
 			t.Fatalf("%s fixture %s has no transcript", acID, manifest.FixtureID)
+		}
+	}
+}
+
+// phase12AssertFixtureRuntimeEvidenceIfPresent makes frozen fixtures
+// supplemental to a concrete product path. It deliberately executes authored
+// CSV and mapping bytes through admission, canonicalization, and row
+// validation; manifest existence and digests alone cannot satisfy the row.
+func phase12AssertFixtureRuntimeEvidenceIfPresent(t *testing.T, acID string) {
+	t.Helper()
+	manifests := phase12FixtureManifestsByAC(t)[acID]
+	for _, manifest := range manifests {
+		root := filepath.Join(phase12RepoRoot(t), "fixtures", "network-flow", manifest.FixtureID)
+		var parsed []*ParsedCSV
+		var mappings []ApprovedMapping
+		executed := 0
+		for _, file := range manifest.SourceFiles {
+			path := filepath.Join(root, filepath.FromSlash(file.LogicalPath))
+			content, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("read runtime fixture %s/%s: %v", manifest.FixtureID, file.LogicalPath, err)
+			}
+			switch {
+			case file.Role == "input" && strings.HasSuffix(file.LogicalPath, ".csv"):
+				executed++
+				value, parseErr := ParseCSVApply(bytes.NewReader(content), file.SHA256, DefaultLimits())
+				if parseErr == nil {
+					parsed = append(parsed, &value)
+				}
+				_ = SanitizeSourceFilenameDisplay(file.LogicalPath)
+			case file.Role == "input" && strings.HasSuffix(file.LogicalPath, ".jsonl"):
+				for _, line := range bytes.Split(content, []byte{'\n'}) {
+					if len(bytes.TrimSpace(line)) == 0 {
+						continue
+					}
+					executed++
+					_, _ = decodeAcceptedRowQueryRequest(bytes.NewReader(line), schemaTableQueryRequest, schemaTableQueryContinuation, DefaultLimits())
+				}
+			case file.Role == "mapping" && strings.HasSuffix(file.LogicalPath, ".json"):
+				executed++
+				mapping, mappingErr := DecodeApprovedMapping(content)
+				if mappingErr == nil {
+					mappings = append(mappings, mapping)
+				}
+			}
+		}
+		for _, csv := range parsed {
+			for _, mapping := range mappings {
+				if !sourceColumnsMatch(mapping.SourceColumns, csv.SourceColumns) {
+					continue
+				}
+				executed++
+				fingerprint := MappingFingerprint(mapping, csv.SourceContentSHA256)
+				_, _, _, _ = ValidateRows(*csv, mapping, fingerprint, DefaultLimits())
+			}
+		}
+		if executed == 0 {
+			t.Fatalf("%s fixture %s has no executable product-runtime input", acID, manifest.FixtureID)
 		}
 	}
 }

@@ -12,7 +12,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 )
@@ -49,8 +48,7 @@ type CreateIndicatorBindingParams struct {
 	SourceRowRefsTotalCount int64
 	ClientTxnID             string
 	RequestID               string
-	CandidateDigestKeyID    string
-	CandidateDigestKey      []byte
+	SafeDigester            SafeDigester
 	Now                     time.Time
 }
 
@@ -59,7 +57,7 @@ func (s *Store) CreateOrReuseIndicatorBindingTx(ctx context.Context, tx pgx.Tx, 
 	if params.IncidentID == uuid.Nil || params.ActorUserID == uuid.Nil || params.TargetIndicator.RecordID == uuid.Nil {
 		return IndicatorBindingRecord{}, false, ErrInvalidStorageArgument
 	}
-	if err := lockIncidentTx(ctx, tx, params.IncidentID); err != nil {
+	if err := s.lockIncidentTx(ctx, tx, params.IncidentID); err != nil {
 		return IndicatorBindingRecord{}, false, err
 	}
 	if params.TargetIndicator.IncidentID != params.IncidentID || params.TargetIndicator.DeletedAt != nil {
@@ -113,28 +111,14 @@ func (s *Store) CreateOrReuseIndicatorBindingTx(ctx context.Context, tx pgx.Tx, 
 }
 
 func (s *Store) GetActiveIndicator(ctx context.Context, incidentID uuid.UUID, indicatorID uuid.UUID) (indicators.IndicatorRecord, error) {
-	return getActiveIndicator(ctx, s.pool, incidentID, indicatorID)
-}
-
-func getActiveIndicator(ctx context.Context, querier tableQuerier, incidentID uuid.UUID, indicatorID uuid.UUID) (indicators.IndicatorRecord, error) {
-	row := querier.QueryRow(ctx, `
-SELECT record_id, incident_id, indicator_type, value_kind, display_value, normalized_value,
-       dedupe_key, defanged_value, hash_algorithm, hash_value, stix_pattern,
-       row_version, created_at, updated_at, created_by_user_id, updated_by_user_id,
-       deleted_at, deleted_by_user_id
-  FROM indicators
- WHERE incident_id = $1
-   AND record_id = $2
-   AND deleted_at IS NULL
-`, incidentID, indicatorID)
-	record, err := scanIndicatorRecord(row)
-	if errors.Is(err, pgx.ErrNoRows) {
+	if s.indicators == nil {
+		return indicators.IndicatorRecord{}, fmt.Errorf("network flow indicator participant unavailable")
+	}
+	record, err := s.indicators.GetActiveIndicatorParticipant(ctx, incidentID, indicatorID)
+	if errors.Is(err, indicators.ErrIndicatorNotFound) {
 		return indicators.IndicatorRecord{}, ErrTableNotFound
 	}
-	if err != nil {
-		return indicators.IndicatorRecord{}, fmt.Errorf("get active indicator for network flow binding: %w", err)
-	}
-	return record, nil
+	return record, err
 }
 
 func insertIndicatorBindingTx(ctx context.Context, tx pgx.Tx, bindingID string, params CreateIndicatorBindingParams, sourceRefsJSON []byte, sourceRefRowIDs []string, now time.Time) (IndicatorBindingRecord, bool, error) {
@@ -186,8 +170,18 @@ SELECT network_flow_indicator_binding_id, incident_id, target_indicator_record_i
 }
 
 func (s *Store) insertIndicatorBindingAuditTx(ctx context.Context, tx pgx.Tx, params CreateIndicatorBindingParams, record IndicatorBindingRecord, eventKind string) error {
-	candidateDigest, keyID := SafeDigest(params.CandidateDigestKeyID, params.CandidateDigestKey, "indicator_candidate_value", record.CandidateValue)
-	return insertNetworkFlowAuditEvent(ctx, tx, networkFlowAuditEvent{
+	digester := params.SafeDigester
+	if digester == nil {
+		digester = s.safeDigester
+	}
+	if digester == nil {
+		return fmt.Errorf("network flow safe digester unavailable")
+	}
+	candidateDigest, keyID, err := digester.Digest("indicator_candidate_value", record.CandidateValue)
+	if err != nil {
+		return err
+	}
+	return s.appendAuditEventTx(ctx, tx, networkFlowAuditEvent{
 		ActorUserID: &params.ActorUserID,
 		IncidentID:  &params.IncidentID,
 		EventKind:   eventKind,
@@ -238,48 +232,6 @@ func scanIndicatorBinding(row pgx.Row) (IndicatorBindingRecord, error) {
 	record.TargetIndicator.NormalizedValue = &indicatorNormalizedValue
 	record.CreatedAt = record.CreatedAt.UTC()
 	record.CreatedObservationRefsJSON = json.RawMessage(`[]`)
-	return record, nil
-}
-
-func scanIndicatorRecord(row pgx.Row) (indicators.IndicatorRecord, error) {
-	var record indicators.IndicatorRecord
-	var deletedAt pgtype.Timestamptz
-	var deletedBy pgtype.UUID
-	if err := row.Scan(
-		&record.RecordID,
-		&record.IncidentID,
-		&record.IndicatorType,
-		&record.ValueKind,
-		&record.DisplayValue,
-		&record.NormalizedValue,
-		&record.DedupeKey,
-		&record.DefangedValue,
-		&record.HashAlgorithm,
-		&record.HashValue,
-		&record.STIXPattern,
-		&record.RowVersion,
-		&record.CreatedAt,
-		&record.UpdatedAt,
-		&record.CreatedByUser,
-		&record.UpdatedByUser,
-		&deletedAt,
-		&deletedBy,
-	); err != nil {
-		return indicators.IndicatorRecord{}, err
-	}
-	record.CreatedAt = record.CreatedAt.UTC()
-	record.UpdatedAt = record.UpdatedAt.UTC()
-	if deletedAt.Valid {
-		value := deletedAt.Time.UTC()
-		record.DeletedAt = &value
-	}
-	if deletedBy.Valid {
-		value, err := uuid.FromBytes(deletedBy.Bytes[:])
-		if err != nil {
-			return indicators.IndicatorRecord{}, fmt.Errorf("decode deleted indicator user id: %w", err)
-		}
-		record.DeletedByUserID = &value
-	}
 	return record, nil
 }
 

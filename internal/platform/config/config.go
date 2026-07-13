@@ -98,7 +98,8 @@ type EnterpriseAuthenticationConfig struct {
 }
 
 type NetworkFlowActivityConfig struct {
-	Claimed bool `toml:"claimed"`
+	Claimed             bool   `toml:"claimed"`
+	KeyRingManifestPath string `toml:"key_ring_manifest_path"`
 }
 
 type LimitConfig struct {

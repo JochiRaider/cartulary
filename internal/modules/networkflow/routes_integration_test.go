@@ -41,9 +41,7 @@ func TestNetworkFlowRoutesRemainUnclaimedByDefault(t *testing.T) {
 
 func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServerWithDependencies(t, "network-flow-routes-query", httpapi.DependencySet{
-		ExtensionProfiles: claimedNetworkFlowProfilesForRouteTest(),
-	})
+	harness := runtime.StartServerWithDependencies(t, "network-flow-routes-query", claimedNetworkFlowDependenciesForRouteTest(t))
 	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	adminID := uuid.MustParse(adminIDText)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -53,7 +51,7 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 	})
 	incidentID := uuid.MustParse(incident["incident_id"].(string))
 
-	store := NewStore(harness.Server.Runtime.Postgres)
+	store := newTestNetworkFlowStore(harness.Server.Runtime.Postgres)
 	sessionID, unitID := seedImportSessionUnit(t, harness.Server.Runtime.Postgres, incidentID, adminID, "flows.csv")
 	first := testFlowRow(1, "1")
 	first.SrcIP = "192.0.2.10"
@@ -107,7 +105,7 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 		t.Fatalf("unexpected first query page: %#v", firstPage)
 	}
 	nextToken := firstPage["meta"].(map[string]any)["paging"].(map[string]any)["next_cursor_token"].(string)
-	if !strings.HasPrefix(nextToken, "nfc1.master-derived-v1.") {
+	if !strings.HasPrefix(nextToken, "nfc2.route-cursor-v1.") {
 		t.Fatalf("expected Network Flow cursor token with key id, got %q", nextToken)
 	}
 
@@ -300,9 +298,7 @@ func requireNoNetworkFlowResourceChange(t testing.TB, messages <-chan platformws
 
 func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServerWithDependencies(t, "network-flow-routes-graph-link", httpapi.DependencySet{
-		ExtensionProfiles: claimedNetworkFlowProfilesForRouteTest(),
-	})
+	harness := runtime.StartServerWithDependencies(t, "network-flow-routes-graph-link", claimedNetworkFlowDependenciesForRouteTest(t))
 	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	adminID := uuid.MustParse(adminIDText)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -312,7 +308,7 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 	})
 	incidentID := uuid.MustParse(incident["incident_id"].(string))
 
-	store := NewStore(harness.Server.Runtime.Postgres)
+	store := newTestNetworkFlowStore(harness.Server.Runtime.Postgres)
 	sessionID, unitID := seedImportSessionUnit(t, harness.Server.Runtime.Postgres, incidentID, adminID, "graph-flows.csv")
 	first := testFlowRow(1, "a")
 	second := testFlowRow(2, "b")
@@ -474,6 +470,27 @@ func claimedNetworkFlowProfilesForRouteTest() []httpapi.ExtensionProfile {
 		}
 	}
 	return profiles
+}
+
+func claimedNetworkFlowDependenciesForRouteTest(t testing.TB) httpapi.DependencySet {
+	t.Helper()
+	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+	rings, err := ParseKeyRings([]byte(`{
+  "schema_id":"cartulary.network_flow_key_rings.v1",
+  "cursor_key_ring":{"algorithm":"aes_256_gcm_v1","keys":[{"cursor_key_id":"route-cursor-v1","state":"active","secret_ref":{"kind":"env","name":"route-cursor"}}]},
+  "safe_digest_key_ring":{"algorithm":"hmac_sha256_v1","keys":[{"safe_digest_key_id":"route-safe-v1","state":"active","secret_ref":{"kind":"env","name":"route-safe"}}]}
+}`), map[string]string{
+		"CARTULARY_SECRET_ROUTE_CURSOR": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+		"CARTULARY_SECRET_ROUTE_SAFE":   "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+	}, now)
+	if err != nil {
+		t.Fatalf("parse Network Flow route-test key rings: %v", err)
+	}
+	return httpapi.DependencySet{
+		ExtensionProfiles: claimedNetworkFlowProfilesForRouteTest(),
+		ModuleOverrides:   map[string]any{KeyRingsOverrideKey: rings},
+		Now:               func() time.Time { return now },
+	}
 }
 
 func networkFlowRouteCountRows(t testing.TB, db *sql.DB, query string, args ...any) int {

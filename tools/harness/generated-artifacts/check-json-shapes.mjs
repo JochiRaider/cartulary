@@ -98,7 +98,7 @@ const graphProjectionFixtureManifestSchemaID =
 const networkFlowFixtureManifestSchemaID =
   "cartulary.network_flow_fixture_manifest.v1";
 const networkFlowActivityAccountingSchemaID =
-  "cartulary.network_flow_activity_accounting.v1";
+  "cartulary.network_flow_activity_accounting.v2";
 const networkFlowContractIndexSchemaID =
   "cartulary.network_flow_contract_index.v1";
 const networkFlowTimezoneRulesetProvenanceSchemaID =
@@ -197,6 +197,8 @@ const networkFlowAcceptanceAccountingKeys = new Set([
   "last_id",
   "selector_prefix",
   "tracker_row_prefix",
+  "matrix_source",
+  "rows",
 ]);
 const networkFlowDriftAccountingKeys = new Set([
   "scratch_manifest",
@@ -232,6 +234,8 @@ const networkFlowContractIndexKeys = new Set([
   "schema_id",
   "profile_id",
   "contract_major",
+  "document_version",
+  "route_root",
   "family_id",
   "owner_document",
   "owner_sections",
@@ -244,6 +248,7 @@ const networkFlowContractFilesKeys = new Set([
   "schemas",
   "errors",
   "timezone_provenance",
+  "key_rings",
 ]);
 const networkFlowClosurePolicyKeys = new Set([
   "objects_closed_by_default",
@@ -262,6 +267,9 @@ const networkFlowRouteContractKeys = new Set([
 ]);
 const networkFlowExtensionDiscoveryKeys = new Set([
   "profile_id",
+  "contract_major",
+  "document_version",
+  "route_root",
   "claim_required",
   "unclaimed_error_code",
   "reserved_route_family",
@@ -1547,6 +1555,25 @@ function validateNetworkFlowActivityAccountingShape(file) {
     "NF-AC-",
     `${file}.acceptance_accounting.tracker_row_prefix`,
   );
+  const matrixSource = requireRepoRelativePath(
+    acceptanceAccounting.matrix_source,
+    `${file}.acceptance_accounting.matrix_source`,
+  );
+  requireExact(
+    matrixSource,
+    "tools/phase12_test_map.json",
+    `${file}.acceptance_accounting.matrix_source`,
+  );
+  const acceptanceRows = requireObjectArray(
+    acceptanceAccounting.rows,
+    `${file}.acceptance_accounting.rows`,
+    { nonEmpty: true },
+  );
+  if (acceptanceRows.length !== expectedAcceptanceCount) {
+    throw new Error(
+      `${file}.acceptance_accounting.rows must contain ${expectedAcceptanceCount} rows`,
+    );
+  }
 
   const driftAccounting = requireObject(
     accounting.drift_accounting,
@@ -1727,6 +1754,108 @@ function validateNetworkFlowActivityAccountingShape(file) {
     `${sourceSpec} Network Flow acceptance IDs`,
   );
 
+  const criterionTextByID = new Map();
+  for (const match of source.matchAll(/^\| `(NF-AC-\d{3})` \| (.+) \|$/gmu)) {
+    criterionTextByID.set(match[1], match[2]);
+  }
+  const matrix = readShapeFile(repoFile(repoRoot, matrixSource), matrixSource);
+  const matrixSelectors = [];
+  for (const collection of [matrix.unit, matrix.integration, matrix.e2e]) {
+    for (const selector of requireObjectArray(collection, `${matrixSource} selector collection`)) {
+      matrixSelectors.push(selector);
+    }
+  }
+  const accountedAcceptanceIDs = new Set();
+  for (const [index, row] of acceptanceRows.entries()) {
+    const label = `${file}.acceptance_accounting.rows[${index}]`;
+    const acceptanceID = requireString(row.acceptance_id, `${label}.acceptance_id`, {
+      pattern: networkFlowAcceptanceIDPattern,
+    });
+    if (accountedAcceptanceIDs.has(acceptanceID)) {
+      throw new Error(`${label}.acceptance_id duplicates ${acceptanceID}`);
+    }
+    accountedAcceptanceIDs.add(acceptanceID);
+    const ownerRequirements = requireStringArray(
+      row.owner_requirements,
+      `${label}.owner_requirements`,
+      { nonEmpty: true },
+    );
+    const criterionText = criterionTextByID.get(acceptanceID);
+    if (!criterionText || !ownerRequirements.includes(criterionText)) {
+      throw new Error(`${label}.owner_requirements must include exact owner criterion text`);
+    }
+    const behaviorClass = requireEnum(
+      row.behavior_class,
+      `${label}.behavior_class`,
+      new Set(["product_runtime", "normative_structure", "fixture_integrity", "evidence_policy"]),
+    );
+    const requiredEvidenceKinds = new Set(
+      requireStringArray(row.required_evidence_kinds, `${label}.required_evidence_kinds`, {
+        nonEmpty: true,
+      }),
+    );
+    const selectors = requireObjectArray(row.exact_selectors, `${label}.exact_selectors`, {
+      nonEmpty: true,
+    });
+    const actualKinds = new Set();
+    for (const [selectorIndex, selector] of selectors.entries()) {
+      const selectorLabel = `${label}.exact_selectors[${selectorIndex}]`;
+      const kind = requireEnum(
+        selector.kind,
+        `${selectorLabel}.kind`,
+        new Set(["unit", "store", "process", "browser"]),
+      );
+      actualKinds.add(kind);
+      const selectorFile = requireRepoRelativePath(
+        selector.file,
+        `${selectorLabel}.file`,
+      );
+      const selectorPath = repoFile(repoRoot, selectorFile);
+      if (!existsSync(selectorPath) || !lstatSync(selectorPath).isFile()) {
+        throw new Error(`${selectorLabel}.file does not resolve: ${selectorFile}`);
+      }
+      const symbolOrTitle = selector.symbol ?? selector.title;
+      const selectorSource = readFileSync(selectorPath, "utf8");
+      if (!symbolOrTitle || !selectorSource.includes(symbolOrTitle)) {
+        throw new Error(`${selectorLabel} does not resolve in ${selectorFile}`);
+      }
+      const phaseRow = matrixSelectors.find((candidate) =>
+        candidate.file === selectorFile &&
+        (candidate.symbol === selector.symbol || candidate.title === selector.title) &&
+        candidate.id.includes(acceptanceID.replace("NF-AC-", "NFAC")),
+      );
+      if (!phaseRow) {
+        throw new Error(`${selectorLabel} is not an exact ${acceptanceID} Phase 12 selector`);
+      }
+    }
+    assertExactIDSet(actualKinds, requiredEvidenceKinds, `${label}.required_evidence_kinds`);
+    if (behaviorClass === "product_runtime" && actualKinds.size === 0) {
+      throw new Error(`${label} product_runtime evidence must execute a runtime selector`);
+    }
+    const fixtureIDs = requireStringArray(
+      row.supplemental_fixture_ids,
+      `${label}.supplemental_fixture_ids`,
+    );
+    for (const fixtureID of fixtureIDs) {
+      const manifestPath = `fixtures/network-flow/${fixtureID}/manifest.json`;
+      if (!existsSync(repoFile(repoRoot, manifestPath))) {
+        throw new Error(`${label} references missing supplemental fixture ${fixtureID}`);
+      }
+      const manifest = readShapeFile(repoFile(repoRoot, manifestPath), manifestPath);
+      const ownerAcceptanceIDs = new Set(
+        (manifest.owner_refs ?? []).flatMap((owner) => owner.acceptance_ids ?? []),
+      );
+      if (!ownerAcceptanceIDs.has(acceptanceID)) {
+        throw new Error(`${manifestPath} does not claim supplemental coverage for ${acceptanceID}`);
+      }
+    }
+  }
+  assertExactIDSet(
+    accountedAcceptanceIDs,
+    expectedAcceptanceIDs,
+    `${file}.acceptance_accounting.rows acceptance IDs`,
+  );
+
   const registry = readShapeFile(repoFile(repoRoot, registryPath), registryPath);
   validateSchemaSync(contractFamilyRegistrySchemaID, registry);
   const family = requireObjectArray(registry.families, `${registryPath}.families`).find(
@@ -1834,6 +1963,12 @@ function validateNetworkFlowContractIndexShape(file) {
   requireSchemaID(contractIndex, networkFlowContractIndexSchemaID, file);
   requireExact(contractIndex.profile_id, "network_flow_activity", `${file}.profile_id`);
   requireExact(contractIndex.contract_major, 1, `${file}.contract_major`);
+  requireExact(contractIndex.document_version, "1.1.0", `${file}.document_version`);
+  requireExact(
+    contractIndex.route_root,
+    "/api/v1/incidents/{incident_id}/network-flow",
+    `${file}.route_root`,
+  );
   requireExact(contractIndex.family_id, "network-flow", `${file}.family_id`);
   requireExact(
     contractIndex.owner_document,
@@ -1856,12 +1991,21 @@ function validateNetworkFlowContractIndexShape(file) {
     contractFiles.timezone_provenance,
     `${file}.contract_files.timezone_provenance`,
   );
+  const keyRingsFile = networkFlowContractRepoPath(
+    contractFiles.key_rings,
+    `${file}.contract_files.key_rings`,
+  );
   requireExact(
     contractFiles.timezone_provenance,
     "contracts/network-flow/timezone/tzdb-2026c.provenance.json",
     `${file}.contract_files.timezone_provenance`,
   );
-  for (const referencedPath of [routeFile, schemaFile, errorFile, timezoneFile]) {
+  requireExact(
+    contractFiles.key_rings,
+    "contracts/network-flow/key-rings.v1.schema.json",
+    `${file}.contract_files.key_rings`,
+  );
+  for (const referencedPath of [routeFile, schemaFile, errorFile, timezoneFile, keyRingsFile]) {
     if (!existsSync(repoFile(repoRoot, referencedPath))) {
       throw new Error(`${file} references missing Network Flow contract file ${referencedPath}`);
     }
@@ -1934,6 +2078,9 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
   assertObjectKeys(discovery, networkFlowExtensionDiscoveryKeys, `${file}.extension_discovery`);
   assertRequiredKeys(discovery, networkFlowExtensionDiscoveryKeys, `${file}.extension_discovery`);
   requireExact(discovery.profile_id, "network_flow_activity", `${file}.extension_discovery.profile_id`);
+  requireExact(discovery.contract_major, 1, `${file}.extension_discovery.contract_major`);
+  requireExact(discovery.document_version, "1.1.0", `${file}.extension_discovery.document_version`);
+  requireExact(discovery.route_root, routeContracts.route_root, `${file}.extension_discovery.route_root`);
   requireExact(discovery.claim_required, true, `${file}.extension_discovery.claim_required`);
   requireExact(
     discovery.unclaimed_error_code,

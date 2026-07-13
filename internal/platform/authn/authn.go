@@ -23,6 +23,8 @@ import (
 	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/text/unicode/norm"
+
+	"github.com/JochiRaider/cartulary/internal/platform/secretpurpose"
 )
 
 const (
@@ -321,6 +323,24 @@ func LoadMasterKeys(env map[string]string) (MasterKeys, error) {
 		secretEncryptionKey:   deriveKey(decoded, "totp-secret"),
 		requestFingerprintKey: deriveKey(decoded, "request-fingerprint"),
 	}, nil
+}
+
+func RegisterMasterSecretPurpose(registry *secretpurpose.Registry, env map[string]string) error {
+	raw, ok := lookupEnv(env, AuthMasterKeyEnv)
+	if !ok || raw == "" {
+		raw = developmentFallbackAuthKey
+	}
+	decoded, err := base64.RawStdEncoding.DecodeString(raw)
+	if err != nil {
+		decoded, err = base64.StdEncoding.DecodeString(raw)
+	}
+	if err != nil || len(decoded) < 32 {
+		return errors.New("register authentication master secret: invalid material")
+	}
+	if err := registry.Register(AuthMasterKeyEnv, "authentication_master", decoded); err != nil {
+		return fmt.Errorf("register authentication master secret purpose: %w", err)
+	}
+	return nil
 }
 
 func FingerprintToken(keys MasterKeys, token string) []byte {

@@ -14,6 +14,7 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -26,10 +27,27 @@ const (
 	testSHA4 = "4444444444444444444444444444444444444444444444444444444444444444"
 )
 
+func newTestNetworkFlowStore(db postgres.DB, options ...StoreOption) *Store {
+	options = append(options, WithOwnerParticipants(
+		incidents.NewTransactionParticipant(),
+		authn.NewAdministrativeAuditAppender(),
+		indicators.NewStore(db),
+	))
+	options = append(options, WithSafeDigester(testNetworkFlowSafeDigester{}))
+	return NewStore(db, options...)
+}
+
+type testNetworkFlowSafeDigester struct{}
+
+func (testNetworkFlowSafeDigester) Digest(valueClass string, canonicalValue string) (string, string, error) {
+	digest, keyID := SafeDigest("test-safe-v1", []byte("0123456789abcdef0123456789abcdef"), valueClass, canonicalValue)
+	return digest, keyID, nil
+}
+
 func TestNetworkFlowStoreCreateTableDerivesNamePersistsRowsAndCounts(t *testing.T) {
 	harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-create")
 	sessionID, unitID := seedImportSessionUnit(t, harness.DB, incidentID, actor.ID, "C:\\tmp\\flows.csv")
-	store := NewStore(harness.DB)
+	store := newTestNetworkFlowStore(harness.DB)
 	now := time.Date(2026, 7, 10, 11, 30, 0, 0, time.UTC)
 
 	table, err := store.CreateTable(context.Background(), CreateTableParams{
@@ -96,7 +114,7 @@ func TestNetworkFlowStoreCreateTableDerivesNamePersistsRowsAndCounts(t *testing.
 
 func TestNetworkFlowStoreRenameSoftDeleteAndRetainedNameReuse(t *testing.T) {
 	harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-lifecycle")
-	store := NewStore(harness.DB)
+	store := newTestNetworkFlowStore(harness.DB)
 	first := createTestTable(t, harness.DB, store, actor.ID, incidentID, "flows.csv", nil, 1)
 	second := createTestTable(t, harness.DB, store, actor.ID, incidentID, "flows.csv", nil, 2)
 	if first.DisplayName != "flows" || second.DisplayName != "flows (2)" {
@@ -179,7 +197,7 @@ func TestNetworkFlowStoreRenameSoftDeleteAndRetainedNameReuse(t *testing.T) {
 
 func TestNetworkFlowStoreLimitsUseActiveAndRetainedCounts(t *testing.T) {
 	harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-limits")
-	store := NewStore(harness.DB, WithLimits(Limits{MaxActiveTablesPerIncident: 1, MaxRetainedTablesPerIncident: 2}))
+	store := newTestNetworkFlowStore(harness.DB, WithLimits(Limits{MaxActiveTablesPerIncident: 1, MaxRetainedTablesPerIncident: 2}))
 	first := createTestTable(t, harness.DB, store, actor.ID, incidentID, "one.csv", nil, 1)
 
 	_, err := createTestTableResult(t, harness.DB, store, actor.ID, incidentID, "two.csv", nil, 2)
@@ -220,7 +238,7 @@ func TestNetworkFlowStoreLimitsUseActiveAndRetainedCounts(t *testing.T) {
 
 func TestNetworkFlowStoreRejectsInvalidExplicitDisplayNames(t *testing.T) {
 	harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-invalid-names")
-	store := NewStore(harness.DB)
+	store := newTestNetworkFlowStore(harness.DB)
 
 	for _, testCase := range []struct {
 		name       string
@@ -243,7 +261,7 @@ func TestNetworkFlowStoreRejectsInvalidExplicitDisplayNames(t *testing.T) {
 
 func TestNetworkFlowCommittedRowsAreImmutable(t *testing.T) {
 	harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-immutable")
-	store := NewStore(harness.DB)
+	store := newTestNetworkFlowStore(harness.DB)
 	table := createTestTable(t, harness.DB, store, actor.ID, incidentID, "immutable.csv", nil, 1)
 	tx, err := harness.DB.BeginTx(context.Background(), pgx.TxOptions{})
 	if err != nil {

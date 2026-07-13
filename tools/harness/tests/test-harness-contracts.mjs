@@ -325,14 +325,20 @@ test("contract family registry schema is closed and restricts planned families",
 test("network flow activity accounting is closed and fails drift gaps", async () => {
   const accounting = readJSON("tools/network_flow_activity_accounting.json");
 
-  await validateSchema("cartulary.network_flow_activity_accounting.v1", accounting);
+  await validateSchema("cartulary.network_flow_activity_accounting.v2", accounting);
 
   await assert.rejects(
-    validateSchema("cartulary.network_flow_activity_accounting.v1", {
+    validateSchema("cartulary.network_flow_activity_accounting.v2", {
       ...accounting,
       unexpected: true,
     }),
     /must NOT have additional properties/u,
+  );
+  const fixtureOnly = structuredClone(accounting);
+  fixtureOnly.acceptance_accounting.rows[0].exact_selectors = [];
+  await assert.rejects(
+    validateSchema("cartulary.network_flow_activity_accounting.v2", fixtureOnly),
+    /must NOT have fewer than 1 items/u,
   );
 
   const checker = path.join(
@@ -352,6 +358,22 @@ test("network flow activity accounting is closed and fails drift gaps", async ()
 
   const root = mkdtempSync(path.join(repoRoot, "tmp", "network-flow-accounting."));
   try {
+    const unresolvedSelector = structuredClone(accounting);
+    unresolvedSelector.acceptance_accounting.rows[0].exact_selectors[0].title =
+      "missing Network Flow browser selector";
+    const unresolvedSelectorFile = path.join(root, "unresolved-selector.json");
+    writeFileSync(
+      unresolvedSelectorFile,
+      `${JSON.stringify(unresolvedSelector, null, 2)}\n`,
+    );
+    const unresolvedSelectorResult = spawnSync(
+      process.execPath,
+      [checker, "--kind", "network-flow-activity-accounting", "--file", unresolvedSelectorFile],
+      { encoding: "utf8" },
+    );
+    assert.notEqual(unresolvedSelectorResult.status, 0);
+    assert.match(unresolvedSelectorResult.stderr, /does not resolve/u);
+
     const sourceWithTodo = readFileSync(
       path.join(repoRoot, accounting.source_spec),
       "utf8",
@@ -550,6 +572,7 @@ test("network flow authored contracts are closed and index-owned", async () => {
       schemas: relativePath(tempSchemasPath),
       errors: relativePath(tempErrorsPath),
       timezone_provenance: contractIndex.contract_files.timezone_provenance,
+      key_rings: contractIndex.contract_files.key_rings,
     },
   };
   const writeTempContracts = ({

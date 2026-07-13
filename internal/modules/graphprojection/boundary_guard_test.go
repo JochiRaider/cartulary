@@ -89,9 +89,8 @@ func TestGraphProjectionInboundConsumersUseApprovedFacades(t *testing.T) {
 	root := repoRoot(t)
 	modulesRoot := filepath.Join(root, "internal", "modules")
 	allowed := map[string]bool{
-		filepath.Join(modulesRoot, "networkflow", "graph.go"):  true,
-		filepath.Join(modulesRoot, "networkflow", "routes.go"): true,
-		filepath.Join(modulesRoot, "reporting", "store.go"):    true,
+		filepath.Join(modulesRoot, "networkflow", "graph_projection_adapter.go"): true,
+		filepath.Join(modulesRoot, "reporting", "store.go"):                      true,
 	}
 	err := filepath.WalkDir(modulesRoot, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
@@ -111,7 +110,7 @@ func TestGraphProjectionInboundConsumersUseApprovedFacades(t *testing.T) {
 		t.Fatalf("scan module importers: %v", err)
 	}
 
-	networkFlowGraph, err := os.ReadFile(filepath.Join(modulesRoot, "networkflow", "graph.go"))
+	networkFlowGraph, err := os.ReadFile(filepath.Join(modulesRoot, "networkflow", "graph_projection_adapter.go"))
 	if err != nil {
 		t.Fatalf("read Network Flow graph adapter: %v", err)
 	}

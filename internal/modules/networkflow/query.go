@@ -38,6 +38,27 @@ type SortSpec struct {
 	Direction string `json:"direction"`
 }
 
+type rowCursorPosition struct {
+	EffectiveSort      []SortSpec `json:"effective_sort"`
+	Values             []any      `json:"values"`
+	NetworkFlowTableID string     `json:"network_flow_table_id"`
+	NetworkFlowRowID   string     `json:"network_flow_row_id"`
+}
+
+type diagnosticCursorPosition struct {
+	SourceRowNumber     int64   `json:"source_row_number"`
+	SourceColumnOrdinal *int64  `json:"source_column_ordinal"`
+	FieldKey            *string `json:"field_key"`
+	ErrorCode           string  `json:"error_code"`
+	ReasonCode          string  `json:"reason_code"`
+	DiagnosticID        string  `json:"diagnostic_id"`
+}
+
+type contributorCursorPosition struct {
+	WorkspaceTableOrder int               `json:"workspace_table_order"`
+	Row                 rowCursorPosition `json:"row"`
+}
+
 type TableScope struct {
 	Mode             string
 	ActiveTableID    string
@@ -281,49 +302,41 @@ func requiredTableScope(raw json.RawMessage, limits Limits) (TableScope, *httpap
 }
 
 func decodeFilters(raw json.RawMessage, limits Limits) ([]Filter, *httpapi.APIError) {
-	if len(raw) == 0 {
-		return nil, nil
-	}
-	var filters []Filter
-	if err := json.Unmarshal(raw, &filters); err != nil {
-		return nil, invalidFilter("filters", "invalid_value")
-	}
-	if int64(len(filters)) > limits.MaxFiltersPerQuery {
-		return nil, invalidFilter("filters", "too_many_filters")
-	}
-	seen := map[string]struct{}{}
-	for _, filter := range filters {
-		if !isFilterField(filter.FieldKey) {
-			return nil, invalidFilter("field_key", "unknown_field")
-		}
-		if !filterOpAllowed(filter) {
-			return nil, invalidFilter("op", "operator_not_allowed")
-		}
-		key := string(canonicalJSON(filter))
-		if _, exists := seen[key]; exists {
-			return nil, invalidFilter("filters", "duplicate_filter")
-		}
-		seen[key] = struct{}{}
-	}
-	sort.SliceStable(filters, func(i, j int) bool {
-		return string(canonicalJSON(filters[i])) < string(canonicalJSON(filters[j]))
-	})
-	return filters, nil
+	return decodeAndNormalizeFilters(raw, limits)
 }
 
 func decodeSort(raw json.RawMessage, limits Limits) ([]SortSpec, *httpapi.APIError) {
 	if len(raw) == 0 {
 		return nil, nil
 	}
-	var specs []SortSpec
-	if err := json.Unmarshal(raw, &specs); err != nil {
+	var encodedSpecs []json.RawMessage
+	if err := json.Unmarshal(raw, &encodedSpecs); err != nil || encodedSpecs == nil {
 		return nil, invalidSort("sort", "invalid_direction")
 	}
-	if int64(len(specs)) > limits.MaxSortsPerQuery {
+	if int64(len(encodedSpecs)) > limits.MaxSortsPerQuery {
 		return nil, invalidSort("sort", "too_many_sorts")
 	}
+	specs := make([]SortSpec, 0, len(encodedSpecs))
 	seen := map[string]struct{}{}
-	for _, spec := range specs {
+	for _, encoded := range encodedSpecs {
+		object, err := httpapi.DecodeStrictJSONObject(bytes.NewReader(encoded))
+		if err != nil || len(object) != 2 {
+			return nil, invalidSort("sort", "invalid_direction")
+		}
+		for member := range object {
+			if member != "field_key" && member != "direction" {
+				return nil, invalidSort("sort", "invalid_direction")
+			}
+		}
+		fieldKey, fieldErr := strictSortString(object, "field_key")
+		if fieldErr != nil {
+			return nil, invalidSort("field_key", "unknown_field")
+		}
+		direction, directionErr := strictSortString(object, "direction")
+		if directionErr != nil {
+			return nil, invalidSort("direction", "invalid_direction")
+		}
+		spec := SortSpec{FieldKey: fieldKey, Direction: direction}
 		if !isSortField(spec.FieldKey) {
 			return nil, invalidSort("field_key", "unknown_field")
 		}
@@ -334,8 +347,21 @@ func decodeSort(raw json.RawMessage, limits Limits) ([]SortSpec, *httpapi.APIErr
 			return nil, invalidSort("field_key", "duplicate_sort_field")
 		}
 		seen[spec.FieldKey] = struct{}{}
+		specs = append(specs, spec)
 	}
 	return specs, nil
+}
+
+func strictSortString(object map[string]json.RawMessage, member string) (string, error) {
+	raw, ok := object[member]
+	if !ok || bytes.Equal(raw, []byte("null")) {
+		return "", errors.New("missing sort member")
+	}
+	var value string
+	if err := json.Unmarshal(raw, &value); err != nil || value == "" {
+		return "", errors.New("invalid sort member")
+	}
+	return value, nil
 }
 
 func filterRows(rows []FlowRow, filters []Filter) ([]FlowRow, *httpapi.APIError) {
@@ -367,12 +393,9 @@ func sortRows(rows []FlowRow, specs []SortSpec) []FlowRow {
 	sorted := append([]FlowRow(nil), rows...)
 	sort.SliceStable(sorted, func(i, j int) bool {
 		for _, spec := range effective {
-			cmp := compareRowField(sorted[i], sorted[j], spec.FieldKey)
+			cmp := compareRowFieldForSort(sorted[i], sorted[j], spec)
 			if cmp == 0 {
 				continue
-			}
-			if spec.Direction == "desc" {
-				return cmp > 0
 			}
 			return cmp < 0
 		}
@@ -385,10 +408,36 @@ func sortRows(rows []FlowRow, specs []SortSpec) []FlowRow {
 }
 
 func effectiveSort(specs []SortSpec) []SortSpec {
-	if len(specs) == 0 {
-		return []SortSpec{{FieldKey: "source_row_number", Direction: "asc"}}
+	result := append([]SortSpec(nil), specs...)
+	seen := make(map[string]struct{}, len(result))
+	for _, spec := range result {
+		seen[spec.FieldKey] = struct{}{}
 	}
-	return specs
+	defaults := []SortSpec{
+		{FieldKey: FieldFlowStartUTC, Direction: "asc"},
+		{FieldKey: FieldFlowEndUTC, Direction: "asc"},
+		{FieldKey: "source_row_number", Direction: "asc"},
+		{FieldKey: "network_flow_row_id", Direction: "asc"},
+	}
+	for _, spec := range defaults {
+		if _, exists := seen[spec.FieldKey]; exists {
+			continue
+		}
+		result = append(result, spec)
+	}
+	return result
+}
+
+func sameSortSpecs(left, right []SortSpec) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }
 
 func rowMatchesFilter(row FlowRow, filter Filter) (bool, *httpapi.APIError) {
@@ -492,13 +541,62 @@ func rowPublicFieldValue(row FlowRow, field string) any {
 		return nullableStringValue(row.OutputInterface)
 	case "source_row_number":
 		return row.SourceRowNumber
+	case "network_flow_row_id":
+		return row.RowID
+	case "network_flow_table_id":
+		return row.NetworkFlowTableID
 	default:
 		return nil
 	}
 }
 
 func compareRowField(a, b FlowRow, field string) int {
-	return compareScalar(rowPublicFieldValue(a, field), rowPublicFieldValue(b, field))
+	left := rowPublicFieldValue(a, field)
+	right := rowPublicFieldValue(b, field)
+	if field == FieldSrcIP || field == FieldDstIP {
+		return compareIPValues(left, right)
+	}
+	return compareScalar(left, right)
+}
+
+func compareRowFieldForSort(a, b FlowRow, spec SortSpec) int {
+	left := rowPublicFieldValue(a, spec.FieldKey)
+	right := rowPublicFieldValue(b, spec.FieldKey)
+	if left == nil || right == nil {
+		switch {
+		case left == nil && right == nil:
+			return 0
+		case left == nil:
+			return 1
+		default:
+			return -1
+		}
+	}
+	cmp := compareRowField(a, b, spec.FieldKey)
+	if spec.Direction == "desc" {
+		return -cmp
+	}
+	return cmp
+}
+
+func compareIPValues(left any, right any) int {
+	leftText, leftOK := left.(string)
+	rightText, rightOK := right.(string)
+	if !leftOK || !rightOK {
+		return compareScalar(left, right)
+	}
+	leftIP, leftOK := parseIP(leftText)
+	rightIP, rightOK := parseIP(rightText)
+	if !leftOK || !rightOK {
+		return compareScalar(left, right)
+	}
+	if leftIP.Is4() != rightIP.Is4() {
+		if leftIP.Is4() {
+			return -1
+		}
+		return 1
+	}
+	return leftIP.Compare(rightIP)
 }
 
 func compareScalar(left any, right any) int {
@@ -591,23 +689,22 @@ func nullableStringValue(value *string) any {
 }
 
 func filterOpAllowed(filter Filter) bool {
-	switch filter.Op {
-	case "eq", "in", "is_null", "not_null":
-		return true
-	case "range":
-		switch filter.FieldKey {
-		case FieldFlowStartUTC, FieldFlowEndUTC, FieldSrcPort, FieldDstPort, FieldIPProtocol, FieldBytesCount, FieldPacketsCount, "source_row_number":
-			return true
-		}
-	case "cidr_contains":
-		return filter.FieldKey == FieldSrcIP || filter.FieldKey == FieldDstIP || filter.FieldKey == FieldEndpointIP
-	case "prefix", "contains":
-		switch filter.FieldKey {
-		case FieldSrcIP, FieldDstIP, FieldExporterID, FieldInputInterface, FieldOutputInterface:
-			return true
-		}
+	switch filter.FieldKey {
+	case FieldSrcIP, FieldDstIP, FieldEndpointIP:
+		return filter.Op == "eq" || filter.Op == "in" || filter.Op == "cidr_contains"
+	case FieldSrcPort, FieldDstPort:
+		return filter.Op == "eq" || filter.Op == "in" || filter.Op == "range" || filter.Op == "is_null" || filter.Op == "not_null"
+	case FieldIPProtocol, "source_row_number":
+		return filter.Op == "eq" || filter.Op == "in" || filter.Op == "range"
+	case FieldFlowStartUTC, FieldFlowEndUTC:
+		return filter.Op == "range"
+	case FieldBytesCount, FieldPacketsCount:
+		return filter.Op == "eq" || filter.Op == "range"
+	case FieldExporterID, FieldInputInterface, FieldOutputInterface:
+		return filter.Op == "eq" || filter.Op == "in" || filter.Op == "prefix" || filter.Op == "contains" || filter.Op == "is_null" || filter.Op == "not_null"
+	default:
+		return false
 	}
-	return false
 }
 
 const FieldEndpointIP = "network_flow.endpoint_ip"
@@ -623,11 +720,173 @@ func isFilterField(field string) bool {
 
 func isSortField(field string) bool {
 	switch field {
-	case FieldSrcIP, FieldDstIP, FieldSrcPort, FieldDstPort, FieldIPProtocol, FieldFlowStartUTC, FieldFlowEndUTC, FieldBytesCount, FieldPacketsCount, FieldExporterID, FieldInputInterface, FieldOutputInterface, "source_row_number":
+	case FieldSrcIP, FieldDstIP, FieldSrcPort, FieldDstPort, FieldIPProtocol, FieldFlowStartUTC, FieldFlowEndUTC, FieldBytesCount, FieldPacketsCount, FieldExporterID, FieldInputInterface, FieldOutputInterface, "source_row_number", "network_flow_row_id", "network_flow_table_id":
 		return true
 	default:
 		return false
 	}
+}
+
+func newRowCursorPosition(row FlowRow, specs []SortSpec) rowCursorPosition {
+	effective := effectiveSort(specs)
+	values := make([]any, 0, len(effective))
+	for _, spec := range effective {
+		values = append(values, rowPublicFieldValue(row, spec.FieldKey))
+	}
+	return rowCursorPosition{
+		EffectiveSort:      effective,
+		Values:             values,
+		NetworkFlowTableID: row.NetworkFlowTableID,
+		NetworkFlowRowID:   row.RowID,
+	}
+}
+
+func decodeRowCursorPosition(raw json.RawMessage) (rowCursorPosition, error) {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	var position rowCursorPosition
+	if err := decoder.Decode(&position); err != nil {
+		return rowCursorPosition{}, err
+	}
+	if len(position.EffectiveSort) == 0 || len(position.Values) != len(position.EffectiveSort) || position.NetworkFlowTableID == "" || position.NetworkFlowRowID == "" {
+		return rowCursorPosition{}, errors.New("invalid row cursor position")
+	}
+	return position, nil
+}
+
+func compareRowToPosition(row FlowRow, position rowCursorPosition) int {
+	for index, spec := range position.EffectiveSort {
+		left := rowPublicFieldValue(row, spec.FieldKey)
+		right := position.Values[index]
+		if left == nil || right == nil {
+			var cmp int
+			switch {
+			case left == nil && right == nil:
+				cmp = 0
+			case left == nil:
+				cmp = 1
+			default:
+				cmp = -1
+			}
+			if cmp != 0 {
+				return cmp
+			}
+			continue
+		}
+		cmp := compareScalar(left, right)
+		if spec.FieldKey == FieldSrcIP || spec.FieldKey == FieldDstIP {
+			cmp = compareIPValues(left, right)
+		}
+		if spec.Direction == "desc" {
+			cmp = -cmp
+		}
+		if cmp != 0 {
+			return cmp
+		}
+	}
+	if row.NetworkFlowTableID < position.NetworkFlowTableID {
+		return -1
+	}
+	if row.NetworkFlowTableID > position.NetworkFlowTableID {
+		return 1
+	}
+	if row.RowID < position.NetworkFlowRowID {
+		return -1
+	}
+	if row.RowID > position.NetworkFlowRowID {
+		return 1
+	}
+	return 0
+}
+
+func pageFlowRowsAfter(rows []FlowRow, position *rowCursorPosition, limit int) ([]FlowRow, bool) {
+	start := 0
+	if position != nil {
+		start = sort.Search(len(rows), func(index int) bool {
+			return compareRowToPosition(rows[index], *position) > 0
+		})
+	}
+	if start >= len(rows) {
+		return []FlowRow{}, false
+	}
+	end := start + limit
+	if end >= len(rows) {
+		return rows[start:], false
+	}
+	return rows[start:end], true
+}
+
+func newContributorCursorPosition(row FlowRow, tableRanks map[string]int) contributorCursorPosition {
+	return contributorCursorPosition{WorkspaceTableOrder: tableRanks[row.NetworkFlowTableID], Row: newRowCursorPosition(row, nil)}
+}
+
+func decodeContributorCursorPosition(raw json.RawMessage) (contributorCursorPosition, error) {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	var position contributorCursorPosition
+	if err := decoder.Decode(&position); err != nil {
+		return contributorCursorPosition{}, err
+	}
+	decodedRow, err := decodeRowCursorPosition(mustMarshalJSON(position.Row))
+	if err != nil || position.WorkspaceTableOrder < 0 {
+		return contributorCursorPosition{}, errors.New("invalid contributor cursor position")
+	}
+	position.Row = decodedRow
+	return position, nil
+}
+
+func pageContributorRowsAfter(rows []FlowRow, tableRanks map[string]int, position *contributorCursorPosition, limit int) ([]FlowRow, bool) {
+	start := 0
+	if position != nil {
+		start = sort.Search(len(rows), func(index int) bool {
+			rank := tableRanks[rows[index].NetworkFlowTableID]
+			if rank != position.WorkspaceTableOrder {
+				return rank > position.WorkspaceTableOrder
+			}
+			return compareRowToPosition(rows[index], position.Row) > 0
+		})
+	}
+	if start >= len(rows) {
+		return []FlowRow{}, false
+	}
+	end := start + limit
+	if end >= len(rows) {
+		return rows[start:], false
+	}
+	return rows[start:end], true
+}
+
+func mustMarshalJSON(value any) json.RawMessage {
+	encoded, _ := json.Marshal(value)
+	return encoded
+}
+
+func newDiagnosticCursorPosition(value RejectedRowDiagnostic) diagnosticCursorPosition {
+	return diagnosticCursorPosition{
+		SourceRowNumber: value.SourceRowNumber, SourceColumnOrdinal: value.SourceColumnOrdinal,
+		FieldKey: value.FieldKey, ErrorCode: value.ErrorCode, ReasonCode: value.ReasonCode,
+		DiagnosticID: value.DiagnosticID,
+	}
+}
+
+func pageDiagnosticsAfter(rows []RejectedRowDiagnostic, position *diagnosticCursorPosition, limit int) ([]RejectedRowDiagnostic, bool) {
+	start := 0
+	if position != nil {
+		needle := RejectedRowDiagnostic{
+			SourceRowNumber: position.SourceRowNumber, SourceColumnOrdinal: position.SourceColumnOrdinal,
+			FieldKey: position.FieldKey, ErrorCode: position.ErrorCode, ReasonCode: position.ReasonCode,
+			DiagnosticID: position.DiagnosticID,
+		}
+		start = sort.Search(len(rows), func(index int) bool { return compareDiagnostics(rows[index], needle) > 0 })
+	}
+	if start >= len(rows) {
+		return []RejectedRowDiagnostic{}, false
+	}
+	end := start + limit
+	if end >= len(rows) {
+		return rows[start:], false
+	}
+	return rows[start:end], true
 }
 
 func queryHash(value any) string {

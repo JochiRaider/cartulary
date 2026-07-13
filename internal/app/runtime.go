@@ -17,6 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/jobapi"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
@@ -37,6 +38,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/secretpurpose"
 	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
@@ -79,6 +81,23 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	if options.HTTP.Dependencies.ExtensionProfiles == nil {
 		profiles = applyConfigExtensionClaims(profiles, normalizedCfg)
 	}
+	secretPurposes := secretpurpose.NewRegistry()
+	if err := authn.RegisterMasterSecretPurpose(secretPurposes, options.Env); err != nil {
+		return nil, err
+	}
+	if err := config.RegisterTelemetrySecretPurposes(normalizedCfg, options.Env, secretPurposes); err != nil {
+		return nil, err
+	}
+	var enterpriseProviderDefinitions []authn.EnterpriseAuthProviderDefinition
+	if normalizedCfg.EnterpriseAuthentication.Claimed {
+		enterpriseProviderDefinitions, err = enterpriseauth.LoadProviderManifest(normalizedCfg, options.Env)
+		if err != nil {
+			return nil, err
+		}
+		if err := enterpriseauth.RegisterProviderSecretPurposes(enterpriseProviderDefinitions, options.Env, secretPurposes); err != nil {
+			return nil, err
+		}
+	}
 	telemetryRuntime, err := telemetry.Bootstrap(ctx, normalizedCfg, options.Env, telemetry.WithClaimedExtensionProfiles(claimedExtensionProfileIDs(profiles)))
 	if err != nil {
 		return nil, err
@@ -119,7 +138,14 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		runtime.Close()
 		return nil, err
 	}
-	if err := enterpriseauth.ReconcileProviderManifest(ctx, normalizedCfg, options.Env, authn.NewStore(postgresHandle), now()); err != nil {
+	if normalizedCfg.EnterpriseAuthentication.Claimed {
+		if err := enterpriseauth.ReconcileProviderDefinitions(ctx, enterpriseProviderDefinitions, authn.NewStore(postgresHandle), now()); err != nil {
+			runtime.Close()
+			return nil, err
+		}
+	}
+	networkFlowKeyRings, err := networkflow.LoadKeyRingsWithRegistry(normalizedCfg, options.Env, now(), secretPurposes)
+	if err != nil {
 		runtime.Close()
 		return nil, err
 	}
@@ -139,6 +165,9 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 
 	httpOptions := options.HTTP
 	testRuntimeDeps := httpOptions.Dependencies
+	if testRings, ok := testRuntimeDeps.ModuleOverrides[networkflow.KeyRingsOverrideKey].(*networkflow.KeyRings); ok && testRings != nil {
+		networkFlowKeyRings = testRings
+	}
 	keys, err := authn.LoadMasterKeys(options.Env)
 	if err != nil {
 		runtime.Close()
@@ -146,7 +175,6 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	}
 	cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
 	cursorCodec := pagination.NewCodec(cursorKey[:])
-	networkFlowSafeDigestKey := authn.DerivePurposeKey(keys, "network-flow-safe-digest-v1")
 	attributionResolvers := revisions.NewAttributionResolverRegistry()
 	if err := attributionResolvers.RegisterImportedAttributionResolver(incidentbundles.IncidentPortabilityProfileID, incidentbundles.ImportedAttributionResolver()); err != nil {
 		runtime.Close()
@@ -172,13 +200,23 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		return nil, fmt.Errorf("compose revisions command service: %w", err)
 	}
 	revisionRoutes := revisions.RegisterRoutes(revisionCommands)
-	moduleOverrides := mergeNetworkFlowImportFacadeOverride(testRuntimeDeps.ModuleOverrides, networkflow.NewImportFacade(
-		networkflow.NewStore(postgresHandle),
-		imports.NewStore(runtime.Postgres),
-		networkflow.WithImportFacadeClock(now),
-		networkflow.WithImportFacadeSafeDigest("master-derived-v1", networkFlowSafeDigestKey[:]),
-	))
-	httpOptions.AdditionalRoutes = append([]httpapi.RouteRegistrar{auth.RegisterRoutes(), incidentRoutes, extensions.RegisterRoutes(), jobapi.RegisterRoutes(), imports.RegisterRoutes(), networkflow.RegisterRoutes(), reporting.RegisterRoutes(), reportcomposition.RegisterRoutes(), reference_data.RegisterRoutes(), incidentBundleRoutes, savedviews.RegisterRoutes(), viewschemas.RegisterRoutes(), collaboration.RegisterRoutes(), entities.RegisterRoutes(), evidence.RegisterRoutes(), assessments.RegisterRoutes(), workbook.RegisterRoutes(), timeline.RegisterRoutes(), revisionRoutes}, httpOptions.AdditionalRoutes...)
+	networkFlowModule, err := networkflow.NewModule(networkflow.ModuleDependencies{
+		Postgres:      postgresHandle,
+		ImportSources: imports.NewStore(runtime.Postgres),
+		KeyRings:      networkFlowKeyRings,
+		Now:           now,
+		Transactions:  postgres.NewTransactionRunner(postgresHandle),
+		IncidentLocks: incidents.NewTransactionParticipant(),
+		AuditAppender: authn.NewAdministrativeAuditAppender(),
+		Indicators:    indicators.NewStore(postgresHandle),
+	})
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Network Flow module: %w", err)
+	}
+	moduleOverrides := mergeNetworkFlowImportFacadeOverride(testRuntimeDeps.ModuleOverrides, networkFlowModule.ImportOwner())
+	delete(moduleOverrides, networkflow.KeyRingsOverrideKey)
+	httpOptions.AdditionalRoutes = append([]httpapi.RouteRegistrar{auth.RegisterRoutes(), incidentRoutes, extensions.RegisterRoutes(), jobapi.RegisterRoutes(), imports.RegisterRoutes(), networkFlowModule.RegisterRoutes(), reporting.RegisterRoutes(), reportcomposition.RegisterRoutes(), reference_data.RegisterRoutes(), incidentBundleRoutes, savedviews.RegisterRoutes(), viewschemas.RegisterRoutes(), collaboration.RegisterRoutes(), entities.RegisterRoutes(), evidence.RegisterRoutes(), assessments.RegisterRoutes(), workbook.RegisterRoutes(), timeline.RegisterRoutes(), revisionRoutes}, httpOptions.AdditionalRoutes...)
 	httpOptions.Dependencies = httpapi.DependencySet{
 		Config:            normalizedCfg,
 		Env:               options.Env,

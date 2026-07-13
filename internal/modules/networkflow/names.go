@@ -3,10 +3,9 @@ package networkflow
 import (
 	"strconv"
 	"strings"
-	"unicode"
 	"unicode/utf8"
 
-	"golang.org/x/text/unicode/norm"
+	norm "github.com/JochiRaider/cartulary/internal/gen/networkflowunicode"
 )
 
 func SanitizeSourceFilenameDisplay(filenameHint string) string {
@@ -122,7 +121,21 @@ func isC0C1Control(r rune) bool {
 }
 
 func trimUnicodeWhitespace(value string) string {
-	return strings.TrimFunc(value, unicode.IsSpace)
+	return strings.TrimFunc(value, isUnicodeWhitespaceV1)
+}
+
+// isUnicodeWhitespaceV1 is the closed Unicode White_Space scalar set owned by
+// trim_unicode_whitespace_v1. Keeping the set explicit prevents a Go runtime
+// or Unicode-table upgrade from changing Network Flow names and fingerprints.
+func isUnicodeWhitespaceV1(r rune) bool {
+	switch r {
+	case 0x0009, 0x000a, 0x000b, 0x000c, 0x000d,
+		0x0020, 0x0085, 0x00a0, 0x1680,
+		0x2028, 0x2029, 0x202f, 0x205f, 0x3000:
+		return true
+	default:
+		return r >= 0x2000 && r <= 0x200a
+	}
 }
 
 func firstRunes(value string, limit int) string {

@@ -40,7 +40,7 @@ Unless a narrower banner is stated for a subsection, this guide is written for t
 | Incident Portability (`incident_portability`)           | Off unless explicitly claimed              | Whole-incident export and import, bundle verification, and portability staging.                                                 |
 | Reference Pack (`reference_pack`)                       | Off unless explicitly claimed              | Pack import, activation, refresh, attestation, and overlay behavior.                                                            |
 | Enterprise Authentication (`enterprise_authentication`) | Off unless explicitly claimed              | OIDC and SAML provider integration.                                                                                             |
-| Network Flow Activity (`network_flow_activity`)         | Recognized but unclaimable until adopted   | Network-flow analytical tables, graph analysis, and explicit indicator binding.                                                  |
+| Network Flow Activity (`network_flow_activity`)         | Adopted/current; deployment claim required | Network-flow analytical tables, graph analysis, and explicit indicator binding.                                                  |
 
 ### Terminology used by this guide
 
@@ -1251,9 +1251,13 @@ The bootstrap-created admin then enters the ordinary local TOTP bootstrap flow o
 | `incident_portability`      | Staging under temporary-work roots, checksum verification before visibility, authoritative-source-only export |
 | `reference_pack`            | Offline bundle import, activation state, attestation metadata, pack storage roots                             |
 | `enterprise_authentication` | Startup-only provider manifest validation and reconciliation, correlation-state storage, provider-to-session convergence |
-| `network_flow_activity`     | Reserved route discovery only until implementation evidence permits adoption and claim enablement             |
+| `network_flow_activity`     | Validated key rings, immutable flow tables, graph projection, and incident-scoped claim gating                |
 
 Extension-specific code paths MUST remain off by default unless the deployment explicitly claims the corresponding profile.
+
+For a claimed `network_flow_activity` deployment, set `network_flow_activity.claimed=true` and set `network_flow_activity.key_ring_manifest_path` to one absolute regular-file path containing `cartulary.network_flow_key_rings.v1`. The authored shape example is `configs/dev/network-flow-key-rings.example.json`; it contains references only, never key material. Each referenced `CARTULARY_SECRET_<REF>` value must be unpadded base64url for exactly 32 random bytes. Cursor and safe-digest references and material must be distinct from each other and from authentication, enterprise-provider, telemetry, storage, recovery, and bootstrap purposes.
+
+Treat a Network Flow key change as a coordinated deployment epoch. Stage the new secret references and manifest, apply the keyset index migration, drain every claimed node, restart all claimed nodes against the same manifest, verify readiness, and then restore traffic. A previous cursor key may remain `decrypt_only` only until exactly 15 minutes after deactivation; a previous safe-digest key may remain `inactive` only until its declared `retain_until`. The runtime does not reload this manifest in place. Once the new epoch emits safe digests, recovery is roll-forward: do not roll back to auth-master-derived issuance or a mixed-node epoch.
 
 Enterprise-auth provider definitions are not runtime resources in the current profile. Do not add provider create, edit, delete, metadata-upload, certificate-upload, secret-management, redirect-URI, ACS-URL, or provider-policy routes or forms. Browser discovery remains `GET /api/v1/auth/providers`, which lists only enabled interactive providers after a validated restart.
 

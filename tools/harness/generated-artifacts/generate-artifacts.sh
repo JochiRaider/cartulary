@@ -7,6 +7,10 @@ find internal/gen/sql -maxdepth 1 -type f -name '*.go' -delete
   "${SQLC_BIN:?SQLC_BIN is required}" generate
 "$RUN_PHASE_SCRIPT" "generate contracts" -- \
   env GOCACHE="$GO_CACHE_DIR" GOMODCACHE="$GO_MOD_CACHE_DIR" "${GO:?GO is required}" run ./tools/contractgen
+"$RUN_PHASE_SCRIPT" "generate Network Flow tzdb" -- \
+  env GOCACHE="$GO_CACHE_DIR" GOMODCACHE="$GO_MOD_CACHE_DIR" "${GO:?GO is required}" run ./tools/networkflow-tzdb
+"$RUN_PHASE_SCRIPT" "generate Network Flow Unicode 17 NFC" -- \
+  env GOCACHE="$GO_CACHE_DIR" GOMODCACHE="$GO_MOD_CACHE_DIR" "${GO:?GO is required}" run ./tools/networkflow-unicode17
 "$RUN_PHASE_SCRIPT" "generate otel contracts" -- \
   "${NODE_BIN:?NODE_BIN is required}" ./tools/otel/generate-otel-contracts.mjs --write
 "$RUN_PHASE_SCRIPT" "generate design tokens" -- \

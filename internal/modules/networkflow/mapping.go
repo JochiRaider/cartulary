@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 const (
@@ -50,13 +52,16 @@ const (
 )
 
 type TimestampProfile struct {
-	SchemaID                 string  `json:"schema_id"`
-	Mode                     string  `json:"mode"`
-	Precision                string  `json:"precision"`
-	Timezone                 *string `json:"timezone,omitempty"`
-	TimezoneRulesetID        *string `json:"timezone_ruleset_id,omitempty"`
-	AmbiguousLocalTimePolicy *string `json:"ambiguous_local_time_policy,omitempty"`
-	LocalTimeGapPolicy       *string `json:"local_time_gap_policy,omitempty"`
+	SchemaID                                   string  `json:"schema_id"`
+	Mode                                       string  `json:"mode"`
+	Precision                                  string  `json:"precision"`
+	Timezone                                   *string `json:"timezone,omitempty"`
+	TimezoneRulesetID                          *string `json:"timezone_ruleset_id,omitempty"`
+	AmbiguousLocalTimePolicy                   *string `json:"ambiguous_local_time_policy,omitempty"`
+	LocalTimeGapPolicy                         *string `json:"local_time_gap_policy,omitempty"`
+	NetFlowExportTimeColumnOrdinal             *int    `json:"netflow_export_time_column_ordinal,omitempty"`
+	NetFlowExportTimeMode                      *string `json:"netflow_export_time_mode,omitempty"`
+	NetFlowExporterUptimeAtExportColumnOrdinal *int    `json:"netflow_exporter_uptime_at_export_column_ordinal,omitempty"`
 }
 
 type SourceColumnDescriptor struct {
@@ -134,6 +139,9 @@ func MaterializeApprovedMapping(raw json.RawMessage, sourceColumns []SourceColum
 }
 
 func DecodeApprovedMapping(raw json.RawMessage) (ApprovedMapping, error) {
+	if err := validateTimestampProfileJSONShape(raw, true); err != nil {
+		return ApprovedMapping{}, err
+	}
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	var mapping ApprovedMapping
@@ -177,6 +185,9 @@ func decodeMappingCandidate(raw json.RawMessage) (MappingCandidate, error) {
 			FieldMappings:       approved.FieldMappings,
 		}, nil
 	}
+	if err := validateTimestampProfileJSONShape(raw, false); err != nil {
+		return MappingCandidate{}, err
+	}
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	var candidate MappingCandidate
@@ -184,6 +195,74 @@ func decodeMappingCandidate(raw json.RawMessage) (MappingCandidate, error) {
 		return MappingCandidate{}, &MappingValidationError{Code: "network_flow_mapping_conflict", ReasonCode: "variant_member_conflict"}
 	}
 	return candidate, nil
+}
+
+func validateTimestampProfileJSONShape(raw json.RawMessage, approved bool) error {
+	conflict := func() error {
+		return &MappingValidationError{Code: "network_flow_mapping_conflict", ReasonCode: "variant_member_conflict"}
+	}
+	top, err := httpapi.DecodeStrictJSONObject(bytes.NewReader(raw))
+	if err != nil {
+		return conflict()
+	}
+	profileRaw, ok := top["timestamp_profile"]
+	if !ok || bytes.Equal(profileRaw, []byte("null")) {
+		return conflict()
+	}
+	profile, err := httpapi.DecodeStrictJSONObject(bytes.NewReader(profileRaw))
+	if err != nil {
+		return conflict()
+	}
+	stringMember := func(name string) (string, bool) {
+		value, exists := profile[name]
+		if !exists || bytes.Equal(value, []byte("null")) {
+			return "", false
+		}
+		var decoded string
+		if json.Unmarshal(value, &decoded) != nil {
+			return "", false
+		}
+		return decoded, true
+	}
+	schemaID, schemaOK := stringMember("schema_id")
+	mode, modeOK := stringMember("mode")
+	if !schemaOK || schemaID != timestampProfileSchemaID || !modeOK {
+		return conflict()
+	}
+	allowed := map[string]struct{}{"schema_id": {}, "mode": {}, "precision": {}}
+	required := map[string]struct{}{"schema_id": {}, "mode": {}}
+	if approved {
+		required["precision"] = struct{}{}
+	}
+	switch mode {
+	case "rfc3339":
+		for _, member := range []string{"timezone", "timezone_ruleset_id", "ambiguous_local_time_policy", "local_time_gap_policy"} {
+			allowed[member] = struct{}{}
+			required[member] = struct{}{}
+		}
+	case "epoch_seconds", "epoch_milliseconds":
+	case "netflow_sys_uptime_milliseconds":
+		for _, member := range []string{"netflow_export_time_column_ordinal", "netflow_export_time_mode", "netflow_exporter_uptime_at_export_column_ordinal"} {
+			allowed[member] = struct{}{}
+			required[member] = struct{}{}
+		}
+	default:
+		return conflict()
+	}
+	for member, value := range profile {
+		if _, ok := allowed[member]; !ok {
+			return conflict()
+		}
+		if bytes.Equal(value, []byte("null")) && !(mode == "rfc3339" && (member == "timezone" || member == "timezone_ruleset_id")) {
+			return conflict()
+		}
+	}
+	for member := range required {
+		if _, ok := profile[member]; !ok {
+			return conflict()
+		}
+	}
+	return nil
 }
 
 func materializeCandidateDefaults(candidate MappingCandidate) MappingCandidate {
@@ -229,6 +308,17 @@ func materializeTimestampProfile(profile TimestampProfile) TimestampProfile {
 			profile.Precision = "milliseconds"
 		default:
 			profile.Precision = "microseconds"
+		}
+	}
+	if profile.Mode == "rfc3339" {
+		if profile.AmbiguousLocalTimePolicy == nil {
+			profile.AmbiguousLocalTimePolicy = stringPtr("reject")
+		}
+		if profile.LocalTimeGapPolicy == nil {
+			profile.LocalTimeGapPolicy = stringPtr("reject")
+		}
+		if profile.Timezone != nil && *profile.Timezone != "" && *profile.Timezone != "UTC" && profile.TimezoneRulesetID == nil {
+			profile.TimezoneRulesetID = stringPtr("tzdb-2026c")
 		}
 	}
 	return profile
@@ -326,6 +416,9 @@ func validateApprovedMapping(mapping ApprovedMapping) error {
 		}
 		sourceOrdinals[column.SourceColumnOrdinal] = struct{}{}
 	}
+	if err := validateTimestampProfile(mapping.TimestampProfile, len(mapping.SourceColumns)); err != nil {
+		return err
+	}
 	byField := map[string]int{}
 	byOrdinal := map[int]int{}
 	hasSystemDerivation := false
@@ -377,6 +470,19 @@ func validateApprovedMapping(mapping ApprovedMapping) error {
 	for ordinal, count := range byOrdinal {
 		if count > 1 {
 			return &MappingValidationError{Code: "network_flow_mapping_conflict", ReasonCode: "source_column_reused", FieldKey: fmt.Sprint(ordinal)}
+		}
+	}
+	if mapping.TimestampProfile.Mode == "netflow_sys_uptime_milliseconds" {
+		exportOrdinal := *mapping.TimestampProfile.NetFlowExportTimeColumnOrdinal
+		uptimeOrdinal := *mapping.TimestampProfile.NetFlowExporterUptimeAtExportColumnOrdinal
+		if exportOrdinal == uptimeOrdinal {
+			return &MappingValidationError{Code: "network_flow_mapping_conflict", ReasonCode: "timestamp_column_reused"}
+		}
+		for _, fieldKey := range []string{FieldFlowStartUTC, FieldFlowEndUTC} {
+			ordinal := sourceFieldOrdinal(mapping.FieldMappings, fieldKey)
+			if ordinal == exportOrdinal || ordinal == uptimeOrdinal {
+				return &MappingValidationError{Code: "network_flow_mapping_conflict", ReasonCode: "timestamp_column_reused", FieldKey: fieldKey}
+			}
 		}
 	}
 	if mapping.UnknownColumnPolicy == UnknownColumnPolicyIgnore {

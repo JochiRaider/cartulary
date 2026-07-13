@@ -17,7 +17,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
@@ -182,7 +181,7 @@ func (s *Service) handleGraphContributorsQuery(w http.ResponseWriter, r *http.Re
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, apiErr := s.queryGraphContributors(r.Context(), principal.User.ID.String(), incidentID, request)
+	result, apiErr := s.queryGraphContributors(r.Context(), principal.User.ID.String(), principal.Session.ID.String(), incidentID, request)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -831,14 +830,14 @@ func (s *Service) projectNetworkFlowGraph(ctx context.Context, actorUserID uuid.
 	graphViewKey := "network_flow_activity:" + composition.SourceTables[0].IncidentID.String() + ":" + graphViewKeySnapshot
 	projector := s.graphProjection
 	if projector == nil {
-		projector = graphprojection.NewService(graphprojection.ServiceOptions{Now: func() time.Time { return requestedAt }})
+		projector = newGraphProjectionAdapter(func() time.Time { return requestedAt })
 	}
 	graphViewID, err := projector.GraphViewID(graphViewKey)
 	if err != nil {
 		return nil, graphProjectionFailed("adapter_contract_rejected")
 	}
 	input := map[string]any{
-		"projection_schema_id": graphprojection.ProjectionSchemaID,
+		"projection_schema_id": graphProjectionSchemaID,
 		"graph_view_id":        graphViewID,
 		"source_snapshot_id":   sourceSnapshotID,
 		"projection_config":    networkFlowProjectionConfig(graphViewKey),
@@ -861,7 +860,7 @@ func (s *Service) projectNetworkFlowGraph(ctx context.Context, actorUserID uuid.
 		"requested_at":             requestedAt.UTC().Format(time.RFC3339Nano),
 		"requested_by":             actorUserID.String(),
 	}
-	result, err := projector.ProjectEphemeral(ctx, graphprojection.EphemeralProjectionRequest{ProjectionInput: canonicalJSON(input)})
+	projectionResource, err := projector.ProjectEphemeral(ctx, canonicalJSON(input))
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
 			return nil, graphProjectionFailed("projection_cancelled")
@@ -869,9 +868,12 @@ func (s *Service) projectNetworkFlowGraph(ctx context.Context, actorUserID uuid.
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			return nil, graphProjectionFailed("projection_timeout")
 		}
-		return nil, graphProjectionFailedForProjectionError(err)
+		var adapterErr *graphProjectionAdapterError
+		if errors.As(err, &adapterErr) {
+			return nil, graphProjectionFailed(adapterErr.reason)
+		}
+		return nil, graphProjectionFailed("projection_unavailable")
 	}
-	projectionResource := result.Resource()
 	summary, ok := projectionResource["validation_summary"].(map[string]any)
 	if !ok || summary["fatal_count"] != 0 || summary["error_count"] != 0 || summary["warning_count"] != 0 || summary["info_count"] != 0 {
 		return nil, graphProjectionFailed("adapter_contract_rejected")
@@ -1112,19 +1114,29 @@ func graphEdgeAnnotations(composition graphComposition) []any {
 	return out
 }
 
-func (s *Service) queryGraphContributors(ctx context.Context, actorID string, incidentID uuid.UUID, request graphContributorQueryRequest) (map[string]any, *httpapi.APIError) {
-	offset := 0
+func (s *Service) queryGraphContributors(ctx context.Context, actorID string, sessionID string, incidentID uuid.UUID, request graphContributorQueryRequest) (map[string]any, *httpapi.APIError) {
+	var position *contributorCursorPosition
 	limit := request.Limit
 	if request.Continuation {
-		payload, reason := s.cursorCodec.Decode(request.CursorToken)
+		payload, reason := s.cursorProtector.Decode(request.CursorToken)
 		if reason != "" {
 			return nil, cursorInvalid(reason)
 		}
-		if payload.Route != routeKeyGraphsContributorsQuery || payload.ActorUserID != actorID || payload.IncidentID != incidentID.String() {
+		if payload.Route != routeKeyGraphsContributorsQuery || payload.ActorUserID != actorID || payload.SessionID != sessionID || payload.IncidentID != incidentID.String() {
 			return nil, cursorInvalid(payloadMismatchReason(payload, routeKeyGraphsContributorsQuery, actorID, incidentID.String()))
 		}
 		limit = payload.Limit
-		offset = payload.Offset
+		if payload.PositionKind != "contributor_keyset_v1" {
+			return nil, cursorInvalid("malformed")
+		}
+		decodedPosition, err := decodeContributorCursorPosition(payload.Position)
+		if err != nil {
+			return nil, cursorInvalid("malformed")
+		}
+		if !sameSortSpecs(decodedPosition.Row.EffectiveSort, effectiveSort(nil)) {
+			return nil, cursorInvalid("semantic_query_mismatch")
+		}
+		position = &decodedPosition
 		var echo struct {
 			GraphQuery       graphSemanticRequest `json:"-"`
 			GraphQueryDigest string               `json:"graph_query_digest"`
@@ -1164,7 +1176,7 @@ func (s *Service) queryGraphContributors(ctx context.Context, actorID string, in
 	if apiErr != nil {
 		return nil, apiErr
 	}
-	page, nextOffset := pageFlowRows(rows, offset, limit)
+	page, hasMore := pageContributorRowsAfter(rows, composition.TableRanks, position, limit)
 	contributors := make([]any, 0, len(page))
 	for _, row := range page {
 		contributors = append(contributors, map[string]any{
@@ -1175,16 +1187,17 @@ func (s *Service) queryGraphContributors(ctx context.Context, actorID string, in
 	queryEcho := graphContributorQueryEcho(request)
 	queryEchoRaw, _ := json.Marshal(queryEcho)
 	var nextToken *string
-	if nextOffset != nil {
-		token, err := s.cursorCodec.Encode(CursorBinding{
+	if hasMore && len(page) > 0 {
+		token, err := s.cursorProtector.Encode(CursorBinding{
 			Route:       routeKeyGraphsContributorsQuery,
 			ActorUserID: actorID,
+			SessionID:   sessionID,
 			IncidentID:  incidentID.String(),
 			Scope:       map[string]string{"graph_query_digest": request.GraphQueryDigest},
 			QueryHash:   queryHash(queryEcho),
 			QueryEcho:   queryEchoRaw,
 			Limit:       limit,
-		}, *nextOffset)
+		}, "contributor_keyset_v1", newContributorCursorPosition(page[len(page)-1], composition.TableRanks))
 		if err != nil {
 			return nil, httpapi.InternalAPIError(err)
 		}
@@ -1237,12 +1250,10 @@ func graphContributorQueryEcho(request graphContributorQueryRequest) map[string]
 }
 
 func (s *Service) recordGraphQueryAudit(ctx context.Context, incidentID uuid.UUID, actorUserID uuid.UUID, composition graphComposition, requestID string) *httpapi.APIError {
-	tx, err := s.store.pool.BeginTx(ctx, pgx.TxOptions{})
+	graphDigestSafe, keyID, err := s.safeDigester.Digest("graph_query_digest", composition.Digest)
 	if err != nil {
 		return httpapi.InternalAPIError(err)
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	graphDigestSafe, keyID := SafeDigest(s.safeDigestKeyID, s.safeDigestKey, "graph_query_digest", composition.Digest)
 	truncatedCount := 0
 	for _, edge := range composition.Edges {
 		limit := composition.ResultLimits.MaxExampleRowRefsPerEdge
@@ -1253,28 +1264,28 @@ func (s *Service) recordGraphQueryAudit(ctx context.Context, incidentID uuid.UUI
 			truncatedCount += len(edge.Rows) - limit
 		}
 	}
-	if err := insertNetworkFlowAuditEvent(ctx, tx, networkFlowAuditEvent{
-		ActorUserID: &actorUserID,
-		IncidentID:  &incidentID,
-		EventKind:   "network_flow_graph_query_executed",
-		RequestID:   optionalStringPtr(requestID),
-		AfterJSON: map[string]any{
-			"incident_id":                    incidentID.String(),
-			"actor_user_id":                  actorUserID.String(),
-			"graph_query_digest_safe":        graphDigestSafe,
-			"graph_query_digest_safe_key_id": keyID,
-			"selected_table_count":           len(composition.SelectedTableIDs),
-			"result_vertex_count":            len(composition.Vertices),
-			"result_edge_count":              len(composition.Edges),
-			"truncated_example_ref_count":    truncatedCount,
-			"network_flow.audit_event_code":  "network_flow_graph_query_executed",
-			"network_flow.audit_resource_id": composition.Digest,
-		},
-	}); err != nil {
-		return httpapi.InternalAPIError(err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return httpapi.InternalAPIError(fmt.Errorf("commit network flow graph query audit: %w", err))
+	err = s.store.transactionRun.WithinTx(ctx, pgx.TxOptions{}, func(tx pgx.Tx) error {
+		return s.store.appendAuditEventTx(ctx, tx, networkFlowAuditEvent{
+			ActorUserID: &actorUserID,
+			IncidentID:  &incidentID,
+			EventKind:   "network_flow_graph_query_executed",
+			RequestID:   optionalStringPtr(requestID),
+			AfterJSON: map[string]any{
+				"incident_id":                    incidentID.String(),
+				"actor_user_id":                  actorUserID.String(),
+				"graph_query_digest_safe":        graphDigestSafe,
+				"graph_query_digest_safe_key_id": keyID,
+				"selected_table_count":           len(composition.SelectedTableIDs),
+				"result_vertex_count":            len(composition.Vertices),
+				"result_edge_count":              len(composition.Edges),
+				"truncated_example_ref_count":    truncatedCount,
+				"network_flow.audit_event_code":  "network_flow_graph_query_executed",
+				"network_flow.audit_resource_id": composition.Digest,
+			},
+		})
+	})
+	if err != nil {
+		return httpapi.InternalAPIError(fmt.Errorf("record network flow graph query audit: %w", err))
 	}
 	return nil
 }
@@ -1518,24 +1529,6 @@ func graphProjectionFailed(reason string) *httpapi.APIError {
 		"retry_action":                "do_not_retry",
 		"projection_contract_version": "graph_projection.v1",
 	}}
-}
-
-func graphProjectionFailedForProjectionError(err error) *httpapi.APIError {
-	var lifecycleErr *graphprojection.LifecycleError
-	if errors.As(err, &lifecycleErr) {
-		if lifecycleErr.Code == "invalid_projection_request" {
-			return graphProjectionFailed("adapter_contract_rejected")
-		}
-		if lifecycleErr.Code == "ephemeral_projection_failed" && lifecycleErr.ReasonCode == "fatal_validation" {
-			return graphProjectionFailed("adapter_contract_rejected")
-		}
-		return graphProjectionFailed("projection_unavailable")
-	}
-	var queryErr *graphprojection.QueryError
-	if errors.As(err, &queryErr) {
-		return graphProjectionFailed("projection_unavailable")
-	}
-	return graphProjectionFailed("projection_unavailable")
 }
 
 func graphProjectionFailedForContext(err error) *httpapi.APIError {

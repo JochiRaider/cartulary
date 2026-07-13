@@ -19,6 +19,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
 } from "react";
@@ -39,6 +40,10 @@ import {
   queryNetworkFlowRejectedRows,
   queryNetworkFlowTable,
 } from "./networkFlowClient";
+import {
+  initialNetworkFlowControllerState,
+  networkFlowControllerReducer,
+} from "./networkFlowController";
 import {
   type NetworkFlowExtensionResourceChange,
   useNetworkFlowExtensionEvents,
@@ -62,8 +67,10 @@ export function NetworkAnalysisWorkspace({
   onIncidentAccessLost,
 }: NetworkAnalysisWorkspaceProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [tables, setTables] = useState<NetworkFlowTable[]>([]);
-  const [activeTableId, setActiveTableId] = useState<string | null>(null);
+  const [{ tables, activeTableId }, dispatchController] = useReducer(
+    networkFlowControllerReducer,
+    initialNetworkFlowControllerState,
+  );
   const [mode, setMode] = useState<NetworkAnalysisMode>("rows");
   const [rows, setRows] = useState<NetworkFlowRow[]>([]);
   const [diagnostics, setDiagnostics] = useState<NetworkFlowDiagnostic[]>([]);
@@ -108,16 +115,7 @@ export function NetworkAnalysisWorkspace({
     setLoadState((current) => (current === "ready" ? current : "loading"));
     try {
       const nextTables = await listNetworkFlowTables({ apiBase, incidentId });
-      setTables(nextTables);
-      setActiveTableId((current) => {
-        if (
-          current !== null &&
-          nextTables.some((table) => table.network_flow_table_id === current)
-        ) {
-          return current;
-        }
-        return nextTables[0]?.network_flow_table_id ?? null;
-      });
+      dispatchController({ type: "replace_tables", tables: nextTables });
       setLoadState("ready");
       setErrorMessage(null);
     } catch (error) {
@@ -271,8 +269,7 @@ export function NetworkAnalysisWorkspace({
         change.reasonCode === "authorization_lost" ||
         (change.changeKind === "remove" && change.resourceId === "*")
       ) {
-        setTables([]);
-        setActiveTableId(null);
+        dispatchController({ type: "clear_authorization" });
         setRows([]);
         setDiagnostics([]);
         setGraph(null);
@@ -282,16 +279,9 @@ export function NetworkAnalysisWorkspace({
         return;
       }
       if (change.changeKind === "remove") {
-        setTables((currentTables) => {
-          const nextTables = currentTables.filter(
-            (table) => table.network_flow_table_id !== change.resourceId,
-          );
-          setActiveTableId((current) =>
-            current === change.resourceId
-              ? (nextTables[0]?.network_flow_table_id ?? null)
-              : current,
-          );
-          return nextTables;
+        dispatchController({
+          type: "remove_table",
+          tableId: change.resourceId,
         });
         setRows([]);
         setDiagnostics([]);
@@ -397,7 +387,10 @@ export function NetworkAnalysisWorkspace({
                 }}
                 type="button"
                 onClick={() => {
-                  setActiveTableId(table.network_flow_table_id);
+                  dispatchController({
+                    type: "select_table",
+                    tableId: table.network_flow_table_id,
+                  });
                   setMode("rows");
                 }}
               >

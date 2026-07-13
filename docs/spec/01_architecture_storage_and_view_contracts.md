@@ -697,10 +697,10 @@ Verified by: AC-370
 - `snapshot_reporting`
 
 Clients MUST ignore unknown additive members on each item and MUST ignore unknown future `profile_id` values.
-`network_flow_activity` is a recognized but unclaimable profile until Core 00
-and the Network Flow Activity NLSpec complete a coordinated adopted/current
-transition. Until that transition, its discovery item MUST serialize
-`claimed=false`.
+`network_flow_activity` is an adopted/current claimable extension profile.
+Its discovery item MUST serialize the deployment's validated claim state; a
+claimed runtime is available only after the Network Flow Activity NLSpec and
+Core 04 startup requirements have passed.
 Profiles: base
 Verified by: AC-370
 

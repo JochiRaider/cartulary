@@ -199,8 +199,15 @@ func TestSupportPhase0_NetworkFlowActivityConfigDefaultsAndClaimability(t *testi
 		}
 	})
 
-	t.Run("accepts claimed file config after adoption", func(t *testing.T) {
+	t.Run("requires a key-ring manifest for claimed file config", func(t *testing.T) {
 		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[network_flow_activity]\nclaimed = true\n"
+		err := loadInvalidConfig(t, content, nil)
+		requireDiagnostic(t, err, "network_flow_activity.key_ring_manifest_path", "network_flow_cursor_key_missing")
+		requireDiagnostic(t, err, "network_flow_activity.key_ring_manifest_path", "network_flow_safe_digest_key_missing")
+	})
+
+	t.Run("accepts claimed file config with key-ring manifest path", func(t *testing.T) {
+		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[network_flow_activity]\nclaimed = true\nkey_ring_manifest_path = \"/etc/cartulary/network-flow-key-rings.json\"\n"
 		cfg := mustLoadConfig(t, content, nil)
 		if !cfg.NetworkFlowActivity.Claimed {
 			t.Fatal("claimed network_flow_activity config must be accepted after adoption")
@@ -216,13 +223,20 @@ func TestSupportPhase0_NetworkFlowActivityConfigDefaultsAndClaimability(t *testi
 		}
 	})
 
-	t.Run("accepts claimed environment overlay after adoption", func(t *testing.T) {
+	t.Run("accepts claimed environment overlay with key-ring manifest path", func(t *testing.T) {
 		cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{
-			"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED": "true",
+			"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED":                "true",
+			"CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH": "/etc/cartulary/network-flow-key-rings.json",
 		})
 		if !cfg.NetworkFlowActivity.Claimed {
 			t.Fatal("claimed network_flow_activity overlay must be accepted after adoption")
 		}
+	})
+
+	t.Run("rejects key-ring manifest path while unclaimed", func(t *testing.T) {
+		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[network_flow_activity]\nclaimed = false\nkey_ring_manifest_path = \"/etc/cartulary/network-flow-key-rings.json\"\n"
+		err := loadInvalidConfig(t, content, nil)
+		requireDiagnostic(t, err, "network_flow_activity.key_ring_manifest_path", "profile_incompatible_binding")
 	})
 }
 

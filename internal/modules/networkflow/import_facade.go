@@ -12,51 +12,19 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
-type ImportFacade struct {
-	store           *Store
-	sourceStore     *imports.Store
-	limits          Limits
-	now             func() time.Time
-	safeDigestKeyID string
-	safeDigestKey   []byte
+type importFacade struct {
+	store        *Store
+	sourceStore  ImportSourcePort
+	limits       Limits
+	now          func() time.Time
+	safeDigester SafeDigester
 }
 
-type ImportFacadeOption func(*ImportFacade)
-
-func WithImportFacadeLimits(limits Limits) ImportFacadeOption {
-	return func(f *ImportFacade) {
-		f.limits = limits.normalized()
-	}
+func newImportFacade(store *Store, sourceStore ImportSourcePort, limits Limits, now func() time.Time, safeDigester SafeDigester) *importFacade {
+	return &importFacade{store: store, sourceStore: sourceStore, limits: limits.normalized(), now: now, safeDigester: safeDigester}
 }
 
-func WithImportFacadeClock(now func() time.Time) ImportFacadeOption {
-	return func(f *ImportFacade) {
-		f.now = now
-	}
-}
-
-func WithImportFacadeSafeDigest(keyID string, key []byte) ImportFacadeOption {
-	return func(f *ImportFacade) {
-		f.safeDigestKeyID = keyID
-		f.safeDigestKey = append([]byte(nil), key...)
-	}
-}
-
-func NewImportFacade(store *Store, sourceStore *imports.Store, options ...ImportFacadeOption) *ImportFacade {
-	facade := &ImportFacade{
-		store:       store,
-		sourceStore: sourceStore,
-		limits:      DefaultLimits(),
-		now:         func() time.Time { return time.Now().UTC() },
-	}
-	for _, option := range options {
-		option(facade)
-	}
-	facade.limits = facade.limits.normalized()
-	return facade
-}
-
-func (f *ImportFacade) PrepareImportUnitMapping(ctx context.Context, request imports.ExtensionImportMappingRequest) (imports.ExtensionImportMappingResult, error) {
+func (f *importFacade) PrepareImportUnitMapping(ctx context.Context, request imports.ExtensionImportMappingRequest) (imports.ExtensionImportMappingResult, error) {
 	if f == nil || f.sourceStore == nil {
 		return imports.ExtensionImportMappingResult{}, applyBlocked("owner_apply_contract_unavailable")
 	}
@@ -97,8 +65,11 @@ func (f *ImportFacade) PrepareImportUnitMapping(ctx context.Context, request imp
 	}, nil
 }
 
-func (f *ImportFacade) ApplyImportUnitTx(ctx context.Context, tx pgx.Tx, request imports.ExtensionImportApplyRequest) (imports.ExtensionImportApplyResult, error) {
+func (f *importFacade) ApplyImportUnitTx(ctx context.Context, tx pgx.Tx, request imports.ExtensionImportApplyRequest) (imports.ExtensionImportApplyResult, error) {
 	if f == nil || f.store == nil || f.sourceStore == nil {
+		return imports.ExtensionImportApplyResult{}, applyBlocked("owner_apply_contract_unavailable")
+	}
+	if f.safeDigester == nil {
 		return imports.ExtensionImportApplyResult{}, applyBlocked("owner_apply_contract_unavailable")
 	}
 	if request.SourceCapability.SourceContentSHA256 != request.ExpectedSourceContentSHA256 {
@@ -139,7 +110,10 @@ func (f *ImportFacade) ApplyImportUnitTx(ctx context.Context, tx pgx.Tx, request
 		return imports.ExtensionImportApplyResult{}, err
 	}
 	filenameDisplay := SanitizeSourceFilenameDisplay(originalFilename)
-	filenameDigest, filenameDigestKeyID := SafeDigest(f.safeDigestKeyID, f.safeDigestKey, "source_filename", filenameDisplay)
+	filenameDigest, filenameDigestKeyID, err := f.safeDigester.Digest("source_filename", filenameDisplay)
+	if err != nil {
+		return imports.ExtensionImportApplyResult{}, err
+	}
 	now := f.now()
 	if now.IsZero() {
 		now = time.Now().UTC()
@@ -186,7 +160,7 @@ func (f *ImportFacade) ApplyImportUnitTx(ctx context.Context, tx pgx.Tx, request
 	}, nil
 }
 
-func (f *ImportFacade) originalFilename(ctx context.Context, sessionID uuid.UUID) (string, error) {
+func (f *importFacade) originalFilename(ctx context.Context, sessionID uuid.UUID) (string, error) {
 	session, _, err := f.sourceStore.GetSession(ctx, sessionID)
 	if err != nil {
 		return "", err

@@ -320,7 +320,7 @@ func mappedValue(record CSVRecord, mapping ApprovedMapping, fieldMapping FieldMa
 	)
 	switch fieldMapping.TransformID {
 	case TransformTimestampProfile:
-		value, err = parseTimestamp(transformed, mapping.TimestampProfile)
+		value, err = parseTimestampForRecord(transformed, mapping.TimestampProfile, &record)
 	case TransformIPLiteral:
 		value, err = parseIPLiteral(transformed)
 	case TransformPortNumber:
@@ -336,7 +336,9 @@ func mappedValue(record CSVRecord, mapping ApprovedMapping, fieldMapping FieldMa
 	}
 	if err != nil {
 		reason := "invalid_syntax"
-		if errors.Is(err, errOutOfRange) {
+		if fieldMapping.TransformID == TransformTimestampProfile {
+			reason = timestampReason(err)
+		} else if errors.Is(err, errOutOfRange) {
 			reason = "out_of_range"
 		}
 		diag := diagnostic(record.SourceRowNumber, sourceColumnOrdinalPtr(fieldMapping.SourceColumnOrdinal), headerHashPtr(mapping, fieldMapping.SourceColumnOrdinal), stringPtr(fieldKey), errorCodeForField(fieldKey), reason, raw)
@@ -346,38 +348,6 @@ func mappedValue(record CSVRecord, mapping ApprovedMapping, fieldMapping FieldMa
 }
 
 var errOutOfRange = errors.New("out of range")
-
-func parseTimestamp(value string, profile TimestampProfile) (time.Time, error) {
-	switch profile.Mode {
-	case "epoch_seconds":
-		seconds, err := parseUint64(value)
-		if err != nil {
-			return time.Time{}, err
-		}
-		return time.Unix(int64(seconds), 0).UTC(), nil
-	case "epoch_milliseconds":
-		millis, err := parseUint64(value)
-		if err != nil {
-			return time.Time{}, err
-		}
-		return time.Unix(int64(millis/1000), int64(millis%1000)*int64(time.Millisecond)).UTC(), nil
-	default:
-		if strings.Contains(value, "t") || strings.Contains(value, "z") || strings.Contains(value, " ") || strings.Contains(value, ",") {
-			return time.Time{}, fmt.Errorf("invalid timestamp")
-		}
-		parsed, err := time.Parse(time.RFC3339Nano, value)
-		if err != nil {
-			return time.Time{}, err
-		}
-		if parsed.Location() != time.UTC && !strings.HasSuffix(value, "Z") && !strings.Contains(value[len("2006-01-02T15:04:05"):], "+") && !strings.Contains(value[len("2006-01-02T15:04:05"):], "-") {
-			return time.Time{}, fmt.Errorf("invalid timestamp")
-		}
-		if strings.Contains(value, "-00:00") {
-			return time.Time{}, fmt.Errorf("invalid timestamp")
-		}
-		return parsed.UTC(), nil
-	}
-}
 
 func parseIPLiteral(value string) (string, error) {
 	if strings.Contains(value, "%") {

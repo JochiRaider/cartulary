@@ -13,9 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -35,39 +33,14 @@ type Service struct {
 	incidentAccess  incidents.Access
 	authStore       *authn.Store
 	keys            authn.MasterKeys
-	cursorCodec     *CursorCodec
+	cursorProtector CursorProtector
 	hub             *platformws.Hub
-	safeDigestKeyID string
-	safeDigestKey   []byte
+	safeDigester    SafeDigester
 	now             func() time.Time
-	graphProjection *graphprojection.Service
+	graphProjection graphProjectionPort
 }
 
-func RegisterRoutes() httpapi.RouteRegistrar {
-	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		if !httpapi.ExtensionProfileClaimedIn(deps.ExtensionProfiles, ProfileID) {
-			return nil
-		}
-		service, err := newRouteService(deps)
-		if err != nil {
-			return err
-		}
-		mux.HandleFunc("GET "+routeRoot+"/source-profiles", service.handleSourceProfiles)
-		mux.HandleFunc("GET "+routeRoot+"/tables", service.handleTablesCollection)
-		mux.HandleFunc("GET "+routeRoot+"/tables/{network_flow_table_id}", service.handleTableResource)
-		mux.HandleFunc("PATCH "+routeRoot+"/tables/{network_flow_table_id}", service.handleTableResource)
-		mux.HandleFunc("DELETE "+routeRoot+"/tables/{network_flow_table_id}", service.handleTableResource)
-		mux.HandleFunc("POST "+routeRoot+"/tables/{network_flow_table_id}/query", service.handleTableRowsQuery)
-		mux.HandleFunc("POST "+routeRoot+"/tables/{network_flow_table_id}/rejected-rows/query", service.handleRejectedRowsQuery)
-		mux.HandleFunc("POST "+routeRoot+"/rows/query", service.handleRowsQuery)
-		mux.HandleFunc("POST "+routeRoot+"/graphs/query", service.handleGraphQuery)
-		mux.HandleFunc("POST "+routeRoot+"/graphs/contributors/query", service.handleGraphContributorsQuery)
-		mux.HandleFunc("POST "+routeRoot+"/indicator-links", service.handleIndicatorLinks)
-		return nil
-	}
-}
-
-func newRouteService(deps httpapi.DependencySet) (*Service, error) {
+func newRouteService(deps httpapi.DependencySet, module *Module) (*Service, error) {
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, fmt.Errorf("load auth master key: %w", err)
@@ -76,23 +49,19 @@ func newRouteService(deps httpapi.DependencySet) (*Service, error) {
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	cursorKey := authn.DerivePurposeKey(keys, "network-flow-cursor-v1")
-	cursorCodec, err := NewCursorCodec("master-derived-v1", cursorKey[:], now)
-	if err != nil {
-		return nil, err
+	if module.cursorProtector == nil || module.safeDigester == nil {
+		return nil, fmt.Errorf("network flow configured key rings unavailable")
 	}
-	safeDigestKey := authn.DerivePurposeKey(keys, "network-flow-safe-digest-v1")
 	return &Service{
-		store:           NewStore(deps.PostgresHandle()),
+		store:           module.store,
 		incidentAccess:  incidents.NewAccess(deps.PostgresHandle()),
 		authStore:       authn.NewStore(deps.PostgresHandle()),
 		keys:            keys,
-		cursorCodec:     cursorCodec,
+		cursorProtector: module.cursorProtector,
 		hub:             deps.WSHub,
-		safeDigestKeyID: "master-derived-v1",
-		safeDigestKey:   safeDigestKey[:],
+		safeDigester:    module.safeDigester,
 		now:             now,
-		graphProjection: graphprojection.NewService(graphprojection.ServiceOptions{Now: now}),
+		graphProjection: newGraphProjectionAdapter(now),
 	}, nil
 }
 
@@ -270,7 +239,7 @@ func (s *Service) handleTableRowsQuery(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, apiErr := s.queryAcceptedRows(r.Context(), principal.User.ID.String(), "nf.tables.query", incidentID, []string{tableID}, "active_table", request)
+	result, apiErr := s.queryAcceptedRows(r.Context(), principal.User.ID.String(), principal.Session.ID.String(), "nf.tables.query", incidentID, []string{tableID}, "active_table", request)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -313,7 +282,7 @@ func (s *Service) handleRowsQuery(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	result, apiErr := s.queryAcceptedRows(r.Context(), principal.User.ID.String(), "nf.rows.query", incidentID, tableIDs, mode, request)
+	result, apiErr := s.queryAcceptedRows(r.Context(), principal.User.ID.String(), principal.Session.ID.String(), "nf.rows.query", incidentID, tableIDs, mode, request)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -345,7 +314,7 @@ func (s *Service) handleRejectedRowsQuery(w http.ResponseWriter, r *http.Request
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, apiErr := s.queryRejectedRows(r.Context(), principal.User.ID.String(), incidentID, tableID, request)
+	result, apiErr := s.queryRejectedRows(r.Context(), principal.User.ID.String(), principal.Session.ID.String(), incidentID, tableID, request)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -357,8 +326,8 @@ func (s *Service) handleRejectedRowsQuery(w http.ResponseWriter, r *http.Request
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result)
 }
 
-func (s *Service) queryAcceptedRows(ctx context.Context, actorID string, route string, incidentID uuid.UUID, initialTableIDs []string, initialMode string, request RowQueryRequest) (map[string]any, *httpapi.APIError) {
-	var offset int
+func (s *Service) queryAcceptedRows(ctx context.Context, actorID string, sessionID string, route string, incidentID uuid.UUID, initialTableIDs []string, initialMode string, request RowQueryRequest) (map[string]any, *httpapi.APIError) {
+	var position *rowCursorPosition
 	var tableIDs []string
 	mode := initialMode
 	filters := request.Filters
@@ -366,17 +335,24 @@ func (s *Service) queryAcceptedRows(ctx context.Context, actorID string, route s
 	limit := request.Limit
 	var queryEcho map[string]any
 	if request.Continuation {
-		payload, reason := s.cursorCodec.Decode(request.CursorToken)
+		payload, reason := s.cursorProtector.Decode(request.CursorToken)
 		if reason != "" {
 			return nil, cursorInvalid(reason)
 		}
-		if payload.Route != route || payload.ActorUserID != actorID || payload.IncidentID != incidentID.String() {
+		if payload.Route != route || payload.ActorUserID != actorID || payload.SessionID != sessionID || payload.IncidentID != incidentID.String() {
 			return nil, cursorInvalid(payloadMismatchReason(payload, route, actorID, incidentID.String()))
 		}
 		tableIDs = splitTableIDs(payload.Scope["table_ids"])
 		mode = payload.Scope["mode"]
 		limit = payload.Limit
-		offset = payload.Offset
+		if payload.PositionKind != "row_keyset_v1" {
+			return nil, cursorInvalid("malformed")
+		}
+		decodedPosition, err := decodeRowCursorPosition(payload.Position)
+		if err != nil {
+			return nil, cursorInvalid("malformed")
+		}
+		position = &decodedPosition
 		if len(tableIDs) == 0 {
 			return nil, cursorInvalid("scope_stale")
 		}
@@ -390,6 +366,9 @@ func (s *Service) queryAcceptedRows(ctx context.Context, actorID string, route s
 		filters = echo.Filters
 		sortSpecs = echo.Sort
 		queryEcho = echoMap
+		if !sameSortSpecs(position.EffectiveSort, effectiveSort(sortSpecs)) {
+			return nil, cursorInvalid("semantic_query_mismatch")
+		}
 		if payload.QueryHash != queryHash(queryEcho) {
 			return nil, cursorInvalid("semantic_query_mismatch")
 		}
@@ -401,16 +380,10 @@ func (s *Service) queryAcceptedRows(ctx context.Context, actorID string, route s
 	if apiErr := s.ensureActiveTables(ctx, incidentID, tableIDs); apiErr != nil {
 		return nil, apiErr
 	}
-	rows, err := s.store.ListRowsForTables(ctx, incidentID, tableIDs)
+	page, hasMore, err := s.store.QueryRowsPage(ctx, incidentID, tableIDs, filters, sortSpecs, position, limit)
 	if err != nil {
 		return nil, httpapi.InternalAPIError(err)
 	}
-	filtered, apiErr := filterRows(rows, filters)
-	if apiErr != nil {
-		return nil, apiErr
-	}
-	sorted := sortRows(filtered, sortSpecs)
-	page, nextOffset := pageFlowRows(sorted, offset, limit)
 	rowResources := make([]any, 0, len(page))
 	for _, row := range page {
 		rowResources = append(rowResources, rowResource(row))
@@ -422,16 +395,17 @@ func (s *Service) queryAcceptedRows(ctx context.Context, actorID string, route s
 		queryEchoRaw = encoded
 	}
 	var nextToken *string
-	if nextOffset != nil {
-		token, err := s.cursorCodec.Encode(CursorBinding{
+	if hasMore && len(page) > 0 {
+		token, err := s.cursorProtector.Encode(CursorBinding{
 			Route:       route,
 			ActorUserID: actorID,
+			SessionID:   sessionID,
 			IncidentID:  incidentID.String(),
 			Scope:       scope,
 			QueryHash:   queryHashValue,
 			QueryEcho:   queryEchoRaw,
 			Limit:       limit,
-		}, *nextOffset)
+		}, "row_keyset_v1", newRowCursorPosition(page[len(page)-1], sortSpecs))
 		if err != nil {
 			return nil, httpapi.InternalAPIError(err)
 		}
@@ -451,20 +425,27 @@ func (s *Service) queryAcceptedRows(ctx context.Context, actorID string, route s
 	}, nil
 }
 
-func (s *Service) queryRejectedRows(ctx context.Context, actorID string, incidentID uuid.UUID, tableID string, request RejectedRowsQueryRequest) (map[string]any, *httpapi.APIError) {
-	offset := 0
+func (s *Service) queryRejectedRows(ctx context.Context, actorID string, sessionID string, incidentID uuid.UUID, tableID string, request RejectedRowsQueryRequest) (map[string]any, *httpapi.APIError) {
+	var position *diagnosticCursorPosition
 	limit := request.Limit
 	var queryEcho map[string]any
 	if request.Continuation {
-		payload, reason := s.cursorCodec.Decode(request.CursorToken)
+		payload, reason := s.cursorProtector.Decode(request.CursorToken)
 		if reason != "" {
 			return nil, cursorInvalid(reason)
 		}
-		if payload.Route != "nf.rejected_rows.query" || payload.ActorUserID != actorID || payload.IncidentID != incidentID.String() || payload.Scope["table_ids"] != tableID {
+		if payload.Route != "nf.rejected_rows.query" || payload.ActorUserID != actorID || payload.SessionID != sessionID || payload.IncidentID != incidentID.String() || payload.Scope["table_ids"] != tableID {
 			return nil, cursorInvalid(payloadMismatchReason(payload, "nf.rejected_rows.query", actorID, incidentID.String()))
 		}
 		limit = payload.Limit
-		offset = payload.Offset
+		if payload.PositionKind != "diagnostic_keyset_v1" {
+			return nil, cursorInvalid("malformed")
+		}
+		var decodedPosition diagnosticCursorPosition
+		if err := json.Unmarshal(payload.Position, &decodedPosition); err != nil || decodedPosition.SourceRowNumber < 1 || decodedPosition.ErrorCode == "" || decodedPosition.ReasonCode == "" || decodedPosition.DiagnosticID == "" {
+			return nil, cursorInvalid("malformed")
+		}
+		position = &decodedPosition
 		echoRequest, echoMap, err := decodeRejectedRowsQueryEcho(payload.QueryEcho)
 		if err != nil {
 			return nil, cursorInvalid("malformed")
@@ -483,28 +464,27 @@ func (s *Service) queryRejectedRows(ctx context.Context, actorID string, inciden
 	if apiErr := s.ensureActiveTables(ctx, incidentID, []string{tableID}); apiErr != nil {
 		return nil, apiErr
 	}
-	diagnostics, err := s.store.ListRejectedRowDiagnostics(ctx, incidentID, tableID)
+	page, hasMore, err := s.store.QueryRejectedDiagnosticsPage(ctx, incidentID, tableID, request, position, limit)
 	if err != nil {
 		return nil, tableReadError(err)
 	}
-	filtered := filterDiagnostics(diagnostics, request)
-	page, nextOffset := pageDiagnostics(filtered, offset, limit)
 	resources := make([]any, 0, len(page))
 	for _, diagnostic := range page {
 		resources = append(resources, diagnosticResource(diagnostic))
 	}
 	queryEchoRaw, _ := json.Marshal(queryEcho)
 	var nextToken *string
-	if nextOffset != nil {
-		token, err := s.cursorCodec.Encode(CursorBinding{
+	if hasMore && len(page) > 0 {
+		token, err := s.cursorProtector.Encode(CursorBinding{
 			Route:       "nf.rejected_rows.query",
 			ActorUserID: actorID,
+			SessionID:   sessionID,
 			IncidentID:  incidentID.String(),
 			Scope:       map[string]string{"mode": "active_table", "table_ids": tableID},
 			QueryHash:   queryHash(queryEcho),
 			QueryEcho:   queryEchoRaw,
 			Limit:       limit,
-		}, *nextOffset)
+		}, "diagnostic_keyset_v1", newDiagnosticCursorPosition(page[len(page)-1]))
 		if err != nil {
 			return nil, httpapi.InternalAPIError(err)
 		}
@@ -571,35 +551,6 @@ func (s *Service) ensureActiveTables(ctx context.Context, incidentID uuid.UUID, 
 		}
 	}
 	return nil
-}
-
-func filterDiagnostics(in []RejectedRowDiagnostic, request RejectedRowsQueryRequest) []RejectedRowDiagnostic {
-	errorCodes := stringSet(request.ErrorCodes)
-	fieldKeys := stringSet(request.FieldKeys)
-	out := make([]RejectedRowDiagnostic, 0, len(in))
-	for _, diagnostic := range in {
-		if len(errorCodes) > 0 {
-			if _, ok := errorCodes[diagnostic.ErrorCode]; !ok {
-				continue
-			}
-		}
-		if len(fieldKeys) > 0 {
-			if diagnostic.FieldKey == nil {
-				continue
-			}
-			if _, ok := fieldKeys[*diagnostic.FieldKey]; !ok {
-				continue
-			}
-		}
-		if request.SourceRowGTE != nil && diagnostic.SourceRowNumber < *request.SourceRowGTE {
-			continue
-		}
-		if request.SourceRowLTE != nil && diagnostic.SourceRowNumber > *request.SourceRowLTE {
-			continue
-		}
-		out = append(out, diagnostic)
-	}
-	return out
 }
 
 func acceptedRowsQueryEcho(filters []Filter, sortSpecs []SortSpec, effective []SortSpec, tableIDs []string) map[string]any {
@@ -677,36 +628,6 @@ func decodeRejectedRowsQueryEcho(raw json.RawMessage) (RejectedRowsQueryRequest,
 	return request, rejectedRowsQueryEcho(request), nil
 }
 
-func pageFlowRows(rows []FlowRow, offset int, limit int) ([]FlowRow, *int) {
-	if offset >= len(rows) {
-		return []FlowRow{}, nil
-	}
-	end := offset + limit
-	if end > len(rows) {
-		end = len(rows)
-	}
-	page := rows[offset:end]
-	if end >= len(rows) {
-		return page, nil
-	}
-	return page, &end
-}
-
-func pageDiagnostics(rows []RejectedRowDiagnostic, offset int, limit int) ([]RejectedRowDiagnostic, *int) {
-	if offset >= len(rows) {
-		return []RejectedRowDiagnostic{}, nil
-	}
-	end := offset + limit
-	if end > len(rows) {
-		end = len(rows)
-	}
-	page := rows[offset:end]
-	if end >= len(rows) {
-		return page, nil
-	}
-	return page, &end
-}
-
 type tableRenameRequest struct {
 	ClientTxnID      string
 	BaseTableVersion int64
@@ -758,109 +679,6 @@ func decodeSoftDeleteRequest(r *http.Request) (tableSoftDeleteRequest, *httpapi.
 		return tableSoftDeleteRequest{}, apiErr
 	}
 	return tableSoftDeleteRequest{ClientTxnID: clientTxnID, BaseTableVersion: int64(version)}, nil
-}
-
-func (s *Service) commitTableRenameRoute(ctx context.Context, incidentID uuid.UUID, tableID string, actorUserID uuid.UUID, request tableRenameRequest, requestHash []byte, requestID string) (map[string]any, int, *httpapi.APIError) {
-	idempotencyKey := tableMutationIdempotencyKey(routeKeyTablesPatch, actorUserID, incidentID, tableID, request.ClientTxnID)
-	if payload, status, replayed, apiErr := s.replayTableMutationIfPresent(ctx, idempotencyKey, requestHash); replayed || apiErr != nil {
-		return payload, status, apiErr
-	}
-	tx, err := s.store.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return nil, 0, httpapi.InternalAPIError(err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	table, err := s.store.renameTableTx(ctx, tx, RenameTableParams{
-		IncidentID:             incidentID,
-		ActorUserID:            actorUserID,
-		TableID:                tableID,
-		BaseTableVersion:       request.BaseTableVersion,
-		DisplayName:            request.DisplayName,
-		ClientTxnID:            request.ClientTxnID,
-		RequestID:              requestID,
-		DisplayNameDigestKeyID: s.safeDigestKeyID,
-		DisplayNameDigestKey:   s.safeDigestKey,
-		Now:                    s.now(),
-	})
-	if err != nil {
-		if payload, status, replayed, apiErr := s.replayTableMutationIfPresent(ctx, idempotencyKey, requestHash); replayed || apiErr != nil {
-			return payload, status, apiErr
-		}
-		return nil, 0, tableMutationAPIError(err, request.ClientTxnID)
-	}
-	payload := tableMutationPayload(table)
-	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, payload); err != nil {
-		if authn.IsUniqueViolation(err) {
-			return nil, 0, httpapi.ClientTxnConflictError(request.ClientTxnID)
-		}
-		return nil, 0, httpapi.InternalAPIError(err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return nil, 0, httpapi.InternalAPIError(fmt.Errorf("commit network flow table rename route: %w", err))
-	}
-	if table.TableVersion != request.BaseTableVersion {
-		s.publishTableResourceChange(incidentID, table.TableID, platformws.ExtensionResourceChangeKindInvalidate, platformws.ExtensionResourceReasonRenamed)
-	}
-	return payload, http.StatusOK, nil
-}
-
-func (s *Service) commitTableSoftDeleteRoute(ctx context.Context, incidentID uuid.UUID, tableID string, actorUserID uuid.UUID, request tableSoftDeleteRequest, requestHash []byte, requestID string) (map[string]any, int, *httpapi.APIError) {
-	idempotencyKey := tableMutationIdempotencyKey(routeKeyTablesDelete, actorUserID, incidentID, tableID, request.ClientTxnID)
-	if payload, status, replayed, apiErr := s.replayTableMutationIfPresent(ctx, idempotencyKey, requestHash); replayed || apiErr != nil {
-		return payload, status, apiErr
-	}
-	tx, err := s.store.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return nil, 0, httpapi.InternalAPIError(err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	table, err := s.store.softDeleteTableTx(ctx, tx, SoftDeleteTableParams{
-		IncidentID:       incidentID,
-		ActorUserID:      actorUserID,
-		TableID:          tableID,
-		BaseTableVersion: request.BaseTableVersion,
-		ClientTxnID:      request.ClientTxnID,
-		RequestID:        requestID,
-		Now:              s.now(),
-	})
-	if err != nil {
-		if payload, status, replayed, apiErr := s.replayTableMutationIfPresent(ctx, idempotencyKey, requestHash); replayed || apiErr != nil {
-			return payload, status, apiErr
-		}
-		return nil, 0, tableMutationAPIError(err, request.ClientTxnID)
-	}
-	payload := tableMutationPayload(table)
-	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, payload); err != nil {
-		if authn.IsUniqueViolation(err) {
-			return nil, 0, httpapi.ClientTxnConflictError(request.ClientTxnID)
-		}
-		return nil, 0, httpapi.InternalAPIError(err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return nil, 0, httpapi.InternalAPIError(fmt.Errorf("commit network flow table soft delete route: %w", err))
-	}
-	s.publishTableResourceChange(incidentID, table.TableID, platformws.ExtensionResourceChangeKindRemove, platformws.ExtensionResourceReasonSoftDeleted)
-	return payload, http.StatusOK, nil
-}
-
-func (s *Service) publishTableResourceChange(incidentID uuid.UUID, tableID string, changeKind string, reasonCode string) {
-	if s == nil || s.hub == nil || incidentID == uuid.Nil || strings.TrimSpace(tableID) == "" {
-		return
-	}
-	_ = s.hub.PublishExtensionResourceChange(incidentID, platformws.ExtensionResourceChangePayload{
-		ExtensionProfileID: ProfileID,
-		ResourceKind:       "network_flow_table",
-		ResourceID:         tableID,
-		ChangeKind:         changeKind,
-		ReasonCode:         reasonCode,
-		WorkspaceRefs: []platformws.ExtensionWorkspaceRef{
-			{
-				Kind:               "extension_workspace",
-				ExtensionProfileID: ProfileID,
-				WorkspaceKey:       WorkspaceKeyNetworkAnalysis,
-			},
-		},
-	})
 }
 
 func (s *Service) replayTableMutationIfPresent(ctx context.Context, key authn.RouteIdempotencyKey, requestHash []byte) (map[string]any, int, bool, *httpapi.APIError) {

@@ -1,7 +1,7 @@
 ---
 title: Network Flow Activity NLSpec
 status: adopted/current
-document_version: 1.0.0
+document_version: 1.1.0
 contract_major: 1
 profile_id: network_flow_activity
 document_class: nlspec
@@ -11,9 +11,9 @@ document_class: nlspec
 
 Status: `adopted/current`.
 
-This NLSpec defines the implementation-conformance contract for the `network_flow_activity` extension profile. Its adoption dependencies and gates in Tables 1-B, 3-A, and 24-A are closed for version `1.0.0`, including the required Core, Graph Projection, Testing Harness, timezone-ruleset, and fixture contracts.
+This NLSpec defines the implementation-conformance contract for the `network_flow_activity` extension profile. Its adoption dependencies and gates in Tables 1-B, 3-A, and 24-A are closed for version `1.1.0`, including the required Core, Graph Projection, Testing Harness, timezone-ruleset, and fixture contracts.
 
-Document version: `1.0.0`. Contract major: `1`.
+Document version: `1.1.0`. Contract major: `1`.
 
 **NF-REQ-001**
 The `network_flow_activity` extension profile MUST own only the following behavior families:
@@ -50,7 +50,7 @@ Omission behavior: an implementation that ignores research reports, UI guides, i
 ### 1.1 Version and compatibility
 
 **NF-REQ-006a**
-The extension discovery resource for `network_flow_activity` MUST expose `profile_id`, `contract_major`, `document_version`, and `route_root`. `route_root` MUST equal `/api/v1/incidents/{incident_id}/network-flow`. A client or deployment that does not support the returned `contract_major` MUST treat the extension as unavailable and MUST NOT infer compatibility from the HTTP route version alone.
+The closed Network Flow contract-discovery metadata MUST expose `profile_id`, `contract_major`, `document_version`, and `route_root`. `document_version` MUST equal `1.1.0`, and `route_root` MUST equal `/api/v1/incidents/{incident_id}/network-flow`. A client or deployment that does not support the declared `contract_major` MUST treat the extension contract as unavailable and MUST NOT infer compatibility from the HTTP route version alone. The Base Profile `GET /api/v1/extensions` resource remains owned by Core 01 §3.3.3.1 and MUST retain that owner's closed public item shape; the contract-discovery metadata is a repo-local derived contract artifact, not an additive public response member.
 
 **Table 1-A. Contract version-change registry**
 
@@ -80,7 +80,7 @@ Table 1-B MUST contain an adopted document version and exact imported section or
 | Core 03 | Extension-contributed incident tab and resource-invalidation event. | Adopted current-profile Core 03 revision at owner artifact `08fa716e`; locator: `docs/spec/03_workbook_interaction_collaboration_and_workflows.md` §§2, 4.3.1; `REQ-03-004`, `REQ-03-011A`, `REQ-03-030`, `REQ-03-067..072`. |
 | Core 04 | Route authorization, cursor protection, audit delivery, deployment-secret lifecycle, and retention. | Adopted current-profile Core 04 revisions at owner artifacts `3b942fe0`, `90401fb2`, `cd645750`, `71258589`, and `663c8684`; locator: `docs/spec/04_security_deployment_and_conformance.md` §§2, 3, 9.1B, 12.3; `REQ-04-123..142`, `AC-475..477`; Core 01 §3.3.7 owns cursor wire shape. |
 | Graph Projection NLSpec | Ephemeral projection request, property and metadata mapping, result, and error interface. | Adopted/current Graph Projection NLSpec `docs/graph_projection_nlspec.md`; owner artifacts `4e446354`, `f177fb6b`, `81941bba`; locator: front matter `status: adopted/current`, §§4, 5.1.1, 10.0, 10.9, 12, 13, 14; `GP-AC-033`, `GP-AC-053`, `GP-AC-069`. |
-| Testing Harness NLSpec | Contract artifact generation, fixture execution, and drift checks. | Adopted/current Testing Harness NLSpec `docs/testing-harness-nlspec.md`; locator: front matter `status: adopted/current`, §§8, 11, 12, 16, 17; `TH-HARNESS-REQ-657..663`, `TH-HARNESS-AC-049..055`, schemas `cartulary.network_flow_fixture_manifest.v1`, `cartulary.network_flow_activity_accounting.v1`, `cartulary.network_flow_timezone_ruleset_provenance.v1`. |
+| Testing Harness NLSpec | Contract artifact generation, fixture execution, and drift checks. | Adopted/current Testing Harness NLSpec `docs/testing-harness-nlspec.md`; locator: front matter `status: adopted/current`, §§8, 11, 12, 16, 17; `TH-HARNESS-REQ-657..663`, `TH-HARNESS-AC-049..055`, schemas `cartulary.network_flow_fixture_manifest.v1`, `cartulary.network_flow_activity_accounting.v2`, `cartulary.network_flow_timezone_ruleset_provenance.v1`. |
 
 ## 2. Normative language
 
@@ -496,7 +496,7 @@ For this requirement, the identity-bearing source-column descriptor members are 
 ```text
 network_flow_safe_digest_v1(value_class, canonical_value):
   HMAC-SHA256(
-    deployment_audit_secret,
+    network_flow_safe_digest_key_material,
     UTF8("cartulary.network_flow.safe_digest.v1") NUL
     UTF8(value_class) NUL
     UTF8(canonical_value)
@@ -505,7 +505,7 @@ network_flow_safe_digest_v1(value_class, canonical_value):
 ```
 
 **NF-REQ-045**
-`deployment_audit_secret` MUST be deployment-local secret material with at least 256 bits of CSPRNG entropy. It MUST NOT be exported through public routes, logs, telemetry, fixtures, import diagnostics, or Graph Projection metadata.
+`network_flow_safe_digest_key_material` MUST be deployment-local secret material with at least 256 bits of CSPRNG entropy. It MUST NOT be exported through public routes, logs, telemetry, fixtures, import diagnostics, or Graph Projection metadata.
 
 **NF-REQ-045a**
 Every production safe digest MUST be paired with a non-secret `safe_digest_key_id`. All nodes in one deployment MUST use the same active key and key ID. Network Flow route service MUST fail startup when either value is absent or invalid. Core 04 owns secret generation, distribution, storage, access control, and rotation.
@@ -2570,6 +2570,77 @@ Every limit-exceeded error MUST include `limit_key`, `limit`, `actual`, and `pha
 
 These are wire- or algorithm-version constants, not deployment configuration. Changing one requires a compatible protocol revision or a new versioned algorithm/profile as applicable.
 
+### 20.1 Deployment key-ring configuration
+
+**NF-REQ-172a**
+The adopted top-level deployment-configuration namespace for this profile is
+`network_flow_activity`. It contains exactly the following keys:
+
+| Key | Type | Required | Default and omitted behavior |
+| --- | --- | ---: | --- |
+| `claimed` | boolean | No | `false`. |
+| `key_ring_manifest_path` | string | Required only when `claimed=true` | No default. It MUST be absent when `claimed=false`. |
+
+`key_ring_manifest_path` MUST be an absolute normalized path with no NUL,
+shell-variable form, `~`, or lexical `.` or `..` segment. Explicit `null` is
+invalid. When the profile is unclaimed, a supplied path MUST fail with
+`profile_incompatible_binding`. When the profile is claimed, an omitted,
+empty, unreadable, non-regular, oversized, malformed, or schema-invalid
+manifest MUST fail before any HTTP listener, WebSocket listener, or background
+worker starts. Environment overlays use
+`CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH` under the Core 04
+overlay grammar.
+
+**NF-REQ-172b**
+The selected file MUST be UTF-8 JSON no larger than `65536` bytes and MUST
+validate as `cartulary.network_flow_key_rings.v1`. Duplicate object members,
+unknown members, and explicit `null` are invalid at every object boundary. The
+top-level object contains exactly `schema_id`, `cursor_key_ring`, and
+`safe_digest_key_ring`.
+
+`cursor_key_ring` contains exactly `algorithm` and `keys`. `algorithm` is
+`aes_256_gcm_v1`. `keys` contains `1..8` objects with exactly
+`cursor_key_id`, `state`, `secret_ref`, and the state-dependent time members.
+Exactly one key has `state='active'`; it MUST omit `deactivated_at` and
+`retire_at`. A key with `state='decrypt_only'` MUST contain both timestamps in
+`timestamp_utc_v1` form, MUST satisfy
+`retire_at = deactivated_at + 15 minutes`, and MUST NOT validate a token issued
+at or after `deactivated_at` or at or after `retire_at`.
+
+`safe_digest_key_ring` contains exactly `algorithm` and `keys`. `algorithm` is
+`hmac_sha256_v1`. `keys` contains `1..8` objects with exactly
+`safe_digest_key_id`, `state`, `secret_ref`, and the state-dependent time
+members. Exactly one key has `state='active'`; it MUST omit `deactivated_at`
+and `retain_until`. A key with `state='inactive'` MUST contain both timestamps
+in `timestamp_utc_v1` form and MUST satisfy `retain_until > deactivated_at`.
+Inactive keys MUST NOT emit new digests.
+
+Every key ID MUST satisfy `safe_key_id_v1`; IDs MUST be unique within their
+ring. A `secret_ref` MUST satisfy Core 04 `secret_ref_v1`. Its resolved value
+MUST be unpadded base64url text decoding to exactly 32 bytes. Raw or derived
+key material is forbidden in the manifest, configuration, diagnostics,
+readiness output, logs, telemetry, audit, public routes, browser state, and
+ordinary fixtures. Expired retained entries are invalid at startup and MUST be
+removed from a running provider no later than their retirement instant.
+
+**NF-REQ-172c**
+Cursor and safe-digest rings MUST be loaded and validated atomically. Reusing a
+secret reference name or resolved key material across the two rings or across
+another startup-resolved secret purpose is invalid. Ordinary development and
+production assembly MUST NOT derive either ring from an authentication master
+secret, use fallback material, or load fixture-only key IDs or values.
+Harness-owned assembly MAY inject deterministic keys only through guarded
+harness controls. Omission behavior: without an active guarded harness control,
+assembly resolves and validates the deployment manifest exactly as production
+does.
+
+Rotation is restart-applied in this revision; live manifest reload is not
+defined. All claimed nodes serving one deployment MUST use the same manifest
+epoch. Previously persisted safe digests are retained with their original key
+IDs and MUST NOT be rewritten. Cursor tokens produced by an implementation
+before the `nfc2` envelope are unsupported and fail through
+`network_flow_cursor_invalid`.
+
 **NF-REQ-173**
 Effective limits MUST be exposed through `GET /source-profiles` under `data.effective_limits`. The route MUST return all keys in Table 20-A exactly once.
 
@@ -2790,7 +2861,7 @@ Conformance fixtures MUST include Table 22-A for this NLSpec to remain adopted/c
 | `NF-FIX-028-graph-aggregate-bounds` | `fixtures/network-flow/NF-FIX-028-graph-aggregate-bounds/manifest.json` | `5acf103d56b2e3e1db0711abdfb354b7e29f14f43dd220ccbebaa4a2070facc1` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Arbitrary-precision sums, exact digit limit, fixed vertex/edge/counter failure order, and no partial adapter output. |
 
 **NF-REQ-178**
-Each fixture bundle MUST include canonical expected-output transcripts for route success `data` objects, route error payloads, table resources, source-column descriptors, approved mapping JSON, mapping fingerprint, row IDs, row digests, diagnostics, graph result, Graph Projection adapter input, indicator-link result, resource-limit details, and redaction outputs where applicable. Fixture graph digests and source snapshot IDs MUST be independent of deployment limit configuration. Fixture-only safe digest expectations MUST declare a deterministic fixture `deployment_audit_secret`; production deployments MUST NOT use that fixture secret.
+Each fixture bundle MUST include canonical expected-output transcripts for route success `data` objects, route error payloads, table resources, source-column descriptors, approved mapping JSON, mapping fingerprint, row IDs, row digests, diagnostics, graph result, Graph Projection adapter input, indicator-link result, resource-limit details, and redaction outputs where applicable. Fixture graph digests and source snapshot IDs MUST be independent of deployment limit configuration. Fixture-only safe digest expectations MUST declare deterministic fixture `network_flow_safe_digest_key_material`; production deployments MUST NOT use that fixture secret.
 
 ## 23. Acceptance criteria
 

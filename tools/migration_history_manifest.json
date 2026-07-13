@@ -194,6 +194,12 @@
       "filename": "00032_graph_projection_conformance.sql",
       "sha256": "ac02915481ee37b04535b002cb08d8e59f0918011b6e4526c02b445fe0d3ff79",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 33,
+      "filename": "00033_network_flow_keyset_indexes.sql",
+      "sha256": "c3ad83864d52d51ab31dceb12287747a7c26dd6847ead413f2798370eb552c11",
+      "historical_phase_shaped": false
     }
   ]
 }

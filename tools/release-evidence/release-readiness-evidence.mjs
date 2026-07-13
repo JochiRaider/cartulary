@@ -7,9 +7,8 @@ import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
 } from "../harness/phase-accounting/index.mjs";
-import { validateSchemaSync } from "../harness/contract/index.mjs";
+import { repoRoot, validateSchemaSync } from "../harness/contract/index.mjs";
 import {
-  repoRoot,
   resolveResultsRoot,
   resolveRunId,
 } from "../harness/contract/test-output-context.mjs";

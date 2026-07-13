@@ -1256,6 +1256,34 @@
     },
     {
       "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/networkFlowCollaborationInterpreter.test.ts",
+      "title": "admits only closed Network Flow table changes",
+      "coverage": "unowned_regression",
+      "reason": "Network Flow collaboration admission is direct product regression coverage; authoritative Phase 12 behavior remains owned by criterion-scoped runtime and browser selectors."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/networkFlowController.test.ts",
+      "title": "preserves selection on refresh and advances it on deletion",
+      "coverage": "unowned_regression",
+      "reason": "Network Flow controller lifecycle behavior is direct product regression coverage; authoritative Phase 12 behavior remains owned by criterion-scoped runtime and browser selectors."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/networkFlowController.test.ts",
+      "title": "clears all table state when authorization is lost",
+      "coverage": "unowned_regression",
+      "reason": "Network Flow authorization-loss UI state is direct product regression coverage; authoritative Phase 12 behavior remains owned by criterion-scoped runtime and browser selectors."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/useNetworkFlowExtensionEvents.test.tsx",
+      "title": "deduplicates changes and resumes after reconnect",
+      "coverage": "unowned_regression",
+      "reason": "Network Flow reconnect and deduplication behavior is direct product regression coverage; authoritative Phase 12 behavior remains owned by criterion-scoped runtime and browser selectors."
+    },
+    {
+      "target": "frontend-unit",
       "file": "packages/protocol-ts/src/index.test.ts",
       "title": "anchors evidence protocol facade types to generated OpenAPI schema names",
       "coverage": "tooling_support",

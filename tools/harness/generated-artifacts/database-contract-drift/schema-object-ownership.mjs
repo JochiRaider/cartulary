@@ -303,7 +303,7 @@ function collectSchemaObjects(root, manifest) {
 function collectObjectsFromSql(sql, source, objects) {
   scan(sql, sqlRegex(String.raw`\bCREATE\s+EXTENSION\s+(?:IF\s+NOT\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "extension", source, objects);
   scan(sql, sqlRegex(String.raw`\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "table", source, objects);
-  scan(sql, sqlRegex(String.raw`\bCREATE\s+(?:UNIQUE\s+)?INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "index", source, objects);
+  scan(sql, sqlRegex(String.raw`\bCREATE\s+(?:UNIQUE\s+)?INDEX\s+(?:CONCURRENTLY\s+)?(?:IF\s+NOT\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "index", source, objects);
   scan(sql, sqlRegex(String.raw`\bCREATE\s+(?:MATERIALIZED\s+)?(?:OR\s+REPLACE\s+)?VIEW\s+(${sqlIdentifierPattern})`), "view", source, objects);
   scan(sql, sqlRegex(String.raw`\bCREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(${sqlIdentifierPattern})\s*\(`), "function", source, objects);
   scan(sql, sqlRegex(String.raw`\bCREATE\s+TRIGGER\s+(${sqlIdentifierPattern})`), "trigger", source, objects);
@@ -314,7 +314,7 @@ function collectObjectsFromSql(sql, source, objects) {
   scan(sql, sqlRegex(String.raw`\bALTER\s+INDEX\s+(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "index", source, objects);
   scan(sql, sqlRegex(String.raw`\bALTER\s+(?:MATERIALIZED\s+)?VIEW\s+(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "view", source, objects);
   scan(sql, sqlRegex(String.raw`\bDROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "table", source, objects);
-  scan(sql, sqlRegex(String.raw`\bDROP\s+INDEX\s+(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "index", source, objects);
+  scan(sql, sqlRegex(String.raw`\bDROP\s+INDEX\s+(?:CONCURRENTLY\s+)?(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "index", source, objects);
   scan(sql, sqlRegex(String.raw`\bDROP\s+(?:MATERIALIZED\s+)?VIEW\s+(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "view", source, objects);
   scan(sql, sqlRegex(String.raw`\bDROP\s+FUNCTION\s+(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})\s*(?:\(|;)`), "function", source, objects);
   scan(sql, sqlRegex(String.raw`\bDROP\s+TYPE\s+(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "type", source, objects);

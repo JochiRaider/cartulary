@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.network_flow_key_rings.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "cursor_key_ring", "safe_digest_key_ring"],
+  "properties": {
+    "schema_id": { "const": "cartulary.network_flow_key_rings.v1" },
+    "cursor_key_ring": { "$ref": "#/$defs/cursor_key_ring" },
+    "safe_digest_key_ring": { "$ref": "#/$defs/safe_digest_key_ring" }
+  },
+  "$defs": {
+    "key_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?Z$"
+    },
+    "secret_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name"],
+      "properties": {
+        "kind": { "const": "env" },
+        "name": { "$ref": "#/$defs/key_id" }
+      }
+    },
+    "cursor_key_ring": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "keys"],
+      "properties": {
+        "algorithm": { "const": "aes_256_gcm_v1" },
+        "keys": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/cursor_key" }
+        }
+      }
+    },
+    "cursor_key": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cursor_key_id", "state", "secret_ref"],
+          "properties": {
+            "cursor_key_id": { "$ref": "#/$defs/key_id" },
+            "state": { "const": "active" },
+            "secret_ref": { "$ref": "#/$defs/secret_ref" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cursor_key_id", "state", "secret_ref", "deactivated_at", "retire_at"],
+          "properties": {
+            "cursor_key_id": { "$ref": "#/$defs/key_id" },
+            "state": { "const": "decrypt_only" },
+            "secret_ref": { "$ref": "#/$defs/secret_ref" },
+            "deactivated_at": { "$ref": "#/$defs/timestamp" },
+            "retire_at": { "$ref": "#/$defs/timestamp" }
+          }
+        }
+      ]
+    },
+    "safe_digest_key_ring": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "keys"],
+      "properties": {
+        "algorithm": { "const": "hmac_sha256_v1" },
+        "keys": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/safe_digest_key" }
+        }
+      }
+    },
+    "safe_digest_key": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["safe_digest_key_id", "state", "secret_ref"],
+          "properties": {
+            "safe_digest_key_id": { "$ref": "#/$defs/key_id" },
+            "state": { "const": "active" },
+            "secret_ref": { "$ref": "#/$defs/secret_ref" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["safe_digest_key_id", "state", "secret_ref", "deactivated_at", "retain_until"],
+          "properties": {
+            "safe_digest_key_id": { "$ref": "#/$defs/key_id" },
+            "state": { "const": "inactive" },
+            "secret_ref": { "$ref": "#/$defs/secret_ref" },
+            "deactivated_at": { "$ref": "#/$defs/timestamp" },
+            "retain_until": { "$ref": "#/$defs/timestamp" }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,39 +1,13 @@
 import { useEffect } from "react";
 import { clientTxnID } from "../services/browserApi";
+import { networkAnalysisSheetRef } from "./networkFlowClient";
 import {
-  networkAnalysisSheetRef,
-  networkFlowActivityProfileId,
-} from "./networkFlowClient";
+  type ExtensionResourceMessage,
+  interpretNetworkFlowCollaborationMessage,
+  type NetworkFlowExtensionResourceChange,
+} from "./networkFlowCollaborationInterpreter";
 
-export type NetworkFlowExtensionResourceChange = {
-  readonly changeKind: "invalidate" | "remove";
-  readonly reasonCode: string;
-  readonly resourceId: string;
-};
-
-type ExtensionResourceMessage = {
-  readonly type?: string;
-  readonly stream_seq?: number;
-  readonly payload?: {
-    readonly extension_profile_id?: string;
-    readonly resource_kind?: string;
-    readonly resource_id?: string;
-    readonly change_kind?: string;
-    readonly reason_code?: string;
-  };
-};
-
-type NetworkFlowTableChangeMessage = {
-  readonly type: "extension_resource_changed";
-  readonly stream_seq?: number;
-  readonly payload: {
-    readonly extension_profile_id: typeof networkFlowActivityProfileId;
-    readonly resource_kind: "network_flow_table";
-    readonly resource_id: string;
-    readonly change_kind: "invalidate" | "remove";
-    readonly reason_code: string;
-  };
-};
+export type { NetworkFlowExtensionResourceChange } from "./networkFlowCollaborationInterpreter";
 
 function websocketPath(base: string | undefined, path: string): string {
   const trimmedBase = (base ?? "").trim();
@@ -48,21 +22,6 @@ function websocketPath(base: string | undefined, path: string): string {
   target.search = "";
   target.hash = "";
   return target.toString();
-}
-
-function isNetworkFlowTableChange(
-  message: ExtensionResourceMessage,
-): message is NetworkFlowTableChangeMessage {
-  const payload = message.payload;
-  return (
-    message.type === "extension_resource_changed" &&
-    payload?.extension_profile_id === networkFlowActivityProfileId &&
-    payload.resource_kind === "network_flow_table" &&
-    typeof payload.resource_id === "string" &&
-    (payload.change_kind === "invalidate" ||
-      payload.change_kind === "remove") &&
-    typeof payload.reason_code === "string"
-  );
 }
 
 export function useNetworkFlowExtensionEvents({
@@ -149,7 +108,8 @@ export function useNetworkFlowExtensionEvents({
         }
         return;
       }
-      if (!isNetworkFlowTableChange(message)) {
+      const change = interpretNetworkFlowCollaborationMessage(message);
+      if (change === null) {
         return;
       }
       const streamSeq = message.stream_seq;
@@ -160,11 +120,7 @@ export function useNetworkFlowExtensionEvents({
         appliedStreamSeqs.add(streamSeq);
         lastSeenStreamSeq = Math.max(lastSeenStreamSeq, streamSeq);
       }
-      onResourceChange({
-        changeKind: message.payload.change_kind,
-        reasonCode: message.payload.reason_code,
-        resourceId: message.payload.resource_id,
-      });
+      onResourceChange(change);
     };
 
     const connect = () => {

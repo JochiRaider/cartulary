@@ -13,6 +13,8 @@ import (
 
 	"github.com/google/uuid"
 	"golang.org/x/sys/unix"
+
+	"github.com/JochiRaider/cartulary/internal/platform/secretpurpose"
 )
 
 type filesystemRoot struct {
@@ -58,6 +60,34 @@ func ResolveTelemetrySecretReferences(cfg Config, env map[string]string) error {
 		}
 		if len(diagnostics) > 0 {
 			return newDiagnosticsError(diagnostics)
+		}
+	}
+	return nil
+}
+
+func RegisterTelemetrySecretPurposes(cfg Config, env map[string]string, registry *secretpurpose.Registry) error {
+	if err := ResolveTelemetrySecretReferences(cfg, env); err != nil {
+		return err
+	}
+	register := func(ref SecretRef, path string) error {
+		if ref.Empty() {
+			return nil
+		}
+		value, ok := lookupEnv(env, secretRefEnvName(ref.Name))
+		if !ok {
+			return newDiagnosticsError([]Diagnostic{{Path: path, ReasonCode: "invalid_telemetry_config", Message: "telemetry secret reference is unresolved"}})
+		}
+		if err := registry.Register(ref.Name, path, []byte(value)); err != nil {
+			return newDiagnosticsError([]Diagnostic{{Path: path, ReasonCode: "invalid_telemetry_config", Message: "telemetry secret purpose is reused"}})
+		}
+		return nil
+	}
+	if err := register(cfg.Telemetry.Attribute.HMACSecretRef, "telemetry.attribute.hmac_secret_ref"); err != nil {
+		return err
+	}
+	for name, ref := range cfg.Telemetry.Exporter.Headers {
+		if err := register(ref, "telemetry.exporter.headers."+name); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -128,7 +158,7 @@ func validateConfigStructure(cfg *Config, presence configPresence) []Diagnostic 
 	validateRootBinding(&cfg.Roots.ExportOutputs, "roots.export_outputs", cfg.DeploymentProfile, false, false, &diagnostics)
 	validateBootstrapManifestPath(&cfg.Bootstrap, presence, &diagnostics)
 	validateEnterpriseAuthenticationConfig(&cfg.EnterpriseAuthentication, presence, &diagnostics)
-	validateNetworkFlowActivityConfig(&cfg.NetworkFlowActivity, &diagnostics)
+	validateNetworkFlowActivityConfig(&cfg.NetworkFlowActivity, presence, &diagnostics)
 	validateLimitRegistry(cfg.Limits, &diagnostics)
 	validateTelemetryConfig(&cfg.Telemetry, presence, &diagnostics)
 
@@ -371,7 +401,33 @@ func validateEnterpriseAuthenticationConfig(enterprise *EnterpriseAuthentication
 	}
 }
 
-func validateNetworkFlowActivityConfig(_ *NetworkFlowActivityConfig, _ *[]Diagnostic) {}
+func validateNetworkFlowActivityConfig(networkFlow *NetworkFlowActivityConfig, presence configPresence, diagnostics *[]Diagnostic) {
+	const path = "network_flow_activity.key_ring_manifest_path"
+	pathDefined := presence.isDefined("network_flow_activity", "key_ring_manifest_path")
+	if !networkFlow.Claimed {
+		if networkFlow.KeyRingManifestPath != "" || pathDefined {
+			*diagnostics = append(*diagnostics, Diagnostic{
+				Path:       path,
+				ReasonCode: "profile_incompatible_binding",
+				Message:    "Network Flow key-ring manifest path is valid only when Network Flow Activity is claimed",
+			})
+		}
+		return
+	}
+
+	if networkFlow.KeyRingManifestPath == "" {
+		*diagnostics = append(*diagnostics,
+			Diagnostic{Path: path, ReasonCode: "network_flow_cursor_key_missing", Message: "Network Flow cursor key-ring configuration is required when Network Flow Activity is claimed"},
+			Diagnostic{Path: path, ReasonCode: "network_flow_safe_digest_key_missing", Message: "Network Flow safe-digest key-ring configuration is required when Network Flow Activity is claimed"},
+		)
+		return
+	}
+	if normalized, diagnostic := validateConfiguredManifestPath(networkFlow.KeyRingManifestPath, path); diagnostic != nil {
+		*diagnostics = append(*diagnostics, *diagnostic)
+	} else {
+		networkFlow.KeyRingManifestPath = normalized
+	}
+}
 
 func applyDefaultLimitValues(cfg *Config, presence configPresence) {
 	applyDefaultInt64(&cfg.Limits.ObjectBlobs.MaxDeclaredByteSize, DefaultObjectBlobMaxDeclaredByteSize, presence, "limits", "object_blobs", "max_declared_byte_size")

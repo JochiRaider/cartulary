@@ -1,0 +1,17 @@
+{
+  "schema_id": "cartulary.network_flow_unicode17_nfc_provenance.v1",
+  "upstream_module": "golang.org/x/text",
+  "upstream_tag": "v0.37.0",
+  "unicode_version": "17.0.0",
+  "files_sha256": {
+    "composition.go": "3d1be52960f2693926472819b747646e7d2371d2bb5f53097cf9d46c913052df",
+    "forminfo.go": "fceb28bef5efec8347536a89018e906f607a70a91051d9360b3656867efe2d9e",
+    "input.go": "965b431790bb139543d71a9c497920ef7d9a15af417456a2bbd0cdb629330e8d",
+    "iter.go": "16a40d326f9b37c5430a18894f718007728ce8324afb08d8c0a17ce7289714b0",
+    "normalize.go": "b9e7aeff51e6cb036ff4e8c6255410e7068c112e329a137d333e639f63c4a8ab",
+    "readwriter.go": "d600d1f6cff2536dbb49a0f6bb8c06f6fc05f2754dad2dc05f1d44f9e8e48a35",
+    "tables17.0.0.go": "26784025eb1881a4452f101a7ef34b33c8ca02bd0603bfec41d2c823494ff7cb",
+    "transform.go": "6f8014595643e2acae76d47ed6abe8ace969a0c9070dbfa5a89c86bebcec812d",
+    "trie.go": "d87793d558251ee8824954f0b7bc5564803e4c9d59a8c4eebb4c3c5cfbd19492"
+  }
+}
