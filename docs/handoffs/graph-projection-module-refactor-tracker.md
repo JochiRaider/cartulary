@@ -171,7 +171,7 @@ Tracker-only validation is `make lint-markdown`, `make generated-artifact-policy
 | GPRT-008 | Split retained service and PostgreSQL adapter | backend refactor | TODO | GPRT-006, GPRT-007 | S-02 | Transaction, lifecycle, query, retention, and table behavior remain unchanged. |
 | GPRT-009 | Redesign Reporting projection-reference seam | cross-module boundary | DONE | GPRT-006, GPRT-008 | Graph binding port and PostgreSQL transaction adapter | Same-transaction behavior and public Reporting reasons are characterized and preserved. |
 | GPRT-010 | Harden facade/import guardrails | architecture | TODO | GPRT-007, GPRT-008, GPRT-009 | S-04 | Only approved facade imports remain and private seams cannot leak. |
-| GPRT-011 | Reconcile matrix, fixtures, selectors, and harness evidence | contracts/harness | IN PROGRESS | GPRT-006, GPRT-010 | All 69 rows downgraded to `planned`; phase-neutral Make rows active | Evidence claims are executable, owner-aligned, and Make-owned. |
+| GPRT-011 | Reconcile matrix, fixtures, selectors, and harness evidence | contracts/harness | IN PROGRESS | GPRT-006, GPRT-010 | All 69 rows downgraded to `planned`; phase-neutral Make rows active; executable generation plan in Section 14 | Evidence claims are executable, owner-aligned, and Make-owned. |
 | GPRT-012 | Correct owner-nonconformant observable behavior | behavior remediation | IN PROGRESS | GPRT-011 | Service facade, migration 32, lifecycle/query correction, full ephemeral response | Adopted Graph/Network Flow acceptance behavior passes with no retained ephemeral state. |
 | GPRT-013 | Remove compatibility paths and complete implementation handoff | cleanup/validation | TODO | GPRT-010, GPRT-011; GPRT-012 if authorized | S-07 | No stale caller, selector, wrapper, or out-of-scope change remains; final gates pass. |
 | GPRT-014 | Complete planning tracker and handoff | planning | DONE | GPRT-001 through GPRT-005 | Sections 1-12 | Another agent can begin S-00 without rediscovering scope, owners, risks, or commands. |
@@ -288,5 +288,151 @@ The 36 fixture registry entries still describe required scenarios; they do not y
 ### Remaining handoff conditions
 
 - Finish relocating the PostgreSQL repository surface below the root facade; the obsolete engine helpers and historical persistence path have been removed.
-- Realize GP-FIX-001 through GP-FIX-036 as executable fixtures, then audit GP-AC-001 through GP-AC-069 criterion by criterion. Do not promote coverage based on broad characterization tests.
+- Execute the fixture-generation workstream in Section 14, then audit GP-AC-001 through GP-AC-069 criterion by criterion. Do not promote coverage based on broad characterization tests.
 - Before any later conformance publication, rerun finalization and the broad repository check after the executable fixture and repository-packaging work lands.
+
+## 14. GP-FIX-001 Through GP-FIX-036 Generation Plan
+
+### 14.1 Objective and current state
+
+The fixture registry currently contains 36 stable IDs and descriptions but no executable payloads. This workstream will turn each ID into a self-contained, Make-selected conformance case without treating current implementation output as normative truth. Until an individual fixture and every criterion that cites it satisfy the gates below, the fixture remains non-claim-bearing and the associated matrix rows remain `planned`.
+
+This plan changes evidence quality, not normative behavior. `docs/graph_projection_nlspec.md` remains the owner. If fixture construction exposes an ambiguity or contradiction, stop that fixture, record the exact owner question, and leave its criteria `planned`; do not resolve uncertainty by copying current behavior into the golden.
+
+### 14.2 Authored fixture layout
+
+Keep `contracts/graph-projection/fixtures/corpus.v1.json` as the stable index. Add one directory per fixture:
+
+```text
+contracts/graph-projection/fixtures/
+  GP-FIX-001/
+    fixture.json
+    input.raw.json
+    expected.error.json
+  GP-FIX-022/
+    fixture.json
+    input.json
+    expected.normalized.json
+    expected.config-transcript.txt
+    expected.source-transcript.txt
+    expected.output-transcript.txt
+    expected.digests.json
+    expected.response.json
+```
+
+Only artifacts relevant to a fixture are required. `fixture.json` must use a closed schema and contain:
+
+- `schema_id`, `fixture_id`, `input_kind`, and `owner_sections`;
+- `execution_layer`: `backend_unit` or `backend_store`;
+- deterministic `clock`, nonce, cursor-key, and identity inputs when applicable;
+- ordered setup, operation/query, clock-advance, and assertion steps;
+- relative paths to every input and expected artifact;
+- expected state effects: graph views, runs, vertices, edges, idempotency records, or explicit `no_state_change`;
+- exact acceptance-criterion IDs exercised by the fixture;
+- golden provenance and reviewer status.
+
+Raw malformed or duplicate-member input must be stored as bytes and must never be parsed and rewritten by a JSON formatter. Canonical transcripts use UTF-8 text files whose final-newline policy is explicit in `fixture.json`. Expected JSON objects must be closed owner-contract objects with exact nullability and member names. Time-bearing fixtures use a fake clock with explicit microsecond timestamps; nonce and cursor-key material is fixed fixture input, never random test state.
+
+### 14.3 Golden-generation rule
+
+The fixture runner has two strictly separated modes:
+
+1. `candidate` mode may run the implementation and write candidate artifacts under a disposable result directory. It must never update `contracts/`.
+2. `verify` mode is read-only. It loads committed authored artifacts, executes the operation, and compares actual results to them.
+
+Candidate output is diagnostic input for review, not an oracle. Before committing a golden, the author must derive or independently verify it from the NLSpec. For digest fixtures, review canonical transcript bytes first, calculate SHA-256 from those committed bytes, and only then record the digest. A test must compare actual transcript bytes before comparing the digest so matching hashes cannot conceal the wrong serialization seam.
+
+### 14.4 Runner and selector design
+
+Add a shared test-only loader and assertion library under `internal/modules/graphprojection/fixturetest`. It owns closed manifest decoding, repository-root-safe path resolution, fake clock/nonce/cursor injection, state snapshots, exact JSON comparison, transcript comparison, and useful first-difference diagnostics. It must not contain Graph business rules or regenerate expected values during verification.
+
+Use focused top-level tests rather than one broad corpus test. Each fixture receives one stable symbol, for example `TestGPFIX001MalformedJSON` and `TestGPFIX022MinimalGraphDigestTranscript`, delegating to the shared runner. Pure admission, derivation, scalar, canonicalization, and ephemeral cases live in a unit fixture test file. PostgreSQL lifecycle, retention, invalidation, and query sequences live in a store fixture test file.
+
+Add every symbol to the phase-neutral Graph subsystem manifest. `backend-unit` selects pure fixtures; `backend-store` selects PostgreSQL fixtures. The conformance matrix cites these exact symbols and fixture paths. A fixture path, registry entry, documentation anchor, or matrix row is never sufficient implementation evidence by itself.
+
+### 14.5 Fixture-by-fixture artifact plan
+
+| Fixture | Layer | Authored inputs | Required expected artifacts and primary assertions |
+| --- | --- | --- | --- |
+| GP-FIX-001 | unit | Malformed raw UTF-8 JSON bytes | Exact pre-admission error; no run, digest, validation issue, or state effect. |
+| GP-FIX-002 | unit | Raw JSON containing a duplicate member at the specified depth | Exact duplicate-member pre-admission error and path; byte-preserving input; no state effect. |
+| GP-FIX-003 | unit | Otherwise valid projection input with a mismatched supplied `graph_view_id` | Derived ID transcript, exact invalid-ID error, and no admitted run or digest exposure. |
+| GP-FIX-004 | store | Validly admitted input with an invalid mapping | Accepted/computing/failed sequence, exact failed-run envelope and validation summary, no consumable graph. |
+| GP-FIX-005 | unit | Input producing more than the validation issue cap | Discovery-order candidate list, selected `N-1` issues, final cap issue, counts, ordering, and failed outcome. |
+| GP-FIX-006 | unit | Aggregation contributors covering missing, defaulted, explicit-null, and present values | Normalized input, candidate table, emitted aggregate properties, validation issues, and canonical output. |
+| GP-FIX-007 | unit | Contributors that conflict under `single_value` after defaults | Candidate order, exact merge-conflict issue, failed outcome, and no partial consumable output. |
+| GP-FIX-008 | unit | `count` aggregation with an unusable `source_field_path` | Exact count showing candidate field evaluation is ignored; registry and output transcript. |
+| GP-FIX-009 | unit | Relationship aggregation with a missing endpoint grouping key and `error` policy | Endpoint grouping transcript, exact validation issue, and failed/no-edge result. |
+| GP-FIX-010 | unit | Same endpoint absence with `exclude` policy | Deterministic exclusion, no issue beyond the owner rule, and exact remaining graph output. |
+| GP-FIX-011 | unit | Endpoint grouping digest that has no matching aggregate vertex | Grouping tuple/transcript, derived digest, exact unmatched-endpoint issue, and no dangling edge. |
+| GP-FIX-012 | unit | Direct and aggregate mappings with defaults, mapping labels, and source labels | Exact schema registry, label arrays/order, and `source_labels_preserved` values. |
+| GP-FIX-013 | unit | Wildcard property and metadata definitions across multiple kinds | Expanded registry entries, deterministic ordering, mapped values, and closed output members. |
+| GP-FIX-014 | unit | Strings covering quote, reverse solidus, controls, and required Unicode cases | Exact canonical UTF-8 transcript and digest; no implementation-produced golden. |
+| GP-FIX-015 | unit | Table of accepted and rejected integer lexical forms at boundaries | Per-case normalized scalar or exact rejection code/path; no float coercion. |
+| GP-FIX-016 | unit | Valid/invalid calendar timestamps including leap and offset boundaries | Per-case normalized timestamp or exact rejection; calendar validity independent of lexical plausibility. |
+| GP-FIX-017 | unit | Identifier cases containing each relevant Unicode whitespace boundary | Per-case acceptance/rejection and exact field attribution. |
+| GP-FIX-018 | store | Create/refresh/invalidation idempotency sequence with fixed clock and keys | Original envelopes, exact replay envelopes, conflict errors, expiry-at-equality behavior, and scoped rows. |
+| GP-FIX-019 | store | Available plus replaced retained runs followed by graph-view invalidation | Exact invalidation summary, sorted changed-run IDs, cascade states, metadata copy, and retention timestamps. |
+| GP-FIX-020 | store | Setup/transition sequence reaching every graph-view summary state | Exact list summary for creating, available, refreshing, failed, and invalidated states and timestamps. |
+| GP-FIX-021 | store | Replacement history where count expires a run before duration | Before/equal/after reads, rank transcript, physical/addressable state, and selected-run preservation. |
+| GP-FIX-022 | unit | Minimal empty graph input with fixed nonce and timestamps | Normalized input, config/source/output canonical transcripts, all IDs/digests, exact envelope, and empty state arrays. |
+| GP-FIX-023 | unit | One-host property graph input with fixed nonce and timestamps | Same full transcript set as 022 plus vertex/property/registry identities and output ordering. |
+| GP-FIX-024 | unit | Valid outer input with a nested unknown member | Exact pre-admission error path; explicit proof of no run, digest, or validation summary. |
+| GP-FIX-025 | unit | Admitted source item with invalid identifier content | Fixed config/source digests, one itemized issue, failed envelope, normalized source ordering, and no graph output. |
+| GP-FIX-026 | unit | Duplicate valid source IDs in intentionally permuted input order | Normalized ordering transcript, full digests, exact fatal duplicate issue, and permutation-invariant result. |
+| GP-FIX-027 | unit | Aggregate grouping key sourced from mapped metadata | Mapped-metadata intermediate, grouping tuple/transcript, grouping digest, aggregate identity, and successful output. |
+| GP-FIX-028 | unit | Definition using `projected.metadata.mapping_rule_id` | Exact `invalid_field_path` issue, target/path/details, and failed outcome. |
+| GP-FIX-029 | store | Refresh paused in computing, then graph-view invalidation, then completion | Observable accepted/computing states, invalidation commit, terminal invalidated run, copied invalidation metadata, and no consumable interval. |
+| GP-FIX-030 | store | Invalidated view followed by a refresh that fails | Refreshing transition, retained failed run, return to invalidated, unchanged prior invalidation object, and selected-run behavior. |
+| GP-FIX-031 | store | Invalidated view followed by create | Exact `invalid_operation/graph_view_already_exists`; no new run or idempotency/state mutation. |
+| GP-FIX-032 | store | Replaced history, invalidation, and count pressure before duration | Bucket migration transcript, invalidated ordering/rank, exact expiry boundaries, and always-retained selected run. |
+| GP-FIX-033 | store | Failed initial create followed by refresh | Exact `invalid_operation/no_consumable_prior_run`; unchanged failed view/run state. |
+| GP-FIX-034 | unit | One minimal overflow case for every added limit family | Per-case limit key, limit/observed values, severity/scope, exclusion versus fatal behavior, and no oversized allocation. |
+| GP-FIX-035 | unit | Authenticated cursor made simultaneously oversized, malformed, wrong-shape, and expired | Exact precedence chooses `cursor_token_too_long`; subsidiary cases prove malformed, wrong-shape, and expiry ordering. |
+| GP-FIX-036 | unit | `distinct_sorted_array` values containing quotes and reverse soliduses | Candidate-value transcripts, canonical-byte sort order, final array transcript, and digest. |
+
+### 14.6 Sequencing and dependencies
+
+| Stage | Work | Depends on | Exit criteria |
+| --- | --- | --- | --- |
+| F0 — Fixture contract | Define the closed fixture schema, directory/path rules, provenance fields, candidate/verify separation, and shape validation. | Existing honest `planned` matrix | Invalid fixture shapes, unsafe paths, missing artifacts, duplicate IDs, and unregistered directories fail `json-shape-check`. |
+| F1 — Runner foundation | Implement the shared read-only verifier, deterministic injection, transcript diffing, state snapshots, and focused test wrappers. | F0 | A deliberately passing sample and deliberately corrupted golden prove success and useful failure behavior through Make. |
+| F2 — Canonical/scalar core | Realize 014–017, 022, 023, and 036 first. | F1 | Canonical bytes, scalar boundaries, IDs, and digests are independently reviewed and stable; these become dependencies for later expected artifacts. |
+| F3 — Admission and validation | Realize 001–005, 024–026, 028, and 034. | F2 | Pre/post-admission boundary, normalization, issue construction/order/cap, and limit severity fixtures pass. |
+| F4 — Derivation and registry | Realize 006–013 and 027. | F2, F3 | Aggregation, endpoints, mapped metadata, labels, registry expansion, ordering, and output transcripts pass. |
+| F5 — Lifecycle and queries | Realize 018–021 and 029–035. | F1; F2 identity rules; conforming lifecycle repository | PostgreSQL sequences pass at exact time boundaries, including concurrency/invalidation dominance, retention buckets, replay, state summaries, and cursor precedence. |
+| F6 — Criterion audit | Audit GP-AC-001–069 against exact focused selectors and fixture executions. | F2–F5 | Each promoted row proves its complete pass condition; partial rows stay `planned`; no row cites itself or metadata-only evidence. |
+| F7 — Publication handoff | Reconcile registry, selectors, manifests, commands, and tracker; run final validation. | F6 | All 36 fixtures execute through Make, drift is clean, and any remaining planned criterion has a specific documented missing assertion. |
+
+F2 precedes the larger fixture batches because identity, normalization, and canonical-byte goldens are inputs to trustworthy derivation and lifecycle expectations. F5 may be developed in parallel with F3/F4 after F1, but its final golden review depends on the F2 identity rules.
+
+### 14.7 Review, promotion, and validation gates
+
+A fixture is complete only when all of the following are true:
+
+- its manifest passes the closed fixture schema and references only files inside its own directory;
+- every input and expected artifact is committed and human-readable, except intentionally raw byte inputs;
+- golden provenance names the NLSpec sections and records independent review;
+- `verify` mode passes through `backend-unit` or `backend-store` and candidate mode is absent from normal test targets;
+- mutating one expected field or transcript byte makes the focused test fail;
+- stateful fixtures prove both expected rows and the absence of forbidden extra state;
+- exact-boundary fixtures execute before, equal, and after cases where the NLSpec requires them;
+- its subsystem manifest row and conformance selectors name the focused test symbol;
+- no generated file was hand-edited.
+
+An acceptance criterion may change from `planned` to `implemented` only after an owner audit confirms that its full sentence—not merely its cited fixtures—has Make-owned executable evidence. Criteria spanning multiple fixtures require all of them. GP-AC-050 and other corpus-level criteria cannot be promoted until all required transcript fixtures execute. GP-AC-068 and GP-AC-069 require focused implementation selectors; their current document/corpus selectors are not sufficient.
+
+Validation for each stage uses the narrowest applicable public targets: `make json-shape-check`, `make backend-unit`, `make backend-store`, `make target-plan-json`, and `make harness-contract`. Run `make generated-artifact-policy-check`, `make generate-drift`, `make agent-finalize`, and `make check` at F7. Use `make phase-slice PHASE=phase11` or `phase12` only if fixture-driven corrections touch Reporting or Network Flow behavior.
+
+### 14.8 Primary risks and controls
+
+| Risk | Control |
+| --- | --- |
+| Golden copied from current behavior | Candidate output is disposable; committed expectations require NLSpec derivation and independent review. |
+| Canonical digest hides wrong bytes | Compare committed transcript bytes before computing or comparing SHA-256. |
+| Broad test symbol overstates coverage | One stable top-level symbol per fixture; criteria cite exact focused selectors. |
+| Fixture runner becomes a second implementation | Loader/assertion code contains no Graph business rules and never calculates expected semantic outcomes. |
+| Time or randomness makes fixtures flaky | Inject clock, nonce, cursor key, and executor scheduling; record every transition instant. |
+| Store fixtures leak state or depend on order | Isolated PostgreSQL transaction/scratch fixture per case and explicit before/after snapshots. |
+| Large limit fixtures exhaust CI resources | Use the minimum overflowing representation and preallocation guards; assert rejection occurs before expensive derivation. |
+| Matrix promotion outruns evidence | Default remains `planned`; promotion is a separate criterion-by-criterion reviewed change. |
