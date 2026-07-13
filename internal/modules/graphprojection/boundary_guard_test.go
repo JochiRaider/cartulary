@@ -68,6 +68,43 @@ func TestWorkbookProjectionsAndPublicRoutesDoNotImportGraphProjection(t *testing
 	}
 }
 
+func TestGraphProjectionInboundConsumersUseApprovedFacades(t *testing.T) {
+	root := repoRoot(t)
+	modulesRoot := filepath.Join(root, "internal", "modules")
+	allowed := map[string]bool{
+		filepath.Join(modulesRoot, "networkflow", "graph.go"):  true,
+		filepath.Join(modulesRoot, "networkflow", "routes.go"): true,
+		filepath.Join(modulesRoot, "reporting", "store.go"):    true,
+	}
+	err := filepath.WalkDir(modulesRoot, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") || strings.Contains(path, string(filepath.Separator)+"graphprojection"+string(filepath.Separator)) {
+			return nil
+		}
+		for _, importPath := range productionImportsForFile(t, path) {
+			if strings.HasPrefix(importPath, cartularyImportPrefix+"internal/modules/graphprojection") && !allowed[path] {
+				t.Fatalf("%s imports %s outside the approved Graph Projection consumer seams", path, importPath)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("scan module importers: %v", err)
+	}
+
+	networkFlowGraph, err := os.ReadFile(filepath.Join(modulesRoot, "networkflow", "graph.go"))
+	if err != nil {
+		t.Fatalf("read Network Flow graph adapter: %v", err)
+	}
+	for _, forbidden := range []string{"graphprojection.Project(", "graphprojection.AdmitProjectionInput(", "graphprojection.DeriveGraphViewID("} {
+		if strings.Contains(string(networkFlowGraph), forbidden) {
+			t.Fatalf("Network Flow graph adapter uses obsolete low-level Graph Projection API %s", forbidden)
+		}
+	}
+}
+
 func TestNoPublicGraphProjectionRoutes(t *testing.T) {
 	root := repoRoot(t)
 	files := []string{
@@ -130,7 +167,7 @@ func TestOperationErrorsDoNotEchoSourceAuthoredValues(t *testing.T) {
 		"requested_at":"2026-05-30T00:00:00Z",
 		"requested_by":"fixture"
 	}`)
-	_, err := AdmitProjectionInput(input, AdmitOptions{})
+	_, err := admitProjectionInput(input, admitOptions{})
 	var opErr *OperationError
 	if err == nil || !strings.Contains(err.Error(), "invalid_projection_request") {
 		t.Fatalf("expected invalid projection request, got %v", err)

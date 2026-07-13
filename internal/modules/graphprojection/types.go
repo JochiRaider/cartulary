@@ -30,6 +30,14 @@ type OperationError struct {
 	ReasonCode string
 	Field      string
 	Details    map[string]any
+	cause      error
+}
+
+func (err *OperationError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.cause
 }
 
 func (err *OperationError) Error() string {
@@ -75,12 +83,12 @@ type ProjectionConfig struct {
 }
 
 type RetentionPolicy struct {
-	RetainReplacedResults       bool
-	RetentionCount              int
-	RetentionDurationSeconds    int
-	RetainFailedResults         bool
-	FailedRetentionCount        int
-	FailedRetentionDurationSecs int
+	RetainReplacedResults       bool `json:"retain_replaced_results"`
+	RetentionCount              int  `json:"retention_count"`
+	RetentionDurationSeconds    int  `json:"retention_duration_seconds"`
+	RetainFailedResults         bool `json:"retain_failed_results"`
+	FailedRetentionCount        int  `json:"failed_retention_count"`
+	FailedRetentionDurationSecs int  `json:"failed_retention_duration_seconds"`
 }
 
 type EntityMapping struct {
@@ -202,7 +210,11 @@ type ProjectionRun struct {
 	ProjectionSourceDigest  string
 	ProjectionOutputDigest  string
 	AcceptedAt              time.Time
+	StartedAt               *time.Time
+	GeneratedAt             *time.Time
 	CompletedAt             *time.Time
+	ReplacedAt              *time.Time
+	InvalidatedAt           *time.Time
 	State                   RunState
 	GraphView               *GraphView
 	ValidationSummary       ValidationSummary
@@ -250,7 +262,7 @@ type VertexKindSchema struct {
 	AggregationRuleIDs    []string
 	Labels                []string
 	SourceLabelsPreserved bool
-	Properties            []string
+	Properties            []PropertySchemaReference
 }
 
 type EdgeKindSchema struct {
@@ -260,15 +272,25 @@ type EdgeKindSchema struct {
 	Directions              []string
 	Labels                  []string
 	SourceLabelsPreserved   bool
-	Properties              []string
+	Properties              []PropertySchemaReference
+}
+
+type PropertySchemaReference struct {
+	ProjectedKey   string
+	ProjectedType  string
+	Required       bool
+	NullableOutput bool
 }
 
 type PropertySchema struct {
-	TargetScope   string
-	TargetKind    string
-	ProjectedKey  string
-	ProjectedType string
-	Required      bool
+	TargetScope        string
+	TargetKind         string
+	ProjectedKey       string
+	ProjectedType      string
+	Required           bool
+	NullableOutput     bool
+	MissingBehavior    string
+	SourceNullBehavior string
 }
 
 type MetadataSchema struct {
@@ -277,6 +299,9 @@ type MetadataSchema struct {
 	ProjectedMetadataKey string
 	ProjectedType        string
 	Required             bool
+	NullableOutput       bool
+	MissingBehavior      string
+	SourceNullBehavior   string
 }
 
 type Vertex struct {
@@ -367,10 +392,14 @@ type ConsumerCapabilities struct {
 }
 
 type InvalidationSummary struct {
-	GraphViewID           string
-	TargetProjectionRunID *string
-	InvalidatedRunIDs     []string
-	ReasonCode            string
-	RequestedAt           string
-	RequestedBy           string
+	GraphViewID           string         `json:"graph_view_id"`
+	TargetScope           string         `json:"target_scope"`
+	TargetProjectionRunID *string        `json:"target_projection_run_id"`
+	InvalidatedRunIDs     []string       `json:"invalidated_projection_run_ids"`
+	GraphViewStateAfter   GraphViewState `json:"graph_view_state_after"`
+	InvalidatedAt         string         `json:"invalidated_at"`
+	ReasonCode            string         `json:"reason_code"`
+	RequestedAt           string         `json:"requested_at,omitempty"`
+	RequestedBy           string         `json:"requested_by"`
+	IdempotencyExpiresAt  *string        `json:"idempotency_expires_at"`
 }

@@ -24,12 +24,14 @@ const (
 	defaultFailedRetentionDurationSecs = 2592000
 )
 
-type AdmitOptions struct {
+type admitOptions struct {
 	ProjectionRunNonce string
 	AcceptedAt         time.Time
+	InvocationIDPrefix string
+	InvocationDomain   string
 }
 
-func AdmitProjectionInput(data []byte, options AdmitOptions) (ProjectionRun, error) {
+func admitProjectionInput(data []byte, options admitOptions) (ProjectionRun, error) {
 	request, normalizedRaw, err := parseProjectionInput(data)
 	if err != nil {
 		return ProjectionRun{}, err
@@ -37,7 +39,7 @@ func AdmitProjectionInput(data []byte, options AdmitOptions) (ProjectionRun, err
 	if request.ProjectionSchemaID != ProjectionSchemaID {
 		return ProjectionRun{}, invalidRequest("invalid_projection_schema", "$.projection_schema_id", nil)
 	}
-	expectedGraphViewID, err := DeriveGraphViewID(request.ProjectionConfig.GraphViewKey)
+	expectedGraphViewID, err := deriveGraphViewID(request.ProjectionConfig.GraphViewKey)
 	if err != nil {
 		return ProjectionRun{}, invalidRequest("invalid_projection_request", "$.projection_config.graph_view_key", nil)
 	}
@@ -58,7 +60,15 @@ func AdmitProjectionInput(data []byte, options AdmitOptions) (ProjectionRun, err
 	if nonce == "" {
 		nonce = "run_nonce_default"
 	}
-	runID, err := generatedID("gpr_", "GPRUN1\n", "projection_run", ProjectionSchemaID, expectedGraphViewID, request.SourceSnapshotID, configDigest, sourceDigest, nonce)
+	idPrefix := options.InvocationIDPrefix
+	if idPrefix == "" {
+		idPrefix = "gpr_"
+	}
+	domain := options.InvocationDomain
+	if domain == "" {
+		domain = "GPRUN1\n"
+	}
+	runID, err := generatedID(idPrefix, domain, "projection_run", ProjectionSchemaID, expectedGraphViewID, request.SourceSnapshotID, configDigest, sourceDigest, nonce)
 	if err != nil {
 		return ProjectionRun{}, invalidRequest("invalid_projection_request", "", map[string]any{"reason": err.Error()})
 	}
@@ -79,7 +89,7 @@ func AdmitProjectionInput(data []byte, options AdmitOptions) (ProjectionRun, err
 	}, nil
 }
 
-func DeriveGraphViewID(graphViewKey string) (string, error) {
+func deriveGraphViewID(graphViewKey string) (string, error) {
 	return generatedID("gv_", "GPID1\n", "graph_view", ProjectionSchemaID, graphViewKey)
 }
 
@@ -370,7 +380,17 @@ func parseAggregationRules(raw []any) []AggregationRule {
 				MissingEndpointBehavior:            stringDefault(endpoint["missing_endpoint_behavior"], "error"),
 			}
 		}
-		rule.AggregationIdentityDigest, _ = digestTuple("GPAGG1\n", rule.AggregationRuleID, rule.TargetScope, rule.InputScope, rule.InputKind, rule.ProjectedKind, rule.GroupingKeys, rule.MissingGroupingKeyBehavior, rule.EdgeDirection, rule.EndpointGrouping)
+		var endpointGrouping any
+		if rule.EndpointGrouping != nil {
+			endpointGrouping = map[string]any{
+				"source_vertex_aggregation_rule_id":      rule.EndpointGrouping.SourceVertexAggregationRuleID,
+				"source_grouping_keys":                   rule.EndpointGrouping.SourceGroupingKeys,
+				"destination_vertex_aggregation_rule_id": rule.EndpointGrouping.DestinationVertexAggregationRuleID,
+				"destination_grouping_keys":              rule.EndpointGrouping.DestinationGroupingKeys,
+				"missing_endpoint_behavior":              rule.EndpointGrouping.MissingEndpointBehavior,
+			}
+		}
+		rule.AggregationIdentityDigest, _ = digestTuple("GPAGG1\n", rule.AggregationRuleID, rule.TargetScope, rule.InputScope, rule.InputKind, rule.ProjectedKind, rule.GroupingKeys, rule.MissingGroupingKeyBehavior, rule.EdgeDirection, endpointGrouping)
 		rules = append(rules, rule)
 	}
 	sort.Slice(rules, func(i, j int) bool { return rules[i].AggregationRuleID < rules[j].AggregationRuleID })

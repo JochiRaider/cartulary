@@ -755,22 +755,156 @@
         }
       ]
     },
+    "GraphProjectionDynamicMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": { "^.{1,256}$": {} }
+    },
+    "GraphProjectionPropertyReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["projected_key", "projected_type", "required", "nullable_output"],
+      "properties": {
+        "additionalProperties": false,
+        "projected_key": { "type": "string" },
+        "projected_type": { "type": "string" },
+        "required": { "type": "boolean" },
+        "nullable_output": { "type": "boolean" }
+      }
+    },
+    "GraphProjectionSchemaRegistry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["vertex_kinds", "edge_kinds", "property_keys", "metadata_keys"],
+      "properties": {
+        "vertex_kinds": { "type": "array", "items": { "$ref": "#/$defs/GraphProjectionVertexKind" } },
+        "edge_kinds": { "type": "array", "items": { "$ref": "#/$defs/GraphProjectionEdgeKind" } },
+        "property_keys": { "type": "array", "items": { "$ref": "#/$defs/GraphProjectionPropertySchema" } },
+        "metadata_keys": { "type": "array", "items": { "$ref": "#/$defs/GraphProjectionMetadataSchema" } }
+      }
+    },
+    "GraphProjectionVertexKind": {
+      "type": "object", "additionalProperties": false,
+      "required": ["vertex_kind", "source_entity_kinds", "aggregation_rule_ids", "labels", "source_labels_preserved", "properties"],
+      "properties": {
+        "additionalProperties": false,
+        "vertex_kind": { "type": "string" }, "source_entity_kinds": { "type": "array", "items": { "type": "string" } },
+        "aggregation_rule_ids": { "type": "array", "items": { "type": "string" } }, "labels": { "type": "array", "items": { "type": "string" } },
+        "source_labels_preserved": { "type": "boolean" }, "properties": { "type": "array", "items": { "$ref": "#/$defs/GraphProjectionPropertyReference" } }
+      }
+    },
+    "GraphProjectionEdgeKind": {
+      "type": "object", "additionalProperties": false,
+      "required": ["edge_kind", "source_relationship_kinds", "aggregation_rule_ids", "directions", "labels", "source_labels_preserved", "properties"],
+      "properties": {
+        "additionalProperties": false,
+        "edge_kind": { "type": "string" }, "source_relationship_kinds": { "type": "array", "items": { "type": "string" } },
+        "aggregation_rule_ids": { "type": "array", "items": { "type": "string" } }, "directions": { "type": "array", "items": { "type": "string" } },
+        "labels": { "type": "array", "items": { "type": "string" } }, "source_labels_preserved": { "type": "boolean" },
+        "properties": { "type": "array", "items": { "$ref": "#/$defs/GraphProjectionPropertyReference" } }
+      }
+    },
+    "GraphProjectionPropertySchema": {
+      "type": "object", "additionalProperties": false,
+      "required": ["target_scope", "target_kind", "projected_key", "projected_type", "required", "nullable_output", "missing_behavior", "source_null_behavior"],
+      "properties": {
+        "additionalProperties": false,
+        "target_scope": { "type": "string" }, "target_kind": { "type": "string" }, "projected_key": { "type": "string" }, "projected_type": { "type": "string" },
+        "required": { "type": "boolean" }, "nullable_output": { "type": "boolean" }, "missing_behavior": { "type": "string" }, "source_null_behavior": { "type": "string" }
+      }
+    },
+    "GraphProjectionMetadataSchema": {
+      "type": "object", "additionalProperties": false,
+      "required": ["target_scope", "target_kind", "projected_metadata_key", "projected_type", "required", "nullable_output", "missing_behavior", "source_null_behavior"],
+      "properties": {
+        "additionalProperties": false,
+        "target_scope": { "type": "string" }, "target_kind": { "type": "string" }, "projected_metadata_key": { "type": "string" }, "projected_type": { "type": "string" },
+        "required": { "type": "boolean" }, "nullable_output": { "type": "boolean" }, "missing_behavior": { "type": "string" }, "source_null_behavior": { "type": "string" }
+      }
+    },
+    "GraphProjectionSourceRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["ref_kind", "ref_id", "contributor_sort_key"],
+      "properties": { "ref_kind": { "type": "string" }, "ref_id": { "type": "string" }, "contributor_sort_key": { "type": "string" } }
+    },
+    "GraphProjectionVertex": {
+      "type": "object", "additionalProperties": false,
+      "required": ["vertex_id", "vertex_kind", "vertex_family", "labels", "properties", "metadata", "source_entity_ref", "sort_key"],
+      "properties": {
+        "additionalProperties": false,
+        "vertex_id": { "type": "string", "pattern": "^vx_[a-f0-9]{64}$" }, "vertex_kind": { "type": "string" }, "vertex_family": { "type": "string" },
+        "labels": { "type": "array", "items": { "type": "string" } }, "properties": { "$ref": "#/$defs/GraphProjectionDynamicMap" },
+        "metadata": { "$ref": "#/$defs/GraphProjectionVertexMetadata" }, "source_entity_ref": { "type": ["object", "null"], "additionalProperties": false, "required": ["source_entity_id", "source_entity_kind", "mapping_rule_id"], "properties": { "source_entity_id": { "type": "string" }, "source_entity_kind": { "type": "string" }, "mapping_rule_id": { "type": "string" } } },
+        "sort_key": { "type": "string" }
+      }
+    },
+    "GraphProjectionVertexMetadata": {
+      "type": "object", "additionalProperties": false,
+      "required": ["mapping_rule_id", "aggregation_rule_id", "aggregation_source_refs", "mapped_metadata"],
+      "properties": {
+        "mapping_rule_id": { "type": ["string", "null"] }, "aggregation_rule_id": { "type": ["string", "null"] },
+        "aggregation_source_refs": { "type": "array", "items": { "$ref": "#/$defs/GraphProjectionSourceRef" } }, "mapped_metadata": { "$ref": "#/$defs/GraphProjectionDynamicMap" }
+      }
+    },
+    "GraphProjectionEdge": {
+      "type": "object", "additionalProperties": false,
+      "required": ["edge_id", "edge_kind", "edge_family", "src_vertex_id", "dst_vertex_id", "direction", "labels", "properties", "metadata", "source_relationship_ref", "sort_key"],
+      "properties": {
+        "additionalProperties": false,
+        "edge_id": { "type": "string", "pattern": "^ed_[a-f0-9]{64}$" }, "edge_kind": { "type": "string" }, "edge_family": { "type": "string" },
+        "src_vertex_id": { "type": "string" }, "dst_vertex_id": { "type": "string" }, "direction": { "type": "string" },
+        "labels": { "type": "array", "items": { "type": "string" } }, "properties": { "$ref": "#/$defs/GraphProjectionDynamicMap" },
+        "metadata": { "$ref": "#/$defs/GraphProjectionEdgeMetadata" }, "source_relationship_ref": { "type": ["object", "null"], "additionalProperties": false, "required": ["source_relationship_id", "source_relationship_kind", "mapping_rule_id"], "properties": { "source_relationship_id": { "type": "string" }, "source_relationship_kind": { "type": "string" }, "mapping_rule_id": { "type": "string" } } },
+        "sort_key": { "type": "string" }
+      }
+    },
+    "GraphProjectionEdgeMetadata": {
+      "type": "object", "additionalProperties": false,
+      "required": ["mapping_rule_id", "aggregation_rule_id", "is_reverse_edge", "reverse_of_edge_id", "aggregation_source_refs", "mapped_metadata"],
+      "properties": {
+        "mapping_rule_id": { "type": ["string", "null"] }, "aggregation_rule_id": { "type": ["string", "null"] }, "is_reverse_edge": { "type": "boolean" },
+        "reverse_of_edge_id": { "type": ["string", "null"] }, "aggregation_source_refs": { "type": "array", "items": { "$ref": "#/$defs/GraphProjectionSourceRef" } },
+        "mapped_metadata": { "$ref": "#/$defs/GraphProjectionDynamicMap" }
+      }
+    },
+    "GraphProjectionConsumerCapabilities": {
+      "type": "object", "additionalProperties": false,
+      "required": ["query_shapes", "supports_direct_vertex_lookup", "supports_direct_edge_lookup", "supports_breadth_first_traversal", "supports_alternate_traversal_order", "max_traversal_depth", "max_traversal_seed_vertices", "max_kind_filters"],
+      "properties": {
+        "query_shapes": { "type": "array", "items": { "type": "string" } }, "supports_direct_vertex_lookup": { "type": "boolean" }, "supports_direct_edge_lookup": { "type": "boolean" },
+        "supports_breadth_first_traversal": { "type": "boolean" }, "supports_alternate_traversal_order": { "type": "array", "items": { "type": "string" } },
+        "max_traversal_depth": { "type": "integer" }, "max_traversal_seed_vertices": { "type": "integer" }, "max_kind_filters": { "type": "integer" }
+      }
+    },
     "GraphProjectionEphemeralResult": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "state", "ephemeral_projection_id", "validation_summary"],
+      "required": ["projection_schema_id", "graph_view_id", "graph_view_key", "ephemeral_projection_id", "source_snapshot_id", "projection_version", "generated_at", "state", "properties", "metadata", "schema_registry", "vertices", "edges", "validation_summary", "consumer_capabilities"],
       "properties": {
-        "schema_id": { "const": "graph_projection.ephemeral_projection_result.v1" },
+        "additionalProperties": false,
+        "projection_schema_id": { "const": "graph_projection.v1" },
+        "graph_view_id": { "type": "string", "pattern": "^gv_[a-f0-9]{64}$" },
+        "graph_view_key": { "type": "string", "minLength": 1 },
         "state": { "const": "ephemeral_available" },
-        "ephemeral_projection_id": { "type": "string", "minLength": 1 },
-        "validation_summary": { "$ref": "#/$defs/GraphProjectionValidationSummary" }
+        "ephemeral_projection_id": { "type": "string", "pattern": "^gpe_[a-f0-9]{64}$" },
+        "source_snapshot_id": { "type": "string", "minLength": 1 },
+        "projection_version": { "type": "string", "minLength": 1 },
+        "generated_at": { "$ref": "#/$defs/TimestampUTC" },
+        "properties": { "$ref": "#/$defs/GraphProjectionDynamicMap" },
+        "metadata": { "type": "object", "additionalProperties": false, "required": ["previous_projection_run_id", "projection_config_digest", "projection_source_digest", "mapped_metadata", "invalidation"], "properties": { "previous_projection_run_id": { "type": "null" }, "projection_config_digest": { "type": "string" }, "projection_source_digest": { "type": "string" }, "mapped_metadata": { "$ref": "#/$defs/GraphProjectionDynamicMap" }, "invalidation": { "type": "null" } } },
+        "schema_registry": { "$ref": "#/$defs/GraphProjectionSchemaRegistry" },
+        "vertices": { "type": "array", "items": { "$ref": "#/$defs/GraphProjectionVertex" } },
+        "edges": { "type": "array", "items": { "$ref": "#/$defs/GraphProjectionEdge" } },
+        "validation_summary": { "$ref": "#/$defs/GraphProjectionValidationSummary" },
+        "consumer_capabilities": { "$ref": "#/$defs/GraphProjectionConsumerCapabilities" }
       }
     },
     "GraphProjectionValidationSummary": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["fatal_count", "error_count", "warning_count", "info_count", "issues"],
+      "required": ["status", "fatal_count", "error_count", "warning_count", "info_count", "issues"],
       "properties": {
+		"status": { "const": "valid" },
         "fatal_count": { "const": 0 },
         "error_count": { "const": 0 },
         "warning_count": { "const": 0 },

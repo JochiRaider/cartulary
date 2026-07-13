@@ -18,6 +18,7 @@ import (
 
 	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresbinding"
 	"github.com/JochiRaider/cartulary/internal/modules/reportcomposition"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
@@ -1114,27 +1115,41 @@ func validateReleaseGraphProjectionRefsTx(ctx context.Context, tx pgx.Tx, snapsh
 	if err != nil {
 		return &InvalidReleaseRequestError{Field: "graph_projection_refs", ReasonCode: "invalid_value"}
 	}
-	facadeRefs := make([]graphprojection.ReportingProjectionRef, 0, len(refs))
+	return validateReleaseGraphProjectionRefs(ctx, postgresbinding.NewReader(tx), snapshot.SnapshotID.String(), refs)
+}
+
+func validateReleaseGraphProjectionRefs(ctx context.Context, reader graphprojection.ProjectionBindingReader, snapshotID string, refs []sourceProjectionRef) error {
 	for _, ref := range refs {
-		facadeRefs = append(facadeRefs, graphprojection.ReportingProjectionRef{
-			ProjectionSchemaID:     ref.ProjectionSchemaID,
-			GraphViewID:            ref.GraphViewID,
-			SourceSnapshotID:       ref.SourceSnapshotID,
-			ProjectionRunID:        ref.ProjectionRunID,
-			ProjectionVersion:      ref.ProjectionVersion,
-			ProjectionConfigDigest: ref.ProjectionConfigDigest,
-			ProjectionSourceDigest: ref.ProjectionSourceDigest,
-			ProjectionOutputDigest: ref.ProjectionOutputDigest,
-		})
-	}
-	if err := graphprojection.ValidateReportingProjectionRefsTx(ctx, tx, snapshot.SnapshotID.String(), facadeRefs); err != nil {
-		var refErr *graphprojection.ReportingProjectionRefError
-		if errors.As(err, &refErr) {
-			return &InvalidReleaseRequestError{Field: refErr.Field, ReasonCode: refErr.ReasonCode}
+		if ref.ProjectionSchemaID != graphprojection.ProjectionSchemaID {
+			return invalidGraphProjectionRef("graph_projection_digest_mismatch")
 		}
-		return err
+		binding, err := reader.LookupProjectionBinding(ctx, ref.ProjectionRunID)
+		if errors.Is(err, graphprojection.ErrProjectionRunNotFound) {
+			return invalidGraphProjectionRef("graph_projection_not_bound")
+		}
+		if err != nil {
+			return err
+		}
+		if binding.State != graphprojection.RunStateAvailable && binding.State != graphprojection.RunStateReplaced {
+			return invalidGraphProjectionRef("graph_projection_not_completed")
+		}
+		if binding.SourceSnapshotID != snapshotID {
+			return invalidGraphProjectionRef("graph_projection_stale")
+		}
+		if binding.GraphViewID != ref.GraphViewID ||
+			binding.ProjectionVersion != ref.ProjectionVersion ||
+			binding.ProjectionConfigDigest != ref.ProjectionConfigDigest ||
+			binding.ProjectionSourceDigest != ref.ProjectionSourceDigest ||
+			binding.ProjectionOutputDigest == "" ||
+			binding.ProjectionOutputDigest != ref.ProjectionOutputDigest {
+			return invalidGraphProjectionRef("graph_projection_digest_mismatch")
+		}
 	}
 	return nil
+}
+
+func invalidGraphProjectionRef(reasonCode string) error {
+	return &InvalidReleaseRequestError{Field: "graph_projection_refs", ReasonCode: reasonCode}
 }
 
 func decodeSourceProjectionRefs(raw json.RawMessage) ([]sourceProjectionRef, error) {

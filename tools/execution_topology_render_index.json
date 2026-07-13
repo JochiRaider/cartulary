@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:46112f79fc3b1ea30d17be2c40f2484add5b919b8db96e6ea3e11b9a424dfd3c",
+  "input_digest": "sha256:97eff3fdfd057ab3a450a1d2dbf01cc4520cb0044ac93bcd7a17bb0ebd3fe85f",
   "inputs": [
     {
       "path": "tools/browser_e2e_duration_baselines.json",
@@ -17,7 +17,7 @@
     {
       "path": "tools/go_test_duration_baselines.json",
       "role": "duration_baseline",
-      "hash": "sha256:f9c05d66c99fdf35c9bef345df76f91c5f0d0107b7207b98d58febb59e3400e2"
+      "hash": "sha256:21c8b9c65f93297a0d914d4544becb39ddd841133ace0c6235a2d70d1b9ebeb3"
     },
     {
       "path": "tools/harness_smoke_duration_baselines.json",
@@ -42,7 +42,7 @@
     {
       "path": "tools/harness/backend/backend-target-plan.mjs",
       "role": "renderer_source",
-      "hash": "sha256:b1bcc75a335eb859d0796e45e8c2ece044236be048ab4e46a8447be86c0a396d"
+      "hash": "sha256:0a4f0e988dfec3c14a4c3a757c5270f9c1b3b7d335601810e5a794051211cd99"
     },
     {
       "path": "tools/harness/backend/go-duration-artifacts.mjs",
@@ -72,7 +72,7 @@
     {
       "path": "tools/harness/backend/go-target-plan-coverage-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:bc691a32bb746dddf8b199edf588d1711270c9a843b36c777f953b1b34f49b2e"
+      "hash": "sha256:33b15eb65775f7b9149acd5406f6f28e54cc4866adf3b3106631bb19a8f4c5e2"
     },
     {
       "path": "tools/harness/backend/go-target-runner.mjs",
@@ -152,7 +152,7 @@
     {
       "path": "tools/harness/backend/target-plan.mjs",
       "role": "renderer_source",
-      "hash": "sha256:c92c1bf6e5893012541a03703532871e5513ff5e4509e859d0b1346906f63ff5"
+      "hash": "sha256:b815f2c26a71c735e2a3bd01e00fd4f685bf6126263e7f3142bfc3198a560577"
     },
     {
       "path": "tools/harness/browser/accessibility-summary-cli.mjs",
@@ -517,7 +517,7 @@
     {
       "path": "tools/harness/phase-accounting/index.mjs",
       "role": "renderer_source",
-      "hash": "sha256:bff666842a2c25ca54081ba4bd84c69f7c7c2d5dfc7ebe5ca4018051b1819877"
+      "hash": "sha256:c13026ad7319f205f473826eda6b447ac8ad4694a02d579b5606f5a6dcd6c227"
     },
     {
       "path": "tools/harness/phase-accounting/phase-entry-evidence.mjs",
@@ -658,6 +658,11 @@
       "path": "tools/harness/phase-accounting/phase-test-name-check-cli.mjs",
       "role": "renderer_source",
       "hash": "sha256:64782f566d737d2b78de2321526f9da036e15b34069cee352fbe3246893e6581"
+    },
+    {
+      "path": "tools/harness/phase-accounting/subsystem-manifest.mjs",
+      "role": "renderer_source",
+      "hash": "sha256:255159bb9a11b22761a4a1ce45498e5e42eb99a364bf9dd9dba78df649e418bc"
     },
     {
       "path": "tools/harness/runtime-binary-registry.mjs",
@@ -892,14 +897,14 @@
     {
       "path": "tools/task_surface_owner.json",
       "role": "task_surface_owner",
-      "hash": "sha256:98841fdbef8220e5b9cef1955402c0579bbfa828a3f0ef21b6de423741dd7485"
+      "hash": "sha256:298942671ad039f6e2f1db9f83757702c1eaaec83e56b3fab4134a4c849ac6e2"
     }
   ],
   "outputs": {
     "tools/browser_e2e_batch_manifest.json": "sha256:81b3f556718b21bb7d2aa22a68cde47a5238dd26e8a4f9ddf641e6a199f67765",
-    "tools/scheduler_manifest.json": "sha256:aa3ab02036d5fc05333d7922cf613d2c1274d4b8ecf5f695ad6d712ce964496a",
-    "tools/task_surface_manifest.json": "sha256:bb02f916c012759010eb10472aad9ab5146f848803b20d4ee5e0ff07bc73a5b9",
-    "tools/task_surface.generated.mk": "sha256:e857584b10d91bc6a9c71d8d6f26c1a01f0a91d6ef80d2ab9e08ab6153bfbb51",
+    "tools/scheduler_manifest.json": "sha256:92d19e620b32fabdd786e46977efa95edcb226cd22820ffd4989e6cb860a75e0",
+    "tools/task_surface_manifest.json": "sha256:0c410563765c7c7a3b457bac19f9087e40986929e46c49b3487d625ced160c01",
+    "tools/task_surface.generated.mk": "sha256:4dbb12cf313b724e0986cebca4bfb31996cffa8ff3f6ebf8241edc538b1ca242",
     "tools/task_surface.runtime.generated.mk": "sha256:e871011214662f0ca43437cca5c270858d8998b7631416d37b4c756b1b9ccec7"
   }
 }

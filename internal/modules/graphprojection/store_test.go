@@ -7,14 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestStoreLifecycleRetentionAndInvalidation(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "graphprojection-lifecycle")
-	store := NewStore(db)
+	store := NewStoreWithClock(db, fixedTime)
 	ctx := context.Background()
 	input := mustJSON(t, incidentGraphInput(t))
 
@@ -62,7 +60,7 @@ func TestStoreLifecycleRetentionAndInvalidation(t *testing.T) {
 		t.Fatalf("reloaded output digest = %s want %s", reloadedFirst.ProjectionOutputDigest, first.ProjectionOutputDigest)
 	}
 
-	summary, err := store.InvalidateGraphView(ctx, first.GraphViewID, "source_snapshot_expired", "2026-05-30T00:00:05Z", "fixture")
+	summary, err := store.InvalidateGraphView(ctx, first.GraphViewID, "source_snapshot_withdrawn", "2026-05-30T00:00:05Z", "fixture")
 	if err != nil {
 		t.Fatalf("invalidate graph view: %v", err)
 	}
@@ -74,9 +72,61 @@ func TestStoreLifecycleRetentionAndInvalidation(t *testing.T) {
 	}
 }
 
+func TestServiceLifecycleFacadeAndDirectQueries(t *testing.T) {
+	db := pgtest.Start(t).BeginRollbackDBT(t, "graphprojection-service-facade")
+	store := NewStoreWithClock(db, fixedTime)
+	service := NewService(ServiceOptions{Store: store, Now: fixedTime, NewNonce: func() (string, error) { return "service-run", nil }})
+	ctx := context.Background()
+	input := mustJSON(t, incidentGraphInput(t))
+	accepted, err := service.CreateProjection(ctx, CreateProjectionRequest{ProjectionInput: input, IdempotencyKey: "service-idempotency"})
+	if err != nil {
+		t.Fatalf("service create projection: %v", err)
+	}
+	if accepted.State != RunStateAccepted || accepted.IdempotencyExpiresAt == nil {
+		t.Fatalf("accepted summary = %#v", accepted)
+	}
+	run, err := service.GetProjectionRun(ctx, accepted.GraphViewID, accepted.ProjectionRunID)
+	if err != nil || run.State != RunStateAvailable || run.StartedAt == nil || run.GeneratedAt == nil {
+		t.Fatalf("terminal run = %#v err=%v", run, err)
+	}
+	if _, err := service.CreateProjection(ctx, CreateProjectionRequest{ProjectionInput: input}); err == nil {
+		t.Fatal("second create unexpectedly replaced an existing graph view")
+	} else {
+		var operationErr *OperationError
+		if !errors.As(err, &operationErr) || operationErr.ReasonCode != "graph_view_already_exists" {
+			t.Fatalf("second create error = %#v", err)
+		}
+	}
+	graph, err := service.GetGraphView(ctx, accepted.GraphViewID, accepted.ProjectionRunID)
+	if err != nil || len(graph.Vertices) == 0 || len(graph.Edges) == 0 {
+		t.Fatalf("service graph = %#v err=%v", graph, err)
+	}
+	if _, err := service.GetVertex(ctx, accepted.GraphViewID, accepted.ProjectionRunID, graph.Vertices[0].VertexID); err != nil {
+		t.Fatalf("direct vertex lookup: %v", err)
+	}
+	if _, err := service.GetEdge(ctx, accepted.GraphViewID, accepted.ProjectionRunID, graph.Edges[0].EdgeID); err != nil {
+		t.Fatalf("direct edge lookup: %v", err)
+	}
+	invalidationRequest := InvalidateProjectionRunRequest{GraphViewID: accepted.GraphViewID, ProjectionRunID: accepted.ProjectionRunID, ReasonCode: "security_withdrawal", RequestedAt: "2026-05-30T00:00:00Z", RequestedBy: "fixture", IdempotencyKey: "invalidate-service-run"}
+	summary, err := service.InvalidateProjectionRun(ctx, invalidationRequest)
+	if err != nil {
+		t.Fatalf("invalidate selected projection run: %v", err)
+	}
+	if summary.TargetScope != "projection_run" || summary.GraphViewStateAfter != GraphViewStateInvalidated || len(summary.InvalidatedRunIDs) != 1 {
+		t.Fatalf("run invalidation summary = %#v", summary)
+	}
+	replayedSummary, err := service.InvalidateProjectionRun(ctx, invalidationRequest)
+	if err != nil || replayedSummary.InvalidatedAt != summary.InvalidatedAt || replayedSummary.IdempotencyExpiresAt == nil {
+		t.Fatalf("run invalidation replay = %#v err=%v", replayedSummary, err)
+	}
+	if _, err := service.GetGraphView(ctx, accepted.GraphViewID, accepted.ProjectionRunID); !errors.Is(err, ErrGraphViewUnavailable) {
+		t.Fatalf("invalidated graph view lookup err = %v", err)
+	}
+}
+
 func TestStorePreAdmissionFailureTouchesNoState(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "graphprojection-fail-before-touch")
-	store := NewStore(db)
+	store := NewStoreWithClock(db, fixedTime)
 	ctx := context.Background()
 
 	_, err := store.CreateProjection(ctx, []byte(`{"projection_schema_id":"graph_projection.v1","projection_schema_id":"graph_projection.v1"}`), StoreProjectionOptions{})
@@ -93,9 +143,35 @@ func TestStorePreAdmissionFailureTouchesNoState(t *testing.T) {
 	}
 }
 
+func TestRetentionCountZeroExpiresReplacedRun(t *testing.T) {
+	db := pgtest.Start(t).BeginRollbackDBT(t, "graphprojection-retention-zero")
+	store := NewStoreWithClock(db, fixedTime)
+	ctx := context.Background()
+	input := incidentGraphInput(t)
+	first, err := store.CreateProjection(ctx, mustJSON(t, input), StoreProjectionOptions{ProjectionRunNonce: "retention-first", AcceptedAt: fixedTime(), GeneratedAt: fixedTime()})
+	if err != nil {
+		t.Fatalf("create retained projection: %v", err)
+	}
+	config := input["projection_config"].(map[string]any)
+	config["retention_policy"] = map[string]any{
+		"retain_replaced_results":           true,
+		"retention_count":                   0,
+		"retention_duration_seconds":        2592000,
+		"retain_failed_results":             true,
+		"failed_retention_count":            20,
+		"failed_retention_duration_seconds": 2592000,
+	}
+	if _, err := store.RefreshProjection(ctx, mustJSON(t, input), StoreProjectionOptions{ProjectionRunNonce: "retention-second", AcceptedAt: fixedTime().Add(time.Second), GeneratedAt: fixedTime().Add(time.Second)}); err != nil {
+		t.Fatalf("refresh with zero replaced retention: %v", err)
+	}
+	if _, err := store.GetProjectionRun(ctx, first.ProjectionRunID); !errors.Is(err, ErrProjectionRunNotFound) {
+		t.Fatalf("count-zero replaced run lookup err = %v", err)
+	}
+}
+
 func TestQueryLifecycleStateMatrix(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "graphprojection-query-lifecycle")
-	store := NewStore(db)
+	store := NewStoreWithClock(db, fixedTime)
 	ctx := context.Background()
 
 	available, err := store.CreateProjection(ctx, mustJSON(t, retargetGraphInput(t, incidentGraphInput(t), "lifecycle_available")), StoreProjectionOptions{
@@ -134,7 +210,7 @@ func TestQueryLifecycleStateMatrix(t *testing.T) {
 		t.Fatalf("failed graph view err = %v", err)
 	}
 
-	computingGraphViewID, err := DeriveGraphViewID("lifecycle_computing")
+	computingGraphViewID, err := deriveGraphViewID("lifecycle_computing")
 	if err != nil {
 		t.Fatalf("derive computing graph id: %v", err)
 	}
@@ -180,107 +256,9 @@ INSERT INTO graph_projection_runs (
 	}
 }
 
-func TestValidateReportingProjectionRefsTxReasonMatrix(t *testing.T) {
-	db := pgtest.Start(t).BeginRollbackDBT(t, "graphprojection-reporting-refs")
-	ctx := context.Background()
-	now := fixedTime()
-	digestA := strings.Repeat("a", 64)
-	digestB := strings.Repeat("b", 64)
-	validRef := ReportingProjectionRef{
-		ProjectionSchemaID:     ProjectionSchemaID,
-		GraphViewID:            "gv_reporting_available",
-		SourceSnapshotID:       "snapshot_current",
-		ProjectionRunID:        "gr_reporting_available",
-		ProjectionVersion:      "v1",
-		ProjectionConfigDigest: digestA,
-		ProjectionSourceDigest: digestA,
-		ProjectionOutputDigest: digestA,
-	}
-	seedReportingProjectionRun(t, ctx, db, validRef, string(RunStateAvailable), now, true)
-	replacedRef := validRef
-	replacedRef.GraphViewID = "gv_reporting_replaced"
-	replacedRef.ProjectionRunID = "gr_reporting_replaced"
-	seedReportingProjectionRun(t, ctx, db, replacedRef, string(RunStateReplaced), now, true)
-	computingRef := validRef
-	computingRef.GraphViewID = "gv_reporting_computing"
-	computingRef.ProjectionRunID = "gr_reporting_computing"
-	seedReportingProjectionRun(t, ctx, db, computingRef, string(RunStateComputing), now, false)
-	staleRef := validRef
-	staleRef.GraphViewID = "gv_reporting_stale"
-	staleRef.ProjectionRunID = "gr_reporting_stale"
-	staleRef.SourceSnapshotID = "snapshot_old"
-	seedReportingProjectionRun(t, ctx, db, staleRef, string(RunStateAvailable), now, true)
-
-	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		t.Fatalf("begin tx: %v", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	for _, ref := range []ReportingProjectionRef{validRef, replacedRef} {
-		if err := ValidateReportingProjectionRefsTx(ctx, tx, "snapshot_current", []ReportingProjectionRef{ref}); err != nil {
-			t.Fatalf("valid reporting ref %s failed: %v", ref.ProjectionRunID, err)
-		}
-	}
-
-	cases := []struct {
-		name       string
-		ref        ReportingProjectionRef
-		wantReason string
-	}{
-		{
-			name:       "schema mismatch",
-			ref:        withReportingProjectionSchema(validRef, "graph_projection.v0"),
-			wantReason: ReportingProjectionReasonDigestMismatch,
-		},
-		{
-			name:       "missing run",
-			ref:        withReportingProjectionRun(validRef, "gr_reporting_missing"),
-			wantReason: ReportingProjectionReasonNotBound,
-		},
-		{
-			name:       "not completed",
-			ref:        computingRef,
-			wantReason: ReportingProjectionReasonNotCompleted,
-		},
-		{
-			name:       "stale snapshot",
-			ref:        staleRef,
-			wantReason: ReportingProjectionReasonStale,
-		},
-		{
-			name:       "graph view mismatch",
-			ref:        withReportingGraphView(validRef, "gv_reporting_other"),
-			wantReason: ReportingProjectionReasonDigestMismatch,
-		},
-		{
-			name:       "config digest mismatch",
-			ref:        withReportingConfigDigest(validRef, digestB),
-			wantReason: ReportingProjectionReasonDigestMismatch,
-		},
-		{
-			name:       "output digest mismatch",
-			ref:        withReportingOutputDigest(validRef, digestB),
-			wantReason: ReportingProjectionReasonDigestMismatch,
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			err := ValidateReportingProjectionRefsTx(ctx, tx, "snapshot_current", []ReportingProjectionRef{tc.ref})
-			var refErr *ReportingProjectionRefError
-			if !errors.As(err, &refErr) {
-				t.Fatalf("validate ref err = %T %v", err, err)
-			}
-			if refErr.Field != "graph_projection_refs" || refErr.ReasonCode != tc.wantReason {
-				t.Fatalf("ref error = %#v want reason %q", refErr, tc.wantReason)
-			}
-		})
-	}
-}
-
 func TestListGraphViewsPagination(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "graphprojection-idempotency")
-	store := NewStore(db)
+	store := NewStoreWithClock(db, fixedTime)
 	ctx := context.Background()
 	input := mustJSON(t, incidentGraphInput(t))
 
@@ -315,7 +293,8 @@ func TestListGraphViewsPagination(t *testing.T) {
 		t.Fatalf("create second graph view: %v", err)
 	}
 
-	page, cursor, err := store.ListGraphViews(ctx, ListGraphViewsOptions{Limit: 1, Now: fixedTime()})
+	limitOne := 1
+	page, cursor, err := store.ListGraphViews(ctx, ListGraphViewsOptions{Limit: &limitOne, Now: fixedTime(), QueryShapeDigest: "visible-graphs", VisibilityScopeDigest: "scope-a"})
 	if err != nil {
 		t.Fatalf("list first page: %v", err)
 	}
@@ -325,21 +304,39 @@ func TestListGraphViewsPagination(t *testing.T) {
 	if _, err := db.Exec(ctx, `DELETE FROM graph_projection_views WHERE graph_view_id = $1`, page[0].GraphViewID); err != nil {
 		t.Fatalf("delete cursor anchor: %v", err)
 	}
-	next, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{Limit: 1, CursorToken: cursor, Now: fixedTime().Add(time.Minute)})
+	next, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{Limit: &limitOne, CursorToken: cursor, Now: fixedTime().Add(time.Minute), QueryShapeDigest: "visible-graphs", VisibilityScopeDigest: "scope-a"})
 	if err != nil {
 		t.Fatalf("list second page: %v", err)
 	}
 	if len(next) != 1 || next[0].GraphViewID == page[0].GraphViewID {
 		t.Fatalf("bad second page: first=%#v next=%#v", page, next)
 	}
-	if _, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{CursorToken: cursor, Now: fixedTime().Add(16 * time.Minute)}); !errors.Is(err, ErrCursorInvalid) {
+	if _, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{CursorToken: cursor, Now: fixedTime().Add(15 * time.Minute), QueryShapeDigest: "visible-graphs", VisibilityScopeDigest: "scope-a"}); !IsOperationError(err, "cursor_invalid", "expired") {
 		t.Fatalf("expired cursor err = %v", err)
+	}
+	if _, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{CursorToken: cursor, Now: fixedTime().Add(time.Minute), QueryShapeDigest: "visible-graphs", VisibilityScopeDigest: "scope-b"}); !IsOperationError(err, "cursor_invalid", "wrong_query_shape") {
+		t.Fatalf("wrong-scope cursor err = %v", err)
+	}
+	tamperedSuffix := "A"
+	if cursor[len(cursor)-1:] == tamperedSuffix {
+		tamperedSuffix = "B"
+	}
+	tampered := cursor[:len(cursor)-1] + tamperedSuffix
+	if _, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{CursorToken: tampered, Now: fixedTime().Add(time.Minute), QueryShapeDigest: "visible-graphs", VisibilityScopeDigest: "scope-a"}); !IsOperationError(err, "cursor_invalid", "malformed") {
+		t.Fatalf("tampered cursor err = %v", err)
+	}
+	if _, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{CursorToken: strings.Repeat("x", 4097), Now: fixedTime().Add(time.Hour)}); !IsOperationError(err, "cursor_invalid", "cursor_token_too_long") {
+		t.Fatalf("oversized cursor precedence err = %v", err)
+	}
+	invalidLimit := 1001
+	if _, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{Limit: &invalidLimit}); !IsOperationError(err, "invalid_argument", "invalid_limit") {
+		t.Fatalf("invalid list limit err = %v", err)
 	}
 }
 
 func TestTraverseDeterminism(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "graphprojection-traverse")
-	store := NewStore(db)
+	store := NewStoreWithClock(db, fixedTime)
 	ctx := context.Background()
 	input := retargetGraphInput(t, incidentGraphInput(t), "traverse_graph")
 	relationships := input["source_relationships"].([]any)
@@ -366,11 +363,12 @@ func TestTraverseDeterminism(t *testing.T) {
 	if seed == "" {
 		t.Fatal("missing direct seed vertex")
 	}
+	depthTwo := 2
 	traversal, err := store.Traverse(ctx, TraverseRequest{
 		GraphViewID:   run.GraphViewID,
 		SeedVertexIDs: []string{seed},
-		MaxDepth:      2,
-		Direction:     "out",
+		MaxDepth:      &depthTwo,
+		Direction:     "outbound",
 		EdgeKinds:     []string{"logon_edge"},
 	})
 	if err != nil {
@@ -407,11 +405,12 @@ func TestTraverseDeterminism(t *testing.T) {
 		t.Fatalf("traversal metadata = %#v", traversal.Metadata)
 	}
 
+	depthOne := 1
 	emptyTraversal, err := store.Traverse(ctx, TraverseRequest{
 		GraphViewID:   run.GraphViewID,
 		SeedVertexIDs: []string{"missing_vertex"},
-		MaxDepth:      1,
-		Direction:     "both",
+		MaxDepth:      &depthOne,
+		Direction:     "any",
 	})
 	if err != nil {
 		t.Fatalf("traverse unknown seed: %v", err)
@@ -421,78 +420,9 @@ func TestTraverseDeterminism(t *testing.T) {
 	}
 }
 
-func seedReportingProjectionRun(t testing.TB, ctx context.Context, db *pgtest.RollbackDB, ref ReportingProjectionRef, state string, now time.Time, includeOutputDigest bool) {
-	t.Helper()
-	if _, err := db.Exec(ctx, `
-INSERT INTO graph_projection_views (
-    graph_view_id,
-    graph_view_key,
-    state,
-    latest_projection_run_id,
-    latest_source_snapshot_id,
-    projection_version,
-    updated_at,
-    validation_status
-) VALUES ($1, $2, 'available', $3, $4, $5, $6, 'valid')
-`, ref.GraphViewID, ref.GraphViewID+"-key", ref.ProjectionRunID, ref.SourceSnapshotID, ref.ProjectionVersion, now); err != nil {
-		t.Fatalf("seed graph view %s: %v", ref.GraphViewID, err)
-	}
-	var outputDigest any
-	if includeOutputDigest {
-		outputDigest = ref.ProjectionOutputDigest
-	}
-	var completedAt any
-	if state == string(RunStateAvailable) || state == string(RunStateReplaced) {
-		completedAt = now
-	}
-	if _, err := db.Exec(ctx, `
-INSERT INTO graph_projection_runs (
-    projection_run_id,
-    graph_view_id,
-    source_snapshot_id,
-    projection_version,
-    state,
-    projection_run_nonce,
-    projection_config_digest,
-    projection_source_digest,
-    projection_output_digest,
-    accepted_at,
-    completed_at,
-    validation_summary_json
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, '{"Status":"valid"}'::jsonb)
-`, ref.ProjectionRunID, ref.GraphViewID, ref.SourceSnapshotID, ref.ProjectionVersion, state, ref.ProjectionRunID+"-nonce", ref.ProjectionConfigDigest, ref.ProjectionSourceDigest, outputDigest, now, completedAt); err != nil {
-		t.Fatalf("seed projection run %s: %v", ref.ProjectionRunID, err)
-	}
-}
-
-func withReportingProjectionSchema(ref ReportingProjectionRef, value string) ReportingProjectionRef {
-	ref.ProjectionSchemaID = value
-	return ref
-}
-
-func withReportingProjectionRun(ref ReportingProjectionRef, value string) ReportingProjectionRef {
-	ref.ProjectionRunID = value
-	return ref
-}
-
-func withReportingGraphView(ref ReportingProjectionRef, value string) ReportingProjectionRef {
-	ref.GraphViewID = value
-	return ref
-}
-
-func withReportingConfigDigest(ref ReportingProjectionRef, value string) ReportingProjectionRef {
-	ref.ProjectionConfigDigest = value
-	return ref
-}
-
-func withReportingOutputDigest(ref ReportingProjectionRef, value string) ReportingProjectionRef {
-	ref.ProjectionOutputDigest = value
-	return ref
-}
-
 func retargetGraphInput(t *testing.T, input map[string]any, key string) map[string]any {
 	t.Helper()
-	graphViewID, err := DeriveGraphViewID(key)
+	graphViewID, err := deriveGraphViewID(key)
 	if err != nil {
 		t.Fatalf("derive graph view id for %q: %v", key, err)
 	}

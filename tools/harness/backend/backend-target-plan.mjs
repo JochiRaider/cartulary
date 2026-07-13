@@ -4,7 +4,9 @@ export {
   entryIsExecutable,
   goEntrySymbols,
   loadManifest,
+  loadSubsystemManifests,
   phaseManifestNames,
+  subsystemManifestOwner,
   supportGoEntrySymbols,
 } from "../phase-accounting/index.mjs";
 export {

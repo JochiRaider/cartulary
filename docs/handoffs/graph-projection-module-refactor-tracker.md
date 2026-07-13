@@ -8,11 +8,11 @@
 | Target label | `graph-projection` (normalized lowercase kebab case; no spaces, path separators, shell metacharacters, or unsafe filename characters) |
 | Output path | `docs/handoffs/graph-projection-module-refactor-tracker.md` |
 | Baseline | Clean `main` at `aa0f9dad6dea184ba84abd45d25029e7c0e7638b` on 2026-07-12. |
-| Status | Planning and documentation only. No implementation is authorized by this tracker. |
-| Allowed changes | This tracker file only. |
-| Non-goals | No production code, tests, contracts, generated artifacts, package configuration, migrations, harness files, public behavior, or owner documents are changed. |
-| Default behavior posture | Preserve current observable behavior during an internal refactor; isolate owner-aligned behavior corrections as separately authorized work. |
-| Later authorization | Every implementation slice requires a later authorized task. S-06 additionally requires explicit behavior-change authorization. |
+| Status | Implementation remediation in progress under the 2026-07-12 execution authorization; the implementation update in Section 13 supersedes the original planning-only posture. |
+| Allowed changes | Graph Projection implementation, owner inputs, tests, harness accounting, migrations, approved Reporting/Network Flow adapters, derived generated outputs, and this handoff. |
+| Non-goals | Authorization remains caller-owned; Graph Projection does not mutate source/workbook state and gains no public route. |
+| Default behavior posture | Adopted owner behavior takes precedence over known nonconforming implementation behavior. |
+| Later authorization | No longer required for the remediation slices authorized by the execution request. Conformance publication remains prohibited until executable evidence supports each claim. |
 
 Source hierarchy used for this tracker:
 
@@ -166,13 +166,13 @@ Tracker-only validation is `make lint-markdown`, `make generated-artifact-policy
 | GPRT-003 | Diagnose the module boundary | architecture | DONE | GPRT-002 | Sections 3 and 5 | Legitimate owner responsibilities and misplaced/mixed seams are classified. |
 | GPRT-004 | Map observable contracts and owners | contracts | DONE | GPRT-002 | Section 4 | Every applicable contract has an owner, evidence, test posture, and risk. |
 | GPRT-005 | Record repository/owner and evidence mismatches | conformance planning | DONE | GPRT-004 | RB-001, RB-002, RB-004 | Mismatches are not mislabeled as owner contradictions or silently resolved. |
-| GPRT-006 | Establish owner-aligned characterization and Make accounting | tests/harness | BLOCKED | GPRT-005 | S-00; RB-001/RB-002 | Graph tests execute through public Make targets and matrix claims match evidence. |
+| GPRT-006 | Establish owner-aligned characterization and Make accounting | tests/harness | DONE | GPRT-005 | Phase-neutral subsystem manifests; RB-001/RB-002 | Graph tests execute through public Make targets and matrix claims do not overstate evidence. |
 | GPRT-007 | Extract the private derivation engine | backend refactor | TODO | GPRT-006 | S-01 | Current IDs, bytes, validation, ordering, and callers remain unchanged. |
 | GPRT-008 | Split retained service and PostgreSQL adapter | backend refactor | TODO | GPRT-006, GPRT-007 | S-02 | Transaction, lifecycle, query, retention, and table behavior remain unchanged. |
-| GPRT-009 | Redesign Reporting projection-reference seam | cross-module boundary | BLOCKED | GPRT-006, GPRT-008 | S-03; RB-003 | Same-transaction behavior and public Reporting reasons are characterized and preserved. |
+| GPRT-009 | Redesign Reporting projection-reference seam | cross-module boundary | DONE | GPRT-006, GPRT-008 | Graph binding port and PostgreSQL transaction adapter | Same-transaction behavior and public Reporting reasons are characterized and preserved. |
 | GPRT-010 | Harden facade/import guardrails | architecture | TODO | GPRT-007, GPRT-008, GPRT-009 | S-04 | Only approved facade imports remain and private seams cannot leak. |
-| GPRT-011 | Reconcile matrix, fixtures, selectors, and harness evidence | contracts/harness | BLOCKED | GPRT-006, GPRT-010 | S-05; RB-001/RB-002 | Evidence claims are executable, owner-aligned, and Make-owned. |
-| GPRT-012 | Correct owner-nonconformant observable behavior | behavior remediation | DEFERRED | GPRT-011, later authorization | S-06; RB-004 | Explicit authorization exists and adopted Graph/Network Flow acceptance behavior passes. |
+| GPRT-011 | Reconcile matrix, fixtures, selectors, and harness evidence | contracts/harness | IN PROGRESS | GPRT-006, GPRT-010 | All 69 rows downgraded to `planned`; phase-neutral Make rows active | Evidence claims are executable, owner-aligned, and Make-owned. |
+| GPRT-012 | Correct owner-nonconformant observable behavior | behavior remediation | IN PROGRESS | GPRT-011 | Service facade, migration 32, lifecycle/query correction, full ephemeral response | Adopted Graph/Network Flow acceptance behavior passes with no retained ephemeral state. |
 | GPRT-013 | Remove compatibility paths and complete implementation handoff | cleanup/validation | TODO | GPRT-010, GPRT-011; GPRT-012 if authorized | S-07 | No stale caller, selector, wrapper, or out-of-scope change remains; final gates pass. |
 | GPRT-014 | Complete planning tracker and handoff | planning | DONE | GPRT-001 through GPRT-005 | Sections 1-12 | Another agent can begin S-00 without rediscovering scope, owners, risks, or commands. |
 
@@ -224,10 +224,10 @@ Tracker-only validation is `make lint-markdown`, `make generated-artifact-policy
 
 | ID | Question or blocker | Why it matters | Needed authority or evidence | Current status |
 | --- | --- | --- | --- | --- |
-| RB-001 | The conformance matrix marks most GP criteria implemented, but its selectors and current tests do not demonstrate the full cited criteria or fixture corpus. | Structural movement cannot safely rely on inflated coverage, and the tracker must not preserve a mismatch as desired behavior. | Criterion-by-criterion owner audit, executable fixtures, focused selectors, and honest coverage-status updates. | BLOCKED for conformance claims and high-risk movement; does not block this tracker. |
-| RB-002 | No Make-owned target accounting for `internal/modules/graphprojection` tests was discovered. | Repository policy requires public Make targets, and unselected tests cannot support validation or publication claims. | Testing Harness owner decision mapping engine/boundary tests to unit evidence and PostgreSQL tests to service-backed evidence without making phase identity runtime architecture. | BLOCKED for implementation validation; command discovery searches are recorded in Sections 8 and 10. |
-| RB-003 | How will Reporting preserve same-transaction projection-run visibility while removing the Graph facade's public `pgx.Tx` and Reporting-specific reason coupling? | Release admission currently validates inside the release transaction; changing read timing or mapping could accept stale/uncommitted data or change public errors. | Reporting transaction characterization, generic Graph lookup/validation port design, and exact reason-matrix parity tests. | BLOCKED for S-03 only; retain the existing validator until resolved. |
-| RB-004 | Owner-aligned ephemeral, lifecycle, query, retention/invalidation, canonical output, and Network Flow response corrections change observable behavior. | The task authorizes planning only and requires current observable behavior to be preserved by default. | Explicit later behavior-change authorization plus Graph, Network Flow, Reporting, contract, client, and affected phase acceptance evidence. | DEFERRED to S-06; structural slices must not smuggle in these corrections. |
+| RB-001 | The old matrix overstated coverage and the 36-fixture corpus remains descriptive rather than fully executable. | Publication must not rely on metadata-only evidence. | All existing `implemented` claims were downgraded to `planned`; executable per-fixture realization remains required before re-promotion. | RESOLVED for honest status and structural work; OPEN for future conformance publication. |
+| RB-002 | Graph tests were absent from Make-owned accounting. | Unselected tests could not support validation. | Phase-neutral subsystem registry and Graph unit/store/migration/binding maps now feed target planning. | RESOLVED; `backend-unit` and `backend-store` select and pass the rows. |
+| RB-003 | Reporting needed same-transaction visibility without Graph-owned Reporting reasons or a root `pgx.Tx` facade. | Independent reads could observe stale state. | Immutable `ProjectionBinding`, narrow reader port, transaction-bound PostgreSQL adapter, and Reporting-owned reason mapping. | RESOLVED; Phase 11 and same-transaction tests pass. |
+| RB-004 | Owner-aligned Graph/Network Flow corrections intentionally change observable behavior. | The original tracker did not authorize them. | The 2026-07-12 execution request explicitly authorized implementation of the remediation plan. | RESOLVED as an authority blocker; validation status is recorded in Section 13. |
 
 ## 12. Binary Completion Criteria
 
@@ -247,3 +247,46 @@ The planning tracker is complete only when all of the following are true:
 - [x] The handoff records the baseline, inspected surfaces, commands, current state, blockers, rollback posture, and next action.
 
 This planning session changed only this tracker. No production refactor was performed. Retained-run maintenance and broad verification are not applicable to this documentation-only tracker task; `make agent-finalize` and `make check` are reserved for a later authorized implementation handoff.
+
+## 13. Implementation Remediation Update
+
+This section supersedes planning-era statements that implementation was unauthorized or that only this tracker changed. The execution request authorized the owner-aligned corrections, including intentional internal API and Network Flow v1 response changes.
+
+### Completed remediation
+
+- Added phase-neutral subsystem test manifests and selected Graph engine/boundary evidence through `backend-unit`, plus lifecycle, migration, and transaction-binding evidence through `backend-store`. Target planning reports the rows as `subsystem:graphprojection`, not as a runtime phase.
+- Downgraded every GP acceptance row to `planned`. No Graph Projection implementation-conformance claim remains while the fixture corpus is descriptive rather than executable.
+- Added the typed `graphprojection.Service` entry point, explicit snake-case resource projection, closed canonical-value support, injected clock and nonce sources, full non-retained `ProjectEphemeral`, retained lifecycle methods, and the complete query method family.
+- Added authenticated AEAD cursors bound to operation, query shape, visibility scope, and issuance time. Oversize, malformed, wrong-shape, and expired outcomes have distinct reason codes in normative precedence order.
+- Added separately committed accepted and computing lifecycle transitions, atomic terminal publication, explicit selected-run tracking, create/refresh admissibility, replacement timestamps, independent retention buckets, graph/run invalidation, and invalidation dominance over in-flight publication.
+- Added migration 32. It blocks when Reporting releases reference existing Graph runs, otherwise resets unverifiable derived Graph state and installs lifecycle columns, constraints, idempotency scope, active-run exclusion, selected-run identity, and direct query/retention indexes.
+- Replaced the Reporting-specific Graph validator with immutable `ProjectionBinding` data and a transaction-bound PostgreSQL reader. Reporting owns eligibility, tuple comparison, and public reason mapping while retaining release-transaction visibility.
+- Switched Network Flow to `ProjectEphemeral`, expanded its authored v1 contract to the full closed Graph result, regenerated Go/TypeScript contracts, and updated the web client and fixtures atomically.
+- Added exact inbound boundary guards: Network Flow consumes the Graph service; Reporting consumes only the binding port/adapter; no public Graph route or source/workbook mutation was introduced.
+
+### Deliberately unclaimed conformance
+
+The 36 fixture registry entries still describe required scenarios; they do not yet contain complete executable input, normalized form, expected envelope, state-effect, canonical transcript, and digest payloads. Consequently all 69 acceptance criteria remain `planned`. The current tests are implementation and characterization evidence only. Re-promoting a row requires a focused Make-selected assertion that proves its whole pass condition and executes every cited fixture. Canonical-byte criteria must compare the transcript before comparing its digest.
+
+### Current validation evidence
+
+| Target | Result | Evidence root |
+| --- | --- | --- |
+| `make backend-unit` | PASS, 221 tests | `.cartulary/test-results/20260713T021231Z-p8031` |
+| `make backend-store` | PASS, 141 tests | `.cartulary/test-results/20260713T021449Z-p25380` |
+| `make backend-module-boundary-check` | PASS | `.cartulary/test-results/20260713T020508Z-p70208` |
+| `make phase-slice PHASE=phase11` | PASS, 55 tests | `.cartulary/test-results/20260713T020509Z-p70386` |
+| `make phase-slice PHASE=phase12` | PASS, 134 tests | `.cartulary/test-results/20260713T020534Z-p87161` |
+| `make frontend-unit` | PASS | `.cartulary/test-results/20260713T020600Z-p1905` |
+| `make migration-drift` | PASS | `.cartulary/test-results/20260713T020208Z-p63261` |
+| `make generate-drift` | PASS | `.cartulary/test-results/20260713T021528Z-p32587` |
+| `make json-shape-check` | PASS | `.cartulary/test-results/20260713T021531Z-p33671` |
+| `make test-service-backed` | PASS, 152/152 work units; used to refresh new duration-baseline rows | `.cartulary/test-results/20260713T021655Z-p45995` |
+| `make agent-finalize` | PASS; retained-run maintenance skipped because `RESULTS_DIR` was unset | `.cartulary/test-results/20260713T021958Z-p7406` |
+| `make check` | PASS, 139/139 work units and 1,101 tests | `.cartulary/test-results/20260713T022136Z-p90039` |
+
+### Remaining handoff conditions
+
+- Finish relocating the PostgreSQL repository surface below the root facade; the obsolete engine helpers and historical persistence path have been removed.
+- Realize GP-FIX-001 through GP-FIX-036 as executable fixtures, then audit GP-AC-001 through GP-AC-069 criterion by criterion. Do not promote coverage based on broad characterization tests.
+- Before any later conformance publication, rerun finalization and the broad repository check after the executable fixture and repository-packaging work lands.

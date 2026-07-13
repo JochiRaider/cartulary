@@ -7,7 +7,9 @@ import {
   entryIsExecutable,
   goEntrySymbols,
   loadManifest,
+  loadSubsystemManifests,
   phaseManifestNames,
+  subsystemManifestOwner,
   supportGoEntrySymbols,
 } from "./backend-target-plan.mjs";
 import {
@@ -73,6 +75,15 @@ function collectManifestGoRows(root) {
       for (const symbol of supportGoEntrySymbols(entry)) {
         supportRows.push({ ...entry, phase, symbol });
       }
+    }
+  }
+  for (const { owner, manifest } of loadSubsystemManifests(root)) {
+    const phase = subsystemManifestOwner(owner);
+    for (const entry of collectEntries(manifest)) {
+      if (entry.coverage !== "authoritative" || entry.runner !== "go_test") {
+        continue;
+      }
+      authoritativeRows.push({ ...entry, phase, symbols: goEntrySymbols(entry) });
     }
   }
   return { authoritativeRows, supportRows };

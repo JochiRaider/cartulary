@@ -362,8 +362,13 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 		t.Fatalf("unexpected edge examples: %#v", edge)
 	}
 	projection := graph["graph_projection_result"].(map[string]any)
-	if projection["state"] != "ephemeral_available" || projection["schema_id"] != "graph_projection.ephemeral_projection_result.v1" {
+	if projection["state"] != "ephemeral_available" || projection["projection_schema_id"] != "graph_projection.v1" {
 		t.Fatalf("unexpected graph projection result: %#v", projection)
+	}
+	for _, field := range []string{"graph_view_id", "graph_view_key", "source_snapshot_id", "projection_version", "generated_at", "properties", "metadata", "schema_registry", "vertices", "edges", "consumer_capabilities"} {
+		if _, ok := projection[field]; !ok {
+			t.Fatalf("graph projection result omitted %s: %#v", field, projection)
+		}
 	}
 
 	contributorPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/graphs/contributors/query"

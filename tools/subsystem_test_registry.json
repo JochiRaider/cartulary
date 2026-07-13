@@ -1,0 +1,9 @@
+{
+  "schema_id": "cartulary.subsystem_test_registry.v1",
+  "subsystems": [
+    {
+      "owner": "graphprojection",
+      "manifest_path": "tools/subsystem_test_maps/graph_projection_test_map.json"
+    }
+  ]
+}

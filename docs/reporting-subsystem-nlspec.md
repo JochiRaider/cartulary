@@ -1452,6 +1452,8 @@ Chunked timeline slide IDs MUST use `{base_slide_id}__chunk_{0001..N}`. Slide ti
 **REQ-RPT-076**
 Reporting consumes completed Graph Projection output through `source_projection_ref.v1`. Reporting MUST NOT redefine projection derivation, projected identity, lifecycle, traversal, or Graph Projection validation.
 
+Release admission MUST validate every Graph Projection binding using the same database transaction and visibility snapshot that admits the release tuple. An implementation MUST NOT validate through an independent pool read or re-read a mutable latest graph view after tuple admission.
+
 **REQ-RPT-077**
 `source_projection_ref.v1` MUST use Table 15-A.
 

@@ -1,8 +1,10 @@
 import {
   collectEntries,
   loadManifest,
+  loadSubsystemManifests,
   packageMatchesPattern,
   phaseManifestNames,
+  subsystemManifestOwner,
   playwrightEntryTitles,
   selectManifestEntries,
   selectPlaywrightEntries,
@@ -99,6 +101,21 @@ export function loadManifestIndex(root, { normalizePath, toGoImportPath }) {
       }
     }
   }
+  for (const { owner, manifest } of loadSubsystemManifests(root)) {
+    const phase = subsystemManifestOwner(owner);
+    for (const entry of collectEntries(manifest)) {
+      if (entry.coverage !== "authoritative" || entry.runner !== "go_test") {
+        continue;
+      }
+      const symbols = entry.symbol !== undefined ? [entry.symbol] : entry.symbols;
+      for (const symbol of symbols) {
+        index.authoritativeGo.set(
+          `${toGoImportPath(entry.package)}::${symbol}`,
+          { ...entry, phase },
+        );
+      }
+    }
+  }
 
   manifestIndexCache.set(key, index);
   return index;
@@ -115,6 +132,22 @@ export function selectGoManifestEntries(
     packagePatterns,
   },
 ) {
+  if (phase.startsWith("subsystem:")) {
+    const owner = phase.slice("subsystem:".length);
+    const descriptor = loadSubsystemManifests(root).find((entry) => entry.owner === owner);
+    if (!descriptor) {
+      throw new Error(`unknown subsystem manifest owner ${owner}`);
+    }
+    return collectEntries(descriptor.manifest).filter(
+      (entry) =>
+        entry.runner === "go_test" &&
+        (section === "" || entry.section === section) &&
+        (coverage === "" || entry.coverage === coverage) &&
+        (executionDependency === "" || entry.execution_dependency === executionDependency) &&
+        (executionFamily === "" || entry.execution_family === executionFamily) &&
+        (packagePatterns.length === 0 || packagePatterns.some((pattern) => packageMatchesPattern(entry.package, pattern))),
+    );
+  }
   return selectManifestEntries(root, {
     phase,
     runner: "go_test",

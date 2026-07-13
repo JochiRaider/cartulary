@@ -19,7 +19,9 @@ import {
   goEntrySymbolFixtureDetails,
   goEntrySymbols,
   loadManifest,
+  loadSubsystemManifests,
   phaseManifestNames,
+  subsystemManifestOwner,
   supportGoEntryPostgresFixtureBudget,
   supportGoEntryPostgresFixturePolicy,
   supportGoEntrySymbolFixtureDetails,
@@ -253,6 +255,19 @@ export function collectTargetPlanRows(root = process.cwd()) {
         continue;
       }
       rows.push(...supportRows(phase, descriptor, entry));
+    }
+  }
+  for (const { owner, manifest } of loadSubsystemManifests(root)) {
+    const manifestOwner = subsystemManifestOwner(owner);
+    for (const entry of collectEntries(manifest)) {
+      if (entry.runner !== "go_test" || !entryIsExecutable(entry)) {
+        continue;
+      }
+      const descriptor = config.dependencyTargets.get(entry.execution_dependency);
+      if (!descriptor) {
+        continue;
+      }
+      rows.push(manifestRows(manifestOwner, descriptor, entry));
     }
   }
   for (const aggregate of config.rawAggregates) {

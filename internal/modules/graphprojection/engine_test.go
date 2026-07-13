@@ -10,7 +10,7 @@ import (
 func TestCanonicalDigestAndIDs(t *testing.T) {
 	t.Parallel()
 
-	emptyID, err := DeriveGraphViewID("empty")
+	emptyID, err := deriveGraphViewID("empty")
 	if err != nil {
 		t.Fatalf("derive empty graph view id: %v", err)
 	}
@@ -18,7 +18,7 @@ func TestCanonicalDigestAndIDs(t *testing.T) {
 		t.Fatalf("empty graph view id = %s", emptyID)
 	}
 
-	incidentID, err := DeriveGraphViewID("incident_graph")
+	incidentID, err := deriveGraphViewID("incident_graph")
 	if err != nil {
 		t.Fatalf("derive incident graph view id: %v", err)
 	}
@@ -30,7 +30,7 @@ func TestCanonicalDigestAndIDs(t *testing.T) {
 func TestDuplicateObjectMembersRejected(t *testing.T) {
 	t.Parallel()
 
-	_, err := AdmitProjectionInput([]byte(`{"projection_schema_id":"graph_projection.v1","projection_schema_id":"graph_projection.v1"}`), AdmitOptions{})
+	_, err := admitProjectionInput([]byte(`{"projection_schema_id":"graph_projection.v1","projection_schema_id":"graph_projection.v1"}`), admitOptions{})
 	var opErr *OperationError
 	if !errors.As(err, &opErr) {
 		t.Fatalf("expected operation error, got %T %v", err, err)
@@ -45,7 +45,7 @@ func TestAdmissionRejectsInvalidGraphViewID(t *testing.T) {
 
 	input := minimalInput(t, "empty")
 	input["graph_view_id"] = "gv_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-	_, err := AdmitProjectionInput(mustJSON(t, input), AdmitOptions{})
+	_, err := admitProjectionInput(mustJSON(t, input), admitOptions{})
 	var opErr *OperationError
 	if !errors.As(err, &opErr) {
 		t.Fatalf("expected operation error, got %T %v", err, err)
@@ -59,7 +59,7 @@ func TestAdmissionAndNormalization(t *testing.T) {
 	t.Parallel()
 
 	input := minimalInput(t, "empty")
-	run, err := AdmitProjectionInput(mustJSON(t, input), AdmitOptions{
+	run, err := admitProjectionInput(mustJSON(t, input), admitOptions{
 		ProjectionRunNonce: "nonce-1",
 		AcceptedAt:         fixedTime(),
 	})
@@ -81,7 +81,7 @@ func TestProjectDirectReverseAndAggregation(t *testing.T) {
 	t.Parallel()
 
 	input := incidentGraphInput(t)
-	run, err := Project(mustJSON(t, input), ProjectOptions{
+	run, err := project(mustJSON(t, input), projectOptions{
 		ProjectionRunNonce: "nonce-direct",
 		AcceptedAt:         fixedTime(),
 		GeneratedAt:        fixedTime().Add(time.Second),
@@ -95,7 +95,7 @@ func TestProjectDirectReverseAndAggregation(t *testing.T) {
 	if run.GraphView == nil {
 		t.Fatal("missing graph view")
 	}
-	graphBytes, err := canonicalJSON(run.GraphView)
+	graphBytes, err := canonicalJSON(graphViewResource(*run.GraphView))
 	if err != nil {
 		t.Fatalf("canonical graph view: %v", err)
 	}
@@ -137,7 +137,7 @@ func TestFilterTruthTable(t *testing.T) {
 		"relationship_filters": []any{},
 		"logic":                "and",
 	}
-	run, err := Project(mustJSON(t, input), ProjectOptions{ProjectionRunNonce: "nonce-filter", AcceptedAt: fixedTime(), GeneratedAt: fixedTime()})
+	run, err := project(mustJSON(t, input), projectOptions{ProjectionRunNonce: "nonce-filter", AcceptedAt: fixedTime(), GeneratedAt: fixedTime()})
 	if err != nil {
 		t.Fatalf("project: %v", err)
 	}
@@ -190,7 +190,7 @@ func TestFailedRunInspectionShape(t *testing.T) {
 	relMappings := config["relationship_mappings"].([]any)
 	relMappings[0].(map[string]any)["emit_reverse_edge"] = true
 	relMappings[0].(map[string]any)["direction_policy"] = "preserve"
-	run, err := Project(mustJSON(t, input), ProjectOptions{ProjectionRunNonce: "nonce-failed", AcceptedAt: fixedTime(), GeneratedAt: fixedTime()})
+	run, err := project(mustJSON(t, input), projectOptions{ProjectionRunNonce: "nonce-failed", AcceptedAt: fixedTime(), GeneratedAt: fixedTime()})
 	if err != nil {
 		t.Fatalf("project: %v", err)
 	}
@@ -207,7 +207,7 @@ func TestFailedRunInspectionShape(t *testing.T) {
 
 func minimalInput(t *testing.T, key string) map[string]any {
 	t.Helper()
-	graphViewID, err := DeriveGraphViewID(key)
+	graphViewID, err := deriveGraphViewID(key)
 	if err != nil {
 		t.Fatalf("derive graph view id: %v", err)
 	}
@@ -230,7 +230,7 @@ func minimalInput(t *testing.T, key string) map[string]any {
 
 func incidentGraphInput(t *testing.T) map[string]any {
 	t.Helper()
-	graphViewID, err := DeriveGraphViewID("incident_graph")
+	graphViewID, err := deriveGraphViewID("incident_graph")
 	if err != nil {
 		t.Fatalf("derive graph view id: %v", err)
 	}

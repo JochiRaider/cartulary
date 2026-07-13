@@ -7,27 +7,36 @@ import (
 	"time"
 )
 
-type ProjectOptions struct {
+type projectOptions struct {
 	ProjectionRunNonce      string
 	AcceptedAt              time.Time
 	GeneratedAt             time.Time
 	PreviousProjectionRunID *string
+	InvocationIDPrefix      string
+	InvocationDomain        string
 }
 
-func Project(data []byte, options ProjectOptions) (ProjectionRun, error) {
-	run, err := AdmitProjectionInput(data, AdmitOptions{
+func project(data []byte, options projectOptions) (ProjectionRun, error) {
+	run, err := admitProjectionInput(data, admitOptions{
 		ProjectionRunNonce: options.ProjectionRunNonce,
 		AcceptedAt:         options.AcceptedAt,
+		InvocationIDPrefix: options.InvocationIDPrefix,
+		InvocationDomain:   options.InvocationDomain,
 	})
 	if err != nil {
 		return ProjectionRun{}, err
 	}
 	run.State = RunStateComputing
+	startedAt := options.AcceptedAt.UTC()
+	if startedAt.IsZero() {
+		startedAt = time.Now().UTC()
+	}
+	run.StartedAt = &startedAt
 	projected := projectAdmittedRun(run, options)
 	return projected, nil
 }
 
-func projectAdmittedRun(run ProjectionRun, options ProjectOptions) ProjectionRun {
+func projectAdmittedRun(run ProjectionRun, options projectOptions) ProjectionRun {
 	issues := validateAdmittedRequest(run)
 	result := run
 	generatedAt := options.GeneratedAt.UTC()
@@ -67,6 +76,7 @@ func projectAdmittedRun(run ProjectionRun, options ProjectOptions) ProjectionRun
 	summary := validationSummary(issues)
 	result.State = RunStateAvailable
 	now := generatedAt
+	result.GeneratedAt = &now
 	result.CompletedAt = &now
 	graphView := &GraphView{
 		ProjectionSchemaID: ProjectionSchemaID,
@@ -92,7 +102,7 @@ func projectAdmittedRun(run ProjectionRun, options ProjectOptions) ProjectionRun
 	}
 	result.ValidationSummary = summary
 	result.GraphView = graphView
-	if graphBytes, err := canonicalJSON(graphView); err == nil {
+	if graphBytes, err := canonicalJSON(graphViewResource(*graphView)); err == nil {
 		result.ProjectionOutputDigest = sha256Hex(graphBytes)
 	}
 	return result
@@ -794,17 +804,18 @@ func buildSchemaRegistry(run ProjectionRun, vertices []Vertex, edges []Edge) Sch
 		}
 	}
 	for _, definition := range run.Request.PropertyDefinitions {
+		reference := PropertySchemaReference{ProjectedKey: definition.ProjectedKey, ProjectedType: definition.ProjectedType, Required: definition.Required, NullableOutput: definition.NullOutputPolicy == "emit_null"}
 		if definition.TargetScope == "vertex" {
 			for key, item := range vertexKinds {
 				if definition.TargetKind == "*" || definition.TargetKind == key {
-					item.Properties = append(item.Properties, definition.ProjectedKey)
+					item.Properties = append(item.Properties, reference)
 				}
 			}
 		}
 		if definition.TargetScope == "edge" {
 			for key, item := range edgeKinds {
 				if definition.TargetKind == "*" || definition.TargetKind == key {
-					item.Properties = append(item.Properties, definition.ProjectedKey)
+					item.Properties = append(item.Properties, reference)
 				}
 			}
 		}
@@ -814,7 +825,7 @@ func buildSchemaRegistry(run ProjectionRun, vertices []Vertex, edges []Edge) Sch
 		item.SourceEntityKinds = uniqueSortedStrings(item.SourceEntityKinds)
 		item.AggregationRuleIDs = uniqueSortedStrings(item.AggregationRuleIDs)
 		item.Labels = uniqueSortedStrings(item.Labels)
-		item.Properties = uniqueSortedStrings(item.Properties)
+		sort.Slice(item.Properties, func(i, j int) bool { return item.Properties[i].ProjectedKey < item.Properties[j].ProjectedKey })
 		registry.VertexKinds = append(registry.VertexKinds, *item)
 	}
 	for _, item := range edgeKinds {
@@ -822,14 +833,14 @@ func buildSchemaRegistry(run ProjectionRun, vertices []Vertex, edges []Edge) Sch
 		item.AggregationRuleIDs = uniqueSortedStrings(item.AggregationRuleIDs)
 		item.Directions = sortDirections(item.Directions)
 		item.Labels = uniqueSortedStrings(item.Labels)
-		item.Properties = uniqueSortedStrings(item.Properties)
+		sort.Slice(item.Properties, func(i, j int) bool { return item.Properties[i].ProjectedKey < item.Properties[j].ProjectedKey })
 		registry.EdgeKinds = append(registry.EdgeKinds, *item)
 	}
 	for _, definition := range run.Request.PropertyDefinitions {
-		registry.PropertyKeys = append(registry.PropertyKeys, PropertySchema{TargetScope: definition.TargetScope, TargetKind: definition.TargetKind, ProjectedKey: definition.ProjectedKey, ProjectedType: definition.ProjectedType, Required: definition.Required})
+		registry.PropertyKeys = append(registry.PropertyKeys, PropertySchema{TargetScope: definition.TargetScope, TargetKind: definition.TargetKind, ProjectedKey: definition.ProjectedKey, ProjectedType: definition.ProjectedType, Required: definition.Required, NullableOutput: definition.NullOutputPolicy == "emit_null", MissingBehavior: definition.MissingBehavior, SourceNullBehavior: definition.SourceNullBehavior})
 	}
 	for _, mapping := range run.Request.ProjectionConfig.MetadataMappings {
-		registry.MetadataKeys = append(registry.MetadataKeys, MetadataSchema{TargetScope: mapping.TargetScope, TargetKind: mapping.TargetKind, ProjectedMetadataKey: mapping.ProjectedMetadataKey, ProjectedType: mapping.ProjectedType, Required: mapping.Required})
+		registry.MetadataKeys = append(registry.MetadataKeys, MetadataSchema{TargetScope: mapping.TargetScope, TargetKind: mapping.TargetKind, ProjectedMetadataKey: mapping.ProjectedMetadataKey, ProjectedType: mapping.ProjectedType, Required: mapping.Required, NullableOutput: mapping.NullOutputPolicy == "emit_null", MissingBehavior: mapping.MissingBehavior, SourceNullBehavior: mapping.SourceNullBehavior})
 	}
 	sort.Slice(registry.VertexKinds, func(i, j int) bool { return registry.VertexKinds[i].VertexKind < registry.VertexKinds[j].VertexKind })
 	sort.Slice(registry.EdgeKinds, func(i, j int) bool { return registry.EdgeKinds[i].EdgeKind < registry.EdgeKinds[j].EdgeKind })

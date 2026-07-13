@@ -457,8 +457,8 @@ toolchain-drift:
 migration-drift: export CARTULARY_TEST_TARGET ?= migration-drift
 migration-drift:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,migration-drift)
-	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory build-migrate; fi
-	$(Q)$(RUN_PHASE_SCRIPT) "migration-drift" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) GO="$(GO)" CONFIG_FILE="$(CONFIG_FILE)" GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" CARTULARY_MIGRATE_BIN="$(MIGRATE_BIN)" ./tools/harness/generated-artifacts/database-contract-drift/check-migrations.sh
+	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory build-migrate $(GOOSE_BIN); fi
+	$(Q)$(RUN_PHASE_SCRIPT) "migration-drift" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) GO="$(GO)" CONFIG_FILE="$(CONFIG_FILE)" GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" CARTULARY_MIGRATE_BIN="$(MIGRATE_BIN)" GOOSE_BIN="$(GOOSE_BIN)" ./tools/harness/generated-artifacts/database-contract-drift/check-migrations.sh
 
 migration-input-drift: export CARTULARY_TEST_TARGET ?= migration-input-drift
 migration-input-drift: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1

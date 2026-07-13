@@ -626,7 +626,7 @@ func (s *Service) composeGraph(ctx context.Context, incidentID uuid.UUID, actorU
 	}
 	composition.SemanticQuery = graphSemanticQueryResource(tableIDs, request.Filters, request.TimeRange, request.Aggregation, request.Limits)
 	sourceSnapshotID := graphSourceSnapshotDigest(incidentID, tables, digest)
-	projection, apiErr := projectNetworkFlowGraph(ctx, actorUserID, sourceSnapshotID, composition, s.now())
+	projection, apiErr := s.projectNetworkFlowGraph(ctx, actorUserID, sourceSnapshotID, composition, s.now())
 	if apiErr != nil {
 		return graphComposition{}, apiErr
 	}
@@ -820,7 +820,7 @@ func validateGraphLimits(composition graphComposition) *httpapi.APIError {
 	return nil
 }
 
-func projectNetworkFlowGraph(ctx context.Context, actorUserID uuid.UUID, sourceSnapshotID string, composition graphComposition, requestedAt time.Time) (map[string]any, *httpapi.APIError) {
+func (s *Service) projectNetworkFlowGraph(ctx context.Context, actorUserID uuid.UUID, sourceSnapshotID string, composition graphComposition, requestedAt time.Time) (map[string]any, *httpapi.APIError) {
 	if err := ctx.Err(); err != nil {
 		return nil, graphProjectionFailedForContext(err)
 	}
@@ -829,7 +829,11 @@ func projectNetworkFlowGraph(ctx context.Context, actorUserID uuid.UUID, sourceS
 		graphViewKeySnapshot = graphViewKeySnapshot[len("nfsnap_"):]
 	}
 	graphViewKey := "network_flow_activity:" + composition.SourceTables[0].IncidentID.String() + ":" + graphViewKeySnapshot
-	graphViewID, err := graphprojection.DeriveGraphViewID(graphViewKey)
+	projector := s.graphProjection
+	if projector == nil {
+		projector = graphprojection.NewService(graphprojection.ServiceOptions{Now: func() time.Time { return requestedAt }})
+	}
+	graphViewID, err := projector.GraphViewID(graphViewKey)
 	if err != nil {
 		return nil, graphProjectionFailed("adapter_contract_rejected")
 	}
@@ -857,11 +861,7 @@ func projectNetworkFlowGraph(ctx context.Context, actorUserID uuid.UUID, sourceS
 		"requested_at":             requestedAt.UTC().Format(time.RFC3339Nano),
 		"requested_by":             actorUserID.String(),
 	}
-	run, err := graphprojection.Project(canonicalJSON(input), graphprojection.ProjectOptions{
-		ProjectionRunNonce: composition.Digest,
-		AcceptedAt:         requestedAt,
-		GeneratedAt:        requestedAt,
-	})
+	result, err := projector.ProjectEphemeral(ctx, graphprojection.EphemeralProjectionRequest{ProjectionInput: canonicalJSON(input)})
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
 			return nil, graphProjectionFailed("projection_cancelled")
@@ -871,25 +871,11 @@ func projectNetworkFlowGraph(ctx context.Context, actorUserID uuid.UUID, sourceS
 		}
 		return nil, graphProjectionFailed("adapter_contract_rejected")
 	}
-	if run.State != graphprojection.RunStateAvailable || run.GraphView == nil {
+	summary, ok := result.Data["validation_summary"].(map[string]any)
+	if !ok || summary["fatal_count"] != 0 || summary["error_count"] != 0 || summary["warning_count"] != 0 || summary["info_count"] != 0 {
 		return nil, graphProjectionFailed("adapter_contract_rejected")
 	}
-	summary := run.ValidationSummary
-	if summary.IssueCount != 0 || len(summary.Issues) != 0 || summary.Status != "valid" {
-		return nil, graphProjectionFailed("adapter_contract_rejected")
-	}
-	return map[string]any{
-		"schema_id":               "graph_projection.ephemeral_projection_result.v1",
-		"state":                   "ephemeral_available",
-		"ephemeral_projection_id": run.ProjectionRunID,
-		"validation_summary": map[string]any{
-			"fatal_count":   0,
-			"error_count":   0,
-			"warning_count": 0,
-			"info_count":    0,
-			"issues":        []any{},
-		},
-	}, nil
+	return result.Data, nil
 }
 
 func networkFlowProjectionConfig(graphViewKey string) map[string]any {

@@ -261,16 +261,30 @@ function graphResource() {
       },
     },
     graph_projection_result: {
-      schema_id: "graph_projection.ephemeral_projection_result.v1",
+      projection_schema_id: "graph_projection.v1",
+      graph_view_id:
+        "gv_0000000000000000000000000000000000000000000000000000000000000000",
+      graph_view_key: "network-flow-test",
       state: "ephemeral_available",
-      ephemeral_projection_id: "projection-1",
+      ephemeral_projection_id:
+        "gpe_0000000000000000000000000000000000000000000000000000000000000000",
+      source_snapshot_id: "snapshot-1",
+      projection_version: "v1",
+      generated_at: "2026-05-30T00:00:00Z",
+      properties: {},
+      metadata: {},
+      schema_registry: {},
+      vertices: [],
+      edges: [],
       validation_summary: {
+        status: "valid",
         fatal_count: 0,
         error_count: 0,
         warning_count: 0,
         info_count: 0,
         issues: [],
       },
+      consumer_capabilities: {},
     },
     edge_annotations: [
       {

@@ -1221,7 +1221,8 @@
     },
     "migration-drift": {
       "prerequisites": [
-        "build-migrate"
+        "build-migrate",
+        "$(GOOSE_BIN)"
       ],
       "type": "phase_command",
       "mode": "run_phase",
@@ -1231,7 +1232,8 @@
         "CONFIG_FILE": "$(CONFIG_FILE)",
         "GOCACHE": "$(GO_CACHE_DIR)",
         "GOMODCACHE": "$(GO_MOD_CACHE_DIR)",
-        "CARTULARY_MIGRATE_BIN": "$(MIGRATE_BIN)"
+        "CARTULARY_MIGRATE_BIN": "$(MIGRATE_BIN)",
+        "GOOSE_BIN": "$(GOOSE_BIN)"
       },
       "command": [
         "./tools/harness/generated-artifacts/database-contract-drift/check-migrations.sh"

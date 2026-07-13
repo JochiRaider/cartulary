@@ -520,6 +520,7 @@ type GraphProjectionIdempotency struct {
 	ResponseJson       []byte             `json:"response_json"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
+	ScopeKey           string             `json:"scope_key"`
 }
 
 type GraphProjectionRun struct {
@@ -539,6 +540,11 @@ type GraphProjectionRun struct {
 	InvalidationJson       []byte             `json:"invalidation_json"`
 	RetentionExpiresAt     pgtype.Timestamptz `json:"retention_expires_at"`
 	ProjectionOutputDigest pgtype.Text        `json:"projection_output_digest"`
+	StartedAt              pgtype.Timestamptz `json:"started_at"`
+	GeneratedAt            pgtype.Timestamptz `json:"generated_at"`
+	ReplacedAt             pgtype.Timestamptz `json:"replaced_at"`
+	InvalidatedAt          pgtype.Timestamptz `json:"invalidated_at"`
+	RetentionPolicyJson    []byte             `json:"retention_policy_json"`
 }
 
 type GraphProjectionVertex struct {
@@ -551,14 +557,16 @@ type GraphProjectionVertex struct {
 }
 
 type GraphProjectionView struct {
-	GraphViewID            string             `json:"graph_view_id"`
-	GraphViewKey           string             `json:"graph_view_key"`
-	State                  string             `json:"state"`
-	LatestProjectionRunID  pgtype.Text        `json:"latest_projection_run_id"`
-	LatestSourceSnapshotID pgtype.Text        `json:"latest_source_snapshot_id"`
-	ProjectionVersion      pgtype.Text        `json:"projection_version"`
-	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
-	ValidationStatus       string             `json:"validation_status"`
+	GraphViewID             string             `json:"graph_view_id"`
+	GraphViewKey            string             `json:"graph_view_key"`
+	State                   string             `json:"state"`
+	LatestProjectionRunID   pgtype.Text        `json:"latest_projection_run_id"`
+	LatestSourceSnapshotID  pgtype.Text        `json:"latest_source_snapshot_id"`
+	ProjectionVersion       pgtype.Text        `json:"projection_version"`
+	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
+	ValidationStatus        string             `json:"validation_status"`
+	InvalidationJson        []byte             `json:"invalidation_json"`
+	SelectedProjectionRunID pgtype.Text        `json:"selected_projection_run_id"`
 }
 
 type HandoffRiskRef struct {

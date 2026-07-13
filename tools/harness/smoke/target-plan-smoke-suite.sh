@@ -143,6 +143,11 @@ if (
 ) {
   process.exit(1);
 }
+const graphUnit = rows.find((row) => row.manifest_phase === "subsystem:graphprojection" && row.id === "GP-UNIT-001" && row.target === "backend-unit");
+const graphStore = rows.find((row) => row.manifest_phase === "subsystem:graphprojection" && row.id === "GP-STORE-001" && row.target === "backend-store");
+if (!graphUnit || !graphStore || graphUnit.packages?.[0] !== "./internal/modules/graphprojection" || graphStore.fixture_policy?.postgres !== "transaction") {
+  process.exit(1);
+}
 const storeRows = rows.filter((row) => row.target === "backend-store");
 const validPolicies = new Set(["template_clone", "package_reset", "migration_scratch", "transaction", "group_clone"]);
 if (storeRows.length === 0 || !storeRows.every((row) => validPolicies.has(row.fixture_policy?.postgres))) {

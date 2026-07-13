@@ -188,6 +188,12 @@
       "filename": "00031_entity_alias_contract.sql",
       "sha256": "16c1249df15a90862de484a70fa8020c5973870e38890adbd89d60f53102bde6",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 32,
+      "filename": "00032_graph_projection_conformance.sql",
+      "sha256": "ac02915481ee37b04535b002cb08d8e59f0918011b6e4526c02b445fe0d3ff79",
+      "historical_phase_shaped": false
     }
   ]
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -39,6 +40,7 @@ type Service struct {
 	safeDigestKeyID string
 	safeDigestKey   []byte
 	now             func() time.Time
+	graphProjection *graphprojection.Service
 }
 
 func RegisterRoutes() httpapi.RouteRegistrar {
@@ -90,6 +92,7 @@ func newRouteService(deps httpapi.DependencySet) (*Service, error) {
 		safeDigestKeyID: "master-derived-v1",
 		safeDigestKey:   safeDigestKey[:],
 		now:             now,
+		graphProjection: graphprojection.NewService(graphprojection.ServiceOptions{Now: now}),
 	}, nil
 }
 

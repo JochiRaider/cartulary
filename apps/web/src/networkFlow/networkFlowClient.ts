@@ -106,8 +106,28 @@ export type NetworkFlowGraphResult = {
   readonly graph_query_digest: string;
   readonly semantic_query: NetworkFlowGraphSemanticQuery;
   readonly graph_projection_result: {
+    readonly projection_schema_id: "graph_projection.v1";
+    readonly graph_view_id: string;
+    readonly graph_view_key: string;
     readonly ephemeral_projection_id: string;
+    readonly source_snapshot_id: string;
+    readonly projection_version: string;
+    readonly generated_at: string;
     readonly state: "ephemeral_available";
+    readonly properties: Readonly<Record<string, unknown>>;
+    readonly metadata: Readonly<Record<string, unknown>>;
+    readonly schema_registry: Readonly<Record<string, unknown>>;
+    readonly vertices: ReadonlyArray<Readonly<Record<string, unknown>>>;
+    readonly edges: ReadonlyArray<Readonly<Record<string, unknown>>>;
+    readonly validation_summary: {
+      readonly status: "valid";
+      readonly fatal_count: 0;
+      readonly error_count: 0;
+      readonly warning_count: 0;
+      readonly info_count: 0;
+      readonly issues: readonly [];
+    };
+    readonly consumer_capabilities: Readonly<Record<string, unknown>>;
   };
   readonly edge_annotations: NetworkFlowEdgeAnnotation[];
   readonly source_table_refs: Array<{

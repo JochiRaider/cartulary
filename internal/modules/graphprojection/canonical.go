@@ -111,18 +111,24 @@ func writeCanonicalJSON(out *bytes.Buffer, value any) error {
 			}
 		}
 		out.WriteByte('}')
+	case map[string]string:
+		keys := make([]string, 0, len(typed))
+		for key := range typed {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		out.WriteByte('{')
+		for i, key := range keys {
+			if i > 0 {
+				out.WriteByte(',')
+			}
+			out.WriteString(canonicalJSONString(key))
+			out.WriteByte(':')
+			out.WriteString(canonicalJSONString(typed[key]))
+		}
+		out.WriteByte('}')
 	default:
-		encoded, err := json.Marshal(typed)
-		if err != nil {
-			return err
-		}
-		var decoded any
-		decoder := json.NewDecoder(bytes.NewReader(encoded))
-		decoder.UseNumber()
-		if err := decoder.Decode(&decoded); err != nil {
-			return err
-		}
-		return writeCanonicalJSON(out, decoded)
+		return fmt.Errorf("unsupported canonical JSON type %T", typed)
 	}
 	return nil
 }
