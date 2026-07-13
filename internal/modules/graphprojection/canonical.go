@@ -20,6 +20,20 @@ func canonicalJSON(value any) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
+// canonicalObject retains the owner-defined member order for wire and digest
+// objects whose order is part of the Graph Projection contract. Ordinary maps
+// remain lexically sorted to retain deterministic behavior for dynamic maps.
+type canonicalObject []canonicalMember
+
+type canonicalMember struct {
+	Name  string
+	Value any
+}
+
+func canonicalFields(fields ...canonicalMember) canonicalObject {
+	return canonicalObject(fields)
+}
+
 func canonicalJSONString(value string) string {
 	var out strings.Builder
 	out.WriteByte('"')
@@ -93,6 +107,19 @@ func writeCanonicalJSON(out *bytes.Buffer, value any) error {
 			out.WriteString(canonicalJSONString(entry))
 		}
 		out.WriteByte(']')
+	case canonicalObject:
+		out.WriteByte('{')
+		for index, member := range typed {
+			if index > 0 {
+				out.WriteByte(',')
+			}
+			out.WriteString(canonicalJSONString(member.Name))
+			out.WriteByte(':')
+			if err := writeCanonicalJSON(out, member.Value); err != nil {
+				return err
+			}
+		}
+		out.WriteByte('}')
 	case map[string]any:
 		keys := make([]string, 0, len(typed))
 		for key := range typed {

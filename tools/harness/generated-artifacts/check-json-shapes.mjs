@@ -91,6 +91,8 @@ const graphProjectionConformanceMatrixSchemaID =
   "cartulary.graph_projection_conformance_matrix.v1";
 const graphProjectionFixtureCorpusSchemaID =
   "cartulary.graph_projection_fixture_corpus.v1";
+const graphProjectionFixtureManifestSchemaID =
+  "cartulary.graph_projection_fixture_manifest.v1";
 const networkFlowFixtureManifestSchemaID =
   "cartulary.network_flow_fixture_manifest.v1";
 const networkFlowActivityAccountingSchemaID =
@@ -3502,6 +3504,45 @@ function validateGraphProjectionConformanceMatrixShape(file) {
   );
 }
 
+function validateGraphProjectionFixtureManifests(root) {
+  const fixtureRoot = repoFile(root, "contracts/graph-projection/fixtures");
+  for (const entry of readdirSync(fixtureRoot, { withFileTypes: true })) {
+    if (!entry.isDirectory() || !/^GP-FIX-\d{3}$/.test(entry.name)) {
+      continue;
+    }
+    const fixtureID = entry.name;
+    const fixtureDir = path.join(fixtureRoot, fixtureID);
+    const manifestPath = path.join(fixtureDir, "fixture.json");
+    if (!existsSync(manifestPath)) {
+      throw new Error(`${fixtureDir} is missing fixture.json`);
+    }
+    const manifest = readShapeFile(manifestPath, manifestPath);
+    validateSchemaSync(graphProjectionFixtureManifestSchemaID, manifest);
+    requireExact(manifest.fixture_id, fixtureID, `${manifestPath}.fixture_id`);
+    const artifacts = requireArray(manifest.artifacts, `${manifestPath}.artifacts`, {
+      nonEmpty: true,
+    });
+    const paths = new Set();
+    for (const [index, artifact] of artifacts.entries()) {
+      const label = `${manifestPath}.artifacts[${index + 1}]`;
+      const logicalPath = requireManifestRelativePath(artifact.path, `${label}.path`);
+      if (paths.has(logicalPath)) {
+        throw new Error(`${manifestPath} duplicates artifact ${logicalPath}`);
+      }
+      paths.add(logicalPath);
+      const artifactPath = path.resolve(fixtureDir, logicalPath);
+      if (!artifactPath.startsWith(`${fixtureDir}${path.sep}`) || !existsSync(artifactPath)) {
+        throw new Error(`${label}.path is missing or escapes the fixture directory`);
+      }
+      if (lstatSync(artifactPath).isSymbolicLink()) {
+        throw new Error(`${label}.path must not be a symlink`);
+      }
+      const digest = sha256Hex(readFileSync(artifactPath));
+      requireExact(artifact.sha256, digest, `${label}.sha256`);
+    }
+  }
+}
+
 function sha256Hex(buffer) {
   return createHash("sha256").update(buffer).digest("hex");
 }
@@ -4268,6 +4309,7 @@ function validateAll(root) {
   validateGraphProjectionConformanceMatrixShape(
     repoFile(root, "contracts/graph-projection/conformance_matrix.v1.json"),
   );
+  validateGraphProjectionFixtureManifests(root);
   validateNetworkFlowActivityAccountingShape(
     repoFile(root, "tools/network_flow_activity_accounting.json"),
   );

@@ -1,4 +1,4 @@
-package graphprojection
+package postgresstore
 
 import (
 	"context"
@@ -10,16 +10,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	. "github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-)
-
-var (
-	ErrProjectionRunNotFound = errors.New("graphprojection: projection run not found")
-	ErrGraphViewNotFound     = errors.New("graphprojection: graph view not found")
-	ErrCursorInvalid         = errors.New("graphprojection: cursor invalid")
-	ErrGraphViewUnavailable  = errors.New("graphprojection: graph view unavailable")
-	ErrVertexNotFound        = errors.New("graphprojection: vertex not found")
-	ErrEdgeNotFound          = errors.New("graphprojection: edge not found")
 )
 
 type Store struct {
@@ -28,53 +20,7 @@ type Store struct {
 	now         func() time.Time
 }
 
-type StoreProjectionOptions struct {
-	ProjectionRunNonce string
-	AcceptedAt         time.Time
-	GeneratedAt        time.Time
-	IdempotencyKey     string
-}
-
-type ListGraphViewsOptions struct {
-	Limit                 *int
-	CursorToken           string
-	Now                   time.Time
-	QueryShapeDigest      string
-	VisibilityScopeDigest string
-}
-
-type GraphViewSummary struct {
-	GraphViewID            string
-	GraphViewKey           string
-	State                  GraphViewState
-	LatestProjectionRunID  string
-	LatestSourceSnapshotID string
-	ProjectionVersion      string
-	UpdatedAt              time.Time
-	ValidationStatus       string
-}
-
-type TraverseRequest struct {
-	GraphViewID     string
-	ProjectionRunID string
-	SeedVertexIDs   []string
-	MaxDepth        *int
-	Direction       string
-	VertexKinds     []string
-	EdgeKinds       []string
-}
-
-type TraverseResult struct {
-	GraphViewID          string
-	ProjectionRunID      string
-	SeedVertexIDs        []string
-	OmittedSeedVertexIDs []string
-	Vertices             []Vertex
-	Edges                []Edge
-	Metadata             map[string]any
-}
-
-func NewStore(pool postgres.DB) *Store {
+func New(pool postgres.DB) *Store {
 	key, err := randomCursorKey()
 	if err != nil {
 		panic(fmt.Sprintf("create graph projection cursor key: %v", err))
@@ -86,11 +32,11 @@ func NewStore(pool postgres.DB) *Store {
 	return store
 }
 
-func NewStoreWithCursorKey(pool postgres.DB, key []byte) (*Store, error) {
+func NewWithCursorKey(pool postgres.DB, key []byte) (*Store, error) {
 	return newStoreWithCursorKeyAndClock(pool, key, func() time.Time { return time.Now().UTC() })
 }
 
-func NewStoreWithClock(pool postgres.DB, now func() time.Time) *Store {
+func NewWithClock(pool postgres.DB, now func() time.Time) *Store {
 	key, err := randomCursorKey()
 	if err != nil {
 		panic(fmt.Sprintf("create graph projection cursor key: %v", err))
@@ -113,19 +59,16 @@ func newStoreWithCursorKeyAndClock(pool postgres.DB, key []byte, now func() time
 	return &Store{pool: pool, cursorCodec: codec, now: now}, nil
 }
 
-func (s *Store) CreateProjection(ctx context.Context, data []byte, options StoreProjectionOptions) (ProjectionRun, error) {
+func (s *Store) CreateProjection(ctx context.Context, data []byte, options RetainedProjectionOptions) (ProjectionRun, error) {
 	return s.projectRetained(ctx, "create_projection", data, options)
 }
 
-func (s *Store) RefreshProjection(ctx context.Context, data []byte, options StoreProjectionOptions) (ProjectionRun, error) {
+func (s *Store) RefreshProjection(ctx context.Context, data []byte, options RetainedProjectionOptions) (ProjectionRun, error) {
 	return s.projectRetained(ctx, "refresh_projection", data, options)
 }
 
-func (s *Store) projectRetained(ctx context.Context, operation string, data []byte, options StoreProjectionOptions) (ProjectionRun, error) {
-	run, err := admitProjectionInput(data, admitOptions{
-		ProjectionRunNonce: options.ProjectionRunNonce,
-		AcceptedAt:         options.AcceptedAt,
-	})
+func (s *Store) projectRetained(ctx context.Context, operation string, data []byte, options RetainedProjectionOptions) (ProjectionRun, error) {
+	run, err := AdmitRetainedProjection(data, options.ProjectionRunNonce, options.AcceptedAt)
 	if err != nil {
 		return ProjectionRun{}, err
 	}
@@ -209,7 +152,7 @@ func (s *Store) projectRetained(ctx context.Context, operation string, data []by
 		return ProjectionRun{}, fmt.Errorf("start graph projection run: %w", err)
 	}
 
-	result := projectAdmittedRun(run, projectOptions{GeneratedAt: options.GeneratedAt, PreviousProjectionRunID: previousRunID})
+	result := ProjectAdmittedRetainedProjection(run, options.GeneratedAt, previousRunID)
 	terminalTx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return ProjectionRun{}, fmt.Errorf("begin graph projection publication: %w", err)
@@ -739,8 +682,8 @@ func (s *Store) Traverse(ctx context.Context, request TraverseRequest) (Traverse
 	for _, edge := range selectedEdges {
 		edges = append(edges, edge)
 	}
-	sortVertices(vertices)
-	sortEdges(edges)
+	SortVertices(vertices)
+	SortEdges(edges)
 	seeds := make([]string, 0, len(request.SeedVertexIDs)-len(omittedSeeds))
 	requestedSeeds := stringSet(request.SeedVertexIDs)
 	for _, vertex := range graphView.Vertices {
@@ -781,8 +724,16 @@ func hasDuplicateStrings(values []string) bool {
 	return false
 }
 
-func (s *Store) InvalidateGraphView(ctx context.Context, graphViewID, reasonCode, requestedAt, requestedBy string) (InvalidationSummary, error) {
-	return s.invalidateGraphViewAt(ctx, graphViewID, reasonCode, requestedAt, requestedBy, "", time.Now().UTC())
+func stringSet(values []string) map[string]bool {
+	set := make(map[string]bool, len(values))
+	for _, value := range values {
+		set[value] = true
+	}
+	return set
+}
+
+func (s *Store) InvalidateGraphView(ctx context.Context, request RetainedInvalidation) (InvalidationSummary, error) {
+	return s.invalidateGraphViewAt(ctx, request.GraphViewID, request.ReasonCode, request.RequestedAt, request.RequestedBy, request.IdempotencyKey, request.InvalidatedAt)
 }
 
 func (s *Store) invalidateGraphViewAt(ctx context.Context, graphViewID, reasonCode, requestedAt, requestedBy, idempotencyKey string, invalidatedAt time.Time) (InvalidationSummary, error) {
@@ -837,9 +788,9 @@ SELECT COALESCE(graph_view.selected_projection_run_id, graph_view.latest_project
 	if len(runIDs) == 0 {
 		return InvalidationSummary{}, ErrGraphViewNotFound
 	}
-	summary := InvalidationSummary{GraphViewID: graphViewID, TargetScope: "graph_view", InvalidatedRunIDs: runIDs, GraphViewStateAfter: GraphViewStateInvalidated, InvalidatedAt: formatLifecycleTimestamp(invalidatedAt), ReasonCode: reasonCode, RequestedAt: requestedAt, RequestedBy: requestedBy}
+	summary := InvalidationSummary{GraphViewID: graphViewID, TargetScope: "graph_view", InvalidatedRunIDs: runIDs, GraphViewStateAfter: GraphViewStateInvalidated, InvalidatedAt: FormatLifecycleTimestamp(invalidatedAt), ReasonCode: reasonCode, RequestedAt: requestedAt, RequestedBy: requestedBy}
 	if idempotencyKey != "" {
-		expiresAt := formatLifecycleTimestamp(invalidatedAt.Add(24 * time.Hour))
+		expiresAt := FormatLifecycleTimestamp(invalidatedAt.Add(24 * time.Hour))
 		summary.IdempotencyExpiresAt = &expiresAt
 	}
 	summaryJSON, _ := json.Marshal(summary)
@@ -884,6 +835,10 @@ DELETE FROM graph_projection_runs AS run
 		return fmt.Errorf("prune invalidated graph projection runs: %w", err)
 	}
 	return nil
+}
+
+func (s *Store) InvalidateProjectionRun(ctx context.Context, request RetainedInvalidation) (InvalidationSummary, error) {
+	return s.invalidateProjectionRunAt(ctx, request.GraphViewID, request.ProjectionRunID, request.ReasonCode, request.RequestedAt, request.RequestedBy, request.IdempotencyKey, request.InvalidatedAt)
 }
 
 func (s *Store) invalidateProjectionRunAt(ctx context.Context, graphViewID, projectionRunID, reasonCode, requestedAt, requestedBy, idempotencyKey string, invalidatedAt time.Time) (InvalidationSummary, error) {
@@ -936,9 +891,9 @@ SELECT COALESCE(graph_view.selected_projection_run_id, graph_view.latest_project
 	if currentViewState == string(GraphViewStateInvalidated) || selectedRunID == projectionRunID {
 		graphViewStateAfter = GraphViewStateInvalidated
 	}
-	summary := InvalidationSummary{GraphViewID: graphViewID, TargetScope: "projection_run", TargetProjectionRunID: &projectionRunID, InvalidatedRunIDs: []string{projectionRunID}, GraphViewStateAfter: graphViewStateAfter, InvalidatedAt: formatLifecycleTimestamp(invalidatedAt), ReasonCode: reasonCode, RequestedAt: requestedAt, RequestedBy: requestedBy}
+	summary := InvalidationSummary{GraphViewID: graphViewID, TargetScope: "projection_run", TargetProjectionRunID: &projectionRunID, InvalidatedRunIDs: []string{projectionRunID}, GraphViewStateAfter: graphViewStateAfter, InvalidatedAt: FormatLifecycleTimestamp(invalidatedAt), ReasonCode: reasonCode, RequestedAt: requestedAt, RequestedBy: requestedBy}
 	if idempotencyKey != "" {
-		expiresAt := formatLifecycleTimestamp(invalidatedAt.Add(24 * time.Hour))
+		expiresAt := FormatLifecycleTimestamp(invalidatedAt.Add(24 * time.Hour))
 		summary.IdempotencyExpiresAt = &expiresAt
 	}
 	summaryJSON, err := json.Marshal(summary)
@@ -1013,7 +968,7 @@ DELETE FROM graph_projection_runs AS run
 }
 
 func invalidationReplayFingerprint(operation, graphViewID, projectionRunID, reasonCode, requestedAt, requestedBy string) (string, error) {
-	bytes, err := canonicalJSON(map[string]any{
+	bytes, err := CanonicalJSON(map[string]any{
 		"operation":         operation,
 		"graph_view_id":     graphViewID,
 		"projection_run_id": projectionRunID,
@@ -1107,7 +1062,7 @@ func (s *Store) checkIdempotencyTx(ctx context.Context, tx pgx.Tx, operation, sc
 }
 
 func retainedReplayFingerprint(operation string, run ProjectionRun) (string, error) {
-	bytes, err := canonicalJSON(map[string]any{
+	bytes, err := CanonicalJSON(map[string]any{
 		"operation":                operation,
 		"graph_view_id":            run.GraphViewID,
 		"projection_config_digest": run.ProjectionConfigDigest,
@@ -1152,7 +1107,7 @@ type listCursor struct {
 }
 
 func cursorInvalid(reason string) error {
-	return &OperationError{Code: "cursor_invalid", ReasonCode: reason, Details: map[string]any{"reason_code": reason}, cause: ErrCursorInvalid}
+	return NewOperationError("cursor_invalid", reason, map[string]any{"reason_code": reason}, ErrCursorInvalid)
 }
 
 func nullString(value string) any {

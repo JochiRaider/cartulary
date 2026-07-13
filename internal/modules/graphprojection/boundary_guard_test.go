@@ -32,6 +32,23 @@ func TestGraphProjectionProductionImportBoundaries(t *testing.T) {
 	}
 }
 
+func TestGraphProjectionFacadeDoesNotImportPostgreSQL(t *testing.T) {
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatalf("read graphprojection package directory: %v", err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
+			continue
+		}
+		for _, importPath := range productionImportsForFile(t, entry.Name()) {
+			if importPath == "github.com/jackc/pgx/v5" || importPath == cartularyImportPrefix+"internal/platform/postgres" {
+				t.Fatalf("facade source %s imports persistence dependency %s", entry.Name(), importPath)
+			}
+		}
+	}
+}
+
 func TestWorkbookProjectionsAndPublicRoutesDoNotImportGraphProjection(t *testing.T) {
 	root := repoRoot(t)
 	roots := []string{
@@ -127,9 +144,10 @@ func TestNoPublicGraphProjectionRoutes(t *testing.T) {
 }
 
 func TestStoreSQLStaysWithinGraphProjectionTables(t *testing.T) {
-	body, err := os.ReadFile("store.go")
+	root := repoRoot(t)
+	body, err := os.ReadFile(filepath.Join(root, "internal", "modules", "graphprojection", "postgresstore", "store.go"))
 	if err != nil {
-		t.Fatalf("read store.go: %v", err)
+		t.Fatalf("read PostgreSQL Graph Projection repository: %v", err)
 	}
 	content := string(body)
 	forbiddenTables := []string{
@@ -146,7 +164,7 @@ func TestStoreSQLStaysWithinGraphProjectionTables(t *testing.T) {
 	}
 	for _, table := range forbiddenTables {
 		if strings.Contains(content, table) {
-			t.Fatalf("store.go references source/workbook table marker %q; graphprojection store must only use derived graph tables", table)
+			t.Fatalf("PostgreSQL Graph Projection repository references source/workbook table marker %q; it must only use derived graph tables", table)
 		}
 	}
 }

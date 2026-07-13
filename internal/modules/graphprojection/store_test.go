@@ -1,4 +1,4 @@
-package graphprojection
+package graphprojection_test
 
 import (
 	"context"
@@ -7,16 +7,18 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/JochiRaider/cartulary/internal/modules/graphprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestStoreLifecycleRetentionAndInvalidation(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "graphprojection-lifecycle")
-	store := NewStoreWithClock(db, fixedTime)
+	store := postgresstore.NewWithClock(db, fixedTime)
 	ctx := context.Background()
 	input := mustJSON(t, incidentGraphInput(t))
 
-	first, err := store.CreateProjection(ctx, input, StoreProjectionOptions{
+	first, err := store.CreateProjection(ctx, input, RetainedProjectionOptions{
 		ProjectionRunNonce: "store-run-1",
 		AcceptedAt:         fixedTime(),
 		GeneratedAt:        fixedTime().Add(time.Second),
@@ -38,7 +40,7 @@ func TestStoreLifecycleRetentionAndInvalidation(t *testing.T) {
 		t.Fatalf("latest run = %s want %s", graph.ProjectionRunID, first.ProjectionRunID)
 	}
 
-	second, err := store.RefreshProjection(ctx, input, StoreProjectionOptions{
+	second, err := store.RefreshProjection(ctx, input, RetainedProjectionOptions{
 		ProjectionRunNonce: "store-run-2",
 		AcceptedAt:         fixedTime().Add(2 * time.Second),
 		GeneratedAt:        fixedTime().Add(3 * time.Second),
@@ -60,7 +62,7 @@ func TestStoreLifecycleRetentionAndInvalidation(t *testing.T) {
 		t.Fatalf("reloaded output digest = %s want %s", reloadedFirst.ProjectionOutputDigest, first.ProjectionOutputDigest)
 	}
 
-	summary, err := store.InvalidateGraphView(ctx, first.GraphViewID, "source_snapshot_withdrawn", "2026-05-30T00:00:05Z", "fixture")
+	summary, err := store.InvalidateGraphView(ctx, RetainedInvalidation{GraphViewID: first.GraphViewID, ReasonCode: "source_snapshot_withdrawn", RequestedAt: "2026-05-30T00:00:05Z", RequestedBy: "fixture", InvalidatedAt: fixedTime()})
 	if err != nil {
 		t.Fatalf("invalidate graph view: %v", err)
 	}
@@ -74,8 +76,8 @@ func TestStoreLifecycleRetentionAndInvalidation(t *testing.T) {
 
 func TestServiceLifecycleFacadeAndDirectQueries(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "graphprojection-service-facade")
-	store := NewStoreWithClock(db, fixedTime)
-	service := NewService(ServiceOptions{Store: store, Now: fixedTime, NewNonce: func() (string, error) { return "service-run", nil }})
+	store := postgresstore.NewWithClock(db, fixedTime)
+	service := NewService(ServiceOptions{Repository: store, Now: fixedTime, NewNonce: func() (string, error) { return "service-run", nil }})
 	ctx := context.Background()
 	input := mustJSON(t, incidentGraphInput(t))
 	accepted, err := service.CreateProjection(ctx, CreateProjectionRequest{ProjectionInput: input, IdempotencyKey: "service-idempotency"})
@@ -126,10 +128,10 @@ func TestServiceLifecycleFacadeAndDirectQueries(t *testing.T) {
 
 func TestStorePreAdmissionFailureTouchesNoState(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "graphprojection-fail-before-touch")
-	store := NewStoreWithClock(db, fixedTime)
+	store := postgresstore.NewWithClock(db, fixedTime)
 	ctx := context.Background()
 
-	_, err := store.CreateProjection(ctx, []byte(`{"projection_schema_id":"graph_projection.v1","projection_schema_id":"graph_projection.v1"}`), StoreProjectionOptions{})
+	_, err := store.CreateProjection(ctx, []byte(`{"projection_schema_id":"graph_projection.v1","projection_schema_id":"graph_projection.v1"}`), RetainedProjectionOptions{})
 	var opErr *OperationError
 	if !errors.As(err, &opErr) {
 		t.Fatalf("expected operation error, got %T %v", err, err)
@@ -145,10 +147,10 @@ func TestStorePreAdmissionFailureTouchesNoState(t *testing.T) {
 
 func TestRetentionCountZeroExpiresReplacedRun(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "graphprojection-retention-zero")
-	store := NewStoreWithClock(db, fixedTime)
+	store := postgresstore.NewWithClock(db, fixedTime)
 	ctx := context.Background()
 	input := incidentGraphInput(t)
-	first, err := store.CreateProjection(ctx, mustJSON(t, input), StoreProjectionOptions{ProjectionRunNonce: "retention-first", AcceptedAt: fixedTime(), GeneratedAt: fixedTime()})
+	first, err := store.CreateProjection(ctx, mustJSON(t, input), RetainedProjectionOptions{ProjectionRunNonce: "retention-first", AcceptedAt: fixedTime(), GeneratedAt: fixedTime()})
 	if err != nil {
 		t.Fatalf("create retained projection: %v", err)
 	}
@@ -161,7 +163,7 @@ func TestRetentionCountZeroExpiresReplacedRun(t *testing.T) {
 		"failed_retention_count":            20,
 		"failed_retention_duration_seconds": 2592000,
 	}
-	if _, err := store.RefreshProjection(ctx, mustJSON(t, input), StoreProjectionOptions{ProjectionRunNonce: "retention-second", AcceptedAt: fixedTime().Add(time.Second), GeneratedAt: fixedTime().Add(time.Second)}); err != nil {
+	if _, err := store.RefreshProjection(ctx, mustJSON(t, input), RetainedProjectionOptions{ProjectionRunNonce: "retention-second", AcceptedAt: fixedTime().Add(time.Second), GeneratedAt: fixedTime().Add(time.Second)}); err != nil {
 		t.Fatalf("refresh with zero replaced retention: %v", err)
 	}
 	if _, err := store.GetProjectionRun(ctx, first.ProjectionRunID); !errors.Is(err, ErrProjectionRunNotFound) {
@@ -171,10 +173,10 @@ func TestRetentionCountZeroExpiresReplacedRun(t *testing.T) {
 
 func TestQueryLifecycleStateMatrix(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "graphprojection-query-lifecycle")
-	store := NewStoreWithClock(db, fixedTime)
+	store := postgresstore.NewWithClock(db, fixedTime)
 	ctx := context.Background()
 
-	available, err := store.CreateProjection(ctx, mustJSON(t, retargetGraphInput(t, incidentGraphInput(t), "lifecycle_available")), StoreProjectionOptions{
+	available, err := store.CreateProjection(ctx, mustJSON(t, retargetGraphInput(t, incidentGraphInput(t), "lifecycle_available")), RetainedProjectionOptions{
 		ProjectionRunNonce: "query-lifecycle-available",
 		AcceptedAt:         fixedTime(),
 		GeneratedAt:        fixedTime().Add(time.Second),
@@ -191,7 +193,7 @@ func TestQueryLifecycleStateMatrix(t *testing.T) {
 	relMappings := config["relationship_mappings"].([]any)
 	relMappings[0].(map[string]any)["direction_policy"] = "preserve"
 	relMappings[0].(map[string]any)["emit_reverse_edge"] = true
-	failed, err := store.CreateProjection(ctx, mustJSON(t, failedInput), StoreProjectionOptions{
+	failed, err := store.CreateProjection(ctx, mustJSON(t, failedInput), RetainedProjectionOptions{
 		ProjectionRunNonce: "query-lifecycle-failed",
 		AcceptedAt:         fixedTime().Add(2 * time.Second),
 		GeneratedAt:        fixedTime().Add(3 * time.Second),
@@ -210,7 +212,7 @@ func TestQueryLifecycleStateMatrix(t *testing.T) {
 		t.Fatalf("failed graph view err = %v", err)
 	}
 
-	computingGraphViewID, err := deriveGraphViewID("lifecycle_computing")
+	computingGraphViewID, err := DeriveGraphViewID("lifecycle_computing")
 	if err != nil {
 		t.Fatalf("derive computing graph id: %v", err)
 	}
@@ -258,11 +260,11 @@ INSERT INTO graph_projection_runs (
 
 func TestListGraphViewsPagination(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "graphprojection-idempotency")
-	store := NewStoreWithClock(db, fixedTime)
+	store := postgresstore.NewWithClock(db, fixedTime)
 	ctx := context.Background()
 	input := mustJSON(t, incidentGraphInput(t))
 
-	first, err := store.CreateProjection(ctx, input, StoreProjectionOptions{
+	first, err := store.CreateProjection(ctx, input, RetainedProjectionOptions{
 		ProjectionRunNonce: "idem-run-1",
 		AcceptedAt:         fixedTime(),
 		GeneratedAt:        fixedTime(),
@@ -271,7 +273,7 @@ func TestListGraphViewsPagination(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create projection: %v", err)
 	}
-	replayed, err := store.CreateProjection(ctx, input, StoreProjectionOptions{
+	replayed, err := store.CreateProjection(ctx, input, RetainedProjectionOptions{
 		ProjectionRunNonce: "idem-run-1",
 		AcceptedAt:         fixedTime(),
 		GeneratedAt:        fixedTime(),
@@ -285,7 +287,7 @@ func TestListGraphViewsPagination(t *testing.T) {
 	}
 
 	other := minimalInput(t, "empty")
-	if _, err := store.CreateProjection(ctx, mustJSON(t, other), StoreProjectionOptions{
+	if _, err := store.CreateProjection(ctx, mustJSON(t, other), RetainedProjectionOptions{
 		ProjectionRunNonce: "idem-run-2",
 		AcceptedAt:         fixedTime().Add(time.Second),
 		GeneratedAt:        fixedTime().Add(time.Second),
@@ -336,7 +338,7 @@ func TestListGraphViewsPagination(t *testing.T) {
 
 func TestTraverseDeterminism(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "graphprojection-traverse")
-	store := NewStoreWithClock(db, fixedTime)
+	store := postgresstore.NewWithClock(db, fixedTime)
 	ctx := context.Background()
 	input := retargetGraphInput(t, incidentGraphInput(t), "traverse_graph")
 	relationships := input["source_relationships"].([]any)
@@ -345,7 +347,7 @@ func TestTraverseDeterminism(t *testing.T) {
 		map[string]any{"source_relationship_id": "logon2", "source_relationship_kind": "logon", "src_source_entity_id": "host1", "dst_source_entity_id": "host2", "direction": "forward", "properties": map[string]any{"site": "hq", "src_site": "hq", "dst_site": "hq"}},
 	)
 	input["source_relationships"] = relationships
-	run, err := store.CreateProjection(ctx, mustJSON(t, input), StoreProjectionOptions{
+	run, err := store.CreateProjection(ctx, mustJSON(t, input), RetainedProjectionOptions{
 		ProjectionRunNonce: "traverse-run",
 		AcceptedAt:         fixedTime(),
 		GeneratedAt:        fixedTime(),
@@ -422,7 +424,7 @@ func TestTraverseDeterminism(t *testing.T) {
 
 func retargetGraphInput(t *testing.T, input map[string]any, key string) map[string]any {
 	t.Helper()
-	graphViewID, err := deriveGraphViewID(key)
+	graphViewID, err := DeriveGraphViewID(key)
 	if err != nil {
 		t.Fatalf("derive graph view id for %q: %v", key, err)
 	}

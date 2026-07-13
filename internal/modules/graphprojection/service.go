@@ -18,15 +18,15 @@ type EphemeralProjectionResult struct {
 }
 
 type ServiceOptions struct {
-	Now      func() time.Time
-	NewNonce func() (string, error)
-	Store    *Store
+	Now        func() time.Time
+	NewNonce   func() (string, error)
+	Repository RetainedRepository
 }
 
 type Service struct {
-	now      func() time.Time
-	newNonce func() (string, error)
-	store    *Store
+	now        func() time.Time
+	newNonce   func() (string, error)
+	repository RetainedRepository
 }
 
 func NewService(options ServiceOptions) *Service {
@@ -38,7 +38,7 @@ func NewService(options ServiceOptions) *Service {
 	if newNonce == nil {
 		newNonce = secureInvocationNonce
 	}
-	return &Service{now: now, newNonce: newNonce, store: options.Store}
+	return &Service{now: now, newNonce: newNonce, repository: options.Repository}
 }
 
 type CreateProjectionRequest struct {
@@ -80,14 +80,14 @@ type InvalidateProjectionRunRequest struct {
 }
 
 func (s *Service) CreateProjection(ctx context.Context, request CreateProjectionRequest) (AcceptedRunSummary, error) {
-	if s.store == nil {
+	if s.repository == nil {
 		return AcceptedRunSummary{}, errors.New("graphprojection: retained lifecycle unavailable")
 	}
 	return s.runRetained(ctx, "create_projection", "", request.ProjectionInput, request.IdempotencyKey)
 }
 
 func (s *Service) RefreshProjection(ctx context.Context, request RefreshProjectionRequest) (AcceptedRunSummary, error) {
-	if s.store == nil {
+	if s.repository == nil {
 		return AcceptedRunSummary{}, errors.New("graphprojection: retained lifecycle unavailable")
 	}
 	return s.runRetained(ctx, "refresh_projection", request.GraphViewID, request.ProjectionInput, request.IdempotencyKey)
@@ -99,7 +99,7 @@ func (s *Service) runRetained(ctx context.Context, operation, graphViewID string
 		return AcceptedRunSummary{}, err
 	}
 	now := s.now().UTC()
-	options := StoreProjectionOptions{ProjectionRunNonce: nonce, AcceptedAt: now, GeneratedAt: now, IdempotencyKey: idempotencyKey}
+	options := RetainedProjectionOptions{ProjectionRunNonce: nonce, AcceptedAt: now, GeneratedAt: now, IdempotencyKey: idempotencyKey}
 	var run ProjectionRun
 	if operation == "refresh_projection" {
 		derived, deriveErr := deriveGraphViewIDFromInput(input)
@@ -109,9 +109,9 @@ func (s *Service) runRetained(ctx context.Context, operation, graphViewID string
 		if graphViewID == "" || graphViewID != derived {
 			return AcceptedRunSummary{}, &OperationError{Code: "invalid_projection_request", ReasonCode: "invalid_graph_view_id", Details: map[string]any{"operation": operation, "reason_code": "invalid_graph_view_id", "field": nil, "validation_code": "invalid_graph_view_id"}}
 		}
-		run, err = s.store.RefreshProjection(ctx, input, options)
+		run, err = s.repository.RefreshProjection(ctx, input, options)
 	} else {
-		run, err = s.store.CreateProjection(ctx, input, options)
+		run, err = s.repository.CreateProjection(ctx, input, options)
 	}
 	if err != nil {
 		return AcceptedRunSummary{}, err
@@ -137,17 +137,17 @@ func (s *Service) GraphViewID(graphViewKey string) (string, error) {
 }
 
 func (s *Service) GetGraphView(ctx context.Context, graphViewID, projectionRunID string) (GraphView, error) {
-	if s.store == nil {
+	if s.repository == nil {
 		return GraphView{}, errors.New("graphprojection: query service unavailable")
 	}
-	return s.store.GetGraphView(ctx, graphViewID, projectionRunID)
+	return s.repository.GetGraphView(ctx, graphViewID, projectionRunID)
 }
 
 func (s *Service) GetProjectionRun(ctx context.Context, graphViewID, projectionRunID string) (ProjectionRun, error) {
-	if s.store == nil {
+	if s.repository == nil {
 		return ProjectionRun{}, errors.New("graphprojection: query service unavailable")
 	}
-	run, err := s.store.GetProjectionRun(ctx, projectionRunID)
+	run, err := s.repository.GetProjectionRun(ctx, projectionRunID)
 	if err != nil {
 		return ProjectionRun{}, err
 	}
@@ -158,51 +158,58 @@ func (s *Service) GetProjectionRun(ctx context.Context, graphViewID, projectionR
 }
 
 func (s *Service) GetVertex(ctx context.Context, graphViewID, projectionRunID, vertexID string) (Vertex, error) {
-	if s.store == nil {
+	if s.repository == nil {
 		return Vertex{}, errors.New("graphprojection: query service unavailable")
 	}
-	return s.store.GetVertex(ctx, graphViewID, projectionRunID, vertexID)
+	return s.repository.GetVertex(ctx, graphViewID, projectionRunID, vertexID)
 }
 
 func (s *Service) GetEdge(ctx context.Context, graphViewID, projectionRunID, edgeID string) (Edge, error) {
-	if s.store == nil {
+	if s.repository == nil {
 		return Edge{}, errors.New("graphprojection: query service unavailable")
 	}
-	return s.store.GetEdge(ctx, graphViewID, projectionRunID, edgeID)
+	return s.repository.GetEdge(ctx, graphViewID, projectionRunID, edgeID)
 }
 
 func (s *Service) ListGraphViews(ctx context.Context, options ListGraphViewsOptions) ([]GraphViewSummary, string, error) {
-	if s.store == nil {
+	if s.repository == nil {
 		return nil, "", errors.New("graphprojection: query service unavailable")
 	}
-	return s.store.ListGraphViews(ctx, options)
+	return s.repository.ListGraphViews(ctx, options)
 }
 
 func (s *Service) Traverse(ctx context.Context, request TraverseRequest) (TraverseResult, error) {
-	if s.store == nil {
+	if s.repository == nil {
 		return TraverseResult{}, errors.New("graphprojection: query service unavailable")
 	}
-	return s.store.Traverse(ctx, request)
+	return s.repository.Traverse(ctx, request)
 }
 
 func (s *Service) InvalidateGraphView(ctx context.Context, request InvalidateGraphViewRequest) (InvalidationSummary, error) {
-	if s.store == nil {
+	if s.repository == nil {
 		return InvalidationSummary{}, errors.New("graphprojection: retained lifecycle unavailable")
 	}
 	if err := validateInvalidationRequest(request.GraphViewID, "", request.ReasonCode, request.RequestedAt, request.RequestedBy, request.IdempotencyKey); err != nil {
 		return InvalidationSummary{}, err
 	}
-	return s.store.invalidateGraphViewAt(ctx, request.GraphViewID, request.ReasonCode, request.RequestedAt, request.RequestedBy, request.IdempotencyKey, s.now().UTC())
+	return s.repository.InvalidateGraphView(ctx, RetainedInvalidation{
+		GraphViewID: request.GraphViewID, ReasonCode: request.ReasonCode, RequestedAt: request.RequestedAt,
+		RequestedBy: request.RequestedBy, IdempotencyKey: request.IdempotencyKey, InvalidatedAt: s.now().UTC(),
+	})
 }
 
 func (s *Service) InvalidateProjectionRun(ctx context.Context, request InvalidateProjectionRunRequest) (InvalidationSummary, error) {
-	if s.store == nil {
+	if s.repository == nil {
 		return InvalidationSummary{}, errors.New("graphprojection: retained lifecycle unavailable")
 	}
 	if err := validateInvalidationRequest(request.GraphViewID, request.ProjectionRunID, request.ReasonCode, request.RequestedAt, request.RequestedBy, request.IdempotencyKey); err != nil {
 		return InvalidationSummary{}, err
 	}
-	return s.store.invalidateProjectionRunAt(ctx, request.GraphViewID, request.ProjectionRunID, request.ReasonCode, request.RequestedAt, request.RequestedBy, request.IdempotencyKey, s.now().UTC())
+	return s.repository.InvalidateProjectionRun(ctx, RetainedInvalidation{
+		GraphViewID: request.GraphViewID, ProjectionRunID: request.ProjectionRunID, ReasonCode: request.ReasonCode,
+		RequestedAt: request.RequestedAt, RequestedBy: request.RequestedBy, IdempotencyKey: request.IdempotencyKey,
+		InvalidatedAt: s.now().UTC(),
+	})
 }
 
 func validateInvalidationRequest(graphViewID, projectionRunID, reasonCode, requestedAt, requestedBy, idempotencyKey string) error {

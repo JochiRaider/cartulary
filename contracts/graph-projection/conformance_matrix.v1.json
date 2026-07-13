@@ -89,16 +89,16 @@
     { "fixture_id": "GP-FIX-011", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Endpoint digest computed but no matching vertex." },
     { "fixture_id": "GP-FIX-012", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Schema registry default labels, mapping labels, and source label preservation indicator." },
     { "fixture_id": "GP-FIX-013", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Wildcard property and metadata registry expansion." },
-    { "fixture_id": "GP-FIX-014", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Canonical JSON string escaping." },
-    { "fixture_id": "GP-FIX-015", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Integer lexical forms." },
-    { "fixture_id": "GP-FIX-016", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Timestamp calendar validity." },
-    { "fixture_id": "GP-FIX-017", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Identifier Unicode whitespace boundary." },
+    { "fixture_id": "GP-FIX-014", "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-014/fixture.json", "coverage": "Canonical JSON string escaping." },
+    { "fixture_id": "GP-FIX-015", "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-015/fixture.json", "coverage": "Integer lexical forms." },
+    { "fixture_id": "GP-FIX-016", "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-016/fixture.json", "coverage": "Timestamp calendar validity." },
+    { "fixture_id": "GP-FIX-017", "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-017/fixture.json", "coverage": "Identifier Unicode whitespace boundary." },
     { "fixture_id": "GP-FIX-018", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Lifecycle idempotency exact replay and conflict." },
     { "fixture_id": "GP-FIX-019", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Invalidation summary graph-view cascade." },
     { "fixture_id": "GP-FIX-020", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Graph-view summary state matrix." },
     { "fixture_id": "GP-FIX-021", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Count-bound retention expiry before duration expiry." },
-    { "fixture_id": "GP-FIX-022", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Full digest byte transcript for minimal empty graph." },
-    { "fixture_id": "GP-FIX-023", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Full digest byte transcript for one host property graph." },
+    { "fixture_id": "GP-FIX-022", "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-022/fixture.json", "coverage": "Full digest byte transcript for minimal empty graph." },
+    { "fixture_id": "GP-FIX-023", "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-023/fixture.json", "coverage": "Full digest byte transcript for one host property graph." },
     { "fixture_id": "GP-FIX-024", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Nested unknown member rejected pre-admission with no run, no digests, and no validation issue." },
     { "fixture_id": "GP-FIX-025", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Source item identifier content violation admitted as a failed run with fixed digests and one itemized issue." },
     { "fixture_id": "GP-FIX-026", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Duplicate valid source IDs admitted as fatal duplicate_identifier with deterministic normalized ordering and full digest transcript." },
@@ -111,6 +111,6 @@
     { "fixture_id": "GP-FIX-033", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "refresh_projection on failed returns invalid_operation, reason_code=no_consumable_prior_run." },
     { "fixture_id": "GP-FIX-034", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Representative overflow from the added resource-limit families returns the required limit code and severity." },
     { "fixture_id": "GP-FIX-035", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "Cursor validation precedence chooses cursor_token_too_long for a token that is simultaneously oversized, malformed, and expired." },
-    { "fixture_id": "GP-FIX-036", "fixture_path": "contracts/graph-projection/fixtures/corpus.v1.json", "coverage": "distinct_sorted_array with quote-bearing and reverse-solidus-bearing strings follows canonical JSON byte order." }
+    { "fixture_id": "GP-FIX-036", "fixture_path": "contracts/graph-projection/fixtures/GP-FIX-036/fixture.json", "coverage": "distinct_sorted_array with quote-bearing and reverse-solidus-bearing strings follows canonical JSON byte order." }
   ]
 }

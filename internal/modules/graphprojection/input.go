@@ -508,24 +508,33 @@ func normalizedConfigObject(config ProjectionConfig) map[string]any {
 }
 
 func projectionConfigDigest(request ProjectionRequest) (string, error) {
-	configCore := map[string]any{
-		"graph_view_key":                     request.ProjectionConfig.GraphViewKey,
-		"projection_version":                 request.ProjectionConfig.ProjectionVersion,
-		"declared_source_entity_kinds":       request.ProjectionConfig.DeclaredSourceEntityKinds,
-		"declared_source_relationship_kinds": request.ProjectionConfig.DeclaredSourceRelationshipKinds,
-		"entity_mappings":                    entityMappingsObject(request.ProjectionConfig.EntityMappings),
-		"default_vertex_labels":              request.ProjectionConfig.DefaultVertexLabels,
-		"default_edge_labels":                request.ProjectionConfig.DefaultEdgeLabels,
-		"allow_empty_kind_registry":          request.ProjectionConfig.AllowEmptyKindRegistry,
-		"retention_policy": map[string]any{
-			"retain_replaced_results":           request.ProjectionConfig.RetentionPolicy.RetainReplacedResults,
-			"retention_count":                   request.ProjectionConfig.RetentionPolicy.RetentionCount,
-			"retention_duration_seconds":        request.ProjectionConfig.RetentionPolicy.RetentionDurationSeconds,
-			"retain_failed_results":             request.ProjectionConfig.RetentionPolicy.RetainFailedResults,
-			"failed_retention_count":            request.ProjectionConfig.RetentionPolicy.FailedRetentionCount,
-			"failed_retention_duration_seconds": request.ProjectionConfig.RetentionPolicy.FailedRetentionDurationSecs,
-		},
+	transcript, err := projectionConfigDigestTranscript(request)
+	if err != nil {
+		return "", err
 	}
+	return sha256Hex(transcript), nil
+}
+
+func projectionConfigDigestTranscript(request ProjectionRequest) ([]byte, error) {
+	retention := request.ProjectionConfig.RetentionPolicy
+	configCore := canonicalFields(
+		canonicalMember{Name: "graph_view_key", Value: request.ProjectionConfig.GraphViewKey},
+		canonicalMember{Name: "projection_version", Value: request.ProjectionConfig.ProjectionVersion},
+		canonicalMember{Name: "declared_source_entity_kinds", Value: request.ProjectionConfig.DeclaredSourceEntityKinds},
+		canonicalMember{Name: "declared_source_relationship_kinds", Value: request.ProjectionConfig.DeclaredSourceRelationshipKinds},
+		canonicalMember{Name: "entity_mappings", Value: entityMappingsObject(request.ProjectionConfig.EntityMappings)},
+		canonicalMember{Name: "default_vertex_labels", Value: request.ProjectionConfig.DefaultVertexLabels},
+		canonicalMember{Name: "default_edge_labels", Value: request.ProjectionConfig.DefaultEdgeLabels},
+		canonicalMember{Name: "allow_empty_kind_registry", Value: request.ProjectionConfig.AllowEmptyKindRegistry},
+		canonicalMember{Name: "retention_policy", Value: canonicalFields(
+			canonicalMember{Name: "retain_replaced_results", Value: retention.RetainReplacedResults},
+			canonicalMember{Name: "retention_count", Value: retention.RetentionCount},
+			canonicalMember{Name: "retention_duration_seconds", Value: retention.RetentionDurationSeconds},
+			canonicalMember{Name: "retain_failed_results", Value: retention.RetainFailedResults},
+			canonicalMember{Name: "failed_retention_count", Value: retention.FailedRetentionCount},
+			canonicalMember{Name: "failed_retention_duration_seconds", Value: retention.FailedRetentionDurationSecs},
+		)},
+	)
 	source := "none"
 	if len(request.RelationshipMappings) > 0 {
 		source = "top_level_relationship_definitions"
@@ -533,11 +542,19 @@ func projectionConfigDigest(request ProjectionRequest) (string, error) {
 	if len(request.ProjectionConfig.RelationshipMappings) > 0 {
 		source = "projection_config_relationship_mappings"
 	}
-	return digestTuple("GPCONFIG1\n", request.ProjectionSchemaID, configCore, source, relationshipMappingsObject(request.RelationshipMappings), filtersObject(request.Filters), propertyDefinitionsObject(request.PropertyDefinitions), metadataMappingsObject(request.ProjectionConfig.MetadataMappings), aggregationRulesObject(request.ProjectionConfig.AggregationRules))
+	return tupleBytes("GPCONFIG1\n", request.ProjectionSchemaID, configCore, source, relationshipMappingsObject(request.RelationshipMappings), filtersObject(request.Filters), propertyDefinitionsObject(request.PropertyDefinitions), metadataMappingsObject(request.ProjectionConfig.MetadataMappings), aggregationRulesObject(request.ProjectionConfig.AggregationRules))
 }
 
 func projectionSourceDigest(request ProjectionRequest) (string, error) {
-	return digestTuple("GPSOURCE1\n", request.ProjectionSchemaID, request.SourceSnapshotID, sourceEntitiesObject(request.SourceEntities), sourceRelationshipsObject(request.SourceRelationships), request.SourceMetadata)
+	transcript, err := projectionSourceDigestTranscript(request)
+	if err != nil {
+		return "", err
+	}
+	return sha256Hex(transcript), nil
+}
+
+func projectionSourceDigestTranscript(request ProjectionRequest) ([]byte, error) {
+	return tupleBytes("GPSOURCE1\n", request.ProjectionSchemaID, request.SourceSnapshotID, sourceEntitiesObject(request.SourceEntities), sourceRelationshipsObject(request.SourceRelationships), request.SourceMetadata)
 }
 
 func defaultMissingBehavior(required bool) string {

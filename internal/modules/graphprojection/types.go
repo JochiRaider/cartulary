@@ -33,6 +33,13 @@ type OperationError struct {
 	cause      error
 }
 
+// NewOperationError preserves the opaque error cause while allowing the
+// PostgreSQL adapter to return the closed Graph Projection error shape without
+// depending on private fields.
+func NewOperationError(code, reasonCode string, details map[string]any, cause error) *OperationError {
+	return &OperationError{Code: code, ReasonCode: reasonCode, Details: details, cause: cause}
+}
+
 func (err *OperationError) Unwrap() error {
 	if err == nil {
 		return nil

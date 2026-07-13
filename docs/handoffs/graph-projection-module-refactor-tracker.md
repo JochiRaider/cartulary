@@ -168,7 +168,7 @@ Tracker-only validation is `make lint-markdown`, `make generated-artifact-policy
 | GPRT-005 | Record repository/owner and evidence mismatches | conformance planning | DONE | GPRT-004 | RB-001, RB-002, RB-004 | Mismatches are not mislabeled as owner contradictions or silently resolved. |
 | GPRT-006 | Establish owner-aligned characterization and Make accounting | tests/harness | DONE | GPRT-005 | Phase-neutral subsystem manifests; RB-001/RB-002 | Graph tests execute through public Make targets and matrix claims do not overstate evidence. |
 | GPRT-007 | Extract the private derivation engine | backend refactor | TODO | GPRT-006 | S-01 | Current IDs, bytes, validation, ordering, and callers remain unchanged. |
-| GPRT-008 | Split retained service and PostgreSQL adapter | backend refactor | TODO | GPRT-006, GPRT-007 | S-02 | Transaction, lifecycle, query, retention, and table behavior remain unchanged. |
+| GPRT-008 | Split retained service and PostgreSQL adapter | backend refactor | DONE | GPRT-006, GPRT-007 | GP-W0 repository port and `postgresstore` adapter | The root facade no longer imports PostgreSQL/pgx or exposes `Store`; lifecycle/query behavior remains Make-verified. |
 | GPRT-009 | Redesign Reporting projection-reference seam | cross-module boundary | DONE | GPRT-006, GPRT-008 | Graph binding port and PostgreSQL transaction adapter | Same-transaction behavior and public Reporting reasons are characterized and preserved. |
 | GPRT-010 | Harden facade/import guardrails | architecture | TODO | GPRT-007, GPRT-008, GPRT-009 | S-04 | Only approved facade imports remain and private seams cannot leak. |
 | GPRT-011 | Reconcile matrix, fixtures, selectors, and harness evidence | contracts/harness | IN PROGRESS | GPRT-006, GPRT-010 | All 69 rows downgraded to `planned`; phase-neutral Make rows active; executable generation plan in Section 14 | Evidence claims are executable, owner-aligned, and Make-owned. |
@@ -285,10 +285,51 @@ The 36 fixture registry entries still describe required scenarios; they do not y
 | `make agent-finalize` | PASS; retained-run maintenance skipped because `RESULTS_DIR` was unset | `.cartulary/test-results/20260713T021958Z-p7406` |
 | `make check` | PASS, 139/139 work units and 1,101 tests | `.cartulary/test-results/20260713T022136Z-p90039` |
 
+### GP-W0 repository boundary completion
+
+- Moved the retained PostgreSQL implementation and cursor codec to `internal/modules/graphprojection/postgresstore`; root `graphprojection` now contains the `RetainedRepository` port, domain query DTOs/errors, and the `Service` facade only.
+- Removed the root `Store`, `NewStore*`, and `StoreProjectionOptions` surface. `ServiceOptions.Repository` is the single retained-state dependency. The transaction-bound Reporting binding adapter remains separate in `postgresbinding`.
+- Converted the PostgreSQL lifecycle tests to an external package that constructs the adapter directly, so the root package cannot regain an implicit SQL dependency through tests.
+- Added a root-facade import guard and kept the graph-table-only SQL guard against the child repository.
+
+| Target | Result | Evidence root |
+| --- | --- | --- |
+| `make backend-store` | PASS, 141 tests | `.cartulary/test-results/20260713T024539Z-p94588` |
+| `make backend-module-boundary-check` | PASS | `.cartulary/test-results/20260713T024636Z-p1478` |
+| `make backend-unit` | PASS, 221 tests | `.cartulary/test-results/20260713T024637Z-p1632` |
+
+### GP-W1 fixture contract and verifier foundation
+
+- Added the closed `cartulary.graph_projection_fixture_manifest.v1` schema, registered it with the harness schema-attachment owner, and added a JSON-shape validator for every materialized Graph fixture directory.
+- Added `internal/modules/graphprojection/fixturetest`, a test-only loader that rejects unknown fields, unsafe paths, symlinks, duplicate artifacts, and SHA-256 mismatches. It does not calculate expected Graph behavior.
+- Added the explicit developer-only `make graph-projection-fixture-candidate FIXTURE=GP-FIX-NNN` wrapper. Candidate output is written only under the Make test-results root and cannot modify `contracts/`.
+- Added the first two owner-derived digest manifests (GP-FIX-022 and GP-FIX-023); their behavior evidence is tracked in the next workstream.
+
+| Target | Result | Evidence root |
+| --- | --- | --- |
+| `make phase-schedules` | PASS | `.cartulary/test-results/20260713T025232Z-p8709` |
+| `make json-shape-check` | PASS | `.cartulary/test-results/20260713T025241Z-p8912` |
+| `make backend-unit` | PASS, 224 tests | `.cartulary/test-results/20260713T025008Z-p6091` |
+| `make graph-projection-fixture-candidate FIXTURE=GP-FIX-022` | PASS; disposable candidate only | command output only; no contract mutation |
+
+### GP-W2 canonical and scalar core completion
+
+- Materialized GP-FIX-014 through GP-FIX-017, GP-FIX-022, GP-FIX-023, and GP-FIX-036 as hash-checked fixture directories with focused Make-selected symbols.
+- GP-FIX-022 and GP-FIX-023 compare the owner-published canonical tuple bytes before comparing the resulting SHA-256 digests.
+- Fixture execution exposed a real conformance defect: digest objects were serialized through lexically sorted maps even where §5.8 requires schema-declared member order. Added the internal ordered canonical-object representation and applied it to config/source digest envelopes and their nested mapped objects. Both NLSpec digest goldens now pass.
+- Scalar and canonical string fixtures remain non-claim-bearing until the GP-AC audit verifies each complete acceptance sentence.
+
+| Target | Result | Evidence root |
+| --- | --- | --- |
+| `make json-shape-check` | PASS | `.cartulary/test-results/20260713T030741Z-p50958` |
+| `make backend-unit` | PASS, 231 tests | `.cartulary/test-results/20260713T030743Z-p51287` |
+
 ### Remaining handoff conditions
 
-- Finish relocating the PostgreSQL repository surface below the root facade; the obsolete engine helpers and historical persistence path have been removed.
-- Execute the fixture-generation workstream in Section 14, then audit GP-AC-001 through GP-AC-069 criterion by criterion. Do not promote coverage based on broad characterization tests.
+- GP-W3 through GP-W5 remain pending: materialize GP-FIX-001 through GP-FIX-013, GP-FIX-018 through GP-FIX-021, and GP-FIX-024 through GP-FIX-035 with owner-derived inputs, expected envelopes, state snapshots, and transcript artifacts.
+- GP-FIX-034 uncovered a concrete implementation gap: the closed §4.12 resource-limit registry has not yet been implemented. Add admission, item-scoped, and derived-output enforcement before attempting to promote any criterion that depends on resource limits.
+- Execute the GP-AC-001 through GP-AC-069 criterion audit only after the remaining fixtures exist. Do not promote coverage based on broad characterization tests.
+- `make generate-drift` was attempted at `.cartulary/test-results/20260713T031042Z-p70724` and did not run to completion because pinned `sqlc` bootstrap exhausted `/tmp` (`No space left on device`). No generated output was edited by hand; rerun after reclaiming local tool/build space.
 - Before any later conformance publication, rerun finalization and the broad repository check after the executable fixture and repository-packaging work lands.
 
 ## 14. GP-FIX-001 Through GP-FIX-036 Generation Plan

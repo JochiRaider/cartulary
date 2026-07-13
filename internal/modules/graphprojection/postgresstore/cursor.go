@@ -1,4 +1,6 @@
-package graphprojection
+package postgresstore
+
+import . "github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 
 import (
 	"crypto/aes"
