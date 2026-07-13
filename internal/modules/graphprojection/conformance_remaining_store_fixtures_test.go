@@ -2,8 +2,11 @@ package graphprojection_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,26 +16,113 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
-func TestGPFIX004Remediation(t *testing.T) {
-	assertStoreFixtureLoaded(t, "GP-FIX-004")
-	store := postgresstore.NewWithClock(pgtest.Start(t).BeginRollbackDBT(t, "gpfix004"), fixedTime)
-	input := invalidReverseEdgeInput(t, "gpfix004")
-	run, err := store.CreateProjection(context.Background(), mustJSON(t, input), RetainedProjectionOptions{ProjectionRunNonce: "gpfix004", AcceptedAt: fixedTime(), GeneratedAt: fixedTime()})
+func TestGPFIX004Remediation(t *testing.T) { verifyStoreFixture(t, "GP-FIX-004") }
+func TestGPFIX018Remediation(t *testing.T) { verifyStoreFixture(t, "GP-FIX-018") }
+func TestGPFIX019Remediation(t *testing.T) { verifyStoreFixture(t, "GP-FIX-019") }
+func TestGPFIX020Remediation(t *testing.T) { verifyStoreFixture(t, "GP-FIX-020") }
+func TestGPFIX021Remediation(t *testing.T) { verifyStoreFixture(t, "GP-FIX-021") }
+func TestGPFIX029Remediation(t *testing.T) { verifyStoreFixture(t, "GP-FIX-029") }
+func TestGPFIX030Remediation(t *testing.T) { verifyStoreFixture(t, "GP-FIX-030") }
+func TestGPFIX031Remediation(t *testing.T) { verifyStoreFixture(t, "GP-FIX-031") }
+func TestGPFIX032Remediation(t *testing.T) { verifyStoreFixture(t, "GP-FIX-032") }
+func TestGPFIX033Remediation(t *testing.T) { verifyStoreFixture(t, "GP-FIX-033") }
+func TestGPFIX035Remediation(t *testing.T) { verifyStoreFixture(t, "GP-FIX-035") }
+
+func verifyStoreFixture(t *testing.T, fixtureID string) {
+	t.Helper()
+	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if run.State != RunStateFailed || run.GraphView != nil || run.ValidationSummary.Status != "failed" {
-		t.Fatalf("failed run = %#v", run)
+	root, err := fixturetest.RepoRoot(wd)
+	if err != nil {
+		t.Fatal(err)
 	}
-	reloaded, err := store.GetProjectionRun(context.Background(), run.ProjectionRunID)
-	if err != nil || reloaded.State != RunStateFailed || reloaded.GraphView != nil {
-		t.Fatalf("reloaded failed run = %#v err=%v", reloaded, err)
+	if err := fixturetest.Verify(root, fixtureID, storeFixtureExecutor{t: t}); err != nil {
+		t.Fatal(err)
 	}
 }
 
-func TestGPFIX018Remediation(t *testing.T) {
-	assertStoreFixtureLoaded(t, "GP-FIX-018")
-	store := postgresstore.NewWithClock(pgtest.Start(t).BeginRollbackDBT(t, "gpfix018"), fixedTime)
+type storeFixtureExecutor struct {
+	t *testing.T
+}
+
+func (executor storeFixtureExecutor) ExecuteFixtureStep(manifest fixturetest.Manifest, step fixturetest.Step, input []byte) (fixturetest.StepExecution, error) {
+	if manifest.ExecutionLayer != "backend_store" {
+		return fixturetest.StepExecution{}, fmt.Errorf("fixture %s is not backend_store", manifest.FixtureID)
+	}
+	var declared struct {
+		FixtureID string `json:"fixture_id"`
+		Scenario  string `json:"scenario"`
+	}
+	if err := json.Unmarshal(input, &declared); err != nil {
+		return fixturetest.StepExecution{}, err
+	}
+	if declared.FixtureID != manifest.FixtureID || declared.Scenario == "" {
+		return fixturetest.StepExecution{}, fmt.Errorf("fixture %s input does not declare a semantic scenario", manifest.FixtureID)
+	}
+	state := executor.execute(manifest.FixtureID)
+	artifact, err := json.Marshal(state)
+	if err != nil {
+		return fixturetest.StepExecution{}, err
+	}
+	return fixturetest.StepExecution{Artifact: artifact, StateEffectMode: "retained_state_change"}, nil
+}
+
+func (executor storeFixtureExecutor) execute(fixtureID string) map[string]any {
+	switch fixtureID {
+	case "GP-FIX-004":
+		return executor.gpfix004()
+	case "GP-FIX-018":
+		return executor.gpfix018()
+	case "GP-FIX-019":
+		return executor.gpfix019()
+	case "GP-FIX-020":
+		return executor.gpfix020()
+	case "GP-FIX-021":
+		return executor.gpfix021()
+	case "GP-FIX-029":
+		return executor.gpfix029()
+	case "GP-FIX-030":
+		return executor.gpfix030()
+	case "GP-FIX-031":
+		return executor.gpfix031()
+	case "GP-FIX-032":
+		return executor.gpfix032()
+	case "GP-FIX-033":
+		return executor.gpfix033()
+	case "GP-FIX-035":
+		return executor.gpfix035()
+	default:
+		executor.t.Fatalf("unsupported store fixture %s", fixtureID)
+		return nil
+	}
+}
+
+func (executor storeFixtureExecutor) gpfix004() map[string]any {
+	t := executor.t
+	store := mustPostgresStore(t, pgtest.Start(t).BeginRollbackDBT(t, "gpfix004"), fixedTime, postgresstore.Hooks{})
+	run, err := store.CreateProjection(context.Background(), mustJSON(t, invalidReverseEdgeInput(t, "gpfix004")), RetainedProjectionOptions{ProjectionRunNonce: "gpfix004", AcceptedAt: fixedTime(), GeneratedAt: fixedTime()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reloaded, err := store.GetProjectionRun(context.Background(), run.ProjectionRunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return map[string]any{
+		"fixture_id":               "GP-FIX-004",
+		"create_state":             run.State,
+		"create_graph_retained":    run.GraphView != nil,
+		"create_validation_status": run.ValidationSummary.Status,
+		"reloaded_state":           reloaded.State,
+		"reloaded_graph_retained":  reloaded.GraphView != nil,
+	}
+}
+
+func (executor storeFixtureExecutor) gpfix018() map[string]any {
+	t := executor.t
+	store := mustPostgresStore(t, pgtest.Start(t).BeginRollbackDBT(t, "gpfix018"), fixedTime, postgresstore.Hooks{})
 	ctx := context.Background()
 	input := mustJSON(t, incidentGraphInput(t))
 	first, err := store.CreateProjection(ctx, input, RetainedProjectionOptions{ProjectionRunNonce: "gpfix018-a", AcceptedAt: fixedTime(), GeneratedAt: fixedTime(), IdempotencyKey: "idem"})
@@ -40,20 +130,26 @@ func TestGPFIX018Remediation(t *testing.T) {
 		t.Fatal(err)
 	}
 	replayed, err := store.CreateProjection(ctx, input, RetainedProjectionOptions{ProjectionRunNonce: "gpfix018-a", AcceptedAt: fixedTime(), GeneratedAt: fixedTime(), IdempotencyKey: "idem"})
-	if err != nil || replayed.ProjectionRunID != first.ProjectionRunID || replayed.AcceptedReplay == nil {
-		t.Fatalf("replay = %#v err=%v", replayed, err)
+	if err != nil {
+		t.Fatal(err)
 	}
 	other := incidentGraphInput(t)
 	other["source_metadata"].(map[string]any)["case"] = "beta"
-	_, err = store.CreateProjection(ctx, mustJSON(t, other), RetainedProjectionOptions{ProjectionRunNonce: "gpfix018-b", AcceptedAt: fixedTime(), GeneratedAt: fixedTime(), IdempotencyKey: "idem"})
-	assertStoreOperationError(t, err, "operation_conflict", "idempotency_key_conflict")
-	_, err = store.CreateProjection(ctx, input, RetainedProjectionOptions{ProjectionRunNonce: "gpfix018-a", AcceptedAt: fixedTime().Add(24 * time.Hour), GeneratedAt: fixedTime().Add(24 * time.Hour), IdempotencyKey: "idem"})
-	assertStoreOperationError(t, err, "invalid_operation", "graph_view_already_exists")
+	_, conflictErr := store.CreateProjection(ctx, mustJSON(t, other), RetainedProjectionOptions{ProjectionRunNonce: "gpfix018-b", AcceptedAt: fixedTime(), GeneratedAt: fixedTime(), IdempotencyKey: "idem"})
+	_, expiredErr := store.CreateProjection(ctx, input, RetainedProjectionOptions{ProjectionRunNonce: "gpfix018-c", AcceptedAt: fixedTime().Add(24 * time.Hour), GeneratedAt: fixedTime().Add(24 * time.Hour), IdempotencyKey: "idem"})
+	return map[string]any{
+		"fixture_id":              "GP-FIX-018",
+		"initial_state":           first.State,
+		"replay_same_run":         replayed.ProjectionRunID == first.ProjectionRunID,
+		"replay_summary_returned": replayed.AcceptedReplay != nil,
+		"conflict_error":          lifecycleCodeReason(conflictErr),
+		"expired_key_error":       lifecycleCodeReason(expiredErr),
+	}
 }
 
-func TestGPFIX019Remediation(t *testing.T) {
-	assertStoreFixtureLoaded(t, "GP-FIX-019")
-	store := postgresstore.NewWithClock(pgtest.Start(t).BeginRollbackDBT(t, "gpfix019"), fixedTime)
+func (executor storeFixtureExecutor) gpfix019() map[string]any {
+	t := executor.t
+	store := mustPostgresStore(t, pgtest.Start(t).BeginRollbackDBT(t, "gpfix019"), fixedTime, postgresstore.Hooks{})
 	ctx := context.Background()
 	input := mustJSON(t, incidentGraphInput(t))
 	first, err := store.CreateProjection(ctx, input, RetainedProjectionOptions{ProjectionRunNonce: "gpfix019-a", AcceptedAt: fixedTime(), GeneratedAt: fixedTime()})
@@ -67,14 +163,19 @@ func TestGPFIX019Remediation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if summary.GraphViewStateAfter != GraphViewStateInvalidated || len(summary.InvalidatedRunIDs) != 2 || summary.InvalidatedRunIDs[0] > summary.InvalidatedRunIDs[1] {
-		t.Fatalf("invalidation summary = %#v", summary)
+	return map[string]any{
+		"fixture_id":               "GP-FIX-019",
+		"graph_view_state_after":   summary.GraphViewStateAfter,
+		"invalidated_run_count":    len(summary.InvalidatedRunIDs),
+		"invalidated_ids_ordered":  idsOrdered(summary.InvalidatedRunIDs),
+		"target_scope":             summary.TargetScope,
+		"invalidation_reason_code": summary.ReasonCode,
 	}
 }
 
-func TestGPFIX020Remediation(t *testing.T) {
-	assertStoreFixtureLoaded(t, "GP-FIX-020")
-	store := postgresstore.NewWithClock(pgtest.Start(t).BeginRollbackDBT(t, "gpfix020"), fixedTime)
+func (executor storeFixtureExecutor) gpfix020() map[string]any {
+	t := executor.t
+	store := mustPostgresStore(t, pgtest.Start(t).BeginRollbackDBT(t, "gpfix020"), fixedTime, postgresstore.Hooks{})
 	ctx := context.Background()
 	available, err := store.CreateProjection(ctx, mustJSON(t, retargetGraphInput(t, incidentGraphInput(t), "gpfix020_available")), RetainedProjectionOptions{ProjectionRunNonce: "gpfix020-a", AcceptedAt: fixedTime(), GeneratedAt: fixedTime()})
 	if err != nil {
@@ -91,14 +192,17 @@ func TestGPFIX020Remediation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !summaryState(summaries, available.GraphViewID, GraphViewStateInvalidated) || !summaryState(summaries, failed.GraphViewID, GraphViewStateFailed) {
-		t.Fatalf("summaries = %#v", summaries)
+	return map[string]any{
+		"fixture_id":              "GP-FIX-020",
+		"available_summary_state": summaryState(summaries, available.GraphViewID),
+		"failed_summary_state":    summaryState(summaries, failed.GraphViewID),
+		"summary_count":           len(summaries),
 	}
 }
 
-func TestGPFIX021Remediation(t *testing.T) {
-	assertStoreFixtureLoaded(t, "GP-FIX-021")
-	store := postgresstore.NewWithClock(pgtest.Start(t).BeginRollbackDBT(t, "gpfix021"), fixedTime)
+func (executor storeFixtureExecutor) gpfix021() map[string]any {
+	t := executor.t
+	store := mustPostgresStore(t, pgtest.Start(t).BeginRollbackDBT(t, "gpfix021"), fixedTime, postgresstore.Hooks{})
 	ctx := context.Background()
 	input := incidentGraphInput(t)
 	input["projection_config"].(map[string]any)["retention_policy"] = map[string]any{"retain_replaced_results": true, "retention_count": 0, "retention_duration_seconds": 2592000, "retain_failed_results": true, "failed_retention_count": 20, "failed_retention_duration_seconds": 2592000}
@@ -109,15 +213,17 @@ func TestGPFIX021Remediation(t *testing.T) {
 	if _, err := store.RefreshProjection(ctx, mustJSON(t, input), RetainedProjectionOptions{ProjectionRunNonce: "gpfix021-b", AcceptedAt: fixedTime().Add(time.Second), GeneratedAt: fixedTime().Add(time.Second)}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.GetProjectionRun(ctx, first.ProjectionRunID); !errors.Is(err, ErrProjectionRunNotFound) {
-		t.Fatalf("expired replaced lookup err = %v", err)
+	_, err = store.GetProjectionRun(ctx, first.ProjectionRunID)
+	return map[string]any{
+		"fixture_id":                 "GP-FIX-021",
+		"expired_replaced_not_found": errors.Is(err, ErrProjectionRunNotFound),
 	}
 }
 
-func TestGPFIX029Remediation(t *testing.T) {
-	assertStoreFixtureLoaded(t, "GP-FIX-029")
+func (executor storeFixtureExecutor) gpfix029() map[string]any {
+	t := executor.t
 	db := pgtest.Start(t).BeginRollbackDBT(t, "gpfix029")
-	baseStore := postgresstore.NewWithClock(db, fixedTime)
+	baseStore := mustPostgresStore(t, db, fixedTime, postgresstore.Hooks{})
 	ctx := context.Background()
 	input := mustJSON(t, incidentGraphInput(t))
 	created, err := baseStore.CreateProjection(ctx, input, RetainedProjectionOptions{ProjectionRunNonce: "gpfix029-a", AcceptedAt: fixedTime(), GeneratedAt: fixedTime()})
@@ -126,7 +232,7 @@ func TestGPFIX029Remediation(t *testing.T) {
 	}
 	paused := make(chan struct{})
 	resume := make(chan struct{})
-	refreshStore := postgresstore.NewWithClockAndHooks(db, fixedTime, postgresstore.Hooks{BeforePublication: func(ctx context.Context, run ProjectionRun) error {
+	refreshStore := mustPostgresStore(t, db, fixedTime, postgresstore.Hooks{BeforePublication: func(ctx context.Context, run ProjectionRun) error {
 		close(paused)
 		select {
 		case <-resume:
@@ -151,14 +257,17 @@ func TestGPFIX029Remediation(t *testing.T) {
 	if err := <-errCh; err != nil {
 		t.Fatal(err)
 	}
-	if refreshed.State != RunStateInvalidated || refreshed.GraphView != nil {
-		t.Fatalf("in-flight invalidated run = %#v", refreshed)
+	return map[string]any{
+		"fixture_id":             "GP-FIX-029",
+		"refresh_state":          refreshed.State,
+		"refresh_graph_retained": refreshed.GraphView != nil,
+		"selected_read_error":    queryCodeReason(func() error { _, err := baseStore.GetGraphView(ctx, created.GraphViewID, ""); return err }()),
 	}
 }
 
-func TestGPFIX030Remediation(t *testing.T) {
-	assertStoreFixtureLoaded(t, "GP-FIX-030")
-	store := postgresstore.NewWithClock(pgtest.Start(t).BeginRollbackDBT(t, "gpfix030"), fixedTime)
+func (executor storeFixtureExecutor) gpfix030() map[string]any {
+	t := executor.t
+	store := mustPostgresStore(t, pgtest.Start(t).BeginRollbackDBT(t, "gpfix030"), fixedTime, postgresstore.Hooks{})
 	ctx := context.Background()
 	input := mustJSON(t, incidentGraphInput(t))
 	created, err := store.CreateProjection(ctx, input, RetainedProjectionOptions{ProjectionRunNonce: "gpfix030-a", AcceptedAt: fixedTime(), GeneratedAt: fixedTime()})
@@ -168,22 +277,21 @@ func TestGPFIX030Remediation(t *testing.T) {
 	if _, err := store.InvalidateGraphView(ctx, RetainedInvalidation{GraphViewID: created.GraphViewID, ReasonCode: "security_withdrawal", RequestedAt: "2026-05-30T00:00:00Z", RequestedBy: "fixture", InvalidatedAt: fixedTime().Add(time.Second)}); err != nil {
 		t.Fatal(err)
 	}
-	failedInput := invalidReverseEdgeInput(t, "incident_graph")
-	run, err := store.RefreshProjection(ctx, mustJSON(t, failedInput), RetainedProjectionOptions{ProjectionRunNonce: "gpfix030-b", AcceptedAt: fixedTime().Add(2 * time.Second), GeneratedAt: fixedTime().Add(2 * time.Second)})
+	run, err := store.RefreshProjection(ctx, mustJSON(t, invalidReverseEdgeInput(t, "incident_graph")), RetainedProjectionOptions{ProjectionRunNonce: "gpfix030-b", AcceptedAt: fixedTime().Add(2 * time.Second), GeneratedAt: fixedTime().Add(2 * time.Second)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if run.State != RunStateFailed {
-		t.Fatalf("refresh run = %#v", run)
-	}
-	if _, err := store.GetGraphView(ctx, created.GraphViewID, ""); !errors.Is(err, ErrGraphViewUnavailable) {
-		t.Fatalf("invalidated view lookup err = %v", err)
+	_, readErr := store.GetGraphView(ctx, created.GraphViewID, "")
+	return map[string]any{
+		"fixture_id":          "GP-FIX-030",
+		"refresh_state":       run.State,
+		"selected_read_error": queryCodeReason(readErr),
 	}
 }
 
-func TestGPFIX031Remediation(t *testing.T) {
-	assertStoreFixtureLoaded(t, "GP-FIX-031")
-	store := postgresstore.NewWithClock(pgtest.Start(t).BeginRollbackDBT(t, "gpfix031"), fixedTime)
+func (executor storeFixtureExecutor) gpfix031() map[string]any {
+	t := executor.t
+	store := mustPostgresStore(t, pgtest.Start(t).BeginRollbackDBT(t, "gpfix031"), fixedTime, postgresstore.Hooks{})
 	ctx := context.Background()
 	input := mustJSON(t, incidentGraphInput(t))
 	created, err := store.CreateProjection(ctx, input, RetainedProjectionOptions{ProjectionRunNonce: "gpfix031-a", AcceptedAt: fixedTime(), GeneratedAt: fixedTime()})
@@ -194,12 +302,15 @@ func TestGPFIX031Remediation(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = store.CreateProjection(ctx, input, RetainedProjectionOptions{ProjectionRunNonce: "gpfix031-b", AcceptedAt: fixedTime().Add(2 * time.Second), GeneratedAt: fixedTime().Add(2 * time.Second)})
-	assertStoreOperationError(t, err, "invalid_operation", "graph_view_already_exists")
+	return map[string]any{
+		"fixture_id": "GP-FIX-031",
+		"error":      lifecycleCodeReason(err),
+	}
 }
 
-func TestGPFIX032Remediation(t *testing.T) {
-	assertStoreFixtureLoaded(t, "GP-FIX-032")
-	store := postgresstore.NewWithClock(pgtest.Start(t).BeginRollbackDBT(t, "gpfix032"), fixedTime)
+func (executor storeFixtureExecutor) gpfix032() map[string]any {
+	t := executor.t
+	store := mustPostgresStore(t, pgtest.Start(t).BeginRollbackDBT(t, "gpfix032"), fixedTime, postgresstore.Hooks{})
 	ctx := context.Background()
 	input := incidentGraphInput(t)
 	input["projection_config"].(map[string]any)["retention_policy"] = map[string]any{"retain_replaced_results": true, "retention_count": 1, "retention_duration_seconds": 2592000, "retain_failed_results": true, "failed_retention_count": 20, "failed_retention_duration_seconds": 2592000}
@@ -215,54 +326,47 @@ func TestGPFIX032Remediation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(summary.InvalidatedRunIDs) != 2 {
-		t.Fatalf("invalidated run IDs = %#v", summary.InvalidatedRunIDs)
+	selected, err := store.GetProjectionRun(ctx, second.ProjectionRunID)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if selected, err := store.GetProjectionRun(ctx, second.ProjectionRunID); err != nil || selected.State != RunStateInvalidated || selected.RetentionExpiresAt != nil {
-		t.Fatalf("selected invalidated run = %#v err=%v", selected, err)
+	return map[string]any{
+		"fixture_id":                         "GP-FIX-032",
+		"invalidated_run_count":              len(summary.InvalidatedRunIDs),
+		"selected_state":                     selected.State,
+		"selected_retention_expires_at_null": selected.RetentionExpiresAt == nil,
 	}
 }
 
-func TestGPFIX033Remediation(t *testing.T) {
-	assertStoreFixtureLoaded(t, "GP-FIX-033")
-	store := postgresstore.NewWithClock(pgtest.Start(t).BeginRollbackDBT(t, "gpfix033"), fixedTime)
+func (executor storeFixtureExecutor) gpfix033() map[string]any {
+	t := executor.t
+	store := mustPostgresStore(t, pgtest.Start(t).BeginRollbackDBT(t, "gpfix033"), fixedTime, postgresstore.Hooks{})
 	ctx := context.Background()
-	input := invalidReverseEdgeInput(t, "gpfix033")
-	failed, err := store.CreateProjection(ctx, mustJSON(t, input), RetainedProjectionOptions{ProjectionRunNonce: "gpfix033-a", AcceptedAt: fixedTime(), GeneratedAt: fixedTime()})
+	failed, err := store.CreateProjection(ctx, mustJSON(t, invalidReverseEdgeInput(t, "gpfix033")), RetainedProjectionOptions{ProjectionRunNonce: "gpfix033-a", AcceptedAt: fixedTime(), GeneratedAt: fixedTime()})
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = store.RefreshProjection(ctx, mustJSON(t, input), RetainedProjectionOptions{ProjectionRunNonce: "gpfix033-b", AcceptedAt: fixedTime().Add(time.Second), GeneratedAt: fixedTime().Add(time.Second)})
-	assertStoreOperationError(t, err, "invalid_operation", "no_consumable_prior_run")
+	_, refreshErr := store.RefreshProjection(ctx, mustJSON(t, invalidReverseEdgeInput(t, "gpfix033")), RetainedProjectionOptions{ProjectionRunNonce: "gpfix033-b", AcceptedAt: fixedTime().Add(time.Second), GeneratedAt: fixedTime().Add(time.Second)})
 	reloaded, err := store.GetProjectionRun(ctx, failed.ProjectionRunID)
-	if err != nil || reloaded.State != RunStateFailed {
-		t.Fatalf("failed run changed = %#v err=%v", reloaded, err)
-	}
-}
-
-func TestGPFIX035Remediation(t *testing.T) {
-	assertStoreFixtureLoaded(t, "GP-FIX-035")
-	store := postgresstore.NewWithClock(pgtest.Start(t).BeginRollbackDBT(t, "gpfix035"), fixedTime)
-	if _, _, err := store.ListGraphViews(context.Background(), ListGraphViewsOptions{CursorToken: stringsRepeat("x", ResourceLimits().MaxCursorTokenLength+1)}); !IsOperationError(err, "cursor_invalid", "cursor_token_too_long") {
-		t.Fatalf("oversized cursor err = %v", err)
-	}
-	if _, _, err := store.ListGraphViews(context.Background(), ListGraphViewsOptions{CursorToken: "not-a-valid-cursor"}); !IsOperationError(err, "cursor_invalid", "malformed") {
-		t.Fatalf("malformed cursor err = %v", err)
-	}
-}
-
-func assertStoreFixtureLoaded(t *testing.T, fixtureID string) {
-	t.Helper()
-	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
 	}
-	root, err := fixturetest.RepoRoot(wd)
-	if err != nil {
-		t.Fatal(err)
+	return map[string]any{
+		"fixture_id":       "GP-FIX-033",
+		"refresh_error":    lifecycleCodeReason(refreshErr),
+		"failed_run_state": reloaded.State,
 	}
-	if _, _, err := fixturetest.Load(root, fixtureID); err != nil {
-		t.Fatalf("load %s: %v", fixtureID, err)
+}
+
+func (executor storeFixtureExecutor) gpfix035() map[string]any {
+	t := executor.t
+	store := mustPostgresStore(t, pgtest.Start(t).BeginRollbackDBT(t, "gpfix035"), fixedTime, postgresstore.Hooks{})
+	_, _, oversizedErr := store.ListGraphViews(context.Background(), ListGraphViewsOptions{CursorToken: strings.Repeat("x", ResourceLimits().MaxCursorTokenLength+1)})
+	_, _, malformedErr := store.ListGraphViews(context.Background(), ListGraphViewsOptions{CursorToken: "not-a-valid-cursor"})
+	return map[string]any{
+		"fixture_id":      "GP-FIX-035",
+		"oversized_error": queryCodeReason(oversizedErr),
+		"malformed_error": queryCodeReason(malformedErr),
 	}
 }
 
@@ -275,27 +379,39 @@ func invalidReverseEdgeInput(t *testing.T, key string) map[string]any {
 	return input
 }
 
-func assertStoreOperationError(t *testing.T, err error, code, reason string) {
-	t.Helper()
-	var operationError *OperationError
-	if !errors.As(err, &operationError) || operationError.Code != code || operationError.ReasonCode != reason {
-		t.Fatalf("operation error = %#v want %s/%s", err, code, reason)
+func lifecycleCodeReason(err error) map[string]any {
+	var lifecycleErr *LifecycleError
+	if errors.As(err, &lifecycleErr) {
+		return map[string]any{"code": lifecycleErr.Code, "reason_code": lifecycleErr.ReasonCode}
 	}
+	return map[string]any{"code": fmt.Sprintf("%T", err), "reason_code": ""}
 }
 
-func summaryState(summaries []GraphViewSummary, graphViewID string, state GraphViewState) bool {
-	for _, summary := range summaries {
-		if summary.GraphViewID == graphViewID {
-			return summary.State == state
+func queryCodeReason(err error) map[string]any {
+	var queryErr *QueryError
+	if errors.As(err, &queryErr) {
+		return map[string]any{"code": queryErr.Code, "reason_code": queryErr.ReasonCode}
+	}
+	if errors.Is(err, ErrGraphViewUnavailable) {
+		return map[string]any{"code": "projection_not_available", "reason_code": ""}
+	}
+	return map[string]any{"code": fmt.Sprintf("%T", err), "reason_code": ""}
+}
+
+func idsOrdered(values []string) bool {
+	for index := 1; index < len(values); index++ {
+		if values[index-1] > values[index] {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
-func stringsRepeat(value string, count int) string {
-	out := ""
-	for i := 0; i < count; i++ {
-		out += value
+func summaryState(summaries []GraphViewSummary, graphViewID string) GraphViewState {
+	for _, summary := range summaries {
+		if summary.GraphViewID == graphViewID {
+			return summary.State
+		}
 	}
-	return out
+	return ""
 }

@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 )
 
 type phase12FixtureManifest struct {
@@ -87,6 +89,45 @@ func TestPhase12NetworkFlow_U_12_NFAC052_52_FixtureCorpusIsFrozen(t *testing.T) 
 
 func TestPhase12NetworkFlow_U_12_NFAC053_53_MayStatementsHaveOmissionBehavior(t *testing.T) {
 	phase12AssertUnitSelector(t, "NF-AC-053")
+}
+
+func TestGraphProjectionFailureClassification(t *testing.T) {
+	tests := []struct {
+		name   string
+		err    error
+		reason string
+	}{
+		{
+			name:   "invalid request remains adapter contract rejected",
+			err:    graphprojection.NewLifecycleError("invalid_projection_request", "missing_required_member", map[string]any{"reason_code": "missing_required_member"}, nil),
+			reason: "adapter_contract_rejected",
+		},
+		{
+			name:   "fatal validation remains adapter contract rejected",
+			err:    graphprojection.NewLifecycleError("ephemeral_projection_failed", "fatal_validation", map[string]any{"reason_code": "fatal_validation"}, nil),
+			reason: "adapter_contract_rejected",
+		},
+		{
+			name:   "projection computation failure is unavailable",
+			err:    graphprojection.NewLifecycleError("ephemeral_projection_failed", "projection_computation_failed", map[string]any{"reason_code": "projection_computation_failed"}, nil),
+			reason: "projection_unavailable",
+		},
+		{
+			name:   "query unavailability is unavailable",
+			err:    graphprojection.NewQueryError("projection_not_available", "refreshing", map[string]any{"reason_code": "refreshing"}, nil),
+			reason: "projection_unavailable",
+		},
+		{
+			name:   "unknown pre-outcome error is unavailable",
+			err:    fmt.Errorf("graph projection dependency unavailable"),
+			reason: "projection_unavailable",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			requireAPIError(t, graphProjectionFailedForProjectionError(test.err), "network_flow_graph_projection_failed", test.reason)
+		})
+	}
 }
 
 func TestPhase12NetworkFlow_U_12_NFAC054_54_NormativeAuthorityStaysInOwners(t *testing.T) {

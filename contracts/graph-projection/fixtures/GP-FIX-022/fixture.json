@@ -3,16 +3,65 @@
   "fixture_version": 1,
   "fixture_id": "GP-FIX-022",
   "execution_layer": "backend_unit",
-  "owner_sections": ["4", "7.3.1", "10.9"],
-  "acceptance_ids": ["GP-AC-001", "GP-AC-003", "GP-AC-018", "GP-AC-032", "GP-AC-067"],
-  "test_symbol": "TestGPFIX022MinimalGraphDigestTranscript",
-  "determinism": {"clock": "2026-05-30T00:00:00Z", "nonce": "fixture-empty", "cursor_key_hex": "0000000000000000000000000000000000000000000000000000000000000000"},
-  "steps": [{"id": "project", "operation": "project_ephemeral", "input_artifact": "input.json", "expected_artifact": "expected.digests.json"}],
-  "artifacts": [
-    {"path": "input.json", "role": "input", "sha256": "ebaab3694226f065bd7c5976faf7c2601d8935826d54887e0c33c941517f94b8"},
-    {"path": "expected.digests.json", "role": "digest", "sha256": "9a93dc0f26d2c1a5ffca9837fffe69497223ef2a74b87544d867b52830ec9a18"},
-    {"path": "expected.config-tuple.hex", "role": "transcript", "sha256": "eb0ea634921f97cbc2987312ff1bcb8de8421e20df2644780dbaabd78034563c"},
-    {"path": "expected.source-tuple.hex", "role": "transcript", "sha256": "0e9073ac86932d374b54848a1482162bc2117483b7ed705c1cddb13e19d2b7d2"}
+  "owner_sections": [
+    "4",
+    "7.3.1",
+    "10.9"
   ],
-  "golden": {"provenance": "nlspec_derived", "review_status": "reviewed"}
+  "acceptance_ids": [
+    "GP-AC-001",
+    "GP-AC-003",
+    "GP-AC-018",
+    "GP-AC-032",
+    "GP-AC-050",
+    "GP-AC-067"
+  ],
+  "test_symbol": "TestGPFIX022MinimalGraphDigestTranscript",
+  "determinism": {
+    "clock": "2026-05-30T00:00:00Z",
+    "nonce": "fixture-empty",
+    "cursor_key_hex": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "steps": [
+    {
+      "id": "project",
+      "operation": "project_ephemeral",
+      "input_artifact": "input.json",
+      "expected_artifact": "expected.digests.json"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "input.json",
+      "role": "input",
+      "sha256": "ebaab3694226f065bd7c5976faf7c2601d8935826d54887e0c33c941517f94b8"
+    },
+    {
+      "path": "expected.digests.json",
+      "role": "digest",
+      "sha256": "9a93dc0f26d2c1a5ffca9837fffe69497223ef2a74b87544d867b52830ec9a18"
+    },
+    {
+      "path": "expected.config-tuple.hex",
+      "role": "transcript",
+      "sha256": "eb0ea634921f97cbc2987312ff1bcb8de8421e20df2644780dbaabd78034563c"
+    },
+    {
+      "path": "expected.source-tuple.hex",
+      "role": "transcript",
+      "sha256": "0e9073ac86932d374b54848a1482162bc2117483b7ed705c1cddb13e19d2b7d2"
+    }
+  ],
+  "golden": {
+    "provenance": "nlspec_derived",
+    "review_status": "reviewed"
+  },
+  "comparison": {
+    "scope": "run_specific",
+    "mode": "exact_artifacts",
+    "run_independent_validation": false
+  },
+  "state_effects": {
+    "mode": "no_retained_state_change"
+  }
 }

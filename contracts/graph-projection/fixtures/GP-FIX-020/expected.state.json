@@ -1,5 +1,6 @@
 {
   "fixture_id": "GP-FIX-020",
-  "assertion": "Graph-view summary state matrix.",
-  "test_symbol": "TestGPFIX020Remediation"
+  "available_summary_state": "invalidated",
+  "failed_summary_state": "failed",
+  "summary_count": 2
 }

@@ -1,5 +1,14 @@
 {
   "fixture_id": "GP-FIX-018",
-  "assertion": "Lifecycle idempotency exact replay and conflict.",
-  "test_symbol": "TestGPFIX018Remediation"
+  "initial_state": "available",
+  "replay_same_run": true,
+  "replay_summary_returned": true,
+  "conflict_error": {
+    "code": "operation_conflict",
+    "reason_code": "idempotency_key_conflict"
+  },
+  "expired_key_error": {
+    "code": "invalid_operation",
+    "reason_code": "graph_view_already_exists"
+  }
 }

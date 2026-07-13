@@ -869,7 +869,7 @@ func (s *Service) projectNetworkFlowGraph(ctx context.Context, actorUserID uuid.
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			return nil, graphProjectionFailed("projection_timeout")
 		}
-		return nil, graphProjectionFailed("adapter_contract_rejected")
+		return nil, graphProjectionFailedForProjectionError(err)
 	}
 	projectionResource := result.Resource()
 	summary, ok := projectionResource["validation_summary"].(map[string]any)
@@ -1518,6 +1518,24 @@ func graphProjectionFailed(reason string) *httpapi.APIError {
 		"retry_action":                "do_not_retry",
 		"projection_contract_version": "graph_projection.v1",
 	}}
+}
+
+func graphProjectionFailedForProjectionError(err error) *httpapi.APIError {
+	var lifecycleErr *graphprojection.LifecycleError
+	if errors.As(err, &lifecycleErr) {
+		if lifecycleErr.Code == "invalid_projection_request" {
+			return graphProjectionFailed("adapter_contract_rejected")
+		}
+		if lifecycleErr.Code == "ephemeral_projection_failed" && lifecycleErr.ReasonCode == "fatal_validation" {
+			return graphProjectionFailed("adapter_contract_rejected")
+		}
+		return graphProjectionFailed("projection_unavailable")
+	}
+	var queryErr *graphprojection.QueryError
+	if errors.As(err, &queryErr) {
+		return graphProjectionFailed("projection_unavailable")
+	}
+	return graphProjectionFailed("projection_unavailable")
 }
 
 func graphProjectionFailedForContext(err error) *httpapi.APIError {

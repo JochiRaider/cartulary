@@ -1,5 +1,1 @@
-{
-  "fixture_id": "GP-FIX-002",
-  "assertion": "Duplicate object member pre-admission rejection.",
-  "test_symbol": "TestGPFIX002Remediation"
-}
+{"status":"error","error":{"code":"invalid_projection_request","retryable":false,"details":{"operation":"project_ephemeral","reason_code":"duplicate_object_member","field":"$.projection_schema_id","validation_code":null}}}

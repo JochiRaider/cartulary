@@ -1,5 +1,4 @@
 {
   "fixture_id": "GP-FIX-021",
-  "assertion": "Count-bound retention expiry before duration expiry.",
-  "test_symbol": "TestGPFIX021Remediation"
+  "expired_replaced_not_found": true
 }

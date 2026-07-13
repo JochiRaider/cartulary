@@ -33,8 +33,12 @@
 		"TestGraphProjectionInboundConsumersUseApprovedFacades",
         "TestNoPublicGraphProjectionRoutes",
         "TestStoreSQLStaysWithinGraphProjectionTables",
-        "TestOperationErrorsDoNotEchoSourceAuthoredValues"
-		,"TestProjectEphemeralReturnsFullNonRetainedResult"
+        "TestOperationErrorsDoNotEchoSourceAuthoredValues",
+        "TestProjectEphemeralReturnsFullNonRetainedResult",
+        "TestGraphProjectionErrorEnvelopesAreClosedAndOrdered",
+        "TestProjectionRunInspectionDoesNotExposeRetainedInternals",
+        "TestValidationRegistryRejectsInvalidConstructionAndHashesRequiredDetailsOnly",
+        "TestProjectionCancellationNonceAndOutputValidationBoundaries"
       ],
       "execution_dependency": "backend_unit",
       "evidence_class": "implementation_support",
@@ -56,7 +60,7 @@
       "runner": "go_test",
       "package": "./internal/modules/graphprojection/fixturetest",
       "file": "internal/modules/graphprojection/fixturetest/fixture_test.go",
-      "symbols": ["TestLoadRejectsUnsafeAndCorruptArtifacts", "TestContainedPathRejectsTraversal"],
+      "symbols": ["TestLoadRejectsUnsafeAndCorruptArtifacts", "TestVerifyExecutesAndRejectsSemanticMismatch", "TestContainedPathRejectsTraversal"],
       "execution_dependency": "backend_unit",
       "evidence_class": "implementation_support",
       "layer": "backend_unit",

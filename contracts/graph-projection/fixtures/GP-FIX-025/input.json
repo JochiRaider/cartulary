@@ -1,5 +1,1 @@
-{
-  "fixture_id": "GP-FIX-025",
-  "input_kind": "projection_input",
-  "coverage": "Source item identifier content violation admitted as a failed run with fixed digests and one itemized issue."
-}
+{"graph_view_id":"gv_3020ee0ad5e3c934f8dd103789e1cf2fc156f9ef735f1269e49363530d8f16c8","projection_config":{"allow_empty_kind_registry":true,"declared_source_entity_kinds":[],"entity_mappings":[],"graph_view_key":"fix025"},"projection_schema_id":"graph_projection.v1","requested_at":"2026-05-30T00:00:00Z","requested_by":"fixture","source_entities":[],"source_relationships":[],"source_snapshot_id":" invalid"}

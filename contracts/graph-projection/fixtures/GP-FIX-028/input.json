@@ -1,5 +1,1 @@
-{
-  "fixture_id": "GP-FIX-028",
-  "input_kind": "projection_input",
-  "coverage": "projected.metadata.mapping_rule_id is rejected as a system metadata field path with invalid_field_path."
-}
+["properties.hostname","projected.metadata.mapping_rule_id"]

@@ -1,5 +1,4 @@
 {
   "fixture_id": "GP-FIX-030",
-  "input_kind": "operation_sequence",
-  "coverage": "Refresh from invalidated fails and returns the graph view to invalidated."
+  "scenario": "refresh_from_invalidated_failure"
 }

@@ -1,5 +1,1 @@
-{
-  "fixture_id": "GP-FIX-024",
-  "assertion": "Nested unknown member rejected pre-admission with no run, no digests, and no validation issue.",
-  "test_symbol": "TestGPFIX024Remediation"
-}
+{"status":"error","error":{"code":"invalid_projection_request","retryable":false,"details":{"operation":"project_ephemeral","reason_code":"unknown_member","field":"$.projection_config.retention_policy.unexpected","validation_code":null}}}

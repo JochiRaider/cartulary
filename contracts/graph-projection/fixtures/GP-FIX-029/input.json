@@ -1,5 +1,4 @@
 {
   "fixture_id": "GP-FIX-029",
-  "input_kind": "operation_sequence",
-  "coverage": "Graph-view invalidation during refreshing causes an in-flight successful run to become invalidated and never consumable."
+  "scenario": "in_flight_refresh_invalidated"
 }

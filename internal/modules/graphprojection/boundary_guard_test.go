@@ -186,7 +186,7 @@ func TestOperationErrorsDoNotEchoSourceAuthoredValues(t *testing.T) {
 		"requested_by":"fixture"
 	}`)
 	_, err := admitProjectionInput(input, admitOptions{})
-	var opErr *OperationError
+	var opErr *LifecycleError
 	if err == nil || !strings.Contains(err.Error(), "invalid_projection_request") {
 		t.Fatalf("expected invalid projection request, got %v", err)
 	}

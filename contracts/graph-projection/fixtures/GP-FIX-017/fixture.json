@@ -1,1 +1,50 @@
-{"schema_id":"cartulary.graph_projection_fixture_manifest.v1","fixture_version":1,"fixture_id":"GP-FIX-017","execution_layer":"backend_unit","owner_sections":["4.1"],"acceptance_ids":["GP-AC-063"],"test_symbol":"TestGPFIX017IdentifierUnicodeWhitespace","determinism":{"clock":"2026-05-30T00:00:00Z","nonce":"fixture-identifiers","cursor_key_hex":"0000000000000000000000000000000000000000000000000000000000000000"},"steps":[{"id":"classify","operation":"project_ephemeral","input_artifact":"input.json","expected_artifact":"expected.json"}],"artifacts":[{"path":"input.json","role":"input","sha256":"aac4719a6026a2aaed40df8ec527aa8450cbb8ca22f7930454b773d4edf864df"},{"path":"expected.json","role":"expected_response","sha256":"240e8752f5dfcca1a6f9d4093c710172018a6393540c19cb1e0fa33a8662e848"}],"golden":{"provenance":"nlspec_derived","review_status":"reviewed"}}
+{
+  "schema_id": "cartulary.graph_projection_fixture_manifest.v1",
+  "fixture_version": 1,
+  "fixture_id": "GP-FIX-017",
+  "execution_layer": "backend_unit",
+  "owner_sections": [
+    "4.1"
+  ],
+  "acceptance_ids": [
+    "GP-AC-063"
+  ],
+  "test_symbol": "TestGPFIX017IdentifierUnicodeWhitespace",
+  "determinism": {
+    "clock": "2026-05-30T00:00:00Z",
+    "nonce": "fixture-identifiers",
+    "cursor_key_hex": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "steps": [
+    {
+      "id": "classify",
+      "operation": "classify_identifiers",
+      "input_artifact": "input.json",
+      "expected_artifact": "expected.json"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "input.json",
+      "role": "input",
+      "sha256": "aac4719a6026a2aaed40df8ec527aa8450cbb8ca22f7930454b773d4edf864df"
+    },
+    {
+      "path": "expected.json",
+      "role": "expected_response",
+      "sha256": "240e8752f5dfcca1a6f9d4093c710172018a6393540c19cb1e0fa33a8662e848"
+    }
+  ],
+  "golden": {
+    "provenance": "nlspec_derived",
+    "review_status": "reviewed"
+  },
+  "comparison": {
+    "scope": "run_independent",
+    "mode": "exact_artifacts",
+    "run_independent_validation": false
+  },
+  "state_effects": {
+    "mode": "no_retained_state_change"
+  }
+}

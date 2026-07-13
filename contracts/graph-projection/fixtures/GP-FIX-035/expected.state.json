@@ -1,5 +1,11 @@
 {
   "fixture_id": "GP-FIX-035",
-  "assertion": "Cursor validation precedence chooses cursor_token_too_long for a token that is simultaneously oversized, malformed, and expired.",
-  "test_symbol": "TestGPFIX035Remediation"
+  "oversized_error": {
+    "code": "cursor_invalid",
+    "reason_code": "cursor_token_too_long"
+  },
+  "malformed_error": {
+    "code": "cursor_invalid",
+    "reason_code": "malformed"
+  }
 }

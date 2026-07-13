@@ -1,1 +1,56 @@
-{"schema_id":"cartulary.graph_projection_fixture_manifest.v1","fixture_version":1,"fixture_id":"GP-FIX-018","execution_layer":"backend_store","owner_sections":["4","5","9","10","11"],"acceptance_ids":["GP-AC-033","GP-AC-053","GP-AC-055"],"test_symbol":"TestGPFIX018Remediation","determinism":{"clock":"2026-05-30T00:00:00Z","nonce":"fixture-gp-fix-018","cursor_key_hex":"0000000000000000000000000000000000000000000000000000000000000000"},"steps":[{"id":"verify","operation":"create_projection","input_artifact":"input.json","expected_artifact":"expected.state.json"}],"artifacts":[{"path":"input.json","role":"input","sha256":"b12352b98aa712ab2c5414f9ca11ff45b9dc1cfb003913042250a5989b05b229"},{"path":"expected.state.json","role":"expected_state","sha256":"0d95d840b592a12c897b53fc8e67b9391c82437d1135dd1373f7fdfb71de35ed"}],"golden":{"provenance":"nlspec_derived","review_status":"reviewed"}}
+{
+  "schema_id": "cartulary.graph_projection_fixture_manifest.v1",
+  "fixture_version": 1,
+  "fixture_id": "GP-FIX-018",
+  "execution_layer": "backend_store",
+  "owner_sections": [
+    "4",
+    "5",
+    "9",
+    "10",
+    "11"
+  ],
+  "acceptance_ids": [
+    "GP-AC-033",
+    "GP-AC-053",
+    "GP-AC-055"
+  ],
+  "test_symbol": "TestGPFIX018Remediation",
+  "determinism": {
+    "clock": "2026-05-30T00:00:00Z",
+    "nonce": "fixture-gp-fix-018",
+    "cursor_key_hex": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "steps": [
+    {
+      "id": "verify",
+      "operation": "create_projection",
+      "input_artifact": "input.json",
+      "expected_artifact": "expected.state.json"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "input.json",
+      "role": "input",
+      "sha256": "11165bffdfa223e70b63e612bf2b4492a10f50d6d63eb30749ccd8a2c49b0a64"
+    },
+    {
+      "path": "expected.state.json",
+      "role": "expected_state",
+      "sha256": "043609e5cf3e6d91b6581b1ee002edb3d074a0d111110cf865049bfe9d1b30fc"
+    }
+  ],
+  "golden": {
+    "provenance": "nlspec_derived",
+    "review_status": "reviewed"
+  },
+  "comparison": {
+    "scope": "run_specific",
+    "mode": "exact_artifacts",
+    "run_independent_validation": false
+  },
+  "state_effects": {
+    "mode": "retained_state_change"
+  }
+}

@@ -12,6 +12,8 @@
     "acceptance_ids",
     "test_symbol",
     "determinism",
+    "comparison",
+    "state_effects",
     "steps",
     "artifacts",
     "golden"
@@ -22,9 +24,11 @@
     "fixture_id": { "type": "string", "pattern": "^GP-FIX-[0-9]{3}$" },
     "execution_layer": { "enum": ["backend_unit", "backend_store"] },
     "owner_sections": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^[0-9]+(?:\\.[0-9]+)*$" } },
-    "acceptance_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^GP-AC-[0-9]{3}$" } },
+    "acceptance_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^GP-AC-[0-9]{3}$" } },
     "test_symbol": { "type": "string", "pattern": "^TestGP(?:FIX|AC)[A-Za-z0-9_]+$" },
     "determinism": { "$ref": "#/$defs/determinism" },
+    "comparison": { "$ref": "#/$defs/comparison" },
+    "state_effects": { "$ref": "#/$defs/state_effects" },
     "steps": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/step" } },
     "artifacts": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/artifact" } },
     "golden": { "$ref": "#/$defs/golden" }
@@ -41,12 +45,34 @@
         "cursor_key_hex": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
       }
     },
+    "comparison": {
+      "type": "object", "additionalProperties": false,
+      "required": ["scope", "mode", "run_independent_validation"],
+      "properties": {
+        "scope": { "enum": ["run_specific", "run_independent"] },
+        "mode": { "const": "exact_artifacts" },
+        "run_independent_validation": { "type": "boolean" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "scope": { "const": "run_specific" } } },
+          "then": { "properties": { "run_independent_validation": { "const": false } } }
+        }
+      ]
+    },
+    "state_effects": {
+      "type": "object", "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["no_retained_state_change", "retained_state_change"] }
+      }
+    },
     "step": {
       "type": "object", "additionalProperties": false,
       "required": ["id", "operation"],
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
-        "operation": { "enum": ["project_ephemeral", "create_projection", "refresh_projection", "invalidate_graph_view", "invalidate_projection_run", "get_graph_view", "get_projection_run", "get_vertex", "get_edge", "list_graph_views", "traverse", "advance_clock"] },
+        "operation": { "enum": ["project_ephemeral", "project_ephemeral_with_limits", "admit_projection", "canonical_json", "classify_integers", "classify_timestamps", "classify_identifiers", "classify_field_paths", "sort_canonical_values", "summarize_validation_issues", "evaluate_property_candidates", "merge_property_values", "create_projection", "refresh_projection", "invalidate_graph_view", "invalidate_projection_run", "get_graph_view", "get_projection_run", "get_vertex", "get_edge", "list_graph_views", "traverse", "advance_clock"] },
         "input_artifact": { "$ref": "#/$defs/relative_path" },
         "expected_artifact": { "$ref": "#/$defs/relative_path" }
       }

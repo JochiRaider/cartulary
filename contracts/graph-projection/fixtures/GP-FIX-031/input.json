@@ -1,5 +1,4 @@
 {
   "fixture_id": "GP-FIX-031",
-  "input_kind": "operation_sequence",
-  "coverage": "create_projection on an invalidated graph view returns invalid_operation, reason_code=graph_view_already_exists."
+  "scenario": "create_on_invalidated_rejected"
 }

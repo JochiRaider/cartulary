@@ -1,1 +1,54 @@
-{"schema_id":"cartulary.graph_projection_fixture_manifest.v1","fixture_version":1,"fixture_id":"GP-FIX-026","execution_layer":"backend_unit","owner_sections":["4","5","9","10","11"],"acceptance_ids":["GP-AC-068"],"test_symbol":"TestGPFIX026Remediation","determinism":{"clock":"2026-05-30T00:00:00Z","nonce":"fixture-gp-fix-026","cursor_key_hex":"0000000000000000000000000000000000000000000000000000000000000000"},"steps":[{"id":"verify","operation":"project_ephemeral","input_artifact":"input.json","expected_artifact":"expected.response.json"}],"artifacts":[{"path":"input.json","role":"input","sha256":"4c6bbe5860c7dc1f8be4dce45f430c5da613f5a8bc4bd3cca4f5bb287b61929a"},{"path":"expected.response.json","role":"expected_response","sha256":"bd80f2130959ccaf88cfe3a5d498a4def69face0cb1bce9493980d042d559e1b"}],"golden":{"provenance":"nlspec_derived","review_status":"reviewed"}}
+{
+  "schema_id": "cartulary.graph_projection_fixture_manifest.v1",
+  "fixture_version": 1,
+  "fixture_id": "GP-FIX-026",
+  "execution_layer": "backend_unit",
+  "owner_sections": [
+    "4",
+    "5",
+    "9",
+    "10",
+    "11"
+  ],
+  "acceptance_ids": [
+    "GP-AC-068"
+  ],
+  "test_symbol": "TestGPFIX026Remediation",
+  "determinism": {
+    "clock": "2026-05-30T00:00:00Z",
+    "nonce": "fixture-gp-fix-026",
+    "cursor_key_hex": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "steps": [
+    {
+      "id": "verify",
+      "operation": "project_ephemeral",
+      "input_artifact": "input.json",
+      "expected_artifact": "expected.response.json"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "input.json",
+      "role": "input",
+      "sha256": "6b36c4152c7597dd72c032199605b1b9ae0701f5169f1fbac87a29e882ea9e74"
+    },
+    {
+      "path": "expected.response.json",
+      "role": "expected_response",
+      "sha256": "6db976bcaec055820094ed631bba595fa7d2c7e5fae4754ab1fc6d16444d9d07"
+    }
+  ],
+  "golden": {
+    "provenance": "nlspec_derived",
+    "review_status": "reviewed"
+  },
+  "comparison": {
+    "scope": "run_specific",
+    "mode": "exact_artifacts",
+    "run_independent_validation": false
+  },
+  "state_effects": {
+    "mode": "no_retained_state_change"
+  }
+}

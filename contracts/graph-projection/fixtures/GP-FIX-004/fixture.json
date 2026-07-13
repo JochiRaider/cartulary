@@ -1,1 +1,58 @@
-{"schema_id":"cartulary.graph_projection_fixture_manifest.v1","fixture_version":1,"fixture_id":"GP-FIX-004","execution_layer":"backend_store","owner_sections":["4","5","9","10","11"],"acceptance_ids":["GP-AC-007","GP-AC-020","GP-AC-023","GP-AC-052","GP-AC-061"],"test_symbol":"TestGPFIX004Remediation","determinism":{"clock":"2026-05-30T00:00:00Z","nonce":"fixture-gp-fix-004","cursor_key_hex":"0000000000000000000000000000000000000000000000000000000000000000"},"steps":[{"id":"verify","operation":"project_ephemeral","input_artifact":"input.json","expected_artifact":"expected.state.json"}],"artifacts":[{"path":"input.json","role":"input","sha256":"da045771126687ee8757ce035137931d8ed0c10c82a3107c579508da8260853f"},{"path":"expected.state.json","role":"expected_state","sha256":"23a3877659ee45f3c4dcdd5b35130788cd081557b8ed4f18f12295a54032db5f"}],"golden":{"provenance":"nlspec_derived","review_status":"reviewed"}}
+{
+  "schema_id": "cartulary.graph_projection_fixture_manifest.v1",
+  "fixture_version": 1,
+  "fixture_id": "GP-FIX-004",
+  "execution_layer": "backend_store",
+  "owner_sections": [
+    "4",
+    "5",
+    "9",
+    "10",
+    "11"
+  ],
+  "acceptance_ids": [
+    "GP-AC-007",
+    "GP-AC-020",
+    "GP-AC-023",
+    "GP-AC-052",
+    "GP-AC-061"
+  ],
+  "test_symbol": "TestGPFIX004Remediation",
+  "determinism": {
+    "clock": "2026-05-30T00:00:00Z",
+    "nonce": "fixture-gp-fix-004",
+    "cursor_key_hex": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "steps": [
+    {
+      "id": "verify",
+      "operation": "project_ephemeral",
+      "input_artifact": "input.json",
+      "expected_artifact": "expected.state.json"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "input.json",
+      "role": "input",
+      "sha256": "064463fae549f2dfee1d0a48b0dadf9df48f887445bacc950434f0a1b54adffc"
+    },
+    {
+      "path": "expected.state.json",
+      "role": "expected_state",
+      "sha256": "cb863c6e1d894b07ca8e9d3f7e10a85bf5cffa982a4e84d3d89e36de3f530d9c"
+    }
+  ],
+  "golden": {
+    "provenance": "nlspec_derived",
+    "review_status": "reviewed"
+  },
+  "comparison": {
+    "scope": "run_specific",
+    "mode": "exact_artifacts",
+    "run_independent_validation": false
+  },
+  "state_effects": {
+    "mode": "retained_state_change"
+  }
+}

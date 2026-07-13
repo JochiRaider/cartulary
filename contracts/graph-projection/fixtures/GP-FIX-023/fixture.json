@@ -3,16 +3,65 @@
   "fixture_version": 1,
   "fixture_id": "GP-FIX-023",
   "execution_layer": "backend_unit",
-  "owner_sections": ["4", "5", "7.3.1", "10.9"],
-  "acceptance_ids": ["GP-AC-003", "GP-AC-018", "GP-AC-032", "GP-AC-067"],
-  "test_symbol": "TestGPFIX023HostGraphDigestTranscript",
-  "determinism": {"clock": "2026-05-30T00:00:00Z", "nonce": "fixture-host", "cursor_key_hex": "0000000000000000000000000000000000000000000000000000000000000000"},
-  "steps": [{"id": "project", "operation": "project_ephemeral", "input_artifact": "input.json", "expected_artifact": "expected.digests.json"}],
-  "artifacts": [
-    {"path": "input.json", "role": "input", "sha256": "3bb116525660c524db848797c3b5ab67c1c50f8e6aea063087cd602583c79c21"},
-    {"path": "expected.digests.json", "role": "digest", "sha256": "1b1d14d2e32d8306a811fd3091fda467b893e490a44d5766d83310daa17923f0"},
-    {"path": "expected.config-tuple.hex", "role": "transcript", "sha256": "24ca1a07dbafbacd171dabeee4f760e0835fa0f2ea73be649c4d58ee9dd81467"},
-    {"path": "expected.source-tuple.hex", "role": "transcript", "sha256": "e855f29cc2524021b44b31b3262fa24aa61b0d1c69991212db5b8518f2e73327"}
+  "owner_sections": [
+    "4",
+    "5",
+    "7.3.1",
+    "10.9"
   ],
-  "golden": {"provenance": "nlspec_derived", "review_status": "reviewed"}
+  "acceptance_ids": [
+    "GP-AC-003",
+    "GP-AC-018",
+    "GP-AC-032",
+    "GP-AC-050",
+    "GP-AC-067"
+  ],
+  "test_symbol": "TestGPFIX023HostGraphDigestTranscript",
+  "determinism": {
+    "clock": "2026-05-30T00:00:00Z",
+    "nonce": "fixture-host",
+    "cursor_key_hex": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "steps": [
+    {
+      "id": "project",
+      "operation": "project_ephemeral",
+      "input_artifact": "input.json",
+      "expected_artifact": "expected.digests.json"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "input.json",
+      "role": "input",
+      "sha256": "3bb116525660c524db848797c3b5ab67c1c50f8e6aea063087cd602583c79c21"
+    },
+    {
+      "path": "expected.digests.json",
+      "role": "digest",
+      "sha256": "1b1d14d2e32d8306a811fd3091fda467b893e490a44d5766d83310daa17923f0"
+    },
+    {
+      "path": "expected.config-tuple.hex",
+      "role": "transcript",
+      "sha256": "24ca1a07dbafbacd171dabeee4f760e0835fa0f2ea73be649c4d58ee9dd81467"
+    },
+    {
+      "path": "expected.source-tuple.hex",
+      "role": "transcript",
+      "sha256": "e855f29cc2524021b44b31b3262fa24aa61b0d1c69991212db5b8518f2e73327"
+    }
+  ],
+  "golden": {
+    "provenance": "nlspec_derived",
+    "review_status": "reviewed"
+  },
+  "comparison": {
+    "scope": "run_specific",
+    "mode": "exact_artifacts",
+    "run_independent_validation": false
+  },
+  "state_effects": {
+    "mode": "no_retained_state_change"
+  }
 }

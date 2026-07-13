@@ -31,14 +31,6 @@ func newGraphCursorCodec(key []byte) (*graphCursorCodec, error) {
 	return &graphCursorCodec{aead: aead}, nil
 }
 
-func randomCursorKey() ([]byte, error) {
-	key := make([]byte, 32)
-	if _, err := rand.Read(key); err != nil {
-		return nil, err
-	}
-	return key, nil
-}
-
 func (c *graphCursorCodec) encode(cursor listCursor) (string, error) {
 	payload, err := json.Marshal(cursor)
 	if err != nil {

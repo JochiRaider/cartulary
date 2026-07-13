@@ -31,7 +31,7 @@ func TestDuplicateObjectMembersRejected(t *testing.T) {
 	t.Parallel()
 
 	_, err := admitProjectionInput([]byte(`{"projection_schema_id":"graph_projection.v1","projection_schema_id":"graph_projection.v1"}`), admitOptions{})
-	var opErr *OperationError
+	var opErr *LifecycleError
 	if !errors.As(err, &opErr) {
 		t.Fatalf("expected operation error, got %T %v", err, err)
 	}
@@ -46,7 +46,7 @@ func TestAdmissionRejectsInvalidGraphViewID(t *testing.T) {
 	input := minimalInput(t, "empty")
 	input["graph_view_id"] = "gv_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	_, err := admitProjectionInput(mustJSON(t, input), admitOptions{})
-	var opErr *OperationError
+	var opErr *LifecycleError
 	if !errors.As(err, &opErr) {
 		t.Fatalf("expected operation error, got %T %v", err, err)
 	}

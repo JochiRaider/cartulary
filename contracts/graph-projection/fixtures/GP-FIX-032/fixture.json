@@ -1,1 +1,54 @@
-{"schema_id":"cartulary.graph_projection_fixture_manifest.v1","fixture_version":1,"fixture_id":"GP-FIX-032","execution_layer":"backend_store","owner_sections":["4","5","9","10","11"],"acceptance_ids":["GP-AC-066"],"test_symbol":"TestGPFIX032Remediation","determinism":{"clock":"2026-05-30T00:00:00Z","nonce":"fixture-gp-fix-032","cursor_key_hex":"0000000000000000000000000000000000000000000000000000000000000000"},"steps":[{"id":"verify","operation":"create_projection","input_artifact":"input.json","expected_artifact":"expected.state.json"}],"artifacts":[{"path":"input.json","role":"input","sha256":"02e74ecd4f03ffd3c8e5f6356c2f31f89a3106f93c6d530638c43541b0a48f35"},{"path":"expected.state.json","role":"expected_state","sha256":"825343474af68d3d38a129072df078f31bbdc3d16198ed1f86db5ae458b9bec3"}],"golden":{"provenance":"nlspec_derived","review_status":"reviewed"}}
+{
+  "schema_id": "cartulary.graph_projection_fixture_manifest.v1",
+  "fixture_version": 1,
+  "fixture_id": "GP-FIX-032",
+  "execution_layer": "backend_store",
+  "owner_sections": [
+    "4",
+    "5",
+    "9",
+    "10",
+    "11"
+  ],
+  "acceptance_ids": [
+    "GP-AC-066"
+  ],
+  "test_symbol": "TestGPFIX032Remediation",
+  "determinism": {
+    "clock": "2026-05-30T00:00:00Z",
+    "nonce": "fixture-gp-fix-032",
+    "cursor_key_hex": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "steps": [
+    {
+      "id": "verify",
+      "operation": "create_projection",
+      "input_artifact": "input.json",
+      "expected_artifact": "expected.state.json"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "input.json",
+      "role": "input",
+      "sha256": "bc362820e9528fe41ddcb4ff5b4e245a9774524a4226a470b056a18d8f9ec7cb"
+    },
+    {
+      "path": "expected.state.json",
+      "role": "expected_state",
+      "sha256": "c324c8dcd4ba9e72f4749286e5789234b659bca0d98ead645640ea10ec8cafba"
+    }
+  ],
+  "golden": {
+    "provenance": "nlspec_derived",
+    "review_status": "reviewed"
+  },
+  "comparison": {
+    "scope": "run_specific",
+    "mode": "exact_artifacts",
+    "run_independent_validation": false
+  },
+  "state_effects": {
+    "mode": "retained_state_change"
+  }
+}

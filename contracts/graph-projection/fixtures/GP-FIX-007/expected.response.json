@@ -1,5 +1,1 @@
-{
-  "fixture_id": "GP-FIX-007",
-  "assertion": "Aggregation single_value merge conflict after default materialization.",
-  "test_symbol": "TestGPFIX007Remediation"
-}
+{"conflict":true,"include":false,"value":null}

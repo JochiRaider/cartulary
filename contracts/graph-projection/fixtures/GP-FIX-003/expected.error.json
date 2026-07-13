@@ -1,5 +1,1 @@
-{
-  "fixture_id": "GP-FIX-003",
-  "assertion": "Invalid derived graph_view_id pre-admission rejection.",
-  "test_symbol": "TestGPFIX003Remediation"
-}
+{"status":"error","error":{"code":"invalid_projection_request","retryable":false,"details":{"operation":"project_ephemeral","reason_code":"invalid_graph_view_id","field":"$.graph_view_id","validation_code":"invalid_graph_view_id"}}}

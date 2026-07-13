@@ -37,7 +37,7 @@ func canonicalInputMemberPath(parent, member string) string {
 
 func schemaError(reason, field, validationCode string) error {
 	details := map[string]any{"reason_code": reason, "field": nullableField(field), "validation_code": nullableCode(validationCode)}
-	return &OperationError{Code: "invalid_projection_request", ReasonCode: reason, Field: field, Details: details}
+	return &LifecycleError{Code: "invalid_projection_request", ReasonCode: reason, Field: field, Details: details}
 }
 
 func nullableField(value string) any {
@@ -419,7 +419,7 @@ func validateStringArray(value any, path, validationCode string) error {
 }
 
 func annotateAdmissionError(err error, operation string) error {
-	opErr, ok := err.(*OperationError)
+	opErr, ok := err.(*LifecycleError)
 	if !ok {
 		return err
 	}

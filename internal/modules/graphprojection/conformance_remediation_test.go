@@ -9,7 +9,7 @@ import (
 
 func TestMalformedJSONIsNotMisclassifiedAsDuplicateMember(t *testing.T) {
 	_, err := admitProjectionInput([]byte(`{"projection_schema_id":`), admitOptions{Operation: "project_ephemeral"})
-	var operationError *OperationError
+	var operationError *LifecycleError
 	if !errors.As(err, &operationError) || operationError.ReasonCode != "invalid_json_syntax" {
 		t.Fatalf("malformed JSON error = %#v", err)
 	}
@@ -22,7 +22,7 @@ func TestGraphViewIDMismatchDoesNotExposeDerivedIdentity(t *testing.T) {
 	input := minimalInput(t, "mismatched-identity")
 	input["graph_view_id"] = "gv_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	_, err := admitProjectionInput(mustJSON(t, input), admitOptions{Operation: "create_projection"})
-	var operationError *OperationError
+	var operationError *LifecycleError
 	if !errors.As(err, &operationError) || operationError.ReasonCode != "invalid_graph_view_id" {
 		t.Fatalf("graph view mismatch error = %#v", err)
 	}
@@ -53,7 +53,7 @@ func TestAdmissionRejectsVirtualOversizedInputBeforeRead(t *testing.T) {
 	if input.read {
 		t.Fatal("oversized input bytes were read")
 	}
-	var operationError *OperationError
+	var operationError *LifecycleError
 	if !errors.As(err, &operationError) || operationError.Code != "invalid_projection_request" || operationError.ReasonCode != "whole_input_limit_exceeded" {
 		t.Fatalf("oversized admission error = %#v", err)
 	}
@@ -66,7 +66,7 @@ func TestAdmissionRejectsNestedUnknownMemberWithClosedDetails(t *testing.T) {
 	input := minimalInput(t, "nested-unknown")
 	input["projection_config"].(map[string]any)["retention_policy"] = map[string]any{"retention_count": 2, "private_knob": true}
 	_, err := admitProjectionInput(mustJSON(t, input), admitOptions{Operation: "refresh_projection"})
-	var operationError *OperationError
+	var operationError *LifecycleError
 	if !errors.As(err, &operationError) {
 		t.Fatalf("nested unknown error = %T %v", err, err)
 	}
@@ -139,7 +139,11 @@ func TestIdempotencyKeyUsesUnicodeScalarContract(t *testing.T) {
 	}
 	for _, value := range []string{" key", "key ", strings.Repeat("é", 129), "key\u0085value"} {
 		err := validateIdempotencyKey("create_projection", value)
-		if !IsOperationError(err, "invalid_operation", "invalid_idempotency_key") {
+		wantReason := "invalid_value"
+		if len([]rune(value)) > 128 {
+			wantReason = "out_of_bounds"
+		}
+		if !IsLifecycleError(err, "invalid_operation_request", wantReason) {
 			t.Fatalf("invalid key %q error = %v", value, err)
 		}
 	}
@@ -149,10 +153,10 @@ func TestIdempotencyPresenceDistinguishesOmittedNullAndEmpty(t *testing.T) {
 	if value, err := resolveIdempotencyKey("create_projection", Optional[string]{}); err != nil || value != "" {
 		t.Fatalf("omitted idempotency = %q, %v", value, err)
 	}
-	if _, err := resolveIdempotencyKey("create_projection", ExplicitNull[string]()); !IsOperationError(err, "invalid_operation", "explicit_null_not_allowed") {
+	if _, err := resolveIdempotencyKey("create_projection", ExplicitNull[string]()); !IsLifecycleError(err, "invalid_operation_request", "explicit_null_not_allowed") {
 		t.Fatalf("explicit null idempotency error = %v", err)
 	}
-	if _, err := resolveIdempotencyKey("create_projection", ValueOf("")); !IsOperationError(err, "invalid_operation", "invalid_idempotency_key") {
+	if _, err := resolveIdempotencyKey("create_projection", ValueOf("")); !IsLifecycleError(err, "invalid_operation_request", "out_of_bounds") {
 		t.Fatalf("empty idempotency error = %v", err)
 	}
 }

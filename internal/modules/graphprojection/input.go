@@ -71,22 +71,22 @@ func admitProjectionInputSource(source projectionInputSource, options admitOptio
 	}
 	expectedGraphViewID, err := deriveGraphViewID(request.ProjectionConfig.GraphViewKey)
 	if err != nil {
-		return ProjectionRun{}, invalidRequest("invalid_projection_request", "$.projection_config.graph_view_key", nil)
+		return ProjectionRun{}, invalidRequest("normalization_failed", "$.projection_config.graph_view_key", nil)
 	}
 	if request.GraphViewID != expectedGraphViewID {
-		return ProjectionRun{}, invalidRequest("invalid_graph_view_id", "$.graph_view_id", map[string]any{"validation_code": "graph_view_id_mismatch"})
+		return ProjectionRun{}, invalidRequest("invalid_graph_view_id", "$.graph_view_id", map[string]any{"validation_code": "invalid_graph_view_id"})
 	}
 	configDigest, err := projectionConfigDigest(request)
 	if err != nil {
-		return ProjectionRun{}, invalidRequest("invalid_projection_request", "", map[string]any{"validation_code": "canonicalization_failed"})
+		return ProjectionRun{}, invalidRequest("normalization_failed", "", nil)
 	}
 	sourceDigest, err := projectionSourceDigest(request)
 	if err != nil {
-		return ProjectionRun{}, invalidRequest("invalid_projection_request", "", map[string]any{"validation_code": "canonicalization_failed"})
+		return ProjectionRun{}, invalidRequest("normalization_failed", "", nil)
 	}
 	nonce := strings.TrimSpace(options.ProjectionRunNonce)
 	if nonce == "" {
-		nonce = "run_nonce_default"
+		return ProjectionRun{}, fmt.Errorf("graphprojection: projection nonce is required")
 	}
 	idPrefix := options.InvocationIDPrefix
 	if idPrefix == "" {
@@ -98,7 +98,7 @@ func admitProjectionInputSource(source projectionInputSource, options admitOptio
 	}
 	runID, err := generatedID(idPrefix, domain, "projection_run", ProjectionSchemaID, expectedGraphViewID, request.SourceSnapshotID, configDigest, sourceDigest, nonce)
 	if err != nil {
-		return ProjectionRun{}, invalidRequest("invalid_projection_request", "", map[string]any{"validation_code": "identity_derivation_failed"})
+		return ProjectionRun{}, invalidRequest("normalization_failed", "", nil)
 	}
 	acceptedAt := options.AcceptedAt.UTC()
 	if acceptedAt.IsZero() {
@@ -121,7 +121,7 @@ func deriveGraphViewID(graphViewKey string) (string, error) {
 	return generatedID("gv_", "GPID1\n", "graph_view", ProjectionSchemaID, graphViewKey)
 }
 
-func invalidRequest(reasonCode, field string, details map[string]any) *OperationError {
+func invalidRequest(reasonCode, field string, details map[string]any) *LifecycleError {
 	if details == nil {
 		details = map[string]any{}
 	}
@@ -129,7 +129,7 @@ func invalidRequest(reasonCode, field string, details map[string]any) *Operation
 	if field != "" {
 		details["field"] = field
 	}
-	return &OperationError{Code: "invalid_projection_request", ReasonCode: reasonCode, Field: field, Details: details}
+	return &LifecycleError{Code: "invalid_projection_request", ReasonCode: reasonCode, Field: field, Details: details}
 }
 
 func parseProjectionInput(data []byte) (ProjectionRequest, map[string]any, error) {

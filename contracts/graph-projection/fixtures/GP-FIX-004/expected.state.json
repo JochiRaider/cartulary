@@ -1,5 +1,8 @@
 {
   "fixture_id": "GP-FIX-004",
-  "assertion": "Admitted invalid mapping creates retained failed run.",
-  "test_symbol": "TestGPFIX004Remediation"
+  "create_state": "failed",
+  "create_graph_retained": false,
+  "create_validation_status": "failed",
+  "reloaded_state": "failed",
+  "reloaded_graph_retained": false
 }

@@ -1,5 +1,4 @@
 {
   "fixture_id": "GP-FIX-018",
-  "input_kind": "operation_sequence",
-  "coverage": "Lifecycle idempotency exact replay and conflict."
+  "scenario": "lifecycle_idempotency_replay_conflict"
 }

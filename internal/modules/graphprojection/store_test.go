@@ -9,12 +9,13 @@ import (
 
 	. "github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresstore"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestStoreLifecycleRetentionAndInvalidation(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "graphprojection-lifecycle")
-	store := postgresstore.NewWithClock(db, fixedTime)
+	store := mustPostgresStore(t, db, fixedTime, postgresstore.Hooks{})
 	ctx := context.Background()
 	input := mustJSON(t, incidentGraphInput(t))
 
@@ -76,7 +77,7 @@ func TestStoreLifecycleRetentionAndInvalidation(t *testing.T) {
 
 func TestServiceLifecycleFacadeAndDirectQueries(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "graphprojection-service-facade")
-	store := postgresstore.NewWithClock(db, fixedTime)
+	store := mustPostgresStore(t, db, fixedTime, postgresstore.Hooks{})
 	service := NewService(ServiceOptions{Repository: store, Now: fixedTime, NewNonce: func() (string, error) { return "service-run", nil }})
 	ctx := context.Background()
 	input := mustJSON(t, incidentGraphInput(t))
@@ -88,13 +89,13 @@ func TestServiceLifecycleFacadeAndDirectQueries(t *testing.T) {
 		t.Fatalf("accepted summary = %#v", accepted)
 	}
 	run, err := service.GetProjectionRun(ctx, GetProjectionRunRequest{GraphViewID: accepted.GraphViewID, ProjectionRunID: accepted.ProjectionRunID})
-	if err != nil || run.State != RunStateAvailable || run.StartedAt == nil || run.GeneratedAt == nil {
+	if err != nil || run.State != RunStateAvailable || run.StartedAt == nil || run.CompletedAt == nil || run.ValidationSummary == nil || !run.HasConsumableGraphView {
 		t.Fatalf("terminal run = %#v err=%v", run, err)
 	}
 	if _, err := service.CreateProjection(ctx, CreateProjectionRequest{ProjectionInput: input}); err == nil {
 		t.Fatal("second create unexpectedly replaced an existing graph view")
 	} else {
-		var operationErr *OperationError
+		var operationErr *LifecycleError
 		if !errors.As(err, &operationErr) || operationErr.ReasonCode != "graph_view_already_exists" {
 			t.Fatalf("second create error = %#v", err)
 		}
@@ -128,11 +129,11 @@ func TestServiceLifecycleFacadeAndDirectQueries(t *testing.T) {
 
 func TestStorePreAdmissionFailureTouchesNoState(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "graphprojection-fail-before-touch")
-	store := postgresstore.NewWithClock(db, fixedTime)
+	store := mustPostgresStore(t, db, fixedTime, postgresstore.Hooks{})
 	ctx := context.Background()
 
-	_, err := store.CreateProjection(ctx, []byte(`{"projection_schema_id":"graph_projection.v1","projection_schema_id":"graph_projection.v1"}`), RetainedProjectionOptions{})
-	var opErr *OperationError
+	_, err := store.CreateProjection(ctx, []byte(`{"projection_schema_id":"graph_projection.v1","projection_schema_id":"graph_projection.v1"}`), RetainedProjectionOptions{ProjectionRunNonce: "pre-admission"})
+	var opErr *LifecycleError
 	if !errors.As(err, &opErr) {
 		t.Fatalf("expected operation error, got %T %v", err, err)
 	}
@@ -147,7 +148,7 @@ func TestStorePreAdmissionFailureTouchesNoState(t *testing.T) {
 
 func TestRetentionCountZeroExpiresReplacedRun(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "graphprojection-retention-zero")
-	store := postgresstore.NewWithClock(db, fixedTime)
+	store := mustPostgresStore(t, db, fixedTime, postgresstore.Hooks{})
 	ctx := context.Background()
 	input := incidentGraphInput(t)
 	first, err := store.CreateProjection(ctx, mustJSON(t, input), RetainedProjectionOptions{ProjectionRunNonce: "retention-first", AcceptedAt: fixedTime(), GeneratedAt: fixedTime()})
@@ -169,11 +170,14 @@ func TestRetentionCountZeroExpiresReplacedRun(t *testing.T) {
 	if _, err := store.GetProjectionRun(ctx, first.ProjectionRunID); !errors.Is(err, ErrProjectionRunNotFound) {
 		t.Fatalf("count-zero replaced run lookup err = %v", err)
 	}
+	if _, err := store.GetGraphView(ctx, first.GraphViewID, first.ProjectionRunID); !IsQueryError(err, "projection_run_not_found", "") {
+		t.Fatalf("expired replaced graph lookup err = %v", err)
+	}
 }
 
 func TestQueryLifecycleStateMatrix(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "graphprojection-query-lifecycle")
-	store := postgresstore.NewWithClock(db, fixedTime)
+	store := mustPostgresStore(t, db, fixedTime, postgresstore.Hooks{})
 	ctx := context.Background()
 
 	available, err := store.CreateProjection(ctx, mustJSON(t, retargetGraphInput(t, incidentGraphInput(t), "lifecycle_available")), RetainedProjectionOptions{
@@ -210,6 +214,11 @@ func TestQueryLifecycleStateMatrix(t *testing.T) {
 	}
 	if _, err := store.GetGraphView(ctx, failed.GraphViewID, ""); !errors.Is(err, ErrGraphViewUnavailable) {
 		t.Fatalf("failed graph view err = %v", err)
+	}
+	_, err = store.InvalidateGraphView(ctx, RetainedInvalidation{GraphViewID: failed.GraphViewID, ReasonCode: "operator_requested", RequestedAt: "2026-05-30T00:00:00Z", RequestedBy: "fixture", InvalidatedAt: fixedTime().Add(4 * time.Second)})
+	var lifecycleErr *LifecycleError
+	if !errors.As(err, &lifecycleErr) || lifecycleErr.Code != "invalid_operation" || lifecycleErr.ReasonCode != "invalid_invalidation_target" {
+		t.Fatalf("failed graph invalidation err = %#v", err)
 	}
 
 	computingGraphViewID, err := DeriveGraphViewID("lifecycle_computing")
@@ -261,7 +270,7 @@ INSERT INTO graph_projection_runs (
 func TestListGraphViewsPagination(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "graphprojection-idempotency")
 	clock := fixedTime()
-	store := postgresstore.NewWithClock(db, func() time.Time { return clock })
+	store := mustPostgresStore(t, db, func() time.Time { return clock }, postgresstore.Hooks{})
 	ctx := context.Background()
 	input := mustJSON(t, incidentGraphInput(t))
 
@@ -316,11 +325,11 @@ func TestListGraphViewsPagination(t *testing.T) {
 		t.Fatalf("bad second page: first=%#v next=%#v", page, next)
 	}
 	clock = fixedTime().Add(15 * time.Minute)
-	if _, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{CursorToken: cursor, QueryShapeDigest: "visible-graphs", VisibilityScopeDigest: "scope-a"}); !IsOperationError(err, "cursor_invalid", "expired") {
+	if _, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{CursorToken: cursor, QueryShapeDigest: "visible-graphs", VisibilityScopeDigest: "scope-a"}); !IsQueryError(err, "cursor_invalid", "expired") {
 		t.Fatalf("expired cursor err = %v", err)
 	}
 	clock = fixedTime().Add(time.Minute)
-	if _, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{CursorToken: cursor, QueryShapeDigest: "visible-graphs", VisibilityScopeDigest: "scope-b"}); !IsOperationError(err, "cursor_invalid", "wrong_query_shape") {
+	if _, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{CursorToken: cursor, QueryShapeDigest: "visible-graphs", VisibilityScopeDigest: "scope-b"}); !IsQueryError(err, "cursor_invalid", "wrong_query_shape") {
 		t.Fatalf("wrong-scope cursor err = %v", err)
 	}
 	tamperedSuffix := "A"
@@ -328,21 +337,30 @@ func TestListGraphViewsPagination(t *testing.T) {
 		tamperedSuffix = "B"
 	}
 	tampered := cursor[:len(cursor)-1] + tamperedSuffix
-	if _, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{CursorToken: tampered, QueryShapeDigest: "visible-graphs", VisibilityScopeDigest: "scope-a"}); !IsOperationError(err, "cursor_invalid", "malformed") {
+	if _, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{CursorToken: tampered, QueryShapeDigest: "visible-graphs", VisibilityScopeDigest: "scope-a"}); !IsQueryError(err, "cursor_invalid", "malformed") {
 		t.Fatalf("tampered cursor err = %v", err)
 	}
-	if _, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{CursorToken: strings.Repeat("x", 4097)}); !IsOperationError(err, "cursor_invalid", "cursor_token_too_long") {
+	if _, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{CursorToken: strings.Repeat("x", 4097)}); !IsQueryError(err, "cursor_invalid", "cursor_token_too_long") {
 		t.Fatalf("oversized cursor precedence err = %v", err)
 	}
 	invalidLimit := 1001
-	if _, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{Limit: &invalidLimit}); !IsOperationError(err, "invalid_argument", "invalid_limit") {
+	if _, _, err := store.ListGraphViews(ctx, ListGraphViewsOptions{Limit: &invalidLimit}); !IsQueryError(err, "invalid_argument", "out_of_bounds") {
 		t.Fatalf("invalid list limit err = %v", err)
 	}
 }
 
+func mustPostgresStore(t *testing.T, db postgres.DB, now func() time.Time, hooks postgresstore.Hooks) *postgresstore.Store {
+	t.Helper()
+	store, err := postgresstore.New(postgresstore.Options{DB: db, Now: now, CursorKey: []byte("0123456789abcdef0123456789abcdef"), Hooks: hooks})
+	if err != nil {
+		t.Fatalf("create graph projection store: %v", err)
+	}
+	return store
+}
+
 func TestTraverseDeterminism(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "graphprojection-traverse")
-	store := postgresstore.NewWithClock(db, fixedTime)
+	store := mustPostgresStore(t, db, fixedTime, postgresstore.Hooks{})
 	ctx := context.Background()
 	input := retargetGraphInput(t, incidentGraphInput(t), "traverse_graph")
 	relationships := input["source_relationships"].([]any)

@@ -1,9 +1,6 @@
 package graphprojection
 
-import (
-	"errors"
-	"time"
-)
+import "errors"
 
 var (
 	ErrProjectionRunNotFound = errors.New("graphprojection: projection run not found")
@@ -44,14 +41,34 @@ type ListGraphViewsOptions struct {
 }
 
 type GraphViewSummary struct {
-	GraphViewID            string
-	GraphViewKey           string
-	State                  GraphViewState
-	LatestProjectionRunID  string
-	LatestSourceSnapshotID string
-	ProjectionVersion      string
-	UpdatedAt              time.Time
-	ValidationStatus       string
+	GraphViewID            string         `json:"graph_view_id"`
+	GraphViewKey           string         `json:"graph_view_key"`
+	State                  GraphViewState `json:"state"`
+	LatestProjectionRunID  string         `json:"latest_projection_run_id"`
+	LatestSourceSnapshotID string         `json:"latest_source_snapshot_id"`
+	ProjectionVersion      string         `json:"projection_version"`
+	UpdatedAt              string         `json:"updated_at"`
+	ValidationStatus       string         `json:"validation_status"`
+}
+
+type ListGraphViewsResult struct {
+	GraphViews      []GraphViewSummary `json:"graph_views"`
+	NextCursorToken *string            `json:"next_cursor_token"`
+}
+
+type ProjectionRunInspection struct {
+	GraphViewID            string             `json:"graph_view_id"`
+	ProjectionRunID        string             `json:"projection_run_id"`
+	SourceSnapshotID       string             `json:"source_snapshot_id"`
+	ProjectionVersion      string             `json:"projection_version"`
+	State                  RunState           `json:"state"`
+	StartedAt              *string            `json:"started_at"`
+	CompletedAt            *string            `json:"completed_at"`
+	ValidationSummary      *ValidationSummary `json:"validation_summary"`
+	FailureReason          *string            `json:"failure_reason"`
+	HasConsumableGraphView bool               `json:"has_consumable_graph_view"`
+	Invalidation           *Invalidation      `json:"invalidation"`
+	RetentionExpiresAt     *string            `json:"retention_expires_at"`
 }
 
 type TraverseRequest struct {

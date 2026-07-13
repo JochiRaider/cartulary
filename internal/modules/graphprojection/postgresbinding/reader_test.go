@@ -45,4 +45,10 @@ INSERT INTO graph_projection_runs (
 	if binding.GraphViewID != "gv_binding" || binding.SourceSnapshotID != "snapshot" || binding.ProjectionOutputDigest != digest {
 		t.Fatalf("unexpected projection binding: %#v", binding)
 	}
+	if _, err := tx.Exec(ctx, `UPDATE graph_projection_runs SET retention_expires_at = '2000-01-01T00:00:00Z' WHERE projection_run_id = 'gpr_binding'`); err != nil {
+		t.Fatalf("expire transaction projection run: %v", err)
+	}
+	if _, err := NewReader(tx).LookupProjectionBinding(ctx, "gpr_binding"); err == nil {
+		t.Fatal("expired projection binding unexpectedly resolved")
+	}
 }

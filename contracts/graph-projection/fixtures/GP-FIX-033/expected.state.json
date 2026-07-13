@@ -1,5 +1,8 @@
 {
   "fixture_id": "GP-FIX-033",
-  "assertion": "refresh_projection on failed returns invalid_operation, reason_code=no_consumable_prior_run.",
-  "test_symbol": "TestGPFIX033Remediation"
+  "refresh_error": {
+    "code": "invalid_operation",
+    "reason_code": "no_consumable_prior_run"
+  },
+  "failed_run_state": "failed"
 }

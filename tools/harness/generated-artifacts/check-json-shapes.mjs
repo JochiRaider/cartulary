@@ -3416,9 +3416,15 @@ function validateGraphProjectionConformanceMatrixShape(file) {
           throw new Error(`${label}.areas contains invalid area ${area}`);
         }
       }
-      requireStringArray(entry.evidence_selectors, `${label}.evidence_selectors`, {
+      const selectors = requireStringArray(entry.evidence_selectors, `${label}.evidence_selectors`, {
         nonEmpty: true,
       });
+      for (const [selectorIndex, selector] of selectors.entries()) {
+        validateGraphProjectionEvidenceSelector(
+          selector,
+          `${label}.evidence_selectors[${selectorIndex + 1}]`,
+        );
+      }
       for (const fixtureID of requireStringArray(
         entry.fixture_ids,
         `${label}.fixture_ids`,
@@ -3504,8 +3510,47 @@ function validateGraphProjectionConformanceMatrixShape(file) {
   );
 }
 
+function validateGraphProjectionEvidenceSelector(selector, label) {
+  const separator = selector.indexOf("::");
+  const selectedPath = separator === -1 ? selector : selector.slice(0, separator);
+  const selectedSymbol = separator === -1 ? "" : selector.slice(separator + 2);
+  const absolutePath = path.resolve(repoRoot, selectedPath);
+  if (!absolutePath.startsWith(`${repoRoot}${path.sep}`) || !existsSync(absolutePath)) {
+    throw new Error(`${label} selects missing path ${selectedPath}`);
+  }
+  if (selectedSymbol === "") {
+    return;
+  }
+  if (lstatSync(absolutePath).isDirectory()) {
+    const testSources = readdirSync(absolutePath, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith("_test.go"))
+      .map((entry) => readFileSync(path.join(absolutePath, entry.name), "utf8"))
+      .join("\n");
+    if (!testSources.includes(`func ${selectedSymbol}(`)) {
+      throw new Error(`${label} selects missing Go test symbol ${selectedSymbol}`);
+    }
+    return;
+  }
+  const contents = readFileSync(absolutePath, "utf8");
+  if (!contents.includes(selectedSymbol)) {
+    throw new Error(`${label} selects missing anchor ${selectedSymbol}`);
+  }
+}
+
 function validateGraphProjectionFixtureManifests(root) {
   const fixtureRoot = repoFile(root, "contracts/graph-projection/fixtures");
+  const matrix = readShapeFile(
+    repoFile(root, "contracts/graph-projection/conformance_matrix.v1.json"),
+  );
+  const matrixFixtureAcceptance = new Map();
+  for (const criterion of matrix.acceptance_criteria) {
+    for (const fixtureID of criterion.fixture_ids) {
+      if (!matrixFixtureAcceptance.has(fixtureID)) {
+        matrixFixtureAcceptance.set(fixtureID, new Set());
+      }
+      matrixFixtureAcceptance.get(fixtureID).add(criterion.id);
+    }
+  }
   for (const entry of readdirSync(fixtureRoot, { withFileTypes: true })) {
     if (!entry.isDirectory() || !/^GP-FIX-\d{3}$/.test(entry.name)) {
       continue;
@@ -3519,6 +3564,26 @@ function validateGraphProjectionFixtureManifests(root) {
     const manifest = readShapeFile(manifestPath, manifestPath);
     validateSchemaSync(graphProjectionFixtureManifestSchemaID, manifest);
     requireExact(manifest.fixture_id, fixtureID, `${manifestPath}.fixture_id`);
+    const declaredAcceptance = new Set(manifest.acceptance_ids);
+    const matrixAcceptance = matrixFixtureAcceptance.get(fixtureID) ?? new Set();
+    for (const acceptanceID of declaredAcceptance) {
+      if (!matrixAcceptance.has(acceptanceID)) {
+        throw new Error(
+          `${manifestPath}.acceptance_ids contains ${acceptanceID}, but the matrix does not attach ${fixtureID} to it`,
+        );
+      }
+    }
+    for (const acceptanceID of matrixAcceptance) {
+      if (!declaredAcceptance.has(acceptanceID)) {
+        throw new Error(
+          `${manifestPath}.acceptance_ids omits matrix attachment ${acceptanceID}`,
+        );
+      }
+    }
+    validateGraphProjectionEvidenceSelector(
+      `internal/modules/graphprojection::${manifest.test_symbol}`,
+      `${manifestPath}.test_symbol`,
+    );
     const artifacts = requireArray(manifest.artifacts, `${manifestPath}.artifacts`, {
       nonEmpty: true,
     });

@@ -1,5 +1,4 @@
 {
   "fixture_id": "GP-FIX-035",
-  "input_kind": "query_sequence",
-  "coverage": "Cursor validation precedence chooses cursor_token_too_long for a token that is simultaneously oversized, malformed, and expired."
+  "scenario": "cursor_validation_precedence"
 }

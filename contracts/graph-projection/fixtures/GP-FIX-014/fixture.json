@@ -1,1 +1,52 @@
-{"schema_id":"cartulary.graph_projection_fixture_manifest.v1","fixture_version":1,"fixture_id":"GP-FIX-014","execution_layer":"backend_unit","owner_sections":["5.8","7.3"],"acceptance_ids":["GP-AC-028","GP-AC-062"],"test_symbol":"TestGPFIX014CanonicalJSONString","determinism":{"clock":"2026-05-30T00:00:00Z","nonce":"fixture-canonical","cursor_key_hex":"0000000000000000000000000000000000000000000000000000000000000000"},"steps":[{"id":"canonicalize","operation":"project_ephemeral","input_artifact":"input.json","expected_artifact":"expected.canonical.json"}],"artifacts":[{"path":"input.json","role":"input","sha256":"712f8565806d9ad21cd84477a1799f29ea2a824f1713860b27f92659bc32dde1"},{"path":"expected.canonical.json","role":"transcript","sha256":"712f8565806d9ad21cd84477a1799f29ea2a824f1713860b27f92659bc32dde1"}],"golden":{"provenance":"nlspec_derived","review_status":"reviewed"}}
+{
+  "schema_id": "cartulary.graph_projection_fixture_manifest.v1",
+  "fixture_version": 1,
+  "fixture_id": "GP-FIX-014",
+  "execution_layer": "backend_unit",
+  "owner_sections": [
+    "5.8",
+    "7.3"
+  ],
+  "acceptance_ids": [
+    "GP-AC-028",
+    "GP-AC-062"
+  ],
+  "test_symbol": "TestGPFIX014CanonicalJSONString",
+  "determinism": {
+    "clock": "2026-05-30T00:00:00Z",
+    "nonce": "fixture-canonical",
+    "cursor_key_hex": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "steps": [
+    {
+      "id": "canonicalize",
+      "operation": "canonical_json",
+      "input_artifact": "input.json",
+      "expected_artifact": "expected.canonical.json"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "input.json",
+      "role": "input",
+      "sha256": "712f8565806d9ad21cd84477a1799f29ea2a824f1713860b27f92659bc32dde1"
+    },
+    {
+      "path": "expected.canonical.json",
+      "role": "transcript",
+      "sha256": "712f8565806d9ad21cd84477a1799f29ea2a824f1713860b27f92659bc32dde1"
+    }
+  ],
+  "golden": {
+    "provenance": "nlspec_derived",
+    "review_status": "reviewed"
+  },
+  "comparison": {
+    "scope": "run_independent",
+    "mode": "exact_artifacts",
+    "run_independent_validation": false
+  },
+  "state_effects": {
+    "mode": "no_retained_state_change"
+  }
+}

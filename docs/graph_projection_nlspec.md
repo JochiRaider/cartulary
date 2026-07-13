@@ -554,7 +554,7 @@ A conforming implementation MUST enforce the following closed resource limits be
 
 | Limit key | Applies to | Required maximum | Overflow behavior |
 | --- | --- | ---: | --- |
-| `max_input_bytes` | UTF-8 JSON projection input before decoding | `268435456` bytes | `resource_limit_exceeded` fatal |
+| `max_input_bytes` | UTF-8 JSON projection input before decoding | `268435456` bytes | Pre-admission lifecycle `invalid_projection_request`, `reason_code=whole_input_limit_exceeded`; no run and no validation issue |
 | `max_source_entities` | `source_entities[]` | `100000` | `resource_limit_exceeded` fatal |
 | `max_source_relationships` | `source_relationships[]` | `250000` | `resource_limit_exceeded` fatal |
 | `max_entity_filters` | `filters.entity_filters[]` | `1000` | `resource_limit_exceeded` fatal |
@@ -1855,10 +1855,10 @@ A lifecycle error response MUST NOT contain partial success data.
 
 | Operation | Required request members | Optional request members | Success `data` object | Error codes |
 | --- | --- | --- | --- | --- |
-| `create_projection` | `projection_input` | `idempotency_key` | `accepted_run_summary` | `invalid_projection_request`, `invalid_operation`, `operation_conflict` |
-| `refresh_projection` | `graph_view_id`, `projection_input` | `idempotency_key` | `accepted_run_summary` | `invalid_projection_request`, `graph_view_not_found`, `invalid_operation`, `operation_conflict` |
-| `invalidate_graph_view` | `graph_view_id`, `reason_code`, `requested_at`, `requested_by` | `idempotency_key` | `invalidation_summary` | `graph_view_not_found`, `invalid_operation`, `operation_conflict` |
-| `invalidate_projection_run` | `graph_view_id`, `projection_run_id`, `reason_code`, `requested_at`, `requested_by` | `idempotency_key` | `invalidation_summary` | `projection_run_not_found`, `invalid_operation`, `operation_conflict` |
+| `create_projection` | `projection_input` | `idempotency_key` | `accepted_run_summary` | `invalid_operation_request`, `invalid_projection_request`, `invalid_operation`, `operation_conflict` |
+| `refresh_projection` | `graph_view_id`, `projection_input` | `idempotency_key` | `accepted_run_summary` | `invalid_operation_request`, `invalid_projection_request`, `graph_view_not_found`, `invalid_operation`, `operation_conflict` |
+| `invalidate_graph_view` | `graph_view_id`, `reason_code`, `requested_at`, `requested_by` | `idempotency_key` | `invalidation_summary` | `invalid_operation_request`, `graph_view_not_found`, `invalid_operation`, `operation_conflict` |
+| `invalidate_projection_run` | `graph_view_id`, `projection_run_id`, `reason_code`, `requested_at`, `requested_by` | `idempotency_key` | `invalidation_summary` | `invalid_operation_request`, `projection_run_not_found`, `invalid_operation`, `operation_conflict` |
 
 An `accepted_run_summary` MUST be a JSON object with exactly these members in this order.
 
@@ -1878,6 +1878,7 @@ Lifecycle and ephemeral projection operation errors MUST use this registry.
 
 | Error code | Retryable | Required details | Applies to |
 | --- | ---: | --- | --- |
+| `invalid_operation_request` | No | `operation`, `field`, `reason_code` | Malformed lifecycle or ephemeral operation envelopes before projection-input processing or target lookup |
 | `invalid_projection_request` | No | `operation`, `reason_code`, `field`, `validation_code` | `create_projection`, `refresh_projection`, and `project_ephemeral` pre-admission failures |
 | `invalid_operation` | No | `operation`, `reason_code` | All lifecycle operations |
 | `operation_conflict` | Yes only when `reason_code=run_already_active`; otherwise No | `operation`, `reason_code`, optional `active_projection_run_id` | All lifecycle operations |
@@ -1885,19 +1886,28 @@ Lifecycle and ephemeral projection operation errors MUST use this registry.
 | `projection_run_not_found` | No | `operation`, `graph_view_id`, `projection_run_id` | Run invalidation |
 | `ephemeral_projection_failed` | Yes only when `reason_code=projection_computation_failed`; otherwise No | `operation`, `reason_code`, `graph_view_id`, `ephemeral_projection_id`, `validation_summary` | `project_ephemeral` admitted failures |
 
+The success envelope member order is `status`, `data`. The error envelope member order is `status`, `error`; the nested error member order is `code`, `retryable`, `details`. The abstract lifecycle envelope has no message member. Details members appear in the order declared by the registry table. No additional details members are permitted, and details MUST NOT contain source values, projection input bytes, cursor material, nonces, stack text, database text, or private diagnostics.
+
+For `invalid_operation_request`, `operation` is the selected operation token when selection succeeded and JSON null otherwise. `field` is the exact outer request member name when one member is attributable and JSON null only when the envelope itself cannot be interpreted as an object. Its closed `reason_code` values are `missing_required_parameter`, `explicit_null_not_allowed`, `invalid_type`, `invalid_value`, `out_of_bounds`, and `unknown_parameter`. Missing required members use `missing_required_parameter`; explicit non-nullable null uses `explicit_null_not_allowed`; a wrong JSON type category uses `invalid_type`; a well-typed value outside a closed scalar or enum contract uses `invalid_value`, except length and numeric bounds use `out_of_bounds`; and an unknown outer member uses `unknown_parameter`. Outer-envelope validation completes before projection-input admission or lifecycle target lookup.
+
 For `invalid_projection_request`, `field` is a canonical input path when one request member is attributable; otherwise it is JSON null. `validation_code` is a §9.5 code when the rejected condition corresponds to an admitted validation family; otherwise it is JSON null.
 
 Reason codes for lifecycle operation errors are closed.
 
 | Reason code | Applies to | Meaning |
 | --- | --- | --- |
+| `missing_required_parameter` | `invalid_operation_request` | A required outer operation member is omitted. |
+| `invalid_type` | `invalid_operation_request` | An outer operation member has the wrong JSON type category. |
+| `invalid_value` | `invalid_operation_request` | A well-typed outer operation member violates its closed scalar or enum contract. |
+| `out_of_bounds` | `invalid_operation_request` | A well-typed outer operation member violates its length or numeric bounds. |
+| `unknown_parameter` | `invalid_operation_request` | The outer operation request contains an unknown member. |
 | `invalid_utf8` | `invalid_projection_request` | Projection input bytes are not valid UTF-8. |
 | `invalid_json_syntax` | `invalid_projection_request` | Projection input bytes are not valid JSON. |
 | `duplicate_object_member` | `invalid_projection_request` | Any object contains a duplicate member name before schema validation. |
 | `top_level_not_object` | `invalid_projection_request` | Decoded projection input is not a JSON object. |
 | `schema_type_mismatch` | `invalid_projection_request` | A declared member or array element has the wrong JSON type category before admission. |
 | `missing_required_member` | `invalid_projection_request` | Required member needed for admission is omitted at any depth. |
-| `explicit_null_not_allowed` | `invalid_projection_request`, `invalid_operation` | A non-nullable admission or operation member is explicit JSON null. |
+| `explicit_null_not_allowed` | `invalid_operation_request`, `invalid_projection_request` | A non-nullable outer operation or projection-input member is explicit JSON null. |
 | `unknown_member` | `invalid_projection_request` | Unknown admission member is present at any depth. |
 | `invalid_projection_schema` | `invalid_projection_request` | `projection_schema_id` is not exactly `graph_projection.v1`. |
 | `invalid_graph_view_id` | `invalid_projection_request` | Supplied `graph_view_id` is malformed or not the derived value. |
@@ -1909,7 +1919,6 @@ Reason codes for lifecycle operation errors are closed.
 | `no_consumable_prior_run` | `refresh_projection` | Refresh requires an available prior run unless the graph view is invalidated. |
 | `run_already_active` | create or refresh | Graph view already has an `accepted` or `computing` run. |
 | `idempotency_key_conflict` | any operation | Same operation idempotency key was reused with a different replay comparison object. |
-| `invalid_idempotency_key` | any operation | Supplied `idempotency_key` violates §4.1. |
 | `invalid_invalidation_target` | invalidation operations | Target state cannot be invalidated. |
 | `invalid_reason_code` | invalidation operations | Reason code is outside §10.7. |
 | `fatal_validation` | `project_ephemeral` | Ephemeral validation produced at least one fatal issue; no graph data is returned. |
@@ -1942,9 +1951,9 @@ For `refresh_projection`, the request member `graph_view_id`, the input member `
 | Input state | Required behavior |
 | --- | --- |
 | Omitted `idempotency_key` | Operation is not replay-protected and no idempotency record is created. |
-| Explicit JSON null | Reject with lifecycle `invalid_operation`, `reason_code=explicit_null_not_allowed`. |
-| Empty string | Reject with lifecycle `invalid_operation`, `reason_code=invalid_idempotency_key`. |
-| Invalid scalar | Reject with lifecycle `invalid_operation`, `reason_code=invalid_idempotency_key`. |
+| Explicit JSON null | Reject with lifecycle `invalid_operation_request`, `reason_code=explicit_null_not_allowed`, `field=idempotency_key`. |
+| Empty string | Reject with lifecycle `invalid_operation_request`, `reason_code=out_of_bounds`, `field=idempotency_key`. |
+| Invalid scalar | Reject with lifecycle `invalid_operation_request`, `reason_code=invalid_value` or `out_of_bounds` according to §10.0, `field=idempotency_key`. |
 | Same key, same replay comparison object, record unexpired | Return original success payload. |
 | Same key, different replay comparison object, record unexpired | Return `operation_conflict`, `reason_code=idempotency_key_conflict`. |
 | Same key after expiry | Treat as a new operation request. |
@@ -2217,7 +2226,7 @@ Every query response MUST use one of these abstract variants.
 | Success | `{ "status": "ok", "data": <query-specific result object> }` |
 | Error | `{ "status": "error", "error": { "code": <query_error_code>, "retryable": <boolean>, "details": <closed object> } }` |
 
-Query-specific sections define the `data` value for success responses. Error responses MUST NOT include partial query data. Unknown request members MUST return `invalid_argument`. Explicit JSON null for a non-nullable request member MUST return `invalid_argument`. A transport may wrap these objects only when the same fields, values, and semantics remain observable.
+Query-specific sections define the `data` value for success responses. Error responses MUST NOT include partial query data. Unknown request members MUST return `invalid_argument`. Explicit JSON null for a non-nullable request member MUST return `invalid_argument`. The success envelope member order is `status`, `data`. The error envelope member order is `status`, `error`; the nested error member order is `code`, `retryable`, `details`. The abstract query envelope has no message member. Details members appear in the order declared below, contain no additional members, and MUST satisfy the same redaction boundary as lifecycle details. A transport may wrap these objects only when the same fields, values, order, and semantics remain observable.
 
 Query errors MUST use the following closed codes and detail shapes.
 
@@ -2233,7 +2242,7 @@ Query errors MUST use the following closed codes and detail shapes.
 | `edge_not_found` | No | `graph_view_id`, `projection_run_id`, `edge_id` |
 | `cursor_invalid` | No | `reason_code` |
 
-`invalid_argument.reason_code` MUST be one of: `missing_required_parameter`, `explicit_null_not_allowed`, `invalid_type`, `out_of_bounds`, `duplicate_id`, `unknown_parameter`, or `unsupported_parameter`.
+`invalid_argument.reason_code` MUST be one of: `missing_required_parameter`, `explicit_null_not_allowed`, `invalid_type`, `invalid_value`, `out_of_bounds`, `duplicate_id`, `unknown_parameter`, or `unsupported_parameter`. `invalid_value` applies to a well-typed scalar or enum value outside its closed contract; `out_of_bounds` is reserved for a length, collection-size, integer, or other numeric bound.
 
 `cursor_invalid.reason_code` MUST be one of: `malformed`, `expired`, `wrong_query_shape`, or `cursor_token_too_long`.
 
@@ -2632,6 +2641,10 @@ A conformance fixture MUST define its input JSON or operation request, normalize
 | `GP-FIX-036` | `distinct_sorted_array` with quote-bearing and reverse-solidus-bearing strings follows canonical JSON byte order. |
 
 Every fixture MUST be deterministic. Fixture IDs are stable. A fixture may add explanatory examples, but the expected operation response, retained state, validation summary, and canonical bytes are the normative comparison artifacts for that fixture.
+
+Every fixture manifest MUST declare a nonempty set of GP-AC identifiers, one `comparison.scope` of `run_specific` or `run_independent`, whether run-independent validation may exclude issue IDs, one `comparison.mode`, and one expected retained-state effect. Every executable step other than clock advancement MUST name an input or setup artifact when its operation consumes one and MUST name an expected artifact. A no-retained-state fixture MUST explicitly declare `no_retained_state_change`; a retained lifecycle fixture MUST declare `retained_state_change` and compare the affected view, run, graph, idempotency, and retention records that are applicable to the operation.
+
+`comparison.mode=exact_artifacts` compares raw expected bytes for transcripts and malformed inputs and compares JSON artifacts after parsing while still enforcing closed member sets and array order. Run-independent comparison may exclude only the fields permitted by §12.2 and must declare `run_independent_validation=true` before excluding validation issue IDs. Candidate artifacts are non-normative diagnostics, MUST be written outside `contracts/`, MUST NOT be consumed by verification targets, and MUST NOT update a fixture manifest, reviewed artifact, or conformance status.
 
 ## Appendix A. Design decision rationale
 

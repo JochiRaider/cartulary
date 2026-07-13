@@ -27,6 +27,7 @@ SELECT projection_run_id, graph_view_id, source_snapshot_id, projection_version,
        projection_config_digest, projection_source_digest, projection_output_digest
   FROM graph_projection_runs
  WHERE projection_run_id = $1
+   AND (retention_expires_at IS NULL OR transaction_timestamp() < retention_expires_at)
 `, projectionRunID).Scan(
 		&binding.ProjectionRunID,
 		&binding.GraphViewID,
