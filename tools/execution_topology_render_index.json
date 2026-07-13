@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:d4dbef896327fe16ed007bfed2c47dad2d895250f75f8b1b54ee61b5766b5f29",
+  "input_digest": "sha256:46112f79fc3b1ea30d17be2c40f2484add5b919b8db96e6ea3e11b9a424dfd3c",
   "inputs": [
     {
       "path": "tools/browser_e2e_duration_baselines.json",
@@ -262,7 +262,7 @@
     {
       "path": "tools/harness/generated-artifacts/check-json-shapes.mjs",
       "role": "renderer_source",
-      "hash": "sha256:5dc48fd66d7ab25ccfa5145b89f530d449d84d03d93c93948abf7695dd570df0"
+      "hash": "sha256:c7df99664a52ab4351d84e8f4ffe420b51f7b35339aa9abe74ce63aabf942166"
     },
     {
       "path": "tools/harness/generated-artifacts/check-phase-ledger-drift.mjs",
@@ -837,7 +837,7 @@
     {
       "path": "tools/phase12_test_map.json",
       "role": "active_phase_manifest",
-      "hash": "sha256:892e7e6710a9543b1e54a3d5b4fc8f567cd483c2e8d4720f2d5e039651b35d66"
+      "hash": "sha256:e539931b0eee78b34b4bd214dbb7e4dc04ed081344e975800146e39e328f3400"
     },
     {
       "path": "tools/phase2_test_map.json",

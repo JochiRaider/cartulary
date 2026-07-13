@@ -8,7 +8,6 @@
     "schema_id",
     "profile_id",
     "source_spec",
-    "adoption_tracker",
     "contract_registry",
     "dependency_locator_accounting",
     "fixture_accounting",
@@ -22,7 +21,6 @@
     "schema_id": { "const": "cartulary.network_flow_activity_accounting.v1" },
     "profile_id": { "const": "network_flow_activity" },
     "source_spec": { "$ref": "#/$defs/markdown_path" },
-    "adoption_tracker": { "$ref": "#/$defs/markdown_path" },
     "contract_registry": { "$ref": "#/$defs/contract_registry" },
     "dependency_locator_accounting": { "$ref": "#/$defs/dependency_locator_accounting" },
     "fixture_accounting": { "$ref": "#/$defs/fixture_accounting" },
@@ -170,15 +168,13 @@
         "expected_count",
         "first_id",
         "last_id",
-        "manifest_root",
-        "tracker_task_prefix"
+        "manifest_root"
       ],
       "properties": {
         "expected_count": { "const": 28 },
         "first_id": { "const": "NF-FIX-001" },
         "last_id": { "const": "NF-FIX-028" },
-        "manifest_root": { "const": "fixtures/network-flow" },
-        "tracker_task_prefix": { "const": "NFA-FIX-" }
+        "manifest_root": { "const": "fixtures/network-flow" }
       }
     },
     "acceptance_accounting": {

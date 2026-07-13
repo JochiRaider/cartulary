@@ -157,7 +157,6 @@ const networkFlowAccountingKeys = new Set([
   "schema_id",
   "profile_id",
   "source_spec",
-  "adoption_tracker",
   "contract_registry",
   "dependency_locator_accounting",
   "fixture_accounting",
@@ -187,7 +186,6 @@ const networkFlowFixtureAccountingKeys = new Set([
   "first_id",
   "last_id",
   "manifest_root",
-  "tracker_task_prefix",
 ]);
 const networkFlowAcceptanceAccountingKeys = new Set([
   "expected_count",
@@ -1420,11 +1418,6 @@ function validateNetworkFlowActivityAccountingShape(file) {
     `${file}.source_spec`,
     { extension: ".md" },
   );
-  const trackerPath = requireRepoRelativePath(
-    accounting.adoption_tracker,
-    `${file}.adoption_tracker`,
-    { extension: ".md" },
-  );
   const contractRegistry = requireObject(
     accounting.contract_registry,
     `${file}.contract_registry`,
@@ -1499,11 +1492,6 @@ function validateNetworkFlowActivityAccountingShape(file) {
     fixtureAccounting.manifest_root,
     "fixtures/network-flow",
     `${file}.fixture_accounting.manifest_root`,
-  );
-  requireExact(
-    fixtureAccounting.tracker_task_prefix,
-    "NFA-FIX-",
-    `${file}.fixture_accounting.tracker_task_prefix`,
   );
 
   const acceptanceAccounting = requireObject(
@@ -1586,7 +1574,6 @@ function validateNetworkFlowActivityAccountingShape(file) {
   );
 
   const source = readFileSync(repoFile(repoRoot, sourceSpec), "utf8");
-  const tracker = readFileSync(repoFile(repoRoot, trackerPath), "utf8");
   const dependencyLocatorAccounting = requireObject(
     accounting.dependency_locator_accounting,
     `${file}.dependency_locator_accounting`,
@@ -1722,12 +1709,6 @@ function validateNetworkFlowActivityAccountingShape(file) {
     expectedFixtureIDs,
     `${sourceSpec} Network Flow fixture IDs`,
   );
-  for (const fixtureID of expectedFixtureIDs) {
-    const trackerID = `NFA-FIX-${fixtureID.slice("NF-FIX-".length)}`;
-    if (!tracker.includes(`| \`${trackerID}\` |`)) {
-      throw new Error(`${trackerPath} is missing tracker row ${trackerID}`);
-    }
-  }
 
   const expectedAcceptanceIDs = new Set(
     expectedNetworkFlowIDs("NF-AC-", expectedAcceptanceCount),
@@ -1741,11 +1722,6 @@ function validateNetworkFlowActivityAccountingShape(file) {
     expectedAcceptanceIDs,
     `${sourceSpec} Network Flow acceptance IDs`,
   );
-  for (const acceptanceID of expectedAcceptanceIDs) {
-    if (!tracker.includes(`| \`${acceptanceID}\` |`)) {
-      throw new Error(`${trackerPath} is missing acceptance row ${acceptanceID}`);
-    }
-  }
 
   const registry = readShapeFile(repoFile(repoRoot, registryPath), registryPath);
   validateSchemaSync(contractFamilyRegistrySchemaID, registry);

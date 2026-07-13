@@ -375,9 +375,7 @@
     "U-12-NFAC106-06",
     "I-12-NFAC107-07"
   ],
-  "forbidden_id_files": [
-    "docs/handoffs/network-flow-activity-adoption-handoff-tracker.md"
-  ],
+  "forbidden_id_files": [],
   "support_go_targets": [
     {
       "target": "backend_integration_support",

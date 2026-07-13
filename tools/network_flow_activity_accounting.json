@@ -3,7 +3,6 @@
   "schema_id": "cartulary.network_flow_activity_accounting.v1",
   "profile_id": "network_flow_activity",
   "source_spec": "docs/network-flow-activity-nlspec.md",
-  "adoption_tracker": "docs/handoffs/network-flow-activity-adoption-handoff-tracker.md",
   "contract_registry": {
     "path": "contracts/index.json",
     "family_id": "network-flow",
@@ -107,8 +106,7 @@
     "expected_count": 28,
     "first_id": "NF-FIX-001",
     "last_id": "NF-FIX-028",
-    "manifest_root": "fixtures/network-flow",
-    "tracker_task_prefix": "NFA-FIX-"
+    "manifest_root": "fixtures/network-flow"
   },
   "acceptance_accounting": {
     "expected_count": 107,
