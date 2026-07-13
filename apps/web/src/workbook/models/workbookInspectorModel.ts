@@ -151,7 +151,7 @@ export function workbookInspectorReducer(
   }
 }
 
-export function clearRowBoundInspectorState(
+function clearRowBoundInspectorState(
   state: WorkbookInspectorState,
 ): WorkbookInspectorState {
   return {

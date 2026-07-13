@@ -1,5 +1,5 @@
 import { apiPath } from "../../services/browserApi";
-import { fetchJSON } from "../../services/workbookApi";
+import { fetchWorkbookJSON } from "../../services/workbookApi";
 import type { EntityApiRow } from "../timeline/models/workbookTimelineModel";
 import { parseMutationError } from "./genericWorkbookModel";
 
@@ -13,7 +13,7 @@ export type ViewMutationEnvelope = {
   };
 };
 
-export async function submitViewRecordPatch({
+async function submitViewRecordPatch({
   apiBase,
   baseRowVersion,
   changes,
@@ -28,7 +28,7 @@ export async function submitViewRecordPatch({
   readonly recordId: string;
   readonly viewSchemaId: string;
 }) {
-  return fetchJSON<ViewMutationEnvelope>(
+  return fetchWorkbookJSON<ViewMutationEnvelope>(
     apiPath(apiBase, `/api/v1/records/${recordId}`),
     {
       method: "PATCH",

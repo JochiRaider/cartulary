@@ -2,7 +2,7 @@ import {
   workbookAddRowButtonTestId,
   workbookInspectorToggleTestId,
 } from "@cartulary/ui-contracts";
-import { Plus, Search, SlidersHorizontal } from "lucide-react";
+import { Plus, SlidersHorizontal } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 
 type WorkbookSheetToolbarProps = {
@@ -75,7 +75,7 @@ const toolbarButtonStyle = {
   whiteSpace: "nowrap",
 } satisfies CSSProperties;
 
-export const primaryToolbarButtonStyle = {
+const primaryToolbarButtonStyle = {
   ...toolbarButtonStyle,
   borderColor: "var(--ct-colors-accent-active)",
   background: "var(--ct-colors-accent)",
@@ -111,25 +111,3 @@ const rightRailStyle = {
   gap: "0.45rem",
   minWidth: 0,
 } satisfies CSSProperties;
-
-const toolbarStatusStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "0.3rem",
-  color: "var(--ct-colors-ink-muted)",
-  fontSize: "0.82rem",
-  whiteSpace: "nowrap",
-} satisfies CSSProperties;
-
-export function WorkbookToolbarSearchLabel({
-  children,
-}: {
-  readonly children: ReactNode;
-}) {
-  return (
-    <span style={toolbarStatusStyle}>
-      <Search aria-hidden="true" size={16} />
-      {children}
-    </span>
-  );
-}

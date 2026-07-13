@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { repoRoot } from "../../../contract/index.mjs";
 
 import {
   existsSync,
@@ -13,7 +14,6 @@ import {
 } from "../../../contract/failure-taxonomy.mjs";
 import { verboseOutput } from "../../tool-output.mjs";
 import {
-  repoRoot,
   testCoverageBuckets,
 } from "../../../contract/test-output-context.mjs";
 import {

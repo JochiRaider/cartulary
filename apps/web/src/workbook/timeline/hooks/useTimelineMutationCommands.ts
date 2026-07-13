@@ -5,7 +5,7 @@ import {
   useCallback,
 } from "react";
 import { apiPath } from "../../../services/browserApi";
-import { fetchJSON, readEnvelope } from "../../../services/workbookApi";
+import { fetchWorkbookJSON, readEnvelope } from "../../../services/workbookApi";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import {
   buildStableMutationSignature,
@@ -488,7 +488,7 @@ export function useTimelineMutationCommands({
               replacementRecordId,
             });
             trackPendingSocketTxn(clientTxnId);
-            const result = await fetchJSON<TimelineActionEnvelope>(
+            const result = await fetchWorkbookJSON<TimelineActionEnvelope>(
               apiPath(apiBase, `/api/v1/records/${recordId}/${action}`),
               {
                 method: "POST",

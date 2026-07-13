@@ -53,7 +53,7 @@ export type TimelinePendingSavesRefs<TMeta> = {
   readonly socketClientInstanceIdRef: TimelineMutableRef<string | null>;
 };
 
-export function timelineTabClientInstanceId(): string {
+function timelineTabClientInstanceId(): string {
   const key = "cartulary.client_instance_id";
   try {
     const existing = window.sessionStorage.getItem(key);

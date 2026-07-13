@@ -7,12 +7,12 @@ import {
 } from "@cartulary/ui-contracts";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { deferred } from "../testing/fetchMockTestSupport";
 import {
   buildRecordChangedPayload,
   changeInputValue,
   changeQueuedCellValue,
   cleanupTimelineWorkbookTestGlobals,
-  deferred,
   errorEnvelope,
   extractTimelineConflictResolutionBody,
   extractTimelineRecordPatchBody,
@@ -24,11 +24,11 @@ import {
   type TimelineWorkbookFetchMock,
   timelineRecordPatchCallURLs,
   timelineRow,
-  timelineViewSchemaId,
   waitForPendingQueueState,
   waitForTimelineConflictResolutionCalls,
   waitForTimelineRecordPatchCalls,
 } from "../testing/timelineWorkbookTestSupport";
+import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 import { pendingReplayCapacity } from "./utils/workbookPendingQueue";
 

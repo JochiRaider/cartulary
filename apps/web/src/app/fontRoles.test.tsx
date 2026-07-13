@@ -10,8 +10,8 @@ import {
   installTimelineWorkbookTestGlobals,
   successEnvelope,
   timelineRow,
-  timelineViewSchemaId,
 } from "../testing/timelineWorkbookTestSupport";
+import { timelineViewSchemaId } from "../workbook/models/workbookSurfaceRegistry";
 import { TimelineWorkbook } from "../workbook/timeline/components/TimelineWorkbook";
 import { App } from "./App";
 

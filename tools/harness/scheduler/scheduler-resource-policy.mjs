@@ -43,7 +43,7 @@ function addClaim(claims, resource, amount) {
   claims.set(resource, (claims.get(resource) ?? 0) + amount);
 }
 
-export function resourceClaimsObject(value) {
+function resourceClaimsObject(value) {
   return Object.fromEntries(
     Object.entries(value).sort(([left], [right]) => left.localeCompare(right)),
   );
@@ -135,7 +135,7 @@ function goShardUnits(workUnits) {
   return (workUnits ?? []).filter((unit) => unit.kind === "go_shard");
 }
 
-export function estimateServiceBackedGoCPULimit(workUnits) {
+function estimateServiceBackedGoCPULimit(workUnits) {
   const units = goShardUnits(workUnits);
   if (units.length === 0) {
     return 1;
@@ -160,7 +160,7 @@ export function estimateServiceBackedGoCPULimit(workUnits) {
   );
 }
 
-export function estimateServiceBackedGoIOLimit(workUnits, goCPULimit) {
+function estimateServiceBackedGoIOLimit(workUnits, goCPULimit) {
   const units = goShardUnits(workUnits);
   if (units.length === 0) {
     return 1;

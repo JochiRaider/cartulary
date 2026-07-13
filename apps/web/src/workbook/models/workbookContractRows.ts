@@ -36,7 +36,7 @@ function materializeViewRowCells(
   );
 }
 
-export function materializeWorkbookViewRow(
+function materializeWorkbookViewRow(
   normalized: NormalizedViewRowV1,
 ): WorkbookViewApiRow {
   return {

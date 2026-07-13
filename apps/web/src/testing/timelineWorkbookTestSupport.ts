@@ -22,10 +22,9 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, vi } from "vitest";
+import { timelineViewSchemaId } from "../workbook/models/workbookSurfaceRegistry";
 import type { RecordChangedPayload } from "../workbook/timeline/services/workbookCollaborationMessages";
 import { requireJSONBodyAt } from "./fetchMockTestSupport";
-
-export const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
 type WebSocketLike = {
   onmessage: ((event: MessageEvent) => void) | null;
@@ -124,18 +123,6 @@ type RecordChangedPayloadOptions = {
     change_kind: string;
   }>;
 };
-
-export function deferred<T>() {
-  let resolve!: (value: T | PromiseLike<T>) => void;
-  let reject!: (reason?: unknown) => void;
-
-  const promise = new Promise<T>((innerResolve, innerReject) => {
-    resolve = innerResolve;
-    reject = innerReject;
-  });
-
-  return { promise, resolve, reject };
-}
 
 export function installTimelineWorkbookTestGlobals(): TimelineWorkbookFetchMock {
   const fetchMock = vi.fn();

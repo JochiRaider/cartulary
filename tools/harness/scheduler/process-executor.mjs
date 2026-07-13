@@ -17,7 +17,7 @@ export function isDryRunFromMakeFlags(env = process.env) {
   return flags.includes(" n") || flags.includes(" --just-print") || flags.includes(" --dry-run");
 }
 
-export function sanitizeMakeFlags(value) {
+function sanitizeMakeFlags(value) {
   if (!value) {
     return "";
   }

@@ -24,12 +24,11 @@ import {
   networkFlowActivityProfileId,
 } from "../networkFlow/networkFlowClient";
 import { apiPath } from "../services/browserApi";
-import { fetchJSON, readEnvelope } from "../services/workbookApi";
+import { fetchWorkbookJSON, readEnvelope } from "../services/workbookApi";
 import { workbookSheetRefKey } from "../shared/workbookSheetRef";
 import type {
   WorkbookAccountApplicationMenuProps,
   WorkbookAccountModel,
-  WorkbookIncidentControlsMenuItem,
   WorkbookIncidentControlsRendererProps,
   WorkbookIncidentRole,
   WorkbookIncidentSnapshot,
@@ -85,14 +84,9 @@ import {
 } from "./models/workbookSurfaceRegistry";
 import { displayInitials } from "./utils/workbookPresence";
 
-export type { WorkbookIncidentIdentity } from "./models/workbookIncidentIdentity";
 export type {
   WorkbookAccountApplicationMenuProps,
-  WorkbookAccountModel,
-  WorkbookIncidentControlsMenuItem,
   WorkbookIncidentControlsRendererProps,
-  WorkbookIncidentRole,
-  WorkbookIncidentSnapshot,
 };
 
 type IncidentRole = WorkbookIncidentRole;
@@ -274,7 +268,7 @@ export function WorkbookShell({
   ]);
 
   const loadSessionRole = useCallback(async () => {
-    const result = await fetchJSON<SessionEnvelope>(
+    const result = await fetchWorkbookJSON<SessionEnvelope>(
       apiPath(apiBase, "/api/v1/auth/session"),
     );
     if (!result.ok) {

@@ -560,7 +560,7 @@ export function collectHarnessImportBoundaryViolations(
   };
 }
 
-export function assertHarnessImportBoundary(root = defaultRepoRoot, options = {}) {
+function assertHarnessImportBoundary(root = defaultRepoRoot, options = {}) {
   const report = collectHarnessImportBoundaryViolations(root, options);
   if (report.violations.length === 0) {
     return report;

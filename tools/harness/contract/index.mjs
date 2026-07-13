@@ -1,12 +1,9 @@
 export {
   createSecureWriteStream,
-  secureDirMode,
-  secureFileMode,
   secureMkdir,
   secureWriteFile,
 } from "./artifact-writer.mjs";
 export {
-  helperArtifactReferences,
   newestTargetArtifact,
 } from "./artifact-discovery.mjs";
 export {
@@ -29,24 +26,17 @@ export {
 export {
   HarnessConfigError,
   compactJSONString,
-  defaultResultsRoot,
-  generateRunId,
   generateTestRouteToken,
   prettyJSONString,
   preflightPublicTarget,
   redactString,
   redactValue,
-  resolveArtifactIdentityForTarget,
-  resolveHarnessConfig,
   repoRoot,
   resolveRetainedArtifactIdentity,
   resolveOutputMode,
   runCleanup,
   targetPolicy,
   testRouteTokenValid,
-  timingSafeTokenEqual,
-  validateResultRoot,
-  validateRunId,
   validateSchema,
   validateSchemaSync,
 } from "./harness-contract.mjs";

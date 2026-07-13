@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { apiPath } from "../../../services/browserApi";
 import {
-  fetchJSON,
+  fetchWorkbookJSON,
   parseErrorMessage,
   readEnvelope,
 } from "../../../services/workbookApi";
@@ -85,7 +85,7 @@ export function useTimelineEvidenceAttach({
 }) {
   const createAndAttachEvidenceFile = useCallback(
     async (file: File): Promise<string> => {
-      const createEvidence = await fetchJSON<EvidenceRowCreateEnvelope>(
+      const createEvidence = await fetchWorkbookJSON<EvidenceRowCreateEnvelope>(
         apiPath(
           apiBase,
           `/api/v1/incidents/${incidentId}/views/${evidenceViewSchemaId}/rows`,
@@ -171,10 +171,13 @@ export function useTimelineEvidenceAttach({
                   apiBase,
                   `/api/v1/records/${effectiveSnapshot.recordId}`,
                 );
-          const result = await fetchJSON<TimelineMutationEnvelope>(targetPath, {
-            method: effectiveSnapshot.recordId === null ? "POST" : "PATCH",
-            body: JSON.stringify(payload),
-          });
+          const result = await fetchWorkbookJSON<TimelineMutationEnvelope>(
+            targetPath,
+            {
+              method: effectiveSnapshot.recordId === null ? "POST" : "PATCH",
+              body: JSON.stringify(payload),
+            },
+          );
           if (!result.ok) {
             resolvePendingSocketTxn(clientTxnId);
             throw new Error(parseErrorMessage(result.payload));

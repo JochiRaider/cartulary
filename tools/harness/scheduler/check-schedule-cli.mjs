@@ -22,9 +22,9 @@ import {
   parseResourceLimitOverride,
 } from "./scheduler-manifest.mjs";
 import {
-  formatResourceMap,
   relToRepo as relToRepoPath,
 } from "./scheduler-reporting.mjs";
+import { formatResourceMap } from "./scheduler-resources.mjs";
 import { schedulerAutoLimitResolvers } from "./scheduler-resource-policy.mjs";
 import {
   isDryRunFromMakeFlags,

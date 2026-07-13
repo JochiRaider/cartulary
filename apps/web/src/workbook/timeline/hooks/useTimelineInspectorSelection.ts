@@ -30,12 +30,12 @@ type TimelineRowsRef = {
   readonly current: readonly WorkbookRow[];
 };
 
-export type TimelineRowContextMenuPosition = {
+type TimelineRowContextMenuPosition = {
   readonly x: number;
   readonly y: number;
 };
 
-export type TimelineRowContextMenuState = {
+type TimelineRowContextMenuState = {
   readonly position: TimelineRowContextMenuPosition;
   readonly recordId: string;
 };

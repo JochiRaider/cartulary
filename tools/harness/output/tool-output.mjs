@@ -14,8 +14,8 @@ import {
 
 export const toolRunSummarySchemaID = "cartulary.tool_run_summary.v4";
 
-export const failureClasses = failureClassOrder;
-export const failureReasons = failureReasonOrder;
+const failureClasses = failureClassOrder;
+const failureReasons = failureReasonOrder;
 
 export function normalizeOutputMode(env = process.env) {
   return resolveHarnessOutputMode(env, env.CARTULARY_TEST_TARGET || "");
@@ -77,7 +77,7 @@ export function terminalArtifactPath(runRoot, file) {
   return target;
 }
 
-export function compactDurationMs(value) {
+function compactDurationMs(value) {
   if (!Number.isFinite(value) || value < 0) {
     return 0;
   }
@@ -123,14 +123,14 @@ export function slowestTargetRef(summary) {
   return null;
 }
 
-export function slowestText(entry) {
+function slowestText(entry) {
   if (!entry) {
     return "none";
   }
   return `${entry.id}:${entry.duration_ms}`;
 }
 
-export function phaseAccountingFromCounts(counts = {}) {
+function phaseAccountingFromCounts(counts = {}) {
   return {
     authoritative: counts.authoritative ?? 0,
     support: counts.support ?? 0,
@@ -148,7 +148,7 @@ export function phaseAccountingFromCounts(counts = {}) {
   };
 }
 
-export function countsForToolSummary(counts = {}) {
+function countsForToolSummary(counts = {}) {
   return {
     phases: counts.phases ?? 0,
     tests: counts.tests ?? 0,
@@ -167,7 +167,7 @@ function hasApplicableCount(counts = {}, key) {
   );
 }
 
-export function commandInfo({
+function commandInfo({
   target,
   command = null,
   cwd = process.cwd(),

@@ -157,7 +157,7 @@ export function createSchedulerRuntimeAttachment({
   };
 }
 
-export async function browserSessionEnvFor(runtime, target) {
+async function browserSessionEnvFor(runtime, target) {
   const files = runtime.browserSessionFiles.get(target);
   return files ? runtime.browserEnvReader(files.envFile) : {};
 }

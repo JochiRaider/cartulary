@@ -16,8 +16,8 @@ import {
   successEnvelope,
   type TimelineWorkbookFetchMock,
   timelineRow,
-  timelineViewSchemaId,
 } from "../testing/timelineWorkbookTestSupport";
+import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 
 vi.mock(
   "@cartulary/grid-adapter",

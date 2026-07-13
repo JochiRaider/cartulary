@@ -19,9 +19,9 @@ import {
   successEnvelope,
   type TimelineWorkbookFetchMock,
   timelineRow,
-  timelineViewSchemaId,
   waitForVisibleGridRowRecordIds,
 } from "../testing/timelineWorkbookTestSupport";
+import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 
 vi.mock(

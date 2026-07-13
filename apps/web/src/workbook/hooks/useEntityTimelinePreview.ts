@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { apiPath } from "../../services/browserApi";
-import { fetchJSON, readEnvelope } from "../../services/workbookApi";
+import { fetchWorkbookJSON, readEnvelope } from "../../services/workbookApi";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import {
   normalizeTimelineFullRow,
@@ -40,7 +40,7 @@ export function useEntityTimelinePreview({
       const sequence = previewSequenceRef.current + 1;
       previewSequenceRef.current = sequence;
       setTimelinePreviewRows([]);
-      const result = await fetchJSON<WorkbookQueryEnvelope>(
+      const result = await fetchWorkbookJSON<WorkbookQueryEnvelope>(
         apiPath(
           apiBase,
           `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,

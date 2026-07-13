@@ -13,7 +13,7 @@ import {
 } from "react";
 import { apiPath } from "../../services/browserApi";
 import {
-  fetchJSON,
+  fetchWorkbookJSON,
   handleWorkbookLoadFailure,
   parseErrorMessage,
   readEnvelope,
@@ -72,7 +72,7 @@ type WorkbookShellMutableRef<T> = {
 type FilterDraftSetter = Dispatch<SetStateAction<FilterDraft>>;
 type WorkbookQueryStateSetter = Dispatch<SetStateAction<WorkbookQueryState>>;
 
-export type WorkbookShellActiveQueryControls = {
+type WorkbookShellActiveQueryControls = {
   readonly contract: ViewContract;
   readonly filterDraft: FilterDraft;
   readonly onApplyFilter: (draft: FilterDraft) => void;
@@ -328,7 +328,7 @@ export function useWorkbookShellRuntime({
     }) => {
       const contract = activeContract;
       const queryState = currentQueryStateForSurface(contract.viewSchemaId);
-      const result = await fetchJSON<SavedViewEnvelope>(
+      const result = await fetchWorkbookJSON<SavedViewEnvelope>(
         apiPath(apiBase, `/api/v1/incidents/${incidentId}/saved-views`),
         {
           method: "POST",
@@ -367,7 +367,7 @@ export function useWorkbookShellRuntime({
   const duplicateSavedView = useCallback(
     async (source: SavedViewResource) => {
       const contract = workbookContractForViewSchemaId(source.view_schema_id);
-      const result = await fetchJSON<SavedViewEnvelope>(
+      const result = await fetchWorkbookJSON<SavedViewEnvelope>(
         apiPath(apiBase, `/api/v1/incidents/${incidentId}/saved-views`),
         {
           method: "POST",
@@ -414,7 +414,7 @@ export function useWorkbookShellRuntime({
         savedView.view_schema_id,
       );
       const queryState = currentQueryStateForSurface(savedView.view_schema_id);
-      const result = await fetchJSON<SavedViewEnvelope>(
+      const result = await fetchWorkbookJSON<SavedViewEnvelope>(
         apiPath(
           apiBase,
           `/api/v1/incidents/${incidentId}/saved-views/${savedView.saved_view_id}`,
@@ -447,7 +447,7 @@ export function useWorkbookShellRuntime({
 
   const deleteSavedView = useCallback(
     async (savedView: SavedViewResource) => {
-      const result = await fetchJSON<Record<string, unknown>>(
+      const result = await fetchWorkbookJSON<Record<string, unknown>>(
         apiPath(
           apiBase,
           `/api/v1/incidents/${incidentId}/saved-views/${savedView.saved_view_id}`,
@@ -463,7 +463,7 @@ export function useWorkbookShellRuntime({
   );
 
   const setWorkbookHomeSheetRef = useCallback(async () => {
-    const result = await fetchJSON<Record<string, unknown>>(
+    const result = await fetchWorkbookJSON<Record<string, unknown>>(
       apiPath(
         apiBase,
         `/api/v1/incidents/${incidentId}/workbook-preferences/me`,
@@ -479,7 +479,7 @@ export function useWorkbookShellRuntime({
   }, [apiBase, incidentId, startupSheetRef]);
 
   const setWorkbookDefaultSheetRef = useCallback(async () => {
-    const result = await fetchJSON<Record<string, unknown>>(
+    const result = await fetchWorkbookJSON<Record<string, unknown>>(
       apiPath(
         apiBase,
         `/api/v1/incidents/${incidentId}/workbook-preferences/default`,
@@ -555,7 +555,7 @@ export function useWorkbookShellRuntime({
     const startupQuery = workbookStartupQueryFromURLParams(params);
     const selectionVersionAtRequest = surfaceSelectionVersionRef.current;
     const loadStartup = async () => {
-      const result = await fetchJSON<WorkbookStartupEnvelope>(
+      const result = await fetchWorkbookJSON<WorkbookStartupEnvelope>(
         apiPath(
           apiBase,
           `/api/v1/incidents/${incidentId}/workbook-startup${startupQuery}`,
@@ -621,7 +621,7 @@ export function useWorkbookShellRuntime({
         if (cursorToken !== null) {
           query.set("cursor_token", cursorToken);
         }
-        const result = await fetchJSON<SavedViewListEnvelope>(
+        const result = await fetchWorkbookJSON<SavedViewListEnvelope>(
           apiPath(
             apiBase,
             `/api/v1/incidents/${incidentId}/saved-views?${query.toString()}`,

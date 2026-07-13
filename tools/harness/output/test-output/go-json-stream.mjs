@@ -5,7 +5,7 @@ export function handleGoJSONStream() {
   return 0;
 }
 
-export function flushGoJSONStream(buffer, flushAll) {
+function flushGoJSONStream(buffer, flushAll) {
   const lines = buffer.split(/\r?\n/);
   const pending = flushAll ? "" : (lines.pop() ?? "");
   for (const line of lines) {

@@ -44,7 +44,7 @@ export const validBackendLayers = new Set([
   "frontend_unit",
 ]);
 
-export const phaseTestMapSchemaID = "cartulary.phase_test_map.v2";
+const phaseTestMapSchemaID = "cartulary.phase_test_map.v2";
 
 export const validDefaultCheckKinds = new Set([
   "primary_local_evidence",
@@ -89,7 +89,7 @@ export const validPostgresFixtureReasonCodes = new Set([
   "migration_scratch",
 ]);
 
-export const phaseManifestTopLevelKeys = new Set([
+const phaseManifestTopLevelKeys = new Set([
   "schema_id",
   "phase",
   "note",
@@ -105,7 +105,7 @@ export const phaseManifestTopLevelKeys = new Set([
   "visual",
 ]);
 
-export const phaseManifestRequiredKeys = new Set([
+const phaseManifestRequiredKeys = new Set([
   "note",
   "ledger",
   "expected_ids",
@@ -204,7 +204,7 @@ export const supportGoEntryKeys = new Set([
   "migration_scratch_reason_code",
 ]);
 
-export const profileClaimKeys = new Set([
+const profileClaimKeys = new Set([
   "profile_id",
   "claimed",
   "claim_ac_id",
@@ -213,7 +213,7 @@ export const profileClaimKeys = new Set([
   "aggregate_ac_ids",
 ]);
 
-export const sharedHarnessEntryKeys = new Set([
+const sharedHarnessEntryKeys = new Set([
   "id",
   "coverage",
   "harnesses",

@@ -1,12 +1,8 @@
 import {
   goShardSchedulerProfileClaims,
-  mapServiceBackedClaimsToCheckClaims as mapServiceBackedClaimsToCheckClaimsPolicy,
+  mapServiceBackedClaimsToCheckClaims,
 } from "../../scheduler/scheduler-resource-policy.mjs";
 import { addClaim, resourceClaimsObject } from "./schedule-utils.mjs";
-
-export function mapServiceBackedClaimsToCheckClaims(rawClaims, { ensureHost = false } = {}) {
-  return mapServiceBackedClaimsToCheckClaimsPolicy(rawClaims, { ensureHost });
-}
 
 export function sourceClaimsForShard(source, shard) {
   return mergeClaims(
@@ -49,7 +45,7 @@ function isRetainedBrowserStageResource(resource) {
   return resource === "browser_stack" || resource === "process" || resource.startsWith("browser_stage_");
 }
 
-export function retainedBrowserStageClaimsFromEntries(entries) {
+function retainedBrowserStageClaimsFromEntries(entries) {
   return resourceClaimsObject(
     Object.fromEntries(
       entries.filter(([resource]) => isRetainedBrowserStageResource(resource)),

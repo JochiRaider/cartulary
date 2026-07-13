@@ -1,7 +1,7 @@
 import type { GridCellAnchor } from "@cartulary/grid-adapter";
 import { type ClipboardEvent as ReactClipboardEvent, useCallback } from "react";
 import { apiPath } from "../../../services/browserApi";
-import { fetchJSON, readEnvelope } from "../../../services/workbookApi";
+import { fetchWorkbookJSON, readEnvelope } from "../../../services/workbookApi";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { sameFieldConflictQueueKey } from "../../utils/workbookPendingQueue";
 import {
@@ -176,24 +176,25 @@ export function useTimelineClipboardPasteController({
                   });
                 }
                 trackPendingSocketTxn(clientTxnId);
-                const result = await fetchJSON<TimelineClipboardPasteEnvelope>(
-                  apiPath(
-                    apiBase,
-                    `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`,
-                  ),
-                  {
-                    method: "POST",
-                    body: JSON.stringify({
-                      view_schema_id: timelineViewSchemaId,
-                      client_txn_id: clientTxnId,
-                      clipboard_text: clipboardText,
-                      format: clipboardText.includes("\t") ? "tsv" : "csv",
-                      start_field_key: fieldKey,
-                      columns: targetResolution.columns,
-                      targets: rowTargetPayload,
-                    }),
-                  },
-                );
+                const result =
+                  await fetchWorkbookJSON<TimelineClipboardPasteEnvelope>(
+                    apiPath(
+                      apiBase,
+                      `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`,
+                    ),
+                    {
+                      method: "POST",
+                      body: JSON.stringify({
+                        view_schema_id: timelineViewSchemaId,
+                        client_txn_id: clientTxnId,
+                        clipboard_text: clipboardText,
+                        format: clipboardText.includes("\t") ? "tsv" : "csv",
+                        start_field_key: fieldKey,
+                        columns: targetResolution.columns,
+                        targets: rowTargetPayload,
+                      }),
+                    },
+                  );
                 resolvePendingSocketTxn(clientTxnId);
                 if (!result.ok) {
                   clearViewportContinuity(viewportContinuityToken);

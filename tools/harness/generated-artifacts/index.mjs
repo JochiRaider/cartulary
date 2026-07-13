@@ -3,7 +3,6 @@ export {
   defaultTaskSurfaceManifestPath,
   harnessCheck,
   harnessTierChecks,
-  helpTiers,
   loadTaskSurfaceManifest,
   makeRecipeEntries,
   renderTaskSurfaceMake,
@@ -11,20 +10,12 @@ export {
   targetEntryMap,
 } from "./task-surface/index.mjs";
 export {
-  browserStageGeneratedNeedsPolicyForStage,
-  compareExecutionDependencyIDs,
   defaultExecutionTopologyManifestPath,
-  executionDependencyMetadata,
   loadExecutionTopology,
   renderBrowserBatchManifest,
   renderCheckScheduleManifest,
   renderServiceBackedScheduleProfile,
   renderTaskSurfaceManifest,
-  serviceBackedGoExecutionDependencies,
-  serviceBackedSupportTargets,
-  targetForExecutionDependencyID,
-  validExecutionDependencyIDs,
-  validSupportTargetIDs,
 } from "./execution-topology.mjs";
 export {
   renderServiceBackedScheduleManifest,

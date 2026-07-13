@@ -19,7 +19,6 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-
 import {
   changeInputValue,
   cleanupTimelineWorkbookTestGlobals,
@@ -31,10 +30,10 @@ import {
   successEnvelope,
   type TimelineWorkbookFetchMock,
   timelineRow,
-  timelineViewSchemaId,
   waitForTimelineWorkbookReady,
   waitForVisibleGridRowRecordIds,
 } from "../testing/timelineWorkbookTestSupport";
+import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 import { clipboardTextLooksTabular } from "./utils/workbookClipboard";
 

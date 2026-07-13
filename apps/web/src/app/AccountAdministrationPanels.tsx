@@ -62,12 +62,12 @@ type DeploymentUsersPanelProps = {
   session: SessionData;
 };
 
-export type AccountSecurityPanelHandle = {
+type AccountSecurityPanelHandle = {
   refreshAccount: () => Promise<void>;
   signOut: () => Promise<void>;
 };
 
-export type DeploymentUsersPanelHandle = {
+type DeploymentUsersPanelHandle = {
   createUser: () => Promise<void>;
   loadTargetUser: () => Promise<void>;
   refreshUsers: () => Promise<void>;
@@ -77,7 +77,7 @@ export type DeploymentUsersPanelHandle = {
   saveTargetUser: () => Promise<void>;
 };
 
-export type DeploymentUsersPanelCommandState = {
+type DeploymentUsersPanelCommandState = {
   canLoadTargetUser: boolean;
   canSubmitTargetAction: boolean;
   canSubmitVersionedTargetAction: boolean;

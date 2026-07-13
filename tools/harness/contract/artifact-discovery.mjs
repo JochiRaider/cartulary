@@ -8,7 +8,7 @@ import {
 } from "../generated-artifacts/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
+const repoRoot = path.resolve(scriptDir, "..", "..", "..");
 const aggregateRunSummaryTargets = new Set(["test", "test-fast", "check", "ci", "release-check"]);
 const commandArtifactDefinitions = new Map([
   [
@@ -23,7 +23,7 @@ const commandArtifactDefinitions = new Map([
   ],
 ]);
 
-export function relToRepo(value, root = repoRoot) {
+function relToRepo(value, root = repoRoot) {
   const relative = path.relative(root, value).replaceAll("\\", "/");
   if (!relative.startsWith("../") && relative !== "..") {
     return relative === "" ? "." : relative;
@@ -31,7 +31,7 @@ export function relToRepo(value, root = repoRoot) {
   return value.replaceAll("\\", "/");
 }
 
-export function resolveResultsRoot(root = repoRoot, env = process.env) {
+function resolveResultsRoot(root = repoRoot, env = process.env) {
   const configured = env.CARTULARY_TEST_RESULTS_DIR ?? "";
   if (configured) {
     return path.isAbsolute(configured) ? configured : path.join(root, configured);
@@ -98,7 +98,7 @@ function targetHasRunSummary(target, recipe) {
   return recipe?.type === "sequence" || recipe?.type === "check_schedule" || aggregateRunSummaryTargets.has(target);
 }
 
-export function expectedTargetArtifacts(target, { root = repoRoot } = {}) {
+function expectedTargetArtifacts(target, { root = repoRoot } = {}) {
   const resultsRoot = resolveResultsRoot(root);
   const recipe = targetRecipe(target, root);
   const recipeType = recipe?.type ?? "";
@@ -125,7 +125,7 @@ export function expectedTargetArtifacts(target, { root = repoRoot } = {}) {
   return expected;
 }
 
-export function targetArtifactCandidates(target, { root = repoRoot } = {}) {
+function targetArtifactCandidates(target, { root = repoRoot } = {}) {
   const resultsRoot = resolveResultsRoot(root);
   if (!existsSync(resultsRoot)) {
     return [];

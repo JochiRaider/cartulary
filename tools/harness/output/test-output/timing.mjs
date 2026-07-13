@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { repoRoot } from "../../contract/index.mjs";
 
 import {
   existsSync,
@@ -12,7 +13,6 @@ import {
   secureWriteFile,
 } from "../../contract/harness-contract.mjs";
 import {
-  repoRoot,
   resolveResultsRoot,
   resolveRunId,
   targetTimingSchemaID,

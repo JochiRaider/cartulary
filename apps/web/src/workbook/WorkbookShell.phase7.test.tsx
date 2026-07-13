@@ -22,10 +22,10 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { deferred } from "../testing/fetchMockTestSupport";
 import {
   changeInputValue,
   cleanupTimelineWorkbookTestGlobals,
-  deferred,
   errorEnvelope,
   extractTimelineConflictResolutionBody,
   extractTimelineJSONBody,
@@ -35,11 +35,11 @@ import {
   successEnvelope,
   type TimelineWorkbookFetchMock,
   timelineRow,
-  timelineViewSchemaId,
   visibleGridRowRecordIds,
   waitForVisibleGridRowRecordIds,
   workbookAsyncTimeoutMs,
 } from "../testing/timelineWorkbookTestSupport";
+import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import type { RecordHistoryItem } from "./timeline/components/TimelineHistoryPanel";
 import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 import { buildRecordRollbackTargetFromHistoryAction } from "./timeline/hooks/useTimelineHistoryActions";

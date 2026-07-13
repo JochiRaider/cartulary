@@ -1,10 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-import {
-  loadTaskSurfaceManifest,
-  targetEntryMap,
-} from "../../generated-artifacts/index.mjs";
+import { targetEntryMap } from "../../generated-artifacts/task-surface/model.mjs";
 import { readJsonObject } from "../../contract/json-shape.mjs";
 import {
   phaseFromMapPath,
@@ -58,13 +55,14 @@ function computeRowRollupState(entry, manifest, priorPhaseStates) {
 export function validateFrontendPhaseArtifacts(root = process.cwd(), options = {}) {
   const checkFreshness = options.checkFreshness !== false;
   const registry = loadFrontendPhaseRegistry(root);
+  const taskSurfaceManifestPath = path.join(
+    root,
+    "tools",
+    "task_surface_manifest.json",
+  );
   const targetEntriesByName =
     options.targetEntriesByName ??
-    targetEntryMap(
-      loadTaskSurfaceManifest(
-        path.join(root, "tools", "task_surface_manifest.json"),
-      ).manifest,
-    );
+    targetEntryMap(readJsonObject(taskSurfaceManifestPath, taskSurfaceManifestPath));
   const phaseStates = new Map();
   const rowTargetNames = new Map();
   const frontendBrowserTitleOwners = new Map();

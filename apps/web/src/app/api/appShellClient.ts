@@ -108,7 +108,7 @@ export type EnterpriseAuthProvider = {
   display_name: string;
 };
 
-export type EnterpriseAuthBeginResponse = {
+type EnterpriseAuthBeginResponse = {
   provider_key: string;
   provider_type: "oidc" | "saml";
   redirect_url: string;
@@ -682,5 +682,3 @@ export function adminRevokeAllSessions(options: {
     },
   );
 }
-
-export type Phase1Response<T> = APIResult<DataEnvelope<T>>;

@@ -12,7 +12,7 @@ import {
 import {
   loadExecutionTopology,
   renderBrowserBatchManifest,
-} from "../generated-artifacts/index.mjs";
+} from "../generated-artifacts/execution-topology.mjs";
 import {
   activePhaseStatus,
   collectEntries,
@@ -27,14 +27,13 @@ import {
 } from "../phase-accounting/index.mjs";
 import { findTargetDescriptor } from "../backend/backend-target-plan.mjs";
 import {
-  loadTaskSurfaceManifest,
   makeRecipeEntries,
   targetEntryMap,
-} from "../generated-artifacts/index.mjs";
+} from "../generated-artifacts/task-surface/model.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
-export const taskExecutionMapSchemaID = "cartulary.task_execution_map.v1";
+const repoRoot = path.resolve(scriptDir, "..", "..", "..");
+const taskExecutionMapSchemaID = "cartulary.task_execution_map.v1";
 const executionPhaseRowsCache = new Map();
 const taskSurfaceCache = new Map();
 const schedulerManifestCache = new Map();
@@ -191,7 +190,7 @@ function loadTaskSurface(root = repoRoot) {
   if (cached) {
     return cached;
   }
-  const { manifest } = loadTaskSurfaceManifest(manifestFile);
+  const manifest = readJSON(manifestFile);
   const result = {
     manifest,
     targets: targetEntryMap(manifest),

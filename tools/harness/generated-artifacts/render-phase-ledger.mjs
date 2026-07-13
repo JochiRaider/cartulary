@@ -27,7 +27,7 @@ const supportTargetOrder = new Map([
   ["backend_process", 2],
 ]);
 
-export function phaseLedgerOutputPath(phase) {
+function phaseLedgerOutputPath(phase) {
   return `docs/testing/${phase}_coverage_ledger.md`;
 }
 

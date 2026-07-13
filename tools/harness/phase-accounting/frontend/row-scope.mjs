@@ -33,7 +33,7 @@ export function validateFrontendRowIDs(rowIDs, invalidMessage) {
   }
 }
 
-export function frontendMapRef(phaseID) {
+function frontendMapRef(phaseID) {
   return `tools/frontend_phase_maps/fe_p${phaseID.slice("FE-P".length)}_test_map.json`;
 }
 
@@ -48,7 +48,7 @@ export function selectedFrontendRowAccountingScope(phase, rowIDs) {
   };
 }
 
-export function rowIsInActiveTargetScope(phase, row) {
+function rowIsInActiveTargetScope(phase, row) {
   return phase.status === "active" && row.claim_status === "implemented";
 }
 

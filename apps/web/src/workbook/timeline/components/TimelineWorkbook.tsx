@@ -183,7 +183,6 @@ const createRelatedTargetContracts = new Map<string, ViewContract>(
     lessonViewSchemaId,
   ].map((viewSchemaId) => [viewSchemaId, requireViewContract(viewSchemaId)]),
 );
-export type SaveState = "Syncing" | "Saved" | "Conflict";
 type FilterDraftSetter = Dispatch<SetStateAction<FilterDraft>>;
 type WorkbookQueryStateSetter = Dispatch<SetStateAction<WorkbookQueryState>>;
 export type IncidentRole = "viewer" | "editor" | "reviewer" | "admin" | "";

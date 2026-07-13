@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { repoRoot } from "../../contract/index.mjs";
 
 import {
   existsSync,
@@ -32,7 +33,6 @@ import {
 } from "../tool-output.mjs";
 import {
   phaseSummarySchemaID,
-  repoRoot,
   resolveResultsRoot,
   resolveRunId,
   timingBucketSet,

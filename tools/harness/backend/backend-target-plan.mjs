@@ -13,5 +13,4 @@ export {
   collectTargetNames,
   collectTargetPlanRows,
   findTargetDescriptor,
-  knownManifestPhases,
 } from "./target-plan.mjs";

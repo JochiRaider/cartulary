@@ -49,6 +49,26 @@ function uniqueSorted(values) {
   return [...new Set(values)].sort((left, right) => left.localeCompare(right));
 }
 
+function mergeIgnoreExportRules(rules) {
+  const byFile = new Map();
+  for (const rule of rules ?? []) {
+    if (!rule?.file) {
+      continue;
+    }
+    const current = byFile.get(rule.file) ?? new Set();
+    for (const exportName of rule.exports ?? []) {
+      current.add(exportName);
+    }
+    byFile.set(rule.file, current);
+  }
+  return Array.from(byFile.entries())
+    .map(([file, exports]) => ({
+      file,
+      exports: exports.has("*") ? ["*"] : uniqueSorted(exports),
+    }))
+    .sort((left, right) => left.file.localeCompare(right.file));
+}
+
 function extensionOf(file) {
   return path.extname(file).toLowerCase();
 }
@@ -132,6 +152,22 @@ function collectTaskSurfaceScripts(root, reachabilityOwner) {
   return scripts;
 }
 
+function collectHarnessEntrypoints(root, reachabilityOwner) {
+  const files = uniqueSorted(reachabilityOwner.harness_entrypoints.files ?? []);
+  for (const file of files) {
+    assertExistingFile(root, file, "harness_entrypoints.files");
+  }
+  return files;
+}
+
+function collectHarnessDynamicExports(root, reachabilityOwner) {
+  const entries = reachabilityOwner.harness_dynamic_exports ?? [];
+  for (const entry of entries) {
+    assertExistingFile(root, entry.file, "harness_dynamic_exports.file");
+  }
+  return mergeIgnoreExportRules(entries);
+}
+
 function validateVitest(root, vitest) {
   assertExistingFile(root, vitest.config_file, "vitest.config_file");
   for (const setupFile of vitest.setup_files) {
@@ -200,6 +236,8 @@ export function loadFallowReachabilityOwner({
   validateSchemaSync(fallowReachabilityOwnerSchemaID, owner);
   assertExistingFile(root, owner.base_config.path, "base_config.path");
   validateVitest(root, owner.vitest);
+  collectHarnessEntrypoints(root, owner);
+  collectHarnessDynamicExports(root, owner);
   validateVitePublicAssets(root, owner.vite_public_assets);
   validateExecutableToolingDependencies(root, owner.executable_tooling_dependencies);
   return owner;
@@ -213,13 +251,23 @@ export function buildResolvedFallowConfig({
   const owner = loadFallowReachabilityOwner({ root, ownerPath });
   const baseConfig = readJSON(repoPath(root, owner.base_config.path));
   const taskSurfaceScripts = collectTaskSurfaceScripts(root, owner);
+  const harnessEntrypoints = collectHarnessEntrypoints(root, owner);
+  const harnessDynamicExports = collectHarnessDynamicExports(root, owner);
   const executableToolingDependencies = uniqueSorted(
     owner.executable_tooling_dependencies.map((entry) => entry.package_name),
   );
   const config = {
     ...baseConfig,
     $schema: baseConfig.$schema ?? fallowConfigSchema,
-    entry: uniqueSorted([...(baseConfig.entry ?? []), ...taskSurfaceScripts]),
+    entry: uniqueSorted([
+      ...(baseConfig.entry ?? []),
+      ...taskSurfaceScripts,
+      ...harnessEntrypoints,
+    ]),
+    ignoreExports: mergeIgnoreExportRules([
+      ...(baseConfig.ignoreExports ?? []),
+      ...harnessDynamicExports,
+    ]),
     ignoreUnresolvedImports: uniqueSorted([
       ...(baseConfig.ignoreUnresolvedImports ?? []),
       ...owner.vite_public_assets.url_prefixes.map((prefix) => `${prefix}**`),
@@ -257,6 +305,12 @@ export function buildResolvedFallowConfig({
     owner,
     stats: {
       task_surface_entry_points: taskSurfaceScripts.length,
+      harness_entry_points: harnessEntrypoints.length,
+      harness_dynamic_export_files: harnessDynamicExports.length,
+      harness_dynamic_exports: harnessDynamicExports.reduce(
+        (count, rule) => count + rule.exports.length,
+        0,
+      ),
       vitest_setup_files: owner.vitest.setup_files.length,
       vite_public_assets: owner.vite_public_assets.always_used_files.length,
       executable_tooling_dependencies: executableToolingDependencies.length,

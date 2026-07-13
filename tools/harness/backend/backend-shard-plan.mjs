@@ -6,7 +6,7 @@ import { collectTargetPlanRows } from "./target-plan.mjs";
 
 export { collectGoShardPlanFromRows, collectGoShardsForTargetFromRows };
 
-export function targetPlanRowsForGoShards(root = process.cwd()) {
+function targetPlanRowsForGoShards(root = process.cwd()) {
   return collectTargetPlanRows(root);
 }
 

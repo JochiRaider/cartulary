@@ -6,9 +6,9 @@ import {
   targetForExecutionDependencyID,
   validExecutionDependencyIDs,
   validSupportTargetIDs,
-} from "../generated-artifacts/index.mjs";
+} from "../generated-artifacts/execution-topology.mjs";
 
-export const executionDependencyMetadata = loadExecutionDependencyMetadata();
+const executionDependencyMetadata = loadExecutionDependencyMetadata();
 
 export const validExecutionDependencies = validExecutionDependencyIDs();
 

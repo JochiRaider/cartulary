@@ -1,13 +1,8 @@
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-
 import {
+  repoRoot,
   validateResultRoot,
   validateRunId,
 } from "./harness-contract.mjs";
-
-export const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
 
 export const phaseSummarySchemaID = "cartulary.test_phase_summary.v3";
 export const targetTimingSchemaID = "cartulary.test_target_timing.v1";
@@ -55,7 +50,7 @@ export function resolveRunId(env = process.env) {
   return "adhoc";
 }
 
-export function createTestOutputContext(env = process.env) {
+function createTestOutputContext(env = process.env) {
   return {
     repoRoot,
     resultsRoot: resolveResultsRoot(env),

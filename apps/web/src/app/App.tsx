@@ -42,6 +42,7 @@ import {
   loadCredentialState,
   loadExtensions,
   loadSession,
+  type PagingMeta,
   type SessionData,
 } from "./api/appShellClient";
 import { AdministrativeAuditPanel } from "./DeploymentAuditPanel";
@@ -61,7 +62,6 @@ import type {
   IncidentStatusFilter,
   LandingAdminPanelDescriptor,
   LandingRefreshState,
-  PagingMeta,
 } from "./landingAdminTypes";
 import {
   ReferencePackAdminPanel,

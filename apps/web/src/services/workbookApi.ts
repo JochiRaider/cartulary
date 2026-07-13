@@ -63,7 +63,7 @@ export function isAbortError(error: unknown): boolean {
     : error instanceof Error && error.name === "AbortError";
 }
 
-export async function fetchJSON<T>(
+export async function fetchWorkbookJSON<T>(
   input: RequestInfo | URL,
   init?: RequestInit,
   options: {

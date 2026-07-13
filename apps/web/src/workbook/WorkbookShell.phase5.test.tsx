@@ -12,9 +12,9 @@ import {
   emitRecordChanged,
   successEnvelope,
   timelineRow,
-  timelineViewSchemaId,
   visibleGridRows,
 } from "../testing/timelineWorkbookTestSupport";
+import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 
 describe("Phase 5 workbook evidence coverage", () => {

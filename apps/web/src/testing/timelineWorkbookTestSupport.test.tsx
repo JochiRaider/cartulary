@@ -5,10 +5,10 @@ import {
 import { cleanup, render, screen } from "@testing-library/react";
 import { useEffect, useState } from "react";
 import { afterEach, describe, expect, it } from "vitest";
+import { timelineViewSchemaId } from "../workbook/models/workbookSurfaceRegistry";
 
 import {
   changeInputValue,
-  timelineViewSchemaId,
   waitForWorkbookRows,
 } from "./timelineWorkbookTestSupport";
 

@@ -31,9 +31,9 @@ import {
 } from "../backend/backend-target-plan.mjs";
 import {
   helpTiers,
-  loadTaskSurfaceManifest,
+  readJSON,
   targetEntryMap,
-} from "../generated-artifacts/index.mjs";
+} from "../generated-artifacts/task-surface/model.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
@@ -102,7 +102,7 @@ function loadTaskSurface(root = repoRoot, taskSurfaceManifest = null) {
   if (cached) {
     return cached;
   }
-  const { manifest } = loadTaskSurfaceManifest(manifestFile);
+  const manifest = readJSON(manifestFile);
   const result = {
     manifest,
     targets: targetEntryMap(manifest),

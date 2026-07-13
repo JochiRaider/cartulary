@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { apiPath } from "../../services/browserApi";
-import { fetchJSON, readEnvelope } from "../../services/workbookApi";
+import { fetchWorkbookJSON, readEnvelope } from "../../services/workbookApi";
 import { parseMutationError } from "../models/genericWorkbookModel";
 import type { EntityApiRow } from "../timeline/models/workbookTimelineModel";
 
@@ -106,7 +106,7 @@ export function useGenericSurfaceMutationController({
       viewSchemaId,
     }: GenericPatchMutationRequest) => {
       beginMutation();
-      const result = await fetchJSON<GenericViewMutationEnvelope>(
+      const result = await fetchWorkbookJSON<GenericViewMutationEnvelope>(
         apiPath(apiBase, `/api/v1/records/${recordId}`),
         {
           method: "PATCH",

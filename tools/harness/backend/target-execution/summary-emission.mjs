@@ -44,7 +44,7 @@ export async function runHelper(ctx, args, env = {}) {
   });
 }
 
-export async function emitTargetTimingSpan(
+async function emitTargetTimingSpan(
   ctx,
   bucket,
   label,

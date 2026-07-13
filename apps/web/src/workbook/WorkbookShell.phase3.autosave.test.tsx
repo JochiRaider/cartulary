@@ -6,11 +6,11 @@ import {
 } from "@cartulary/ui-contracts";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { deferred } from "../testing/fetchMockTestSupport";
 import { renderTimelineWorkbook } from "../testing/timelineWorkbookRenderTestSupport";
 import {
   changeInputValue,
   cleanupTimelineWorkbookTestGlobals,
-  deferred,
   errorEnvelope,
   extractTimelinePatchBody,
   flushWorkbookAsync,
@@ -19,8 +19,8 @@ import {
   successEnvelope,
   type TimelineWorkbookFetchMock,
   timelineRow,
-  timelineViewSchemaId,
 } from "../testing/timelineWorkbookTestSupport";
+import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import {
   buildCreatePayload,
   createDraftRow,

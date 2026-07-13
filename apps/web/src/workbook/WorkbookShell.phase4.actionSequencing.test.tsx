@@ -7,11 +7,10 @@ import {
 } from "@cartulary/ui-contracts";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
+import { deferred } from "../testing/fetchMockTestSupport";
 import {
   changeInputValue,
   cleanupTimelineWorkbookTestGlobals,
-  deferred,
   extractTimelineRecordActionBody,
   extractTimelineRecordPatchBody,
   flushWorkbookAsync,
@@ -21,10 +20,10 @@ import {
   type TimelineWorkbookFetchMock,
   timelineRecordActionCalls,
   timelineRow,
-  timelineViewSchemaId,
   waitForTimelineRecordActionCalls,
   waitForTimelineRecordPatchCalls,
 } from "../testing/timelineWorkbookTestSupport";
+import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 
 vi.mock(

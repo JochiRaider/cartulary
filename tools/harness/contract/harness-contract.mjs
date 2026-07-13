@@ -13,9 +13,6 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 export {
-  createSecureWriteStream,
-  secureDirMode,
-  secureFileMode,
   secureMkdir,
   secureWriteFile,
 } from "./artifact-writer.mjs";
@@ -24,14 +21,14 @@ import { secureDirMode, secureMkdir } from "./artifact-writer.mjs";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const requireFromHarness = createRequire(import.meta.url);
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
-export const schemasDir = path.join(repoRoot, "tools", "schemas");
-export const redactionManifestPath = path.join(
+const schemasDir = path.join(repoRoot, "tools", "schemas");
+const redactionManifestPath = path.join(
   repoRoot,
   "tools",
   "harness_redaction_manifest.json",
 );
 
-export const outputModes = Object.freeze([
+const outputModes = Object.freeze([
   "quiet",
   "summary",
   "ci",
@@ -231,7 +228,7 @@ export class HarnessConfigError extends Error {
   }
 }
 
-export function defaultResultsRoot(root = repoRoot) {
+function defaultResultsRoot(root = repoRoot) {
   return path.join(root, ".cartulary", "test-results");
 }
 
@@ -459,7 +456,7 @@ function validateResultRootSecurity(resolved, { custom = false } = {}) {
   }
 }
 
-export function generateRunId(now = new Date(), pid = process.pid) {
+function generateRunId(now = new Date(), pid = process.pid) {
   return `${now.toISOString().replace(/[-:]/gu, "").replace(/\..+$/u, "Z")}-p${pid}`;
 }
 
@@ -987,7 +984,7 @@ function rejectUndeclaredPublicInputs(target, entry, manifest, env) {
   }
 }
 
-export function resolveHarnessConfig(target, env = process.env, options = {}) {
+function resolveHarnessConfig(target, env = process.env, options = {}) {
   const manifest = options.manifest ?? loadResolverTaskSurfaceManifest(env);
   const entry = targetPolicy(target, manifest);
   if (!entry || entry.target_class !== "public") {
@@ -1170,7 +1167,7 @@ export function redactString(value) {
   return text;
 }
 
-export function redactStructuredText(value) {
+function redactStructuredText(value) {
   const text = String(value ?? "");
   try {
     return compactJSONString(JSON.parse(text));
@@ -1410,7 +1407,7 @@ export function generateTestRouteToken() {
   return randomBytes(32).toString("base64url");
 }
 
-export function timingSafeTokenEqual(left, right) {
+function timingSafeTokenEqual(left, right) {
   const leftBuffer = Buffer.from(String(left ?? ""));
   const rightBuffer = Buffer.from(String(right ?? ""));
   if (leftBuffer.length !== rightBuffer.length) {

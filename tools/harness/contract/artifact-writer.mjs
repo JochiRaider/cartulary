@@ -9,7 +9,7 @@ import {
 import path from "node:path";
 
 export const secureDirMode = 0o700;
-export const secureFileMode = 0o600;
+const secureFileMode = 0o600;
 
 function normalizeOptions(modeOrOptions, defaultMode) {
   if (typeof modeOrOptions === "number") {
@@ -18,7 +18,7 @@ function normalizeOptions(modeOrOptions, defaultMode) {
   return { mode: defaultMode, ...(modeOrOptions ?? {}) };
 }
 
-export function pathIsUnder(parent, child) {
+function pathIsUnder(parent, child) {
   const relative = path.relative(path.resolve(parent), path.resolve(child));
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }

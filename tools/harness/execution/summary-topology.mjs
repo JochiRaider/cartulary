@@ -7,18 +7,18 @@ import {
   defaultExecutionTopologyManifestPath,
   loadExecutionTopology,
   renderBrowserBatchManifest,
-} from "../generated-artifacts/index.mjs";
+} from "../generated-artifacts/execution-topology.mjs";
+import { defaultTaskSurfaceManifestPath } from "../generated-artifacts/task-surface/model.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
-export const defaultTaskSurfaceManifestPath = path.join(repoRoot, "tools", "task_surface_manifest.json");
-export const defaultSchedulerManifestPath = path.join(
+const repoRoot = path.resolve(scriptDir, "..", "..", "..");
+const defaultSchedulerManifestPath = path.join(
   repoRoot,
   "tools",
   "scheduler_manifest.json",
 );
-export const defaultBrowserBatchManifestPath = path.join(repoRoot, "tools", "browser_e2e_batch_manifest.json");
-export const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v2";
+const defaultBrowserBatchManifestPath = path.join(repoRoot, "tools", "browser_e2e_batch_manifest.json");
+const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v2";
 
 function resolveRepoPath(value) {
   return path.isAbsolute(value) ? value : path.join(repoRoot, value);
@@ -162,7 +162,7 @@ function browserStageByTarget(context, target) {
   return null;
 }
 
-export function browserSummaryChildren(context, target) {
+function browserSummaryChildren(context, target) {
   return [...(browserStageByTarget(context, target)?.summaryChildren ?? [])];
 }
 

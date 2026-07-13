@@ -4,10 +4,8 @@ import path from "node:path";
 
 import {
   formatResourceList,
-  formatResourceMap,
   machineSchedulerOutput,
   relToRepo as relToRepoPath,
-  resourceMapToObject,
   schedulerActiveGroups,
   schedulerDryRunLine,
   schedulerHumanNestedProgressKey,
@@ -24,8 +22,10 @@ import {
   verboseSchedulerOutput,
 } from "../scheduler-reporting.mjs";
 import {
+  formatResourceMap,
   preferredResourcesForScheduler,
   resourceLimitSourcesToObject,
+  resourceMapToObject,
 } from "../scheduler-resources.mjs";
 import {
   failureFieldsForJSON,
@@ -79,11 +79,7 @@ import {
 export {
   isDryRunFromMakeFlags,
   makeChildEnv,
-  replayLog,
-  runCommand,
   runLifecycle,
-  sanitizeLogName,
-  sanitizeMakeFlags,
 } from "../process-executor.mjs";
 
 function relToRepo(repoRoot, value) {

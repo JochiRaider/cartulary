@@ -2,7 +2,7 @@ import { requireViewContract } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useState } from "react";
 import { apiPath } from "../../services/browserApi";
 import {
-  fetchJSON,
+  fetchWorkbookJSON,
   parseErrorMessage,
   readEnvelope,
 } from "../../services/workbookApi";
@@ -69,7 +69,7 @@ export function useGenericReferenceOptions({
     const loaded = await Promise.all(
       genericReferenceTargetViewSchemaIds.map(async (viewSchemaId) => {
         const targetContract = requireViewContract(viewSchemaId);
-        const result = await fetchJSON<ViewQueryEnvelope>(
+        const result = await fetchWorkbookJSON<ViewQueryEnvelope>(
           apiPath(
             apiBase,
             `/api/v1/incidents/${incidentId}/views/${viewSchemaId}/query`,

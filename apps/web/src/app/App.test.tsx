@@ -10,15 +10,15 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { deferred } from "../testing/fetchMockTestSupport";
 import {
   buildRecordChangedPayload,
-  deferred,
   emitRecordChanged,
   findWorkbookCell,
   successEnvelope,
   timelineRow,
-  timelineViewSchemaId,
 } from "../testing/timelineWorkbookTestSupport";
+import { timelineViewSchemaId } from "../workbook/models/workbookSurfaceRegistry";
 import { TimelineWorkbook } from "../workbook/timeline/components/TimelineWorkbook";
 
 describe("Phase 3 Timeline workbook", () => {

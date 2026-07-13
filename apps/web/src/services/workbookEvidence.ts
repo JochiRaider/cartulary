@@ -11,7 +11,7 @@ import type {
 import { publicErrorStatusText } from "../shared/publicError";
 import type { EvidenceLifecycleViewModel } from "../workbook/models/evidenceLifecycleViewModel";
 import { apiPath } from "./browserApi";
-import { fetchJSON, readEnvelope } from "./workbookApi";
+import { fetchWorkbookJSON, readEnvelope } from "./workbookApi";
 
 export type EvidenceHandleKind = "preview" | "download";
 
@@ -97,7 +97,7 @@ export async function createAndAttachEvidenceBlob({
     filename_hint: file.name || null,
     content_type_hint: file.type || null,
   } satisfies ObjectBlobCreateRequest;
-  const createBlob = await fetchJSON<ObjectBlobCreateEnvelope>(
+  const createBlob = await fetchWorkbookJSON<ObjectBlobCreateEnvelope>(
     apiPath(apiBase, "/api/v1/object-blobs"),
     {
       method: "POST",
@@ -117,7 +117,7 @@ export async function createAndAttachEvidenceBlob({
     base_row_version: baseRowVersion,
     client_txn_id: attachClientTxnId(),
   } satisfies EvidenceAttachBlobRequest;
-  const attach = await fetchJSON<EvidenceAttachBlobEnvelope>(
+  const attach = await fetchWorkbookJSON<EvidenceAttachBlobEnvelope>(
     apiPath(
       apiBase,
       `/api/v1/evidence-records/${evidenceRecordId}/attach-blob`,
@@ -254,7 +254,7 @@ export async function issueEvidenceAccessHandle({
   readonly kind: EvidenceHandleKind;
 }): Promise<IssuedEvidenceHandle> {
   const handleRequest = {} satisfies EvidenceHandleIssueRequest;
-  const result = await fetchJSON<EvidenceHandleEnvelope>(
+  const result = await fetchWorkbookJSON<EvidenceHandleEnvelope>(
     apiPath(
       apiBase,
       `/api/v1/evidence-records/${evidenceRecordId}/${kind}-handle`,

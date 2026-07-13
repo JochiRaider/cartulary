@@ -13,7 +13,7 @@ import {
   requireStringArray,
 } from "../../contract/json-shape.mjs";
 
-export const schemaObjectOwnershipSchemaID =
+const schemaObjectOwnershipSchemaID =
   "cartulary.schema_object_ownership_manifest.v1";
 
 const manifestKeys = new Set([

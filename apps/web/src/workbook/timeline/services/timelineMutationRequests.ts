@@ -1,4 +1,4 @@
-import { fetchJSON } from "../../../services/workbookApi";
+import { fetchWorkbookJSON } from "../../../services/workbookApi";
 import type {
   PendingReplayPayloadIntent,
   PendingReplayUnitState,
@@ -13,7 +13,7 @@ export type TimelineMutationEnvelope = {
 };
 
 export type TimelineMutationFetchResult = Awaited<
-  ReturnType<typeof fetchJSON<TimelineMutationEnvelope>>
+  ReturnType<typeof fetchWorkbookJSON<TimelineMutationEnvelope>>
 >;
 
 export type TimelineWorkbookTimingRecorder = (
@@ -135,7 +135,7 @@ export async function dispatchTimelinePendingReplayMutation({
     kind: unit.kind,
     rowKey: unit.rowKey,
   });
-  return fetchJSON<TimelineMutationEnvelope>(
+  return fetchWorkbookJSON<TimelineMutationEnvelope>(
     unit.path,
     {
       method: unit.method,

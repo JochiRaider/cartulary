@@ -8,7 +8,7 @@ import { apiPath } from "../../services/browserApi";
 import {
   abortLatestQuery,
   beginLatestQuery,
-  fetchJSON,
+  fetchWorkbookJSON,
   handleWorkbookLoadFailure,
   isAbortError,
   type LatestQueryRuntime,
@@ -105,7 +105,7 @@ export function useWorkbookSurfaceLoaders({
     ) => {
       const contract =
         viewSchemaId === hostsViewSchemaId ? hostsContract : identitiesContract;
-      const result = await fetchJSON<ViewQueryEnvelope>(
+      const result = await fetchWorkbookJSON<ViewQueryEnvelope>(
         apiPath(
           apiBase,
           `/api/v1/incidents/${incidentId}/views/${viewSchemaId}/query`,
@@ -191,7 +191,7 @@ export function useWorkbookSurfaceLoaders({
     const request = beginLatestQuery(assessmentQueryRuntimeRef);
     setAssessmentLoadError(null);
     try {
-      const result = await fetchJSON<ViewQueryEnvelope>(
+      const result = await fetchWorkbookJSON<ViewQueryEnvelope>(
         apiPath(
           apiBase,
           `/api/v1/incidents/${incidentId}/views/${assessmentsViewSchemaId}/query`,
@@ -241,7 +241,7 @@ export function useWorkbookSurfaceLoaders({
     const request = beginLatestQuery(genericQueryRuntimeRef);
     setGenericLoadError(null);
     try {
-      const result = await fetchJSON<ViewQueryEnvelope>(
+      const result = await fetchWorkbookJSON<ViewQueryEnvelope>(
         apiPath(
           apiBase,
           `/api/v1/incidents/${incidentId}/views/${requestedSurface}/query`,

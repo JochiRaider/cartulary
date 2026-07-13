@@ -183,7 +183,7 @@ export function goFinalizerRuntimeCommand({
   };
 }
 
-export function browserSessionStartCommand({
+function browserSessionStartCommand({
   browserSessionScript,
   env,
   envFile,

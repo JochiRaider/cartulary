@@ -5,7 +5,7 @@ import type {
 import { useCallback, useEffect, useState } from "react";
 import { apiPath } from "../../../services/browserApi";
 import {
-  fetchJSON,
+  fetchWorkbookJSON,
   parseErrorMessage,
   readEnvelope,
 } from "../../../services/workbookApi";
@@ -224,7 +224,7 @@ export function useTimelineCreateRelatedWorkflow({
       isSubmitting: true,
       message: null,
     });
-    const createResult = await fetchJSON<TimelineMutationEnvelope>(
+    const createResult = await fetchWorkbookJSON<TimelineMutationEnvelope>(
       apiPath(
         apiBase,
         `/api/v1/incidents/${incidentId}/views/${activeWorkflow.targetContract.viewSchemaId}/rows`,
@@ -266,7 +266,7 @@ export function useTimelineCreateRelatedWorkflow({
         });
         return;
       }
-      const patchResult = await fetchJSON<TimelineMutationEnvelope>(
+      const patchResult = await fetchWorkbookJSON<TimelineMutationEnvelope>(
         apiPath(apiBase, `/api/v1/records/${sourceRow.recordId}`),
         { method: "PATCH", body: JSON.stringify(patchPayload) },
       );

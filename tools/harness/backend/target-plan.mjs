@@ -286,7 +286,7 @@ export function findTargetDescriptor(target, root = process.cwd()) {
   return loadExecutionTargets(root).byName.get(target) ?? null;
 }
 
-export function knownManifestPhases(root = process.cwd()) {
+function knownManifestPhases(root = process.cwd()) {
   return phaseManifestNames(root);
 }
 

@@ -1,7 +1,7 @@
 import { type Dispatch, type SetStateAction, useCallback } from "react";
 import { apiPath } from "../../../services/browserApi";
 import {
-  fetchJSON,
+  fetchWorkbookJSON,
   parseErrorMessage,
   readEnvelope,
 } from "../../../services/workbookApi";
@@ -163,7 +163,7 @@ export function useTimelineMentionActions({
           return;
         }
 
-        const createResult = await fetchJSON<EntityCreateEnvelope>(
+        const createResult = await fetchWorkbookJSON<EntityCreateEnvelope>(
           apiPath(
             apiBase,
             `/api/v1/incidents/${incidentId}/views/${createIntent.viewSchemaId}/rows`,
@@ -205,7 +205,7 @@ export function useTimelineMentionActions({
         }
 
         trackPendingSocketTxn(resolveClientTxnId);
-        const result = await fetchJSON<MentionActionEnvelope>(
+        const result = await fetchWorkbookJSON<MentionActionEnvelope>(
           apiPath(apiBase, `/api/v1/entity-mentions/${mentionID}/resolve`),
           {
             method: "POST",
@@ -324,7 +324,7 @@ export function useTimelineMentionActions({
           return;
         }
         trackPendingSocketTxn(clientTxnId);
-        const result = await fetchJSON<MentionActionEnvelope>(
+        const result = await fetchWorkbookJSON<MentionActionEnvelope>(
           apiPath(apiBase, `/api/v1/entity-mentions/${mentionID}/resolve`),
           {
             method: "POST",

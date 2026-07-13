@@ -7,7 +7,7 @@ import {
   readCookie,
 } from "../services/browserApi";
 import {
-  fetchJSON,
+  fetchWorkbookJSON,
   parseErrorMessage,
   readEnvelope,
 } from "../services/workbookApi";
@@ -248,7 +248,7 @@ export async function listNetworkFlowTables(options: {
   readonly incidentId: string;
   readonly signal?: AbortSignal | undefined;
 }): Promise<NetworkFlowTable[]> {
-  const result = await fetchJSON<TableListResponse>(
+  const result = await fetchWorkbookJSON<TableListResponse>(
     apiPath(
       options.apiBase,
       `/api/v1/incidents/${options.incidentId}/network-flow/tables`,
@@ -270,7 +270,7 @@ export async function queryNetworkFlowTable(options: {
   readonly rows: NetworkFlowRow[];
   readonly paging: NetworkFlowPaging;
 }> {
-  const result = await fetchJSON<TableQueryResponse>(
+  const result = await fetchWorkbookJSON<TableQueryResponse>(
     apiPath(
       options.apiBase,
       `/api/v1/incidents/${options.incidentId}/network-flow/tables/${options.tableId}/query`,
@@ -302,7 +302,7 @@ export async function queryNetworkFlowRejectedRows(options: {
   readonly diagnostics: NetworkFlowDiagnostic[];
   readonly paging: NetworkFlowPaging;
 }> {
-  const result = await fetchJSON<RejectedRowsQueryResponse>(
+  const result = await fetchWorkbookJSON<RejectedRowsQueryResponse>(
     apiPath(
       options.apiBase,
       `/api/v1/incidents/${options.incidentId}/network-flow/tables/${options.tableId}/rejected-rows/query`,
@@ -335,7 +335,7 @@ export async function queryNetworkFlowGraph(options: {
   readonly signal?: AbortSignal | undefined;
 }): Promise<NetworkFlowGraphResult> {
   const tableIds = [...new Set(options.tableIds)].sort();
-  const result = await fetchJSON<NetworkFlowGraphResult>(
+  const result = await fetchWorkbookJSON<NetworkFlowGraphResult>(
     apiPath(
       options.apiBase,
       `/api/v1/incidents/${options.incidentId}/network-flow/graphs/query`,
@@ -371,7 +371,7 @@ export async function queryNetworkFlowContributors(options: {
   readonly selector: { readonly kind: "edge"; readonly edge_id: string };
   readonly signal?: AbortSignal | undefined;
 }): Promise<NetworkFlowContributorResult> {
-  const result = await fetchJSON<NetworkFlowContributorResult>(
+  const result = await fetchWorkbookJSON<NetworkFlowContributorResult>(
     apiPath(
       options.apiBase,
       `/api/v1/incidents/${options.incidentId}/network-flow/graphs/contributors/query`,
@@ -405,7 +405,7 @@ export async function linkNetworkFlowIndicator(options: {
   readonly fieldKey: "network_flow.src_ip" | "network_flow.dst_ip";
   readonly confirmExactValue: string;
 }): Promise<NetworkFlowIndicatorLinkResult> {
-  const result = await fetchJSON<NetworkFlowIndicatorLinkResult>(
+  const result = await fetchWorkbookJSON<NetworkFlowIndicatorLinkResult>(
     apiPath(
       options.apiBase,
       `/api/v1/incidents/${options.incidentId}/network-flow/indicator-links`,
@@ -502,7 +502,7 @@ async function firstImportUnitID(
   apiBase: string | undefined,
   sessionId: string,
 ): Promise<string> {
-  const result = await fetchJSON<ImportSessionUnitsEnvelope>(
+  const result = await fetchWorkbookJSON<ImportSessionUnitsEnvelope>(
     apiPath(apiBase, `/api/v1/import-sessions/${sessionId}/units`),
   );
   if (!result.ok) {
@@ -536,7 +536,7 @@ async function pollJob(
   jobId: string,
 ): Promise<JobResource> {
   for (let attempt = 0; attempt < 30; attempt += 1) {
-    const result = await fetchJSON<{ data: JobResource }>(
+    const result = await fetchWorkbookJSON<{ data: JobResource }>(
       apiPath(apiBase, `/api/v1/jobs/${jobId}`),
     );
     if (!result.ok) {
@@ -560,7 +560,7 @@ async function postImportJSON<T extends object = Record<string, unknown>>(
   body: Record<string, unknown>,
   method = "POST",
 ): Promise<T> {
-  const result = await fetchJSON<T>(apiPath(apiBase, path), {
+  const result = await fetchWorkbookJSON<T>(apiPath(apiBase, path), {
     method,
     body: JSON.stringify(body),
   });

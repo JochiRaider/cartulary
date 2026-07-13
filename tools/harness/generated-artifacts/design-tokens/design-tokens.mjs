@@ -12,7 +12,7 @@ const metadataKeys = new Set([
   "description",
 ]);
 
-export const tokenNamespaces = [
+const tokenNamespaces = [
   "colors",
   "typography",
   "spacing",
@@ -46,7 +46,7 @@ export function loadDesignTokenDocument(filePath) {
   });
 }
 
-export function parseDesignTokenDocument(content, { sourcePath = "docs/design.md" } = {}) {
+function parseDesignTokenDocument(content, { sourcePath = "docs/design.md" } = {}) {
   const failures = [];
   const frontMatter = extractFrontMatter(content, failures, sourcePath);
   const parsed = frontMatter === null ? null : parseYamlSubset(frontMatter, failures);

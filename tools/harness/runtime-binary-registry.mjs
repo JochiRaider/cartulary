@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-export const defaultRepoRoot = path.resolve(scriptDir, "../..");
+const defaultRepoRoot = path.resolve(scriptDir, "../..");
 
 const idPattern = /^[a-z][a-z0-9_-]*$/u;
 const makeVariablePattern = /^[A-Z][A-Z0-9_]*$/u;
@@ -55,7 +55,7 @@ function normalizeRepoRelativePath(value, label) {
   return normalized;
 }
 
-export function normalizeRuntimeBinaryEntry(raw, label, { taskTargets = null } = {}) {
+function normalizeRuntimeBinaryEntry(raw, label, { taskTargets = null } = {}) {
   const entry = requireObject(raw, label);
   for (const key of Object.keys(entry)) {
     if (
@@ -145,7 +145,7 @@ function recordForID(registry, id, label) {
   return record;
 }
 
-export function runtimeBinaryDTO(record) {
+function runtimeBinaryDTO(record) {
   return {
     id: record.id,
     producer_target: record.producerTarget,
@@ -189,7 +189,7 @@ export function runtimeBinaryAbsoluteEnvForIDs(
   return env;
 }
 
-export function runtimeBinaryIDs(entries = []) {
+function runtimeBinaryIDs(entries = []) {
   return normalizeRuntimeBinaryEntries(entries).map((record) => record.id);
 }
 

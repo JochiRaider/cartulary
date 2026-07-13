@@ -51,7 +51,7 @@ type ReferencePackAdminPanelProps = {
   session: DeploymentAdminSession;
 };
 
-export type ReferencePackAdminPanelHandle = {
+type ReferencePackAdminPanelHandle = {
   cancelJob: () => Promise<void>;
   importBundle: () => Promise<void>;
   refreshAll: () => Promise<void>;

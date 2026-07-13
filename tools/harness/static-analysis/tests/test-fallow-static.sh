@@ -167,6 +167,7 @@ mkdir -p \
   "$reachability_root/packages/example/src" \
   "$reachability_root/tools/fallow" \
   "$reachability_root/tools/harness/static-analysis" \
+  "$reachability_root/tools/harness/test-support" \
   "$reachability_root/tools/release-evidence"
 
 cat >"$reachability_root/package.json" <<'JSON'
@@ -268,6 +269,18 @@ cat >"$reachability_root/tools/harness/static-analysis/example-test.mjs" <<'JS'
 export const exampleTest = true;
 JS
 
+cat >"$reachability_root/tools/harness/test-support/example-dynamic.mjs" <<'JS'
+export const importedDynamicPeer = true;
+export const modeledDynamicExport = true;
+export const ordinaryUnusedExport = true;
+JS
+
+cat >"$reachability_root/tools/harness/test-support/example-direct.mjs" <<'JS'
+import { importedDynamicPeer } from "./example-dynamic.mjs";
+
+export const exampleDirect = importedDynamicPeer;
+JS
+
 cat >"$reachability_root/tools/release-evidence/generate-sbom-license-evidence.mjs" <<'JS'
 import { spawnSync } from "node:child_process";
 
@@ -318,6 +331,20 @@ cat >"$reachability_root/tools/fallow/reachability_owner.json" <<'JSON'
     "script_extensions": [".cjs", ".cts", ".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"],
     "required_node_tool_backing_scripts": true
   },
+  "harness_entrypoints": {
+    "files": [
+      "tools/harness/test-support/example-direct.mjs"
+    ]
+  },
+  "harness_dynamic_exports": [
+    {
+      "file": "tools/harness/test-support/example-dynamic.mjs",
+      "exports": ["modeledDynamicExport"],
+      "owner": "fixture shell dynamic import",
+      "evidence": "fixture coverage for reachability-owner dynamic export handling",
+      "removal_trigger": "remove when fixture no longer needs dynamic export modeling"
+    }
+  ],
   "vitest": {
     "config_file": "apps/web/vite.config.ts",
     "setup_files": [
@@ -365,6 +392,12 @@ const result = buildResolvedFallowConfig({
 if (result.stats.task_surface_entry_points < 2) {
   throw new Error("expected task-surface scripts in resolved Fallow config");
 }
+if (result.stats.harness_entry_points !== 1) {
+  throw new Error("expected harness entrypoint scripts in resolved Fallow config");
+}
+if (result.stats.harness_dynamic_export_files !== 1 || result.stats.harness_dynamic_exports !== 1) {
+  throw new Error("expected harness dynamic export modeling in resolved Fallow config");
+}
 EOF
 
 reachability_output="$reachability_root/fallow-reachability.json"
@@ -396,6 +429,15 @@ if (text.includes('"/assets/fonts/fonts.css"')) {
 }
 if (text.includes("@cyclonedx/cdxgen")) {
   throw new Error("expected executable tooling dependency to be owner-reachable");
+}
+if (text.includes("tools/harness/test-support/example-direct.mjs")) {
+  throw new Error("expected harness entrypoint script to be owner-reachable");
+}
+if (text.includes("modeledDynamicExport")) {
+  throw new Error("expected harness dynamic export to be modeled by config");
+}
+if (!text.includes("ordinaryUnusedExport")) {
+  throw new Error("expected unrelated unused export to remain reported");
 }
 if (!text.includes("unused-tool")) {
   throw new Error("expected unrelated unused dev dependency to remain reported");
@@ -451,4 +493,21 @@ buildResolvedFallowConfig({ root: fixtureRoot, outputFile: resolvedConfig });
 EOF
 then
   fail "expected missing Vitest setup file to fail Fallow reachability owner validation"
+fi
+
+missing_entrypoint_root="$(mktemp -d)"
+cleanup_paths+=("$missing_entrypoint_root")
+cp -R "$reachability_root/." "$missing_entrypoint_root/"
+rm -f "$missing_entrypoint_root/tools/harness/test-support/example-direct.mjs"
+if "$NODE_BIN" --input-type=module - "$ROOT_DIR" "$missing_entrypoint_root" "$missing_entrypoint_root/resolved.json" <<'EOF'
+import { pathToFileURL } from "node:url";
+
+const [rootDir, fixtureRoot, resolvedConfig] = process.argv.slice(2);
+const { buildResolvedFallowConfig } = await import(
+  pathToFileURL(`${rootDir}/tools/harness/static-analysis/fallow-reachability.mjs`).href
+);
+buildResolvedFallowConfig({ root: fixtureRoot, outputFile: resolvedConfig });
+EOF
+then
+  fail "expected missing harness entrypoint to fail Fallow reachability owner validation"
 fi

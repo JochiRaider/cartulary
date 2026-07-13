@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-export const harnessHelperOwnershipSchemaID =
+const harnessHelperOwnershipSchemaID =
   "cartulary.harness_helper_ownership.v1";
 
 export function loadHarnessHelperOwnership(root = process.cwd()) {

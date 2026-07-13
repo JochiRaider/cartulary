@@ -268,7 +268,7 @@ async function writeCrossTargetSharedExecutionMetadata(
   ]);
 }
 
-export async function captureGoReportLocked(
+async function captureGoReportLocked(
   ctx,
   sharedDir,
   sharedName,

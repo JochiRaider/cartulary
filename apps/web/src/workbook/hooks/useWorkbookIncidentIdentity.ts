@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiPath } from "../../services/browserApi";
 import {
-  fetchJSON,
+  fetchWorkbookJSON,
   handleWorkbookLoadFailure,
   parseErrorMessage,
   readEnvelope,
@@ -48,7 +48,7 @@ export function useWorkbookIncidentIdentity({
     let cancelled = false;
     const loadIncidentIdentity = async () => {
       setIncidentIdentityError(null);
-      const result = await fetchJSON<IncidentIdentityEnvelope>(
+      const result = await fetchWorkbookJSON<IncidentIdentityEnvelope>(
         apiPath(apiBase, `/api/v1/incidents/${incidentId}`),
       );
       if (cancelled) {

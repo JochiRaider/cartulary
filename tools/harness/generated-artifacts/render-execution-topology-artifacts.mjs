@@ -18,7 +18,7 @@ import {
   renderCheckScheduleManifest,
   renderTaskSurfaceManifest,
 } from "./execution-topology.mjs";
-import { validateAllPhaseSlicePlans } from "../phase-accounting/index.mjs";
+import { validateAllPhaseSlicePlans } from "../phase-accounting/phase-slice-plan.mjs";
 import {
   collectTaskSurfaceManifestErrors,
   renderTaskSurfaceMake,

@@ -462,7 +462,7 @@ export function buildStableMutationSignature(payload: unknown): string {
   return stableStringify(stablePayload);
 }
 
-export function mergePendingCollectionActionPayload(
+function mergePendingCollectionActionPayload(
   existing: unknown,
   next: unknown,
 ): unknown {
@@ -482,7 +482,7 @@ export function mergePendingCollectionActionPayload(
   return next;
 }
 
-export function mergePendingReplayPayload(
+function mergePendingReplayPayload(
   existing: PendingReplayPayloadIntent,
   next: PendingReplayPayloadIntent,
   kind: PendingReplayKind,
@@ -541,7 +541,7 @@ export function mergePendingReplayPayload(
   };
 }
 
-export function canonicalizePendingReplayChanges(
+function canonicalizePendingReplayChanges(
   payloadIntent: PendingReplayPayloadIntent,
 ): PendingReplayCanonicalChange[] {
   const rawChanges = Array.isArray(payloadIntent.changes)
@@ -558,7 +558,7 @@ export function canonicalizePendingReplayChanges(
     .sort((left, right) => left.field_key.localeCompare(right.field_key));
 }
 
-export function buildPendingReplayMutationIdentity(
+function buildPendingReplayMutationIdentity(
   unit: Pick<
     PendingReplayUnitState,
     | "clientTxnId"
@@ -966,7 +966,7 @@ function isAuthFailure(status: number, code: string): boolean {
   );
 }
 
-export function shouldRetryPendingFailure(
+function shouldRetryPendingFailure(
   status: number,
   error: PendingReplayPublicError,
 ): boolean {
@@ -984,7 +984,7 @@ export function shouldRetryPendingFailure(
   );
 }
 
-export type PendingReplayCoalescingUnit = {
+type PendingReplayCoalescingUnit = {
   readonly status: PendingReplayStatus;
   readonly operationClass: PendingReplayOperationClass;
   readonly kind: PendingReplayKind;
@@ -994,7 +994,7 @@ export type PendingReplayCoalescingUnit = {
   readonly recordId: string | null;
 };
 
-export function canCoalescePendingReplayUnits(
+function canCoalescePendingReplayUnits(
   existing: PendingReplayCoalescingUnit,
   next: PendingReplayCoalescingUnit,
 ): boolean {

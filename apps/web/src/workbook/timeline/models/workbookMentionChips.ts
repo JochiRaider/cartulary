@@ -8,13 +8,6 @@ export type MentionChipState =
   | "auto_resolved"
   | "dismissed";
 
-export const mentionChipStates = [
-  "unresolved",
-  "resolved",
-  "auto_resolved",
-  "dismissed",
-] as const satisfies readonly MentionChipState[];
-
 export type MentionChipAnchor = {
   recordId: string;
   fieldKey: RelationshipFieldKey;

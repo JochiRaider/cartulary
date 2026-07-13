@@ -43,7 +43,7 @@ import {
 } from "react";
 import { apiPath } from "../../services/browserApi";
 import {
-  fetchJSON,
+  fetchWorkbookJSON,
   parseErrorMessage,
   readEnvelope,
 } from "../../services/workbookApi";
@@ -435,7 +435,7 @@ export function EntityWorkbookSurface({
       event.preventDefault();
       setMergeMessage(null);
       setMergePreconditionDetails([]);
-      const result = await fetchJSON<EntityClipboardPasteEnvelope>(
+      const result = await fetchWorkbookJSON<EntityClipboardPasteEnvelope>(
         apiPath(
           apiBase,
           `/api/v1/incidents/${incidentId}/views/${contract.viewSchemaId}/clipboard-paste`,
@@ -714,7 +714,7 @@ export function EntityWorkbookSurface({
     }
     setMutationState("Syncing");
     setMutationError(null);
-    const result = await fetchJSON<ViewMutationEnvelope>(
+    const result = await fetchWorkbookJSON<ViewMutationEnvelope>(
       apiPath(
         apiBase,
         `/api/v1/incidents/${incidentId}/views/${contract.viewSchemaId}/rows`,
@@ -739,7 +739,7 @@ export function EntityWorkbookSurface({
     }
     setMergeMessage(null);
     setMergePreconditionDetails([]);
-    const result = await fetchJSON<MergeEnvelope>(
+    const result = await fetchWorkbookJSON<MergeEnvelope>(
       apiPath(apiBase, `/api/v1/records/${selectedEntity.recordId}/merge`),
       {
         method: "POST",

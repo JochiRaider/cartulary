@@ -59,7 +59,7 @@ export const statusStripItemStyle = {
   whiteSpace: "nowrap",
 } satisfies CSSProperties;
 
-export const statusStripMutedItemStyle = {
+const statusStripMutedItemStyle = {
   ...statusStripItemStyle,
   color: "var(--ct-colors-ink-subtle)",
 } satisfies CSSProperties;
@@ -73,10 +73,6 @@ export const statusStripSecondaryItemStyle = {
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
-} satisfies CSSProperties;
-
-export const statusStripSpacerStyle = {
-  flex: "1 1 auto",
 } satisfies CSSProperties;
 
 export const statusStripPresenceStyle = {

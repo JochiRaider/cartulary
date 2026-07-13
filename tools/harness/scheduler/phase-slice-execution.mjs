@@ -15,10 +15,7 @@ import {
   loadRuntimeBinaryRegistry,
   runtimeBinaryAbsoluteEnvForIDs,
 } from "../runtime-binary-registry.mjs";
-import {
-  formatResourceMap,
-  relToRepo,
-} from "./scheduler-reporting.mjs";
+import { relToRepo } from "./scheduler-reporting.mjs";
 import {
   countVisibleCompletedUnit,
   finalizerRunningDisplayUnits,
@@ -35,6 +32,7 @@ import {
   schedulerChildEnv,
 } from "./scheduler-runtime.mjs";
 import {
+  formatResourceMap,
   normalizeResourceLimits,
   resourceMapToObject,
 } from "./scheduler-resources.mjs";
@@ -72,7 +70,7 @@ function runWithContext(command, args, { env = process.env, stdio = "inherit" } 
   return result.status ?? 1;
 }
 
-export function runPhaseSliceTargetSummary(context, target, status, children = []) {
+function runPhaseSliceTargetSummary(context, target, status, children = []) {
   const command = context.testOutputScript.endsWith(".mjs")
     ? context.nodeBin
     : context.testOutputScript;
@@ -85,7 +83,7 @@ export function runPhaseSliceTargetSummary(context, target, status, children = [
   return runWithContext(command, args, { env: runnerEnv(context) });
 }
 
-export function phaseSliceTargetPublicExitCode(context, target, fallbackStatus) {
+function phaseSliceTargetPublicExitCode(context, target, fallbackStatus) {
   const summaryFile = path.join(
     context.resultsDir,
     context.runId,
@@ -113,7 +111,7 @@ function runtimeBinaryEnvForUnit(unit) {
   return runtimeBinaryEnvForIDs(unit.runtime_binaries ?? []);
 }
 
-export function phaseSliceNeedsService(plan) {
+function phaseSliceNeedsService(plan) {
   return (
     plan.service_requirements.includes("postgres") ||
     plan.service_requirements.includes("object_store")
@@ -424,7 +422,7 @@ function attachRuntime(plan, context, metadataDir, serviceRuntime) {
   };
 }
 
-export async function runPhaseSliceScheduler(plan, context) {
+async function runPhaseSliceScheduler(plan, context) {
   const tempDir = path.join(
     context.resultsDir,
     context.runId,

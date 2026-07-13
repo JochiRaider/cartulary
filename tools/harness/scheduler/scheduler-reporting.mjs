@@ -1,6 +1,5 @@
 import path from "node:path";
 import {
-  formatResourceMap as formatSchedulerResourceMap,
   resourceLimitSummary as schedulerResourceLimitSummary,
   resourceMapToObject as schedulerResourceMapToObject,
 } from "./scheduler-resources.mjs";
@@ -30,7 +29,7 @@ function configuredProgressIntervalMs() {
 
 export const schedulerProgressIntervalMs = configuredProgressIntervalMs();
 
-export function schedulerOutputMode() {
+function schedulerOutputMode() {
   return normalizeOutputMode();
 }
 
@@ -42,7 +41,7 @@ export function machineSchedulerOutput() {
   return machineOutput();
 }
 
-export function normalizePath(value) {
+function normalizePath(value) {
   return value.replaceAll("\\", "/");
 }
 
@@ -76,14 +75,6 @@ export function schedulerLogDir(repoRoot, target) {
   return path.join(schedulerTargetDir(repoRoot, target), "scheduler-logs");
 }
 
-export function formatResourceMap(values) {
-  return formatSchedulerResourceMap(values);
-}
-
-export function resourceMapToObject(values) {
-  return schedulerResourceMapToObject(values);
-}
-
 export function formatResourceList(values) {
   if (values.length === 0) {
     return "none";
@@ -91,13 +82,13 @@ export function formatResourceList(values) {
   return values.join(",");
 }
 
-export function sortedUnique(values) {
+function sortedUnique(values) {
   return Array.from(new Set(values.filter(Boolean))).sort((left, right) =>
     left.localeCompare(right),
   );
 }
 
-export function schedulerWaitingOnForUnit(unit, completed) {
+function schedulerWaitingOnForUnit(unit, completed) {
   return sortedUnique(
     (unit.needs ?? []).filter((need) => !completed.has(need)),
   );
@@ -143,7 +134,7 @@ export function schedulerBlockedUnitRecords({
   );
 }
 
-export function formatLabelList(values, limit = 3) {
+function formatLabelList(values, limit = 3) {
   if (values.length === 0) {
     return "none";
   }
@@ -152,14 +143,14 @@ export function formatLabelList(values, limit = 3) {
   return `${displayed.join(",")}${suffix}`;
 }
 
-export function formatDurationMs(value) {
+function formatDurationMs(value) {
   if (!Number.isFinite(value)) {
     return "0.00s";
   }
   return `${(value / 1000).toFixed(2)}s`;
 }
 
-export function formatSlowestWork(work) {
+function formatSlowestWork(work) {
   if (work.length === 0) {
     return "none";
   }
@@ -178,7 +169,7 @@ function countMapEntries(values) {
   return [];
 }
 
-export function formatCountMap(values) {
+function formatCountMap(values) {
   const entries = countMapEntries(values).sort((left, right) =>
     left[0].localeCompare(right[0]),
   );
@@ -188,7 +179,7 @@ export function formatCountMap(values) {
   return entries.map(([key, value]) => `${key}:${value}`).join(",");
 }
 
-export function schedulerUnitGroup(unit) {
+function schedulerUnitGroup(unit) {
   return (
     unit.group ??
     unit.aggregateTarget ??
@@ -208,14 +199,14 @@ export function schedulerActiveGroups(units) {
   return groups;
 }
 
-export function schedulerBlockedBy({
+function schedulerBlockedBy({
   reason = null,
   blockedResources = [],
 } = {}) {
   return schedulerBlockedDiagnostics({ reason, blockedResources }).explanations;
 }
 
-export function schedulerSlowestRunningRecord(
+function schedulerSlowestRunningRecord(
   runningUnits,
   startedAt,
   now = 0,
@@ -239,14 +230,14 @@ export function schedulerSlowestRunningRecord(
   return slowest;
 }
 
-export function formatSlowestRunning(value) {
+function formatSlowestRunning(value) {
   if (!value) {
     return "none";
   }
   return `${value.label}:${formatDurationMs(value.duration_ms)}`;
 }
 
-export function formatHumanSlowestRunning(value) {
+function formatHumanSlowestRunning(value) {
   if (!value) {
     return "none";
   }
@@ -275,18 +266,18 @@ export function schedulerProgressSnapshot({
 
 export function schedulerProgressEventFields(snapshot) {
   return {
-    active_groups: resourceMapToObject(snapshot.activeGroups),
+    active_groups: schedulerResourceMapToObject(snapshot.activeGroups),
     blocked_by: snapshot.blockedBy,
     unblocks_after: snapshot.unblocksAfter,
     slowest_running: snapshot.slowestRunning,
   };
 }
 
-export function resourceLimitSummary(resourceLimits, preferred = []) {
+function resourceLimitSummary(resourceLimits, preferred = []) {
   return schedulerResourceLimitSummary(resourceLimits, preferred);
 }
 
-export function countBy(values, field) {
+function countBy(values, field) {
   const counts = new Map();
   for (const value of values) {
     counts.set(value[field], (counts.get(value[field]) ?? 0) + 1);
@@ -297,7 +288,7 @@ export function countBy(values, field) {
     .join(",");
 }
 
-export function topWeightedUnits(workUnits, limit = 5) {
+function topWeightedUnits(workUnits, limit = 5) {
   return [...workUnits]
     .sort(
       (left, right) =>
@@ -314,7 +305,7 @@ function bracketedFields(fields) {
     .join(" ");
 }
 
-export function schedulerTelemetryLine(prefix, target, event, fields) {
+function schedulerTelemetryLine(prefix, target, event, fields) {
   const suffix = bracketedFields(fields);
   return `[${prefix}] ${target} ${event}${suffix ? ` ${suffix}` : ""}\n`;
 }
@@ -392,7 +383,7 @@ function nestedSlowestDuration(progress) {
   return Number.isFinite(durationMs) ? durationMs : null;
 }
 
-export function schedulerHumanNestedProgressFocus(nestedProgress = []) {
+function schedulerHumanNestedProgressFocus(nestedProgress = []) {
   if (nestedProgress.length === 0) {
     return null;
   }
@@ -475,7 +466,7 @@ export function schedulerHumanProgressLine({
   return `[PROGRESS] ${segments.join(" ")}\n`;
 }
 
-export function schedulerNestedProgressLine({
+function schedulerNestedProgressLine({
   prefix,
   target,
   workUnit,

@@ -13,11 +13,6 @@ import {
   readCollectionItems,
 } from "./workbookMentionChips";
 
-export { clipboardTextLooksTabular } from "../../utils/workbookClipboard";
-export type {
-  WorkbookRecordFreshnessDecision,
-  WorkbookVersionedRecord,
-} from "./timelineRowsModel";
 export { decideWorkbookRecordFreshness } from "./timelineRowsModel";
 
 export type EditableField =
@@ -451,7 +446,7 @@ function normalizeValue(value: string): string {
   return value;
 }
 
-export function readTimelineStringCell(
+function readTimelineStringCell(
   row: TimelineApiRow | EntityApiRow,
   fieldKey: string,
 ): string {

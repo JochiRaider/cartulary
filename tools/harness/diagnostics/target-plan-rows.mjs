@@ -23,7 +23,7 @@ import {
 } from "../phase-accounting/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
+const repoRoot = path.resolve(scriptDir, "..", "..", "..");
 
 function readJSON(file) {
   return JSON.parse(readFileSync(file, "utf8"));

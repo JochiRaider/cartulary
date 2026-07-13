@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { repoRoot } from "../../contract/index.mjs";
 
 import {
   existsSync,
@@ -34,10 +35,10 @@ import {
   validateSchemaSync,
 } from "../../contract/harness-contract.mjs";
 import {
-  defaultTaskSurfaceManifestPath,
   loadSummaryTopologyContext,
   summaryProjectionChildren,
 } from "../../execution/summary-topology.mjs";
+import { defaultTaskSurfaceManifestPath } from "../../generated-artifacts/task-surface/model.mjs";
 import {
   artifactLine,
   directoryArtifactRef,
@@ -55,7 +56,6 @@ import {
 } from "../tool-output.mjs";
 import {
   frontendRowAccountingSchemaID,
-  repoRoot,
   resolveResultsRoot,
   resolveRunId,
   targetSummarySchemaID,
@@ -1900,7 +1900,6 @@ export function handleTargetSummary(args) {
   const ownFixture = summarizeFixtureActivities(target, {
     resultsRoot,
     runId,
-    repoRoot,
   });
   const childFixture = combineFixtureSummaries(target, null, childTargets);
   const totalFixture = combineFixtureSummaries(

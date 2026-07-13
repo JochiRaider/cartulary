@@ -20,7 +20,10 @@ import {
 import { X } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { apiPath } from "../../services/browserApi";
-import { fetchJSON, parseErrorMessage } from "../../services/workbookApi";
+import {
+  fetchWorkbookJSON,
+  parseErrorMessage,
+} from "../../services/workbookApi";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import { useAssessmentSupportRows } from "../hooks/useAssessmentSupportRows";
 import {
@@ -206,7 +209,7 @@ export function AssessmentWorkbookSurface({
     setIsSubmitting(true);
     setMessage(null);
     try {
-      const result = await fetchJSON<ViewMutationEnvelope>(
+      const result = await fetchWorkbookJSON<ViewMutationEnvelope>(
         apiPath(
           apiBase,
           `/api/v1/incidents/${incidentId}/views/${assessmentsViewSchemaId}/rows`,

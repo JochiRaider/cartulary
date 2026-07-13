@@ -5,11 +5,11 @@ import {
   supportGoEntrySymbols,
 } from "./phase-entry-evidence.mjs";
 
-export const postgresFixturePolicyTemplateClone = "template_clone";
+const postgresFixturePolicyTemplateClone = "template_clone";
 export const postgresFixturePolicyPackageReset = "package_reset";
-export const postgresFixturePolicyMigrationScratch = "migration_scratch";
-export const postgresFixturePolicyTransaction = "transaction";
-export const postgresFixturePolicyGroupClone = "group_clone";
+const postgresFixturePolicyMigrationScratch = "migration_scratch";
+const postgresFixturePolicyTransaction = "transaction";
+const postgresFixturePolicyGroupClone = "group_clone";
 
 const validPostgresFixturePolicies = new Set([
   postgresFixturePolicyTemplateClone,

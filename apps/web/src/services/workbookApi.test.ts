@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { csrfHeaderName } from "./browserApi";
 import {
   beginLatestQuery,
-  fetchJSON,
+  fetchWorkbookJSON,
   handleWorkbookLoadFailure,
   type LatestQueryRuntime,
   parseErrorMessage,
@@ -29,7 +29,7 @@ describe("workbookApi", () => {
     );
     fetchMock.mockResolvedValue(jsonResponse({ data: { ok: true } }));
 
-    await fetchJSON("/api/v1/workbook", {
+    await fetchWorkbookJSON("/api/v1/workbook", {
       method: "POST",
       body: JSON.stringify({ client_txn_id: "txn-1" }),
     });
@@ -44,7 +44,7 @@ describe("workbookApi", () => {
     window.__cartularyWorkbookTimingProbe = { events: [] };
     fetchMock.mockResolvedValue(jsonResponse({ data: { ok: true } }));
 
-    await fetchJSON(
+    await fetchWorkbookJSON(
       "/api/v1/incidents/incident-1/views/cartulary.view.timeline.v2/rows",
       { method: "POST", body: "{}" },
     );

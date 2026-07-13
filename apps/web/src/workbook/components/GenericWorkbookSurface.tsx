@@ -39,7 +39,7 @@ import {
   useState,
 } from "react";
 import { apiPath } from "../../services/browserApi";
-import { fetchJSON, readEnvelope } from "../../services/workbookApi";
+import { fetchWorkbookJSON, readEnvelope } from "../../services/workbookApi";
 import {
   createAndAttachEvidenceBlob,
   evidenceAccessMessageLiveRegion,
@@ -366,7 +366,7 @@ export function GenericWorkbookSurface({
       isNotesSurface && linkedNoteSourceRecordId !== ""
         ? `/api/v1/records/${linkedNoteSourceRecordId}/linked-notes`
         : `/api/v1/incidents/${incidentId}/views/${contract.viewSchemaId}/rows`;
-    const result = await fetchJSON<ViewMutationEnvelope>(
+    const result = await fetchWorkbookJSON<ViewMutationEnvelope>(
       apiPath(apiBase, createPath),
       { method: "POST", body: JSON.stringify(payload) },
     );
@@ -733,7 +733,7 @@ export function GenericWorkbookSurface({
     if (email !== null) {
       createPayload["party.primary_email"] = email;
     }
-    const createResult = await fetchJSON<ViewMutationEnvelope>(
+    const createResult = await fetchWorkbookJSON<ViewMutationEnvelope>(
       apiPath(
         apiBase,
         `/api/v1/incidents/${incidentId}/views/${partiesViewSchemaId}/rows`,
@@ -822,7 +822,7 @@ export function GenericWorkbookSurface({
       changes.push({ field_key: "task.blocked_reason", value: reason });
     }
     beginMutation();
-    const result = await fetchJSON<ViewMutationEnvelope>(
+    const result = await fetchWorkbookJSON<ViewMutationEnvelope>(
       apiPath(apiBase, `/api/v1/records/${target.record_id}`),
       {
         method: "PATCH",
@@ -862,7 +862,7 @@ export function GenericWorkbookSurface({
       return;
     }
     beginMutation();
-    const result = await fetchJSON<DecisionSupersedeEnvelope>(
+    const result = await fetchWorkbookJSON<DecisionSupersedeEnvelope>(
       apiPath(apiBase, `/api/v1/records/${target.record_id}/supersede`),
       {
         method: "POST",

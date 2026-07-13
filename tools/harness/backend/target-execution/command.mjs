@@ -1,4 +1,4 @@
-export function shellQuote(value) {
+function shellQuote(value) {
   const text = String(value);
   if (/^[A-Za-z0-9_@%+=:,./-]+$/u.test(text)) {
     return text;
@@ -10,7 +10,7 @@ export function renderCommand(args) {
   return args.map(shellQuote).join(" ");
 }
 
-export function fixtureEnv(policy = {}) {
+function fixtureEnv(policy = {}) {
   return {
     CARTULARY_POSTGRES_FIXTURE_POLICY_TESTS: policy.tests ?? "",
     CARTULARY_POSTGRES_FIXTURE_POLICY_PACKAGES: policy.packages ?? "",
@@ -20,7 +20,7 @@ export function fixtureEnv(policy = {}) {
   };
 }
 
-export function goTestEnvAssignments(ctx, policy = {}) {
+function goTestEnvAssignments(ctx, policy = {}) {
   const assignments = [
     `GOCACHE=${ctx.goCacheDir}`,
     `GOMODCACHE=${ctx.goModCacheDir}`,

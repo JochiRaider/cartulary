@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiPath } from "../../services/browserApi";
-import { fetchJSON, readEnvelope } from "../../services/workbookApi";
+import { fetchWorkbookJSON, readEnvelope } from "../../services/workbookApi";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import {
   normalizeTimelineFullRow,
@@ -27,7 +27,7 @@ export function useAssessmentSupportRows({
   useEffect(() => {
     let isCurrent = true;
     async function loadSupportRows() {
-      const result = await fetchJSON<WorkbookQueryEnvelope>(
+      const result = await fetchWorkbookJSON<WorkbookQueryEnvelope>(
         apiPath(
           apiBase,
           `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,

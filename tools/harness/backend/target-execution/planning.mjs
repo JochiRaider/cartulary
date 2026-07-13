@@ -12,7 +12,7 @@ import {
 import { renderGoTestCommand } from "./command.mjs";
 import { compareStrings } from "./util.mjs";
 
-export function targetRows(ctx) {
+function targetRows(ctx) {
   if (!ctx.targetPlanRows) {
     const phaseRows = collectTargetPlanRows(ctx.repoRoot).filter((row) => {
       if (!ctx.phaseSelection) {
@@ -39,7 +39,7 @@ export function targetRows(ctx) {
   return ctx.targetPlanRows;
 }
 
-export function shardPlan(ctx) {
+function shardPlan(ctx) {
   if (!ctx.shardPlan) {
     ctx.shardPlan = collectGoShardPlanFromRows(ctx.repoRoot, targetRows(ctx), {
       phase: ctx.phaseSelection,
@@ -148,7 +148,7 @@ export function targetAggregates(ctx, target) {
   );
 }
 
-export function findShard(ctx, target, name) {
+function findShard(ctx, target, name) {
   const shard = findShardOrNull(ctx, target, name);
   if (!shard) {
     throw new Error(`unknown shard ${name} for ${target}`);
@@ -156,7 +156,7 @@ export function findShard(ctx, target, name) {
   return shard;
 }
 
-export function findShardOrNull(ctx, target, name) {
+function findShardOrNull(ctx, target, name) {
   return (
     targetShards(ctx, target).find(
       (candidate) => candidate.name === name,

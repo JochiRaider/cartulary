@@ -1,9 +1,9 @@
 import {
-  formatResourceMap,
   schedulerBlockedUnitRecords,
   schedulerProgressIntervalMs,
   schedulerWaitingOnForUnits,
 } from "../scheduler-reporting.mjs";
+import { formatResourceMap } from "../scheduler-resources.mjs";
 
 export function progressDelay() {
   let timeout;
@@ -50,27 +50,27 @@ export function unitFailureKeys(unit) {
   return unit.failureKeys?.length ? unit.failureKeys : unitCompletionKeys(unit);
 }
 
-export function hasFailedDependency(unit, failedKeys) {
+function hasFailedDependency(unit, failedKeys) {
   return (unit.needs ?? []).find((need) => failedKeys.has(need)) ?? null;
 }
 
-export function dependenciesSatisfied(unit, completedKeys) {
+function dependenciesSatisfied(unit, completedKeys) {
   return (unit.needs ?? []).every((need) => completedKeys.has(need));
 }
 
-export function readyPendingUnits(pending, completedKeys, failedKeys) {
+function readyPendingUnits(pending, completedKeys, failedKeys) {
   return pending.filter(
     (unit) => !hasFailedDependency(unit, failedKeys) && dependenciesSatisfied(unit, completedKeys),
   );
 }
 
-export function dependencyBlockedPendingUnits(pending, completedKeys, failedKeys) {
+function dependencyBlockedPendingUnits(pending, completedKeys, failedKeys) {
   return pending.filter(
     (unit) => counted(unit) && !hasFailedDependency(unit, failedKeys) && !dependenciesSatisfied(unit, completedKeys),
   );
 }
 
-export function hasResourceCapacity(unit, resourceLimits, activeClaims) {
+function hasResourceCapacity(unit, resourceLimits, activeClaims) {
   return blockedResourcesForUnit(unit, resourceLimits, activeClaims).length === 0;
 }
 
@@ -109,7 +109,7 @@ export function priorityAdmissiblePendingUnitIndex({
   return -1;
 }
 
-export function blockedResourcesForUnit(unit, resourceLimits, activeClaims) {
+function blockedResourcesForUnit(unit, resourceLimits, activeClaims) {
   const blocked = [];
   for (const [resource, amount] of unit.resourceClaims.entries()) {
     const limit = resourceLimits.get(resource);
@@ -120,7 +120,7 @@ export function blockedResourcesForUnit(unit, resourceLimits, activeClaims) {
   return blocked.sort((left, right) => left.localeCompare(right));
 }
 
-export function blockedResourcesForUnits(units, resourceLimits, activeClaims) {
+function blockedResourcesForUnits(units, resourceLimits, activeClaims) {
   const resources = new Set();
   for (const unit of units) {
     for (const resource of blockedResourcesForUnit(unit, resourceLimits, activeClaims)) {
@@ -187,7 +187,7 @@ export function skippedReasonForStoppedUnit(unit, completedKeys, failedKey, unit
   return "schedule_stopped_after_failure";
 }
 
-export function failedDependencyForSkip(unit, failedKeys) {
+function failedDependencyForSkip(unit, failedKeys) {
   for (const need of unit.needs ?? []) {
     if (failedKeys.has(need)) {
       return need;

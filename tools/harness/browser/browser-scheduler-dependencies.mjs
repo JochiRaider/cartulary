@@ -208,7 +208,7 @@ export function browserGroupWorkerSlotPlan(sources) {
   return envByGroupID;
 }
 
-export function browserGroupWorkerEnv(groups, group) {
+function browserGroupWorkerEnv(groups, group) {
   return browserGroupWorkerSlotPlan([{ type: "browser_stage", groups }]).get(browserGroupID(group)) ?? {};
 }
 

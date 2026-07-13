@@ -34,7 +34,7 @@ export type WorkbookGridFocusRuntime = {
   readonly update: (recordId: string | null, fieldKey: string) => void;
 };
 
-export function formatWorkbookFocusAnchor(anchor: WorkbookFocusAnchor | null) {
+function formatWorkbookFocusAnchor(anchor: WorkbookFocusAnchor | null) {
   return anchor === null
     ? "cleared"
     : `${anchor.surface}:${anchor.recordId}:${anchor.fieldKey}`;

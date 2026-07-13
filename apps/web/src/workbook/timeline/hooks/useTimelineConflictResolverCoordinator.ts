@@ -7,7 +7,7 @@ import {
   useMemo,
 } from "react";
 import { apiPath } from "../../../services/browserApi";
-import { fetchJSON, readEnvelope } from "../../../services/workbookApi";
+import { fetchWorkbookJSON, readEnvelope } from "../../../services/workbookApi";
 import { sameFieldConflictQueueKey } from "../../utils/workbookPendingQueue";
 import { parseSameFieldConflict } from "../models/timelineConflictModel";
 import {
@@ -334,7 +334,7 @@ export function useTimelineConflictResolverCoordinator({
         pendingSavesRefsRef.current.saveQueueRef.current
           .catch(() => undefined)
           .then(async () => {
-            const result = await fetchJSON<TimelineMutationEnvelope>(
+            const result = await fetchWorkbookJSON<TimelineMutationEnvelope>(
               apiPath(
                 apiBase,
                 `/api/v1/records/${conflict.conflict.record_id}/conflicts/${conflict.conflict.conflict_token}/resolve`,

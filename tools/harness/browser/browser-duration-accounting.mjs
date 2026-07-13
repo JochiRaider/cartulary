@@ -46,7 +46,7 @@ function normalizeManifestFile(file) {
   return normalized;
 }
 
-export function browserDefaultCheckRowIsAdmissible(row) {
+function browserDefaultCheckRowIsAdmissible(row) {
   return (
     row.default_check_required === true &&
     row.default_check_kind !== "explicit_only" &&
@@ -72,7 +72,7 @@ function browserTargetsForExecutionDependency(executionDependency) {
   }
 }
 
-export function browserFunctionalEntries(
+function browserFunctionalEntries(
   root = repoRoot,
   { phase: phaseFilter = "", defaultCheckOnly = false } = {},
 ) {
@@ -162,7 +162,7 @@ function isPlaywrightSupportFile(file) {
   return file.includes(".support.");
 }
 
-export function frontendBrowserReadinessEntries(
+function frontendBrowserReadinessEntries(
   root = repoRoot,
   { baseEntries, phase = "", frontendRowIDs = new Set(), defaultCheckOnly = false } = {},
 ) {

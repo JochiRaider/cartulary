@@ -6,8 +6,10 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { artifactFailureRecord } from "../../contract/failure-taxonomy.mjs";
-import { validateSchemaSync } from "../../contract/harness-contract.mjs";
-import { repoRoot } from "../../contract/test-output-context.mjs";
+import {
+  repoRoot,
+  validateSchemaSync,
+} from "../../contract/index.mjs";
 
 const govulncheckFindingsSchemaID = "cartulary.govulncheck_findings.v1";
 

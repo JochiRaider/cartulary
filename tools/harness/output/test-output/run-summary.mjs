@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { repoRoot } from "../../contract/index.mjs";
 
 import {
   existsSync,
@@ -35,7 +36,6 @@ import {
   verboseOutput,
 } from "../tool-output.mjs";
 import {
-  repoRoot,
   resolveResultsRoot,
   resolveRunId,
   runSummarySchemaID,

@@ -50,9 +50,6 @@ export const optionalStandardizedWorkbookSurfaceIds = [
   forensicKeywordsViewSchemaId,
 ] as const;
 
-export type BuiltInWorkbookSurfaceId =
-  (typeof requiredBuiltInWorkbookSurfaceIds)[number];
-
 export type WorkbookSurfaceStatus =
   | "required_built_in_sheet"
   | "required_system_view"
@@ -73,8 +70,6 @@ export type SystemWorkbookSurfaceGroup = {
   readonly label: string;
   readonly token: SystemViewSwitcherGroupToken;
 };
-
-const builtInSurfaceIdSet = new Set<string>(requiredBuiltInWorkbookSurfaceIds);
 
 const systemWorkbookSurfaceGroupDefinitions = [
   {
@@ -217,18 +212,6 @@ export function listSystemWorkbookSurfaceGroups(): readonly SystemWorkbookSurfac
       }),
     ];
   });
-}
-
-export function getWorkbookSurfaceRegistryEntry(
-  viewSchemaId: string,
-): WorkbookSurfaceRegistryEntry | undefined {
-  return workbookSurfaceRegistryIndex.get(viewSchemaId);
-}
-
-export function isBuiltInWorkbookSurfaceId(
-  viewSchemaId: string,
-): viewSchemaId is BuiltInWorkbookSurfaceId {
-  return builtInSurfaceIdSet.has(viewSchemaId);
 }
 
 export function isStandardizedWorkbookViewSchemaId(

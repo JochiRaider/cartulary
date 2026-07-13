@@ -23,12 +23,6 @@ export type IncidentData = {
 
 export type IncidentStatusFilter = "active" | "all" | "closed";
 
-export type PagingMeta = {
-  limit: number;
-  has_more: boolean;
-  next_cursor: string | null;
-};
-
 export type AppBootstrapState =
   | "loading"
   | "anonymous"

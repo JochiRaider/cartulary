@@ -9,7 +9,7 @@ import type { WorkbookQueryState } from "../../models/workbookQuery";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
 import { TimelineWorkbookGrid } from "./TimelineWorkbookGrid";
 
-export type TimelineGridSurfaceProps = {
+type TimelineGridSurfaceProps = {
   readonly columns: readonly GridColumn<WorkbookRow>[];
   readonly density: GridDensity;
   readonly getGroupLabel: (row: WorkbookRow, fieldKey: string) => string;

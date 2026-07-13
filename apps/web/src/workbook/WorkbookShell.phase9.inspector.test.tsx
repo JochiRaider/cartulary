@@ -45,9 +45,9 @@ import {
   timelineMutationEnvelope,
   timelineRow,
   timelineRowsEnvelope,
-  timelineViewSchemaId,
   waitForVisibleGridRowRecordIds,
 } from "../testing/timelineWorkbookTestSupport";
+import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import type { RecordHistoryItem } from "./timeline/components/TimelineHistoryPanel";
 import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 

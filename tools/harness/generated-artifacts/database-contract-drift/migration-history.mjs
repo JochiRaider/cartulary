@@ -15,7 +15,7 @@ import {
   requireString,
 } from "../../contract/json-shape.mjs";
 
-export const migrationHistorySchemaID = "cartulary.migration_history_manifest.v1";
+const migrationHistorySchemaID = "cartulary.migration_history_manifest.v1";
 
 const manifestKeys = new Set([
   "schema_id",

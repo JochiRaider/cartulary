@@ -2,15 +2,15 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 export const goDurationBaselineSchemaID = "cartulary.go_test_duration_baselines.v4";
-export const goDurationBaselineFileEnv = "CARTULARY_GO_TEST_DURATION_BASELINE_FILE";
-export const goDurationBaselineRelativePath = path.join("tools", "go_test_duration_baselines.json");
+const goDurationBaselineFileEnv = "CARTULARY_GO_TEST_DURATION_BASELINE_FILE";
+const goDurationBaselineRelativePath = path.join("tools", "go_test_duration_baselines.json");
 export const defaultShardTargetMs = 30_000;
-export const defaultBackendIntegrationShardTargetMs = 18_000;
+const defaultBackendIntegrationShardTargetMs = 18_000;
 export const defaultItemWeightMs = 10_000;
 export const baselineNote =
   "Advisory backend service-backed shard weights with explicit test, package, command, and raw package timing components. Refresh with make go-test-duration-baselines RESULTS_DIR=<dir> PRUNE_OBSERVED_PACKAGES=1.";
 
-export const defaultShardTargetMsByTargetEntries = [
+const defaultShardTargetMsByTargetEntries = [
   ["backend-store", defaultShardTargetMs],
   ["backend-integration", defaultBackendIntegrationShardTargetMs],
   ["backend-integration-support", defaultBackendIntegrationShardTargetMs],
@@ -34,7 +34,7 @@ export function resolveGoDurationBaselineFile(repoRoot, file = "") {
   return path.isAbsolute(configured) ? configured : path.join(repoRoot, configured);
 }
 
-export function emptyGoDurationBaseline() {
+function emptyGoDurationBaseline() {
   return {
     schema_id: goDurationBaselineSchemaID,
     note: baselineNote,
@@ -75,7 +75,7 @@ export function readGoDurationBaseline(repoRoot, file = "", options = {}) {
   return { baseline, baselineFile };
 }
 
-export function toGoDurationBaselineMaps(baseline) {
+function toGoDurationBaselineMaps(baseline) {
   const shardTargetMsByTarget = new Map(defaultShardTargetMsByTargetEntries);
   for (const [target, targetMs] of Object.entries(baseline.shard_target_ms_by_target ?? {})) {
     shardTargetMsByTarget.set(target, normalizePositiveInteger(targetMs, shardTargetMsByTarget.get(target)));

@@ -15,7 +15,7 @@ const explicitTargetInputs = new Map([
   ["browser-e2e-measurement", "BROWSER_MEASUREMENT_RESULTS_DIR"],
 ]);
 
-export const frontendEvidenceAuditRootInputNames = Object.freeze([
+const frontendEvidenceAuditRootInputNames = Object.freeze([
   "CHECK_RESULTS_DIR",
   "BROWSER_SUPPORT_RESULTS_DIR",
   "BROWSER_VISUAL_RESULTS_DIR",

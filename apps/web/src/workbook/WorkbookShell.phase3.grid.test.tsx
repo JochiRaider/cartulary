@@ -20,12 +20,11 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { requireFetchCall } from "../testing/fetchMockTestSupport";
+import { deferred, requireFetchCall } from "../testing/fetchMockTestSupport";
 import {
   buildRecordChangedPayload,
   changeInputValue,
   cleanupTimelineWorkbookTestGlobals,
-  deferred,
   emitRecordChanged,
   errorEnvelope,
   extractTimelineJSONBody,
@@ -37,11 +36,11 @@ import {
   successEnvelope,
   type TimelineWorkbookFetchMock,
   timelineRow,
-  timelineViewSchemaId,
   visibleGridRows,
   waitForTimelineWorkbookReady,
   waitForVisibleGridRowRecordIds,
 } from "../testing/timelineWorkbookTestSupport";
+import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 import { decideWorkbookRecordFreshness } from "./timeline/models/workbookTimelineModel";
 

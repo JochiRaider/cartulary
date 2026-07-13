@@ -38,7 +38,7 @@ const templateKeys = new Set(["name", "prefix", "display_name", "schedulers", "d
 const capacityProfileKeys = new Set(["name", "scheduler", "resources"]);
 const forwardingProfileKeys = new Set(["name", "mappings"]);
 const forwardingMappingKeys = new Set(["source_resource", "target_resource", "env_variable"]);
-export const checkHostCPUMaxAutoLimit = 256;
+const checkHostCPUMaxAutoLimit = 256;
 
 let cachedRegistry = null;
 
@@ -48,7 +48,7 @@ function registryShapeValue(fileOrManifest, label) {
     : requireShapeObject(fileOrManifest, label);
 }
 
-export function validateSchedulerResourceRegistryShape(fileOrManifest, label = fileOrManifest) {
+function validateSchedulerResourceRegistryShape(fileOrManifest, label = fileOrManifest) {
   const registry = registryShapeValue(fileOrManifest, label);
   validateObjectShape(registry, label, { keys: registryTopLevelKeys });
   requireSchemaID(registry, registrySchemaID, label);
@@ -444,7 +444,7 @@ function buildRegistry(file = defaultRegistryPath) {
   return { resources, templates, capacityProfiles, forwardingProfiles };
 }
 
-export function schedulerResourceRegistry() {
+function schedulerResourceRegistry() {
   cachedRegistry ??= buildRegistry();
   return cachedRegistry;
 }
@@ -462,12 +462,12 @@ export function browserStageResource(stageName) {
   return `${browserStageTemplate().prefix}${normalized}`;
 }
 
-export function isBrowserStageResource(resource) {
+function isBrowserStageResource(resource) {
   const template = browserStageTemplate();
   return typeof resource === "string" && resource.startsWith(template.prefix) && resource.length > template.prefix.length;
 }
 
-export function resourceDescriptor(resource) {
+function resourceDescriptor(resource) {
   const registry = schedulerResourceRegistry();
   const descriptor = registry.resources.get(resource);
   if (descriptor) {
@@ -515,7 +515,7 @@ export function assertKnownResource(resource, label, { scheduler = null } = {}) 
   return normalized;
 }
 
-export function isAutoLimitResource(resource) {
+function isAutoLimitResource(resource) {
   const descriptor = resourceDescriptor(resource);
   return descriptor ? descriptor.autoPolicy !== null : false;
 }
@@ -778,7 +778,7 @@ export function estimateCheckHostIOLimit(resourceLimits = new Map()) {
   return positiveIntegerLimit(resourceLimits.get("host_cpu")) ?? estimateCheckHostCPULimit();
 }
 
-export function browserStageLaneCount(workUnits) {
+function browserStageLaneCount(workUnits) {
   const lanes = new Set();
   for (const unit of workUnits) {
     for (const resource of unit.resourceClaims?.keys?.() ?? []) {
@@ -790,11 +790,11 @@ export function browserStageLaneCount(workUnits) {
   return lanes.size;
 }
 
-export function browserStackClaimUnitCount(workUnits) {
+function browserStackClaimUnitCount(workUnits) {
   return (workUnits ?? []).filter((unit) => unit.resourceClaims?.has?.("browser_stack")).length;
 }
 
-export function browserStackSessionGroupCount(workUnits) {
+function browserStackSessionGroupCount(workUnits) {
   const sessionGroups = new Set();
   for (const unit of workUnits ?? []) {
     if (unit.kind !== "browser_stage_session" || !unit.resourceClaims?.has?.("browser_stack")) {
@@ -874,7 +874,7 @@ export function estimatePostgresResetAutoLimit(
   return Math.max(1, Math.min(maxAutoLimit, Math.max(1, Math.floor(ioLimit / 3))));
 }
 
-export function normalizeBoundedLimitClaim(value, label, resource, resourceLimit) {
+function normalizeBoundedLimitClaim(value, label, resource, resourceLimit) {
   const allowedKeys = new Set(["mode", "reserve", "min", "max"]);
   for (const key of Object.keys(value)) {
     if (!allowedKeys.has(key)) {
@@ -904,7 +904,7 @@ export function normalizeBoundedLimitClaim(value, label, resource, resourceLimit
   return Math.min(resourceLimit, value.max, Math.max(value.min, resourceLimit - value.reserve));
 }
 
-export function normalizeResourceClaimAmount(rawAmount, label, resource, resourceLimit, { allowBounded = false } = {}) {
+function normalizeResourceClaimAmount(rawAmount, label, resource, resourceLimit, { allowBounded = false } = {}) {
   if (rawAmount === "limit") {
     return resourceLimit;
   }
@@ -956,7 +956,7 @@ export function provisionalResourceLimitsForClaims(resourceLimits) {
   return limits;
 }
 
-export function resolveForwardingProfile(name, resourceClaims, label) {
+function resolveForwardingProfile(name, resourceClaims, label) {
   const profileName = requireString(name, `${label}.forwarding`);
   const profile = schedulerResourceRegistry().forwardingProfiles.get(profileName);
   if (!profile) {

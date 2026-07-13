@@ -15,18 +15,18 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { deferred } from "../testing/fetchMockTestSupport";
 import { renderTimelineWorkbook } from "../testing/timelineWorkbookRenderTestSupport";
 import {
   cleanupTimelineWorkbookTestGlobals,
-  deferred,
   extractTimelineJSONBody,
   installTimelineWorkbookTestGlobals,
   successEnvelope,
   type TimelineWorkbookFetchMock,
   timelineRow,
-  timelineViewSchemaId,
   visibleGridRows,
 } from "../testing/timelineWorkbookTestSupport";
+import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import {
   buildCreatePayload,
   createDraftRow,

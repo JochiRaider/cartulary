@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { repoRoot } from "../../../contract/index.mjs";
 
 import {
   existsSync,
@@ -21,7 +22,6 @@ import {
 import { selectedPlaywrightEntriesFromReport as selectedPlaywrightEntriesFromReportAdapter } from "../playwright-artifacts.mjs";
 import { verboseOutput } from "../../tool-output.mjs";
 import {
-  repoRoot,
   testAccountingClassificationSchemaID,
   testCoverageBucketSet,
   testCoverageBuckets,
@@ -216,7 +216,6 @@ function loadTestAccountingClassification() {
     return cachedTestAccountingClassification;
   }
   const file = path.join(
-    repoRoot,
     "tools",
     "test_accounting_classification.json",
   );
@@ -621,7 +620,6 @@ function finalizeManifestAwareRunnerPhase(
       selectedPlaywrightEntries ??
       (runner === "playwright"
         ? selectPlaywrightEntries(
-            repoRoot,
             scope.phase,
             scope.coverage,
             scope.executionDependency,

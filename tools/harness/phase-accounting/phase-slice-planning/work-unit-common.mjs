@@ -2,7 +2,7 @@ export const goCPUResource = "go_cpu";
 export const goIOResource = "go_io";
 export const browserStackResource = "browser_stack";
 
-export function compareStrings(left, right) {
+function compareStrings(left, right) {
   return String(left).localeCompare(String(right));
 }
 

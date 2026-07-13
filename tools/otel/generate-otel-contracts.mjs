@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 const scriptFile = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(scriptFile), "..", "..");
 
-export const otelContractPaths = {
+const otelContractPaths = {
   sourceSnapshot: "contracts/otel/otel_source_snapshot.v1.json",
   generatedConstantsManifest: "contracts/otel/generated_constants_manifest.json",
   importBoundary: "contracts/otel/import_boundary.json",
@@ -17,7 +17,7 @@ export const otelContractPaths = {
 
 export const otelGeneratorSourceRef = "tools/otel/generate-otel-contracts.mjs";
 
-export const otelGeneratedConstantsProvenance = {
+const otelGeneratedConstantsProvenance = {
   generatorName: "cartulary-otel-contract-generator",
   generatorVersion: "1.0.0",
   inputModelDigest: "3f8f80a2ed04521dfe29e50fcddd7f7de70145a6aee01959f985a65fbb4c8632",
@@ -141,7 +141,7 @@ function objectKeyErrors(value, keys, label) {
   return [];
 }
 
-export function gitBlobSHA(root, relativePath) {
+function gitBlobSHA(root, relativePath) {
   const content = readFileSync(repoPath(root, relativePath));
   return createHash("sha1")
     .update(`blob ${content.length}\0`)
@@ -209,7 +209,7 @@ export function validateOtelGeneratorReference({ root = repoRoot, generatorSourc
   return errors;
 }
 
-export function parseEvidenceReference(evidence) {
+function parseEvidenceReference(evidence) {
   if (typeof evidence !== "string" || evidence.length === 0) {
     return { path: "", name: "", errors: ["browser_runtime_probe.evidence must be a non-empty path::test name reference"] };
   }
@@ -225,7 +225,7 @@ export function parseEvidenceReference(evidence) {
   return { path: evidencePath, name, errors };
 }
 
-export function validateBrowserRuntimeProbe(root, probe, { requireEvidenceFile = true } = {}) {
+function validateBrowserRuntimeProbe(root, probe, { requireEvidenceFile = true } = {}) {
   const errors = [];
   if (!probe || typeof probe !== "object" || Array.isArray(probe)) {
     return ["browser_runtime_probe must be an object"];
@@ -294,7 +294,7 @@ export function validateOtelImportBoundaryContractShape(root, boundary, options 
   return validateImportBoundaryShape(root, boundary, options);
 }
 
-export function buildOtelContracts(root = repoRoot) {
+function buildOtelContracts(root = repoRoot) {
   const snapshot = clone(readJSON(root, otelContractPaths.sourceSnapshot));
   const manifest = clone(readJSON(root, otelContractPaths.generatedConstantsManifest));
   const boundary = clone(readJSON(root, otelContractPaths.importBoundary));
@@ -326,7 +326,7 @@ export function buildOtelContracts(root = repoRoot) {
   };
 }
 
-export function validateBuiltOtelContracts(root, contracts, { requireTrackedGenerator = false } = {}) {
+function validateBuiltOtelContracts(root, contracts, { requireTrackedGenerator = false } = {}) {
   const errors = [];
   const snapshot = contracts[otelContractPaths.sourceSnapshot];
   const manifest = contracts[otelContractPaths.generatedConstantsManifest];

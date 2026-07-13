@@ -256,5 +256,3 @@ export function validateServiceBackedScheduleManifestShape(
   );
   return manifest;
 }
-
-export { serviceBackedScheduleSchemaID };

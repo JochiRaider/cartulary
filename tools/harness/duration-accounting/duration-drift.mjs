@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
-export const defaultDurationDriftThresholds = {
+const defaultDurationDriftThresholds = {
   underRatio: 2.5,
   underDeltaMs: 15000,
   overRatio: 4,

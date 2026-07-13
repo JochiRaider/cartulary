@@ -21,11 +21,11 @@ export const schedulerCapacityProfileValues = Object.freeze(
   ),
 );
 
-export const schedulerCapacityProfileSet = new Set(
+const schedulerCapacityProfileSet = new Set(
   schedulerCapacityProfileValues,
 );
 
-export const schedulerAutoPolicyValues = Object.freeze([
+const schedulerAutoPolicyValues = Object.freeze([
   "check_host_cpu",
   "check_host_io",
   "service_backed_go_cpu",
@@ -35,7 +35,7 @@ export const schedulerAutoPolicyValues = Object.freeze([
   "service_backed_postgres_clone",
 ]);
 
-export const schedulerAutoPolicySet = new Set(schedulerAutoPolicyValues);
+const schedulerAutoPolicySet = new Set(schedulerAutoPolicyValues);
 
 export function isSchedulerFamily(value) {
   return schedulerFamilySet.has(value);
@@ -48,11 +48,11 @@ export function requireSchedulerFamily(value, label) {
   return value;
 }
 
-export function isSchedulerCapacityProfile(value) {
+function isSchedulerCapacityProfile(value) {
   return schedulerCapacityProfileSet.has(value);
 }
 
-export function requireSchedulerCapacityProfile(value, label) {
+function requireSchedulerCapacityProfile(value, label) {
   if (typeof value !== "string" || !isSchedulerCapacityProfile(value)) {
     throw new Error(
       `${label} must be one of ${schedulerCapacityProfileValues.join("|")}`,
@@ -87,7 +87,7 @@ export function requireSchedulerCapacityProfileForFamily(profile, family, label)
   return profileName;
 }
 
-export function isSchedulerAutoPolicy(value) {
+function isSchedulerAutoPolicy(value) {
   return schedulerAutoPolicySet.has(value);
 }
 

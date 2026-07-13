@@ -6,7 +6,7 @@ import {
 } from "react";
 import { apiPath } from "../../../services/browserApi";
 import {
-  fetchJSON,
+  fetchWorkbookJSON,
   parseErrorMessage,
   readEnvelope,
 } from "../../../services/workbookApi";
@@ -256,7 +256,7 @@ export function useTimelineHistoryActions({
           message: null,
         });
       }
-      const result = await fetchJSON<RecordHistoryEnvelope>(
+      const result = await fetchWorkbookJSON<RecordHistoryEnvelope>(
         apiPath(apiBase, `/api/v1/records/${recordId}/history`),
       );
       if (!rowHistoryRequestIsCurrent(requestSeq)) {
@@ -466,7 +466,7 @@ export function useTimelineHistoryActions({
             operation === "delete"
               ? `/api/v1/records/${recordId}`
               : `/api/v1/records/${recordId}/restore`;
-          return fetchJSON<RecordDeleteRestoreEnvelope>(
+          return fetchWorkbookJSON<RecordDeleteRestoreEnvelope>(
             apiPath(apiBase, path),
             {
               method: operation === "delete" ? "DELETE" : "POST",
@@ -533,7 +533,7 @@ export function useTimelineHistoryActions({
         recordId,
         viewportContinuityTarget,
         request: (baseRowVersion, clientTxnId) =>
-          fetchJSON<RecordRollbackEnvelope>(
+          fetchWorkbookJSON<RecordRollbackEnvelope>(
             apiPath(apiBase, `/api/v1/records/${recordId}/rollback`),
             {
               method: "POST",

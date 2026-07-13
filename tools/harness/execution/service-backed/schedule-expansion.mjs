@@ -1,11 +1,11 @@
 import {
   browserGroupClaims,
   checkClaimsForShard,
-  mapServiceBackedClaimsToCheckClaims as mapServiceBackedClaimsToCheckClaimsFromPolicy,
   mergeClaims,
   schedulerClaimsForShard,
   sourceClaimsForShard,
 } from "./schedule-resource-claims.mjs";
+import { mapServiceBackedClaimsToCheckClaims as mapServiceBackedClaimsToCheckClaimsFromPolicy } from "../../scheduler/scheduler-resource-policy.mjs";
 import {
   browserGroupCompletionKey,
   browserGroupNeeds,
@@ -103,7 +103,7 @@ function browserGroupEnvFromPlan(browserWorkerSlotPlan, group) {
   );
 }
 
-export function mapServiceBackedClaimsToCheckClaims(rawClaims, { ensureHost = false } = {}) {
+function mapServiceBackedClaimsToCheckClaims(rawClaims, { ensureHost = false } = {}) {
   return mapServiceBackedClaimsToCheckClaimsFromPolicy(rawClaims, { ensureHost });
 }
 

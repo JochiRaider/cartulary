@@ -30,7 +30,7 @@ import {
   schedulerFamilySet,
 } from "./scheduler-family-contract.mjs";
 
-export const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v2";
+const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v2";
 const envNamePattern = /^[A-Z][A-Z0-9_]*$/;
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const makePrerequisitePolicies = new Set(["run", "skip"]);
@@ -85,7 +85,7 @@ const schedulerWorkUnitKeys = new Set([
   "unblock_label",
   "command",
 ]);
-export const schedulerCommandTypeValues = Object.freeze([
+const schedulerCommandTypeValues = Object.freeze([
   "make_target",
   "service_session_start",
   "browser_stage_session_start",
@@ -211,7 +211,7 @@ export function readinessAttributionForMakeTarget(target) {
   const attribution = makeTargetReadinessAttribution[target];
   return attribution ? { ...attribution } : null;
 }
-export const schedulerCommandShapes = Object.freeze({
+const schedulerCommandShapes = Object.freeze({
   make_target: {
     required: ["target"],
     optional: ["service_target"],
@@ -250,7 +250,7 @@ export const schedulerCommandShapes = Object.freeze({
   },
 });
 
-export function validateSchedulerCommandShape(value, label) {
+function validateSchedulerCommandShape(value, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${label} must be an object`);
   }
@@ -544,9 +544,9 @@ export async function loadSchedulerManifest(file, { repoRoot, schemaID = schedul
   return { manifest, manifestPath };
 }
 
-export const loadScheduleManifest = loadSchedulerManifest;
+const loadScheduleManifest = loadSchedulerManifest;
 
-export function selectSingleSchedule(manifest, target, { label = "schedule" } = {}) {
+function selectSingleSchedule(manifest, target, { label = "schedule" } = {}) {
   const matches = manifest.schedules.filter((schedule) => schedule?.target === target);
   if (matches.length !== 1) {
     throw new Error(`expected exactly one ${label} for ${target}, found ${matches.length}`);
@@ -1018,7 +1018,7 @@ export function normalizeSchedulerSchedule(manifest, target, {
   };
 }
 
-export function normalizeStringList(value, label) {
+function normalizeStringList(value, label) {
   if (value === undefined) {
     return [];
   }
@@ -1033,7 +1033,7 @@ export function normalizeStringList(value, label) {
   });
 }
 
-export function normalizeNeeds(value, label) {
+function normalizeNeeds(value, label) {
   if (value === undefined) {
     return [];
   }
@@ -1048,7 +1048,7 @@ export function normalizeNeeds(value, label) {
   });
 }
 
-export function validateTargetDependencyGraph(
+function validateTargetDependencyGraph(
   nodes,
   { scheduleLabel, nodeKind, duplicateTargetsMessage = null },
 ) {

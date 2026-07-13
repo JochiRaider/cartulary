@@ -1,7 +1,7 @@
 import { useCallback, useRef } from "react";
 import { apiPath } from "../../../services/browserApi";
 import {
-  fetchJSON,
+  fetchWorkbookJSON,
   parseErrorMessage,
   readEnvelope,
 } from "../../../services/workbookApi";
@@ -205,7 +205,7 @@ export function useTimelinePendingReplayController({
           return;
         }
         try {
-          const result = await fetchJSON<SessionEnvelope>(
+          const result = await fetchWorkbookJSON<SessionEnvelope>(
             apiPath(apiBase, "/api/v1/auth/session"),
           );
           if (!result.ok) {

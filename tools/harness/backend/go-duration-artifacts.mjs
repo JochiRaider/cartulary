@@ -5,7 +5,7 @@ import { rawPackageBaselineKey } from "./go-duration-baselines.mjs";
 import { collectGoShardPlan } from "./backend-shard-plan.mjs";
 import { loadServiceFixtureActivities } from "../diagnostics/fixture-reporting.mjs";
 
-export function normalizePositiveInteger(value, fallback = 0) {
+function normalizePositiveInteger(value, fallback = 0) {
   if (Number.isInteger(value) && value > 0) {
     return value;
   }
@@ -53,7 +53,7 @@ function readJSONArtifact(file) {
   }
 }
 
-export function validateGoDurationRetainedRun(_root, resultsDir) {
+function validateGoDurationRetainedRun(_root, resultsDir) {
   const absoluteResultsDir = path.resolve(resultsDir);
   if (!existsSync(absoluteResultsDir) || !statSync(absoluteResultsDir).isDirectory()) {
     throw new Error(`results directory does not exist: ${resultsDir}`);

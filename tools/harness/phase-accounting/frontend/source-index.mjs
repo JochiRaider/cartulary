@@ -71,7 +71,7 @@ export function playwrightSourceFiles(root) {
 
 const goModulePathByRoot = new Map();
 
-export function loadGoModulePath(root) {
+function loadGoModulePath(root) {
   const normalizedRoot = path.resolve(root);
   const cached = goModulePathByRoot.get(normalizedRoot);
   if (cached !== undefined) {

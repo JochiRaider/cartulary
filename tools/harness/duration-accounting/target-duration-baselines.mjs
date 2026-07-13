@@ -14,7 +14,7 @@ export function sortedObjectByKey(entriesOrObject) {
   return Object.fromEntries([...entries].sort(([left], [right]) => left.localeCompare(right)));
 }
 
-export function assertPositiveTargetWeights(baseline, label) {
+function assertPositiveTargetWeights(baseline, label) {
   if (!baseline.targets || typeof baseline.targets !== "object" || Array.isArray(baseline.targets)) {
     throw new Error(`${label} targets must be an object`);
   }

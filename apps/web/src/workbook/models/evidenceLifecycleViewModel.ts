@@ -1,4 +1,4 @@
-export const evidenceRecordLifecycleStates = [
+const evidenceRecordLifecycleStates = [
   "requested",
   "pending_receipt",
   "received",
@@ -10,7 +10,7 @@ export const evidenceRecordLifecycleStates = [
 export type EvidenceRecordLifecycleState =
   (typeof evidenceRecordLifecycleStates)[number];
 
-export const objectBlobUploadStates = [
+const objectBlobUploadStates = [
   "pending",
   "available",
   "failed",
@@ -19,7 +19,7 @@ export const objectBlobUploadStates = [
 
 export type ObjectBlobUploadState = (typeof objectBlobUploadStates)[number];
 
-export const evidenceLifecycleViewStateKeys = [
+const evidenceLifecycleViewStateKeys = [
   "requested",
   "pending_upload",
   "available",
@@ -33,7 +33,7 @@ export const evidenceLifecycleViewStateKeys = [
 export type EvidenceLifecycleViewStateKey =
   (typeof evidenceLifecycleViewStateKeys)[number];
 
-export const evidenceCountDisplayStateKeys = [
+const evidenceCountDisplayStateKeys = [
   "empty",
   "available",
   "pending_upload",

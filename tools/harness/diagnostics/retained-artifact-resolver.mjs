@@ -4,7 +4,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 
-export const retainedLogReadLimits = Object.freeze({
+const retainedLogReadLimits = Object.freeze({
   maxFiles: 4096,
   maxFileBytes: 16 * 1024 * 1024,
   maxTotalBytes: 256 * 1024 * 1024,

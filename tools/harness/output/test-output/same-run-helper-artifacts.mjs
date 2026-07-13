@@ -13,7 +13,7 @@ import {
   validateSchemaSync,
 } from "../../contract/harness-contract.mjs";
 
-export const sameRunHelperArtifactRefSchemaID =
+const sameRunHelperArtifactRefSchemaID =
   "cartulary.same_run_helper_artifact_ref.v2";
 
 function normalizePath(value) {

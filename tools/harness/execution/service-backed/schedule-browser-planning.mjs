@@ -8,9 +8,9 @@ import {
 } from "../../scheduler/adapters/browser.mjs";
 import {
   directRetainedBrowserStageClaims,
-  mapServiceBackedClaimsToCheckClaims,
   retainedBrowserStageClaims,
 } from "./schedule-resource-claims.mjs";
+import { mapServiceBackedClaimsToCheckClaims } from "../../scheduler/scheduler-resource-policy.mjs";
 import { resourceClaimsObject, unionStrings } from "./schedule-utils.mjs";
 
 export {
@@ -46,7 +46,7 @@ export function browserSessionGroupName(source) {
   return source.target;
 }
 
-export function browserSessionIsolationReason(source) {
+function browserSessionIsolationReason(source) {
   const raw = source.browser_session_isolation_reason;
   return typeof raw === "string" && raw.trim() !== "" ? raw.trim() : "";
 }
@@ -59,7 +59,7 @@ export function browserGroupSessionGroupName(source, group) {
   return browserSessionGroupName(source);
 }
 
-export function browserGroupSessionIsolationReason(source, group) {
+function browserGroupSessionIsolationReason(source, group) {
   const raw = group?.browser_session_isolation_reason;
   if (typeof raw === "string" && raw.trim() !== "") {
     return raw.trim();

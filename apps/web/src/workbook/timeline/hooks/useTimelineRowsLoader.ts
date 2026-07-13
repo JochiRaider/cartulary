@@ -3,7 +3,7 @@ import type { ViewContract } from "@cartulary/view-contracts";
 import type { Dispatch, SetStateAction } from "react";
 import { startTransition, useCallback, useMemo } from "react";
 import { apiPath } from "../../../services/browserApi";
-import { fetchJSON, readEnvelope } from "../../../services/workbookApi";
+import { fetchWorkbookJSON, readEnvelope } from "../../../services/workbookApi";
 import {
   buildQueryRequest,
   type WorkbookQueryState,
@@ -217,7 +217,7 @@ export function useTimelineRowsLoader({
         setLoadError(null);
       }
 
-      const result = await fetchJSON<WorkbookQueryEnvelope>(queryPath, {
+      const result = await fetchWorkbookJSON<WorkbookQueryEnvelope>(queryPath, {
         method: "POST",
         body: queryBody,
       });

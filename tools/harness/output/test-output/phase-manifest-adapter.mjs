@@ -19,7 +19,6 @@ function cacheKey(root) {
 
 export {
   packageMatchesPattern,
-  phaseManifestNames,
   playwrightEntryTitles,
   selectManifestEntries,
   selectPlaywrightEntries,

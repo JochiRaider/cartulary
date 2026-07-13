@@ -18,7 +18,7 @@ import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 
 const timelineRuntimeContract = requireViewContract(timelineViewSchemaId);
 
-export type TimelineWorkbookRuntimeSaveState = "Syncing" | "Saved" | "Conflict";
+type TimelineWorkbookRuntimeSaveState = "Syncing" | "Saved" | "Conflict";
 
 type FilterDraftSetter = Dispatch<SetStateAction<FilterDraft>>;
 type WorkbookQueryStateSetter = Dispatch<SetStateAction<WorkbookQueryState>>;
@@ -30,9 +30,7 @@ export type TimelineWorkbookRuntimeInput = {
   readonly onQueryStateChange?: WorkbookQueryStateSetter | undefined;
 };
 
-export function clearAppliedTimelineFilterDraft(
-  current: FilterDraft,
-): FilterDraft {
+function clearAppliedTimelineFilterDraft(current: FilterDraft): FilterDraft {
   return {
     ...current,
     booleanValue: "",
@@ -40,7 +38,7 @@ export function clearAppliedTimelineFilterDraft(
   };
 }
 
-export function applyTimelineFilterDraftToQuery(
+function applyTimelineFilterDraftToQuery(
   setQueryState: WorkbookQueryStateSetter,
   setFilterDraft: FilterDraftSetter,
   draft: FilterDraft,

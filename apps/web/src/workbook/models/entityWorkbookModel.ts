@@ -122,10 +122,7 @@ export function entityContractColumnWidth(field: ViewFieldContract): number {
   }
 }
 
-export function readEntityStringCell(
-  row: EntityApiRow,
-  fieldKey: string,
-): string {
+function readEntityStringCell(row: EntityApiRow, fieldKey: string): string {
   const raw = row.cells[fieldKey]?.value;
   return typeof raw === "string" ? raw : "";
 }

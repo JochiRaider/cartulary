@@ -33,7 +33,7 @@ export const failureReasonOrder = [
   "unknown_failure",
 ];
 
-export const commandLifecycleOrder = [
+const commandLifecycleOrder = [
   "wrapper_identity",
   "output_mode_resolution",
   "configuration_resolution",
@@ -141,7 +141,7 @@ export function normalizeFailureReason(value, fallback = "unknown_failure") {
   return failureReasonSet.has(fallback) ? fallback : "unknown_failure";
 }
 
-export function failureClassForReason(reason, fallback = "unknown") {
+function failureClassForReason(reason, fallback = "unknown") {
   return reasonClassMap.get(normalizeFailureReason(reason)) ?? normalizeFailureClass(fallback, "unknown");
 }
 
@@ -149,7 +149,7 @@ export function defaultReasonForFailureClass(failureClass) {
   return classDefaultReasonMap.get(normalizeFailureClass(failureClass, "unknown")) ?? "unknown_failure";
 }
 
-export function primaryFailureClass(failureClasses = createFailureClassCounts()) {
+function primaryFailureClass(failureClasses = createFailureClassCounts()) {
   for (const failureClass of failureClassOrder) {
     if ((failureClasses[failureClass] ?? 0) > 0) {
       return failureClass;
@@ -296,7 +296,7 @@ function delegatedChildFailure(record = {}, context = {}) {
   return null;
 }
 
-export function publicExitCodeForFailure(record = {}, context = {}) {
+function publicExitCodeForFailure(record = {}, context = {}) {
   const failure = normalizeFailureRecord(record, {
     failure_reason: context.failure_reason,
     failure_class: context.failure_class,
@@ -364,7 +364,7 @@ export function publicExitCodeForSummary(summary = {}, context = {}) {
   });
 }
 
-export function summarizeFailures(failures = [], counts = {}) {
+function summarizeFailures(failures = [], counts = {}) {
   const normalized = failures
     .filter(Boolean)
     .map((failure) => normalizeFailureRecord(failure))
@@ -395,11 +395,11 @@ export function failureFieldsForJSON(failures = [], counts = {}) {
   return summarizeFailures(failures, counts);
 }
 
-export function mergeFailureFields(...values) {
+function mergeFailureFields(...values) {
   return values.flatMap((value) => value?.failures ?? []);
 }
 
-export function classifyDossierFailure(dossier = {}, context = {}) {
+function classifyDossierFailure(dossier = {}, context = {}) {
   if (dossier.failure_class) {
     return normalizeFailureClass(dossier.failure_class);
   }
@@ -461,7 +461,7 @@ export function classifyExecutionFailureReason(target = "", label = "", command 
   return defaultReasonForFailureClass(classifyExecutionFailure(target, label, command));
 }
 
-export function classifyTimingFailure(span = {}) {
+function classifyTimingFailure(span = {}) {
   const source = String(span.source ?? "").toLowerCase();
   const bucket = String(span.bucket ?? "").toLowerCase();
   const label = String(span.label ?? "").toLowerCase();
@@ -531,7 +531,7 @@ export function failureHeadlineForSummary(summary = {}) {
   });
 }
 
-export function formatFailureHeadline({ failureClass, failures = [], counts = {} } = {}) {
+function formatFailureHeadline({ failureClass, failures = [], counts = {} } = {}) {
   const normalizedClass = normalizeFailureClass(failureClass, "");
   if (!normalizedClass) {
     return "";
