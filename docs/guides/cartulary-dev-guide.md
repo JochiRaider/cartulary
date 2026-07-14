@@ -223,8 +223,9 @@ The repo-local package boundary around that grid stack is fixed:
 - `/packages/view-contracts` parses generated contract artifacts and exposes TypeScript-consumable surface, field, sort, filter, grouping, and capability metadata.
 - `/packages/grid-adapter` owns direct `react-data-grid` imports, stylesheet ownership, vendor-event translation, row-identity assertions, and presentation-only group-row or header behavior.
 - `/packages/ui-contracts` owns runtime-safe selector and test-id builders shared by workbook runtime code, unit tests, and browser suites.
+- `/packages/protocol-ts` is the authored facade over generated protocol declarations and static runtime decoders. Browser features MUST decode untrusted payloads at their transport boundary and MUST NOT import its protected generated root directly.
 - `/packages/test-utils` owns browser helper choreography for sort, filter, grouping, scroll, paste, and anchor assertions reused across functional and visual suites.
-- `/apps/web` owns workbook controllers, query state, HTTP mutation submission, pending replay, and WebSocket refresh behavior. Tests that target those controllers MUST import the workbook or controller modules directly rather than routing through `App.tsx` re-exports.
+- `/apps/web` owns workbook controllers, query state, HTTP mutation submission, pending replay, and feature interpretation. Its incident collaboration facade owns one WebSocket transport lifecycle per incident and tab; Timeline and extension features retain their own event effects. Exact `view_schema_id` registrations bind contract execution to bounded-context policies, while the reference broker only executes owner-declared requirements. Shared same-origin JSON/CSRF mechanics belong to the frontend transport adapter, not components or policy modules. Tests that target those controllers MUST import the workbook or controller modules directly rather than routing through `App.tsx` re-exports.
 
 ### 2.3.2 Vendored font asset boundary
 

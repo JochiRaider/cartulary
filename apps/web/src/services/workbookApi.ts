@@ -1,4 +1,4 @@
-import { csrfCookieName, csrfHeaderName, readCookie } from "./browserApi";
+import { requestJSON } from "./httpTransport";
 
 export type LatestQueryRuntime = {
   controller: AbortController | null;
@@ -78,44 +78,24 @@ export async function fetchWorkbookJSON<T>(
     | { error?: { code?: string; message?: string; details?: unknown } };
 }> {
   const method = (init?.method ?? "GET").toUpperCase();
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(init?.headers as Record<string, string> | undefined),
-  };
-  if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
-    const csrfToken = readCookie(csrfCookieName);
-    if (csrfToken !== null && csrfToken !== "") {
-      headers[csrfHeaderName] = csrfToken;
-    }
-  }
+  const headers = new Headers(init?.headers);
   const requestURL = input instanceof Request ? input.url : String(input);
   if (
     window.__cartularyWorkbookTimingProbe !== undefined &&
     method === "POST" &&
     requestURL.includes("/views/cartulary.view.timeline.v2/rows")
   ) {
-    headers["X-Cartulary-Timing-Debug"] = "1";
+    headers.set("X-Cartulary-Timing-Debug", "1");
   }
-
-  const response = await fetch(input, {
-    credentials: "include",
-    ...init,
-    headers,
-  });
-  options.onResponse?.(response);
-  const payload = (await response.json()) as
-    | T
-    | {
-        error?: {
-          code?: string;
-          message?: string;
-          retryable?: unknown;
-          conflict?: unknown;
-          details?: unknown;
-        };
-      };
-  options.onJSONParsed?.();
-  return { ok: response.ok, status: response.status, payload };
+  return requestJSON<T>(
+    input,
+    { ...init, headers },
+    {
+      contentType: "always",
+      responseParsing: "json",
+      ...options,
+    },
+  );
 }
 
 export function parseErrorMessage(payload: unknown) {

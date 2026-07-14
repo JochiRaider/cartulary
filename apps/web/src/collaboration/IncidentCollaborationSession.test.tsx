@@ -1,0 +1,258 @@
+import { act, cleanup, render } from "@testing-library/react";
+import { useEffect } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  type IncidentCollaborationEvent,
+  IncidentCollaborationSession,
+  useIncidentCollaborationSession,
+} from "./IncidentCollaborationSession";
+
+class FakeWebSocket {
+  static readonly OPEN = 1;
+  static instances: FakeWebSocket[] = [];
+  readonly sent: string[] = [];
+  readyState = 0;
+  onopen: (() => void) | null = null;
+  onmessage: ((event: { data: string }) => void) | null = null;
+  onclose: ((event: { code: number; reason: string }) => void) | null = null;
+  onerror: (() => void) | null = null;
+
+  constructor(readonly url: string) {
+    FakeWebSocket.instances.push(this);
+  }
+
+  send(payload: string) {
+    this.sent.push(payload);
+  }
+
+  close() {
+    this.readyState = 3;
+  }
+}
+
+function Consumer({
+  onEvent,
+  sheetId,
+}: {
+  readonly onEvent: (event: IncidentCollaborationEvent) => void;
+  readonly sheetId: string;
+}) {
+  const session = useIncidentCollaborationSession();
+  useEffect(() => session.subscribe(onEvent), [onEvent, session]);
+  useEffect(() => {
+    session.publishPresence({
+      sheet_ref: { kind: "view_schema", id: sheetId },
+      mode: "viewing",
+    });
+  }, [session, sheetId]);
+  return null;
+}
+
+describe("IncidentCollaborationSession", () => {
+  afterEach(() => {
+    cleanup();
+    FakeWebSocket.instances = [];
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("FE-U-P7-01 ignores duplicate stream sequences and refreshes on sequence gaps", () => {
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    const onEvent = vi.fn();
+    const view = render(
+      <IncidentCollaborationSession
+        incidentId="incident-1"
+        initialPresence={{
+          sheet_ref: { kind: "view_schema", id: "timeline" },
+          mode: "viewing",
+        }}
+      >
+        <Consumer onEvent={onEvent} sheetId="timeline" />
+      </IncidentCollaborationSession>,
+    );
+    const socket = FakeWebSocket.instances[0];
+    expect(socket).toBeDefined();
+    act(() => {
+      if (socket) {
+        socket.readyState = FakeWebSocket.OPEN;
+      }
+      socket?.onopen?.();
+    });
+    expect(JSON.parse(socket?.sent[0] ?? "{}")).toMatchObject({
+      type: "hello",
+      payload: { presence: { sheet_ref: { id: "timeline" } } },
+    });
+    act(() => {
+      socket?.onmessage?.({
+        data: JSON.stringify({
+          type: "hello_ack",
+          payload: {
+            connection_id: "connection-1",
+            resume_token: "resume-1",
+            server_time: "2026-07-13T12:00:00Z",
+            heartbeat_interval_ms: 15_000,
+            presence_ttl_ms: 45_000,
+            resume_window_ms: 60_000,
+          },
+        }),
+      });
+    });
+
+    view.rerender(
+      <IncidentCollaborationSession
+        incidentId="incident-1"
+        initialPresence={{
+          sheet_ref: { kind: "view_schema", id: "timeline" },
+          mode: "viewing",
+        }}
+      >
+        <Consumer onEvent={onEvent} sheetId="notes" />
+      </IncidentCollaborationSession>,
+    );
+    expect(FakeWebSocket.instances).toHaveLength(1);
+    expect(JSON.parse(socket?.sent.at(-1) ?? "{}")).toMatchObject({
+      type: "presence_update",
+      payload: { presence: { sheet_ref: { id: "notes" } } },
+    });
+
+    const change = {
+      type: "extension_resource_changed",
+      stream_seq: 1,
+      payload: {
+        extension_profile_id: "network_flow_activity",
+        resource_kind: "network_flow_table",
+        resource_id: "nft-1",
+        change_kind: "invalidate",
+        reason_code: "changed",
+      },
+    };
+    act(() => {
+      socket?.onmessage?.({ data: JSON.stringify(change) });
+      socket?.onmessage?.({ data: JSON.stringify(change) });
+      socket?.onmessage?.({
+        data: JSON.stringify({ ...change, stream_seq: 3 }),
+      });
+      socket?.onmessage?.({
+        data: JSON.stringify({ type: "ping", payload: {} }),
+      });
+      socket?.onmessage?.({
+        data: JSON.stringify({ type: "future_extension", payload: {} }),
+      });
+    });
+    expect(
+      onEvent.mock.calls.filter(([event]) => event.kind === "message"),
+    ).toHaveLength(1);
+    expect(onEvent).toHaveBeenCalledWith({
+      kind: "reset_required",
+      reason: "sequence_gap",
+    });
+    expect(JSON.parse(socket?.sent.at(-1) ?? "{}")).toEqual({
+      type: "pong",
+      payload: {},
+    });
+
+    view.rerender(
+      <IncidentCollaborationSession
+        incidentId="incident-2"
+        initialPresence={{
+          sheet_ref: { kind: "view_schema", id: "timeline" },
+          mode: "viewing",
+        }}
+      >
+        <Consumer onEvent={onEvent} sheetId="timeline" />
+      </IncidentCollaborationSession>,
+    );
+    expect(socket?.readyState).toBe(3);
+    expect(FakeWebSocket.instances).toHaveLength(2);
+    const nextSocket = FakeWebSocket.instances[1];
+    act(() => {
+      if (nextSocket) {
+        nextSocket.readyState = FakeWebSocket.OPEN;
+      }
+      nextSocket?.onopen?.();
+    });
+    expect(JSON.parse(nextSocket?.sent[0] ?? "{}")).toMatchObject({
+      type: "hello",
+      payload: { presence: { sheet_ref: { id: "timeline" } } },
+    });
+  });
+
+  it("FE-U-P7-01 builds hello and resume session messages from socket resume state", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    const onEvent = vi.fn();
+    render(
+      <IncidentCollaborationSession
+        incidentId="incident-1"
+        initialPresence={{
+          sheet_ref: { kind: "view_schema", id: "timeline" },
+          mode: "viewing",
+        }}
+      >
+        <Consumer onEvent={onEvent} sheetId="timeline" />
+      </IncidentCollaborationSession>,
+    );
+    const socket = FakeWebSocket.instances[0];
+    act(() => {
+      if (socket) {
+        socket.readyState = FakeWebSocket.OPEN;
+      }
+      socket?.onopen?.();
+      socket?.onmessage?.({
+        data: JSON.stringify({
+          type: "hello_ack",
+          payload: {
+            connection_id: "connection-1",
+            resume_token: "resume-private",
+            server_time: "2026-07-13T12:00:00Z",
+            heartbeat_interval_ms: 15_000,
+            presence_ttl_ms: 45_000,
+            resume_window_ms: 60_000,
+          },
+        }),
+      });
+      socket?.onmessage?.({
+        data: JSON.stringify({
+          type: "extension_resource_changed",
+          stream_seq: 7,
+          payload: {
+            extension_profile_id: "network_flow_activity",
+            resource_kind: "network_flow_table",
+            resource_id: "nft-1",
+            change_kind: "invalidate",
+            reason_code: "changed",
+          },
+        }),
+      });
+    });
+    expect(JSON.parse(socket?.sent[0] ?? "{}")).toMatchObject({
+      type: "hello",
+      payload: { client_instance_id: expect.any(String) },
+    });
+    expect(onEvent).toHaveBeenCalledWith({
+      kind: "established",
+      messageType: "hello_ack",
+      payload: { connection_id: "connection-1" },
+    });
+    expect(JSON.stringify(onEvent.mock.calls)).not.toContain("resume-private");
+
+    act(() => {
+      socket?.onclose?.({ code: 1006, reason: "" });
+      vi.advanceTimersByTime(1000);
+    });
+    const resumedSocket = FakeWebSocket.instances[1];
+    act(() => {
+      if (resumedSocket) {
+        resumedSocket.readyState = FakeWebSocket.OPEN;
+      }
+      resumedSocket?.onopen?.();
+    });
+    expect(JSON.parse(resumedSocket?.sent[0] ?? "{}")).toMatchObject({
+      type: "resume",
+      payload: {
+        resume_token: "resume-private",
+        last_seen_stream_seq: 7,
+      },
+    });
+  });
+});

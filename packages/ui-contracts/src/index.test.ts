@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  accountTestId,
+  appRouteTestId,
+  authTestId,
   autoResolutionNoticeFamilySelector,
   autoResolutionNoticeTestId,
   autoResolutionReviewButtonTestId,
@@ -10,6 +13,7 @@ import {
   currentIncidentRoleTestId,
   dataTestIdPrefixSelector,
   dataTestIdSelector,
+  deploymentAdminTestId,
   deploymentUserRowTestId,
   draftCellTestId,
   draftRelationshipItemsTestId,
@@ -58,6 +62,7 @@ import {
   incidentControlsStatusTestId,
   incidentControlsSurfaceTestId,
   incidentControlsTriggerTestId,
+  incidentLandingTestId,
   incidentMembershipAdminNoteTestId,
   incidentMembershipCreateButtonTestId,
   incidentMembershipDeleteButtonTestId,
@@ -96,6 +101,8 @@ import {
   phase2MembershipRowTestId,
   phase2MembershipVersionTestId,
   phase2SelectIncidentButtonTestId,
+  publicErrorCodeTestId,
+  publicErrorSummaryTestIds,
   referencePackAdminPanelTestId,
   referencePackCancelButtonTestId,
   referencePackErrorTestId,
@@ -1278,6 +1285,24 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       details: "landing-error-details",
       message: "landing-error-message",
     });
+  });
+
+  it("keeps semantic selector helpers byte-identical to phase evidence aliases", () => {
+    expect(authTestId("login-submit")).toBe(phase1AuthTestId("login-submit"));
+    expect(accountTestId("profile-save")).toBe(
+      phase1AccountTestId("profile-save"),
+    );
+    expect(deploymentAdminTestId("create-user")).toBe(
+      phase1AdminTestId("create-user"),
+    );
+    expect(incidentLandingTestId("incident-list")).toBe(
+      phase1LandingTestId("incident-list"),
+    );
+    expect(appRouteTestId("app-shell")).toBe(phase1RouteTestId("app-shell"));
+    expect(publicErrorCodeTestId("auth")).toBe(phase1ErrorCodeTestId("auth"));
+    expect(publicErrorSummaryTestIds("landing")).toEqual(
+      phase1ErrorSummaryTestIds("landing"),
+    );
   });
 
   it("keeps Phase 1 selector identity on semantic state and stable field identifiers", () => {

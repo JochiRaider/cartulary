@@ -1,7 +1,7 @@
 import {
+  appRouteTestId,
   landingAdminMenuItemTestId,
   landingAdminPanelTestId,
-  phase1RouteTestId,
 } from "@cartulary/ui-contracts";
 import {
   type CSSProperties,
@@ -21,6 +21,7 @@ import {
   fetchJSON,
   publicErrorView,
 } from "../services/browserApi";
+import { isNetworkFlowClaimed } from "../services/networkFlowContractAdapter";
 import type {
   WorkbookAccountApplicationMenuProps,
   WorkbookAccountModel,
@@ -185,8 +186,8 @@ function incidentListURL(options: {
 }
 
 function extensionClaimed(
-  profiles: ExtensionProfileResource[],
-  profileId: string,
+  profiles: readonly ExtensionProfileResource[],
+  profileId: ExtensionProfileResource["profile_id"],
 ) {
   return profiles.some(
     (profile) => profile.profile_id === profileId && profile.claimed,
@@ -1197,7 +1198,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         data-bootstrap-state={appBootstrapState}
         data-cartulary-theme={themeId}
         data-reading-profile={readingProfileAttribute}
-        data-testid={phase1RouteTestId("app-shell")}
+        data-testid={appRouteTestId("app-shell")}
         style={workbookRootPageStyle}
       >
         <section style={workbookFrameStyle}>
@@ -1205,7 +1206,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
             fallback={
               <p
                 aria-live="polite"
-                data-testid={phase1RouteTestId("workbook-loading")}
+                data-testid={appRouteTestId("workbook-loading")}
                 role="status"
                 style={routeLoadingStyle}
               >
@@ -1224,14 +1225,13 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
                   currentIncidentRole,
                   incidentControls,
                   onOpenIncidentDirectory: handleReturnToLanding,
-                  triggerTestId: phase1RouteTestId("workbook-current-user"),
+                  triggerTestId: appRouteTestId("workbook-current-user"),
                 })
               }
               currentUserLabel={currentUserLabel}
               incidentId={route.incidentId}
-              networkFlowActivityClaimed={extensionClaimed(
+              networkFlowActivityClaimed={isNetworkFlowClaimed(
                 extensionProfiles,
-                "network_flow_activity",
               )}
               onIncidentAccessLost={handleIncidentAccessLost}
               onIncidentSnapshot={handleIncidentSnapshot}
@@ -1269,7 +1269,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
             fallback={
               <p
                 aria-live="polite"
-                data-testid={phase1RouteTestId("debug-harness-loading")}
+                data-testid={appRouteTestId("debug-harness-loading")}
                 role="status"
                 style={routeLoadingStyle}
               >
@@ -1323,7 +1323,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       data-bootstrap-state={appBootstrapState}
       data-cartulary-theme={themeId}
       data-reading-profile={readingProfileAttribute}
-      data-testid={phase1RouteTestId("app-shell")}
+      data-testid={appRouteTestId("app-shell")}
       style={rootPageStyle}
     >
       {route.deploymentAdministration && session.is_deployment_admin ? (

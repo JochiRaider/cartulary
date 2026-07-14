@@ -1,11 +1,5 @@
-import {
-  apiPath,
-  clientTxnID,
-  csrfCookieName,
-  csrfHeaderName,
-  extractError,
-  readCookie,
-} from "../services/browserApi";
+import { apiPath, clientTxnID, extractError } from "../services/browserApi";
+import { requestMultipartJSON } from "../services/httpTransport";
 import {
   fetchWorkbookJSON,
   parseErrorMessage,
@@ -159,18 +153,8 @@ async function fetchUploadJSON<T>(
   path: string,
   body: FormData,
 ): Promise<T> {
-  const headers = new Headers();
-  const csrfToken = readCookie(csrfCookieName);
-  if (csrfToken !== null && csrfToken !== "") {
-    headers.set(csrfHeaderName, csrfToken);
-  }
-  const response = await fetch(apiPath(apiBase, path), {
-    method: "POST",
-    credentials: "include",
-    headers,
-    body,
-  });
-  const payload = (await response.json()) as T | { error?: unknown };
+  const response = await requestMultipartJSON<T>(apiPath(apiBase, path), body);
+  const payload = response.payload;
   if (!response.ok) {
     const error = extractError(payload);
     throw new Error(error?.code ?? "upload_failed");

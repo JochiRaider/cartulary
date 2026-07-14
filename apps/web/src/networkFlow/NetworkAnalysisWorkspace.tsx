@@ -23,6 +23,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { IncidentCollaborationBoundary } from "../collaboration/IncidentCollaborationSession";
 import type { WorkbookIncidentRole } from "../shared/workbookShellContracts";
 import {
   importNetworkFlowCSV,
@@ -60,7 +61,7 @@ export type NetworkAnalysisWorkspaceProps = {
 
 const activeTableScopeLabel = networkAnalysisSheetRef();
 
-export function NetworkAnalysisWorkspace({
+function NetworkAnalysisWorkspaceContent({
   apiBase,
   currentIncidentRole,
   incidentId,
@@ -527,6 +528,21 @@ export function NetworkAnalysisWorkspace({
         ) : null}
       </div>
     </section>
+  );
+}
+
+export function NetworkAnalysisWorkspace(props: NetworkAnalysisWorkspaceProps) {
+  return (
+    <IncidentCollaborationBoundary
+      apiBase={props.apiBase}
+      incidentId={props.incidentId}
+      initialPresence={{
+        sheet_ref: networkAnalysisSheetRef(),
+        mode: "viewing",
+      }}
+    >
+      <NetworkAnalysisWorkspaceContent {...props} />
+    </IncidentCollaborationBoundary>
   );
 }
 

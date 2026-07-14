@@ -515,6 +515,25 @@ function collectSelectorPolicyViolations(
 }
 
 describe("selector contract policy", () => {
+  it("keeps phase-named selector helpers out of production modules", () => {
+    const violations = listSourceFiles("apps/web/src").flatMap((file) => {
+      if (
+        /(?:^|\/)debug\//u.test(file) ||
+        /(?:^|\/)testing\//u.test(file) ||
+        /(?:\.test|TestSupport)\.[cm]?[tj]sx?$/u.test(file)
+      ) {
+        return [];
+      }
+      const content = readFileSync(path.join(repoRoot, file), "utf8");
+      return [...content.matchAll(/\bphase\d+[A-Z]\w*TestIds?\b/gu)].map(
+        (match) =>
+          `${file}:${lineNumberForOffset(content, match.index ?? 0)} ${match[0]}`,
+      );
+    });
+
+    expect(violations).toEqual([]);
+  });
+
   it("classifies Phase 1 cross-boundary selector families as shared-builder owned", () => {
     const sharedPhase1Selectors = [
       "account-session-user-id",

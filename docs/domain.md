@@ -262,7 +262,7 @@ Each distinction below is review-critical for vocabulary and documentation disci
 | Task/decision versus timeline field | Task Requests and Decisions are coordination records. Timeline rows capture observations and chronology. | Adding mandatory task or approval fields to timeline row creation. |
 | Reference pack versus overlay surface | Reference packs provide optional vocabularies and enrichment. Pack-dependent framework overlays are not base workbook surfaces. | Exposing ATT&CK, D3FEND, or VERIS as base `view_schema` resources. |
 | Snapshot/report versus live workspace | Snapshot/report is an export or release construct. Live workspace is incident collaboration. | Applying external-release redaction to live workbook visibility. |
-| Analytical extension resource versus Core source record | A Network Flow table and its immutable normalized rows are extension-owned analytical resources only after the profile is claimable. They are not Core record envelopes, workbook projections, or raw external telemetry identity. | Assigning `record_id`, `view_schema_id`, row-history, or Core record mutation semantics to a flow table or flow row. |
+| Analytical extension resource versus Core source record | A Network Flow table and its immutable normalized rows are extension-owned analytical resources while the profile is claimed. They are not Core record envelopes, workbook projections, or raw external telemetry identity. | Assigning `record_id`, `view_schema_id`, row-history, or Core record mutation semantics to a flow table or flow row. |
 | Extension workspace versus Base workbook surface | An extension workspace is contributed by a claimed profile under owner-defined discovery and `sheet_ref` rules. It is not a Base built-in tab, system view, saved view, or member of the exhaustive Base `view_schema_id` registry. | Adding Network Analysis to §9.2 or inferring stable identity from its visible label. |
 
 ## 8. Canonical identifier vocabulary
@@ -414,7 +414,7 @@ Every `core` row MUST satisfy this pressure test:
 | Reporting and Snapshots | `supporting` | Derives output artifacts and composition authoring inputs from incident state without changing live collaboration. | Keep release vocabulary artifact-scoped and composition vocabulary authoring-input scoped. | Export redaction cannot become live workspace authorization, and composition authoring cannot become source-record mutation. |
 | Authentication and Administration | `generic` | Uses conventional account/session/admin concepts with Cartulary-specific boundaries. | Prefer conventional security terminology except where party/user/role separation matters. | User, party, identity, incident role, and deployment admin cannot collapse. |
 | Imports and Tabular Ingest | `supporting` | Bridges spreadsheets and structured workbook state. | Keep XLSX/CSV semantics inside import boundaries. | Worksheet/table semantics cannot leak into runtime workbook identity. |
-| Network Flow Analysis | `supporting` | Provides bounded incident-scoped analysis of normalized external flow data after the extension is adopted and claimed. | Keep analytical tables and rows outside the Core record/view model. | Raw telemetry, flow rows, graph nodes, and workspace tabs cannot become Base Profile source records or surfaces. |
+| Network Flow Analysis | `supporting` | Provides bounded incident-scoped analysis of normalized external flow data when the extension is claimed. | Keep analytical tables and rows outside the Core record/view model. | Raw telemetry, flow rows, graph nodes, and workspace tabs cannot become Base Profile source records or surfaces. |
 | Backup and Restore | `generic` | Deployment-local recovery concern with domain safety boundaries. | Use conventional backup/restore terminology behind Core 04 boundaries. | Backup jobs cannot become incident-scoped workbook workflow. |
 
 Review note: `Links and Tags` remains `core` in this revision because typed recoverable relationship semantics are treated as product-identity language. A later revision that demotes it MUST update §10.1, §11.1, and §19 in the same change set.
@@ -613,10 +613,10 @@ Declared scope: every term row in §11. Completion rule: each §11 term appears 
 | Import unit | Imports and Tabular Ingest | Extension-profile language. |
 | Import apply dispatcher | Imports and Tabular Ingest | Internal apply-boundary language. |
 | Import target registry | Imports and Tabular Ingest | Registry and target-ownership language. |
-| Network Flow table | Network Flow Analysis | Extension-profile analytical-resource language; not current until adoption. |
-| Network Flow row | Network Flow Analysis | Extension-profile normalized-row language; not current until adoption. |
-| Network Analysis workspace | Network Flow Analysis | Extension-workspace language distinct from the Base surface registry; not current until adoption. |
-| Network Flow indicator binding | Network Flow Analysis | Explicit binding language delegated to Core 02 identity and transaction owners; not current until adoption. |
+| Network Flow table | Network Flow Analysis | Current extension-profile analytical-resource language when the profile is claimed. |
+| Network Flow row | Network Flow Analysis | Current extension-profile normalized-row language when the profile is claimed. |
+| Network Analysis workspace | Network Flow Analysis | Current claimed extension-workspace language distinct from the Base surface registry. |
+| Network Flow indicator binding | Network Flow Analysis | Current claimed-profile binding language delegated to Core 02 identity and transaction owners. |
 | Owner create facade | Imports and Tabular Ingest | Owner-dispatch boundary language. |
 | Snapshot | Reporting and Snapshots | Extension-profile language. |
 | Release | Reporting and Snapshots | Extension-profile language. |
@@ -765,8 +765,8 @@ Grouping, filtering, sorting, and search operate over workbook query and project
 
 Import terminology is scoped to the Import Extension Profile or to base-profile clipboard paste where the owner sections reuse the tabular-ingest contract. `import_session` and `import_unit` are canonical contract nouns. Worksheet, table, used range, named range, and region are locator kinds or explanatory source terms; they are not runtime workbook identities. `import_apply_dispatcher_v1` and owner create facades name internal implementation boundaries only: imports owns source compatibility and apply dispatch, while source owners own durable record semantics.
 
-The recognized Network Flow Activity boundary does not change those nouns. If
-Core 01 later admits an analytical extension target, imports still owns the
+The recognized Network Flow Activity boundary does not change those nouns. When
+an approved analytical extension target is used, imports still owns the
 source session, unit, mapping approval, opaque source capability, orchestration,
 and terminal target-result publication; Network Flow Analysis owns only its
 normalized analytical resource. A filename, worksheet, import unit, source
@@ -866,7 +866,7 @@ External systems are upstream or adjacent models. They MUST NOT own Cartulary do
 
 | External or adjacent concern | Domain boundary | Required language |
 | --- | --- | --- |
-| SIEM, EDR, telemetry stores | External source or pivot target. Cartulary can reference queries, indicators, evidence, or findings derived from them; after Network Flow Activity adoption, an approved import may also normalize bounded flow data into an extension-owned analytical table. | Do not call raw telemetry Core source state, a Core record, a Network Flow table, or a Network Flow row before owner-defined normalization and atomic publication. |
+| SIEM, EDR, telemetry stores | External source or pivot target. Cartulary can reference queries, indicators, evidence, or findings derived from them; when Network Flow Activity is claimed, an approved import may also normalize bounded flow data into an extension-owned analytical table. | Do not call raw telemetry Core source state, a Core record, a Network Flow table, or a Network Flow row before owner-defined normalization and atomic publication. |
 | Object storage | Authoritative binary evidence backing service. Cartulary owns object metadata and evidence access semantics. | Do not expose raw object-store URLs as evidence identity. |
 | Enterprise IdP | Optional enterprise authentication provider. Successful provider auth maps to internal user and server-managed session. | Do not call provider subject a party, incident identity, or authorization role. |
 | CMDB or asset inventory | External enterprise master data. Cartulary host records remain incident-scoped investigation records. | Do not treat external asset identity as `record_id`. |

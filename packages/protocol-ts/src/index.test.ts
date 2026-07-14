@@ -17,6 +17,7 @@ import {
   type EvidenceHandleIssueRequest,
   type ExtensionRegistryContract,
   evidenceProtocolSchemaNames,
+  extensionDiscoveryDecoder,
   getContractArtifact,
   getErrorRegistryContract,
   getExtensionProfile,
@@ -27,6 +28,8 @@ import {
   listContractArtifactFamilies,
   listExtensionProfiles,
   listViewSchemaRegistryEntries,
+  networkFlowContractDescriptor,
+  networkFlowDecoders,
   type ObjectBlobCreateEnvelope,
   type ObjectBlobCreateRequest,
   type ObjectBlobUploadTarget,
@@ -169,6 +172,60 @@ describe("@cartulary/protocol-ts facade", () => {
     expect(() => requireExtensionProfile("missing_profile")).toThrow(
       "missing extension profile for missing_profile",
     );
+  });
+
+  it("decodes exact Network Flow contracts without exposing payload data on failure", () => {
+    expect(networkFlowContractDescriptor).toEqual({
+      profile_id: "network_flow_activity",
+      contract_major: 1,
+      document_version: "1.1.0",
+    });
+
+    const valid = networkFlowDecoders.tableList.decode({
+      schema_id: "cartulary.network_flow.table_list.v1",
+      tables: [],
+      meta: { count: 0 },
+    });
+    expect(valid).toEqual({
+      ok: true,
+      value: {
+        schema_id: "cartulary.network_flow.table_list.v1",
+        tables: [],
+        meta: { count: 0 },
+      },
+    });
+
+    const invalid = networkFlowDecoders.tableList.decode({
+      schema_id: "cartulary.network_flow.table_list.v1",
+      tables: [],
+      meta: { count: 0 },
+      raw_source_value: "must-not-leak",
+    });
+    expect(invalid).toEqual({
+      ok: false,
+      error: {
+        boundary: "generated_protocol",
+        instancePath: "",
+        reasonCategory: "unknown_member",
+        schemaId: "cartulary.network_flow.table_list.v1",
+      },
+    });
+    expect(JSON.stringify(invalid)).not.toContain("must-not-leak");
+  });
+
+  it("decodes the Core extension discovery envelope at the transport boundary", () => {
+    expect(
+      extensionDiscoveryDecoder.decode({
+        data: { extensions: [] },
+        meta: { request_id: "request-test" },
+      }),
+    ).toEqual({
+      ok: true,
+      value: {
+        data: { extensions: [] },
+        meta: { request_id: "request-test" },
+      },
+    });
   });
 
   it("anchors evidence protocol facade types to generated OpenAPI schema names", () => {

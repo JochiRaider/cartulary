@@ -9,6 +9,12 @@ import {
   type PendingReplayUnitInput,
   parsePendingReplayPublicError,
 } from "../../utils/workbookPendingQueue";
+import type { PendingReplayRuntimeMeta } from "../models/timelineControllerPorts";
+import {
+  refreshBlocksTimelinePendingUnit,
+  type TimelinePendingReplayAdmissionRequest,
+  type TimelinePendingSavesRefs,
+} from "../models/timelinePendingReplayModel";
 import {
   type FocusFieldKey,
   materializePendingReplayPayload,
@@ -22,11 +28,6 @@ import {
   type TimelineMutationEnvelope,
 } from "../services/timelineMutationRequests";
 import type { WorkbookSocketLifecycleAction } from "../services/workbookSocketLifecycle";
-import {
-  refreshBlocksTimelinePendingUnit,
-  type TimelinePendingReplayAdmissionRequest,
-  type TimelinePendingSavesRefs,
-} from "./useTimelinePendingSaves";
 
 type SessionEnvelope = {
   data: {
@@ -40,17 +41,6 @@ type SessionEnvelope = {
 
 type TimelineMutableRef<T> = {
   current: T;
-};
-
-export type PendingReplayRuntimeMeta = {
-  focusField: FocusFieldKey;
-  focusKey: string;
-  surface: TimelineScalarEditorSurface;
-  rowSnapshot: WorkbookRow;
-  continueOnFreshDraft: boolean;
-  detectAutoResolution: boolean;
-  promoteToCommittedRowInspect: boolean;
-  viewportContinuityToken: number;
 };
 
 type TimelinePendingReplayControllerAdmission =

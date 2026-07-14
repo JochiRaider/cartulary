@@ -8,16 +8,26 @@ import {
 function table(id: string): NetworkFlowTable {
   return {
     network_flow_table_id: id,
+    incident_id: "11111111-1111-4111-8111-111111111111",
     display_name: id,
     table_version: 1,
     table_status: "active",
+    source_import_session_id: "import-session-1",
+    source_import_unit_id: "import-unit-1",
+    source_content_sha256: "b".repeat(64),
     source_filename_display: `${id}.csv`,
+    source_filename_digest: "c".repeat(64),
+    source_filename_digest_key_id: "filename-key-1",
     mapping_fingerprint: "a".repeat(64),
+    source_profile_id: "cisco_sna_netflow_csv_v1",
+    parser_profile_id: "rfc4180_headered_csv_v1",
     row_count_accepted: 1,
     row_count_rejected: 0,
     diagnostics_truncated: false,
+    created_by_user_id: "user-1",
     created_at: "2026-07-13T00:00:00Z",
     updated_at: "2026-07-13T00:00:00Z",
+    deleted_at: null,
   };
 }
 

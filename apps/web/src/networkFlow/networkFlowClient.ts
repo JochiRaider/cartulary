@@ -1,18 +1,27 @@
 import { apiPath, clientTxnID } from "../services/browserApi";
 import type {
+  NetworkFlowContributorQueryRequest,
   NetworkFlowContributorResult,
   NetworkFlowDiagnostic,
+  NetworkFlowGraphQueryRequest,
   NetworkFlowGraphResult,
+  NetworkFlowIndicatorLinkRequest,
   NetworkFlowIndicatorLinkResult,
   NetworkFlowPaging,
+  NetworkFlowRejectedRowsQueryRequest,
   NetworkFlowRow,
   NetworkFlowTable,
+  NetworkFlowTableQueryRequest,
 } from "../services/networkFlowContractAdapter";
 import {
-  fetchWorkbookJSON,
-  parseErrorMessage,
-  readEnvelope,
-} from "../services/workbookApi";
+  decodeNetworkFlowContributorResult,
+  decodeNetworkFlowGraphResult,
+  decodeNetworkFlowIndicatorLinkResult,
+  decodeNetworkFlowRejectedRowsQueryResult,
+  decodeNetworkFlowTableList,
+  decodeNetworkFlowTableQueryResult,
+} from "../services/networkFlowContractAdapter";
+import { fetchWorkbookJSON, parseErrorMessage } from "../services/workbookApi";
 import { coordinateExtensionImport } from "../shared/importCoordinator";
 import type { WorkbookSheetRef } from "../shared/workbookSheetRef";
 
@@ -31,23 +40,6 @@ export type {
 
 export const networkFlowActivityProfileId = "network_flow_activity";
 export const networkAnalysisWorkspaceKey = "network_analysis";
-
-type TableListResponse = {
-  schema_id: "cartulary.network_flow.table_list.v1";
-  tables: NetworkFlowTable[];
-};
-
-type TableQueryResponse = {
-  schema_id: "cartulary.network_flow.table_query_result.v1";
-  rows: NetworkFlowRow[];
-  meta: { paging: NetworkFlowPaging };
-};
-
-type RejectedRowsQueryResponse = {
-  schema_id: "cartulary.network_flow.rejected_rows_query_result.v1";
-  diagnostics: NetworkFlowDiagnostic[];
-  meta: { paging: NetworkFlowPaging };
-};
 
 export function networkAnalysisSheetRef(): Extract<
   WorkbookSheetRef,
@@ -85,7 +77,7 @@ export async function listNetworkFlowTables(options: {
   readonly incidentId: string;
   readonly signal?: AbortSignal | undefined;
 }): Promise<NetworkFlowTable[]> {
-  const result = await fetchWorkbookJSON<TableListResponse>(
+  const result = await fetchWorkbookJSON<unknown>(
     apiPath(
       options.apiBase,
       `/api/v1/incidents/${options.incidentId}/network-flow/tables`,
@@ -95,7 +87,7 @@ export async function listNetworkFlowTables(options: {
   if (!result.ok) {
     throw new Error(parseErrorMessage(result.payload));
   }
-  return readEnvelope<TableListResponse>(result.payload).tables ?? [];
+  return decodeNetworkFlowTableList(result.payload).tables;
 }
 
 export async function queryNetworkFlowTable(options: {
@@ -107,7 +99,11 @@ export async function queryNetworkFlowTable(options: {
   readonly rows: NetworkFlowRow[];
   readonly paging: NetworkFlowPaging;
 }> {
-  const result = await fetchWorkbookJSON<TableQueryResponse>(
+  const request: NetworkFlowTableQueryRequest = {
+    schema_id: "cartulary.network_flow.table_query_request.v1",
+    limit: 50,
+  };
+  const result = await fetchWorkbookJSON<unknown>(
     apiPath(
       options.apiBase,
       `/api/v1/incidents/${options.incidentId}/network-flow/tables/${options.tableId}/query`,
@@ -115,10 +111,7 @@ export async function queryNetworkFlowTable(options: {
     requestInit(
       {
         method: "POST",
-        body: JSON.stringify({
-          schema_id: "cartulary.network_flow.table_query_request.v1",
-          limit: 50,
-        }),
+        body: JSON.stringify(request),
       },
       options.signal,
     ),
@@ -126,8 +119,8 @@ export async function queryNetworkFlowTable(options: {
   if (!result.ok) {
     throw new Error(parseErrorMessage(result.payload));
   }
-  const envelope = readEnvelope<TableQueryResponse>(result.payload);
-  return { rows: envelope.rows ?? [], paging: envelope.meta.paging };
+  const response = decodeNetworkFlowTableQueryResult(result.payload);
+  return { rows: response.rows, paging: response.meta.paging };
 }
 
 export async function queryNetworkFlowRejectedRows(options: {
@@ -139,7 +132,11 @@ export async function queryNetworkFlowRejectedRows(options: {
   readonly diagnostics: NetworkFlowDiagnostic[];
   readonly paging: NetworkFlowPaging;
 }> {
-  const result = await fetchWorkbookJSON<RejectedRowsQueryResponse>(
+  const request: NetworkFlowRejectedRowsQueryRequest = {
+    schema_id: "cartulary.network_flow.rejected_rows_query_request.v1",
+    limit: 50,
+  };
+  const result = await fetchWorkbookJSON<unknown>(
     apiPath(
       options.apiBase,
       `/api/v1/incidents/${options.incidentId}/network-flow/tables/${options.tableId}/rejected-rows/query`,
@@ -147,10 +144,7 @@ export async function queryNetworkFlowRejectedRows(options: {
     requestInit(
       {
         method: "POST",
-        body: JSON.stringify({
-          schema_id: "cartulary.network_flow.rejected_rows_query_request.v1",
-          limit: 50,
-        }),
+        body: JSON.stringify(request),
       },
       options.signal,
     ),
@@ -158,10 +152,10 @@ export async function queryNetworkFlowRejectedRows(options: {
   if (!result.ok) {
     throw new Error(parseErrorMessage(result.payload));
   }
-  const envelope = readEnvelope<RejectedRowsQueryResponse>(result.payload);
+  const response = decodeNetworkFlowRejectedRowsQueryResult(result.payload);
   return {
-    diagnostics: envelope.diagnostics ?? [],
-    paging: envelope.meta.paging,
+    diagnostics: response.diagnostics,
+    paging: response.meta.paging,
   };
 }
 
@@ -172,7 +166,25 @@ export async function queryNetworkFlowGraph(options: {
   readonly signal?: AbortSignal | undefined;
 }): Promise<NetworkFlowGraphResult> {
   const tableIds = [...new Set(options.tableIds)].sort();
-  const result = await fetchWorkbookJSON<NetworkFlowGraphResult>(
+  const [firstTableId, ...remainingTableIds] = tableIds;
+  if (firstTableId === undefined) {
+    throw new Error("Network Flow graph queries require at least one table.");
+  }
+  const request: NetworkFlowGraphQueryRequest = {
+    schema_id: "cartulary.network_flow.graph_query_request.v1",
+    table_scope:
+      remainingTableIds.length === 0
+        ? { mode: "active_table", active_table_id: firstTableId }
+        : {
+            mode: "selected_tables",
+            selected_table_ids: [firstTableId, ...remainingTableIds],
+          },
+    aggregation: {
+      mode: "default_flow_edge_v1",
+      include_example_row_refs: true,
+    },
+  };
+  const result = await fetchWorkbookJSON<unknown>(
     apiPath(
       options.apiBase,
       `/api/v1/incidents/${options.incidentId}/network-flow/graphs/query`,
@@ -180,17 +192,7 @@ export async function queryNetworkFlowGraph(options: {
     requestInit(
       {
         method: "POST",
-        body: JSON.stringify({
-          schema_id: "cartulary.network_flow.graph_query_request.v1",
-          table_scope:
-            tableIds.length === 1
-              ? { mode: "active_table", active_table_id: tableIds[0] }
-              : { mode: "selected_tables", selected_table_ids: tableIds },
-          aggregation: {
-            mode: "default_flow_edge_v1",
-            include_example_row_refs: true,
-          },
-        }),
+        body: JSON.stringify(request),
       },
       options.signal,
     ),
@@ -198,7 +200,7 @@ export async function queryNetworkFlowGraph(options: {
   if (!result.ok) {
     throw new Error(parseErrorMessage(result.payload));
   }
-  return readEnvelope<NetworkFlowGraphResult>(result.payload);
+  return decodeNetworkFlowGraphResult(result.payload);
 }
 
 export async function queryNetworkFlowContributors(options: {
@@ -208,7 +210,14 @@ export async function queryNetworkFlowContributors(options: {
   readonly selector: { readonly kind: "edge"; readonly edge_id: string };
   readonly signal?: AbortSignal | undefined;
 }): Promise<NetworkFlowContributorResult> {
-  const result = await fetchWorkbookJSON<NetworkFlowContributorResult>(
+  const request: NetworkFlowContributorQueryRequest = {
+    schema_id: "cartulary.network_flow.graph_contributor_query_request.v1",
+    graph_query: options.graph.semantic_query,
+    graph_query_digest: options.graph.graph_query_digest,
+    selector: options.selector,
+    limit: 50,
+  };
+  const result = await fetchWorkbookJSON<unknown>(
     apiPath(
       options.apiBase,
       `/api/v1/incidents/${options.incidentId}/network-flow/graphs/contributors/query`,
@@ -216,14 +225,7 @@ export async function queryNetworkFlowContributors(options: {
     requestInit(
       {
         method: "POST",
-        body: JSON.stringify({
-          schema_id:
-            "cartulary.network_flow.graph_contributor_query_request.v1",
-          graph_query: options.graph.semantic_query,
-          graph_query_digest: options.graph.graph_query_digest,
-          selector: options.selector,
-          limit: 50,
-        }),
+        body: JSON.stringify(request),
       },
       options.signal,
     ),
@@ -231,7 +233,7 @@ export async function queryNetworkFlowContributors(options: {
   if (!result.ok) {
     throw new Error(parseErrorMessage(result.payload));
   }
-  return readEnvelope<NetworkFlowContributorResult>(result.payload);
+  return decodeNetworkFlowContributorResult(result.payload);
 }
 
 export async function linkNetworkFlowIndicator(options: {
@@ -242,36 +244,37 @@ export async function linkNetworkFlowIndicator(options: {
   readonly fieldKey: "network_flow.src_ip" | "network_flow.dst_ip";
   readonly confirmExactValue: string;
 }): Promise<NetworkFlowIndicatorLinkResult> {
-  const result = await fetchWorkbookJSON<NetworkFlowIndicatorLinkResult>(
+  const request: NetworkFlowIndicatorLinkRequest = {
+    schema_id: "cartulary.network_flow.indicator_link_request.v1",
+    client_txn_id: clientTxnID("nf-indicator-link"),
+    selector: {
+      kind: "graph_edge",
+      graph_query: options.graph.semantic_query,
+      graph_query_digest: options.graph.graph_query_digest,
+      edge_id: options.edgeId,
+      field_key: options.fieldKey,
+    },
+    target: {
+      mode: "create_indicator",
+      indicator_type: indicatorTypeForIP(options.confirmExactValue),
+    },
+    observation_mode: "binding_only",
+    confirm_exact_value: options.confirmExactValue,
+  };
+  const result = await fetchWorkbookJSON<unknown>(
     apiPath(
       options.apiBase,
       `/api/v1/incidents/${options.incidentId}/network-flow/indicator-links`,
     ),
     {
       method: "POST",
-      body: JSON.stringify({
-        schema_id: "cartulary.network_flow.indicator_link_request.v1",
-        client_txn_id: clientTxnID("nf-indicator-link"),
-        selector: {
-          kind: "graph_edge",
-          graph_query: options.graph.semantic_query,
-          graph_query_digest: options.graph.graph_query_digest,
-          edge_id: options.edgeId,
-          field_key: options.fieldKey,
-        },
-        target: {
-          mode: "create_indicator",
-          indicator_type: indicatorTypeForIP(options.confirmExactValue),
-        },
-        observation_mode: "binding_only",
-        confirm_exact_value: options.confirmExactValue,
-      }),
+      body: JSON.stringify(request),
     },
   );
   if (!result.ok) {
     throw new Error(parseErrorMessage(result.payload));
   }
-  return readEnvelope<NetworkFlowIndicatorLinkResult>(result.payload);
+  return decodeNetworkFlowIndicatorLinkResult(result.payload);
 }
 
 export async function importNetworkFlowCSV(options: {

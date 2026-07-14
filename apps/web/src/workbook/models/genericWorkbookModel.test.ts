@@ -290,11 +290,11 @@ describe("genericWorkbookModel", () => {
         "note.body": "",
       }),
     ).toBe(false);
-    expect(
+    expect(() =>
       workbookCreateMinimumSatisfied("cartulary.view.unknown.v1", {
         "unknown.field": "value",
       }),
-    ).toBe(true);
+    ).toThrow("Unknown workbook surface registration");
   });
 
   it("keeps display labels, widths, and minimum messages contract-driven", () => {
@@ -329,9 +329,9 @@ describe("genericWorkbookModel", () => {
     expect(genericCreateMinimumMessage(evidenceViewSchemaId)).toBe(
       "Evidence needs a title, storage ref, collector, or source.",
     );
-    expect(genericCreateMinimumMessage("cartulary.view.unknown.v1")).toBe(
-      "At least one value is required.",
-    );
+    expect(() =>
+      genericCreateMinimumMessage("cartulary.view.unknown.v1"),
+    ).toThrow("Unknown workbook surface registration");
     expect(genericContractColumnWidth(requireField(notes, "note.body"))).toBe(
       320,
     );

@@ -1,8 +1,5 @@
 import type { GridDensity } from "@cartulary/grid-adapter";
-import {
-  requireViewContract,
-  type ViewContract,
-} from "@cartulary/view-contracts";
+import type { ViewContract } from "@cartulary/view-contracts";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import type { EntityRow } from "../models/entityWorkbookModel";
@@ -11,21 +8,12 @@ import {
   type WorkbookQueryState,
 } from "../models/workbookQuery";
 import type { WorkbookSheetRef } from "../models/workbookStartup";
-import {
-  assessmentsViewSchemaId,
-  hostsViewSchemaId,
-  identitiesViewSchemaId,
-  timelineViewSchemaId,
-} from "../models/workbookSurfaceRegistry";
+import { requireWorkbookSurfaceRegistration } from "../models/workbookSurfaceRegistration";
 import { TimelineWorkbook } from "../timeline/components/TimelineWorkbook";
 import type { EntityApiRow } from "../timeline/models/workbookTimelineModel";
 import { AssessmentWorkbookSurface } from "./AssessmentWorkbookSurface";
 import { EntityWorkbookSurface } from "./EntityWorkbookSurface";
-import { GenericWorkbookSurface } from "./GenericWorkbookSurface";
-
-const hostsContract = requireViewContract(hostsViewSchemaId);
-const identitiesContract = requireViewContract(identitiesViewSchemaId);
-const assessmentsContract = requireViewContract(assessmentsViewSchemaId);
+import { ContractWorkbookSurface } from "./GenericWorkbookSurface";
 
 export type WorkbookActiveSurfaceProps = {
   readonly activeContract: ViewContract;
@@ -33,6 +21,7 @@ export type WorkbookActiveSurfaceProps = {
   readonly assessmentLoadError: string | null;
   readonly assessmentQueryState: WorkbookQueryState;
   readonly assessmentRows: EntityApiRow[];
+  readonly authorizationEpoch: string;
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly currentUserId: string | null;
   readonly density: GridDensity;
@@ -69,6 +58,7 @@ export function WorkbookActiveSurface({
   assessmentLoadError,
   assessmentQueryState,
   assessmentRows,
+  authorizationEpoch,
   currentIncidentRole,
   currentUserId,
   density,
@@ -96,7 +86,8 @@ export function WorkbookActiveSurface({
   surface,
   timelineQueryState,
 }: WorkbookActiveSurfaceProps) {
-  if (surface === timelineViewSchemaId) {
+  const registration = requireWorkbookSurfaceRegistration(surface);
+  if (registration.renderer === "timeline") {
     return (
       <TimelineWorkbook
         apiBase={apiBase}
@@ -119,38 +110,40 @@ export function WorkbookActiveSurface({
     );
   }
 
-  if (surface === hostsViewSchemaId || surface === identitiesViewSchemaId) {
+  if (
+    registration.renderer === "entity_hosts" ||
+    registration.renderer === "entity_identities"
+  ) {
+    const isHosts = registration.renderer === "entity_hosts";
     return (
       <EntityWorkbookSurface
         apiBase={apiBase}
         currentIncidentRole={currentIncidentRole}
         density={density}
         entityIndex={entityIndex}
-        entityType={surface === hostsViewSchemaId ? "host" : "identity"}
+        entityType={isHosts ? "host" : "identity"}
         incidentId={incidentId}
         inspectorResetKey={inspectorResetKey}
         onRefreshEntities={loadEntities}
         onToggleSort={(fieldKey) => {
-          if (surface === hostsViewSchemaId) {
+          if (isHosts) {
             setHostQueryState((current) =>
-              toggleSortField(hostsContract, current, fieldKey),
+              toggleSortField(registration.contract, current, fieldKey),
             );
             return;
           }
           setIdentityQueryState((current) =>
-            toggleSortField(identitiesContract, current, fieldKey),
+            toggleSortField(registration.contract, current, fieldKey),
           );
         }}
-        queryState={
-          surface === hostsViewSchemaId ? hostQueryState : identityQueryState
-        }
-        rows={surface === hostsViewSchemaId ? hostRows : identityRows}
+        queryState={isHosts ? hostQueryState : identityQueryState}
+        rows={isHosts ? hostRows : identityRows}
         savedViewSelector={savedViewSelector}
       />
     );
   }
 
-  if (surface === assessmentsViewSchemaId) {
+  if (registration.renderer === "assessment") {
     return (
       <AssessmentWorkbookSurface
         apiBase={apiBase}
@@ -165,7 +158,7 @@ export function WorkbookActiveSurface({
         onRefreshAssessmentRows={loadAssessmentSurface}
         onToggleSort={(fieldKey) => {
           setAssessmentQueryState((current) =>
-            toggleSortField(assessmentsContract, current, fieldKey),
+            toggleSortField(registration.contract, current, fieldKey),
           );
         }}
         queryState={assessmentQueryState}
@@ -175,9 +168,10 @@ export function WorkbookActiveSurface({
   }
 
   return (
-    <GenericWorkbookSurface
+    <ContractWorkbookSurface
       key={activeContract.viewSchemaId}
       apiBase={apiBase}
+      authorizationEpoch={authorizationEpoch}
       contract={activeContract}
       currentUserId={currentUserId}
       density={density}

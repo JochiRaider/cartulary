@@ -76,6 +76,37 @@ entrypoints, and app-shell tests. It should not own workbook internals.
 | `app/otelBoundary.test.ts` | OpenTelemetry import and runtime-boundary tests. |
 | `app/routeState.test.ts` | Route-state parsing and history write tests. |
 
+## `collaboration/`
+
+The collaboration directory owns the browser-tab incident session facade. It
+owns transport lifecycle and typed publication only; feature interpreters own
+Timeline and extension effects.
+
+| File | Responsibility |
+| --- | --- |
+| `collaboration/IncidentCollaborationSession.tsx` | Incident-scoped WebSocket provider for hello/resume, private resume state, one sequence high-water mark, reconnect, heartbeat, safe decoding, presence publication, reset, revocation, and closure events. |
+| `collaboration/IncidentCollaborationSession.test.tsx` | Tests for single-socket lifetime, surface presence changes, replay deduplication/gaps, heartbeat, and unknown-message safety. |
+
+## `networkFlow/`
+
+Network Flow is an extension feature. It owns Network Analysis behavior and
+typed presentation adaptation, but it is not a Base Profile workbook surface
+or `view_schema` owner. Workbook composition consumes it only through
+`workbook/features/NetworkFlowFeature.tsx`.
+
+| File | Responsibility |
+| --- | --- |
+| `networkFlow/NetworkAnalysisWorkspace.tsx` | Network Analysis workspace composition for tables, rows, rejected rows, graphs, contributors, import, and explicit indicator binding. |
+| `networkFlow/networkFlowClient.ts` | Network Flow route builders and decoded feature client operations. |
+| `networkFlow/networkFlowCollaborationInterpreter.ts` | Feature-local interpreter for decoded Network Flow extension invalidation/removal events. |
+| `networkFlow/networkFlowController.ts` | Pure Network Flow table selection and refresh/removal state reducer. |
+| `networkFlow/useNetworkFlowExtensionEvents.ts` | Network Flow subscription adapter over the shared incident collaboration session. |
+| `networkFlow/NetworkAnalysisWorkspace.test.tsx` | Network Analysis workspace behavior tests. |
+| `networkFlow/networkFlowClient.test.ts` | Network Flow decoded client and request-boundary tests. |
+| `networkFlow/networkFlowCollaborationInterpreter.test.ts` | Network Flow collaboration event admission tests. |
+| `networkFlow/networkFlowController.test.ts` | Network Flow controller lifecycle tests. |
+| `networkFlow/useNetworkFlowExtensionEvents.test.tsx` | Shared-session Network Flow reconnect and sequence-deduplication tests. |
+
 ## `services/`
 
 The `services/` directory owns browser transport helpers and small client
@@ -85,6 +116,8 @@ request/response handling already owned by specs and backend contracts.
 | File | Responsibility |
 | --- | --- |
 | `services/browserApi.ts` | Browser API base/path helpers for app-local HTTP calls. |
+| `services/httpTransport.ts` | Same-origin JSON and multipart transport mechanics for credentials, CSRF, cancellation, parsing, optional runtime decoding, and sanitized contract failures. |
+| `services/networkFlowContractAdapter.ts` | Thin post-decode Network Flow presentation type and decoder facade; contains no handwritten wire model. |
 | `services/workbookApi.ts` | Workbook HTTP helper utilities, envelope parsing, abort/query runtime helpers, and user-facing error extraction. |
 | `services/workbookEvidence.ts` | Evidence upload/attach client helpers and evidence public-error mapping. |
 | `services/browserApi.test.ts` | Tests for browser API base/path helpers. |
@@ -99,6 +132,7 @@ specific.
 | File | Responsibility |
 | --- | --- |
 | `shared/publicError.ts` | Shared public-error normalization helpers. |
+| `shared/importCoordinator.ts` | Import-session orchestration shared by extension import clients while source/target policy stays feature-owned. |
 | `shared/workbookSheetRef.ts` | Shared workbook sheet-reference contract and runtime guard. |
 | `shared/workbookShellContracts.ts` | Shared app/workbook shell contracts for account identity, application menu handoff, and incident-controls renderer props. |
 
@@ -115,6 +149,7 @@ policy tests. Runtime application code must not import this directory.
 | `testing/testSetup.dom.ts` | DOM-specific Vitest setup. |
 | `testing/testSetup.ts` | Common Vitest setup for frontend tests. |
 | `testing/timelineWorkbookTestSupport.ts` | Shared Timeline workbook fixture helpers, route mocks, and row builders for tests. |
+| `testing/timelineWorkbookRenderTestSupport.tsx` | Shared Timeline render helpers used by component characterization tests. |
 | `testing/timelineWorkbookTestSupport.test.tsx` | Tests for Timeline workbook test-support helpers. |
 
 ## `workbook/`
@@ -154,13 +189,18 @@ workflow logic.
 | File | Responsibility |
 | --- | --- |
 | `workbook/components/ActiveSurfaceSavedViewSelector.tsx` | Saved-view selector for the active workbook surface. |
+| `workbook/components/AssessmentWorkbookSurface.tsx` | Assessment owner facade for assessment rows, support selection, and assessment mutations. |
+| `workbook/components/EntityWorkbookSurface.tsx` | Entities owner facade for Hosts and Identities surfaces. |
 | `workbook/components/GenericMutationControl.tsx` | Generic row mutation controls for system-view surfaces. |
-| `workbook/components/GenericWorkbookSurface.tsx` | Generic workbook surface renderer for contract-backed non-Timeline surfaces. |
+| `workbook/components/GenericWorkbookSurface.tsx` | `ContractWorkbookSurface` execution component for owner-registered contract-backed surfaces. Domain policy comes from exact-schema registrations. |
+| `workbook/components/IncidentControlsDrawer.tsx` | Shell-level incident controls drawer presentation and focus boundary. |
 | `workbook/components/SystemViewSwitcher.tsx` | System-view switcher UI and grouped surface navigation. |
+| `workbook/components/WorkbookActiveSurface.tsx` | Registration-driven renderer/facade dispatcher for the active `view_schema_id`. |
 | `workbook/components/WorkbookGridControls.tsx` | Reusable workbook grid filter/sort/grouping control shell. |
 | `workbook/components/WorkbookInspectorFeatureGroups.tsx` | Inspector feature-group renderer and disabled-state presentation helpers. |
 | `workbook/components/WorkbookSheetToolbar.tsx` | Workbook sheet toolbar composition. |
 | `workbook/components/WorkbookShellSlots.tsx` | Stable shell slot IDs, labels, and layout slot helpers. |
+| `workbook/components/WorkbookShellStyles.ts` | Workbook shell chrome and responsive layout style constants. |
 | `workbook/components/WorkbookStatusStrip.tsx` | Status strip presentation for save/load/selection state. |
 | `workbook/components/WorkbookSurfaceFrame.tsx` | Shared surface frame and style primitives for workbook grid/inspector layouts. |
 
@@ -174,10 +214,14 @@ specific surface.
 | --- | --- |
 | `workbook/hooks/useAssessmentSupportRows.ts` | Loads and normalizes Timeline support rows needed by assessment workflows. |
 | `workbook/hooks/useEntityTimelinePreview.ts` | Loads Timeline preview rows for entity-related workbook workflows. |
-| `workbook/hooks/useGenericReferenceOptions.ts` | Loads reference options used by generic workbook surface create/edit controls. |
+| `workbook/hooks/useGenericSurfaceMutationController.ts` | Contract-surface mutation state and refresh coordination. |
+| `workbook/hooks/useIncidentControlsDrawer.ts` | Incident controls drawer state, selection, and focus restoration. |
+| `workbook/hooks/useOwnerReferenceOptions.ts` | Resolves only the active bounded-context policy's reference requirements through the generic broker. |
 | `workbook/hooks/useWorkbookIncidentIdentity.ts` | Resolves incident identity/loading state for the workbook shell. |
+| `workbook/hooks/useWorkbookPendingGridFocus.ts` | Restores the requested first grid target after a surface transition. |
 | `workbook/hooks/useWorkbookResponsiveLayout.ts` | Coordinates shell responsive-layout state from viewport measurements. |
 | `workbook/hooks/useWorkbookShellRuntime.ts` | Shell runtime hook for startup, active surface, saved views, query state, and runtime commands. |
+| `workbook/hooks/useWorkbookSurfaceLoaders.ts` | Surface query/loading controller for contract, entity, and assessment projections. |
 
 ### `workbook/models/`
 
@@ -196,6 +240,7 @@ app.
 | `workbook/models/workbookDensity.ts` | Account density preference resolution. |
 | `workbook/models/workbookIncidentIdentity.ts` | Incident identity normalization and loading-state model. |
 | `workbook/models/workbookInspectorModel.ts` | Workbook inspector state, reducer, panel, and feature-group helpers. |
+| `workbook/models/workbookMutations.ts` | Shared contract mutation request shapes and mutation-result helpers. |
 | `workbook/models/workbookQuery.ts` | Workbook query, filter, sort, grouping, and request-building helpers. |
 | `workbook/models/workbookReferenceOptions.ts` | Reference option normalization and lookup helpers. |
 | `workbook/models/workbookResponsiveLayout.ts` | Responsive layout classification and surface-band helpers. |
@@ -203,6 +248,8 @@ app.
 | `workbook/models/workbookSavedViews.ts` | Saved-view resource normalization and payload helpers. |
 | `workbook/models/workbookStartup.ts` | Workbook startup candidate, selected sheet reference, and fallback resolution helpers. |
 | `workbook/models/workbookSurfaceRegistry.ts` | Built-in/system/optional workbook surface registry and stable view-schema IDs. |
+| `workbook/models/workbookSurfaceQueryRuntime.ts` | Latest-query cancellation and context-token runtime for workbook projection loads. |
+| `workbook/models/workbookSurfaceRegistration.ts` | Exact `view_schema_id` registration and bounded-context policy registry for all exposed workbook schemas. |
 | `workbook/models/assessmentWorkbookModel.test.ts` | Tests for assessment workbook model helpers. |
 | `workbook/models/entityWorkbookModel.test.ts` | Tests for entity workbook model helpers. |
 | `workbook/models/evidenceLifecycleViewModel.test.ts` | Tests for evidence lifecycle view-model helpers. |
@@ -216,6 +263,27 @@ app.
 | `workbook/models/workbookSavedViews.test.ts` | Tests for saved-view normalization and payload helpers. |
 | `workbook/models/workbookStartup.test.ts` | Tests for workbook startup resolution. |
 | `workbook/models/workbookSurfaceRegistry.test.ts` | Tests for workbook surface registry invariants. |
+| `workbook/models/workbookSurfaceRegistration.test.ts` | Tests for policy registration completeness, uniqueness, and extension-workspace exclusion. |
+
+### `workbook/features/`
+
+Feature facades are the only workbook-shell entrypoints for extension-owned
+workspaces. They may compose feature internals but must not move extension
+identity into the Base surface registry.
+
+| File | Responsibility |
+| --- | --- |
+| `workbook/features/NetworkFlowFeature.tsx` | Workbook-facing Network Flow facade for workspace rendering and stable extension identity. |
+
+### `workbook/services/`
+
+Workbook services execute generic mechanics declared by owners. They do not
+choose domain references or authorize access.
+
+| File | Responsibility |
+| --- | --- |
+| `workbook/services/referenceQueryBroker.ts` | Deduplicates identical in-flight owner-declared reference queries inside one incident/authorization epoch and prevents obsolete consumers from applying results. |
+| `workbook/services/referenceQueryBroker.test.ts` | Tests in-flight-only deduplication, incident isolation, and obsolete-consumer cancellation. |
 
 ### `workbook/timeline/`
 
@@ -264,7 +332,7 @@ models, or services below.
 | `workbook/timeline/hooks/useTimelineHistoryState.ts` | Coordinates Timeline history panel and row-history state. |
 | `workbook/timeline/hooks/useTimelineInspectorSelection.ts` | Coordinates selected Timeline row and inspector selection state. |
 | `workbook/timeline/hooks/useTimelineLiveUpdateController.ts` | Applies Timeline live-update effects to row state, pending replay, conflicts, session state, and mention notices. |
-| `workbook/timeline/hooks/useTimelineLiveUpdates.ts` | Coordinates Timeline WebSocket/live-update side effects and presence/session callbacks. |
+| `workbook/timeline/hooks/useTimelineLiveUpdates.ts` | Coordinates Timeline-local collaboration projection state and presence callbacks over the shared incident session. |
 | `workbook/timeline/hooks/useTimelineMentionActions.ts` | Coordinates Timeline mention resolution, undo/review actions, and related inspector selection updates. |
 | `workbook/timeline/hooks/useTimelineMentions.ts` | Coordinates Timeline mention-resolution state and actions. |
 | `workbook/timeline/hooks/useTimelineMutationCommands.ts` | Coordinates Timeline scalar and relationship mutation commands, pending-save admission, and save lifecycle callbacks. |
@@ -281,8 +349,10 @@ models, or services below.
 
 | File | Responsibility |
 | --- | --- |
+| `workbook/timeline/models/timelineControllerPorts.ts` | Neutral capability-port contracts shared by isolated Timeline controllers. |
 | `workbook/timeline/models/timelineConflictModel.ts` | Same-field conflict parsing and model helpers. |
 | `workbook/timeline/models/timelineHistoryModel.ts` | Timeline row-history normalization, pending-action labels, and history operation helpers. |
+| `workbook/timeline/models/timelinePendingReplayModel.ts` | Pending-replay runtime state, admission contracts, refresh barriers, and tab-stable client identity. |
 | `workbook/timeline/models/timelineRowsModel.ts` | Timeline row collection helpers and row-state utilities. |
 | `workbook/timeline/models/timelineViewportContinuityModel.ts` | Timeline viewport continuity and entity-refresh barrier helpers. |
 | `workbook/timeline/models/workbookMentionChips.ts` | Mention chip state, relationship-field keys, and mention display helpers. |

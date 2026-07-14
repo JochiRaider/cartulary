@@ -3,7 +3,7 @@ import {
   deriveWorkbookSaveState,
   type WorkbookSaveStateConflictAnchor,
 } from "../../utils/workbookPendingQueue";
-import type { LocalConflictState } from "../models/workbookTimelineModel";
+import type { TimelineMutableRef } from "../models/timelineControllerPorts";
 import {
   beginTimelinePendingRefreshBlock,
   finishTimelinePendingRefreshBlock,
@@ -12,13 +12,10 @@ import {
   type TimelinePendingRefreshBlockScope,
   type TimelinePendingSavesRefs,
   timelinePendingQueueSnapshot,
-} from "./useTimelinePendingSaves";
+} from "../models/timelinePendingReplayModel";
+import type { LocalConflictState } from "../models/workbookTimelineModel";
 
 export type TimelineSaveStateLabel = "Conflict" | "Saved" | "Syncing";
-
-type TimelineMutableRef<T> = {
-  current: T;
-};
 
 type TimelineSetState<T> = (value: T) => void;
 

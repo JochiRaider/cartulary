@@ -3,11 +3,11 @@ import {
   incidentControlsMenuItemTestId,
   incidentControlsMenuTestId,
   incidentControlsTriggerTestId,
+  incidentLandingTestId,
   type LandingAdminPanelToken,
   landingAdminMenuItemTestId,
   landingAdminPanelTestId,
   landingAdminShellTestId,
-  phase1LandingTestId,
 } from "@cartulary/ui-contracts";
 import {
   ChevronDown,
@@ -171,7 +171,7 @@ export function LandingAdminShell({
           <div>
             <dt style={landingToolbarLabelStyle}>Session</dt>
             <dd
-              data-testid={phase1LandingTestId("current-user")}
+              data-testid={incidentLandingTestId("current-user")}
               style={landingAdminMetaValueStyle}
             >
               {currentUserLabel}
@@ -230,7 +230,7 @@ export function IncidentDirectoryShell({
           <div>
             <dt style={landingToolbarLabelStyle}>Session</dt>
             <dd
-              data-testid={phase1LandingTestId("current-user")}
+              data-testid={incidentLandingTestId("current-user")}
               style={landingAdminMetaValueStyle}
             >
               {currentUserLabel}
@@ -334,7 +334,7 @@ export function AccountApplicationMenu({
             aria-current={currentContext === "incidents" ? "page" : undefined}
             data-testid={
               currentContext === "workbook"
-                ? phase1LandingTestId("return")
+                ? incidentLandingTestId("return")
                 : undefined
             }
             role="menuitem"

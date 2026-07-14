@@ -1,9 +1,9 @@
 import {
+  incidentLandingTestId,
   landingIncidentCardTestId,
   landingIncidentOpenButtonTestId,
-  phase1ErrorCodeTestId,
-  phase1ErrorSummaryTestIds,
-  phase1LandingTestId,
+  publicErrorCodeTestId,
+  publicErrorSummaryTestIds,
 } from "@cartulary/ui-contracts";
 import { ChevronRight, RefreshCw, Search, X } from "lucide-react";
 import { useId, useState } from "react";
@@ -108,7 +108,7 @@ export function IncidentLanding({
     <section
       aria-busy={isRefreshing}
       data-bootstrap-state={bootstrapState}
-      data-testid={phase1LandingTestId("shell")}
+      data-testid={incidentLandingTestId("shell")}
       style={surfacePanelStyle}
     >
       <header style={surfaceHeaderStyle}>
@@ -118,13 +118,13 @@ export function IncidentLanding({
         </div>
         <div style={headerActionRowStyle}>
           <p
-            data-testid={phase1LandingTestId("incidents-count")}
+            data-testid={incidentLandingTestId("incidents-count")}
             style={countPillStyle}
           >
             {incidents.length} loaded{hasMoreIncidents ? " +" : ""}
           </p>
           <button
-            data-testid={phase1LandingTestId("refresh")}
+            data-testid={incidentLandingTestId("refresh")}
             style={secondaryButtonStyle}
             type="button"
             onClick={() => {
@@ -136,7 +136,7 @@ export function IncidentLanding({
           </button>
           {!createOpen ? (
             <button
-              data-testid={phase1LandingTestId("create-open-button")}
+              data-testid={incidentLandingTestId("create-open-button")}
               style={primaryButtonStyle}
               type="button"
               onClick={() => {
@@ -158,7 +158,7 @@ export function IncidentLanding({
                 <Search size={16} />
                 <input
                   id="incident-filter"
-                  data-testid={phase1LandingTestId("search")}
+                  data-testid={incidentLandingTestId("search")}
                   style={searchInputStyle}
                   value={incidentSearch}
                   onChange={(event) => {
@@ -177,7 +177,7 @@ export function IncidentLanding({
               Status
               <select
                 id="incident-status-filter"
-                data-testid={phase1LandingTestId("status-filter")}
+                data-testid={incidentLandingTestId("status-filter")}
                 style={inputStyle}
                 value={incidentStatusFilter}
                 onChange={(event) => {
@@ -196,7 +196,7 @@ export function IncidentLanding({
           {isRefreshing ? (
             <p
               aria-live="polite"
-              data-testid={phase1LandingTestId("loading")}
+              data-testid={incidentLandingTestId("loading")}
               role="status"
               style={inlineStatusStyle}
             >
@@ -206,7 +206,7 @@ export function IncidentLanding({
 
           {!isRefreshing && !hasIncidents ? (
             <p
-              data-testid={phase1LandingTestId("empty-state")}
+              data-testid={incidentLandingTestId("empty-state")}
               style={emptyStateStyle}
             >
               {hasActiveQuery
@@ -217,7 +217,7 @@ export function IncidentLanding({
 
           {hasIncidents ? (
             <div
-              data-testid={phase1LandingTestId("incident-list")}
+              data-testid={incidentLandingTestId("incident-list")}
               style={tableShellStyle}
             >
               <table style={dataTableStyle}>
@@ -336,7 +336,7 @@ export function IncidentLanding({
               <label htmlFor={incidentKeyFieldId} style={labelBlockStyle}>
                 Incident key
                 <input
-                  data-testid={phase1LandingTestId("incident-key")}
+                  data-testid={incidentLandingTestId("incident-key")}
                   id={incidentKeyFieldId}
                   style={inputStyle}
                   value={createIncidentKey}
@@ -349,7 +349,7 @@ export function IncidentLanding({
               <label htmlFor={incidentTitleFieldId} style={labelBlockStyle}>
                 Title
                 <input
-                  data-testid={phase1LandingTestId("incident-title")}
+                  data-testid={incidentLandingTestId("incident-title")}
                   id={incidentTitleFieldId}
                   style={inputStyle}
                   value={createIncidentTitle}
@@ -369,7 +369,7 @@ export function IncidentLanding({
                 >
                   Description
                   <textarea
-                    data-testid={phase1LandingTestId("create-description")}
+                    data-testid={incidentLandingTestId("create-description")}
                     id="incident-create-description"
                     style={textAreaStyle}
                     value={createIncidentDescription}
@@ -384,7 +384,7 @@ export function IncidentLanding({
                 >
                   Severity
                   <input
-                    data-testid={phase1LandingTestId("create-severity")}
+                    data-testid={incidentLandingTestId("create-severity")}
                     id="incident-create-severity"
                     style={inputStyle}
                     value={createIncidentSeverity}
@@ -396,7 +396,7 @@ export function IncidentLanding({
                 <label htmlFor="incident-create-tlp" style={labelBlockStyle}>
                   TLP
                   <select
-                    data-testid={phase1LandingTestId("create-tlp")}
+                    data-testid={incidentLandingTestId("create-tlp")}
                     id="incident-create-tlp"
                     style={inputStyle}
                     value={createIncidentTLP}
@@ -418,7 +418,7 @@ export function IncidentLanding({
                 >
                   Current phase
                   <input
-                    data-testid={phase1LandingTestId("create-current-phase")}
+                    data-testid={incidentLandingTestId("create-current-phase")}
                     id="incident-create-current-phase"
                     style={inputStyle}
                     value={createIncidentCurrentPhase}
@@ -433,7 +433,7 @@ export function IncidentLanding({
                 >
                   External case
                   <input
-                    data-testid={phase1LandingTestId("create-external-case")}
+                    data-testid={incidentLandingTestId("create-external-case")}
                     id="incident-create-external-case"
                     style={inputStyle}
                     value={createIncidentExternalCase}
@@ -445,7 +445,7 @@ export function IncidentLanding({
               </div>
             </details>
             <button
-              data-testid={phase1LandingTestId("create-submit-button")}
+              data-testid={incidentLandingTestId("create-submit-button")}
               style={primaryButtonStyle}
               type="button"
               onClick={() => {
@@ -460,7 +460,7 @@ export function IncidentLanding({
 
       <p
         aria-live="polite"
-        data-testid={phase1LandingTestId("status")}
+        data-testid={incidentLandingTestId("status")}
         role="status"
         style={statusTextStyle}
       >
@@ -468,7 +468,7 @@ export function IncidentLanding({
       </p>
       <p
         aria-live="assertive"
-        data-testid={phase1ErrorCodeTestId("landing")}
+        data-testid={publicErrorCodeTestId("landing")}
         role={error === null ? undefined : "alert"}
         style={errorTextStyle}
       >
@@ -476,7 +476,7 @@ export function IncidentLanding({
       </p>
       <PublicErrorSummary
         error={error}
-        testIds={phase1ErrorSummaryTestIds("landing")}
+        testIds={publicErrorSummaryTestIds("landing")}
       />
     </section>
   );

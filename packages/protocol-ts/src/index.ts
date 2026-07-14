@@ -1,3 +1,10 @@
+import type { IncidentStreamMessage } from "./generated/collaboration-types.js";
+import type {
+  EnvelopeMeta,
+  ErrorEnvelope,
+  ExtensionDiscoveryEnvelope,
+  ExtensionProfileResource as GeneratedExtensionProfileResource,
+} from "./generated/core-http-types.js";
 import {
   contractArtifactIndex,
   errorArtifacts,
@@ -6,6 +13,26 @@ import {
   viewSchemaArtifacts,
   wsArtifacts,
 } from "./generated/index.js";
+import { networkFlowContractDescriptor } from "./generated/network-flow-descriptor.js";
+import type {
+  GraphContributorQueryResult,
+  GraphQueryResult,
+  IndicatorLinkResult,
+  RejectedRowsQueryResult,
+  TableList,
+  TableQueryResult,
+} from "./generated/network-flow-types.js";
+import * as generatedProtocolValidators from "./generated/protocol-validators.js";
+
+export type * from "./generated/network-flow-types.js";
+export type {
+  EnvelopeMeta,
+  ErrorEnvelope,
+  ExtensionDiscoveryEnvelope,
+  GeneratedExtensionProfileResource,
+  IncidentStreamMessage,
+};
+export { networkFlowContractDescriptor };
 
 export type ContractArtifact = {
   readonly path: string;
@@ -82,23 +109,6 @@ export const accountProtocolSchemaNames = Object.freeze({
   accountProfileResource: "AccountProfileResource",
   densityMode: "DensityMode",
 } as const);
-
-export type EnvelopeMeta = {
-  readonly request_id: string;
-  readonly paging?: unknown;
-};
-
-export type ErrorEnvelope = {
-  readonly error: {
-    readonly code: string;
-    readonly conflict?: Record<string, unknown>;
-    readonly details: Record<string, unknown>;
-    readonly message: string;
-    readonly request_id: string;
-    readonly retryable: boolean;
-    readonly status: number;
-  };
-};
 
 export type ViewCell = {
   readonly value?: unknown;
@@ -231,6 +241,133 @@ export type EvidenceHandleEnvelope = {
   };
   readonly meta: EnvelopeMeta;
 };
+
+type GeneratedValidationError = {
+  readonly instancePath?: string;
+  readonly keyword?: string;
+};
+
+type GeneratedValidator = ((value: unknown) => boolean) & {
+  readonly errors?: readonly GeneratedValidationError[] | null;
+};
+
+export type DecodeFailure = {
+  readonly boundary: "generated_protocol";
+  readonly instancePath: string;
+  readonly reasonCategory:
+    | "constraint_violation"
+    | "invalid_format"
+    | "invalid_type"
+    | "invalid_value"
+    | "required_member"
+    | "schema_mismatch"
+    | "unknown_member";
+  readonly schemaId: string;
+};
+
+export type DecodeResult<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly error: DecodeFailure };
+
+export type Decoder<T> = {
+  readonly schemaId: string;
+  readonly decode: (value: unknown) => DecodeResult<T>;
+};
+
+function generatedValidatorName(schemaId: string): string {
+  return `validate${schemaId
+    .split(/[^A-Za-z0-9]+/u)
+    .filter(Boolean)
+    .map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`)
+    .join("")}`;
+}
+
+function generatedValidator(schemaId: string): GeneratedValidator {
+  const candidate = (
+    generatedProtocolValidators as Readonly<Record<string, unknown>>
+  )[generatedValidatorName(schemaId)];
+  if (typeof candidate !== "function") {
+    throw new Error(`missing generated protocol validator for ${schemaId}`);
+  }
+  return candidate as GeneratedValidator;
+}
+
+function reasonCategory(
+  keyword: string | undefined,
+): DecodeFailure["reasonCategory"] {
+  switch (keyword) {
+    case "additionalProperties":
+      return "unknown_member";
+    case "required":
+      return "required_member";
+    case "type":
+      return "invalid_type";
+    case "const":
+    case "enum":
+      return "invalid_value";
+    case "format":
+      return "invalid_format";
+    case "oneOf":
+    case "anyOf":
+      return "schema_mismatch";
+    default:
+      return "constraint_violation";
+  }
+}
+
+export function createGeneratedDecoder<T>(schemaId: string): Decoder<T> {
+  const validate = generatedValidator(schemaId);
+  return Object.freeze({
+    schemaId,
+    decode(value: unknown): DecodeResult<T> {
+      if (validate(value)) {
+        return { ok: true, value: value as T };
+      }
+      const firstError = validate.errors?.[0];
+      return {
+        ok: false,
+        error: {
+          boundary: "generated_protocol",
+          instancePath: firstError?.instancePath ?? "",
+          reasonCategory: reasonCategory(firstError?.keyword),
+          schemaId,
+        },
+      };
+    },
+  });
+}
+
+export const networkFlowDecoders = Object.freeze({
+  tableList: createGeneratedDecoder<TableList>(
+    "cartulary.network_flow.table_list.v1",
+  ),
+  tableQueryResult: createGeneratedDecoder<TableQueryResult>(
+    "cartulary.network_flow.table_query_result.v1",
+  ),
+  rejectedRowsQueryResult: createGeneratedDecoder<RejectedRowsQueryResult>(
+    "cartulary.network_flow.rejected_rows_query_result.v1",
+  ),
+  graphQueryResult: createGeneratedDecoder<GraphQueryResult>(
+    "cartulary.network_flow.graph_query_result.v1",
+  ),
+  graphContributorQueryResult:
+    createGeneratedDecoder<GraphContributorQueryResult>(
+      "cartulary.network_flow.graph_contributor_query_result.v1",
+    ),
+  indicatorLinkResult: createGeneratedDecoder<IndicatorLinkResult>(
+    "cartulary.network_flow.indicator_link_result.v1",
+  ),
+});
+
+export const extensionDiscoveryDecoder =
+  createGeneratedDecoder<ExtensionDiscoveryEnvelope>(
+    "cartulary.core_http.ExtensionDiscoveryEnvelope.v1",
+  );
+
+export const incidentStreamMessageDecoder =
+  createGeneratedDecoder<IncidentStreamMessage>(
+    "cartulary.ws.incident_stream_message.v1",
+  );
 
 const openAPIArtifactList = Object.freeze([...openAPIArtifacts]);
 const wsArtifactList = Object.freeze([...wsArtifacts]);

@@ -89,6 +89,9 @@ export const workbookInspectorPanelIds = [
 
 export type Phase1ErrorSurface = "account" | "admin" | "auth" | "landing";
 
+/** Durable product-facing alias. Phase1ErrorSurface is retained for evidence code. */
+export type PublicErrorSurface = Phase1ErrorSurface;
+
 export type Phase1AuthSelector =
   | "bootstrap-begin"
   | "bootstrap-complete"
@@ -105,6 +108,9 @@ export type Phase1AuthSelector =
   | "shell"
   | "shell-message"
   | "status";
+
+/** Durable product-facing alias. Phase1AuthSelector is retained for evidence code. */
+export type AuthSelector = Phase1AuthSelector;
 
 export type Phase1AccountSelector =
   | "appearance-density-mode"
@@ -141,6 +147,9 @@ export type Phase1AccountSelector =
   | "totp-enrollment-id"
   | "totp-secret-base32";
 
+/** Durable product-facing alias. Phase1AccountSelector is retained for evidence code. */
+export type AccountSelector = Phase1AccountSelector;
+
 export type Phase1AdminSelector =
   | "access-note"
   | "create-display-name"
@@ -174,6 +183,9 @@ export type Phase1AdminSelector =
   | "user-is-deployment-admin-filter"
   | "user-list";
 
+/** Durable product-facing alias. Phase1AdminSelector is retained for evidence code. */
+export type DeploymentAdminSelector = Phase1AdminSelector;
+
 export type Phase1LandingSelector =
   | "create-current-phase"
   | "create-description"
@@ -195,6 +207,9 @@ export type Phase1LandingSelector =
   | "shell"
   | "status-filter"
   | "status";
+
+/** Durable product-facing alias. Phase1LandingSelector is retained for evidence code. */
+export type IncidentLandingSelector = Phase1LandingSelector;
 
 export type LandingAdminPanelToken =
   | "account-appearance"
@@ -244,6 +259,9 @@ export type Phase1RouteSelector =
   | "debug-harness-shell"
   | "workbook-current-user"
   | "workbook-loading";
+
+/** Durable product-facing alias. Phase1RouteSelector is retained for evidence code. */
+export type AppRouteSelector = Phase1RouteSelector;
 
 export type WorkbookShellSlot =
   | "inspector"
@@ -300,6 +318,9 @@ export type Phase1ErrorSummaryTestIds = {
   readonly details: StableTestId;
   readonly message: StableTestId;
 };
+
+/** Durable product-facing alias. Phase1ErrorSummaryTestIds is retained for evidence code. */
+export type PublicErrorSummaryTestIds = Phase1ErrorSummaryTestIds;
 
 export type RowHistoryItemAnchor = {
   readonly historyItemRef: string;
@@ -450,7 +471,7 @@ const phase1ErrorSurfaces = Object.freeze(
   new Set<Phase1ErrorSurface>(["account", "admin", "auth", "landing"]),
 );
 
-export function phase1AuthTestId(selector: Phase1AuthSelector): StableTestId {
+export function authTestId(selector: AuthSelector): StableTestId {
   return phase1SelectorTestId(
     phase1AuthTestIds,
     selector,
@@ -458,9 +479,10 @@ export function phase1AuthTestId(selector: Phase1AuthSelector): StableTestId {
   );
 }
 
-export function phase1AccountTestId(
-  selector: Phase1AccountSelector,
-): StableTestId {
+/** @deprecated Evidence compatibility alias; production code should use authTestId. */
+export const phase1AuthTestId = authTestId;
+
+export function accountTestId(selector: AccountSelector): StableTestId {
   return phase1SelectorTestId(
     phase1AccountTestIds,
     selector,
@@ -468,7 +490,12 @@ export function phase1AccountTestId(
   );
 }
 
-export function phase1AdminTestId(selector: Phase1AdminSelector): StableTestId {
+/** @deprecated Evidence compatibility alias; production code should use accountTestId. */
+export const phase1AccountTestId = accountTestId;
+
+export function deploymentAdminTestId(
+  selector: DeploymentAdminSelector,
+): StableTestId {
   return phase1SelectorTestId(
     phase1AdminTestIds,
     selector,
@@ -476,8 +503,11 @@ export function phase1AdminTestId(selector: Phase1AdminSelector): StableTestId {
   );
 }
 
-export function phase1LandingTestId(
-  selector: Phase1LandingSelector,
+/** @deprecated Evidence compatibility alias; production code should use deploymentAdminTestId. */
+export const phase1AdminTestId = deploymentAdminTestId;
+
+export function incidentLandingTestId(
+  selector: IncidentLandingSelector,
 ): StableTestId {
   return phase1SelectorTestId(
     phase1LandingTestIds,
@@ -485,6 +515,9 @@ export function phase1LandingTestId(
     "phase1 landing selector",
   );
 }
+
+/** @deprecated Evidence compatibility alias; production code should use incidentLandingTestId. */
+export const phase1LandingTestId = incidentLandingTestId;
 
 export function landingAdminShellTestId(
   selector: LandingAdminShellSelector,
@@ -510,7 +543,7 @@ export function landingAdminPanelTestId(
   return stableTestId(`landing-admin-panel-${requireLandingAdminPanel(panel)}`);
 }
 
-export function phase1RouteTestId(selector: Phase1RouteSelector): StableTestId {
+export function appRouteTestId(selector: AppRouteSelector): StableTestId {
   return phase1SelectorTestId(
     phase1RouteTestIds,
     selector,
@@ -518,15 +551,21 @@ export function phase1RouteTestId(selector: Phase1RouteSelector): StableTestId {
   );
 }
 
-export function phase1ErrorCodeTestId(
-  surface: Phase1ErrorSurface,
+/** @deprecated Evidence compatibility alias; production code should use appRouteTestId. */
+export const phase1RouteTestId = appRouteTestId;
+
+export function publicErrorCodeTestId(
+  surface: PublicErrorSurface,
 ): StableTestId {
   return stableTestId(`${requirePhase1ErrorSurface(surface)}-error-code`);
 }
 
-export function phase1ErrorSummaryTestIds(
-  surface: Phase1ErrorSurface,
-): Phase1ErrorSummaryTestIds {
+/** @deprecated Evidence compatibility alias; production code should use publicErrorCodeTestId. */
+export const phase1ErrorCodeTestId = publicErrorCodeTestId;
+
+export function publicErrorSummaryTestIds(
+  surface: PublicErrorSurface,
+): PublicErrorSummaryTestIds {
   const prefix = requirePhase1ErrorSurface(surface);
   return {
     container: stableTestId(`${prefix}-error-public`),
@@ -534,6 +573,9 @@ export function phase1ErrorSummaryTestIds(
     message: stableTestId(`${prefix}-error-message`),
   };
 }
+
+/** @deprecated Evidence compatibility alias; production code should use publicErrorSummaryTestIds. */
+export const phase1ErrorSummaryTestIds = publicErrorSummaryTestIds;
 
 export function gridShellTestId(viewSchemaId: WorkbookSurface): string {
   return viewFirstTestId(viewSchemaId, "grid-shell");

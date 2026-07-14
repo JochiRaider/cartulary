@@ -1,9 +1,9 @@
 import {
+  accountTestId,
+  deploymentAdminTestId,
   deploymentUserRowTestId,
-  phase1AccountTestId,
-  phase1AdminTestId,
-  phase1ErrorCodeTestId,
-  phase1ErrorSummaryTestIds,
+  publicErrorCodeTestId,
+  publicErrorSummaryTestIds,
 } from "@cartulary/ui-contracts";
 import { X } from "lucide-react";
 import {
@@ -211,7 +211,7 @@ export const AccountSecurityPanel = forwardRef<
         </div>
         <div style={buttonRowStyle}>
           <button
-            data-testid={phase1AccountTestId("refresh-state")}
+            data-testid={accountTestId("refresh-state")}
             style={secondaryButtonStyle}
             type="button"
             onClick={() => {
@@ -221,7 +221,7 @@ export const AccountSecurityPanel = forwardRef<
             Refresh
           </button>
           <button
-            data-testid={phase1AccountTestId("logout")}
+            data-testid={accountTestId("logout")}
             style={secondaryButtonStyle}
             type="button"
             onClick={() => {
@@ -240,7 +240,7 @@ export const AccountSecurityPanel = forwardRef<
             Current password
           </label>
           <input
-            data-testid={phase1AccountTestId("password-current")}
+            data-testid={accountTestId("password-current")}
             id="account-password-current"
             style={inputStyle}
             type="password"
@@ -253,7 +253,7 @@ export const AccountSecurityPanel = forwardRef<
             New password
           </label>
           <input
-            data-testid={phase1AccountTestId("password-next")}
+            data-testid={accountTestId("password-next")}
             id="account-password-next"
             style={inputStyle}
             type="password"
@@ -266,7 +266,7 @@ export const AccountSecurityPanel = forwardRef<
             Current TOTP code
           </label>
           <input
-            data-testid={phase1AccountTestId("password-factor-code")}
+            data-testid={accountTestId("password-factor-code")}
             id="account-password-factor"
             style={inputStyle}
             value={passwordFactorCode}
@@ -277,7 +277,7 @@ export const AccountSecurityPanel = forwardRef<
         </div>
         <div style={buttonRowStyle}>
           <button
-            data-testid={phase1AccountTestId("password-change")}
+            data-testid={accountTestId("password-change")}
             style={buttonStyle}
             type="button"
             onClick={() => {
@@ -299,7 +299,7 @@ export const AccountSecurityPanel = forwardRef<
             Current password
           </label>
           <input
-            data-testid={phase1AccountTestId("totp-current-password")}
+            data-testid={accountTestId("totp-current-password")}
             id="account-totp-current-password"
             style={inputStyle}
             type="password"
@@ -312,7 +312,7 @@ export const AccountSecurityPanel = forwardRef<
             Current TOTP code
           </label>
           <input
-            data-testid={phase1AccountTestId("totp-current-factor")}
+            data-testid={accountTestId("totp-current-factor")}
             id="account-totp-current-factor"
             style={inputStyle}
             value={totpCurrentFactorCode}
@@ -323,7 +323,7 @@ export const AccountSecurityPanel = forwardRef<
         </div>
         <div style={buttonRowStyle}>
           <button
-            data-testid={phase1AccountTestId("totp-begin")}
+            data-testid={accountTestId("totp-begin")}
             style={buttonStyle}
             type="button"
             onClick={() => {
@@ -337,7 +337,7 @@ export const AccountSecurityPanel = forwardRef<
           <div>
             <span style={labelStyle}>Enrollment id</span>
             <div
-              data-testid={phase1AccountTestId("totp-enrollment-id")}
+              data-testid={accountTestId("totp-enrollment-id")}
               style={monoTextStyle}
             >
               {totpEnrollmentId}
@@ -346,7 +346,7 @@ export const AccountSecurityPanel = forwardRef<
           <div style={wideCellStyle}>
             <span style={labelStyle}>Secret base32</span>
             <div
-              data-testid={phase1AccountTestId("totp-secret-base32")}
+              data-testid={accountTestId("totp-secret-base32")}
               style={monoTextStyle}
             >
               {totpSecretBase32}
@@ -358,7 +358,7 @@ export const AccountSecurityPanel = forwardRef<
             Replacement TOTP code
           </label>
           <input
-            data-testid={phase1AccountTestId("totp-complete-code")}
+            data-testid={accountTestId("totp-complete-code")}
             id="account-totp-complete-code"
             style={inputStyle}
             value={totpCompleteCode}
@@ -369,7 +369,7 @@ export const AccountSecurityPanel = forwardRef<
         </div>
         <div style={buttonRowStyle}>
           <button
-            data-testid={phase1AccountTestId("totp-complete")}
+            data-testid={accountTestId("totp-complete")}
             style={buttonStyle}
             type="button"
             onClick={() => {
@@ -383,7 +383,7 @@ export const AccountSecurityPanel = forwardRef<
 
       <p
         aria-live="polite"
-        data-testid={phase1AccountTestId("status")}
+        data-testid={accountTestId("status")}
         role="status"
         style={statusTextStyle}
       >
@@ -391,7 +391,7 @@ export const AccountSecurityPanel = forwardRef<
       </p>
       <p
         aria-live="assertive"
-        data-testid={phase1ErrorCodeTestId("account")}
+        data-testid={publicErrorCodeTestId("account")}
         role={
           error === null && credentialStateError === null ? undefined : "alert"
         }
@@ -401,7 +401,7 @@ export const AccountSecurityPanel = forwardRef<
       </p>
       <PublicErrorSummary
         error={error ?? credentialStateError}
-        testIds={phase1ErrorSummaryTestIds("account")}
+        testIds={publicErrorSummaryTestIds("account")}
       />
     </section>
   );
@@ -1136,7 +1136,7 @@ export const DeploymentUsersPanel = forwardRef<
             <h2 style={sectionTitleStyle}>User administration</h2>
           </div>
         </div>
-        <p data-testid={phase1AdminTestId("access-note")} style={bodyStyle}>
+        <p data-testid={deploymentAdminTestId("access-note")} style={bodyStyle}>
           Deployment admin access is required for user creation, patching, and
           credential actions. Incident-admin membership alone does not unlock
           these controls.
@@ -1161,7 +1161,7 @@ export const DeploymentUsersPanel = forwardRef<
         </div>
         <button
           data-testid={
-            createDialogOpen ? undefined : phase1AdminTestId("create-user")
+            createDialogOpen ? undefined : deploymentAdminTestId("create-user")
           }
           disabled={targetOperationPending}
           style={buttonStyle}
@@ -1195,7 +1195,7 @@ export const DeploymentUsersPanel = forwardRef<
             Search users
           </label>
           <input
-            data-testid={phase1AdminTestId("user-filter")}
+            data-testid={deploymentAdminTestId("user-filter")}
             id="admin-user-filter"
             style={inputStyle}
             value={userFilter}
@@ -1214,7 +1214,7 @@ export const DeploymentUsersPanel = forwardRef<
             <label style={labelBlockStyle}>
               Active
               <select
-                data-testid={phase1AdminTestId("user-is-active-filter")}
+                data-testid={deploymentAdminTestId("user-is-active-filter")}
                 style={inputStyle}
                 value={userActiveFilter}
                 onChange={(event) => {
@@ -1230,7 +1230,7 @@ export const DeploymentUsersPanel = forwardRef<
             <label style={labelBlockStyle}>
               Deployment admin
               <select
-                data-testid={phase1AdminTestId(
+                data-testid={deploymentAdminTestId(
                   "user-is-deployment-admin-filter",
                 )}
                 style={inputStyle}
@@ -1247,7 +1247,7 @@ export const DeploymentUsersPanel = forwardRef<
             </label>
           </div>
           <div
-            data-testid={phase1AdminTestId("user-list")}
+            data-testid={deploymentAdminTestId("user-list")}
             style={userListStyle}
           >
             {users.map((user) => {
@@ -1282,7 +1282,7 @@ export const DeploymentUsersPanel = forwardRef<
             ) : null}
           </div>
           <button
-            data-testid={phase1AdminTestId("load-more-users")}
+            data-testid={deploymentAdminTestId("load-more-users")}
             disabled={!usersHasMore || targetOperationPending}
             style={secondaryButtonStyle}
             type="button"
@@ -1325,7 +1325,7 @@ export const DeploymentUsersPanel = forwardRef<
                   <div>
                     <span style={labelStyle}>Loaded user id</span>
                     <div
-                      data-testid={phase1AdminTestId("target-user-id")}
+                      data-testid={deploymentAdminTestId("target-user-id")}
                       style={monoTextStyle}
                     >
                       {selectedUser.user_id}
@@ -1333,20 +1333,24 @@ export const DeploymentUsersPanel = forwardRef<
                   </div>
                   <div>
                     <span style={labelStyle}>User version</span>
-                    <div data-testid={phase1AdminTestId("target-user-version")}>
+                    <div
+                      data-testid={deploymentAdminTestId("target-user-version")}
+                    >
                       {selectedUser.user_version}
                     </div>
                   </div>
                   <div>
                     <span style={labelStyle}>Is active</span>
-                    <div data-testid={phase1AdminTestId("target-is-active")}>
+                    <div
+                      data-testid={deploymentAdminTestId("target-is-active")}
+                    >
                       {String(selectedUser.is_active)}
                     </div>
                   </div>
                   <div>
                     <span style={labelStyle}>Deployment admin</span>
                     <div
-                      data-testid={phase1AdminTestId(
+                      data-testid={deploymentAdminTestId(
                         "target-is-deployment-admin",
                       )}
                     >
@@ -1355,7 +1359,9 @@ export const DeploymentUsersPanel = forwardRef<
                   </div>
                   <div>
                     <span style={labelStyle}>Base user version</span>
-                    <div data-testid={phase1AdminTestId("patch-base-version")}>
+                    <div
+                      data-testid={deploymentAdminTestId("patch-base-version")}
+                    >
                       {targetBaseVersion}
                     </div>
                   </div>
@@ -1364,7 +1370,7 @@ export const DeploymentUsersPanel = forwardRef<
                   <label htmlFor="admin-patch-email" style={labelBlockStyle}>
                     Email
                     <input
-                      data-testid={phase1AdminTestId("patch-email")}
+                      data-testid={deploymentAdminTestId("patch-email")}
                       id="admin-patch-email"
                       disabled={!canSubmitTargetAction}
                       style={inputStyle}
@@ -1380,7 +1386,7 @@ export const DeploymentUsersPanel = forwardRef<
                   >
                     Display name
                     <input
-                      data-testid={phase1AdminTestId("patch-display-name")}
+                      data-testid={deploymentAdminTestId("patch-display-name")}
                       id="admin-patch-display-name"
                       disabled={!canSubmitTargetAction}
                       style={inputStyle}
@@ -1394,7 +1400,7 @@ export const DeploymentUsersPanel = forwardRef<
                 <div style={checkboxRowStyle}>
                   <label style={checkboxLabelStyle}>
                     <input
-                      data-testid={phase1AdminTestId("patch-mfa-required")}
+                      data-testid={deploymentAdminTestId("patch-mfa-required")}
                       type="checkbox"
                       disabled={!canSubmitTargetAction}
                       checked={patchMfaRequired}
@@ -1406,7 +1412,7 @@ export const DeploymentUsersPanel = forwardRef<
                   </label>
                   <label style={checkboxLabelStyle}>
                     <input
-                      data-testid={phase1AdminTestId("patch-is-active")}
+                      data-testid={deploymentAdminTestId("patch-is-active")}
                       type="checkbox"
                       disabled={!canSubmitTargetAction}
                       checked={patchIsActive}
@@ -1418,7 +1424,7 @@ export const DeploymentUsersPanel = forwardRef<
                   </label>
                   <label style={checkboxLabelStyle}>
                     <input
-                      data-testid={phase1AdminTestId(
+                      data-testid={deploymentAdminTestId(
                         "patch-is-deployment-admin",
                       )}
                       type="checkbox"
@@ -1433,7 +1439,7 @@ export const DeploymentUsersPanel = forwardRef<
                 </div>
                 <div style={buttonRowStyle}>
                   <button
-                    data-testid={phase1AdminTestId("patch-user")}
+                    data-testid={deploymentAdminTestId("patch-user")}
                     disabled={!canSubmitVersionedTargetAction}
                     style={buttonStyle}
                     type="button"
@@ -1457,7 +1463,7 @@ export const DeploymentUsersPanel = forwardRef<
                     data-testid={
                       credentialDialog === "password"
                         ? undefined
-                        : phase1AdminTestId("password-reset")
+                        : deploymentAdminTestId("password-reset")
                     }
                     disabled={!canSubmitVersionedTargetAction}
                     style={destructiveButtonStyle}
@@ -1472,7 +1478,7 @@ export const DeploymentUsersPanel = forwardRef<
                     data-testid={
                       credentialDialog === "totp"
                         ? undefined
-                        : phase1AdminTestId("totp-reset")
+                        : deploymentAdminTestId("totp-reset")
                     }
                     disabled={!canSubmitVersionedTargetAction}
                     style={destructiveButtonStyle}
@@ -1487,7 +1493,7 @@ export const DeploymentUsersPanel = forwardRef<
                     data-testid={
                       credentialDialog === "revoke"
                         ? undefined
-                        : phase1AdminTestId("revoke-all")
+                        : deploymentAdminTestId("revoke-all")
                     }
                     disabled={!canSubmitTargetAction}
                     style={destructiveButtonStyle}
@@ -1725,7 +1731,7 @@ export const DeploymentUsersPanel = forwardRef<
               <label htmlFor="admin-create-email" style={labelBlockStyle}>
                 Email
                 <input
-                  data-testid={phase1AdminTestId("create-email")}
+                  data-testid={deploymentAdminTestId("create-email")}
                   id="admin-create-email"
                   disabled={targetOperationPending}
                   style={inputStyle}
@@ -1741,7 +1747,7 @@ export const DeploymentUsersPanel = forwardRef<
               >
                 Display name
                 <input
-                  data-testid={phase1AdminTestId("create-display-name")}
+                  data-testid={deploymentAdminTestId("create-display-name")}
                   id="admin-create-display-name"
                   disabled={targetOperationPending}
                   style={inputStyle}
@@ -1754,7 +1760,7 @@ export const DeploymentUsersPanel = forwardRef<
               <label htmlFor="admin-create-password" style={labelBlockStyle}>
                 Initial password
                 <input
-                  data-testid={phase1AdminTestId("create-password")}
+                  data-testid={deploymentAdminTestId("create-password")}
                   id="admin-create-password"
                   disabled={targetOperationPending}
                   style={inputStyle}
@@ -1769,7 +1775,7 @@ export const DeploymentUsersPanel = forwardRef<
             <div style={checkboxRowStyle}>
               <label style={checkboxLabelStyle}>
                 <input
-                  data-testid={phase1AdminTestId("create-mfa-required")}
+                  data-testid={deploymentAdminTestId("create-mfa-required")}
                   type="checkbox"
                   disabled={targetOperationPending}
                   checked={createMfaRequired}
@@ -1781,7 +1787,9 @@ export const DeploymentUsersPanel = forwardRef<
               </label>
               <label style={checkboxLabelStyle}>
                 <input
-                  data-testid={phase1AdminTestId("create-is-deployment-admin")}
+                  data-testid={deploymentAdminTestId(
+                    "create-is-deployment-admin",
+                  )}
                   type="checkbox"
                   disabled={targetOperationPending}
                   checked={createIsDeploymentAdmin}
@@ -1801,7 +1809,7 @@ export const DeploymentUsersPanel = forwardRef<
                 Cancel
               </button>
               <button
-                data-testid={phase1AdminTestId("create-user")}
+                data-testid={deploymentAdminTestId("create-user")}
                 disabled={targetOperationPending}
                 style={buttonStyle}
                 type="button"
@@ -1856,7 +1864,7 @@ export const DeploymentUsersPanel = forwardRef<
                 <label htmlFor="admin-new-password" style={labelBlockStyle}>
                   New password
                   <input
-                    data-testid={phase1AdminTestId("new-password")}
+                    data-testid={deploymentAdminTestId("new-password")}
                     id="admin-new-password"
                     style={inputStyle}
                     type="password"
@@ -1870,7 +1878,7 @@ export const DeploymentUsersPanel = forwardRef<
               <label htmlFor="admin-reason" style={labelBlockStyle}>
                 Reason
                 <input
-                  data-testid={phase1AdminTestId("reason")}
+                  data-testid={deploymentAdminTestId("reason")}
                   id="admin-reason"
                   style={inputStyle}
                   value={adminReason}
@@ -1891,10 +1899,10 @@ export const DeploymentUsersPanel = forwardRef<
               <button
                 data-testid={
                   credentialDialog === "password"
-                    ? phase1AdminTestId("password-reset")
+                    ? deploymentAdminTestId("password-reset")
                     : credentialDialog === "totp"
-                      ? phase1AdminTestId("totp-reset")
-                      : phase1AdminTestId("revoke-all")
+                      ? deploymentAdminTestId("totp-reset")
+                      : deploymentAdminTestId("revoke-all")
                 }
                 disabled={
                   credentialDialog === "revoke"
@@ -1924,7 +1932,7 @@ export const DeploymentUsersPanel = forwardRef<
 
       <p
         aria-live="polite"
-        data-testid={phase1AdminTestId("status")}
+        data-testid={deploymentAdminTestId("status")}
         role="status"
         style={statusTextStyle}
       >
@@ -1932,7 +1940,7 @@ export const DeploymentUsersPanel = forwardRef<
       </p>
       <p
         aria-live="assertive"
-        data-testid={phase1ErrorCodeTestId("admin")}
+        data-testid={publicErrorCodeTestId("admin")}
         role={error === null ? undefined : "alert"}
         style={errorStyle}
       >
@@ -1940,7 +1948,7 @@ export const DeploymentUsersPanel = forwardRef<
       </p>
       <PublicErrorSummary
         error={error}
-        testIds={phase1ErrorSummaryTestIds("admin")}
+        testIds={publicErrorSummaryTestIds("admin")}
       />
     </section>
   );

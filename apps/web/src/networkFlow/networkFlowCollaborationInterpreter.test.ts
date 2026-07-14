@@ -6,6 +6,7 @@ describe("interpretNetworkFlowCollaborationMessage", () => {
     expect(
       interpretNetworkFlowCollaborationMessage({
         type: "extension_resource_changed",
+        stream_seq: 1,
         payload: {
           extension_profile_id: "network_flow_activity",
           resource_kind: "network_flow_table",
@@ -22,6 +23,7 @@ describe("interpretNetworkFlowCollaborationMessage", () => {
     expect(
       interpretNetworkFlowCollaborationMessage({
         type: "extension_resource_changed",
+        stream_seq: 1,
         payload: {
           extension_profile_id: "another_profile",
           resource_kind: "network_flow_table",

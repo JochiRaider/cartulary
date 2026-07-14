@@ -21,6 +21,11 @@ const mappingFingerprint =
   "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const graphDigest =
   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const incidentResourceId = "11111111-1111-4111-8111-111111111111";
+const sourceDigest =
+  "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+const sourceRowDigest =
+  "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
 
 describe("NetworkAnalysisWorkspace", () => {
   afterEach(() => {
@@ -129,6 +134,12 @@ function installNetworkFlowFetchMock(options: { tables?: unknown[] } = {}) {
           network_flow_table_id: tableId,
           rows: [rowResource()],
           meta: {
+            query: {
+              filters: [],
+              sort: [],
+              effective_sort: [],
+              table_ids: [tableId],
+            },
             paging: {
               limit: 50,
               returned_count: 1,
@@ -175,12 +186,21 @@ function installNetworkFlowFetchMock(options: { tables?: unknown[] } = {}) {
           binding: {
             network_flow_indicator_binding_id:
               "nfb_33333333333333333333333333333333",
+            incident_id: incidentResourceId,
             target_indicator_ref: {
               indicator_id: "44444444-4444-4444-8444-444444444444",
               indicator_type: "ipv4_addr",
+              value_kind: "atomic",
               normalized_value: "192.0.2.10",
             },
+            selector_kind: "graph_edge",
+            candidate_value: "192.0.2.10",
+            source_row_refs: [rowRefResource()],
+            source_row_refs_truncated: false,
             source_row_refs_total_count: 1,
+            created_observation_refs: [],
+            created_by_user_id: "user-1",
+            created_at: "2026-07-10T12:00:00Z",
           },
         });
       }
@@ -194,17 +214,26 @@ function installNetworkFlowFetchMock(options: { tables?: unknown[] } = {}) {
 function tableResource() {
   return {
     network_flow_table_id: tableId,
-    incident_id: "incident-1",
+    incident_id: incidentResourceId,
     display_name: "flows.csv",
     table_version: 1,
     table_status: "active",
+    source_import_session_id: "import-session-1",
+    source_import_unit_id: "import-unit-1",
+    source_content_sha256: sourceDigest,
     source_filename_display: "flows.csv",
+    source_filename_digest: sourceDigest,
+    source_filename_digest_key_id: "filename-key-1",
     mapping_fingerprint: mappingFingerprint,
+    source_profile_id: "cisco_sna_netflow_csv_v1",
+    parser_profile_id: "rfc4180_headered_csv_v1",
     row_count_accepted: 1,
     row_count_rejected: 0,
     diagnostics_truncated: false,
+    created_by_user_id: "user-1",
     created_at: "2026-07-10T12:00:00Z",
     updated_at: "2026-07-10T12:00:00Z",
+    deleted_at: null,
   };
 }
 
@@ -221,8 +250,10 @@ function rowResource() {
   return {
     network_flow_row_id: rowId,
     network_flow_table_id: tableId,
-    incident_id: "incident-1",
+    incident_id: incidentResourceId,
     source_row_number: 2,
+    source_row_digest_sha256: sourceRowDigest,
+    normalized_row_digest_sha256: sourceRowDigest,
     mapping_fingerprint: mappingFingerprint,
     "network_flow.flow_start_utc": "2026-07-10T12:00:00Z",
     "network_flow.flow_end_utc": "2026-07-10T12:00:05Z",
@@ -236,7 +267,21 @@ function rowResource() {
     "network_flow.exporter_id": null,
     "network_flow.input_interface": "Gi0/1",
     "network_flow.output_interface": "Gi0/2",
+    "network_flow.tcp_flags": null,
     "network_flow.application_label": null,
+    unmapped_raw: {},
+    "network_flow.observation_source_ref": {
+      import_session_id: "import-session-1",
+      import_unit_id: "import-unit-1",
+      source_content_sha256: sourceDigest,
+      source_profile_id: "cisco_sna_netflow_csv_v1",
+      parser_profile_id: "rfc4180_headered_csv_v1",
+      mapping_fingerprint: mappingFingerprint,
+      source_row_number: 2,
+      source_row_digest_sha256: sourceRowDigest,
+    },
+    created_at: "2026-07-10T12:00:00Z",
+    created_by_user_id: "user-1",
   };
 }
 
@@ -272,8 +317,19 @@ function graphResource() {
       projection_version: "v1",
       generated_at: "2026-05-30T00:00:00Z",
       properties: {},
-      metadata: {},
-      schema_registry: {},
+      metadata: {
+        previous_projection_run_id: null,
+        projection_config_digest: graphDigest,
+        projection_source_digest: sourceDigest,
+        mapped_metadata: {},
+        invalidation: null,
+      },
+      schema_registry: {
+        vertex_kinds: [],
+        edge_kinds: [],
+        property_keys: [],
+        metadata_keys: [],
+      },
       vertices: [],
       edges: [],
       validation_summary: {
@@ -284,7 +340,16 @@ function graphResource() {
         info_count: 0,
         issues: [],
       },
-      consumer_capabilities: {},
+      consumer_capabilities: {
+        query_shapes: [],
+        supports_direct_vertex_lookup: false,
+        supports_direct_edge_lookup: false,
+        supports_breadth_first_traversal: false,
+        supports_alternate_traversal_order: [],
+        max_traversal_depth: 0,
+        max_traversal_seed_vertices: 0,
+        max_kind_filters: 0,
+      },
     },
     edge_annotations: [
       {

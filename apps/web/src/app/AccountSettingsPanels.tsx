@@ -1,4 +1,4 @@
-import { phase1AccountTestId } from "@cartulary/ui-contracts";
+import { accountTestId } from "@cartulary/ui-contracts";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -90,7 +90,7 @@ export function AccountProfilePanel({
         <div>
           <span style={definitionLabelStyle}>Email</span>
           <div
-            data-testid={phase1AccountTestId("profile-email")}
+            data-testid={accountTestId("profile-email")}
             id="account-profile-email"
             style={definitionValueStyle}
           >
@@ -100,7 +100,7 @@ export function AccountProfilePanel({
         <label htmlFor="account-profile-display-name" style={labelBlockStyle}>
           Display name
           <input
-            data-testid={phase1AccountTestId("profile-display-name")}
+            data-testid={accountTestId("profile-display-name")}
             id="account-profile-display-name"
             style={inputStyle}
             value={displayName}
@@ -110,7 +110,7 @@ export function AccountProfilePanel({
           />
         </label>
         <button
-          data-testid={phase1AccountTestId("profile-save")}
+          data-testid={accountTestId("profile-save")}
           disabled={profile === null}
           style={primaryButtonStyle}
           type="button"
@@ -234,7 +234,7 @@ export function AccountAppearancePanel({
         <label htmlFor="account-density-mode" style={labelBlockStyle}>
           Density
           <select
-            data-testid={phase1AccountTestId("appearance-density-mode")}
+            data-testid={accountTestId("appearance-density-mode")}
             id="account-density-mode"
             style={inputStyle}
             value={densityMode}
@@ -249,7 +249,7 @@ export function AccountAppearancePanel({
           </select>
         </label>
         <button
-          data-testid={phase1AccountTestId("appearance-save")}
+          data-testid={accountTestId("appearance-save")}
           disabled={preferences === null}
           style={primaryButtonStyle}
           type="button"

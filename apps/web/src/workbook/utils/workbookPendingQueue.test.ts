@@ -726,6 +726,21 @@ describe("FE-U-P4-01 pending queue unit model", () => {
     authQueue.resumeAfterAuthRecovery();
     expect(authQueue.dispatchNext()?.unit.clientTxnId).toBe("txn-session");
 
+    const closedIncidentQueue = createQueue();
+    expectAccepted(
+      closedIncidentQueue.admit(
+        patchUnit({
+          clientTxnId: "txn-closed-incident",
+          recordId: "record-closed-incident",
+          order: 1,
+        }),
+      ),
+    );
+    closedIncidentQueue.pauseForTerminalLifecycle();
+    closedIncidentQueue.resumeAfterAuthRecovery();
+    expect(closedIncidentQueue.snapshot().queuedCount).toBe(1);
+    expect(closedIncidentQueue.dispatchNext()).toBeNull();
+
     const recreatedPageInstance = createQueue();
     expect(recreatedPageInstance.snapshot().units).toHaveLength(0);
     expect(recreatedPageInstance.snapshot().primarySaveStateInput).toBe(

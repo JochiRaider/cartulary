@@ -21,6 +21,7 @@ import {
   clipboardGridDimensions,
   clipboardTextLooksTabular,
 } from "../../utils/workbookClipboard";
+import type { TimelinePasteTargetResolution } from "../models/timelineControllerPorts";
 import {
   inputFocusKey,
   timelineFieldBinding,
@@ -31,11 +32,6 @@ import {
 
 type TimelineReadonlyRef<T> = {
   readonly current: T;
-};
-
-export type TimelinePasteTargetResolution = {
-  readonly anchor: GridCellAnchor | null;
-  readonly targetResolution: GridPasteTargetResolution;
 };
 
 function timelineClipboardShouldDispatchTabular(

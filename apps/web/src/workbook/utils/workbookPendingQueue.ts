@@ -1021,6 +1021,7 @@ export class WorkbookPendingQueueModel {
   private units: PendingReplayUnitState[] = [];
   private halted: PendingReplayHalt | null = null;
   private authPaused = false;
+  private terminalReplayPaused = false;
   private overflow: PendingReplayOverflow | null = null;
   private readonly sameFieldConflicts: PendingReplaySameFieldConflict[] = [];
 
@@ -1070,6 +1071,7 @@ export class WorkbookPendingQueueModel {
   private isReplayBlocked(): boolean {
     return (
       this.authPaused ||
+      this.terminalReplayPaused ||
       this.halted !== null ||
       this.sameFieldConflicts.length > 0 ||
       this.units.some((unit) => unit.status === "in_flight")
@@ -1287,11 +1289,20 @@ export class WorkbookPendingQueueModel {
   }
 
   resumeAfterAuthRecovery(): PendingQueueSnapshot {
-    this.authPaused = false;
+    if (!this.terminalReplayPaused) {
+      this.authPaused = false;
+    }
     return this.snapshot();
   }
 
   pauseForAuthRecovery(): PendingQueueSnapshot {
+    this.authPaused = true;
+    this.halted = null;
+    return this.snapshot();
+  }
+
+  pauseForTerminalLifecycle(): PendingQueueSnapshot {
+    this.terminalReplayPaused = true;
     this.authPaused = true;
     this.halted = null;
     return this.snapshot();

@@ -7,19 +7,9 @@ import {
 import type { EntityApiRow } from "../timeline/models/workbookTimelineModel";
 import { stringifyGridValue } from "../utils/workbookValueFormat";
 import {
-  commLogViewSchemaId,
-  decisionsViewSchemaId,
-  evidenceViewSchemaId,
-  findingsViewSchemaId,
-  forensicKeywordsViewSchemaId,
-  handoffViewSchemaId,
-  investigativeQueriesViewSchemaId,
-  lessonViewSchemaId,
-  notesViewSchemaId,
-  partiesViewSchemaId,
-  statusReviewViewSchemaId,
-  taskRequestsViewSchemaId,
-} from "./workbookSurfaceRegistry";
+  listWorkbookSurfaceRegistrations,
+  requireWorkbookSurfaceRegistration,
+} from "./workbookSurfaceRegistration";
 
 export type GenericCollectionMode = "add" | "remove";
 
@@ -81,7 +71,12 @@ export function buildGenericCreatePayload(
       if (value === "") {
         continue;
       }
-      const actionPayload = buildGenericCollectionActions(field, value, "add");
+      const actionPayload = buildGenericCollectionActions(
+        contract.viewSchemaId,
+        field,
+        value,
+        "add",
+      );
       if (actionPayload !== null) {
         payload[field.fieldKey] = actionPayload;
       }
@@ -107,10 +102,12 @@ export function buildGenericPatchChange(
   field: ViewFieldContract,
   rawValue: string,
   collectionMode: GenericCollectionMode = "add",
+  viewSchemaId?: string,
 ): Record<string, unknown> | null {
   const value = normalizeValue(rawValue);
   if (field.writeKind === "action_payload") {
     const actionPayload = buildGenericCollectionActions(
+      viewSchemaId ?? viewSchemaIdForField(field.fieldKey),
       field,
       value,
       collectionMode,
@@ -159,6 +156,7 @@ function genericDirectPayloadValue(
 }
 
 function buildGenericCollectionActions(
+  viewSchemaId: string,
   field: ViewFieldContract,
   rawValue: string,
   mode: GenericCollectionMode,
@@ -167,26 +165,27 @@ function buildGenericCollectionActions(
   if (tokens.length === 0) {
     return null;
   }
+  const actionKind =
+    requireWorkbookSurfaceRegistration(viewSchemaId).policy.collectionActions[
+      field.fieldKey
+    ] ?? "record";
   const actions = tokens.map((value) => {
-    if (field.fieldKey === "note.tags") {
+    if (actionKind === "tag") {
       return mode === "remove"
         ? { op: "remove_tag", item_ref: value }
         : { op: "add_tag", tag_name: value };
     }
-    if (
-      field.fieldKey === "host.aliases" ||
-      field.fieldKey === "identity.aliases"
-    ) {
+    if (actionKind === "alias") {
       return mode === "remove"
         ? { op: "remove_alias", item_ref: value }
         : { op: "add_alias", alias_text: value };
     }
-    if (isPartyRefCollection(field.fieldKey)) {
+    if (actionKind === "party") {
       return mode === "remove"
         ? { op: "remove_party_ref", item_ref: value }
         : { op: "add_party_ref", party_id: value };
     }
-    if (field.fieldKey === "handoff.open_risk_refs") {
+    if (actionKind === "risk") {
       return mode === "remove"
         ? { op: "remove_risk_ref", item_ref: value }
         : { op: "add_risk_ref", risk_ref_text: value };
@@ -196,6 +195,18 @@ function buildGenericCollectionActions(
       : { op: "add_record_ref", linked_record_id: value };
   });
   return { kind: "collection_actions_v1", actions };
+}
+
+function viewSchemaIdForField(fieldKey: string): string {
+  const registrations = listWorkbookSurfaceRegistrations().filter(
+    (entry) => entry.contract.fieldMap[fieldKey] !== undefined,
+  );
+  if (registrations.length !== 1) {
+    throw new Error(
+      `Cannot determine workbook policy for field ${fieldKey}; pass view_schema_id explicitly`,
+    );
+  }
+  return registrations[0]?.viewSchemaId ?? "";
 }
 
 export function splitDraftValues(rawValue: string): string[] {
@@ -222,55 +233,15 @@ export function workbookCreateMinimumSatisfied(
     typeof contractOrViewSchemaId === "string"
       ? contractOrViewSchemaId
       : contractOrViewSchemaId.viewSchemaId;
-  switch (viewSchemaId) {
-    case partiesViewSchemaId:
-      return has("party.display_name") && has("party.party_kind");
-    case notesViewSchemaId:
-      return has("note.title") || has("note.body");
-    case taskRequestsViewSchemaId:
-      return has("task.title") && has("task.task_kind");
-    case decisionsViewSchemaId:
-      return (
-        has("decision.summary") &&
-        has("decision.decision_type") &&
-        has("decision.rationale")
-      );
-    case evidenceViewSchemaId:
-      return (
-        has("evidence.title") ||
-        has("evidence.storage_ref") ||
-        has("evidence.collector_party_text") ||
-        has("evidence.source_party_text")
-      );
-    case commLogViewSchemaId:
-      return (
-        has("comm_log.comm_type") &&
-        has("comm_log.audience") &&
-        has("comm_log.channel_or_meeting") &&
-        has("comm_log.summary")
-      );
-    case handoffViewSchemaId:
-      return (
-        has("handoff.incoming_owner_user_id") &&
-        has("handoff.current_state_summary")
-      );
-    case statusReviewViewSchemaId:
-      return has("status_review.current_state_summary");
-    case lessonViewSchemaId:
-      return has("lesson.summary");
-    case findingsViewSchemaId:
-      return has("finding.statement");
-    case investigativeQueriesViewSchemaId:
-      return (
-        has("investigative_query.platform") &&
-        has("investigative_query.purpose") &&
-        has("investigative_query.query_text")
-      );
-    case forensicKeywordsViewSchemaId:
-      return has("forensic_keyword.pattern") && has("forensic_keyword.reason");
-    default:
-      return Object.values(draft).some((value) => normalizeValue(value) !== "");
+  const fieldSets =
+    requireWorkbookSurfaceRegistration(viewSchemaId).policy
+      .createMinimumFieldSets;
+  if (fieldSets.length === 0) {
+    return Object.values(draft).some((value) => normalizeValue(value) !== "");
   }
+  return fieldSets.some((fieldSet) =>
+    fieldSet.every((fieldKey) => has(fieldKey)),
+  );
 }
 
 export function initialGenericCreateDraft(
@@ -278,40 +249,27 @@ export function initialGenericCreateDraft(
   currentUserId: string | null,
 ): Record<string, string> {
   const draft: Record<string, string> = {};
+  const policy = requireWorkbookSurfaceRegistration(
+    contract.viewSchemaId,
+  ).policy;
+  Object.assign(draft, policy.createDefaults);
   for (const field of contract.fields) {
     if (field.writeKind === "read_only") {
       continue;
     }
     if (
       currentUserId &&
-      (field.fieldKey === "task.owner_user_id" ||
-        field.fieldKey === "decision.owner_user_id" ||
-        field.fieldKey === "finding.owner_user_id" ||
-        field.fieldKey === "status_review.review_owner_user_id" ||
-        field.fieldKey === "lesson.owner_user_id")
+      policy.currentUserDefaultFields.includes(field.fieldKey)
     ) {
       draft[field.fieldKey] = currentUserId;
-    }
-    if (field.fieldKey === "finding.kind") {
-      draft[field.fieldKey] = "finding";
-    }
-    if (field.fieldKey === "finding.state") {
-      draft[field.fieldKey] = "open";
-    }
-    if (field.fieldKey === "forensic_keyword.match_mode") {
-      draft[field.fieldKey] = "literal";
-    }
-    if (field.fieldKey === "forensic_keyword.case_sensitive") {
-      draft[field.fieldKey] = "false";
     }
   }
   return draft;
 }
 
 export function isPartyRefCollection(fieldKey: string): boolean {
-  return (
-    fieldKey === "comm_log.audience_party_ids" ||
-    fieldKey === "comm_log.attendee_party_ids"
+  return listWorkbookSurfaceRegistrations().some(
+    (entry) => entry.policy.collectionActions[fieldKey] === "party",
   );
 }
 
@@ -361,7 +319,8 @@ export function genericCellLabelForField(
   value: unknown,
 ): string {
   if (
-    surface === evidenceViewSchemaId &&
+    requireWorkbookSurfaceRegistration(surface).policy.capabilities
+      .evidenceLifecycle === true &&
     fieldKey === "evidence.storage_ref" &&
     typeof value === "string" &&
     /^object:\/\/[0-9a-f-]+$/iu.test(value.trim())
@@ -395,34 +354,8 @@ export function collectionItemLabels(items: readonly unknown[]): string[] {
 }
 
 export function genericCreateMinimumMessage(viewSchemaId: string): string {
-  switch (viewSchemaId) {
-    case partiesViewSchemaId:
-      return "Display name and kind are required.";
-    case notesViewSchemaId:
-      return "Title or body is required.";
-    case taskRequestsViewSchemaId:
-      return "Title and task kind are required.";
-    case decisionsViewSchemaId:
-      return "Summary, decision type, and rationale are required.";
-    case evidenceViewSchemaId:
-      return "Evidence needs a title, storage ref, collector, or source.";
-    case commLogViewSchemaId:
-      return "Type, audience, channel or meeting, and summary are required.";
-    case handoffViewSchemaId:
-      return "Incoming owner and current state summary are required.";
-    case statusReviewViewSchemaId:
-      return "Current state summary is required.";
-    case lessonViewSchemaId:
-      return "Summary is required.";
-    case findingsViewSchemaId:
-      return "Statement is required.";
-    case investigativeQueriesViewSchemaId:
-      return "Platform, purpose, and query text are required.";
-    case forensicKeywordsViewSchemaId:
-      return "Pattern and reason are required.";
-    default:
-      return "At least one value is required.";
-  }
+  return requireWorkbookSurfaceRegistration(viewSchemaId).policy
+    .createMinimumMessage;
 }
 
 export function genericReferenceOptionsFromRows(

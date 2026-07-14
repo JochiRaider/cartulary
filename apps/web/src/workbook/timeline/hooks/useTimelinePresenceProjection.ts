@@ -4,7 +4,7 @@ import {
   type PresenceRecord,
   presenceMatchesSheet,
 } from "../../utils/workbookPresence";
-import type { TimelinePresenceDraft } from "./useTimelineLiveUpdates";
+import type { TimelinePresenceDraft } from "../services/workbookCollaborationMessages";
 
 type TimelineMutableRef<T> = {
   current: T;

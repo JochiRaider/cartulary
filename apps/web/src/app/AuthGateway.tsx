@@ -1,7 +1,7 @@
 import {
-  phase1AuthTestId,
-  phase1ErrorCodeTestId,
-  phase1ErrorSummaryTestIds,
+  authTestId,
+  publicErrorCodeTestId,
+  publicErrorSummaryTestIds,
 } from "@cartulary/ui-contracts";
 import { Eye, EyeOff } from "lucide-react";
 import { type FormEvent, useEffect, useReducer, useRef } from "react";
@@ -781,7 +781,7 @@ export function AuthGateway({
       data-reading-profile={
         readingProfile === "hyperlegible" ? "hyperlegible" : undefined
       }
-      data-testid={phase1AuthTestId("shell")}
+      data-testid={authTestId("shell")}
     >
       <style>{authGatewayStyleText}</style>
       <section className="cartulary-auth-identity" aria-label="Cartulary">
@@ -802,7 +802,7 @@ export function AuthGateway({
           </h1>
           <p
             className="cartulary-auth-support"
-            data-testid={phase1AuthTestId("shell-message")}
+            data-testid={authTestId("shell-message")}
           >
             {supportText}
           </p>
@@ -831,7 +831,7 @@ export function AuthGateway({
                   <span className="cartulary-auth-detail-label">
                     Setup token
                   </span>
-                  <div data-testid={phase1AuthTestId("bootstrap-token")}>
+                  <div data-testid={authTestId("bootstrap-token")}>
                     Stored for TOTP setup requests.
                   </div>
                 </div>
@@ -841,7 +841,7 @@ export function AuthGateway({
                   </span>
                   <div
                     className="cartulary-auth-mono"
-                    data-testid={phase1AuthTestId("bootstrap-enrollment-id")}
+                    data-testid={authTestId("bootstrap-enrollment-id")}
                   >
                     {state.bootstrapEnrollmentId}
                   </div>
@@ -852,7 +852,7 @@ export function AuthGateway({
                   </span>
                   <div
                     className="cartulary-auth-mono"
-                    data-testid={phase1AuthTestId("bootstrap-secret-base32")}
+                    data-testid={authTestId("bootstrap-secret-base32")}
                   >
                     {state.bootstrapSecretBase32}
                   </div>
@@ -862,7 +862,7 @@ export function AuthGateway({
                 ref={bootstrapBeginRef}
                 aria-disabled={state.setupAction !== "idle"}
                 className="cartulary-auth-primary-button"
-                data-testid={phase1AuthTestId("bootstrap-begin")}
+                data-testid={authTestId("bootstrap-begin")}
                 disabled={state.setupAction !== "idle"}
                 type="button"
                 onClick={() => {
@@ -889,7 +889,7 @@ export function AuthGateway({
                     state.fieldErrors.bootstrapCompleteCode ? true : undefined
                   }
                   autoComplete="one-time-code"
-                  data-testid={phase1AuthTestId("bootstrap-complete-code")}
+                  data-testid={authTestId("bootstrap-complete-code")}
                   id="auth-bootstrap-complete-code"
                   inputMode="numeric"
                   maxLength={6}
@@ -920,7 +920,7 @@ export function AuthGateway({
                   state.bootstrapEnrollmentId === ""
                 }
                 className="cartulary-auth-primary-button"
-                data-testid={phase1AuthTestId("bootstrap-complete")}
+                data-testid={authTestId("bootstrap-complete")}
                 disabled={
                   state.setupAction !== "idle" ||
                   state.bootstrapEnrollmentId === ""
@@ -964,7 +964,7 @@ export function AuthGateway({
                   }
                   aria-invalid={state.fieldErrors.username ? true : undefined}
                   autoComplete="username"
-                  data-testid={phase1AuthTestId("login-username")}
+                  data-testid={authTestId("login-username")}
                   id="auth-login-username"
                   type="email"
                   value={state.username}
@@ -1002,7 +1002,7 @@ export function AuthGateway({
                     }
                     aria-invalid={state.fieldErrors.password ? true : undefined}
                     autoComplete="current-password"
-                    data-testid={phase1AuthTestId("login-password")}
+                    data-testid={authTestId("login-password")}
                     id="auth-login-password"
                     type={state.passwordVisible ? "text" : "password"}
                     value={state.password}
@@ -1060,7 +1060,7 @@ export function AuthGateway({
                         state.fieldErrors.totpCode ? true : undefined
                       }
                       autoComplete="one-time-code"
-                      data-testid={phase1AuthTestId("login-totp-code")}
+                      data-testid={authTestId("login-totp-code")}
                       id="auth-login-totp-code"
                       inputMode="numeric"
                       maxLength={6}
@@ -1092,7 +1092,7 @@ export function AuthGateway({
                 aria-busy={state.submitting ? true : undefined}
                 aria-disabled={!canSubmit}
                 className="cartulary-auth-primary-button"
-                data-testid={phase1AuthTestId("login-submit")}
+                data-testid={authTestId("login-submit")}
                 disabled={!canSubmit}
                 type="submit"
               >
@@ -1113,13 +1113,13 @@ export function AuthGateway({
               <p className="cartulary-auth-enterprise-label">
                 Enterprise sign-in
               </p>
-              <div data-testid={phase1AuthTestId("enterprise-provider-list")}>
+              <div data-testid={authTestId("enterprise-provider-list")}>
                 {state.enterpriseProviders.map((provider) => (
                   <button
                     key={provider.provider_key}
                     className="cartulary-auth-secondary-button"
                     data-provider-key={provider.provider_key}
-                    data-testid={phase1AuthTestId("enterprise-provider-button")}
+                    data-testid={authTestId("enterprise-provider-button")}
                     disabled={
                       state.enterprisePendingProviderKey !== null &&
                       state.enterprisePendingProviderKey !==
@@ -1140,7 +1140,7 @@ export function AuthGateway({
           <p
             aria-live="polite"
             className="cartulary-auth-visually-hidden"
-            data-testid={phase1AuthTestId("status")}
+            data-testid={authTestId("status")}
             role="status"
           >
             {statusText}
@@ -1149,7 +1149,7 @@ export function AuthGateway({
             aria-live={authLivePoliteness}
             className="cartulary-auth-visually-hidden"
             data-error-code={activeErrorCode}
-            data-testid={phase1ErrorCodeTestId("auth")}
+            data-testid={publicErrorCodeTestId("auth")}
             role={authLiveRole}
           >
             {authAlertText}
@@ -1157,13 +1157,13 @@ export function AuthGateway({
           <div
             className="cartulary-auth-visually-hidden"
             data-error-code={activeErrorCode}
-            data-testid={phase1ErrorSummaryTestIds("auth").container}
+            data-testid={publicErrorSummaryTestIds("auth").container}
             role={authLiveRole}
           >
-            <p data-testid={phase1ErrorSummaryTestIds("auth").message}>
+            <p data-testid={publicErrorSummaryTestIds("auth").message}>
               {authAlertText}
             </p>
-            <p data-testid={phase1ErrorSummaryTestIds("auth").details} />
+            <p data-testid={publicErrorSummaryTestIds("auth").details} />
           </div>
         </div>
       </section>

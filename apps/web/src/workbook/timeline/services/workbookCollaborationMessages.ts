@@ -42,24 +42,6 @@ export type WorkbookPresenceUpdateMessage = {
   };
 };
 
-export type WorkbookSocketSessionMessage =
-  | {
-      readonly type: "hello";
-      readonly payload: {
-        readonly client_instance_id: string;
-        readonly presence: WorkbookPresenceInput;
-      };
-    }
-  | {
-      readonly type: "resume";
-      readonly payload: {
-        readonly client_instance_id: string;
-        readonly last_seen_stream_seq: number;
-        readonly presence: WorkbookPresenceInput;
-        readonly resume_token: string;
-      };
-    };
-
 type MentionActionMentionLike = {
   mentionRowVersion: number | null;
 };
@@ -104,39 +86,6 @@ export function buildWorkbookPresenceUpdateMessage(
   return {
     type: "presence_update",
     payload: {
-      presence: buildWorkbookPresenceInput(presence, sheetRef),
-    },
-  };
-}
-
-export function buildWorkbookSocketSessionMessage({
-  clientInstanceId,
-  lastSeenStreamSeq,
-  presence,
-  resumeToken,
-  sheetRef,
-}: {
-  readonly clientInstanceId: string;
-  readonly lastSeenStreamSeq: number;
-  readonly presence: TimelinePresenceDraft;
-  readonly resumeToken: string | null;
-  readonly sheetRef: WorkbookSheetRef;
-}): WorkbookSocketSessionMessage {
-  if (resumeToken) {
-    return {
-      type: "resume",
-      payload: {
-        client_instance_id: clientInstanceId,
-        resume_token: resumeToken,
-        last_seen_stream_seq: lastSeenStreamSeq,
-        presence: buildWorkbookPresenceInput(presence, sheetRef),
-      },
-    };
-  }
-  return {
-    type: "hello",
-    payload: {
-      client_instance_id: clientInstanceId,
       presence: buildWorkbookPresenceInput(presence, sheetRef),
     },
   };

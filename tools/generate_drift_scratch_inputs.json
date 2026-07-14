@@ -17,6 +17,7 @@
     "go.mod",
     "go.sum",
     "tools/otel/generate-otel-contracts.mjs",
+    "tools/protocol-ts",
     "tools/harness",
     "docs/design.md",
     "tools/execution_topology_manifest.json",

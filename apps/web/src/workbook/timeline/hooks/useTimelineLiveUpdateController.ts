@@ -4,27 +4,28 @@ import {
   useCallback,
   useEffect,
 } from "react";
+import { useIncidentCollaborationSession } from "../../../collaboration/IncidentCollaborationSession";
 import type { WorkbookSheetRef } from "../../models/workbookStartup";
 import {
   isPresenceRecord,
   type PresenceRecord,
 } from "../../utils/workbookPresence";
+import type {
+  PendingReplayRuntimeMeta,
+  TimelineLiveUpdateRefs,
+} from "../models/timelineControllerPorts";
+import type {
+  TimelinePendingRefreshBlockScope,
+  TimelinePendingSavesRefs,
+} from "../models/timelinePendingReplayModel";
 import {
-  buildWorkbookPresenceUpdateMessage,
-  buildWorkbookSocketSessionMessage,
+  buildWorkbookPresenceInput,
   isRecordChangedMessage,
   type RecordChangedPayload,
   shouldIgnoreSelfOriginatedRecordChange,
   type TimelinePresenceDraft,
 } from "../services/workbookCollaborationMessages";
 import type { WorkbookSocketLifecycleEffect } from "../services/workbookSocketLifecycle";
-import type { TimelineLiveUpdateRefs } from "./useTimelineLiveUpdates";
-import type { PendingReplayRuntimeMeta } from "./useTimelinePendingReplayController";
-import {
-  ensureTimelineTabClientInstanceId,
-  type TimelinePendingRefreshBlockScope,
-  type TimelinePendingSavesRefs,
-} from "./useTimelinePendingSaves";
 
 type TimelineMutableRef<T> = {
   current: T;
@@ -41,35 +42,23 @@ type TimelineLiveUpdateViewportContinuityTarget =
   | { kind: "input"; focusKey: string }
   | { kind: "scroll-only" };
 
-function socketIsOpen(socket: WebSocket) {
-  return socket.readyState === WebSocket.OPEN;
-}
-
-function websocketPath(base: string | undefined, path: string): string {
-  const trimmedBase = (base ?? "").trim();
-  if (trimmedBase === "") {
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    return `${protocol}//${window.location.host}${path}`;
+function recordValue(value: unknown): Record<string, unknown> {
+  if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
   }
-
-  const target = new URL(trimmedBase);
-  target.protocol = target.protocol === "https:" ? "wss:" : "ws:";
-  target.pathname = path;
-  target.search = "";
-  target.hash = "";
-  return target.toString();
+  return {};
 }
 
 export function useTimelineLiveUpdateController({
   activeSheetRuntimeRef,
   advanceViewportContinuityRef,
-  apiBase,
+  apiBase: _apiBase,
   applyRecordChangedPatchRef,
   beginRefreshInFlightRef,
   beginViewportContinuityRef,
   currentPresence,
   finishRefreshInFlightRef,
-  incidentId,
+  incidentId: _incidentId,
   liveUpdateRefs,
   loadRowsRef,
   pendingSavesRefsRef,
@@ -113,50 +102,26 @@ export function useTimelineLiveUpdateController({
   readonly setPresenceRecords: Dispatch<SetStateAction<PresenceRecord[]>>;
   readonly setRefreshError: (message: string | null) => void;
 }) {
+  const { disconnect, publishPresence, reconnect, subscribe } =
+    useIncidentCollaborationSession();
   const {
-    activeSocketRef,
     currentPresenceRef,
     dispatchSocketLifecycleRef,
     presenceUpdateTimerRef,
-    socketEstablishedRef,
-    socketLastSeenStreamSeqRef,
-    socketLifecycleRef,
     socketReconnectAfterAuthRef,
-    socketResumeTokenRef,
   } = liveUpdateRefs;
 
   const sendPresenceUpdate = useCallback(
     (presence: TimelinePresenceDraft) => {
-      const target = activeSocketRef.current;
-      if (
-        target === null ||
-        !socketEstablishedRef.current ||
-        !socketIsOpen(target)
-      ) {
-        return;
-      }
-      target.send(
-        JSON.stringify(
-          buildWorkbookPresenceUpdateMessage(
-            presence,
-            activeSheetRuntimeRef.current,
-          ),
-        ),
+      publishPresence(
+        buildWorkbookPresenceInput(presence, activeSheetRuntimeRef.current),
       );
     },
-    [activeSheetRuntimeRef, activeSocketRef, socketEstablishedRef],
+    [activeSheetRuntimeRef, publishPresence],
   );
 
   useEffect(() => {
     currentPresenceRef.current = currentPresence;
-    const target = activeSocketRef.current;
-    if (
-      target === null ||
-      !socketEstablishedRef.current ||
-      !socketIsOpen(target)
-    ) {
-      return;
-    }
     if (presenceUpdateTimerRef.current !== null) {
       window.clearTimeout(presenceUpdateTimerRef.current);
     }
@@ -165,58 +130,14 @@ export function useTimelineLiveUpdateController({
       sendPresenceUpdate(currentPresenceRef.current);
     }, 150);
   }, [
-    activeSocketRef,
     currentPresence,
     currentPresenceRef,
     presenceUpdateTimerRef,
     sendPresenceUpdate,
-    socketEstablishedRef,
   ]);
 
   useEffect(() => {
-    if (incidentId.trim() === "") {
-      return;
-    }
-
-    let closed = false;
-    let socket: WebSocket | null = null;
-    let reconnectTimer: number | null = null;
-    const clientInstanceId = ensureTimelineTabClientInstanceId(
-      pendingSavesRefsRef.current.socketClientInstanceIdRef,
-    );
-    const changeSocketURL = websocketPath(
-      apiBase,
-      `/ws/v1/incidents/${incidentId}`,
-    );
-
-    const scheduleReconnect = () => {
-      if (
-        closed ||
-        reconnectTimer !== null ||
-        socketLifecycleRef.current.reconnectSuppressed
-      ) {
-        return;
-      }
-      reconnectTimer = window.setTimeout(() => {
-        reconnectTimer = null;
-        connect();
-      }, 1000);
-    };
-    socketReconnectAfterAuthRef.current = scheduleReconnect;
-
-    const sendSessionEstablishment = (target: WebSocket) => {
-      target.send(
-        JSON.stringify(
-          buildWorkbookSocketSessionMessage({
-            clientInstanceId,
-            lastSeenStreamSeq: socketLastSeenStreamSeqRef.current,
-            presence: currentPresenceRef.current,
-            resumeToken: socketResumeTokenRef.current,
-            sheetRef: activeSheetRuntimeRef.current,
-          }),
-        ),
-      );
-    };
+    socketReconnectAfterAuthRef.current = reconnect;
 
     const requestSocketLifecycleRefresh = (
       options: Omit<TimelineLiveUpdateLoadRowsOptions, "showLoading"> = {},
@@ -232,7 +153,6 @@ export function useTimelineLiveUpdateController({
 
     const applySocketLifecycleEffects = (
       effects: readonly WorkbookSocketLifecycleEffect[],
-      target: WebSocket,
     ) => {
       for (const effect of effects) {
         switch (effect.kind) {
@@ -246,14 +166,8 @@ export function useTimelineLiveUpdateController({
           case "schedule_auth_recovery_probe":
             scheduleAuthRecoveryProbeRef.current();
             break;
-          case "close_socket":
-            target.close();
-            break;
           case "request_refresh":
-            if (
-              effect.reason === "reset_required" ||
-              effect.reason === "sequence_gap"
-            ) {
+            if (effect.reason === "reset_required") {
               requestSocketLifecycleRefresh();
             }
             break;
@@ -262,8 +176,8 @@ export function useTimelineLiveUpdateController({
             publishPendingQueueStateRef.current();
             pendingSavesRefsRef.current.schedulePendingReplayRef.current();
             break;
+          case "close_socket":
           case "apply_record_change":
-          case "ignore_duplicate_sequence":
           case "suppress_reconnect":
             break;
         }
@@ -285,10 +199,10 @@ export function useTimelineLiveUpdateController({
     const applyPresenceDelta = (payload: Record<string, unknown>) => {
       const deltaKind = payload.delta_kind;
       const presence = payload.presence;
-      if (!presence || typeof presence !== "object") {
+      if (presence === null || typeof presence !== "object") {
         return;
       }
-      const candidate = presence as Record<string, unknown>;
+      const candidate = recordValue(presence);
       const connectionID = candidate.connection_id;
       if (typeof connectionID !== "string") {
         return;
@@ -306,85 +220,80 @@ export function useTimelineLiveUpdateController({
           ...candidate,
           sheet_ref: { ...candidate.sheet_ref },
         };
-        const withoutExisting = current.filter(
-          (record) => record.connection_id !== nextRecord.connection_id,
-        );
-        return [...withoutExisting, nextRecord];
+        return [
+          ...current.filter(
+            (record) => record.connection_id !== nextRecord.connection_id,
+          ),
+          nextRecord,
+        ];
       });
     };
 
-    const handleMessage = (target: WebSocket, raw: unknown) => {
-      if (!raw || typeof raw !== "object") {
-        return;
-      }
-      const message = raw as {
-        type?: string;
-        stream_seq?: number;
-        payload?: Record<string, unknown>;
-      };
-      if (message.type === "ping") {
-        target.send(JSON.stringify({ type: "pong", payload: {} }));
-        return;
-      }
-      if (message.type === "hello_ack" || message.type === "resume_ack") {
+    const unsubscribe = subscribe((event) => {
+      if (event.kind === "established") {
         const effects = dispatchSocketLifecycleRef.current({
           type: "session_ack",
-          messageType: message.type,
-          ...(message.payload === undefined
-            ? {}
-            : { payload: message.payload }),
+          messageType: event.messageType,
+          payload: { ...event.payload },
         });
-        applySocketLifecycleEffects(effects, target);
+        applySocketLifecycleEffects(effects);
         return;
       }
+      if (event.kind === "reset_required") {
+        if (event.reason === "sequence_gap") {
+          requestSocketLifecycleRefresh();
+        }
+        return;
+      }
+      if (
+        event.kind === "session_revoked" ||
+        event.kind === "authorization_lost"
+      ) {
+        setPresenceRecords([]);
+        const effects = dispatchSocketLifecycleRef.current({
+          type:
+            event.kind === "session_revoked"
+              ? "session_revoked"
+              : "authorization_closed",
+        });
+        applySocketLifecycleEffects(effects);
+        return;
+      }
+      if (event.kind === "incident_closed") {
+        setPresenceRecords([]);
+        setRefreshError(
+          "This incident is closed. Pending local work will not replay automatically.",
+        );
+        pendingSavesRefsRef.current.pendingQueueRef.current.model.pauseForTerminalLifecycle();
+        publishPendingQueueStateRef.current();
+        disconnect();
+        return;
+      }
+      const message = event.message;
       if (message.type === "presence_snapshot") {
-        applyPresenceSnapshot(message.payload ?? {});
+        applyPresenceSnapshot(recordValue(message.payload));
         return;
       }
       if (message.type === "presence_delta") {
-        applyPresenceDelta(message.payload ?? {});
-        return;
-      }
-      if (message.type === "session_revoked") {
-        const effects = dispatchSocketLifecycleRef.current({
-          type: "session_revoked",
-        });
-        applySocketLifecycleEffects(effects, target);
+        applyPresenceDelta(recordValue(message.payload));
         return;
       }
       if (
         shouldIgnoreSelfOriginatedRecordChange(
-          raw,
+          message,
           resolvePendingSocketTxnRef.current,
         )
       ) {
         return;
       }
-      if (!isRecordChangedMessage(raw)) {
+      if (!isRecordChangedMessage(message)) {
         return;
       }
-      const recordChangedPayload = message.payload as RecordChangedPayload;
-      const streamEffects = dispatchSocketLifecycleRef.current({
+      const recordChangedPayload = message.payload;
+      dispatchSocketLifecycleRef.current({
         type: "record_changed_received",
-        message: {
-          ...(typeof message.stream_seq === "number"
-            ? { stream_seq: message.stream_seq }
-            : {}),
-          payload: recordChangedPayload,
-        },
+        message: { payload: recordChangedPayload },
       });
-      for (const effect of streamEffects) {
-        if (effect.kind === "ignore_duplicate_sequence") {
-          return;
-        }
-        if (
-          effect.kind === "request_refresh" &&
-          effect.reason === "sequence_gap"
-        ) {
-          applySocketLifecycleEffects([effect], target);
-          return;
-        }
-      }
       const viewportContinuityToken = beginViewportContinuityRef.current({
         kind: "scroll-only",
       });
@@ -405,95 +314,41 @@ export function useTimelineLiveUpdateController({
         )
       ) {
         requestSocketLifecycleRefresh(
-          {
-            viewportContinuityToken,
-          },
+          { viewportContinuityToken },
           { kind: "record", recordId: recordChangedPayload.record_id },
         );
       }
-    };
-
-    const connect = () => {
-      if (closed) {
-        return;
-      }
-      socket = new WebSocket(changeSocketURL);
-      activeSocketRef.current = socket;
-      dispatchSocketLifecycleRef.current({ type: "socket_connecting" });
-      socket.onopen = () => {
-        if (socket) {
-          sendSessionEstablishment(socket);
-        }
-      };
-      socket.onmessage = (event) => {
-        if (!socket) {
-          return;
-        }
-        handleMessage(socket, JSON.parse(event.data) as unknown);
-      };
-      socket.onclose = (event) => {
-        if (
-          event.code === 1008 &&
-          (event.reason === "session_revoked" ||
-            event.reason === "authorization_denied")
-        ) {
-          const effects = dispatchSocketLifecycleRef
-            .current({
-              type: "authorization_closed",
-            })
-            .filter((effect) => effect.kind !== "close_socket");
-          applySocketLifecycleEffects(effects, socket as WebSocket);
-        }
-        scheduleReconnect();
-      };
-      socket.onerror = () => {
-        socket?.close();
-      };
-    };
-
-    connect();
+    });
 
     return () => {
-      closed = true;
-      if (reconnectTimer !== null) {
-        window.clearTimeout(reconnectTimer);
-      }
+      unsubscribe();
       if (presenceUpdateTimerRef.current !== null) {
         window.clearTimeout(presenceUpdateTimerRef.current);
         presenceUpdateTimerRef.current = null;
       }
-      activeSocketRef.current = null;
       socketReconnectAfterAuthRef.current = null;
       dispatchSocketLifecycleRef.current({ type: "socket_connecting" });
-      socket?.close();
     };
   }, [
-    activeSheetRuntimeRef,
-    activeSocketRef,
     advanceViewportContinuityRef,
-    apiBase,
     applyRecordChangedPatchRef,
     beginRefreshInFlightRef,
     beginViewportContinuityRef,
-    currentPresenceRef,
+    disconnect,
     dispatchSocketLifecycleRef,
     finishRefreshInFlightRef,
-    incidentId,
     loadRowsRef,
     pendingSavesRefsRef,
+    presenceUpdateTimerRef,
     publishPendingQueueStateRef,
+    reconnect,
     resolvePendingSocketTxnRef,
     scheduleAuthRecoveryProbeRef,
     setPresenceRecords,
     setRefreshError,
-    socketLastSeenStreamSeqRef,
-    socketLifecycleRef,
     socketReconnectAfterAuthRef,
-    presenceUpdateTimerRef,
-    socketResumeTokenRef,
+    subscribe,
   ]);
 
-  return {
-    sendPresenceUpdate,
-  };
+  return { sendPresenceUpdate };
 }

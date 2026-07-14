@@ -102,6 +102,10 @@ describe("Phase 6 workbook collaboration coverage", () => {
       payload: {
         connection_id: "self-connection",
         resume_token: "resume-presence",
+        server_time: "2026-07-13T12:00:00Z",
+        heartbeat_interval_ms: 15_000,
+        presence_ttl_ms: 45_000,
+        resume_window_ms: 60_000,
       },
     });
     socket?.emit({
@@ -641,6 +645,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
 
   it("Phase 6 U-6-09 does not coalesce non-contiguous same-record pending patches", async () => {
     const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
+    routedFetch.mockAuthSessionOnce(successEnvelope({ user_id: "user-1" }));
     routedFetch.mockRowQueryOnce(
       successEnvelope({
         incident_id: "incident-1",
@@ -733,13 +738,6 @@ describe("Phase 6 workbook collaboration coverage", () => {
     });
     expect(timelineRecordPatchCallURLs(fetchMock)).toEqual([]);
 
-    latestTimelineWebSocket()?.emit({
-      type: "hello_ack",
-      payload: {
-        resume_token: "resume-non-contiguous-coalescing",
-      },
-    });
-
     await waitForTimelineRecordPatchCalls(fetchMock, 3);
     expect(timelineRecordPatchCallURLs(fetchMock)).toEqual([
       "/api/v1/records/record-1",
@@ -775,6 +773,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
 
   it("Phase 6 U-6-09 preserves queued work through session revocation and resumes after re-authentication", async () => {
     const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
+    routedFetch.mockAuthSessionOnce(successEnvelope({ user_id: "user-1" }));
     routedFetch.mockRowQueryOnce(
       successEnvelope({
         incident_id: "incident-1",
@@ -826,13 +825,6 @@ describe("Phase 6 workbook collaboration coverage", () => {
     });
     expect(timelineRecordPatchCallURLs(fetchMock)).toEqual([]);
     expect(input.value).toBe("Auth replay");
-
-    latestTimelineWebSocket()?.emit({
-      type: "hello_ack",
-      payload: {
-        resume_token: "resume-after-auth",
-      },
-    });
 
     await waitForTimelineRecordPatchCalls(fetchMock, 1);
     expect(extractTimelineRecordPatchBody(fetchMock, 0).changes).toEqual([

@@ -1,21 +1,17 @@
 import type { RecordChangedPayload } from "./workbookCollaborationMessages";
 
 export type WorkbookSocketLifecycleState = {
-  readonly appliedStreamSeqs: ReadonlySet<number>;
   readonly authPaused: boolean;
   readonly connectionId: string | null;
   readonly established: boolean;
-  readonly lastSeenStreamSeq: number;
   readonly reconnectSuppressed: boolean;
-  readonly resumeToken: string | null;
 };
 
 export type WorkbookSocketAckMessageType = "hello_ack" | "resume_ack";
 
 export type WorkbookSocketRefreshReason =
   | "record_change_requery"
-  | "reset_required"
-  | "sequence_gap";
+  | "reset_required";
 
 export type WorkbookSocketLifecycleAction =
   | { readonly type: "socket_connecting" }
@@ -30,7 +26,6 @@ export type WorkbookSocketLifecycleAction =
   | {
       readonly type: "record_changed_received";
       readonly message: {
-        readonly stream_seq?: number;
         readonly payload: RecordChangedPayload;
       };
     }
@@ -45,12 +40,10 @@ export type WorkbookSocketLifecycleEffect =
       readonly payload: RecordChangedPayload;
     }
   | { readonly kind: "close_socket" }
-  | { readonly kind: "ignore_duplicate_sequence"; readonly streamSeq: number }
   | { readonly kind: "pause_for_auth_recovery" }
   | {
       readonly kind: "request_refresh";
       readonly reason: WorkbookSocketRefreshReason;
-      readonly streamSeq?: number;
     }
   | { readonly kind: "resume_pending_replay" }
   | { readonly kind: "schedule_auth_recovery_probe" }
@@ -65,13 +58,10 @@ export function createWorkbookSocketLifecycleState(
   overrides: Partial<WorkbookSocketLifecycleState> = {},
 ): WorkbookSocketLifecycleState {
   return {
-    appliedStreamSeqs: new Set<number>(),
     authPaused: false,
     connectionId: null,
     established: false,
-    lastSeenStreamSeq: 0,
     reconnectSuppressed: false,
-    resumeToken: null,
     ...overrides,
   };
 }
@@ -111,7 +101,6 @@ export function reduceWorkbookSocketLifecycle(
           authPaused: true,
           established: false,
           reconnectSuppressed: true,
-          resumeToken: null,
         },
         effects: [
           { kind: "pause_for_auth_recovery" },
@@ -140,7 +129,6 @@ function reduceSessionAck(
   action: Extract<WorkbookSocketLifecycleAction, { type: "session_ack" }>,
 ): WorkbookSocketLifecycleReduction {
   const connectionId = stringPayloadValue(action.payload, "connection_id");
-  const resumeToken = stringPayloadValue(action.payload, "resume_token");
   const resetRequired =
     action.messageType === "resume_ack" &&
     action.payload?.status === "reset_required";
@@ -151,7 +139,6 @@ function reduceSessionAck(
     connectionId: connectionId ?? state.connectionId,
     established: true,
     reconnectSuppressed: false,
-    resumeToken: resumeToken ?? state.resumeToken,
   };
 
   if (resetRequired) {
@@ -174,38 +161,8 @@ function reduceRecordChangedReceived(
     { type: "record_changed_received" }
   >["message"],
 ): WorkbookSocketLifecycleReduction {
-  const streamSeq = message.stream_seq;
-  if (typeof streamSeq !== "number") {
-    return {
-      state,
-      effects: [{ kind: "apply_record_change", payload: message.payload }],
-    };
-  }
-
-  if (state.appliedStreamSeqs.has(streamSeq)) {
-    return {
-      state,
-      effects: [{ kind: "ignore_duplicate_sequence", streamSeq }],
-    };
-  }
-
-  const appliedStreamSeqs = new Set(state.appliedStreamSeqs);
-  appliedStreamSeqs.add(streamSeq);
-  const nextState = {
-    ...state,
-    appliedStreamSeqs,
-    lastSeenStreamSeq: Math.max(state.lastSeenStreamSeq, streamSeq),
-  };
-
-  if (state.lastSeenStreamSeq > 0 && streamSeq > state.lastSeenStreamSeq + 1) {
-    return {
-      state: nextState,
-      effects: [{ kind: "request_refresh", reason: "sequence_gap", streamSeq }],
-    };
-  }
-
   return {
-    state: nextState,
+    state,
     effects: [{ kind: "apply_record_change", payload: message.payload }],
   };
 }

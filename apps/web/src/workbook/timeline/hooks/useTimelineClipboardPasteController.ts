@@ -4,6 +4,13 @@ import { apiPath } from "../../../services/browserApi";
 import { fetchWorkbookJSON, readEnvelope } from "../../../services/workbookApi";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { sameFieldConflictQueueKey } from "../../utils/workbookPendingQueue";
+import type {
+  PendingReplayRuntimeMeta,
+  TimelineMutableRef,
+  TimelinePasteTargetResolution,
+  TimelineScalarSaveOptions,
+} from "../models/timelineControllerPorts";
+import type { TimelinePendingSavesRefs } from "../models/timelinePendingReplayModel";
 import {
   inputFocusKey,
   type RowValues,
@@ -12,13 +19,6 @@ import {
   timelineScalarBindingForField,
   timelineScalarBindings,
 } from "../models/workbookTimelineModel";
-import type { TimelinePasteTargetResolution } from "./useTimelineGridAnchorController";
-import type { TimelineScalarSaveOptions } from "./useTimelineMutationCommands";
-import type { PendingReplayRuntimeMeta } from "./useTimelinePendingReplayController";
-import type {
-  TimelineMutableRef,
-  TimelinePendingSavesRefs,
-} from "./useTimelinePendingSaves";
 
 type TimelineClipboardPasteEnvelope = {
   data: {

@@ -45,11 +45,11 @@ import {
   evidenceAccessMessageLiveRegion,
   issueEvidenceAccessHandle,
 } from "../../services/workbookEvidence";
-import { useGenericReferenceOptions } from "../hooks/useGenericReferenceOptions";
 import {
   useGenericSurfaceMutationController,
   type GenericViewMutationEnvelope as ViewMutationEnvelope,
 } from "../hooks/useGenericSurfaceMutationController";
+import { useOwnerReferenceOptions } from "../hooks/useOwnerReferenceOptions";
 import { buildEvidenceLifecycleViewModel } from "../models/evidenceLifecycleViewModel";
 import {
   buildGenericCreatePayload,
@@ -77,10 +77,8 @@ import {
   selectInspectorConfig,
 } from "../models/workbookInspectorModel";
 import type { WorkbookQueryState } from "../models/workbookQuery";
+import { requireWorkbookSurfaceRegistration } from "../models/workbookSurfaceRegistration";
 import {
-  decisionsViewSchemaId,
-  evidenceViewSchemaId,
-  notesViewSchemaId,
   partiesViewSchemaId,
   taskRequestsViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
@@ -124,8 +122,9 @@ type EvidencePreviewState = {
   previewKind: string | null;
 };
 
-export type GenericWorkbookSurfaceProps = {
+export type ContractWorkbookSurfaceProps = {
   readonly apiBase?: string | undefined;
+  readonly authorizationEpoch: string;
   readonly contract: ViewContract;
   readonly currentUserId: string | null;
   readonly density: GridDensity;
@@ -139,8 +138,9 @@ export type GenericWorkbookSurfaceProps = {
   readonly rows: EntityApiRow[];
 };
 
-export function GenericWorkbookSurface({
+export function ContractWorkbookSurface({
   apiBase,
+  authorizationEpoch,
   contract,
   currentUserId,
   density,
@@ -152,8 +152,12 @@ export function GenericWorkbookSurface({
   onToggleSort,
   queryState,
   rows,
-}: GenericWorkbookSurfaceProps) {
+}: ContractWorkbookSurfaceProps) {
   const surface = contract.viewSchemaId as WorkbookSurface;
+  const registration = requireWorkbookSurfaceRegistration(
+    contract.viewSchemaId,
+  );
+  const { capabilities } = registration.policy;
   const inspectorConfig = selectInspectorConfig(contract);
   const showDetailsPanel = inspectorPanelIsDeclared(inspectorConfig, "details");
   const showRelationshipsPanel = inspectorPanelIsDeclared(
@@ -182,7 +186,12 @@ export function GenericWorkbookSurface({
   const [partyLinkPairKey, setPartyLinkPairKey] = useState("");
   const [partyLinkExistingPartyId, setPartyLinkExistingPartyId] = useState("");
   const { referenceLoadError, referenceOptions, refreshReferenceOptions } =
-    useGenericReferenceOptions({ apiBase, incidentId });
+    useOwnerReferenceOptions({
+      apiBase,
+      authorizationEpoch,
+      incidentId,
+      viewSchemaId: contract.viewSchemaId,
+    });
   const {
     beginMutation,
     clearMutationError,
@@ -204,11 +213,10 @@ export function GenericWorkbookSurface({
   >({});
   const [evidencePreview, setEvidencePreview] =
     useState<EvidencePreviewState | null>(null);
-  const isEvidenceSurface = contract.viewSchemaId === evidenceViewSchemaId;
-  const isNotesSurface = contract.viewSchemaId === notesViewSchemaId;
-  const isTaskRequestSurface =
-    contract.viewSchemaId === taskRequestsViewSchemaId;
-  const isDecisionSurface = contract.viewSchemaId === decisionsViewSchemaId;
+  const isEvidenceSurface = capabilities.evidenceLifecycle === true;
+  const isNotesSurface = capabilities.linkedNoteCreate === true;
+  const isTaskRequestSurface = capabilities.taskLifecycle === true;
+  const isDecisionSurface = capabilities.decisionSupersede === true;
   const [taskLifecycleRecordId, setTaskLifecycleRecordId] = useState("");
   const [taskLifecycleStatus, setTaskLifecycleStatus] = useState("blocked");
   const [taskLifecycleBlockedReason, setTaskLifecycleBlockedReason] =
@@ -666,6 +674,7 @@ export function GenericWorkbookSurface({
       selectedEditField,
       editValue,
       editCollectionMode,
+      contract.viewSchemaId,
     );
     if (change === null) {
       setValidationError(

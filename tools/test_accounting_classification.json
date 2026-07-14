@@ -3,6 +3,24 @@
   "vitest": [
     {
       "target": "frontend-unit",
+      "file": "apps/web/src/collaboration/IncidentCollaborationSession.test.tsx",
+      "coverage": "unowned_regression",
+      "reason": "Shared collaboration-session lifecycle is direct product regression coverage; authoritative collaboration behavior remains owned by mapped Core phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/models/workbookSurfaceRegistration.test.ts",
+      "coverage": "tooling_support",
+      "reason": "Exact-schema registration completeness and uniqueness protect frontend ownership structure without adding a product conformance claim."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/services/referenceQueryBroker.test.ts",
+      "coverage": "unowned_regression",
+      "reason": "Reference-query context isolation and in-flight deduplication are direct regression coverage outside authoritative phase-row ownership."
+    },
+    {
+      "target": "frontend-unit",
       "file_pattern": "apps/web/e2e/*.test.ts",
       "coverage": "tooling_support",
       "reason": "Browser E2E helper and shared-state harness tests support the Playwright task surface rather than phase completion."
@@ -417,6 +435,13 @@
       "title": "maps blocking evidence messages to assertive live regions",
       "coverage": "unowned_regression",
       "reason": "Workbook service client behavior remains intentional product regression coverage outside authoritative row closure."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/testing/selectorContractPolicy.test.ts",
+      "title": "keeps phase-named selector helpers out of production modules",
+      "coverage": "tooling_support",
+      "reason": "Production vocabulary enforcement keeps phase evidence helpers outside runtime module boundaries."
     },
     {
       "target": "frontend-unit",
@@ -1256,6 +1281,20 @@
     },
     {
       "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/networkFlowClient.test.ts",
+      "title": "requires a claimed profile and a supported compiled contract major",
+      "coverage": "unowned_regression",
+      "reason": "Network Flow discovery and compiled-contract gating are direct product regression coverage; authoritative Phase 12 behavior remains owner-mapped separately."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/networkFlowClient.test.ts",
+      "title": "rejects an empty graph table scope before transport",
+      "coverage": "unowned_regression",
+      "reason": "Generated request typing rejects an invalid Network Flow graph scope at the feature boundary; authoritative Phase 12 behavior remains owner-mapped separately."
+    },
+    {
+      "target": "frontend-unit",
       "file": "apps/web/src/networkFlow/networkFlowCollaborationInterpreter.test.ts",
       "title": "admits only closed Network Flow table changes",
       "coverage": "unowned_regression",
@@ -1281,6 +1320,20 @@
       "title": "deduplicates changes and resumes after reconnect",
       "coverage": "unowned_regression",
       "reason": "Network Flow reconnect and deduplication behavior is direct product regression coverage; authoritative Phase 12 behavior remains owned by criterion-scoped runtime and browser selectors."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "packages/protocol-ts/src/index.test.ts",
+      "title": "decodes exact Network Flow contracts without exposing payload data on failure",
+      "coverage": "tooling_support",
+      "reason": "Generated runtime decoder and diagnostic-redaction checks support the protocol contract toolchain outside product conformance evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "packages/protocol-ts/src/index.test.ts",
+      "title": "decodes the Core extension discovery envelope at the transport boundary",
+      "coverage": "tooling_support",
+      "reason": "Generated Core HTTP decoder coverage supports the protocol contract toolchain outside product conformance evidence."
     },
     {
       "target": "frontend-unit",
@@ -1315,6 +1368,13 @@
       "title": "renders CSS variables without unresolved object values",
       "coverage": "tooling_support",
       "reason": "Generated UI contract and design-token checks support the frontend contract toolchain outside product conformance evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "packages/ui-contracts/src/index.test.ts",
+      "title": "keeps semantic selector helpers byte-identical to phase evidence aliases",
+      "coverage": "tooling_support",
+      "reason": "Semantic selector alias equivalence is production/test boundary support and does not add a product conformance claim."
     },
     {
       "target": "frontend-unit",

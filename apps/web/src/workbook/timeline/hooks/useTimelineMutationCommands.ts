@@ -11,6 +11,15 @@ import {
   buildStableMutationSignature,
   type PendingReplayUnitInput,
 } from "../../utils/workbookPendingQueue";
+import type {
+  PendingReplayRuntimeMeta,
+  TimelineMutableRef,
+  TimelineScalarSaveOptions,
+} from "../models/timelineControllerPorts";
+import type {
+  TimelinePendingReplayAdmissionRequest,
+  TimelinePendingSavesRefs,
+} from "../models/timelinePendingReplayModel";
 import {
   buildCollectionPatchIntent,
   buildCreatePayload,
@@ -27,13 +36,6 @@ import {
   type WorkbookRow,
 } from "../models/workbookTimelineModel";
 import { buildTimelineRecordActionPayload } from "../services/timelineMutationRequests";
-import type { PendingReplayRuntimeMeta } from "./useTimelinePendingReplayController";
-import {
-  ensureTimelineTabClientInstanceId,
-  type TimelineMutableRef,
-  type TimelinePendingReplayAdmissionRequest,
-  type TimelinePendingSavesRefs,
-} from "./useTimelinePendingSaves";
 
 type TimelineActionEnvelope = {
   data: {
@@ -62,19 +64,13 @@ type CommittedRecordIdle = {
   readonly rowVersion: number;
 };
 
-export type TimelineScalarSaveOptions = {
-  readonly allowZeroFieldCreate?: boolean | undefined;
-  readonly continueOnFreshDraft: boolean;
-  readonly preserveInputFocus: boolean;
-  readonly surface: TimelineScalarEditorSurface;
-};
-
 export function useTimelineMutationCommands({
   acceptTimelineActionResult,
   apiBase,
   beginSave,
   beginViewportContinuity,
   clearViewportContinuity,
+  clientInstanceId,
   conflictQueueRef,
   enqueuePendingReplayUnit,
   finishSave,
@@ -101,6 +97,7 @@ export function useTimelineMutationCommands({
     request: ViewportContinuityRequest,
   ) => number;
   readonly clearViewportContinuity: (token: number) => void;
+  readonly clientInstanceId: string;
   readonly conflictQueueRef: TimelineMutableRef<
     Record<string, LocalConflictState>
   >;
@@ -185,9 +182,6 @@ export function useTimelineMutationCommands({
               `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/rows`,
             )
           : apiPath(apiBase, `/api/v1/records/${rowSnapshot.recordId}`);
-      const clientInstanceId = ensureTimelineTabClientInstanceId(
-        pendingSavesRefsRef.current.socketClientInstanceIdRef,
-      );
       enqueuePendingReplayUnit({
         id: `pending-${clientTxnId}`,
         kind: rowSnapshot.recordId === null ? "create" : "patch",
@@ -223,6 +217,7 @@ export function useTimelineMutationCommands({
     },
     [
       apiBase,
+      clientInstanceId,
       enqueuePendingReplayUnit,
       incidentId,
       pendingSavesRefsRef,

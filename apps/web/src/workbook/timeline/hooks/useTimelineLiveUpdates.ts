@@ -1,37 +1,12 @@
 import { useCallback, useState } from "react";
 import type { PresenceRecord } from "../../utils/workbookPresence";
+import type { TimelineLiveUpdateRefs } from "../models/timelineControllerPorts";
 import type { TimelinePresenceDraft } from "../services/workbookCollaborationMessages";
 import {
-  type createWorkbookSocketLifecycleState,
   reduceWorkbookSocketLifecycle,
   type WorkbookSocketLifecycleAction,
   type WorkbookSocketLifecycleEffect,
 } from "../services/workbookSocketLifecycle";
-
-export type { TimelinePresenceDraft } from "../services/workbookCollaborationMessages";
-
-type TimelineMutableRef<T> = {
-  current: T;
-};
-
-type DispatchSocketLifecycle = (
-  action: WorkbookSocketLifecycleAction,
-) => WorkbookSocketLifecycleEffect[];
-
-export type TimelineLiveUpdateRefs = {
-  readonly activeSocketRef: TimelineMutableRef<WebSocket | null>;
-  readonly currentPresenceRef: TimelineMutableRef<TimelinePresenceDraft>;
-  readonly dispatchSocketLifecycleRef: TimelineMutableRef<DispatchSocketLifecycle>;
-  readonly presenceUpdateTimerRef: TimelineMutableRef<number | null>;
-  readonly socketConnectionIDRef: TimelineMutableRef<string | null>;
-  readonly socketEstablishedRef: TimelineMutableRef<boolean>;
-  readonly socketLastSeenStreamSeqRef: TimelineMutableRef<number>;
-  readonly socketLifecycleRef: TimelineMutableRef<
-    ReturnType<typeof createWorkbookSocketLifecycleState>
-  >;
-  readonly socketReconnectAfterAuthRef: TimelineMutableRef<(() => void) | null>;
-  readonly socketResumeTokenRef: TimelineMutableRef<string | null>;
-};
 
 export function useTimelineLiveUpdates({
   refs,
@@ -47,31 +22,18 @@ export function useTimelineLiveUpdates({
   );
   const [presenceRecords, setPresenceRecords] = useState<PresenceRecord[]>([]);
   const {
-    activeSocketRef,
     currentPresenceRef,
     dispatchSocketLifecycleRef,
     presenceUpdateTimerRef,
     socketConnectionIDRef,
-    socketEstablishedRef,
-    socketLastSeenStreamSeqRef,
     socketLifecycleRef,
     socketReconnectAfterAuthRef,
-    socketResumeTokenRef,
   } = refs;
 
   const syncSocketLifecycleRefs = useCallback(() => {
     const state = socketLifecycleRef.current;
-    socketEstablishedRef.current = state.established;
     socketConnectionIDRef.current = state.connectionId;
-    socketResumeTokenRef.current = state.resumeToken;
-    socketLastSeenStreamSeqRef.current = state.lastSeenStreamSeq;
-  }, [
-    socketConnectionIDRef,
-    socketEstablishedRef,
-    socketLastSeenStreamSeqRef,
-    socketLifecycleRef,
-    socketResumeTokenRef,
-  ]);
+  }, [socketConnectionIDRef, socketLifecycleRef]);
 
   const dispatchSocketLifecycle = useCallback(
     (
@@ -97,16 +59,12 @@ export function useTimelineLiveUpdates({
       syncSocketLifecycleRefs,
     },
     refs: {
-      activeSocketRef,
       currentPresenceRef,
       dispatchSocketLifecycleRef,
       presenceUpdateTimerRef,
       socketConnectionIDRef,
-      socketEstablishedRef,
-      socketLastSeenStreamSeqRef,
       socketLifecycleRef,
       socketReconnectAfterAuthRef,
-      socketResumeTokenRef,
     },
     snapshot: {
       currentPresence,

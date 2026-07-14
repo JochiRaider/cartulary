@@ -47,12 +47,10 @@ describe("Sprint 2 WebSocket reducer lifecycle coverage", () => {
       createWorkbookSocketLifecycleState(),
       {
         type: "record_changed_received",
-        message: { stream_seq: 1, payload },
+        message: { payload },
       },
     );
 
-    expect(rowUpdate.state.lastSeenStreamSeq).toBe(1);
-    expect(rowUpdate.state.appliedStreamSeqs.has(1)).toBe(true);
     expect(rowUpdate.effects).toEqual([
       { kind: "apply_record_change", payload },
     ]);
@@ -70,21 +68,17 @@ describe("Sprint 2 WebSocket reducer lifecycle coverage", () => {
 
   it("FE-U-P7-01 requests reset and stale-row requery for reset-required and stale record changes", () => {
     const resetRequired = reduceWorkbookSocketLifecycle(
-      createWorkbookSocketLifecycleState({
-        resumeToken: "resume-before-reset",
-      }),
+      createWorkbookSocketLifecycleState(),
       {
         type: "session_ack",
         messageType: "resume_ack",
         payload: {
-          resume_token: "resume-after-reset",
           status: "reset_required",
         },
       },
     );
 
     expect(resetRequired.state.established).toBe(true);
-    expect(resetRequired.state.resumeToken).toBe("resume-after-reset");
     expect(resetRequired.effects).toEqual([
       { kind: "request_refresh", reason: "reset_required" },
     ]);
@@ -102,7 +96,6 @@ describe("Sprint 2 WebSocket reducer lifecycle coverage", () => {
     const connected = createWorkbookSocketLifecycleState({
       connectionId: "connection-1",
       established: true,
-      resumeToken: "resume-live",
     });
     const authorizationClose = reduceWorkbookSocketLifecycle(connected, {
       type: "authorization_closed",
@@ -112,7 +105,6 @@ describe("Sprint 2 WebSocket reducer lifecycle coverage", () => {
       authPaused: true,
       established: false,
       reconnectSuppressed: true,
-      resumeToken: null,
     });
     expect(authorizationClose.effects).toEqual([
       { kind: "pause_for_auth_recovery" },
@@ -134,7 +126,6 @@ describe("Sprint 2 WebSocket reducer lifecycle coverage", () => {
       messageType: "hello_ack",
       payload: {
         connection_id: "connection-2",
-        resume_token: "resume-recovered",
       },
     });
     expect(recovered.state).toMatchObject({
@@ -142,50 +133,7 @@ describe("Sprint 2 WebSocket reducer lifecycle coverage", () => {
       connectionId: "connection-2",
       established: true,
       reconnectSuppressed: false,
-      resumeToken: "resume-recovered",
     });
     expect(recovered.effects).toEqual([{ kind: "resume_pending_replay" }]);
-  });
-
-  it("FE-U-P7-01 ignores duplicate stream sequences and refreshes on sequence gaps", () => {
-    const state = createWorkbookSocketLifecycleState({
-      appliedStreamSeqs: new Set([4]),
-      lastSeenStreamSeq: 4,
-    });
-    const duplicate = reduceWorkbookSocketLifecycle(state, {
-      type: "record_changed_received",
-      message: {
-        stream_seq: 4,
-        payload: recordChangedPayload({ rowVersion: 4 }),
-      },
-    });
-
-    expect(duplicate.state).toBe(state);
-    expect(duplicate.effects).toEqual([
-      { kind: "ignore_duplicate_sequence", streamSeq: 4 },
-    ]);
-
-    const gap = reduceWorkbookSocketLifecycle(state, {
-      type: "record_changed_received",
-      message: {
-        stream_seq: 6,
-        payload: recordChangedPayload({ rowVersion: 6 }),
-      },
-    });
-
-    expect(gap.state.lastSeenStreamSeq).toBe(6);
-    expect(gap.state.appliedStreamSeqs.has(6)).toBe(true);
-    expect(gap.effects).toEqual([
-      { kind: "request_refresh", reason: "sequence_gap", streamSeq: 6 },
-    ]);
-
-    const next = reduceWorkbookSocketLifecycle(gap.state, {
-      type: "record_changed_received",
-      message: {
-        stream_seq: 7,
-        payload: recordChangedPayload({ rowVersion: 7 }),
-      },
-    });
-    expect(next.effects[0]?.kind).toBe("apply_record_change");
   });
 });

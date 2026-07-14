@@ -718,9 +718,9 @@ describe("Incident landing", () => {
       extensions: {
         extensions: [
           {
-            profile_id: "reference_pack",
+            profile_id: "reference_pack" as const,
             claimed: false,
-            route_families: ["/api/v1/reference-packs"],
+            route_families: ["/api/v1/reference-packs" as const],
           },
         ],
       },

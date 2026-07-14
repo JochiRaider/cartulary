@@ -27,6 +27,10 @@ import {
   useState,
 } from "react";
 import { flushSync } from "react-dom";
+import {
+  IncidentCollaborationBoundary,
+  useIncidentCollaborationSession,
+} from "../../../collaboration/IncidentCollaborationSession";
 import { WorkbookGridControls } from "../../components/WorkbookGridControls";
 import { WorkbookSheetToolbar } from "../../components/WorkbookSheetToolbar";
 import { WorkbookStatusStrip } from "../../components/WorkbookStatusStrip";
@@ -77,24 +81,12 @@ import {
   useTimelineInspectorSelection,
 } from "../hooks/useTimelineInspectorSelection";
 import { useTimelineLiveUpdateController } from "../hooks/useTimelineLiveUpdateController";
-import {
-  type TimelineLiveUpdateRefs,
-  type TimelinePresenceDraft,
-  useTimelineLiveUpdates,
-} from "../hooks/useTimelineLiveUpdates";
+import { useTimelineLiveUpdates } from "../hooks/useTimelineLiveUpdates";
 import { useTimelineMentionActions } from "../hooks/useTimelineMentionActions";
 import { useTimelineMentions } from "../hooks/useTimelineMentions";
 import { useTimelineMutationCommands } from "../hooks/useTimelineMutationCommands";
-import {
-  type PendingReplayRuntimeMeta,
-  useTimelinePendingReplayController,
-} from "../hooks/useTimelinePendingReplayController";
-import {
-  createTimelinePendingQueueRuntime,
-  ensureTimelineTabClientInstanceId,
-  refreshBlocksTimelinePendingRecord,
-  useTimelinePendingSaves,
-} from "../hooks/useTimelinePendingSaves";
+import { useTimelinePendingReplayController } from "../hooks/useTimelinePendingReplayController";
+import { useTimelinePendingSaves } from "../hooks/useTimelinePendingSaves";
 import { useTimelinePresenceProjection } from "../hooks/useTimelinePresenceProjection";
 import { useTimelineRows } from "../hooks/useTimelineRows";
 import {
@@ -108,6 +100,14 @@ import {
   type TimelineViewportContinuityTarget as ViewportContinuityTarget,
 } from "../hooks/useTimelineViewportContinuityController";
 import { useTimelineWorkbookRuntime } from "../hooks/useTimelineWorkbookRuntime";
+import type {
+  PendingReplayRuntimeMeta,
+  TimelineLiveUpdateRefs,
+} from "../models/timelineControllerPorts";
+import {
+  createTimelinePendingQueueRuntime,
+  refreshBlocksTimelinePendingRecord,
+} from "../models/timelinePendingReplayModel";
 import { buildTimelineGridRows } from "../models/timelineRowsModel";
 import type { TimelineEntityCatalogInput } from "../models/timelineViewportContinuityModel";
 import {
@@ -138,7 +138,10 @@ import {
   type WorkbookRow,
 } from "../models/workbookTimelineModel";
 import type { TimelineMutationEnvelope } from "../services/timelineMutationRequests";
-import type { RecordChangedPayload } from "../services/workbookCollaborationMessages";
+import type {
+  RecordChangedPayload,
+  TimelinePresenceDraft,
+} from "../services/workbookCollaborationMessages";
 import {
   createWorkbookSocketLifecycleState,
   type WorkbookSocketLifecycleAction,
@@ -343,7 +346,7 @@ function pruneDismissedMentions(
   return next;
 }
 
-export function TimelineWorkbook({
+function TimelineWorkbookContent({
   incidentId,
   apiBase,
   currentUserId = null,
@@ -363,6 +366,7 @@ export function TimelineWorkbook({
   density = "compact",
   onRefreshEntities,
 }: TimelineWorkbookProps) {
+  const { clientInstanceId } = useIncidentCollaborationSession();
   const entityCatalogInput = useMemo(
     () =>
       ({
@@ -426,9 +430,7 @@ export function TimelineWorkbook({
   const timelineEvidenceActions = useTimelineEvidenceActions();
   const { inspectorMessage } = timelineEvidenceActions.snapshot;
   const { setInspectorMessage } = timelineEvidenceActions.commands;
-  const activeSocketRef = useRef<WebSocket | null>(null);
   const socketLifecycleRef = useRef(createWorkbookSocketLifecycleState());
-  const socketEstablishedRef = useRef(false);
   const socketConnectionIDRef = useRef<string | null>(null);
   const presenceUpdateTimerRef = useRef<number | null>(null);
   const currentPresenceRef = useRef<TimelinePresenceDraft>({
@@ -437,22 +439,16 @@ export function TimelineWorkbook({
     recordId: null,
   });
   const socketReconnectAfterAuthRef = useRef<(() => void) | null>(null);
-  const socketResumeTokenRef = useRef<string | null>(null);
-  const socketLastSeenStreamSeqRef = useRef(0);
   const dispatchSocketLifecycleRef = useRef<
     (action: WorkbookSocketLifecycleAction) => WorkbookSocketLifecycleEffect[]
   >(() => []);
   const timelineLiveUpdateRefs: TimelineLiveUpdateRefs = {
-    activeSocketRef,
     currentPresenceRef,
     dispatchSocketLifecycleRef,
     presenceUpdateTimerRef,
     socketConnectionIDRef,
-    socketEstablishedRef,
-    socketLastSeenStreamSeqRef,
     socketLifecycleRef,
     socketReconnectAfterAuthRef,
-    socketResumeTokenRef,
   };
   const timelineLiveUpdates = useTimelineLiveUpdates({
     refs: timelineLiveUpdateRefs,
@@ -466,6 +462,7 @@ export function TimelineWorkbook({
   } = timelineLiveUpdates.commands;
   const timelinePendingSaves =
     useTimelinePendingSaves<PendingReplayRuntimeMeta>({
+      clientInstanceId,
       incidentId,
     });
   const { pendingQueueSnapshot } = timelinePendingSaves.snapshot;
@@ -694,9 +691,6 @@ export function TimelineWorkbook({
   } = timelineSaveStatePresentation.refs;
 
   useEffect(() => {
-    const clientInstanceId = ensureTimelineTabClientInstanceId(
-      pendingSavesRefsRef.current.socketClientInstanceIdRef,
-    );
     const scope =
       pendingSavesRefsRef.current.pendingQueueRef.current.model.scope;
     if (
@@ -714,7 +708,12 @@ export function TimelineWorkbook({
     syncSocketLifecycleRefs();
     pendingSavesRefsRef.current.pendingSignaturesRef.current.clear();
     publishPendingQueueState();
-  }, [incidentId, publishPendingQueueState, syncSocketLifecycleRefs]);
+  }, [
+    clientInstanceId,
+    incidentId,
+    publishPendingQueueState,
+    syncSocketLifecycleRefs,
+  ]);
 
   const nextDraftIndex = useCallback(() => {
     const value = draftCounterRef.current;
@@ -1375,6 +1374,7 @@ export function TimelineWorkbook({
       beginSave,
       beginViewportContinuity,
       clearViewportContinuity,
+      clientInstanceId,
       conflictQueueRef,
       enqueuePendingReplayUnit,
       finishSave,
@@ -2154,5 +2154,23 @@ export function TimelineWorkbook({
       onWorkAreaContextMenu={handleTimelineGridContextMenu}
       onWorkAreaKeyDown={handleTimelineGridContextKeyDown}
     />
+  );
+}
+
+export function TimelineWorkbook(props: TimelineWorkbookProps) {
+  return (
+    <IncidentCollaborationBoundary
+      apiBase={props.apiBase}
+      incidentId={props.incidentId}
+      initialPresence={{
+        sheet_ref: props.sheetRef ?? {
+          kind: "view_schema",
+          id: timelineViewSchemaId,
+        },
+        mode: "viewing",
+      }}
+    >
+      <TimelineWorkbookContent {...props} />
+    </IncidentCollaborationBoundary>
   );
 }

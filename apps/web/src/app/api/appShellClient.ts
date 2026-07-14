@@ -2,12 +2,16 @@ import type {
   AccountPreferencesResource,
   AccountProfileResource,
   DensityMode,
+  ExtensionDiscoveryEnvelope,
+  GeneratedExtensionProfileResource,
 } from "@cartulary/protocol-ts";
+import { extensionDiscoveryDecoder } from "@cartulary/protocol-ts";
 import {
   type APIResult,
   clientTxnID,
   fetchJSON,
 } from "../../services/browserApi";
+import { requestJSON } from "../../services/httpTransport";
 
 export type SessionMembership = {
   incident_id: string;
@@ -62,11 +66,7 @@ export type UserResource = {
 
 export type { AccountPreferencesResource, AccountProfileResource, DensityMode };
 
-export type ExtensionProfileResource = {
-  profile_id: string;
-  claimed: boolean;
-  route_families: string[];
-};
+export type ExtensionProfileResource = GeneratedExtensionProfileResource;
 
 export type PagingMeta = {
   limit: number;
@@ -300,13 +300,14 @@ export function putAccountPreferences(options: {
 }
 
 export function loadExtensions(options?: ShellGetOptions) {
-  return fetchJSON<DataEnvelope<{ extensions: ExtensionProfileResource[] }>>(
+  return requestJSON<ExtensionDiscoveryEnvelope>(
     apiPath(options?.apiBase, "/api/v1/extensions"),
     typeof options?.signal === "undefined"
       ? undefined
       : {
           signal: options.signal,
         },
+    { decoder: extensionDiscoveryDecoder },
   );
 }
 

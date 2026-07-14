@@ -118,6 +118,10 @@ describe("FE-U-P4-02 WorkbookShell save-state status strip", () => {
       payload: {
         connection_id: "self-connection",
         resume_token: "resume-save-state",
+        server_time: "2026-07-13T12:00:00Z",
+        heartbeat_interval_ms: 15_000,
+        presence_ttl_ms: 45_000,
+        resume_window_ms: 60_000,
       },
     });
     socket?.emit({

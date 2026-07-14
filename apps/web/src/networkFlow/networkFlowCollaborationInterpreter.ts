@@ -1,3 +1,4 @@
+import type { IncidentCollaborationMessage } from "../collaboration/IncidentCollaborationSession";
 import { networkFlowActivityProfileId } from "./networkFlowClient";
 
 export type NetworkFlowExtensionResourceChange = {
@@ -6,21 +7,18 @@ export type NetworkFlowExtensionResourceChange = {
   readonly resourceId: string;
 };
 
-export type ExtensionResourceMessage = {
-  readonly type?: string;
-  readonly stream_seq?: number;
-  readonly payload?: Readonly<Record<string, unknown>>;
-};
-
 // This pure interpreter is the only Network Flow component that understands
-// the generic collaboration wire event. Reconnect lifecycle remains shared by
-// the hook while feature code receives a closed domain event.
+// the generic collaboration wire event. The incident session owns reconnect,
+// resume, decoding, and sequence state while feature code receives a closed
+// domain event.
 export function interpretNetworkFlowCollaborationMessage(
-  message: ExtensionResourceMessage,
+  message: IncidentCollaborationMessage,
 ): NetworkFlowExtensionResourceChange | null {
+  if (message.type !== "extension_resource_changed") {
+    return null;
+  }
   const payload = message.payload;
   if (
-    message.type !== "extension_resource_changed" ||
     payload?.extension_profile_id !== networkFlowActivityProfileId ||
     payload.resource_kind !== "network_flow_table" ||
     typeof payload.resource_id !== "string" ||

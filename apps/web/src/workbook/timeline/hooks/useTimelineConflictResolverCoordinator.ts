@@ -10,6 +10,14 @@ import { apiPath } from "../../../services/browserApi";
 import { fetchWorkbookJSON, readEnvelope } from "../../../services/workbookApi";
 import { sameFieldConflictQueueKey } from "../../utils/workbookPendingQueue";
 import { parseSameFieldConflict } from "../models/timelineConflictModel";
+import type {
+  PendingReplayRuntimeMeta,
+  TimelineMutableRef,
+} from "../models/timelineControllerPorts";
+import type {
+  TimelinePendingQueueRuntime,
+  TimelinePendingSavesRefs,
+} from "../models/timelinePendingReplayModel";
 import {
   type FocusFieldKey,
   inputFocusKey,
@@ -26,12 +34,6 @@ import {
   buildTimelineConflictResolutionPayload,
   type TimelineMutationEnvelope,
 } from "../services/timelineMutationRequests";
-import type { PendingReplayRuntimeMeta } from "./useTimelinePendingReplayController";
-import type {
-  TimelineMutableRef,
-  TimelinePendingQueueRuntime,
-  TimelinePendingSavesRefs,
-} from "./useTimelinePendingSaves";
 
 type TimelineSaveState = "Syncing" | "Saved" | "Conflict";
 

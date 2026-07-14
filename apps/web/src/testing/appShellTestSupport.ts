@@ -88,7 +88,18 @@ export function installLandingShellFetch(
       );
     }
     if (request.path === "/api/v1/extensions" && request.method === "GET") {
-      return dataResponse(options.extensions ?? { extensions: [] }, request);
+      await waitForAbortWindow(request.init?.signal ?? undefined);
+      const value = await resolveMaybeHandler(
+        options.extensions ?? { extensions: [] },
+        request,
+      );
+      if (value instanceof Response) {
+        return value;
+      }
+      return jsonResponse({
+        data: value,
+        meta: { request_id: "request-test" },
+      });
     }
     if (
       request.url === "/api/v1/account/preferences" &&

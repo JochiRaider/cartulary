@@ -6,7 +6,7 @@ import {
   pendingQueueNoticeTestId,
 } from "@cartulary/ui-contracts";
 import type { CSSProperties } from "react";
-import type { TimelinePendingQueueSnapshot } from "../hooks/useTimelinePendingSaves";
+import type { TimelinePendingQueueSnapshot } from "../models/timelinePendingReplayModel";
 import type { AutoResolutionNotice } from "../models/workbookMentionChips";
 
 export function timelinePendingQueueMessage(

@@ -98,6 +98,7 @@
       },
       "allowed_importers": [
         "apps/web/src/app/api/**",
+        "apps/web/src/collaboration/**",
         "apps/web/src/services/**"
       ],
       "restricted_imports": [
@@ -105,6 +106,60 @@
           "kind": "package",
           "name": "@cartulary/protocol-ts",
           "include_subpaths": true
+        }
+      ]
+    },
+    {
+      "id": "frontend-workbook-policy-transport-boundary",
+      "level": "error",
+      "message": "Workbook surface policies must remain transport and authorization independent.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/workbook/models/workbookSurfaceRegistration.ts"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/services"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/collaboration"
+        }
+      ]
+    },
+    {
+      "id": "frontend-workbook-shell-feature-facade-boundary",
+      "level": "error",
+      "message": "WorkbookShell must consume Network Flow only through its workbook feature facade.",
+      "applies_to": {
+        "include": ["apps/web/src/workbook/WorkbookShell.tsx"],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/networkFlow"
+        }
+      ]
+    },
+    {
+      "id": "frontend-timeline-controller-isolation-boundary",
+      "level": "error",
+      "message": "Timeline controllers must collaborate through model ports instead of importing sibling controllers.",
+      "applies_to": {
+        "include": ["apps/web/src/workbook/timeline/hooks/**"],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/timeline/hooks"
         }
       ]
     },

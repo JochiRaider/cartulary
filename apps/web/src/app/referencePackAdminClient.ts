@@ -1,12 +1,5 @@
-import {
-  type APIError,
-  type APIResult,
-  clientTxnID,
-  csrfCookieName,
-  csrfHeaderName,
-  fetchJSON,
-  readCookie,
-} from "../services/browserApi";
+import { type APIResult, clientTxnID, fetchJSON } from "../services/browserApi";
+import { requestMultipartJSON } from "../services/httpTransport";
 import type {
   ReferencePackJobEnvelope,
   ReferencePackListEnvelope,
@@ -68,26 +61,10 @@ export async function importReferencePackBundle(
   );
   form.append("file", file);
 
-  const headers = new Headers();
-  const csrfToken = readCookie(csrfCookieName);
-  if (csrfToken !== null && csrfToken !== "") {
-    headers.set(csrfHeaderName, csrfToken);
-  }
-
-  const response = await fetch("/api/v1/reference-packs/import", {
-    method: "POST",
-    credentials: "include",
-    headers,
-    body: form,
-  });
-  const payload = (await response.json()) as
-    | ReferencePackJobEnvelope
-    | { error?: APIError };
-  return {
-    ok: response.ok,
-    status: response.status,
-    payload,
-  };
+  return requestMultipartJSON<ReferencePackJobEnvelope>(
+    "/api/v1/reference-packs/import",
+    form,
+  ) as Promise<APIResult<ReferencePackJobEnvelope>>;
 }
 
 export function runReferencePackAction(

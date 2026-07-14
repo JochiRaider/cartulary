@@ -68,6 +68,7 @@ export type TimelineWebSocketMock = {
 };
 
 const timelineWebSockets: TimelineWebSocketMock[] = [];
+const recordChangedSequenceBySocket = new WeakMap<object, number>();
 
 type TimelineRowOptions = {
   recordId: string;
@@ -464,10 +465,16 @@ export function emitRecordChanged(
   socket: WebSocketLike | null | undefined,
   payload: RecordChangedPayload,
 ) {
+  if (!socket) {
+    return;
+  }
+  const streamSequence = (recordChangedSequenceBySocket.get(socket) ?? 0) + 1;
+  recordChangedSequenceBySocket.set(socket, streamSequence);
   socket?.onmessage?.(
     new MessageEvent("message", {
       data: JSON.stringify({
         type: "record_changed",
+        stream_seq: streamSequence,
         payload,
       }),
     }),

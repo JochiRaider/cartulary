@@ -9,6 +9,15 @@ import {
   type WorkbookQueryState,
 } from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type {
+  PendingReplayRuntimeMeta,
+  TimelineMutableRef,
+} from "../models/timelineControllerPorts";
+import type {
+  TimelinePendingQueueRuntime,
+  TimelinePendingRefreshBlockScope,
+  TimelinePendingSavesRefs,
+} from "../models/timelinePendingReplayModel";
 import type { DismissedMention } from "../models/workbookMentionChips";
 import {
   createDraftRow,
@@ -21,13 +30,6 @@ import {
   validateTimelineViewSchemaId,
   type WorkbookRow,
 } from "../models/workbookTimelineModel";
-import type { PendingReplayRuntimeMeta } from "./useTimelinePendingReplayController";
-import type {
-  TimelineMutableRef,
-  TimelinePendingQueueRuntime,
-  TimelinePendingRefreshBlockScope,
-  TimelinePendingSavesRefs,
-} from "./useTimelinePendingSaves";
 
 export type LoadRowsOptions = {
   showLoading: boolean;

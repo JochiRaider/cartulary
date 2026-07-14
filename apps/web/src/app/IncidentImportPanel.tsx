@@ -4,13 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   type APIError,
   clientTxnID,
-  csrfCookieName,
-  csrfHeaderName,
   extractError,
   fetchJSON,
   publicErrorView,
-  readCookie,
 } from "../services/browserApi";
+import { requestMultipartJSON } from "../services/httpTransport";
 import {
   buttonRowEndStyle,
   createDialogStyle,
@@ -137,28 +135,18 @@ export function IncidentImportPanel({
       ),
     );
     form.append("file", file);
-    const headers = new Headers();
-    const csrfToken = readCookie(csrfCookieName);
-    if (csrfToken !== null && csrfToken !== "") {
-      headers.set(csrfHeaderName, csrfToken);
-    }
     setStatus("Submitting incident import.");
-    const response = await fetch("/api/v1/incident-bundles/import", {
-      method: "POST",
-      credentials: "include",
-      headers,
-      body: form,
-    });
-    const payload = (await response.json()) as {
+    const response = await requestMultipartJSON<{
       data?: JobResource;
       error?: APIError;
-    };
+    }>("/api/v1/incident-bundles/import", form);
+    const payload = response.payload;
     if (!response.ok) {
       setError(extractError(payload));
       setStatus("Incident import failed to start.");
       return;
     }
-    const nextJob = payload.data ?? null;
+    const nextJob = "data" in payload ? (payload.data ?? null) : null;
     setError(null);
     setJob(nextJob);
     setStatus(

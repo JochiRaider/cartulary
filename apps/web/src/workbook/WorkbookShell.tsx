@@ -17,12 +17,10 @@ import {
   useRef,
   useState,
 } from "react";
-import { NetworkAnalysisWorkspace } from "../networkFlow/NetworkAnalysisWorkspace";
 import {
-  networkAnalysisSheetRef,
-  networkAnalysisWorkspaceKey,
-  networkFlowActivityProfileId,
-} from "../networkFlow/networkFlowClient";
+  IncidentCollaborationSession,
+  useIncidentCollaborationSession,
+} from "../collaboration/IncidentCollaborationSession";
 import { apiPath } from "../services/browserApi";
 import { fetchWorkbookJSON, readEnvelope } from "../services/workbookApi";
 import { workbookSheetRefKey } from "../shared/workbookSheetRef";
@@ -67,6 +65,12 @@ import {
   tabStripStyle,
   topBarQuerySlotStyle,
 } from "./components/WorkbookShellStyles";
+import {
+  NetworkFlowFeature,
+  networkAnalysisSheetRef,
+  networkAnalysisWorkspaceKey,
+  networkFlowActivityProfileId,
+} from "./features/NetworkFlowFeature";
 import { useIncidentControlsDrawer } from "./hooks/useIncidentControlsDrawer";
 import { useWorkbookIncidentIdentity } from "./hooks/useWorkbookIncidentIdentity";
 import { useWorkbookPendingGridFocus } from "./hooks/useWorkbookPendingGridFocus";
@@ -141,10 +145,10 @@ const extensionWorkspaceRenderers: Readonly<
   [extensionWorkspaceRegistryKey(
     networkFlowActivityProfileId,
     networkAnalysisWorkspaceKey,
-  )]: (props) => <NetworkAnalysisWorkspace {...props} />,
+  )]: (props) => <NetworkFlowFeature {...props} />,
 };
 
-export function WorkbookShell({
+function WorkbookShellContent({
   incidentId,
   apiBase,
   account,
@@ -157,6 +161,7 @@ export function WorkbookShell({
   onIncidentAccessLost,
   renderIncidentControls,
 }: WorkbookShellProps) {
+  const collaborationSession = useIncidentCollaborationSession();
   const responsiveLayout = useWorkbookResponsiveLayout();
   const responsiveBand = responsiveLayout.chromeMode;
   const surfaceSelectionVersionRef = useRef(0);
@@ -266,6 +271,13 @@ export function WorkbookShell({
     networkFlowActivityClaimed,
     selectWorkbookSurface,
   ]);
+
+  useEffect(() => {
+    collaborationSession.publishPresence({
+      sheet_ref: startupSheetRef,
+      mode: "viewing",
+    });
+  }, [collaborationSession, startupSheetRef]);
 
   const loadSessionRole = useCallback(async () => {
     const result = await fetchWorkbookJSON<SessionEnvelope>(
@@ -603,6 +615,7 @@ export function WorkbookShell({
               assessmentLoadError={assessmentLoadError}
               assessmentQueryState={assessmentQueryState}
               assessmentRows={assessmentRows}
+              authorizationEpoch={`${currentUserId ?? "anonymous"}:${currentIncidentRole ?? "none"}`}
               currentIncidentRole={currentIncidentRole}
               currentUserId={currentUserId}
               density={effectiveDensity}
@@ -644,5 +657,20 @@ export function WorkbookShell({
         ) : null}
       </div>
     </section>
+  );
+}
+
+export function WorkbookShell(props: WorkbookShellProps) {
+  return (
+    <IncidentCollaborationSession
+      apiBase={props.apiBase}
+      incidentId={props.incidentId}
+      initialPresence={{
+        sheet_ref: { kind: "view_schema", id: timelineViewSchemaId },
+        mode: "viewing",
+      }}
+    >
+      <WorkbookShellContent {...props} />
+    </IncidentCollaborationSession>
   );
 }
