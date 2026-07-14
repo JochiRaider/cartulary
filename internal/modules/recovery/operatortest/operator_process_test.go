@@ -21,7 +21,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/JochiRaider/cartulary/internal/app"
+	"github.com/JochiRaider/cartulary/internal/app/operator"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/operatorcli"
@@ -68,7 +68,7 @@ func TestMVPObjectStoreInitOperatorCreatesConfiguredBucket(t *testing.T) {
 	if err := json.Unmarshal([]byte(stdout), &payload); err != nil {
 		t.Fatalf("decode object-store init JSON: %v\nstdout=%s", err, stdout)
 	}
-	if payload["schema_id"] != app.OperatorObjectStoreInitResultSchemaID || payload["result"] != "created" || payload["created"] != true {
+	if payload["schema_id"] != operator.OperatorObjectStoreInitResultSchemaID || payload["result"] != "created" || payload["created"] != true {
 		t.Fatalf("unexpected object-store init payload: %#v", payload)
 	}
 	if strings.Contains(stdout, bucket) || strings.Contains(stdout, s3Harness.Endpoint) || strings.Contains(stderr, bucket) || strings.Contains(stderr, s3Harness.Endpoint) {

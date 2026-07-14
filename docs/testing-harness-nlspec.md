@@ -436,9 +436,9 @@ public Make target.
 
 | Surface | Owner | Supported caller and final execution surface | Retirement trigger |
 | --- | --- | --- | --- |
-| `server` production profile | `internal/app` plus `internal/platform/httpruntime` | Development, packaging, release, stand-up, and deployable-shape targets through `build-server`. | None; this is the production server identity. |
-| `server` harness profile | Testing Harness and `internal/app` harness contribution | Process and browser evidence through `build-server-harness` and declared `server-harness` runtime-binary rows only. | Remove when no harness route or inherited-listener consumer remains. |
-| `migrate up` | `internal/app` and Postgres migration owner | Deployment/bootstrap and Make-owned migration targets only. | None while forward migration remains a deployment requirement. |
+| `server` production profile | `internal/app/server` plus `internal/platform/httpruntime` | Development, packaging, release, stand-up, and deployable-shape targets through `build-server`. | None; this is the production server identity. |
+| `server` harness profile | Testing Harness and the `internal/app/server` harness contribution | Process and browser evidence through `build-server-harness` and declared `server-harness` runtime-binary rows only. | Remove when no harness route or inherited-listener consumer remains. |
+| `migrate up` | `internal/app/migrate` and Postgres migration owner | Deployment/bootstrap and Make-owned migration targets only. | None while forward migration remains a deployment requirement. |
 | Penultimate migration application | Postgres database-contract test support | `migration-scratch-apply` and migration-drift support only; never the `migrate` executable. | Remove when migration-line verification is retired by its owner. |
 | Five recovery commands | Recovery module | Declared operator runtime-binary rows and deployment-local operator execution. | None while Core 01 requires them. |
 | `migration-evidence capture` | Postgres migration-evidence owner | Declared database-contract or migration-evidence harness rows. | Remove when owner-defined evidence no longer consumes it. |

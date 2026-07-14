@@ -322,7 +322,12 @@ The path tree below is an intended baseline shape, not an independently verified
     /migrate                         # Migration runner
 
   /internal
-    /app                             # Composition root
+    /app                             # Cohesive application composition packages; no root Go package
+      /server                        # Server assembly and lifecycle
+      /migrate                       # Migration CLI facade
+      /operator                      # Recovery operator CLI facade
+      /revisionassembly              # Revision contribution aggregation
+      /serverprocess                 # Test-only process evidence
     /platform
       /httpapi                       # Transport, middleware, envelopes, pagination
       /ws                            # WebSocket upgrade and stream lifecycle
@@ -486,11 +491,13 @@ The implementation sequence for a behavior-affecting change MUST be:
 
 ### 5.1 Composition root
 
-`/cmd/server`, `/cmd/migrate`, and `/cmd/operator` are thin executable roots. They own OS-process mechanics such as signal contexts, arguments, standard streams, and exit status; they MUST delegate application assembly and behavior to `internal/app` rather than import domain modules or platform implementations directly.
+`/cmd/server`, `/cmd/migrate`, and `/cmd/operator` are thin executable roots. They own OS-process mechanics such as signal contexts, arguments, standard streams, and exit status; each MUST delegate only to its exact matching facade under `internal/app/server`, `internal/app/migrate`, or `internal/app/operator` rather than import domain modules, platform implementations, or another binary's facade.
 
-`internal/app` owns configuration-driven application assembly, including platform services, module constructors, HTTP and WebSocket route composition, background jobs, embedded frontend assets, diagnostics, and process exit mapping. `internal/platform/httpruntime` owns HTTP listener acquisition, serving, and bounded graceful shutdown. The Make-owned `build-server-harness` profile alone adds inherited-listener conversion and guarded test-route composition; it is the existing `server` identity for test evidence, not another deployable.
+`internal/app/server` owns configuration-driven server assembly, HTTP and WebSocket route composition, background-job wiring, embedded frontend delivery, diagnostics, and server exit mapping. `internal/app/revisionassembly` is the exact aggregator for source-owner revision contributions: owner root facades construct reconstruction and reversal providers, Revisions validates the complete current-profile catalog and coordinates them, and application assembly only aggregates contributions and injects platform dependencies. Package initialization and mutable global provider registries are not composition mechanisms. `internal/platform/httpruntime` owns HTTP listener acquisition, serving, and bounded graceful shutdown. The Make-owned `build-server-harness` profile alone adds inherited-listener conversion and guarded test-route composition; it is the existing `server` identity for test evidence, not another deployable. `internal/app/serverprocess` remains test-only process evidence, while reusable test composition belongs in `internal/testutil/appsupport`.
 
-Schema DDL changes MUST move through `/db/migrations/*` and MUST NOT be embedded ad hoc inside application startup. The production migration grammar is exactly `migrate up`; other Goose verbs, flags, implicit defaults, and `up-to` are not deployable commands. Deployment-local backup inspection, backup creation, restore, and verification behavior belongs under `internal/app` and `internal/modules/*`. Operator wiring exposes exactly the five Core 01 recovery commands `operator backup inspect latest`, `operator backup create`, `operator restore latest`, `operator restore-verify latest`, and `operator restore-verify due`; retired aliases are unsupported.
+Non-nil `server.Options.Postgres` and `server.Options.ObjectStore` values are borrowed dependencies and remain open after `Runtime.Close`. The runtime owns only resources it creates, drains those resources in reverse acquisition order, and makes repeated `Close` calls harmless.
+
+Schema DDL changes MUST move through `/db/migrations/*` and MUST NOT be embedded ad hoc inside application startup. The production migration grammar is exactly `migrate up`; other Goose verbs, flags, implicit defaults, and `up-to` are not deployable commands. Deployment-local backup inspection, backup creation, restore, and verification behavior belongs under `internal/app/operator` and `internal/modules/*`. Operator wiring exposes exactly the five Core 01 recovery commands `operator backup inspect latest`, `operator backup create`, `operator restore latest`, `operator restore-verify latest`, and `operator restore-verify due`; retired aliases are unsupported.
 
 ### 5.2 Platform layer
 

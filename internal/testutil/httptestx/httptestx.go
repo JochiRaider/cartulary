@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/app"
+	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -21,7 +21,7 @@ import (
 )
 
 type Server struct {
-	Runtime *app.Runtime
+	Runtime *server.Runtime
 	HTTP    *stdhttptest.Server
 	Clock   *httpapi.TestClock
 }
@@ -75,7 +75,7 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 
 	clock := httpapi.NewTestClock()
 	routes := append([]httpapi.RouteRegistrar{RegisterBootstrapRoutes(), httpapi.RegisterTestClockRoutes(clock)}, options.AdditionalRoutes...)
-	runtime, err := app.NewRuntime(context.Background(), cfg, app.Options{
+	runtime, err := server.NewRuntime(context.Background(), cfg, server.Options{
 		Env:         env,
 		Now:         clock.Now,
 		ObjectStore: options.ObjectStore,

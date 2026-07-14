@@ -25,7 +25,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/JochiRaider/cartulary/internal/app"
+	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -120,7 +120,7 @@ func run() error {
 	if err := seedDeploymentAdmin(ctx, sourcePool, sourceAdminEmail, sourceAdminPassword); err != nil {
 		return err
 	}
-	sourceRuntime, err := app.NewRuntime(ctx, targetConfig(sourceRoot, ""), app.Options{
+	sourceRuntime, err := server.NewRuntime(ctx, targetConfig(sourceRoot, ""), server.Options{
 		Postgres:    sourcePool,
 		ObjectStore: sourceObjectStore,
 		Env:         map[string]string{},
@@ -236,7 +236,7 @@ func run() error {
 	}
 
 	cfg := targetConfig(targetRoot, "")
-	runtime, err := app.NewRuntime(ctx, cfg, app.Options{
+	runtime, err := server.NewRuntime(ctx, cfg, server.Options{
 		Postgres:    targetPool,
 		ObjectStore: targetObjectStore,
 		Env:         map[string]string{},

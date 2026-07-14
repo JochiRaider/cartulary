@@ -1,4 +1,4 @@
-package app
+package revisionassembly
 
 import (
 	"context"
@@ -35,7 +35,7 @@ func (revisionsCompositionTestAttribution) ResolveImportedSourceActorsTx(context
 
 func TestRevisionsCompositionRegistersEveryRequiredProvider(t *testing.T) {
 	t.Parallel()
-	service, err := NewRevisionsCommandService(revisionsCompositionTestDB{}, revisionsCompositionTestAttribution{})
+	service, err := NewCommandService(revisionsCompositionTestDB{}, revisionsCompositionTestAttribution{})
 	if err != nil {
 		t.Fatalf("compose revisions command service: %v", err)
 	}

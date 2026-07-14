@@ -12,7 +12,10 @@
 ## Repository Boundaries
 
 - `cmd/server`, `cmd/migrate`, and other `cmd/*` packages are binary composition roots only. Keep feature behavior out of `cmd/`.
-- `internal/app` owns application assembly shared by binaries.
+- `internal/app/server`, `internal/app/migrate`, and `internal/app/operator` are the exact application facades for their matching `cmd/*` roots; the `internal/app` root is not a Go package.
+- `internal/app/revisionassembly` aggregates source-owner revision contributions and injects platform dependencies. Source owners construct their providers; Revisions validates the complete catalog and owns generic coordination.
+- `internal/app/serverprocess` is retained process-level test evidence, not production assembly. Reusable application test composition belongs in `internal/testutil/appsupport`.
+- Non-nil `server.Options.Postgres` and `server.Options.ObjectStore` values are borrowed. The server runtime closes only resources it creates, in reverse acquisition order, and `Runtime.Close` is idempotent.
 - `internal/platform/*` owns transport, runtime plumbing, configuration, storage adapters, auth primitives, and job shells.
 - `internal/modules/*` owns domain and application logic inside the modular monolith.
 - `contracts/*` is the repo-local derived contract layer, downstream of owner specs and upstream of generated code.

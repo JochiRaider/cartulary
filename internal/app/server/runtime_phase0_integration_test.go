@@ -1,4 +1,4 @@
-package app
+package server
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/bootstraptest"
@@ -77,6 +78,7 @@ func TestPhase0_InvalidConfigNeverReachesReady_I_0_03(t *testing.T) {
 			counters.RequireNotStarted(t)
 		})
 	}
+
 }
 
 func TestPhase0_FirstAdminBootstrap_I_0_04(t *testing.T) {
@@ -324,6 +326,31 @@ func TestPhase0_BootstrapFailures_I_0_05(t *testing.T) {
 			requireCountSQL(t, db, `SELECT COUNT(*) FROM incident_memberships`, 0)
 		})
 	}
+
+	t.Run("startup failure leaves a borrowed postgres pool open", func(t *testing.T) {
+		testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase0-borrowed-postgres")
+		pool, err := pgxpool.New(context.Background(), testDB.DSN)
+		if err != nil {
+			t.Fatalf("open borrowed postgres pool: %v", err)
+		}
+		defer pool.Close()
+
+		bucket := phase0BucketName("phase0-borrowed-postgres")
+		defer func() {
+			if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
+				t.Logf("cleanup bucket: %v", err)
+			}
+		}()
+
+		env := phase0IntegrationEnv(testDB.Env(), s3Harness.Env(bucket))
+		cfg := phase0BindPostgres(t, phase0RuntimeConfig(t), env)
+		if _, err := NewRuntime(context.Background(), cfg, Options{Env: env, Postgres: pool}); err == nil {
+			t.Fatal("expected missing bootstrap manifest to fail startup")
+		}
+		if err := pool.Ping(context.Background()); err != nil {
+			t.Fatalf("borrowed postgres pool was closed after startup failure: %v", err)
+		}
+	})
 }
 
 func TestPhase0_BootstrapSkipAndRecovery_I_0_06(t *testing.T) {

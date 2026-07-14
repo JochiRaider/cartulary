@@ -82,7 +82,7 @@ This ledger is generated from `tools/phase3_test_map.json`. Update the manifest 
 
 | Harness | Phase 3 evidence |
 | --- | --- |
-| Real runtime and store harnesses | `internal/app/testsupport` owns composed app runtime and incident-store wiring; Timeline `scenariotest` and `storetest` own Timeline scenario and rollback harnesses; auth and incidents supply their own setup; collaboration `incidentwstest` owns canonical incident WebSocket mechanics. |
+| Real runtime and store harnesses | `internal/testutil/appsupport` owns composed app runtime and incident-store wiring; Timeline `scenariotest` and `storetest` own Timeline scenario and rollback harnesses; auth and incidents supply their own setup; collaboration `incidentwstest` owns canonical incident WebSocket mechanics. |
 | Cross-cutting HTTP and replay helpers | `internal/testutil/httptestx` owns success or error envelope checks, replay scaffolding, mutation attribution helpers, and closed-vocabulary assertions used across the Phase 3 backend suite. |
 | Timeline substrate inspection helpers | `internal/modules/timeline/testsupport/asserttest` owns one adapter-backed projection, change-set, mutation, revision, and supersede inspection surface for SQL and pgx callers. |
 | Browser timing and replay helpers | `apps/web/e2e/helpers.ts` provides the Phase 3 timing predicates, tracked-user browser auth helpers, and substrate snapshot accessors shared by `E-3-02`, `E-3-03`, and `E-3-04`. |

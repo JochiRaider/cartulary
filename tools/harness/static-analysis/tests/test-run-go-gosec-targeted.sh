@@ -110,9 +110,6 @@ assert_contains "$args" "-exclude-dir=internal/modules/records/testsupport" "run
 if grep -q '^-exclude-dir=internal/modules/networkflow/harnesscontrol$' "$args_log"; then
   fail "runtime gosec must not exclude inventory roots marked runtime_scan=included"
 fi
-if grep -q '^-exclude-dir=internal/app/testsupport$' "$args_log"; then
-  fail "runtime gosec must not exclude app support when inventory marks it runtime_scan=included"
-fi
 if grep -q '^-no-fail$' "$args_log"; then
   fail "targeted gosec wrapper must not pass -no-fail"
 fi

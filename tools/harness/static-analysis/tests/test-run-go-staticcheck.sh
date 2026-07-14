@@ -56,7 +56,7 @@ fi
 cat <<'PACKAGES'
 github.com/JochiRaider/cartulary/cmd/server
 github.com/JochiRaider/cartulary/cmd/operator
-github.com/JochiRaider/cartulary/internal/app
+github.com/JochiRaider/cartulary/internal/app/server
 github.com/JochiRaider/cartulary/internal/gen/contracts
 github.com/JochiRaider/cartulary/internal/gen/sql
 github.com/JochiRaider/cartulary/internal/modules/auth
@@ -95,7 +95,7 @@ GO="$fake_go" \
 args="$(cat "$args_log")"
 assert_contains "$args" "github.com/JochiRaider/cartulary/cmd/server" "staticcheck cmd package"
 assert_contains "$args" "github.com/JochiRaider/cartulary/cmd/operator" "staticcheck operator cmd package"
-assert_contains "$args" "github.com/JochiRaider/cartulary/internal/app" "staticcheck internal authored package"
+assert_contains "$args" "github.com/JochiRaider/cartulary/internal/app/server" "staticcheck application facade package"
 assert_contains "$args" "github.com/JochiRaider/cartulary/internal/modules/auth" "staticcheck module package"
 assert_contains "$args" "github.com/JochiRaider/cartulary/tools/testservices" "staticcheck tools package"
 assert_not_contains "$args" "github.com/JochiRaider/cartulary/internal/gen/contracts" "staticcheck generated contracts exclusion"

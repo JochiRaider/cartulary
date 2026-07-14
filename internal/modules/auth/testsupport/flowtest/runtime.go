@@ -3,21 +3,21 @@ package flowtest
 import (
 	"testing"
 
-	apptestsupport "github.com/JochiRaider/cartulary/internal/app/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 type RuntimeHarness struct {
-	*apptestsupport.Runtime
+	*appsupport.Runtime
 }
 
-type ServerHarness = apptestsupport.ServerHarness
+type ServerHarness = appsupport.ServerHarness
 
 func StartRuntime(t testing.TB) *RuntimeHarness {
 	t.Helper()
 
-	return &RuntimeHarness{Runtime: apptestsupport.StartRuntime(t)}
+	return &RuntimeHarness{Runtime: appsupport.StartRuntime(t)}
 }
 
 func (h *RuntimeHarness) StartServer(t testing.TB, prefix string, additionalRoutes ...httpapi.RouteRegistrar) *ServerHarness {
@@ -28,7 +28,7 @@ func (h *RuntimeHarness) StartServer(t testing.TB, prefix string, additionalRout
 func (h *RuntimeHarness) StartServerWithDependencies(t testing.TB, prefix string, deps httpapi.DependencySet, additionalRoutes ...httpapi.RouteRegistrar) *ServerHarness {
 	t.Helper()
 
-	return h.Runtime.StartServer(t, apptestsupport.ServerOptions{
+	return h.Runtime.StartServer(t, appsupport.ServerOptions{
 		Prefix:           prefix,
 		Dependencies:     deps,
 		AdditionalRoutes: additionalRoutes,

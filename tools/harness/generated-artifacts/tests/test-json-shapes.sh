@@ -2557,16 +2557,10 @@ write_valid_test_support_inventory_fixture() {
   local file="$1"
 
   mkdir -p \
-    "$tmp_dir/internal/app/testsupport" \
     "$tmp_dir/internal/platform/contracttest" \
     "$tmp_dir/internal/testutil/fixtures/config" \
     "$tmp_dir/internal/testutil/golden/otel" \
     "$tmp_dir/tools"
-  cat >"$tmp_dir/internal/app/testsupport/runtime.go" <<'GO'
-package testsupport
-
-func StartRuntime() {}
-GO
   : >"$tmp_dir/internal/platform/contracttest/contracttest.go"
   : >"$tmp_dir/internal/testutil/fixtures/config/valid.toml"
   : >"$tmp_dir/internal/testutil/golden/otel/.gitkeep"
@@ -2574,15 +2568,6 @@ GO
 {
   "schema_id": "cartulary.test_support_inventory.v1",
   "go_support_roots": [
-    {
-      "path": "internal/app/testsupport",
-      "owner": "app_runtime",
-      "posture": "platform_facade",
-      "runtime_scan": "included",
-      "support_scan": "included",
-      "service_starting": true,
-      "rationale": "Synthetic app support root."
-    },
     {
       "path": "internal/platform/contracttest",
       "owner": "platform_contracts",

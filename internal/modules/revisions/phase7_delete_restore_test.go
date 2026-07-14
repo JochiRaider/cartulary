@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/app"
+	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -19,7 +19,7 @@ import (
 
 func TestPhase7_DeleteRestoreAdapterMatrix_U_7_03_U_7_04(t *testing.T) {
 	t.Parallel()
-	_, err := app.NewRevisionsCommandService(nil, nil)
+	_, err := revisionassembly.NewCommandService(nil, nil)
 	if !errors.Is(err, revisions.ErrInvalidCommandServiceDependency) {
 		t.Fatalf("application composition did not complete every provider catalog before dependency validation: %v", err)
 	}

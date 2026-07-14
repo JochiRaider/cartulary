@@ -251,7 +251,7 @@ Shared harness owners for this phase are explicit:
 - Owner route inventories under incidents, workbook, Timeline, records, entities, indicators, and extensions compose the Phase 2 public-envelope and role-control sweeps through `internal/testutil/routeinventory`; no single product facade owns another module's routes.
 - `internal/modules/incidents/testsupport/routetest` contains only incident and membership routes. Workbook preferences, view queries, record actions, and collaboration behavior remain with their semantic owners.
 - `internal/modules/incidents/testsupport/mutationtest` owns incident resource and membership mutation traceability without exposing the underlying audit table at call sites.
-- `internal/modules/incidents/testsupport/storetest` owns rollback-backed incident store behavior; auth seeding comes from auth support, while `internal/app/testsupport.NewIncidentStore` owns cross-module store composition.
+- `internal/modules/incidents/testsupport/storetest` owns rollback-backed incident store behavior; auth seeding comes from auth support, while `internal/testutil/appsupport.NewIncidentStore` owns cross-module store composition.
 - `apps/web/src/app/App.landing.test.tsx` and `apps/web/src/app/IncidentAdminPanel.test.tsx` own the authoritative frontend-unit Phase 2 rows. They complement, not replace, Playwright `E-2-01..E-2-03`.
 
 ### 4.2.2 Primary owner sections

@@ -1,4 +1,4 @@
-package testsupport
+package appsupport
 
 import (
 	"database/sql"

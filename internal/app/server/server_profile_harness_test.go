@@ -1,6 +1,6 @@
 //go:build cartulary_harness
 
-package app
+package server
 
 import "testing"
 

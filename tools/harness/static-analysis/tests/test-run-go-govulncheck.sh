@@ -68,7 +68,7 @@ for pattern in "$@"; do
       ;;
     ./internal/... | github.com/JochiRaider/cartulary/internal/...)
       printf '%s\n' \
-        github.com/JochiRaider/cartulary/internal/app \
+        github.com/JochiRaider/cartulary/internal/app/server \
         github.com/JochiRaider/cartulary/internal/gen/contracts \
         github.com/JochiRaider/cartulary/internal/gen/sql \
         github.com/JochiRaider/cartulary/internal/modules/auth
@@ -198,7 +198,7 @@ assert_contains "$args" "-test" "govulncheck test flag"
 assert_contains "$args" "-json" "govulncheck passthrough flag"
 assert_contains "$args" "github.com/JochiRaider/cartulary/cmd/server" "govulncheck cmd package"
 assert_contains "$args" "github.com/JochiRaider/cartulary/cmd/operator" "govulncheck operator cmd package"
-assert_contains "$args" "github.com/JochiRaider/cartulary/internal/app" "govulncheck internal authored package"
+assert_contains "$args" "github.com/JochiRaider/cartulary/internal/app/server" "govulncheck application facade package"
 assert_contains "$args" "github.com/JochiRaider/cartulary/internal/modules/auth" "govulncheck module package"
 assert_contains "$args" "github.com/JochiRaider/cartulary/db/migrations" "govulncheck db package"
 assert_contains "$args" "github.com/JochiRaider/cartulary/tools/testservices" "govulncheck tools package"

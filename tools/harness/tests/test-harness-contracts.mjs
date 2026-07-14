@@ -2695,6 +2695,21 @@ test("backend module boundary rejects Revisions source SQL, mappings, and provid
       "internal/modules/revisions/provider_import.go",
       'package revisions\n\nimport _ "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/rollbackprovider"\n',
     );
+    writeFixtureFile(
+      root,
+      "internal/app/server/direct_provider.go",
+      'package server\n\nimport _ "github.com/JochiRaider/cartulary/internal/modules/artifacts/deleterestore"\n',
+    );
+    writeFixtureFile(
+      root,
+      "internal/app/server/unrelated_incident_bundle.go",
+      'package server\n\nimport _ "github.com/JochiRaider/cartulary/internal/modules/incidentbundles"\n',
+    );
+    writeFixtureFile(
+      root,
+      "internal/modules/assessments/cross_owner_provider.go",
+      'package assessments\n\nimport _ "github.com/JochiRaider/cartulary/internal/modules/artifacts/rollbackprovider"\n',
+    );
 
     const result = spawnSync(
       process.execPath,
@@ -2744,6 +2759,30 @@ test("backend module boundary rejects Revisions source SQL, mappings, and provid
           violation.symbol_or_import.endsWith("/entities/hostidentity/rollbackprovider"),
       ),
       `provider import violation missing: ${result.stdout}`,
+    );
+    assert.ok(
+      report.violations.some(
+        (violation) =>
+          violation.code === "owner_port_only_import" &&
+          violation.path === "internal/app/server/direct_provider.go",
+      ),
+      `direct application provider import violation missing: ${result.stdout}`,
+    );
+    assert.ok(
+      report.violations.some(
+        (violation) =>
+          violation.code === "owner_port_only_import" &&
+          violation.path === "internal/app/server/unrelated_incident_bundle.go",
+      ),
+      `unrelated incident-bundle facade import violation missing: ${result.stdout}`,
+    );
+    assert.ok(
+      report.violations.some(
+        (violation) =>
+          violation.code === "owner_port_only_import" &&
+          violation.path === "internal/modules/assessments/cross_owner_provider.go",
+      ),
+      `cross-owner provider import violation missing: ${result.stdout}`,
     );
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -2816,13 +2855,13 @@ test("backend module boundary consumes test support inventory scan exclusions", 
   }
 });
 
-test("backend module boundary enforces thin command roots and platform-only HTTP runtime imports", () => {
+test("backend module boundary enforces exact command facades, revision assembly, and platform-only HTTP runtime imports", () => {
   const root = mkdtempSync(path.join(repoRoot, "tmp", "backend-boundary-runtime."));
   try {
     writeFixtureFile(
       root,
       "cmd/server/main.go",
-      'package main\n\nimport _ "github.com/JochiRaider/cartulary/internal/app"\n',
+      'package main\n\nimport _ "github.com/JochiRaider/cartulary/internal/app/server"\n',
     );
     writeFixtureFile(
       root,
@@ -2831,8 +2870,18 @@ test("backend module boundary enforces thin command roots and platform-only HTTP
     );
     writeFixtureFile(
       root,
+      "cmd/migrate/main.go",
+      'package main\n\nimport _ "github.com/JochiRaider/cartulary/internal/app/server"\n',
+    );
+    writeFixtureFile(
+      root,
       "cmd/operator/main.go",
       'package main\n\nimport _ "github.com/JochiRaider/cartulary/internal/modules/recovery"\n',
+    );
+    writeFixtureFile(
+      root,
+      "internal/app/revisionassembly/revisions.go",
+      'package revisionassembly\n\nimport _ "github.com/JochiRaider/cartulary/internal/modules/recovery"\n',
     );
     writeFixtureFile(
       root,
@@ -2863,7 +2912,12 @@ test("backend module boundary enforces thin command roots and platform-only HTTP
         .filter((violation) => violation.code === "go_import_allowlist")
         .map((violation) => violation.path)
         .sort(),
-      ["cmd/operator/main.go", "internal/platform/httpruntime/domain.go"],
+      [
+        "cmd/migrate/main.go",
+        "cmd/operator/main.go",
+        "internal/app/revisionassembly/revisions.go",
+        "internal/platform/httpruntime/domain.go",
+      ],
       `thin-root/runtime allowlist violations differed: ${result.stdout}`,
     );
   } finally {
@@ -2885,8 +2939,8 @@ test("backend module boundary preserves command refactor retirement invariants",
     );
     writeFixtureFile(
       root,
-      "internal/app/server.go",
-      'package app\n\nimport _ "github.com/JochiRaider/cartulary/internal/platform/harnessruntime"\n',
+      "internal/app/server/server.go",
+      'package server\n\nimport _ "github.com/JochiRaider/cartulary/internal/platform/harnessruntime"\n',
     );
     writeFixtureFile(
       root,
@@ -2932,7 +2986,7 @@ test("backend module boundary preserves command refactor retirement invariants",
       report.violations.some(
         (violation) =>
           violation.code === "forbidden_go_import" &&
-          violation.path === "internal/app/server.go",
+          violation.path === "internal/app/server/server.go",
       ),
       `production harness import violation missing: ${result.stdout}`,
     );

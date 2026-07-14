@@ -2,15 +2,6 @@
   "schema_id": "cartulary.test_support_inventory.v1",
   "go_support_roots": [
     {
-      "path": "internal/app/testsupport",
-      "owner": "app_runtime",
-      "posture": "platform_facade",
-      "runtime_scan": "included",
-      "support_scan": "included",
-      "service_starting": true,
-      "rationale": "Composes PostgreSQL, object store, app runtime, and test server startup for owner-local harnesses."
-    },
-    {
       "path": "internal/modules/auth/testsupport",
       "owner": "auth",
       "posture": "owner_local",

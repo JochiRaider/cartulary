@@ -1,4 +1,4 @@
-package app
+package server
 
 import (
 	"context"
@@ -44,9 +44,10 @@ func TestPhase0_FailClosedStartup_U_0_05(t *testing.T) {
 	}
 
 	var objectStoreCalls int
+	var setupStore objectstore.Store
 	setupObjectStore = func(ctx context.Context, cfg config.Config, env map[string]string) (objectstore.Store, error) {
 		objectStoreCalls++
-		return nil, nil
+		return setupStore, nil
 	}
 
 	var wsHubCalls int
@@ -124,6 +125,48 @@ func TestPhase0_FailClosedStartup_U_0_05(t *testing.T) {
 			t.Fatalf("expected bootstrap preflight failure to stop before listener construction, got jobs=%d websocket=%d handler=%d", jobsCalls, wsHubCalls, handlerCalls)
 		}
 	})
+
+	t.Run("startup failure closes owned object store exactly once", func(t *testing.T) {
+		cfg := phase0RuntimeConfig(t)
+		ownedStore := &phase0CloseTrackingStore{}
+		setupStore = ownedStore
+		runBootstrap = func(context.Context, config.Config, *pgxpool.Pool) error {
+			return config.NewDiagnosticsError(config.Diagnostic{Path: "bootstrap", ReasonCode: "forced_failure", Message: "forced failure"})
+		}
+
+		if _, err := NewRuntime(context.Background(), cfg, Options{}); err == nil {
+			t.Fatal("expected forced startup failure")
+		}
+		if ownedStore.closeCalls != 1 {
+			t.Fatalf("owned object-store close calls got %d want 1", ownedStore.closeCalls)
+		}
+	})
+
+	t.Run("startup failure leaves borrowed object store open", func(t *testing.T) {
+		cfg := phase0RuntimeConfig(t)
+		borrowedStore := &phase0CloseTrackingStore{}
+		setupStore = nil
+		runBootstrap = func(context.Context, config.Config, *pgxpool.Pool) error {
+			return config.NewDiagnosticsError(config.Diagnostic{Path: "bootstrap", ReasonCode: "forced_failure", Message: "forced failure"})
+		}
+
+		if _, err := NewRuntime(context.Background(), cfg, Options{ObjectStore: borrowedStore}); err == nil {
+			t.Fatal("expected forced startup failure")
+		}
+		if borrowedStore.closeCalls != 0 {
+			t.Fatalf("borrowed object-store close calls got %d want 0", borrowedStore.closeCalls)
+		}
+	})
+}
+
+type phase0CloseTrackingStore struct {
+	objectstore.Store
+	closeCalls int
+}
+
+func (s *phase0CloseTrackingStore) Close() error {
+	s.closeCalls++
+	return nil
 }
 
 func phase0RuntimeConfig(t testing.TB) config.Config {

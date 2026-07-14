@@ -1,13 +1,15 @@
-package app
+package server
 
 import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
@@ -69,6 +71,9 @@ type Runtime struct {
 	JobRunner   *jobs.Runner
 	WSHub       *platformws.Hub
 	Telemetry   *telemetry.Runtime
+
+	closeOnce sync.Once
+	cleanups  []func()
 }
 
 func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runtime, error) {
@@ -107,6 +112,11 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		Config:    normalizedCfg,
 		Telemetry: telemetryRuntime,
 	}
+	runtime.own(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(runtime.Config.Telemetry.Shutdown.FlushTimeoutMS)*time.Millisecond)
+		defer cancel()
+		_ = runtime.Telemetry.Shutdown(ctx)
+	})
 	now := options.Now
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
@@ -117,9 +127,13 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	} else {
 		pool, err := setupPostgres(ctx, normalizedCfg, options.Env)
 		if err != nil {
+			runtime.Close()
 			return nil, fmt.Errorf("setup postgres: %w", err)
 		}
 		runtime.Postgres = pool
+		if pool != nil {
+			runtime.own(pool.Close)
+		}
 	}
 
 	if options.ObjectStore != nil {
@@ -131,6 +145,9 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 			return nil, fmt.Errorf("setup object store: %w", err)
 		}
 		runtime.ObjectStore = client
+		if client != nil {
+			runtime.own(func() { _ = client.Close() })
+		}
 	}
 	postgresHandle := instrumentedPostgres(normalizedCfg, runtime.Postgres)
 
@@ -156,6 +173,12 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	runtime.Jobs = newJobsManager()
 	runtime.Jobs.ConfigureTelemetry(normalizedCfg.Telemetry.Resource.ServiceVersion)
 	runtime.JobRunner = jobs.NewRunner()
+	jobRunner := runtime.JobRunner
+	runtime.own(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = jobRunner.Close(ctx)
+	})
 	hub := newWSHub()
 	runtime.WSHub = hub
 	runtime.Jobs.Configure(runtime.Postgres, now)
@@ -194,7 +217,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	incidentBundleRoutes := incidentbundles.RegisterRoutes(
 		incidentbundles.WithImportFinalizer(incidentBundleImportFinalizer),
 	)
-	revisionCommands, err := NewRevisionsCommandService(postgresHandle, attributionResolvers.ImportedAttributionResolver(incidentbundles.IncidentPortabilityProfileID))
+	revisionCommands, err := revisionassembly.NewCommandService(postgresHandle, attributionResolvers.ImportedAttributionResolver(incidentbundles.IncidentPortabilityProfileID))
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose revisions command service: %w", err)
@@ -216,7 +239,32 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	}
 	moduleOverrides := mergeNetworkFlowImportFacadeOverride(testRuntimeDeps.ModuleOverrides, networkFlowModule.ImportOwner())
 	delete(moduleOverrides, networkflow.KeyRingsOverrideKey)
-	httpOptions.AdditionalRoutes = append([]httpapi.RouteRegistrar{auth.RegisterRoutes(), incidentRoutes, extensions.RegisterRoutes(), jobapi.RegisterRoutes(), imports.RegisterRoutes(), networkFlowModule.RegisterRoutes(), reporting.RegisterRoutes(), reportcomposition.RegisterRoutes(), reference_data.RegisterRoutes(), incidentBundleRoutes, savedviews.RegisterRoutes(), viewschemas.RegisterRoutes(), collaboration.RegisterRoutes(), entities.RegisterRoutes(), evidence.RegisterRoutes(), assessments.RegisterRoutes(), workbook.RegisterRoutes(), timeline.RegisterRoutes(), revisionRoutes}, httpOptions.AdditionalRoutes...)
+	builtInRoutes, err := builtInRouteRegistrars([]routeContribution{
+		{id: "auth", registrar: auth.RegisterRoutes()},
+		{id: "incidents", registrar: incidentRoutes},
+		{id: "extensions", registrar: extensions.RegisterRoutes()},
+		{id: "jobs", registrar: jobapi.RegisterRoutes()},
+		{id: "imports", registrar: imports.RegisterRoutes()},
+		{id: "network_flow", registrar: networkFlowModule.RegisterRoutes()},
+		{id: "reporting", registrar: reporting.RegisterRoutes()},
+		{id: "report_composition", registrar: reportcomposition.RegisterRoutes()},
+		{id: "reference_data", registrar: reference_data.RegisterRoutes()},
+		{id: "incident_bundles", registrar: incidentBundleRoutes},
+		{id: "saved_views", registrar: savedviews.RegisterRoutes()},
+		{id: "view_schemas", registrar: viewschemas.RegisterRoutes()},
+		{id: "collaboration", registrar: collaboration.RegisterRoutes()},
+		{id: "entities", registrar: entities.RegisterRoutes()},
+		{id: "evidence", registrar: evidence.RegisterRoutes()},
+		{id: "assessments", registrar: assessments.RegisterRoutes()},
+		{id: "workbook", registrar: workbook.RegisterRoutes()},
+		{id: "timeline", registrar: timeline.RegisterRoutes()},
+		{id: "revisions", registrar: revisionRoutes},
+	})
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose built-in routes: %w", err)
+	}
+	httpOptions.AdditionalRoutes = append(builtInRoutes, httpOptions.AdditionalRoutes...)
 	httpOptions.Dependencies = httpapi.DependencySet{
 		Config:            normalizedCfg,
 		Env:               options.Env,
@@ -318,20 +366,15 @@ func (r *Runtime) Close() {
 	if r == nil {
 		return
 	}
-	if r.JobRunner != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		_ = r.JobRunner.Close(ctx)
-		cancel()
-	}
-	if r.ObjectStore != nil {
-		_ = r.ObjectStore.Close()
-	}
-	if r.Telemetry != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(r.Config.Telemetry.Shutdown.FlushTimeoutMS)*time.Millisecond)
-		_ = r.Telemetry.Shutdown(ctx)
-		cancel()
-	}
-	if r.Postgres != nil {
-		r.Postgres.Close()
+	r.closeOnce.Do(func() {
+		for index := len(r.cleanups) - 1; index >= 0; index-- {
+			r.cleanups[index]()
+		}
+	})
+}
+
+func (r *Runtime) own(cleanup func()) {
+	if r != nil && cleanup != nil {
+		r.cleanups = append(r.cleanups, cleanup)
 	}
 }

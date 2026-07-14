@@ -1,4 +1,4 @@
-package testsupport
+package appsupport
 
 import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"

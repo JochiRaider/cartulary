@@ -4,7 +4,7 @@
 product-domain helpers should not be added here by default.
 
 Composed Postgres, object-store, and application test-server startup is owned
-by `internal/app/testsupport`. Owner-local helpers select dependencies,
+by `internal/testutil/appsupport`. Owner-local helpers select dependencies,
 privileged route mode, and semantic fixtures while reusing that composition
 boundary.
 
@@ -12,6 +12,7 @@ Retained shared helper families:
 
 | Package family | Owner posture |
 | --- | --- |
+| `appsupport` | Shared application composition over PostgreSQL, object-store, and server test infrastructure. |
 | `authcookietest` | Shared auth-cookie assertion helper over platform auth cookie names. |
 | `configtest`, `diagnosticstest`, `processtest` | Platform/runtime diagnostics and process harness support. |
 | `auditassert`, `contractassert`, `securityassert` | Owner-neutral mutation/audit, protocol-contract, and recursive secret-safety assertions. |

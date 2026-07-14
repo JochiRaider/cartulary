@@ -1,4 +1,4 @@
-package app
+package migrate
 
 import (
 	"bytes"

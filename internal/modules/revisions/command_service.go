@@ -20,9 +20,7 @@ type CommandServiceDependencies struct {
 	Database                    postgres.DB
 	ImportedAttributionResolver ImportedAttributionResolver
 	ProjectionRebuilder         ProjectionRebuilder
-	DeleteRestoreProviders      *DeleteRestoreProviderCatalog
-	RowRollbackProviders        *RowProviderCatalog
-	NonRowRollbackProviders     *NonRowProviderCatalog
+	ProviderContributions       []ProviderContribution
 }
 
 type CommandService struct {
@@ -42,14 +40,15 @@ func NewCommandService(dependencies CommandServiceDependencies) (*CommandService
 		{name: "database", value: dependencies.Database},
 		{name: "imported attribution resolver", value: dependencies.ImportedAttributionResolver},
 		{name: "projection rebuilder", value: dependencies.ProjectionRebuilder},
-		{name: "delete/restore provider catalog", value: dependencies.DeleteRestoreProviders},
-		{name: "row rollback provider catalog", value: dependencies.RowRollbackProviders},
-		{name: "non-row rollback provider catalog", value: dependencies.NonRowRollbackProviders},
 	}
 	for _, check := range checks {
 		if nilDependency(check.value) {
 			return nil, fmt.Errorf("%w: %s", ErrInvalidCommandServiceDependency, check.name)
 		}
+	}
+	deleteRestoreProviders, rowRollbackProviders, nonRowRollbackProviders, err := buildProviderCatalogs(dependencies.ProviderContributions)
+	if err != nil {
+		return nil, fmt.Errorf("%w: provider contributions: %w", ErrInvalidCommandServiceDependency, err)
 	}
 	store := &commandStore{
 		db:                          dependencies.Database,
@@ -57,9 +56,9 @@ func NewCommandService(dependencies CommandServiceDependencies) (*CommandService
 		incidentAccess:              incidents.NewAccess(dependencies.Database),
 		importedAttributionResolver: dependencies.ImportedAttributionResolver,
 		projectionRebuilder:         dependencies.ProjectionRebuilder,
-		deleteRestoreProviders:      dependencies.DeleteRestoreProviders,
-		rowRollbackProviders:        dependencies.RowRollbackProviders,
-		nonRowRollbackProviders:     dependencies.NonRowRollbackProviders,
+		deleteRestoreProviders:      deleteRestoreProviders,
+		rowRollbackProviders:        rowRollbackProviders,
+		nonRowRollbackProviders:     nonRowRollbackProviders,
 	}
 	return &CommandService{commands: store, history: &historyStore{store: store}}, nil
 }

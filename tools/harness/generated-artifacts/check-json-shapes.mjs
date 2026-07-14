@@ -791,7 +791,6 @@ const retainedPathPolicies = new Set([
 ]);
 const sharedDataFileRoles = new Set(["fixture", "golden", "manifest", "placeholder"]);
 const discoveredGoSupportRoots = Object.freeze([
-  "internal/app/testsupport",
   "internal/platform/contracttest",
   "internal/testutil",
   "tools",

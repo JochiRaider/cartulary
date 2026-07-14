@@ -15,99 +15,99 @@
       "id": "incidentbundles-facade-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/incidentbundles",
       "allowed_importers": [
-        "internal/app/**",
+        "internal/app/server/runtime.go",
         "internal/modules/incidentbundles/**"
       ]
     },
     {
       "id": "artifact-delete-restore-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/artifacts/deleterestore",
-      "allowed_importers": ["internal/app/**", "internal/modules/artifacts/**"]
+      "allowed_importers": ["internal/modules/artifacts/**"]
     },
     {
       "id": "artifact-rollback-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/artifacts/rollbackprovider",
-      "allowed_importers": ["internal/app/**", "internal/modules/artifacts/**"]
+      "allowed_importers": ["internal/modules/artifacts/**"]
     },
     {
       "id": "assessment-delete-restore-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/assessments/deleterestore",
-      "allowed_importers": ["internal/app/**", "internal/modules/assessments/**"]
+      "allowed_importers": ["internal/modules/assessments/**"]
     },
     {
       "id": "assessment-rollback-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/assessments/rollbackprovider",
-      "allowed_importers": ["internal/app/**", "internal/modules/assessments/**"]
+      "allowed_importers": ["internal/modules/assessments/**"]
     },
     {
       "id": "entity-delete-restore-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/deleterestore",
-      "allowed_importers": ["internal/app/**", "internal/modules/entities/hostidentity/**"]
+      "allowed_importers": ["internal/modules/entities/**"]
     },
     {
       "id": "entity-rollback-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/rollbackprovider",
-      "allowed_importers": ["internal/app/**", "internal/modules/entities/hostidentity/**"]
+      "allowed_importers": ["internal/modules/entities/**"]
     },
     {
       "id": "entity-mention-rollback-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/entities/mentions/rollbackprovider",
-      "allowed_importers": ["internal/app/**", "internal/modules/entities/mentions/**"]
+      "allowed_importers": ["internal/modules/entities/**"]
     },
     {
       "id": "evidence-delete-restore-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/deleterestore",
-      "allowed_importers": ["internal/app/**", "internal/modules/evidence/**"]
+      "allowed_importers": ["internal/modules/evidence/**"]
     },
     {
       "id": "evidence-rollback-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/rollbackprovider",
-      "allowed_importers": ["internal/app/**", "internal/modules/evidence/**"]
+      "allowed_importers": ["internal/modules/evidence/**"]
     },
     {
       "id": "indicator-delete-restore-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/indicators/deleterestore",
-      "allowed_importers": ["internal/app/**", "internal/modules/indicators/**"]
+      "allowed_importers": ["internal/modules/indicators/**"]
     },
     {
       "id": "indicator-rollback-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/indicators/rollbackprovider",
-      "allowed_importers": ["internal/app/**", "internal/modules/indicators/**"]
+      "allowed_importers": ["internal/modules/indicators/**"]
     },
     {
       "id": "link-revision-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/links/revisionprovider",
-      "allowed_importers": ["internal/app/**", "internal/modules/links/**"]
+      "allowed_importers": ["internal/modules/links/**"]
     },
     {
       "id": "party-delete-restore-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/parties/deleterestore",
-      "allowed_importers": ["internal/app/**", "internal/modules/parties/**"]
+      "allowed_importers": ["internal/modules/parties/**"]
     },
     {
       "id": "party-rollback-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/parties/rollbackprovider",
-      "allowed_importers": ["internal/app/**", "internal/modules/parties/**"]
+      "allowed_importers": ["internal/modules/parties/**"]
     },
     {
       "id": "tasks-decisions-delete-restore-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/deleterestore",
-      "allowed_importers": ["internal/app/**", "internal/modules/tasksdecisions/**"]
+      "allowed_importers": ["internal/modules/tasksdecisions/**"]
     },
     {
       "id": "tasks-decisions-rollback-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/rollbackprovider",
-      "allowed_importers": ["internal/app/**", "internal/modules/tasksdecisions/**"]
+      "allowed_importers": ["internal/modules/tasksdecisions/**"]
     },
     {
       "id": "timeline-delete-restore-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/timeline/deleterestore",
-      "allowed_importers": ["internal/app/**", "internal/modules/timeline/**"]
+      "allowed_importers": ["internal/modules/timeline/**"]
     },
     {
       "id": "timeline-rollback-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/timeline/rollbackprovider",
-      "allowed_importers": ["internal/app/**", "internal/modules/timeline/**"]
+      "allowed_importers": ["internal/modules/timeline/**"]
     }
   ],
   "raw_ndjson_targets": [
@@ -144,20 +144,55 @@
         "github.com/JochiRaider/cartulary/internal/modules/networkflow/harnesscontrol"
       ],
       "scan_paths": ["internal/app/**"],
-      "allowed_paths": ["internal/app/server_profile_harness.go"],
+      "allowed_paths": ["internal/app/server/server_profile_harness.go"],
       "production_only": true
     }
   ],
   "go_import_allowlists": [
     {
-      "id": "thin-command-production-imports",
+      "id": "server-command-production-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/",
-      "scan_paths": ["cmd/**"],
+      "scan_paths": ["cmd/server/main.go"],
       "production_only": true,
-      "allowed_prefixes": [
-        "github.com/JochiRaider/cartulary/internal/app"
-      ],
-      "allowed_imports": []
+      "allowed_prefixes": [],
+      "allowed_imports": ["github.com/JochiRaider/cartulary/internal/app/server"]
+    },
+    {
+      "id": "migrate-command-production-imports",
+      "import_prefix": "github.com/JochiRaider/cartulary/internal/",
+      "scan_paths": ["cmd/migrate/main.go"],
+      "production_only": true,
+      "allowed_prefixes": [],
+      "allowed_imports": ["github.com/JochiRaider/cartulary/internal/app/migrate"]
+    },
+    {
+      "id": "operator-command-production-imports",
+      "import_prefix": "github.com/JochiRaider/cartulary/internal/",
+      "scan_paths": ["cmd/operator/main.go"],
+      "production_only": true,
+      "allowed_prefixes": [],
+      "allowed_imports": ["github.com/JochiRaider/cartulary/internal/app/operator"]
+    },
+    {
+      "id": "revision-assembly-exact-imports",
+      "import_prefix": "github.com/JochiRaider/cartulary/internal/",
+      "scan_paths": ["internal/app/revisionassembly/**"],
+      "production_only": true,
+      "allowed_prefixes": [],
+      "allowed_imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/artifacts",
+        "github.com/JochiRaider/cartulary/internal/modules/assessments",
+        "github.com/JochiRaider/cartulary/internal/modules/entities",
+        "github.com/JochiRaider/cartulary/internal/modules/evidence",
+        "github.com/JochiRaider/cartulary/internal/modules/indicators",
+        "github.com/JochiRaider/cartulary/internal/modules/links",
+        "github.com/JochiRaider/cartulary/internal/modules/parties",
+        "github.com/JochiRaider/cartulary/internal/modules/projections/adapters",
+        "github.com/JochiRaider/cartulary/internal/modules/revisions",
+        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions",
+        "github.com/JochiRaider/cartulary/internal/modules/timeline",
+        "github.com/JochiRaider/cartulary/internal/platform/postgres"
+      ]
     },
     {
       "id": "http-runtime-platform-only-imports",

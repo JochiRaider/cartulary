@@ -41,7 +41,7 @@
     {
       "id": "migration-source-backend-labels",
       "path_globs": [
-        "internal/app/operator.go",
+        "internal/app/operator/operator.go",
         "cmd/operator/**",
         "internal/modules/recovery/**"
       ],

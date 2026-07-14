@@ -66,7 +66,7 @@ Recommended first directory command:
 ```bash
 mkdir -p \
   cmd/server cmd/migrate cmd/operator \
-  internal/app \
+  internal/app/server internal/app/migrate internal/app/operator internal/app/revisionassembly internal/app/serverprocess \
   internal/platform/httpapi internal/platform/ws internal/platform/jobs \
   internal/platform/postgres internal/platform/objectstore internal/platform/authn internal/platform/config \
   internal/modules/auth internal/modules/incidents internal/modules/timeline internal/modules/entities \
@@ -76,7 +76,7 @@ mkdir -p \
   db/migrations db/queries \
   contracts/openapi contracts/ws contracts/view-schemas contracts/errors contracts/otel \
   apps/web packages/ui packages/grid-adapter packages/protocol-ts/src/generated packages/view-contracts packages/ui-contracts packages/test-utils \
-  scripts tools docs configs/dev internal/testutil/configtest internal/testutil/pgtest \
+  scripts tools docs configs/dev internal/testutil/appsupport internal/testutil/configtest internal/testutil/pgtest \
   internal/testutil/s3test internal/testutil/httptestx internal/testutil/wstest \
   internal/testutil/fixtures internal/testutil/golden internal/testutil/golden/otel
 ```
@@ -175,7 +175,9 @@ Two rules matter immediately:
 
 ## 6. Step 3: scaffold the backend composition root before handlers
 
-Create `/cmd/server`, `/cmd/migrate`, and `/cmd/operator` first as thin executable roots. They own only OS-process mechanics and delegate assembly to `internal/app`; they do not import domain modules or platform implementations directly. Schema DDL changes belong in numbered migrations under `/db/migrations`, not in startup side effects.[^16]
+Create `/cmd/server`, `/cmd/migrate`, and `/cmd/operator` first as thin executable roots. They own only OS-process mechanics and delegate to their exact `internal/app/server`, `internal/app/migrate`, and `internal/app/operator` facades; they do not import domain modules, platform implementations, another binary's facade, or a root `internal/app` Go package. Schema DDL changes belong in numbered migrations under `/db/migrations`, not in startup side effects.[^16]
+
+Use `internal/app/revisionassembly` as the one exact aggregator for revisions providers exposed by source-owner root facades. Revisions owns contribution types, current-profile requirements, validation, and generic coordination; application assembly does not import provider subpackages directly. Keep reusable server and storage test composition in `internal/testutil/appsupport`, and reserve `internal/app/serverprocess` for test-only process evidence.
 
 Then create the platform packages with empty or stubbed interfaces:
 
@@ -192,9 +194,10 @@ Their initial responsibilities should match the development-guide split: HTTP en
 
 Recommended first compile target:
 
-- `cmd/server/main.go` creates the signal context and delegates server execution to `internal/app`.
-- `cmd/migrate/main.go` delegates the exact production command `migrate up` to `internal/app`; application code loads config, opens Postgres, and applies forward `goose` migrations. Penultimate-version application belongs to database-contract test support, not the deployable CLI.
+- `cmd/server/main.go` creates the signal context and delegates server execution to `internal/app/server`.
+- `cmd/migrate/main.go` delegates the exact production command `migrate up` to `internal/app/migrate`; application code loads config, opens Postgres, and applies forward `goose` migrations. Penultimate-version application belongs to database-contract test support, not the deployable CLI.
 - `cmd/operator/main.go` delegates recovery inspection/control to application and module code. Operator recovery invocation is local-process tooling authorized by OS execution permission plus deployment-local configuration and recovery secret access, not by browser sessions or `deployment_admin`.
+- non-nil PostgreSQL pools and object stores injected into `internal/app/server` are borrowed; runtime-owned dependencies are released once in reverse acquisition order.
 - `internal/platform/httpruntime` owns ordinary listener acquisition and graceful/forced HTTP shutdown policy. Inherited-listener acquisition is a harness-only `server` build-profile contribution, never a production-server capability.
 - all three binaries compile before any domain module is implemented.
 
@@ -431,7 +434,10 @@ Recommended package targets for Slice B:
 - `internal/platform/config`
 - `internal/platform/postgres`
 - `internal/platform/objectstore`
-- `internal/app`
+- `internal/app/server`
+- `internal/app/migrate`
+- `internal/app/operator`
+- `internal/app/revisionassembly`
 - `cmd/server`
 - `cmd/migrate`
 - `cmd/operator`
