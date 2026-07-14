@@ -13,42 +13,25 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import {
-  type ChangeEvent,
-  type CSSProperties,
-  useCallback,
-  useEffect,
-  useMemo,
-  useReducer,
-  useRef,
-  useState,
-} from "react";
+import { type CSSProperties, useCallback, useRef, useState } from "react";
 import { IncidentCollaborationBoundary } from "../collaboration/IncidentCollaborationSession";
 import type { WorkbookIncidentRole } from "../shared/workbookShellContracts";
-import {
-  importNetworkFlowCSV,
-  linkNetworkFlowIndicator,
-  listNetworkFlowTables,
-  type NetworkFlowContributor,
-  type NetworkFlowDiagnostic,
-  type NetworkFlowEdgeAnnotation,
-  type NetworkFlowGraphResult,
-  type NetworkFlowRow,
-  type NetworkFlowTable,
-  networkAnalysisSheetRef,
-  queryNetworkFlowContributors,
-  queryNetworkFlowGraph,
-  queryNetworkFlowRejectedRows,
-  queryNetworkFlowTable,
+import type {
+  NetworkFlowContributor,
+  NetworkFlowDiagnostic,
+  NetworkFlowEdgeAnnotation,
+  NetworkFlowGraphResult,
+  NetworkFlowRow,
+  NetworkFlowTable,
 } from "./networkFlowClient";
-import {
-  initialNetworkFlowControllerState,
-  networkFlowControllerReducer,
-} from "./networkFlowController";
-import {
-  type NetworkFlowExtensionResourceChange,
-  useNetworkFlowExtensionEvents,
-} from "./useNetworkFlowExtensionEvents";
+import { networkAnalysisSheetRef } from "./networkFlowClient";
+import { useNetworkFlowCollaborationController } from "./useNetworkFlowCollaborationController";
+import { useNetworkFlowGraphController } from "./useNetworkFlowGraphController";
+import { useNetworkFlowImportController } from "./useNetworkFlowImportController";
+import { useNetworkFlowIndicatorLinkController } from "./useNetworkFlowIndicatorLinkController";
+import { useNetworkFlowRejectedRowsController } from "./useNetworkFlowRejectedRowsController";
+import { useNetworkFlowRowsController } from "./useNetworkFlowRowsController";
+import { useNetworkFlowTableController } from "./useNetworkFlowTableController";
 
 type NetworkAnalysisMode = "rows" | "rejected" | "graph";
 
@@ -68,299 +51,78 @@ function NetworkAnalysisWorkspaceContent({
   onIncidentAccessLost,
 }: NetworkAnalysisWorkspaceProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [{ tables, activeTableId }, dispatchController] = useReducer(
-    networkFlowControllerReducer,
-    initialNetworkFlowControllerState,
-  );
   const [mode, setMode] = useState<NetworkAnalysisMode>("rows");
-  const [rows, setRows] = useState<NetworkFlowRow[]>([]);
-  const [diagnostics, setDiagnostics] = useState<NetworkFlowDiagnostic[]>([]);
-  const [graph, setGraph] = useState<NetworkFlowGraphResult | null>(null);
-  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
-  const [contributors, setContributors] = useState<NetworkFlowContributor[]>(
-    [],
-  );
-  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
-    "loading",
-  );
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [importing, setImporting] = useState(false);
-
   const canImport =
     currentIncidentRole === "editor" ||
     currentIncidentRole === "reviewer" ||
     currentIncidentRole === "admin";
   const canLink =
     currentIncidentRole === "editor" || currentIncidentRole === "admin";
-
-  const activeTable = useMemo(
-    () =>
-      tables.find((table) => table.network_flow_table_id === activeTableId) ??
-      null,
-    [activeTableId, tables],
-  );
-  const graphTableIds = useMemo(
-    () => tables.map((table) => table.network_flow_table_id),
-    [tables],
-  );
-  const selectedEdge = useMemo(
-    () =>
-      graph?.edge_annotations.find((edge) => edge.edge_id === selectedEdgeId) ??
-      null,
-    [graph, selectedEdgeId],
-  );
-  const firstContributor = contributors[0] ?? null;
-
-  const loadTables = useCallback(async () => {
-    setLoadState((current) => (current === "ready" ? current : "loading"));
-    try {
-      const nextTables = await listNetworkFlowTables({ apiBase, incidentId });
-      dispatchController({ type: "replace_tables", tables: nextTables });
-      setLoadState("ready");
-      setErrorMessage(null);
-    } catch (error) {
-      const nextMessage =
-        error instanceof Error ? error.message : "load_failed";
-      if (isAuthorizationLoss(nextMessage)) {
-        onIncidentAccessLost?.();
-      }
-      setLoadState("error");
-      setErrorMessage(nextMessage);
-    }
-  }, [apiBase, incidentId, onIncidentAccessLost]);
-
-  useEffect(() => {
-    void loadTables();
-  }, [loadTables]);
-
-  useEffect(() => {
-    if (activeTableId === null || mode === "graph") {
-      setRows([]);
-      setDiagnostics([]);
-      return;
-    }
-    let cancelled = false;
-    const load = async () => {
-      try {
-        if (mode === "rows") {
-          const result = await queryNetworkFlowTable({
-            apiBase,
-            incidentId,
-            tableId: activeTableId,
-          });
-          if (!cancelled) {
-            setRows(result.rows);
-            setDiagnostics([]);
-            setErrorMessage(null);
-          }
-          return;
-        }
-        const result = await queryNetworkFlowRejectedRows({
-          apiBase,
-          incidentId,
-          tableId: activeTableId,
-        });
-        if (!cancelled) {
-          setDiagnostics(result.diagnostics);
-          setRows([]);
-          setErrorMessage(null);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          const nextMessage =
-            error instanceof Error ? error.message : "query_failed";
-          if (isAuthorizationLoss(nextMessage)) {
-            onIncidentAccessLost?.();
-          }
-          setErrorMessage(nextMessage);
-        }
-      }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTableId, apiBase, incidentId, mode, onIncidentAccessLost]);
-
-  useEffect(() => {
-    if (mode !== "graph" || graphTableIds.length === 0) {
-      setGraph(null);
-      setSelectedEdgeId(null);
-      setContributors([]);
-      return;
-    }
-    let cancelled = false;
-    const loadGraph = async () => {
-      try {
-        const nextGraph = await queryNetworkFlowGraph({
-          apiBase,
-          incidentId,
-          tableIds: graphTableIds,
-        });
-        if (!cancelled) {
-          setGraph(nextGraph);
-          setSelectedEdgeId((current) =>
-            current !== null &&
-            nextGraph.edge_annotations.some((edge) => edge.edge_id === current)
-              ? current
-              : (nextGraph.edge_annotations[0]?.edge_id ?? null),
-          );
-          setErrorMessage(null);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          const nextMessage =
-            error instanceof Error ? error.message : "graph_query_failed";
-          if (isAuthorizationLoss(nextMessage)) {
-            onIncidentAccessLost?.();
-          }
-          setErrorMessage(nextMessage);
-        }
-      }
-    };
-    void loadGraph();
-    return () => {
-      cancelled = true;
-    };
-  }, [apiBase, graphTableIds, incidentId, mode, onIncidentAccessLost]);
-
-  useEffect(() => {
-    if (graph === null || selectedEdgeId === null) {
-      setContributors([]);
-      return;
-    }
-    let cancelled = false;
-    const loadContributors = async () => {
-      try {
-        const result = await queryNetworkFlowContributors({
-          apiBase,
-          incidentId,
-          graph,
-          selector: { kind: "edge", edge_id: selectedEdgeId },
-        });
-        if (!cancelled) {
-          setContributors(result.contributors);
-          setErrorMessage(null);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          const nextMessage =
-            error instanceof Error
-              ? error.message
-              : "contributors_query_failed";
-          if (isAuthorizationLoss(nextMessage)) {
-            onIncidentAccessLost?.();
-          }
-          setErrorMessage(nextMessage);
-          setContributors([]);
-        }
-      }
-    };
-    void loadContributors();
-    return () => {
-      cancelled = true;
-    };
-  }, [apiBase, graph, incidentId, onIncidentAccessLost, selectedEdgeId]);
-
-  const handleResourceChange = useCallback(
-    (change: NetworkFlowExtensionResourceChange) => {
-      setMessage("Network Analysis data changed.");
-      if (
-        change.reasonCode === "authorization_lost" ||
-        (change.changeKind === "remove" && change.resourceId === "*")
-      ) {
-        dispatchController({ type: "clear_authorization" });
-        setRows([]);
-        setDiagnostics([]);
-        setGraph(null);
-        setSelectedEdgeId(null);
-        setContributors([]);
-        setMessage("Network Analysis access changed.");
-        return;
-      }
-      if (change.changeKind === "remove") {
-        dispatchController({
-          type: "remove_table",
-          tableId: change.resourceId,
-        });
-        setRows([]);
-        setDiagnostics([]);
-        setGraph(null);
-        setSelectedEdgeId(null);
-        setContributors([]);
-        return;
-      }
-      void loadTables();
-    },
-    [loadTables],
-  );
-
-  useNetworkFlowExtensionEvents({
+  const tableController = useNetworkFlowTableController({
     apiBase,
-    enabled: true,
     incidentId,
-    onResourceChange: handleResourceChange,
+    onIncidentAccessLost,
   });
-
-  const handleImportChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] ?? null;
-    event.target.value = "";
-    if (file === null || importing || !canImport) {
-      return;
-    }
-    setImporting(true);
-    setErrorMessage(null);
-    try {
-      await importNetworkFlowCSV({
-        apiBase,
-        incidentId,
-        file,
-        onProgress: setMessage,
-      });
-      setMessage("Import applied.");
-      await loadTables();
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "import_failed");
-    } finally {
-      setImporting(false);
-    }
-  };
-
-  const handleLinkEdge = async (
-    fieldKey: "network_flow.src_ip" | "network_flow.dst_ip",
-  ) => {
-    if (graph === null || selectedEdge === null || firstContributor === null) {
-      return;
-    }
-    const confirmExactValue = firstContributor.row[fieldKey];
-    if (confirmExactValue.trim() === "") {
-      setErrorMessage("indicator_candidate_unavailable");
-      return;
-    }
-    try {
-      const result = await linkNetworkFlowIndicator({
-        apiBase,
-        incidentId,
-        graph,
-        edgeId: selectedEdge.edge_id,
-        fieldKey,
-        confirmExactValue,
-      });
-      setMessage(
-        result.duplicate
-          ? "Indicator link already exists."
-          : "Indicator link created.",
-      );
-      setErrorMessage(null);
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "indicator_link_failed",
-      );
-    }
-  };
-
-  const empty = loadState === "ready" && tables.length === 0;
+  const rowsController = useNetworkFlowRowsController({
+    activeTableId: tableController.activeTableId,
+    apiBase,
+    enabled: mode === "rows",
+    incidentId,
+    onError: setErrorMessage,
+    onIncidentAccessLost,
+  });
+  const rejectedRowsController = useNetworkFlowRejectedRowsController({
+    activeTableId: tableController.activeTableId,
+    apiBase,
+    enabled: mode === "rejected",
+    incidentId,
+    onError: setErrorMessage,
+    onIncidentAccessLost,
+  });
+  const graphController = useNetworkFlowGraphController({
+    apiBase,
+    enabled: mode === "graph",
+    incidentId,
+    onError: setErrorMessage,
+    onIncidentAccessLost,
+    tableIds: tableController.tableIds,
+  });
+  const clearResources = useCallback(() => {
+    rowsController.clearRows();
+    rejectedRowsController.clearDiagnostics();
+    graphController.clearGraph();
+  }, [graphController, rejectedRowsController, rowsController]);
+  useNetworkFlowCollaborationController({
+    apiBase,
+    clearResources,
+    dispatchTableAction: tableController.dispatch,
+    incidentId,
+    loadTables: tableController.loadTables,
+    onMessage: setMessage,
+  });
+  const importController = useNetworkFlowImportController({
+    apiBase,
+    canImport,
+    incidentId,
+    onError: setErrorMessage,
+    onImported: tableController.loadTables,
+    onMessage: setMessage,
+  });
+  const indicatorLinkController = useNetworkFlowIndicatorLinkController({
+    apiBase,
+    firstContributor: graphController.firstContributor,
+    graph: graphController.graph,
+    incidentId,
+    onError: setErrorMessage,
+    onMessage: setMessage,
+    selectedEdge: graphController.selectedEdge,
+  });
+  const empty =
+    tableController.loadState === "ready" &&
+    tableController.tables.length === 0;
+  const visibleError = errorMessage ?? tableController.error;
 
   return (
     <section
@@ -372,8 +134,9 @@ function NetworkAnalysisWorkspaceContent({
     >
       <div style={viewBarStyle}>
         <div aria-label="Network Flow tables" role="tablist" style={tabsStyle}>
-          {tables.map((table, index) => {
-            const selected = table.network_flow_table_id === activeTableId;
+          {tableController.tables.map((table, index) => {
+            const selected =
+              table.network_flow_table_id === tableController.activeTableId;
             return (
               <button
                 key={table.network_flow_table_id}
@@ -388,7 +151,7 @@ function NetworkAnalysisWorkspaceContent({
                 }}
                 type="button"
                 onClick={() => {
-                  dispatchController({
+                  tableController.dispatch({
                     type: "select_table",
                     tableId: table.network_flow_table_id,
                   });
@@ -408,7 +171,7 @@ function NetworkAnalysisWorkspaceContent({
             title="Refresh"
             type="button"
             onClick={() => {
-              void loadTables();
+              void tableController.loadTables();
             }}
           >
             <RefreshCw aria-hidden="true" size={16} />
@@ -419,12 +182,12 @@ function NetworkAnalysisWorkspaceContent({
             data-testid={networkAnalysisTestId("import-input")}
             hidden
             type="file"
-            onChange={handleImportChange}
+            onChange={importController.handleImportChange}
           />
           {canImport ? (
             <button
               data-testid={networkAnalysisTestId("import-trigger")}
-              disabled={importing}
+              disabled={importController.importing}
               style={commandButtonStyle}
               type="button"
               onClick={() => fileInputRef.current?.click()}
@@ -440,7 +203,7 @@ function NetworkAnalysisWorkspaceContent({
         <button
           aria-pressed={mode === "rows"}
           data-testid={networkAnalysisTestId("mode-rows")}
-          disabled={activeTable === null}
+          disabled={tableController.activeTable === null}
           style={{
             ...modeButtonStyle,
             ...(mode === "rows" ? modeButtonActiveStyle : null),
@@ -454,7 +217,7 @@ function NetworkAnalysisWorkspaceContent({
         <button
           aria-pressed={mode === "rejected"}
           data-testid={networkAnalysisTestId("mode-rejected")}
-          disabled={activeTable === null}
+          disabled={tableController.activeTable === null}
           style={{
             ...modeButtonStyle,
             ...(mode === "rejected" ? modeButtonActiveStyle : null),
@@ -467,7 +230,7 @@ function NetworkAnalysisWorkspaceContent({
         <button
           aria-pressed={mode === "graph"}
           data-testid={networkAnalysisTestId("mode-graph")}
-          disabled={tables.length === 0}
+          disabled={tableController.tables.length === 0}
           style={{
             ...modeButtonStyle,
             ...(mode === "graph" ? modeButtonActiveStyle : null),
@@ -484,47 +247,55 @@ function NetworkAnalysisWorkspaceContent({
         {empty ? (
           <EmptyNetworkAnalysisState
             canImport={canImport}
-            importing={importing}
+            importing={importController.importing}
             onImport={() => fileInputRef.current?.click()}
           />
         ) : mode === "graph" ? (
           <GraphPanel
             canLink={canLink}
-            contributors={contributors}
-            firstContributor={firstContributor}
-            graph={graph}
-            selectedEdge={selectedEdge}
+            contributors={graphController.contributors}
+            firstContributor={graphController.firstContributor}
+            graph={graphController.graph}
+            selectedEdge={graphController.selectedEdge}
             onCloseDrawer={() => {
-              setSelectedEdgeId(null);
-              setContributors([]);
+              graphController.setSelectedEdgeId(null);
             }}
-            onLinkDst={() => void handleLinkEdge("network_flow.dst_ip")}
-            onLinkSrc={() => void handleLinkEdge("network_flow.src_ip")}
-            onSelectEdge={setSelectedEdgeId}
+            onLinkDst={() =>
+              void indicatorLinkController.linkEdge("network_flow.dst_ip")
+            }
+            onLinkSrc={() =>
+              void indicatorLinkController.linkEdge("network_flow.src_ip")
+            }
+            onSelectEdge={graphController.setSelectedEdgeId}
           />
         ) : mode === "rejected" ? (
           <RejectedRowsPanel
-            activeTable={activeTable}
-            diagnostics={diagnostics}
+            activeTable={tableController.activeTable}
+            diagnostics={rejectedRowsController.diagnostics}
           />
         ) : (
-          <RowsPanel activeTable={activeTable} rows={rows} />
+          <RowsPanel
+            activeTable={tableController.activeTable}
+            rows={rowsController.rows}
+          />
         )}
       </div>
 
       <div style={statusStripStyle}>
         <span>
-          {loadState === "loading"
+          {tableController.loadState === "loading"
             ? "Loading"
-            : `${tables.length} active table${tables.length === 1 ? "" : "s"}`}
+            : `${tableController.tables.length} active table${
+                tableController.tables.length === 1 ? "" : "s"
+              }`}
         </span>
         {message ? (
           <span data-testid={networkAnalysisTestId("stale-state")}>
             {message}
           </span>
         ) : null}
-        {errorMessage ? (
-          <span style={errorTextStyle}>{errorMessage}</span>
+        {visibleError ? (
+          <span style={errorTextStyle}>{visibleError}</span>
         ) : null}
       </div>
     </section>
@@ -838,14 +609,6 @@ function compactID(value: string): string {
     return value;
   }
   return `${value.slice(0, 10)}...${value.slice(-6)}`;
-}
-
-function isAuthorizationLoss(message: string): boolean {
-  return (
-    message.includes("authorization_denied") ||
-    message.includes("incident_not_found") ||
-    message.includes("session_required")
-  );
 }
 
 const workspaceStyle = {

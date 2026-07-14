@@ -233,9 +233,9 @@
       ],
       "row_rollup_state": "active_green",
       "activation_blockers": [],
-      "evidence_freshness_digest": "f122571ca451633b084407505767635fa5c8cbd055f32df5856080b7affa5587",
-      "manifest_digest": "f002d4a338c342bf6806cb1ba7ed9d3f3d7b5a262e24fb31f109136cf71aced9",
-      "ledger_digest": "8af88112becb52de823fe3fa5ac14708e9059b2a1dc6f943b78ccd2887a7d5ad",
+      "evidence_freshness_digest": "9bd014dc77948f695a9e12012bc1e32678aa86ffb9e041b8b2047d3c34b349ab",
+      "manifest_digest": "39f815ecb8a7d48d58706a1c10d9326eb20c6fe4c3b3666e305a23664d38834d",
+      "ledger_digest": "7df909f4949a3868fa3ce7385d0a9b79fa33430d70feb5a39bd90bd9cc5fe584",
       "base_phase_join": "phase7"
     },
     {

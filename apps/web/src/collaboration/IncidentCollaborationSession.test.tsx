@@ -1,5 +1,11 @@
-import { act, cleanup, render } from "@testing-library/react";
-import { useEffect } from "react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
+import { useEffect, useRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   type IncidentCollaborationEvent,
@@ -46,6 +52,37 @@ function Consumer({
     });
   }, [session, sheetId]);
   return null;
+}
+
+function ResetProbe({
+  onEvent,
+}: {
+  readonly onEvent: (event: IncidentCollaborationEvent) => void;
+}) {
+  const session = useIncidentCollaborationSession();
+  const generationRef = useRef<number | null>(null);
+  useEffect(
+    () =>
+      session.subscribe((event) => {
+        if (event.kind === "reset_required") {
+          generationRef.current = event.generation;
+        }
+        onEvent(event);
+      }),
+    [onEvent, session],
+  );
+  return (
+    <button
+      onClick={() => {
+        if (generationRef.current !== null) {
+          session.completeReset(generationRef.current);
+        }
+      }}
+      type="button"
+    >
+      {session.status}
+    </button>
+  );
 }
 
 describe("IncidentCollaborationSession", () => {
@@ -143,6 +180,7 @@ describe("IncidentCollaborationSession", () => {
       onEvent.mock.calls.filter(([event]) => event.kind === "message"),
     ).toHaveLength(1);
     expect(onEvent).toHaveBeenCalledWith({
+      generation: 1,
       kind: "reset_required",
       reason: "sequence_gap",
     });
@@ -254,5 +292,133 @@ describe("IncidentCollaborationSession", () => {
         last_seen_stream_seq: 7,
       },
     });
+  });
+
+  it("FE-U-P7-01 keeps replayable events unsynchronized until the owner completes reset", () => {
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    const onEvent = vi.fn();
+    render(
+      <IncidentCollaborationSession
+        incidentId="incident-1"
+        initialPresence={{
+          sheet_ref: { kind: "view_schema", id: "timeline" },
+          mode: "viewing",
+        }}
+      >
+        <ResetProbe onEvent={onEvent} />
+      </IncidentCollaborationSession>,
+    );
+    const socket = FakeWebSocket.instances[0];
+    act(() => {
+      if (socket) {
+        socket.readyState = FakeWebSocket.OPEN;
+      }
+      socket?.onopen?.();
+      socket?.onmessage?.({
+        data: JSON.stringify({
+          type: "hello_ack",
+          payload: {
+            connection_id: "connection-1",
+            resume_token: "resume-private",
+            server_time: "2026-07-13T12:00:00Z",
+            heartbeat_interval_ms: 15_000,
+            presence_ttl_ms: 45_000,
+            resume_window_ms: 60_000,
+            server_high_water_stream_seq: 1,
+          },
+        }),
+      });
+      socket?.onmessage?.({
+        data: JSON.stringify({
+          type: "extension_resource_changed",
+          stream_seq: 3,
+          payload: {
+            extension_profile_id: "network_flow_activity",
+            resource_kind: "network_flow_table",
+            resource_id: "nft-1",
+            change_kind: "invalidate",
+            reason_code: "changed",
+          },
+        }),
+      });
+      socket?.onmessage?.({
+        data: JSON.stringify({
+          type: "extension_resource_changed",
+          stream_seq: 4,
+          payload: {
+            extension_profile_id: "network_flow_activity",
+            resource_kind: "network_flow_table",
+            resource_id: "nft-1",
+            change_kind: "invalidate",
+            reason_code: "changed",
+          },
+        }),
+      });
+    });
+
+    expect(screen.getByRole("button").textContent).toBe("resetting");
+    expect(onEvent).toHaveBeenCalledWith({
+      generation: 1,
+      kind: "reset_required",
+      reason: "sequence_gap",
+    });
+    expect(
+      onEvent.mock.calls.filter(
+        ([event]) =>
+          event.kind === "message" &&
+          event.message.type === "extension_resource_changed",
+      ),
+    ).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("button"));
+    expect(screen.getByRole("button").textContent).toBe("connected");
+  });
+
+  it("FE-U-P7-01 suppresses reconnect and clears connection state after revocation", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    const onEvent = vi.fn();
+    render(
+      <IncidentCollaborationSession
+        incidentId="incident-1"
+        initialPresence={{
+          sheet_ref: { kind: "view_schema", id: "timeline" },
+          mode: "viewing",
+        }}
+      >
+        <ResetProbe onEvent={onEvent} />
+      </IncidentCollaborationSession>,
+    );
+    const socket = FakeWebSocket.instances[0];
+    act(() => {
+      if (socket) {
+        socket.readyState = FakeWebSocket.OPEN;
+      }
+      socket?.onopen?.();
+      socket?.onmessage?.({
+        data: JSON.stringify({
+          type: "hello_ack",
+          payload: {
+            connection_id: "connection-1",
+            resume_token: "resume-private",
+            server_time: "2026-07-13T12:00:00Z",
+            heartbeat_interval_ms: 15_000,
+            presence_ttl_ms: 45_000,
+            resume_window_ms: 60_000,
+          },
+        }),
+      });
+      socket?.onmessage?.({
+        data: JSON.stringify({
+          type: "session_revoked",
+          payload: { reason_code: "session_revoked" },
+        }),
+      });
+      vi.advanceTimersByTime(5_000);
+    });
+
+    expect(screen.getByRole("button").textContent).toBe("authorization_lost");
+    expect(onEvent).toHaveBeenCalledWith({ kind: "session_revoked" });
+    expect(FakeWebSocket.instances).toHaveLength(1);
   });
 });

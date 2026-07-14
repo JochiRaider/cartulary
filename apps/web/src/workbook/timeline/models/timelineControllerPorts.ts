@@ -2,12 +2,12 @@ import type {
   GridCellAnchor,
   GridPasteTargetResolution,
 } from "@cartulary/grid-adapter";
-import type { TimelinePresenceDraft } from "../services/workbookCollaborationMessages";
 import type {
-  createWorkbookSocketLifecycleState,
-  WorkbookSocketLifecycleAction,
-  WorkbookSocketLifecycleEffect,
-} from "../services/workbookSocketLifecycle";
+  createTimelineCollaborationState,
+  TimelineCollaborationAction,
+  TimelineCollaborationEffect,
+} from "../services/timelineCollaborationEffects";
+import type { TimelinePresenceDraft } from "../services/workbookCollaborationMessages";
 import type {
   FocusFieldKey,
   TimelineScalarEditorSurface,
@@ -41,17 +41,16 @@ export type PendingReplayRuntimeMeta = {
   viewportContinuityToken: number;
 };
 
-type DispatchSocketLifecycle = (
-  action: WorkbookSocketLifecycleAction,
-) => WorkbookSocketLifecycleEffect[];
+type DispatchCollaborationAction = (
+  action: TimelineCollaborationAction,
+) => readonly TimelineCollaborationEffect[];
 
 export type TimelineLiveUpdateRefs = {
   readonly currentPresenceRef: TimelineMutableRef<TimelinePresenceDraft>;
-  readonly dispatchSocketLifecycleRef: TimelineMutableRef<DispatchSocketLifecycle>;
+  readonly dispatchCollaborationRef: TimelineMutableRef<DispatchCollaborationAction>;
   readonly presenceUpdateTimerRef: TimelineMutableRef<number | null>;
-  readonly socketConnectionIDRef: TimelineMutableRef<string | null>;
-  readonly socketLifecycleRef: TimelineMutableRef<
-    ReturnType<typeof createWorkbookSocketLifecycleState>
+  readonly collaborationStateRef: TimelineMutableRef<
+    ReturnType<typeof createTimelineCollaborationState>
   >;
   readonly socketReconnectAfterAuthRef: TimelineMutableRef<(() => void) | null>;
 };

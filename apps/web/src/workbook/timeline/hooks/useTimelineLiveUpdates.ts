@@ -1,12 +1,12 @@
 import { useCallback, useState } from "react";
 import type { PresenceRecord } from "../../utils/workbookPresence";
 import type { TimelineLiveUpdateRefs } from "../models/timelineControllerPorts";
-import type { TimelinePresenceDraft } from "../services/workbookCollaborationMessages";
 import {
-  reduceWorkbookSocketLifecycle,
-  type WorkbookSocketLifecycleAction,
-  type WorkbookSocketLifecycleEffect,
-} from "../services/workbookSocketLifecycle";
+  reduceTimelineCollaboration,
+  type TimelineCollaborationAction,
+  type TimelineCollaborationEffect,
+} from "../services/timelineCollaborationEffects";
+import type { TimelinePresenceDraft } from "../services/workbookCollaborationMessages";
 
 export function useTimelineLiveUpdates({
   refs,
@@ -23,47 +23,37 @@ export function useTimelineLiveUpdates({
   const [presenceRecords, setPresenceRecords] = useState<PresenceRecord[]>([]);
   const {
     currentPresenceRef,
-    dispatchSocketLifecycleRef,
+    collaborationStateRef,
+    dispatchCollaborationRef,
     presenceUpdateTimerRef,
-    socketConnectionIDRef,
-    socketLifecycleRef,
     socketReconnectAfterAuthRef,
   } = refs;
 
-  const syncSocketLifecycleRefs = useCallback(() => {
-    const state = socketLifecycleRef.current;
-    socketConnectionIDRef.current = state.connectionId;
-  }, [socketConnectionIDRef, socketLifecycleRef]);
-
-  const dispatchSocketLifecycle = useCallback(
+  const dispatchCollaboration = useCallback(
     (
-      action: WorkbookSocketLifecycleAction,
-    ): WorkbookSocketLifecycleEffect[] => {
-      const reduction = reduceWorkbookSocketLifecycle(
-        socketLifecycleRef.current,
+      action: TimelineCollaborationAction,
+    ): readonly TimelineCollaborationEffect[] => {
+      const reduction = reduceTimelineCollaboration(
+        collaborationStateRef.current,
         action,
       );
-      socketLifecycleRef.current = reduction.state;
-      syncSocketLifecycleRefs();
+      collaborationStateRef.current = reduction.state;
       return reduction.effects;
     },
-    [socketLifecycleRef, socketLifecycleRef.current, syncSocketLifecycleRefs],
+    [collaborationStateRef],
   );
-  dispatchSocketLifecycleRef.current = dispatchSocketLifecycle;
+  dispatchCollaborationRef.current = dispatchCollaboration;
 
   return {
     commands: {
-      dispatchSocketLifecycle,
       setCurrentPresence,
       setPresenceRecords,
-      syncSocketLifecycleRefs,
     },
     refs: {
       currentPresenceRef,
-      dispatchSocketLifecycleRef,
+      collaborationStateRef,
+      dispatchCollaborationRef,
       presenceUpdateTimerRef,
-      socketConnectionIDRef,
-      socketLifecycleRef,
       socketReconnectAfterAuthRef,
     },
     snapshot: {

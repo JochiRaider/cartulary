@@ -18,6 +18,7 @@ import type {
   TimelinePendingRefreshBlockScope,
   TimelinePendingSavesRefs,
 } from "../models/timelinePendingReplayModel";
+import type { TimelineCollaborationEffect } from "../services/timelineCollaborationEffects";
 import {
   buildWorkbookPresenceInput,
   isRecordChangedMessage,
@@ -25,7 +26,6 @@ import {
   shouldIgnoreSelfOriginatedRecordChange,
   type TimelinePresenceDraft,
 } from "../services/workbookCollaborationMessages";
-import type { WorkbookSocketLifecycleEffect } from "../services/workbookSocketLifecycle";
 
 type TimelineMutableRef<T> = {
   current: T;
@@ -102,11 +102,11 @@ export function useTimelineLiveUpdateController({
   readonly setPresenceRecords: Dispatch<SetStateAction<PresenceRecord[]>>;
   readonly setRefreshError: (message: string | null) => void;
 }) {
-  const { disconnect, publishPresence, reconnect, subscribe } =
+  const { completeReset, publishPresence, reconnect, subscribe } =
     useIncidentCollaborationSession();
   const {
     currentPresenceRef,
-    dispatchSocketLifecycleRef,
+    dispatchCollaborationRef,
     presenceUpdateTimerRef,
     socketReconnectAfterAuthRef,
   } = liveUpdateRefs;
@@ -139,20 +139,20 @@ export function useTimelineLiveUpdateController({
   useEffect(() => {
     socketReconnectAfterAuthRef.current = reconnect;
 
-    const requestSocketLifecycleRefresh = (
+    const requestCollaborationRefresh = (
       options: Omit<TimelineLiveUpdateLoadRowsOptions, "showLoading"> = {},
       refreshScope: TimelinePendingRefreshBlockScope = { kind: "all" },
     ) => {
       beginRefreshInFlightRef.current(refreshScope);
-      void loadRowsRef
+      return loadRowsRef
         .current({ showLoading: false, ...options })
         .finally(() => {
           finishRefreshInFlightRef.current(refreshScope);
         });
     };
 
-    const applySocketLifecycleEffects = (
-      effects: readonly WorkbookSocketLifecycleEffect[],
+    const applyCollaborationEffects = (
+      effects: readonly TimelineCollaborationEffect[],
     ) => {
       for (const effect of effects) {
         switch (effect.kind) {
@@ -166,19 +166,14 @@ export function useTimelineLiveUpdateController({
           case "schedule_auth_recovery_probe":
             scheduleAuthRecoveryProbeRef.current();
             break;
-          case "request_refresh":
-            if (effect.reason === "reset_required") {
-              requestSocketLifecycleRefresh();
-            }
+          case "request_record_refresh":
             break;
           case "resume_pending_replay":
             pendingSavesRefsRef.current.pendingQueueRef.current.model.resumeAfterAuthRecovery();
             publishPendingQueueStateRef.current();
             pendingSavesRefsRef.current.schedulePendingReplayRef.current();
             break;
-          case "close_socket":
           case "apply_record_change":
-          case "suppress_reconnect":
             break;
         }
       }
@@ -231,18 +226,25 @@ export function useTimelineLiveUpdateController({
 
     const unsubscribe = subscribe((event) => {
       if (event.kind === "established") {
-        const effects = dispatchSocketLifecycleRef.current({
-          type: "session_ack",
-          messageType: event.messageType,
-          payload: { ...event.payload },
-        });
-        applySocketLifecycleEffects(effects);
+        if (event.payload.status !== "reset_required") {
+          applyCollaborationEffects(
+            dispatchCollaborationRef.current({
+              type: "session_established",
+            }),
+          );
+        }
         return;
       }
       if (event.kind === "reset_required") {
-        if (event.reason === "sequence_gap") {
-          requestSocketLifecycleRefresh();
-        }
+        void requestCollaborationRefresh().then(() => {
+          if (completeReset(event.generation)) {
+            applyCollaborationEffects(
+              dispatchCollaborationRef.current({
+                type: "session_established",
+              }),
+            );
+          }
+        });
         return;
       }
       if (
@@ -250,13 +252,9 @@ export function useTimelineLiveUpdateController({
         event.kind === "authorization_lost"
       ) {
         setPresenceRecords([]);
-        const effects = dispatchSocketLifecycleRef.current({
-          type:
-            event.kind === "session_revoked"
-              ? "session_revoked"
-              : "authorization_closed",
-        });
-        applySocketLifecycleEffects(effects);
+        applyCollaborationEffects(
+          dispatchCollaborationRef.current({ type: "authorization_lost" }),
+        );
         return;
       }
       if (event.kind === "incident_closed") {
@@ -266,7 +264,6 @@ export function useTimelineLiveUpdateController({
         );
         pendingSavesRefsRef.current.pendingQueueRef.current.model.pauseForTerminalLifecycle();
         publishPendingQueueStateRef.current();
-        disconnect();
         return;
       }
       const message = event.message;
@@ -290,15 +287,15 @@ export function useTimelineLiveUpdateController({
         return;
       }
       const recordChangedPayload = message.payload;
-      dispatchSocketLifecycleRef.current({
+      dispatchCollaborationRef.current({
         type: "record_changed_received",
-        message: { payload: recordChangedPayload },
+        payload: recordChangedPayload,
       });
       const viewportContinuityToken = beginViewportContinuityRef.current({
         kind: "scroll-only",
       });
       const applied = applyRecordChangedPatchRef.current(recordChangedPayload);
-      const followupEffects = dispatchSocketLifecycleRef.current({
+      const followupEffects = dispatchCollaborationRef.current({
         type: "record_change_result",
         applied,
       });
@@ -308,12 +305,10 @@ export function useTimelineLiveUpdateController({
       }
       if (
         followupEffects.some(
-          (effect) =>
-            effect.kind === "request_refresh" &&
-            effect.reason === "record_change_requery",
+          (effect) => effect.kind === "request_record_refresh",
         )
       ) {
-        requestSocketLifecycleRefresh(
+        void requestCollaborationRefresh(
           { viewportContinuityToken },
           { kind: "record", recordId: recordChangedPayload.record_id },
         );
@@ -327,15 +322,14 @@ export function useTimelineLiveUpdateController({
         presenceUpdateTimerRef.current = null;
       }
       socketReconnectAfterAuthRef.current = null;
-      dispatchSocketLifecycleRef.current({ type: "socket_connecting" });
     };
   }, [
     advanceViewportContinuityRef,
     applyRecordChangedPatchRef,
     beginRefreshInFlightRef,
     beginViewportContinuityRef,
-    disconnect,
-    dispatchSocketLifecycleRef,
+    completeReset,
+    dispatchCollaborationRef,
     finishRefreshInFlightRef,
     loadRowsRef,
     pendingSavesRefsRef,

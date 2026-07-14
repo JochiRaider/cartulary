@@ -66,5 +66,15 @@ describe("ReferenceQueryBroker", () => {
       new AbortController().signal,
     );
     expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    await broker.execute([requirement], context, new AbortController().signal);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    await broker.execute(
+      [requirement],
+      { ...context, authorizationEpoch: "user-2" },
+      new AbortController().signal,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 });

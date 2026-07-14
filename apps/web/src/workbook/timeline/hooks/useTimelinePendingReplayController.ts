@@ -27,7 +27,6 @@ import {
   dispatchTimelinePendingReplayMutation,
   type TimelineMutationEnvelope,
 } from "../services/timelineMutationRequests";
-import type { WorkbookSocketLifecycleAction } from "../services/workbookSocketLifecycle";
 
 type SessionEnvelope = {
   data: {
@@ -62,7 +61,6 @@ export function useTimelinePendingReplayController({
   clearSubmittedScalarEditorDraftValuesForRow,
   clearViewportContinuity,
   conflictQueueRef,
-  dispatchSocketLifecycle,
   handleMutationConflict,
   latestCommittedTimelineRow,
   pendingSavesRefsRef,
@@ -93,9 +91,6 @@ export function useTimelinePendingReplayController({
   ) => void;
   readonly clearViewportContinuity: (token: number) => void;
   readonly conflictQueueRef: TimelineMutableRef<Record<string, unknown>>;
-  readonly dispatchSocketLifecycle: (
-    action: WorkbookSocketLifecycleAction,
-  ) => unknown;
   readonly handleMutationConflict: (
     payload: unknown,
     rowKey: string,
@@ -202,7 +197,6 @@ export function useTimelinePendingReplayController({
             scheduleAuthRecoveryProbe();
             return;
           }
-          dispatchSocketLifecycle({ type: "auth_recovered" });
           pendingSavesRefsRef.current.pendingQueueRef.current.model.resumeAfterAuthRecovery();
           publishPendingQueueState();
           schedulePendingReplay();
@@ -213,7 +207,6 @@ export function useTimelinePendingReplayController({
       }, 1000);
   }, [
     apiBase,
-    dispatchSocketLifecycle,
     pendingSavesRefsRef,
     publishPendingQueueState,
     schedulePendingReplay,

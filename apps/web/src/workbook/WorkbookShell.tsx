@@ -74,6 +74,7 @@ import {
 import { useIncidentControlsDrawer } from "./hooks/useIncidentControlsDrawer";
 import { useWorkbookIncidentIdentity } from "./hooks/useWorkbookIncidentIdentity";
 import { useWorkbookPendingGridFocus } from "./hooks/useWorkbookPendingGridFocus";
+import { useWorkbookProjectionRefreshController } from "./hooks/useWorkbookProjectionRefreshController";
 import { useWorkbookResponsiveLayout } from "./hooks/useWorkbookResponsiveLayout";
 import { useWorkbookShellRuntime } from "./hooks/useWorkbookShellRuntime";
 import { useWorkbookSurfaceLoaders } from "./hooks/useWorkbookSurfaceLoaders";
@@ -301,26 +302,13 @@ function WorkbookShellContent({
     setCurrentIncidentRole(membership?.role ?? "");
   }, [apiBase, incidentId, onIncidentAccessLost]);
 
-  useEffect(() => {
-    void Promise.all([loadEntities(), loadSessionRole()]);
-  }, [loadEntities, loadSessionRole]);
-
-  useEffect(() => {
-    if (sheetReloadToken === 0) {
-      return;
-    }
-    void loadEntities();
-  }, [loadEntities, sheetReloadToken]);
-
-  useEffect(() => {
-    void sheetReloadToken;
-    void loadGenericSurface();
-  }, [loadGenericSurface, sheetReloadToken]);
-
-  useEffect(() => {
-    void sheetReloadToken;
-    void loadAssessmentSurface();
-  }, [loadAssessmentSurface, sheetReloadToken]);
+  useWorkbookProjectionRefreshController({
+    loadAssessmentSurface,
+    loadEntities,
+    loadGenericSurface,
+    loadSessionRole,
+    sheetReloadToken,
+  });
 
   useWorkbookPendingGridFocus({
     pendingGridFocusSurface,

@@ -3,6 +3,42 @@
   "vitest": [
     {
       "target": "frontend-unit",
+      "file": "apps/web/src/testing/transportBoundaryPolicy.test.ts",
+      "coverage": "tooling_support",
+      "reason": "Static raw-fetch and presigned-upload exception checks protect shared transport ownership without adding a product conformance claim."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/networkFlowBoundaryPolicy.test.ts",
+      "coverage": "tooling_support",
+      "reason": "Static Network Flow controller, runtime-decoder, and projection-input ownership checks protect the extension boundary without adding a product conformance claim."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/timeline/models/timelineControllerBoundaryPolicy.test.ts",
+      "coverage": "tooling_support",
+      "reason": "Static Timeline controller-composition, sibling-import, and socket-ownership checks protect module structure without adding a product conformance claim."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/policies/workbookSurfaceOwnershipPolicy.test.ts",
+      "coverage": "tooling_support",
+      "reason": "Static bounded-context policy purity and common-surface ownership checks protect frontend structure without adding a product conformance claim."
+    },
+    {
+      "target": "frontend-unit",
+      "file_pattern": "apps/web/src/workbook/hooks/useWorkbook*Controller.test.tsx",
+      "coverage": "unowned_regression",
+      "reason": "Workbook query, saved-view, and startup controller ownership tests are direct structural regression coverage; authoritative behavior remains owned by the mapped workbook phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/shared/importCoordinator.test.ts",
+      "coverage": "unowned_regression",
+      "reason": "Shared import-session choreography and public-error stopping behavior are direct regression coverage; authoritative import and Network Flow behavior remains owned by mapped phase rows."
+    },
+    {
+      "target": "frontend-unit",
       "file": "apps/web/src/collaboration/IncidentCollaborationSession.test.tsx",
       "coverage": "unowned_regression",
       "reason": "Shared collaboration-session lifecycle is direct product regression coverage; authoritative collaboration behavior remains owned by mapped Core phase rows."

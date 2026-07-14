@@ -12,34 +12,31 @@ type TimelineMutableRef<T> = {
 
 export function useTimelinePresenceProjection({
   activeSheetRef,
+  connectionId,
   currentPresenceRef,
   presenceRecords,
   sendPresenceUpdate,
   setCurrentPresence,
-  socketConnectionIDRef,
 }: {
   readonly activeSheetRef: WorkbookSheetRef;
+  readonly connectionId: string | null;
   readonly currentPresenceRef: TimelineMutableRef<TimelinePresenceDraft>;
   readonly presenceRecords: readonly PresenceRecord[];
   readonly sendPresenceUpdate: (presence: TimelinePresenceDraft) => void;
   readonly setCurrentPresence: (presence: TimelinePresenceDraft) => void;
-  readonly socketConnectionIDRef: TimelineMutableRef<string | null>;
 }) {
   const activeSheetPresenceRecords = useMemo(
     () =>
       [...presenceRecords]
         .filter((presence) => presenceMatchesSheet(presence, activeSheetRef))
-        .filter(
-          (presence) =>
-            presence.connection_id !== socketConnectionIDRef.current,
-        )
+        .filter((presence) => presence.connection_id !== connectionId)
         .sort((left, right) => {
           const byName = left.display_name.localeCompare(right.display_name);
           return byName === 0
             ? left.connection_id.localeCompare(right.connection_id)
             : byName;
         }),
-    [activeSheetRef, presenceRecords, socketConnectionIDRef],
+    [activeSheetRef, connectionId, presenceRecords],
   );
 
   const presenceForRow = useCallback(

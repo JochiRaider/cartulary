@@ -42,6 +42,7 @@ export type IncidentCollaborationEvent =
   | { readonly kind: "message"; readonly message: IncidentStreamMessage }
   | {
       readonly kind: "reset_required";
+      readonly generation: number;
       readonly reason: "resume_reset" | "sequence_gap";
     }
   | { readonly kind: "authorization_lost" }
@@ -53,6 +54,7 @@ export type IncidentCollaborationMessage = IncidentStreamMessage;
 export type IncidentCollaborationStatus =
   | "connecting"
   | "connected"
+  | "resetting"
   | "disconnected"
   | "authorization_lost"
   | "incident_closed";
@@ -63,6 +65,8 @@ type IncidentCollaborationListener = (
 
 type IncidentCollaborationSessionValue = {
   readonly clientInstanceId: string;
+  readonly completeReset: (generation: number) => boolean;
+  readonly connectionId: string | null;
   readonly disconnect: () => void;
   readonly publishPresence: (presence: CollaborationPresence) => void;
   readonly reconnect: () => void;
@@ -145,7 +149,9 @@ export function IncidentCollaborationSession({
   const connectRef = useRef<() => void>(() => undefined);
   const resumeTokenRef = useRef<string | null>(null);
   const lastSeenStreamSeqRef = useRef(0);
+  const resetGenerationRef = useRef(0);
   const reconnectSuppressedRef = useRef(false);
+  const [connectionId, setConnectionId] = useState<string | null>(null);
   const [status, setStatus] =
     useState<IncidentCollaborationStatus>("disconnected");
   const statusRef = useRef<IncidentCollaborationStatus>("disconnected");
@@ -183,10 +189,29 @@ export function IncidentCollaborationSession({
     );
   }, []);
 
+  const completeReset = useCallback(
+    (generation: number) => {
+      if (
+        generation !== resetGenerationRef.current ||
+        statusRef.current !== "resetting"
+      ) {
+        return false;
+      }
+      const socket = socketRef.current;
+      if (socket !== null && socket.readyState === WebSocket.OPEN) {
+        updateStatus("connected");
+        return true;
+      }
+      return false;
+    },
+    [updateStatus],
+  );
+
   const disconnect = useCallback(() => {
     reconnectSuppressedRef.current = true;
     socketRef.current?.close();
     socketRef.current = null;
+    setConnectionId(null);
     updateStatus("disconnected");
   }, [updateStatus]);
 
@@ -197,6 +222,7 @@ export function IncidentCollaborationSession({
     reconnectSuppressedRef.current = false;
     socketRef.current?.close();
     socketRef.current = null;
+    setConnectionId(null);
     connectRef.current();
   }, []);
 
@@ -207,6 +233,8 @@ export function IncidentCollaborationSession({
     reconnectSuppressedRef.current = false;
     resumeTokenRef.current = null;
     lastSeenStreamSeqRef.current = 0;
+    resetGenerationRef.current = 0;
+    setConnectionId(null);
     let disposed = false;
     let reconnectTimer: number | null = null;
     const url = websocketPath(apiBase, `/ws/v1/incidents/${incidentId}`);
@@ -231,9 +259,25 @@ export function IncidentCollaborationSession({
     ) => {
       reconnectSuppressedRef.current = true;
       resumeTokenRef.current = null;
+      setConnectionId(null);
       updateStatus(nextStatus);
       emit(event);
       socketRef.current?.close();
+    };
+
+    const beginReset = (
+      reason: Extract<
+        IncidentCollaborationEvent,
+        { kind: "reset_required" }
+      >["reason"],
+    ) => {
+      resetGenerationRef.current += 1;
+      updateStatus("resetting");
+      emit({
+        generation: resetGenerationRef.current,
+        kind: "reset_required",
+        reason,
+      });
     };
 
     const handleMessage = (socket: WebSocket, raw: unknown) => {
@@ -259,7 +303,12 @@ export function IncidentCollaborationSession({
             serverHighWater,
           );
         }
-        updateStatus("connected");
+        const resetRequired =
+          message.type === "resume_ack" && payload.status === "reset_required";
+        if (typeof payload.connection_id === "string") {
+          setConnectionId(payload.connection_id);
+        }
+        updateStatus(resetRequired ? "resetting" : "connected");
         emit({
           kind: "established",
           messageType: message.type,
@@ -275,17 +324,15 @@ export function IncidentCollaborationSession({
               : {}),
           },
         });
-        if (
-          message.type === "resume_ack" &&
-          payload.status === "reset_required"
-        ) {
-          emit({ kind: "reset_required", reason: "resume_reset" });
+        if (resetRequired) {
+          beginReset("resume_reset");
         }
         return;
       }
       if (message.type === "session_revoked") {
         reconnectSuppressedRef.current = true;
         resumeTokenRef.current = null;
+        setConnectionId(null);
         updateStatus("authorization_lost");
         emit({ kind: "session_revoked" });
         socket.close();
@@ -309,9 +356,12 @@ export function IncidentCollaborationSession({
             sequence > lastSeenStreamSeqRef.current + 1;
           lastSeenStreamSeqRef.current = sequence;
           if (gap) {
-            emit({ kind: "reset_required", reason: "sequence_gap" });
+            beginReset("sequence_gap");
             return;
           }
+        }
+        if (statusRef.current === "resetting") {
+          return;
         }
       }
       emit({ kind: "message", message });
@@ -387,6 +437,7 @@ export function IncidentCollaborationSession({
       }
       socketRef.current?.close();
       socketRef.current = null;
+      setConnectionId(null);
       connectRef.current = () => undefined;
     };
   }, [apiBase, clientInstanceId, emit, incidentId, updateStatus]);
@@ -394,6 +445,8 @@ export function IncidentCollaborationSession({
   const value = useMemo<IncidentCollaborationSessionValue>(
     () => ({
       clientInstanceId,
+      completeReset,
+      connectionId,
       disconnect,
       publishPresence,
       reconnect,
@@ -402,6 +455,8 @@ export function IncidentCollaborationSession({
     }),
     [
       clientInstanceId,
+      completeReset,
+      connectionId,
       disconnect,
       publishPresence,
       reconnect,

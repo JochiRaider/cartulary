@@ -76,10 +76,11 @@
         }
       ],
       "scenario_titles": [
-        "FE-U-P7-01 applies row update and invalidate lifecycle decisions without visible-index state",
-        "FE-U-P7-01 requests reset and stale-row requery for reset-required and stale record changes",
-        "FE-U-P7-01 pauses replay and suppresses reconnect after authorization close or session revocation",
-        "FE-U-P7-01 ignores duplicate stream sequences and refreshes on sequence gaps",
+    "FE-U-P7-01 applies row updates and requests stale-row requery without transport state",
+    "FE-U-P7-01 pauses feature replay on access loss and resumes only after session establishment",
+    "FE-U-P7-01 ignores duplicate stream sequences and refreshes on sequence gaps",
+    "FE-U-P7-01 keeps replayable events unsynchronized until the owner completes reset",
+    "FE-U-P7-01 suppresses reconnect and clears connection state after revocation",
         "FE-U-P7-01 builds default timeline presence payloads for WebSocket session establishment",
         "FE-U-P7-01 includes field_key only for editing presence payloads",
         "FE-U-P7-01 builds presence_update messages without changing event names",

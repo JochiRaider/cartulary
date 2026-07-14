@@ -137,16 +137,16 @@ import {
   validateTimelineViewSchemaId,
   type WorkbookRow,
 } from "../models/workbookTimelineModel";
+import {
+  createTimelineCollaborationState,
+  type TimelineCollaborationAction,
+  type TimelineCollaborationEffect,
+} from "../services/timelineCollaborationEffects";
 import type { TimelineMutationEnvelope } from "../services/timelineMutationRequests";
 import type {
   RecordChangedPayload,
   TimelinePresenceDraft,
 } from "../services/workbookCollaborationMessages";
-import {
-  createWorkbookSocketLifecycleState,
-  type WorkbookSocketLifecycleAction,
-  type WorkbookSocketLifecycleEffect,
-} from "../services/workbookSocketLifecycle";
 import {
   DraftRowCreateButton,
   mentionChipStateForItem,
@@ -366,7 +366,7 @@ function TimelineWorkbookContent({
   density = "compact",
   onRefreshEntities,
 }: TimelineWorkbookProps) {
-  const { clientInstanceId } = useIncidentCollaborationSession();
+  const { clientInstanceId, connectionId } = useIncidentCollaborationSession();
   const entityCatalogInput = useMemo(
     () =>
       ({
@@ -430,8 +430,7 @@ function TimelineWorkbookContent({
   const timelineEvidenceActions = useTimelineEvidenceActions();
   const { inspectorMessage } = timelineEvidenceActions.snapshot;
   const { setInspectorMessage } = timelineEvidenceActions.commands;
-  const socketLifecycleRef = useRef(createWorkbookSocketLifecycleState());
-  const socketConnectionIDRef = useRef<string | null>(null);
+  const collaborationStateRef = useRef(createTimelineCollaborationState());
   const presenceUpdateTimerRef = useRef<number | null>(null);
   const currentPresenceRef = useRef<TimelinePresenceDraft>({
     fieldKey: null,
@@ -439,27 +438,24 @@ function TimelineWorkbookContent({
     recordId: null,
   });
   const socketReconnectAfterAuthRef = useRef<(() => void) | null>(null);
-  const dispatchSocketLifecycleRef = useRef<
-    (action: WorkbookSocketLifecycleAction) => WorkbookSocketLifecycleEffect[]
+  const dispatchCollaborationRef = useRef<
+    (
+      action: TimelineCollaborationAction,
+    ) => readonly TimelineCollaborationEffect[]
   >(() => []);
   const timelineLiveUpdateRefs: TimelineLiveUpdateRefs = {
+    collaborationStateRef,
     currentPresenceRef,
-    dispatchSocketLifecycleRef,
+    dispatchCollaborationRef,
     presenceUpdateTimerRef,
-    socketConnectionIDRef,
-    socketLifecycleRef,
     socketReconnectAfterAuthRef,
   };
   const timelineLiveUpdates = useTimelineLiveUpdates({
     refs: timelineLiveUpdateRefs,
   });
   const { currentPresence, presenceRecords } = timelineLiveUpdates.snapshot;
-  const {
-    dispatchSocketLifecycle,
-    setCurrentPresence,
-    setPresenceRecords,
-    syncSocketLifecycleRefs,
-  } = timelineLiveUpdates.commands;
+  const { setCurrentPresence, setPresenceRecords } =
+    timelineLiveUpdates.commands;
   const timelinePendingSaves =
     useTimelinePendingSaves<PendingReplayRuntimeMeta>({
       clientInstanceId,
@@ -704,16 +700,10 @@ function TimelineWorkbookContent({
         incidentId,
         clientInstanceId,
       });
-    socketLifecycleRef.current = createWorkbookSocketLifecycleState();
-    syncSocketLifecycleRefs();
+    collaborationStateRef.current = createTimelineCollaborationState();
     pendingSavesRefsRef.current.pendingSignaturesRef.current.clear();
     publishPendingQueueState();
-  }, [
-    clientInstanceId,
-    incidentId,
-    publishPendingQueueState,
-    syncSocketLifecycleRefs,
-  ]);
+  }, [clientInstanceId, incidentId, publishPendingQueueState]);
 
   const nextDraftIndex = useCallback(() => {
     const value = draftCounterRef.current;
@@ -1295,7 +1285,6 @@ function TimelineWorkbookContent({
     clearSubmittedScalarEditorDraftValuesForRow,
     clearViewportContinuity,
     conflictQueueRef,
-    dispatchSocketLifecycle,
     handleMutationConflict,
     latestCommittedTimelineRow,
     pendingSavesRefsRef,
@@ -1337,11 +1326,11 @@ function TimelineWorkbookContent({
     presenceForRow,
   } = useTimelinePresenceProjection({
     activeSheetRef,
+    connectionId,
     currentPresenceRef,
     presenceRecords,
     sendPresenceUpdate,
     setCurrentPresence,
-    socketConnectionIDRef,
   });
 
   const timelineInspectorRowInteractions = useTimelineInspectorRowInteractions({

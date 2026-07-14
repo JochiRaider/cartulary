@@ -319,8 +319,9 @@ export function genericCellLabelForField(
   value: unknown,
 ): string {
   if (
-    requireWorkbookSurfaceRegistration(surface).policy.capabilities
-      .evidenceLifecycle === true &&
+    requireWorkbookSurfaceRegistration(surface).policy.ownerBindings.includes(
+      "evidence_lifecycle",
+    ) &&
     fieldKey === "evidence.storage_ref" &&
     typeof value === "string" &&
     /^object:\/\/[0-9a-f-]+$/iu.test(value.trim())

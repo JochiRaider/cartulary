@@ -115,7 +115,8 @@
       "message": "Workbook surface policies must remain transport and authorization independent.",
       "applies_to": {
         "include": [
-          "apps/web/src/workbook/models/workbookSurfaceRegistration.ts"
+          "apps/web/src/workbook/models/workbookSurfaceRegistration.ts",
+          "apps/web/src/workbook/policies/**"
         ],
         "exclude": []
       },
@@ -134,12 +135,17 @@
     {
       "id": "frontend-workbook-shell-feature-facade-boundary",
       "level": "error",
-      "message": "WorkbookShell must consume Network Flow only through its workbook feature facade.",
+      "message": "Workbook and app composition must consume Network Flow only through its workbook feature facade.",
       "applies_to": {
-        "include": ["apps/web/src/workbook/WorkbookShell.tsx"],
+        "include": [
+          "apps/web/src/app/**",
+          "apps/web/src/workbook/**"
+        ],
         "exclude": []
       },
-      "allowed_importers": [],
+      "allowed_importers": [
+        "apps/web/src/workbook/features/NetworkFlowFeature.tsx"
+      ],
       "restricted_imports": [
         {
           "kind": "path_prefix",

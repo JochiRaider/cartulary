@@ -19,7 +19,7 @@ export function useNetworkFlowExtensionEvents({
   readonly incidentId: string;
   readonly onResourceChange: (
     change: NetworkFlowExtensionResourceChange,
-  ) => void;
+  ) => Promise<void> | void;
 }) {
   const session = useIncidentCollaborationSession();
 
@@ -36,7 +36,7 @@ export function useNetworkFlowExtensionEvents({
         event.kind === "authorization_lost" ||
         event.kind === "session_revoked"
       ) {
-        onResourceChange({
+        void onResourceChange({
           changeKind: "remove",
           reasonCode: "authorization_lost",
           resourceId: "*",
@@ -44,11 +44,13 @@ export function useNetworkFlowExtensionEvents({
         return;
       }
       if (event.kind === "reset_required") {
-        onResourceChange({
-          changeKind: "invalidate",
-          reasonCode: event.reason,
-          resourceId: "*",
-        });
+        void Promise.resolve(
+          onResourceChange({
+            changeKind: "invalidate",
+            reasonCode: event.reason,
+            resourceId: "*",
+          }),
+        ).then(() => session.completeReset(event.generation));
         return;
       }
       if (event.kind !== "message") {
@@ -56,7 +58,7 @@ export function useNetworkFlowExtensionEvents({
       }
       const change = interpretNetworkFlowCollaborationMessage(event.message);
       if (change !== null) {
-        onResourceChange(change);
+        void onResourceChange(change);
       }
     });
   }, [enabled, onResourceChange, session]);

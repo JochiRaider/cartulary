@@ -8,12 +8,6 @@ import {
 } from "@cartulary/grid-adapter";
 import {
   dataTestIdSelector,
-  evidenceAccessMessageTestId,
-  evidenceAttachFileInputTestId,
-  evidenceDownloadButtonTestId,
-  evidencePreviewButtonTestId,
-  evidencePreviewFrameTestId,
-  evidencePreviewPanelTestId,
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
   genericEditActionSelectTestId,
@@ -40,17 +34,13 @@ import {
 } from "react";
 import { apiPath } from "../../services/browserApi";
 import { fetchWorkbookJSON, readEnvelope } from "../../services/workbookApi";
-import {
-  createAndAttachEvidenceBlob,
-  evidenceAccessMessageLiveRegion,
-  issueEvidenceAccessHandle,
-} from "../../services/workbookEvidence";
+import { CoordinationWorkflowBindings } from "../features/coordination/CoordinationWorkflowBindings";
+import { useEvidenceWorkbookBindings } from "../features/evidence/useEvidenceWorkbookBindings";
 import {
   useGenericSurfaceMutationController,
   type GenericViewMutationEnvelope as ViewMutationEnvelope,
 } from "../hooks/useGenericSurfaceMutationController";
 import { useOwnerReferenceOptions } from "../hooks/useOwnerReferenceOptions";
-import { buildEvidenceLifecycleViewModel } from "../models/evidenceLifecycleViewModel";
 import {
   buildGenericCreatePayload,
   buildGenericPatchChange,
@@ -78,16 +68,12 @@ import {
 } from "../models/workbookInspectorModel";
 import type { WorkbookQueryState } from "../models/workbookQuery";
 import { requireWorkbookSurfaceRegistration } from "../models/workbookSurfaceRegistration";
-import {
-  partiesViewSchemaId,
-  taskRequestsViewSchemaId,
-} from "../models/workbookSurfaceRegistry";
+import { partiesViewSchemaId } from "../models/workbookSurfaceRegistry";
 import type { EntityApiRow } from "../timeline/models/workbookTimelineModel";
 import {
   FocusableWorkbookCell,
   useWorkbookGridFocus,
 } from "../utils/workbookGridFocus";
-import { stringifyGridValue } from "../utils/workbookValueFormat";
 import { GenericMutationControl } from "./GenericMutationControl";
 import {
   type InspectorDisabledToken,
@@ -101,26 +87,6 @@ import {
   workbookSurfaceInspectorPanelStyle,
   workbookSurfaceOverlayPanelStyle,
 } from "./WorkbookSurfaceFrame";
-
-type DecisionSupersedeEnvelope = {
-  data: {
-    view_schema_id: string;
-    change_set_id: string;
-    target_record_id: string;
-    superseding_record_id: string;
-    target_row_version: number;
-    superseding_row_version: number;
-    target_status: string;
-    reason: string;
-  };
-};
-
-type EvidencePreviewState = {
-  href: string;
-  recordId: string;
-  title: string;
-  previewKind: string | null;
-};
 
 export type ContractWorkbookSurfaceProps = {
   readonly apiBase?: string | undefined;
@@ -157,7 +123,7 @@ export function ContractWorkbookSurface({
   const registration = requireWorkbookSurfaceRegistration(
     contract.viewSchemaId,
   );
-  const { capabilities } = registration.policy;
+  const { ownerBindings } = registration.policy;
   const inspectorConfig = selectInspectorConfig(contract);
   const showDetailsPanel = inspectorPanelIsDeclared(inspectorConfig, "details");
   const showRelationshipsPanel = inspectorPanelIsDeclared(
@@ -208,24 +174,7 @@ export function ContractWorkbookSurface({
     onRefresh,
     refreshReferenceOptions,
   });
-  const [evidenceMessageByRecordID, setEvidenceMessageByRecordID] = useState<
-    Record<string, string>
-  >({});
-  const [evidencePreview, setEvidencePreview] =
-    useState<EvidencePreviewState | null>(null);
-  const isEvidenceSurface = capabilities.evidenceLifecycle === true;
-  const isNotesSurface = capabilities.linkedNoteCreate === true;
-  const isTaskRequestSurface = capabilities.taskLifecycle === true;
-  const isDecisionSurface = capabilities.decisionSupersede === true;
-  const [taskLifecycleRecordId, setTaskLifecycleRecordId] = useState("");
-  const [taskLifecycleStatus, setTaskLifecycleStatus] = useState("blocked");
-  const [taskLifecycleBlockedReason, setTaskLifecycleBlockedReason] =
-    useState("");
-  const [decisionSupersedeTargetId, setDecisionSupersedeTargetId] =
-    useState("");
-  const [decisionSupersedeReplacementId, setDecisionSupersedeReplacementId] =
-    useState("");
-  const [decisionSupersedeReason, setDecisionSupersedeReason] = useState("");
+  const isNotesSurface = ownerBindings.includes("linked_note_create");
   const partyLinkPairs = useMemo(
     () => partyLinkPairsForContract(contract),
     [contract],
@@ -242,12 +191,6 @@ export function ContractWorkbookSurface({
     setLinkedNoteSourceRecordId("");
     setEditCollectionMode("add");
     setPartyLinkExistingPartyId("");
-    setTaskLifecycleRecordId("");
-    setTaskLifecycleBlockedReason("");
-    setDecisionSupersedeTargetId("");
-    setDecisionSupersedeReplacementId("");
-    setDecisionSupersedeReason("");
-    setEvidencePreview(null);
     clearMutationError();
   }, [clearMutationError, inspectorResetKey]);
 
@@ -267,97 +210,14 @@ export function ContractWorkbookSurface({
     });
   }, [partyLinkPairs]);
 
-  const setEvidenceMessage = useCallback(
-    (recordId: string, message: string | null) => {
-      setEvidenceMessageByRecordID((current) => {
-        const next = { ...current };
-        if (message === null) {
-          delete next[recordId];
-        } else {
-          next[recordId] = message;
-        }
-        return next;
-      });
-    },
-    [],
-  );
-
-  const issueEvidenceHandle = useCallback(
-    async (row: EntityApiRow, kind: "preview" | "download") => {
-      setEvidenceMessage(row.record_id, null);
-      const handle = await issueEvidenceAccessHandle({
-        apiBase,
-        evidenceRecordId: row.record_id,
-        kind,
-      });
-      if (!handle.ok) {
-        setEvidenceMessage(row.record_id, handle.message);
-        return;
-      }
-      if (kind === "preview") {
-        setEvidencePreview({
-          href: handle.href,
-          recordId: row.record_id,
-          title:
-            stringifyGridValue(row.cells["evidence.title"]?.value).trim() ||
-            row.record_id,
-          previewKind: handle.previewKind,
-        });
-        setEvidenceMessage(row.record_id, "Preview loaded inline.");
-        return;
-      }
-
-      const anchor = document.createElement("a");
-      anchor.href = handle.href;
-      anchor.download = handle.filename || "evidence";
-      anchor.rel = "noopener";
-      document.body.append(anchor);
-      anchor.click();
-      anchor.remove();
-      setEvidenceMessage(row.record_id, "Download handle issued.");
-    },
-    [apiBase, setEvidenceMessage],
-  );
-
-  const attachEvidenceFile = useCallback(
-    async (row: EntityApiRow, file: File) => {
-      if (file.size <= 0) {
-        setEvidenceMessage(row.record_id, "Evidence attach failed.");
-        return;
-      }
-      setEvidenceMessage(row.record_id, "Uploading evidence.");
-      beginMutation();
-      try {
-        await createAndAttachEvidenceBlob({
-          apiBase,
-          attachClientTxnId: () => `evidence-attach-${Date.now()}`,
-          baseRowVersion: row.row_version,
-          createClientTxnId: () => `evidence-blob-${Date.now()}`,
-          evidenceRecordId: row.record_id,
-          file,
-          incidentId,
-        });
-        setEvidenceMessage(row.record_id, "Evidence attached.");
-        markMutationSaved();
-        await onRefresh();
-      } catch (error) {
-        setEvidenceMessage(
-          row.record_id,
-          error instanceof Error ? error.message : "Evidence attach failed.",
-        );
-        markMutationConflict();
-      }
-    },
-    [
-      apiBase,
-      beginMutation,
-      incidentId,
-      markMutationConflict,
-      markMutationSaved,
-      onRefresh,
-      setEvidenceMessage,
-    ],
-  );
+  const ownerRecordActions = useEvidenceWorkbookBindings({
+    apiBase,
+    incidentId,
+    mutation: { beginMutation, markMutationConflict, markMutationSaved },
+    onRefresh,
+    ownerBindings,
+    resetKey: inspectorResetKey,
+  });
 
   const submitCreate = useCallback(async () => {
     const payload = buildGenericCreatePayload(
@@ -505,13 +365,13 @@ export function ContractWorkbookSurface({
   const rowActionsColumn = useMemo<
     GridActionsColumn<EntityApiRow> | undefined
   >(() => {
-    if (!isEvidenceSurface && writableFields.length === 0) {
+    if (!ownerRecordActions.hasRecordActions && writableFields.length === 0) {
       return undefined;
     }
     return {
       headerTestId: gridActionsHeaderTestId(surface),
       label: "",
-      width: isEvidenceSurface ? 208 : 76,
+      width: ownerRecordActions.actionsWidth,
       renderCell: ({ data: row }) => {
         if (row.record_id === draftRowRecordId) {
           return (
@@ -532,87 +392,15 @@ export function ContractWorkbookSurface({
             </button>
           );
         }
-        if (!isEvidenceSurface) {
-          return null;
-        }
-        const evidenceAccess = buildEvidenceLifecycleViewModel({
-          evidenceLifecycleState: row.cells["evidence.lifecycle_state"]?.value,
-          objectBlobUploadState: row.cells["evidence.upload_state"]?.value,
-        });
-        const message =
-          evidenceMessageByRecordID[row.record_id] ?? evidenceAccess.message;
-        const messageLiveRegion =
-          message === null
-            ? null
-            : evidenceAccessMessageLiveRegion(message, evidenceAccess);
-        return (
-          <div
-            data-evidence-state-key={evidenceAccess.stateKey}
-            style={actionStackStyle}
-          >
-            <div style={inlineButtonRowStyle}>
-              <button
-                data-testid={evidencePreviewButtonTestId(row.record_id)}
-                disabled={!evidenceAccess.canPreview}
-                style={actionButtonStyle}
-                type="button"
-                onClick={() => {
-                  void issueEvidenceHandle(row, "preview");
-                }}
-              >
-                Preview
-              </button>
-              <button
-                data-testid={evidenceDownloadButtonTestId(row.record_id)}
-                disabled={!evidenceAccess.canDownload}
-                style={actionButtonStyle}
-                type="button"
-                onClick={() => {
-                  void issueEvidenceHandle(row, "download");
-                }}
-              >
-                Download
-              </button>
-            </div>
-            <label style={labelStyle}>
-              Attach file
-              <input
-                data-testid={evidenceAttachFileInputTestId(row.record_id)}
-                style={inputStyle}
-                type="file"
-                accept="image/*,.txt,.pdf,text/plain,application/pdf"
-                onChange={(event) => {
-                  const [file] = Array.from(event.currentTarget.files ?? []);
-                  event.currentTarget.value = "";
-                  if (file) {
-                    void attachEvidenceFile(row, file);
-                  }
-                }}
-              />
-            </label>
-            {message ? (
-              <span
-                aria-live={messageLiveRegion?.ariaLive}
-                data-testid={evidenceAccessMessageTestId(row.record_id)}
-                role={messageLiveRegion?.role}
-                style={evidenceAccessMessageStyle}
-              >
-                {message}
-              </span>
-            ) : null}
-          </div>
-        );
+        return ownerRecordActions.renderRecordActions(row);
       },
     };
   }, [
-    attachEvidenceFile,
     contract.viewSchemaId,
     draftRowRecordId,
-    evidenceMessageByRecordID,
-    isEvidenceSurface,
     isInspectorOpen,
-    issueEvidenceHandle,
     mutationState,
+    ownerRecordActions,
     surface,
     submitCreate,
     writableFields.length,
@@ -811,84 +599,6 @@ export function ContractWorkbookSurface({
       ],
       "party-clear-both",
     );
-  };
-
-  const submitTaskLifecyclePatch = async () => {
-    const target = rows.find((row) => row.record_id === taskLifecycleRecordId);
-    if (!target) {
-      setValidationError("Select a task row.");
-      return;
-    }
-    const changes: Array<Record<string, unknown>> = [
-      { field_key: "task.status", value: taskLifecycleStatus },
-    ];
-    if (taskLifecycleStatus === "blocked") {
-      const reason = normalizeGenericTextValue(taskLifecycleBlockedReason);
-      if (reason === "") {
-        setValidationError("Blocked tasks need a reason.");
-        return;
-      }
-      changes.push({ field_key: "task.blocked_reason", value: reason });
-    }
-    beginMutation();
-    const result = await fetchWorkbookJSON<ViewMutationEnvelope>(
-      apiPath(apiBase, `/api/v1/records/${target.record_id}`),
-      {
-        method: "PATCH",
-        body: JSON.stringify({
-          view_schema_id: taskRequestsViewSchemaId,
-          base_row_version: target.row_version,
-          client_txn_id: `task-lifecycle-${Date.now()}`,
-          changes,
-        }),
-      },
-    );
-    if (!result.ok) {
-      rejectMutationPayload(result.payload);
-      return;
-    }
-    if (taskLifecycleStatus !== "blocked") {
-      setTaskLifecycleBlockedReason("");
-    }
-    await completeGenericMutation<ViewMutationEnvelope>(result.payload);
-  };
-
-  const submitDecisionSupersede = async () => {
-    const target = rows.find(
-      (row) => row.record_id === decisionSupersedeTargetId,
-    );
-    if (!target || decisionSupersedeReplacementId === "") {
-      setValidationError("Select target and superseding decisions.");
-      return;
-    }
-    if (target.record_id === decisionSupersedeReplacementId) {
-      setValidationError("Select a different superseding decision.");
-      return;
-    }
-    const reason = normalizeGenericTextValue(decisionSupersedeReason);
-    if (reason === "") {
-      setValidationError("Reason is required.");
-      return;
-    }
-    beginMutation();
-    const result = await fetchWorkbookJSON<DecisionSupersedeEnvelope>(
-      apiPath(apiBase, `/api/v1/records/${target.record_id}/supersede`),
-      {
-        method: "POST",
-        body: JSON.stringify({
-          base_row_version: target.row_version,
-          client_txn_id: `decision-supersede-${Date.now()}`,
-          replacement_record_id: decisionSupersedeReplacementId,
-          reason,
-        }),
-      },
-    );
-    if (!result.ok) {
-      rejectMutationPayload(result.payload);
-      return;
-    }
-    setDecisionSupersedeReason("");
-    await completeGenericMutation<DecisionSupersedeEnvelope>(result.payload);
   };
 
   const focusDraftRow = useCallback(() => {
@@ -1181,120 +891,22 @@ export function ContractWorkbookSurface({
               </div>
             ) : null}
 
-            {showWorkflowPanel && isTaskRequestSurface && rows.length > 0 ? (
-              <div style={genericEditRowStyle}>
-                <select
-                  aria-label="Task lifecycle row"
-                  data-testid="task-lifecycle-target"
-                  style={selectStyle}
-                  value={taskLifecycleRecordId}
-                  onChange={(event) => {
-                    setTaskLifecycleRecordId(event.target.value);
-                  }}
-                >
-                  <option value="">Task</option>
-                  {rows.map((row) => (
-                    <option key={row.record_id} value={row.record_id}>
-                      {genericRowLabel(contract, row)}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  aria-label="Task lifecycle status"
-                  data-testid="task-lifecycle-status"
-                  style={selectStyle}
-                  value={taskLifecycleStatus}
-                  onChange={(event) => {
-                    setTaskLifecycleStatus(event.target.value);
-                  }}
-                >
-                  <option value="open">open</option>
-                  <option value="in_progress">in_progress</option>
-                  <option value="blocked">blocked</option>
-                  <option value="done">done</option>
-                  <option value="canceled">canceled</option>
-                </select>
-                <input
-                  aria-label="Blocked reason"
-                  data-testid="task-lifecycle-blocked-reason"
-                  disabled={taskLifecycleStatus !== "blocked"}
-                  style={inputStyle}
-                  type="text"
-                  value={taskLifecycleBlockedReason}
-                  onChange={(event) => {
-                    setTaskLifecycleBlockedReason(event.target.value);
-                  }}
-                />
-                <button
-                  data-testid="task-lifecycle-submit"
-                  disabled={mutationState === "Syncing"}
-                  style={secondaryActionButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    void submitTaskLifecyclePatch();
-                  }}
-                >
-                  Apply task status
-                </button>
-              </div>
-            ) : null}
-
-            {showWorkflowPanel && isDecisionSurface && rows.length > 1 ? (
-              <div style={genericEditRowStyle}>
-                <select
-                  aria-label="Superseded decision"
-                  data-testid="decision-supersede-target"
-                  style={selectStyle}
-                  value={decisionSupersedeTargetId}
-                  onChange={(event) => {
-                    setDecisionSupersedeTargetId(event.target.value);
-                  }}
-                >
-                  <option value="">Target</option>
-                  {rows.map((row) => (
-                    <option key={row.record_id} value={row.record_id}>
-                      {genericRowLabel(contract, row)}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  aria-label="Superseding decision"
-                  data-testid="decision-supersede-replacement"
-                  style={selectStyle}
-                  value={decisionSupersedeReplacementId}
-                  onChange={(event) => {
-                    setDecisionSupersedeReplacementId(event.target.value);
-                  }}
-                >
-                  <option value="">Superseding</option>
-                  {referenceOptions.decisions.map((option) => (
-                    <option key={option.recordId} value={option.recordId}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  aria-label="Decision supersession reason"
-                  data-testid="decision-supersede-reason"
-                  style={inputStyle}
-                  type="text"
-                  value={decisionSupersedeReason}
-                  onChange={(event) => {
-                    setDecisionSupersedeReason(event.target.value);
-                  }}
-                />
-                <button
-                  data-testid="decision-supersede-submit"
-                  disabled={mutationState === "Syncing"}
-                  style={secondaryActionButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    void submitDecisionSupersede();
-                  }}
-                >
-                  Supersede decision
-                </button>
-              </div>
+            {showWorkflowPanel ? (
+              <CoordinationWorkflowBindings
+                apiBase={apiBase}
+                contract={contract}
+                disabled={mutationState === "Syncing"}
+                mutation={{
+                  beginMutation,
+                  completeGenericMutation,
+                  rejectMutationPayload,
+                  setValidationError,
+                }}
+                ownerBindings={ownerBindings}
+                referenceOptions={referenceOptions}
+                resetKey={inspectorResetKey}
+                rows={rows}
+              />
             ) : null}
 
             {referenceLoadError ? (
@@ -1361,41 +973,7 @@ export function ContractWorkbookSurface({
               {loadError}
             </p>
           ) : null}
-          {isEvidenceSurface && evidencePreview ? (
-            <section
-              data-testid={evidencePreviewPanelTestId()}
-              style={evidencePreviewPanelStyle}
-            >
-              <div style={evidencePreviewHeaderStyle}>
-                <div>
-                  <p style={eyebrowStyle}>Preview</p>
-                  <h2 style={sectionTitleStyle}>{evidencePreview.title}</h2>
-                </div>
-                <button
-                  style={secondaryActionButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    setEvidencePreview(null);
-                  }}
-                >
-                  Close
-                </button>
-              </div>
-              <iframe
-                data-testid={evidencePreviewFrameTestId(
-                  evidencePreview.recordId,
-                )}
-                src={evidencePreview.href}
-                style={evidencePreviewFrameStyle}
-                title={`Evidence preview ${evidencePreview.title}`}
-              />
-              {evidencePreview.previewKind ? (
-                <p style={evidenceAccessMessageStyle}>
-                  {evidencePreview.previewKind}
-                </p>
-              ) : null}
-            </section>
-          ) : null}
+          {ownerRecordActions.overlay}
         </>
       }
     />
@@ -1430,11 +1008,6 @@ const surfaceNoticeOverlayStyle = {
 const gridShellStyle = {
   ...workbookSurfaceGridShellStyle,
 } satisfies CSSProperties;
-
-const actionStackStyle = {
-  display: "grid",
-  gap: "0.5rem",
-};
 
 const genericMutationPanelStyle = {
   ...workbookSurfaceInspectorPanelStyle,
@@ -1496,39 +1069,6 @@ const genericErrorTextStyle = {
   fontWeight: 700,
 };
 
-const evidenceAccessMessageStyle = {
-  margin: 0,
-  fontSize: "0.85rem",
-  color: "var(--ct-colors-ink-muted)",
-};
-
-const evidencePreviewPanelStyle = {
-  ...workbookSurfaceOverlayPanelStyle,
-  display: "grid",
-  gap: "0.75rem",
-  padding: "1rem",
-  borderRadius: "var(--ct-rounded-lg)",
-  border: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-1)",
-  boxShadow: "var(--ct-elevation-popover)",
-};
-
-const evidencePreviewHeaderStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: "1rem",
-  alignItems: "start",
-};
-
-const evidencePreviewFrameStyle = {
-  width: "100%",
-  blockSize: "min(28rem, 34vh)",
-  minHeight: "12rem",
-  border: "var(--ct-border-hairline)",
-  borderRadius: "var(--ct-rounded-md)",
-  background: "var(--ct-colors-surface-2)",
-};
-
 const labelStyle = {
   display: "grid",
   gap: "0.4rem",
@@ -1559,17 +1099,6 @@ const inspectorCloseButtonStyle = {
 const inspectorTitleStyle = {
   margin: 0,
   fontSize: "1.25rem",
-};
-
-const sectionTitleStyle = {
-  margin: 0,
-  fontSize: "1rem",
-};
-
-const inlineButtonRowStyle = {
-  display: "flex",
-  gap: "0.5rem",
-  flexWrap: "wrap" as const,
 };
 
 const selectStyle = {
