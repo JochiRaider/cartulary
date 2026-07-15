@@ -404,3 +404,227 @@ This tracker and implementation remediation are complete only when every criteri
 - [x] Final maintenance, Phase 3 validation, and broad validation passed: `make agent-finalize`, `make phase-slice PHASE=phase3`, and `make check`.
 
 These checks complete the remediation plan and the authorized refactor. GT-007, GT-010, and GT-012 are complete, GT-008 and GT-009 remain the recorded owner decisions, and no Core, domain, backend, protocol, dependency, or lockfile change was required.
+
+## 13. Future RDG Workbook Integration Backlog
+
+### 13.1 Status, source posture, and guardrails
+
+Status: Every workstream in this section is **PROPOSED**. This backlog does not reopen GA-S00 through GA-S08, revise their completion evidence, or authorize implementation. A future owner must explicitly start, scope, and close each workstream.
+
+The upstream [All Features implementation](https://github.com/Comcast/react-data-grid/blob/main/website/routes/AllFeatures.tsx), [React Data Grid README and API](https://github.com/Comcast/react-data-grid), and the locally pinned `react-data-grid@7.0.0-beta.59` types are implementation-support inputs. They do not define Cartulary product behavior or override the normative Core, domain, design, or testing-harness owners.
+
+The following constraints apply to every future workstream:
+
+- Core specifications remain vendor-neutral. Direct RDG imports, props, types, render contracts, and DOM knowledge remain private to `packages/grid-adapter`.
+- App code addresses workbook state through semantic record and field anchors, mutation targets, callbacks, and `GridHandle`. RDG row or column indexes, native handles, class hashes, and DOM nesting are not app contracts.
+- Server authorization, routes, storage, protocols, domain vocabulary, dependencies, and lockfiles remain out of scope unless a future owner-backed workstream demonstrates a specific gap. Such a discovery requires a separately reviewed owner change; it is not implicit permission from this backlog.
+- `docs/domain.md`, `docs/design.md`, Core specifications, code, tests, authored maps, generated files, and lockfiles remain unchanged by this tracker update.
+
+### 13.2 RDG feature classification
+
+This matrix compares the upstream RDG feature surface with the currently inspected Cartulary adapter, app wiring, tests, and live evidence. “Partially integrated” includes capabilities present at the adapter seam but not yet owned end to end by workbook behavior.
+
+| RDG feature category | Classification | Recorded basis |
+| --- | --- | --- |
+| Fixed-height virtualization | already integrated and adequately validated | Production RDG is live; bounded-DOM evidence exists at 500 rows, semantic deep scrolling is covered, and density uses fixed heights. |
+| Frozen columns | partially integrated and needs hardening | The semantic gutter or group column is frozen, but there is no broader per-surface frozen-column policy. |
+| Column resizing and width control | partially integrated and needs hardening | Adapter control and callbacks exist; app wiring and saved-view layout persistence are not connected. |
+| Multi-column sorting | partially integrated and needs hardening | Query and adapter models accept sort arrays; workbook header interaction remains single-sort-oriented. |
+| Column spanning | not appropriate for Cartulary | It conflicts with stable one-field-per-cell addressing and the current merged-cell non-goal. |
+| Column grouping | useful future enhancement | It is potentially useful only with owner-backed semantic group metadata; groups must never be inferred from display labels. |
+| Column reordering | partially integrated and needs hardening | Saved-view `column_order` exists, but live RDG reorder and application are absent. |
+| Row selection | partially integrated and needs hardening | Record-ID sets exist at the adapter seam; `SelectColumn`, disabled-row behavior, and workbook bulk-selection ownership do not. |
+| One-level row grouping | already integrated and adequately validated | `TreeDataGrid`, typed buckets, scoped expansion, draft exclusion, and live evidence exist. |
+| Summary rows | partially integrated and needs hardening | The bottom draft summary is integrated; additional top or bottom aggregation is not owner-defined. |
+| Dynamic row heights | intentionally deferred | They conflict with adopted fixed-height virtualization and density and add performance and focus risk. |
+| No-rows fallback | partially integrated and needs hardening | An RDG fallback exists, but it does not model all required empty, loading, and error distinctions. |
+| Cell formatting | already integrated and adequately validated | Semantic render contexts support live typed, chip, and action presentation. |
+| Cell editing | partially integrated and needs hardening | A semantic editor seam and Timeline scalar editing exist; typed or rich editors and lifecycle policy remain incomplete. |
+| Cell copy/paste | partially integrated and needs hardening | Base TSV or CSV behavior and adapter callbacks exist, but ownership is split and range and compatibility behavior need consolidation. |
+| Cell value drag/fill | partially integrated and needs hardening | Semantic endpoint translation exists; app-owned live fill-handle batching is not connected. |
+| Custom renderers | partially integrated and needs hardening | Private row, cell, and editor renderers exist; broader safe-renderer and state-class policies are incomplete. |
+| RTL | intentionally deferred | There is no current localization or bidirectionality owner; implementation requires explicit future authority. |
+| Keyboard accessibility | partially integrated and needs hardening | Strong live coverage exists, but the full design matrix, range selection, interception, and screen-reader behavior need closure. |
+| Styling/classes | partially integrated and needs hardening | Tokens, alignment, focus, and draft styling exist; semantic row, cell, header, and summary state policies do not. |
+| Custom event handling | partially integrated and needs hardening | Several events translate semantically, but workbook wiring is incomplete and must not expose RDG coordinates. |
+| RDG header filters/local filtering | not appropriate for Cartulary | Query and filter ownership remains in the View bar and server-backed view contract. |
+| Row reordering/tree/master-detail behavior | not appropriate for Cartulary | Server query order, one-level grouping, and current hierarchy non-goals remain authoritative. |
+
+### 13.3 Sequenced future workstreams
+
+The numeric order is the default implementation sequence. A future owner may overlap independent validation, but must record any dependency change and must not use an earlier proposal as implicit authorization.
+
+#### F-RDG-01 — Column layout and multi-sort depth
+
+- **Status:** PROPOSED.
+- **Dependencies:** GA-S00 through GA-S08 remain closed; no other future workstream is required to start.
+- **Remediation:** Connect saved-view column widths, order, and hidden fields to semantic adapter props; define reset-to-schema-default behavior; harden a per-surface frozen-column policy; and wire multi-sort arrays end to end. Keep column spanning rejected. Keep column grouping owner-gated unless adopted contract metadata defines semantic groups.
+- **Affected areas:** Multiple — adapter, app, tests, docs, evidence/accounting, and design review if grouping or frozen policy changes visible hierarchy.
+- **Rationale:** Saved layout and sort models already exist, but the live workbook does not consistently apply them through the adapter.
+- **Expected long-term benefit:** Stable restorable layouts, predictable column affordances, and query-consistent multi-sort without vendor coordinates entering persistence.
+- **Compatibility and migration impact:** Preserve existing saved-view wire shapes and schema defaults. Persist only semantic field identifiers and widths, never RDG keys or indexes. Existing saved views must remain readable; owner-gated column-group metadata requires a separate authority decision.
+- **Risk if unresolved:** User layout choices can appear to save without governing the live grid, width reset remains ambiguous, frozen behavior can diverge by surface, and sort precedence can be misrepresented.
+- **Validation criteria:** Saved order, visibility, and widths apply and reset deterministically; reorder and resize survive a saved-view round trip; frozen columns follow the documented surface policy; multi-sort order round-trips through query state and header interaction; spanning remains absent; grouping remains disabled without semantic metadata.
+- **Validation commands:** `make frontend-typecheck`, `make frontend-unit`, `make frontend-import-boundary-check`, `make browser-e2e-webserver-backed`, and `make browser-e2e-visual` when visible layout changes are intentional.
+- **Rollback:** Remove the adapter/app layout bridge atomically while preserving stored saved-view data and the prior schema-default rendering. Revert intentional goldens through their owner workflow.
+- **Exit criteria:** The semantic layout and multi-sort contracts, reset behavior, frozen policy, migration evidence, live coverage, residual risks, and rollback boundary are recorded; no RDG persistence detail escapes the adapter.
+
+#### F-RDG-02 — Semantic record-selection maturity
+
+- **Status:** PROPOSED.
+- **Dependencies:** F-RDG-01 establishes stable visible column and ordering behavior.
+- **Remediation:** Keep active-cell and inspector selection distinct from bulk record selection. Evaluate RDG `SelectColumn` privately against semantic record IDs, disabled rows, grouped and draft exclusion, keyboard behavior, and frozen-column ordering; use an adapter-owned alternative if it cannot satisfy those constraints. Connect selected record sets to explicit multi-row commands without index-based targeting.
+- **Affected areas:** Multiple — adapter, app, tests, docs, evidence/accounting, and design.
+- **Rationale:** A record-ID selection seam exists, but the workbook has no complete ownership model for bulk selection or its command consequences.
+- **Expected long-term benefit:** Safe, persistent, accessible multi-record workflows that do not conflate focus, inspector context, and command scope.
+- **Compatibility and migration impact:** Add semantic selection behavior incrementally. Existing single-record inspector and active-cell behavior remains the default until a surface explicitly adopts bulk selection; no stored row indexes are introduced.
+- **Risk if unresolved:** Future bulk commands may target unstable row positions, include disabled or synthetic rows, or make inspector selection visually ambiguous.
+- **Validation criteria:** Selection is keyed only by record ID; disabled, group, and draft rows cannot enter the set; range and keyboard changes remain correct across sort, filter, refresh, and grouping; multi-row commands receive explicit records; inspector and active-cell continuity remain intact.
+- **Validation commands:** `make frontend-typecheck`, `make frontend-unit`, `make browser-e2e-stateful`, `make browser-e2e-webserver-backed`, and `make browser-e2e-a11y`.
+- **Rollback:** Remove the bulk-selection control and command wiring as one unit while preserving existing single-record inspector selection and active-cell behavior.
+- **Exit criteria:** A documented selection owner, disabled-row policy, command contract, live keyboard and accessibility evidence, and rollback result exist; `SelectColumn` is either accepted behind the adapter or explicitly rejected with evidence.
+
+#### F-RDG-03 — Editor maturity
+
+- **Status:** PROPOSED.
+- **Dependencies:** F-RDG-01 and F-RDG-02 define stable layout, focus, and selection relationships.
+- **Remediation:** Add semantic policies for typed, select, and rich editors; edit entry; commit and cancel; blur; external-row changes; read-only transitions; and accessible validation. Preserve unsaved invalid text, optimistic-concurrency targets, and focus restoration. Migrate editor kinds incrementally without exposing RDG editor props outside the adapter.
+- **Affected areas:** Multiple — adapter, app, tests, docs, evidence/accounting, and design.
+- **Rationale:** Scalar editing proves the seam, but broader editor lifecycle and validation behavior are not yet consistently defined.
+- **Expected long-term benefit:** Predictable typed editing with recoverable validation, clear concurrency behavior, and uniform keyboard and focus semantics.
+- **Compatibility and migration impact:** Adopt editor kinds surface by surface. Existing scalar edit behavior remains supported while each editor moves to the semantic policy; mutation targets retain record ID, field ID, and base-row-version ownership.
+- **Risk if unresolved:** Invalid input can be lost, blur or refresh can commit unexpectedly, read-only transitions can strand editors, and editor-specific RDG behavior can leak into app code.
+- **Validation criteria:** Each editor kind has explicit open, commit, cancel, blur, invalid-input, stale-row, external-update, and read-only outcomes; accessible validation is announced; invalid local text is retained where required; focus returns to the semantic anchor after close.
+- **Validation commands:** `make frontend-typecheck`, `make frontend-unit`, `make browser-e2e-stateful`, `make browser-e2e-webserver-backed`, `make browser-e2e-a11y`, and `make browser-e2e-visual` for new validation presentation.
+- **Rollback:** Disable or revert one semantic editor kind at a time to the previously supported path; never fall back to app-owned RDG editor props or raw row mutation.
+- **Exit criteria:** The editor lifecycle matrix, migration order, live evidence, validation presentation, concurrency behavior, and per-editor rollback boundary are recorded and pass.
+
+#### F-RDG-04 — Clipboard and fill maturity
+
+- **Status:** PROPOSED.
+- **Dependencies:** F-RDG-02 provides selection ownership and F-RDG-03 provides editor and validation rules.
+- **Remediation:** Consolidate internal copied-cell and range state, semantic value presentation, cross-field compatibility, TSV range copy/paste, and fill-handle dispatch. Expand fill endpoints into explicit `record_id` and `base_row_version` targets in visible query order. Reject drafts, group rows, stale or read-only cells, incompatible fields, and unsupported surfaces. Reuse existing paste and bulk-mutation contracts unless an owner document proves a real gap.
+- **Affected areas:** Multiple — adapter, app, tests, docs, evidence/accounting, and design for interaction or validation presentation.
+- **Rationale:** Adapter callbacks and base clipboard behavior exist, but split ownership leaves range semantics and rejection behavior inconsistent.
+- **Expected long-term benefit:** One safe, auditable bulk-value path for keyboard clipboard and drag/fill interactions.
+- **Compatibility and migration impact:** Preserve existing semantic mutation wire shapes and migrate the complete clipboard path atomically per surface. Clipboard parsing may become stricter where field compatibility or stale-state safety requires rejection.
+- **Risk if unresolved:** Copy, paste, and fill can disagree, bypass read-only or validation rules, or create unsafe position-based bulk writes.
+- **Validation criteria:** Copy presentation is semantic; TSV ranges preserve shape; paste and fill resolve explicit record/version targets in visible order; all forbidden rows and fields reject without partial mutation; stale responses and keyboard focus behave predictably.
+- **Validation commands:** `make frontend-typecheck`, `make frontend-unit`, `make browser-e2e-stateful`, `make browser-e2e-webserver-backed`, and `make browser-e2e-a11y`.
+- **Rollback:** Return the complete migration to the existing base-profile clipboard path, never to raw RDG row mutation; disable live fill dispatch independently if its guardrails fail.
+- **Exit criteria:** Clipboard ownership, compatibility rules, rejection matrix, mutation batching, live fill evidence, residual limitations, and atomic rollback boundary are recorded and pass.
+
+#### F-RDG-05 — Summary and aggregation policy
+
+- **Status:** PROPOSED.
+- **Dependencies:** F-RDG-01 defines column layout and F-RDG-03 defines non-record focus and edit boundaries. Additional summary semantics remain owner-gated.
+- **Remediation:** Preserve the bottom draft row as the only currently integrated summary use. Permit additional ungrouped top or bottom summaries only after product and design owners define exact totals or status semantics. Keep grouped subtotals, pivot aggregation, record-like summaries, and mutation-capable summaries out of scope under current Core 03.
+- **Affected areas:** Multiple — adapter, app, tests, docs, evidence/accounting, and design; an owner change is required before new aggregation semantics.
+- **Rationale:** RDG can render summary rows, but capability alone does not establish meaningful or safe workbook aggregation.
+- **Expected long-term benefit:** Useful totals or status context can be added without confusing synthetic summaries with records or destabilizing draft creation.
+- **Compatibility and migration impact:** New summaries are additive and semantic. They must not change record identity, query ordering, grouping buckets, mutation routes, or the existing bottom draft row.
+- **Risk if unresolved:** Ad hoc totals can be misleading, summary rows can become addressable like records, and grouped or draft interactions can become ambiguous.
+- **Validation criteria:** Owner-approved values and labels are exact; summaries have non-record identity and no mutation targets; keyboard and screen-reader behavior distinguish them; grouping excludes them; the bottom draft remains continuous and functional.
+- **Validation commands:** `make frontend-typecheck`, `make frontend-unit`, `make browser-e2e-webserver-backed`, `make browser-e2e-a11y`, and `make browser-e2e-visual`.
+- **Rollback:** Remove newly introduced summary descriptors and renderers while retaining the bottom draft row and all record rows unchanged.
+- **Exit criteria:** An owner-approved aggregation definition, non-record contract, accessibility and grouping evidence, draft continuity proof, and removal boundary exist. If no owner adopts semantics, this workstream may remain proposed without blocking later work.
+
+#### F-RDG-06 — Empty, loading, error, and read-only presentation
+
+- **Status:** PROPOSED.
+- **Dependencies:** F-RDG-05 establishes which non-record rows are legitimate summaries rather than state placeholders.
+- **Remediation:** Introduce a semantic grid-state contract for successful empty query, filtered empty, loading, permission denial, unavailable or error, and closed or read-only presentation. Use the RDG no-rows fallback only for true empty results. Do not create fake loading or error rows or discard valid prior rows during refresh.
+- **Affected areas:** Multiple — adapter, app, tests, docs, evidence/accounting, and design.
+- **Rationale:** A generic fallback cannot communicate the distinct actions, preservation rules, and accessibility states required by workbook query and incident conditions.
+- **Expected long-term benefit:** Clear, actionable, accessible state transitions without corrupting row identity or causing avoidable refresh flicker.
+- **Compatibility and migration impact:** Add a semantic state union and presentation data while preserving existing rows during background refresh. Existing empty fallback remains until a surface adopts the richer contract.
+- **Risk if unresolved:** Users cannot distinguish no data from failure or denial, retry and clear-filter actions remain inconsistent, and closed or read-only state can be mistaken for an editable empty sheet.
+- **Validation criteria:** Each state has exact message, action, ARIA state, and row-preservation behavior; retry and clear-filter actions are semantic; loading does not erase valid rows; drafts and closed incidents follow owner rules; no synthetic placeholder is addressable as a record.
+- **Validation commands:** `make frontend-typecheck`, `make frontend-unit`, `make browser-e2e-webserver-backed`, `make browser-e2e-a11y`, and `make browser-e2e-visual`.
+- **Rollback:** Revert the state bridge to the existing fallback and app-level status presentation without changing query data or record identity.
+- **Exit criteria:** The state contract, action mapping, refresh-preservation rule, closed/read-only behavior, live accessibility and visual evidence, and rollback boundary are recorded and pass.
+
+#### F-RDG-07 — Styling and renderer policy
+
+- **Status:** PROPOSED.
+- **Dependencies:** F-RDG-01 through F-RDG-06 define the semantic states and elements that styling must represent.
+- **Remediation:** Map conflict, invalid, pending, active, selected, read-only, and saved-state precedence to adapter-owned row, cell, header, and summary classes and ARIA. Keep custom renderers private and semantic. Preserve stable test selectors without depending on RDG class hashes or DOM nesting.
+- **Affected areas:** Multiple — adapter, app, tests, docs, evidence/accounting, and design.
+- **Rationale:** Existing tokens and focused cases do not yet form a complete state-precedence or renderer-safety policy.
+- **Expected long-term benefit:** Consistent non-vendor visual language, safer customization, and accessible state cues across workbook surfaces.
+- **Compatibility and migration impact:** Semantic class inputs may be added at the adapter seam, but app selectors and tests continue to use stable Cartulary-owned attributes. RDG classes remain implementation details.
+- **Risk if unresolved:** Conflicting states can be visually misleading, color can become the only cue, and tests or app styles can couple to unstable vendor DOM.
+- **Validation criteria:** State precedence is documented; all states have non-color cues and correct ARIA; token, contrast, focus, density, and theme behavior pass; renderers expose no RDG contract; intentional golden changes are reviewed through the visual owner workflow.
+- **Validation commands:** `make frontend-typecheck`, `make frontend-unit`, `make frontend-import-boundary-check`, `make lint-biome`, `make browser-e2e-a11y`, and `make browser-e2e-visual`.
+- **Rollback:** Revert adapter-owned style and renderer changes together with any regenerated visual goldens through their owner inputs.
+- **Exit criteria:** The precedence table, semantic class API, stable-selector policy, accessibility evidence, reviewed goldens, and coupled rollback boundary are recorded and pass.
+
+#### F-RDG-08 — Keyboard, accessibility, events, and RTL assessment
+
+- **Status:** PROPOSED.
+- **Dependencies:** F-RDG-02 through F-RDG-07 provide the selection, editing, clipboard, summary, state, and renderer interactions covered by the matrix.
+- **Remediation:** Close the design keyboard matrix, including range selection, Page/Home/End commands, editor transitions, custom-event interception, focus restoration, grouped behavior, and screen-reader announcements. Ensure all intercepted events translate to semantic anchors or targets and avoid duplicate app and RDG handling. Record RTL as deferred unless a localization or bidirectionality owner is adopted; assessment alone does not enable `direction="rtl"`.
+- **Affected areas:** Multiple — adapter, app, tests, docs, evidence/accounting, and design; RTL requires separate localization authority.
+- **Rationale:** Strong current coverage does not prove the complete interaction matrix once advanced selection, editors, clipboard, summaries, and custom events are combined.
+- **Expected long-term benefit:** Predictable keyboard operation, durable focus, clear assistive-technology feedback, and a documented boundary for future bidirectional support.
+- **Compatibility and migration impact:** Preserve semantic `GridHandle` and anchor behavior. Event interception is introduced by named command and surface, with native RDG behavior retained where no Cartulary semantic override exists.
+- **Risk if unresolved:** Duplicate handling can cause double commands, focus can be lost after refresh or edit, grouped navigation can become inconsistent, and assistive technology can receive incomplete state changes.
+- **Validation criteria:** The complete owner keyboard matrix passes in grouped and ungrouped modes; editor and range transitions restore semantic focus; interceptors prevent duplicate handling; announcements cover selection, errors, loading, and summaries; RTL remains disabled and explicitly recorded unless owner authority changes.
+- **Validation commands:** `make frontend-typecheck`, `make frontend-unit`, `make browser-e2e-a11y-preflight`, `make browser-e2e-a11y`, `make browser-e2e-stateful`, and `make browser-e2e-webserver-backed`.
+- **Rollback:** Remove each semantic event interceptor with its matching app command while restoring the prior RDG default and focus behavior. Do not roll back to app use of native RDG coordinates.
+- **Exit criteria:** The keyboard and event matrix, focus and announcement evidence, duplicate-handling checks, RTL owner decision, residual browser risks, and interceptor rollback boundaries are recorded and pass.
+
+#### F-RDG-09 — Performance and scalability
+
+- **Status:** PROPOSED.
+- **Dependencies:** F-RDG-01 through F-RDG-08 establish the representative layout and interaction load to measure.
+- **Remediation:** Characterize the owner-defined maximum 500-row query page, grouped and ungrouped scrolling, column virtualization, row-object reference reuse, refresh and reorder stability, and editor and focus continuity. Keep fixed numeric row heights. Dynamic heights remain deferred unless design authority changes and performance and accessibility evidence is repeated.
+- **Affected areas:** Multiple — adapter, app, tests, docs, and evidence/accounting; timed publication would additionally require Core 05 authority.
+- **Rationale:** The current bounded-DOM proof establishes virtualization, but broader adoption can still introduce avoidable rerenders, reference churn, and focus instability.
+- **Expected long-term benefit:** Predictable workbook behavior at the supported page size with performance tuning that does not compromise semantic identity.
+- **Compatibility and migration impact:** Tuning must preserve record and field anchors, visible query order, pagination, grouping, and mutation behavior. It may change memoization or adapter internals but not product contracts.
+- **Risk if unresolved:** Larger pages or richer cells can regress scrolling, editor continuity, selection, and refresh behavior even while virtualization remains technically active.
+- **Validation criteria:** A 500-row grouped and ungrouped page retains bounded DOM; column virtualization is exercised where applicable; unchanged row objects retain references; refresh, reorder, selection, editor, and focus state remain semantically correct; no timed claim is published without Core 05 authority.
+- **Validation commands:** `make frontend-unit`, `make browser-e2e-measurement`, `make browser-e2e-webserver-backed`, and `make browser-e2e-stateful`.
+- **Rollback:** Revert performance tuning independently while preserving semantic identity, query behavior, and the adopted fixed-height model.
+- **Exit criteria:** Supported-load fixtures, bounded-DOM and interaction evidence, reference-reuse findings, residual bottlenecks, fixed-height decision, claim posture, and independent rollback boundary are recorded.
+
+#### F-RDG-10 — Evidence, accounting, and final handoff
+
+- **Status:** PROPOSED.
+- **Dependencies:** F-RDG-01 through F-RDG-09 provide the implemented claims and artifacts to classify.
+- **Remediation:** Maintain an evidence matrix that distinguishes fast semantic tests from live production-RDG functional, stateful, accessibility, and visual coverage. Require live evidence for vendor interaction and layout claims; keep pure target translation and rejection logic in fast tests. If scenario ownership changes, update authored maps and classifications first and regenerate ledgers or schedules only through Make targets.
+- **Affected areas:** Multiple — tests, docs, evidence/accounting, authored maps when required, and generated ledgers or schedules only through their owners.
+- **Rationale:** A feature can be semantically correct in isolation while failing at the live RDG callback, DOM, focus, styling, or accessibility boundary.
+- **Expected long-term benefit:** Traceable claims, proportionate test cost, reproducible handoff evidence, and generated accounting that remains owner-derived.
+- **Compatibility and migration impact:** This workstream changes no runtime contract. Any scenario or accounting migration must preserve owner precedence and generated-artifact policy.
+- **Risk if unresolved:** Synthetic tests can be mistaken for live integration proof, vendor-sensitive behavior can regress unobserved, and handoffs can overstate completion or drift from authored maps.
+- **Validation criteria:** Every claim names its evidence class and command; vendor interactions have live production-RDG coverage; accessibility and visible layout claims use their specialized suites; fast tests own pure semantic translation and rejection; authored and generated accounting agree; the final handoff records files, commands, artifact roots, risks, rollback, and next dependency.
+- **Validation commands:** `make generated-artifact-policy-check`, `make json-shape-check`, applicable `make phase-slice PHASE=<phase>` targets, and, only when their owner inputs change, `make phase-ledger-drift` and `make phase-schedule-drift`. Final implementation gates are `make agent-finalize` and `make check`; retain and report the successful run root when applicable.
+- **Rollback:** Revert authored accounting and visual-golden owner inputs, then regenerate through Make. Never hand-edit generated outputs or separate goldens from the behavior they evidence.
+- **Exit criteria:** The complete evidence matrix, accounting drift results, phase slices, final gates, artifact roots, residual risks, rollback record, and owner-facing handoff are recorded; only then may the implemented future workstreams be considered for closure.
+
+### 13.4 Evidence-class expectations
+
+| Claim type | Minimum expected evidence |
+| --- | --- |
+| Pure semantic anchor or target translation, compatibility, and rejection logic | Fast adapter or app unit tests using vendor-neutral inputs and outputs. |
+| RDG callback wiring, virtualization, grouping, frozen or resized columns, selection, editors, clipboard, and fill | Live production-RDG component or browser coverage in addition to focused semantic tests. |
+| Focus restoration, keyboard commands, ARIA, validation, and screen-reader behavior | Live stateful and accessibility browser coverage against the production adapter. |
+| Geometry, density, state styling, themes, summaries, and empty-state presentation | Intentional visual coverage plus accessibility checks; goldens follow their owner workflow. |
+| Timed or benchmark claims | Separate Core 05 authority and retained evidence; functional bounded-DOM checks alone make no timing claim. |
+| Scenario, phase, or generated accounting | Authored owner maps change first; regeneration and drift checks run only through Make targets. |
+
+### 13.5 Global future exit rules
+
+- No workstream starts implicitly, and none is marked complete by this documentation update.
+- Owner-gated column grouping and new summaries, plus dynamic row heights and RTL, may remain deferred without blocking unrelated workstreams. Dynamic heights should remain deferred while fixed-height virtualization is authoritative; RTL should remain deferred without a localization or bidirectionality owner.
+- Column spanning, RDG header or local filters, and row reordering, nested tree, or master-detail behavior remain inappropriate under current product ownership. Reclassification requires an owner decision, not an adapter convenience.
+- No workstream may leak RDG imports, types, handles, row or column indexes, class hashes, or DOM assumptions into app code, persisted state, Core specifications, or semantic tests.
+- Server authorization, routes, storage, protocols, domain vocabulary, dependencies, and lockfiles remain unchanged unless a future owner-backed workstream demonstrates and separately scopes a specific need.
+- Each executed workstream must record files changed, exact commands and results, retained artifact roots when applicable, residual risks, its rollback boundary, and the next dependency.
+- A workstream exits only after its listed validation criteria and commands pass, owner-gated decisions are recorded, migration and rollback evidence exists, and evidence/accounting claims match the implemented scope.
+
+### 13.6 Validation for this tracker-only update
+
+This section changes planning documentation only. Its validation boundary is `make lint-markdown`, `git diff --check`, and `git status --short`. Frontend unit and type checks; browser, accessibility, measurement, and visual suites; broad `make check`; generated-accounting checks; and regeneration targets are intentionally outside this update because no code, tests, authored maps, generated owners, or goldens change.
