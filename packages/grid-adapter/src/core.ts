@@ -1,9 +1,4 @@
-import type {
-  CSSProperties,
-  MouseEventHandler,
-  PropsWithChildren,
-  ReactNode,
-} from "react";
+import type { CSSProperties, PropsWithChildren, ReactNode } from "react";
 
 export type GridSortDirection = "asc" | "desc";
 
@@ -16,12 +11,16 @@ export type GridSortEntry = {
 
 export type GridColumn<Row> = {
   readonly contractWritable?: boolean | undefined;
-  readonly editorAdapter?: GridEditorAdapter<Row> | undefined;
   readonly fieldKey: string;
   readonly headerTestId?: string | undefined;
   readonly label: string;
-  readonly renderCell: (row: Row) => ReactNode;
-  readonly rendererAdapter?: GridRendererAdapter<Row> | undefined;
+  readonly renderCell: (context: GridCellRenderContext<Row>) => ReactNode;
+  readonly renderDraftCell?:
+    | ((context: GridDraftCellRenderContext<Row>) => ReactNode)
+    | undefined;
+  readonly renderEditCell?:
+    | ((context: GridCellEditorContext<Row>) => ReactNode)
+    | undefined;
   readonly sortableFieldKey?: string | null;
   readonly sortDisabled?: boolean | undefined;
   readonly sortDisabledReason?: string | null | undefined;
@@ -31,30 +30,27 @@ export type GridColumn<Row> = {
   readonly width?: number | undefined;
 };
 
-export type GridAdapterCleanup = () => void;
-
-export type GridEditorAdapter<Row> = {
-  readonly cleanup?: GridAdapterCleanup | undefined;
-  readonly renderEditor: (row: Row) => ReactNode;
-};
-
-export type GridRendererAdapter<Row> = {
-  readonly cleanup?: GridAdapterCleanup | undefined;
-  readonly renderCell: (row: Row) => ReactNode;
-};
-
-export type GridRow<Row> = {
-  readonly key: string;
-  readonly recordId: string | null;
+export type GridRecordRow<Row> = {
+  readonly kind: "record";
+  readonly recordId: string;
+  readonly rowVersion: number;
   readonly data: Row;
   readonly gutterContent?: ReactNode | undefined;
   readonly gutterLabel?: string | undefined;
   readonly gutterTestId?: string | undefined;
-  readonly onSelect?: MouseEventHandler<HTMLTableRowElement> | undefined;
   readonly selected?: boolean | undefined;
-  readonly variant?: "default" | "draft" | undefined;
   readonly testId?: string | undefined;
 };
+
+export type GridDraftRow<Row> = {
+  readonly kind: "draft";
+  readonly data: Row;
+  readonly gutterContent?: ReactNode | undefined;
+  readonly gutterLabel?: string | undefined;
+  readonly testId?: string | undefined;
+};
+
+export type GridSemanticRow<Row> = GridDraftRow<Row> | GridRecordRow<Row>;
 
 export type GridRowGutter = {
   readonly headerTestId?: string | undefined;
@@ -66,7 +62,10 @@ export type GridRowGutter = {
 export type GridActionsColumn<Row> = {
   readonly headerTestId?: string | undefined;
   readonly label: string;
-  readonly renderCell: (row: GridRow<Row>) => ReactNode;
+  readonly renderCell: (row: GridRecordRow<Row>) => ReactNode;
+  readonly renderDraftCell?:
+    | ((row: GridDraftRow<Row>) => ReactNode)
+    | undefined;
   readonly minWidth?: number | undefined;
   readonly width?: number | undefined;
 };
@@ -82,25 +81,38 @@ export type GridViewportProps = PropsWithChildren<{
   readonly testId?: string | undefined;
 }>;
 
-export type GridTableProps<Row> = {
+export type WorkbookDataGridProps<Row> = {
   readonly actionsColumn?: GridActionsColumn<Row> | undefined;
   readonly columns: readonly GridColumn<Row>[];
+  readonly columnWidths?: Readonly<Record<string, number>> | undefined;
   readonly density?: GridDensity | undefined;
+  readonly draftRow?: GridDraftRow<Row> | undefined;
   readonly emptyMessage?: ReactNode | undefined;
   readonly fillViewportInline?: boolean | undefined;
-  readonly getGroupLabel?: (
-    row: Row,
-    fieldKey: string,
-  ) => string | null | undefined;
-  readonly getGroupRowTestId?: (
-    fieldKey: string,
-    value: string,
-  ) => string | undefined;
-  readonly groupBy?: string | null | undefined;
+  readonly grouping?: GridGroupingDescriptor<Row> | null | undefined;
+  readonly onActiveCellChange?:
+    | ((anchor: GridCellAnchor | null) => void)
+    | undefined;
+  readonly onCopyCell?: ((intent: GridCellCopyIntent) => void) | undefined;
+  readonly onEditCell?: ((intent: GridCellMutationIntent) => void) | undefined;
+  readonly onFillCells?: ((intent: GridFillIntent) => void) | undefined;
+  readonly onPasteCell?: ((intent: GridCellMutationIntent) => void) | undefined;
   readonly onToggleSort?: ((fieldKey: string) => void) | undefined;
+  readonly onSortChange?:
+    | ((sort: readonly GridSortEntry[]) => void)
+    | undefined;
+  readonly onColumnWidthChange?:
+    | ((fieldKey: string, width: number) => void)
+    | undefined;
+  readonly onSelectRecord?: ((recordId: string) => void) | undefined;
+  readonly onSelectedRecordIdsChange?:
+    | ((recordIds: ReadonlySet<string>) => void)
+    | undefined;
+  readonly recordRows: readonly GridRecordRow<Row>[];
   readonly rowGutter?: GridRowGutter | undefined;
-  readonly rows: readonly GridRow<Row>[];
   readonly sort?: readonly GridSortEntry[] | undefined;
+  readonly selectedRecordIds?: ReadonlySet<string> | undefined;
+  readonly viewSchemaId: string;
 };
 
 export type GridPresentationGroupRow = {
@@ -112,7 +124,7 @@ export type GridPresentationGroupRow = {
 };
 
 export type GridPresentationDataRow<Row> = {
-  readonly gridRow: GridRow<Row>;
+  readonly gridRow: GridRecordRow<Row>;
   readonly key: string;
   readonly kind: "data";
 };
@@ -124,6 +136,64 @@ export type GridPresentationRow<Row> =
 export type GridCellAnchor = {
   readonly fieldKey: string;
   readonly recordId: string;
+  readonly viewSchemaId: string;
+};
+
+export type GridCellTarget = GridCellAnchor & {
+  readonly baseRowVersion: number;
+};
+
+export type GridCellRenderContext<Row> = {
+  readonly anchor: GridCellAnchor;
+  readonly row: Row;
+};
+
+export type GridDraftCellRenderContext<Row> = {
+  readonly fieldKey: string;
+  readonly row: Row;
+  readonly viewSchemaId: string;
+};
+
+export type GridCellEditorContext<Row> = {
+  readonly closeEditor: (commit: boolean) => void;
+  readonly row: Row;
+  readonly target: GridCellTarget;
+  readonly updateRow: (row: Row) => void;
+};
+
+export type GridGroupingScalar = boolean | number | string | null;
+
+export type GridGroupingDescriptor<Row> = {
+  readonly fieldKey: string;
+  readonly label?: string | undefined;
+  readonly getValue: (row: Row) => GridGroupingScalar;
+  readonly formatLabel: (value: GridGroupingScalar) => string | null;
+  readonly getTestId?:
+    | ((
+        fieldKey: string,
+        value: GridGroupingScalar,
+        label: string | null,
+      ) => string | undefined)
+    | undefined;
+};
+
+export type GridHandle = {
+  readonly focusAnchor: (anchor: GridCellAnchor) => boolean;
+  readonly getScrollElement: () => HTMLDivElement | null;
+  readonly scrollToAnchor: (anchor: GridCellAnchor) => boolean;
+};
+
+export type GridCellCopyIntent = {
+  readonly anchor: GridCellAnchor;
+};
+
+export type GridCellMutationIntent = {
+  readonly target: GridCellTarget;
+};
+
+export type GridFillIntent = {
+  readonly source: GridCellTarget;
+  readonly target: GridCellTarget;
 };
 
 export type GridCellSelection = {
@@ -148,6 +218,7 @@ export type ResolveGridCellAnchorProps<Row> = {
   readonly columns: readonly GridColumn<Row>[];
   readonly presentationRows: readonly GridPresentationRow<Row>[];
   readonly selection: GridCellSelection;
+  readonly viewSchemaId: string;
 };
 
 export type NavigateGridCellAnchorProps<Row> = {
@@ -160,11 +231,14 @@ export type NavigateGridCellAnchorProps<Row> = {
 export type GridPasteCreateRowTarget = {
   readonly createIndex: number;
   readonly kind: "create";
+  readonly viewSchemaId: string;
 };
 
 export type GridPasteRecordRowTarget = {
+  readonly baseRowVersion: number;
   readonly kind: "record";
   readonly recordId: string;
+  readonly viewSchemaId: string;
 };
 
 export type GridPasteRowTarget =
@@ -185,32 +259,9 @@ export type GridPasteTargetResolution = {
   readonly rowTargets: readonly GridPasteRowTarget[];
 };
 
-export type GridRendererRegistry<Row> = {
-  readonly fallbackRenderer: GridRendererAdapter<Row>;
-  readonly fieldRenderers?:
-    | ReadonlyMap<string, GridRendererAdapter<Row>>
-    | Readonly<Record<string, GridRendererAdapter<Row> | undefined>>
-    | undefined;
-  readonly valueKindRenderers?:
-    | ReadonlyMap<string, GridRendererAdapter<Row>>
-    | Readonly<Record<string, GridRendererAdapter<Row> | undefined>>
-    | undefined;
-};
-
-export type ResolveGridRendererProps<Row> = {
-  readonly column: GridColumn<Row>;
-  readonly registry: GridRendererRegistry<Row>;
-};
-
 type BuildGridPresentationRowsProps<Row> = {
-  readonly getGroupLabel?:
-    | ((row: Row, fieldKey: string) => string | null | undefined)
-    | undefined;
-  readonly getGroupRowTestId?:
-    | ((fieldKey: string, value: string) => string | undefined)
-    | undefined;
-  readonly groupBy?: string | null | undefined;
-  readonly rows: readonly GridRow<Row>[];
+  readonly grouping?: GridGroupingDescriptor<Row> | null | undefined;
+  readonly rows: readonly GridSemanticRow<Row>[];
 };
 
 export type RecordIdentity = {
@@ -220,49 +271,9 @@ export type RecordIdentity = {
 export const gridUnassignedGroupLabel = "Unassigned";
 
 export function isGridColumnEditable<Row>(column: GridColumn<Row>): boolean {
-  return column.contractWritable === true && column.editorAdapter !== undefined;
-}
-
-export function resolveGridRenderer<Row>({
-  column,
-  registry,
-}: ResolveGridRendererProps<Row>): GridRendererAdapter<Row> {
   return (
-    column.rendererAdapter ??
-    lookupGridAdapter(registry.fieldRenderers, column.fieldKey) ??
-    lookupGridAdapter(registry.valueKindRenderers, column.valueKind) ??
-    registry.fallbackRenderer
+    column.contractWritable === true && column.renderEditCell !== undefined
   );
-}
-
-export function cleanupGridAdapters<Row>(
-  adapters: readonly (
-    | GridColumn<Row>
-    | GridEditorAdapter<Row>
-    | GridRendererAdapter<Row>
-    | null
-    | undefined
-  )[],
-) {
-  const cleanups = new Set<GridAdapterCleanup>();
-  for (const adapter of adapters) {
-    if (adapter === null || adapter === undefined) {
-      continue;
-    }
-    if ("cleanup" in adapter && adapter.cleanup !== undefined) {
-      cleanups.add(adapter.cleanup);
-      continue;
-    }
-    if ("editorAdapter" in adapter && adapter.editorAdapter?.cleanup) {
-      cleanups.add(adapter.editorAdapter.cleanup);
-    }
-    if ("rendererAdapter" in adapter && adapter.rendererAdapter?.cleanup) {
-      cleanups.add(adapter.rendererAdapter.cleanup);
-    }
-  }
-  for (const cleanup of cleanups) {
-    cleanup();
-  }
 }
 
 export function assertGridRows<Row extends RecordIdentity>(
@@ -288,79 +299,49 @@ export function assertGridRows<Row extends RecordIdentity>(
   }
 }
 
-export function reconcileRecordRows<Row extends RecordIdentity>(
-  previousRows: readonly Row[],
-  nextRows: readonly Row[],
-): readonly Row[] {
-  const previousByRecordId = new Map<string, Row>();
-  for (const row of previousRows) {
-    if (row.recordId !== null && row.recordId.trim() !== "") {
-      previousByRecordId.set(row.recordId, row);
-    }
-  }
-  return nextRows.map((row) => {
-    if (row.recordId === null || row.recordId.trim() === "") {
-      return row;
-    }
-    const previous = previousByRecordId.get(row.recordId);
-    if (previous === undefined) {
-      return row;
-    }
-    if (shallowEqualRecord(previous, row)) {
-      return previous;
-    }
-    return row;
-  });
-}
-
 export function buildGridPresentationRows<Row>({
-  getGroupLabel,
-  getGroupRowTestId,
-  groupBy,
+  grouping,
   rows,
 }: BuildGridPresentationRowsProps<Row>): readonly GridPresentationRow<Row>[] {
-  if (
-    groupBy === null ||
-    groupBy === undefined ||
-    getGroupLabel === undefined
-  ) {
-    return rows.map((row) => ({
-      gridRow: row,
-      key: row.key,
-      kind: "data",
-    }));
+  if (grouping === null || grouping === undefined) {
+    return rows.flatMap((row) =>
+      row.kind === "draft"
+        ? []
+        : [{ gridRow: row, key: row.recordId, kind: "data" as const }],
+    );
   }
 
+  const groupBy = grouping.fieldKey;
   const buckets: Array<{
+    groupValue: GridGroupingScalar;
     groupKeyValue: string;
     groupLabel: string | null;
-    rows: Array<GridRow<Row>>;
+    rows: Array<GridRecordRow<Row>>;
   }> = [];
   const bucketsByKey = new Map<
     string,
     {
       groupKeyValue: string;
       groupLabel: string | null;
-      rows: Array<GridRow<Row>>;
+      groupValue: GridGroupingScalar;
+      rows: Array<GridRecordRow<Row>>;
     }
   >();
-  const recordlessRows: Array<GridRow<Row>> = [];
-
   for (const row of rows) {
-    if (row.recordId === null) {
-      recordlessRows.push(row);
+    if (row.kind === "draft") {
       continue;
     }
+    const groupValue = grouping.getValue(row.data);
     const nextGroupLabel = normalizeGroupLabel(
-      getGroupLabel(row.data, groupBy),
+      grouping.formatLabel(groupValue),
     );
-    const bucketMapKey =
-      nextGroupLabel === null ? "group:null" : `group:value:${nextGroupLabel}`;
+    const bucketMapKey = encodeGridGroupingScalar(groupValue);
     let bucket = bucketsByKey.get(bucketMapKey);
     if (bucket === undefined) {
       bucket = {
-        groupKeyValue: nextGroupLabel ?? "empty",
+        groupKeyValue: bucketMapKey,
         groupLabel: nextGroupLabel,
+        groupValue,
         rows: [],
       };
       bucketsByKey.set(bucketMapKey, bucket);
@@ -377,25 +358,17 @@ export function buildGridPresentationRows<Row>({
       key: `group:${groupBy}:${bucket.groupKeyValue}:0`,
       kind: "group",
       testId:
-        bucket.groupLabel === null || getGroupRowTestId === undefined
+        grouping.getTestId === undefined
           ? undefined
-          : getGroupRowTestId(groupBy, bucket.groupLabel),
+          : grouping.getTestId(groupBy, bucket.groupValue, bucket.groupLabel),
     });
     for (const row of bucket.rows) {
       presentationRows.push({
         gridRow: row,
-        key: row.key,
+        key: row.recordId,
         kind: "data",
       });
     }
-  }
-
-  for (const row of recordlessRows) {
-    presentationRows.push({
-      gridRow: row,
-      key: row.key,
-      kind: "data",
-    });
   }
 
   return presentationRows;
@@ -405,6 +378,7 @@ export function resolveGridCellAnchor<Row>({
   columns,
   presentationRows,
   selection,
+  viewSchemaId,
 }: ResolveGridCellAnchorProps<Row>): GridCellAnchor | null {
   if (
     !Number.isInteger(selection.rowIndex) ||
@@ -418,12 +392,13 @@ export function resolveGridCellAnchor<Row>({
     return null;
   }
   const recordId = row.gridRow.recordId;
-  if (recordId === null || recordId.trim() === "") {
+  if (recordId.trim() === "") {
     return null;
   }
   return {
     fieldKey: selection.fieldKey,
     recordId,
+    viewSchemaId,
   };
 }
 
@@ -434,10 +409,7 @@ export function navigateGridCellAnchor<Row>({
   presentationRows,
 }: NavigateGridCellAnchorProps<Row>): GridCellAnchor | null {
   const currentRowIndex = presentationRows.findIndex(
-    (row) =>
-      row.kind === "data" &&
-      row.gridRow.recordId !== null &&
-      row.gridRow.recordId === current.recordId,
+    (row) => row.kind === "data" && row.gridRow.recordId === current.recordId,
   );
   const currentColumnIndex = columns.findIndex(
     (column) => column.fieldKey === current.fieldKey,
@@ -467,6 +439,7 @@ export function navigateGridCellAnchor<Row>({
       fieldKey: targetColumn.fieldKey,
       rowIndex: target.rowIndex,
     },
+    viewSchemaId: current.viewSchemaId,
   });
 }
 
@@ -502,10 +475,7 @@ export function resolveGridPasteTargets<Row>({
   }
 
   const startRowIndex = presentationRows.findIndex(
-    (row) =>
-      row.kind === "data" &&
-      row.gridRow.recordId !== null &&
-      row.gridRow.recordId === current.recordId,
+    (row) => row.kind === "data" && row.gridRow.recordId === current.recordId,
   );
   if (startRowIndex < 0) {
     return null;
@@ -519,7 +489,11 @@ export function resolveGridPasteTargets<Row>({
       if (!allowCreateRows) {
         return null;
       }
-      rowTargets.push({ createIndex, kind: "create" });
+      rowTargets.push({
+        createIndex,
+        kind: "create",
+        viewSchemaId: current.viewSchemaId,
+      });
       createIndex += 1;
       continue;
     }
@@ -527,15 +501,15 @@ export function resolveGridPasteTargets<Row>({
       return null;
     }
     const recordId = presentationRow.gridRow.recordId;
-    if (recordId === null || recordId.trim() === "") {
-      if (!allowCreateRows) {
-        return null;
-      }
-      rowTargets.push({ createIndex, kind: "create" });
-      createIndex += 1;
-      continue;
+    if (recordId.trim() === "") {
+      return null;
     }
-    rowTargets.push({ kind: "record", recordId });
+    rowTargets.push({
+      baseRowVersion: presentationRow.gridRow.rowVersion,
+      kind: "record",
+      recordId,
+      viewSchemaId: current.viewSchemaId,
+    });
   }
 
   return {
@@ -593,42 +567,26 @@ function navigateGridCellCoordinates({
   };
 }
 
-function shallowEqualRecord<Row extends object>(left: Row, right: Row) {
-  const leftRecord = left as Record<string, unknown>;
-  const rightRecord = right as Record<string, unknown>;
-  const leftKeys = Object.keys(leftRecord);
-  const rightKeys = Object.keys(rightRecord);
-  if (leftKeys.length !== rightKeys.length) {
-    return false;
-  }
-  return leftKeys.every((key) => Object.is(leftRecord[key], rightRecord[key]));
-}
-
-function lookupGridAdapter<Row>(
-  registry:
-    | ReadonlyMap<string, GridRendererAdapter<Row>>
-    | Readonly<Record<string, GridRendererAdapter<Row> | undefined>>
-    | undefined,
-  key: string | undefined,
-): GridRendererAdapter<Row> | undefined {
-  if (registry === undefined || key === undefined || key.trim() === "") {
-    return undefined;
-  }
-  if (
-    typeof (registry as ReadonlyMap<string, GridRendererAdapter<Row>>).get ===
-    "function"
-  ) {
-    return (registry as ReadonlyMap<string, GridRendererAdapter<Row>>).get(key);
-  }
-  return (
-    registry as Readonly<Record<string, GridRendererAdapter<Row> | undefined>>
-  )[key];
-}
-
 function normalizeGroupLabel(value: string | null | undefined): string | null {
   if (value === null || value === undefined) {
     return null;
   }
   const normalized = value.trim();
   return normalized === "" ? null : normalized;
+}
+
+function encodeGridGroupingScalar(value: GridGroupingScalar): string {
+  if (value === null) {
+    return "n:null";
+  }
+  if (typeof value === "boolean") {
+    return value ? "b:true" : "b:false";
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      throw new Error("Grid grouping values must be finite numbers.");
+    }
+    return `d:${String(value)}`;
+  }
+  return `s:${value}`;
 }

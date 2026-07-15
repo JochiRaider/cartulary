@@ -1,9 +1,11 @@
 import {
   type GridColumn,
   type GridDensity,
-  type GridRow,
-  GridTable,
+  type GridGroupingDescriptor,
+  type GridHandle,
+  type GridRecordRow,
   GridViewport,
+  WorkbookDataGrid,
 } from "@cartulary/grid-adapter";
 import {
   assessmentCreatePanelTestId,
@@ -18,7 +20,7 @@ import {
   visibleFields,
 } from "@cartulary/view-contracts";
 import { X } from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { apiPath } from "../../services/browserApi";
 import {
   fetchWorkbookJSON,
@@ -144,23 +146,48 @@ export function AssessmentWorkbookSurface({
       field.fieldKey,
     ),
   }));
-  const gridRows: readonly GridRow<EntityApiRow>[] = workbookGridRows({
+  const gridRows: readonly GridRecordRow<EntityApiRow>[] = workbookGridRows({
     getRecordId: (row) => row.record_id,
+    getRowVersion: (row) => row.row_version,
     rows: assessmentRows,
     surface: assessmentsViewSchemaId,
   });
+  const grouping = useMemo<GridGroupingDescriptor<EntityApiRow> | null>(() => {
+    const fieldKey = queryState.groupBy;
+    if (fieldKey === null) {
+      return null;
+    }
+    return {
+      fieldKey,
+      formatLabel: (value) => genericCellLabel(value),
+      getTestId: (groupFieldKey, _value, label) =>
+        label === null
+          ? undefined
+          : gridGroupRowTestId(assessmentsViewSchemaId, groupFieldKey, label),
+      getValue: (row) => {
+        const value = row.cells[fieldKey]?.value;
+        return value === null ||
+          typeof value === "boolean" ||
+          typeof value === "number" ||
+          typeof value === "string"
+          ? value
+          : null;
+      },
+      label: assessmentsContract.fieldMap[fieldKey]?.label ?? fieldKey,
+    };
+  }, [queryState.groupBy]);
+  const gridHandleRef = useRef<GridHandle | null>(null);
   const assessmentFocus = useWorkbookGridFocus({
     columns: anchorColumns,
-    getGroupLabel: (row, fieldKey) =>
-      genericCellLabel(row.cells[fieldKey]?.value),
-    groupBy: queryState.groupBy,
+    gridHandleRef,
+    grouping,
     rows: gridRows,
     surface: assessmentsViewSchemaId,
   });
   const columns: readonly GridColumn<EntityApiRow>[] = anchorColumns.map(
     (field) => ({
       ...field,
-      renderCell: (row) => (
+      renderCell: ({ row }) => (
         <FocusableWorkbookCell
           fieldKey={field.fieldKey}
           focus={assessmentFocus}
@@ -457,19 +484,15 @@ export function AssessmentWorkbookSurface({
           style={gridShellStyle}
           testId={gridShellTestId(assessmentsViewSchemaId)}
         >
-          <GridTable
+          <WorkbookDataGrid
+            ref={gridHandleRef}
             columns={columns}
             density={density}
-            getGroupLabel={(row, fieldKey) =>
-              genericCellLabel(row.cells[fieldKey]?.value)
-            }
-            getGroupRowTestId={(fieldKey, value) =>
-              gridGroupRowTestId(assessmentsViewSchemaId, fieldKey, value)
-            }
-            groupBy={queryState.groupBy}
+            grouping={grouping}
             onToggleSort={onToggleSort}
-            rows={gridRows}
+            recordRows={gridRows}
             sort={queryState.sort}
+            viewSchemaId={assessmentsViewSchemaId}
           />
         </GridViewport>
       }

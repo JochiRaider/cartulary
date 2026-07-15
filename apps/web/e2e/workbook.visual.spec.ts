@@ -713,11 +713,14 @@ test.describe("FE-P2 workbook visual readiness", () => {
     );
     await selectedGridRow.click();
     await expect(selectedGridRow).toHaveAttribute("aria-selected", "true");
-    await expect(
-      selectedGridRow.locator(
-        '[role="rowheader"][data-grid-field-key="__cartulary_row_gutter__"]',
-      ),
-    ).toBeVisible();
+    const selectedGridRowGutter = selectedGridRow.getByTestId(
+      gridRowGutterTestId(timelineViewSchemaId, selectedRow.record_id),
+    );
+    await expect(selectedGridRowGutter).toBeVisible();
+    await expect(selectedGridRowGutter).toHaveAttribute(
+      "data-grid-field-key",
+      "__cartulary_row_gutter__",
+    );
 
     const defaultTimelineFields = [
       "timeline.date_entered_text",

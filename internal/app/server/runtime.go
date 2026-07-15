@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
@@ -46,12 +47,13 @@ import (
 )
 
 var (
-	newJobsManager   = jobs.NewManager
-	setupPostgres    = postgres.SetupWithEnv
-	setupObjectStore = objectstore.SetupWithEnv
-	runBootstrap     = bootstrap.Preflight
-	newWSHub         = platformws.NewHub
-	newHTTPHandler   = httpapi.NewHandler
+	newJobsManager    = jobs.NewManager
+	setupPostgres     = postgres.SetupWithEnv
+	ensureSchemaReady = postgres.EnsureSchemaReady
+	setupObjectStore  = objectstore.SetupWithEnv
+	runBootstrap      = bootstrap.Preflight
+	newWSHub          = platformws.NewHub
+	newHTTPHandler    = httpapi.NewHandler
 )
 
 type Options struct {
@@ -134,6 +136,11 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		if pool != nil {
 			runtime.own(pool.Close)
 		}
+	}
+
+	if err := ensureSchemaReady(ctx, runtime.Postgres, dbmigrations.Source()); err != nil {
+		runtime.Close()
+		return nil, err
 	}
 
 	if options.ObjectStore != nil {

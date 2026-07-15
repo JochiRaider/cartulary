@@ -291,6 +291,7 @@ export function TimelineScalarEditor({
   onBlurCommit,
   onDraftChange,
   onEditModeChange,
+  onCloseGridEditor,
   onFocusAnchor,
   onFocusRecord,
   onKeyCommit,
@@ -326,6 +327,7 @@ export function TimelineScalarEditor({
     fieldKey: string,
     editing: boolean,
   ) => void;
+  readonly onCloseGridEditor?: ((commit: boolean) => void) | undefined;
   readonly onFocusAnchor: (recordId: string | null, fieldKey: string) => void;
   readonly onFocusRecord: (recordId: string) => void;
   readonly onKeyCommit: (
@@ -390,13 +392,22 @@ export function TimelineScalarEditor({
   const handleKeyDown = (
     event: ReactKeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
-    if (event.key === "Escape" && editorValue !== committedValue) {
+    if (
+      event.key === "Escape" &&
+      (editorValue !== committedValue || onCloseGridEditor !== undefined)
+    ) {
       event.preventDefault();
-      setEditorValue(committedValue);
-      onDraftChange(rowKey, field, surface, committedValue);
+      if (editorValue !== committedValue) {
+        setEditorValue(committedValue);
+        onDraftChange(rowKey, field, surface, committedValue);
+      }
+      onCloseGridEditor?.(false);
       return;
     }
     onKeyCommit(event, rowKey, field, surface);
+    if (surface === "grid" && (event.key === "Enter" || event.key === "Tab")) {
+      onCloseGridEditor?.(true);
+    }
   };
   const handlePaste = (
     event: ReactClipboardEvent<HTMLInputElement | HTMLTextAreaElement>,

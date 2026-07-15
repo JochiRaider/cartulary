@@ -1,4 +1,3 @@
-import { gridAdapterVendor } from "@cartulary/grid-adapter";
 import {
   draftCellTestId,
   gridFilterApplyTestId,
@@ -73,8 +72,6 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
   });
 
   it("Phase 3 U-3-GRID-01 binds Timeline grid columns from the active view_schema and commits writable cells by field_key", async () => {
-    expect(gridAdapterVendor).toBe("react-data-grid");
-
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "incident-1",
@@ -150,8 +147,6 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
   });
 
   it("Phase 3 U-3-GRID-02 binds saved rows by record_id and row_version instead of visible row index", async () => {
-    expect(gridAdapterVendor).toBe("react-data-grid");
-
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "incident-1",
@@ -807,8 +802,6 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
   });
 
   it("Phase 3 U-3-GRID-03 keeps sorted and filtered local edits bound to the original record_id, base_row_version, and field_key", async () => {
-    expect(gridAdapterVendor).toBe("react-data-grid");
-
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "incident-1",

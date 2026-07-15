@@ -1,4 +1,8 @@
-import { dataTestIdSelector, gridShellTestId } from "@cartulary/ui-contracts";
+import {
+  dataTestIdSelector,
+  gridDraftRowSelector,
+  gridShellTestId,
+} from "@cartulary/ui-contracts";
 import { useEffect } from "react";
 
 export function useWorkbookPendingGridFocus({
@@ -30,9 +34,16 @@ export function useWorkbookPendingGridFocus({
       const gridShell = document.querySelector<HTMLElement>(
         dataTestIdSelector(gridShellTestId(pendingGridFocusSurface)),
       );
-      const focusTarget = gridShell?.querySelector<HTMLElement>(
-        '[role="row"][data-grid-record-id] [role="gridcell"] [data-testid][tabindex="0"], [role="row"][data-grid-record-id] [role="gridcell"] button:not([disabled]), [role="row"][data-grid-record-id] [role="gridcell"] input:not([disabled]), [role="row"][data-grid-record-id] [role="gridcell"] select:not([disabled]), [role="row"][data-grid-record-id] [role="gridcell"] textarea:not([disabled]), [role="row"][data-grid-record-id] [role="gridcell"] a[href]',
+      const draftRow = gridShell?.querySelector<HTMLElement>(
+        gridDraftRowSelector(),
       );
+      const focusTarget =
+        draftRow?.querySelector<HTMLElement>(
+          'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [data-testid][tabindex="0"], a[href]',
+        ) ??
+        gridShell?.querySelector<HTMLElement>(
+          '[role="row"][data-grid-record-id]:not([data-grid-record-id=""]) [role="gridcell"] [data-testid][tabindex="0"], [role="row"][data-grid-record-id]:not([data-grid-record-id=""]) [role="gridcell"] button:not([disabled]), [role="row"][data-grid-record-id]:not([data-grid-record-id=""]) [role="gridcell"] input:not([disabled]), [role="row"][data-grid-record-id]:not([data-grid-record-id=""]) [role="gridcell"] select:not([disabled]), [role="row"][data-grid-record-id]:not([data-grid-record-id=""]) [role="gridcell"] textarea:not([disabled]), [role="row"][data-grid-record-id]:not([data-grid-record-id=""]) [role="gridcell"] a[href]',
+        );
       if (focusTarget) {
         focusTarget.focus({ preventScroll: true });
         setPendingGridFocusSurface((current) =>

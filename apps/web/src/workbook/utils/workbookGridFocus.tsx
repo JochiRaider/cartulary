@@ -2,8 +2,10 @@ import {
   buildGridPresentationRows,
   type GridCellAnchor,
   type GridColumn,
+  type GridGroupingDescriptor,
+  type GridHandle,
   type GridNavigationIntent,
-  type GridRow,
+  type GridRecordRow,
   navigateGridCellAnchor,
 } from "@cartulary/grid-adapter";
 import {
@@ -15,6 +17,7 @@ import {
   type ClipboardEvent as ReactClipboardEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
+  type RefObject,
   useCallback,
   useState,
 } from "react";
@@ -32,6 +35,7 @@ export type WorkbookGridFocusRuntime = {
     intent: GridNavigationIntent,
   ) => void;
   readonly update: (recordId: string | null, fieldKey: string) => void;
+  readonly viewSchemaId: string;
 };
 
 function formatWorkbookFocusAnchor(anchor: WorkbookFocusAnchor | null) {
@@ -42,18 +46,15 @@ function formatWorkbookFocusAnchor(anchor: WorkbookFocusAnchor | null) {
 
 export function useWorkbookGridFocus<Row>({
   columns,
-  getGroupLabel,
-  groupBy,
+  grouping,
   rows,
   surface,
+  gridHandleRef,
 }: {
   readonly columns: readonly GridColumn<Row>[];
-  readonly getGroupLabel?: (
-    row: Row,
-    fieldKey: string,
-  ) => string | null | undefined;
-  readonly groupBy?: string | null | undefined;
-  readonly rows: readonly GridRow<Row>[];
+  readonly gridHandleRef?: RefObject<GridHandle | null> | undefined;
+  readonly grouping?: GridGroupingDescriptor<Row> | null | undefined;
+  readonly rows: readonly GridRecordRow<Row>[];
   readonly surface: WorkbookSurface;
 }): WorkbookGridFocusRuntime {
   const [anchor, setAnchor] = useState<WorkbookFocusAnchor | null>(null);
@@ -68,7 +69,7 @@ export function useWorkbookGridFocus<Row>({
         setAnchor(null);
         return;
       }
-      setAnchor({ fieldKey, recordId, surface });
+      setAnchor({ fieldKey, recordId, surface, viewSchemaId: surface });
     },
     [columns, surface],
   );
@@ -80,8 +81,7 @@ export function useWorkbookGridFocus<Row>({
         current,
         intent,
         presentationRows: buildGridPresentationRows({
-          getGroupLabel,
-          groupBy,
+          grouping,
           rows,
         }),
       });
@@ -91,6 +91,7 @@ export function useWorkbookGridFocus<Row>({
       }
       setAnchor({ ...nextAnchor, surface });
       window.setTimeout(() => {
+        gridHandleRef?.current?.focusAnchor(nextAnchor);
         const element = document.querySelector<HTMLElement>(
           dataTestIdSelector(
             rowCellTestId(nextAnchor.recordId, nextAnchor.fieldKey),
@@ -99,10 +100,10 @@ export function useWorkbookGridFocus<Row>({
         element?.focus({ preventScroll: true });
       }, 0);
     },
-    [columns, getGroupLabel, groupBy, rows, surface],
+    [columns, gridHandleRef, grouping, rows, surface],
   );
 
-  return { anchor, navigate, update };
+  return { anchor, navigate, update, viewSchemaId: surface };
 }
 
 export function WorkbookFocusAnchorStatus({
@@ -159,9 +160,16 @@ export function FocusableWorkbookCell({
         const command = mapWorkbookKeyboardCommand(event);
         if (command.preventDefault) {
           event.preventDefault();
+          // The semantic cell focus runtime owns these navigation commands.
+          // Keep RDG's root key handler from also moving its presentation
+          // selection from the independently focused header cell.
+          event.stopPropagation();
         }
         if (command.kind === "navigate") {
-          focus.navigate({ fieldKey, recordId }, command.intent);
+          focus.navigate(
+            { fieldKey, recordId, viewSchemaId: focus.viewSchemaId },
+            command.intent,
+          );
         }
       }}
       style={focusableCellStyle}

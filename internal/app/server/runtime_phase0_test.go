@@ -12,12 +12,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 func TestPhase0_FailClosedStartup_U_0_05(t *testing.T) {
 	originalNewJobsManager := newJobsManager
 	originalSetupPostgres := setupPostgres
+	originalEnsureSchemaReady := ensureSchemaReady
 	originalSetupObjectStore := setupObjectStore
 	originalRunBootstrap := runBootstrap
 	originalNewWSHub := newWSHub
@@ -25,6 +27,7 @@ func TestPhase0_FailClosedStartup_U_0_05(t *testing.T) {
 	t.Cleanup(func() {
 		newJobsManager = originalNewJobsManager
 		setupPostgres = originalSetupPostgres
+		ensureSchemaReady = originalEnsureSchemaReady
 		setupObjectStore = originalSetupObjectStore
 		runBootstrap = originalRunBootstrap
 		newWSHub = originalNewWSHub
@@ -41,6 +44,9 @@ func TestPhase0_FailClosedStartup_U_0_05(t *testing.T) {
 	setupPostgres = func(ctx context.Context, cfg config.Config, env map[string]string) (*pgxpool.Pool, error) {
 		postgresCalls++
 		return nil, nil
+	}
+	ensureSchemaReady = func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error {
+		return nil
 	}
 
 	var objectStoreCalls int
@@ -63,6 +69,10 @@ func TestPhase0_FailClosedStartup_U_0_05(t *testing.T) {
 	}
 
 	t.Run("invalid deployment config stops before any dependency wiring", func(t *testing.T) {
+		ensureSchemaReady = func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error {
+			t.Fatal("invalid config reached schema readiness")
+			return nil
+		}
 		cfg := phase0RuntimeConfig(t)
 		cfg.Roots.DatabaseStorage.Path = "relative/postgres"
 
@@ -84,7 +94,57 @@ func TestPhase0_FailClosedStartup_U_0_05(t *testing.T) {
 		}
 	})
 
+	t.Run("schema readiness failures stop before object store, bootstrap, jobs, websocket, and handler construction", func(t *testing.T) {
+		cfg := phase0RuntimeConfig(t)
+
+		var schemaReadinessCalls int
+		ensureSchemaReady = func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error {
+			schemaReadinessCalls++
+			return config.NewDiagnosticsError(config.Diagnostic{
+				Path:       "database.schema_version",
+				ReasonCode: "schema_migration_required",
+				Message:    "database schema version is behind",
+			})
+		}
+
+		jobsCalls = 0
+		postgresCalls = 0
+		objectStoreCalls = 0
+		wsHubCalls = 0
+		handlerCalls = 0
+		var bootstrapCalls int
+		runBootstrap = func(context.Context, config.Config, *pgxpool.Pool) error {
+			bootstrapCalls++
+			return nil
+		}
+
+		_, err := NewRuntime(context.Background(), cfg, Options{})
+		if err == nil {
+			t.Fatal("expected schema readiness failure")
+		}
+
+		diagnosticsErr, ok := err.(*config.DiagnosticsError)
+		if !ok {
+			t.Fatalf("expected diagnostics error, got %T", err)
+		}
+		if diagnosticsErr.Code != config.InvalidDeploymentConfigCode {
+			t.Fatalf("unexpected diagnostics code: got %q", diagnosticsErr.Code)
+		}
+		if schemaReadinessCalls != 1 {
+			t.Fatalf("expected one schema readiness call, got %d", schemaReadinessCalls)
+		}
+		if postgresCalls != 1 {
+			t.Fatalf("expected startup to reach postgres setup before schema readiness failure, got postgres=%d", postgresCalls)
+		}
+		if objectStoreCalls != 0 || bootstrapCalls != 0 || jobsCalls != 0 || wsHubCalls != 0 || handlerCalls != 0 {
+			t.Fatalf("expected schema readiness failure to stop before object store/listener construction, got object_store=%d bootstrap=%d jobs=%d websocket=%d handler=%d", objectStoreCalls, bootstrapCalls, jobsCalls, wsHubCalls, handlerCalls)
+		}
+	})
+
 	t.Run("bootstrap preflight failures stop before jobs, websocket, and handler construction", func(t *testing.T) {
+		ensureSchemaReady = func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error {
+			return nil
+		}
 		cfg := phase0RuntimeConfig(t)
 
 		var bootstrapCalls int
@@ -127,6 +187,9 @@ func TestPhase0_FailClosedStartup_U_0_05(t *testing.T) {
 	})
 
 	t.Run("startup failure closes owned object store exactly once", func(t *testing.T) {
+		ensureSchemaReady = func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error {
+			return nil
+		}
 		cfg := phase0RuntimeConfig(t)
 		ownedStore := &phase0CloseTrackingStore{}
 		setupStore = ownedStore
@@ -143,6 +206,9 @@ func TestPhase0_FailClosedStartup_U_0_05(t *testing.T) {
 	})
 
 	t.Run("startup failure leaves borrowed object store open", func(t *testing.T) {
+		ensureSchemaReady = func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error {
+			return nil
+		}
 		cfg := phase0RuntimeConfig(t)
 		borrowedStore := &phase0CloseTrackingStore{}
 		setupStore = nil

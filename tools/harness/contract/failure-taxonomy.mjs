@@ -296,7 +296,7 @@ function delegatedChildFailure(record = {}, context = {}) {
   return null;
 }
 
-function publicExitCodeForFailure(record = {}, context = {}) {
+export function publicExitCodeForFailure(record = {}, context = {}) {
   const failure = normalizeFailureRecord(record, {
     failure_reason: context.failure_reason,
     failure_class: context.failure_class,

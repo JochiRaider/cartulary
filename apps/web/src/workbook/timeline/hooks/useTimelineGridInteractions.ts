@@ -1,4 +1,8 @@
-import type { GridColumn, GridRow } from "@cartulary/grid-adapter";
+import type {
+  GridColumn,
+  GridHandle,
+  GridRecordRow,
+} from "@cartulary/grid-adapter";
 import type { WorkbookSurface } from "@cartulary/ui-contracts";
 import { useCallback, useState } from "react";
 import type { WorkbookFocusAnchor } from "../../utils/workbookGridFocus";
@@ -9,6 +13,7 @@ type TimelineMutableRef<T> = {
 };
 
 export type TimelineGridInteractionRefs = {
+  readonly gridHandleRef: TimelineMutableRef<GridHandle | null>;
   readonly gridShellRef: TimelineMutableRef<HTMLDivElement | null>;
   readonly rowInputRefs: TimelineMutableRef<
     Map<string, HTMLInputElement | HTMLTextAreaElement>
@@ -18,7 +23,7 @@ export type TimelineGridInteractionRefs = {
     readonly GridColumn<WorkbookRow>[]
   >;
   readonly timelineAnchorRowsRef: TimelineMutableRef<
-    readonly GridRow<WorkbookRow>[]
+    readonly GridRecordRow<WorkbookRow>[]
   >;
   readonly viewportContinuityTokenRef: TimelineMutableRef<number>;
   readonly workbookFocusAnchorRef: TimelineMutableRef<WorkbookFocusAnchor | null>;
@@ -33,6 +38,7 @@ export function useTimelineGridInteractions<TViewportContinuityRequest>({
     useState<WorkbookFocusAnchor | null>(null);
   const {
     gridShellRef,
+    gridHandleRef,
     rowInputRefs,
     rowInputTestIdsRef,
     timelineAnchorColumnsRef,
@@ -67,6 +73,7 @@ export function useTimelineGridInteractions<TViewportContinuityRequest>({
         fieldKey,
         recordId,
         surface,
+        viewSchemaId: surface,
       });
     },
     [timelineAnchorColumnsRef, updateWorkbookFocusAnchor],
@@ -80,6 +87,7 @@ export function useTimelineGridInteractions<TViewportContinuityRequest>({
     },
     refs: {
       gridShellRef,
+      gridHandleRef,
       rowInputRefs,
       rowInputTestIdsRef,
       timelineAnchorColumnsRef,

@@ -2,14 +2,14 @@
 // biome-ignore-all lint/a11y/noRedundantRoles: Explicit roles keep workbook tests independent of native accessibility-role inference.
 // biome-ignore-all lint/a11y/useFocusableInteractive: This test renderer mirrors RDG's query surface, not a production interaction model.
 import { gridScrollportClassName } from "@cartulary/ui-contracts";
-import type { KeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
+import { Fragment, type KeyboardEvent } from "react";
 
 import {
   assertGridRows,
   buildGridPresentationRows,
-  type GridTableProps,
   type GridViewportProps,
   gridUnassignedGroupLabel,
+  type WorkbookDataGridProps,
 } from "./core";
 
 export {
@@ -18,22 +18,27 @@ export {
   type GridActionsColumn,
   type GridBlockSizing,
   type GridCellAnchor,
+  type GridCellCopyIntent,
+  type GridCellMutationIntent,
   type GridCellSelection,
+  type GridCellTarget,
   type GridColumn,
+  type GridDraftRow,
+  type GridFillIntent,
+  type GridGroupingDescriptor,
+  type GridGroupingScalar,
+  type GridHandle,
   type GridNavigationIntent,
   type GridNavigationKey,
-  type GridRow,
+  type GridRecordRow,
   type GridRowGutter,
   type GridSortDirection,
   type GridSortEntry,
-  type GridTableProps,
   type GridViewportProps,
   navigateGridCellAnchor,
-  reconcileRecordRows,
   resolveGridCellAnchor,
+  type WorkbookDataGridProps,
 } from "./core";
-
-export const gridAdapterVendor = "semantic-test-grid";
 
 export function GridViewport({
   children,
@@ -48,26 +53,25 @@ export function GridViewport({
   );
 }
 
-export function GridTable<Row>({
+export function WorkbookDataGrid<Row>({
   actionsColumn,
   columns,
+  draftRow,
   emptyMessage = "No rows",
   fillViewportInline = false,
-  getGroupLabel,
-  getGroupRowTestId,
-  groupBy = null,
+  grouping = null,
+  onSelectRecord,
   onToggleSort,
+  recordRows,
   rowGutter,
-  rows,
   sort = [],
-}: GridTableProps<Row>) {
-  assertGridRows(rows);
+  viewSchemaId,
+}: WorkbookDataGridProps<Row>) {
+  assertGridRows(recordRows);
 
   const renderedRows = buildGridPresentationRows({
-    getGroupLabel,
-    getGroupRowTestId,
-    groupBy,
-    rows,
+    grouping,
+    rows: recordRows,
   });
   const totalColumnCount =
     columns.length +
@@ -133,7 +137,7 @@ export function GridTable<Row>({
         </tr>
       </thead>
       <tbody>
-        {renderedRows.length === 0 ? (
+        {renderedRows.length === 0 && draftRow === undefined ? (
           <tr role="row">
             <td
               colSpan={totalColumnCount}
@@ -144,43 +148,83 @@ export function GridTable<Row>({
             </td>
           </tr>
         ) : (
-          renderedRows.map((row) =>
-            row.kind === "group" ? (
-              <tr key={row.key} role="row">
-                <td colSpan={totalColumnCount} role="gridcell">
-                  <strong data-testid={row.testId}>
-                    {row.groupLabel ?? gridUnassignedGroupLabel}
-                  </strong>
-                </td>
-              </tr>
-            ) : (
-              <tr
-                aria-selected={
-                  row.gridRow.selected === true ? "true" : undefined
-                }
-                data-grid-record-id={row.gridRow.recordId ?? ""}
-                data-testid={row.gridRow.testId}
-                key={row.key}
-                role="row"
-                tabIndex={row.gridRow.onSelect === undefined ? undefined : 0}
-                onClick={(event) => {
-                  row.gridRow.onSelect?.(event);
-                }}
-                onKeyDown={(event: KeyboardEvent<HTMLTableRowElement>) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    row.gridRow.onSelect?.(
-                      event as unknown as ReactMouseEvent<HTMLTableRowElement>,
-                    );
+          <Fragment>
+            {renderedRows.map((row) =>
+              row.kind === "group" ? (
+                <tr key={row.key} role="row">
+                  <td colSpan={totalColumnCount} role="gridcell">
+                    <strong data-testid={row.testId}>
+                      {row.groupLabel ?? gridUnassignedGroupLabel}
+                    </strong>
+                  </td>
+                </tr>
+              ) : (
+                <tr
+                  aria-selected={
+                    row.gridRow.selected === true ? "true" : undefined
                   }
-                }}
+                  data-grid-record-id={row.gridRow.recordId ?? ""}
+                  data-testid={row.gridRow.testId}
+                  key={row.key}
+                  role="row"
+                  tabIndex={onSelectRecord === undefined ? undefined : 0}
+                  onClick={() => {
+                    onSelectRecord?.(row.gridRow.recordId);
+                  }}
+                  onKeyDown={(event: KeyboardEvent<HTMLTableRowElement>) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      onSelectRecord?.(row.gridRow.recordId);
+                    }
+                  }}
+                >
+                  {rowGutter === undefined ? null : (
+                    <th
+                      data-grid-field-key="__cartulary_row_gutter__"
+                      data-testid={row.gridRow.gutterTestId}
+                      scope="row"
+                    >
+                      {row.gridRow.gutterContent ??
+                        row.gridRow.gutterLabel ??
+                        ""}
+                    </th>
+                  )}
+                  {columns.map((column) => (
+                    <td
+                      data-grid-field-key={column.fieldKey}
+                      key={column.fieldKey}
+                      role="gridcell"
+                    >
+                      {column.renderCell({
+                        anchor: {
+                          fieldKey: column.fieldKey,
+                          recordId: row.gridRow.recordId,
+                          viewSchemaId,
+                        },
+                        row: row.gridRow.data,
+                      })}
+                    </td>
+                  ))}
+                  {actionsColumn === undefined ? null : (
+                    <td role="gridcell">
+                      {actionsColumn.renderCell(row.gridRow)}
+                    </td>
+                  )}
+                </tr>
+              ),
+            )}
+            {draftRow === undefined ? null : (
+              <tr
+                data-cartulary-grid-draft-row="true"
+                data-grid-record-id=""
+                data-testid={draftRow.testId}
+                role="row"
               >
                 {rowGutter === undefined ? null : (
                   <th
                     data-grid-field-key="__cartulary_row_gutter__"
-                    data-testid={row.gridRow.gutterTestId}
                     scope="row"
                   >
-                    {row.gridRow.gutterContent ?? row.gridRow.gutterLabel ?? ""}
+                    {draftRow.gutterContent ?? draftRow.gutterLabel ?? ""}
                   </th>
                 )}
                 {columns.map((column) => (
@@ -189,17 +233,21 @@ export function GridTable<Row>({
                     key={column.fieldKey}
                     role="gridcell"
                   >
-                    {column.renderCell(row.gridRow.data)}
+                    {column.renderDraftCell?.({
+                      fieldKey: column.fieldKey,
+                      row: draftRow.data,
+                      viewSchemaId,
+                    }) ?? null}
                   </td>
                 ))}
                 {actionsColumn === undefined ? null : (
                   <td role="gridcell">
-                    {actionsColumn.renderCell(row.gridRow)}
+                    {actionsColumn.renderDraftCell?.(draftRow)}
                   </td>
                 )}
               </tr>
-            ),
-          )
+            )}
+          </Fragment>
         )}
       </tbody>
     </table>

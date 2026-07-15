@@ -1,4 +1,3 @@
-import { reconcileRecordRows } from "@cartulary/grid-adapter";
 import {
   requireViewContract,
   type ViewContract,
@@ -30,6 +29,7 @@ import {
   timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
 import type { EntityApiRow } from "../timeline/models/workbookTimelineModel";
+import { reconcileWorkbookRecordRows } from "../utils/workbookRowReconciliation";
 
 const hostsContract = requireViewContract(hostsViewSchemaId);
 const identitiesContract = requireViewContract(identitiesViewSchemaId);
@@ -155,9 +155,11 @@ export function useWorkbookSurfaceLoaders({
       if (!request.isCurrent()) {
         return;
       }
-      setHostRows((current) => [...reconcileRecordRows(current, nextHosts)]);
+      setHostRows((current) => [
+        ...reconcileWorkbookRecordRows(current, nextHosts),
+      ]);
       setIdentityRows((current) => [
-        ...reconcileRecordRows(current, nextIdentities),
+        ...reconcileWorkbookRecordRows(current, nextIdentities),
       ]);
     } catch (error) {
       if (!request.isCurrent() || isAbortError(error)) {

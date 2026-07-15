@@ -221,7 +221,7 @@ The repo-control files MUST select a `react-data-grid` package version whose pac
 The repo-local package boundary around that grid stack is fixed:
 
 - `/packages/view-contracts` parses generated contract artifacts and exposes TypeScript-consumable surface, field, sort, filter, grouping, and capability metadata.
-- `/packages/grid-adapter` owns direct `react-data-grid` imports, stylesheet ownership, vendor-event translation, row-identity assertions, and presentation-only group-row or header behavior.
+- `/packages/grid-adapter` owns direct `react-data-grid` imports, stylesheet ownership, the `WorkbookDataGrid` facade, vendor-event translation, row-identity assertions, presentation-only group-row or header behavior, and the restricted semantic `GridHandle` for focus, scroll-to-anchor, and scroll-element access.
 - `/packages/ui-contracts` owns runtime-safe selector and test-id builders shared by workbook runtime code, unit tests, and browser suites.
 - `/packages/protocol-ts` is the authored facade over generated protocol declarations and static runtime decoders. Browser features MUST decode untrusted payloads at their transport boundary and MUST NOT import its protected generated root directly.
 - `/packages/test-utils` owns browser helper choreography for sort, filter, grouping, scroll, paste, and anchor assertions reused across functional and visual suites.
@@ -665,7 +665,7 @@ If a referenced saved view or view schema is missing, invisible, or invalid beca
 | Package                    | Baseline responsibility                                                                                                                                                                                                                                                       |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/packages/ui`             | Reusable presentational components with no workbook-state ownership                                                                                                                                                                                                           |
-| `/packages/grid-adapter`   | Cartulary-owned `react-data-grid` adapter that maps rows, columns, renderers, editors, vendor events, focus, selection, sorting, paste, fill, grouping, and imperative APIs to Cartulary `record_id`, `row_version`, `field_key`, `view_schema_id`, and sync-engine contracts |
+| `/packages/grid-adapter`   | Cartulary-owned `react-data-grid` adapter that maps committed rows, the recordless bottom-summary draft row, columns, renderers, editors, vendor events, focus, selection, sorting, paste, fill, grouping, and restricted imperative focus/scroll APIs to Cartulary `record_id`, `row_version`, `field_key`, `view_schema_id`, and sync-engine contracts |
 | `/packages/protocol-ts`    | Generated protocol types and helpers derived from `/contracts/*`                                                                                                                                                                                                              |
 | `/packages/view-contracts` | TypeScript-consumable adapters over `/contracts/view-schemas/*`                                                                                                                                                                                                               |
 | `/packages/ui-contracts`   | Runtime-safe selector and test-id contracts shared by frontend runtime code and test harnesses                                                                                                                                                                                |
@@ -731,7 +731,7 @@ The frontend MUST import the published `react-data-grid` stylesheet exactly once
 
 Layout-critical RDG inline styles, CSS variables, and measured dimensions MUST be treated as vendor-owned layout mechanics. Cartulary styling MAY wrap or override semantic state presentation, but it MUST NOT remove layout styles required for virtualization, frozen columns, active-cell preservation, measuring cells, resize handles, or drag-fill handles.
 
-Visual regression fixtures MUST cover light and dark theme classes when both are exposed by the product.
+Visual regression fixtures MUST cover the supported `dark_graphite` theme. Light or high-contrast theme fixtures MUST NOT be claimed until those themes are exposed by the product and backed by complete owner tokens, accessibility coverage, and visual baselines.
 
 ### 6.9 Row identity and performance guardrails
 
@@ -787,6 +787,7 @@ If the repository exposes a root `Makefile`, it SHOULD remain the stable human-f
 | `make doctor`        | Verify required local tools and pinned toolchain versions without installing them                            |
 | `make bootstrap`     | Install tools, install workspace dependencies, prepare local services                                        |
 | `make db-up`         | Start local Postgres and the S3-compatible object store                                                      |
+| `make db-migrate`    | Apply local database migrations without resetting the database or object storage                              |
 | `make db-reset`      | Recreate the database and run migrations                                                                     |
 | `make dev`           | Start the Go server and Vite dev server                                                                      |
 | `make generate`      | Regenerate Go and TypeScript artifacts derived from `/db/queries/*` and `/contracts/*`                       |
@@ -913,8 +914,11 @@ The backend Go target plan is inspectable without executing tests. `make target-
 The default local loop is:
 
 1. `make db-up`
-2. `make dev`
-3. use the Vite-served browser app against the Go server and local Postgres plus the S3-compatible object store
+2. `make db-migrate`
+3. `make dev`
+4. use the Vite-served browser app against the Go server and local Postgres plus the S3-compatible object store
+
+`make db-up` starts services and initializes the object-store bucket; it does not migrate a retained database. Use `make db-migrate` for a non-destructive current-line migration. `make db-migrate` and `make dev` preserve an inherited `CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN`; when it is unset they derive the default local Compose DSN for the `postgres_primary` development service. If the local database is from an unmarked historical migration line, reset it with `CARTULARY_DESTRUCTIVE_CONFIRM=db-reset make db-reset` or move data through an owner-approved export/import path before using the current server.
 
 Production packaging MUST embed the built frontend assets into the application deployable. `build-server` is the deployable server shape and MUST stage the frontend bundle before compiling the binary. `build-operator` builds the deployment-local operational tooling binary and accepts `OPERATOR_BIN=<path>` for its output path; scheduled operator scenario tests consume only harness-injected `CARTULARY_OPERATOR_BIN`. The production deployable MUST NOT depend on the Vite dev server.
 

@@ -10,6 +10,7 @@
   frontend-install \
   playwright-install \
   db-up \
+  db-migrate \
   db-reset \
   services-up \
   services-down \
@@ -151,11 +152,11 @@ TASK_SURFACE_HELP_LINES := \
 	'  make doctor                         verify required local tools and versions' \
 	'  make bootstrap                      install pinned tools and frontend/browser dependencies' \
 	'  make db-up                          start local Postgres and SeaweedFS S3, then initialize the default object-store bucket' \
+	'  make db-migrate                     apply local database migrations without resetting the database or object storage' \
 	'  make db-reset' \
 	'                                      CARTULARY_CLEANUP_DRY_RUN=1 preview or recreate the local database only; does not reset object storage; real reset requires CARTULARY_DESTRUCTIVE_CONFIRM=db-reset' \
 	'  make dev                            run the Go server and Vite dev server' \
 	'  make generate                       regenerate sqlc and contract-derived outputs' \
-	'  make format                         format authored Go and frontend sources' \
 	'  make agent-finalize                 refresh and validate harness-maintenance artifacts before verification' \
 	'  make test-fast                      run the narrower local verification loop' \
 	'  make check                          run the developer verification gate' \
@@ -181,6 +182,7 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make frontend-install               install workspace dependencies' \
 	'  make playwright-install             install browser dependencies' \
 	'  make db-up                          start local Postgres and SeaweedFS S3, then initialize the default object-store bucket' \
+	'  make db-migrate                     apply local database migrations without resetting the database or object storage' \
 	'  make db-reset' \
 	'                                      CARTULARY_CLEANUP_DRY_RUN=1 preview or recreate the local database only; does not reset object storage; real reset requires CARTULARY_DESTRUCTIVE_CONFIRM=db-reset' \
 	'  make services-up                    start local Postgres and SeaweedFS S3, then wait until ready' \
@@ -355,6 +357,10 @@ playwright-install:
 db-up:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,db-up)
 	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-db-up}" $(RUN_PHASE_SCRIPT) "db-up" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) bash ./tools/harness/readiness/dev-services.sh db-up
+
+db-migrate:
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,db-migrate)
+	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-db-migrate}" $(RUN_PHASE_SCRIPT) "db-migrate" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) GO="$(GO)" CONFIG_FILE="$(CONFIG_FILE)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" bash ./tools/harness/readiness/dev-services.sh db-migrate
 
 db-reset:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,db-reset)

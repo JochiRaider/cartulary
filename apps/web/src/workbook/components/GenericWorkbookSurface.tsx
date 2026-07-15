@@ -2,9 +2,12 @@ import {
   type GridActionsColumn,
   type GridColumn,
   type GridDensity,
-  type GridRow,
-  GridTable,
+  type GridDraftRow,
+  type GridGroupingDescriptor,
+  type GridHandle,
+  type GridRecordRow,
   GridViewport,
+  WorkbookDataGrid,
 } from "@cartulary/grid-adapter";
 import {
   dataTestIdSelector,
@@ -30,6 +33,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { apiPath } from "../../services/browserApi";
@@ -46,7 +50,6 @@ import {
   buildGenericPatchChange,
   extractEmailFromPartyText,
   type GenericCollectionMode,
-  genericCellLabel,
   genericCellLabelForField,
   genericCollectionItems,
   genericCollectionSupportsRemove,
@@ -287,65 +290,91 @@ export function ContractWorkbookSurface({
     }),
     [contract.fields, createDraft, draftRowRecordId],
   );
-  const gridRows = useMemo<readonly GridRow<EntityApiRow>[]>(() => {
-    const savedRows = workbookGridRows({
-      getRecordId: (row: EntityApiRow) => row.record_id,
-      rows,
-      surface,
-    });
-    if (writableFields.length === 0) {
-      return savedRows;
+  const gridRecordRows = useMemo<readonly GridRecordRow<EntityApiRow>[]>(
+    () =>
+      workbookGridRows({
+        getRecordId: (row: EntityApiRow) => row.record_id,
+        getRowVersion: (row: EntityApiRow) => row.row_version,
+        rows,
+        surface,
+      }),
+    [rows, surface],
+  );
+  const gridDraftRow = useMemo<GridDraftRow<EntityApiRow> | undefined>(
+    () =>
+      writableFields.length === 0
+        ? undefined
+        : {
+            kind: "draft",
+            data: draftApiRow,
+            gutterContent: "+",
+            gutterLabel: "Draft row",
+            testId: workbookInlineDraftRowTestId(surface),
+          },
+    [draftApiRow, surface, writableFields.length],
+  );
+  const grouping = useMemo<GridGroupingDescriptor<EntityApiRow> | null>(() => {
+    const fieldKey = queryState.groupBy;
+    if (fieldKey === null) {
+      return null;
     }
-    return [
-      ...savedRows,
-      {
-        key: draftRowRecordId,
-        recordId: null,
-        data: draftApiRow,
-        gutterContent: "+",
-        gutterLabel: "Draft row",
-        testId: workbookInlineDraftRowTestId(surface),
-        variant: "draft",
+    return {
+      fieldKey,
+      formatLabel: (value) =>
+        genericCellLabelForField(surface, fieldKey, value),
+      getTestId: (groupFieldKey, _value, label) =>
+        label === null
+          ? undefined
+          : gridGroupRowTestId(surface, groupFieldKey, label),
+      getValue: (row) => {
+        const value = row.cells[fieldKey]?.value;
+        return value === null ||
+          typeof value === "boolean" ||
+          typeof value === "number" ||
+          typeof value === "string"
+          ? value
+          : null;
       },
-    ];
-  }, [draftApiRow, draftRowRecordId, rows, surface, writableFields.length]);
+      label: contract.fieldMap[fieldKey]?.label ?? fieldKey,
+    };
+  }, [contract.fieldMap, queryState.groupBy, surface]);
+  const gridHandleRef = useRef<GridHandle | null>(null);
   const genericFocus = useWorkbookGridFocus({
     columns: anchorColumns,
-    getGroupLabel: (row, fieldKey) =>
-      genericCellLabelForField(surface, fieldKey, row.cells[fieldKey]?.value),
-    groupBy: queryState.groupBy,
-    rows: gridRows,
+    gridHandleRef,
+    grouping,
+    rows: gridRecordRows,
     surface,
   });
   const columns: readonly GridColumn<EntityApiRow>[] = anchorColumns.map(
     (field) => ({
       ...field,
-      renderCell: (row) => {
-        if (row.record_id === draftRowRecordId) {
-          const writableField =
-            writableFields.find(
-              (candidate) => candidate.fieldKey === field.fieldKey,
-            ) ?? null;
-          if (writableField === null) {
-            return <span style={draftCellPlaceholderStyle}>-</span>;
-          }
-          return (
-            <GenericMutationControl
-              collectionMode="add"
-              field={writableField}
-              referenceOptions={referenceOptions}
-              surface="grid"
-              testId={genericCreateFieldTestId(writableField.fieldKey)}
-              value={createDraft[writableField.fieldKey] ?? ""}
-              onChange={(value) => {
-                setCreateDraft((current) => ({
-                  ...current,
-                  [writableField.fieldKey]: value,
-                }));
-              }}
-            />
-          );
+      renderDraftCell: () => {
+        const writableField =
+          writableFields.find(
+            (candidate) => candidate.fieldKey === field.fieldKey,
+          ) ?? null;
+        if (writableField === null) {
+          return <span style={draftCellPlaceholderStyle}>-</span>;
         }
+        return (
+          <GenericMutationControl
+            collectionMode="add"
+            field={writableField}
+            referenceOptions={referenceOptions}
+            surface="grid"
+            testId={genericCreateFieldTestId(writableField.fieldKey)}
+            value={createDraft[writableField.fieldKey] ?? ""}
+            onChange={(value) => {
+              setCreateDraft((current) => ({
+                ...current,
+                [writableField.fieldKey]: value,
+              }));
+            }}
+          />
+        );
+      },
+      renderCell: ({ row }) => {
         return (
           <FocusableWorkbookCell
             fieldKey={field.fieldKey}
@@ -372,32 +401,29 @@ export function ContractWorkbookSurface({
       headerTestId: gridActionsHeaderTestId(surface),
       label: "",
       width: ownerRecordActions.actionsWidth,
+      renderDraftCell: () => (
+        <button
+          data-testid={
+            isInspectorOpen
+              ? undefined
+              : genericCreateSubmitTestId(contract.viewSchemaId)
+          }
+          disabled={mutationState === "Syncing"}
+          style={secondaryActionButtonStyle}
+          type="button"
+          onClick={() => {
+            void submitCreate();
+          }}
+        >
+          Commit
+        </button>
+      ),
       renderCell: ({ data: row }) => {
-        if (row.record_id === draftRowRecordId) {
-          return (
-            <button
-              data-testid={
-                isInspectorOpen
-                  ? undefined
-                  : genericCreateSubmitTestId(contract.viewSchemaId)
-              }
-              disabled={mutationState === "Syncing"}
-              style={secondaryActionButtonStyle}
-              type="button"
-              onClick={() => {
-                void submitCreate();
-              }}
-            >
-              Commit
-            </button>
-          );
-        }
         return ownerRecordActions.renderRecordActions(row);
       },
     };
   }, [
     contract.viewSchemaId,
-    draftRowRecordId,
     isInspectorOpen,
     mutationState,
     ownerRecordActions,
@@ -927,20 +953,17 @@ export function ContractWorkbookSurface({
           style={gridShellStyle}
           testId={gridShellTestId(surface)}
         >
-          <GridTable
+          <WorkbookDataGrid
+            ref={gridHandleRef}
             actionsColumn={rowActionsColumn}
             columns={columns}
             density={density}
-            getGroupLabel={(row, fieldKey) =>
-              genericCellLabel(row.cells[fieldKey]?.value)
-            }
-            getGroupRowTestId={(fieldKey, value) =>
-              gridGroupRowTestId(surface, fieldKey, value)
-            }
-            groupBy={queryState.groupBy}
+            draftRow={gridDraftRow}
+            grouping={grouping}
             onToggleSort={onToggleSort}
-            rows={gridRows}
+            recordRows={gridRecordRows}
             sort={queryState.sort}
+            viewSchemaId={surface}
           />
         </GridViewport>
       }

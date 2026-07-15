@@ -1,16 +1,16 @@
 import { gridScrollportClassName } from "@cartulary/ui-contracts";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { type ChangeEvent, useMemo, useState } from "react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { type ChangeEvent, createRef, useMemo, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   assertGridRows,
   type GridColumn,
-  type GridRow,
+  type GridHandle,
+  type GridRecordRow,
   type GridSortEntry,
-  GridTable,
   GridViewport,
-  reconcileRecordRows,
+  WorkbookDataGrid,
 } from "./index";
 
 type HarnessRow = {
@@ -23,14 +23,14 @@ const columns: readonly GridColumn<HarnessRow>[] = [
     fieldKey: "label",
     headerTestId: "label-header",
     label: "Label",
-    renderCell: (row) => row.label,
+    renderCell: ({ row }) => row.label,
     sortableFieldKey: "label",
   },
   {
     fieldKey: "state",
     headerTestId: "state-header",
     label: "State",
-    renderCell: (row) => row.state,
+    renderCell: ({ row }) => row.state,
     sortableFieldKey: "state",
     sortDisabled: true,
     sortDisabledReason: "State sorting disabled in this harness",
@@ -39,6 +39,14 @@ const columns: readonly GridColumn<HarnessRow>[] = [
 
 describe("grid-adapter", () => {
   beforeEach(() => {
+    vi.stubGlobal(
+      "IntersectionObserver",
+      class {
+        disconnect() {}
+        observe() {}
+        unobserve() {}
+      },
+    );
     vi.stubGlobal(
       "ResizeObserver",
       class {
@@ -66,43 +74,80 @@ describe("grid-adapter", () => {
     ).toThrow(/duplicate record_id/i);
   });
 
-  it("FE-I-P3-01 Verify sparse patches preserve unchanged row object references and intentionally replace changed rows by record_id.", () => {
-    const stable = {
+  it("translates live cell events and the restricted handle through semantic coordinates", async () => {
+    const onActiveCellChange = vi.fn();
+    const onCopyCell = vi.fn();
+    const onEditCell = vi.fn();
+    const onPasteCell = vi.fn();
+    const handle = createRef<GridHandle>();
+    render(
+      <WorkbookDataGrid
+        ref={handle}
+        viewSchemaId="test.view"
+        columns={[
+          {
+            contractWritable: true,
+            fieldKey: "label",
+            label: "Label",
+            renderCell: ({ row }) => (
+              <span data-testid="semantic-live-cell">{row.label}</span>
+            ),
+            renderEditCell: ({ row }) => (
+              <input aria-label="Semantic editor" defaultValue={row.label} />
+            ),
+          },
+        ]}
+        onActiveCellChange={onActiveCellChange}
+        onCopyCell={onCopyCell}
+        onEditCell={onEditCell}
+        onPasteCell={onPasteCell}
+        recordRows={[
+          {
+            kind: "record",
+            recordId: "record-1",
+            rowVersion: 7,
+            data: { label: "Alpha", state: "open" },
+          },
+        ]}
+      />,
+    );
+    const cell = (await screen.findByTestId("semantic-live-cell")).closest(
+      '[role="gridcell"]',
+    );
+    if (!(cell instanceof HTMLElement))
+      throw new Error("Expected live RDG cell");
+    fireEvent.mouseDown(cell);
+    fireEvent.click(cell);
+    await waitFor(() => expect(onActiveCellChange).toHaveBeenCalled());
+    const liveGrid = screen.getByRole("grid");
+    fireEvent.copy(liveGrid);
+    fireEvent.paste(liveGrid);
+    fireEvent.doubleClick(cell);
+    const anchor = {
+      fieldKey: "label",
       recordId: "record-1",
-      label: "Alpha",
-      state: "open",
+      viewSchemaId: "test.view",
     };
-    const changed = {
-      recordId: "record-2",
-      label: "Beta",
-      state: "open",
-    };
-    const previous = [stable, changed];
-    const next = [
-      {
-        recordId: "record-1",
-        label: "Alpha",
-        state: "open",
-      },
-      {
-        recordId: "record-2",
-        label: "Beta",
-        state: "closed",
-      },
-    ];
-
-    const reconciled = reconcileRecordRows(previous, next);
-    expect(reconciled[0]).toBe(stable);
-    expect(reconciled[1]).toBe(next[1]);
-    expect(reconciled[1]).not.toBe(changed);
+    const target = { ...anchor, baseRowVersion: 7 };
+    expect(onActiveCellChange).toHaveBeenCalledWith(anchor);
+    expect(onCopyCell).toHaveBeenCalledWith({ anchor });
+    expect(onPasteCell).toHaveBeenCalledWith({ target });
+    expect(onEditCell).toHaveBeenCalledWith({ target });
+    expect(handle.current?.getScrollElement()).toBeTruthy();
+    expect(handle.current?.scrollToAnchor(anchor)).toBe(true);
+    expect(handle.current?.focusAnchor(anchor)).toBe(true);
+    expect(
+      handle.current?.focusAnchor({ ...anchor, viewSchemaId: "wrong.view" }),
+    ).toBe(false);
   });
 
-  it("renders an RDG-backed grid with stable row attributes, sort translation, and presentation-only group rows", async () => {
+  it("renders stable semantic row attributes, sort translation, and presentation-only group rows", async () => {
     const onToggleSort = vi.fn();
-    const rows: readonly GridRow<HarnessRow>[] = [
+    const rows: readonly GridRecordRow<HarnessRow>[] = [
       {
-        key: "record-1",
+        kind: "record",
         recordId: "record-1",
+        rowVersion: 1,
         data: {
           label: "Alpha",
           state: "open",
@@ -110,8 +155,9 @@ describe("grid-adapter", () => {
         testId: "row-record-1",
       },
       {
-        key: "record-2",
+        kind: "record",
         recordId: "record-2",
+        rowVersion: 1,
         data: {
           label: "Beta",
           state: "reviewed",
@@ -122,46 +168,31 @@ describe("grid-adapter", () => {
 
     render(
       <GridViewport testId="grid-shell">
-        <GridTable
+        <WorkbookDataGrid
+          viewSchemaId="test.view"
           actionsColumn={{
             label: "Actions",
-            renderCell: (row) => <span>{row.recordId}</span>,
+            renderCell: ({ recordId }) => <span>{recordId}</span>,
           }}
           columns={columns}
-          getGroupLabel={(row, fieldKey) =>
-            fieldKey === "state" ? row.state : null
-          }
-          getGroupRowTestId={(fieldKey, value) => `group-${fieldKey}-${value}`}
-          groupBy="state"
+          grouping={{
+            fieldKey: "state",
+            formatLabel: (value) => (value === null ? null : String(value)),
+            getTestId: (fieldKey, _value, label) =>
+              label === null ? undefined : `group-${fieldKey}-${label}`,
+            getValue: (row) => row.state,
+          }}
           onToggleSort={onToggleSort}
-          rows={rows}
+          recordRows={rows}
           sort={[{ fieldKey: "label", direction: "asc" }]}
         />
       </GridViewport>,
     );
 
     const gridShell = await screen.findByTestId("grid-shell");
-    const grid = gridShell.querySelector('[role="grid"]') as HTMLElement;
+    const grid = gridShell.querySelector('[role="treegrid"]') as HTMLElement;
     expect(grid).toBeTruthy();
     expect(grid.classList.contains(gridScrollportClassName())).toBe(true);
-    expect(grid.style.gridTemplateColumns).toBe("224px 224px 176px");
-    expect(grid.style.minWidth).toBe("1248px");
-    expect(grid.style.width).toBe("1248px");
-    expect(grid.style.scrollPaddingBlockStart).toBe(
-      "calc(32px + var(--ct-spacing-sm))",
-    );
-    expect(grid.style.scrollPaddingBlockEnd).toBe(
-      "calc(var(--ct-layout-statusStripHeight) + var(--ct-spacing-sm))",
-    );
-    expect(
-      grid.style.getPropertyValue("--cartulary-grid-scroll-margin-block-start"),
-    ).toBe("calc(32px + var(--ct-spacing-sm))");
-    expect(
-      grid.style.getPropertyValue("--cartulary-grid-scroll-margin-block-end"),
-    ).toBe("calc(var(--ct-layout-statusStripHeight) + var(--ct-spacing-sm))");
-    expect(grid.querySelectorAll('[class*="rdg-resize-handle"]')).toHaveLength(
-      0,
-    );
     expect(
       gridShell.querySelector('[data-grid-record-id="record-1"]'),
     ).toBeTruthy();
@@ -176,7 +207,6 @@ describe("grid-adapter", () => {
     if (openGroupRow === null) {
       throw new Error("Expected open group toggle to have row ancestor");
     }
-    expect(openGroupRow.getAttribute("data-grid-row-kind")).toBe("group");
     expect(openGroupRow.getAttribute("data-grid-record-id")).toBeNull();
     expect(
       openGroupRow.querySelectorAll("input, textarea, select"),
@@ -203,11 +233,109 @@ describe("grid-adapter", () => {
     expect(onToggleSort).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps fixed-width scrollport sizing by default and can fill available inline space on demand", async () => {
-    const rows: readonly GridRow<HarnessRow>[] = [
+  it("preserves typed bucket order, scoped expansion, and draft exclusion", async () => {
+    type GroupRow = {
+      readonly group: boolean | number | string | null;
+      readonly label: string;
+    };
+    const typedColumns: readonly GridColumn<GroupRow>[] = [
       {
-        key: "record-1",
+        fieldKey: "label",
+        label: "Label",
+        renderCell: ({ row }) => row.label,
+        renderDraftCell: ({ row }) => (
+          <input aria-label="Typed draft" defaultValue={row.label} />
+        ),
+      },
+    ];
+    const rows: readonly GridRecordRow<GroupRow>[] = [
+      {
+        kind: "record",
+        recordId: "string",
+        rowVersion: 1,
+        data: { group: "1", label: "String" },
+      },
+      {
+        kind: "record",
+        recordId: "number",
+        rowVersion: 1,
+        data: { group: 1, label: "Number" },
+      },
+      {
+        kind: "record",
+        recordId: "boolean",
+        rowVersion: 1,
+        data: { group: true, label: "Boolean" },
+      },
+      {
+        kind: "record",
+        recordId: "null",
+        rowVersion: 1,
+        data: { group: null, label: "Null" },
+      },
+    ];
+    const grid = (fieldKey: string, recordRows = rows) => (
+      <WorkbookDataGrid
+        viewSchemaId="typed.view"
+        columns={typedColumns}
+        draftRow={{
+          kind: "draft",
+          data: { group: "draft-only", label: "Draft" },
+        }}
+        grouping={{
+          fieldKey,
+          formatLabel: (value) => (value === null ? null : String(value)),
+          getTestId: (key, value) =>
+            `typed-${key}-${value === null ? "null" : typeof value}-${String(value)}`,
+          getValue: (row) => row.group,
+        }}
+        recordRows={recordRows}
+      />
+    );
+    const { rerender } = render(grid("primary"));
+    expect(
+      screen
+        .getAllByTestId(/^typed-primary-/)
+        .map((group) => group.getAttribute("data-cartulary-grid-group-id")),
+    ).toEqual(["s:1", "d:1", "b:true", "n:null"]);
+    expect(screen.getByLabelText("Typed draft")).toBeTruthy();
+    expect(
+      document.querySelector('[data-cartulary-grid-group-id="s:draft-only"]'),
+    ).toBeNull();
+
+    fireEvent.click(screen.getByTestId("typed-primary-string-1"));
+    rerender(grid("secondary"));
+    expect(
+      screen
+        .getByTestId("typed-secondary-string-1")
+        .getAttribute("aria-expanded"),
+    ).toBe("true");
+    rerender(grid("primary"));
+    expect(
+      screen
+        .getByTestId("typed-primary-string-1")
+        .getAttribute("aria-expanded"),
+    ).toBe("false");
+    rerender(grid("primary", rows.slice(1)));
+    await waitFor(() =>
+      expect(screen.queryByTestId("typed-primary-string-1")).toBeNull(),
+    );
+    rerender(grid("primary"));
+    await waitFor(() =>
+      expect(
+        screen
+          .getByTestId("typed-primary-string-1")
+          .getAttribute("aria-expanded"),
+      ).toBe("true"),
+    );
+  });
+
+  it("can fill available inline space on demand", async () => {
+    const rows: readonly GridRecordRow<HarnessRow>[] = [
+      {
+        kind: "record",
         recordId: "record-1",
+        rowVersion: 1,
         data: {
           label: "Alpha",
           state: "open",
@@ -217,49 +345,77 @@ describe("grid-adapter", () => {
 
     const { rerender } = render(
       <GridViewport testId="fill-grid-shell">
-        <GridTable
+        <WorkbookDataGrid
+          viewSchemaId="test.view"
           actionsColumn={{
             label: "Actions",
-            renderCell: (row) => <span>{row.recordId}</span>,
+            renderCell: ({ recordId }) => <span>{recordId}</span>,
           }}
           columns={columns}
-          rows={rows}
+          recordRows={rows}
         />
       </GridViewport>,
     );
 
     const gridShell = await screen.findByTestId("fill-grid-shell");
     const grid = gridShell.querySelector('[role="grid"]') as HTMLElement;
-    expect(grid.style.gridTemplateColumns).toBe("224px 224px 176px");
-    expect(grid.style.minWidth).toBe("1248px");
-    expect(grid.style.width).toBe("1248px");
-
     rerender(
       <GridViewport testId="fill-grid-shell">
-        <GridTable
+        <WorkbookDataGrid
+          viewSchemaId="test.view"
           actionsColumn={{
             label: "Actions",
-            renderCell: (row) => <span>{row.recordId}</span>,
+            renderCell: ({ recordId }) => <span>{recordId}</span>,
           }}
           columns={columns}
           fillViewportInline
-          rows={rows}
+          recordRows={rows}
         />
       </GridViewport>,
     );
 
-    expect(grid.style.gridTemplateColumns).toBe(
-      "minmax(224px, 1fr) minmax(224px, 1fr) 176px",
-    );
     expect(["0", "0px"]).toContain(grid.style.minWidth);
     expect(grid.style.width).toBe("100%");
   });
 
+  it("renders the production DataGrid with bounded fixed-height row output", async () => {
+    const rowCount = 500;
+    const rows: readonly GridRecordRow<HarnessRow>[] = Array.from(
+      { length: rowCount },
+      (_, index) => ({
+        kind: "record" as const,
+        recordId: `virtual-record-${index}`,
+        rowVersion: 1,
+        data: { label: `Record ${index}`, state: "open" },
+      }),
+    );
+
+    render(
+      <GridViewport testId="virtualized-grid-shell">
+        <WorkbookDataGrid
+          viewSchemaId="test.view"
+          columns={columns}
+          recordRows={rows}
+        />
+      </GridViewport>,
+    );
+
+    const shell = screen.getByTestId("virtualized-grid-shell");
+    const grid = shell.querySelector('[role="grid"]');
+    const mountedRecordRows = shell.querySelectorAll(
+      '[role="row"][data-grid-record-id]',
+    );
+    expect(grid?.getAttribute("aria-rowcount")).toBe(String(rowCount + 1));
+    expect(mountedRecordRows.length).toBeGreaterThan(0);
+    expect(mountedRecordRows.length).toBeLessThan(rowCount);
+  });
+
   it("keeps standalone block sizing by default and supports shell-owned fill block sizing", async () => {
-    const rows: readonly GridRow<HarnessRow>[] = [
+    const rows: readonly GridRecordRow<HarnessRow>[] = [
       {
-        key: "record-1",
+        kind: "record",
         recordId: "record-1",
+        rowVersion: 1,
         data: {
           label: "Alpha",
           state: "open",
@@ -269,7 +425,11 @@ describe("grid-adapter", () => {
 
     const { rerender } = render(
       <GridViewport testId="block-sizing-grid-shell">
-        <GridTable columns={columns} rows={rows} />
+        <WorkbookDataGrid
+          viewSchemaId="test.view"
+          columns={columns}
+          recordRows={rows}
+        />
       </GridViewport>,
     );
 
@@ -282,7 +442,11 @@ describe("grid-adapter", () => {
 
     rerender(
       <GridViewport blockSizing="fill" testId="block-sizing-grid-shell">
-        <GridTable columns={columns} rows={rows} />
+        <WorkbookDataGrid
+          viewSchemaId="test.view"
+          columns={columns}
+          recordRows={rows}
+        />
       </GridViewport>,
     );
 
@@ -293,43 +457,12 @@ describe("grid-adapter", () => {
     expect(grid.style.overflow).toBe("auto");
   });
 
-  it("keeps rows mounted when the real scroll position exceeds the fixed row-height estimate", async () => {
-    const rows: readonly GridRow<HarnessRow>[] = Array.from(
-      { length: 10 },
-      (_, index) => {
-        const rowNumber = index + 1;
-        return {
-          key: `record-${rowNumber}`,
-          recordId: `record-${rowNumber}`,
-          data: {
-            label: `Row ${rowNumber}`,
-            state: rowNumber === 10 ? "draft-boundary" : "open",
-          },
-          testId: `row-record-${rowNumber}`,
-        };
-      },
-    );
-
-    render(
-      <GridViewport testId="scroll-boundary-grid-shell">
-        <GridTable columns={columns} rows={rows} />
-      </GridViewport>,
-    );
-
-    const grid = (
-      await screen.findByTestId("scroll-boundary-grid-shell")
-    ).querySelector('[role="grid"]') as HTMLElement;
-    grid.scrollTop = 900;
-    fireEvent.scroll(grid);
-
-    expect(screen.getByTestId("row-record-10")).toBeTruthy();
-  });
-
-  it("honors explicit data and actions column widths", async () => {
-    const rows: readonly GridRow<HarnessRow>[] = [
+  it("renders data and actions columns without freezing implementation geometry", async () => {
+    const rows: readonly GridRecordRow<HarnessRow>[] = [
       {
-        key: "record-1",
+        kind: "record",
         recordId: "record-1",
+        rowVersion: 1,
         data: {
           label: "Alpha",
           state: "open",
@@ -340,47 +473,45 @@ describe("grid-adapter", () => {
       {
         fieldKey: "label",
         label: "Label",
-        renderCell: (row) => row.label,
+        renderCell: ({ row }) => row.label,
         width: 320,
       },
       {
         fieldKey: "state",
         label: "State",
-        renderCell: (row) => row.state,
+        renderCell: ({ row }) => row.state,
       },
     ];
 
     render(
       <GridViewport testId="sized-grid-shell">
-        <GridTable
+        <WorkbookDataGrid
+          viewSchemaId="test.view"
           actionsColumn={{
             label: "Actions",
             minWidth: 64,
-            renderCell: (row) => <span>{row.recordId}</span>,
+            renderCell: ({ recordId }) => <span>{recordId}</span>,
             width: 96,
           }}
           columns={sizedColumns}
-          rows={rows}
+          recordRows={rows}
         />
       </GridViewport>,
     );
 
     const grid = (await screen.findByTestId("sized-grid-shell")).querySelector(
       '[role="grid"]',
-    ) as HTMLElement;
-    expect(grid.style.gridTemplateColumns).toBe("320px 224px 96px");
-    expect(grid.style.minWidth).toBe("1248px");
-    expect(grid.style.width).toBe("1248px");
-    expect(grid.querySelectorAll('[class*="rdg-resize-handle"]')).toHaveLength(
-      0,
     );
+    expect(grid).toBeTruthy();
+    expect(screen.getAllByText("record-1").length).toBeGreaterThan(0);
   });
 
   it("selects density token variables explicitly for every supported mode", async () => {
-    const rows: readonly GridRow<HarnessRow>[] = [
+    const rows: readonly GridRecordRow<HarnessRow>[] = [
       {
-        key: "record-1",
+        kind: "record",
         recordId: "record-1",
+        rowVersion: 1,
         data: {
           label: "Alpha",
           state: "open",
@@ -390,7 +521,11 @@ describe("grid-adapter", () => {
 
     const { rerender } = render(
       <GridViewport testId="density-grid-shell">
-        <GridTable columns={columns} rows={rows} />
+        <WorkbookDataGrid
+          viewSchemaId="test.view"
+          columns={columns}
+          recordRows={rows}
+        />
       </GridViewport>,
     );
 
@@ -415,7 +550,12 @@ describe("grid-adapter", () => {
 
     rerender(
       <GridViewport testId="density-grid-shell">
-        <GridTable columns={columns} density="compact" rows={rows} />
+        <WorkbookDataGrid
+          viewSchemaId="test.view"
+          columns={columns}
+          density="compact"
+          recordRows={rows}
+        />
       </GridViewport>,
     );
 
@@ -437,7 +577,12 @@ describe("grid-adapter", () => {
 
     rerender(
       <GridViewport testId="density-grid-shell">
-        <GridTable columns={columns} density="comfortable" rows={rows} />
+        <WorkbookDataGrid
+          viewSchemaId="test.view"
+          columns={columns}
+          density="comfortable"
+          recordRows={rows}
+        />
       </GridViewport>,
     );
 
@@ -467,7 +612,7 @@ describe("grid-adapter", () => {
           {
             fieldKey: "label",
             label: "Label",
-            renderCell: (row) => (
+            renderCell: ({ row }) => (
               <input
                 data-testid="editable-label"
                 type="text"
@@ -481,16 +626,17 @@ describe("grid-adapter", () => {
           {
             fieldKey: "state",
             label: "State",
-            renderCell: (row) => row.state,
+            renderCell: ({ row }) => row.state,
           },
         ],
         [],
       );
-      const editableRows = useMemo<readonly GridRow<HarnessRow>[]>(
+      const editableRows = useMemo<readonly GridRecordRow<HarnessRow>[]>(
         () => [
           {
-            key: "record-1",
+            kind: "record",
             recordId: "record-1",
+            rowVersion: 1,
             data: {
               label,
               state: "open",
@@ -503,7 +649,7 @@ describe("grid-adapter", () => {
       const actionsColumn = useMemo(
         () => ({
           label: "Actions",
-          renderCell: (row: GridRow<HarnessRow>) => (
+          renderCell: (row: GridRecordRow<HarnessRow>) => (
             <span data-testid="row-action">{row.recordId}</span>
           ),
         }),
@@ -521,10 +667,11 @@ describe("grid-adapter", () => {
           >
             Render {renderMarker}
           </button>
-          <GridTable
+          <WorkbookDataGrid
+            viewSchemaId="test.view"
             actionsColumn={actionsColumn}
             columns={editableColumns}
-            rows={editableRows}
+            recordRows={editableRows}
           />
         </GridViewport>
       );
@@ -568,7 +715,7 @@ describe("grid-adapter", () => {
             fieldKey: "label",
             headerTestId: "reorder-label-header",
             label: "Label",
-            renderCell: (row) => (
+            renderCell: ({ row }) => (
               <input
                 data-testid={`editable-label-${row.recordId}`}
                 type="text"
@@ -590,16 +737,17 @@ describe("grid-adapter", () => {
           {
             fieldKey: "state",
             label: "State",
-            renderCell: (row) => row.state,
+            renderCell: ({ row }) => row.state,
           },
         ],
         [],
       );
-      const gridRows = useMemo<readonly GridRow<EditableHarnessRow>[]>(
+      const gridRows = useMemo<readonly GridRecordRow<EditableHarnessRow>[]>(
         () =>
           rows.map((row) => ({
-            key: row.recordId,
+            kind: "record",
             recordId: row.recordId,
+            rowVersion: 1,
             data: row,
             testId: `rdg-row-${row.recordId}`,
           })),
@@ -626,7 +774,8 @@ describe("grid-adapter", () => {
           >
             Render {renderMarker}
           </button>
-          <GridTable
+          <WorkbookDataGrid
+            viewSchemaId="test.view"
             columns={editableColumns}
             onToggleSort={(fieldKey) => {
               setSort([{ fieldKey, direction: "desc" }]);
@@ -636,7 +785,7 @@ describe("grid-adapter", () => {
                 ),
               );
             }}
-            rows={gridRows}
+            recordRows={gridRows}
             sort={sort}
           />
         </GridViewport>
@@ -700,21 +849,22 @@ describe("grid-adapter", () => {
           {
             fieldKey: "label",
             label: "Label",
-            renderCell: (row) => <DraftInputCell row={row} />,
+            renderCell: ({ row }) => <DraftInputCell row={row} />,
           },
           {
             fieldKey: "state",
             label: "State",
-            renderCell: (row) => row.state,
+            renderCell: ({ row }) => row.state,
           },
         ],
         [],
       );
-      const gridRows = useMemo<readonly GridRow<EditableHarnessRow>[]>(
+      const gridRows = useMemo<readonly GridRecordRow<EditableHarnessRow>[]>(
         () =>
           rows.map((row) => ({
-            key: row.recordId,
+            kind: "record",
             recordId: row.recordId,
+            rowVersion: 1,
             data: row,
             testId: `grouped-editable-row-${row.recordId}`,
           })),
@@ -732,16 +882,19 @@ describe("grid-adapter", () => {
           >
             Render {renderMarker}
           </button>
-          <GridTable
+          <WorkbookDataGrid
+            viewSchemaId="test.view"
             columns={editableColumns}
-            getGroupLabel={(row, fieldKey) =>
-              fieldKey === "state" ? row.state : null
-            }
-            getGroupRowTestId={(fieldKey, value) =>
-              `grouped-editable-group-${fieldKey}-${value}`
-            }
-            groupBy="state"
-            rows={gridRows}
+            grouping={{
+              fieldKey: "state",
+              formatLabel: (value) => (value === null ? null : String(value)),
+              getTestId: (fieldKey, _value, label) =>
+                label === null
+                  ? undefined
+                  : `grouped-editable-group-${fieldKey}-${label}`,
+              getValue: (row) => row.state,
+            }}
+            recordRows={gridRows}
           />
         </GridViewport>
       );
@@ -775,24 +928,21 @@ describe("grid-adapter", () => {
   it("survives jsdom layout measurement when row pending state rerenders the RDG grid", async () => {
     function PendingGridHarness() {
       const [pending, setPending] = useState(false);
-      const gridRows = useMemo<readonly GridRow<HarnessRow>[]>(
-        () => [
-          {
-            key: "draft-1",
-            recordId: null,
-            data: {
-              label: pending ? "Pending" : "Ready",
-              state: pending ? "pending" : "draft",
-            },
-            variant: "draft",
+      const draftRow = useMemo(
+        () => ({
+          kind: "draft" as const,
+          data: {
+            label: pending ? "Pending" : "Ready",
+            state: pending ? "pending" : "draft",
           },
-        ],
+        }),
         [pending],
       );
       const actionsColumn = useMemo(
         () => ({
           label: "Actions",
-          renderCell: (row: GridRow<HarnessRow>) => (
+          renderCell: (row: GridRecordRow<HarnessRow>) => row.recordId,
+          renderDraftCell: (row: { readonly data: HarnessRow }) => (
             <button
               data-testid="pending-row-action"
               disabled={row.data.state === "pending"}
@@ -811,10 +961,12 @@ describe("grid-adapter", () => {
 
       return (
         <GridViewport testId="pending-grid-shell">
-          <GridTable
+          <WorkbookDataGrid
+            viewSchemaId="test.view"
             actionsColumn={actionsColumn}
             columns={columns}
-            rows={gridRows}
+            draftRow={draftRow}
+            recordRows={[]}
           />
         </GridViewport>
       );

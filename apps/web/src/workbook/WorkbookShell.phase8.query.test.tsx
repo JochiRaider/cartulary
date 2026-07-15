@@ -1,7 +1,7 @@
 import {
   type GridColumn,
-  type GridRow,
-  GridTable,
+  type GridRecordRow,
+  WorkbookDataGrid,
 } from "@cartulary/grid-adapter/test-support";
 import {
   dataTestIdSelector,
@@ -493,10 +493,11 @@ describe("Phase 8 workbook query controls", () => {
       readonly state: string;
       readonly summary: string;
     };
-    const rows: readonly GridRow<HarnessRow>[] = [
+    const rows: readonly GridRecordRow<HarnessRow>[] = [
       {
-        key: "record-1",
+        kind: "record",
         recordId: "record-1",
+        rowVersion: 1,
         data: {
           actionTestId: "action-record-1",
           editableTestId: "editable-record-1",
@@ -507,8 +508,9 @@ describe("Phase 8 workbook query controls", () => {
         testId: "phase8-row-record-1",
       },
       {
-        key: "record-2",
+        kind: "record",
         recordId: "record-2",
+        rowVersion: 1,
         data: {
           actionTestId: "action-record-2",
           editableTestId: "editable-record-2",
@@ -523,36 +525,39 @@ describe("Phase 8 workbook query controls", () => {
       {
         fieldKey: "timeline.activity_synopsis_text",
         label: "Summary",
-        renderCell: (row) => (
+        renderCell: ({ row }) => (
           <input data-testid={row.editableTestId} defaultValue={row.summary} />
         ),
       },
       {
         fieldKey: "timeline.capture_state",
         label: "State",
-        renderCell: (row) => <span>{row.state}</span>,
+        renderCell: ({ row }) => <span>{row.state}</span>,
       },
     ];
 
     const { container } = render(
-      <GridTable
+      <WorkbookDataGrid
+        viewSchemaId="test.view"
         actionsColumn={{
           label: "Actions",
-          renderCell: (row) => (
-            <button data-testid={row.data.actionTestId} type="button">
+          renderCell: ({ data: row }) => (
+            <button data-testid={row.actionTestId} type="button">
               Mutate
             </button>
           ),
         }}
         columns={columns}
-        getGroupLabel={(row, fieldKey) =>
-          fieldKey === "timeline.capture_state" ? row.state : null
-        }
-        getGroupRowTestId={(fieldKey, value) =>
-          gridGroupRowTestId(timelineViewSchemaId, fieldKey, value)
-        }
-        groupBy="timeline.capture_state"
-        rows={rows}
+        grouping={{
+          fieldKey: "timeline.capture_state",
+          formatLabel: (value) => (value === null ? null : String(value)),
+          getTestId: (fieldKey, _value, label) =>
+            label === null
+              ? undefined
+              : gridGroupRowTestId(timelineViewSchemaId, fieldKey, label),
+          getValue: (row) => row.state,
+        }}
+        recordRows={rows}
       />,
     );
 
@@ -592,10 +597,11 @@ describe("Phase 8 workbook query controls", () => {
       readonly state: string;
       readonly summary: string;
     };
-    const rows: readonly GridRow<HarnessRow>[] = [
+    const rows: readonly GridRecordRow<HarnessRow>[] = [
       {
-        key: "record-1",
+        kind: "record",
         recordId: "record-1",
+        rowVersion: 1,
         data: {
           actionTestId: "action-record-1",
           editableTestId: "editable-record-1",
@@ -606,8 +612,9 @@ describe("Phase 8 workbook query controls", () => {
         testId: "phase8-row-record-1",
       },
       {
-        key: "record-2",
+        kind: "record",
         recordId: "record-2",
+        rowVersion: 1,
         data: {
           actionTestId: "action-record-2",
           editableTestId: "editable-record-2",
@@ -622,36 +629,39 @@ describe("Phase 8 workbook query controls", () => {
       {
         fieldKey: "timeline.activity_synopsis_text",
         label: "Summary",
-        renderCell: (row) => (
+        renderCell: ({ row }) => (
           <input data-testid={row.editableTestId} defaultValue={row.summary} />
         ),
       },
       {
         fieldKey: "timeline.capture_state",
         label: "State",
-        renderCell: (row) => <span>{row.state}</span>,
+        renderCell: ({ row }) => <span>{row.state}</span>,
       },
     ];
 
     const { container } = render(
-      <GridTable
+      <WorkbookDataGrid
+        viewSchemaId="test.view"
         actionsColumn={{
           label: "Actions",
-          renderCell: (row) => (
-            <button data-testid={row.data.actionTestId} type="button">
+          renderCell: ({ data: row }) => (
+            <button data-testid={row.actionTestId} type="button">
               Mutate
             </button>
           ),
         }}
         columns={columns}
-        getGroupLabel={(row, fieldKey) =>
-          fieldKey === "timeline.capture_state" ? row.state : null
-        }
-        getGroupRowTestId={(fieldKey, value) =>
-          gridGroupRowTestId(timelineViewSchemaId, fieldKey, value)
-        }
-        groupBy="timeline.capture_state"
-        rows={rows}
+        grouping={{
+          fieldKey: "timeline.capture_state",
+          formatLabel: (value) => (value === null ? null : String(value)),
+          getTestId: (fieldKey, _value, label) =>
+            label === null
+              ? undefined
+              : gridGroupRowTestId(timelineViewSchemaId, fieldKey, label),
+          getValue: (row) => row.state,
+        }}
+        recordRows={rows}
       />,
     );
 

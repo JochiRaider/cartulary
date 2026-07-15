@@ -400,7 +400,7 @@ Browser tests bound to Core 05 measurement predicates or p95 fixture-sensitive e
 | V-3-GRID-02 | Timeline edit-state visuals cover active editable cell plus `Syncing`, `Saved`, and `Conflict` save-state presentations on the browser surface. | REQ-03-033..REQ-03-040, REQ-03-087..REQ-03-089 | AC-043, AC-126         |
 | V-3-GRID-03 | Timeline grouped rows and currently exposed grid chrome render deterministically through the owned visual harness.                            | REQ-01-022, REQ-03-236..REQ-03-241             | AC-124, AC-184, AC-231 |
 
-Phase 3 visual rows intentionally do not claim row-gutter collaboration markers, drag-fill, frozen-column, resize-handle, treegrid, or full conflict-resolution fixtures until those controls are product-exposed and owned by their later phase manifests.
+Phase 3 visual rows intentionally do not claim row-gutter collaboration markers, drag-fill, frozen-column, resize-handle, or full conflict-resolution fixtures until those controls are product-exposed and owned by their later phase manifests. Grouped Timeline visual evidence uses the production treegrid path for currently exposed grouping chrome.
 
 ---
 
@@ -1233,7 +1233,7 @@ Clients and tests must address writable and queryable fields only by stable `fie
 
 This harness verifies that the frontend grid adapter maps vendor-local coordinates to stable Cartulary anchors. It must run for any change to the grid adapter, renderer/editor registration, sync-engine integration, view-schema field adapters, query UI, paste handling, presence display, or conflict display. A grid-engine replacement is not accepted until this harness passes against the replacement. The RDG-specific rows below cover browser behaviors and package surfaces identified as high-risk in the `react-data-grid` research report.[^rdg-report]
 
-Pure adapter mapping tests must not require a real browser. Lifecycle, focus, selection, paste, and visual-state tests must use a real browser or browser-equivalent renderer.
+Pure adapter mapping tests must not require a real browser. `@cartulary/grid-adapter/test-support` is limited to fast semantic tests that need stable rows, grouping, selectors, and contract-derived render callbacks without RDG. It MUST NOT be used to close RDG interaction, keyboard, accessibility, visual, resize, drag-fill, editor-lifecycle, scroll, or treegrid claims. Those claims must run against the production `WorkbookDataGrid` component and the live browser or browser-equivalent renderer.
 
 | ID          | Category          | Required test                                                                                                                                                                                  |
 | ----------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1263,7 +1263,7 @@ Pure adapter mapping tests must not require a real browser. Lifecycle, focus, se
 | `E-GRID-08` | E2E               | Treegrid/group rows expose expand/collapse keyboard behavior and ARIA state, while copy/paste and ordinary cell editing are restricted on group rows.                                          |
 | `E-GRID-09` | E2E               | The frontend bundle imports the RDG stylesheet exactly once before rendering a workbook grid.                                                                                                  |
 | `V-GRID-01` | Visual regression | Stable fixtures cover default viewport, unresolved mention, resolved chip, same-field conflict marker, row-gutter presence marker, grouped result, evidence count, and save-state strip.       |
-| `V-GRID-02` | Visual regression | Visual fixtures cover frozen-column shadow, resize handle, drag-fill handle, edit-cell state, grouped/tree row, and light/dark theme classes when exposed.                                     |
+| `V-GRID-02` | Visual regression | Visual fixtures cover frozen-column shadow, resize handle, drag-fill handle, edit-cell state, grouped/tree row, and supported `dark_graphite` theme state when exposed.                        |
 
 **Owner sections**: Core 01 §3.1, §3.3.4, §3.3.5, §7.4; Core 03 §3–§4, §11, §13–§16; development guide §6 grid adapter contract, controlled-state mapping, and capability allowlist.
 

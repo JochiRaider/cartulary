@@ -54,24 +54,47 @@ Run the local development stack from the repository root:
 ```bash
 make bootstrap
 make db-up
-make build-migrate
-CARTULARY_CONFIG_FILE="$PWD/configs/dev/config.toml" \
-  CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="postgres://cartulary:cartulary@localhost:5432/cartulary?sslmode=disable" \
-  ./migrate up
+make db-migrate
 make dev
 ```
 
 `make bootstrap` is needed only when the pinned local toolchain is not already
 installed. `make db-up` starts local Postgres and object storage but does not
-upgrade an existing database. Run the migration binary before `make dev` so the
+upgrade an existing database. Run `make db-migrate` before `make dev` so the
 database schema matches the current server code.
 
-For a clean design-review database, reset and migrate the local database
-instead:
+`make db-migrate` is the Make-owned wrapper around the migration application's
+`migrate up` surface. It passes `CONFIG_FILE` through as
+`CARTULARY_CONFIG_FILE`. For the default development config, which uses
+`roots.database_storage.service_ref = "postgres_primary"`, the selected DSN
+environment variable is `CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN`. When that
+variable is already set, `make db-migrate` and `make dev` preserve it. When it is
+unset, they derive the default local Compose DSN for the local development
+Postgres service.
+
+To use a non-default config or database for browser review, pass the same config
+and selected managed-service DSN to migration and dev startup:
 
 ```bash
-CARTULARY_DESTRUCTIVE_CONFIRM=db-reset make db-reset
+CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="postgres://user:pass@db.example:5432/cartulary?sslmode=require" \
+  CONFIG_FILE="$PWD/configs/dev/browser-review.toml" \
+  make db-migrate
+CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="postgres://user:pass@db.example:5432/cartulary?sslmode=require" \
+  CONFIG_FILE="$PWD/configs/dev/browser-review.toml" \
+  make dev
 ```
+
+A historical-line local database must be reset or moved through an owner-approved
+export/import path before the current server can start. For a clean review
+database on the default local Compose Postgres service, reset and migrate the
+local database instead:
+
+```bash
+make db-reset CARTULARY_DESTRUCTIVE_CONFIRM=db-reset
+```
+
+The destructive confirmation is a Make command-line input for the target, not a
+leading environment assignment.
 
 `make dev` starts the Go server and Vite dev server for manual inspection. The
 browser URL is:
@@ -87,7 +110,7 @@ Use the local bootstrap admin credentials from
 email: dev-admin@example.test
 password: DevBootstrap1!
 ```
-oathtool --totp -b 'NFCVVKBOXXKSUAHUQC6LVDHRDCWFFLJU'
+oathtool --totp -b 'LZNWD7TWKSM2IFYZS42C7FFIHUNITKIA'
 
 Complete any prompted TOTP enrollment before starting layout review. Inspect at
 100 percent browser zoom. Use browser device emulation or window sizing for

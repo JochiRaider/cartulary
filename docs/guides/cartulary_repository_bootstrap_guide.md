@@ -13,7 +13,7 @@ At bootstrap completion, the repository should satisfy all of the following:
 - one modular-monolith application skeleton, not a set of future microservices.[^3]
 - one root Go module and one top-level pnpm workspace with the baseline monorepo layout already in place.[^4]
 - local PostgreSQL and S3-compatible object storage available through `docker-compose.dev.yml` for development and integration tests.[^3][^5]
-- a root `Makefile` with the canonical developer task surface, including `help`, `task-guide`, `help-all`, `doctor`, `bootstrap`, `db-up`, `db-reset`, `dev`, `generate`, `test`, `lint`, `check`, `build`, `clean`, and `distclean`.[^6]
+- a root `Makefile` with the canonical developer task surface, including `help`, `task-guide`, `help-all`, `doctor`, `bootstrap`, `db-up`, `db-migrate`, `db-reset`, `dev`, `generate`, `test`, `lint`, `check`, `build`, `clean`, and `distclean`.[^6]
 - a live contract derivation path from owner sections to `/contracts/*` to generated code, with drift detection wired into `make check`.[^7]
 - reusable unit, integration, and black-box end-to-end harnesses, plus the shared cross-cutting harnesses that must apply across phases.[^8]
 - the first red tests for Phase 0 checked in before any feature code beyond the bootstrap shell is treated as complete.[^9]
@@ -276,6 +276,7 @@ Implement the root `Makefile` next. It should expose the baseline human-facing t
 - `make doctor`
 - `make bootstrap`
 - `make db-up`
+- `make db-migrate`
 - `make db-reset`
 - `make dev`
 - `make generate`
@@ -297,7 +298,8 @@ Repository-local recommended meanings:
 - `make help-all`: print the exhaustive public workflow-tiered task surface without bootstrapping local toolchains.
 - `make doctor`: verify required local tools and pinned toolchain versions without installing them.
 - `make bootstrap`: install Go tools, install pinned ShellCheck, install pnpm dependencies, and prepare local service prerequisites.
-- `make db-up`: start PostgreSQL and the S3-compatible object store through Compose.
+- `make db-up`: start PostgreSQL and the S3-compatible object store through Compose without migrating a retained database.
+- `make db-migrate`: apply local database migrations without resetting the database or object storage.
 - `make db-reset`: recreate the local database and apply migrations.
 - `make dev`: run the Go server and, once present, the Vite dev server.
 - `make generate`: regenerate `sqlc` outputs and contract-derived outputs.
@@ -405,7 +407,8 @@ Definition of done:
 
 - `go test ./...` compiles and runs the empty or stubbed backend packages.
 - `make db-up` starts Postgres and the S3-compatible object store.
-- `make db-reset` can connect and apply an initial migration set.
+- `make db-migrate` can connect and apply an initial migration set.
+- `make db-reset` can recreate the local database and apply an initial migration set.
 - `make generate` runs successfully, even if the generated outputs are skeletal.
 - `make check` passes on the bootstrap baseline.[^6]
 

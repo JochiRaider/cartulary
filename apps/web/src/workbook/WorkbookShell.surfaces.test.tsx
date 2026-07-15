@@ -11,6 +11,7 @@ import {
   evidenceDownloadButtonTestId,
   evidencePreviewButtonTestId,
   evidencePreviewFrameTestId,
+  genericCreateFieldTestId,
   genericEditRecordSelectTestId,
   gridFilterApplyTestId,
   gridFilterFieldTestId,
@@ -1084,7 +1085,7 @@ describe("WorkbookShell surface selection", () => {
     await waitFor(() => {
       expect(document.activeElement).toBe(
         screen.getByTestId(
-          rowCellTestId("indicator-1", "indicator.indicator_type"),
+          genericCreateFieldTestId("indicator.indicator_type"),
         ),
       );
     });

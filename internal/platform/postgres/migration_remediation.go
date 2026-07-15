@@ -15,6 +15,7 @@ const (
 	migrationRemediationSchemaID     = "cartulary.migration_remediation_report.v1"
 	defaultMigrationLineageBoundary  = "migration_lineage"
 	historicalMigrationLineageReason = "historical_migration_lineage"
+	historicalMigrationLineageHint   = "Reset this database, or move data through an explicit owner-approved export/import path before applying the production DDL rebaseline."
 )
 
 type MigrationRemediationReport struct {
@@ -68,11 +69,11 @@ func runMigrationPreflights(ctx context.Context, db *sql.DB, source MigrationSou
 		return nil
 	}
 
-	hasLineage, err := hasExpectedMigrationLineage(ctx, db, source.ExpectedLineageID)
+	lineageState, err := inspectMigrationLineage(ctx, db)
 	if err != nil {
 		return fmt.Errorf("inspect migration lineage: %w", err)
 	}
-	if hasLineage {
+	if lineageState.HasExpected(source.ExpectedLineageID) {
 		return nil
 	}
 
@@ -80,26 +81,13 @@ func runMigrationPreflights(ctx context.Context, db *sql.DB, source MigrationSou
 	if err != nil {
 		return fmt.Errorf("inspect migration target: %w", err)
 	}
-	boundary := source.ExpectedLineageBoundary
-	if boundary == "" {
-		boundary = defaultMigrationLineageBoundary
+	repositoryHeadVersion, err := migrationSourceHeadVersion(source)
+	if err != nil {
+		return fmt.Errorf("inspect migration source head: %w", err)
 	}
-	rawLineageID := source.ExpectedLineageID
+
 	return &MigrationRemediationError{
-		Report: MigrationRemediationReport{
-			SchemaID:    migrationRemediationSchemaID,
-			Boundary:    boundary,
-			FromVersion: currentVersion,
-			ToVersion:   targetVersion,
-			Findings: []MigrationRemediationFinding{
-				{
-					Field:           "schema_migration_lineage",
-					RawValue:        &rawLineageID,
-					ReasonCode:      historicalMigrationLineageReason,
-					RemediationHint: "Reset this database or move data through an explicit export/import path before applying the production DDL rebaseline.",
-				},
-			},
-		},
+		Report: migrationLineageRemediationReport(source, lineageState, currentVersion, targetVersion, repositoryHeadVersion),
 	}
 }
 
@@ -119,26 +107,84 @@ func currentGooseVersion(ctx context.Context, db *sql.DB) (int64, error) {
 	return version, nil
 }
 
-func hasExpectedMigrationLineage(ctx context.Context, db *sql.DB, lineageID string) (bool, error) {
+type migrationLineageState struct {
+	TablePresent bool
+	ObservedIDs  []string
+}
+
+func (state migrationLineageState) HasExpected(lineageID string) bool {
+	for _, observed := range state.ObservedIDs {
+		if observed == lineageID {
+			return true
+		}
+	}
+	return false
+}
+
+func inspectMigrationLineage(ctx context.Context, db *sql.DB) (migrationLineageState, error) {
 	var tableExists bool
 	if err := db.QueryRowContext(ctx, `SELECT to_regclass('public.schema_migration_lineage') IS NOT NULL`).Scan(&tableExists); err != nil {
-		return false, err
+		return migrationLineageState{}, err
 	}
 	if !tableExists {
-		return false, nil
+		return migrationLineageState{TablePresent: false}, nil
 	}
 
-	var hasLineage bool
-	if err := db.QueryRowContext(ctx, `
-SELECT EXISTS (
-    SELECT 1
-      FROM schema_migration_lineage
-     WHERE lineage_id = $1
-)
-`, lineageID).Scan(&hasLineage); err != nil {
-		return false, err
+	rows, err := db.QueryContext(ctx, `SELECT lineage_id FROM schema_migration_lineage ORDER BY lineage_id ASC`)
+	if err != nil {
+		return migrationLineageState{}, err
 	}
-	return hasLineage, nil
+	defer rows.Close()
+
+	state := migrationLineageState{TablePresent: true}
+	for rows.Next() {
+		var lineageID string
+		if err := rows.Scan(&lineageID); err != nil {
+			return migrationLineageState{}, err
+		}
+		state.ObservedIDs = append(state.ObservedIDs, lineageID)
+	}
+	if err := rows.Err(); err != nil {
+		return migrationLineageState{}, err
+	}
+	return state, nil
+}
+
+func migrationLineageRemediationReport(source MigrationSource, state migrationLineageState, currentVersion int64, targetVersion int64, repositoryHeadVersion int64) MigrationRemediationReport {
+	boundary := source.ExpectedLineageBoundary
+	if boundary == "" {
+		boundary = defaultMigrationLineageBoundary
+	}
+
+	var rawValue *string
+	if len(state.ObservedIDs) > 0 {
+		raw := state.ObservedIDs[0]
+		rawValue = &raw
+	}
+	observedIDs := append([]string{}, state.ObservedIDs...)
+
+	return MigrationRemediationReport{
+		SchemaID:    migrationRemediationSchemaID,
+		Boundary:    boundary,
+		FromVersion: currentVersion,
+		ToVersion:   targetVersion,
+		Findings: []MigrationRemediationFinding{
+			{
+				Field:    "schema_migration_lineage",
+				RawValue: rawValue,
+				RawValuePair: map[string]any{
+					"current_version":         currentVersion,
+					"expected_lineage_id":     source.ExpectedLineageID,
+					"lineage_table_present":   state.TablePresent,
+					"observed_lineage_ids":    observedIDs,
+					"repository_head_version": repositoryHeadVersion,
+					"target_version":          targetVersion,
+				},
+				ReasonCode:      historicalMigrationLineageReason,
+				RemediationHint: historicalMigrationLineageHint,
+			},
+		},
+	}
 }
 
 func targetMigrationVersion(source MigrationSource, currentVersion int64, command string, args []string) (int64, error) {

@@ -1,4 +1,3 @@
-import { reconcileRecordRows } from "@cartulary/grid-adapter";
 import type { ViewContract } from "@cartulary/view-contracts";
 import type { Dispatch, SetStateAction } from "react";
 import { startTransition, useCallback, useMemo } from "react";
@@ -9,6 +8,7 @@ import {
   type WorkbookQueryState,
 } from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import { reconcileWorkbookRecordRows } from "../../utils/workbookRowReconciliation";
 import type {
   PendingReplayRuntimeMeta,
   TimelineMutableRef,
@@ -370,7 +370,7 @@ function reconcileCommittedRowsWithLocalDrafts({
       )
       .map((row) => [row.recordId, row]),
   );
-  const committedRows = reconcileRecordRows(
+  const committedRows = reconcileWorkbookRecordRows(
     currentRows.filter((row) => row.recordId !== null),
     incomingRows,
   ).map((row) => {

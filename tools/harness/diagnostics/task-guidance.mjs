@@ -44,7 +44,7 @@ const roleDefinitions = [
   {
     role: "local-dev",
     summary: "set up tools, local services, and the development loop",
-    targets: ["doctor", "bootstrap", "db-up", "dev"],
+    targets: ["doctor", "bootstrap", "db-up", "db-migrate", "dev"],
   },
   {
     role: "feature-dev",

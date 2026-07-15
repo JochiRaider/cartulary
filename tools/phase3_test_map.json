@@ -1174,8 +1174,8 @@
         "FE-VFIX-06",
         "FE-VFIX-13"
       ],
-      "claim": "The visual harness captures a deterministic grouped Timeline viewport with group headers rendered as presentation-only rows and visible grid chrome currently exposed by the product.",
-      "out_of_scope": "Drag-fill, resize handles, treegrid controls, and frozen-column visual states are not claimed until those capabilities are product-exposed.",
+      "claim": "The visual harness captures a deterministic grouped Timeline viewport through the production treegrid path with group headers rendered as presentation-only rows and visible grid chrome currently exposed by the product.",
+      "out_of_scope": "Drag-fill, resize handles, and frozen-column visual states are not claimed until those capabilities are product-exposed.",
       "evidence_class": "visual_readiness",
       "layer": "browser_visual",
       "default_check_required": false,

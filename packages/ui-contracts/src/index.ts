@@ -1,4 +1,5 @@
 import { listViewSchemaRegistryEntries } from "@cartulary/protocol-ts";
+import { cartularyDesignTokenVars } from "./generated/design-tokens";
 
 export {
   type CartularyDefaultThemeId,
@@ -9,6 +10,20 @@ export {
 } from "./generated/design-tokens";
 
 export type WorkbookSurface = string;
+
+export type WorkbookGridDensity = "compact" | "default" | "comfortable";
+
+export function workbookGridRowHeightPx(density: WorkbookGridDensity): number {
+  const tokenName = `--ct-density-${density}-rowHeight` as const;
+  const token = cartularyDesignTokenVars[tokenName];
+  const match = /^(\d+)px$/.exec(token);
+  if (match === null) {
+    throw new Error(
+      `Invalid fixed grid row-height token ${tokenName}: ${token}`,
+    );
+  }
+  return Number(match[1]);
+}
 
 declare const stableTestIdBrand: unique symbol;
 
@@ -988,7 +1003,7 @@ export function gridSavedRowSelector(recordId: string): string {
  * workbook draft row. Do not rely on raw table markup or renderer classes.
  */
 export function gridDraftRowSelector(): string {
-  return '[role="row"][data-grid-record-id=""]';
+  return '[role="row"][data-cartulary-grid-draft-row="true"]';
 }
 
 export function conflictMarkerTestId(

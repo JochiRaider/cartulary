@@ -10,6 +10,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpruntime"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 const httpAddrEnv = "CARTULARY_HTTP_ADDR"
@@ -103,6 +104,12 @@ func (runner serverRunner) writeStartupError(err error, logger *slog.Logger, act
 	var diagnosticsErr *config.DiagnosticsError
 	if errors.As(err, &diagnosticsErr) {
 		_, _ = io.WriteString(runner.stderr, diagnosticsErr.JSON())
+		_, _ = io.WriteString(runner.stderr, "\n")
+		return
+	}
+	var remediationErr *postgres.MigrationRemediationError
+	if errors.As(err, &remediationErr) {
+		_, _ = io.WriteString(runner.stderr, remediationErr.ReportJSON())
 		_, _ = io.WriteString(runner.stderr, "\n")
 		return
 	}

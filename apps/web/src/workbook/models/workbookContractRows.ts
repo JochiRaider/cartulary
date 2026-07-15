@@ -1,4 +1,4 @@
-import type { GridColumn, GridRow } from "@cartulary/grid-adapter";
+import type { GridColumn, GridRecordRow } from "@cartulary/grid-adapter";
 import {
   gridRowTestId,
   gridSortHeaderTestId,
@@ -64,20 +64,23 @@ export function normalizeWorkbookViewRows(
 
 export function workbookGridRows<Row>({
   getRecordId,
+  getRowVersion,
   rows,
   selectedRecordId,
   surface,
 }: {
   readonly getRecordId: (row: Row) => string;
+  readonly getRowVersion: (row: Row) => number;
   readonly rows: readonly Row[];
   readonly selectedRecordId?: string | null | undefined;
   readonly surface: WorkbookSurface;
-}): readonly GridRow<Row>[] {
+}): readonly GridRecordRow<Row>[] {
   return rows.map((row) => {
     const recordId = getRecordId(row);
     return {
-      key: recordId,
+      kind: "record" as const,
       recordId,
+      rowVersion: getRowVersion(row),
       data: row,
       ...(selectedRecordId === null || selectedRecordId === undefined
         ? {}

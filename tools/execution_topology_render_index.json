@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:bc7b79f380c26e192039a8d056f794aa890d1f340e7bcc52a92a972e35391258",
+  "input_digest": "sha256:fbb10b3384126884819238bdbf42cbca76ecea7c85c90b9706bddd8eeaa8d36f",
   "inputs": [
     {
       "path": "tools/browser_e2e_duration_baselines.json",
@@ -832,7 +832,7 @@
     {
       "path": "tools/phase3_test_map.json",
       "role": "active_phase_manifest",
-      "hash": "sha256:a72e869820caddd0db5733f8c9d9044bfc05027872d4f663bbf4286c763a3734"
+      "hash": "sha256:88552ac8737ee19a4034de43cb5d98245a110565be373bc555bbdfb3b3176e40"
     },
     {
       "path": "tools/phase4_test_map.json",
@@ -877,14 +877,14 @@
     {
       "path": "tools/task_surface_owner.json",
       "role": "task_surface_owner",
-      "hash": "sha256:7aca873a4fd9831d8d9bf3c58865404570afb3d26c30ac684b2c10afd14d6112"
+      "hash": "sha256:da5c4a50d4f69dbe8745d76a41e53faba03ec0e184e7ee6bc431a0718939df32"
     }
   ],
   "outputs": {
     "tools/browser_e2e_batch_manifest.json": "sha256:81b3f556718b21bb7d2aa22a68cde47a5238dd26e8a4f9ddf641e6a199f67765",
     "tools/scheduler_manifest.json": "sha256:2dfaca7b7e2e5a63329dda6f2f183a4333abeffaa407e574578bf6919bc13906",
-    "tools/task_surface_manifest.json": "sha256:545a90dfdfae86cbd11e8ccd6e59512ccc9fed3853ce60baa0ee632fdd5b2164",
-    "tools/task_surface.generated.mk": "sha256:4dbb12cf313b724e0986cebca4bfb31996cffa8ff3f6ebf8241edc538b1ca242",
+    "tools/task_surface_manifest.json": "sha256:5b2b1a3f4a5cfd65619b891d2a334090bb3d78b47a97b74e306e3de3a027e0ab",
+    "tools/task_surface.generated.mk": "sha256:0ad7613f9f4a7529aaf4f8e9996deb75f4734a44a888e5b32881c5067393495b",
     "tools/task_surface.runtime.generated.mk": "sha256:e871011214662f0ca43437cca5c270858d8998b7631416d37b4c756b1b9ccec7"
   }
 }

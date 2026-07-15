@@ -2,9 +2,10 @@ import {
   buildGridPresentationRows,
   type GridCellAnchor,
   type GridColumn,
+  type GridHandle,
   type GridNavigationIntent,
   type GridPasteTargetResolution,
-  type GridRow,
+  type GridRecordRow,
   navigateGridCellAnchor,
   resolveGridPasteTargets,
 } from "@cartulary/grid-adapter";
@@ -69,11 +70,13 @@ function resolveDraftTimelinePasteTargets({
   pastedColumnCount,
   pastedRowCount,
   startFieldKey,
+  viewSchemaId,
 }: {
   readonly columns: readonly GridColumn<WorkbookRow>[];
   readonly pastedColumnCount: number;
   readonly pastedRowCount: number;
   readonly startFieldKey: string;
+  readonly viewSchemaId: string;
 }): GridPasteTargetResolution | null {
   const targetColumns = timelinePasteColumnsFromStart(
     columns,
@@ -88,11 +91,13 @@ function resolveDraftTimelinePasteTargets({
     rowTargets: Array.from({ length: pastedRowCount }, (_, createIndex) => ({
       createIndex,
       kind: "create" as const,
+      viewSchemaId,
     })),
   };
 }
 
 export function useTimelineGridAnchorController({
+  gridHandleRef,
   groupBy,
   resolveInputElement,
   rowsRef,
@@ -101,6 +106,7 @@ export function useTimelineGridAnchorController({
   updateTimelineSurfaceFocusAnchor,
   updateWorkbookFocusAnchor,
 }: {
+  readonly gridHandleRef: TimelineReadonlyRef<GridHandle | null>;
   readonly groupBy: string | null;
   readonly resolveInputElement: (focusKey: string) => HTMLElement | null;
   readonly rowsRef: TimelineReadonlyRef<readonly WorkbookRow[]>;
@@ -108,7 +114,7 @@ export function useTimelineGridAnchorController({
     readonly GridColumn<WorkbookRow>[]
   >;
   readonly timelineAnchorRowsRef: TimelineReadonlyRef<
-    readonly GridRow<WorkbookRow>[]
+    readonly GridRecordRow<WorkbookRow>[]
   >;
   readonly updateTimelineSurfaceFocusAnchor: (
     recordId: string | null,
@@ -151,9 +157,11 @@ export function useTimelineGridAnchorController({
 
   const restoreTimelineFocusAnchor = useCallback(
     (anchor: GridCellAnchor) => {
+      const gridScrolled =
+        gridHandleRef.current?.scrollToAnchor(anchor) ?? false;
       const element = resolveTimelineAnchorElement(anchor);
       if (element === null) {
-        return false;
+        return gridHandleRef.current?.focusAnchor(anchor) ?? gridScrolled;
       }
       if (!element.hasAttribute("tabindex")) {
         element.tabIndex = -1;
@@ -161,7 +169,7 @@ export function useTimelineGridAnchorController({
       element.focus({ preventScroll: true });
       return document.activeElement === element;
     },
-    [resolveTimelineAnchorElement],
+    [gridHandleRef, resolveTimelineAnchorElement],
   );
 
   const currentTimelineAnchorFor = useCallback(
@@ -174,6 +182,7 @@ export function useTimelineGridAnchorController({
       const anchor = {
         fieldKey,
         recordId: row.recordId,
+        viewSchemaId: timelineViewSchemaId,
       };
       updateTimelineSurfaceFocusAnchor(anchor.recordId, anchor.fieldKey);
       return anchor;
@@ -204,6 +213,7 @@ export function useTimelineGridAnchorController({
           pastedColumnCount: dimensions.columnCount,
           pastedRowCount: dimensions.rowCount,
           startFieldKey: fieldKey,
+          viewSchemaId: timelineViewSchemaId,
         });
         return targetResolution === null
           ? null
@@ -218,11 +228,17 @@ export function useTimelineGridAnchorController({
       const anchor = {
         fieldKey,
         recordId,
+        viewSchemaId: timelineViewSchemaId,
       };
       const presentationRows = buildGridPresentationRows({
-        getGroupLabel: (candidate, groupFieldKey) =>
-          timelineGroupLabel(candidate, groupFieldKey),
-        groupBy,
+        grouping:
+          groupBy === null
+            ? null
+            : {
+                fieldKey: groupBy,
+                formatLabel: (value) => (value === null ? null : String(value)),
+                getValue: (candidate) => timelineGroupLabel(candidate, groupBy),
+              },
         rows: timelineAnchorRowsRef.current,
       });
       const targetResolution = resolveGridPasteTargets({
@@ -256,8 +272,15 @@ export function useTimelineGridAnchorController({
         current,
         intent,
         presentationRows: buildGridPresentationRows({
-          getGroupLabel: (row, fieldKey) => timelineGroupLabel(row, fieldKey),
-          groupBy,
+          grouping:
+            groupBy === null
+              ? null
+              : {
+                  fieldKey: groupBy,
+                  formatLabel: (value) =>
+                    value === null ? null : String(value),
+                  getValue: (row) => timelineGroupLabel(row, groupBy),
+                },
           rows: timelineAnchorRowsRef.current,
         }),
       });
@@ -269,6 +292,7 @@ export function useTimelineGridAnchorController({
         nextAnchor.recordId,
         nextAnchor.fieldKey,
       );
+      gridHandleRef.current?.scrollToAnchor(nextAnchor);
       const restoredNow = restoreTimelineFocusAnchor(nextAnchor);
       window.setTimeout(() => {
         if (restoredNow) {
@@ -279,6 +303,7 @@ export function useTimelineGridAnchorController({
     },
     [
       groupBy,
+      gridHandleRef,
       restoreTimelineFocusAnchor,
       timelineAnchorColumnsRef,
       timelineAnchorRowsRef,

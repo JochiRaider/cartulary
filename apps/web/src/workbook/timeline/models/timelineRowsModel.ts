@@ -1,4 +1,4 @@
-import type { GridRow } from "@cartulary/grid-adapter";
+import type { GridDraftRow, GridRecordRow } from "@cartulary/grid-adapter";
 import {
   gridRowGutterTestId,
   gridRowTestId,
@@ -16,6 +16,11 @@ export type WorkbookVersionedRecord = {
 export type WorkbookRecordFreshnessDecision = {
   readonly comparable: boolean;
   readonly stale: boolean;
+};
+
+export type TimelineGridRows = {
+  readonly draftRow?: GridDraftRow<WorkbookRow> | undefined;
+  readonly recordRows: readonly GridRecordRow<WorkbookRow>[];
 };
 
 export function decideWorkbookRecordFreshness(
@@ -40,14 +45,12 @@ export function decideWorkbookRecordFreshness(
 }
 
 export function buildTimelineGridRows<TPresence>({
-  onSelectRow,
   presenceForRow,
   renderDraftGutterContent,
   renderSavedGutterContent,
   rows,
   selectedRowId,
 }: {
-  readonly onSelectRow: (recordId: string) => void;
   readonly presenceForRow: (recordId: string | null) => readonly TPresence[];
   readonly renderDraftGutterContent: (row: WorkbookRow) => ReactNode;
   readonly renderSavedGutterContent: (input: {
@@ -58,39 +61,41 @@ export function buildTimelineGridRows<TPresence>({
   }) => ReactNode;
   readonly rows: readonly WorkbookRow[];
   readonly selectedRowId: string | null;
-}): readonly GridRow<WorkbookRow>[] {
-  return rows.map((row, index) => {
+}): TimelineGridRows {
+  const recordRows: GridRecordRow<WorkbookRow>[] = [];
+  let draftRow: GridDraftRow<WorkbookRow> | undefined;
+  rows.forEach((row, index) => {
     const rowPresence = presenceForRow(row.recordId);
     const ordinal = row.recordId === null ? "+" : String(index + 1);
-    return {
-      key: row.key,
+    if (row.recordId === null) {
+      draftRow = {
+        kind: "draft",
+        data: row,
+        gutterContent: renderDraftGutterContent(row),
+        gutterLabel: ordinal,
+        testId: workbookInlineDraftRowTestId(timelineViewSchemaId),
+      };
+      return;
+    }
+    if (row.rowVersion === null) {
+      throw new Error("Committed Timeline grid row is missing row_version.");
+    }
+    recordRows.push({
+      kind: "record",
       recordId: row.recordId,
+      rowVersion: row.rowVersion,
       data: row,
-      gutterContent:
-        row.recordId === null
-          ? renderDraftGutterContent(row)
-          : renderSavedGutterContent({
-              ordinal,
-              presences: rowPresence,
-              recordId: row.recordId,
-              row,
-            }),
+      gutterContent: renderSavedGutterContent({
+        ordinal,
+        presences: rowPresence,
+        recordId: row.recordId,
+        row,
+      }),
       gutterLabel: ordinal,
-      gutterTestId:
-        row.recordId === null
-          ? undefined
-          : gridRowGutterTestId(timelineViewSchemaId, row.recordId),
-      onSelect: () => {
-        if (row.recordId !== null) {
-          onSelectRow(row.recordId);
-        }
-      },
-      selected: row.recordId !== null && row.recordId === selectedRowId,
-      testId:
-        row.recordId === null
-          ? workbookInlineDraftRowTestId(timelineViewSchemaId)
-          : gridRowTestId(timelineViewSchemaId, row.recordId),
-      variant: row.recordId === null ? "draft" : "default",
-    };
+      gutterTestId: gridRowGutterTestId(timelineViewSchemaId, row.recordId),
+      selected: row.recordId === selectedRowId,
+      testId: gridRowTestId(timelineViewSchemaId, row.recordId),
+    });
   });
+  return { draftRow, recordRows };
 }

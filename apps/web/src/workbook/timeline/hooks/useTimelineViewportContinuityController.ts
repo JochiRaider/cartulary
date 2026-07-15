@@ -1,8 +1,8 @@
+import type { GridHandle } from "@cartulary/grid-adapter";
 import {
   dataTestIdSelector,
   draftCellTestId,
   gridRowGutterTestId,
-  gridScrollportSelector,
   rowCellTestId,
 } from "@cartulary/ui-contracts";
 import { useCallback, useLayoutEffect, useRef } from "react";
@@ -40,30 +40,9 @@ export type TimelineViewportContinuityRequest = {
   barrier: TimelineViewportContinuityBarrier;
 };
 
-function resolveTimelineGridScrollElement(
-  element: HTMLElement,
-  surface: string,
-): HTMLElement {
-  const selector = gridScrollportSelector();
-  const scrollports = Array.from(
-    element.querySelectorAll<HTMLElement>(selector),
-  );
-  if (scrollports.length !== 1) {
-    throw new Error(
-      `Expected ${surface} grid shell to contain exactly one ${selector} scrollport, received ${scrollports.length}`,
-    );
-  }
-  const scrollport = scrollports[0];
-  if (scrollport === undefined) {
-    throw new Error(
-      `Expected ${surface} grid shell to contain exactly one ${selector} scrollport, received 0`,
-    );
-  }
-  return scrollport;
-}
-
 export function useTimelineViewportContinuityController({
   entityCatalogInput,
+  gridHandleRef,
   gridShellRef,
   rowInputRefs,
   rowInputTestIdsRef,
@@ -72,6 +51,7 @@ export function useTimelineViewportContinuityController({
   viewportContinuityTokenRef,
 }: {
   readonly entityCatalogInput: TimelineEntityCatalogInput;
+  readonly gridHandleRef: TimelineMutableRef<GridHandle | null>;
   readonly gridShellRef: TimelineMutableRef<HTMLDivElement | null>;
   readonly rowInputRefs: TimelineMutableRef<
     Map<string, HTMLInputElement | HTMLTextAreaElement>
@@ -88,17 +68,19 @@ export function useTimelineViewportContinuityController({
   readonly viewportContinuityRequest: TimelineViewportContinuityRequest | null;
   readonly viewportContinuityTokenRef: TimelineMutableRef<number>;
 }) {
+  const currentGridScrollElement = useCallback(
+    () => gridHandleRef.current?.getScrollElement() ?? null,
+    [gridHandleRef],
+  );
+
   const currentGridScrollSnapshot = useCallback(() => {
-    const element = gridShellRef.current;
-    if (!element) {
-      return null;
-    }
-    const scrollElement = resolveTimelineGridScrollElement(element, "timeline");
+    const scrollElement = currentGridScrollElement();
+    if (scrollElement === null) return null;
     return {
       top: scrollElement.scrollTop,
       left: scrollElement.scrollLeft,
     };
-  }, [gridShellRef]);
+  }, [currentGridScrollElement]);
 
   const resolveInputElement = useCallback(
     (focusKey: string) => {
@@ -168,7 +150,8 @@ export function useTimelineViewportContinuityController({
     (target: HTMLElement | null = null): ViewportSnapshot | null => {
       const gridShell = gridShellRef.current;
       const scroll = currentGridScrollSnapshot();
-      if (gridShell === null || scroll === null) {
+      const scrollElement = currentGridScrollElement();
+      if (gridShell === null || scroll === null || scrollElement === null) {
         return null;
       }
       return {
@@ -177,43 +160,30 @@ export function useTimelineViewportContinuityController({
           target === null
             ? null
             : captureViewportAnchor(
-                resolveTimelineGridScrollElement(
-                  gridShell,
-                  "timeline",
-                ).getBoundingClientRect(),
+                scrollElement.getBoundingClientRect(),
                 target.getBoundingClientRect(),
               ),
       };
     },
-    [currentGridScrollSnapshot, gridShellRef],
+    [currentGridScrollElement, currentGridScrollSnapshot, gridShellRef],
   );
 
   const restoreGridScroll = useCallback(
     (preservedScroll: ScrollPosition | null) => {
-      const gridShell = gridShellRef.current;
-      if (gridShell === null || preservedScroll === null) {
+      const scrollElement = currentGridScrollElement();
+      if (scrollElement === null || preservedScroll === null) {
         return;
       }
-      const scrollElement = resolveTimelineGridScrollElement(
-        gridShell,
-        "timeline",
-      );
       scrollElement.scrollTop = preservedScroll.top;
       scrollElement.scrollLeft = preservedScroll.left;
       window.requestAnimationFrame(() => {
-        const currentGridShell = gridShellRef.current;
-        if (currentGridShell === null) {
-          return;
-        }
-        const currentScrollElement = resolveTimelineGridScrollElement(
-          currentGridShell,
-          "timeline",
-        );
+        const currentScrollElement = currentGridScrollElement();
+        if (currentScrollElement === null) return;
         currentScrollElement.scrollTop = preservedScroll.top;
         currentScrollElement.scrollLeft = preservedScroll.left;
       });
     },
-    [gridShellRef],
+    [currentGridScrollElement],
   );
 
   const restoreGridViewportForElement = useCallback(
@@ -243,20 +213,16 @@ export function useTimelineViewportContinuityController({
       const focusedNow = focusResolvedElement();
       restoreGridScroll(preservedScroll);
       const restoreViewportGeometryNow = () => {
-        const currentGridShell = gridShellRef.current;
+        const scrollElement = currentGridScrollElement();
         const currentElement = resolveElement();
         if (
-          currentGridShell === null ||
+          scrollElement === null ||
           preservedScroll === null ||
           currentElement === null ||
           !currentElement.isConnected
         ) {
           return false;
         }
-        const scrollElement = resolveTimelineGridScrollElement(
-          currentGridShell,
-          "timeline",
-        );
         const restoredScroll = computeRestoredViewportScroll({
           preservedScroll,
           currentScroll: {
@@ -268,20 +234,17 @@ export function useTimelineViewportContinuityController({
           elementRect: currentElement.getBoundingClientRect(),
         });
         restoreGridScroll(restoredScroll);
-        const updatedGridShell = gridShellRef.current;
+        const updatedScrollElement = currentGridScrollElement();
         const updatedElement = resolveElement();
         if (
-          updatedGridShell === null ||
+          updatedScrollElement === null ||
           updatedElement === null ||
           !updatedElement.isConnected
         ) {
           return false;
         }
         const fullyVisible = isRectFullyVisibleWithinContainer(
-          resolveTimelineGridScrollElement(
-            updatedGridShell,
-            "timeline",
-          ).getBoundingClientRect(),
+          updatedScrollElement.getBoundingClientRect(),
           updatedElement.getBoundingClientRect(),
         );
         return focusResolvedElement() && fullyVisible;
@@ -300,7 +263,7 @@ export function useTimelineViewportContinuityController({
       restoreViewportGeometry(0);
       return focusedNow && restoredNow;
     },
-    [currentGridScrollSnapshot, gridShellRef, restoreGridScroll],
+    [currentGridScrollElement, currentGridScrollSnapshot, restoreGridScroll],
   );
 
   const beginViewportContinuity = useCallback(

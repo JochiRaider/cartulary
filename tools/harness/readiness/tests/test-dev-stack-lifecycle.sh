@@ -217,6 +217,28 @@ assert_equals "$backend_exit_status" "1" "backend-exits status"
 assert_equals "$(count_lines "$backend_exit_dir/frontend.term")" "1" "backend-exits frontend term count"
 assert_process_stopped "$(tr -d '\n' <"$backend_exit_dir/frontend.pid")" "backend-exits frontend process"
 
+backend_readiness_dir="$tmp_dir/backend-readiness-fails"
+mkdir -p "$backend_readiness_dir"
+backend_command="$(make_command "$signal_recorder" "$backend_readiness_dir/backend.pid" "$backend_readiness_dir/backend.term" exit_after 0.2 1)"
+frontend_command="$(make_command "$signal_recorder" "$backend_readiness_dir/frontend.pid" "$backend_readiness_dir/frontend.term")"
+if CARTULARY_DEV_STACK_BACKEND_COMMAND="$backend_command" \
+  CARTULARY_DEV_STACK_FRONTEND_COMMAND="$frontend_command" \
+  CARTULARY_DEV_STACK_ARTIFACT_DIR="$backend_readiness_dir/runtime" \
+  CARTULARY_DEV_STACK_SKIP_SERVICE_PREFLIGHT=1 \
+  CARTULARY_DEV_STACK_READY_TIMEOUT_SECONDS=2 \
+  "$DEV_STACK_SCRIPT" >"$backend_readiness_dir/stdout" 2>"$backend_readiness_dir/stderr"; then
+  backend_readiness_status=0
+else
+  backend_readiness_status=$?
+fi
+assert_equals "$backend_readiness_status" "1" "backend-readiness-fails status"
+assert_contains "$(cat "$backend_readiness_dir/stderr")" "run make db-migrate" "backend-readiness schema guidance"
+assert_contains "$(cat "$backend_readiness_dir/stdout")" "backend log: $backend_readiness_dir/runtime/server.log" "backend-readiness backend log output"
+assert_not_contains "$(cat "$backend_readiness_dir/stdout")" "frontend log:" "backend-readiness does not announce frontend"
+if [[ -e "$backend_readiness_dir/frontend.pid" ]]; then
+  fail "backend readiness failure must fail before starting frontend"
+fi
+
 frontend_exit_dir="$tmp_dir/frontend-exits"
 mkdir -p "$frontend_exit_dir"
 backend_command="$(make_command "$signal_recorder" "$frontend_exit_dir/backend.pid" "$frontend_exit_dir/backend.term")"
@@ -283,3 +305,24 @@ assert_not_contains "$backend_env" "CARTULARY_ENABLE_TEST_ROUTES=" "env test rou
 assert_not_contains "$backend_env" "CARTULARY_PLAYWRIGHT_STATE_DIR=" "env playwright state"
 assert_not_contains "$backend_env" "CARTULARY_WEB_E2E_RUNTIME_ROOT=" "env e2e runtime root"
 assert_not_contains "$backend_env" "CARTULARY__ROOTS__DATABASE_STORAGE__PATH=" "env e2e storage root"
+
+custom_env_dir="$tmp_dir/custom-env"
+mkdir -p "$custom_env_dir"
+backend_command="$(printf 'PID_FILE=%q TERM_FILE=%q ENV_FILE=%q MODE=exit_after EXIT_AFTER_SECONDS=0.2 EXIT_STATUS=0 %q' \
+  "$custom_env_dir/backend.pid" \
+  "$custom_env_dir/backend.term" \
+  "$custom_env_dir/backend.env" \
+  "$signal_recorder")"
+frontend_command="$(make_command "$signal_recorder" "$custom_env_dir/frontend.pid" "$custom_env_dir/frontend.term")"
+if CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN='postgres://custom:secret@db.example:15432/customdb?sslmode=require' \
+  CARTULARY_DEV_STACK_BACKEND_COMMAND="$backend_command" \
+  CARTULARY_DEV_STACK_FRONTEND_COMMAND="$frontend_command" \
+  run_dev_stack_case "$custom_env_dir"; then
+  custom_env_status=0
+else
+  custom_env_status=$?
+fi
+assert_equals "$custom_env_status" "1" "custom env status"
+custom_backend_env="$(cat "$custom_env_dir/backend.env")"
+assert_contains "$custom_backend_env" "CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN=postgres://custom:secret@db.example:15432/customdb?sslmode=require" "custom env preserves managed postgres dsn"
+assert_not_contains "$custom_backend_env" "CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN=postgres://cartulary:cartulary@localhost:5432/cartulary?sslmode=disable" "custom env does not force default dsn"

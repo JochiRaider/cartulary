@@ -116,6 +116,7 @@ export type TimelineWorkbookRenderers = {
   readonly renderTimelineGridEditor: (
     row: WorkbookRow,
     binding: TimelineScalarBinding,
+    closeGridEditor?: ((commit: boolean) => void) | undefined,
   ) => ReactNode;
   readonly renderTimelineInspectorEditor: (
     row: WorkbookRow,
@@ -212,6 +213,7 @@ export function useTimelineWorkbookRenderers({
       binding: TimelineScalarBinding,
       surface: TimelineScalarEditorSurface,
       controlId: string,
+      closeGridEditor?: ((commit: boolean) => void) | undefined,
     ) => {
       const label = timelineBindingLabel(binding.fieldKey);
       const gridAccessibleLabel =
@@ -247,6 +249,7 @@ export function useTimelineWorkbookRenderers({
             field={binding.key}
             multiline={binding.multiline}
             onEditModeChange={handleEditModePresence}
+            onCloseGridEditor={closeGridEditor}
             onFocusAnchor={updateTimelineSurfaceFocusAnchor}
             registerInput={registerInput}
             presenceFieldKey={binding.fieldKey}
@@ -301,12 +304,17 @@ export function useTimelineWorkbookRenderers({
   );
 
   const renderTimelineGridEditor = useCallback(
-    (row: WorkbookRow, binding: TimelineScalarBinding) => {
+    (
+      row: WorkbookRow,
+      binding: TimelineScalarBinding,
+      closeGridEditor?: ((commit: boolean) => void) | undefined,
+    ) => {
       return renderTimelineScalarControl(
         row,
         binding,
         "grid",
         timelineScalarControlId(row, binding, "grid"),
+        closeGridEditor,
       );
     },
     [renderTimelineScalarControl, timelineScalarControlId],
@@ -569,8 +577,84 @@ export function useTimelineWorkbookRenderers({
 
   const timelineColumns = useMemo<readonly GridColumn<WorkbookRow>[]>(
     () =>
-      timelineVisibleBindings.map(
-        (binding): GridColumn<WorkbookRow> => ({
+      timelineVisibleBindings.map((binding): GridColumn<WorkbookRow> => {
+        const renderCell = (row: WorkbookRow) => {
+          if (binding.kind === "scalar") {
+            return renderTimelineGridEditor(row, binding);
+          }
+          if (binding.kind === "collection") {
+            return renderTimelineCollectionInput(row, binding);
+          }
+          if (binding.fieldKey === "timeline.evidence_count") {
+            const countDisplay = buildEvidenceCountDisplayViewModel({
+              projectedCount: readTimelineCellValue(
+                row.rawRow,
+                binding.fieldKey,
+              ),
+              projectedHasEvidence: readTimelineCellValue(
+                row.rawRow,
+                "timeline.has_evidence",
+              ),
+            });
+            return (
+              <span
+                data-evidence-count-state={countDisplay.stateKey}
+                style={timelineEvidenceCellStyle}
+              >
+                <span
+                  data-testid={
+                    row.recordId === null
+                      ? undefined
+                      : rowCellTestId(row.recordId, binding.fieldKey)
+                  }
+                >
+                  {countDisplay.displayCount}
+                </span>
+                {row.recordId === null ? null : (
+                  <span
+                    data-testid={rowCellTestId(
+                      row.recordId,
+                      "timeline.has_evidence",
+                    )}
+                    style={
+                      countDisplay.hasEvidence
+                        ? timelineEvidenceFlagOnStyle
+                        : timelineEvidenceFlagOffStyle
+                    }
+                    title={
+                      countDisplay.hasEvidence
+                        ? "Timeline row has evidence"
+                        : "Timeline row has no evidence"
+                    }
+                  >
+                    {String(countDisplay.hasEvidence)}
+                  </span>
+                )}
+              </span>
+            );
+          }
+          const text = stringifyGridValue(
+            readTimelineCellValue(row.rawRow, binding.fieldKey),
+          );
+          return (
+            <span
+              data-testid={
+                row.recordId === null
+                  ? undefined
+                  : rowCellTestId(row.recordId, binding.fieldKey)
+              }
+              style={
+                binding.fieldKey === "timeline.edited_at"
+                  ? timelineTimestampCellStyle
+                  : bodyStyle
+              }
+            >
+              {text === "" ? "—" : text}
+            </span>
+          );
+        };
+        return {
+          contractWritable: binding.kind === "scalar",
           fieldKey: binding.fieldKey,
           headerTestId: gridSortHeaderTestId(
             timelineViewSchemaId,
@@ -580,87 +664,19 @@ export function useTimelineWorkbookRenderers({
           width:
             timelineColumnWidths[binding.fieldKey] ??
             timelineColumnWidth(binding.fieldKey),
-          renderCell: (row) => {
-            if (binding.kind === "scalar") {
-              return renderTimelineGridEditor(row, binding);
-            }
-            if (binding.kind === "collection") {
-              return renderTimelineCollectionInput(row, binding);
-            }
-            if (binding.fieldKey === "timeline.evidence_count") {
-              const countDisplay = buildEvidenceCountDisplayViewModel({
-                projectedCount: readTimelineCellValue(
-                  row.rawRow,
-                  binding.fieldKey,
-                ),
-                projectedHasEvidence: readTimelineCellValue(
-                  row.rawRow,
-                  "timeline.has_evidence",
-                ),
-              });
-              return (
-                <span
-                  data-evidence-count-state={countDisplay.stateKey}
-                  style={timelineEvidenceCellStyle}
-                >
-                  <span
-                    data-testid={
-                      row.recordId === null
-                        ? undefined
-                        : rowCellTestId(row.recordId, binding.fieldKey)
-                    }
-                  >
-                    {countDisplay.displayCount}
-                  </span>
-                  {row.recordId === null ? null : (
-                    <span
-                      data-testid={rowCellTestId(
-                        row.recordId,
-                        "timeline.has_evidence",
-                      )}
-                      style={
-                        countDisplay.hasEvidence
-                          ? timelineEvidenceFlagOnStyle
-                          : timelineEvidenceFlagOffStyle
-                      }
-                      title={
-                        countDisplay.hasEvidence
-                          ? "Timeline row has evidence"
-                          : "Timeline row has no evidence"
-                      }
-                    >
-                      {String(countDisplay.hasEvidence)}
-                    </span>
-                  )}
-                </span>
-              );
-            }
-            const text = stringifyGridValue(
-              readTimelineCellValue(row.rawRow, binding.fieldKey),
-            );
-            return (
-              <span
-                data-testid={
-                  row.recordId === null
-                    ? undefined
-                    : rowCellTestId(row.recordId, binding.fieldKey)
-                }
-                style={
-                  binding.fieldKey === "timeline.edited_at"
-                    ? timelineTimestampCellStyle
-                    : bodyStyle
-                }
-              >
-                {text === "" ? "—" : text}
-              </span>
-            );
-          },
+          renderCell: ({ row }) => renderCell(row),
+          renderDraftCell: ({ row }) => renderCell(row),
+          renderEditCell:
+            binding.kind === "scalar"
+              ? ({ closeEditor, row }) =>
+                  renderTimelineGridEditor(row, binding, closeEditor)
+              : undefined,
           sortableFieldKey: resolveHeaderSortFieldKey(
             timelineContract,
             binding.fieldKey,
           ),
-        }),
-      ),
+        };
+      }),
     [
       renderTimelineCollectionInput,
       renderTimelineGridEditor,

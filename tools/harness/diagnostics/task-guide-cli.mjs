@@ -129,7 +129,7 @@ function renderBareOverview() {
     "Cartulary task guide",
     "role=all phase=all",
     "",
-    "local-dev: make doctor | make bootstrap | make db-up | make dev",
+    "local-dev: make doctor | make bootstrap | make db-up | make db-migrate | make dev",
     "feature-dev: make task-guide ROLE=feature-dev | make test-fast | make lint | make agent-finalize",
     "phase-author: make task-guide ROLE=phase-author PHASE=phaseN | make explain-phase PHASE=phaseN",
     "ci-investigator: make explain-run RESULTS_DIR=<root|run-dir> | make explain-target TARGET=<target>",

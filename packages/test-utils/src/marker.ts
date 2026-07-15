@@ -1,7 +1,10 @@
 import { gridShellTestId, type WorkbookSurface } from "@cartulary/ui-contracts";
 
 import { type BrowserPageLike, requireEvaluate } from "./browser";
-import { isTestIdVisibleWithinGridViewport } from "./scrolling";
+import {
+  isTestIdVisibleWithinGridViewport,
+  scrollGridTargetIntoView,
+} from "./scrolling";
 
 const anchorTolerancePx = 2;
 
@@ -32,6 +35,7 @@ export async function assertMarkerAnchoredToGridTarget(options: {
   targetTestId: string;
 }) {
   const { anchorKind, markerTestId, page, surface, targetTestId } = options;
+  await scrollGridTargetIntoView({ page, surface, targetTestId });
   const targetVisible = await isTestIdVisibleWithinGridViewport(
     page,
     surface,

@@ -2,7 +2,8 @@ import type {
   GridCellAnchor,
   GridColumn,
   GridDensity,
-  GridRow,
+  GridHandle,
+  GridRecordRow,
 } from "@cartulary/grid-adapter";
 import {
   dataTestIdSelector,
@@ -473,11 +474,15 @@ function TimelineWorkbookContent({
   const timelineAnchorColumnsRef = useRef<readonly GridColumn<WorkbookRow>[]>(
     [],
   );
-  const timelineAnchorRowsRef = useRef<readonly GridRow<WorkbookRow>[]>([]);
+  const timelineAnchorRowsRef = useRef<readonly GridRecordRow<WorkbookRow>[]>(
+    [],
+  );
+  const timelineGridHandleRef = useRef<GridHandle | null>(null);
   const gridShellRef = useRef<HTMLDivElement | null>(null);
   const [timelineGridShellWidth, setTimelineGridShellWidth] = useState(0);
   const viewportContinuityTokenRef = useRef(1);
   const timelineGridInteractionRefs: TimelineGridInteractionRefs = {
+    gridHandleRef: timelineGridHandleRef,
     gridShellRef,
     rowInputRefs,
     rowInputTestIdsRef,
@@ -723,6 +728,7 @@ function TimelineWorkbookContent({
 
   const timelineViewportContinuity = useTimelineViewportContinuityController({
     entityCatalogInput,
+    gridHandleRef: timelineGridHandleRef,
     gridShellRef,
     rowInputRefs,
     rowInputTestIdsRef,
@@ -791,6 +797,7 @@ function TimelineWorkbookContent({
     resolveTimelinePasteTargetResolution,
     restoreTimelineFocusAnchor,
   } = useTimelineGridAnchorController({
+    gridHandleRef: timelineGridHandleRef,
     groupBy: queryState.groupBy,
     resolveInputElement,
     rowsRef,
@@ -1862,10 +1869,9 @@ function TimelineWorkbookContent({
     [],
   );
 
-  const timelineGridRows = useMemo<readonly GridRow<WorkbookRow>[]>(
+  const timelineGrid = useMemo(
     () =>
       buildTimelineGridRows({
-        onSelectRow: handleSelectRow,
         presenceForRow,
         renderDraftGutterContent: (row) => (
           <DraftRowCreateButton
@@ -1887,12 +1893,13 @@ function TimelineWorkbookContent({
     [
       handleCreateBlankDraftRow,
       handleTimelineEvidenceFiles,
-      handleSelectRow,
       presenceForRow,
       rows,
       selectedRowId,
     ],
   );
+  const timelineGridRows = timelineGrid.recordRows;
+  const timelineDraftRow = timelineGrid.draftRow;
 
   useLayoutEffect(() => {
     timelineAnchorColumnsRef.current = timelineColumns;
@@ -2019,12 +2026,15 @@ function TimelineWorkbookContent({
           getGroupRowTestId={getTimelineGroupRowTestId}
           groupBy={queryState.groupBy}
           onToggleSort={handleQuerySortToggle}
-          ref={gridShellRef}
+          ref={timelineGridHandleRef}
           rowGutter={timelineRowGutter}
           rows={rows}
           sort={queryState.sort}
           style={timelineGridShellStyle}
+          timelineDraftRow={timelineDraftRow}
           timelineGridRows={timelineGridRows}
+          shellRef={gridShellRef}
+          onSelectRecord={handleSelectRow}
         />
       }
       statusStrip={

@@ -1,4 +1,8 @@
-import { dataTestIdSelector, mentionItemTestId } from "@cartulary/ui-contracts";
+import {
+  dataTestIdSelector,
+  mentionItemTestId,
+  timelineInspectorTestId,
+} from "@cartulary/ui-contracts";
 import {
   type Dispatch,
   type MutableRefObject,
@@ -269,11 +273,22 @@ export function useTimelineInspectorRowInteractions({
       setIsInspectorOpen(true);
       window.requestAnimationFrame(() => {
         window.requestAnimationFrame(() => {
-          document
-            .querySelector<HTMLButtonElement>(
-              dataTestIdSelector(mentionItemTestId(itemRef)),
-            )
-            ?.focus({ preventScroll: true });
+          const mentionButton = document.querySelector<HTMLButtonElement>(
+            dataTestIdSelector(mentionItemTestId(itemRef)),
+          );
+          if (mentionButton === null) {
+            return;
+          }
+          const activeElement = document.activeElement;
+          if (
+            activeElement instanceof HTMLElement &&
+            activeElement !== document.body &&
+            activeElement !== mentionButton &&
+            activeElement.closest(dataTestIdSelector(timelineInspectorTestId()))
+          ) {
+            return;
+          }
+          mentionButton.focus({ preventScroll: true });
         });
       });
     },
@@ -331,7 +346,7 @@ export function useTimelineInspectorLifecycle({
   readonly inspectorMentions: readonly { readonly itemRef: string }[];
   readonly inspectorResetKey: string | undefined;
   readonly restoreTimelineFocusAnchor: (
-    anchor: Pick<WorkbookFocusAnchor, "fieldKey" | "recordId">,
+    anchor: Pick<WorkbookFocusAnchor, "fieldKey" | "recordId" | "viewSchemaId">,
   ) => boolean;
   readonly rowHistory: RecordHistoryState;
   readonly rows: readonly WorkbookRow[];
@@ -397,6 +412,7 @@ export function useTimelineInspectorLifecycle({
             restoreTimelineFocusAnchor({
               fieldKey: fallbackFieldKey,
               recordId: fallbackRow.recordId,
+              viewSchemaId: timelineViewSchemaId,
             })
           ) {
             return;
@@ -491,7 +507,7 @@ export function useTimelineInspectorEscape({
   readonly clearRowHistory: () => void;
   readonly isInspectorOpen: boolean;
   readonly restoreTimelineFocusAnchor: (
-    anchor: Pick<WorkbookFocusAnchor, "fieldKey" | "recordId">,
+    anchor: Pick<WorkbookFocusAnchor, "fieldKey" | "recordId" | "viewSchemaId">,
   ) => boolean;
   readonly setInspectorMessage: (message: string | null) => void;
   readonly setIsInspectorOpen: Dispatch<SetStateAction<boolean>>;

@@ -23,6 +23,10 @@
         "description": "start local Postgres and SeaweedFS S3, then initialize the default object-store bucket"
       },
       {
+        "target": "db-migrate",
+        "description": "apply local database migrations without resetting the database or object storage"
+      },
+      {
         "target": "db-reset",
         "usage": "CARTULARY_CLEANUP_DRY_RUN=1",
         "description": "preview or recreate the local database only; does not reset object storage; real reset requires CARTULARY_DESTRUCTIVE_CONFIRM=db-reset"
@@ -34,10 +38,6 @@
       {
         "target": "generate",
         "description": "regenerate sqlc and contract-derived outputs"
-      },
-      {
-        "target": "format",
-        "description": "format authored Go and frontend sources"
       },
       {
         "target": "agent-finalize",
@@ -92,6 +92,10 @@
         {
           "target": "db-up",
           "description": "start local Postgres and SeaweedFS S3, then initialize the default object-store bucket"
+        },
+        {
+          "target": "db-migrate",
+          "description": "apply local database migrations without resetting the database or object storage"
         },
         {
           "target": "db-reset",
@@ -980,6 +984,22 @@
         "bash",
         "./tools/harness/readiness/dev-services.sh",
         "db-up"
+      ]
+    },
+    "db-migrate": {
+      "prerequisites": [],
+      "type": "phase_command",
+      "mode": "command",
+      "env": {
+        "GO": "$(GO)",
+        "CONFIG_FILE": "$(CONFIG_FILE)",
+        "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+        "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)"
+      },
+      "command": [
+        "bash",
+        "./tools/harness/readiness/dev-services.sh",
+        "db-migrate"
       ]
     },
     "db-reset": {
@@ -3092,6 +3112,78 @@
           "owner_section": "Section 11",
           "ownership_mode": "local_dev",
           "lifecycle_machine": "service lifecycle from Section 11"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": []
+      }
+    },
+    {
+      "name": "db-migrate",
+      "backing_scripts": [
+        "tools/harness/readiness/dev-services.sh"
+      ],
+      "output_policy": {
+        "output_class": "service_summary",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 4,
+          "stdout_bytes": 1000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "failure_or_verbose",
+        "summary_schema": "cartulary.tool_run_summary.v4"
+      },
+      "command_id": "cartulary.harness.command.db_migrate.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "service_lifecycle",
+          "owner_section": "Section 11"
+        },
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "local_dev",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "local_dev",
+          "resource_families": [
+            "local development database migrations"
+          ],
+          "lifecycle_machine": "migration lifecycle from Section 13"
         }
       ],
       "input_contract": {

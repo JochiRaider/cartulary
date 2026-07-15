@@ -52,28 +52,31 @@ describe("genericWorkbookModel", () => {
   it("builds generic creates with omitted fields, trims, explicit clears, and minimum checks", () => {
     const evidence = requireViewContract(evidenceViewSchemaId);
     const rows = [
-      { record_id: "party-1", cells: {} },
-      { record_id: "party-2", cells: {} },
+      { record_id: "party-1", row_version: 1, cells: {} },
+      { record_id: "party-2", row_version: 2, cells: {} },
     ];
 
     expect(
       workbookGridRows({
         getRecordId: (row) => row.record_id,
+        getRowVersion: (row) => row.row_version,
         rows,
         selectedRecordId: "party-2",
         surface: partiesViewSchemaId,
       }),
     ).toEqual([
       {
-        key: "party-1",
+        kind: "record",
         recordId: "party-1",
+        rowVersion: 1,
         data: rows[0],
         selected: false,
         testId: "grid-row-cartulary.view.parties.v1-party-1",
       },
       {
-        key: "party-2",
+        kind: "record",
         recordId: "party-2",
+        rowVersion: 2,
         data: rows[1],
         selected: true,
         testId: "grid-row-cartulary.view.parties.v1-party-2",

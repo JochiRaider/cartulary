@@ -61,9 +61,6 @@ describe("timelineRowsModel", () => {
       workbookRow("row-b", "record-b", 3),
     ];
     const gridRows = buildTimelineGridRows({
-      onSelectRow: (recordId) => {
-        selected.push(recordId);
-      },
       presenceForRow: (recordId) =>
         recordId === "record-b" ? ["presence-b"] : [],
       renderDraftGutterContent: (row) => `draft:${row.key}`,
@@ -73,26 +70,29 @@ describe("timelineRowsModel", () => {
       selectedRowId: "record-b",
     });
 
-    expect(gridRows.map((row) => row.testId)).toEqual([
+    expect(gridRows.draftRow?.testId).toBe(
       "cartulary.view.timeline.v2-inline-draft-row",
+    );
+    expect(gridRows.recordRows.map((row) => row.testId)).toEqual([
       "grid-row-cartulary.view.timeline.v2-record-a",
       "grid-row-cartulary.view.timeline.v2-record-b",
     ]);
-    expect(gridRows.map((row) => row.gutterLabel)).toEqual(["+", "2", "3"]);
-    expect(gridRows[0]).toMatchObject({
-      recordId: null,
-      selected: false,
-      variant: "draft",
+    expect(gridRows.draftRow).toMatchObject({
+      kind: "draft",
+      gutterLabel: "+",
     });
-    expect(gridRows[2]).toMatchObject({
+    expect(gridRows.recordRows.map((row) => row.gutterLabel)).toEqual([
+      "2",
+      "3",
+    ]);
+    expect(gridRows.recordRows[1]).toMatchObject({
+      kind: "record",
       recordId: "record-b",
+      rowVersion: 3,
       selected: true,
       gutterContent: "3:record-b:presence-b",
       gutterTestId: "cartulary.view.timeline.v2-row-gutter-record-b",
-      variant: "default",
     });
-    gridRows[0]?.onSelect?.({} as never);
-    gridRows[1]?.onSelect?.({} as never);
-    expect(selected).toEqual(["record-a"]);
+    expect(selected).toEqual([]);
   });
 });

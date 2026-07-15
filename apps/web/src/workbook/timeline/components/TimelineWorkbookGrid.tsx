@@ -1,24 +1,36 @@
 import {
   type GridColumn,
   type GridDensity,
-  type GridRow,
+  type GridDraftRow,
+  type GridGroupingDescriptor,
+  type GridHandle,
+  type GridRecordRow,
   type GridRowGutter,
-  GridTable,
   GridViewport,
+  WorkbookDataGrid,
 } from "@cartulary/grid-adapter";
 import {
   draftCellTestId,
   gridShellTestId,
   rowCellTestId,
 } from "@cartulary/ui-contracts";
-import { type CSSProperties, Fragment, forwardRef } from "react";
+import { requireViewContract } from "@cartulary/view-contracts";
+import {
+  type CSSProperties,
+  Fragment,
+  forwardRef,
+  type Ref,
+  useMemo,
+} from "react";
 import type { WorkbookQueryState } from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { visuallyHiddenStyle } from "../../utils/workbookStyles";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
 
+const timelineContract = requireViewContract(timelineViewSchemaId);
+
 export const TimelineWorkbookGrid = forwardRef<
-  HTMLDivElement,
+  GridHandle,
   {
     readonly columns: readonly GridColumn<WorkbookRow>[];
     readonly density: GridDensity;
@@ -26,11 +38,14 @@ export const TimelineWorkbookGrid = forwardRef<
     readonly getGroupRowTestId: (fieldKey: string, value: string) => string;
     readonly groupBy: WorkbookQueryState["groupBy"];
     readonly onToggleSort: (fieldKey: string) => void;
+    readonly onSelectRecord: (recordId: string) => void;
     readonly rowGutter: GridRowGutter;
     readonly rows: readonly WorkbookRow[];
+    readonly shellRef?: Ref<HTMLDivElement> | undefined;
     readonly sort: WorkbookQueryState["sort"];
     readonly style: CSSProperties;
-    readonly timelineGridRows: readonly GridRow<WorkbookRow>[];
+    readonly timelineDraftRow?: GridDraftRow<WorkbookRow> | undefined;
+    readonly timelineGridRows: readonly GridRecordRow<WorkbookRow>[];
   }
 >(function TimelineWorkbookGrid(
   {
@@ -40,32 +55,51 @@ export const TimelineWorkbookGrid = forwardRef<
     getGroupRowTestId,
     groupBy,
     onToggleSort,
+    onSelectRecord,
     rowGutter,
     rows,
+    shellRef,
     sort,
     style,
+    timelineDraftRow,
     timelineGridRows,
   },
   ref,
 ) {
+  const grouping = useMemo<GridGroupingDescriptor<WorkbookRow> | null>(
+    () =>
+      groupBy === null
+        ? null
+        : {
+            fieldKey: groupBy,
+            formatLabel: (value) => (value === null ? null : String(value)),
+            getTestId: (fieldKey, _value, label) =>
+              label === null ? undefined : getGroupRowTestId(fieldKey, label),
+            getValue: (row) => getGroupLabel(row, groupBy),
+            label: timelineContract.fieldMap[groupBy]?.label ?? groupBy,
+          },
+    [getGroupLabel, getGroupRowTestId, groupBy],
+  );
   return (
     <GridViewport
       blockSizing="fill"
-      ref={ref}
+      ref={shellRef}
       style={style}
       testId={gridShellTestId(timelineViewSchemaId)}
     >
-      <GridTable
+      <WorkbookDataGrid
+        ref={ref}
         columns={columns}
         density={density}
+        draftRow={timelineDraftRow}
         fillViewportInline
-        getGroupLabel={getGroupLabel}
-        getGroupRowTestId={getGroupRowTestId}
-        groupBy={groupBy}
+        grouping={grouping}
         onToggleSort={onToggleSort}
+        onSelectRecord={onSelectRecord}
         rowGutter={rowGutter}
-        rows={timelineGridRows}
+        recordRows={timelineGridRows}
         sort={sort}
+        viewSchemaId={timelineViewSchemaId}
       />
       <div aria-hidden="true" style={visuallyHiddenStyle}>
         {rows.map((row) => (

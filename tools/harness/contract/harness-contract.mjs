@@ -456,7 +456,7 @@ function validateResultRootSecurity(resolved, { custom = false } = {}) {
   }
 }
 
-function generateRunId(now = new Date(), pid = process.pid) {
+export function generateRunId(now = new Date(), pid = process.pid) {
   return `${now.toISOString().replace(/[-:]/gu, "").replace(/\..+$/u, "Z")}-p${pid}`;
 }
 
@@ -984,7 +984,7 @@ function rejectUndeclaredPublicInputs(target, entry, manifest, env) {
   }
 }
 
-function resolveHarnessConfig(target, env = process.env, options = {}) {
+export function resolveHarnessConfig(target, env = process.env, options = {}) {
   const manifest = options.manifest ?? loadResolverTaskSurfaceManifest(env);
   const entry = targetPolicy(target, manifest);
   if (!entry || entry.target_class !== "public") {

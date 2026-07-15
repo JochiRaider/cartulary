@@ -563,7 +563,9 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(gridSavedRowsSelector()).toBe(
       '[role="row"][data-grid-record-id]:not([data-grid-record-id=""])',
     );
-    expect(gridDraftRowSelector()).toBe('[role="row"][data-grid-record-id=""]');
+    expect(gridDraftRowSelector()).toBe(
+      '[role="row"][data-cartulary-grid-draft-row="true"]',
+    );
   });
 
   it("derives sheet toolbar, inspector, draft row, and row menu selectors from stable workbook ids", () => {

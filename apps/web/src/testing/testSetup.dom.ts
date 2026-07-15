@@ -24,6 +24,17 @@ if (globalThis.ResizeObserver === undefined) {
   });
 }
 
+if (globalThis.IntersectionObserver === undefined) {
+  Object.defineProperty(globalThis, "IntersectionObserver", {
+    configurable: true,
+    value: class IntersectionObserver {
+      disconnect() {}
+      observe() {}
+      unobserve() {}
+    },
+  });
+}
+
 if (typeof window !== "undefined") {
   Object.defineProperty(window, "focus", {
     configurable: true,
@@ -101,13 +112,19 @@ function configuredLayoutSize(element: HTMLElement, axis: "height" | "width") {
     if (gridWidth !== null) {
       return gridWidth;
     }
-    if (element.getAttribute("role") === "grid") {
+    if (
+      element.getAttribute("role") === "grid" ||
+      element.getAttribute("role") === "treegrid"
+    ) {
       return 1280;
     }
     return 224;
   }
 
-  if (element.getAttribute("role") === "grid") {
+  if (
+    element.getAttribute("role") === "grid" ||
+    element.getAttribute("role") === "treegrid"
+  ) {
     return 720;
   }
   return element.getAttribute("role") === "row" ? 48 : 40;

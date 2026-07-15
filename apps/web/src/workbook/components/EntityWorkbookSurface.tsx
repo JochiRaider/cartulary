@@ -3,10 +3,13 @@ import {
   type GridActionsColumn,
   type GridColumn,
   type GridDensity,
-  type GridRow,
-  GridTable,
+  type GridDraftRow,
+  type GridGroupingDescriptor,
+  type GridHandle,
+  type GridRecordRow,
   GridViewport,
   resolveGridPasteTargets,
+  WorkbookDataGrid,
 } from "@cartulary/grid-adapter";
 import {
   dataTestIdSelector,
@@ -369,40 +372,51 @@ export function EntityWorkbookSurface({
     () => entityRowFromApi(draftEntityRawRow, entityType),
     [draftEntityRawRow, entityType],
   );
-  const entityGridRows = useMemo<readonly GridRow<EntityRow>[]>(() => {
-    const savedRows = workbookGridRows({
-      getRecordId: (row: EntityRow) => row.recordId,
-      rows,
-      selectedRecordId: selectedEntity?.recordId ?? null,
-      surface,
-    });
-    if (writableFields.length === 0) {
-      return savedRows;
+  const entityGridRows = useMemo<readonly GridRecordRow<EntityRow>[]>(
+    () =>
+      workbookGridRows({
+        getRecordId: (row: EntityRow) => row.recordId,
+        getRowVersion: (row: EntityRow) => row.rowVersion,
+        rows,
+        selectedRecordId: selectedEntity?.recordId ?? null,
+        surface,
+      }),
+    [rows, selectedEntity?.recordId, surface],
+  );
+  const entityDraftRow = useMemo<GridDraftRow<EntityRow> | undefined>(
+    () =>
+      writableFields.length === 0
+        ? undefined
+        : {
+            kind: "draft",
+            data: draftEntityRow,
+            gutterContent: "+",
+            gutterLabel: "Draft row",
+            testId: workbookInlineDraftRowTestId(surface),
+          },
+    [draftEntityRow, surface, writableFields.length],
+  );
+  const grouping = useMemo<GridGroupingDescriptor<EntityRow> | null>(() => {
+    const fieldKey = queryState.groupBy;
+    if (fieldKey === null) {
+      return null;
     }
-    return [
-      ...savedRows,
-      {
-        key: draftRowRecordId,
-        recordId: null,
-        data: draftEntityRow,
-        gutterContent: "+",
-        gutterLabel: "Draft row",
-        testId: workbookInlineDraftRowTestId(surface),
-        variant: "draft",
-      },
-    ];
-  }, [
-    draftEntityRow,
-    draftRowRecordId,
-    rows,
-    selectedEntity?.recordId,
-    surface,
-    writableFields.length,
-  ]);
+    return {
+      fieldKey,
+      formatLabel: (value) => (value === null ? null : String(value)),
+      getTestId: (groupFieldKey, _value, label) =>
+        label === null
+          ? undefined
+          : gridGroupRowTestId(surface, groupFieldKey, label),
+      getValue: (row) => entityGroupLabel(row, fieldKey),
+      label: contract.fieldMap[fieldKey]?.label ?? fieldKey,
+    };
+  }, [contract.fieldMap, queryState.groupBy, surface]);
+  const gridHandleRef = useRef<GridHandle | null>(null);
   const entityFocus = useWorkbookGridFocus({
     columns: entityAnchorColumns,
-    getGroupLabel: (row, fieldKey) => entityGroupLabel(row, fieldKey),
-    groupBy: queryState.groupBy,
+    gridHandleRef,
+    grouping,
     rows: entityGridRows,
     surface,
   });
@@ -417,13 +431,12 @@ export function EntityWorkbookSurface({
       }
       const dimensions = clipboardGridDimensions(clipboardText);
       const presentationRows = buildGridPresentationRows({
-        getGroupLabel: (row, fieldKey) => entityGroupLabel(row, fieldKey),
-        groupBy: queryState.groupBy,
+        grouping,
         rows: entityGridRows,
       });
       const targetResolution = resolveGridPasteTargets({
         columns: entityAnchorColumns,
-        current: anchor,
+        current: { ...anchor, viewSchemaId: surface },
         pastedColumnCount: dimensions.columnCount,
         pastedRowCount: dimensions.rowCount,
         presentationRows,
@@ -479,38 +492,39 @@ export function EntityWorkbookSurface({
       entityType,
       incidentId,
       onRefreshEntities,
-      queryState.groupBy,
+      grouping,
+      surface,
     ],
   );
   const entityColumns: readonly GridColumn<EntityRow>[] =
     entityAnchorColumns.map((column) => ({
       ...column,
-      renderCell: (row) => {
-        if (row.recordId === draftRowRecordId) {
-          const writableField =
-            writableFields.find(
-              (candidate) => candidate.fieldKey === column.fieldKey,
-            ) ?? null;
-          if (writableField === null) {
-            return <span style={draftCellPlaceholderStyle}>-</span>;
-          }
-          return (
-            <GenericMutationControl
-              collectionMode="add"
-              field={writableField}
-              referenceOptions={entityReferenceOptions}
-              surface="grid"
-              testId={genericCreateFieldTestId(writableField.fieldKey)}
-              value={createDraft[writableField.fieldKey] ?? ""}
-              onChange={(value) => {
-                setCreateDraft((current) => ({
-                  ...current,
-                  [writableField.fieldKey]: value,
-                }));
-              }}
-            />
-          );
+      renderDraftCell: () => {
+        const writableField =
+          writableFields.find(
+            (candidate) => candidate.fieldKey === column.fieldKey,
+          ) ?? null;
+        if (writableField === null) {
+          return <span style={draftCellPlaceholderStyle}>-</span>;
         }
+        return (
+          <GenericMutationControl
+            collectionMode="add"
+            field={writableField}
+            referenceOptions={entityReferenceOptions}
+            surface="grid"
+            testId={genericCreateFieldTestId(writableField.fieldKey)}
+            value={createDraft[writableField.fieldKey] ?? ""}
+            onChange={(value) => {
+              setCreateDraft((current) => ({
+                ...current,
+                [writableField.fieldKey]: value,
+              }));
+            }}
+          />
+        );
+      },
+      renderCell: ({ row }) => {
         return (
           <FocusableWorkbookCell
             fieldKey={column.fieldKey}
@@ -528,39 +542,39 @@ export function EntityWorkbookSurface({
     label: "",
     width: 76,
     minWidth: 76,
-    renderCell: ({ data: row }) =>
-      row.recordId === draftRowRecordId ? (
+    renderDraftCell: () => (
+      <button
+        data-testid={genericCreateSubmitTestId(contract.viewSchemaId)}
+        disabled={mutationState === "Syncing"}
+        style={secondaryActionButtonStyle}
+        type="button"
+        onClick={() => {
+          void submitEntityCreate();
+        }}
+      >
+        Commit
+      </button>
+    ),
+    renderCell: ({ data: row }) => (
+      <span
+        data-testid={workbookRowActionMenuButtonTestId(surface, row.recordId)}
+      >
         <button
-          data-testid={genericCreateSubmitTestId(contract.viewSchemaId)}
-          disabled={mutationState === "Syncing"}
-          style={secondaryActionButtonStyle}
+          data-testid={entityInspectButtonTestId(entityType, row.recordId)}
+          aria-label={`Inspect ${row.label}`}
+          style={rowMenuButtonStyle}
           type="button"
           onClick={() => {
-            void submitEntityCreate();
+            setSelectedRecordId(row.recordId);
+            setMergeMessage(null);
+            setMergePreconditionDetails([]);
+            setIsInspectorOpen(true);
           }}
         >
-          Commit
+          <MoreHorizontal aria-hidden="true" size={16} />
         </button>
-      ) : (
-        <span
-          data-testid={workbookRowActionMenuButtonTestId(surface, row.recordId)}
-        >
-          <button
-            data-testid={entityInspectButtonTestId(entityType, row.recordId)}
-            aria-label={`Inspect ${row.label}`}
-            style={rowMenuButtonStyle}
-            type="button"
-            onClick={() => {
-              setSelectedRecordId(row.recordId);
-              setMergeMessage(null);
-              setMergePreconditionDetails([]);
-              setIsInspectorOpen(true);
-            }}
-          >
-            <MoreHorizontal aria-hidden="true" size={16} />
-          </button>
-        </span>
-      ),
+      </span>
+    ),
   };
   const { row: selectedEditRow, field: selectedEditField } =
     selectWorkbookEditTarget({
@@ -1155,18 +1169,17 @@ export function EntityWorkbookSurface({
           style={gridShellStyle}
           testId={gridShellTestId(surface)}
         >
-          <GridTable
+          <WorkbookDataGrid
+            ref={gridHandleRef}
             actionsColumn={entityActionsColumn}
             columns={entityColumns}
             density={density}
-            getGroupLabel={(row, fieldKey) => entityGroupLabel(row, fieldKey)}
-            getGroupRowTestId={(fieldKey, value) =>
-              gridGroupRowTestId(surface, fieldKey, value)
-            }
-            groupBy={queryState.groupBy}
+            draftRow={entityDraftRow}
+            grouping={grouping}
             onToggleSort={onToggleSort}
-            rows={entityGridRows}
+            recordRows={entityGridRows}
             sort={queryState.sort}
+            viewSchemaId={surface}
           />
         </GridViewport>
       }

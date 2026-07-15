@@ -20,6 +20,13 @@ FRONTEND_READY_URL="${CARTULARY_DEV_STACK_FRONTEND_READY_URL:-http://127.0.0.1:$
 READY_TIMEOUT_SECONDS="${CARTULARY_DEV_STACK_READY_TIMEOUT_SECONDS:-180}"
 POSTGRES_READY_HOST="${CARTULARY_DEV_STACK_POSTGRES_HOST:-127.0.0.1}"
 POSTGRES_READY_PORT="${CARTULARY_DEV_STACK_POSTGRES_PORT:-5432}"
+LOCAL_POSTGRES_HOST="${CARTULARY_LOCAL_POSTGRES_HOST:-localhost}"
+LOCAL_POSTGRES_PORT="${CARTULARY_LOCAL_POSTGRES_PORT:-5432}"
+LOCAL_POSTGRES_DATABASE="${CARTULARY_LOCAL_POSTGRES_DATABASE:-cartulary}"
+LOCAL_POSTGRES_USER="${CARTULARY_LOCAL_POSTGRES_USER:-cartulary}"
+LOCAL_POSTGRES_PASSWORD="${CARTULARY_LOCAL_POSTGRES_PASSWORD:-cartulary}"
+LOCAL_POSTGRES_SSLMODE="${CARTULARY_LOCAL_POSTGRES_SSLMODE:-disable}"
+POSTGRES_PRIMARY_DSN="${CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN:-postgres://${LOCAL_POSTGRES_USER}:${LOCAL_POSTGRES_PASSWORD}@${LOCAL_POSTGRES_HOST}:${LOCAL_POSTGRES_PORT}/${LOCAL_POSTGRES_DATABASE}?sslmode=${LOCAL_POSTGRES_SSLMODE}}"
 OBJECT_STORE_READY_HOST="${CARTULARY_DEV_STACK_OBJECT_STORE_HOST:-127.0.0.1}"
 OBJECT_STORE_READY_PORT="${CARTULARY_DEV_STACK_OBJECT_STORE_PORT:-${SEAWEEDFS_S3_UPSTREAM_PORT:-18333}}"
 OBJECT_STORE_ENDPOINT="${OBJECT_STORE_ENDPOINT:-localhost:${OBJECT_STORE_READY_PORT}}"
@@ -158,7 +165,10 @@ wait_for_http() {
     fi
 
     if [[ -n "${SERVER_PGID:-}" ]] && ! process_group_running "${SERVER_PGID}" >/dev/null 2>&1; then
-      echo "backend exited before ${name} readiness; inspect ${SERVER_LOG} and ensure backing services are running with make db-up" >&2
+      echo "backend exited before ${name} readiness; inspect ${SERVER_LOG}, run make db-up for backing services, and run make db-migrate for current-line schema upgrades" >&2
+      if [[ "${name}" == "backend" ]]; then
+        echo "If the backend log reports prod_ddl_rebaseline_v1/historical_migration_lineage, reset the local database with CARTULARY_DESTRUCTIVE_CONFIRM=db-reset make db-reset or use an owner-approved export/import path." >&2
+      fi
       cat "${SERVER_LOG}" >&2 || true
       return 1
     fi
@@ -171,7 +181,10 @@ wait_for_http() {
     sleep 1
   done
 
-  echo "timed out waiting for ${name} at ${url}; inspect ${SERVER_LOG} and ${WEB_LOG}, and ensure backing services are running with make db-up" >&2
+  echo "timed out waiting for ${name} at ${url}; inspect ${SERVER_LOG} and ${WEB_LOG}, run make db-up for backing services, and run make db-migrate for current-line schema upgrades" >&2
+  if [[ "${name}" == "backend" ]]; then
+    echo "If the backend log reports prod_ddl_rebaseline_v1/historical_migration_lineage, reset the local database with CARTULARY_DESTRUCTIVE_CONFIRM=db-reset make db-reset or use an owner-approved export/import path." >&2
+  fi
   cat "${SERVER_LOG}" >&2 || true
   cat "${WEB_LOG}" >&2 || true
   return 1
@@ -299,7 +312,7 @@ main() {
     env \
     CARTULARY_CONFIG_FILE="${CONFIG_FILE}" \
     CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH="${ROOT_DIR}/configs/dev/bootstrap-admin.json" \
-    CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="postgres://cartulary:cartulary@localhost:5432/cartulary?sslmode=disable" \
+    CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="${POSTGRES_PRIMARY_DSN}" \
     CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT="${OBJECT_STORE_ENDPOINT}" \
     CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID="${SEAWEEDFS_S3_ACCESS_KEY_ID}" \
     CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY="${SEAWEEDFS_S3_SECRET_ACCESS_KEY}" \
@@ -309,16 +322,18 @@ main() {
     GOMODCACHE="${GO_MOD_CACHE_DIR}" \
     "${backend_command[@]}"
 
+  echo "backend log: ${SERVER_LOG}"
+
+  dev_wait_backend_ready
+
   start_process_group VITE_PGID "${WEB_LOG}" \
     env \
     COREPACK_HOME="${NODE_RUNTIME_DIR}/corepack" \
     PATH="${NODE_RUNTIME_DIR}/bin:${PATH}" \
     "${frontend_command[@]}"
 
-  echo "backend log: ${SERVER_LOG}"
   echo "frontend log: ${WEB_LOG}"
 
-  dev_wait_backend_ready
   dev_wait_frontend_ready
 
   supervise_dev_stack
