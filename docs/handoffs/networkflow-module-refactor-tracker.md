@@ -8,7 +8,7 @@
 | Target label | `networkflow` |
 | Output path | `docs/handoffs/networkflow-module-refactor-tracker.md` |
 | Repository snapshot | Clean `main` at `63a19bf6e0c3f17a9b53afb58afa8bd04fb4c550` when planning began |
-| Status | Historical module remediation complete; Network Analysis grid-adapter adoption is executing under Section 14, with `NF-GA-01` `ACTIVE` |
+| Status | Historical module remediation complete; Network Analysis grid-adapter adoption is executing under Section 14, with `NF-GA-01` `COMPLETE` and `NF-GA-02` awaiting activation |
 | Authorized change | Specification, implementation, tests, contracts, generated outputs, configuration, migrations, harness inputs, documentation, and this tracker |
 | Current execution authorization | Specification, contract, generated, backend, frontend, test, harness-input, visual, and tracker changes required by Section 14; no dependency, lockfile, database, saved-view, or React Data Grid version migration |
 | Preserved non-goals | No richer graph canvas, observation creation, restore/purge behavior, existing-route response change, or HTTP schema-major expansion; one additive Core import mapping-preview route is explicitly authorized |
@@ -383,7 +383,7 @@ authorize or claim implementation completion.
 | Harness authority | `docs/testing-harness-nlspec.md`; it owns invocation, target selection, scheduling, artifacts, cleanup, and evidence accounting |
 | Adapter reference | Completed F-RDG workstreams in `docs/handoffs/grid-adapter-module-refactor-tracker.md` |
 | Current execution scope | Full Section 14 remediation, serially checkpointed |
-| Overall adoption status | `ACTIVE` (`NF-GA-00 COMPLETE`; `NF-GA-01 ACTIVE`) |
+| Overall adoption status | `ACTIVE` (`NF-GA-00` and `NF-GA-01` `COMPLETE`; `NF-GA-02` awaiting activation) |
 
 The inspected baseline has the following implementation boundaries:
 
@@ -658,7 +658,7 @@ Every checkpoint must populate these fields:
 
 | Field | Approved value |
 | --- | --- |
-| Status | `ACTIVE` |
+| Status | `COMPLETE` |
 | Activation baseline | `dad8633301f91450fafb4544c6f94d4b6e06a35a` |
 | Dependencies | `NF-GA-00 COMPLETE` |
 | Remediation | Implement the generalized semantic interfaces and `SemanticDataGrid`; atomically migrate existing workbook consumers; retain Core-record-only bulk selection and mutation gating |
@@ -671,8 +671,26 @@ Every checkpoint must populate these fields:
 | Commands/evidence | `make frontend-unit`; `make frontend-typecheck`; `make frontend-import-boundary-check`; `make lint-biome`; `git diff --check`; semantic/live-grid evidence |
 | Rollback | Revert adapter and all consumer migrations atomically |
 | Exit criteria | Existing workbook evidence and new extension-resource fixtures pass |
-| Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
+| Checkpoint | Completed in Section 14.7.2 |
 | Next workstream | `NF-GA-02` |
+
+##### 14.7.2 `NF-GA-01` completion checkpoint
+
+| Checkpoint field | Recorded outcome |
+| --- | --- |
+| Status / reviewer / date | `COMPLETE`; Codex self-review; 2026-07-16 America/New_York |
+| Baseline and activation commits | Baseline `dad8633301f91450fafb4544c6f94d4b6e06a35a`; activation `463162bab88192773cd3338fb9259ebd7c28a3ea` |
+| Implementation end commit | `a352e93ddefe916fe5edaf0d5c22f2f78fa7f1b1` |
+| Files changed | `packages/grid-adapter` semantic model, RDG compiler/component, facade, test support, and semantic/live-grid tests; all `apps/web` generic, Entity, Assessment, and Timeline adapter consumers and tests; adapter guidance; protocol facade version expectation; frontend import-boundary fixtures; test-accounting classification |
+| Substantive result | Replaced the Core-specific adapter facade atomically with `SemanticDataGrid`, identity-neutral surfaces/rows/anchors/ranges, optional Core mutation identity, and Core-only bulk/mutation capabilities. Extension rows now render, group, select, focus, range-select, navigate, and copy with extension-resource identities; compile-time and runtime gates reject edit, paste, fill, draft, action, and bulk capabilities on extension surfaces. Vendor keys remain package-private and no compatibility alias or deprecated export remains |
+| Required gates | `make frontend-unit` PASS (`.cartulary/test-results/20260716T040305Z-p10212`); `make frontend-typecheck` PASS; `make frontend-import-boundary-check` PASS (`.cartulary/test-results/20260716T040547Z-p14311`); `make lint-biome` PASS; `git diff --check` PASS |
+| Additional gates | `make format` PASS (`.cartulary/test-results/20260716T040146Z-p5241`); `make json-shape-check` PASS (`.cartulary/test-results/20260716T040547Z-p14346`) after adding the two new semantic tests to accounting |
+| Corrective runs | The first atomic-migration type check failed as expected while consumers still used the removed facade (`.cartulary/test-results/20260716T033808Z-p74938`); migration completed before the final pass. Early unit runs exposed stale row-shape assertions, the prior `1.1.0` document expectation, and then unmapped new tests; those fixtures and accounting were corrected, with the final passing root above. The first lint run found formatting/import-order drift (`.cartulary/test-results/20260716T040137Z-p4776`); `make format` resolved it. All failures were related to this change and none remain |
+| Evidence-map rows | Added support-only Phase 12 classifications for `resolves extension anchors, ranges, grouping, and navigation without Core aliases` and `rejects duplicate extension identities and all mutation target compilation`; live-RDG tests remain support evidence under the existing adapter test-file classification. No extension-conformance or public claim row was added |
+| Compatibility / migration | Intentional monorepo-internal TypeScript break completed atomically across every Core consumer; existing Core behavior remains covered. No deprecated export, wrapper, fake identity, database change, dependency/lockfile update, saved-view change, or RDG upgrade |
+| Residual risk / deferral | Network Analysis has not adopted the adapter yet; that occurs after query ownership is established in later workstreams. Cross-session layout, Network Flow mutations, and vendor identities remain deferred or rejected under Section 14.10 |
+| Rollback | Revert `a352e93d` atomically to restore the former adapter and all consumers; not exercised because all exit gates passed |
+| Next workstream | `NF-GA-02`; it may activate only after this checkpoint commit |
 
 #### `NF-GA-02` — Import preview and explicit mapping workflow
 
