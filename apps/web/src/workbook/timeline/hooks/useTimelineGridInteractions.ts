@@ -1,7 +1,7 @@
 import type {
   GridColumn,
+  GridDataRow,
   GridHandle,
-  GridRecordRow,
 } from "@cartulary/grid-adapter";
 import type { WorkbookSurface } from "@cartulary/ui-contracts";
 import { useCallback, useState } from "react";
@@ -23,7 +23,7 @@ export type TimelineGridInteractionRefs = {
     readonly GridColumn<WorkbookRow>[]
   >;
   readonly timelineAnchorRowsRef: TimelineMutableRef<
-    readonly GridRecordRow<WorkbookRow>[]
+    readonly GridDataRow<WorkbookRow>[]
   >;
   readonly viewportContinuityTokenRef: TimelineMutableRef<number>;
   readonly workbookFocusAnchorRef: TimelineMutableRef<WorkbookFocusAnchor | null>;

@@ -12,11 +12,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   assertGridRows,
   type GridColumn,
+  type GridDataRow,
   type GridHandle,
-  type GridRecordRow,
   type GridSortEntry,
   GridViewport,
-  WorkbookDataGrid,
+  SemanticDataGrid,
+  type SemanticDataGridProps,
 } from "./index";
 import { setGridVirtualizationDisabledForDiagnostics } from "./virtualizationDiagnostics";
 
@@ -43,6 +44,16 @@ const columns: readonly GridColumn<HarnessRow>[] = [
     sortDisabledReason: "State sorting disabled in this harness",
   },
 ];
+
+const testSurface = { kind: "view_schema", viewSchemaId: "test.view" } as const;
+
+function gridAnchor(recordId: string, fieldKey: string) {
+  return {
+    fieldKey,
+    rowIdentity: { kind: "core_record" as const, recordId },
+    surface: testSurface,
+  };
+}
 
 describe("grid-adapter", () => {
   beforeEach(() => {
@@ -76,23 +87,158 @@ describe("grid-adapter", () => {
 
   it("rejects missing and duplicate saved record identities", () => {
     expect(() =>
-      assertGridRows([{ recordId: "record-1" }, { recordId: " " }]),
-    ).toThrow(/missing record_id/i);
+      assertGridRows([
+        {
+          data: { label: "Alpha", state: "open" },
+          kind: "data",
+          rowIdentity: { kind: "core_record", recordId: " " },
+        },
+      ]),
+    ).toThrow(/invalid semantic identity/i);
 
     expect(() =>
-      assertGridRows([{ recordId: "record-1" }, { recordId: "record-1" }]),
-    ).toThrow(/duplicate record_id/i);
+      assertGridRows([
+        {
+          data: { label: "Alpha", state: "open" },
+          kind: "data",
+          rowIdentity: { kind: "core_record", recordId: "record-1" },
+        },
+        {
+          data: { label: "Beta", state: "open" },
+          kind: "data",
+          rowIdentity: { kind: "core_record", recordId: "record-1" },
+        },
+      ]),
+    ).toThrow(/duplicate semantic row identity/i);
+  });
+
+  it("renders, selects, and focuses extension resources without Core identities", async () => {
+    const handle = createRef<GridHandle>();
+    const onSelectRow = vi.fn();
+    const extensionSurface = {
+      kind: "extension_grid",
+      extensionProfileId: "network_flow_activity",
+      workspaceKey: "incident-1",
+      gridSchemaId: "network_flow.accepted_rows.v1",
+    } as const;
+    const rowIdentity = {
+      kind: "extension_resource",
+      extensionProfileId: "network_flow_activity",
+      resourceKind: "accepted_flow_row",
+      resourceId: "flow-row-1",
+    } as const;
+
+    render(
+      <SemanticDataGrid
+        ref={handle}
+        columns={[
+          {
+            fieldKey: "label",
+            getClipboardValue: (row) => row.label,
+            label: "Label",
+            renderCell: ({ row }) => (
+              <span data-testid="extension-live-cell">{row.label}</span>
+            ),
+          },
+        ]}
+        dataRows={[
+          {
+            data: { label: "Flow 1", state: "accepted" },
+            kind: "data",
+            rowIdentity,
+            testId: "extension-live-row",
+          },
+        ]}
+        interactionMode={{ kind: "read_only", label: "Analysis is read-only" }}
+        onSelectRow={onSelectRow}
+        surface={extensionSurface}
+      />,
+    );
+
+    const row = await screen.findByTestId("extension-live-row");
+    expect(row.getAttribute("data-grid-row-identity-kind")).toBe(
+      "extension_resource",
+    );
+    expect(row.getAttribute("data-grid-record-id")).toBeNull();
+    const cell = await screen.findByTestId("extension-live-cell");
+    fireEvent.click(cell.closest('[role="gridcell"]') as HTMLElement);
+    expect(onSelectRow).toHaveBeenCalledWith(rowIdentity);
+    const anchor = {
+      fieldKey: "label",
+      rowIdentity,
+      surface: extensionSurface,
+    };
+    expect(handle.current?.focusAnchor(anchor)).toBe(true);
+  });
+
+  it("groups extension resources in the live grid without changing their identities", async () => {
+    render(
+      <SemanticDataGrid
+        columns={columns}
+        dataRows={[
+          {
+            data: { label: "Flow 1", state: "accepted" },
+            kind: "data",
+            rowIdentity: {
+              kind: "extension_resource",
+              extensionProfileId: "network_flow_activity",
+              resourceKind: "graph_contributor",
+              resourceId: "contributor-1",
+            },
+            testId: "extension-grouped-row",
+          },
+        ]}
+        grouping={{
+          fieldKey: "state",
+          formatLabel: (value) => (value === null ? null : String(value)),
+          getTestId: () => "extension-group-row",
+          getValue: (row) => row.state,
+        }}
+        surface={{
+          kind: "extension_grid",
+          extensionProfileId: "network_flow_activity",
+          workspaceKey: "incident-1",
+          gridSchemaId: "network_flow.graph_contributors.v1",
+        }}
+      />,
+    );
+
+    expect(await screen.findByTestId("extension-group-row")).toBeTruthy();
+    const row = await screen.findByTestId("extension-grouped-row");
+    expect(row.getAttribute("data-grid-row-identity-kind")).toBe(
+      "extension_resource",
+    );
+    expect(row.getAttribute("data-grid-record-id")).toBeNull();
+  });
+
+  it("fails closed when untyped callers attach Core mutation capabilities to extension grids", () => {
+    const unsafe = {
+      columns,
+      dataRows: [],
+      interactionMode: { kind: "editable" },
+      onEditCell: vi.fn(),
+      surface: {
+        kind: "extension_grid",
+        extensionProfileId: "network_flow_activity",
+        workspaceKey: "incident-1",
+        gridSchemaId: "network_flow.accepted_rows.v1",
+      },
+    } as unknown as SemanticDataGridProps<HarnessRow>;
+
+    expect(() => render(<SemanticDataGrid {...unsafe} />)).toThrow(
+      /cannot enable Core mutation/i,
+    );
   });
 
   it("renders semantic data states without manufacturing rows and keeps interaction mode independent", async () => {
     const onAction = vi.fn();
     const { container, rerender } = render(
-      <WorkbookDataGrid
-        viewSchemaId="test.view"
+      <SemanticDataGrid
+        surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
         columns={columns}
         dataState={{ kind: "initial_loading", surfaceLabel: "Records" }}
         interactionMode={{ kind: "read_only", label: "Closed, read-only" }}
-        recordRows={[]}
+        dataRows={[]}
       />,
     );
 
@@ -105,18 +251,18 @@ describe("grid-adapter", () => {
       );
     });
     expect(
-      container.querySelector('[data-cartulary-grid-row-kind="record"]'),
+      container.querySelector('[data-cartulary-grid-row-kind="data"]'),
     ).toBeNull();
 
     rerender(
-      <WorkbookDataGrid
-        viewSchemaId="test.view"
+      <SemanticDataGrid
+        surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
         columns={columns}
         dataState={{
           action: { label: "Clear filters", onInvoke: onAction },
           kind: "filtered_empty",
         }}
-        recordRows={[]}
+        dataRows={[]}
       />,
     );
     expect(screen.getByText("No rows match the current filters.")).toBeTruthy();
@@ -124,19 +270,19 @@ describe("grid-adapter", () => {
     expect(onAction).toHaveBeenCalledOnce();
 
     rerender(
-      <WorkbookDataGrid
-        viewSchemaId="test.view"
+      <SemanticDataGrid
+        surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
         columns={columns}
         dataState={{
           kind: "stale_error",
           message: "Refresh failed.",
         }}
-        recordRows={[
+        dataRows={[
           {
             data: { label: "Retained", state: "saved" },
-            kind: "record",
-            recordId: "record-retained",
-            rowVersion: 4,
+            kind: "data",
+            mutationIdentity: { kind: "core_row_version", baseRowVersion: 4 },
+            rowIdentity: { kind: "core_record", recordId: "record-retained" },
           },
         ]}
       />,
@@ -150,18 +296,18 @@ describe("grid-adapter", () => {
   });
 
   it("compiles semantic row and cell state into private classes, markers, and ARIA", async () => {
-    const statefulRow: GridRecordRow<HarnessRow> = {
+    const statefulRow: GridDataRow<HarnessRow> = {
       data: { label: "Alpha", state: "invalid" },
-      kind: "record",
-      recordId: "record-stateful",
-      rowVersion: 7,
+      kind: "data",
+      mutationIdentity: { kind: "core_row_version", baseRowVersion: 7 },
+      rowIdentity: { kind: "core_record", recordId: "record-stateful" },
       testId: "stateful-row",
     };
 
     render(
-      <WorkbookDataGrid
-        activeRecordId="record-stateful"
-        bulkSelection={{
+      <SemanticDataGrid
+        activeRowIdentity={{ kind: "core_record", recordId: "record-stateful" }}
+        coreRecordBulkSelection={{
           onSelectedRecordIdsChange: vi.fn(),
           selectedRecordIds: new Set(["record-stateful"]),
         }}
@@ -173,8 +319,8 @@ describe("grid-adapter", () => {
             : { invalid: { message: "Choose an allowed state" } }
         }
         getRowState={() => ({ pending: true })}
-        recordRows={[statefulRow]}
-        viewSchemaId="test.view"
+        dataRows={[statefulRow]}
+        surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
       />,
     );
 
@@ -218,29 +364,31 @@ describe("grid-adapter", () => {
         ReadonlySet<string>
       >(() => new Set());
       return (
-        <WorkbookDataGrid
-          activeRecordId="record-2"
-          bulkSelection={{
-            isRecordSelectable: (row) => row.recordId !== "record-2",
+        <SemanticDataGrid
+          activeRowIdentity={{ kind: "core_record", recordId: "record-2" }}
+          coreRecordBulkSelection={{
+            isRecordSelectable: (row) =>
+              row.rowIdentity.kind === "core_record" &&
+              row.rowIdentity.recordId !== "record-2",
             onSelectedRecordIdsChange: setSelectedRecordIds,
             selectedRecordIds,
           }}
           columns={columns}
-          recordRows={[
+          dataRows={[
             {
-              kind: "record",
-              recordId: "record-1",
-              rowVersion: 1,
+              kind: "data",
+              mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+              rowIdentity: { kind: "core_record", recordId: "record-1" },
               data: { label: "Alpha", state: "open" },
             },
             {
-              kind: "record",
-              recordId: "record-2",
-              rowVersion: 1,
+              kind: "data",
+              mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+              rowIdentity: { kind: "core_record", recordId: "record-2" },
               data: { label: "Beta", state: "reviewed" },
             },
           ]}
-          viewSchemaId="test.view"
+          surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
         />
       );
     }
@@ -270,8 +418,8 @@ describe("grid-adapter", () => {
   it("keeps the bottom create draft recordless and usable with zero committed rows", async () => {
     const onPasteCell = vi.fn();
     render(
-      <WorkbookDataGrid
-        bulkSelection={{
+      <SemanticDataGrid
+        coreRecordBulkSelection={{
           onSelectedRecordIdsChange: vi.fn(),
           selectedRecordIds: new Set(),
         }}
@@ -292,8 +440,8 @@ describe("grid-adapter", () => {
           testId: "zero-row-create-draft",
         }}
         onPasteCell={onPasteCell}
-        recordRows={[]}
-        viewSchemaId="test.view"
+        dataRows={[]}
+        surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
       />,
     );
 
@@ -325,9 +473,9 @@ describe("grid-adapter", () => {
     const onPasteCell = vi.fn();
     const handle = createRef<GridHandle>();
     render(
-      <WorkbookDataGrid
+      <SemanticDataGrid
         ref={handle}
-        viewSchemaId="test.view"
+        surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
         columns={[
           {
             contractWritable: true,
@@ -352,11 +500,11 @@ describe("grid-adapter", () => {
         onCopyCell={onCopyCell}
         onEditCell={onEditCell}
         onPasteCell={onPasteCell}
-        recordRows={[
+        dataRows={[
           {
-            kind: "record",
-            recordId: "record-1",
-            rowVersion: 7,
+            kind: "data",
+            mutationIdentity: { kind: "core_row_version", baseRowVersion: 7 },
+            rowIdentity: { kind: "core_record", recordId: "record-1" },
             data: { label: "Alpha", state: "open" },
           },
         ]}
@@ -374,12 +522,14 @@ describe("grid-adapter", () => {
     fireEvent.copy(liveGrid);
     fireEvent.paste(liveGrid);
     fireEvent.doubleClick(cell);
-    const anchor = {
-      fieldKey: "label",
-      recordId: "record-1",
-      viewSchemaId: "test.view",
+    const anchor = gridAnchor("record-1", "label");
+    const target = {
+      ...anchor,
+      mutationIdentity: {
+        kind: "core_row_version" as const,
+        baseRowVersion: 7,
+      },
     };
-    const target = { ...anchor, baseRowVersion: 7 };
     expect(onActiveCellChange).toHaveBeenCalledWith(anchor);
     expect(onCopyCell).toHaveBeenCalledWith(
       expect.objectContaining({ anchor }),
@@ -414,7 +564,10 @@ describe("grid-adapter", () => {
     expect(document.activeElement).toBe(externalButton);
     externalButton.remove();
     expect(
-      handle.current?.focusAnchor({ ...anchor, viewSchemaId: "wrong.view" }),
+      handle.current?.focusAnchor({
+        ...anchor,
+        surface: { kind: "view_schema", viewSchemaId: "wrong.view" },
+      }),
     ).toBe(false);
   });
 
@@ -453,30 +606,30 @@ describe("grid-adapter", () => {
     render(
       <>
         <button type="button">Before grid</button>
-        <WorkbookDataGrid
+        <SemanticDataGrid
           columns={keyboardColumns}
           onActiveCellChange={onActiveCellChange}
-          recordRows={[
+          dataRows={[
             {
               data: { label: "Alpha", state: "open" },
-              kind: "record",
-              recordId: "record-1",
-              rowVersion: 1,
+              kind: "data",
+              mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+              rowIdentity: { kind: "core_record", recordId: "record-1" },
             },
             {
               data: { label: "Beta", state: "open" },
-              kind: "record",
-              recordId: "record-2",
-              rowVersion: 2,
+              kind: "data",
+              mutationIdentity: { kind: "core_row_version", baseRowVersion: 2 },
+              rowIdentity: { kind: "core_record", recordId: "record-2" },
             },
             {
               data: { label: "Gamma", state: "closed" },
-              kind: "record",
-              recordId: "record-3",
-              rowVersion: 3,
+              kind: "data",
+              mutationIdentity: { kind: "core_row_version", baseRowVersion: 3 },
+              rowIdentity: { kind: "core_record", recordId: "record-3" },
             },
           ]}
-          viewSchemaId="test.view"
+          surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
         />
         <button type="button">After grid</button>
       </>,
@@ -504,11 +657,9 @@ describe("grid-adapter", () => {
       key: "End",
     });
     await waitFor(() =>
-      expect(onActiveCellChange).toHaveBeenLastCalledWith({
-        fieldKey: "state",
-        recordId: "record-3",
-        viewSchemaId: "test.view",
-      }),
+      expect(onActiveCellChange).toHaveBeenLastCalledWith(
+        gridAnchor("record-3", "state"),
+      ),
     );
 
     fireEvent.keyDown(
@@ -518,11 +669,9 @@ describe("grid-adapter", () => {
       { ctrlKey: true, key: "Home" },
     );
     await waitFor(() =>
-      expect(onActiveCellChange).toHaveBeenLastCalledWith({
-        fieldKey: "label",
-        recordId: "record-1",
-        viewSchemaId: "test.view",
-      }),
+      expect(onActiveCellChange).toHaveBeenLastCalledWith(
+        gridAnchor("record-1", "label"),
+      ),
     );
 
     fireEvent.keyDown(alphaCell, { key: "Z" });
@@ -566,11 +715,9 @@ describe("grid-adapter", () => {
     fireEvent.keyDown(acceptedEditor, { key: "Enter" });
     await waitFor(() => expect(commit).toHaveBeenCalledTimes(1));
     await waitFor(() =>
-      expect(onActiveCellChange).toHaveBeenLastCalledWith({
-        fieldKey: "label",
-        recordId: "record-2",
-        viewSchemaId: "test.view",
-      }),
+      expect(onActiveCellChange).toHaveBeenLastCalledWith(
+        gridAnchor("record-2", "label"),
+      ),
     );
     fireEvent.keyDown(
       screen
@@ -593,15 +740,18 @@ describe("grid-adapter", () => {
           <button type="button" onClick={() => setVersion(2)}>
             Apply record update
           </button>
-          <WorkbookDataGrid
-            viewSchemaId="test.view"
+          <SemanticDataGrid
+            surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
             columns={columns}
             onActiveCellChange={onActiveCellChange}
-            recordRows={[
+            dataRows={[
               {
-                kind: "record",
-                recordId: "record-1",
-                rowVersion: version,
+                kind: "data",
+                mutationIdentity: {
+                  kind: "core_row_version",
+                  baseRowVersion: version,
+                },
+                rowIdentity: { kind: "core_record", recordId: "record-1" },
                 data: { label: `Alpha ${version}`, state: "open" },
               },
             ]}
@@ -634,7 +784,7 @@ describe("grid-adapter", () => {
       })
       .mockResolvedValueOnce({ kind: "accepted" });
     render(
-      <WorkbookDataGrid
+      <SemanticDataGrid
         columns={[
           {
             contractWritable: true,
@@ -663,15 +813,15 @@ describe("grid-adapter", () => {
             ),
           },
         ]}
-        recordRows={[
+        dataRows={[
           {
             data: { label: "Alpha", state: "open" },
-            kind: "record",
-            recordId: "record-1",
-            rowVersion: 7,
+            kind: "data",
+            mutationIdentity: { kind: "core_row_version", baseRowVersion: 7 },
+            rowIdentity: { kind: "core_record", recordId: "record-1" },
           },
         ]}
-        viewSchemaId="test.view"
+        surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
       />,
     );
     const cell = (await screen.findByTestId("semantic-edit-cell")).closest(
@@ -704,10 +854,10 @@ describe("grid-adapter", () => {
       draftValue: "invalid draft",
       row: { label: "Alpha", state: "open" },
       target: {
-        baseRowVersion: 7,
         fieldKey: "label",
-        recordId: "record-1",
-        viewSchemaId: "test.view",
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 7 },
+        rowIdentity: { kind: "core_record", recordId: "record-1" },
+        surface: testSurface,
       },
     });
   });
@@ -715,11 +865,11 @@ describe("grid-adapter", () => {
   it("renders stable semantic row attributes, sort translation, and presentation-only group rows", async () => {
     const onSortChange = vi.fn();
     const groupedHandle = createRef<GridHandle>();
-    const rows: readonly GridRecordRow<HarnessRow>[] = [
+    const rows: readonly GridDataRow<HarnessRow>[] = [
       {
-        kind: "record",
-        recordId: "record-1",
-        rowVersion: 1,
+        kind: "data",
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+        rowIdentity: { kind: "core_record", recordId: "record-1" },
         data: {
           label: "Alpha",
           state: "open",
@@ -727,9 +877,9 @@ describe("grid-adapter", () => {
         testId: "row-record-1",
       },
       {
-        kind: "record",
-        recordId: "record-2",
-        rowVersion: 1,
+        kind: "data",
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+        rowIdentity: { kind: "core_record", recordId: "record-2" },
         data: {
           label: "Beta",
           state: "reviewed",
@@ -740,12 +890,18 @@ describe("grid-adapter", () => {
 
     render(
       <GridViewport testId="grid-shell">
-        <WorkbookDataGrid
+        <SemanticDataGrid
           ref={groupedHandle}
-          viewSchemaId="test.view"
+          surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
           actionsColumn={{
             label: "Actions",
-            renderCell: ({ recordId }) => <span>{recordId}</span>,
+            renderCell: ({ rowIdentity }) => (
+              <span>
+                {rowIdentity.kind === "core_record"
+                  ? rowIdentity.recordId
+                  : "extension"}
+              </span>
+            ),
           }}
           columns={columns}
           grouping={{
@@ -756,7 +912,7 @@ describe("grid-adapter", () => {
             getValue: (row) => row.state,
           }}
           onSortChange={onSortChange}
-          recordRows={rows}
+          dataRows={rows}
           sort={[{ fieldKey: "label", direction: "asc" }]}
         />
       </GridViewport>,
@@ -790,21 +946,13 @@ describe("grid-adapter", () => {
     expect(openGroupToggle.getAttribute("aria-expanded")).toBe("false");
     expect(screen.queryByTestId("row-record-1")).toBeNull();
     expect(
-      groupedHandle.current?.focusAnchor({
-        fieldKey: "label",
-        recordId: "record-1",
-        viewSchemaId: "test.view",
-      }),
+      groupedHandle.current?.focusAnchor(gridAnchor("record-1", "label")),
     ).toBe(false);
     fireEvent.click(openGroupToggle);
     expect(openGroupToggle.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByTestId("row-record-1")).toBeTruthy();
     expect(
-      groupedHandle.current?.focusAnchor({
-        fieldKey: "label",
-        recordId: "record-2",
-        viewSchemaId: "test.view",
-      }),
+      groupedHandle.current?.focusAnchor(gridAnchor("record-2", "label")),
     ).toBe(true);
 
     const labelHeader = screen.getByTestId("label-header");
@@ -837,35 +985,35 @@ describe("grid-adapter", () => {
         ),
       },
     ];
-    const rows: readonly GridRecordRow<GroupRow>[] = [
+    const rows: readonly GridDataRow<GroupRow>[] = [
       {
-        kind: "record",
-        recordId: "string",
-        rowVersion: 1,
+        kind: "data",
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+        rowIdentity: { kind: "core_record", recordId: "string" },
         data: { group: "1", label: "String" },
       },
       {
-        kind: "record",
-        recordId: "number",
-        rowVersion: 1,
+        kind: "data",
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+        rowIdentity: { kind: "core_record", recordId: "number" },
         data: { group: 1, label: "Number" },
       },
       {
-        kind: "record",
-        recordId: "boolean",
-        rowVersion: 1,
+        kind: "data",
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+        rowIdentity: { kind: "core_record", recordId: "boolean" },
         data: { group: true, label: "Boolean" },
       },
       {
-        kind: "record",
-        recordId: "null",
-        rowVersion: 1,
+        kind: "data",
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+        rowIdentity: { kind: "core_record", recordId: "null" },
         data: { group: null, label: "Null" },
       },
     ];
     const grid = (fieldKey: string, recordRows = rows) => (
-      <WorkbookDataGrid
-        viewSchemaId="typed.view"
+      <SemanticDataGrid
+        surface={{ kind: "view_schema", viewSchemaId: "typed.view" }}
         columns={typedColumns}
         draftRow={{
           kind: "draft",
@@ -878,7 +1026,7 @@ describe("grid-adapter", () => {
             `typed-${key}-${value === null ? "null" : typeof value}-${String(value)}`,
           getValue: (row) => row.group,
         }}
-        recordRows={recordRows}
+        dataRows={recordRows}
       />
     );
     const { rerender } = render(grid("primary"));
@@ -920,11 +1068,11 @@ describe("grid-adapter", () => {
   });
 
   it("can fill available inline space on demand", async () => {
-    const rows: readonly GridRecordRow<HarnessRow>[] = [
+    const rows: readonly GridDataRow<HarnessRow>[] = [
       {
-        kind: "record",
-        recordId: "record-1",
-        rowVersion: 1,
+        kind: "data",
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+        rowIdentity: { kind: "core_record", recordId: "record-1" },
         data: {
           label: "Alpha",
           state: "open",
@@ -934,14 +1082,20 @@ describe("grid-adapter", () => {
 
     const { rerender } = render(
       <GridViewport testId="fill-grid-shell">
-        <WorkbookDataGrid
-          viewSchemaId="test.view"
+        <SemanticDataGrid
+          surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
           actionsColumn={{
             label: "Actions",
-            renderCell: ({ recordId }) => <span>{recordId}</span>,
+            renderCell: ({ rowIdentity }) => (
+              <span>
+                {rowIdentity.kind === "core_record"
+                  ? rowIdentity.recordId
+                  : "extension"}
+              </span>
+            ),
           }}
           columns={columns}
-          recordRows={rows}
+          dataRows={rows}
         />
       </GridViewport>,
     );
@@ -950,15 +1104,21 @@ describe("grid-adapter", () => {
     const grid = gridShell.querySelector('[role="grid"]') as HTMLElement;
     rerender(
       <GridViewport testId="fill-grid-shell">
-        <WorkbookDataGrid
-          viewSchemaId="test.view"
+        <SemanticDataGrid
+          surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
           actionsColumn={{
             label: "Actions",
-            renderCell: ({ recordId }) => <span>{recordId}</span>,
+            renderCell: ({ rowIdentity }) => (
+              <span>
+                {rowIdentity.kind === "core_record"
+                  ? rowIdentity.recordId
+                  : "extension"}
+              </span>
+            ),
           }}
           columns={columns}
           fillViewportInline
-          recordRows={rows}
+          dataRows={rows}
         />
       </GridViewport>,
     );
@@ -970,12 +1130,18 @@ describe("grid-adapter", () => {
   it("renders the production DataGrid with bounded fixed-height row output", async () => {
     const rowCount = 500;
     const handle = createRef<GridHandle>();
-    const rows: readonly GridRecordRow<HarnessRow>[] = Array.from(
+    const rows: readonly GridDataRow<HarnessRow>[] = Array.from(
       { length: rowCount },
       (_, index) => ({
-        kind: "record" as const,
-        recordId: `virtual-record-${index}`,
-        rowVersion: 1,
+        kind: "data" as const,
+        mutationIdentity: {
+          kind: "core_row_version" as const,
+          baseRowVersion: 1,
+        },
+        rowIdentity: {
+          kind: "core_record" as const,
+          recordId: `virtual-record-${index}`,
+        },
         data: {
           label: `Record ${index}`,
           state: index % 2 === 0 ? "open" : "reviewed",
@@ -994,12 +1160,12 @@ describe("grid-adapter", () => {
 
     const { rerender } = render(
       <GridViewport testId="virtualized-grid-shell">
-        <WorkbookDataGrid
+        <SemanticDataGrid
           key="ungrouped-virtualized-grid"
           ref={handle}
-          viewSchemaId="test.view"
+          surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
           columns={wideColumns}
-          recordRows={rows}
+          dataRows={rows}
         />
       </GridViewport>,
     );
@@ -1016,19 +1182,15 @@ describe("grid-adapter", () => {
     expect(mountedHeaders.length).toBeGreaterThan(0);
     expect(mountedHeaders.length).toBeLessThan(wideColumns.length);
 
-    const lastAnchor = {
-      fieldKey: "wide-23",
-      recordId: "virtual-record-499",
-      viewSchemaId: "test.view",
-    };
+    const lastAnchor = gridAnchor("virtual-record-499", "wide-23");
     expect(handle.current?.scrollToAnchor(lastAnchor)).toBe(true);
 
     rerender(
       <GridViewport testId="virtualized-grid-shell">
-        <WorkbookDataGrid
+        <SemanticDataGrid
           key="grouped-virtualized-grid"
           ref={handle}
-          viewSchemaId="test.view"
+          surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
           columns={wideColumns}
           grouping={{
             fieldKey: "state",
@@ -1037,7 +1199,7 @@ describe("grid-adapter", () => {
               label === null ? undefined : `virtual-group-${fieldKey}-${label}`,
             getValue: (row) => row.state,
           }}
-          recordRows={rows}
+          dataRows={rows}
         />
       </GridViewport>,
     );
@@ -1051,11 +1213,11 @@ describe("grid-adapter", () => {
   });
 
   it("keeps standalone block sizing by default and supports shell-owned fill block sizing", async () => {
-    const rows: readonly GridRecordRow<HarnessRow>[] = [
+    const rows: readonly GridDataRow<HarnessRow>[] = [
       {
-        kind: "record",
-        recordId: "record-1",
-        rowVersion: 1,
+        kind: "data",
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+        rowIdentity: { kind: "core_record", recordId: "record-1" },
         data: {
           label: "Alpha",
           state: "open",
@@ -1065,10 +1227,10 @@ describe("grid-adapter", () => {
 
     const { rerender } = render(
       <GridViewport testId="block-sizing-grid-shell">
-        <WorkbookDataGrid
-          viewSchemaId="test.view"
+        <SemanticDataGrid
+          surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
           columns={columns}
-          recordRows={rows}
+          dataRows={rows}
         />
       </GridViewport>,
     );
@@ -1082,10 +1244,10 @@ describe("grid-adapter", () => {
 
     rerender(
       <GridViewport blockSizing="fill" testId="block-sizing-grid-shell">
-        <WorkbookDataGrid
-          viewSchemaId="test.view"
+        <SemanticDataGrid
+          surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
           columns={columns}
-          recordRows={rows}
+          dataRows={rows}
         />
       </GridViewport>,
     );
@@ -1098,11 +1260,11 @@ describe("grid-adapter", () => {
   });
 
   it("renders data and actions columns without freezing implementation geometry", async () => {
-    const rows: readonly GridRecordRow<HarnessRow>[] = [
+    const rows: readonly GridDataRow<HarnessRow>[] = [
       {
-        kind: "record",
-        recordId: "record-1",
-        rowVersion: 1,
+        kind: "data",
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+        rowIdentity: { kind: "core_record", recordId: "record-1" },
         data: {
           label: "Alpha",
           state: "open",
@@ -1125,16 +1287,22 @@ describe("grid-adapter", () => {
 
     render(
       <GridViewport testId="sized-grid-shell">
-        <WorkbookDataGrid
-          viewSchemaId="test.view"
+        <SemanticDataGrid
+          surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
           actionsColumn={{
             label: "Actions",
             minWidth: 64,
-            renderCell: ({ recordId }) => <span>{recordId}</span>,
+            renderCell: ({ rowIdentity }) => (
+              <span>
+                {rowIdentity.kind === "core_record"
+                  ? rowIdentity.recordId
+                  : "extension"}
+              </span>
+            ),
             width: 96,
           }}
           columns={sizedColumns}
-          recordRows={rows}
+          dataRows={rows}
         />
       </GridViewport>,
     );
@@ -1147,11 +1315,11 @@ describe("grid-adapter", () => {
   });
 
   it("selects density token variables explicitly for every supported mode", async () => {
-    const rows: readonly GridRecordRow<HarnessRow>[] = [
+    const rows: readonly GridDataRow<HarnessRow>[] = [
       {
-        kind: "record",
-        recordId: "record-1",
-        rowVersion: 1,
+        kind: "data",
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+        rowIdentity: { kind: "core_record", recordId: "record-1" },
         data: {
           label: "Alpha",
           state: "open",
@@ -1161,10 +1329,10 @@ describe("grid-adapter", () => {
 
     const { rerender } = render(
       <GridViewport testId="density-grid-shell">
-        <WorkbookDataGrid
-          viewSchemaId="test.view"
+        <SemanticDataGrid
+          surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
           columns={columns}
-          recordRows={rows}
+          dataRows={rows}
         />
       </GridViewport>,
     );
@@ -1190,11 +1358,11 @@ describe("grid-adapter", () => {
 
     rerender(
       <GridViewport testId="density-grid-shell">
-        <WorkbookDataGrid
-          viewSchemaId="test.view"
+        <SemanticDataGrid
+          surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
           columns={columns}
           density="compact"
-          recordRows={rows}
+          dataRows={rows}
         />
       </GridViewport>,
     );
@@ -1217,11 +1385,11 @@ describe("grid-adapter", () => {
 
     rerender(
       <GridViewport testId="density-grid-shell">
-        <WorkbookDataGrid
-          viewSchemaId="test.view"
+        <SemanticDataGrid
+          surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
           columns={columns}
           density="comfortable"
-          recordRows={rows}
+          dataRows={rows}
         />
       </GridViewport>,
     );
@@ -1271,12 +1439,12 @@ describe("grid-adapter", () => {
         ],
         [],
       );
-      const editableRows = useMemo<readonly GridRecordRow<HarnessRow>[]>(
+      const editableRows = useMemo<readonly GridDataRow<HarnessRow>[]>(
         () => [
           {
-            kind: "record",
-            recordId: "record-1",
-            rowVersion: 1,
+            kind: "data",
+            mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+            rowIdentity: { kind: "core_record", recordId: "record-1" },
             data: {
               label,
               state: "open",
@@ -1289,8 +1457,12 @@ describe("grid-adapter", () => {
       const actionsColumn = useMemo(
         () => ({
           label: "Actions",
-          renderCell: (row: GridRecordRow<HarnessRow>) => (
-            <span data-testid="row-action">{row.recordId}</span>
+          renderCell: (row: GridDataRow<HarnessRow>) => (
+            <span data-testid="row-action">
+              {row.rowIdentity.kind === "core_record"
+                ? row.rowIdentity.recordId
+                : "extension"}
+            </span>
           ),
         }),
         [],
@@ -1307,11 +1479,11 @@ describe("grid-adapter", () => {
           >
             Render {renderMarker}
           </button>
-          <WorkbookDataGrid
-            viewSchemaId="test.view"
+          <SemanticDataGrid
+            surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
             actionsColumn={actionsColumn}
             columns={editableColumns}
-            recordRows={editableRows}
+            dataRows={editableRows}
           />
         </GridViewport>
       );
@@ -1382,12 +1554,12 @@ describe("grid-adapter", () => {
         ],
         [],
       );
-      const gridRows = useMemo<readonly GridRecordRow<EditableHarnessRow>[]>(
+      const gridRows = useMemo<readonly GridDataRow<EditableHarnessRow>[]>(
         () =>
           rows.map((row) => ({
-            kind: "record",
-            recordId: row.recordId,
-            rowVersion: 1,
+            kind: "data",
+            mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+            rowIdentity: { kind: "core_record", recordId: row.recordId },
             data: row,
             testId: `rdg-row-${row.recordId}`,
           })),
@@ -1414,8 +1586,8 @@ describe("grid-adapter", () => {
           >
             Render {renderMarker}
           </button>
-          <WorkbookDataGrid
-            viewSchemaId="test.view"
+          <SemanticDataGrid
+            surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
             columns={editableColumns}
             onSortChange={(nextSort) => {
               setSort(nextSort);
@@ -1425,7 +1597,7 @@ describe("grid-adapter", () => {
                 ),
               );
             }}
-            recordRows={gridRows}
+            dataRows={gridRows}
             sort={sort}
           />
         </GridViewport>
@@ -1499,12 +1671,12 @@ describe("grid-adapter", () => {
         ],
         [],
       );
-      const gridRows = useMemo<readonly GridRecordRow<EditableHarnessRow>[]>(
+      const gridRows = useMemo<readonly GridDataRow<EditableHarnessRow>[]>(
         () =>
           rows.map((row) => ({
-            kind: "record",
-            recordId: row.recordId,
-            rowVersion: 1,
+            kind: "data",
+            mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+            rowIdentity: { kind: "core_record", recordId: row.recordId },
             data: row,
             testId: `grouped-editable-row-${row.recordId}`,
           })),
@@ -1522,8 +1694,8 @@ describe("grid-adapter", () => {
           >
             Render {renderMarker}
           </button>
-          <WorkbookDataGrid
-            viewSchemaId="test.view"
+          <SemanticDataGrid
+            surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
             columns={editableColumns}
             grouping={{
               fieldKey: "state",
@@ -1534,7 +1706,7 @@ describe("grid-adapter", () => {
                   : `grouped-editable-group-${fieldKey}-${label}`,
               getValue: (row) => row.state,
             }}
-            recordRows={gridRows}
+            dataRows={gridRows}
           />
         </GridViewport>
       );
@@ -1581,7 +1753,10 @@ describe("grid-adapter", () => {
       const actionsColumn = useMemo(
         () => ({
           label: "Actions",
-          renderCell: (row: GridRecordRow<HarnessRow>) => row.recordId,
+          renderCell: (row: GridDataRow<HarnessRow>) =>
+            row.rowIdentity.kind === "core_record"
+              ? row.rowIdentity.recordId
+              : "extension",
           renderDraftCell: (row: { readonly data: HarnessRow }) => (
             <button
               data-testid="pending-row-action"
@@ -1601,12 +1776,12 @@ describe("grid-adapter", () => {
 
       return (
         <GridViewport testId="pending-grid-shell">
-          <WorkbookDataGrid
-            viewSchemaId="test.view"
+          <SemanticDataGrid
+            surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
             actionsColumn={actionsColumn}
             columns={columns}
             draftRow={draftRow}
-            recordRows={[]}
+            dataRows={[]}
           />
         </GridViewport>
       );

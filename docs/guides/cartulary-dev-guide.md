@@ -221,7 +221,7 @@ The repo-control files MUST select a `react-data-grid` package version whose pac
 The repo-local package boundary around that grid stack is fixed:
 
 - `/packages/view-contracts` parses generated contract artifacts and exposes TypeScript-consumable surface, field, sort, filter, grouping, and capability metadata.
-- `/packages/grid-adapter` owns direct `react-data-grid` imports, stylesheet ownership, the `WorkbookDataGrid` facade, vendor-event translation, row-identity assertions, presentation-only group-row or header behavior, and the restricted semantic `GridHandle` for focus, scroll-to-anchor, and scroll-element access.
+- `/packages/grid-adapter` owns direct `react-data-grid` imports, stylesheet ownership, the identity-neutral `SemanticDataGrid` facade, vendor-event translation, semantic row-identity assertions, presentation-only group-row or header behavior, and the restricted semantic `GridHandle` for focus, scroll-to-anchor, and scroll-element access.
 - `/packages/ui-contracts` owns runtime-safe selector and test-id builders shared by workbook runtime code, unit tests, and browser suites.
 - `/packages/protocol-ts` is the authored facade over generated protocol declarations and static runtime decoders. Browser features MUST decode untrusted payloads at their transport boundary and MUST NOT import its protected generated root directly.
 - `/packages/test-utils` owns browser helper choreography for sort, filter, grouping, scroll, paste, and anchor assertions reused across functional and visual suites.

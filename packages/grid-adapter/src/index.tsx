@@ -10,7 +10,6 @@ export {
   formatGridClipboardTSV,
   type GridActionsColumn,
   type GridBlockSizing,
-  type GridBulkSelection,
   type GridCellAnchor,
   type GridCellCopyIntent,
   type GridCellMutationIntent,
@@ -22,6 +21,8 @@ export {
   type GridCellTarget,
   type GridChrome,
   type GridColumn,
+  type GridCoreRecordBulkSelection,
+  type GridDataRow,
   type GridDataState,
   type GridDataStateAction,
   type GridDensity,
@@ -37,18 +38,20 @@ export {
   type GridGroupingScalar,
   type GridHandle,
   type GridInteractionMode,
+  type GridMutationIdentity,
   type GridNavigationIntent,
   type GridNavigationKey,
   type GridPasteRowTarget,
   type GridPasteTargetResolution,
-  type GridRecordRow,
   type GridRowGutter,
+  type GridRowIdentity,
   type GridRowStateInput,
   type GridSemanticRow,
   type GridSemanticStateInput,
   type GridSortDirection,
   type GridSortEntry,
   type GridStateValidation,
+  type GridSurfaceIdentity,
   type GridViewportProps,
   gridClipboardDimensions,
   isGridColumnEditable,
@@ -57,9 +60,9 @@ export {
   resolveGridCellAnchor,
   resolveGridCellRange,
   resolveGridPasteTargets,
-  type WorkbookDataGridProps,
+  type SemanticDataGridProps,
 } from "./core";
-export { WorkbookDataGrid } from "./WorkbookDataGrid";
+export { SemanticDataGrid } from "./SemanticDataGrid";
 
 export const GridViewport = forwardRef<HTMLDivElement, GridViewportProps>(
   function GridViewport(

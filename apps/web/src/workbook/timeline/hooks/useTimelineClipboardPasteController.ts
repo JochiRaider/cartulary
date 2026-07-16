@@ -167,7 +167,7 @@ export function useTimelineClipboardPasteController({
                     continue;
                   }
                   const idleRecord = await waitForCommittedRecordIdle(
-                    target.recordId,
+                    target.rowIdentity.recordId,
                   );
                   if (idleRecord === null) {
                     clearViewportContinuity(viewportContinuityToken);
@@ -176,7 +176,7 @@ export function useTimelineClipboardPasteController({
                   }
                   rowTargetPayload.push({
                     kind: "record",
-                    record_id: target.recordId,
+                    record_id: target.rowIdentity.recordId,
                     base_row_version: idleRecord.rowVersion,
                   });
                 }
@@ -306,7 +306,9 @@ export function useTimelineClipboardPasteController({
           },
           preventDefault: () => undefined,
         } as unknown as ReactClipboardEvent<HTMLInputElement>,
-        intent.target.recordId,
+        intent.target.rowIdentity.kind === "core_record"
+          ? intent.target.rowIdentity.recordId
+          : "",
         binding.key,
         "grid",
       );

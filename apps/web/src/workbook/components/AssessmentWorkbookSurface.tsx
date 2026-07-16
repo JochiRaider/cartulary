@@ -1,12 +1,12 @@
 import {
   type GridColumn,
+  type GridDataRow,
   type GridDensity,
   type GridGroupingDescriptor,
   type GridHandle,
   type GridInteractionMode,
-  type GridRecordRow,
   GridViewport,
-  WorkbookDataGrid,
+  SemanticDataGrid,
 } from "@cartulary/grid-adapter";
 import {
   assessmentCreatePanelTestId,
@@ -173,7 +173,7 @@ export function AssessmentWorkbookSurface({
       ),
     [layoutState],
   );
-  const gridRows = useMemo<readonly GridRecordRow<EntityApiRow>[]>(
+  const gridRows = useMemo<readonly GridDataRow<EntityApiRow>[]>(
     () =>
       workbookGridRows({
         getRecordId: (row) => row.record_id,
@@ -533,7 +533,7 @@ export function AssessmentWorkbookSurface({
           style={gridShellStyle}
           testId={gridShellTestId(assessmentsViewSchemaId)}
         >
-          <WorkbookDataGrid
+          <SemanticDataGrid
             ref={gridHandleRef}
             columns={columns}
             columnWidths={layoutState.columnWidths}
@@ -543,16 +543,21 @@ export function AssessmentWorkbookSurface({
             interactionMode={interactionMode}
             onActiveCellChange={(anchor) =>
               assessmentFocus.update(
-                anchor?.recordId ?? null,
+                anchor?.rowIdentity.kind === "core_record"
+                  ? anchor.rowIdentity.recordId
+                  : null,
                 anchor?.fieldKey ?? "",
               )
             }
             onColumnReorder={onColumnReorder}
             onColumnWidthChange={onColumnWidthChange}
             onSortChange={onSortChange}
-            recordRows={gridRows}
+            dataRows={gridRows}
             sort={queryState.sort}
-            viewSchemaId={assessmentsViewSchemaId}
+            surface={{
+              kind: "view_schema",
+              viewSchemaId: assessmentsViewSchemaId,
+            }}
           />
         </GridViewport>
       }

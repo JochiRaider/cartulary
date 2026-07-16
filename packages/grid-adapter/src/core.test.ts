@@ -4,9 +4,10 @@ import {
   assertGridRows,
   buildGridPresentationRows,
   formatGridClipboardTSV,
+  type GridCellAnchor,
+  type GridDataRow,
   type GridDraftRow,
   type GridPresentationRow,
-  type GridRecordRow,
   isGridColumnEditable,
   navigateGridCellAnchor,
   parseGridClipboardTable,
@@ -28,15 +29,37 @@ type HarnessRow = {
 function gridRow(
   key: string,
   state: string | null | undefined,
-): GridRecordRow<HarnessRow> {
+): GridDataRow<HarnessRow> {
   return {
-    kind: "record",
-    recordId: key,
-    rowVersion: 1,
+    kind: "data",
+    mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+    rowIdentity: { kind: "core_record", recordId: key },
     data: {
       label: key,
       state,
     },
+  };
+}
+
+const testSurface = { kind: "view_schema", viewSchemaId: "test.view" } as const;
+
+function gridAnchor(recordId: string, fieldKey: string): GridCellAnchor {
+  return {
+    fieldKey,
+    rowIdentity: { kind: "core_record", recordId },
+    surface: testSurface,
+  };
+}
+
+function pasteRecordTarget(recordId: string) {
+  return {
+    kind: "record" as const,
+    mutationIdentity: {
+      kind: "core_row_version" as const,
+      baseRowVersion: 1,
+    },
+    rowIdentity: { kind: "core_record" as const, recordId },
+    surface: testSurface,
   };
 }
 
@@ -130,7 +153,7 @@ describe("grid presentation rows", () => {
       gridRow("record-5", "open"),
     ];
 
-    const presentationRows = buildGridPresentationRows({
+    const presentationRows = buildGridPresentationRows<HarnessRow>({
       grouping: stateGrouping(),
       rows,
     });
@@ -234,6 +257,111 @@ describe("grid presentation rows", () => {
       "group:reviewed:group:state:s:reviewed:0:group-state-reviewed",
       "data:record-3",
     ]);
+  });
+});
+
+describe("extension grid semantic identities", () => {
+  const extensionSurface = {
+    kind: "extension_grid",
+    extensionProfileId: "network_flow_activity",
+    workspaceKey: "incident-1",
+    gridSchemaId: "network_flow.accepted_rows.v1",
+  } as const;
+  const extensionRows = [
+    {
+      data: { label: "Flow 1", state: "accepted" },
+      kind: "data",
+      rowIdentity: {
+        kind: "extension_resource",
+        extensionProfileId: "network_flow_activity",
+        resourceKind: "accepted_flow_row",
+        resourceId: "flow-row-1",
+      },
+    },
+    {
+      data: { label: "Flow 2", state: "accepted" },
+      kind: "data",
+      rowIdentity: {
+        kind: "extension_resource",
+        extensionProfileId: "network_flow_activity",
+        resourceKind: "accepted_flow_row",
+        resourceId: "flow-row-2",
+      },
+    },
+  ] as const satisfies readonly GridDataRow<HarnessRow>[];
+  const extensionColumns = [
+    { fieldKey: "label", label: "Label", renderCell: () => null },
+    { fieldKey: "state", label: "State", renderCell: () => null },
+  ] as const;
+
+  it("resolves extension anchors, ranges, grouping, and navigation without Core aliases", () => {
+    const presentationRows = buildGridPresentationRows<HarnessRow>({
+      grouping: stateGrouping(false),
+      rows: extensionRows,
+    });
+    const first = resolveGridCellAnchor({
+      columns: extensionColumns,
+      presentationRows,
+      selection: { fieldKey: "label", rowIndex: 1 },
+      surface: extensionSurface,
+    });
+    expect(first).toEqual({
+      fieldKey: "label",
+      rowIdentity: extensionRows[0].rowIdentity,
+      surface: extensionSurface,
+    });
+    if (first === null) throw new Error("Expected extension anchor");
+    expect(
+      navigateGridCellAnchor({
+        columns: extensionColumns,
+        current: first,
+        intent: { key: "Enter" },
+        presentationRows,
+      }),
+    ).toEqual({
+      fieldKey: "label",
+      rowIdentity: extensionRows[1].rowIdentity,
+      surface: extensionSurface,
+    });
+    expect(
+      resolveGridCellRange({
+        columns: extensionColumns,
+        presentationRows,
+        range: {
+          end: {
+            fieldKey: "state",
+            rowIdentity: extensionRows[1].rowIdentity,
+            surface: extensionSurface,
+          },
+          start: first,
+        },
+      }),
+    ).toEqual({
+      fieldKeys: ["label", "state"],
+      rowIdentities: extensionRows.map((row) => row.rowIdentity),
+    });
+  });
+
+  it("rejects duplicate extension identities and all mutation target compilation", () => {
+    expect(() => assertGridRows([extensionRows[0], extensionRows[0]])).toThrow(
+      /duplicate semantic row identity/i,
+    );
+    const presentationRows = buildGridPresentationRows<HarnessRow>({
+      rows: extensionRows,
+    });
+    expect(
+      resolveGridPasteTargets({
+        columns: extensionColumns,
+        current: {
+          fieldKey: "label",
+          rowIdentity: extensionRows[0].rowIdentity,
+          surface: extensionSurface,
+        },
+        pastedColumnCount: 1,
+        pastedRowCount: 1,
+        presentationRows,
+      }),
+    ).toBeNull();
   });
 });
 
@@ -348,11 +476,14 @@ describe("grid Cartulary anchors", () => {
 
   it("FE-U-P3-01 Reject unsafe record identity and keep presentation rows from mutation-capable anchors.", () => {
     expect(() =>
-      assertGridRows([{ recordId: "record-1" }, { recordId: " " }]),
-    ).toThrow(/missing record_id/i);
+      assertGridRows([gridRow("record-1", "open"), gridRow(" ", "open")]),
+    ).toThrow(/invalid semantic identity/i);
     expect(() =>
-      assertGridRows([{ recordId: "record-1" }, { recordId: "record-1" }]),
-    ).toThrow(/duplicate record_id/i);
+      assertGridRows([
+        gridRow("record-1", "open"),
+        gridRow("record-1", "closed"),
+      ]),
+    ).toThrow(/duplicate semantic row identity/i);
 
     const rows = [
       gridRow("record-1", "open"),
@@ -366,15 +497,13 @@ describe("grid Cartulary anchors", () => {
     const groupIndex = presentationRows.findIndex(
       (row) => row.kind === "group",
     );
-    const draftIndex = presentationRows.findIndex(
-      (row) => row.kind === "data" && row.gridRow.recordId === null,
-    );
+    const draftIndex = -1;
 
     expect(
       resolveGridCellAnchor({
         columns,
         presentationRows,
-        viewSchemaId: "test.view",
+        surface: testSurface,
         selection: { rowIndex: groupIndex, fieldKey: "summary" },
       }),
     ).toBeNull();
@@ -382,18 +511,14 @@ describe("grid Cartulary anchors", () => {
       resolveGridCellAnchor({
         columns,
         presentationRows,
-        viewSchemaId: "test.view",
+        surface: testSurface,
         selection: { rowIndex: draftIndex, fieldKey: "summary" },
       }),
     ).toBeNull();
     expect(
       resolveGridPasteTargets({
         columns,
-        current: {
-          viewSchemaId: "test.view",
-          recordId: "record-1",
-          fieldKey: "summary",
-        },
+        current: gridAnchor("record-1", "summary"),
         pastedColumnCount: 2,
         pastedRowCount: 2,
         presentationRows,
@@ -403,11 +528,7 @@ describe("grid Cartulary anchors", () => {
       resolveGridPasteTargets({
         allowCreateRows: false,
         columns,
-        current: {
-          viewSchemaId: "test.view",
-          recordId: "record-2",
-          fieldKey: "summary",
-        },
+        current: gridAnchor("record-2", "summary"),
         pastedColumnCount: 1,
         pastedRowCount: 2,
         presentationRows,
@@ -427,54 +548,30 @@ describe("grid Cartulary anchors", () => {
       resolveGridCellAnchor({
         columns,
         presentationRows,
-        viewSchemaId: "test.view",
+        surface: testSurface,
         selection: { rowIndex: 1, fieldKey: "state" },
       }),
-    ).toEqual({
-      viewSchemaId: "test.view",
-      fieldKey: "state",
-      recordId: "record-1",
-    });
+    ).toEqual(gridAnchor("record-1", "state"));
     expect(
       navigateGridCellAnchor({
         columns,
-        current: {
-          viewSchemaId: "test.view",
-          recordId: "record-1",
-          fieldKey: "summary",
-        },
+        current: gridAnchor("record-1", "summary"),
         intent: { key: "ArrowRight" },
         presentationRows,
       }),
-    ).toEqual({
-      fieldKey: "state",
-      recordId: "record-1",
-      viewSchemaId: "test.view",
-    });
+    ).toEqual(gridAnchor("record-1", "state"));
     expect(
       navigateGridCellAnchor({
         columns,
-        current: {
-          viewSchemaId: "test.view",
-          recordId: "record-1",
-          fieldKey: "summary",
-        },
+        current: gridAnchor("record-1", "summary"),
         intent: { key: "Enter" },
         presentationRows,
       }),
-    ).toEqual({
-      fieldKey: "summary",
-      recordId: "record-2",
-      viewSchemaId: "test.view",
-    });
+    ).toEqual(gridAnchor("record-2", "summary"));
     expect(
       resolveGridPasteTargets({
         columns,
-        current: {
-          viewSchemaId: "test.view",
-          recordId: "record-1",
-          fieldKey: "summary",
-        },
+        current: gridAnchor("record-1", "summary"),
         pastedColumnCount: 2,
         pastedRowCount: 2,
         presentationRows,
@@ -482,18 +579,8 @@ describe("grid Cartulary anchors", () => {
     ).toEqual({
       columns: ["summary", "state"],
       rowTargets: [
-        {
-          baseRowVersion: 1,
-          kind: "record",
-          recordId: "record-1",
-          viewSchemaId: "test.view",
-        },
-        {
-          baseRowVersion: 1,
-          kind: "record",
-          recordId: "record-2",
-          viewSchemaId: "test.view",
-        },
+        pasteRecordTarget("record-1"),
+        pasteRecordTarget("record-2"),
       ],
     });
     expect(
@@ -501,33 +588,15 @@ describe("grid Cartulary anchors", () => {
         columns,
         presentationRows,
         range: {
-          start: {
-            fieldKey: "state",
-            recordId: "record-2",
-            viewSchemaId: "test.view",
-          },
-          end: {
-            fieldKey: "summary",
-            recordId: "record-1",
-            viewSchemaId: "test.view",
-          },
+          start: gridAnchor("record-2", "state"),
+          end: gridAnchor("record-1", "summary"),
         },
       }),
     ).toEqual({
       fieldKeys: ["summary", "state"],
-      recordTargets: [
-        {
-          baseRowVersion: 1,
-          fieldKey: "state",
-          recordId: "record-1",
-          viewSchemaId: "test.view",
-        },
-        {
-          baseRowVersion: 1,
-          fieldKey: "state",
-          recordId: "record-2",
-          viewSchemaId: "test.view",
-        },
+      rowIdentities: [
+        { kind: "core_record", recordId: "record-1" },
+        { kind: "core_record", recordId: "record-2" },
       ],
     });
     const clipboardText = formatGridClipboardTSV([
@@ -544,11 +613,7 @@ describe("grid Cartulary anchors", () => {
     expect(
       resolveGridPasteTargets({
         columns,
-        current: {
-          viewSchemaId: "test.view",
-          recordId: "record-1",
-          fieldKey: "state",
-        },
+        current: gridAnchor("record-1", "state"),
         pastedColumnCount: 1,
         pastedRowCount: 2,
         presentationRows,
@@ -556,24 +621,14 @@ describe("grid Cartulary anchors", () => {
     ).toEqual({
       columns: ["state"],
       rowTargets: [
-        {
-          baseRowVersion: 1,
-          kind: "record",
-          recordId: "record-1",
-          viewSchemaId: "test.view",
-        },
-        {
-          baseRowVersion: 1,
-          kind: "record",
-          recordId: "record-2",
-          viewSchemaId: "test.view",
-        },
+        pasteRecordTarget("record-1"),
+        pasteRecordTarget("record-2"),
       ],
     });
     expect(
       resolveGridPasteTargets({
         columns,
-        current: { viewSchemaId: "test.view", recordId: "", fieldKey: "state" },
+        current: gridAnchor("", "state"),
         pastedColumnCount: 1,
         pastedRowCount: 1,
         presentationRows,
@@ -652,14 +707,10 @@ describe("grid Cartulary anchors", () => {
       resolveGridCellAnchor({
         columns,
         presentationRows,
-        viewSchemaId: "test.view",
+        surface: testSurface,
         selection: { rowIndex: 1, fieldKey: "state" },
       }),
-    ).toEqual({
-      recordId: "record-2",
-      fieldKey: "state",
-      viewSchemaId: "test.view",
-    });
+    ).toEqual(gridAnchor("record-2", "state"));
   });
 
   it("clears anchors for invalid row, field, group, and recordless targets", () => {
@@ -677,7 +728,7 @@ describe("grid Cartulary anchors", () => {
       resolveGridCellAnchor({
         columns,
         presentationRows,
-        viewSchemaId: "test.view",
+        surface: testSurface,
         selection: { rowIndex: -1, fieldKey: "state" },
       }),
     ).toBeNull();
@@ -685,7 +736,7 @@ describe("grid Cartulary anchors", () => {
       resolveGridCellAnchor({
         columns,
         presentationRows,
-        viewSchemaId: "test.view",
+        surface: testSurface,
         selection: { rowIndex: 1, fieldKey: "__cartulary_actions__" },
       }),
     ).toBeNull();
@@ -693,13 +744,16 @@ describe("grid Cartulary anchors", () => {
       resolveGridCellAnchor({
         columns,
         presentationRows,
-        viewSchemaId: "test.view",
+        surface: testSurface,
         selection: { rowIndex: 0, fieldKey: "summary" },
       }),
     ).toBeNull();
     expect(
       presentationRows.some(
-        (row) => row.kind === "data" && row.gridRow.recordId === "draft-1",
+        (row) =>
+          row.kind === "data" &&
+          row.gridRow.rowIdentity.kind === "core_record" &&
+          row.gridRow.rowIdentity.recordId === "draft-1",
       ),
     ).toBe(false);
   });
@@ -711,36 +765,20 @@ describe("grid Cartulary anchors", () => {
     expect(
       navigateGridCellAnchor({
         columns,
-        current: {
-          viewSchemaId: "test.view",
-          recordId: "record-1",
-          fieldKey: "summary",
-        },
+        current: gridAnchor("record-1", "summary"),
         intent: { key: "ArrowRight" },
         presentationRows,
       }),
-    ).toEqual({
-      recordId: "record-1",
-      fieldKey: "state",
-      viewSchemaId: "test.view",
-    });
+    ).toEqual(gridAnchor("record-1", "state"));
 
     expect(
       navigateGridCellAnchor({
         columns,
-        current: {
-          viewSchemaId: "test.view",
-          recordId: "record-1",
-          fieldKey: "state",
-        },
+        current: gridAnchor("record-1", "state"),
         intent: { key: "Enter" },
         presentationRows,
       }),
-    ).toEqual({
-      recordId: "record-2",
-      fieldKey: "state",
-      viewSchemaId: "test.view",
-    });
+    ).toEqual(gridAnchor("record-2", "state"));
 
     const groupedRows = buildGridPresentationRows({
       grouping: stateGrouping(false),
@@ -749,11 +787,7 @@ describe("grid Cartulary anchors", () => {
     expect(
       navigateGridCellAnchor({
         columns,
-        current: {
-          viewSchemaId: "test.view",
-          recordId: "record-1",
-          fieldKey: "summary",
-        },
+        current: gridAnchor("record-1", "summary"),
         intent: { key: "ArrowUp" },
         presentationRows: groupedRows,
       }),
@@ -762,19 +796,11 @@ describe("grid Cartulary anchors", () => {
     expect(
       navigateGridCellAnchor({
         columns,
-        current: {
-          viewSchemaId: "test.view",
-          recordId: "record-1",
-          fieldKey: "summary",
-        },
+        current: gridAnchor("record-1", "summary"),
         intent: { key: "ArrowDown" },
         presentationRows: groupedRows,
       }),
-    ).toEqual({
-      recordId: "record-2",
-      fieldKey: "summary",
-      viewSchemaId: "test.view",
-    });
+    ).toEqual(gridAnchor("record-2", "summary"));
   });
 
   it("supports semantic page, row-edge, and grid-edge navigation", () => {
@@ -784,11 +810,7 @@ describe("grid Cartulary anchors", () => {
       gridRow("record-3", "closed"),
     ];
     const presentationRows = buildGridPresentationRows({ rows });
-    const current = {
-      fieldKey: "summary",
-      recordId: "record-2",
-      viewSchemaId: "test.view",
-    };
+    const current = gridAnchor("record-2", "summary");
 
     expect(
       navigateGridCellAnchor({
@@ -797,7 +819,7 @@ describe("grid Cartulary anchors", () => {
         intent: { key: "PageDown", pageSize: 8 },
         presentationRows,
       }),
-    ).toEqual({ ...current, recordId: "record-3" });
+    ).toEqual(gridAnchor("record-3", "summary"));
     expect(
       navigateGridCellAnchor({
         columns,
@@ -813,11 +835,7 @@ describe("grid Cartulary anchors", () => {
         intent: { key: "End", ctrlOrMetaKey: true },
         presentationRows,
       }),
-    ).toEqual({
-      fieldKey: "state",
-      recordId: "record-3",
-      viewSchemaId: "test.view",
-    });
+    ).toEqual(gridAnchor("record-3", "state"));
     expect(
       navigateGridCellAnchor({
         columns,
@@ -825,11 +843,7 @@ describe("grid Cartulary anchors", () => {
         intent: { key: "Home", ctrlOrMetaKey: true },
         presentationRows,
       }),
-    ).toEqual({
-      fieldKey: "summary",
-      recordId: "record-1",
-      viewSchemaId: "test.view",
-    });
+    ).toEqual(gridAnchor("record-1", "summary"));
   });
 
   it("does not treat vendor selection changes alone as anchor updates", () => {
@@ -843,14 +857,10 @@ describe("grid Cartulary anchors", () => {
       resolveGridCellAnchor({
         columns,
         presentationRows,
-        viewSchemaId: "test.view",
+        surface: testSurface,
         selection: vendorSelection,
       }),
-    ).toEqual({
-      recordId: "record-2",
-      fieldKey: "state",
-      viewSchemaId: "test.view",
-    });
+    ).toEqual(gridAnchor("record-2", "state"));
   });
 
   it("targets sorted paste rows by stable visible record identities", () => {
@@ -864,11 +874,7 @@ describe("grid Cartulary anchors", () => {
     expect(
       resolveGridPasteTargets({
         columns,
-        current: {
-          viewSchemaId: "test.view",
-          recordId: "record-1",
-          fieldKey: "summary",
-        },
+        current: gridAnchor("record-1", "summary"),
         pastedColumnCount: 2,
         pastedRowCount: 2,
         presentationRows,
@@ -876,18 +882,8 @@ describe("grid Cartulary anchors", () => {
     ).toEqual({
       columns: ["summary", "state"],
       rowTargets: [
-        {
-          baseRowVersion: 1,
-          kind: "record",
-          recordId: "record-1",
-          viewSchemaId: "test.view",
-        },
-        {
-          baseRowVersion: 1,
-          kind: "record",
-          recordId: "record-2",
-          viewSchemaId: "test.view",
-        },
+        pasteRecordTarget("record-1"),
+        pasteRecordTarget("record-2"),
       ],
     });
   });
@@ -899,11 +895,7 @@ describe("grid Cartulary anchors", () => {
     expect(
       resolveGridPasteTargets({
         columns,
-        current: {
-          viewSchemaId: "test.view",
-          recordId: "record-2",
-          fieldKey: "state",
-        },
+        current: gridAnchor("record-2", "state"),
         pastedColumnCount: 1,
         pastedRowCount: 3,
         presentationRows,
@@ -911,14 +903,9 @@ describe("grid Cartulary anchors", () => {
     ).toEqual({
       columns: ["state"],
       rowTargets: [
-        {
-          baseRowVersion: 1,
-          kind: "record",
-          recordId: "record-2",
-          viewSchemaId: "test.view",
-        },
-        { createIndex: 0, kind: "create", viewSchemaId: "test.view" },
-        { createIndex: 1, kind: "create", viewSchemaId: "test.view" },
+        pasteRecordTarget("record-2"),
+        { createIndex: 0, kind: "create", surface: testSurface },
+        { createIndex: 1, kind: "create", surface: testSurface },
       ],
     });
   });
@@ -937,11 +924,7 @@ describe("grid Cartulary anchors", () => {
     expect(
       resolveGridPasteTargets({
         columns,
-        current: {
-          viewSchemaId: "test.view",
-          recordId: "record-1",
-          fieldKey: "summary",
-        },
+        current: gridAnchor("record-1", "summary"),
         pastedColumnCount: 1,
         pastedRowCount: 2,
         presentationRows: groupedRows,
@@ -951,11 +934,7 @@ describe("grid Cartulary anchors", () => {
       resolveGridPasteTargets({
         allowCreateRows: false,
         columns,
-        current: {
-          viewSchemaId: "test.view",
-          recordId: "record-2",
-          fieldKey: "summary",
-        },
+        current: gridAnchor("record-2", "summary"),
         pastedColumnCount: 1,
         pastedRowCount: 2,
         presentationRows: groupedRows,
@@ -971,11 +950,7 @@ describe("grid Cartulary anchors", () => {
     expect(
       resolveGridPasteTargets({
         columns,
-        current: {
-          viewSchemaId: "test.view",
-          recordId: "",
-          fieldKey: vendorSelection.fieldKey,
-        },
+        current: gridAnchor("", vendorSelection.fieldKey),
         pastedColumnCount: 1,
         pastedRowCount: 1,
         presentationRows,

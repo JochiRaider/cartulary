@@ -10,12 +10,13 @@ import type {
   GridActionsColumn,
   GridCellAnchor,
   GridColumn,
+  GridDataRow,
   GridDraftRow,
   GridEditCommitOutcome,
   GridEditorAdapter,
-  GridRecordRow,
   GridRowGutter,
   GridSemanticStateInput,
+  GridSurfaceIdentity,
 } from "./core";
 import {
   type GridResolvedSemanticState,
@@ -34,8 +35,8 @@ export type GridCompiledBulkSelection<Row> = {
   readonly selectedRecordIds: ReadonlySet<string>;
   readonly selectableRecordCount: number;
   readonly onSelectAll: () => void;
-  readonly onToggleRecord: (row: GridRecordRow<Row>, shiftKey: boolean) => void;
-  readonly isRecordSelectable: (row: GridRecordRow<Row>) => boolean;
+  readonly onToggleRecord: (row: GridDataRow<Row>, shiftKey: boolean) => void;
+  readonly isRecordSelectable: (row: GridDataRow<Row>) => boolean;
 };
 
 type CompileGridColumnsInput<Row> = {
@@ -43,12 +44,12 @@ type CompileGridColumnsInput<Row> = {
   readonly bulkSelection: GridCompiledBulkSelection<Row> | undefined;
   readonly columns: readonly GridColumn<Row>[];
   readonly cellStateFor: (
-    row: GridRecordRow<Row>,
+    row: GridDataRow<Row>,
     column: GridColumn<Row>,
   ) => GridSemanticStateInput;
   readonly editable: boolean;
   readonly isCellRangeSelected: (
-    row: GridRecordRow<Row>,
+    row: GridDataRow<Row>,
     column: GridColumn<Row>,
   ) => boolean;
   readonly consumeEditorSeed: (
@@ -66,15 +67,35 @@ type CompileGridColumnsInput<Row> = {
     token: object,
   ) => void;
   readonly rowGutter: GridRowGutter | undefined;
-  readonly viewSchemaId: string;
+  readonly surface: GridSurfaceIdentity;
   readonly onPasteCellContent:
     | ((
-        row: GridRecordRow<Row>,
+        row: GridDataRow<Row>,
         fieldKey: string,
         clipboardText: string,
       ) => boolean)
     | undefined;
 };
+
+function gridMutationTarget<Row>(
+  row: GridDataRow<Row>,
+  fieldKey: string,
+  surface: GridSurfaceIdentity,
+) {
+  if (
+    surface.kind !== "view_schema" ||
+    row.rowIdentity.kind !== "core_record" ||
+    row.mutationIdentity === undefined
+  ) {
+    return null;
+  }
+  return {
+    fieldKey,
+    mutationIdentity: row.mutationIdentity,
+    rowIdentity: row.rowIdentity,
+    surface,
+  };
+}
 
 export function compileGridColumns<Row>({
   actionsColumn,
@@ -88,9 +109,9 @@ export function compileGridColumns<Row>({
   onPasteCellContent,
   registerSemanticCell,
   rowGutter,
-  viewSchemaId,
+  surface,
 }: CompileGridColumnsInput<Row>): readonly Column<
-  GridRecordRow<Row>,
+  GridDataRow<Row>,
   GridDraftRow<Row>
 >[] {
   const firstColumnKey =
@@ -98,7 +119,7 @@ export function compileGridColumns<Row>({
       ? gridRowGutterColumnKey
       : (columns[0]?.fieldKey ??
         (actionsColumn === undefined ? undefined : gridActionsColumnKey));
-  const compiled: Array<Column<GridRecordRow<Row>, GridDraftRow<Row>>> = [];
+  const compiled: Array<Column<GridDataRow<Row>, GridDraftRow<Row>>> = [];
 
   if (bulkSelection !== undefined) {
     compiled.push({
@@ -133,10 +154,13 @@ export function compileGridColumns<Row>({
         />
       ),
       renderCell: ({ row }) =>
+        row.rowIdentity.kind === "core_record" &&
         bulkSelection.isRecordSelectable(row) ? (
           <input
-            aria-label={`Select record ${row.recordId}`}
-            checked={bulkSelection.selectedRecordIds.has(row.recordId)}
+            aria-label={`Select record ${row.rowIdentity.recordId}`}
+            checked={bulkSelection.selectedRecordIds.has(
+              row.rowIdentity.recordId,
+            )}
             data-grid-field-key={gridSelectionColumnKey}
             readOnly
             type="checkbox"
@@ -241,8 +265,8 @@ export function compileGridColumns<Row>({
         );
         const anchor = {
           fieldKey: column.fieldKey,
-          recordId: row.recordId,
-          viewSchemaId,
+          rowIdentity: row.rowIdentity,
+          surface,
         };
         return (
           <SemanticGridCellContent
@@ -266,29 +290,22 @@ export function compileGridColumns<Row>({
         editable &&
         column.contractWritable === true &&
         column.editor !== undefined
-          ? ({ onClose, row }) => (
-              <SemanticGridEditor
-                adapter={column.editor as GridEditorAdapter<Row>}
-                baseState={cellStateFor(row, column)}
-                editorSeed={consumeEditorSeed({
-                  baseRowVersion: row.rowVersion,
-                  fieldKey: column.fieldKey,
-                  recordId: row.recordId,
-                  viewSchemaId,
-                })}
-                fieldLabel={column.label}
-                registerSemanticCell={registerSemanticCell}
-                row={row.data}
-                target={{
-                  baseRowVersion: row.rowVersion,
-                  fieldKey: column.fieldKey,
-                  recordId: row.recordId,
-                  viewSchemaId,
-                }}
-                onClose={(accepted) => onClose(accepted, true)}
-                onKeyboardAction={onEditorKeyboardAction}
-              />
-            )
+          ? ({ onClose, row }) => {
+              const target = gridMutationTarget(row, column.fieldKey, surface);
+              return target === null ? null : (
+                <SemanticGridEditor
+                  adapter={column.editor as GridEditorAdapter<Row>}
+                  baseState={cellStateFor(row, column)}
+                  editorSeed={consumeEditorSeed(target)}
+                  fieldLabel={column.label}
+                  registerSemanticCell={registerSemanticCell}
+                  row={row.data}
+                  target={target}
+                  onClose={(accepted) => onClose(accepted, true)}
+                  onKeyboardAction={onEditorKeyboardAction}
+                />
+              );
+            }
           : undefined,
       renderSummaryCell: ({ row }) => (
         // biome-ignore lint/a11y/noStaticElementInteractions: RDG owns this private bottom-draft cell; the wrapper only prevents duplicate vendor navigation after a nested control handles the key.
@@ -299,11 +316,13 @@ export function compileGridColumns<Row>({
           onKeyDown={stopVendorNavigationForInteractiveContent}
           role="presentation"
         >
-          {column.renderDraftCell?.({
-            fieldKey: column.fieldKey,
-            row: row.data,
-            viewSchemaId,
-          }) ?? null}
+          {surface.kind === "view_schema"
+            ? (column.renderDraftCell?.({
+                fieldKey: column.fieldKey,
+                row: row.data,
+                surface,
+              }) ?? null)
+            : null}
         </span>
       ),
       resizable: true,

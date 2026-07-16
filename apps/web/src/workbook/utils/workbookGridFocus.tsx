@@ -2,10 +2,10 @@ import {
   buildGridPresentationRows,
   type GridCellAnchor,
   type GridColumn,
+  type GridDataRow,
   type GridGroupingDescriptor,
   type GridHandle,
   type GridNavigationIntent,
-  type GridRecordRow,
   navigateGridCellAnchor,
 } from "@cartulary/grid-adapter";
 import { rowCellTestId, type WorkbookSurface } from "@cartulary/ui-contracts";
@@ -18,8 +18,11 @@ import {
 } from "react";
 import { focusableCellStyle, visuallyHiddenStyle } from "./workbookStyles";
 
-export type WorkbookFocusAnchor = GridCellAnchor & {
+export type WorkbookFocusAnchor = {
+  readonly fieldKey: string;
+  readonly recordId: string;
   readonly surface: WorkbookSurface;
+  readonly viewSchemaId: string;
 };
 
 export type WorkbookGridFocusRuntime = {
@@ -48,7 +51,7 @@ export function useWorkbookGridFocus<Row>({
   readonly columns: readonly GridColumn<Row>[];
   readonly gridHandleRef?: RefObject<GridHandle | null> | undefined;
   readonly grouping?: GridGroupingDescriptor<Row> | null | undefined;
-  readonly rows: readonly GridRecordRow<Row>[];
+  readonly rows: readonly GridDataRow<Row>[];
   readonly surface: WorkbookSurface;
 }): WorkbookGridFocusRuntime {
   const [anchor, setAnchor] = useState<WorkbookFocusAnchor | null>(null);
@@ -83,7 +86,16 @@ export function useWorkbookGridFocus<Row>({
         setAnchor(null);
         return;
       }
-      setAnchor({ ...nextAnchor, surface });
+      if (nextAnchor.rowIdentity.kind !== "core_record") {
+        setAnchor(null);
+        return;
+      }
+      setAnchor({
+        fieldKey: nextAnchor.fieldKey,
+        recordId: nextAnchor.rowIdentity.recordId,
+        surface,
+        viewSchemaId: surface,
+      });
       window.setTimeout(() => {
         gridHandleRef?.current?.focusAnchor(nextAnchor);
       }, 0);

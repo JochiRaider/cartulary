@@ -1,12 +1,13 @@
 import type {
   GridCellAnchor,
+  GridCellMutationIntent,
   GridCellStateInput,
   GridColumn,
+  GridDataRow,
   GridDensity,
   GridFillIntent,
   GridHandle,
   GridInteractionMode,
-  GridRecordRow,
   GridRowStateInput,
 } from "@cartulary/grid-adapter";
 import {
@@ -168,6 +169,15 @@ import {
   validateTimelineViewSchemaId,
   type WorkbookRow,
 } from "../models/workbookTimelineModel";
+
+function gridCoreRecordId(
+  anchor: GridCellAnchor | GridCellMutationIntent["target"],
+): string | null {
+  return anchor.rowIdentity.kind === "core_record"
+    ? anchor.rowIdentity.recordId
+    : null;
+}
+
 import {
   createTimelineCollaborationState,
   type TimelineCollaborationAction,
@@ -597,7 +607,7 @@ function TimelineWorkbookContent({
     [conflictCellKeys],
   );
   const getTimelineRowState = useCallback(
-    (row: GridRecordRow<WorkbookRow>): GridRowStateInput => ({
+    (row: GridDataRow<WorkbookRow>): GridRowStateInput => ({
       pending: row.data.pendingSignature !== null,
     }),
     [],
@@ -661,9 +671,7 @@ function TimelineWorkbookContent({
   const timelineAnchorColumnsRef = useRef<readonly GridColumn<WorkbookRow>[]>(
     [],
   );
-  const timelineAnchorRowsRef = useRef<readonly GridRecordRow<WorkbookRow>[]>(
-    [],
-  );
+  const timelineAnchorRowsRef = useRef<readonly GridDataRow<WorkbookRow>[]>([]);
   const timelineGridHandleRef = useRef<GridHandle | null>(null);
   const gridShellRef = useRef<HTMLDivElement | null>(null);
   const [timelineGridShellWidth, setTimelineGridShellWidth] = useState(0);
@@ -1790,8 +1798,10 @@ function TimelineWorkbookContent({
       if (anchor === null) {
         return false;
       }
+      const recordId = gridCoreRecordId(anchor);
+      if (recordId === null) return false;
       if (command.kind === "open-history") {
-        openRowHistory(anchor.recordId);
+        openRowHistory(recordId);
         return true;
       }
       if (command.kind === "close-inspector") {
@@ -1803,7 +1813,7 @@ function TimelineWorkbookContent({
         return true;
       }
       if (command.kind === "preview-linked-evidence") {
-        setSelectedRowId(anchor.recordId);
+        setSelectedRowId(recordId);
         setIsInspectorOpen(true);
         setInspectorMessage(
           "Linked evidence preview is unavailable for this row.",
@@ -1914,7 +1924,7 @@ function TimelineWorkbookContent({
           recordWorkbookTiming("key_commit_accepted", {
             field: focusField,
             key: command.intent.key,
-            recordId: anchor.recordId,
+            recordId: gridCoreRecordId(anchor) ?? "",
             rowKey,
             surface,
           });
@@ -2011,8 +2021,10 @@ function TimelineWorkbookContent({
         return;
       }
       if (command.kind === "quick-link" && anchor !== null) {
+        const recordId = gridCoreRecordId(anchor);
+        if (recordId === null) return;
         const row = rowsRef.current.find(
-          (candidate) => candidate.recordId === anchor.recordId,
+          (candidate) => candidate.recordId === recordId,
         );
         const mention =
           row === undefined
@@ -2022,12 +2034,12 @@ function TimelineWorkbookContent({
                 ...row.collectionValues.identityRefs,
               ].find((item) => item.itemKind !== "resolved_ref");
         if (mention !== undefined) {
-          setSelectedRowId(anchor.recordId);
+          setSelectedRowId(recordId);
           setIsInspectorOpen(true);
           setSelectedMentionRef(mention.itemRef);
           setInspectorMessage(null);
         } else {
-          setSelectedRowId(anchor.recordId);
+          setSelectedRowId(recordId);
           setIsInspectorOpen(true);
           setInspectorMessage(
             "No unresolved mention is available for quick link.",
@@ -2092,7 +2104,7 @@ function TimelineWorkbookContent({
         const binding = timelineScalarBindingForField(intent.target.fieldKey);
         if (binding === null) return;
         void commitScalarGridEdit(
-          intent.target.recordId,
+          gridCoreRecordId(intent.target) ?? "",
           binding.key,
           values[0]?.[0] ?? "",
         ).then((outcome) => {
@@ -2110,28 +2122,31 @@ function TimelineWorkbookContent({
       const field = timelineContract.fieldMap[intent.source.fieldKey];
       const binding = timelineScalarBindingForField(intent.source.fieldKey);
       const sourceRow = rowsRef.current.find(
-        (row) => row.recordId === intent.source.recordId,
+        (row) => row.recordId === gridCoreRecordId(intent.source),
       );
       const targets = intent.targets.filter(
-        (target) => target.recordId !== intent.source.recordId,
+        (target) =>
+          gridCoreRecordId(target) !== gridCoreRecordId(intent.source),
       );
       const validTargets =
         queryState.groupBy === null &&
         field?.gridEditable === true &&
         binding !== null &&
         sourceRow !== undefined &&
-        sourceRow.rowVersion === intent.source.baseRowVersion &&
+        sourceRow.rowVersion ===
+          intent.source.mutationIdentity.baseRowVersion &&
         sourceRow.pendingSignature === null &&
         targets.length > 0 &&
         targets.every((target) => {
           const row = rowsRef.current.find(
-            (candidate) => candidate.recordId === target.recordId,
+            (candidate) => candidate.recordId === gridCoreRecordId(target),
           );
           return (
-            target.viewSchemaId === timelineViewSchemaId &&
+            target.surface.kind === "view_schema" &&
+            target.surface.viewSchemaId === timelineViewSchemaId &&
             target.fieldKey === intent.source.fieldKey &&
             row !== undefined &&
-            row.rowVersion === target.baseRowVersion &&
+            row.rowVersion === target.mutationIdentity.baseRowVersion &&
             row.pendingSignature === null
           );
         });
@@ -2168,8 +2183,8 @@ function TimelineWorkbookContent({
                   field_key: intent.source.fieldKey,
                   value,
                   targets: targets.map((target) => ({
-                    record_id: target.recordId,
-                    base_row_version: target.baseRowVersion,
+                    record_id: gridCoreRecordId(target) ?? "",
+                    base_row_version: target.mutationIdentity.baseRowVersion,
                   })),
                 }),
               },
@@ -2374,7 +2389,7 @@ function TimelineWorkbookContent({
   const timelineDraftRow = timelineGrid.draftRow;
   const timelineBulkSelection = useMemo(
     () => ({
-      isRecordSelectable: (row: GridRecordRow<WorkbookRow>) =>
+      isRecordSelectable: (row: GridDataRow<WorkbookRow>) =>
         canBulkTag && row.data.pendingSignature === null,
       onSelectedRecordIdsChange: (recordIds: ReadonlySet<string>) => {
         setSelectedTimelineRecordIds(new Set(recordIds));
@@ -2527,7 +2542,7 @@ function TimelineWorkbookContent({
           interactionMode={interactionMode}
           onActiveCellChange={(anchor) =>
             updateTimelineSurfaceFocusAnchor(
-              anchor?.recordId ?? null,
+              anchor === null ? null : gridCoreRecordId(anchor),
               anchor?.fieldKey ?? "",
             )
           }

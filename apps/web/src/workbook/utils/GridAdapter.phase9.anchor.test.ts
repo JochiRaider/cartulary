@@ -1,8 +1,9 @@
 import {
   buildGridPresentationRows,
+  type GridCellAnchor,
   type GridColumn,
+  type GridDataRow,
   type GridDraftRow,
-  type GridRecordRow,
   navigateGridCellAnchor,
   resolveGridCellAnchor,
 } from "@cartulary/grid-adapter";
@@ -16,11 +17,11 @@ type Phase9AnchorRow = {
 function savedRow(
   recordId: string,
   state: string | null | undefined,
-): GridRecordRow<Phase9AnchorRow> {
+): GridDataRow<Phase9AnchorRow> {
   return {
-    kind: "record",
-    recordId,
-    rowVersion: 1,
+    kind: "data",
+    mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+    rowIdentity: { kind: "core_record", recordId },
     data: {
       label: recordId,
       state,
@@ -44,6 +45,16 @@ const columns: readonly GridColumn<Phase9AnchorRow>[] = [
   { fieldKey: "task.priority", label: "Priority", renderCell: () => null },
 ];
 
+const surface = { kind: "view_schema", viewSchemaId: "test.view" } as const;
+
+function anchor(recordId: string, fieldKey: string): GridCellAnchor {
+  return {
+    fieldKey,
+    rowIdentity: { kind: "core_record", recordId },
+    surface,
+  };
+}
+
 describe("Phase 9 U-9-GRID-01 adapter-owned Cartulary anchor evidence", () => {
   it("Phase 9 U-9-GRID-01 resolves vendor coordinates to stable record_id and field_key anchors", () => {
     const rows = [savedRow("record-1", "open"), savedRow("record-2", "done")];
@@ -53,14 +64,10 @@ describe("Phase 9 U-9-GRID-01 adapter-owned Cartulary anchor evidence", () => {
       resolveGridCellAnchor({
         columns,
         presentationRows,
-        viewSchemaId: "test.view",
+        surface,
         selection: { rowIndex: 1, fieldKey: "task.status" },
       }),
-    ).toEqual({
-      viewSchemaId: "test.view",
-      fieldKey: "task.status",
-      recordId: "record-2",
-    });
+    ).toEqual(anchor("record-2", "task.status"));
   });
 
   it("Phase 9 U-9-GRID-01 clears invalid row, field, group row, and recordless draft targets", () => {
@@ -82,7 +89,7 @@ describe("Phase 9 U-9-GRID-01 adapter-owned Cartulary anchor evidence", () => {
       resolveGridCellAnchor({
         columns,
         presentationRows,
-        viewSchemaId: "test.view",
+        surface,
         selection: { rowIndex: -1, fieldKey: "task.status" },
       }),
     ).toBeNull();
@@ -90,7 +97,7 @@ describe("Phase 9 U-9-GRID-01 adapter-owned Cartulary anchor evidence", () => {
       resolveGridCellAnchor({
         columns,
         presentationRows,
-        viewSchemaId: "test.view",
+        surface,
         selection: { rowIndex: 1, fieldKey: "__cartulary_actions__" },
       }),
     ).toBeNull();
@@ -98,13 +105,16 @@ describe("Phase 9 U-9-GRID-01 adapter-owned Cartulary anchor evidence", () => {
       resolveGridCellAnchor({
         columns,
         presentationRows,
-        viewSchemaId: "test.view",
+        surface,
         selection: { rowIndex: 0, fieldKey: "task.title" },
       }),
     ).toBeNull();
     expect(
       presentationRows.every(
-        (row) => row.kind !== "data" || row.gridRow.recordId !== "draft-1",
+        (row) =>
+          row.kind !== "data" ||
+          row.gridRow.rowIdentity.kind !== "core_record" ||
+          row.gridRow.rowIdentity.recordId !== "draft-1",
       ),
     ).toBe(true);
   });
@@ -120,95 +130,51 @@ describe("Phase 9 U-9-GRID-01 adapter-owned Cartulary anchor evidence", () => {
     expect(
       navigateGridCellAnchor({
         columns,
-        current: {
-          viewSchemaId: "test.view",
-          recordId: "record-1",
-          fieldKey: "task.title",
-        },
+        current: anchor("record-1", "task.title"),
         intent: { key: "ArrowRight" },
         presentationRows,
       }),
-    ).toEqual({
-      fieldKey: "task.status",
-      recordId: "record-1",
-      viewSchemaId: "test.view",
-    });
+    ).toEqual(anchor("record-1", "task.status"));
     expect(
       navigateGridCellAnchor({
         columns,
-        current: {
-          viewSchemaId: "test.view",
-          recordId: "record-1",
-          fieldKey: "task.status",
-        },
+        current: anchor("record-1", "task.status"),
         intent: { key: "Tab" },
         presentationRows,
       }),
-    ).toEqual({
-      fieldKey: "task.priority",
-      recordId: "record-1",
-      viewSchemaId: "test.view",
-    });
+    ).toEqual(anchor("record-1", "task.priority"));
     expect(
       navigateGridCellAnchor({
         columns,
-        current: {
-          viewSchemaId: "test.view",
-          recordId: "record-1",
-          fieldKey: "task.status",
-        },
+        current: anchor("record-1", "task.status"),
         intent: { key: "Enter" },
         presentationRows,
       }),
-    ).toEqual({
-      fieldKey: "task.status",
-      recordId: "record-2",
-      viewSchemaId: "test.view",
-    });
+    ).toEqual(anchor("record-2", "task.status"));
     expect(
       navigateGridCellAnchor({
         columns,
-        current: {
-          viewSchemaId: "test.view",
-          recordId: "record-2",
-          fieldKey: "task.status",
-        },
+        current: anchor("record-2", "task.status"),
         intent: { key: "Enter", shiftKey: true },
         presentationRows,
       }),
-    ).toEqual({
-      fieldKey: "task.status",
-      recordId: "record-1",
-      viewSchemaId: "test.view",
-    });
+    ).toEqual(anchor("record-1", "task.status"));
   });
 
   it("Phase 9 U-9-GRID-01 keeps vendor selection separate until translated by the adapter contract", () => {
     const rows = [savedRow("record-1", "open"), savedRow("record-2", "done")];
     const presentationRows = buildGridPresentationRows({ rows });
-    const currentAnchor = {
-      fieldKey: "task.title",
-      recordId: "record-1",
-      viewSchemaId: "test.view",
-    };
+    const currentAnchor = anchor("record-1", "task.title");
     const vendorSelection = { fieldKey: "task.status", rowIndex: 1 };
 
-    expect(currentAnchor).toEqual({
-      viewSchemaId: "test.view",
-      fieldKey: "task.title",
-      recordId: "record-1",
-    });
+    expect(currentAnchor).toEqual(anchor("record-1", "task.title"));
     expect(
       resolveGridCellAnchor({
         columns,
         presentationRows,
-        viewSchemaId: "test.view",
+        surface,
         selection: vendorSelection,
       }),
-    ).toEqual({
-      viewSchemaId: "test.view",
-      fieldKey: "task.status",
-      recordId: "record-2",
-    });
+    ).toEqual(anchor("record-2", "task.status"));
   });
 });

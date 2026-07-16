@@ -2,15 +2,15 @@ import {
   type GridActionsColumn,
   type GridCellMutationIntent,
   type GridColumn,
+  type GridDataRow,
   type GridDensity,
   type GridDraftRow,
   type GridEditCommitOutcome,
   type GridGroupingDescriptor,
   type GridHandle,
   type GridInteractionMode,
-  type GridRecordRow,
   GridViewport,
-  WorkbookDataGrid,
+  SemanticDataGrid,
 } from "@cartulary/grid-adapter";
 import {
   dataTestIdSelector,
@@ -395,7 +395,7 @@ export function EntityWorkbookSurface({
     () => entityRowFromApi(draftEntityRawRow, entityType),
     [draftEntityRawRow, entityType],
   );
-  const entityGridRows = useMemo<readonly GridRecordRow<EntityRow>[]>(
+  const entityGridRows = useMemo<readonly GridDataRow<EntityRow>[]>(
     () =>
       workbookGridRows({
         getRecordId: (row: EntityRow) => row.recordId,
@@ -557,8 +557,8 @@ export function EntityWorkbookSurface({
           targetResolution.columns[0] ?? intent.target.fieldKey,
           values[0]?.[0] ?? "",
           {
-            baseRowVersion: rowTarget.baseRowVersion,
-            recordId: rowTarget.recordId,
+            baseRowVersion: rowTarget.mutationIdentity.baseRowVersion,
+            recordId: rowTarget.rowIdentity.recordId,
           },
         );
         if (outcome.kind !== "accepted") setMutationError(outcome.message);
@@ -632,7 +632,13 @@ export function EntityWorkbookSurface({
           field?.gridEditable === true
             ? workbookGridEditorAdapter({
                 commit: (draftValue, target) =>
-                  commitGridEdit(field.fieldKey, draftValue, target),
+                  commitGridEdit(field.fieldKey, draftValue, {
+                    baseRowVersion: target.mutationIdentity.baseRowVersion,
+                    recordId:
+                      target.rowIdentity.kind === "core_record"
+                        ? target.rowIdentity.recordId
+                        : "",
+                  }),
                 field,
                 readValue: (row: EntityRow) =>
                   row.rawRow.cells[field.fieldKey]?.value,
@@ -1310,9 +1316,13 @@ export function EntityWorkbookSurface({
           style={gridShellStyle}
           testId={gridShellTestId(surface)}
         >
-          <WorkbookDataGrid
+          <SemanticDataGrid
             ref={gridHandleRef}
-            activeRecordId={selectedRecordId}
+            activeRowIdentity={
+              selectedRecordId === null
+                ? null
+                : { kind: "core_record", recordId: selectedRecordId }
+            }
             allowPasteCreateRows
             actionsColumn={entityActionsColumn}
             columns={entityColumns}
@@ -1324,7 +1334,9 @@ export function EntityWorkbookSurface({
             interactionMode={interactionMode}
             onActiveCellChange={(anchor) =>
               entityFocus.update(
-                anchor?.recordId ?? null,
+                anchor?.rowIdentity.kind === "core_record"
+                  ? anchor.rowIdentity.recordId
+                  : null,
                 anchor?.fieldKey ?? "",
               )
             }
@@ -1332,9 +1344,9 @@ export function EntityWorkbookSurface({
             onColumnWidthChange={onColumnWidthChange}
             onPasteCell={(intent) => void handleEntityPaste(intent)}
             onSortChange={onSortChange}
-            recordRows={entityGridRows}
+            dataRows={entityGridRows}
             sort={queryState.sort}
-            viewSchemaId={surface}
+            surface={{ kind: "view_schema", viewSchemaId: surface }}
           />
         </GridViewport>
       }

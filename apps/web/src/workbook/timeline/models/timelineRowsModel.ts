@@ -1,4 +1,4 @@
-import type { GridDraftRow, GridRecordRow } from "@cartulary/grid-adapter";
+import type { GridDataRow, GridDraftRow } from "@cartulary/grid-adapter";
 import {
   gridRowGutterTestId,
   gridRowTestId,
@@ -20,7 +20,7 @@ export type WorkbookRecordFreshnessDecision = {
 
 export type TimelineGridRows = {
   readonly draftRow?: GridDraftRow<WorkbookRow> | undefined;
-  readonly recordRows: readonly GridRecordRow<WorkbookRow>[];
+  readonly recordRows: readonly GridDataRow<WorkbookRow>[];
 };
 
 export function decideWorkbookRecordFreshness(
@@ -60,7 +60,7 @@ export function buildTimelineGridRows<TPresence>({
   }) => ReactNode;
   readonly rows: readonly WorkbookRow[];
 }): TimelineGridRows {
-  const recordRows: GridRecordRow<WorkbookRow>[] = [];
+  const recordRows: GridDataRow<WorkbookRow>[] = [];
   let draftRow: GridDraftRow<WorkbookRow> | undefined;
   rows.forEach((row, index) => {
     const rowPresence = presenceForRow(row.recordId);
@@ -79,9 +79,12 @@ export function buildTimelineGridRows<TPresence>({
       throw new Error("Committed Timeline grid row is missing row_version.");
     }
     recordRows.push({
-      kind: "record",
-      recordId: row.recordId,
-      rowVersion: row.rowVersion,
+      kind: "data",
+      mutationIdentity: {
+        kind: "core_row_version",
+        baseRowVersion: row.rowVersion,
+      },
+      rowIdentity: { kind: "core_record", recordId: row.recordId },
       data: row,
       gutterContent: renderSavedGutterContent({
         ordinal,

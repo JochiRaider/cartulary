@@ -1274,6 +1274,22 @@
     {
       "target": "frontend-unit",
       "file": "packages/grid-adapter/src/core.test.ts",
+      "title": "rejects duplicate extension identities and all mutation target compilation",
+      "coverage": "support",
+      "reason": "Identity-neutral extension row and fail-closed mutation checks are adapter support evidence for Network Flow adoption; owner conformance remains in Phase 12.",
+      "phase": "phase12"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "packages/grid-adapter/src/core.test.ts",
+      "title": "resolves extension anchors, ranges, grouping, and navigation without Core aliases",
+      "coverage": "support",
+      "reason": "Identity-neutral extension anchor and grouping checks are adapter support evidence for Network Flow adoption; owner conformance remains in Phase 12.",
+      "phase": "phase12"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "packages/grid-adapter/src/core.test.ts",
       "title": "resolves the design priority while retaining declared co-displays",
       "coverage": "support",
       "reason": "Semantic state precedence is adapter support evidence; live accessibility and visual suites remain authoritative for rendered state claims.",

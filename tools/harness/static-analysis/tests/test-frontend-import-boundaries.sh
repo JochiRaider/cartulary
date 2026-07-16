@@ -520,11 +520,11 @@ assert_contains "$relative_package_output" "apps/web/src/viewContractRelativeByp
 
 declared_package_export_root="$(prepare_case_root declared-package-export)"
 cat >"$declared_package_export_root/apps/web/src/GridAdapter.test.tsx" <<'TS'
-import { WorkbookDataGrid } from "@cartulary/grid-adapter/test-support";
+import { SemanticDataGrid } from "@cartulary/grid-adapter/test-support";
 import { render } from "@testing-library/react";
 import { it } from "vitest";
 
-export const testGrid = { WorkbookDataGrid, render, it };
+export const testGrid = { SemanticDataGrid, render, it };
 TS
 declared_package_export_output="$(assert_passes "declared package export in test allowed" run_checker "$declared_package_export_root")"
 assert_contains "$declared_package_export_output" "frontend import boundaries verified" "declared package export output"
@@ -536,13 +536,13 @@ export const support = true;
 TS
 cat >"$test_helper_runtime_root/apps/web/src/runtimeHelperLeak.tsx" <<'TS'
 import { helper } from "@cartulary/test-utils";
-import { WorkbookDataGrid } from "@cartulary/grid-adapter/test-support";
+import { SemanticDataGrid } from "@cartulary/grid-adapter/test-support";
 import { test } from "@playwright/test";
 import { render } from "@testing-library/react";
 import { describe } from "vitest";
 import { support } from "./testing/timelineWorkbookTestSupport";
 
-export const leaked = { WorkbookDataGrid, describe, helper, render, support, test };
+export const leaked = { SemanticDataGrid, describe, helper, render, support, test };
 TS
 test_helper_runtime_output="$(assert_fails "runtime test helper error" run_checker "$test_helper_runtime_root")"
 assert_contains "$test_helper_runtime_output" "frontend-runtime-test-helper-boundary" "runtime test helper rule"

@@ -84,9 +84,12 @@ describe("timelineRowsModel", () => {
       "3",
     ]);
     expect(gridRows.recordRows[1]).toMatchObject({
-      kind: "record",
-      recordId: "record-b",
-      rowVersion: 3,
+      kind: "data",
+      mutationIdentity: {
+        kind: "core_row_version",
+        baseRowVersion: 3,
+      },
+      rowIdentity: { kind: "core_record", recordId: "record-b" },
       gutterContent: "3:record-b:presence-b",
       gutterTestId: "cartulary.view.timeline.v2-row-gutter-record-b",
     });

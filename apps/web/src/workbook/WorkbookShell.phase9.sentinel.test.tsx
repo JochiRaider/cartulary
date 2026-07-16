@@ -1,8 +1,8 @@
 import {
   buildGridPresentationRows,
   type GridColumn,
+  type GridDataRow,
   type GridDraftRow,
-  type GridRecordRow,
   resolveGridPasteTargets,
 } from "@cartulary/grid-adapter";
 import {
@@ -122,15 +122,40 @@ async function waitForFetchCallIndex(
 function pasteGridRow(
   key: string,
   state: string | null | undefined,
-): GridRecordRow<PasteHarnessRow> {
+): GridDataRow<PasteHarnessRow> {
   return {
-    kind: "record",
+    kind: "data",
     data: {
       label: key,
       state,
     },
-    recordId: key,
-    rowVersion: 1,
+    mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+    rowIdentity: { kind: "core_record", recordId: key },
+  };
+}
+
+const pasteSurface = {
+  kind: "view_schema",
+  viewSchemaId: timelineViewSchemaId,
+} as const;
+
+function pasteAnchor(recordId: string, fieldKey: string) {
+  return {
+    fieldKey,
+    rowIdentity: { kind: "core_record" as const, recordId },
+    surface: pasteSurface,
+  };
+}
+
+function pasteRecordTarget(recordId: string) {
+  return {
+    kind: "record" as const,
+    mutationIdentity: {
+      kind: "core_row_version" as const,
+      baseRowVersion: 1,
+    },
+    rowIdentity: { kind: "core_record" as const, recordId },
+    surface: pasteSurface,
   };
 }
 
@@ -551,11 +576,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     expect(
       resolveGridPasteTargets({
         columns: pasteColumns,
-        current: {
-          viewSchemaId: timelineViewSchemaId,
-          fieldKey: "summary",
-          recordId: "record-1",
-        },
+        current: pasteAnchor("record-1", "summary"),
         pastedColumnCount: 2,
         pastedRowCount: 2,
         presentationRows,
@@ -563,18 +584,8 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     ).toEqual({
       columns: ["summary", "state"],
       rowTargets: [
-        {
-          baseRowVersion: 1,
-          kind: "record",
-          recordId: "record-1",
-          viewSchemaId: timelineViewSchemaId,
-        },
-        {
-          baseRowVersion: 1,
-          kind: "record",
-          recordId: "record-2",
-          viewSchemaId: timelineViewSchemaId,
-        },
+        pasteRecordTarget("record-1"),
+        pasteRecordTarget("record-2"),
       ],
     });
   });
@@ -1071,11 +1082,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     expect(
       resolveGridPasteTargets({
         columns: pasteColumns,
-        current: {
-          viewSchemaId: timelineViewSchemaId,
-          fieldKey: "state",
-          recordId: "record-2",
-        },
+        current: pasteAnchor("record-2", "state"),
         pastedColumnCount: 1,
         pastedRowCount: 3,
         presentationRows,
@@ -1083,14 +1090,9 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     ).toEqual({
       columns: ["state"],
       rowTargets: [
-        {
-          baseRowVersion: 1,
-          kind: "record",
-          recordId: "record-2",
-          viewSchemaId: timelineViewSchemaId,
-        },
-        { createIndex: 0, kind: "create", viewSchemaId: timelineViewSchemaId },
-        { createIndex: 1, kind: "create", viewSchemaId: timelineViewSchemaId },
+        pasteRecordTarget("record-2"),
+        { createIndex: 0, kind: "create", surface: pasteSurface },
+        { createIndex: 1, kind: "create", surface: pasteSurface },
       ],
     });
   });
@@ -1112,11 +1114,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     expect(
       resolveGridPasteTargets({
         columns: pasteColumns,
-        current: {
-          viewSchemaId: timelineViewSchemaId,
-          fieldKey: "summary",
-          recordId: "record-1",
-        },
+        current: pasteAnchor("record-1", "summary"),
         pastedColumnCount: 1,
         pastedRowCount: 2,
         presentationRows: groupedRows,
@@ -1126,11 +1124,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
       resolveGridPasteTargets({
         allowCreateRows: false,
         columns: pasteColumns,
-        current: {
-          viewSchemaId: timelineViewSchemaId,
-          fieldKey: "summary",
-          recordId: "record-2",
-        },
+        current: pasteAnchor("record-2", "summary"),
         pastedColumnCount: 1,
         pastedRowCount: 2,
         presentationRows: groupedRows,
@@ -1232,11 +1226,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     expect(
       resolveGridPasteTargets({
         columns: pasteColumns,
-        current: {
-          viewSchemaId: timelineViewSchemaId,
-          fieldKey: vendorSelection.fieldKey,
-          recordId: "",
-        },
+        current: pasteAnchor("", vendorSelection.fieldKey),
         pastedColumnCount: 1,
         pastedRowCount: 1,
         presentationRows,

@@ -1,4 +1,4 @@
-import type { GridColumn, GridRecordRow } from "@cartulary/grid-adapter";
+import type { GridColumn, GridDataRow } from "@cartulary/grid-adapter";
 import {
   gridRowTestId,
   gridSortHeaderTestId,
@@ -71,13 +71,16 @@ export function workbookGridRows<Row>({
   readonly getRowVersion: (row: Row) => number;
   readonly rows: readonly Row[];
   readonly surface: WorkbookSurface;
-}): readonly GridRecordRow<Row>[] {
+}): readonly GridDataRow<Row>[] {
   return rows.map((row) => {
     const recordId = getRecordId(row);
     return {
-      kind: "record" as const,
-      recordId,
-      rowVersion: getRowVersion(row),
+      kind: "data" as const,
+      mutationIdentity: {
+        kind: "core_row_version" as const,
+        baseRowVersion: getRowVersion(row),
+      },
+      rowIdentity: { kind: "core_record" as const, recordId },
       data: row,
       testId: gridRowTestId(surface, recordId),
     };

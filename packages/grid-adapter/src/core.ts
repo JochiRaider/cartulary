@@ -29,10 +29,33 @@ export type GridColumn<Row> = {
   readonly width?: number | undefined;
 };
 
-export type GridRecordRow<Row> = {
-  readonly kind: "record";
-  readonly recordId: string;
-  readonly rowVersion: number;
+export type GridSurfaceIdentity =
+  | { readonly kind: "view_schema"; readonly viewSchemaId: string }
+  | {
+      readonly kind: "extension_grid";
+      readonly extensionProfileId: string;
+      readonly workspaceKey: string;
+      readonly gridSchemaId: string;
+    };
+
+export type GridRowIdentity =
+  | { readonly kind: "core_record"; readonly recordId: string }
+  | {
+      readonly kind: "extension_resource";
+      readonly extensionProfileId: string;
+      readonly resourceKind: string;
+      readonly resourceId: string;
+    };
+
+export type GridMutationIdentity = {
+  readonly kind: "core_row_version";
+  readonly baseRowVersion: number;
+};
+
+export type GridDataRow<Row> = {
+  readonly kind: "data";
+  readonly rowIdentity: GridRowIdentity;
+  readonly mutationIdentity?: GridMutationIdentity | undefined;
   readonly data: Row;
   readonly gutterContent?: ReactNode | undefined;
   readonly gutterLabel?: string | undefined;
@@ -65,12 +88,12 @@ export type GridCellStateInput = GridSemanticStateInput;
 export type GridRowStateInput = GridSemanticStateInput;
 
 export type GridCellStateContext<Row> = GridCellRenderContext<Row> & {
-  readonly rowVersion: number;
+  readonly mutationIdentity?: GridMutationIdentity | undefined;
 };
 
-export type GridBulkSelection<Row> = {
+export type GridCoreRecordBulkSelection<Row> = {
   readonly isRecordSelectable?:
-    | ((row: GridRecordRow<Row>) => boolean)
+    | ((row: GridDataRow<Row>) => boolean)
     | undefined;
   readonly onSelectedRecordIdsChange: (recordIds: ReadonlySet<string>) => void;
   readonly selectedRecordIds: ReadonlySet<string>;
@@ -121,7 +144,7 @@ export type GridDraftRow<Row> = {
   readonly testId?: string | undefined;
 };
 
-export type GridSemanticRow<Row> = GridDraftRow<Row> | GridRecordRow<Row>;
+export type GridSemanticRow<Row> = GridDraftRow<Row> | GridDataRow<Row>;
 
 export type GridRowGutter = {
   readonly headerTestId?: string | undefined;
@@ -133,7 +156,7 @@ export type GridRowGutter = {
 export type GridActionsColumn<Row> = {
   readonly headerTestId?: string | undefined;
   readonly label: string;
-  readonly renderCell: (row: GridRecordRow<Row>) => ReactNode;
+  readonly renderCell: (row: GridDataRow<Row>) => ReactNode;
   readonly renderDraftCell?:
     | ((row: GridDraftRow<Row>) => ReactNode)
     | undefined;
@@ -152,12 +175,14 @@ export type GridViewportProps = PropsWithChildren<{
   readonly testId?: string | undefined;
 }>;
 
-export type WorkbookDataGridProps<Row> = {
+type SemanticDataGridBaseProps<Row> = {
   readonly allowPasteCreateRows?: boolean | undefined;
-  readonly activeRecordId?: string | null | undefined;
+  readonly activeRowIdentity?: GridRowIdentity | null | undefined;
   readonly actionsColumn?: GridActionsColumn<Row> | undefined;
   readonly columns: readonly GridColumn<Row>[];
-  readonly bulkSelection?: GridBulkSelection<Row> | undefined;
+  readonly coreRecordBulkSelection?:
+    | GridCoreRecordBulkSelection<Row>
+    | undefined;
   readonly cellRange?: GridCellRange | null | undefined;
   readonly columnWidths?: Readonly<Record<string, number>> | undefined;
   readonly dataState?: GridDataState | undefined;
@@ -169,7 +194,7 @@ export type WorkbookDataGridProps<Row> = {
     | ((context: GridCellStateContext<Row>) => GridCellStateInput)
     | undefined;
   readonly getRowState?:
-    | ((row: GridRecordRow<Row>) => GridRowStateInput)
+    | ((row: GridDataRow<Row>) => GridRowStateInput)
     | undefined;
   readonly interactionMode?: GridInteractionMode | undefined;
   readonly onActiveCellChange?:
@@ -191,12 +216,47 @@ export type WorkbookDataGridProps<Row> = {
   readonly onColumnWidthChange?:
     | ((fieldKey: string, width: number) => void)
     | undefined;
-  readonly onSelectRecord?: ((recordId: string) => void) | undefined;
-  readonly recordRows: readonly GridRecordRow<Row>[];
+  readonly onSelectRow?: ((rowIdentity: GridRowIdentity) => void) | undefined;
+  readonly dataRows: readonly GridDataRow<Row>[];
   readonly rowGutter?: GridRowGutter | undefined;
   readonly sort?: readonly GridSortEntry[] | undefined;
-  readonly viewSchemaId: string;
+  readonly surface: GridSurfaceIdentity;
 };
+
+export type SemanticDataGridProps<Row> =
+  | (SemanticDataGridBaseProps<Row> & {
+      readonly surface: Extract<
+        GridSurfaceIdentity,
+        { readonly kind: "view_schema" }
+      >;
+    })
+  | (Omit<
+      SemanticDataGridBaseProps<Row>,
+      | "actionsColumn"
+      | "allowPasteCreateRows"
+      | "coreRecordBulkSelection"
+      | "draftRow"
+      | "interactionMode"
+      | "onEditCell"
+      | "onFillCells"
+      | "onPasteCell"
+    > & {
+      readonly surface: Extract<
+        GridSurfaceIdentity,
+        { readonly kind: "extension_grid" }
+      >;
+      readonly actionsColumn?: never;
+      readonly allowPasteCreateRows?: never;
+      readonly coreRecordBulkSelection?: never;
+      readonly draftRow?: never;
+      readonly interactionMode?: {
+        readonly kind: "read_only";
+        readonly label: string;
+      };
+      readonly onEditCell?: never;
+      readonly onFillCells?: never;
+      readonly onPasteCell?: never;
+    });
 
 export type GridPresentationGroupRow = {
   readonly groupBy: string;
@@ -207,7 +267,7 @@ export type GridPresentationGroupRow = {
 };
 
 export type GridPresentationDataRow<Row> = {
-  readonly gridRow: GridRecordRow<Row>;
+  readonly gridRow: GridDataRow<Row>;
   readonly key: string;
   readonly kind: "data";
 };
@@ -217,13 +277,13 @@ export type GridPresentationRow<Row> =
   | GridPresentationDataRow<Row>;
 
 export type GridCellAnchor = {
+  readonly surface: GridSurfaceIdentity;
+  readonly rowIdentity: GridRowIdentity;
   readonly fieldKey: string;
-  readonly recordId: string;
-  readonly viewSchemaId: string;
 };
 
 export type GridCellTarget = GridCellAnchor & {
-  readonly baseRowVersion: number;
+  readonly mutationIdentity: GridMutationIdentity;
 };
 
 export type GridCellRange = {
@@ -233,7 +293,7 @@ export type GridCellRange = {
 
 export type GridExpandedCellRange = {
   readonly fieldKeys: readonly string[];
-  readonly recordTargets: readonly GridCellTarget[];
+  readonly rowIdentities: readonly GridRowIdentity[];
 };
 
 export type GridCellRenderContext<Row> = {
@@ -244,7 +304,10 @@ export type GridCellRenderContext<Row> = {
 export type GridDraftCellRenderContext<Row> = {
   readonly fieldKey: string;
   readonly row: Row;
-  readonly viewSchemaId: string;
+  readonly surface: Extract<
+    GridSurfaceIdentity,
+    { readonly kind: "view_schema" }
+  >;
 };
 
 export type GridEditCommitIntent<Row> = {
@@ -358,7 +421,7 @@ export type ResolveGridCellAnchorProps<Row> = {
   readonly columns: readonly GridColumn<Row>[];
   readonly presentationRows: readonly GridPresentationRow<Row>[];
   readonly selection: GridCellSelection;
-  readonly viewSchemaId: string;
+  readonly surface: GridSurfaceIdentity;
 };
 
 export type NavigateGridCellAnchorProps<Row> = {
@@ -371,14 +434,23 @@ export type NavigateGridCellAnchorProps<Row> = {
 export type GridPasteCreateRowTarget = {
   readonly createIndex: number;
   readonly kind: "create";
-  readonly viewSchemaId: string;
+  readonly surface: Extract<
+    GridSurfaceIdentity,
+    { readonly kind: "view_schema" }
+  >;
 };
 
 export type GridPasteRecordRowTarget = {
-  readonly baseRowVersion: number;
+  readonly mutationIdentity: GridMutationIdentity;
   readonly kind: "record";
-  readonly recordId: string;
-  readonly viewSchemaId: string;
+  readonly rowIdentity: Extract<
+    GridRowIdentity,
+    { readonly kind: "core_record" }
+  >;
+  readonly surface: Extract<
+    GridSurfaceIdentity,
+    { readonly kind: "view_schema" }
+  >;
 };
 
 export type GridPasteRowTarget =
@@ -404,36 +476,27 @@ type BuildGridPresentationRowsProps<Row> = {
   readonly rows: readonly GridSemanticRow<Row>[];
 };
 
-export type RecordIdentity = {
-  readonly recordId: string | null;
-};
-
 export const gridUnassignedGroupLabel = "Unassigned";
 
 export function isGridColumnEditable<Row>(column: GridColumn<Row>): boolean {
   return column.contractWritable === true && column.editor !== undefined;
 }
 
-export function assertGridRows<Row extends RecordIdentity>(
-  rows: readonly Row[],
-) {
+export function assertGridRows<Row>(rows: readonly GridDataRow<Row>[]) {
   const seen = new Set<string>();
   for (const row of rows) {
-    if (row.recordId === null) {
-      continue;
-    }
-    const normalized = row.recordId.trim();
-    if (normalized === "") {
+    const key = gridRowIdentityKey(row.rowIdentity);
+    if (!isValidGridRowIdentity(row.rowIdentity)) {
       throw new Error(
-        "Grid adapter invariant failed: missing record_id on a saved row.",
+        "Grid adapter invariant failed: a data row has an invalid semantic identity.",
       );
     }
-    if (seen.has(normalized)) {
+    if (seen.has(key)) {
       throw new Error(
-        `Grid adapter invariant failed: duplicate record_id "${normalized}".`,
+        "Grid adapter invariant failed: duplicate semantic row identity.",
       );
     }
-    seen.add(normalized);
+    seen.add(key);
   }
 }
 
@@ -445,7 +508,13 @@ export function buildGridPresentationRows<Row>({
     return rows.flatMap((row) =>
       row.kind === "draft"
         ? []
-        : [{ gridRow: row, key: row.recordId, kind: "data" as const }],
+        : [
+            {
+              gridRow: row,
+              key: gridRowIdentityKey(row.rowIdentity),
+              kind: "data" as const,
+            },
+          ],
     );
   }
 
@@ -454,7 +523,7 @@ export function buildGridPresentationRows<Row>({
     groupValue: GridGroupingScalar;
     groupKeyValue: string;
     groupLabel: string | null;
-    rows: Array<GridRecordRow<Row>>;
+    rows: Array<GridDataRow<Row>>;
   }> = [];
   const bucketsByKey = new Map<
     string,
@@ -462,7 +531,7 @@ export function buildGridPresentationRows<Row>({
       groupKeyValue: string;
       groupLabel: string | null;
       groupValue: GridGroupingScalar;
-      rows: Array<GridRecordRow<Row>>;
+      rows: Array<GridDataRow<Row>>;
     }
   >();
   for (const row of rows) {
@@ -503,7 +572,7 @@ export function buildGridPresentationRows<Row>({
     for (const row of bucket.rows) {
       presentationRows.push({
         gridRow: row,
-        key: row.recordId,
+        key: gridRowIdentityKey(row.rowIdentity),
         kind: "data",
       });
     }
@@ -516,7 +585,7 @@ export function resolveGridCellAnchor<Row>({
   columns,
   presentationRows,
   selection,
-  viewSchemaId,
+  surface,
 }: ResolveGridCellAnchorProps<Row>): GridCellAnchor | null {
   if (
     !Number.isInteger(selection.rowIndex) ||
@@ -529,14 +598,13 @@ export function resolveGridCellAnchor<Row>({
   if (row === undefined || row.kind !== "data") {
     return null;
   }
-  const recordId = row.gridRow.recordId;
-  if (recordId.trim() === "") {
+  if (!isValidGridRowIdentity(row.gridRow.rowIdentity)) {
     return null;
   }
   return {
     fieldKey: selection.fieldKey,
-    recordId,
-    viewSchemaId,
+    rowIdentity: row.gridRow.rowIdentity,
+    surface,
   };
 }
 
@@ -547,8 +615,8 @@ export function navigateGridCellAnchor<Row>({
   presentationRows,
 }: NavigateGridCellAnchorProps<Row>): GridCellAnchor | null {
   const dataRows = presentationRows.filter((row) => row.kind === "data");
-  const currentRowIndex = dataRows.findIndex(
-    (row) => row.gridRow.recordId === current.recordId,
+  const currentRowIndex = dataRows.findIndex((row) =>
+    gridRowIdentitiesEqual(row.gridRow.rowIdentity, current.rowIdentity),
   );
   const currentColumnIndex = columns.findIndex(
     (column) => column.fieldKey === current.fieldKey,
@@ -575,8 +643,8 @@ export function navigateGridCellAnchor<Row>({
   if (targetRow === undefined) return null;
   return {
     fieldKey: targetColumn.fieldKey,
-    recordId: targetRow.gridRow.recordId,
-    viewSchemaId: current.viewSchemaId,
+    rowIdentity: targetRow.gridRow.rowIdentity,
+    surface: current.surface,
   };
 }
 
@@ -585,7 +653,9 @@ export function resolveGridCellRange<Row>({
   presentationRows,
   range,
 }: ResolveGridCellRangeProps<Row>): GridExpandedCellRange | null {
-  if (range.start.viewSchemaId !== range.end.viewSchemaId) return null;
+  if (!gridSurfaceIdentitiesEqual(range.start.surface, range.end.surface)) {
+    return null;
+  }
   const startColumnIndex = columns.findIndex(
     (column) => column.fieldKey === range.start.fieldKey,
   );
@@ -594,10 +664,13 @@ export function resolveGridCellRange<Row>({
   );
   const startRowIndex = presentationRows.findIndex(
     (row) =>
-      row.kind === "data" && row.gridRow.recordId === range.start.recordId,
+      row.kind === "data" &&
+      gridRowIdentitiesEqual(row.gridRow.rowIdentity, range.start.rowIdentity),
   );
   const endRowIndex = presentationRows.findIndex(
-    (row) => row.kind === "data" && row.gridRow.recordId === range.end.recordId,
+    (row) =>
+      row.kind === "data" &&
+      gridRowIdentitiesEqual(row.gridRow.rowIdentity, range.end.rowIdentity),
   );
   if (
     startColumnIndex < 0 ||
@@ -614,23 +687,12 @@ export function resolveGridCellRange<Row>({
   const fieldKeys = columns
     .slice(firstColumnIndex, lastColumnIndex + 1)
     .map((column) => column.fieldKey);
-  const recordTargets = presentationRows
+  const rowIdentities = presentationRows
     .slice(firstRowIndex, lastRowIndex + 1)
-    .flatMap((row) =>
-      row.kind === "group"
-        ? []
-        : [
-            {
-              baseRowVersion: row.gridRow.rowVersion,
-              fieldKey: range.start.fieldKey,
-              recordId: row.gridRow.recordId,
-              viewSchemaId: range.start.viewSchemaId,
-            },
-          ],
-    );
-  return fieldKeys.length === 0 || recordTargets.length === 0
+    .flatMap((row) => (row.kind === "group" ? [] : [row.gridRow.rowIdentity]));
+  return fieldKeys.length === 0 || rowIdentities.length === 0
     ? null
-    : { fieldKeys, recordTargets };
+    : { fieldKeys, rowIdentities };
 }
 
 export function parseGridClipboardTable(text: string): string[][] {
@@ -710,7 +772,9 @@ export function resolveGridPasteTargets<Row>({
   presentationRows,
 }: ResolveGridPasteTargetsProps<Row>): GridPasteTargetResolution | null {
   if (
-    current.recordId.trim() === "" ||
+    current.rowIdentity.kind !== "core_record" ||
+    current.surface.kind !== "view_schema" ||
+    current.rowIdentity.recordId.trim() === "" ||
     current.fieldKey.trim() === "" ||
     !Number.isInteger(pastedRowCount) ||
     pastedRowCount < 1 ||
@@ -733,7 +797,9 @@ export function resolveGridPasteTargets<Row>({
   }
 
   const startRowIndex = presentationRows.findIndex(
-    (row) => row.kind === "data" && row.gridRow.recordId === current.recordId,
+    (row) =>
+      row.kind === "data" &&
+      gridRowIdentitiesEqual(row.gridRow.rowIdentity, current.rowIdentity),
   );
   if (startRowIndex < 0) {
     return null;
@@ -750,7 +816,7 @@ export function resolveGridPasteTargets<Row>({
       rowTargets.push({
         createIndex,
         kind: "create",
-        viewSchemaId: current.viewSchemaId,
+        surface: current.surface,
       });
       createIndex += 1;
       continue;
@@ -758,15 +824,19 @@ export function resolveGridPasteTargets<Row>({
     if (presentationRow.kind !== "data") {
       return null;
     }
-    const recordId = presentationRow.gridRow.recordId;
-    if (recordId.trim() === "") {
+    const { mutationIdentity, rowIdentity } = presentationRow.gridRow;
+    if (
+      rowIdentity.kind !== "core_record" ||
+      rowIdentity.recordId.trim() === "" ||
+      mutationIdentity === undefined
+    ) {
       return null;
     }
     rowTargets.push({
-      baseRowVersion: presentationRow.gridRow.rowVersion,
       kind: "record",
-      recordId,
-      viewSchemaId: current.viewSchemaId,
+      mutationIdentity,
+      rowIdentity,
+      surface: current.surface,
     });
   }
 
@@ -774,6 +844,52 @@ export function resolveGridPasteTargets<Row>({
     columns: targetColumns,
     rowTargets,
   };
+}
+
+export function gridRowIdentitiesEqual(
+  left: GridRowIdentity,
+  right: GridRowIdentity,
+): boolean {
+  return gridRowIdentityKey(left) === gridRowIdentityKey(right);
+}
+
+export function gridSurfaceIdentitiesEqual(
+  left: GridSurfaceIdentity,
+  right: GridSurfaceIdentity,
+): boolean {
+  return gridSurfaceIdentityKey(left) === gridSurfaceIdentityKey(right);
+}
+
+/** Package-internal key used only to bridge semantic identities to the vendor. */
+export function gridRowIdentityKey(identity: GridRowIdentity): string {
+  return identity.kind === "core_record"
+    ? identity.recordId
+    : JSON.stringify([
+        identity.kind,
+        identity.extensionProfileId,
+        identity.resourceKind,
+        identity.resourceId,
+      ]);
+}
+
+/** Package-internal key used only to scope semantic state. */
+export function gridSurfaceIdentityKey(identity: GridSurfaceIdentity): string {
+  return identity.kind === "view_schema"
+    ? JSON.stringify([identity.kind, identity.viewSchemaId])
+    : JSON.stringify([
+        identity.kind,
+        identity.extensionProfileId,
+        identity.workspaceKey,
+        identity.gridSchemaId,
+      ]);
+}
+
+function isValidGridRowIdentity(identity: GridRowIdentity): boolean {
+  return identity.kind === "core_record"
+    ? identity.recordId.trim() !== ""
+    : identity.extensionProfileId.trim() !== "" &&
+        identity.resourceKind.trim() !== "" &&
+        identity.resourceId.trim() !== "";
 }
 
 function navigateGridCellCoordinates({

@@ -2,10 +2,10 @@ import type { IncidentStreamMessage } from "./generated/collaboration-types.js";
 import type {
   EnvelopeMeta,
   ErrorEnvelope,
+  ExtensionDiscoveryEnvelope,
   ExtensionMappingPreviewEnvelope,
   ExtensionMappingPreviewRequest,
   ExtensionMappingPreviewResource,
-  ExtensionDiscoveryEnvelope,
   ExtensionProfileResource as GeneratedExtensionProfileResource,
 } from "./generated/core-http-types.js";
 import {
@@ -33,10 +33,10 @@ export type * from "./generated/network-flow-types.js";
 export type {
   EnvelopeMeta,
   ErrorEnvelope,
+  ExtensionDiscoveryEnvelope,
   ExtensionMappingPreviewEnvelope,
   ExtensionMappingPreviewRequest,
   ExtensionMappingPreviewResource,
-  ExtensionDiscoveryEnvelope,
   GeneratedExtensionProfileResource,
   IncidentStreamMessage,
 };

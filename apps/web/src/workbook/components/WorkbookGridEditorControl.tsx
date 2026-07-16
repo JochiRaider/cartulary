@@ -55,7 +55,11 @@ export function workbookGridEditorAdapter<Row>({
             field={field}
             referenceOptions={referenceOptions}
             surface="grid"
-            testId={`grid-editor-${context.target.recordId}-${field.fieldKey}`}
+            testId={`grid-editor-${
+              context.target.rowIdentity.kind === "core_record"
+                ? context.target.rowIdentity.recordId
+                : "unsupported"
+            }-${field.fieldKey}`}
             value={draftValue}
             onChange={(value) => context.setDraftValue(value)}
           />

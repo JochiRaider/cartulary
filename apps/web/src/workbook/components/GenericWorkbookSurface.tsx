@@ -2,15 +2,15 @@ import {
   type GridActionsColumn,
   type GridCellMutationIntent,
   type GridColumn,
+  type GridDataRow,
   type GridDensity,
   type GridDraftRow,
   type GridEditCommitOutcome,
   type GridGroupingDescriptor,
   type GridHandle,
   type GridInteractionMode,
-  type GridRecordRow,
   GridViewport,
-  WorkbookDataGrid,
+  SemanticDataGrid,
 } from "@cartulary/grid-adapter";
 import {
   dataTestIdSelector,
@@ -401,8 +401,8 @@ export function ContractWorkbookSurface({
         resolution.columns[0] ?? intent.target.fieldKey,
         values[0]?.[0] ?? "",
         {
-          baseRowVersion: rowTarget.baseRowVersion,
-          recordId: rowTarget.recordId,
+          baseRowVersion: rowTarget.mutationIdentity.baseRowVersion,
+          recordId: rowTarget.rowIdentity.recordId,
         },
       );
       if (outcome.kind !== "accepted") setValidationError(outcome.message);
@@ -428,7 +428,7 @@ export function ContractWorkbookSurface({
     }),
     [contract.fields, createDraft, draftRowRecordId],
   );
-  const gridRecordRows = useMemo<readonly GridRecordRow<EntityApiRow>[]>(
+  const gridRecordRows = useMemo<readonly GridDataRow<EntityApiRow>[]>(
     () =>
       workbookGridRows({
         getRecordId: (row: EntityApiRow) => row.record_id,
@@ -500,7 +500,13 @@ export function ContractWorkbookSurface({
           field?.gridEditable === true
             ? workbookGridEditorAdapter({
                 commit: (draftValue, target) =>
-                  commitGridEdit(field.fieldKey, draftValue, target),
+                  commitGridEdit(field.fieldKey, draftValue, {
+                    baseRowVersion: target.mutationIdentity.baseRowVersion,
+                    recordId:
+                      target.rowIdentity.kind === "core_record"
+                        ? target.rowIdentity.recordId
+                        : "",
+                  }),
                 field,
                 readValue: (row: EntityApiRow) =>
                   row.cells[field.fieldKey]?.value,
@@ -1125,7 +1131,7 @@ export function ContractWorkbookSurface({
           style={gridShellStyle}
           testId={gridShellTestId(surface)}
         >
-          <WorkbookDataGrid
+          <SemanticDataGrid
             ref={gridHandleRef}
             actionsColumn={rowActionsColumn}
             columns={columns}
@@ -1137,7 +1143,9 @@ export function ContractWorkbookSurface({
             interactionMode={interactionMode}
             onActiveCellChange={(anchor) =>
               genericFocus.update(
-                anchor?.recordId ?? null,
+                anchor?.rowIdentity.kind === "core_record"
+                  ? anchor.rowIdentity.recordId
+                  : null,
                 anchor?.fieldKey ?? "",
               )
             }
@@ -1145,9 +1153,9 @@ export function ContractWorkbookSurface({
             onColumnWidthChange={onColumnWidthChange}
             onPasteCell={(intent) => void handleGridPaste(intent)}
             onSortChange={onSortChange}
-            recordRows={gridRecordRows}
+            dataRows={gridRecordRows}
             sort={queryState.sort}
-            viewSchemaId={surface}
+            surface={{ kind: "view_schema", viewSchemaId: surface }}
           />
         </GridViewport>
       }

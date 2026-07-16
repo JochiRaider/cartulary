@@ -8,13 +8,15 @@ import {
   assertGridRows,
   buildGridPresentationRows,
   type GridColumn,
-  type GridRecordRow,
+  type GridDataRow,
+  type GridRowIdentity,
   type GridSemanticStateInput,
   type GridViewportProps,
   gridClipboardDimensions,
+  gridRowIdentitiesEqual,
   gridUnassignedGroupLabel,
   resolveGridPasteTargets,
-  type WorkbookDataGridProps,
+  type SemanticDataGridProps,
 } from "./core";
 import {
   gridSemanticStateClassNames,
@@ -22,13 +24,18 @@ import {
   resolveGridSemanticState,
 } from "./semanticState";
 
+function coreRecordId<Row>(row: GridDataRow<Row>): string | null {
+  return row.rowIdentity.kind === "core_record"
+    ? row.rowIdentity.recordId
+    : null;
+}
+
 export {
   assertGridRows,
   buildGridPresentationRows,
   formatGridClipboardTSV,
   type GridActionsColumn,
   type GridBlockSizing,
-  type GridBulkSelection,
   type GridCellAnchor,
   type GridCellCopyIntent,
   type GridCellMutationIntent,
@@ -38,6 +45,8 @@ export {
   type GridCellStateInput,
   type GridCellTarget,
   type GridColumn,
+  type GridCoreRecordBulkSelection,
+  type GridDataRow,
   type GridDataState,
   type GridDataStateAction,
   type GridDraftRow,
@@ -51,22 +60,24 @@ export {
   type GridGroupingScalar,
   type GridHandle,
   type GridInteractionMode,
+  type GridMutationIdentity,
   type GridNavigationIntent,
   type GridNavigationKey,
-  type GridRecordRow,
   type GridRowGutter,
+  type GridRowIdentity,
   type GridRowStateInput,
   type GridSemanticStateInput,
   type GridSortDirection,
   type GridSortEntry,
   type GridStateValidation,
+  type GridSurfaceIdentity,
   type GridViewportProps,
   gridClipboardDimensions,
   navigateGridCellAnchor,
   parseGridClipboardTable,
   resolveGridCellAnchor,
   resolveGridCellRange,
-  type WorkbookDataGridProps,
+  type SemanticDataGridProps,
 } from "./core";
 export { setGridVirtualizationDisabledForDiagnostics } from "./virtualizationDiagnostics";
 
@@ -83,11 +94,11 @@ export function GridViewport({
   );
 }
 
-export function WorkbookDataGrid<Row>({
-  activeRecordId = null,
+export function SemanticDataGrid<Row>({
+  activeRowIdentity = null,
   allowPasteCreateRows = false,
   actionsColumn,
-  bulkSelection,
+  coreRecordBulkSelection,
   columns,
   dataState = { kind: "ready" },
   draftRow,
@@ -95,51 +106,70 @@ export function WorkbookDataGrid<Row>({
   getCellState,
   getRowState,
   grouping = null,
-  interactionMode = { kind: "editable" },
+  interactionMode,
   onPasteCell,
-  onSelectRecord,
+  onSelectRow,
   onSortChange,
-  recordRows,
+  dataRows,
   rowGutter,
   sort = [],
-  viewSchemaId,
-}: WorkbookDataGridProps<Row>) {
-  const editable = interactionMode.kind === "editable";
-  const effectiveBulkSelection = editable ? bulkSelection : undefined;
+  surface,
+}: SemanticDataGridProps<Row>) {
+  const effectiveInteractionMode =
+    interactionMode ??
+    (surface.kind === "extension_grid"
+      ? { kind: "read_only" as const, label: "Read only" }
+      : { kind: "editable" as const });
+  const editable = effectiveInteractionMode.kind === "editable";
+  const effectiveBulkSelection = editable ? coreRecordBulkSelection : undefined;
   const effectiveDraftRow = editable ? draftRow : undefined;
   const selectionAnchorRecordId = useRef<string | null>(null);
-  assertGridRows(recordRows);
+  assertGridRows(dataRows);
 
   const selectableRows =
     effectiveBulkSelection === undefined
       ? []
-      : recordRows.filter(
-          (row) => effectiveBulkSelection.isRecordSelectable?.(row) !== false,
+      : dataRows.filter(
+          (
+            row,
+          ): row is GridDataRow<Row> & {
+            readonly rowIdentity: Extract<
+              GridRowIdentity,
+              { readonly kind: "core_record" }
+            >;
+          } =>
+            row.rowIdentity.kind === "core_record" &&
+            effectiveBulkSelection.isRecordSelectable?.(row) !== false,
         );
-  const selectableIds = selectableRows.map((row) => row.recordId);
+  const selectableIds = selectableRows.map((row) => row.rowIdentity.recordId);
   const selectedOnPage = selectableIds.filter((recordId) =>
     effectiveBulkSelection?.selectedRecordIds.has(recordId),
   );
-  const rowStateFor = (row: GridRecordRow<Row>): GridSemanticStateInput =>
+  const rowStateFor = (row: GridDataRow<Row>): GridSemanticStateInput =>
     mergeGridSemanticState(getRowState?.(row), {
       bulkSelected:
-        effectiveBulkSelection?.selectedRecordIds.has(row.recordId) === true,
-      inspectorActive: row.recordId === activeRecordId,
+        row.rowIdentity.kind === "core_record" &&
+        effectiveBulkSelection?.selectedRecordIds.has(
+          row.rowIdentity.recordId,
+        ) === true,
+      inspectorActive:
+        activeRowIdentity !== null &&
+        gridRowIdentitiesEqual(row.rowIdentity, activeRowIdentity),
       readOnlyOrDerived: !editable,
       saved: true,
       stale: dataState.kind === "stale_error",
     });
-  const cellStateFor = (row: GridRecordRow<Row>, column: GridColumn<Row>) => {
+  const cellStateFor = (row: GridDataRow<Row>, column: GridColumn<Row>) => {
     const rowState = rowStateFor(row);
     return mergeGridSemanticState(
       getCellState?.({
         anchor: {
           fieldKey: column.fieldKey,
-          recordId: row.recordId,
-          viewSchemaId,
+          rowIdentity: row.rowIdentity,
+          surface,
         },
+        mutationIdentity: row.mutationIdentity,
         row: row.data,
-        rowVersion: row.rowVersion,
       }),
       {
         bulkSelected: rowState.bulkSelected,
@@ -157,7 +187,7 @@ export function WorkbookDataGrid<Row>({
 
   const renderedRows = buildGridPresentationRows({
     grouping,
-    rows: recordRows,
+    rows: dataRows,
   });
   const totalColumnCount =
     columns.length +
@@ -169,7 +199,7 @@ export function WorkbookDataGrid<Row>({
     <>
       <TestGridStatePresentation
         dataState={dataState}
-        interactionMode={interactionMode}
+        interactionMode={effectiveInteractionMode}
       />
       <table
         aria-busy={
@@ -303,31 +333,33 @@ export function WorkbookDataGrid<Row>({
                     {...testSemanticAttributes(
                       "row",
                       rowStateFor(row.gridRow),
-                      `row ${row.gridRow.recordId}`,
+                      "data row",
                     )}
-                    data-grid-record-id={row.gridRow.recordId ?? ""}
+                    data-grid-row-identity-kind={row.gridRow.rowIdentity.kind}
+                    data-grid-record-id={coreRecordId(row.gridRow) ?? undefined}
                     data-testid={row.gridRow.testId}
                     key={row.key}
                     role="row"
-                    tabIndex={onSelectRecord === undefined ? undefined : 0}
+                    tabIndex={onSelectRow === undefined ? undefined : 0}
                     onClick={() => {
-                      onSelectRecord?.(row.gridRow.recordId);
+                      onSelectRow?.(row.gridRow.rowIdentity);
                     }}
                     onKeyDown={(event: KeyboardEvent<HTMLTableRowElement>) => {
                       if (event.key === "Enter" || event.key === " ") {
-                        onSelectRecord?.(row.gridRow.recordId);
+                        onSelectRow?.(row.gridRow.rowIdentity);
                       }
                     }}
                   >
                     {effectiveBulkSelection === undefined ? null : (
                       <td role="gridcell">
-                        {effectiveBulkSelection.isRecordSelectable?.(
+                        {row.gridRow.rowIdentity.kind !== "core_record" ||
+                        effectiveBulkSelection.isRecordSelectable?.(
                           row.gridRow,
                         ) === false ? null : (
                           <input
-                            aria-label={`Select record ${row.gridRow.recordId}`}
+                            aria-label={`Select record ${row.gridRow.rowIdentity.recordId}`}
                             checked={effectiveBulkSelection.selectedRecordIds.has(
-                              row.gridRow.recordId,
+                              row.gridRow.rowIdentity.recordId,
                             )}
                             readOnly
                             type="checkbox"
@@ -338,12 +370,13 @@ export function WorkbookDataGrid<Row>({
                               );
                               const anchorIndex = selectableRows.findIndex(
                                 (candidate) =>
-                                  candidate.recordId ===
+                                  candidate.rowIdentity.recordId ===
                                   selectionAnchorRecordId.current,
                               );
                               const rowIndex = selectableRows.findIndex(
                                 (candidate) =>
-                                  candidate.recordId === row.gridRow.recordId,
+                                  candidate.rowIdentity.recordId ===
+                                  (coreRecordId(row.gridRow) ?? ""),
                               );
                               if (
                                 event.shiftKey &&
@@ -356,15 +389,18 @@ export function WorkbookDataGrid<Row>({
                                   start,
                                   end + 1,
                                 )) {
-                                  next.add(candidate.recordId);
+                                  next.add(candidate.rowIdentity.recordId);
                                 }
-                              } else if (next.has(row.gridRow.recordId)) {
-                                next.delete(row.gridRow.recordId);
+                              } else if (
+                                next.has(coreRecordId(row.gridRow) ?? "")
+                              ) {
+                                next.delete(coreRecordId(row.gridRow) ?? "");
                               } else {
-                                next.add(row.gridRow.recordId);
+                                next.add(coreRecordId(row.gridRow) ?? "");
                               }
-                              selectionAnchorRecordId.current =
-                                row.gridRow.recordId;
+                              selectionAnchorRecordId.current = coreRecordId(
+                                row.gridRow,
+                              );
                               effectiveBulkSelection.onSelectedRecordIdsChange(
                                 next,
                               );
@@ -418,8 +454,8 @@ export function WorkbookDataGrid<Row>({
                               columns,
                               current: {
                                 fieldKey: column.fieldKey,
-                                recordId: row.gridRow.recordId,
-                                viewSchemaId,
+                                rowIdentity: row.gridRow.rowIdentity,
+                                surface,
                               },
                               pastedColumnCount: dimensions.columnCount,
                               pastedRowCount: dimensions.rowCount,
@@ -439,13 +475,16 @@ export function WorkbookDataGrid<Row>({
                               return;
                             }
                             event.preventDefault();
+                            if (row.gridRow.mutationIdentity === undefined) {
+                              return;
+                            }
                             onPasteCell({
                               clipboardText,
                               target: {
-                                baseRowVersion: row.gridRow.rowVersion,
                                 fieldKey: column.fieldKey,
-                                recordId: row.gridRow.recordId,
-                                viewSchemaId,
+                                mutationIdentity: row.gridRow.mutationIdentity,
+                                rowIdentity: row.gridRow.rowIdentity,
+                                surface,
                               },
                               targetResolution,
                             });
@@ -464,8 +503,8 @@ export function WorkbookDataGrid<Row>({
                           {column.renderCell({
                             anchor: {
                               fieldKey: column.fieldKey,
-                              recordId: row.gridRow.recordId,
-                              viewSchemaId,
+                              rowIdentity: row.gridRow.rowIdentity,
+                              surface,
                             },
                             row: row.gridRow.data,
                           })}
@@ -483,7 +522,6 @@ export function WorkbookDataGrid<Row>({
               {effectiveDraftRow === undefined ? null : (
                 <tr
                   data-cartulary-grid-draft-row="true"
-                  data-grid-record-id=""
                   data-testid={effectiveDraftRow.testId}
                   role="row"
                 >
@@ -506,11 +544,13 @@ export function WorkbookDataGrid<Row>({
                       key={column.fieldKey}
                       role="gridcell"
                     >
-                      {column.renderDraftCell?.({
-                        fieldKey: column.fieldKey,
-                        row: effectiveDraftRow.data,
-                        viewSchemaId,
-                      }) ?? null}
+                      {surface.kind === "view_schema"
+                        ? (column.renderDraftCell?.({
+                            fieldKey: column.fieldKey,
+                            row: effectiveDraftRow.data,
+                            surface,
+                          }) ?? null)
+                        : null}
                     </td>
                   ))}
                   {actionsColumn === undefined ? null : (
@@ -560,9 +600,9 @@ function TestGridStatePresentation({
   dataState,
   interactionMode,
 }: {
-  readonly dataState: NonNullable<WorkbookDataGridProps<unknown>["dataState"]>;
+  readonly dataState: NonNullable<SemanticDataGridProps<unknown>["dataState"]>;
   readonly interactionMode: NonNullable<
-    WorkbookDataGridProps<unknown>["interactionMode"]
+    SemanticDataGridProps<unknown>["interactionMode"]
   >;
 }) {
   let message: string | null = null;

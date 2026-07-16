@@ -1,7 +1,7 @@
 import {
   type GridColumn,
-  type GridRecordRow,
-  WorkbookDataGrid,
+  type GridDataRow,
+  SemanticDataGrid,
 } from "@cartulary/grid-adapter/test-support";
 import {
   dataTestIdSelector,
@@ -522,11 +522,11 @@ describe("Phase 8 workbook query controls", () => {
       readonly state: string;
       readonly summary: string;
     };
-    const rows: readonly GridRecordRow<HarnessRow>[] = [
+    const rows: readonly GridDataRow<HarnessRow>[] = [
       {
-        kind: "record",
-        recordId: "record-1",
-        rowVersion: 1,
+        kind: "data",
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+        rowIdentity: { kind: "core_record", recordId: "record-1" },
         data: {
           actionTestId: "action-record-1",
           editableTestId: "editable-record-1",
@@ -537,9 +537,9 @@ describe("Phase 8 workbook query controls", () => {
         testId: "phase8-row-record-1",
       },
       {
-        kind: "record",
-        recordId: "record-2",
-        rowVersion: 1,
+        kind: "data",
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+        rowIdentity: { kind: "core_record", recordId: "record-2" },
         data: {
           actionTestId: "action-record-2",
           editableTestId: "editable-record-2",
@@ -566,8 +566,8 @@ describe("Phase 8 workbook query controls", () => {
     ];
 
     const { container } = render(
-      <WorkbookDataGrid
-        viewSchemaId="test.view"
+      <SemanticDataGrid
+        surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
         actionsColumn={{
           label: "Actions",
           renderCell: ({ data: row }) => (
@@ -586,7 +586,7 @@ describe("Phase 8 workbook query controls", () => {
               : gridGroupRowTestId(timelineViewSchemaId, fieldKey, label),
           getValue: (row) => row.state,
         }}
-        recordRows={rows}
+        dataRows={rows}
       />,
     );
 
@@ -626,11 +626,11 @@ describe("Phase 8 workbook query controls", () => {
       readonly state: string;
       readonly summary: string;
     };
-    const rows: readonly GridRecordRow<HarnessRow>[] = [
+    const rows: readonly GridDataRow<HarnessRow>[] = [
       {
-        kind: "record",
-        recordId: "record-1",
-        rowVersion: 1,
+        kind: "data",
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+        rowIdentity: { kind: "core_record", recordId: "record-1" },
         data: {
           actionTestId: "action-record-1",
           editableTestId: "editable-record-1",
@@ -641,9 +641,9 @@ describe("Phase 8 workbook query controls", () => {
         testId: "phase8-row-record-1",
       },
       {
-        kind: "record",
-        recordId: "record-2",
-        rowVersion: 1,
+        kind: "data",
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+        rowIdentity: { kind: "core_record", recordId: "record-2" },
         data: {
           actionTestId: "action-record-2",
           editableTestId: "editable-record-2",
@@ -670,8 +670,8 @@ describe("Phase 8 workbook query controls", () => {
     ];
 
     const { container } = render(
-      <WorkbookDataGrid
-        viewSchemaId="test.view"
+      <SemanticDataGrid
+        surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
         actionsColumn={{
           label: "Actions",
           renderCell: ({ data: row }) => (
@@ -690,7 +690,7 @@ describe("Phase 8 workbook query controls", () => {
               : gridGroupRowTestId(timelineViewSchemaId, fieldKey, label),
           getValue: (row) => row.state,
         }}
-        recordRows={rows}
+        dataRows={rows}
       />,
     );
 

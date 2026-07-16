@@ -1,16 +1,16 @@
 import type {
-  GridBulkSelection,
   GridCellAnchor,
   GridCellMutationIntent,
   GridCellStateInput,
   GridColumn,
+  GridCoreRecordBulkSelection,
+  GridDataRow,
   GridDataState,
   GridDensity,
   GridDraftRow,
   GridFillIntent,
   GridHandle,
   GridInteractionMode,
-  GridRecordRow,
   GridRowGutter,
   GridRowStateInput,
 } from "@cartulary/grid-adapter";
@@ -21,7 +21,7 @@ import { TimelineWorkbookGrid } from "./TimelineWorkbookGrid";
 
 type TimelineGridSurfaceProps = {
   readonly activeRecordId: string | null;
-  readonly bulkSelection: GridBulkSelection<WorkbookRow>;
+  readonly bulkSelection: GridCoreRecordBulkSelection<WorkbookRow>;
   readonly columns: readonly GridColumn<WorkbookRow>[];
   readonly density: GridDensity;
   readonly dataState: GridDataState;
@@ -31,7 +31,7 @@ type TimelineGridSurfaceProps = {
     readonly fieldKey: string;
   }) => GridCellStateInput;
   readonly getGroupRowTestId: (fieldKey: string, value: string) => string;
-  readonly getRowState: (row: GridRecordRow<WorkbookRow>) => GridRowStateInput;
+  readonly getRowState: (row: GridDataRow<WorkbookRow>) => GridRowStateInput;
   readonly groupBy: WorkbookQueryState["groupBy"];
   readonly interactionMode: GridInteractionMode;
   readonly columnWidths: Readonly<Record<string, number>>;
@@ -51,7 +51,7 @@ type TimelineGridSurfaceProps = {
   readonly sort: WorkbookQueryState["sort"];
   readonly style: CSSProperties;
   readonly timelineDraftRow?: GridDraftRow<WorkbookRow> | undefined;
-  readonly timelineGridRows: readonly GridRecordRow<WorkbookRow>[];
+  readonly timelineGridRows: readonly GridDataRow<WorkbookRow>[];
 };
 
 export const TimelineGridSurface = forwardRef<

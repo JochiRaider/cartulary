@@ -362,8 +362,11 @@ export function useTimelineViewportContinuityController({
       if (target.kind === "row-inspect") {
         anchor = {
           fieldKey: "timeline.activity_synopsis_text",
-          recordId: target.recordId,
-          viewSchemaId: timelineViewSchemaId,
+          rowIdentity: { kind: "core_record", recordId: target.recordId },
+          surface: {
+            kind: "view_schema",
+            viewSchemaId: timelineViewSchemaId,
+          },
         };
       } else if (target.kind === "input") {
         const [rowKey, fieldKey] = target.focusKey.split(":");
@@ -377,8 +380,11 @@ export function useTimelineViewportContinuityController({
         ) {
           anchor = {
             fieldKey: scalarBinding.fieldKey,
-            recordId: rowKey,
-            viewSchemaId: timelineViewSchemaId,
+            rowIdentity: { kind: "core_record", recordId: rowKey },
+            surface: {
+              kind: "view_schema",
+              viewSchemaId: timelineViewSchemaId,
+            },
           };
         }
       }

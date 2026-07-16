@@ -1,9 +1,10 @@
 import {
-  type GridBulkSelection,
   type GridCellAnchor,
   type GridCellMutationIntent,
   type GridCellStateInput,
   type GridColumn,
+  type GridCoreRecordBulkSelection,
+  type GridDataRow,
   type GridDataState,
   type GridDensity,
   type GridDraftRow,
@@ -11,11 +12,10 @@ import {
   type GridGroupingDescriptor,
   type GridHandle,
   type GridInteractionMode,
-  type GridRecordRow,
   type GridRowGutter,
   type GridRowStateInput,
   GridViewport,
-  WorkbookDataGrid,
+  SemanticDataGrid,
 } from "@cartulary/grid-adapter";
 import {
   draftCellTestId,
@@ -41,7 +41,7 @@ export const TimelineWorkbookGrid = forwardRef<
   GridHandle,
   {
     readonly activeRecordId: string | null;
-    readonly bulkSelection: GridBulkSelection<WorkbookRow>;
+    readonly bulkSelection: GridCoreRecordBulkSelection<WorkbookRow>;
     readonly columns: readonly GridColumn<WorkbookRow>[];
     readonly columnWidths: Readonly<Record<string, number>>;
     readonly density: GridDensity;
@@ -52,9 +52,7 @@ export const TimelineWorkbookGrid = forwardRef<
     }) => GridCellStateInput;
     readonly getGroupLabel: (row: WorkbookRow, fieldKey: string) => string;
     readonly getGroupRowTestId: (fieldKey: string, value: string) => string;
-    readonly getRowState: (
-      row: GridRecordRow<WorkbookRow>,
-    ) => GridRowStateInput;
+    readonly getRowState: (row: GridDataRow<WorkbookRow>) => GridRowStateInput;
     readonly groupBy: WorkbookQueryState["groupBy"];
     readonly interactionMode: GridInteractionMode;
     readonly onActiveCellChange: (anchor: GridCellAnchor | null) => void;
@@ -73,7 +71,7 @@ export const TimelineWorkbookGrid = forwardRef<
     readonly sort: WorkbookQueryState["sort"];
     readonly style: CSSProperties;
     readonly timelineDraftRow?: GridDraftRow<WorkbookRow> | undefined;
-    readonly timelineGridRows: readonly GridRecordRow<WorkbookRow>[];
+    readonly timelineGridRows: readonly GridDataRow<WorkbookRow>[];
   }
 >(function TimelineWorkbookGrid(
   {
@@ -127,11 +125,15 @@ export const TimelineWorkbookGrid = forwardRef<
       style={style}
       testId={gridShellTestId(timelineViewSchemaId)}
     >
-      <WorkbookDataGrid
+      <SemanticDataGrid
         ref={ref}
-        activeRecordId={activeRecordId}
+        activeRowIdentity={
+          activeRecordId === null
+            ? null
+            : { kind: "core_record", recordId: activeRecordId }
+        }
         allowPasteCreateRows
-        bulkSelection={bulkSelection}
+        coreRecordBulkSelection={bulkSelection}
         columns={columns}
         columnWidths={columnWidths}
         dataState={dataState}
@@ -141,7 +143,10 @@ export const TimelineWorkbookGrid = forwardRef<
         getCellState={({ anchor }) =>
           getCellState({
             fieldKey: anchor.fieldKey,
-            recordId: anchor.recordId,
+            recordId:
+              anchor.rowIdentity.kind === "core_record"
+                ? anchor.rowIdentity.recordId
+                : "",
           })
         }
         getRowState={getRowState}
@@ -153,11 +158,15 @@ export const TimelineWorkbookGrid = forwardRef<
         onFillCells={onFillCells}
         onPasteCell={onPasteCell}
         onSortChange={onSortChange}
-        onSelectRecord={onSelectRecord}
+        onSelectRow={(rowIdentity) => {
+          if (rowIdentity.kind === "core_record") {
+            onSelectRecord(rowIdentity.recordId);
+          }
+        }}
         rowGutter={rowGutter}
-        recordRows={timelineGridRows}
+        dataRows={timelineGridRows}
         sort={sort}
-        viewSchemaId={timelineViewSchemaId}
+        surface={{ kind: "view_schema", viewSchemaId: timelineViewSchemaId }}
       />
       <div aria-hidden="true" style={visuallyHiddenStyle}>
         {rows.map((row) => (

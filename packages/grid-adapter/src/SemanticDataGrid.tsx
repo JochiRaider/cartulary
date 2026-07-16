@@ -36,18 +36,24 @@ import {
   formatGridClipboardTSV,
   type GridCellAnchor,
   type GridCellRange,
+  type GridDataRow,
   type GridDraftRow,
   type GridGroupingScalar,
   type GridHandle,
-  type GridRecordRow,
+  type GridRowIdentity,
   type GridRowStateInput,
   type GridSortEntry,
+  type GridSurfaceIdentity,
   gridClipboardDimensions,
+  gridRowIdentitiesEqual,
+  gridRowIdentityKey,
+  gridSurfaceIdentitiesEqual,
+  gridSurfaceIdentityKey,
   gridUnassignedGroupLabel,
   isGridColumnEditable,
   resolveGridCellRange,
   resolveGridPasteTargets,
-  type WorkbookDataGridProps,
+  type SemanticDataGridProps,
 } from "./core";
 import {
   compileGridColumns,
@@ -79,8 +85,8 @@ type GridVendorPosition = {
 type GridSemanticPositionMap = {
   readonly fieldKeys: readonly string[];
   readonly positions: ReadonlyMap<string, GridVendorPosition>;
-  readonly recordIds: readonly string[];
-  readonly viewSchemaId: string;
+  readonly rowIdentities: readonly GridRowIdentity[];
+  readonly surface: GridSurfaceIdentity;
 };
 
 type PendingEditorSeed = {
@@ -95,17 +101,40 @@ type SemanticCellRegistration = {
 };
 
 function gridAnchorKey(anchor: GridCellAnchor): string {
-  return `${anchor.viewSchemaId}\u0000${anchor.recordId}\u0000${anchor.fieldKey}`;
+  return `${gridSurfaceIdentityKey(anchor.surface)}\u0000${gridRowIdentityKey(anchor.rowIdentity)}\u0000${anchor.fieldKey}`;
+}
+
+function coreRecordId<Row>(row: GridDataRow<Row>): string | null {
+  return row.rowIdentity.kind === "core_record"
+    ? row.rowIdentity.recordId
+    : null;
+}
+
+function coreRowVersion<Row>(row: GridDataRow<Row>): number | null {
+  return row.mutationIdentity?.kind === "core_row_version"
+    ? row.mutationIdentity.baseRowVersion
+    : null;
+}
+
+function isCoreRecordRow<Row>(
+  row: GridDataRow<Row>,
+): row is GridDataRow<Row> & {
+  readonly rowIdentity: Extract<
+    GridRowIdentity,
+    { readonly kind: "core_record" }
+  >;
+} {
+  return row.rowIdentity.kind === "core_record";
 }
 
 function emptySemanticPositionMap(
-  viewSchemaId: string,
+  surface: GridSurfaceIdentity,
 ): GridSemanticPositionMap {
   return {
     fieldKeys: [],
     positions: new Map(),
-    recordIds: [],
-    viewSchemaId,
+    rowIdentities: [],
+    surface,
   };
 }
 
@@ -118,8 +147,8 @@ function sameGridCellAnchor(
     (left !== null &&
       right !== null &&
       left.fieldKey === right.fieldKey &&
-      left.recordId === right.recordId &&
-      left.viewSchemaId === right.viewSchemaId)
+      gridRowIdentitiesEqual(left.rowIdentity, right.rowIdentity) &&
+      gridSurfaceIdentitiesEqual(left.surface, right.surface))
   );
 }
 
@@ -147,15 +176,15 @@ function useStableStringArray(values: readonly string[]): readonly string[] {
   return stableRef.current;
 }
 
-function useWorkbookDataGrid<Row>(
-  props: WorkbookDataGridProps<Row>,
+function useSemanticDataGrid<Row>(
+  props: SemanticDataGridProps<Row>,
   ref: ForwardedRef<GridHandle>,
 ) {
   const {
-    activeRecordId = null,
+    activeRowIdentity = null,
     allowPasteCreateRows = false,
     actionsColumn,
-    bulkSelection,
+    coreRecordBulkSelection,
     cellRange: controlledCellRange,
     columns,
     columnWidths,
@@ -166,7 +195,7 @@ function useWorkbookDataGrid<Row>(
     getCellState,
     getRowState,
     grouping = null,
-    interactionMode = { kind: "editable" },
+    interactionMode,
     onActiveCellChange,
     onCellRangeChange,
     onColumnReorder,
@@ -175,17 +204,37 @@ function useWorkbookDataGrid<Row>(
     onEditCell,
     onFillCells,
     onPasteCell,
-    onSelectRecord,
+    onSelectRow,
     onSortChange,
-    recordRows,
+    dataRows,
     rowGutter,
     sort = [],
-    viewSchemaId,
+    surface,
   } = props;
-  const editable = interactionMode.kind === "editable";
+  if (
+    surface.kind === "extension_grid" &&
+    (actionsColumn !== undefined ||
+      allowPasteCreateRows ||
+      coreRecordBulkSelection !== undefined ||
+      draftRow !== undefined ||
+      interactionMode?.kind === "editable" ||
+      onEditCell !== undefined ||
+      onFillCells !== undefined ||
+      onPasteCell !== undefined)
+  ) {
+    throw new Error(
+      "Extension grid surfaces cannot enable Core mutation or bulk-selection capabilities.",
+    );
+  }
+  const effectiveInteractionMode =
+    interactionMode ??
+    (surface.kind === "extension_grid"
+      ? { kind: "read_only" as const, label: "Read only" }
+      : { kind: "editable" as const });
+  const editable = effectiveInteractionMode.kind === "editable";
   const vendorHandle = useRef<DataGridHandle>(null);
   const semanticPositionMapRef = useRef<GridSemanticPositionMap>(
-    emptySemanticPositionMap(viewSchemaId),
+    emptySemanticPositionMap(surface),
   );
   const semanticCellElementsRef = useRef(
     new Map<string, SemanticCellRegistration>(),
@@ -228,12 +277,17 @@ function useWorkbookDataGrid<Row>(
   );
   const consumeEditorSeed = useCallback(
     (
-      target: PendingEditorSeed["anchor"] & { readonly baseRowVersion: number },
+      target: PendingEditorSeed["anchor"] & {
+        readonly mutationIdentity: {
+          readonly kind: "core_row_version";
+          readonly baseRowVersion: number;
+        };
+      },
     ) => {
       const pending = pendingEditorSeedRef.current;
       if (
         pending === null ||
-        pending.baseRowVersion !== target.baseRowVersion ||
+        pending.baseRowVersion !== target.mutationIdentity.baseRowVersion ||
         !sameGridCellAnchor(pending.anchor, target)
       ) {
         return null;
@@ -277,21 +331,21 @@ function useWorkbookDataGrid<Row>(
     },
     [],
   );
-  assertGridRows(recordRows);
+  assertGridRows(dataRows);
 
   const presentationRows = useMemo(
-    () => buildGridPresentationRows({ grouping, rows: recordRows }),
-    [grouping, recordRows],
+    () => buildGridPresentationRows({ grouping, rows: dataRows }),
+    [grouping, dataRows],
   );
 
   const handleSemanticPaste = useCallback(
     (
-      row: GridRecordRow<Row>,
+      row: GridDataRow<Row>,
       fieldKey: string,
       clipboardText: string,
     ): boolean => {
       if (!editable) return true;
-      const target = semanticTarget(row, fieldKey, columns, viewSchemaId);
+      const target = semanticTarget(row, fieldKey, columns, surface);
       if (target === null) return false;
       const dimensions = gridClipboardDimensions(clipboardText);
       const targetResolution = resolveGridPasteTargets({
@@ -320,8 +374,8 @@ function useWorkbookDataGrid<Row>(
               start: target,
               end: {
                 fieldKey: lastFieldKey,
-                recordId: lastRowTarget.recordId,
-                viewSchemaId,
+                rowIdentity: lastRowTarget.rowIdentity,
+                surface,
               },
             }
           : undefined;
@@ -337,26 +391,35 @@ function useWorkbookDataGrid<Row>(
       onPasteCell,
       presentationRows,
       updateCellRange,
-      viewSchemaId,
+      surface,
     ],
   );
 
   const selectableRows = useMemo(
     () =>
-      bulkSelection === undefined || !editable
+      coreRecordBulkSelection === undefined || !editable
         ? []
-        : recordRows.filter(
-            (row) => bulkSelection.isRecordSelectable?.(row) !== false,
+        : dataRows.filter(
+            (
+              row,
+            ): row is GridDataRow<Row> & {
+              readonly rowIdentity: Extract<
+                GridRowIdentity,
+                { readonly kind: "core_record" }
+              >;
+            } =>
+              isCoreRecordRow(row) &&
+              coreRecordBulkSelection.isRecordSelectable?.(row) !== false,
           ),
-    [bulkSelection, editable, recordRows],
+    [coreRecordBulkSelection, dataRows, editable],
   );
   const compiledBulkSelection = useMemo<
     GridCompiledBulkSelection<Row> | undefined
   >(() => {
-    if (bulkSelection === undefined || !editable) return undefined;
-    const selectableIds = selectableRows.map((row) => row.recordId);
+    if (coreRecordBulkSelection === undefined || !editable) return undefined;
+    const selectableIds = selectableRows.map((row) => row.rowIdentity.recordId);
     const selectedOnPage = selectableIds.filter((recordId) =>
-      bulkSelection.selectedRecordIds.has(recordId),
+      coreRecordBulkSelection.selectedRecordIds.has(recordId),
     );
     return {
       allSelected:
@@ -365,60 +428,70 @@ function useWorkbookDataGrid<Row>(
       partiallySelected:
         selectedOnPage.length > 0 &&
         selectedOnPage.length < selectableIds.length,
-      selectedRecordIds: bulkSelection.selectedRecordIds,
+      selectedRecordIds: coreRecordBulkSelection.selectedRecordIds,
       selectableRecordCount: selectableIds.length,
       isRecordSelectable: (row) =>
-        bulkSelection.isRecordSelectable?.(row) !== false,
+        isCoreRecordRow(row) &&
+        coreRecordBulkSelection.isRecordSelectable?.(row) !== false,
       onSelectAll: () => {
         selectionAnchorRecordId.current = null;
-        bulkSelection.onSelectedRecordIdsChange(
+        coreRecordBulkSelection.onSelectedRecordIdsChange(
           selectedOnPage.length === selectableIds.length
             ? new Set()
             : new Set(selectableIds),
         );
       },
       onToggleRecord: (row, shiftKey) => {
-        const next = new Set(bulkSelection.selectedRecordIds);
+        if (!isCoreRecordRow(row)) return;
+        const next = new Set(coreRecordBulkSelection.selectedRecordIds);
         const anchorIndex = selectableRows.findIndex(
-          (candidate) => candidate.recordId === selectionAnchorRecordId.current,
+          (candidate) =>
+            candidate.rowIdentity.recordId === selectionAnchorRecordId.current,
         );
         const rowIndex = selectableRows.findIndex(
-          (candidate) => candidate.recordId === row.recordId,
+          (candidate) =>
+            candidate.rowIdentity.recordId === row.rowIdentity.recordId,
         );
         if (shiftKey && anchorIndex >= 0 && rowIndex >= 0) {
           const start = Math.min(anchorIndex, rowIndex);
           const end = Math.max(anchorIndex, rowIndex);
           for (const candidate of selectableRows.slice(start, end + 1)) {
-            next.add(candidate.recordId);
+            next.add(candidate.rowIdentity.recordId);
           }
-        } else if (next.has(row.recordId)) {
-          next.delete(row.recordId);
+        } else if (next.has(row.rowIdentity.recordId)) {
+          next.delete(row.rowIdentity.recordId);
         } else {
-          next.add(row.recordId);
+          next.add(row.rowIdentity.recordId);
         }
-        selectionAnchorRecordId.current = row.recordId;
-        bulkSelection.onSelectedRecordIdsChange(next);
+        selectionAnchorRecordId.current = row.rowIdentity.recordId;
+        coreRecordBulkSelection.onSelectedRecordIdsChange(next);
       },
     };
-  }, [bulkSelection, editable, selectableRows]);
+  }, [coreRecordBulkSelection, editable, selectableRows]);
 
   const selectedRows = editable
-    ? (bulkSelection?.selectedRecordIds ?? emptySelectedRecordIds)
+    ? (coreRecordBulkSelection?.selectedRecordIds ?? emptySelectedRecordIds)
     : emptySelectedRecordIds;
   const stale = dataState.kind === "stale_error";
   const rowStateFor = useCallback(
-    (row: GridRecordRow<Row>) =>
+    (row: GridDataRow<Row>) =>
       mergeGridSemanticState(getRowState?.(row), {
-        active: activeCellAnchor?.recordId === row.recordId,
-        bulkSelected: selectedRows.has(row.recordId),
-        inspectorActive: activeRecordId === row.recordId,
+        active:
+          activeCellAnchor !== null &&
+          gridRowIdentitiesEqual(activeCellAnchor.rowIdentity, row.rowIdentity),
+        bulkSelected:
+          coreRecordId(row) !== null &&
+          selectedRows.has(coreRecordId(row) ?? ""),
+        inspectorActive:
+          activeRowIdentity !== null &&
+          gridRowIdentitiesEqual(activeRowIdentity, row.rowIdentity),
         readOnlyOrDerived: !editable,
         saved: true,
         stale,
       }),
     [
-      activeCellAnchor?.recordId,
-      activeRecordId,
+      activeCellAnchor,
+      activeRowIdentity,
       editable,
       getRowState,
       selectedRows,
@@ -426,18 +499,26 @@ function useWorkbookDataGrid<Row>(
     ],
   );
   const cellStateFor = useCallback(
-    (row: GridRecordRow<Row>, column: (typeof columns)[number]) => {
+    (row: GridDataRow<Row>, column: (typeof columns)[number]) => {
       const anchor = {
         fieldKey: column.fieldKey,
-        recordId: row.recordId,
-        viewSchemaId,
+        rowIdentity: row.rowIdentity,
+        surface,
       };
       const rowState = rowStateFor(row);
       return mergeGridSemanticState(
-        getCellState?.({ anchor, row: row.data, rowVersion: row.rowVersion }),
+        getCellState?.({
+          anchor,
+          mutationIdentity: row.mutationIdentity,
+          row: row.data,
+        }),
         {
           active:
-            activeCellAnchor?.recordId === row.recordId &&
+            activeCellAnchor !== null &&
+            gridRowIdentitiesEqual(
+              activeCellAnchor.rowIdentity,
+              row.rowIdentity,
+            ) &&
             activeCellAnchor.fieldKey === column.fieldKey,
           bulkSelected: rowState.bulkSelected,
           inspectorActive: rowState.inspectorActive,
@@ -451,20 +532,20 @@ function useWorkbookDataGrid<Row>(
         },
       );
     },
-    [activeCellAnchor, editable, getCellState, rowStateFor, viewSchemaId],
+    [activeCellAnchor, editable, getCellState, rowStateFor, surface],
   );
   const isCellRangeSelected = useCallback(
-    (row: GridRecordRow<Row>, column: (typeof columns)[number]) =>
+    (row: GridDataRow<Row>, column: (typeof columns)[number]) =>
       gridCellRangeContains(
         semanticPositionMapRef.current,
         cellRangeRef.current,
         {
           fieldKey: column.fieldKey,
-          recordId: row.recordId,
-          viewSchemaId,
+          rowIdentity: row.rowIdentity,
+          surface,
         },
       ),
-    [viewSchemaId],
+    [surface],
   );
   const registerSemanticCell = useCallback(
     (anchor: GridCellAnchor, cell: HTMLElement | null, token: object) => {
@@ -495,7 +576,7 @@ function useWorkbookDataGrid<Row>(
           onPasteCell === undefined ? undefined : handleSemanticPaste,
         registerSemanticCell,
         rowGutter,
-        viewSchemaId,
+        surface,
       }),
     [
       actionsColumn,
@@ -510,7 +591,7 @@ function useWorkbookDataGrid<Row>(
       onPasteCell,
       registerSemanticCell,
       rowGutter,
-      viewSchemaId,
+      surface,
     ],
   );
   const compiledColumnKeys = useStableStringArray(
@@ -525,11 +606,11 @@ function useWorkbookDataGrid<Row>(
         ? buildSemanticPositionMap({
             columnKeys: compiledColumnKeys,
             fieldKeys: semanticFieldKeys,
-            recordRows,
-            viewSchemaId,
+            dataRows,
+            surface,
           })
         : null,
-    [compiledColumnKeys, grouping, recordRows, semanticFieldKeys, viewSchemaId],
+    [compiledColumnKeys, dataRows, grouping, semanticFieldKeys, surface],
   );
   if (ungroupedPositionMap !== null) {
     semanticPositionMapRef.current = ungroupedPositionMap;
@@ -579,7 +660,7 @@ function useWorkbookDataGrid<Row>(
     [],
   );
   const sharedProps: DataGridProps<
-    GridRecordRow<Row>,
+    GridDataRow<Row>,
     GridDraftRow<Row>,
     string
   > = {
@@ -598,22 +679,22 @@ function useWorkbookDataGrid<Row>(
     headerRowHeight: 32,
     headerRowClass: "cartulary-grid-header-row",
     onCellClick: ({ row }) => {
-      onSelectRecord?.(row.recordId);
+      onSelectRow?.(row.rowIdentity);
     },
     onCellCopy: ({ column, row }, event) => {
-      const anchor = semanticAnchor(row, column.key, columns, viewSchemaId);
+      const anchor = semanticAnchor(row, column.key, columns, surface);
       if (anchor === null) return;
       const range = cellRange ?? { end: anchor, start: anchor };
       const expandedRange = resolveVisibleGridCellRange({
         columns,
         positionMap: semanticPositionMapRef.current,
-        recordRows,
+        dataRows,
         range,
       });
       if (expandedRange === null) return;
-      const values = expandedRange.recordTargets.map((recordTarget) => {
-        const record = recordRows.find(
-          (candidate) => candidate.recordId === recordTarget.recordId,
+      const values = expandedRange.rowIdentities.map((rowIdentity) => {
+        const record = dataRows.find((candidate) =>
+          gridRowIdentitiesEqual(candidate.rowIdentity, rowIdentity),
         );
         return expandedRange.fieldKeys.map((fieldKey) => {
           const semanticColumn = columns.find(
@@ -633,16 +714,16 @@ function useWorkbookDataGrid<Row>(
     },
     onCellDoubleClick: ({ column, row }) => {
       if (!editable) return;
-      const target = semanticTarget(row, column.key, columns, viewSchemaId);
+      const target = semanticTarget(row, column.key, columns, surface);
       if (target !== null) onEditCell?.({ target });
     },
     onCellKeyDown: (args, event) => {
-      if (args.mode !== "SELECT" || !isRecordRow<Row>(args.row)) return;
+      if (args.mode !== "SELECT" || !isDataRow<Row>(args.row)) return;
       const anchor = semanticAnchor(
         args.row,
         args.column.key,
         columns,
-        viewSchemaId,
+        surface,
       );
       if (anchor === null) return;
 
@@ -670,16 +751,21 @@ function useWorkbookDataGrid<Row>(
           setKeyboardAnnouncement(
             editable
               ? `${semanticColumn?.label ?? "Cell"} is read-only.`
-              : interactionMode.kind === "read_only"
-                ? interactionMode.label
+              : effectiveInteractionMode.kind === "read_only"
+                ? effectiveInteractionMode.label
                 : "This workbook is read-only.",
           );
+          return;
+        }
+        const baseRowVersion = coreRowVersion(args.row);
+        if (baseRowVersion === null) {
+          setKeyboardAnnouncement("This row cannot be edited.");
           return;
         }
         pendingEditorSeedRef.current = hasSeed
           ? {
               anchor,
-              baseRowVersion: args.row.rowVersion,
+              baseRowVersion,
               value: seed,
             }
           : null;
@@ -687,7 +773,7 @@ function useWorkbookDataGrid<Row>(
           args.row,
           anchor.fieldKey,
           columns,
-          viewSchemaId,
+          surface,
         );
         if (target !== null) onEditCell?.({ target });
         args.selectCell(
@@ -755,7 +841,7 @@ function useWorkbookDataGrid<Row>(
       return row;
     },
     onColumnResize: (
-      column: CalculatedColumn<GridRecordRow<Row>, GridDraftRow<Row>>,
+      column: CalculatedColumn<GridDataRow<Row>, GridDraftRow<Row>>,
       width: number,
     ) => {
       if (columns.some((candidate) => candidate.fieldKey === column.key)) {
@@ -777,13 +863,13 @@ function useWorkbookDataGrid<Row>(
               sourceRow,
               columnKey,
               columns,
-              viewSchemaId,
+              surface,
             );
             const target = semanticTarget(
               targetRow,
               columnKey,
               columns,
-              viewSchemaId,
+              surface,
             );
             if (source !== null && target !== null) {
               const column = columns.find(
@@ -801,14 +887,36 @@ function useWorkbookDataGrid<Row>(
                 column.valueKind !== "collection" &&
                 expanded !== null
               ) {
-                const targets = expanded.recordTargets.map((candidate) => ({
-                  ...candidate,
-                  fieldKey: columnKey,
-                }));
+                const targets = expanded.rowIdentities.flatMap(
+                  (rowIdentity) => {
+                    const dataRow = dataRows.find((candidate) =>
+                      gridRowIdentitiesEqual(
+                        candidate.rowIdentity,
+                        rowIdentity,
+                      ),
+                    );
+                    return dataRow?.mutationIdentity === undefined
+                      ? []
+                      : [
+                          {
+                            fieldKey: columnKey,
+                            mutationIdentity: dataRow.mutationIdentity,
+                            rowIdentity,
+                            surface,
+                          },
+                        ];
+                  },
+                );
+                if (targets.length !== expanded.rowIdentities.length) {
+                  return targetRow;
+                }
                 const pending = pendingFillIntent.current;
                 pendingFillIntent.current =
                   pending !== null &&
-                  pending.source.recordId === source.recordId &&
+                  gridRowIdentitiesEqual(
+                    pending.source.rowIdentity,
+                    source.rowIdentity,
+                  ) &&
                   pending.source.fieldKey === source.fieldKey
                     ? {
                         range,
@@ -845,7 +953,7 @@ function useWorkbookDataGrid<Row>(
       const anchor =
         row === undefined
           ? null
-          : semanticAnchor(row, column.key, columns, viewSchemaId);
+          : semanticAnchor(row, column.key, columns, surface);
       const preserveRange = sameGridCellAnchor(
         pendingRangeEndRef.current,
         anchor,
@@ -877,21 +985,32 @@ function useWorkbookDataGrid<Row>(
       noRowsFallback: undefined,
       renderRow: (
         key,
-        rowProps: RenderRowProps<GridRecordRow<Row>, GridDraftRow<Row>>,
+        rowProps: RenderRowProps<GridDataRow<Row>, GridDraftRow<Row>>,
       ) => {
         const semanticState = resolveGridSemanticState(
           rowStateFor(rowProps.row),
-          `row ${rowProps.row.recordId}`,
+          "data row",
         );
         return (
           <Row
             {...rowProps}
             {...semanticRowAttributes(semanticState)}
-            data-cartulary-grid-row-kind="record"
+            data-cartulary-grid-row-kind="data"
             data-inspector-active={
-              rowProps.row.recordId === activeRecordId ? "true" : undefined
+              activeRowIdentity !== null &&
+              gridRowIdentitiesEqual(
+                rowProps.row.rowIdentity,
+                activeRowIdentity,
+              )
+                ? "true"
+                : undefined
             }
-            data-grid-record-id={rowProps.row.recordId}
+            data-grid-row-identity-kind={rowProps.row.rowIdentity.kind}
+            data-grid-record-id={
+              rowProps.row.rowIdentity.kind === "core_record"
+                ? rowProps.row.rowIdentity.recordId
+                : undefined
+            }
             data-testid={rowProps.row.testId}
             key={key}
           />
@@ -901,11 +1020,12 @@ function useWorkbookDataGrid<Row>(
     rowClass: (row) =>
       gridSemanticStateClassNames(
         "row",
-        resolveGridSemanticState(rowStateFor(row), `row ${row.recordId}`),
+        resolveGridSemanticState(rowStateFor(row), "data row"),
       ),
-    rowKeyGetter: (row: GridRecordRow<Row>) => row.recordId,
+    rowKeyGetter: (row: GridDataRow<Row>) =>
+      gridRowIdentityKey(row.rowIdentity),
     ref: vendorHandle,
-    rows: recordRows,
+    rows: dataRows,
     selectedRows,
     sortColumns,
     style: {
@@ -926,7 +1046,7 @@ function useWorkbookDataGrid<Row>(
     grouping === null ? (
       <DataGrid {...sharedProps} rowHeight={workbookGridRowHeightPx(density)} />
     ) : (
-      <GroupedWorkbookDataGrid
+      <GroupedSemanticDataGrid
         {...props}
         density={density}
         positionMapRef={semanticPositionMapRef}
@@ -940,9 +1060,9 @@ function useWorkbookDataGrid<Row>(
       {grid}
       <GridStatePresentation
         dataState={dataState}
-        interactionMode={interactionMode}
+        interactionMode={effectiveInteractionMode}
       />
-      {bulkSelection === undefined ? null : (
+      {coreRecordBulkSelection === undefined ? null : (
         <span
           aria-live="polite"
           className="cartulary-grid-live-region"
@@ -955,9 +1075,9 @@ function useWorkbookDataGrid<Row>(
       )}
       <GridRangeAnnouncement
         columns={columns}
+        dataRows={dataRows}
         positionMap={semanticPositionMapRef.current}
         range={cellRange}
-        recordRows={recordRows}
       />
       {keyboardAnnouncement === "" ? null : (
         <span
@@ -974,25 +1094,25 @@ function useWorkbookDataGrid<Row>(
 
 function GridRangeAnnouncement<Row>({
   columns,
+  dataRows,
   positionMap,
   range,
-  recordRows,
 }: {
-  readonly columns: readonly WorkbookDataGridProps<Row>["columns"][number][];
+  readonly columns: readonly SemanticDataGridProps<Row>["columns"][number][];
+  readonly dataRows: readonly GridDataRow<Row>[];
   readonly positionMap: GridSemanticPositionMap;
   readonly range: GridCellRange | null;
-  readonly recordRows: readonly GridRecordRow<Row>[];
 }) {
   if (range === null) return null;
   const expanded = resolveVisibleGridCellRange({
     columns,
+    dataRows,
     positionMap,
     range,
-    recordRows,
   });
   if (
     expanded === null ||
-    (expanded.fieldKeys.length === 1 && expanded.recordTargets.length === 1)
+    (expanded.fieldKeys.length === 1 && expanded.rowIdentities.length === 1)
   ) {
     return null;
   }
@@ -1002,7 +1122,7 @@ function GridRangeAnnouncement<Row>({
       className="cartulary-grid-live-region"
       role="status"
     >
-      Selected {expanded.recordTargets.length} rows by{" "}
+      Selected {expanded.rowIdentities.length} rows by{" "}
       {expanded.fieldKeys.length} columns.
     </span>
   );
@@ -1012,9 +1132,9 @@ function GridStatePresentation({
   dataState,
   interactionMode,
 }: {
-  readonly dataState: NonNullable<WorkbookDataGridProps<unknown>["dataState"]>;
+  readonly dataState: NonNullable<SemanticDataGridProps<unknown>["dataState"]>;
   readonly interactionMode: NonNullable<
-    WorkbookDataGridProps<unknown>["interactionMode"]
+    SemanticDataGridProps<unknown>["interactionMode"]
   >;
 }) {
   const presentation = gridDataStatePresentation(dataState);
@@ -1059,7 +1179,7 @@ function GridStatePresentation({
 }
 
 function gridDataStatePresentation(
-  state: NonNullable<WorkbookDataGridProps<unknown>["dataState"]>,
+  state: NonNullable<SemanticDataGridProps<unknown>["dataState"]>,
 ): {
   readonly action?: { readonly label: string; readonly onInvoke: () => void };
   readonly blocking: boolean;
@@ -1166,16 +1286,16 @@ const gridInteractionStateStyle = {
   zIndex: 4,
 } satisfies CSSProperties;
 
-function WorkbookDataGridInner<Row>(
-  props: WorkbookDataGridProps<Row>,
+function SemanticDataGridInner<Row>(
+  props: SemanticDataGridProps<Row>,
   ref: ForwardedRef<GridHandle>,
 ) {
   // biome-ignore lint/correctness/useHookAtTopLevel: this generic function is passed directly to React.forwardRef below.
-  return useWorkbookDataGrid(props, ref);
+  return useSemanticDataGrid(props, ref);
 }
 
-export const WorkbookDataGrid = forwardRef(WorkbookDataGridInner) as <Row>(
-  props: WorkbookDataGridProps<Row> & RefAttributes<GridHandle>,
+export const SemanticDataGrid = forwardRef(SemanticDataGridInner) as <Row>(
+  props: SemanticDataGridProps<Row> & RefAttributes<GridHandle>,
 ) => ReactElement;
 
 function focusOrScrollAnchor(options: {
@@ -1186,7 +1306,10 @@ function focusOrScrollAnchor(options: {
   readonly vendorHandle: DataGridHandle | null;
 }): boolean {
   const { anchor, cellElements, focus, positionMap, vendorHandle } = options;
-  if (anchor.viewSchemaId !== positionMap.viewSchemaId || vendorHandle === null)
+  if (
+    !gridSurfaceIdentitiesEqual(anchor.surface, positionMap.surface) ||
+    vendorHandle === null
+  )
     return false;
   const position = positionMap.positions.get(gridAnchorKey(anchor));
   if (position === undefined) return false;
@@ -1232,34 +1355,35 @@ function focusSemanticCellAfterRender(
 
 function buildSemanticPositionMap<Row>({
   columnKeys,
+  dataRows,
   fieldKeys,
-  recordRows,
   rowIndexes,
-  viewSchemaId,
+  surface,
 }: {
   readonly columnKeys: readonly string[];
+  readonly dataRows: readonly GridDataRow<Row>[];
   readonly fieldKeys: readonly string[];
-  readonly recordRows: readonly GridRecordRow<Row>[];
   readonly rowIndexes?: ReadonlyMap<string, number> | undefined;
-  readonly viewSchemaId: string;
+  readonly surface: GridSurfaceIdentity;
 }): GridSemanticPositionMap {
   const positions = new Map<string, GridVendorPosition>();
   const columnIndexes = new Map(
     columnKeys.map((columnKey, index) => [columnKey, index]),
   );
-  const recordIds: string[] = [];
-  for (const [fallbackRowIdx, row] of recordRows.entries()) {
-    const rowIdx = rowIndexes?.get(row.recordId) ?? fallbackRowIdx;
+  const rowIdentities: GridRowIdentity[] = [];
+  for (const [fallbackRowIdx, row] of dataRows.entries()) {
+    const rowKey = gridRowIdentityKey(row.rowIdentity);
+    const rowIdx = rowIndexes?.get(rowKey) ?? fallbackRowIdx;
     if (rowIdx < 0) continue;
-    recordIds.push(row.recordId);
+    rowIdentities.push(row.rowIdentity);
     for (const fieldKey of fieldKeys) {
       const idx = columnIndexes.get(fieldKey);
       if (idx === undefined) continue;
-      const anchor = { fieldKey, recordId: row.recordId, viewSchemaId };
+      const anchor = { fieldKey, rowIdentity: row.rowIdentity, surface };
       positions.set(gridAnchorKey(anchor), { idx, rowIdx });
     }
   }
-  return { fieldKeys, positions, recordIds, viewSchemaId };
+  return { fieldKeys, positions, rowIdentities, surface };
 }
 
 function moveSemanticAnchor(
@@ -1269,18 +1393,20 @@ function moveSemanticAnchor(
   rowDelta: number,
 ): GridCellAnchor | null {
   const columnIndex = positionMap.fieldKeys.indexOf(anchor.fieldKey);
-  const rowIndex = positionMap.recordIds.indexOf(anchor.recordId);
+  const rowIndex = positionMap.rowIdentities.findIndex((identity) =>
+    gridRowIdentitiesEqual(identity, anchor.rowIdentity),
+  );
   const fieldKey = positionMap.fieldKeys[columnIndex + columnDelta];
-  const recordId = positionMap.recordIds[rowIndex + rowDelta];
+  const rowIdentity = positionMap.rowIdentities[rowIndex + rowDelta];
   if (
     columnIndex < 0 ||
     rowIndex < 0 ||
     fieldKey === undefined ||
-    recordId === undefined
+    rowIdentity === undefined
   ) {
     return null;
   }
-  return { fieldKey, recordId, viewSchemaId: positionMap.viewSchemaId };
+  return { fieldKey, rowIdentity, surface: positionMap.surface };
 }
 
 function navigateSemanticAnchor(
@@ -1301,7 +1427,9 @@ function navigateSemanticAnchor(
   },
 ): GridCellAnchor | null {
   const columnIndex = positionMap.fieldKeys.indexOf(anchor.fieldKey);
-  const rowIndex = positionMap.recordIds.indexOf(anchor.recordId);
+  const rowIndex = positionMap.rowIdentities.findIndex((identity) =>
+    gridRowIdentitiesEqual(identity, anchor.rowIdentity),
+  );
   if (columnIndex < 0 || rowIndex < 0) return null;
   let nextColumnIndex = columnIndex;
   let nextRowIndex = rowIndex;
@@ -1320,7 +1448,7 @@ function navigateSemanticAnchor(
       break;
     case "PageDown":
       nextRowIndex = Math.min(
-        positionMap.recordIds.length - 1,
+        positionMap.rowIdentities.length - 1,
         rowIndex + intent.pageSize,
       );
       break;
@@ -1333,13 +1461,14 @@ function navigateSemanticAnchor(
       break;
     case "End":
       nextColumnIndex = positionMap.fieldKeys.length - 1;
-      if (intent.ctrlOrMetaKey) nextRowIndex = positionMap.recordIds.length - 1;
+      if (intent.ctrlOrMetaKey)
+        nextRowIndex = positionMap.rowIdentities.length - 1;
       break;
   }
   const fieldKey = positionMap.fieldKeys[nextColumnIndex];
-  const recordId = positionMap.recordIds[nextRowIndex];
-  if (fieldKey === undefined || recordId === undefined) return null;
-  return { fieldKey, recordId, viewSchemaId: positionMap.viewSchemaId };
+  const rowIdentity = positionMap.rowIdentities[nextRowIndex];
+  if (fieldKey === undefined || rowIdentity === undefined) return null;
+  return { fieldKey, rowIdentity, surface: positionMap.surface };
 }
 
 function isSemanticNavigationKey(
@@ -1419,25 +1548,29 @@ function focusAdjacentOutsideGrid(
 
 function resolveVisibleGridCellRange<Row>({
   columns,
+  dataRows,
   positionMap,
   range,
-  recordRows,
 }: {
-  readonly columns: readonly WorkbookDataGridProps<Row>["columns"][number][];
+  readonly columns: readonly SemanticDataGridProps<Row>["columns"][number][];
+  readonly dataRows: readonly GridDataRow<Row>[];
   readonly positionMap: GridSemanticPositionMap;
   readonly range: GridCellRange;
-  readonly recordRows: readonly GridRecordRow<Row>[];
 }) {
   if (
-    range.start.viewSchemaId !== positionMap.viewSchemaId ||
-    range.end.viewSchemaId !== positionMap.viewSchemaId
+    !gridSurfaceIdentitiesEqual(range.start.surface, positionMap.surface) ||
+    !gridSurfaceIdentitiesEqual(range.end.surface, positionMap.surface)
   ) {
     return null;
   }
   const startColumn = positionMap.fieldKeys.indexOf(range.start.fieldKey);
   const endColumn = positionMap.fieldKeys.indexOf(range.end.fieldKey);
-  const startRow = positionMap.recordIds.indexOf(range.start.recordId);
-  const endRow = positionMap.recordIds.indexOf(range.end.recordId);
+  const startRow = positionMap.rowIdentities.findIndex((identity) =>
+    gridRowIdentitiesEqual(identity, range.start.rowIdentity),
+  );
+  const endRow = positionMap.rowIdentities.findIndex((identity) =>
+    gridRowIdentitiesEqual(identity, range.end.rowIdentity),
+  );
   if (startColumn < 0 || endColumn < 0 || startRow < 0 || endRow < 0) {
     return null;
   }
@@ -1452,25 +1585,21 @@ function resolveVisibleGridCellRange<Row>({
   ) {
     return null;
   }
-  const recordIds = positionMap.recordIds.slice(
+  const rowIdentities = positionMap.rowIdentities.slice(
     Math.min(startRow, endRow),
     Math.max(startRow, endRow) + 1,
   );
-  const recordTargets = recordIds.flatMap((recordId) => {
-    const row = recordRows.find((candidate) => candidate.recordId === recordId);
-    return row === undefined
-      ? []
-      : [
-          {
-            baseRowVersion: row.rowVersion,
-            fieldKey: range.end.fieldKey,
-            recordId,
-            viewSchemaId: positionMap.viewSchemaId,
-          },
-        ];
-  });
-  if (recordTargets.length !== recordIds.length) return null;
-  return { fieldKeys, recordTargets };
+  if (
+    rowIdentities.some(
+      (rowIdentity) =>
+        !dataRows.some((row) =>
+          gridRowIdentitiesEqual(row.rowIdentity, rowIdentity),
+        ),
+    )
+  ) {
+    return null;
+  }
+  return { fieldKeys, rowIdentities };
 }
 
 function gridCellRangeContains(
@@ -1483,9 +1612,15 @@ function gridCellRangeContains(
   const startColumn = positionMap.fieldKeys.indexOf(range.start.fieldKey);
   const endColumn = positionMap.fieldKeys.indexOf(range.end.fieldKey);
   const column = positionMap.fieldKeys.indexOf(anchor.fieldKey);
-  const startRow = positionMap.recordIds.indexOf(range.start.recordId);
-  const endRow = positionMap.recordIds.indexOf(range.end.recordId);
-  const row = positionMap.recordIds.indexOf(anchor.recordId);
+  const startRow = positionMap.rowIdentities.findIndex((identity) =>
+    gridRowIdentitiesEqual(identity, range.start.rowIdentity),
+  );
+  const endRow = positionMap.rowIdentities.findIndex((identity) =>
+    gridRowIdentitiesEqual(identity, range.end.rowIdentity),
+  );
+  const row = positionMap.rowIdentities.findIndex((identity) =>
+    gridRowIdentitiesEqual(identity, anchor.rowIdentity),
+  );
   if (
     startColumn < 0 ||
     endColumn < 0 ||
@@ -1505,46 +1640,56 @@ function gridCellRangeContains(
 }
 
 function semanticAnchor<Row>(
-  row: GridRecordRow<Row>,
+  row: GridDataRow<Row>,
   fieldKey: string,
-  columns: readonly WorkbookDataGridProps<Row>["columns"][number][],
-  viewSchemaId: string,
+  columns: readonly SemanticDataGridProps<Row>["columns"][number][],
+  surface: GridSurfaceIdentity,
 ): GridCellAnchor | null {
-  if (!isRecordRow(row)) return null;
+  if (!isDataRow(row)) return null;
   if (!columns.some((column) => column.fieldKey === fieldKey)) return null;
-  return { fieldKey, recordId: row.recordId, viewSchemaId };
+  return { fieldKey, rowIdentity: row.rowIdentity, surface };
 }
 
 function semanticTarget<Row>(
-  row: GridRecordRow<Row>,
+  row: GridDataRow<Row>,
   fieldKey: string,
-  columns: readonly WorkbookDataGridProps<Row>["columns"][number][],
-  viewSchemaId: string,
+  columns: readonly SemanticDataGridProps<Row>["columns"][number][],
+  surface: GridSurfaceIdentity,
 ) {
-  if (!isRecordRow(row)) return null;
+  if (
+    !isDataRow(row) ||
+    surface.kind !== "view_schema" ||
+    row.rowIdentity.kind !== "core_record" ||
+    row.mutationIdentity === undefined
+  ) {
+    return null;
+  }
   const column = columns.find((candidate) => candidate.fieldKey === fieldKey);
   if (column?.contractWritable !== true || column.editor === undefined) {
     return null;
   }
   return {
-    baseRowVersion: row.rowVersion,
     fieldKey,
-    recordId: row.recordId,
-    viewSchemaId,
+    mutationIdentity: row.mutationIdentity,
+    rowIdentity: row.rowIdentity,
+    surface,
   };
 }
 
 function dedupeGridTargets(
   targets: readonly {
-    readonly baseRowVersion: number;
     readonly fieldKey: string;
-    readonly recordId: string;
-    readonly viewSchemaId: string;
+    readonly mutationIdentity: {
+      readonly kind: "core_row_version";
+      readonly baseRowVersion: number;
+    };
+    readonly rowIdentity: GridRowIdentity;
+    readonly surface: GridSurfaceIdentity;
   }[],
 ) {
   const seen = new Set<string>();
   return targets.filter((target) => {
-    const key = `${target.viewSchemaId}\u0000${target.recordId}\u0000${target.fieldKey}`;
+    const key = gridAnchorKey(target);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -1563,32 +1708,27 @@ function semanticRowAttributes(state: GridResolvedSemanticState) {
   } as const;
 }
 
-function isRecordRow<Row>(candidate: unknown): candidate is GridRecordRow<Row> {
+function isDataRow<Row>(candidate: unknown): candidate is GridDataRow<Row> {
   if (typeof candidate !== "object" || candidate === null) return false;
-  const row = candidate as Partial<GridRecordRow<Row>>;
-  return (
-    row.kind === "record" &&
-    typeof row.recordId === "string" &&
-    row.recordId.trim() !== "" &&
-    typeof row.rowVersion === "number"
-  );
+  const row = candidate as Partial<GridDataRow<Row>>;
+  return row.kind === "data" && row.rowIdentity !== undefined;
 }
 
-function GroupedWorkbookDataGrid<Row>({
+function GroupedSemanticDataGrid<Row>({
   grouping,
   density = "default",
   positionMapRef,
   rowStateFor,
   sharedProps,
-  viewSchemaId,
-}: WorkbookDataGridProps<Row> & {
+  surface,
+}: SemanticDataGridProps<Row> & {
   readonly sharedProps: DataGridProps<
-    GridRecordRow<Row>,
+    GridDataRow<Row>,
     GridDraftRow<Row>,
     string
   >;
   readonly positionMapRef: MutableRefObject<GridSemanticPositionMap>;
-  readonly rowStateFor: (row: GridRecordRow<Row>) => GridRowStateInput;
+  readonly rowStateFor: (row: GridDataRow<Row>) => GridRowStateInput;
 }) {
   if (grouping === null || grouping === undefined) {
     throw new Error("Grouped grid requires a grouping descriptor.");
@@ -1596,9 +1736,12 @@ function GroupedWorkbookDataGrid<Row>({
   const [collapsedGroupIdsByScope, setCollapsedGroupIdsByScope] = useState<
     ReadonlyMap<string, ReadonlySet<string>>
   >(() => new Map());
-  const expansionScope = JSON.stringify([viewSchemaId, grouping.fieldKey]);
+  const expansionScope = JSON.stringify([
+    gridSurfaceIdentityKey(surface),
+    grouping.fieldKey,
+  ]);
   const { groupIds, metadata, rowGroups } = useMemo(() => {
-    const groups: Record<string, Array<GridRecordRow<Row>>> = {};
+    const groups: Record<string, Array<GridDataRow<Row>>> = {};
     const nextMetadata = new Map<string, GroupMetadata>();
     for (const row of sharedProps.rows) {
       const value = grouping.getValue(row.data);
@@ -1641,7 +1784,7 @@ function GroupedWorkbookDataGrid<Row>({
     [collapsedGroupIds, groupIds],
   );
   const compiledColumns = sharedProps.columns as readonly Column<
-    GridRecordRow<Row>,
+    GridDataRow<Row>,
     GridDraftRow<Row>
   >[];
   const gutterColumn = compiledColumns.find(
@@ -1652,7 +1795,7 @@ function GroupedWorkbookDataGrid<Row>({
     typeof gutterColumn?.width === "number" ? gutterColumn.width : 48,
     128,
   );
-  const groupColumn: Column<GridRecordRow<Row>, GridDraftRow<Row>> = {
+  const groupColumn: Column<GridDataRow<Row>, GridDraftRow<Row>> = {
     ...gutterColumn,
     frozen: true,
     key: "__cartulary_group__",
@@ -1718,14 +1861,14 @@ function GroupedWorkbookDataGrid<Row>({
     ),
   );
   const { rowIndexes, visibleRows } = useMemo(() => {
-    const nextVisibleRows: Array<GridRecordRow<Row>> = [];
+    const nextVisibleRows: Array<GridDataRow<Row>> = [];
     const nextRowIndexes = new Map<string, number>();
     let rowIdx = 0;
     for (const groupId of groupIds) {
       rowIdx += 1;
       if (!expandedGroupIds.has(groupId)) continue;
       for (const row of rowGroups[groupId] ?? []) {
-        nextRowIndexes.set(row.recordId, rowIdx);
+        nextRowIndexes.set(gridRowIdentityKey(row.rowIdentity), rowIdx);
         nextVisibleRows.push(row);
         rowIdx += 1;
       }
@@ -1737,15 +1880,15 @@ function GroupedWorkbookDataGrid<Row>({
       buildSemanticPositionMap({
         columnKeys: vendorGroupedColumnKeys,
         fieldKeys: groupedFieldKeys,
-        recordRows: visibleRows,
+        dataRows: visibleRows,
         rowIndexes,
-        viewSchemaId,
+        surface,
       }),
     [
       groupedFieldKeys,
       rowIndexes,
       vendorGroupedColumnKeys,
-      viewSchemaId,
+      surface,
       visibleRows,
     ],
   );
@@ -1773,18 +1916,23 @@ function GroupedWorkbookDataGrid<Row>({
         ...sharedProps.renderers,
         renderRow: (
           key,
-          rowProps: RenderRowProps<GridRecordRow<Row>, GridDraftRow<Row>>,
+          rowProps: RenderRowProps<GridDataRow<Row>, GridDraftRow<Row>>,
         ) => {
           const semanticState = resolveGridSemanticState(
             rowStateFor(rowProps.row),
-            `row ${rowProps.row.recordId}`,
+            "data row",
           );
           return (
             <Row
               {...rowProps}
               {...semanticRowAttributes(semanticState)}
-              data-cartulary-grid-row-kind="record"
-              data-grid-record-id={rowProps.row.recordId}
+              data-cartulary-grid-row-kind="data"
+              data-grid-row-identity-kind={rowProps.row.rowIdentity.kind}
+              data-grid-record-id={
+                rowProps.row.rowIdentity.kind === "core_record"
+                  ? rowProps.row.rowIdentity.recordId
+                  : undefined
+              }
               data-inspector-active={
                 semanticState.stateIds.includes("inspector-active")
                   ? "true"

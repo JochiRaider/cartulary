@@ -2,10 +2,10 @@ import {
   buildGridPresentationRows,
   type GridCellAnchor,
   type GridColumn,
+  type GridDataRow,
   type GridHandle,
   type GridNavigationIntent,
   type GridPasteTargetResolution,
-  type GridRecordRow,
   navigateGridCellAnchor,
   resolveGridPasteTargets,
 } from "@cartulary/grid-adapter";
@@ -15,6 +15,7 @@ import {
   clipboardGridDimensions,
   clipboardTextLooksTabular,
 } from "../../utils/workbookClipboard";
+import type { WorkbookFocusAnchor } from "../../utils/workbookGridFocus";
 import type { TimelinePasteTargetResolution } from "../models/timelineControllerPorts";
 import {
   timelineGroupLabel,
@@ -81,7 +82,7 @@ function resolveDraftTimelinePasteTargets({
     rowTargets: Array.from({ length: pastedRowCount }, (_, createIndex) => ({
       createIndex,
       kind: "create" as const,
-      viewSchemaId,
+      surface: { kind: "view_schema" as const, viewSchemaId },
     })),
   };
 }
@@ -102,7 +103,7 @@ export function useTimelineGridAnchorController({
     readonly GridColumn<WorkbookRow>[]
   >;
   readonly timelineAnchorRowsRef: TimelineReadonlyRef<
-    readonly GridRecordRow<WorkbookRow>[]
+    readonly GridDataRow<WorkbookRow>[]
   >;
   readonly updateTimelineSurfaceFocusAnchor: (
     recordId: string | null,
@@ -111,11 +112,30 @@ export function useTimelineGridAnchorController({
   readonly updateWorkbookFocusAnchor: (anchor: null) => void;
 }) {
   const restoreTimelineFocusAnchor = useCallback(
-    (anchor: GridCellAnchor) => {
-      const restored = gridHandleRef.current?.focusAnchor(anchor) ?? false;
+    (
+      anchor:
+        | GridCellAnchor
+        | Pick<WorkbookFocusAnchor, "fieldKey" | "recordId" | "viewSchemaId">,
+    ) => {
+      const semanticAnchor: GridCellAnchor =
+        "rowIdentity" in anchor
+          ? anchor
+          : {
+              fieldKey: anchor.fieldKey,
+              rowIdentity: {
+                kind: "core_record",
+                recordId: anchor.recordId,
+              },
+              surface: {
+                kind: "view_schema",
+                viewSchemaId: anchor.viewSchemaId,
+              },
+            };
+      const restored =
+        gridHandleRef.current?.focusAnchor(semanticAnchor) ?? false;
       if (!restored) {
         window.setTimeout(() => {
-          gridHandleRef.current?.focusAnchor(anchor);
+          gridHandleRef.current?.focusAnchor(semanticAnchor);
         }, 0);
       }
       return restored;
@@ -132,10 +152,16 @@ export function useTimelineGridAnchorController({
       }
       const anchor = {
         fieldKey,
-        recordId: row.recordId,
-        viewSchemaId: timelineViewSchemaId,
+        rowIdentity: { kind: "core_record" as const, recordId: row.recordId },
+        surface: {
+          kind: "view_schema" as const,
+          viewSchemaId: timelineViewSchemaId,
+        },
       };
-      updateTimelineSurfaceFocusAnchor(anchor.recordId, anchor.fieldKey);
+      updateTimelineSurfaceFocusAnchor(
+        anchor.rowIdentity.recordId,
+        anchor.fieldKey,
+      );
       return anchor;
     },
     [rowsRef, updateTimelineSurfaceFocusAnchor, updateWorkbookFocusAnchor],
@@ -178,8 +204,11 @@ export function useTimelineGridAnchorController({
 
       const anchor = {
         fieldKey,
-        recordId,
-        viewSchemaId: timelineViewSchemaId,
+        rowIdentity: { kind: "core_record" as const, recordId },
+        surface: {
+          kind: "view_schema" as const,
+          viewSchemaId: timelineViewSchemaId,
+        },
       };
       const presentationRows = buildGridPresentationRows({
         grouping:
@@ -203,7 +232,10 @@ export function useTimelineGridAnchorController({
         return null;
       }
 
-      updateTimelineSurfaceFocusAnchor(anchor.recordId, anchor.fieldKey);
+      updateTimelineSurfaceFocusAnchor(
+        anchor.rowIdentity.recordId,
+        anchor.fieldKey,
+      );
       return { anchor, targetResolution };
     },
     [
@@ -240,7 +272,9 @@ export function useTimelineGridAnchorController({
         return;
       }
       updateTimelineSurfaceFocusAnchor(
-        nextAnchor.recordId,
+        nextAnchor.rowIdentity.kind === "core_record"
+          ? nextAnchor.rowIdentity.recordId
+          : null,
         nextAnchor.fieldKey,
       );
       const restoredNow = restoreTimelineFocusAnchor(nextAnchor);

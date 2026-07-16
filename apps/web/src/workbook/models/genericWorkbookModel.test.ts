@@ -65,16 +65,22 @@ describe("genericWorkbookModel", () => {
       }),
     ).toEqual([
       {
-        kind: "record",
-        recordId: "party-1",
-        rowVersion: 1,
+        kind: "data",
+        mutationIdentity: {
+          kind: "core_row_version",
+          baseRowVersion: 1,
+        },
+        rowIdentity: { kind: "core_record", recordId: "party-1" },
         data: rows[0],
         testId: "grid-row-cartulary.view.parties.v1-party-1",
       },
       {
-        kind: "record",
-        recordId: "party-2",
-        rowVersion: 2,
+        kind: "data",
+        mutationIdentity: {
+          kind: "core_row_version",
+          baseRowVersion: 2,
+        },
+        rowIdentity: { kind: "core_record", recordId: "party-2" },
         data: rows[1],
         testId: "grid-row-cartulary.view.parties.v1-party-2",
       },
