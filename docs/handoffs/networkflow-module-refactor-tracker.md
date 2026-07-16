@@ -8,7 +8,7 @@
 | Target label | `networkflow` |
 | Output path | `docs/handoffs/networkflow-module-refactor-tracker.md` |
 | Repository snapshot | Clean `main` at `63a19bf6e0c3f17a9b53afb58afa8bd04fb4c550` when planning began |
-| Status | Historical module remediation complete; Network Analysis grid-adapter adoption is executing under Section 14, with `NF-GA-00` `ACTIVE` |
+| Status | Historical module remediation complete; Network Analysis grid-adapter adoption is executing under Section 14, with `NF-GA-00` `COMPLETE` and `NF-GA-01` awaiting activation |
 | Authorized change | Specification, implementation, tests, contracts, generated outputs, configuration, migrations, harness inputs, documentation, and this tracker |
 | Current execution authorization | Specification, contract, generated, backend, frontend, test, harness-input, visual, and tracker changes required by Section 14; no dependency, lockfile, database, saved-view, or React Data Grid version migration |
 | Preserved non-goals | No richer graph canvas, observation creation, restore/purge behavior, existing-route response change, or HTTP schema-major expansion; one additive Core import mapping-preview route is explicitly authorized |
@@ -383,7 +383,7 @@ authorize or claim implementation completion.
 | Harness authority | `docs/testing-harness-nlspec.md`; it owns invocation, target selection, scheduling, artifacts, cleanup, and evidence accounting |
 | Adapter reference | Completed F-RDG workstreams in `docs/handoffs/grid-adapter-module-refactor-tracker.md` |
 | Current execution scope | Full Section 14 remediation, serially checkpointed |
-| Overall adoption status | `ACTIVE` (`NF-GA-00`) |
+| Overall adoption status | `ACTIVE` (`NF-GA-00 COMPLETE`; `NF-GA-01 PENDING`) |
 
 The inspected baseline has the following implementation boundaries:
 
@@ -621,7 +621,7 @@ Every checkpoint must populate these fields:
 
 | Field | Approved value |
 | --- | --- |
-| Status | `ACTIVE` |
+| Status | `COMPLETE` |
 | Dependencies | None |
 | Remediation | Amend Network Flow NLSpec to `1.2.0` and Core import/security owners; define presentation and mapping metadata, additive generic mapping preview, session layout, data states, read-only behavior, supported page envelope, and every adopted/deferred/rejected capability; update derived contract inputs and generated frontend/backend metadata |
 | Affected areas | Core and extension specification, public and repo-local contracts, generation inputs/outputs, documentation, semantic tests |
@@ -633,8 +633,26 @@ Every checkpoint must populate these fields:
 | Commands/evidence | `make generate`; `make generate-drift`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-markdown`; `git diff --check`; semantic/generated evidence |
 | Rollback | Revert NLSpec, index/frontend-entrypoint inputs, presentation artifact, and generated output together |
 | Exit criteria | Owner approval and clean generation/drift |
-| Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
+| Checkpoint | Completed in Section 14.7.1 |
 | Next workstream | `NF-GA-01` |
+
+##### 14.7.1 `NF-GA-00` completion checkpoint
+
+| Checkpoint field | Recorded outcome |
+| --- | --- |
+| Status / reviewer / date | `COMPLETE`; Codex self-review; 2026-07-15 America/New_York |
+| Baseline commit | `6503537f55a6cde6fd5bfb2e85d975a015968f0a` |
+| Implementation end commit | `cd429f1a701e617305f1a5c5a318dcdc7b81ea1b` |
+| Files changed | Network Flow and Core owner specifications; Network Flow index/routes/frontend entrypoints; OpenAPI; presentation and mapping registries; contract-index schema and shape checker; protocol generator/facade and generated Go/TypeScript artifacts; generated execution-topology render index; this tracker |
+| Substantive result | Adopted document version `1.2.0`; closed three-grid presentation registry and source-profile mapping registry; additive side-effect-free Core mapping-preview route and wrapper; explicit separation of preview from durable approval; generated frontend metadata; serial `NF-GA-00..09` tracker protocol; removed obsolete accessibility-preflight target |
+| Required gates | `make generate` PASS (`.cartulary/test-results/20260716T032711Z-p64652`); `make generate-drift` PASS (`.cartulary/test-results/20260716T032718Z-p65990`); `make generated-artifact-policy-check` PASS (`.cartulary/test-results/20260716T032723Z-p67531`); `make json-shape-check` PASS (`.cartulary/test-results/20260716T032723Z-p67680`); `make lint-markdown` PASS; `git diff --check` PASS |
+| Additional gate | `make frontend-typecheck` PASS |
+| Corrective run | Initial `make json-shape-check` stopped because the shape-checker edit made generated phase schedules stale (`.cartulary/test-results/20260716T032649Z-p63709`); `make phase-schedules` regenerated owner outputs and passed (`.cartulary/test-results/20260716T032657Z-p64086`), after which shape validation passed |
+| Evidence-map rows | No claim rows changed; specification/generated-contract evidence only. Phase schedule render metadata regenerated from its owner input |
+| Compatibility / migration | Contract major remains `1`; one additive public route; no existing response change, database, dependency, lockfile, saved-view, or RDG migration |
+| Residual risk / deferral | Runtime route, adapter, frontend workflow, and real evidence remain in later workstreams; richer graph and rejected capabilities remain deferred/rejected by Section 14.10 |
+| Rollback | Revert `cd429f1a` atomically; not exercised because all gates passed |
+| Next workstream | `NF-GA-01`; it may activate only after this checkpoint commit |
 
 #### `NF-GA-01` — Adapter boundary and semantic model
 
