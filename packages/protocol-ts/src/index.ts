@@ -2,6 +2,9 @@ import type { IncidentStreamMessage } from "./generated/collaboration-types.js";
 import type {
   EnvelopeMeta,
   ErrorEnvelope,
+  ExtensionMappingPreviewEnvelope,
+  ExtensionMappingPreviewRequest,
+  ExtensionMappingPreviewResource,
   ExtensionDiscoveryEnvelope,
   ExtensionProfileResource as GeneratedExtensionProfileResource,
 } from "./generated/core-http-types.js";
@@ -14,6 +17,8 @@ import {
   wsArtifacts,
 } from "./generated/index.js";
 import { networkFlowContractDescriptor } from "./generated/network-flow-descriptor.js";
+import { networkFlowMappingRegistry } from "./generated/network-flow-mapping-registry.js";
+import { networkFlowPresentationRegistry } from "./generated/network-flow-presentation.js";
 import type {
   GraphContributorQueryResult,
   GraphQueryResult,
@@ -28,11 +33,18 @@ export type * from "./generated/network-flow-types.js";
 export type {
   EnvelopeMeta,
   ErrorEnvelope,
+  ExtensionMappingPreviewEnvelope,
+  ExtensionMappingPreviewRequest,
+  ExtensionMappingPreviewResource,
   ExtensionDiscoveryEnvelope,
   GeneratedExtensionProfileResource,
   IncidentStreamMessage,
 };
-export { networkFlowContractDescriptor };
+export {
+  networkFlowContractDescriptor,
+  networkFlowMappingRegistry,
+  networkFlowPresentationRegistry,
+};
 
 export type ContractArtifact = {
   readonly path: string;

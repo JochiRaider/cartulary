@@ -249,6 +249,8 @@ const networkFlowContractFilesKeys = new Set([
   "errors",
   "timezone_provenance",
   "key_rings",
+  "mapping_registry",
+  "presentation",
 ]);
 const networkFlowClosurePolicyKeys = new Set([
   "objects_closed_by_default",
@@ -282,6 +284,7 @@ const networkFlowImportIntegrationKeys = new Set([
   "default_parser_profile_id",
   "default_unknown_column_policy",
   "owner_facade",
+  "mapping_preview_route",
   "owner_facade_operations",
 ]);
 const networkFlowFacadeOperationKeys = new Set([
@@ -1962,7 +1965,7 @@ function validateNetworkFlowContractIndexShape(file) {
   requireSchemaID(contractIndex, networkFlowContractIndexSchemaID, file);
   requireExact(contractIndex.profile_id, "network_flow_activity", `${file}.profile_id`);
   requireExact(contractIndex.contract_major, 1, `${file}.contract_major`);
-  requireExact(contractIndex.document_version, "1.1.0", `${file}.document_version`);
+  requireExact(contractIndex.document_version, "1.2.0", `${file}.document_version`);
   requireExact(
     contractIndex.route_root,
     "/api/v1/incidents/{incident_id}/network-flow",
@@ -1976,7 +1979,7 @@ function validateNetworkFlowContractIndexShape(file) {
   );
   assertExactIDSet(
     new Set(requireStringArray(contractIndex.owner_sections, `${file}.owner_sections`, { nonEmpty: true })),
-    new Set(["9.7", "10", "17", "18", "21", "24"]),
+    new Set(["7.3", "9.7", "10", "17", "18", "21", "24"]),
     `${file}.owner_sections`,
   );
 
@@ -1994,6 +1997,14 @@ function validateNetworkFlowContractIndexShape(file) {
     contractFiles.key_rings,
     `${file}.contract_files.key_rings`,
   );
+  const mappingRegistryFile = networkFlowContractRepoPath(
+    contractFiles.mapping_registry,
+    `${file}.contract_files.mapping_registry`,
+  );
+  const presentationFile = networkFlowContractRepoPath(
+    contractFiles.presentation,
+    `${file}.contract_files.presentation`,
+  );
   requireExact(
     contractFiles.timezone_provenance,
     "contracts/network-flow/timezone/tzdb-2026c.provenance.json",
@@ -2004,7 +2015,17 @@ function validateNetworkFlowContractIndexShape(file) {
     "contracts/network-flow/key-rings.v1.schema.json",
     `${file}.contract_files.key_rings`,
   );
-  for (const referencedPath of [routeFile, schemaFile, errorFile, timezoneFile, keyRingsFile]) {
+  requireExact(
+    contractFiles.mapping_registry,
+    "contracts/network-flow/mapping-registry.v1.json",
+    `${file}.contract_files.mapping_registry`,
+  );
+  requireExact(
+    contractFiles.presentation,
+    "contracts/network-flow/presentation.v1.json",
+    `${file}.contract_files.presentation`,
+  );
+  for (const referencedPath of [routeFile, schemaFile, errorFile, timezoneFile, keyRingsFile, mappingRegistryFile, presentationFile]) {
     if (!existsSync(repoFile(repoRoot, referencedPath))) {
       throw new Error(`${file} references missing Network Flow contract file ${referencedPath}`);
     }
@@ -2041,6 +2062,8 @@ function validateNetworkFlowContractIndexShape(file) {
   const errorCodes = validateNetworkFlowErrorContractsShape(repoFile(repoRoot, errorFile));
   validateNetworkFlowPublicSchemaBundle(repoFile(repoRoot, schemaFile), publicSchemaIDs);
   validateNetworkFlowTimezoneRulesetProvenanceShape(repoFile(repoRoot, timezoneFile));
+  validateNetworkFlowMappingRegistryShape(repoFile(repoRoot, mappingRegistryFile));
+  validateNetworkFlowPresentationShape(repoFile(repoRoot, presentationFile));
 
   const routes = readShapeFile(repoFile(repoRoot, routeFile), routeFile);
   for (const route of routes.routes) {
@@ -2058,6 +2081,140 @@ function networkFlowContractRepoPath(value, label) {
     throw new Error(`${label} must be under contracts/network-flow`);
   }
   return relativePath;
+}
+
+function validateNetworkFlowPresentationShape(file) {
+  const presentation = readShapeFile(file, file);
+  const rootKeys = new Set(["$schema", "schema_id", "profile_id", "document_version", "grid_schemas"]);
+  assertObjectKeys(presentation, rootKeys, file);
+  assertRequiredKeys(presentation, rootKeys, file);
+  requireSchemaID(presentation, "cartulary.network_flow.presentation.v1", file);
+  requireExact(presentation.profile_id, "network_flow_activity", `${file}.profile_id`);
+  requireExact(presentation.document_version, "1.2.0", `${file}.document_version`);
+  const grids = requireObjectArray(presentation.grid_schemas, `${file}.grid_schemas`);
+  requireExactArrayLength(grids, 3, `${file}.grid_schemas`);
+  const expectedIDs = [
+    "network_flow.accepted_rows.v1",
+    "network_flow.rejected_rows.v1",
+    "network_flow.graph_contributors.v1",
+  ];
+  for (const [index, grid] of grids.entries()) {
+    const label = `${file}.grid_schemas[${index + 1}]`;
+    const contributor = grid.grid_schema_id === "network_flow.graph_contributors.v1";
+    const keys = new Set([
+      "grid_schema_id",
+      "resource_kind",
+      "grouping",
+      "server_order_only",
+      contributor ? "columns_from_grid_schema_id" : "columns",
+    ]);
+    assertObjectKeys(grid, keys, label);
+    assertRequiredKeys(grid, keys, label);
+    requireExact(grid.grid_schema_id, expectedIDs[index], `${label}.grid_schema_id`);
+    requireString(grid.resource_kind, `${label}.resource_kind`);
+    requireString(grid.grouping, `${label}.grouping`);
+    requireBoolean(grid.server_order_only, `${label}.server_order_only`);
+    if (contributor) {
+      requireExact(
+        grid.columns_from_grid_schema_id,
+        "network_flow.accepted_rows.v1",
+        `${label}.columns_from_grid_schema_id`,
+      );
+      continue;
+    }
+    const columns = requireObjectArray(grid.columns, `${label}.columns`);
+    const seenFields = new Set();
+    const seenOrders = new Set();
+    for (const [columnIndex, column] of columns.entries()) {
+      const columnLabel = `${label}.columns[${columnIndex + 1}]`;
+      const columnKeys = new Set([
+        "field_key", "label_key", "value_kind", "renderer_kind",
+        "filter_operators", "sortable", "copyable", "link_contexts",
+        "default_visible", "default_order", "default_width_px",
+        "minimum_width_px", "inspector_only",
+      ]);
+      assertObjectKeys(column, columnKeys, columnLabel);
+      assertRequiredKeys(column, columnKeys, columnLabel);
+      const fieldKey = requireString(column.field_key, `${columnLabel}.field_key`);
+      if (seenFields.has(fieldKey)) {
+        throw new Error(`${columnLabel}.field_key duplicates ${fieldKey}`);
+      }
+      seenFields.add(fieldKey);
+      requireString(column.label_key, `${columnLabel}.label_key`);
+      requireString(column.value_kind, `${columnLabel}.value_kind`);
+      requireString(column.renderer_kind, `${columnLabel}.renderer_kind`);
+      for (const [arrayKey, values] of [["filter_operators", column.filter_operators], ["link_contexts", column.link_contexts]]) {
+        for (const [valueIndex, value] of requireArray(values, `${columnLabel}.${arrayKey}`).entries()) {
+          requireString(value, `${columnLabel}.${arrayKey}[${valueIndex + 1}]`);
+        }
+      }
+      for (const booleanKey of ["sortable", "copyable", "default_visible", "inspector_only"]) {
+        requireBoolean(column[booleanKey], `${columnLabel}.${booleanKey}`);
+      }
+      const order = requireInteger(column.default_order, `${columnLabel}.default_order`);
+      if (order < 0 || seenOrders.has(order)) {
+        throw new Error(`${columnLabel}.default_order must be unique and non-negative`);
+      }
+      seenOrders.add(order);
+      const width = requireInteger(column.default_width_px, `${columnLabel}.default_width_px`);
+      const minimum = requireInteger(column.minimum_width_px, `${columnLabel}.minimum_width_px`);
+      if (width < 0 || minimum < 0 || column.inspector_only === false && width < minimum) {
+        throw new Error(`${columnLabel} has invalid width bounds`);
+      }
+    }
+  }
+}
+
+function validateNetworkFlowMappingRegistryShape(file) {
+  const registry = readShapeFile(file, file);
+  const rootKeys = new Set([
+    "$schema", "schema_id", "profile_id", "document_version", "target_kind",
+    "target_table_schema_id", "system_derivations", "source_profiles",
+  ]);
+  assertObjectKeys(registry, rootKeys, file);
+  assertRequiredKeys(registry, rootKeys, file);
+  requireSchemaID(registry, "cartulary.network_flow.mapping_registry.v1", file);
+  requireExact(registry.profile_id, "network_flow_activity", `${file}.profile_id`);
+  requireExact(registry.document_version, "1.2.0", `${file}.document_version`);
+  requireExact(registry.target_kind, "network_flow_table", `${file}.target_kind`);
+  requireExact(registry.target_table_schema_id, "cartulary.network_flow_table.v1", `${file}.target_table_schema_id`);
+  const derivations = requireObjectArray(registry.system_derivations, `${file}.system_derivations`);
+  requireExactArrayLength(derivations, 1, `${file}.system_derivations`);
+  const profiles = requireObjectArray(registry.source_profiles, `${file}.source_profiles`);
+  requireExactArrayLength(profiles, 1, `${file}.source_profiles`);
+  const profile = profiles[0];
+  const profileKeys = new Set([
+    "source_profile_id", "display_name", "conformance_status", "parser_profile_id",
+    "default_unknown_column_policy", "supported_unknown_column_policies",
+    "default_timestamp_profile", "supported_timestamp_modes", "fields",
+  ]);
+  assertObjectKeys(profile, profileKeys, `${file}.source_profiles[1]`);
+  assertRequiredKeys(profile, profileKeys, `${file}.source_profiles[1]`);
+  requireExact(profile.source_profile_id, "cisco_sna_netflow_csv_v1", `${file}.source_profiles[1].source_profile_id`);
+  const fields = requireObjectArray(profile.fields, `${file}.source_profiles[1].fields`);
+  requireExactArrayLength(fields, 15, `${file}.source_profiles[1].fields`);
+  const fieldKeys = new Set();
+  for (const [index, field] of fields.entries()) {
+    const label = `${file}.source_profiles[1].fields[${index + 1}]`;
+    const keys = new Set(["field_key", "requirement", "transform_id", "empty_value_policy", "aliases"]);
+    assertObjectKeys(field, keys, label);
+    assertRequiredKeys(field, keys, label);
+    const fieldKey = requireString(field.field_key, `${label}.field_key`);
+    if (fieldKeys.has(fieldKey)) {
+      throw new Error(`${label}.field_key duplicates ${fieldKey}`);
+    }
+    fieldKeys.add(fieldKey);
+    requireEnum(
+      field.requirement,
+      `${label}.requirement`,
+      new Set(["required", "optional_map_when_present", "not_supported", "system_derived"]),
+    );
+    if (field.transform_id !== null) requireString(field.transform_id, `${label}.transform_id`);
+    if (field.empty_value_policy !== null) requireString(field.empty_value_policy, `${label}.empty_value_policy`);
+    for (const [aliasIndex, alias] of requireArray(field.aliases, `${label}.aliases`).entries()) {
+      requireString(alias, `${label}.aliases[${aliasIndex + 1}]`);
+    }
+  }
 }
 
 function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
@@ -2078,7 +2235,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
   assertRequiredKeys(discovery, networkFlowExtensionDiscoveryKeys, `${file}.extension_discovery`);
   requireExact(discovery.profile_id, "network_flow_activity", `${file}.extension_discovery.profile_id`);
   requireExact(discovery.contract_major, 1, `${file}.extension_discovery.contract_major`);
-  requireExact(discovery.document_version, "1.1.0", `${file}.extension_discovery.document_version`);
+  requireExact(discovery.document_version, "1.2.0", `${file}.extension_discovery.document_version`);
   requireExact(discovery.route_root, routeContracts.route_root, `${file}.extension_discovery.route_root`);
   requireExact(discovery.claim_required, true, `${file}.extension_discovery.claim_required`);
   requireExact(
@@ -2125,6 +2282,11 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
     integration.owner_facade,
     "network_flow_import_facade_v1",
     `${file}.import_integration.owner_facade`,
+  );
+  requireExact(
+    integration.mapping_preview_route,
+    "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping-preview",
+    `${file}.import_integration.mapping_preview_route`,
   );
   const facadeOperations = validateObjectArray(
     integration.owner_facade_operations,

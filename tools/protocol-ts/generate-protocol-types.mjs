@@ -251,6 +251,14 @@ function validatorSource(entries) {
   return `${generatedMarker}\n// @ts-nocheck\nimport cartularyDeepEqual from "ajv/dist/runtime/equal.js";\nimport cartularyUcs2Length from "ajv/dist/runtime/ucs2length.js";\n${source}\n`;
 }
 
+function generatedConstSource(exportName, value) {
+  return `${generatedMarker}\n\nexport const ${exportName} = ${JSON.stringify(
+    value,
+    null,
+    2,
+  )} as const;\n`;
+}
+
 const entrypoints = readJSON(
   "contracts/network-flow/frontend-entrypoints.v1.json",
 );
@@ -261,6 +269,24 @@ const networkFlowIndex = readJSON(
 const networkFlowSchema = readJSON(
   requireString(networkFlowConfig.schema_bundle_path, "network_flow.schema_bundle_path"),
 );
+const networkFlowPresentation = readJSON(
+  requireString(networkFlowConfig.presentation_path, "network_flow.presentation_path"),
+);
+const networkFlowMappingRegistry = readJSON(
+  requireString(networkFlowConfig.mapping_registry_path, "network_flow.mapping_registry_path"),
+);
+for (const [label, artifact, schemaID] of [
+  ["presentation", networkFlowPresentation, "cartulary.network_flow.presentation.v1"],
+  ["mapping registry", networkFlowMappingRegistry, "cartulary.network_flow.mapping_registry.v1"],
+]) {
+  requireObject(artifact, `network-flow ${label}`);
+  if (artifact.schema_id !== schemaID) {
+    throw new Error(`network-flow ${label} has unexpected schema_id`);
+  }
+  if (artifact.document_version !== networkFlowIndex.document_version) {
+    throw new Error(`network-flow ${label} document version drifted from index`);
+  }
+}
 const networkFlowDefinitions = requireObject(
   networkFlowSchema.$defs,
   "network-flow definitions",
@@ -361,6 +387,14 @@ writeFileSync(
     null,
     2,
   )} as const;\n`,
+);
+writeFileSync(
+  path.join(generatedRoot, "network-flow-presentation.ts"),
+  generatedConstSource("networkFlowPresentationRegistry", networkFlowPresentation),
+);
+writeFileSync(
+  path.join(generatedRoot, "network-flow-mapping-registry.ts"),
+  generatedConstSource("networkFlowMappingRegistry", networkFlowMappingRegistry),
 );
 
 writeFileSync(

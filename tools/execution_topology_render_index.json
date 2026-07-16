@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:c0c0f0da988b261aed38ec2767fb42dca18c5f10db315bc95a472854ba8c9956",
+  "input_digest": "sha256:ac0c83c5586df2c6b4444803947c6df75b06028061c0aff84915998458b7d529",
   "inputs": [
     {
       "path": "tools/browser_e2e_duration_baselines.json",
@@ -257,7 +257,7 @@
     {
       "path": "tools/harness/generated-artifacts/check-json-shapes.mjs",
       "role": "renderer_source",
-      "hash": "sha256:ca70b5aeed4ebbd86b7637da1b03257d977e96b3f053474757c3890522089d05"
+      "hash": "sha256:ec5cfeaf8827b80e92502ce19e1005f1699bd1dafcfaf8cc5ef963f66ae969a4"
     },
     {
       "path": "tools/harness/generated-artifacts/check-phase-ledger-drift.mjs",

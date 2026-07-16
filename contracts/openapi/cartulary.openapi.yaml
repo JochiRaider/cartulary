@@ -2573,6 +2573,87 @@
         }
       }
     },
+    "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping-preview": {
+      "post": {
+        "tags": [
+          "imports"
+        ],
+        "operationId": "previewImportUnitExtensionMapping",
+        "summary": "Validate one analytical-extension mapping candidate without durable approval.",
+        "parameters": [
+          {
+            "name": "import_session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "import_unit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtensionMappingPreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Validated analytical-extension mapping preview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionMappingPreviewEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid mapping preview request or owner result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Visible import unit but insufficient incident role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Import session or unit is not visible to the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping": {
       "put": {
         "tags": [
@@ -7556,6 +7637,84 @@
           "source_column_ordinal",
           "display_text",
           "cell_kind"
+        ]
+      },
+      "ExtensionMappingPreviewRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "target_kind": {
+            "type": "string"
+          },
+          "extension_profile_id": {
+            "type": "string"
+          },
+          "owner_mapping_schema_id": {
+            "type": "string"
+          },
+          "owner_mapping": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "target_kind",
+          "extension_profile_id",
+          "owner_mapping_schema_id",
+          "owner_mapping"
+        ]
+      },
+      "ExtensionMappingPreviewResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_id": {
+            "const": "cartulary.imports.extension_mapping_preview_result.v1"
+          },
+          "import_session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "import_unit_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target_kind": {
+            "type": "string"
+          },
+          "extension_profile_id": {
+            "type": "string"
+          },
+          "owner_result_schema_id": {
+            "type": "string"
+          },
+          "owner_result": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "schema_id",
+          "import_session_id",
+          "import_unit_id",
+          "target_kind",
+          "extension_profile_id",
+          "owner_result_schema_id",
+          "owner_result"
+        ]
+      },
+      "ExtensionMappingPreviewEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ExtensionMappingPreviewResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
         ]
       },
       "ImportUnitMappingRequest": {

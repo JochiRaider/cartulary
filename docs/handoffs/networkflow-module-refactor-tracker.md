@@ -8,10 +8,10 @@
 | Target label | `networkflow` |
 | Output path | `docs/handoffs/networkflow-module-refactor-tracker.md` |
 | Repository snapshot | Clean `main` at `63a19bf6e0c3f17a9b53afb58afa8bd04fb4c550` when planning began |
-| Status | Historical module remediation complete; Network Analysis grid-adapter adoption plan approved, with all implementation workstreams `PENDING` |
+| Status | Historical module remediation complete; Network Analysis grid-adapter adoption is executing under Section 14, with `NF-GA-00` `ACTIVE` |
 | Authorized change | Specification, implementation, tests, contracts, generated outputs, configuration, migrations, harness inputs, documentation, and this tracker |
-| Current planning authorization | Tracker-only documentation update; no runtime, specification, contract, generated, dependency, lockfile, migration, or test change is authorized by this planning session |
-| Preserved non-goals | No UI redesign, new graph mode, observation creation, restore/purge behavior, public route, or HTTP schema-major expansion |
+| Current execution authorization | Specification, contract, generated, backend, frontend, test, harness-input, visual, and tracker changes required by Section 14; no dependency, lockfile, database, saved-view, or React Data Grid version migration |
+| Preserved non-goals | No richer graph canvas, observation creation, restore/purge behavior, existing-route response change, or HTTP schema-major expansion; one additive Core import mapping-preview route is explicitly authorized |
 | Implementation authority | The 2026-07-13 remediation task explicitly authorized the behavior corrections and refactor described by the adopted plan |
 
 Source hierarchy used for this tracker:
@@ -372,7 +372,8 @@ authorize or claim implementation completion.
 
 | Item | Approved planning value |
 | --- | --- |
-| Baseline commit | `00cd433470376f4d6ffcf2c7b90b6c25a9f3cd8f` |
+| Planning parent | `00cd433470376f4d6ffcf2c7b90b6c25a9f3cd8f` |
+| Execution baseline commit | `6503537f55a6cde6fd5bfb2e85d975a015968f0a` |
 | Baseline branch | `revision/grid-adapter` |
 | Baseline worktree | Clean |
 | Controlling artifact | This existing tracker; ownership is unambiguous and no second tracker is permitted |
@@ -381,8 +382,8 @@ authorize or claim implementation completion.
 | Design direction | `docs/design.md`; preserve `extension_workspace` identity, fixed-height virtualization, keyboard operation, non-color states, and shared density/styling |
 | Harness authority | `docs/testing-harness-nlspec.md`; it owns invocation, target selection, scheduling, artifacts, cleanup, and evidence accounting |
 | Adapter reference | Completed F-RDG workstreams in `docs/handoffs/grid-adapter-module-refactor-tracker.md` |
-| Current-session write scope | This tracker only |
-| Overall adoption status | `PENDING` |
+| Current execution scope | Full Section 14 remediation, serially checkpointed |
+| Overall adoption status | `ACTIVE` (`NF-GA-00`) |
 
 The inspected baseline has the following implementation boundaries:
 
@@ -461,11 +462,24 @@ handles, classes, DOM structure, and coordinates remain package-private.
 ### 14.3 Network Flow presentation and query model
 
 Specification closure will amend the Network Flow NLSpec to document version
-`1.2.0` while retaining contract major `1` and the existing HTTP route and
-schema shapes. A closed repo-local derived artifact at
-`contracts/network-flow/presentation.v1.json` will be referenced by the
+`1.2.0` while retaining contract major `1`. Existing route request and response
+shapes remain unchanged. Core 01 adds one additive, side-effect-free
+`POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping-preview`
+route because the current imports service discards the owner facade's required
+preview result. Closed repo-local derived artifacts at
+`contracts/network-flow/presentation.v1.json` and
+`contracts/network-flow/mapping-registry.v1.json` will be referenced by the
 Network Flow contract index and frontend entrypoints, but not added to
 `public_schema_ids`.
+
+The preview route accepts only `target_kind`, `extension_profile_id`,
+`owner_mapping_schema_id`, and `owner_mapping`; the server derives the source
+capability, content hash, discovered columns, and unit coordinates. Its closed
+generic wrapper returns the target/profile identifiers, owner result schema ID,
+and validated `network_flow_import_preview_result_v1`. It persists no mapping,
+selection, table, or audit occurrence. Existing `PUT .../mapping` remains the
+explicit durable approval route, and apply is admitted only when its returned
+mapping fingerprint equals the last displayed preview fingerprint.
 
 The artifact owns three grid-schema identities:
 
@@ -575,13 +589,17 @@ enablement. Their availability in the package is not product authorization.
 | `NF-GAP-11` | Validate fixed-height row/column virtualization at 1,000 rows and all declared columns, including stable row references. Areas: implementation, measurement tests, documentation | Establishes a supported page envelope while stored tables remain server-paged | Depends on completed grids; rollback removes reconciliation/measurement changes, not paging. Leaving it open risks DOM expansion and lost selection | Rendered rows/cells remain fewer than supplied rows/cells; endpoints are reachable; unchanged row objects retain identity; no timed claim. Measurement/live-grid evidence |
 | `NF-GAP-12` | Enforce vendor imports, semantic styling, and selectors at package boundaries. Areas: implementation, tooling, tests | Preserves vendor replacement and semantic test ownership | Applies throughout; each violation rolls back with its consumer. Leaving it open leaks vendor contracts | No `react-data-grid` import outside the adapter and no vendor index/class/handle in app state or selectors. Run `make frontend-import-boundary-check` and `make lint-biome`. Boundary evidence |
 | `NF-GAP-13` | Replace synthetic-only browser claims with real application/grid scenarios; update Phase 12 maps, accounting, visual registry, and retained evidence. Areas: tests, harness inputs, documentation, generated accounting | Aligns evidence with the production grid | Final dependency; authored maps and generated ledgers/schedules roll back together. Leaving it open permits false conformance claims | Every authoritative row names a real target/artifact and evidence classes remain distinct. Harness, phase, browser, and retained-run evidence |
+| `NF-GAP-14` | Add the generic mapping-preview route, generated mapping registry, staged import coordinator, explicit ordinal-aware mapping modal, preview diagnostics, and approval-fingerprint binding. Areas: Core and extension specification, public contract, backend, frontend, tests | Makes the already-computed owner preview reachable and gives future analytical import targets a clean Core-owned preview boundary | One additive contract-major-1 route; existing approval/apply shapes remain unchanged; no database migration. Leaving it open forces hard-coded, unreviewed mappings | Preview is side-effect-free; duplicate/empty headers remain distinct; safe samples and blocking diagnostics render; suggestions never approve; apply requires the latest fingerprint. Backend/frontend/service-backed evidence |
+| `NF-GAP-15` | Complete the required workspace header, inner tabs, accepted/diagnostic regions, diagnostic summary, filters, graph panel, contributor drawer, status strip, and role-gated import/rename/delete controls. Areas: implementation, tests, documentation/design evidence | Produces one coherent operational workspace instead of disconnected manual tables | Visual/interaction migration only. Leaving it open hides lifecycle and diagnostic context and prevents required workflows | Every normative region exists; active-table selection and role gates match the owner; lifecycle commands use stable table identity/version. Live-grid/webserver/accessibility/visual evidence |
 
 ### 14.6 Mandatory execution protocol and checkpoints
 
-Workstream order is mandatory. Every workstream starts `PENDING`. The allowed
-later states are `ACTIVE`, `BLOCKED`, and `COMPLETE`. A workstream becomes
-`COMPLETE` only after its checkpoint is written below; the next workstream must
-not begin before that tracker update. A failed exit gate is recorded as
+Workstream order is mandatory. `NF-GA-00` starts `ACTIVE`; every later
+workstream starts `PENDING`. The allowed later states are `ACTIVE`, `BLOCKED`,
+and `COMPLETE`. Before a slice begins, its tracker entry changes to `ACTIVE`.
+A workstream becomes `COMPLETE` only after its implementation, exit gates, and
+checkpoint are committed here; the next workstream uses that checkpoint commit
+as its baseline and must not begin earlier. A failed exit gate is recorded as
 `BLOCKED`, never skipped.
 
 Every checkpoint must populate these fields:
@@ -603,13 +621,13 @@ Every checkpoint must populate these fields:
 
 | Field | Approved value |
 | --- | --- |
-| Status | `PENDING` |
+| Status | `ACTIVE` |
 | Dependencies | None |
-| Remediation | Amend Network Flow NLSpec to `1.2.0`; define presentation metadata, session layout, data states, read-only behavior, supported page envelope, and every adopted/deferred/rejected capability; update derived contract inputs and generated frontend metadata |
-| Affected areas | Specification, repo-local contracts, generation inputs/outputs, documentation, semantic tests |
+| Remediation | Amend Network Flow NLSpec to `1.2.0` and Core import/security owners; define presentation and mapping metadata, additive generic mapping preview, session layout, data states, read-only behavior, supported page envelope, and every adopted/deferred/rejected capability; update derived contract inputs and generated frontend/backend metadata |
+| Affected areas | Core and extension specification, public and repo-local contracts, generation inputs/outputs, documentation, semantic tests |
 | Rationale | Close owner semantics before implementation and prevent Core-record/view-schema substitution |
 | Long-term benefit | Later profiles and extension grids reuse one closed semantic presentation model |
-| Compatibility/migration | Contract major remains `1`; no public HTTP, database, or saved-view migration |
+| Compatibility/migration | Contract major remains `1`; one additive preview route; no existing route-shape, database, dependency, lockfile, or saved-view migration |
 | Unresolved risk | Code would otherwise choose presentation defaults and capabilities ad hoc |
 | Validation criteria | All decisions in Sections 14.2 through 14.5 are owned by the amended specification or derived metadata without Core/domain/design contradiction |
 | Commands/evidence | `make generate`; `make generate-drift`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-markdown`; `git diff --check`; semantic/generated evidence |
@@ -637,51 +655,70 @@ Every checkpoint must populate these fields:
 | Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
 | Next workstream | `NF-GA-02` |
 
-#### `NF-GA-02` — Network Flow columns, query, and session layout
+#### `NF-GA-02` — Import preview and explicit mapping workflow
 
 | Field | Approved value |
 | --- | --- |
 | Status | `PENDING` |
 | Dependencies | `NF-GA-01 COMPLETE` |
-| Remediation | Compile three grid schemas; replace accepted/diagnostic HTML tables; add owner filters, graph table scope, ordered sort, opaque-cursor paging, cancellation/reconciliation, column controls, and session layout |
-| Affected areas | Network Flow client/controllers, workspace presentation, module tests, live browser scenarios |
-| Rationale | Provide scalable, stable-field analysis without client query authority |
-| Long-term benefit | New flow types, columns, and larger result sets extend through metadata and server paging |
-| Compatibility/migration | Reuse existing routes/cursors; no wire change; layout resets on reload |
-| Unresolved risk | Partial or locally reordered results may mislead analysts |
-| Validation criteria | Exact initial/continuation bodies, default sort, layout/reset, cursor history, stale-response discard, and stable row references |
-| Commands/evidence | `make frontend-unit`; `make frontend-typecheck`; `make frontend-import-boundary-check`; `make browser-e2e-webserver-backed`; `make browser-e2e-stateful`; semantic/live-grid/webserver/stateful evidence |
-| Rollback | Revert Network Analysis integration while retaining the generalized adapter |
-| Exit criteria | Accepted/diagnostic grids operate against real routes with no fixed 50-row ceiling |
+| Remediation | Implement the additive Core mapping-preview route and validated owner wrapper; generate mapping registries; refactor import coordination into upload/discover, preview, and approve/select/apply; replace the fixed payload with an explicit ordinal-aware modal and fingerprint binding |
+| Affected areas | Core and extension import services, generated mapping registry, shared frontend coordinator, Network Analysis UI, backend/frontend/service-backed tests |
+| Rationale | Make the existing owner preview result reachable without turning preview into durable approval |
+| Long-term benefit | Future analytical import targets reuse one safe, side-effect-free Core preview boundary |
+| Compatibility/migration | Additive contract-major-1 route; existing approval/apply shapes unchanged; no database migration |
+| Unresolved risk | Hard-coded mappings bypass explicit approval, duplicate-header resolution, and preview diagnostics |
+| Validation criteria | Suggestions never approve; preview has no durable effects; safe samples and ordinals render; mapping changes invalidate preview; durable approval fingerprint must match before apply |
+| Commands/evidence | Backend import tests; `make frontend-unit`; `make frontend-typecheck`; `make test-fast`; focused Phase 12 import evidence |
+| Rollback | Revert route, registry consumers, coordinator, and modal together; existing durable import route remains intact |
+| Exit criteria | Explicit mapping and preview work end to end for valid, conflicting, rejected, stale, and unauthorized inputs |
 | Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
 | Next workstream | `NF-GA-03` |
 
-#### `NF-GA-03` — Renderers, inspector, and adopted command workflows
+#### `NF-GA-03` — Query, pagination, reconciliation, and structured errors
 
 | Field | Approved value |
 | --- | --- |
 | Status | `PENDING` |
 | Dependencies | `NF-GA-02 COMPLETE` |
-| Remediation | Add network renderers, active-cell inspector, explicit graph selection, contributor grouping, indicator linking, rename/delete/import controls, and canonical range/copy |
-| Affected areas | Network Flow presentation/controllers, indicator/table/graph workflow adapters, tests |
-| Rationale | Connect semantic values only to adopted analysis commands |
-| Long-term benefit | Richer inspection and later workflows can extend stable selectors and renderer kinds |
-| Compatibility/migration | Server commands remain authoritative; no row mutation or persisted client state |
-| Unresolved risk | Stale graph or visible-label selectors may target the wrong resource |
-| Validation criteria | Exact row/field/vertex/edge selectors and graph digests; roles/confirmation; clipboard values; group order; inspector provenance; workspace-only presence |
-| Commands/evidence | `make frontend-unit`; `make frontend-typecheck`; `make browser-e2e-webserver-backed`; `make browser-e2e-stateful`; semantic/live-grid/webserver/stateful evidence |
-| Rollback | Commands, inspector, contributor grid, and renderers are separately reversible |
-| Exit criteria | Every adopted command has a stable semantic target and real-route evidence |
+| Remediation | Add typed initial/continuation requests, structured API errors, owner filters, ordered sort, opaque-cursor replay, cancellation/generation guards, and immutable-row reconciliation; remove fixed `limit=50` and message substring parsing |
+| Affected areas | Network Flow client/controllers, shared HTTP error boundary, module tests, live browser scenarios |
+| Rationale | Provide scalable, stable-field analysis without client query authority |
+| Long-term benefit | New flow types, columns, and larger result sets extend through metadata and server paging |
+| Compatibility/migration | Reuse existing routes/cursors; no wire change; layout resets on reload |
+| Unresolved risk | Partial or locally reordered results may mislead analysts |
+| Validation criteria | Exact initial/continuation bodies, default sort, overlap time window, cursor history, expiry recovery, stale-response discard, structured errors, and stable row references |
+| Commands/evidence | `make frontend-unit`; `make frontend-typecheck`; `make frontend-import-boundary-check`; `make browser-e2e-webserver-backed`; `make browser-e2e-stateful`; semantic/live-grid/webserver/stateful evidence |
+| Rollback | Revert Network Analysis integration while retaining the generalized adapter |
+| Exit criteria | Accepted/diagnostic grids operate against real routes with no fixed 50-row ceiling |
 | Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
 | Next workstream | `NF-GA-04` |
 
-#### `NF-GA-04` — Data states, read-only behavior, and authorization transitions
+#### `NF-GA-04` — Workspace grids, renderers, layout, and normative regions
 
 | Field | Approved value |
 | --- | --- |
 | Status | `PENDING` |
 | Dependencies | `NF-GA-03 COMPLETE` |
-| Remediation | Implement data-state precedence, retry behavior, read-only roles, superseded-response handling, invalidation, and protected-state clearing |
+| Remediation | Compile three grid schemas; replace accepted/diagnostic HTML tables; add metadata columns, network renderers, session layout, active-cell inspector, canonical range/copy, and every normative workspace region |
+| Affected areas | Network Flow presentation/controllers, grid metadata compiler, styles, tests |
+| Rationale | Establish one coherent metadata-driven operational workspace |
+| Long-term benefit | Later columns and profiles extend through stable metadata and renderer kinds |
+| Compatibility/migration | Session layout only; no row mutation or persisted client state |
+| Unresolved risk | Manual tables and incomplete regions keep required context and workflows unavailable |
+| Validation criteria | All regions and default columns resolve; layout/reset, clipboard values, inspector provenance, density, and shell geometry pass |
+| Commands/evidence | `make frontend-unit`; `make frontend-typecheck`; `make browser-e2e-webserver-backed`; `make browser-e2e-stateful`; semantic/live-grid/webserver/stateful evidence |
+| Rollback | Commands, inspector, contributor grid, and renderers are separately reversible |
+| Exit criteria | Every adopted command has a stable semantic target and real-route evidence |
+| Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
+| Next workstream | `NF-GA-05` |
+
+#### `NF-GA-05` — Read-only safety, lifecycle controls, and authorization transitions
+
+| Field | Approved value |
+| --- | --- |
+| Status | `PENDING` |
+| Dependencies | `NF-GA-04 COMPLETE` |
+| Remediation | Enforce mutation-free grids and exact roles; add rename/delete/import-result selection; implement data-state precedence, retry behavior, superseded-response handling, invalidation, and protected-state clearing |
 | Affected areas | Network Flow controllers/workspace, authorization/collaboration interpretation, stateful tests |
 | Rationale | Prevent stale disclosure while making service conditions understandable |
 | Long-term benefit | Later workflows inherit one owner-correct route-admission transition model |
@@ -692,14 +729,33 @@ Every checkpoint must populate these fields:
 | Rollback | State controller may roll back only if fail-closed clearing is preserved |
 | Exit criteria | Authorization-loss scenarios leave no rows, cursors, range, inspector, or graph selection |
 | Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
-| Next workstream | `NF-GA-05` |
+| Next workstream | `NF-GA-06` |
 
-#### `NF-GA-05` — Keyboard, focus, accessibility, and semantic styling
+#### `NF-GA-06` — Graph selection, contributor grid, and indicator linking
 
 | Field | Approved value |
 | --- | --- |
 | Status | `PENDING` |
-| Dependencies | `NF-GA-04 COMPLETE` |
+| Dependencies | `NF-GA-05 COMPLETE` |
+| Remediation | Add active/selected/all table scope, explicit vertex/edge selection, contributor grouping/paging, and row-cell, same-value row-range, vertex, and edge linking to existing/create indicator targets |
+| Affected areas | Network Flow graph/link controllers, contributor presentation, Core Indicator integration, tests |
+| Rationale | Bind adopted analysis commands to current semantic queries and immutable owner resources |
+| Long-term benefit | Later graph and indicator workflows extend stable selectors rather than labels or vendor coordinates |
+| Compatibility/migration | Existing server graph/link routes remain authoritative; graph visualization remains module-owned |
+| Unresolved risk | Auto-selection, stale digests, or ambiguous candidate values can target the wrong resource |
+| Validation criteria | Exact query/digest/IDs/field keys/canonical confirmation; no implicit selection; contributor order unchanged; range links only same canonical IP within limits |
+| Commands/evidence | `make frontend-unit`; `make browser-e2e-webserver-backed`; `make browser-e2e-stateful`; focused Phase 12 graph/link evidence |
+| Rollback | Graph/link controls and contributor grid are reversible without weakening read-only/auth clearing |
+| Exit criteria | Every adopted graph/link command has stable semantic targeting and real-route evidence |
+| Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
+| Next workstream | `NF-GA-07` |
+
+#### `NF-GA-07` — Keyboard, focus, accessibility, and semantic styling
+
+| Field | Approved value |
+| --- | --- |
+| Status | `PENDING` |
+| Dependencies | `NF-GA-06 COMPLETE` |
 | Remediation | Add keyboard query/layout controls, focus restoration, inspector return focus, announcements, non-color state cues, shared tokens, and stable semantic selectors |
 | Affected areas | Grid/workspace accessibility, styles, selector builders, browser and visual tests |
 | Rationale | Make virtualized analysis operable without vendor DOM knowledge |
@@ -707,18 +763,18 @@ Every checkpoint must populate these fields:
 | Compatibility/migration | Visual goldens change; no product-data migration |
 | Unresolved risk | Inaccessible navigation and brittle vendor selectors |
 | Validation criteria | Deterministic focus fallbacks, keyboard-only workflows, ARIA/live-region state, non-color cues, contrast, and stable selectors |
-| Commands/evidence | `make browser-e2e-a11y-preflight`; `make browser-e2e-a11y`; `make browser-e2e-visual`; `make frontend-unit`; accessibility/visual evidence |
+| Commands/evidence | `make browser-e2e-a11y`; `make browser-e2e-visual`; `make frontend-unit`; accessibility/visual evidence |
 | Rollback | Visuals follow the golden-maintenance guide; focus rolls back with its adapter slice |
 | Exit criteria | Automated accessibility passes and manual keyboard scenarios are recorded |
 | Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
-| Next workstream | `NF-GA-06` |
+| Next workstream | `NF-GA-08` |
 
-#### `NF-GA-06` — Virtualization and supported-load validation
+#### `NF-GA-08` — Virtualization and supported-load validation
 
 | Field | Approved value |
 | --- | --- |
 | Status | `PENDING` |
-| Dependencies | `NF-GA-05 COMPLETE` |
+| Dependencies | `NF-GA-07 COMPLETE` |
 | Remediation | Validate 1,000-row/all-column fixed-height virtualization, bounded DOM, scrolling, refresh reconciliation, range/inspector continuity, and server paging |
 | Affected areas | Adapter diagnostics, Network Flow reconciliation, measurement and live-grid tests, handoff evidence |
 | Rationale | Support growth without loading multi-million-row tables client-side |
@@ -730,14 +786,14 @@ Every checkpoint must populate these fields:
 | Rollback | Remove optimization-specific reconciliation/measurement fixtures; retain semantic paging |
 | Exit criteria | Artifacts record the supported envelope without a Core 05 claim |
 | Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
-| Next workstream | `NF-GA-07` |
+| Next workstream | `NF-GA-09` |
 
-#### `NF-GA-07` — Evidence reconciliation, final validation, and handoff
+#### `NF-GA-09` — Evidence reconciliation, final validation, and handoff
 
 | Field | Approved value |
 | --- | --- |
 | Status | `PENDING` |
-| Dependencies | `NF-GA-06 COMPLETE` |
+| Dependencies | `NF-GA-08 COMPLETE` |
 | Remediation | Replace synthetic authoritative browser rows with real app/grid evidence; classify semantic and live-grid tests; update Phase 12 maps, accounting, visual registry, ledgers/schedules, retained evidence, and this tracker |
 | Affected areas | Tests, harness owner inputs, generated accounting, visual artifacts, final documentation |
 | Rationale | Make evidence accurately describe production adapter behavior |
@@ -759,7 +815,7 @@ Every checkpoint must populate these fields:
 | Live production grid | Actual RDG callback wiring, layout events, range/copy, grouping, virtualization | `make frontend-unit` with production-grid suites | Must remain distinct from pure semantic tests |
 | Webserver-backed | Real route query/filter/sort/paging, graph selectors, link/rename/delete workflows | `make browser-e2e-webserver-backed` | Phase 12 product-conformance evidence only when mapped |
 | Stateful | Refresh, invalidation, late responses, role/closure/soft-delete transitions, focus continuity | `make browser-e2e-stateful` | Service-backed/stateful evidence |
-| Accessibility | Keyboard, focus, ARIA, announcements, permission/read-only cues | `make browser-e2e-a11y-preflight`; `make browser-e2e-a11y` | Accessibility evidence; design direction alone is not Base conformance |
+| Accessibility | Keyboard, focus, ARIA, announcements, permission/read-only cues | `make browser-e2e-a11y` | Accessibility evidence; design direction alone is not Base conformance |
 | Visual | Grid geometry, inspector, graph adjacency, and every named data state | `make browser-e2e-visual` | Design-direction evidence maintained through the visual-golden guide |
 | Measurement | 1,000-row/all-column bounded DOM and identity stability | `make browser-e2e-measurement` | Informative unless Core 05 separately authorizes a claim |
 | Claim-bearing | Adopted Phase 12 requirements and acceptance criteria with retained artifacts | `make phase-slice PHASE=phase12`; `make service-backed-slice PHASE=phase12` | Timed, benchmark, fixture-sensitive, or publication claims require Core 05 |
@@ -771,8 +827,8 @@ Every checkpoint must populate these fields:
 | --- | --- |
 | Database | None |
 | Saved-view data | None; Network Flow remains outside Core saved views |
-| Public HTTP protocol | None; existing routes, request/response schemas, defaults, and contract major remain unchanged |
-| Repo-local contract | Add closed presentation metadata and generated frontend types under `NF-GA-00` |
+| Public HTTP protocol | Add one Core-owned mapping-preview route and generic wrapper; existing routes, request/response schemas, defaults, and contract major remain unchanged |
+| Repo-local contract | Add closed presentation and mapping-registry metadata plus generated frontend/backend types under `NF-GA-00` |
 | Dependency or lockfile | None |
 | React Data Grid | No package version or vendor migration |
 | Adapter TypeScript API | Required atomic source migration across repository consumers; no compatibility shim |

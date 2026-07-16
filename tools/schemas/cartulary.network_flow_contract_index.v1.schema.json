@@ -24,7 +24,7 @@
     "schema_id": { "const": "cartulary.network_flow_contract_index.v1" },
     "profile_id": { "const": "network_flow_activity" },
     "contract_major": { "const": 1 },
-    "document_version": { "const": "1.1.0" },
+    "document_version": { "const": "1.2.0" },
     "route_root": { "const": "/api/v1/incidents/{incident_id}/network-flow" },
     "family_id": { "const": "network-flow" },
     "owner_document": {
@@ -42,13 +42,15 @@
     "contract_files": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["routes", "schemas", "errors", "timezone_provenance", "key_rings"],
+      "required": ["routes", "schemas", "errors", "timezone_provenance", "key_rings", "mapping_registry", "presentation"],
       "properties": {
         "routes": { "$ref": "#/$defs/repo_json_path" },
         "schemas": { "$ref": "#/$defs/repo_json_path" },
         "errors": { "$ref": "#/$defs/repo_json_path" },
         "timezone_provenance": { "$ref": "#/$defs/repo_json_path" },
-        "key_rings": { "$ref": "#/$defs/repo_json_path" }
+        "key_rings": { "$ref": "#/$defs/repo_json_path" },
+        "mapping_registry": { "$ref": "#/$defs/repo_json_path" },
+        "presentation": { "$ref": "#/$defs/repo_json_path" }
       }
     },
     "public_schema_ids": {

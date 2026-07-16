@@ -6,7 +6,7 @@
   "extension_discovery": {
     "profile_id": "network_flow_activity",
     "contract_major": 1,
-    "document_version": "1.1.0",
+    "document_version": "1.2.0",
     "route_root": "/api/v1/incidents/{incident_id}/network-flow",
     "claim_required": true,
     "unclaimed_error_code": "extension_profile_not_claimed",
@@ -20,6 +20,7 @@
     "default_parser_profile_id": "rfc4180_headered_csv_v1",
     "default_unknown_column_policy": "preserve_unmapped_raw",
     "owner_facade": "network_flow_import_facade_v1",
+    "mapping_preview_route": "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping-preview",
     "owner_facade_operations": [
       {
         "operation": "preview",

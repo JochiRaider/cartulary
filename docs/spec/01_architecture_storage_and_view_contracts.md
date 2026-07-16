@@ -6845,6 +6845,7 @@ The Import Extension Profile MUST expose exactly this minimum public route surfa
 - `GET /api/v1/import-sessions/{import_session_id}/units`,
 - `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}`,
 - `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/preview`,
+- `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping-preview`,
 - `PUT /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping`,
 - `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/select`,
 - `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/skip`,
@@ -6861,6 +6862,7 @@ Verified by: AC-262, AC-263, AC-264
 | `GET /api/v1/import-sessions/{import_session_id}/units` | List read under common paging | `{ import_units[] }` plus `meta.paging` | No | `import_session_not_found` |
 | `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}` | Singleton read | `import_unit` resource | No | `import_session_not_found`, `import_unit_not_found` |
 | `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/preview` | Singleton read | `import_preview` resource | No | `import_session_not_found`, `import_unit_not_found` |
+| `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping-preview` | Closed analytical-extension target and owner-mapping candidate; server derives source capabilities and descriptors | `extension_mapping_preview` wrapper containing a schema-validated owner result | No | `invalid_import_request`, `import_session_not_found`, `import_unit_not_found` |
 | `PUT /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping` | JSON object with required `client_txn_id`, target mapping metadata, and exhaustive `source_columns[]` | `import_unit` resource | No | `invalid_import_request`, `import_state_conflict` |
 | `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/select` | JSON object with required `client_txn_id` | `{ import_session_id, session_status, selected_unit_ids[], unit }` | No | `import_state_conflict` |
 | `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/skip` | JSON object with required `client_txn_id`; optional `reason` | `{ import_session_id, session_status, selected_unit_ids[], unit }` | No | `import_state_conflict` |
@@ -6980,6 +6982,7 @@ The import route family MUST use the common success envelope and the following r
 - `GET /api/v1/import-sessions/{import_session_id}/units` returns `data = { import_units[] }` plus `meta.paging`.
 - `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}` returns `data = <import_unit resource>`.
 - `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/preview` returns `data = <import_preview resource>`.
+- `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping-preview` returns `data = <extension_mapping_preview resource>`.
 - `PUT /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping` returns `data = <import_unit resource>`.
 - `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/select` and `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/skip` return `data = { import_session_id, session_status, selected_unit_ids[], unit }`, where `unit` uses the exact `import_unit resource` shape defined here.
 
@@ -7092,6 +7095,36 @@ For preview serialization:
 - The server MUST return at most the first 50 data rows after `data_start_row_ref`, preserve source order, and set `truncated = true` when more preview rows exist.
 
 Before any import unit enters `ready` or `applied`, and before any imported incident data becomes visible or applicable through apply, the imports module MUST enforce the bounded ingest contract driven by Core 04 §12.3.1. For CSV, only the raw source-byte ceiling from REQ-01-473 applies. For XLSX, the route family MUST additionally enforce `limits.imports.max_rows`, `limits.imports.max_columns`, `limits.imports.max_cells`, `limits.archives.default_max_extracted_bytes`, `limits.archives.max_compression_ratio`, and `limits.archives.max_members`, treating XLSX as the ZIP-backed workbook container defined by Core 04 §12.3.1. A breach of any of those limits MUST fail the affected route or job with `413` and `error.code='import_source_rejected'`.
+
+`POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping-preview`
+MUST accept only a JSON object containing exactly `target_kind`,
+`extension_profile_id`, `owner_mapping_schema_id`, and `owner_mapping`. It is
+available only for an analytical extension target whose claimed registry entry
+provides an owner preview facade. The server MUST derive the actor, source
+capability, source content hash, parser metadata, locator, discovered columns,
+header row, and data-start row from the authorized session and unit. Client
+members that attempt to supply those values are unknown fields.
+
+The route requires the target's mapping-approval role, performs no durable
+mutation, and does not require `client_txn_id`. It MAY populate a bounded Core
+preview cache but MUST NOT persist approval or unit selection, allocate target
+resources, start apply, or emit a domain audit occurrence. Its response data is
+an `extension_mapping_preview` object containing exactly:
+
+- `schema_id='cartulary.imports.extension_mapping_preview_result.v1'`,
+- `import_session_id`,
+- `import_unit_id`,
+- `target_kind`,
+- `extension_profile_id`,
+- `owner_result_schema_id`, and
+- `owner_result`.
+
+Before serialization, Core MUST validate `owner_result` against the success
+schema registered by the target owner. A missing facade or schema, schema
+mismatch, invalid owner result, or owner validation failure uses
+`invalid_import_request` with a safe `field` and `reason_code`; internal
+capabilities, paths, source hashes, raw values, and owner stack details MUST NOT
+appear in the response or logs.
 
 `PUT /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping` MUST accept only a JSON object request body and MUST require:
 

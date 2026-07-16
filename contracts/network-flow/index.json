@@ -3,16 +3,18 @@
   "schema_id": "cartulary.network_flow_contract_index.v1",
   "profile_id": "network_flow_activity",
   "contract_major": 1,
-  "document_version": "1.1.0",
+  "document_version": "1.2.0",
   "route_root": "/api/v1/incidents/{incident_id}/network-flow",
   "family_id": "network-flow",
   "owner_document": "docs/network-flow-activity-nlspec.md",
-  "owner_sections": ["9.7", "10", "17", "18", "21", "24"],
+  "owner_sections": ["7.3", "9.7", "10", "17", "18", "21", "24"],
   "contract_files": {
     "routes": "contracts/network-flow/routes.v1.json",
     "schemas": "contracts/network-flow/schemas.v1.json",
     "errors": "contracts/network-flow/errors.v1.json",
     "key_rings": "contracts/network-flow/key-rings.v1.schema.json",
+    "mapping_registry": "contracts/network-flow/mapping-registry.v1.json",
+    "presentation": "contracts/network-flow/presentation.v1.json",
     "timezone_provenance": "contracts/network-flow/timezone/tzdb-2026c.provenance.json"
   },
   "public_schema_ids": [

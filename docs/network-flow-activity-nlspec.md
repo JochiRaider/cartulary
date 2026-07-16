@@ -1,7 +1,7 @@
 ---
 title: Network Flow Activity NLSpec
 status: adopted/current
-document_version: 1.1.0
+document_version: 1.2.0
 contract_major: 1
 profile_id: network_flow_activity
 document_class: nlspec
@@ -11,9 +11,9 @@ document_class: nlspec
 
 Status: `adopted/current`.
 
-This NLSpec defines the implementation-conformance contract for the `network_flow_activity` extension profile. Its adoption dependencies and gates in Tables 1-B, 3-A, and 24-A are closed for version `1.1.0`, including the required Core, Graph Projection, Testing Harness, timezone-ruleset, and fixture contracts.
+This NLSpec defines the implementation-conformance contract for the `network_flow_activity` extension profile. Its adoption dependencies and gates in Tables 1-B, 3-A, and 24-A are closed for version `1.2.0`, including the required Core, Graph Projection, Testing Harness, timezone-ruleset, fixture, import-preview, and presentation contracts.
 
-Document version: `1.1.0`. Contract major: `1`.
+Document version: `1.2.0`. Contract major: `1`.
 
 **NF-REQ-001**
 The `network_flow_activity` extension profile MUST own only the following behavior families:
@@ -50,7 +50,7 @@ Omission behavior: an implementation that ignores research reports, UI guides, i
 ### 1.1 Version and compatibility
 
 **NF-REQ-006a**
-The closed Network Flow contract-discovery metadata MUST expose `profile_id`, `contract_major`, `document_version`, and `route_root`. `document_version` MUST equal `1.1.0`, and `route_root` MUST equal `/api/v1/incidents/{incident_id}/network-flow`. A client or deployment that does not support the declared `contract_major` MUST treat the extension contract as unavailable and MUST NOT infer compatibility from the HTTP route version alone. The Base Profile `GET /api/v1/extensions` resource remains owned by Core 01 §3.3.3.1 and MUST retain that owner's closed public item shape; the contract-discovery metadata is a repo-local derived contract artifact, not an additive public response member.
+The closed Network Flow contract-discovery metadata MUST expose `profile_id`, `contract_major`, `document_version`, and `route_root`. `document_version` MUST equal `1.2.0`, and `route_root` MUST equal `/api/v1/incidents/{incident_id}/network-flow`. A client or deployment that does not support the declared `contract_major` MUST treat the extension contract as unavailable and MUST NOT infer compatibility from the HTTP route version alone. The Base Profile `GET /api/v1/extensions` resource remains owned by Core 01 §3.3.3.1 and MUST retain that owner's closed public item shape; the contract-discovery metadata is a repo-local derived contract artifact, not an additive public response member.
 
 **Table 1-A. Contract version-change registry**
 
@@ -627,6 +627,67 @@ A preview, row-query, graph-query, contributor-query, or link response MUST NOT 
 | Table rename | Preserve selection by `network_flow_table_id`. |
 | Browser reload | First visible active table by workspace order. Browser-local selection restoration is unavailable in v1. |
 
+### 7.3 Grid presentation, identity, and session layout
+
+**NF-REQ-054b**
+Network Analysis MUST render accepted rows, rejected-row diagnostics, and graph
+contributors through the shared semantic grid adapter using respectively
+`network_flow.accepted_rows.v1`, `network_flow.rejected_rows.v1`, and
+`network_flow.graph_contributors.v1`. These identifiers are extension grid
+schemas, not `view_schema_id` values. A flow table, accepted row, or diagnostic
+MUST NOT be represented as a Core record or workbook projection.
+
+The closed repo-local presentation registry at
+`contracts/network-flow/presentation.v1.json` owns column field keys, labels,
+value/renderer kinds, filter and sort eligibility, copy and indicator-link
+eligibility, default visibility/order/width, minimum width, and inspector-only
+posture. UI code MUST consume generated registry metadata and MUST NOT infer
+behavior from visible labels or vendor grid coordinates.
+
+**NF-REQ-054c**
+Accepted-row default presentation order is `source_row_number` as a structural
+gutter, then `network_flow.flow_start_utc`, `network_flow.flow_end_utc`,
+`network_flow.src_ip`, `network_flow.src_port`, `network_flow.dst_ip`,
+`network_flow.dst_port`, `network_flow.ip_protocol`,
+`network_flow.bytes_count`, `network_flow.packets_count`,
+`network_flow.input_interface`, and `network_flow.output_interface`.
+`network_flow.exporter_id`, `network_flow.tcp_flags`, and
+`network_flow.application_label` are hidden by default. Resource identifiers,
+digests, mapping fingerprint, observation provenance, and `unmapped_raw` are
+inspector-only and MUST NOT become linkable, filterable, sortable, or default
+clipboard fields.
+
+Rejected-row diagnostics default to source row, source column, field key, error
+code, reason code, and a safe localized message derived from `message_key` and
+`message_args`, falling back to the safe server `message`. Samples, hashes,
+limits, and raw provenance are inspector-only. Contributor rows reuse accepted
+row rendering, group only by `network_flow_table_id` with display name as its
+label, and preserve §14.6 server order without client aggregation or sorting.
+
+**NF-REQ-054d**
+Network Flow grid rows are immutable and read-only. Authorized users MAY select
+ranges and copy canonical semantic scalar values. The workspace MUST NOT expose
+editor, paste, fill, draft/create, row-reorder, bulk-selection, local
+authoritative filtering/sorting, or client aggregation behavior. Graph
+visualization remains Network Flow-owned and MUST NOT be compiled through the
+grid adapter; only contributor rows use grid grouping.
+
+**NF-REQ-054e**
+Column visibility, order, and width are session-memory state keyed by extension
+profile, workspace key, and grid schema ID. State survives active-table changes
+for the same grid schema and resets on browser reload or explicit reset. It MUST
+NOT be stored in table metadata, Core saved views, browser local storage, or a
+server resource.
+
+**NF-REQ-054f**
+Every Network Flow grid MUST use fixed-height rows and always-on row and column
+virtualization. The supported client page envelope is 1,000 rows with every
+declared column. Validation MUST prove a bounded rendered row and cell set,
+semantic reachability of the first and last rows and off-screen columns, and
+stable object identity for unchanged immutable resources. This envelope is
+implementation/measurement evidence and is not a timing, benchmark, or Core 05
+publication claim.
+
 ## 8. Table-tab lifecycle and table registry
 
 ### 8.1 Lifecycle states
@@ -1004,6 +1065,17 @@ Mapping suggestions under `cisco_sna_netflow_csv_v1` MUST be computed by Table 9
 | 6 | If a source column is manually mapped to more than one non-combinable target field, mapping approval MUST fail with `network_flow_mapping_conflict` and `reason_code='source_column_reused'`. |
 | 7 | Suggestions MUST be displayed and serialized for preview in Table 9-D field order, then `source_column_ordinal ASC`. Suggestions MUST NOT create a table, commit a mapping, or start import apply without explicit approval. |
 
+**NF-REQ-080c**
+The closed repo-local registry at
+`contracts/network-flow/mapping-registry.v1.json` is the derived machine-readable
+owner input for the claimable source-profile identifiers, parser and unknown
+column defaults, timestamp modes, field requirements, aliases, transforms,
+empty-value policies, and suggestion order in §§9.4 through 9.7. Backend and
+frontend generated registries MUST derive from this artifact. The route-exposed
+source-profile list remains authoritative for which compiled profiles are
+currently claimable; a client MUST intersect that response with its generated
+registry and fail closed on a missing or version-mismatched profile.
+
 ### 9.7 Timestamp profile
 
 **NF-REQ-081**
@@ -1140,6 +1212,44 @@ A preview request MUST NOT contain apply-only members, and an apply request MUST
 | `preview_rejected_count` | integer | Yes | Exact rejected count within preview scope; sum with accepted count equals `preview_record_count`. |
 | `diagnostics[]` | array | Yes | Deterministic diagnostics under §12.4 for rejected preview records. |
 | `diagnostics_truncated` | Boolean | Yes | Always `false` because preview scope is at most 50 records. |
+
+**NF-REQ-088b**
+Core Imports MUST expose the owner preview operation through the additive route
+`POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping-preview`.
+The request is a closed object containing exactly `target_kind`,
+`extension_profile_id`, `owner_mapping_schema_id`, and `owner_mapping`.
+For this profile those values are respectively `network_flow_table`,
+`network_flow_activity`, `cartulary.network_flow.mapping_candidate.v1`, and a
+Table 10-B0 object.
+
+The imports service MUST derive actor context, source capability, source hash,
+discovered columns, header row, and data-start row from the authorized session
+and unit. These values and any reusable capability are forbidden as client
+members. The route requires the same editor-or-higher role set as mapping
+approval and MUST return a closed Core wrapper containing exactly `schema_id`,
+`import_session_id`, `import_unit_id`, `target_kind`, `extension_profile_id`,
+`owner_result_schema_id`, and `owner_result`. `schema_id` is
+`cartulary.imports.extension_mapping_preview_result.v1`;
+`owner_result_schema_id` is
+`cartulary.network_flow.import_preview_result.v1`; and `owner_result` is the
+validated Table 10-A2 object.
+
+The preview route is repeatable and side-effect-free except for an optional
+bounded Core preview cache. It MUST NOT require `client_txn_id`, persist mapping
+approval or selection, allocate a table, persist rows or diagnostics, start
+apply, or emit a domain audit occurrence. Preview failures use the existing
+Core import error family with safe `field` and `reason_code` details.
+
+**NF-REQ-088c**
+`PUT /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping`
+remains the only durable approval route and retains its Core response shape.
+Before selecting or applying a Network Flow unit, the client MUST compare the
+durable unit's returned `mapping_fingerprint` byte-for-byte with the latest
+non-stale preview result. A mismatch MUST return the UI to
+`validation_preview_pending` and MUST NOT select or apply the unit. The Core
+transport `source_columns[]` supplied for approval MUST be constructed from the
+discovered unit response and MUST NOT be hard-coded or inferred from a source
+profile.
 
 ### 10.2 Source column descriptors
 

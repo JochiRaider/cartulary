@@ -74,6 +74,41 @@ export interface ErrorObject {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ExtensionMappingPreviewEnvelope".
+ */
+export interface ExtensionMappingPreviewEnvelope {
+  data: ExtensionMappingPreviewResource;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ExtensionMappingPreviewResource".
+ */
+export interface ExtensionMappingPreviewResource {
+  schema_id: "cartulary.imports.extension_mapping_preview_result.v1";
+  import_session_id: string;
+  import_unit_id: string;
+  target_kind: string;
+  extension_profile_id: string;
+  owner_result_schema_id: string;
+  owner_result: {
+    [k: string]: unknown;
+  };
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ExtensionMappingPreviewRequest".
+ */
+export interface ExtensionMappingPreviewRequest {
+  target_kind: string;
+  extension_profile_id: string;
+  owner_mapping_schema_id: string;
+  owner_mapping: {
+    [k: string]: unknown;
+  };
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "ExtensionDiscoveryEnvelope".
  */
 export interface ExtensionDiscoveryEnvelope {
