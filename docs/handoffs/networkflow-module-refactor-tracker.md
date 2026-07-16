@@ -383,7 +383,7 @@ authorize or claim implementation completion.
 | Harness authority | `docs/testing-harness-nlspec.md`; it owns invocation, target selection, scheduling, artifacts, cleanup, and evidence accounting |
 | Adapter reference | Completed F-RDG workstreams in `docs/handoffs/grid-adapter-module-refactor-tracker.md` |
 | Current execution scope | Full Section 14 remediation, serially checkpointed |
-| Overall adoption status | `ACTIVE` (`NF-GA-00` through `NF-GA-03` `COMPLETE`; `NF-GA-04` is the next eligible workstream) |
+| Overall adoption status | `ACTIVE` (`NF-GA-00` through `NF-GA-03` `COMPLETE`; `NF-GA-04 ACTIVE`) |
 
 The inspected baseline has the following implementation boundaries:
 
@@ -772,7 +772,8 @@ Every checkpoint must populate these fields:
 
 | Field | Approved value |
 | --- | --- |
-| Status | `PENDING` |
+| Status | `ACTIVE` |
+| Activation baseline | `3a5bbb8f0b297c0dc0f791a871800b49575d87ff` |
 | Dependencies | `NF-GA-03 COMPLETE` |
 | Remediation | Compile three grid schemas; replace accepted/diagnostic HTML tables; add metadata columns, network renderers, session layout, active-cell inspector, canonical range/copy, and every normative workspace region |
 | Affected areas | Network Flow presentation/controllers, grid metadata compiler, styles, tests |
