@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type {
+  NetworkFlowContributor,
   NetworkFlowDiagnostic,
   NetworkFlowRow,
 } from "../services/networkFlowContractAdapter";
@@ -7,6 +8,7 @@ import {
   compileNetworkFlowColumns,
   localizedNetworkFlowDiagnosticMessage,
   networkFlowClipboardValue,
+  networkFlowContributorsForGrid,
   networkFlowDiagnosticsForGrid,
   networkFlowDisplayValue,
   networkFlowPresentationColumns,
@@ -113,6 +115,37 @@ describe("Network Flow presentation metadata", () => {
       }),
     ).toBe("Safe mismatched-key fallback.");
   });
+
+  it("groups contributors by workspace table order without changing server order within a group", () => {
+    const tableOneRows = [
+      contributorRow("nft_1", "nfr_1", 1),
+      contributorRow("nft_1", "nfr_2", 2),
+    ];
+    const tableTwoRows = [
+      contributorRow("nft_2", "nfr_10", 10),
+      contributorRow("nft_2", "nfr_11", 11),
+    ];
+    const serverContributors = [
+      contributor(tableOneRows[0]),
+      contributor(tableOneRows[1]),
+      contributor(tableTwoRows[0]),
+      contributor(tableTwoRows[1]),
+    ];
+
+    const dataRows = networkFlowContributorsForGrid(serverContributors);
+
+    expect(dataRows.map((row) => row.data.network_flow_row_id)).toEqual([
+      "nfr_1",
+      "nfr_2",
+      "nfr_10",
+      "nfr_11",
+    ]);
+    expect(dataRows).toHaveLength(serverContributors.length);
+    expect(dataRows[0]?.data).toBe(tableOneRows[0]);
+    expect(dataRows[1]?.data).toBe(tableOneRows[1]);
+    expect(dataRows[2]?.data).toBe(tableTwoRows[0]);
+    expect(dataRows[3]?.data).toBe(tableTwoRows[1]);
+  });
 });
 
 function requiredColumn(
@@ -156,4 +189,31 @@ function diagnostic(): NetworkFlowDiagnostic {
     limit_value: null,
     actual_value: null,
   } as NetworkFlowDiagnostic;
+}
+
+function contributor(row: NetworkFlowRow | undefined): NetworkFlowContributor {
+  if (row === undefined) {
+    throw new Error("A contributor row is required.");
+  }
+  return {
+    row,
+    row_ref: {
+      network_flow_table_id: row.network_flow_table_id,
+      network_flow_row_id: row.network_flow_row_id,
+      source_row_number: row.source_row_number,
+      mapping_fingerprint: "a".repeat(64),
+    },
+  };
+}
+
+function contributorRow(
+  tableId: string,
+  rowId: string,
+  sourceRowNumber: number,
+): NetworkFlowRow {
+  return {
+    network_flow_table_id: tableId,
+    network_flow_row_id: rowId,
+    source_row_number: sourceRowNumber,
+  } as NetworkFlowRow;
 }

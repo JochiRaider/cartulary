@@ -1450,6 +1450,34 @@
     },
     {
       "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/networkFlowIndicatorLinkModel.test.ts",
+      "title": "compiles one active IP cell to its immutable owner row identity",
+      "coverage": "unowned_regression",
+      "reason": "Network Flow cell-link selection is semantic regression coverage for immutable extension-resource targets until Phase 12 selector promotion."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/networkFlowIndicatorLinkModel.test.ts",
+      "title": "compiles a same-value IP range to ordered owner row refs",
+      "coverage": "unowned_regression",
+      "reason": "Network Flow range-link compilation proves exact canonical equality and server-order owner row refs without promoting this semantic unit test to conformance evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/networkFlowIndicatorLinkModel.test.ts",
+      "title": "accepts the active cell anywhere inside its same-field semantic range",
+      "coverage": "unowned_regression",
+      "reason": "Network Flow range-link compilation accepts semantic keyboard and pointer ranges independently of which in-range cell is currently active."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/networkFlowIndicatorLinkModel.test.ts",
+      "title": "rejects mixed values, mixed fields, non-owner anchors, and ranges over the owner limit",
+      "coverage": "unowned_regression",
+      "reason": "Fail-closed Network Flow link eligibility is direct safety regression coverage until Phase 12 stateful evidence promotion."
+    },
+    {
+      "target": "frontend-unit",
       "file": "apps/web/src/networkFlow/networkFlowClient.test.ts",
       "title": "uses extension workspace route state for Network Analysis",
       "coverage": "unowned_regression",

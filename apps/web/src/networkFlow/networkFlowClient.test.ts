@@ -6,7 +6,6 @@ import {
 } from "../services/networkFlowContractAdapter";
 import {
   networkAnalysisURLSelected,
-  queryNetworkFlowGraph,
   writeNetworkAnalysisURL,
 } from "./networkFlowClient";
 
@@ -53,11 +52,5 @@ describe("networkFlowClient route identity", () => {
       ]),
     ).toBe(false);
     expect(isSupportedNetworkFlowContract({ contract_major: 2 })).toBe(false);
-  });
-
-  it("rejects an empty graph table scope before transport", async () => {
-    await expect(
-      queryNetworkFlowGraph({ incidentId: "incident-1", tableIds: [] }),
-    ).rejects.toThrow("require at least one table");
   });
 });

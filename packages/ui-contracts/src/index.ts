@@ -288,6 +288,7 @@ export type WorkbookShellSlot =
 export type NetworkAnalysisSelector =
   | "accepted-grid"
   | "column-menu"
+  | "contributor-grid"
   | "contributor-drawer"
   | "diagnostics-summary"
   | "delete-cancel"
@@ -297,9 +298,15 @@ export type NetworkAnalysisSelector =
   | "delete-trigger"
   | "filters"
   | "graph-panel"
+  | "graph-scope"
   | "import-input"
   | "import-trigger"
   | "inspector"
+  | "indicator-link-cancel"
+  | "indicator-link-confirmation"
+  | "indicator-link-dialog"
+  | "indicator-link-existing-id"
+  | "indicator-link-submit"
   | "layout-reset"
   | "mapping-apply"
   | "mapping-dialog"
@@ -752,6 +759,12 @@ export function networkAnalysisTableTabTestId(
 
 export function networkAnalysisEdgeTestId(edgeId: string): StableTestId {
   return stableTestId(encodedTestId("network-flow-edge", edgeId, "edge_id"));
+}
+
+export function networkAnalysisVertexTestId(vertexId: string): StableTestId {
+  return stableTestId(
+    encodedTestId("network-flow-vertex", vertexId, "vertex_id"),
+  );
 }
 
 export function networkAnalysisRowTestId(rowId: string): StableTestId {

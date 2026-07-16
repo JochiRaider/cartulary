@@ -9,6 +9,7 @@ import {
 } from "@cartulary/ui-contracts";
 import type { CSSProperties, ReactNode } from "react";
 import {
+  type NetworkFlowContributor,
   type NetworkFlowDiagnostic,
   type NetworkFlowRow,
   networkFlowPresentationMetadata,
@@ -51,18 +52,25 @@ export function networkFlowGridSurface(
 }
 
 export function networkFlowPresentationColumns(
-  gridSchemaId: Exclude<
-    NetworkFlowGridSchemaId,
-    "network_flow.graph_contributors.v1"
-  >,
+  gridSchemaId: NetworkFlowGridSchemaId,
 ): readonly NetworkFlowPresentationColumn[] {
   const schema = networkFlowPresentationMetadata.grid_schemas.find(
     (candidate) => candidate.grid_schema_id === gridSchemaId,
   );
-  if (schema === undefined || !("columns" in schema)) {
+  if (schema === undefined) {
     throw new Error(`Missing Network Flow presentation schema ${gridSchemaId}`);
   }
-  return [...schema.columns].sort(
+  const columns =
+    "columns" in schema
+      ? schema.columns
+      : networkFlowPresentationMetadata.grid_schemas.find(
+          (candidate) =>
+            candidate.grid_schema_id === schema.columns_from_grid_schema_id,
+        )?.columns;
+  if (columns === undefined) {
+    throw new Error(`Missing Network Flow columns for ${gridSchemaId}`);
+  }
+  return [...columns].sort(
     (left, right) => left.default_order - right.default_order,
   );
 }
@@ -70,7 +78,8 @@ export function networkFlowPresentationColumns(
 export function compileNetworkFlowColumns<Row extends object>(options: {
   readonly gridSchemaId:
     | "network_flow.accepted_rows.v1"
-    | "network_flow.rejected_rows.v1";
+    | "network_flow.rejected_rows.v1"
+    | "network_flow.graph_contributors.v1";
   readonly orderedVisibleFieldKeys: readonly string[];
   readonly widths: Readonly<Record<string, number>>;
 }): readonly GridColumn<Row>[] {
@@ -101,6 +110,24 @@ export function compileNetworkFlowColumns<Row extends object>(options: {
       } satisfies GridColumn<Row>,
     ];
   });
+}
+
+export function networkFlowContributorsForGrid(
+  contributors: readonly NetworkFlowContributor[],
+): readonly GridDataRow<NetworkFlowRow>[] {
+  return contributors.map((contributor) => ({
+    kind: "data" as const,
+    rowIdentity: {
+      kind: "extension_resource" as const,
+      extensionProfileId: networkFlowActivityProfileId,
+      resourceKind: "network_flow_graph_contributor",
+      resourceId: contributor.row_ref.network_flow_row_id,
+    },
+    data: contributor.row,
+    gutterContent: contributor.row_ref.source_row_number,
+    gutterLabel: `Source row ${contributor.row_ref.source_row_number}`,
+    testId: networkAnalysisRowTestId(contributor.row_ref.network_flow_row_id),
+  }));
 }
 
 export function networkFlowRowsForGrid(

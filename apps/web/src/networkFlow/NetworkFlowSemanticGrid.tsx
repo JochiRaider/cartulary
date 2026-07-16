@@ -9,9 +9,11 @@ import {
 import { networkAnalysisTestId } from "@cartulary/ui-contracts";
 import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import type {
+  NetworkFlowContributor,
   NetworkFlowDiagnostic,
   NetworkFlowRow,
   NetworkFlowSort,
+  NetworkFlowTable,
 } from "../services/networkFlowContractAdapter";
 import {
   compileNetworkFlowColumns,
@@ -19,6 +21,7 @@ import {
   type NetworkFlowGridSchemaId,
   networkFlowClipboardValue,
   networkFlowColumnLabel,
+  networkFlowContributorsForGrid,
   networkFlowDiagnosticsForGrid,
   networkFlowGridSurface,
   networkFlowPresentationColumns,
@@ -36,6 +39,7 @@ export function NetworkFlowAcceptedGrid({
   resetKey,
   rows,
   sort,
+  onSelectionChange,
 }: {
   readonly filtered: boolean;
   readonly loadState: NetworkFlowQueryLoadState;
@@ -45,6 +49,10 @@ export function NetworkFlowAcceptedGrid({
   readonly resetKey: string;
   readonly rows: readonly NetworkFlowRow[];
   readonly sort: readonly NetworkFlowSort[];
+  readonly onSelectionChange: (
+    activeAnchor: GridCellAnchor | null,
+    cellRange: GridCellRange | null,
+  ) => void;
 }) {
   const layout = useNetworkFlowGridLayout("network_flow.accepted_rows.v1");
   const columns = useMemo(
@@ -78,6 +86,7 @@ export function NetworkFlowAcceptedGrid({
         surfaceLabel: "accepted Network Flow rows",
       })}
       gridSchemaId="network_flow.accepted_rows.v1"
+      onSelectionChange={onSelectionChange}
       resetKey={resetKey}
       rows={rows}
     >
@@ -112,13 +121,6 @@ export function NetworkFlowAcceptedGrid({
           onCellRangeChange={onCellRangeChange}
           onColumnReorder={layout.onColumnReorder}
           onColumnWidthChange={layout.onColumnWidthChange}
-          onSelectRow={(rowIdentity) =>
-            onActiveAnchorChange({
-              fieldKey: columns[0]?.fieldKey ?? "network_flow.flow_start_utc",
-              rowIdentity,
-              surface: networkFlowGridSurface("network_flow.accepted_rows.v1"),
-            })
-          }
           onSortChange={(nextSort) =>
             onSortChange(
               nextSort.flatMap((entry) =>
@@ -223,17 +225,95 @@ export function NetworkFlowRejectedGrid({
           onCellRangeChange={onCellRangeChange}
           onColumnReorder={layout.onColumnReorder}
           onColumnWidthChange={layout.onColumnWidthChange}
-          onSelectRow={(rowIdentity) =>
-            onActiveAnchorChange({
-              fieldKey: columns[0]?.fieldKey ?? "source_row_number",
-              rowIdentity,
-              surface: networkFlowGridSurface("network_flow.rejected_rows.v1"),
-            })
-          }
           surface={networkFlowGridSurface("network_flow.rejected_rows.v1")}
         />
       )}
     </NetworkFlowGridFrame>
+  );
+}
+
+export function NetworkFlowContributorGrid({
+  contributors,
+  loadState,
+  onRetry,
+  tables,
+}: {
+  readonly contributors: readonly NetworkFlowContributor[];
+  readonly loadState: NetworkFlowQueryLoadState;
+  readonly onRetry: () => void;
+  readonly tables: readonly NetworkFlowTable[];
+}) {
+  const layout = useNetworkFlowGridLayout("network_flow.graph_contributors.v1");
+  const columns = useMemo(
+    () =>
+      compileNetworkFlowColumns<NetworkFlowRow>({
+        gridSchemaId: "network_flow.graph_contributors.v1",
+        orderedVisibleFieldKeys: layout.orderedVisibleFieldKeys,
+        widths: layout.columnWidths,
+      }),
+    [layout.columnWidths, layout.orderedVisibleFieldKeys],
+  );
+  const tableNames = useMemo(
+    () =>
+      new Map(
+        tables.map((table) => [
+          table.network_flow_table_id,
+          table.display_name,
+        ]),
+      ),
+    [tables],
+  );
+  const dataRows = useMemo(
+    () => networkFlowContributorsForGrid(contributors),
+    [contributors],
+  );
+  const grouping = useMemo(
+    () => ({
+      fieldKey: "network_flow_table_id",
+      label: "Table",
+      getValue: (row: NetworkFlowRow) => row.network_flow_table_id,
+      formatLabel: (value: boolean | number | string | null) =>
+        typeof value === "string"
+          ? `${tableNames.get(value) ?? "Unavailable table"} (${value})`
+          : null,
+    }),
+    [tableNames],
+  );
+  return (
+    <div style={gridFrameStyle}>
+      <ColumnLayoutControls control={layout} />
+      <GridViewport
+        blockSizing="fill"
+        style={gridViewportStyle}
+        testId={networkAnalysisTestId("contributor-grid")}
+      >
+        <SemanticDataGrid
+          columns={columns}
+          columnWidths={layout.columnWidths}
+          dataRows={dataRows}
+          dataState={networkFlowGridDataState({
+            filtered: false,
+            itemCount: contributors.length,
+            loadState,
+            onResetQuery: () => undefined,
+            onRetry,
+            surfaceLabel: "graph contributors",
+          })}
+          density="default"
+          fillViewportInline
+          grouping={grouping}
+          interactionMode={{
+            kind: "read_only",
+            label:
+              "Network Flow contributors are read-only and preserve server order within workspace table groups.",
+          }}
+          onColumnReorder={layout.onColumnReorder}
+          onColumnWidthChange={layout.onColumnWidthChange}
+          rowGutter={{ label: "Source row", minWidth: 56, width: 64 }}
+          surface={networkFlowGridSurface("network_flow.graph_contributors.v1")}
+        />
+      </GridViewport>
+    </div>
   );
 }
 
@@ -242,6 +322,7 @@ function NetworkFlowGridFrame<Row extends object>({
   columnsControl,
   dataState,
   gridSchemaId,
+  onSelectionChange,
   resetKey,
   rows,
 }: {
@@ -257,6 +338,12 @@ function NetworkFlowGridFrame<Row extends object>({
     NetworkFlowGridSchemaId,
     "network_flow.graph_contributors.v1"
   >;
+  readonly onSelectionChange?:
+    | ((
+        activeAnchor: GridCellAnchor | null,
+        cellRange: GridCellRange | null,
+      ) => void)
+    | undefined;
   readonly resetKey: string;
   readonly rows: readonly Row[];
 }) {
@@ -267,6 +354,9 @@ function NetworkFlowGridFrame<Row extends object>({
     setActiveAnchor(null);
     setCellRange(null);
   }, [resetKey]);
+  useEffect(() => {
+    onSelectionChange?.(activeAnchor, cellRange);
+  }, [activeAnchor, cellRange, onSelectionChange]);
   const activeRow = activeAnchor
     ? (rows.find(
         (row) =>

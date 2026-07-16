@@ -1,12 +1,13 @@
+import type { GridCellAnchor, GridCellRange } from "@cartulary/grid-adapter";
 import {
   networkAnalysisEdgeTestId,
   networkAnalysisTableTabTestId,
   networkAnalysisTestId,
+  networkAnalysisVertexTestId,
 } from "@cartulary/ui-contracts";
 import {
   Link2,
   Network,
-  PanelRightOpen,
   Pencil,
   RefreshCw,
   Table2,
@@ -18,6 +19,7 @@ import {
   type CSSProperties,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -30,13 +32,16 @@ import {
 } from "./NetworkFlowQueryControls";
 import {
   NetworkFlowAcceptedGrid,
+  NetworkFlowContributorGrid,
   NetworkFlowRejectedGrid,
 } from "./NetworkFlowSemanticGrid";
 import type {
   NetworkFlowContributor,
   NetworkFlowDiagnostic,
-  NetworkFlowEdgeAnnotation,
+  NetworkFlowGraphEdge,
   NetworkFlowGraphResult,
+  NetworkFlowGraphVertex,
+  NetworkFlowIndicatorTarget,
   NetworkFlowRow,
   NetworkFlowTable,
 } from "./networkFlowClient";
@@ -49,14 +54,25 @@ import {
   type NetworkFlowWorkspaceError,
   networkFlowErrorMessage,
 } from "./networkFlowErrors";
+import {
+  type NetworkFlowRowLinkSelection,
+  networkFlowRowLinkCandidate,
+  resolveNetworkFlowRowLinkSelection,
+} from "./networkFlowIndicatorLinkModel";
 import type {
   NetworkFlowAcceptedQuery,
   NetworkFlowRejectedQuery,
 } from "./networkFlowQueryModel";
 import { useNetworkFlowCollaborationController } from "./useNetworkFlowCollaborationController";
-import { useNetworkFlowGraphController } from "./useNetworkFlowGraphController";
+import {
+  type NetworkFlowGraphScopeMode,
+  useNetworkFlowGraphController,
+} from "./useNetworkFlowGraphController";
 import { useNetworkFlowImportController } from "./useNetworkFlowImportController";
-import { useNetworkFlowIndicatorLinkController } from "./useNetworkFlowIndicatorLinkController";
+import {
+  type NetworkFlowIndicatorLinkCandidate,
+  useNetworkFlowIndicatorLinkController,
+} from "./useNetworkFlowIndicatorLinkController";
 import type { NetworkFlowQueryLoadState } from "./useNetworkFlowPagedQuery";
 import { useNetworkFlowRejectedRowsController } from "./useNetworkFlowRejectedRowsController";
 import { useNetworkFlowRowsController } from "./useNetworkFlowRowsController";
@@ -89,6 +105,12 @@ function NetworkAnalysisWorkspaceContent({
     useState<NetworkFlowWorkspaceError | null>(null);
   const [protectedStateError, setProtectedStateError] =
     useState<NetworkFlowRequestError | null>(null);
+  const [rowGridSelection, setRowGridSelection] = useState<{
+    readonly activeAnchor: GridCellAnchor | null;
+    readonly cellRange: GridCellRange | null;
+  }>({ activeAnchor: null, cellRange: null });
+  const [linkCandidate, setLinkCandidate] =
+    useState<NetworkFlowIndicatorLinkCandidate | null>(null);
   const handleWorkspaceError = useCallback(
     (error: NetworkFlowWorkspaceError | null) => {
       setErrorMessage(error);
@@ -137,12 +159,14 @@ function NetworkAnalysisWorkspaceContent({
     onIncidentAccessLost,
   });
   const graphController = useNetworkFlowGraphController({
+    activeTableId: tableController.activeTableId,
     apiBase,
     enabled: mode === "graph",
     incidentId,
     onError: handleWorkspaceError,
     onIncidentAccessLost,
-    tableIds: tableController.tableIds,
+    query: rowsController.query,
+    tables: tableController.tables,
   });
   const importController = useNetworkFlowImportController({
     apiBase,
@@ -161,6 +185,8 @@ function NetworkAnalysisWorkspaceContent({
     clearDiagnostics();
     clearGraph();
     resetImport();
+    setLinkCandidate(null);
+    setRowGridSelection({ activeAnchor: null, cellRange: null });
     setMode("rows");
   }, [clearDiagnostics, clearGraph, clearRows, resetImport]);
   useNetworkFlowCollaborationController({
@@ -173,19 +199,59 @@ function NetworkAnalysisWorkspaceContent({
     onProtectedStateLoss: handleWorkspaceError,
   });
   const indicatorLinkController = useNetworkFlowIndicatorLinkController({
+    activeCandidateKey: linkCandidate?.key ?? null,
     apiBase,
-    firstContributor: graphController.firstContributor,
-    graph: graphController.graph,
+    enabled: canLink,
     incidentId,
     onError: handleWorkspaceError,
+    onGraphStale: graphController.markGraphStale,
     onMessage: setMessage,
-    selectedEdge: graphController.selectedEdge,
   });
+  const rowLinkSelection = useMemo(
+    () =>
+      resolveNetworkFlowRowLinkSelection({
+        activeAnchor: rowGridSelection.activeAnchor,
+        bindingSourceRowLimit: indicatorLinkController.bindingSourceRowLimit,
+        cellRange: rowGridSelection.cellRange,
+        rows: rowsController.rows,
+      }),
+    [
+      indicatorLinkController.bindingSourceRowLimit,
+      rowGridSelection.activeAnchor,
+      rowGridSelection.cellRange,
+      rowsController.rows,
+    ],
+  );
+  const handleRowGridSelectionChange = useCallback(
+    (activeAnchor: GridCellAnchor | null, cellRange: GridCellRange | null) => {
+      setRowGridSelection({ activeAnchor, cellRange });
+      setLinkCandidate(null);
+    },
+    [],
+  );
   useEffect(() => {
     if (!canImport) {
       resetImport();
     }
   }, [canImport, resetImport]);
+  useEffect(() => {
+    if (!canLink) {
+      setLinkCandidate(null);
+    }
+  }, [canLink]);
+  useEffect(() => {
+    if (
+      linkCandidate?.selector.kind === "graph_vertex" ||
+      linkCandidate?.selector.kind === "graph_edge"
+    ) {
+      if (
+        graphController.graph?.graph_query_digest !==
+        linkCandidate.selector.graph_query_digest
+      ) {
+        setLinkCandidate(null);
+      }
+    }
+  }, [graphController.graph, linkCandidate]);
   useEffect(() => {
     void incidentId;
     setErrorMessage(null);
@@ -450,20 +516,57 @@ function NetworkAnalysisWorkspaceContent({
         ) : mode === "graph" ? (
           <GraphPanel
             canLink={canLink}
+            canNextContributorPage={graphController.canNextContributorPage}
+            canPreviousContributorPage={
+              graphController.canPreviousContributorPage
+            }
+            contributorLoadState={graphController.contributorLoadState}
+            contributorPageNumber={graphController.contributorPageNumber}
             contributors={graphController.contributors}
             firstContributor={graphController.firstContributor}
             graph={graphController.graph}
+            graphLoadState={graphController.graphLoadState}
+            scopeMode={graphController.scopeMode}
             selectedEdge={graphController.selectedEdge}
-            onCloseDrawer={() => {
-              graphController.setSelectedEdgeId(null);
+            selectedTableIds={graphController.selectedTableIds}
+            selectedVertex={graphController.selectedVertex}
+            tables={tableController.tables}
+            onCloseDrawer={() => graphController.selectGraphObject(null)}
+            onLinkEdge={(fieldKey) => {
+              const candidate = networkFlowEdgeLinkCandidate({
+                edge: graphController.selectedEdge,
+                fieldKey,
+                firstContributor: graphController.firstContributor,
+                graph: graphController.graph,
+              });
+              setLinkCandidate(candidate);
             }}
-            onLinkDst={() =>
-              void indicatorLinkController.linkEdge("network_flow.dst_ip")
+            onLinkVertex={() => {
+              setLinkCandidate(
+                networkFlowVertexLinkCandidate(
+                  graphController.graph,
+                  graphController.selectedVertex,
+                ),
+              );
+            }}
+            onNextContributorPage={graphController.nextContributorPage}
+            onPreviousContributorPage={graphController.previousContributorPage}
+            onRefreshGraph={graphController.refreshGraph}
+            onRetryContributors={graphController.retryContributorPage}
+            onScopeModeChange={graphController.setScopeMode}
+            onSelectEdge={(edgeId) =>
+              graphController.selectGraphObject({
+                kind: "edge",
+                edge_id: edgeId,
+              })
             }
-            onLinkSrc={() =>
-              void indicatorLinkController.linkEdge("network_flow.src_ip")
+            onSelectTable={graphController.setTableSelected}
+            onSelectVertex={(vertexId) =>
+              graphController.selectGraphObject({
+                kind: "vertex",
+                vertex_id: vertexId,
+              })
             }
-            onSelectEdge={graphController.setSelectedEdgeId}
           />
         ) : mode === "rejected" ? (
           <RejectedRowsPanel
@@ -489,6 +592,7 @@ function NetworkAnalysisWorkspaceContent({
         ) : (
           <RowsPanel
             activeTable={tableController.activeTable}
+            canLink={canLink}
             canNext={rowsController.canNext}
             canPrevious={rowsController.canPrevious}
             loadState={rowsController.loadState}
@@ -496,6 +600,14 @@ function NetworkAnalysisWorkspaceContent({
             pageNumber={rowsController.pageNumber}
             query={rowsController.query}
             rows={rowsController.rows}
+            rowLinkSelection={rowLinkSelection}
+            onBeginLink={() => {
+              setLinkCandidate(
+                rowLinkSelection === null
+                  ? null
+                  : networkFlowRowLinkCandidate(rowLinkSelection),
+              );
+            }}
             onNext={rowsController.nextPage}
             onPrevious={rowsController.previousPage}
             onResetQuery={() =>
@@ -509,6 +621,7 @@ function NetworkAnalysisWorkspaceContent({
             onSortChange={(sort) =>
               rowsController.setQuery((current) => ({ ...current, sort }))
             }
+            onSelectionChange={handleRowGridSelectionChange}
           />
         )}
       </div>
@@ -550,6 +663,24 @@ function NetworkAnalysisWorkspaceContent({
           onDraftChange={importController.updateDraft}
           onPreview={() => {
             void importController.requestPreview();
+          }}
+        />
+      ) : null}
+      {linkCandidate !== null ? (
+        <IndicatorLinkDialog
+          candidate={linkCandidate}
+          linking={indicatorLinkController.linking}
+          onCancel={() => setLinkCandidate(null)}
+          onSubmit={async ({ confirmExactValue, target }) => {
+            const linked = await indicatorLinkController.link({
+              candidate: linkCandidate,
+              confirmExactValue,
+              target,
+            });
+            if (linked) {
+              setLinkCandidate(null);
+            }
+            return linked;
           }}
         />
       ) : null}
@@ -863,41 +994,69 @@ function EmptyNetworkAnalysisState({
 
 function RowsPanel({
   activeTable,
+  canLink,
   canNext,
   canPrevious,
   loadState,
   notice,
+  onBeginLink,
   onNext,
   onPrevious,
   onResetQuery,
   onRetry,
   onSortChange,
+  onSelectionChange,
   pageNumber,
   query,
   rows,
+  rowLinkSelection,
 }: {
   readonly activeTable: NetworkFlowTable | null;
+  readonly canLink: boolean;
   readonly canNext: boolean;
   readonly canPrevious: boolean;
   readonly loadState: NetworkFlowQueryLoadState;
   readonly notice: string | null;
+  readonly onBeginLink: () => void;
   readonly onNext: () => void;
   readonly onPrevious: () => void;
   readonly onResetQuery: () => void;
   readonly onRetry: () => void;
   readonly onSortChange: (sort: NetworkFlowAcceptedQuery["sort"]) => void;
+  readonly onSelectionChange: (
+    activeAnchor: GridCellAnchor | null,
+    cellRange: GridCellRange | null,
+  ) => void;
   readonly pageNumber: number;
   readonly query: NetworkFlowAcceptedQuery;
   readonly rows: readonly NetworkFlowRow[];
+  readonly rowLinkSelection: NetworkFlowRowLinkSelection | null;
 }) {
   const loading = loadState === "loading" || loadState === "refreshing";
   return (
     <section
       aria-label="Network Flow table rows"
       data-testid={networkAnalysisTestId("table-panel")}
-      style={panelGridStyle}
+      style={canLink ? panelGridWithActionsStyle : panelGridStyle}
     >
       <PanelHeader table={activeTable} />
+      {canLink ? (
+        <div style={linkActionsStyle}>
+          <button
+            disabled={rowLinkSelection === null}
+            style={commandButtonStyle}
+            type="button"
+            onClick={onBeginLink}
+          >
+            <Link2 aria-hidden="true" size={15} />
+            {rowLinkSelection === null
+              ? "Select one IP cell or same-value IP range"
+              : `Link ${rowLinkSelection.rows.length} selected row${
+                  rowLinkSelection.rows.length === 1 ? "" : "s"
+                }`}
+          </button>
+        </div>
+      ) : null}
       <NetworkFlowAcceptedGrid
         filtered={query.filters.length > 0 || query.timeWindow !== null}
         loadState={loadState}
@@ -906,6 +1065,7 @@ function RowsPanel({
         sort={query.sort}
         onResetQuery={onResetQuery}
         onRetry={onRetry}
+        onSelectionChange={onSelectionChange}
         onSortChange={onSortChange}
       />
       <QueryPagination
@@ -1029,25 +1189,60 @@ function QueryPagination({
 
 function GraphPanel({
   canLink,
+  canNextContributorPage,
+  canPreviousContributorPage,
+  contributorLoadState,
+  contributorPageNumber,
   contributors,
   firstContributor,
   graph,
+  graphLoadState,
+  scopeMode,
   selectedEdge,
+  selectedTableIds,
+  selectedVertex,
+  tables,
   onCloseDrawer,
-  onLinkDst,
-  onLinkSrc,
+  onLinkEdge,
+  onLinkVertex,
+  onNextContributorPage,
+  onPreviousContributorPage,
+  onRefreshGraph,
+  onRetryContributors,
+  onScopeModeChange,
   onSelectEdge,
+  onSelectTable,
+  onSelectVertex,
 }: {
   readonly canLink: boolean;
+  readonly canNextContributorPage: boolean;
+  readonly canPreviousContributorPage: boolean;
+  readonly contributorLoadState: NetworkFlowQueryLoadState;
+  readonly contributorPageNumber: number;
   readonly contributors: readonly NetworkFlowContributor[];
   readonly firstContributor: NetworkFlowContributor | null;
   readonly graph: NetworkFlowGraphResult | null;
-  readonly selectedEdge: NetworkFlowEdgeAnnotation | null;
+  readonly graphLoadState: NetworkFlowQueryLoadState;
+  readonly scopeMode: NetworkFlowGraphScopeMode;
+  readonly selectedEdge: NetworkFlowGraphEdge | null;
+  readonly selectedTableIds: readonly string[];
+  readonly selectedVertex: NetworkFlowGraphVertex | null;
+  readonly tables: readonly NetworkFlowTable[];
   readonly onCloseDrawer: () => void;
-  readonly onLinkDst: () => void;
-  readonly onLinkSrc: () => void;
+  readonly onLinkEdge: (
+    fieldKey: "network_flow.src_ip" | "network_flow.dst_ip",
+  ) => void;
+  readonly onLinkVertex: () => void;
+  readonly onNextContributorPage: () => void;
+  readonly onPreviousContributorPage: () => void;
+  readonly onRefreshGraph: () => void;
+  readonly onRetryContributors: () => void;
+  readonly onScopeModeChange: (mode: NetworkFlowGraphScopeMode) => void;
   readonly onSelectEdge: (edgeId: string) => void;
+  readonly onSelectTable: (tableId: string, selected: boolean) => void;
+  readonly onSelectVertex: (vertexId: string) => void;
 }) {
+  const selectedObject = selectedVertex ?? selectedEdge;
   return (
     <section
       aria-label="Network Flow graph"
@@ -1055,58 +1250,189 @@ function GraphPanel({
       style={graphLayoutStyle}
     >
       <div style={graphTableStyle}>
+        <fieldset
+          data-testid={networkAnalysisTestId("graph-scope")}
+          style={graphScopeStyle}
+        >
+          <legend>Graph scope</legend>
+          {(
+            [
+              ["active_table", "Active table"],
+              ["selected_tables", "Selected tables"],
+              ["all_active_tables", "All active tables"],
+            ] as const
+          ).map(([value, label]) => (
+            <label key={value} style={inlineControlStyle}>
+              <input
+                checked={scopeMode === value}
+                name="network-flow-graph-scope"
+                type="radio"
+                value={value}
+                onChange={() => onScopeModeChange(value)}
+              />
+              {label}
+            </label>
+          ))}
+          {scopeMode === "selected_tables" ? (
+            <div style={graphTableSelectionStyle}>
+              {tables.map((table) => {
+                const checked = selectedTableIds.includes(
+                  table.network_flow_table_id,
+                );
+                return (
+                  <label
+                    key={table.network_flow_table_id}
+                    style={inlineControlStyle}
+                  >
+                    <input
+                      checked={checked}
+                      disabled={checked && selectedTableIds.length === 1}
+                      type="checkbox"
+                      onChange={(event) =>
+                        onSelectTable(
+                          table.network_flow_table_id,
+                          event.currentTarget.checked,
+                        )
+                      }
+                    />
+                    {table.display_name}
+                  </label>
+                );
+              })}
+            </div>
+          ) : null}
+        </fieldset>
         <div style={graphSummaryStyle}>
           <Network aria-hidden="true" size={18} />
           <span>
-            {graph ? compactID(graph.graph_query_digest) : "No graph"}
+            {graphLoadState === "loading"
+              ? "Loading graph…"
+              : graph
+                ? compactID(graph.graph_query_digest)
+                : "No graph"}
           </span>
           <span style={mutedTextStyle}>
-            {graph?.source_table_refs.length ?? 0} tables
+            {graph?.source_table_refs.length ?? 0} tables ·{" "}
+            {graph?.graph_projection_result.vertices.length ?? 0} vertices ·{" "}
+            {graph?.graph_projection_result.edges.length ?? 0} edges
           </span>
+          {graphLoadState === "error" ? (
+            <button type="button" onClick={onRefreshGraph}>
+              <RefreshCw aria-hidden="true" size={14} /> Retry
+            </button>
+          ) : null}
         </div>
         <div style={tableScrollStyle}>
+          <h3 style={graphSectionTitleStyle}>Vertices</h3>
           <table style={dataTableStyle}>
             <thead>
               <tr>
-                <th style={thStyle}>Edge</th>
-                <th style={thStyle}>Rows</th>
-                <th style={thStyle}>Examples</th>
-                <th style={thStyle}>Open</th>
+                <th style={thStyle}>Endpoint</th>
+                <th style={thStyle}>Flows</th>
+                <th style={thStyle}>Tables</th>
+                <th style={thStyle}>Select</th>
               </tr>
             </thead>
             <tbody>
-              {(graph?.edge_annotations ?? []).map((edge) => (
-                <tr
-                  key={edge.edge_id}
-                  data-testid={networkAnalysisEdgeTestId(edge.edge_id)}
-                >
-                  <td style={tdMonoStyle}>{compactID(edge.edge_id)}</td>
-                  <td style={tdMonoStyle}>{edge.example_refs_total_count}</td>
-                  <td style={tdMonoStyle}>{edge.example_row_refs.length}</td>
-                  <td style={tdStyle}>
-                    <button
-                      style={iconButtonStyle}
-                      title="Open contributors"
-                      type="button"
-                      onClick={() => onSelectEdge(edge.edge_id)}
-                    >
-                      <PanelRightOpen aria-hidden="true" size={15} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {(graph?.graph_projection_result.vertices ?? []).map((vertex) => {
+                const vertexId = semanticGraphVertexId(vertex);
+                if (vertexId === null) {
+                  return null;
+                }
+                return (
+                  <tr
+                    key={vertex.vertex_id}
+                    data-testid={networkAnalysisVertexTestId(vertexId)}
+                  >
+                    <td style={tdMonoStyle}>
+                      {graphScalar(vertex.properties.endpoint_value)}
+                    </td>
+                    <td style={tdMonoStyle}>
+                      {graphScalar(vertex.properties.flow_row_count)}
+                    </td>
+                    <td style={tdMonoStyle}>
+                      {graphList(vertex.properties.contributing_table_ids)}
+                    </td>
+                    <td style={tdStyle}>
+                      <button
+                        aria-pressed={selectedVertex === vertex}
+                        type="button"
+                        onClick={() => onSelectVertex(vertexId)}
+                      >
+                        Select vertex
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <h3 style={graphSectionTitleStyle}>Edges</h3>
+          <table style={dataTableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Source</th>
+                <th style={thStyle}>Destination</th>
+                <th style={thStyle}>Protocol</th>
+                <th style={thStyle}>Rows</th>
+                <th style={thStyle}>Select</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(graph?.graph_projection_result.edges ?? []).map((edge) => {
+                const edgeId = semanticGraphEdgeId(edge);
+                if (edgeId === null) {
+                  return null;
+                }
+                const annotation = graph?.edge_annotations.find(
+                  (candidate) => candidate.edge_id === edgeId,
+                );
+                return (
+                  <tr
+                    key={edge.edge_id}
+                    data-testid={networkAnalysisEdgeTestId(edgeId)}
+                  >
+                    <td style={tdMonoStyle}>
+                      {graphScalar(edge.properties.src_endpoint_id)}
+                    </td>
+                    <td style={tdMonoStyle}>
+                      {graphScalar(edge.properties.dst_endpoint_id)}
+                    </td>
+                    <td style={tdMonoStyle}>
+                      {graphScalar(edge.properties.ip_protocol)}
+                    </td>
+                    <td style={tdMonoStyle}>
+                      {annotation?.example_refs_total_count ??
+                        graphScalar(edge.properties.flow_row_count)}
+                    </td>
+                    <td style={tdStyle}>
+                      <button
+                        aria-pressed={selectedEdge === edge}
+                        type="button"
+                        onClick={() => onSelectEdge(edgeId)}
+                      >
+                        Select edge
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
-      {selectedEdge ? (
+      {selectedObject ? (
         <aside
           aria-label="Graph contributors"
           data-testid={networkAnalysisTestId("contributor-drawer")}
           style={drawerStyle}
         >
           <div style={drawerHeaderStyle}>
-            <strong>{compactID(selectedEdge.edge_id)}</strong>
+            <strong>
+              {selectedVertex
+                ? `Vertex ${compactID(semanticGraphVertexId(selectedVertex) ?? selectedVertex.vertex_id)}`
+                : `Edge ${compactID(semanticGraphEdgeId(selectedEdge as NetworkFlowGraphEdge) ?? (selectedEdge as NetworkFlowGraphEdge).edge_id)}`}
+            </strong>
             <button
               style={iconButtonStyle}
               title="Close"
@@ -1116,47 +1442,266 @@ function GraphPanel({
               <X aria-hidden="true" size={15} />
             </button>
           </div>
-          {canLink && firstContributor ? (
-            <div style={linkActionsStyle}>
+          <div style={linkActionsStyle}>
+            {canLink && selectedVertex ? (
               <button
                 style={commandButtonStyle}
                 type="button"
-                onClick={onLinkSrc}
+                onClick={onLinkVertex}
               >
                 <Link2 aria-hidden="true" size={15} />
-                Link source
+                Link vertex
               </button>
-              <button
-                style={commandButtonStyle}
-                type="button"
-                onClick={onLinkDst}
-              >
-                <Link2 aria-hidden="true" size={15} />
-                Link destination
-              </button>
-            </div>
-          ) : null}
-          <div style={drawerRowsStyle}>
-            {contributors.map((contributor) => (
-              <div
-                key={contributor.row_ref.network_flow_row_id}
-                style={drawerRowStyle}
-              >
-                <span style={monoTextStyle}>
-                  {contributor.row_ref.source_row_number}
-                </span>
-                <span style={monoTextStyle}>
-                  {endpointLabel(contributor.row, "src")}
-                </span>
-                <span style={monoTextStyle}>
-                  {endpointLabel(contributor.row, "dst")}
-                </span>
-              </div>
-            ))}
+            ) : null}
+            {canLink && selectedEdge && firstContributor ? (
+              <>
+                <button
+                  style={commandButtonStyle}
+                  type="button"
+                  onClick={() => onLinkEdge("network_flow.src_ip")}
+                >
+                  <Link2 aria-hidden="true" size={15} />
+                  Link source
+                </button>
+                <button
+                  style={commandButtonStyle}
+                  type="button"
+                  onClick={() => onLinkEdge("network_flow.dst_ip")}
+                >
+                  <Link2 aria-hidden="true" size={15} />
+                  Link destination
+                </button>
+              </>
+            ) : null}
           </div>
+          <NetworkFlowContributorGrid
+            contributors={contributors}
+            loadState={contributorLoadState}
+            tables={tables}
+            onRetry={onRetryContributors}
+          />
+          <QueryPagination
+            canNext={canNextContributorPage}
+            canPrevious={canPreviousContributorPage}
+            loading={
+              contributorLoadState === "loading" ||
+              contributorLoadState === "refreshing"
+            }
+            notice={null}
+            pageNumber={contributorPageNumber}
+            onNext={onNextContributorPage}
+            onPrevious={onPreviousContributorPage}
+          />
         </aside>
       ) : null}
     </section>
+  );
+}
+
+function networkFlowVertexLinkCandidate(
+  graph: NetworkFlowGraphResult | null,
+  vertex: NetworkFlowGraphVertex | null,
+): NetworkFlowIndicatorLinkCandidate | null {
+  const vertexId = vertex === null ? null : semanticGraphVertexId(vertex);
+  const candidateValue =
+    vertex === null
+      ? null
+      : graphString(vertex.properties.indicator_candidate_value);
+  if (graph === null || vertexId === null || candidateValue === null) {
+    return null;
+  }
+  return {
+    candidateValue,
+    key: `${graph.graph_query_digest}:vertex:${vertexId}:${candidateValue}`,
+    label: `graph vertex ${compactID(vertexId)}`,
+    selector: {
+      kind: "graph_vertex",
+      graph_query: graph.semantic_query,
+      graph_query_digest: graph.graph_query_digest,
+      vertex_id: vertexId,
+    },
+  };
+}
+
+function networkFlowEdgeLinkCandidate(options: {
+  readonly edge: NetworkFlowGraphEdge | null;
+  readonly fieldKey: "network_flow.src_ip" | "network_flow.dst_ip";
+  readonly firstContributor: NetworkFlowContributor | null;
+  readonly graph: NetworkFlowGraphResult | null;
+}): NetworkFlowIndicatorLinkCandidate | null {
+  const edgeId =
+    options.edge === null ? null : semanticGraphEdgeId(options.edge);
+  const candidateValue =
+    options.firstContributor?.row[options.fieldKey] ?? null;
+  if (
+    options.graph === null ||
+    edgeId === null ||
+    typeof candidateValue !== "string"
+  ) {
+    return null;
+  }
+  return {
+    candidateValue,
+    key: `${options.graph.graph_query_digest}:edge:${edgeId}:${options.fieldKey}:${candidateValue}`,
+    label: `${options.fieldKey === "network_flow.src_ip" ? "source" : "destination"} endpoint on graph edge ${compactID(edgeId)}`,
+    selector: {
+      kind: "graph_edge",
+      graph_query: options.graph.semantic_query,
+      graph_query_digest: options.graph.graph_query_digest,
+      edge_id: edgeId,
+      field_key: options.fieldKey,
+    },
+  };
+}
+
+function semanticGraphVertexId(vertex: NetworkFlowGraphVertex): string | null {
+  return vertex.source_entity_ref?.source_entity_id ?? null;
+}
+
+function semanticGraphEdgeId(edge: NetworkFlowGraphEdge): string | null {
+  return (
+    graphString(edge.properties.edge_id) ??
+    edge.source_relationship_ref?.source_relationship_id ??
+    null
+  );
+}
+
+function graphString(value: unknown): string | null {
+  return typeof value === "string" && value !== "" ? value : null;
+}
+
+function graphScalar(value: unknown): string {
+  return typeof value === "string" || typeof value === "number"
+    ? String(value)
+    : "—";
+}
+
+function graphList(value: unknown): string {
+  return Array.isArray(value)
+    ? value
+        .filter((item): item is string => typeof item === "string")
+        .join(", ")
+    : "—";
+}
+
+function IndicatorLinkDialog({
+  candidate,
+  linking,
+  onCancel,
+  onSubmit,
+}: {
+  readonly candidate: NetworkFlowIndicatorLinkCandidate;
+  readonly linking: boolean;
+  readonly onCancel: () => void;
+  readonly onSubmit: (options: {
+    readonly confirmExactValue: string;
+    readonly target: NetworkFlowIndicatorTarget;
+  }) => Promise<boolean>;
+}) {
+  const [mode, setMode] = useState<"create" | "existing">("create");
+  const [existingIndicatorId, setExistingIndicatorId] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const target: NetworkFlowIndicatorTarget | null =
+    mode === "create"
+      ? {
+          mode: "create_indicator",
+          indicator_type: candidate.candidateValue.includes(":")
+            ? "ipv6_addr"
+            : "ipv4_addr",
+        }
+      : existingIndicatorId.trim() === ""
+        ? null
+        : {
+            mode: "existing_indicator",
+            indicator_id: existingIndicatorId.trim(),
+          };
+  return (
+    <div style={commandDialogBackdropStyle}>
+      <form
+        aria-labelledby="network-flow-indicator-link-title"
+        aria-modal="true"
+        data-testid={networkAnalysisTestId("indicator-link-dialog")}
+        role="dialog"
+        style={commandDialogStyle}
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (target !== null && confirmation === candidate.candidateValue) {
+            void onSubmit({ confirmExactValue: confirmation, target });
+          }
+        }}
+      >
+        <h3 id="network-flow-indicator-link-title">Link Core Indicator</h3>
+        <p>
+          Link <strong>{candidate.label}</strong>. Confirm the exact canonical
+          IP value; display labels and positions are never used as targets.
+        </p>
+        <output style={monoTextStyle}>{candidate.candidateValue}</output>
+        <fieldset style={dialogFieldsetStyle}>
+          <legend>Indicator target</legend>
+          <label style={inlineControlStyle}>
+            <input
+              checked={mode === "create"}
+              name="network-flow-indicator-target"
+              type="radio"
+              onChange={() => setMode("create")}
+            />
+            Create Indicator
+          </label>
+          <label style={inlineControlStyle}>
+            <input
+              checked={mode === "existing"}
+              name="network-flow-indicator-target"
+              type="radio"
+              onChange={() => setMode("existing")}
+            />
+            Existing Indicator
+          </label>
+        </fieldset>
+        {mode === "existing" ? (
+          <label style={fieldLabelStyle}>
+            Existing Indicator ID
+            <input
+              data-testid={networkAnalysisTestId("indicator-link-existing-id")}
+              required
+              value={existingIndicatorId}
+              onChange={(event) =>
+                setExistingIndicatorId(event.currentTarget.value)
+              }
+            />
+          </label>
+        ) : null}
+        <label style={fieldLabelStyle}>
+          Confirm exact canonical value
+          <input
+            data-testid={networkAnalysisTestId("indicator-link-confirmation")}
+            required
+            value={confirmation}
+            onChange={(event) => setConfirmation(event.currentTarget.value)}
+          />
+        </label>
+        <div style={dialogActionsStyle}>
+          <button
+            data-testid={networkAnalysisTestId("indicator-link-cancel")}
+            disabled={linking}
+            type="button"
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+          <button
+            data-testid={networkAnalysisTestId("indicator-link-submit")}
+            disabled={
+              linking ||
+              target === null ||
+              confirmation !== candidate.candidateValue
+            }
+            type="submit"
+          >
+            {linking ? "Linking…" : "Link Indicator"}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 
@@ -1201,16 +1746,6 @@ function PanelHeader({ table }: { readonly table: NetworkFlowTable | null }) {
       ) : null}
     </div>
   );
-}
-
-function endpointLabel(row: NetworkFlowRow, kind: "src" | "dst"): string {
-  const ip =
-    kind === "src" ? row["network_flow.src_ip"] : row["network_flow.dst_ip"];
-  const port =
-    kind === "src"
-      ? row["network_flow.src_port"]
-      : row["network_flow.dst_port"];
-  return port === null ? ip : `${ip}:${port}`;
 }
 
 function compactID(value: string): string {
@@ -1369,6 +1904,17 @@ const fieldLabelStyle = {
   gap: "var(--ct-spacing-xs)",
 } satisfies CSSProperties;
 
+const dialogFieldsetStyle = {
+  display: "grid",
+  gap: "var(--ct-spacing-xs)",
+} satisfies CSSProperties;
+
+const inlineControlStyle = {
+  alignItems: "center",
+  display: "inline-flex",
+  gap: "var(--ct-spacing-xs)",
+} satisfies CSSProperties;
+
 const dialogActionsStyle = {
   display: "flex",
   gap: "var(--ct-spacing-sm)",
@@ -1417,6 +1963,11 @@ const panelGridStyle = {
   blockSize: "100%",
   minBlockSize: 0,
   minWidth: 0,
+} satisfies CSSProperties;
+
+const panelGridWithActionsStyle = {
+  ...panelGridStyle,
+  gridTemplateRows: "auto auto minmax(0, 1fr) auto",
 } satisfies CSSProperties;
 
 const paginationStyle = {
@@ -1489,9 +2040,28 @@ const graphLayoutStyle = {
 
 const graphTableStyle = {
   display: "grid",
-  gridTemplateRows: "auto minmax(0, 1fr)",
+  gridTemplateRows: "auto auto minmax(0, 1fr)",
   minBlockSize: 0,
   minWidth: 0,
+} satisfies CSSProperties;
+
+const graphScopeStyle = {
+  alignItems: "center",
+  background: "var(--ct-colors-surface-1)",
+  border: 0,
+  borderBlockEnd: "var(--ct-border-hairline)",
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "var(--ct-spacing-md)",
+  margin: 0,
+  padding: "var(--ct-spacing-sm) var(--ct-spacing-md)",
+} satisfies CSSProperties;
+
+const graphTableSelectionStyle = {
+  alignItems: "center",
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "var(--ct-spacing-sm)",
 } satisfies CSSProperties;
 
 const graphSummaryStyle = {
@@ -1503,12 +2073,20 @@ const graphSummaryStyle = {
   background: "var(--ct-colors-surface-1)",
 } satisfies CSSProperties;
 
+const graphSectionTitleStyle = {
+  background: "var(--ct-colors-surface-2)",
+  borderBlockEnd: "var(--ct-border-hairline)",
+  fontSize: "0.8125rem",
+  margin: 0,
+  padding: "var(--ct-spacing-xs) var(--ct-spacing-sm)",
+} satisfies CSSProperties;
+
 const drawerStyle = {
   position: "absolute",
   insetBlock: 0,
   insetInlineEnd: 0,
   display: "grid",
-  gridTemplateRows: "auto auto minmax(0, 1fr)",
+  gridTemplateRows: "auto auto minmax(0, 1fr) auto",
   inlineSize:
     "min(var(--ct-layout-inspectorDefaultWidth), calc(100% - var(--ct-spacing-xl)))",
   minInlineSize:
@@ -1533,19 +2111,6 @@ const linkActionsStyle = {
   flexWrap: "wrap",
   gap: "var(--ct-spacing-xs)",
   padding: "var(--ct-spacing-sm)",
-  borderBlockEnd: "var(--ct-border-hairline)",
-} satisfies CSSProperties;
-
-const drawerRowsStyle = {
-  overflow: "auto",
-  minBlockSize: 0,
-} satisfies CSSProperties;
-
-const drawerRowStyle = {
-  display: "grid",
-  gridTemplateColumns: "4rem minmax(0, 1fr) minmax(0, 1fr)",
-  gap: "var(--ct-spacing-sm)",
-  padding: "var(--ct-spacing-xs) var(--ct-spacing-sm)",
   borderBlockEnd: "var(--ct-border-hairline)",
 } satisfies CSSProperties;
 

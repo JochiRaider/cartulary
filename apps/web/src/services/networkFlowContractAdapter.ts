@@ -4,15 +4,21 @@ import {
   type Decoder,
   type EdgeAnnotation,
   type Filter,
+  type GraphContributorQueryContinuation,
   type GraphContributorQueryRequest,
   type GraphContributorQueryResult,
+  type GraphProjectionEdge,
+  type GraphProjectionVertex,
   type GraphQueryRequest,
   type GraphQueryResult,
+  type GraphSelector,
   type GraphSemanticQuery,
   getNetworkFlowErrorRegistry,
   type ImportPreviewResult,
   type IndicatorLinkRequest,
   type IndicatorLinkResult,
+  type IndicatorSelector,
+  type IndicatorTarget,
   type MappingCandidate,
   type NetworkFlowRow,
   type NetworkFlowRowRef,
@@ -27,12 +33,14 @@ import {
   type RejectedRowsQueryRequest,
   type RejectedRowsQueryResult,
   type Sort,
+  type SourceProfileList,
   type TableList,
   type TableMutationResult,
   type TableQueryContinuation,
   type TableQueryRequest,
   type TableQueryResult,
   type TableRenameRequest,
+  type TableScope,
   type TableSoftDeleteRequest,
 } from "@cartulary/protocol-ts";
 
@@ -43,11 +51,21 @@ export type NetworkFlowContributorResult = GraphContributorQueryResult;
 export type NetworkFlowDiagnostic = RejectedRowDiagnostic;
 export type NetworkFlowEdgeAnnotation = EdgeAnnotation;
 export type NetworkFlowGraphResult = GraphQueryResult;
+export type NetworkFlowGraphEdge = GraphProjectionEdge;
+export type NetworkFlowGraphVertex = GraphProjectionVertex;
+export type NetworkFlowGraphSelector = GraphSelector;
 export type NetworkFlowGraphSemanticQuery = GraphSemanticQuery;
 export type NetworkFlowGraphQueryRequest = GraphQueryRequest;
 export type NetworkFlowContributorQueryRequest = GraphContributorQueryRequest;
+export type NetworkFlowContributorQueryContinuation =
+  GraphContributorQueryContinuation;
+export type NetworkFlowContributorPageRequest =
+  | GraphContributorQueryRequest
+  | GraphContributorQueryContinuation;
 export type NetworkFlowIndicatorLinkResult = IndicatorLinkResult;
 export type NetworkFlowIndicatorLinkRequest = IndicatorLinkRequest;
+export type NetworkFlowIndicatorSelector = IndicatorSelector;
+export type NetworkFlowIndicatorTarget = IndicatorTarget;
 export type NetworkFlowImportPreviewResult = ImportPreviewResult;
 export type NetworkFlowMappingCandidate = MappingCandidate;
 export type NetworkFlowFilter = Filter;
@@ -56,6 +74,8 @@ export type NetworkFlowRejectedRowsQueryContinuation =
   RejectedRowsQueryContinuation;
 export type NetworkFlowRejectedRowsQueryRequest = RejectedRowsQueryRequest;
 export type NetworkFlowSort = Sort;
+export type NetworkFlowSourceProfileList = SourceProfileList;
+export type NetworkFlowTableScope = TableScope;
 export type NetworkFlowTableQueryContinuation = TableQueryContinuation;
 export type NetworkFlowTableQueryRequest = TableQueryRequest;
 export type NetworkFlowTableMutationResult = TableMutationResult;
@@ -151,6 +171,12 @@ export function decodeNetworkFlowIndicatorLinkResult(
   value: unknown,
 ): IndicatorLinkResult {
   return decodeOrThrow(networkFlowDecoders.indicatorLinkResult, value);
+}
+
+export function decodeNetworkFlowSourceProfileList(
+  value: unknown,
+): SourceProfileList {
+  return decodeOrThrow(networkFlowDecoders.sourceProfileList, value);
 }
 
 export function decodeNetworkFlowImportPreviewResult(

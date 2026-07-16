@@ -1,16 +1,19 @@
 import { apiPath, clientTxnID } from "../services/browserApi";
 import type {
-  NetworkFlowContributorQueryRequest,
+  NetworkFlowContributorPageRequest,
   NetworkFlowContributorResult,
   NetworkFlowDiagnostic,
   NetworkFlowGraphQueryRequest,
   NetworkFlowGraphResult,
   NetworkFlowIndicatorLinkRequest,
   NetworkFlowIndicatorLinkResult,
+  NetworkFlowIndicatorSelector,
+  NetworkFlowIndicatorTarget,
   NetworkFlowPaging,
   NetworkFlowRow,
   NetworkFlowTable,
   NetworkFlowTableRenameRequest,
+  NetworkFlowTableScope,
   NetworkFlowTableSoftDeleteRequest,
 } from "../services/networkFlowContractAdapter";
 import {
@@ -18,6 +21,7 @@ import {
   decodeNetworkFlowGraphResult,
   decodeNetworkFlowIndicatorLinkResult,
   decodeNetworkFlowRejectedRowsQueryResult,
+  decodeNetworkFlowSourceProfileList,
   decodeNetworkFlowTableList,
   decodeNetworkFlowTableMutationResult,
   decodeNetworkFlowTableQueryResult,
@@ -32,15 +36,22 @@ import type {
 
 export type {
   NetworkFlowContributor,
+  NetworkFlowContributorPageRequest,
   NetworkFlowDiagnostic,
   NetworkFlowEdgeAnnotation,
+  NetworkFlowGraphEdge,
   NetworkFlowGraphResult,
+  NetworkFlowGraphSelector,
   NetworkFlowGraphSemanticQuery,
+  NetworkFlowGraphVertex,
   NetworkFlowIndicatorLinkResult,
+  NetworkFlowIndicatorSelector,
+  NetworkFlowIndicatorTarget,
   NetworkFlowPaging,
   NetworkFlowRow,
   NetworkFlowRowRef,
   NetworkFlowTable,
+  NetworkFlowTableScope,
 } from "../services/networkFlowContractAdapter";
 
 export const networkFlowActivityProfileId = "network_flow_activity";
@@ -202,24 +213,19 @@ export async function queryNetworkFlowRejectedRows(options: {
 
 export async function queryNetworkFlowGraph(options: {
   readonly apiBase?: string | undefined;
+  readonly filters: NonNullable<NetworkFlowGraphQueryRequest["filters"]>;
   readonly incidentId: string;
-  readonly tableIds: readonly string[];
+  readonly tableScope: NetworkFlowTableScope;
+  readonly timeRange: NonNullable<
+    NetworkFlowGraphQueryRequest["time_range"]
+  > | null;
   readonly signal?: AbortSignal | undefined;
 }): Promise<NetworkFlowGraphResult> {
-  const tableIds = [...new Set(options.tableIds)].sort();
-  const [firstTableId, ...remainingTableIds] = tableIds;
-  if (firstTableId === undefined) {
-    throw new Error("Network Flow graph queries require at least one table.");
-  }
   const request: NetworkFlowGraphQueryRequest = {
     schema_id: "cartulary.network_flow.graph_query_request.v1",
-    table_scope:
-      remainingTableIds.length === 0
-        ? { mode: "active_table", active_table_id: firstTableId }
-        : {
-            mode: "selected_tables",
-            selected_table_ids: [firstTableId, ...remainingTableIds],
-          },
+    table_scope: options.tableScope,
+    ...(options.filters.length === 0 ? {} : { filters: [...options.filters] }),
+    ...(options.timeRange === null ? {} : { time_range: options.timeRange }),
     aggregation: {
       mode: "default_flow_edge_v1",
       include_example_row_refs: true,
@@ -247,17 +253,9 @@ export async function queryNetworkFlowGraph(options: {
 export async function queryNetworkFlowContributors(options: {
   readonly apiBase?: string | undefined;
   readonly incidentId: string;
-  readonly graph: NetworkFlowGraphResult;
-  readonly selector: { readonly kind: "edge"; readonly edge_id: string };
+  readonly request: NetworkFlowContributorPageRequest;
   readonly signal?: AbortSignal | undefined;
 }): Promise<NetworkFlowContributorResult> {
-  const request: NetworkFlowContributorQueryRequest = {
-    schema_id: "cartulary.network_flow.graph_contributor_query_request.v1",
-    graph_query: options.graph.semantic_query,
-    graph_query_digest: options.graph.graph_query_digest,
-    selector: options.selector,
-    limit: 50,
-  };
   const result = await fetchWorkbookJSON<unknown>(
     apiPath(
       options.apiBase,
@@ -266,7 +264,7 @@ export async function queryNetworkFlowContributors(options: {
     requestInit(
       {
         method: "POST",
-        body: JSON.stringify(request),
+        body: JSON.stringify(options.request),
       },
       options.signal,
     ),
@@ -280,25 +278,15 @@ export async function queryNetworkFlowContributors(options: {
 export async function linkNetworkFlowIndicator(options: {
   readonly apiBase?: string | undefined;
   readonly incidentId: string;
-  readonly graph: NetworkFlowGraphResult;
-  readonly edgeId: string;
-  readonly fieldKey: "network_flow.src_ip" | "network_flow.dst_ip";
+  readonly selector: NetworkFlowIndicatorSelector;
+  readonly target: NetworkFlowIndicatorTarget;
   readonly confirmExactValue: string;
 }): Promise<NetworkFlowIndicatorLinkResult> {
   const request: NetworkFlowIndicatorLinkRequest = {
     schema_id: "cartulary.network_flow.indicator_link_request.v1",
     client_txn_id: clientTxnID("nf-indicator-link"),
-    selector: {
-      kind: "graph_edge",
-      graph_query: options.graph.semantic_query,
-      graph_query_digest: options.graph.graph_query_digest,
-      edge_id: options.edgeId,
-      field_key: options.fieldKey,
-    },
-    target: {
-      mode: "create_indicator",
-      indicator_type: indicatorTypeForIP(options.confirmExactValue),
-    },
+    selector: options.selector,
+    target: options.target,
     observation_mode: "binding_only",
     confirm_exact_value: options.confirmExactValue,
   };
@@ -318,8 +306,23 @@ export async function linkNetworkFlowIndicator(options: {
   return decodeNetworkFlowIndicatorLinkResult(result.payload);
 }
 
-function indicatorTypeForIP(value: string): "ipv4_addr" | "ipv6_addr" {
-  return value.includes(":") ? "ipv6_addr" : "ipv4_addr";
+export async function getNetworkFlowBindingSourceRowLimit(options: {
+  readonly apiBase?: string | undefined;
+  readonly incidentId: string;
+  readonly signal?: AbortSignal | undefined;
+}): Promise<number> {
+  const result = await fetchWorkbookJSON<unknown>(
+    apiPath(
+      options.apiBase,
+      `/api/v1/incidents/${options.incidentId}/network-flow/source-profiles`,
+    ),
+    requestInit({ method: "GET" }, options.signal),
+  );
+  if (!result.ok) {
+    throw networkFlowRequestError(result.status, result.payload);
+  }
+  const response = decodeNetworkFlowSourceProfileList(result.payload);
+  return response.effective_limits["network_flow.max_binding_source_row_refs"];
 }
 
 function tableURL(options: {

@@ -7,10 +7,7 @@ import {
 
 const sessionLayouts = new Map<string, NetworkFlowGridLayout>();
 
-type LayoutGridSchemaId = Exclude<
-  NetworkFlowGridSchemaId,
-  "network_flow.graph_contributors.v1"
->;
+type LayoutGridSchemaId = NetworkFlowGridSchemaId;
 
 export type NetworkFlowGridLayout = {
   readonly order: readonly string[];
@@ -136,7 +133,8 @@ function configurableColumns(
     (column) =>
       !column.inspector_only &&
       !(
-        gridSchemaId === "network_flow.accepted_rows.v1" &&
+        (gridSchemaId === "network_flow.accepted_rows.v1" ||
+          gridSchemaId === "network_flow.graph_contributors.v1") &&
         column.field_key === "source_row_number"
       ),
   );

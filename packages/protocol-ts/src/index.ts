@@ -25,6 +25,7 @@ import type {
   ImportPreviewResult,
   IndicatorLinkResult,
   RejectedRowsQueryResult,
+  SourceProfileList,
   TableList,
   TableMutationResult,
   TableQueryResult,
@@ -389,6 +390,9 @@ export const networkFlowDecoders = Object.freeze({
   ),
   rejectedRowsQueryResult: createGeneratedDecoder<RejectedRowsQueryResult>(
     "cartulary.network_flow.rejected_rows_query_result.v1",
+  ),
+  sourceProfileList: createGeneratedDecoder<SourceProfileList>(
+    "cartulary.network_flow.source_profile_list.v1",
   ),
   graphQueryResult: createGeneratedDecoder<GraphQueryResult>(
     "cartulary.network_flow.graph_query_result.v1",

@@ -678,8 +678,17 @@ function useSemanticDataGrid<Row>(
     enableVirtualization: isGridVirtualizationEnabled(),
     headerRowHeight: 32,
     headerRowClass: "cartulary-grid-header-row",
-    onCellClick: ({ row }) => {
+    onCellClick: ({ column, row }) => {
       onSelectRow?.(row.rowIdentity);
+      const anchor = semanticAnchor(row, column.key, columns, surface);
+      if (anchor === null) return;
+      pendingRangeEndRef.current = null;
+      if (!sameGridCellAnchor(activeCellAnchorRef.current, anchor)) {
+        activeCellAnchorRef.current = anchor;
+        setActiveCellAnchor(anchor);
+        onActiveCellChange?.(anchor);
+      }
+      updateCellRange({ end: anchor, start: anchor });
     },
     onCellCopy: ({ column, row }, event) => {
       const anchor = semanticAnchor(row, column.key, columns, surface);
