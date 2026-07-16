@@ -8,7 +8,7 @@
 | Target label | `networkflow` |
 | Output path | `docs/handoffs/networkflow-module-refactor-tracker.md` |
 | Repository snapshot | Clean `main` at `63a19bf6e0c3f17a9b53afb58afa8bd04fb4c550` when planning began |
-| Status | Historical module remediation complete; Network Analysis grid-adapter adoption is executing under Section 14, with `NF-GA-00` through `NF-GA-07` `COMPLETE` and `NF-GA-08` `ACTIVE` |
+| Status | Historical module remediation complete; Network Analysis grid-adapter adoption is executing under Section 14, with `NF-GA-00` through `NF-GA-08` `COMPLETE` and `NF-GA-09` awaiting activation |
 | Authorized change | Specification, implementation, tests, contracts, generated outputs, configuration, migrations, harness inputs, documentation, and this tracker |
 | Current execution authorization | Specification, contract, generated, backend, frontend, test, harness-input, visual, and tracker changes required by Section 14; no dependency, lockfile, database, saved-view, or React Data Grid version migration |
 | Preserved non-goals | No richer graph canvas, observation creation, restore/purge behavior, existing-route response change, or HTTP schema-major expansion; one additive Core import mapping-preview route is explicitly authorized |
@@ -384,7 +384,7 @@ completion checkpoints below now own the current execution state.
 | Harness authority | `docs/testing-harness-nlspec.md`; it owns invocation, target selection, scheduling, artifacts, cleanup, and evidence accounting |
 | Adapter reference | Completed F-RDG workstreams in `docs/handoffs/grid-adapter-module-refactor-tracker.md` |
 | Current execution scope | Full Section 14 remediation, serially checkpointed |
-| Overall adoption status | `ACTIVE` (`NF-GA-00` through `NF-GA-07` `COMPLETE`; `NF-GA-08 ACTIVE`) |
+| Overall adoption status | `ACTIVE` (`NF-GA-00` through `NF-GA-08` `COMPLETE`; `NF-GA-09 PENDING`) |
 
 The inspected baseline has the following implementation boundaries:
 
@@ -925,7 +925,7 @@ Every checkpoint must populate these fields:
 
 | Field | Approved value |
 | --- | --- |
-| Status | `ACTIVE` |
+| Status | `COMPLETE` |
 | Activation baseline | `5d35d388a084cfdb954a9874a58d46e2e639f728` |
 | Dependencies | `NF-GA-07 COMPLETE` |
 | Remediation | Validate 1,000-row/all-column fixed-height virtualization, bounded DOM, scrolling, refresh reconciliation, range/inspector continuity, and server paging |
@@ -938,8 +938,27 @@ Every checkpoint must populate these fields:
 | Commands/evidence | `make browser-e2e-measurement`; `make frontend-unit`; `make browser-e2e-webserver-backed`; measurement/live-grid evidence without a timing claim |
 | Rollback | Remove optimization-specific reconciliation/measurement fixtures; retain semantic paging |
 | Exit criteria | Artifacts record the supported envelope without a Core 05 claim |
-| Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
+| Checkpoint | Completed in Section 14.7.9 |
 | Next workstream | `NF-GA-09` |
+
+##### 14.7.9 `NF-GA-08` completion checkpoint
+
+| Checkpoint field | Recorded outcome |
+| --- | --- |
+| Status / reviewer / date | `COMPLETE`; Codex self-review; 2026-07-16 America/New_York |
+| Baseline and activation commits | Baseline `5d35d388a084cfdb954a9874a58d46e2e639f728`; activation `409eac8d7e33d700be31217093fce88e61b0dddd` |
+| Implementation end commit | `5dcfec46f3044eb951f38a7d160f75dff4c020c6` |
+| Files changed | Network Flow query reconciliation, presentation projection, graph contributor controller, production semantic grids and tests; debug-harness load fixture through the workbook feature facade; semantic row/cell selector contracts; Phase 12 implementation guide, manifest, accounting, generated ledger/topology index, and real measurement scenario; obsolete `NF-AC-050` Go selector removed |
+| Substantive result | Accepted rows, rejected diagnostics, and graph contributors now reconcile immutable owner resources by stable extension identity and reuse both unchanged owner objects and their `GridDataRow` wrappers. Changed resources replace only their matching wrapper, removed resources disappear, incoming server order remains authoritative, and contributor refreshes no longer replace every object. A debug-only fixture composes the actual three production grid components at 100 and 1,000 deterministic resources, exposes every declared non-inspector column through production layout controls, and performs equivalent refresh through the same application-owned reconciliation. No adapter-owned Network Flow policy, eager whole-table load, client sort/filter/aggregation, or test-only authorization route was added |
+| Supported envelope | At the fixed 578-by-1,246 viewport, both 100 and 1,000 resources mounted exactly 22 accepted rows/242 cells, 22 rejected rows/132 cells, and 21 contributor rows/231 cells. Accepted scroll width was 1,992 pixels, contributor width 2,056 pixels, and 1,000-resource scroll heights were 32,032, 32,032, and 32,160 pixels respectively. The test reached first/last rows and the far-right application-label cell, traversed grouped contributors, and retained active field, two-row range, focus, and inspector state across an equivalent refresh. Counts are retained in the Phase 12 measurement stdout artifact and carry no timing threshold or Core 05 claim |
+| Evidence ownership | `E-12-NFAC050-50` is now the authoritative explicit-only `measurement` row for the existing `NF-AC-050` evidence-classification criterion. The previous Go test only restated the selector and was removed. The Network Flow accounting owner and implementation guide now point at the real Playwright scenario; generated Phase 12 ledger/schedule inputs were regenerated. The row remains engineering evidence and is excluded from default warm checks |
+| Required gates | `make frontend-unit` PASS (`.cartulary/test-results/20260716T113020Z-p5892`); `make browser-e2e-measurement` PASS with Phase 3 plus the new Phase 12 measurement (`.cartulary/test-results/20260716T112709Z-p72220`); `make browser-e2e-webserver-backed` PASS with 97 scenarios (`.cartulary/test-results/20260716T112755Z-p86724`) |
+| Additional gates | `make service-backed-slice PHASE=phase12 ROWS=E-12-NFAC050-50` PASS, 1/1 work unit and one test (`.cartulary/test-results/20260716T113203Z-p11995`); `make frontend-typecheck` PASS; `make frontend-import-boundary-check` PASS (`.cartulary/test-results/20260716T113020Z-p5897`); `make lint-biome` PASS; `make json-shape-check` PASS (`.cartulary/test-results/20260716T113139Z-p11539`); `make generate-drift` PASS (`.cartulary/test-results/20260716T113231Z-p25662`); `make phase-ledger-drift` PASS (`.cartulary/test-results/20260716T113231Z-p25668`); `make phase-schedule-drift` PASS (`.cartulary/test-results/20260716T113232Z-p25681`); `make generated-artifact-policy-check` PASS (`.cartulary/test-results/20260716T113020Z-p5964`); final `make format`, `make lint-markdown`, and `git diff --check` PASS |
+| Corrective runs | Initial JSON-shape validation correctly required phase schedule regeneration (`.cartulary/test-results/20260716T112008Z-p12726`), and the import boundary rejected direct debug-shell access to the Network Flow module (`.cartulary/test-results/20260716T112008Z-p12741`); the fixture now enters through `NetworkFlowFeature`. The first exact slice attempt (`.cartulary/test-results/20260716T112357Z-p36752`) exposed that a supplemental row could not be selected by the authoritative measurement runner. Rather than misclassify support evidence, the real measurement replaced the no-op unit selector as `NF-AC-050`'s criterion owner. A later shape run then found the stale separate Network Flow accounting pointer (`.cartulary/test-results/20260716T113020Z-p6017`); its authored selector was corrected and the final shape/slice runs passed. No product failure remains |
+| Compatibility / migration | Public routes, request/response schemas, server query defaults and limits, extension resource identities, read-only policy, saved views, persistent layout, database schema, dependencies, lockfiles, and React Data Grid version are unchanged. The debug query fixture is non-product harness composition. Phase 12 evidence ownership changes from a local no-op Go selector to explicit browser measurement, so old retained evidence cannot close the current row |
+| Residual risk / deferral | Real claimed/unclaimed application workflows, secure startup runtime profiles, protected-state browser transitions, FE-P12 ownership, actual Network Analysis accessibility/visual evidence, synthetic-browser removal, final vendor-boundary audit, and broad retained validation remain `NF-GA-09` |
+| Rollback | Revert `5dcfec46` atomically to remove stable wrapper reconciliation and the supported-load fixture. Such a rollback reopens `NF-AC-050`; it must block the current row or supply equivalent real measurement and must not treat the retired no-op selector as sufficient evidence. Semantic paging, extension identities, and read-only boundaries remain mandatory |
+| Next workstream | `NF-GA-09`; it may activate only after this checkpoint commit |
 
 #### `NF-GA-09` — Evidence reconciliation, final validation, and handoff
 
