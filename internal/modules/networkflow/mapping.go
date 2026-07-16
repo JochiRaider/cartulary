@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	generatedmapping "github.com/JochiRaider/cartulary/internal/gen/networkflowmapping"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
@@ -15,9 +16,9 @@ const (
 	TargetTableSchemaID        = "cartulary.network_flow_table.v1"
 
 	MappingCandidateSchemaID = "cartulary.network_flow.mapping_candidate.v1"
-	ApprovedMappingSchemaID  = "cartulary.network_flow.approved_mapping.v1"
 
 	UnknownColumnPolicyPreserve = "preserve_unmapped_raw"
+	UnknownColumnPolicyReject   = "reject_unmapped_columns"
 	UnknownColumnPolicyIgnore   = "ignore_unmapped_columns"
 
 	MappingKindSourceColumn        = "source_column"
@@ -90,7 +91,6 @@ type FieldMapping struct {
 }
 
 type MappingCandidate struct {
-	SchemaID            string           `json:"schema_id,omitempty"`
 	TargetKind          string           `json:"target_kind"`
 	TargetTableSchemaID string           `json:"target_table_schema_id"`
 	SourceProfileID     string           `json:"source_profile_id"`
@@ -102,7 +102,6 @@ type MappingCandidate struct {
 }
 
 type ApprovedMapping struct {
-	SchemaID            string                   `json:"schema_id,omitempty"`
 	TargetKind          string                   `json:"target_kind"`
 	TargetTableSchemaID string                   `json:"target_table_schema_id"`
 	SourceProfileID     string                   `json:"source_profile_id"`
@@ -121,7 +120,6 @@ func MaterializeApprovedMapping(raw json.RawMessage, sourceColumns []SourceColum
 	}
 	candidate = materializeCandidateDefaults(candidate)
 	approved := ApprovedMapping{
-		SchemaID:            ApprovedMappingSchemaID,
 		TargetKind:          candidate.TargetKind,
 		TargetTableSchemaID: candidate.TargetTableSchemaID,
 		SourceProfileID:     candidate.SourceProfileID,
@@ -130,7 +128,7 @@ func MaterializeApprovedMapping(raw json.RawMessage, sourceColumns []SourceColum
 		DisplayNameOverride: candidate.DisplayNameOverride,
 		TimestampProfile:    candidate.TimestampProfile,
 		SourceColumns:       append([]SourceColumnDescriptor(nil), sourceColumns...),
-		FieldMappings:       materializeFieldMappings(candidate.FieldMappings, sourceColumns, candidate.UnknownColumnPolicy),
+		FieldMappings:       materializeFieldMappings(candidate.FieldMappings),
 	}
 	if err := validateApprovedMapping(approved); err != nil {
 		return ApprovedMapping{}, err
@@ -164,27 +162,6 @@ func MarshalApprovedMapping(mapping ApprovedMapping) json.RawMessage {
 }
 
 func decodeMappingCandidate(raw json.RawMessage) (MappingCandidate, error) {
-	var probe struct {
-		SchemaID string `json:"schema_id"`
-	}
-	_ = json.Unmarshal(raw, &probe)
-	if probe.SchemaID == ApprovedMappingSchemaID {
-		approved, err := DecodeApprovedMapping(raw)
-		if err != nil {
-			return MappingCandidate{}, err
-		}
-		return MappingCandidate{
-			SchemaID:            MappingCandidateSchemaID,
-			TargetKind:          approved.TargetKind,
-			TargetTableSchemaID: approved.TargetTableSchemaID,
-			SourceProfileID:     approved.SourceProfileID,
-			ParserProfileID:     approved.ParserProfileID,
-			UnknownColumnPolicy: approved.UnknownColumnPolicy,
-			DisplayNameOverride: approved.DisplayNameOverride,
-			TimestampProfile:    approved.TimestampProfile,
-			FieldMappings:       approved.FieldMappings,
-		}, nil
-	}
 	if err := validateTimestampProfileJSONShape(raw, false); err != nil {
 		return MappingCandidate{}, err
 	}
@@ -266,39 +243,38 @@ func validateTimestampProfileJSONShape(raw json.RawMessage, approved bool) error
 }
 
 func materializeCandidateDefaults(candidate MappingCandidate) MappingCandidate {
+	profile := defaultMappingSourceProfile()
 	if candidate.TargetKind == "" {
-		candidate.TargetKind = TargetKindNetworkFlowTable
+		candidate.TargetKind = generatedmapping.Registry.TargetKind
 	}
 	if candidate.TargetTableSchemaID == "" {
-		candidate.TargetTableSchemaID = TargetTableSchemaID
+		candidate.TargetTableSchemaID = generatedmapping.Registry.TargetTableSchemaID
 	}
 	if candidate.SourceProfileID == "" {
-		candidate.SourceProfileID = SourceProfileCiscoSNANetFlowCSV
+		candidate.SourceProfileID = profile.SourceProfileID
 	}
 	if candidate.ParserProfileID == "" {
-		candidate.ParserProfileID = ParserProfileRFC4180HeaderedCSV
+		candidate.ParserProfileID = profile.ParserProfileID
 	}
 	if candidate.UnknownColumnPolicy == "" {
-		candidate.UnknownColumnPolicy = UnknownColumnPolicyPreserve
+		candidate.UnknownColumnPolicy = profile.DefaultUnknownColumnPolicy
 	}
 	candidate.TimestampProfile = materializeTimestampProfile(candidate.TimestampProfile)
 	return candidate
 }
 
 func materializeApprovedDefaults(mapping ApprovedMapping) ApprovedMapping {
-	if mapping.SchemaID == "" {
-		mapping.SchemaID = ApprovedMappingSchemaID
-	}
 	mapping.TimestampProfile = materializeTimestampProfile(mapping.TimestampProfile)
 	return mapping
 }
 
 func materializeTimestampProfile(profile TimestampProfile) TimestampProfile {
+	defaults := defaultMappingSourceProfile().DefaultTimestampProfile
 	if profile.SchemaID == "" {
-		profile.SchemaID = "cartulary.network_flow.timestamp_profile.v1"
+		profile.SchemaID = defaults.SchemaID
 	}
 	if profile.Mode == "" {
-		profile.Mode = "rfc3339"
+		profile.Mode = defaults.Mode
 	}
 	if profile.Precision == "" {
 		switch profile.Mode {
@@ -312,10 +288,10 @@ func materializeTimestampProfile(profile TimestampProfile) TimestampProfile {
 	}
 	if profile.Mode == "rfc3339" {
 		if profile.AmbiguousLocalTimePolicy == nil {
-			profile.AmbiguousLocalTimePolicy = stringPtr("reject")
+			profile.AmbiguousLocalTimePolicy = stringPtr(defaults.AmbiguousLocalTimePolicy)
 		}
 		if profile.LocalTimeGapPolicy == nil {
-			profile.LocalTimeGapPolicy = stringPtr("reject")
+			profile.LocalTimeGapPolicy = stringPtr(defaults.LocalTimeGapPolicy)
 		}
 		if profile.Timezone != nil && *profile.Timezone != "" && *profile.Timezone != "UTC" && profile.TimezoneRulesetID == nil {
 			profile.TimezoneRulesetID = stringPtr("tzdb-2026c")
@@ -324,38 +300,24 @@ func materializeTimestampProfile(profile TimestampProfile) TimestampProfile {
 	return profile
 }
 
-func materializeFieldMappings(input []FieldMapping, sourceColumns []SourceColumnDescriptor, unknownColumnPolicy string) []FieldMapping {
-	mappings := make([]FieldMapping, 0, len(input)+len(sourceColumns)+1)
-	usedOrdinals := map[int]struct{}{}
+func materializeFieldMappings(input []FieldMapping) []FieldMapping {
+	mappings := make([]FieldMapping, 0, len(input)+1)
 	hasDerivation := false
 	for _, mapping := range input {
 		materialized := materializeFieldMapping(mapping)
-		if materialized.SourceColumnOrdinal > 0 {
-			usedOrdinals[materialized.SourceColumnOrdinal] = struct{}{}
-		}
 		if materialized.MappingKind == MappingKindSystemDerivation && materialized.FieldKey == FieldObservationSourceRef {
 			hasDerivation = true
 		}
 		mappings = append(mappings, materialized)
 	}
 	if !hasDerivation {
+		derivation := observationSourceDerivation()
 		mappings = append(mappings, FieldMapping{
 			MappingKind:   MappingKindSystemDerivation,
-			FieldKey:      FieldObservationSourceRef,
-			DerivationID:  "network_flow.observation_source_ref.v1",
-			Combinability: "single_source_only",
+			FieldKey:      derivation.FieldKey,
+			DerivationID:  derivation.DerivationID,
+			Combinability: derivation.Combinability,
 		})
-	}
-	if unknownColumnPolicy == UnknownColumnPolicyIgnore {
-		for _, column := range sourceColumns {
-			if _, used := usedOrdinals[column.SourceColumnOrdinal]; !used {
-				mappings = append(mappings, FieldMapping{
-					MappingKind:         MappingKindIgnoredSourceColumn,
-					SourceColumnOrdinal: column.SourceColumnOrdinal,
-					IgnoreReason:        "policy_accounting",
-				})
-			}
-		}
 	}
 	return mappings
 }
@@ -377,33 +339,32 @@ func materializeFieldMapping(mapping FieldMapping) FieldMapping {
 			mapping.IgnoreReason = "user_ignored"
 		}
 	case MappingKindSystemDerivation:
+		derivation := observationSourceDerivation()
 		if mapping.FieldKey == "" {
-			mapping.FieldKey = FieldObservationSourceRef
+			mapping.FieldKey = derivation.FieldKey
 		}
 		if mapping.DerivationID == "" {
-			mapping.DerivationID = "network_flow.observation_source_ref.v1"
+			mapping.DerivationID = derivation.DerivationID
 		}
 		if mapping.Combinability == "" {
-			mapping.Combinability = "single_source_only"
+			mapping.Combinability = derivation.Combinability
 		}
 	}
 	return mapping
 }
 
 func validateApprovedMapping(mapping ApprovedMapping) error {
-	if mapping.SchemaID != "" && mapping.SchemaID != ApprovedMappingSchemaID {
+	if mapping.TargetKind != generatedmapping.Registry.TargetKind || mapping.TargetTableSchemaID != generatedmapping.Registry.TargetTableSchemaID {
 		return &MappingValidationError{Code: "network_flow_mapping_conflict", ReasonCode: "variant_member_conflict"}
 	}
-	if mapping.TargetKind != TargetKindNetworkFlowTable || mapping.TargetTableSchemaID != TargetTableSchemaID {
-		return &MappingValidationError{Code: "network_flow_mapping_conflict", ReasonCode: "variant_member_conflict"}
-	}
-	if mapping.SourceProfileID != SourceProfileCiscoSNANetFlowCSV {
+	profile, ok := mappingSourceProfile(mapping.SourceProfileID)
+	if !ok || profile.ConformanceStatus != "required_v1" {
 		return &MappingValidationError{Code: "network_flow_unsupported_source_profile", ReasonCode: "unsupported_source_profile"}
 	}
-	if mapping.ParserProfileID != ParserProfileRFC4180HeaderedCSV {
+	if mapping.ParserProfileID != profile.ParserProfileID {
 		return &MappingValidationError{Code: "network_flow_mapping_conflict", ReasonCode: "mapping_kind_unavailable"}
 	}
-	if mapping.UnknownColumnPolicy != UnknownColumnPolicyPreserve && mapping.UnknownColumnPolicy != UnknownColumnPolicyIgnore {
+	if !slicesContains(profile.SupportedUnknownColumnPolicies, mapping.UnknownColumnPolicy) {
 		return &MappingValidationError{Code: "network_flow_mapping_conflict", ReasonCode: "unaccounted_source_column"}
 	}
 	if len(mapping.SourceColumns) == 0 {
@@ -445,7 +406,8 @@ func validateApprovedMapping(mapping ApprovedMapping) error {
 			}
 			byOrdinal[fieldMapping.SourceColumnOrdinal]++
 		case MappingKindSystemDerivation:
-			if fieldMapping.FieldKey != FieldObservationSourceRef || fieldMapping.DerivationID != "network_flow.observation_source_ref.v1" {
+			derivation := observationSourceDerivation()
+			if fieldMapping.FieldKey != derivation.FieldKey || fieldMapping.DerivationID != derivation.DerivationID || fieldMapping.Combinability != derivation.Combinability {
 				return &MappingValidationError{Code: "network_flow_mapping_conflict", ReasonCode: "system_derivation_missing"}
 			}
 			hasSystemDerivation = true
@@ -485,7 +447,7 @@ func validateApprovedMapping(mapping ApprovedMapping) error {
 			}
 		}
 	}
-	if mapping.UnknownColumnPolicy == UnknownColumnPolicyIgnore {
+	if mapping.UnknownColumnPolicy == UnknownColumnPolicyIgnore || mapping.UnknownColumnPolicy == UnknownColumnPolicyReject {
 		for _, column := range mapping.SourceColumns {
 			if byOrdinal[column.SourceColumnOrdinal] == 0 {
 				return &MappingValidationError{Code: "network_flow_mapping_conflict", ReasonCode: "unaccounted_source_column"}
@@ -496,54 +458,32 @@ func validateApprovedMapping(mapping ApprovedMapping) error {
 }
 
 func defaultTransformForField(fieldKey string) string {
-	switch fieldKey {
-	case FieldFlowStartUTC, FieldFlowEndUTC:
-		return TransformTimestampProfile
-	case FieldSrcIP, FieldDstIP:
-		return TransformIPLiteral
-	case FieldSrcPort, FieldDstPort:
-		return TransformPortNumber
-	case FieldIPProtocol:
-		return TransformProtocol
-	case FieldBytesCount, FieldPacketsCount:
-		return TransformUint64Decimal
-	case FieldInputInterface, FieldOutputInterface:
-		return TransformTrimASCIISpace
-	default:
-		return ""
+	if field, ok := mappingRegistryField(fieldKey); ok {
+		return field.TransformID
 	}
+	return ""
 }
 
 func defaultEmptyPolicyForField(fieldKey string) string {
-	switch fieldKey {
-	case FieldInputInterface, FieldOutputInterface:
-		return EmptyPolicyNull
-	default:
-		return EmptyPolicyInvalid
+	if field, ok := mappingRegistryField(fieldKey); ok {
+		return field.EmptyValuePolicy
 	}
+	return ""
 }
 
 func sourceMappableField(fieldKey string) bool {
-	switch fieldKey {
-	case FieldFlowStartUTC, FieldFlowEndUTC, FieldSrcIP, FieldDstIP, FieldSrcPort, FieldDstPort, FieldIPProtocol, FieldBytesCount, FieldPacketsCount, FieldInputInterface, FieldOutputInterface:
-		return true
-	default:
-		return false
-	}
+	field, ok := mappingRegistryField(fieldKey)
+	return ok && (field.Requirement == "required" || field.Requirement == "optional_map_when_present")
 }
 
 func requiredCiscoFields() []string {
-	return []string{
-		FieldFlowStartUTC,
-		FieldFlowEndUTC,
-		FieldSrcIP,
-		FieldDstIP,
-		FieldSrcPort,
-		FieldDstPort,
-		FieldIPProtocol,
-		FieldBytesCount,
-		FieldPacketsCount,
+	fields := make([]string, 0)
+	for _, field := range defaultMappingSourceProfile().Fields {
+		if field.Requirement == "required" {
+			fields = append(fields, field.FieldKey)
+		}
 	}
+	return fields
 }
 
 func SuggestCiscoSNAMapping(sourceColumns []SourceColumnDescriptor) []FieldMapping {
@@ -568,12 +508,15 @@ func SuggestCiscoSNAMapping(sourceColumns []SourceColumnDescriptor) []FieldMappi
 }
 
 func firstAliasOrdinal(fieldKey string, sourceColumns []SourceColumnDescriptor, used map[int]struct{}) int {
-	aliases := ciscoSNAAliases()[fieldKey]
+	field, ok := mappingRegistryField(fieldKey)
+	if !ok {
+		return 0
+	}
 	for _, column := range sourceColumns {
 		if _, ok := used[column.SourceColumnOrdinal]; ok {
 			continue
 		}
-		for _, alias := range aliases {
+		for _, alias := range field.Aliases {
 			if column.NormalizedHeaderForSuggestion == SourceAliasMatchKey(alias) {
 				return column.SourceColumnOrdinal
 			}
@@ -582,20 +525,45 @@ func firstAliasOrdinal(fieldKey string, sourceColumns []SourceColumnDescriptor, 
 	return 0
 }
 
-func ciscoSNAAliases() map[string][]string {
-	return map[string][]string{
-		FieldSrcIP:           {"Source IP Address", "Source IP", "IPV4_SRC_ADDR", "sourceIPv4Address", "IPV6_SRC_ADDR", "sourceIPv6Address"},
-		FieldDstIP:           {"Destination IP Address", "Destination IP", "IPV4_DST_ADDR", "destinationIPv4Address", "IPV6_DST_ADDR", "destinationIPv6Address"},
-		FieldSrcPort:         {"Source Port", "L4_SRC_PORT", "sourceTransportPort"},
-		FieldDstPort:         {"Destination Port", "L4_DST_PORT", "destinationTransportPort"},
-		FieldIPProtocol:      {"Layer 3 Protocol", "Protocol", "PROTOCOL", "protocolIdentifier"},
-		FieldBytesCount:      {"Bytes Count", "Bytes", "IN_BYTES", "octetDeltaCount"},
-		FieldPacketsCount:    {"Packet count", "Packets", "IN_PKTS", "packetDeltaCount"},
-		FieldFlowStartUTC:    {"Flow Start Time", "First Seen", "FIRST_SWITCHED", "flowStartMilliseconds", "flowStartSeconds"},
-		FieldFlowEndUTC:      {"Flow End Time", "Last Seen", "LAST_SWITCHED", "flowEndMilliseconds", "flowEndSeconds"},
-		FieldInputInterface:  {"Interface input", "Input Interface", "ingressInterface"},
-		FieldOutputInterface: {"Interface output", "Output Interface", "egressInterface"},
+func mappingSourceProfile(sourceProfileID string) (generatedmapping.SourceProfile, bool) {
+	for _, profile := range generatedmapping.Registry.SourceProfiles {
+		if profile.SourceProfileID == sourceProfileID {
+			return profile, true
+		}
 	}
+	return generatedmapping.SourceProfile{}, false
+}
+
+func defaultMappingSourceProfile() generatedmapping.SourceProfile {
+	if len(generatedmapping.Registry.SourceProfiles) == 0 {
+		return generatedmapping.SourceProfile{}
+	}
+	return generatedmapping.Registry.SourceProfiles[0]
+}
+
+func mappingRegistryField(fieldKey string) (generatedmapping.Field, bool) {
+	for _, field := range defaultMappingSourceProfile().Fields {
+		if field.FieldKey == fieldKey {
+			return field, true
+		}
+	}
+	return generatedmapping.Field{}, false
+}
+
+func observationSourceDerivation() generatedmapping.SystemDerivation {
+	if len(generatedmapping.Registry.SystemDerivations) == 0 {
+		return generatedmapping.SystemDerivation{}
+	}
+	return generatedmapping.Registry.SystemDerivations[0]
+}
+
+func slicesContains(values []string, value string) bool {
+	for _, candidate := range values {
+		if candidate == value {
+			return true
+		}
+	}
+	return false
 }
 
 func SourceAliasMatchKey(input string) string {

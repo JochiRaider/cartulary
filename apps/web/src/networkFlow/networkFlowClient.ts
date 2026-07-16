@@ -22,7 +22,6 @@ import {
   decodeNetworkFlowTableQueryResult,
 } from "../services/networkFlowContractAdapter";
 import { fetchWorkbookJSON, parseErrorMessage } from "../services/workbookApi";
-import { coordinateExtensionImport } from "../shared/importCoordinator";
 import type { WorkbookSheetRef } from "../shared/workbookSheetRef";
 
 export type {
@@ -277,19 +276,6 @@ export async function linkNetworkFlowIndicator(options: {
   return decodeNetworkFlowIndicatorLinkResult(result.payload);
 }
 
-export async function importNetworkFlowCSV(options: {
-  readonly apiBase?: string | undefined;
-  readonly incidentId: string;
-  readonly file: File;
-  readonly onProgress?: ((message: string) => void) | undefined;
-}): Promise<void> {
-  await coordinateExtensionImport({
-    ...options,
-    mappingPayload: networkFlowMappingPayload,
-    transactionPrefix: "nf-import",
-  });
-}
-
 function indicatorTypeForIP(value: string): "ipv4_addr" | "ipv6_addr" {
   return value.includes(":") ? "ipv6_addr" : "ipv4_addr";
 }
@@ -299,92 +285,4 @@ function requestInit(
   signal: AbortSignal | undefined,
 ): RequestInit {
   return signal === undefined ? init : { ...init, signal };
-}
-
-function networkFlowMappingPayload(clientTxnId: string) {
-  const headers = [
-    "Source IP Address",
-    "Destination IP Address",
-    "Source Port",
-    "Destination Port",
-    "Protocol",
-    "Bytes",
-    "Packets",
-    "Flow Start Time",
-    "Flow End Time",
-    "Input Interface",
-    "Output Interface",
-  ];
-  const fieldKeys = [
-    "network_flow.src_ip",
-    "network_flow.dst_ip",
-    "network_flow.src_port",
-    "network_flow.dst_port",
-    "network_flow.ip_protocol",
-    "network_flow.bytes_count",
-    "network_flow.packets_count",
-    "network_flow.flow_start_utc",
-    "network_flow.flow_end_utc",
-    "network_flow.input_interface",
-    "network_flow.output_interface",
-  ];
-  const transforms: Record<string, string> = {
-    "network_flow.src_ip": "ip_literal_v1",
-    "network_flow.dst_ip": "ip_literal_v1",
-    "network_flow.src_port": "port_number_v1",
-    "network_flow.dst_port": "port_number_v1",
-    "network_flow.ip_protocol": "protocol_number_or_token_v1",
-    "network_flow.bytes_count": "uint64_decimal_string_v1",
-    "network_flow.packets_count": "uint64_decimal_string_v1",
-    "network_flow.flow_start_utc": "timestamp_profile_v1",
-    "network_flow.flow_end_utc": "timestamp_profile_v1",
-    "network_flow.input_interface": "trim_ascii_space_v1",
-    "network_flow.output_interface": "trim_ascii_space_v1",
-  };
-  return {
-    client_txn_id: clientTxnId,
-    target_kind: "network_flow_table",
-    extension_profile_id: networkFlowActivityProfileId,
-    owner_mapping_schema_id: "cartulary.network_flow.mapping_candidate.v1",
-    owner_mapping: {
-      schema_id: "cartulary.network_flow.mapping_candidate.v1",
-      target_kind: "network_flow_table",
-      target_table_schema_id: "cartulary.network_flow_table.v1",
-      source_profile_id: "cisco_sna_netflow_csv_v1",
-      parser_profile_id: "rfc4180_headered_csv_v1",
-      unknown_column_policy: "preserve_unmapped_raw",
-      timestamp_profile: {
-        schema_id: "cartulary.network_flow.timestamp_profile.v1",
-        mode: "rfc3339",
-        precision: "seconds",
-        timezone: null,
-        timezone_ruleset_id: null,
-        ambiguous_local_time_policy: "reject",
-        local_time_gap_policy: "reject",
-      },
-      field_mappings: fieldKeys.map((fieldKey, index) => ({
-        mapping_kind: "source_column",
-        field_key: fieldKey,
-        source_column_ordinal: index + 1,
-        transform_id: transforms[fieldKey],
-        empty_value_policy:
-          fieldKey === "network_flow.input_interface" ||
-          fieldKey === "network_flow.output_interface"
-            ? "empty_string_is_null"
-            : "empty_string_is_invalid",
-        combinability: "single_source_only",
-      })),
-    },
-    header_row_ref: 1,
-    data_start_row_ref: 2,
-    source_columns: headers.map((header, index) => ({
-      source_column_ordinal: index + 1,
-      source_header_text: header,
-      field_key: null,
-      entity_binding_mode: null,
-      transform_id: null,
-      transform_options: {},
-      empty_value_policy: "omit_field",
-    })),
-  };
 }

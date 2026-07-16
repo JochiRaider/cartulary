@@ -8,13 +8,16 @@ import {
   type GraphQueryRequest,
   type GraphQueryResult,
   type GraphSemanticQuery,
+  type ImportPreviewResult,
   type IndicatorLinkRequest,
   type IndicatorLinkResult,
+  type MappingCandidate,
   type NetworkFlowRow,
   type NetworkFlowRowRef,
   type NetworkFlowTable,
   networkFlowContractDescriptor,
   networkFlowDecoders,
+  networkFlowMappingRegistry,
   type PagingMeta,
   type RejectedRowDiagnostic,
   type RejectedRowsQueryRequest,
@@ -36,11 +39,14 @@ export type NetworkFlowGraphQueryRequest = GraphQueryRequest;
 export type NetworkFlowContributorQueryRequest = GraphContributorQueryRequest;
 export type NetworkFlowIndicatorLinkResult = IndicatorLinkResult;
 export type NetworkFlowIndicatorLinkRequest = IndicatorLinkRequest;
+export type NetworkFlowImportPreviewResult = ImportPreviewResult;
+export type NetworkFlowMappingCandidate = MappingCandidate;
 export type NetworkFlowPaging = PagingMeta;
 export type NetworkFlowRejectedRowsQueryRequest = RejectedRowsQueryRequest;
 export type NetworkFlowTableQueryRequest = TableQueryRequest;
 
 export { networkFlowContractDescriptor };
+export const networkFlowMappingMetadata = networkFlowMappingRegistry;
 
 const supportedNetworkFlowContractMajors = new Set([1]);
 
@@ -120,4 +126,10 @@ export function decodeNetworkFlowIndicatorLinkResult(
   value: unknown,
 ): IndicatorLinkResult {
   return decodeOrThrow(networkFlowDecoders.indicatorLinkResult, value);
+}
+
+export function decodeNetworkFlowImportPreviewResult(
+  value: unknown,
+): ImportPreviewResult {
+  return decodeOrThrow(networkFlowDecoders.importPreviewResult, value);
 }

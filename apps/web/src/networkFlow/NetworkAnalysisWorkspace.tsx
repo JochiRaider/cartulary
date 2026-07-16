@@ -16,6 +16,7 @@ import {
 import { type CSSProperties, useCallback, useRef, useState } from "react";
 import { IncidentCollaborationBoundary } from "../collaboration/IncidentCollaborationSession";
 import type { WorkbookIncidentRole } from "../shared/workbookShellContracts";
+import { NetworkFlowMappingModal } from "./NetworkFlowMappingModal";
 import type {
   NetworkFlowContributor,
   NetworkFlowDiagnostic,
@@ -298,6 +299,25 @@ function NetworkAnalysisWorkspaceContent({
           <span style={errorTextStyle}>{visibleError}</span>
         ) : null}
       </div>
+      {importController.mappingOpen &&
+      importController.discovery !== null &&
+      importController.draft !== null ? (
+        <NetworkFlowMappingModal
+          canApply={importController.canApply}
+          discovery={importController.discovery}
+          draft={importController.draft}
+          preview={importController.preview}
+          stage={importController.stage}
+          onApply={() => {
+            void importController.apply();
+          }}
+          onCancel={importController.reset}
+          onDraftChange={importController.updateDraft}
+          onPreview={() => {
+            void importController.requestPreview();
+          }}
+        />
+      ) : null}
     </section>
   );
 }

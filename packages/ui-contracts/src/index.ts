@@ -290,6 +290,15 @@ export type NetworkAnalysisSelector =
   | "graph-panel"
   | "import-input"
   | "import-trigger"
+  | "mapping-apply"
+  | "mapping-dialog"
+  | "mapping-display-name"
+  | "mapping-preview"
+  | "mapping-preview-summary"
+  | "mapping-profile"
+  | "mapping-timestamp-mode"
+  | "mapping-timezone"
+  | "mapping-unknown-policy"
   | "mode-graph"
   | "mode-rejected"
   | "mode-rows"
@@ -726,6 +735,15 @@ export function networkAnalysisEdgeTestId(edgeId: string): StableTestId {
 
 export function networkAnalysisRowTestId(rowId: string): StableTestId {
   return stableTestId(encodedTestId("network-flow-row", rowId, "row_id"));
+}
+
+export function networkAnalysisMappingColumnTestId(
+  sourceColumnOrdinal: number,
+): StableTestId {
+  if (!Number.isSafeInteger(sourceColumnOrdinal) || sourceColumnOrdinal < 1) {
+    throw new Error("source_column_ordinal must be a positive safe integer");
+  }
+  return stableTestId(`network-flow-mapping-column-${sourceColumnOrdinal}`);
 }
 
 export function workbookAddRowButtonTestId(

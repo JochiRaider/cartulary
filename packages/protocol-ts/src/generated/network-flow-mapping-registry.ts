@@ -23,6 +23,7 @@ export const networkFlowMappingRegistry = {
       "default_unknown_column_policy": "preserve_unmapped_raw",
       "supported_unknown_column_policies": [
         "preserve_unmapped_raw",
+        "reject_unmapped_columns",
         "ignore_unmapped_columns"
       ],
       "default_timestamp_profile": {

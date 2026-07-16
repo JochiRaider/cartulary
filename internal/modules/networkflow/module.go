@@ -38,7 +38,7 @@ type ModuleDependencies struct {
 // sibling stores independently.
 type Module struct {
 	store           *Store
-	importOwner     imports.ExtensionImportApplyFacade
+	importOwner     imports.ExtensionImportFacade
 	cursorProtector CursorProtector
 	safeDigester    SafeDigester
 	limits          Limits
@@ -91,7 +91,7 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 	return module, nil
 }
 
-func (m *Module) ImportOwner() imports.ExtensionImportApplyFacade {
+func (m *Module) ImportOwner() imports.ExtensionImportFacade {
 	if m == nil {
 		return nil
 	}

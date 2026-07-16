@@ -24,22 +24,34 @@ export function useNetworkFlowTableController({
   );
   const [error, setError] = useState<string | null>(null);
 
-  const loadTables = useCallback(async () => {
-    setLoadState((current) => (current === "ready" ? current : "loading"));
-    try {
-      const nextTables = await listNetworkFlowTables({ apiBase, incidentId });
-      dispatch({ type: "replace_tables", tables: nextTables });
-      setLoadState("ready");
-      setError(null);
-    } catch (caught) {
-      const message = caught instanceof Error ? caught.message : "load_failed";
-      if (isNetworkFlowAuthorizationLoss(message)) {
-        onIncidentAccessLost?.();
+  const loadTables = useCallback(
+    async (selectTableId?: string) => {
+      setLoadState((current) => (current === "ready" ? current : "loading"));
+      try {
+        const nextTables = await listNetworkFlowTables({ apiBase, incidentId });
+        dispatch({ type: "replace_tables", tables: nextTables });
+        if (
+          selectTableId !== undefined &&
+          nextTables.some(
+            (table) => table.network_flow_table_id === selectTableId,
+          )
+        ) {
+          dispatch({ type: "select_table", tableId: selectTableId });
+        }
+        setLoadState("ready");
+        setError(null);
+      } catch (caught) {
+        const message =
+          caught instanceof Error ? caught.message : "load_failed";
+        if (isNetworkFlowAuthorizationLoss(message)) {
+          onIncidentAccessLost?.();
+        }
+        setLoadState("error");
+        setError(message);
       }
-      setLoadState("error");
-      setError(message);
-    }
-  }, [apiBase, incidentId, onIncidentAccessLost]);
+    },
+    [apiBase, incidentId, onIncidentAccessLost],
+  );
 
   useEffect(() => {
     void loadTables();

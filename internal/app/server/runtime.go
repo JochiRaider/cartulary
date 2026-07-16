@@ -299,14 +299,14 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	return runtime, nil
 }
 
-func mergeNetworkFlowImportFacadeOverride(overrides map[string]any, facade imports.ExtensionImportApplyFacade) map[string]any {
+func mergeNetworkFlowImportFacadeOverride(overrides map[string]any, facade imports.ExtensionImportFacade) map[string]any {
 	merged := map[string]any{}
 	for key, value := range overrides {
 		merged[key] = value
 	}
-	facades := map[string]imports.ExtensionImportApplyFacade{}
-	if existing, ok := overrides[imports.ExtensionApplyFacadesOverrideKey]; ok && existing != nil {
-		typed, ok := existing.(map[string]imports.ExtensionImportApplyFacade)
+	facades := map[string]imports.ExtensionImportFacade{}
+	if existing, ok := overrides[imports.ExtensionImportFacadesOverrideKey]; ok && existing != nil {
+		typed, ok := existing.(map[string]imports.ExtensionImportFacade)
 		if !ok {
 			return merged
 		}
@@ -315,9 +315,9 @@ func mergeNetworkFlowImportFacadeOverride(overrides map[string]any, facade impor
 		}
 	}
 	if facade != nil {
-		facades[imports.ExtensionApplyFacadeKey(imports.ImportTargetKindNetworkFlowTable, imports.NetworkFlowExtensionProfileID)] = facade
+		facades[imports.ExtensionImportFacadeKey(imports.ImportTargetKindNetworkFlowTable, imports.NetworkFlowExtensionProfileID)] = facade
 	}
-	merged[imports.ExtensionApplyFacadesOverrideKey] = facades
+	merged[imports.ExtensionImportFacadesOverrideKey] = facades
 	return merged
 }
 

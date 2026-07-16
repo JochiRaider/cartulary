@@ -97,15 +97,17 @@ or `view_schema` owner. Workbook composition consumes it only through
 | File | Responsibility |
 | --- | --- |
 | `networkFlow/NetworkAnalysisWorkspace.tsx` | Network Analysis presentation/composition facade over feature-specific controllers. |
+| `networkFlow/NetworkFlowMappingModal.tsx` | Explicit ordinal-aware Network Flow mapping, safe preview, and approval dialog. |
 | `networkFlow/networkFlowBoundaryPolicy.test.ts` | Static enforcement for controller composition, generated-decoder ownership, and browser projection-input exclusion. |
 | `networkFlow/networkFlowClient.ts` | Network Flow route builders and decoded feature client operations. |
 | `networkFlow/networkFlowCollaborationInterpreter.ts` | Feature-local interpreter for decoded Network Flow extension invalidation/removal events. |
 | `networkFlow/networkFlowController.ts` | Pure Network Flow table selection and refresh/removal state reducer. |
 | `networkFlow/networkFlowErrors.ts` | Feature-local authorization-loss classification shared by query controllers. |
+| `networkFlow/networkFlowImportModel.ts` | Generated-registry mapping suggestions and candidate construction for discovered source ordinals. |
 | `networkFlow/useNetworkFlowCollaborationController.ts` | Owner invalidation/removal effects over the shared collaboration session. |
 | `networkFlow/useNetworkFlowExtensionEvents.ts` | Network Flow subscription adapter over the shared incident collaboration session. |
 | `networkFlow/useNetworkFlowGraphController.ts` | Graph and contributor query state, cancellation, selection, and stale-result rejection. |
-| `networkFlow/useNetworkFlowImportController.ts` | Network Flow import command/progress/error controller. |
+| `networkFlow/useNetworkFlowImportController.ts` | Staged Network Flow discovery, preview, fingerprint-bound approval/apply, and returned-table selection controller. |
 | `networkFlow/useNetworkFlowIndicatorLinkController.ts` | Explicit graph-edge indicator-link command controller. |
 | `networkFlow/useNetworkFlowRejectedRowsController.ts` | Rejected-row query state and cancellation controller. |
 | `networkFlow/useNetworkFlowRowsController.ts` | Accepted table-row query state and cancellation controller. |
@@ -114,6 +116,7 @@ or `view_schema` owner. Workbook composition consumes it only through
 | `networkFlow/networkFlowClient.test.ts` | Network Flow decoded client and request-boundary tests. |
 | `networkFlow/networkFlowCollaborationInterpreter.test.ts` | Network Flow collaboration event admission tests. |
 | `networkFlow/networkFlowController.test.ts` | Network Flow controller lifecycle tests. |
+| `networkFlow/networkFlowImportModel.test.ts` | Ordinal identity, registry suggestion, policy-accounting, and timestamp candidate tests. |
 | `networkFlow/useNetworkFlowExtensionEvents.test.tsx` | Shared-session Network Flow reconnect and sequence-deduplication tests. |
 
 ## `services/`
@@ -141,8 +144,8 @@ specific.
 | File | Responsibility |
 | --- | --- |
 | `shared/publicError.ts` | Shared public-error normalization helpers. |
-| `shared/importCoordinator.ts` | Import-session orchestration shared by extension import clients while source/target policy stays feature-owned. |
-| `shared/importCoordinator.test.ts` | Characterization tests for import upload, discovery, mapping, selection, apply, CSRF, and public-error boundaries. |
+| `shared/importCoordinator.ts` | Three-stage extension import discovery, side-effect-free owner preview, and fingerprint-bound approval/apply orchestration. |
+| `shared/importCoordinator.test.ts` | Characterization tests for exact preview/approval request boundaries, discovered ordinals, stale fingerprints, CSRF, and public errors. |
 | `shared/workbookSheetRef.ts` | Shared workbook sheet-reference contract and runtime guard. |
 | `shared/workbookShellContracts.ts` | Shared app/workbook shell contracts for account identity, application menu handoff, and incident-controls renderer props. |
 

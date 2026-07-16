@@ -1,5 +1,6 @@
 import {
   networkAnalysisEdgeTestId,
+  networkAnalysisTableTabTestId,
   networkAnalysisTestId,
 } from "@cartulary/ui-contracts";
 import {
@@ -105,7 +106,249 @@ describe("NetworkAnalysisWorkspace", () => {
       screen.queryByTestId(networkAnalysisTestId("import-trigger")),
     ).toBeNull();
   });
+
+  it("previews an ordinal-aware mapping and selects the returned table resource", async () => {
+    const returnedTableId = "nft_22222222222222222222222222222222";
+    const fetchSpy = installImportFlowFetchMock(returnedTableId);
+
+    render(
+      <NetworkAnalysisWorkspace
+        currentIncidentRole="editor"
+        incidentId="incident-1"
+      />,
+    );
+
+    await screen.findAllByText("flows.csv");
+    fireEvent.change(
+      screen.getByTestId(networkAnalysisTestId("import-input")),
+      {
+        target: {
+          files: [
+            new File(["header\nvalue\n"], "new-flows.csv", {
+              type: "text/csv",
+            }),
+          ],
+        },
+      },
+    );
+
+    expect(
+      await screen.findByTestId(networkAnalysisTestId("mapping-dialog")),
+    ).toBeTruthy();
+    fireEvent.click(
+      screen.getByTestId(networkAnalysisTestId("mapping-preview")),
+    );
+    expect(
+      (
+        await screen.findByTestId(
+          networkAnalysisTestId("mapping-preview-summary"),
+        )
+      ).textContent,
+    ).toContain("1 accepted");
+    fireEvent.click(screen.getByTestId(networkAnalysisTestId("mapping-apply")));
+
+    await waitFor(() => {
+      expect(
+        screen
+          .getByTestId(networkAnalysisTableTabTestId(returnedTableId))
+          .getAttribute("aria-selected"),
+      ).toBe("true");
+    });
+    const previewCall = fetchSpy.mock.calls.find(([input]) =>
+      requestURL(input).endsWith("/mapping-preview"),
+    );
+    expect(JSON.parse(String(previewCall?.[1]?.body))).toEqual({
+      target_kind: "network_flow_table",
+      extension_profile_id: "network_flow_activity",
+      owner_mapping_schema_id: "cartulary.network_flow.mapping_candidate.v1",
+      owner_mapping: expect.objectContaining({
+        source_profile_id: "cisco_sna_netflow_csv_v1",
+      }),
+    });
+  });
 });
+
+function installImportFlowFetchMock(returnedTableId: string) {
+  let tableListRequests = 0;
+  const columns = importColumns();
+  const fetchSpy = vi.fn(
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = requestURL(input);
+      const method = init?.method ?? "GET";
+      if (
+        method === "GET" &&
+        url.endsWith("/api/v1/incidents/incident-1/network-flow/tables")
+      ) {
+        tableListRequests += 1;
+        const tables =
+          tableListRequests === 1
+            ? [tableResource()]
+            : [
+                tableResource(),
+                {
+                  ...tableResource(),
+                  network_flow_table_id: returnedTableId,
+                  display_name: "new-flows.csv",
+                  source_filename_display: "new-flows.csv",
+                },
+              ];
+        return jsonResponse({
+          schema_id: "cartulary.network_flow.table_list.v1",
+          tables,
+          meta: { count: tables.length },
+        });
+      }
+      if (method === "POST" && url.endsWith("/query")) {
+        const responseTableId = url.includes(returnedTableId)
+          ? returnedTableId
+          : tableId;
+        return jsonResponse({
+          schema_id: "cartulary.network_flow.table_query_result.v1",
+          network_flow_table_id: responseTableId,
+          rows: [],
+          meta: {
+            query: {
+              filters: [],
+              sort: [],
+              effective_sort: [],
+              table_ids: [responseTableId],
+            },
+            paging: {
+              limit: 50,
+              returned_count: 0,
+              next_cursor_token: null,
+            },
+          },
+        });
+      }
+      if (method === "POST" && url.endsWith("/api/v1/import-sessions")) {
+        return jsonResponse({ data: importJob("upload-job") });
+      }
+      if (method === "GET" && url.endsWith("/api/v1/jobs/upload-job")) {
+        return jsonResponse({
+          data: {
+            ...importJob("upload-job"),
+            result_summary: {
+              resource_refs: [{ kind: "import_session", id: "session-1" }],
+            },
+          },
+        });
+      }
+      if (method === "GET" && url.endsWith("/session-1/units")) {
+        return jsonResponse({
+          data: {
+            import_units: [
+              { import_session_id: "session-1", import_unit_id: "unit-1" },
+            ],
+          },
+        });
+      }
+      if (method === "GET" && url.endsWith("/unit-1/preview")) {
+        return jsonResponse({
+          data: {
+            import_session_id: "session-1",
+            import_unit_id: "unit-1",
+            header_row_ref: 1,
+            data_start_row_ref: 2,
+            columns,
+            preview_rows: [],
+          },
+        });
+      }
+      if (method === "POST" && url.endsWith("/mapping-preview")) {
+        const request = JSON.parse(String(init?.body)) as {
+          owner_mapping: Record<string, unknown>;
+        };
+        return jsonResponse({
+          data: {
+            schema_id: "cartulary.imports.extension_mapping_preview_result.v1",
+            import_session_id: "session-1",
+            import_unit_id: "unit-1",
+            target_kind: "network_flow_table",
+            extension_profile_id: "network_flow_activity",
+            owner_result_schema_id:
+              "cartulary.network_flow.import_preview_result.v1",
+            owner_result: importPreviewResult(request.owner_mapping),
+          },
+        });
+      }
+      if (method === "PUT" && url.endsWith("/mapping")) {
+        return jsonResponse({
+          data: {
+            import_session_id: "session-1",
+            import_unit_id: "unit-1",
+            mapping_fingerprint: mappingFingerprint,
+          },
+        });
+      }
+      if (method === "POST" && url.endsWith("/select")) {
+        return jsonResponse({ data: { selected: true } });
+      }
+      if (method === "POST" && url.endsWith("/session-1/apply")) {
+        return jsonResponse({ data: importJob("apply-job") });
+      }
+      if (method === "GET" && url.endsWith("/api/v1/jobs/apply-job")) {
+        return jsonResponse({
+          data: {
+            ...importJob("apply-job"),
+            result_summary: {
+              resource_refs: [
+                { kind: "network_flow_table", id: returnedTableId },
+              ],
+            },
+          },
+        });
+      }
+      return jsonResponse({ error: { code: "unexpected_request" } }, 404);
+    },
+  );
+  vi.stubGlobal("fetch", fetchSpy);
+  return fetchSpy;
+}
+
+function importColumns() {
+  return [
+    "Flow Start Time",
+    "Flow End Time",
+    "Source IP Address",
+    "Destination IP Address",
+    "Source Port",
+    "Destination Port",
+    "Protocol",
+    "Bytes",
+    "Packets",
+  ].map((sourceHeaderText, index) => ({
+    source_column_ordinal: index + 1,
+    source_header_text: sourceHeaderText,
+  }));
+}
+
+function importPreviewResult(ownerMapping: Record<string, unknown>) {
+  const sourceColumns = importColumns().map((column) => ({
+    source_column_ordinal: column.source_column_ordinal,
+    raw_header_text: column.source_header_text,
+    normalized_header_for_suggestion: column.source_header_text.toLowerCase(),
+    raw_header_sha256: sourceDigest,
+    sample_values: [{ safe_sample: "sample", raw_value_sha256: sourceDigest }],
+    detected_empty_count: 0,
+  }));
+  return {
+    schema_id: "cartulary.network_flow.import_preview_result.v1",
+    source_content_sha256: sourceDigest,
+    source_columns: sourceColumns,
+    materialized_mapping: { ...ownerMapping, source_columns: sourceColumns },
+    mapping_fingerprint: mappingFingerprint,
+    preview_record_count: 1,
+    preview_accepted_count: 1,
+    preview_rejected_count: 0,
+    diagnostics: [],
+    diagnostics_truncated: false,
+  };
+}
+
+function importJob(jobId: string) {
+  return { job_id: jobId, status: "succeeded", result_summary: null };
+}
 
 function installNetworkFlowFetchMock(options: { tables?: unknown[] } = {}) {
   const tables = options.tables ?? [tableResource()];

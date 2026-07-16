@@ -1,14 +1,19 @@
 package networkflow
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
@@ -20,6 +25,8 @@ type importFacade struct {
 	safeDigester SafeDigester
 }
 
+const importPreviewResultSchemaID = "cartulary.network_flow.import_preview_result.v1"
+
 func newImportFacade(store *Store, sourceStore ImportSourcePort, limits Limits, now func() time.Time, safeDigester SafeDigester) *importFacade {
 	return &importFacade{store: store, sourceStore: sourceStore, limits: limits.normalized(), now: now, safeDigester: safeDigester}
 }
@@ -27,6 +34,9 @@ func newImportFacade(store *Store, sourceStore ImportSourcePort, limits Limits, 
 func (f *importFacade) PrepareImportUnitMapping(ctx context.Context, request imports.ExtensionImportMappingRequest) (imports.ExtensionImportMappingResult, error) {
 	if f == nil || f.sourceStore == nil {
 		return imports.ExtensionImportMappingResult{}, applyBlocked("owner_apply_contract_unavailable")
+	}
+	if request.TargetKind != TargetKindNetworkFlowTable || request.ExtensionProfileID != ProfileID || request.OwnerMappingSchemaID != MappingCandidateSchemaID {
+		return imports.ExtensionImportMappingResult{}, applyBlocked("variant_member_conflict")
 	}
 	stream, err := f.sourceStore.OpenSourceStream(ctx, request.SourceCapability.SourceStreamRef)
 	if err != nil {
@@ -46,8 +56,12 @@ func (f *importFacade) PrepareImportUnitMapping(ctx context.Context, request imp
 	if err != nil {
 		return imports.ExtensionImportMappingResult{}, err
 	}
-	ownerResponse := map[string]any{
-		"schema_id":              "cartulary.network_flow.import_preview_result.v1",
+	diagnosticResources := make([]map[string]any, 0, len(diagnostics))
+	for _, diagnostic := range diagnostics {
+		diagnosticResources = append(diagnosticResources, diagnosticResource(diagnostic))
+	}
+	ownerResult := map[string]any{
+		"schema_id":              importPreviewResultSchemaID,
 		"source_content_sha256":  parsed.SourceContentSHA256,
 		"source_columns":         mapping.SourceColumns,
 		"materialized_mapping":   mapping,
@@ -55,14 +69,103 @@ func (f *importFacade) PrepareImportUnitMapping(ctx context.Context, request imp
 		"preview_record_count":   len(parsed.Records),
 		"preview_accepted_count": len(rows),
 		"preview_rejected_count": len(parsed.Records) - len(rows),
-		"diagnostics":            diagnostics,
+		"diagnostics":            diagnosticResources,
 		"diagnostics_truncated":  diagnosticsTruncated,
 	}
 	return imports.ExtensionImportMappingResult{
-		OwnerMapping:       MarshalApprovedMapping(mapping),
-		MappingFingerprint: fingerprint,
-		OwnerResponse:      ownerResponse,
+		OwnerMapping:        MarshalApprovedMapping(mapping),
+		MappingFingerprint:  fingerprint,
+		OwnerResultSchemaID: importPreviewResultSchemaID,
+		OwnerResult:         ownerResult,
 	}, nil
+}
+
+func (f *importFacade) ValidateImportUnitMappingResult(result imports.ExtensionImportMappingResult) error {
+	if result.OwnerResultSchemaID != importPreviewResultSchemaID || result.OwnerResult == nil {
+		return fmt.Errorf("network flow import preview result schema mismatch")
+	}
+	raw, err := json.Marshal(result.OwnerResult)
+	if err != nil {
+		return fmt.Errorf("marshal network flow import preview result: %w", err)
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	var payload struct {
+		SchemaID             string                   `json:"schema_id"`
+		SourceContentSHA256  string                   `json:"source_content_sha256"`
+		SourceColumns        []SourceColumnDescriptor `json:"source_columns"`
+		MaterializedMapping  json.RawMessage          `json:"materialized_mapping"`
+		MappingFingerprint   string                   `json:"mapping_fingerprint"`
+		PreviewRecordCount   int                      `json:"preview_record_count"`
+		PreviewAcceptedCount int                      `json:"preview_accepted_count"`
+		PreviewRejectedCount int                      `json:"preview_rejected_count"`
+		Diagnostics          []json.RawMessage        `json:"diagnostics"`
+		DiagnosticsTruncated bool                     `json:"diagnostics_truncated"`
+	}
+	if err := decoder.Decode(&payload); err != nil {
+		return fmt.Errorf("decode network flow import preview result: %w", err)
+	}
+	if payload.SchemaID != importPreviewResultSchemaID ||
+		!validLowerSHA256(payload.SourceContentSHA256) ||
+		!validLowerSHA256(payload.MappingFingerprint) ||
+		payload.MappingFingerprint != result.MappingFingerprint ||
+		payload.PreviewRecordCount < 0 || payload.PreviewRecordCount > 50 ||
+		payload.PreviewAcceptedCount < 0 || payload.PreviewRejectedCount < 0 ||
+		payload.PreviewAcceptedCount+payload.PreviewRejectedCount != payload.PreviewRecordCount ||
+		payload.DiagnosticsTruncated {
+		return fmt.Errorf("network flow import preview result failed semantic validation")
+	}
+	approved, err := DecodeApprovedMapping(payload.MaterializedMapping)
+	if err != nil {
+		return fmt.Errorf("validate network flow materialized preview mapping: %w", err)
+	}
+	if !sourceColumnsMatch(payload.SourceColumns, approved.SourceColumns) || MappingFingerprint(approved, payload.SourceContentSHA256) != payload.MappingFingerprint {
+		return fmt.Errorf("network flow import preview result fingerprint mismatch")
+	}
+	for index, column := range payload.SourceColumns {
+		if column.SourceColumnOrdinal != index+1 || !validLowerSHA256(column.RawHeaderSHA256) || column.SampleValues == nil {
+			return fmt.Errorf("network flow import preview source column %d is invalid", index+1)
+		}
+	}
+	for _, diagnostic := range payload.Diagnostics {
+		if err := validatePreviewDiagnosticShape(diagnostic); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validatePreviewDiagnosticShape(raw json.RawMessage) error {
+	object, err := httpapi.DecodeStrictJSONObject(bytes.NewReader(raw))
+	if err != nil {
+		return fmt.Errorf("network flow import preview diagnostic is not an object")
+	}
+	required := []string{
+		"diagnostic_id", "source_row_number", "source_column_ordinal", "raw_header_sha256", "field_key",
+		"error_code", "reason_code", "safe_sample", "raw_value_sha256", "message_key", "message_args", "message",
+		"limit_name", "limit_value", "actual_value",
+	}
+	if len(object) != len(required) {
+		return fmt.Errorf("network flow import preview diagnostic shape mismatch")
+	}
+	for _, member := range required {
+		if _, ok := object[member]; !ok {
+			return fmt.Errorf("network flow import preview diagnostic missing %s", member)
+		}
+	}
+	return nil
+}
+
+func validLowerSHA256(value string) bool {
+	if len(value) != 64 {
+		return false
+	}
+	for _, character := range value {
+		if !strings.ContainsRune("0123456789abcdef", character) {
+			return false
+		}
+	}
+	return true
 }
 
 func (f *importFacade) ApplyImportUnitTx(ctx context.Context, tx pgx.Tx, request imports.ExtensionImportApplyRequest) (imports.ExtensionImportApplyResult, error) {
@@ -71,6 +174,9 @@ func (f *importFacade) ApplyImportUnitTx(ctx context.Context, tx pgx.Tx, request
 	}
 	if f.safeDigester == nil {
 		return imports.ExtensionImportApplyResult{}, applyBlocked("owner_apply_contract_unavailable")
+	}
+	if request.TargetKind != TargetKindNetworkFlowTable || request.ExtensionProfileID != ProfileID || request.OwnerMappingSchemaID != MappingCandidateSchemaID {
+		return imports.ExtensionImportApplyResult{}, applyBlocked("variant_member_conflict")
 	}
 	if request.SourceCapability.SourceContentSHA256 != request.ExpectedSourceContentSHA256 {
 		return imports.ExtensionImportApplyResult{}, applyBlocked("source_changed")
@@ -215,9 +321,9 @@ func facadeError(err error) error {
 	var mappingErr *MappingValidationError
 	if errors.As(err, &mappingErr) {
 		if mappingErr.ReasonCode != "" {
-			return applyBlocked(mappingErr.ReasonCode)
+			return &imports.ApplyBlockedError{ReasonCode: mappingErr.ReasonCode, Field: mappingErr.FieldKey}
 		}
-		return applyBlocked(mappingErr.Code)
+		return &imports.ApplyBlockedError{ReasonCode: mappingErr.Code, Field: mappingErr.FieldKey}
 	}
 	return err
 }

@@ -39,6 +39,12 @@
     },
     {
       "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/networkFlowImportModel.test.ts",
+      "coverage": "unowned_regression",
+      "reason": "Generated-registry mapping suggestions, ordinal identity, unknown-column accounting, and timestamp candidate construction are direct Network Flow regression coverage; authoritative behavior remains owned by mapped Phase 12 rows."
+    },
+    {
+      "target": "frontend-unit",
       "file": "apps/web/src/collaboration/IncidentCollaborationSession.test.tsx",
       "coverage": "unowned_regression",
       "reason": "Shared collaboration-session lifecycle is direct product regression coverage; authoritative collaboration behavior remains owned by mapped Core phase rows."
@@ -1355,6 +1361,13 @@
       "title": "keeps the import entry role-gated",
       "coverage": "unowned_regression",
       "reason": "Network Analysis workspace role gating is intentional product regression coverage until the Phase 12 frontend selector promotion workstream maps it as authoritative evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
+      "title": "previews an ordinal-aware mapping and selects the returned table resource",
+      "coverage": "unowned_regression",
+      "reason": "The explicit Network Flow preview/approval workflow and exact returned-table selection are direct product regression coverage until Phase 12 frontend selector promotion maps them as authoritative evidence."
     },
     {
       "target": "frontend-unit",

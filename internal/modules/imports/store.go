@@ -37,6 +37,7 @@ func (e *StateConflictError) Unwrap() error {
 
 type ApplyBlockedError struct {
 	ReasonCode string
+	Field      string
 }
 
 func (e *ApplyBlockedError) Error() string {

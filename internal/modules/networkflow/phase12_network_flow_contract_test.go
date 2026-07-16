@@ -871,7 +871,6 @@ func phase12ApprovedMapping(sourceProfileID string) ApprovedMapping {
 		Combinability: "single_source_only",
 	})
 	return ApprovedMapping{
-		SchemaID:            ApprovedMappingSchemaID,
 		TargetKind:          TargetKindNetworkFlowTable,
 		TargetTableSchemaID: TargetTableSchemaID,
 		SourceProfileID:     sourceProfileID,

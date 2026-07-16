@@ -26,20 +26,20 @@ import (
 )
 
 type Service struct {
-	store                 *Store
-	incidentAccess        incidents.Access
-	authStore             *authn.Store
-	jobManager            *jobs.Manager
-	jobRunner             *jobs.Runner
-	timelineStore         *timeline.Facade
-	hub                   *platformws.Hub
-	keys                  authn.MasterKeys
-	cursorCodec           *pagination.Codec
-	limits                config.ImportLimits
-	archiveLimits         config.ArchiveLimits
-	extensionApplyFacades map[string]ExtensionImportApplyFacade
-	extensionProfiles     []httpapi.ExtensionProfile
-	now                   func() time.Time
+	store                  *Store
+	incidentAccess         incidents.Access
+	authStore              *authn.Store
+	jobManager             *jobs.Manager
+	jobRunner              *jobs.Runner
+	timelineStore          *timeline.Facade
+	hub                    *platformws.Hub
+	keys                   authn.MasterKeys
+	cursorCodec            *pagination.Codec
+	limits                 config.ImportLimits
+	archiveLimits          config.ArchiveLimits
+	extensionImportFacades map[string]ExtensionImportFacade
+	extensionProfiles      []httpapi.ExtensionProfile
+	now                    func() time.Time
 }
 
 func RegisterRoutes() httpapi.RouteRegistrar {
@@ -72,25 +72,25 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 	timelineStore := timeline.FacadeFromDependencies(deps)
-	extensionApplyFacades, err := extensionApplyFacadesFromDependencies(deps)
+	extensionImportFacades, err := extensionImportFacadesFromDependencies(deps)
 	if err != nil {
 		return nil, err
 	}
 	service := &Service{
-		store:                 NewStore(deps.Postgres),
-		incidentAccess:        incidents.NewAccess(deps.PostgresHandle()),
-		authStore:             authn.NewStore(deps.PostgresHandle()),
-		jobManager:            deps.Jobs,
-		jobRunner:             deps.JobRunner,
-		timelineStore:         timelineStore,
-		hub:                   deps.WSHub,
-		keys:                  keys,
-		cursorCodec:           cursorCodec,
-		limits:                deps.Config.Limits.Imports,
-		archiveLimits:         deps.Config.Limits.Archives,
-		extensionApplyFacades: extensionApplyFacades,
-		extensionProfiles:     httpapi.ResolveExtensionProfiles(deps.ExtensionProfiles),
-		now:                   now,
+		store:                  NewStore(deps.Postgres),
+		incidentAccess:         incidents.NewAccess(deps.PostgresHandle()),
+		authStore:              authn.NewStore(deps.PostgresHandle()),
+		jobManager:             deps.Jobs,
+		jobRunner:              deps.JobRunner,
+		timelineStore:          timelineStore,
+		hub:                    deps.WSHub,
+		keys:                   keys,
+		cursorCodec:            cursorCodec,
+		limits:                 deps.Config.Limits.Imports,
+		archiveLimits:          deps.Config.Limits.Archives,
+		extensionImportFacades: extensionImportFacades,
+		extensionProfiles:      httpapi.ResolveExtensionProfiles(deps.ExtensionProfiles),
+		now:                    now,
 	}
 	if err := service.registerJobHandlers(); err != nil {
 		return nil, err
@@ -346,6 +346,12 @@ func (s *Service) handleImportSessionsMember(w http.ResponseWriter, r *http.Requ
 			return
 		}
 		_ = httpapi.WriteSuccess(w, r, http.StatusOK, preview)
+	case "mapping_preview":
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		s.handleMappingPreview(w, r, principal, route)
 	case "mapping":
 		if r.Method != http.MethodPut {
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -373,6 +379,93 @@ func (s *Service) handleImportSessionsMember(w http.ResponseWriter, r *http.Requ
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+func (s *Service) handleMappingPreview(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, route importSessionRoute) {
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	_, incidentID, err := s.store.GetUnit(r.Context(), route.SessionID, route.UnitID)
+	if errors.Is(err, ErrNotFound) {
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}})
+		return
+	}
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	request, apiErr := DecodeMappingPreviewRequest(r.Body)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	mapping := ApprovedMapping{
+		TargetKind:           request.TargetKind,
+		ExtensionProfileID:   request.ExtensionProfileID,
+		OwnerMappingSchemaID: request.OwnerMappingSchemaID,
+		OwnerMapping:         append(json.RawMessage(nil), request.OwnerMapping...),
+	}
+	if apiErr := s.validateApprovedMapping(mapping); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	target, ok := lookupApprovedImportTarget(mapping)
+	if !ok {
+		writeAPIError(w, r, invalidImportRequest("target_kind", "target_kind_not_importable"))
+		return
+	}
+	facade := s.extensionImportFacades[extensionImportFacadeKey(target)]
+	if facade == nil {
+		writeAPIError(w, r, invalidImportRequest("target_kind", "owner_apply_contract_unavailable"))
+		return
+	}
+	sourceCapability, err := s.store.SourceCapabilityForUnit(r.Context(), route.SessionID, route.UnitID)
+	if errors.Is(err, ErrNotFound) {
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}})
+		return
+	}
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	result, err := facade.PrepareImportUnitMapping(r.Context(), ExtensionImportMappingRequest{
+		IncidentID:           incidentID,
+		ActorUserID:          principal.User.ID,
+		TargetKind:           request.TargetKind,
+		ExtensionProfileID:   request.ExtensionProfileID,
+		ImportSessionID:      route.SessionID,
+		ImportUnitID:         route.UnitID,
+		SourceCapability:     sourceCapability,
+		OwnerMappingSchemaID: request.OwnerMappingSchemaID,
+		OwnerMapping:         append(json.RawMessage(nil), request.OwnerMapping...),
+	})
+	if err != nil {
+		writeAPIError(w, r, extensionFacadeAPIError(err))
+		return
+	}
+	if err := facade.ValidateImportUnitMappingResult(result); err != nil {
+		writeAPIError(w, r, internalAPIError(fmt.Errorf("extension mapping preview result validation failed: %w", err)))
+		return
+	}
+	resource := ExtensionMappingPreviewResource{
+		SchemaID:            ExtensionMappingPreviewResultSchemaID,
+		ImportSessionID:     route.SessionID.String(),
+		ImportUnitID:        route.UnitID.String(),
+		TargetKind:          request.TargetKind,
+		ExtensionProfileID:  request.ExtensionProfileID,
+		OwnerResultSchemaID: result.OwnerResultSchemaID,
+		OwnerResult:         result.OwnerResult,
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, resource)
 }
 
 func (s *Service) handleMapping(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, route importSessionRoute) {
@@ -542,7 +635,7 @@ func (s *Service) prepareApprovedMapping(ctx context.Context, actorUserID uuid.U
 	if !ok {
 		return MappingRequest{}, invalidImportRequest("target_kind", "target_kind_not_importable")
 	}
-	facade := s.extensionApplyFacades[extensionImportFacadeKey(target)]
+	facade := s.extensionImportFacades[extensionImportFacadeKey(target)]
 	if facade == nil {
 		return MappingRequest{}, invalidImportRequest("target_kind", "owner_apply_contract_unavailable")
 	}
@@ -566,9 +659,12 @@ func (s *Service) prepareApprovedMapping(ctx context.Context, actorUserID uuid.U
 		ClientTxnID:          request.ClientTxnID,
 	})
 	if err != nil {
-		return MappingRequest{}, invalidImportRequest("owner_mapping", extensionFacadeReasonCode(err))
+		return MappingRequest{}, extensionFacadeAPIError(err)
 	}
-	if len(result.OwnerMapping) == 0 || result.MappingFingerprint == "" {
+	if err := facade.ValidateImportUnitMappingResult(result); err != nil {
+		return MappingRequest{}, internalAPIError(fmt.Errorf("extension mapping preview result validation failed: %w", err))
+	}
+	if len(result.OwnerMapping) == 0 || result.MappingFingerprint == "" || result.OwnerResultSchemaID == "" || result.OwnerResult == nil {
 		return MappingRequest{}, internalAPIError(fmt.Errorf("extension mapping facade returned incomplete mapping result"))
 	}
 	request.ApprovedMapping.OwnerMapping = append(json.RawMessage(nil), result.OwnerMapping...)
@@ -630,12 +726,16 @@ func (s *Service) validateApprovedMapping(mapping ApprovedMapping) *httpapi.APIE
 	return nil
 }
 
-func extensionFacadeReasonCode(err error) string {
+func extensionFacadeAPIError(err error) *httpapi.APIError {
 	var applyBlocked *ApplyBlockedError
 	if errors.As(err, &applyBlocked) && applyBlocked.ReasonCode != "" {
-		return applyBlocked.ReasonCode
+		field := "owner_mapping"
+		if applyBlocked.Field != "" {
+			field = applyBlocked.Field
+		}
+		return invalidImportRequest(field, applyBlocked.ReasonCode)
 	}
-	return "owner_mapping_invalid"
+	return invalidImportRequest("owner_mapping", "owner_mapping_invalid")
 }
 
 func (s *Service) executeApplyJob(ctx context.Context, jobID uuid.UUID) error {
@@ -1227,6 +1327,13 @@ func parseImportSessionPath(path string) (importSessionRoute, bool) {
 			return importSessionRoute{}, false
 		}
 		return importSessionRoute{Kind: "preview", SessionID: sessionID, UnitID: unitID}, true
+	}
+	if len(parts) == 4 && parts[1] == "units" && parts[3] == "mapping-preview" {
+		unitID, err := uuid.Parse(parts[2])
+		if err != nil {
+			return importSessionRoute{}, false
+		}
+		return importSessionRoute{Kind: "mapping_preview", SessionID: sessionID, UnitID: unitID}, true
 	}
 	if len(parts) == 4 && parts[1] == "units" && parts[3] == "mapping" {
 		unitID, err := uuid.Parse(parts[2])

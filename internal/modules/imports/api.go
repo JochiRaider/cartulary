@@ -1,6 +1,7 @@
 package imports
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -35,6 +36,8 @@ const (
 	ImportTargetKindViewSchema       = "view_schema"
 	ImportTargetKindNetworkFlowTable = "network_flow_table"
 	NetworkFlowExtensionProfileID    = "network_flow_activity"
+
+	ExtensionMappingPreviewResultSchemaID = "cartulary.imports.extension_mapping_preview_result.v1"
 )
 
 var ImportSessionFileContentTypes = []string{
@@ -83,6 +86,23 @@ type MappingRequest struct {
 	ApprovedMapping ApprovedMapping
 	Fingerprint     string
 	Normalized      []byte
+}
+
+type MappingPreviewRequest struct {
+	TargetKind           string
+	ExtensionProfileID   string
+	OwnerMappingSchemaID string
+	OwnerMapping         json.RawMessage
+}
+
+type ExtensionMappingPreviewResource struct {
+	SchemaID            string         `json:"schema_id"`
+	ImportSessionID     string         `json:"import_session_id"`
+	ImportUnitID        string         `json:"import_unit_id"`
+	TargetKind          string         `json:"target_kind"`
+	ExtensionProfileID  string         `json:"extension_profile_id"`
+	OwnerResultSchemaID string         `json:"owner_result_schema_id"`
+	OwnerResult         map[string]any `json:"owner_result"`
 }
 
 type ActionRequest struct {
@@ -281,6 +301,60 @@ func DecodeMappingRequest(reader io.Reader, discoveredColumns []map[string]any) 
 		return MappingRequest{}, internalAPIError(err)
 	}
 	return request, nil
+}
+
+func DecodeMappingPreviewRequest(reader io.Reader) (MappingPreviewRequest, *httpapi.APIError) {
+	raw, apiErr := decodeJSONObject(reader)
+	if apiErr != nil {
+		return MappingPreviewRequest{}, apiErr
+	}
+	allowed := map[string]struct{}{
+		"target_kind":             {},
+		"extension_profile_id":    {},
+		"owner_mapping_schema_id": {},
+		"owner_mapping":           {},
+	}
+	for key := range raw {
+		if _, ok := allowed[key]; !ok {
+			return MappingPreviewRequest{}, invalidImportRequest(key, "unknown_field")
+		}
+	}
+	request := MappingPreviewRequest{}
+	if apiErr := decodeRequiredImportString(raw, "target_kind", &request.TargetKind); apiErr != nil {
+		return MappingPreviewRequest{}, apiErr
+	}
+	if apiErr := decodeRequiredImportString(raw, "extension_profile_id", &request.ExtensionProfileID); apiErr != nil {
+		return MappingPreviewRequest{}, apiErr
+	}
+	if apiErr := decodeRequiredImportString(raw, "owner_mapping_schema_id", &request.OwnerMappingSchemaID); apiErr != nil {
+		return MappingPreviewRequest{}, apiErr
+	}
+	ownerMapping, ok := raw["owner_mapping"]
+	if !ok {
+		return MappingPreviewRequest{}, invalidImportRequest("owner_mapping", "missing_required_field")
+	}
+	if bytesEqualJSONNull(ownerMapping) {
+		return MappingPreviewRequest{}, invalidImportRequest("owner_mapping", "field_not_nullable")
+	}
+	if _, err := httpapi.DecodeStrictJSONObject(bytes.NewReader(ownerMapping)); err != nil {
+		return MappingPreviewRequest{}, invalidImportRequest("owner_mapping", "invalid_value")
+	}
+	request.OwnerMapping = append(json.RawMessage(nil), ownerMapping...)
+	return request, nil
+}
+
+func decodeRequiredImportString(raw map[string]json.RawMessage, field string, destination *string) *httpapi.APIError {
+	value, ok := raw[field]
+	if !ok {
+		return invalidImportRequest(field, "missing_required_field")
+	}
+	if bytesEqualJSONNull(value) {
+		return invalidImportRequest(field, "field_not_nullable")
+	}
+	if err := json.Unmarshal(value, destination); err != nil || strings.TrimSpace(*destination) == "" {
+		return invalidImportRequest(field, "invalid_value")
+	}
+	return nil
 }
 
 func normalizedMappingPayload(request MappingRequest) map[string]any {

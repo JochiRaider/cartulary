@@ -22,6 +22,7 @@ import { networkFlowPresentationRegistry } from "./generated/network-flow-presen
 import type {
   GraphContributorQueryResult,
   GraphQueryResult,
+  ImportPreviewResult,
   IndicatorLinkResult,
   RejectedRowsQueryResult,
   TableList,
@@ -368,6 +369,9 @@ export const networkFlowDecoders = Object.freeze({
     ),
   indicatorLinkResult: createGeneratedDecoder<IndicatorLinkResult>(
     "cartulary.network_flow.indicator_link_result.v1",
+  ),
+  importPreviewResult: createGeneratedDecoder<ImportPreviewResult>(
+    "cartulary.network_flow.import_preview_result.v1",
   ),
 });
 

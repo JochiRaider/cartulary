@@ -13,7 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
-const ExtensionApplyFacadesOverrideKey = "imports.extension_apply_facades"
+const ExtensionImportFacadesOverrideKey = "imports.extension_import_facades"
 
 type ExtensionImportApplyRequest struct {
 	IncidentID                  uuid.UUID
@@ -44,9 +44,10 @@ type ExtensionImportMappingRequest struct {
 }
 
 type ExtensionImportMappingResult struct {
-	OwnerMapping       json.RawMessage
-	MappingFingerprint string
-	OwnerResponse      map[string]any
+	OwnerMapping        json.RawMessage
+	MappingFingerprint  string
+	OwnerResultSchemaID string
+	OwnerResult         map[string]any
 }
 
 type ExtensionImportApplyResult struct {
@@ -54,18 +55,19 @@ type ExtensionImportApplyResult struct {
 	OwnerResponse map[string]any
 }
 
-type ExtensionImportApplyFacade interface {
+type ExtensionImportFacade interface {
 	PrepareImportUnitMapping(context.Context, ExtensionImportMappingRequest) (ExtensionImportMappingResult, error)
+	ValidateImportUnitMappingResult(ExtensionImportMappingResult) error
 	ApplyImportUnitTx(context.Context, pgx.Tx, ExtensionImportApplyRequest) (ExtensionImportApplyResult, error)
 }
 
-func extensionApplyFacadesFromDependencies(deps httpapi.DependencySet) (map[string]ExtensionImportApplyFacade, error) {
-	facades := map[string]ExtensionImportApplyFacade{}
-	override, ok := deps.ModuleOverrides[ExtensionApplyFacadesOverrideKey]
+func extensionImportFacadesFromDependencies(deps httpapi.DependencySet) (map[string]ExtensionImportFacade, error) {
+	facades := map[string]ExtensionImportFacade{}
+	override, ok := deps.ModuleOverrides[ExtensionImportFacadesOverrideKey]
 	if !ok || override == nil {
 		return facades, nil
 	}
-	typed, ok := override.(map[string]ExtensionImportApplyFacade)
+	typed, ok := override.(map[string]ExtensionImportFacade)
 	if !ok {
 		return nil, fmt.Errorf("imports extension apply facades override has type %T", override)
 	}
@@ -77,16 +79,16 @@ func extensionApplyFacadesFromDependencies(deps httpapi.DependencySet) (map[stri
 	return facades, nil
 }
 
-func ExtensionApplyFacadeKey(targetKind string, extensionProfileID string) string {
+func ExtensionImportFacadeKey(targetKind string, extensionProfileID string) string {
 	return targetKind + ":" + extensionProfileID
 }
 
 func extensionImportFacadeKey(target importTarget) string {
-	return ExtensionApplyFacadeKey(target.TargetKind, target.ExtensionProfileID)
+	return ExtensionImportFacadeKey(target.TargetKind, target.ExtensionProfileID)
 }
 
 func (s *Service) applyExtensionOwnerUnit(ctx context.Context, actor authn.UserRecord, start ApplyStartResult, unit ApplyUnitData, target importTarget) ([]jobs.ResourceRef, error) {
-	facade := s.extensionApplyFacades[extensionImportFacadeKey(target)]
+	facade := s.extensionImportFacades[extensionImportFacadeKey(target)]
 	if facade == nil {
 		return nil, importApplyBlockedError("owner_apply_contract_unavailable")
 	}

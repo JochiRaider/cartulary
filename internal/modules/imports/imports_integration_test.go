@@ -438,7 +438,7 @@ func TestNetworkFlowImportMappingAndApplyCreatesOneAtomicTable(t *testing.T) {
 
 	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "network-flow-import-apply")
-	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-network-flow-import-incident",
 		"incident_key":  "IR-NF-IMPORT",
@@ -451,12 +451,71 @@ func TestNetworkFlowImportMappingAndApplyCreatesOneAtomicTable(t *testing.T) {
 		"192.0.2.11,192.0.2.12,53,53000,UDP,64,1,2026-07-10T12:01:00Z,2026-07-10T12:01:00Z,,",
 	}, "\n") + "\n"
 	sessionID, unitID := startCSVImportSession(t, harness.Server.HTTP.URL, adminLogin, incidentID, "txn-network-flow-import-upload", csv, "C:\\tmp\\flows.csv")
+	previewPayload := networkFlowMappingPreviewPayload()
+	beforePreviewIdempotency := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency`)
+	invalidPreviewPayload := cloneImportMappingPayload(t, previewPayload)
+	invalidPreviewPayload["client_txn_id"] = "preview-must-not-have-a-transaction"
+	invalidPreviewResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping-preview", invalidPreviewPayload)
+	invalidPreviewError := httptestx.RequireErrorEnvelope(t, invalidPreviewResp, http.StatusBadRequest, "invalid_import_request")
+	if invalidPreviewError["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "unknown_field" {
+		t.Fatalf("unexpected mapping preview closed-request rejection: %#v", invalidPreviewError)
+	}
+	if _, err := harness.DB.ExecContext(context.Background(), `
+UPDATE incident_memberships
+   SET role = 'viewer', updated_at = now(), updated_by_user_id = $2
+ WHERE incident_id::text = $1 AND user_id::text = $2
+`, incidentID, adminUserID); err != nil {
+		t.Fatalf("demote mapping preview actor: %v", err)
+	}
+	viewerPreviewResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping-preview", previewPayload)
+	httptestx.RequireErrorEnvelope(t, viewerPreviewResp, http.StatusForbidden, "authorization_denied")
+	if _, err := harness.DB.ExecContext(context.Background(), `
+UPDATE incident_memberships
+   SET role = 'admin', updated_at = now(), updated_by_user_id = $2
+ WHERE incident_id::text = $1 AND user_id::text = $2
+`, incidentID, adminUserID); err != nil {
+		t.Fatalf("restore mapping preview actor: %v", err)
+	}
+	previewResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping-preview", previewPayload)
+	previewResource := httptestx.RequireSuccessEnvelope(t, previewResp, http.StatusOK)["data"].(map[string]any)
+	if previewResource["schema_id"] != imports.ExtensionMappingPreviewResultSchemaID ||
+		previewResource["import_session_id"] != sessionID ||
+		previewResource["import_unit_id"] != unitID ||
+		previewResource["target_kind"] != imports.ImportTargetKindNetworkFlowTable ||
+		previewResource["extension_profile_id"] != imports.NetworkFlowExtensionProfileID ||
+		previewResource["owner_result_schema_id"] != "cartulary.network_flow.import_preview_result.v1" {
+		t.Fatalf("unexpected Network Flow mapping preview wrapper: %#v", previewResource)
+	}
+	ownerPreview := previewResource["owner_result"].(map[string]any)
+	previewFingerprint, _ := ownerPreview["mapping_fingerprint"].(string)
+	if len(previewFingerprint) != 64 || ownerPreview["preview_record_count"] != float64(2) || ownerPreview["preview_accepted_count"] != float64(2) || ownerPreview["preview_rejected_count"] != float64(0) {
+		t.Fatalf("unexpected Network Flow owner preview: %#v", ownerPreview)
+	}
+	replayedPreviewResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping-preview", previewPayload)
+	replayedPreview := httptestx.RequireSuccessEnvelope(t, replayedPreviewResp, http.StatusOK)["data"].(map[string]any)["owner_result"].(map[string]any)
+	if replayedPreview["mapping_fingerprint"] != previewFingerprint {
+		t.Fatalf("repeat preview changed fingerprint: first=%q second=%#v", previewFingerprint, replayedPreview)
+	}
+	unitResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units/"+unitID, nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	unitBeforeApproval := httptestx.RequireSuccessEnvelope(t, unitResp, http.StatusOK)["data"].(map[string]any)
+	if unitBeforeApproval["unit_status"] != "discovered" || unitBeforeApproval["mapping_fingerprint"] != nil || unitBeforeApproval["approved_mapping"] != nil {
+		t.Fatalf("mapping preview persisted durable unit state: %#v", unitBeforeApproval)
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency`); got != beforePreviewIdempotency {
+		t.Fatalf("mapping preview created an idempotency record: before=%d after=%d", beforePreviewIdempotency, got)
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM network_flow_tables WHERE incident_id::text = $1`, incidentID); got != 0 {
+		t.Fatalf("mapping preview allocated Network Flow tables: %d", got)
+	}
 
 	mappingResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPut, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping", networkFlowMappingPayload("txn-network-flow-import-mapping"))
 	mappedUnit := httptestx.RequireSuccessEnvelope(t, mappingResp, http.StatusOK)["data"].(map[string]any)
 	mappingFingerprint, _ := mappedUnit["mapping_fingerprint"].(string)
 	if len(mappingFingerprint) != 64 {
 		t.Fatalf("expected Network Flow mapping fingerprint, got %#v", mappedUnit)
+	}
+	if mappingFingerprint != previewFingerprint {
+		t.Fatalf("durable approval fingerprint %q does not match preview %q", mappingFingerprint, previewFingerprint)
 	}
 	approved := mappedUnit["approved_mapping"].(map[string]any)
 	if approved["target_kind"] != imports.ImportTargetKindNetworkFlowTable || approved["source_columns"] == nil {
@@ -811,18 +870,35 @@ func networkFlowMappingPayload(clientTxnID string) map[string]any {
 		"extension_profile_id":    imports.NetworkFlowExtensionProfileID,
 		"owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
 		"owner_mapping": map[string]any{
-			"schema_id":              "cartulary.network_flow.mapping_candidate.v1",
 			"target_kind":            imports.ImportTargetKindNetworkFlowTable,
 			"target_table_schema_id": "cartulary.network_flow_table.v1",
 			"source_profile_id":      "cisco_sna_netflow_csv_v1",
 			"parser_profile_id":      "rfc4180_headered_csv_v1",
 			"unknown_column_policy":  "preserve_unmapped_raw",
-			"timestamp_profile":      map[string]any{"schema_id": "cartulary.network_flow.timestamp_profile.v1", "mode": "rfc3339", "precision": "seconds"},
-			"field_mappings":         fieldMappings,
+			"timestamp_profile": map[string]any{
+				"schema_id":                   "cartulary.network_flow.timestamp_profile.v1",
+				"mode":                        "rfc3339",
+				"precision":                   "seconds",
+				"timezone":                    nil,
+				"timezone_ruleset_id":         nil,
+				"ambiguous_local_time_policy": "reject",
+				"local_time_gap_policy":       "reject",
+			},
+			"field_mappings": fieldMappings,
 		},
 		"header_row_ref":     1,
 		"data_start_row_ref": 2,
 		"source_columns":     sourceColumns,
+	}
+}
+
+func networkFlowMappingPreviewPayload() map[string]any {
+	approval := networkFlowMappingPayload("preview-does-not-use-client-transaction")
+	return map[string]any{
+		"target_kind":             approval["target_kind"],
+		"extension_profile_id":    approval["extension_profile_id"],
+		"owner_mapping_schema_id": approval["owner_mapping_schema_id"],
+		"owner_mapping":           approval["owner_mapping"],
 	}
 }
 

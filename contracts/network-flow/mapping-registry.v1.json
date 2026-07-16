@@ -19,7 +19,7 @@
       "conformance_status": "required_v1",
       "parser_profile_id": "rfc4180_headered_csv_v1",
       "default_unknown_column_policy": "preserve_unmapped_raw",
-      "supported_unknown_column_policies": ["preserve_unmapped_raw", "ignore_unmapped_columns"],
+      "supported_unknown_column_policies": ["preserve_unmapped_raw", "reject_unmapped_columns", "ignore_unmapped_columns"],
       "default_timestamp_profile": {
         "schema_id": "cartulary.network_flow.timestamp_profile.v1",
         "mode": "rfc3339",

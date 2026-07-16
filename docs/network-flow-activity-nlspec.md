@@ -666,7 +666,9 @@ label, and preserve §14.6 server order without client aggregation or sorting.
 
 **NF-REQ-054d**
 Network Flow grid rows are immutable and read-only. Authorized users MAY select
-ranges and copy canonical semantic scalar values. The workspace MUST NOT expose
+ranges and copy canonical semantic scalar values. Omission behavior: an
+authorized user who does not make a selection performs no copy action and no
+selection state is retained. The workspace MUST NOT expose
 editor, paste, fill, draft/create, row-reorder, bulk-selection, local
 authoritative filtering/sorting, or client aggregation behavior. Graph
 visualization remains Network Flow-owned and MUST NOT be compiled through the
