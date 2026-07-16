@@ -146,6 +146,42 @@ describe("Network Flow presentation metadata", () => {
     expect(dataRows[2]?.data).toBe(tableTwoRows[0]);
     expect(dataRows[3]?.data).toBe(tableTwoRows[1]);
   });
+
+  it("reuses grid-row wrappers only for unchanged owner objects and derived metadata", () => {
+    const first = contributorRow("nft_1", "nfr_1", 1);
+    const second = contributorRow("nft_1", "nfr_2", 2);
+    const initial = networkFlowRowsForGrid([first, second]);
+
+    const reordered = networkFlowRowsForGrid([second, first], initial);
+    expect(reordered[0]).toBe(initial[1]);
+    expect(reordered[1]).toBe(initial[0]);
+
+    const changed = { ...first, "network_flow.bytes_count": "2" };
+    const replaced = networkFlowRowsForGrid([changed], reordered);
+    expect(replaced[0]).not.toBe(initial[0]);
+    expect(replaced[0]?.data).toBe(changed);
+
+    const initialContributor = contributor(first);
+    const contributorRows = networkFlowContributorsForGrid([
+      initialContributor,
+    ]);
+    const sameContributorRows = networkFlowContributorsForGrid(
+      [initialContributor],
+      contributorRows,
+    );
+    expect(sameContributorRows[0]).toBe(contributorRows[0]);
+
+    const changedReference = {
+      ...initialContributor,
+      row_ref: { ...initialContributor.row_ref, source_row_number: 99 },
+    };
+    const changedContributorRows = networkFlowContributorsForGrid(
+      [changedReference],
+      contributorRows,
+    );
+    expect(changedContributorRows[0]).not.toBe(contributorRows[0]);
+    expect(changedContributorRows[0]?.gutterContent).toBe(99);
+  });
 });
 
 function requiredColumn(

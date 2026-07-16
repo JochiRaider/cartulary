@@ -20,7 +20,10 @@ import {
   type NetworkFlowRequestError,
   networkFlowErrorFromUnknown,
 } from "./networkFlowErrors";
-import type { NetworkFlowAcceptedQuery } from "./networkFlowQueryModel";
+import {
+  type NetworkFlowAcceptedQuery,
+  reconcileNetworkFlowContributors,
+} from "./networkFlowQueryModel";
 import type { NetworkFlowQueryLoadState } from "./useNetworkFlowPagedQuery";
 
 export type NetworkFlowGraphScopeMode =
@@ -241,7 +244,9 @@ export function useNetworkFlowGraphController({
         }
         const nextPaging = result.meta.paging;
         contributorPagingRef.current = nextPaging;
-        setContributors(result.contributors);
+        setContributors((current) =>
+          reconcileNetworkFlowContributors(current, result.contributors),
+        );
         setContributorPaging(nextPaging);
         setContributorLoadState("ready");
         onError(null);

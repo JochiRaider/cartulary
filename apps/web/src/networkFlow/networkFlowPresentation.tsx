@@ -116,8 +116,9 @@ export function compileNetworkFlowColumns<Row extends object>(options: {
 
 export function networkFlowContributorsForGrid(
   contributors: readonly NetworkFlowContributor[],
+  previous: readonly GridDataRow<NetworkFlowRow>[] = [],
 ): readonly GridDataRow<NetworkFlowRow>[] {
-  return contributors.map((contributor) => ({
+  return reconcileGridDataRows(previous, contributors, (contributor) => ({
     kind: "data" as const,
     rowIdentity: {
       kind: "extension_resource" as const,
@@ -134,8 +135,9 @@ export function networkFlowContributorsForGrid(
 
 export function networkFlowRowsForGrid(
   rows: readonly NetworkFlowRow[],
+  previous: readonly GridDataRow<NetworkFlowRow>[] = [],
 ): readonly GridDataRow<NetworkFlowRow>[] {
-  return rows.map((row) => ({
+  return reconcileGridDataRows(previous, rows, (row) => ({
     kind: "data",
     rowIdentity: {
       kind: "extension_resource",
@@ -152,8 +154,9 @@ export function networkFlowRowsForGrid(
 
 export function networkFlowDiagnosticsForGrid(
   diagnostics: readonly NetworkFlowDiagnostic[],
+  previous: readonly GridDataRow<NetworkFlowDiagnostic>[] = [],
 ): readonly GridDataRow<NetworkFlowDiagnostic>[] {
-  return diagnostics.map((diagnostic) => ({
+  return reconcileGridDataRows(previous, diagnostics, (diagnostic) => ({
     kind: "data",
     rowIdentity: {
       kind: "extension_resource",
@@ -164,6 +167,51 @@ export function networkFlowDiagnosticsForGrid(
     data: diagnostic,
     testId: networkAnalysisDiagnosticTestId(diagnostic.diagnostic_id),
   }));
+}
+
+function reconcileGridDataRows<Owner, Row>(
+  previous: readonly GridDataRow<Row>[],
+  incoming: readonly Owner[],
+  project: (owner: Owner) => GridDataRow<Row>,
+): readonly GridDataRow<Row>[] {
+  const previousByResourceID = new Map(
+    previous.flatMap((row) =>
+      row.rowIdentity.kind === "extension_resource"
+        ? [[row.rowIdentity.resourceId, row] as const]
+        : [],
+    ),
+  );
+  return incoming.map((owner) => {
+    const projected = project(owner);
+    const resourceID =
+      projected.rowIdentity.kind === "extension_resource"
+        ? projected.rowIdentity.resourceId
+        : null;
+    const prior =
+      resourceID === null ? undefined : previousByResourceID.get(resourceID);
+    return prior !== undefined && gridDataRowsEqual(prior, projected)
+      ? prior
+      : projected;
+  });
+}
+
+function gridDataRowsEqual<Row>(
+  left: GridDataRow<Row>,
+  right: GridDataRow<Row>,
+): boolean {
+  return (
+    left.data === right.data &&
+    left.rowIdentity.kind === right.rowIdentity.kind &&
+    left.rowIdentity.kind === "extension_resource" &&
+    right.rowIdentity.kind === "extension_resource" &&
+    left.rowIdentity.extensionProfileId ===
+      right.rowIdentity.extensionProfileId &&
+    left.rowIdentity.resourceKind === right.rowIdentity.resourceKind &&
+    left.rowIdentity.resourceId === right.rowIdentity.resourceId &&
+    left.gutterContent === right.gutterContent &&
+    left.gutterLabel === right.gutterLabel &&
+    left.testId === right.testId
+  );
 }
 
 export function networkFlowClipboardValue(

@@ -313,6 +313,7 @@ export type NetworkAnalysisSelector =
   | "indicator-link-existing-id"
   | "indicator-link-submit"
   | "layout-reset"
+  | "load-fixture"
   | "mapping-apply"
   | "mapping-dialog"
   | "mapping-display-name"
@@ -1085,6 +1086,19 @@ export function gridRowGutterTestId(
  */
 export function gridSavedRowsSelector(): string {
   return '[role="row"][data-grid-record-id]:not([data-grid-record-id=""])';
+}
+
+/**
+ * Scope these selectors through an owner grid shell. They describe adapter-
+ * owned semantic data rows and cells without exposing vendor classes or
+ * positional coordinates.
+ */
+export function gridDataRowsSelector(): string {
+  return '[role="row"][data-cartulary-grid-row-kind="data"]';
+}
+
+export function gridDataCellsSelector(): string {
+  return `${gridDataRowsSelector()} [role="gridcell"]`;
 }
 
 export function gridSavedRowSelector(recordId: string): string {

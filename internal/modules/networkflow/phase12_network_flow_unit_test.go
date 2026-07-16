@@ -79,10 +79,6 @@ func TestPhase12NetworkFlow_U_12_NFAC049_49_ErrorDetailShape(t *testing.T) {
 	phase12AssertUnitSelector(t, "NF-AC-049")
 }
 
-func TestPhase12NetworkFlow_U_12_NFAC050_50_LargeTimingEvidenceClassification(t *testing.T) {
-	phase12AssertUnitSelector(t, "NF-AC-050")
-}
-
 func TestPhase12NetworkFlow_U_12_NFAC052_52_FixtureCorpusIsFrozen(t *testing.T) {
 	phase12AssertUnitSelector(t, "NF-AC-052")
 }

@@ -97,6 +97,7 @@ or `view_schema` owner. Workbook composition consumes it only through
 | File | Responsibility |
 | --- | --- |
 | `networkFlow/NetworkAnalysisWorkspace.tsx` | Network Analysis presentation/composition facade over feature-specific controllers. |
+| `networkFlow/NetworkFlowGridLoadFixture.tsx` | Debug-only deterministic supported-load fixture composed from the production Network Flow grid components. |
 | `networkFlow/NetworkFlowMappingModal.tsx` | Explicit ordinal-aware Network Flow mapping, safe preview, and approval dialog. |
 | `networkFlow/networkFlowBoundaryPolicy.test.ts` | Static enforcement for controller composition, generated-decoder ownership, and browser projection-input exclusion. |
 | `networkFlow/networkFlowClient.ts` | Network Flow route builders and decoded feature client operations. |
@@ -295,7 +296,7 @@ identity into the Base surface registry.
 
 | File | Responsibility |
 | --- | --- |
-| `workbook/features/NetworkFlowFeature.tsx` | Workbook-facing Network Flow facade for workspace rendering and stable extension identity. |
+| `workbook/features/NetworkFlowFeature.tsx` | Workbook/app-facing Network Flow facade for workspace rendering, debug-fixture composition, and stable extension identity. |
 | `workbook/features/coordination/CoordinationWorkflowBindings.tsx` | Coordination-owned task lifecycle and decision supersession UI/transport binding. |
 | `workbook/features/evidence/useEvidenceWorkbookBindings.tsx` | Evidence-owned access, preview, download, and attachment binding for the contract surface. |
 

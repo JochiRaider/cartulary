@@ -1,4 +1,5 @@
 import type {
+  NetworkFlowContributor,
   NetworkFlowDiagnostic,
   NetworkFlowFilter,
   NetworkFlowRejectedRowsQueryContinuation,
@@ -152,6 +153,17 @@ export function reconcileNetworkFlowDiagnostics(
     previous,
     incoming,
     (diagnostic) => diagnostic.diagnostic_id,
+  );
+}
+
+export function reconcileNetworkFlowContributors(
+  previous: readonly NetworkFlowContributor[],
+  incoming: readonly NetworkFlowContributor[],
+): NetworkFlowContributor[] {
+  return reconcileByOwnerID(
+    previous,
+    incoming,
+    (contributor) => contributor.row_ref.network_flow_row_id,
   );
 }
 

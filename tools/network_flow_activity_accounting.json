@@ -1136,14 +1136,13 @@
         ],
         "behavior_class": "evidence_policy",
         "required_evidence_kinds": [
-          "unit"
+          "browser"
         ],
         "exact_selectors": [
           {
-            "kind": "unit",
-            "file": "internal/modules/networkflow/phase12_network_flow_unit_test.go",
-            "package": "./internal/modules/networkflow",
-            "symbol": "TestPhase12NetworkFlow_U_12_NFAC050_50_LargeTimingEvidenceClassification"
+            "kind": "browser",
+            "file": "apps/web/e2e/measurement/phase12_network_flow_grid.spec.ts",
+            "title": "E-12-NFAC050-50 measures bounded Network Flow production-grid virtualization without a timing claim"
           }
         ],
         "supplemental_fixture_ids": [

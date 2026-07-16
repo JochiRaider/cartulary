@@ -1,6 +1,7 @@
 import {
   type GridCellAnchor,
   type GridCellRange,
+  type GridDataRow,
   type GridDataState,
   type GridHandle,
   type GridSortEntry,
@@ -76,7 +77,7 @@ export function NetworkFlowAcceptedGrid({
       }),
     [layout.columnWidths, layout.orderedVisibleFieldKeys],
   );
-  const dataRows = useMemo(() => networkFlowRowsForGrid(rows), [rows]);
+  const dataRows = useStableGridProjection(rows, networkFlowRowsForGrid);
   const sortableFieldKeys = useMemo(
     () =>
       new Set(
@@ -189,9 +190,9 @@ export function NetworkFlowRejectedGrid({
       }),
     [layout.columnWidths, layout.orderedVisibleFieldKeys],
   );
-  const dataRows = useMemo(
-    () => networkFlowDiagnosticsForGrid(diagnostics),
-    [diagnostics],
+  const dataRows = useStableGridProjection(
+    diagnostics,
+    networkFlowDiagnosticsForGrid,
   );
   return (
     <NetworkFlowGridFrame
@@ -279,9 +280,9 @@ export function NetworkFlowContributorGrid({
       ),
     [tables],
   );
-  const dataRows = useMemo(
-    () => networkFlowContributorsForGrid(contributors),
-    [contributors],
+  const dataRows = useStableGridProjection(
+    contributors,
+    networkFlowContributorsForGrid,
   );
   const grouping = useMemo(
     () => ({
@@ -716,6 +717,24 @@ function NetworkFlowInspector<Row extends object>({
 
 function focusGridRoot(gridRef: RefObject<GridHandle | null>) {
   queueMicrotask(() => gridRef.current?.focusRoot());
+}
+
+function useStableGridProjection<Owner, Row>(
+  owners: readonly Owner[],
+  project: (
+    owners: readonly Owner[],
+    previous: readonly GridDataRow<Row>[],
+  ) => readonly GridDataRow<Row>[],
+): readonly GridDataRow<Row>[] {
+  const previousRef = useRef<readonly GridDataRow<Row>[]>([]);
+  const projected = useMemo(
+    () => project(owners, previousRef.current),
+    [owners, project],
+  );
+  useEffect(() => {
+    previousRef.current = projected;
+  }, [projected]);
+  return projected;
 }
 
 function networkFlowGridDataState(options: {

@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
-import type { NetworkFlowRow } from "../services/networkFlowContractAdapter";
+import type {
+  NetworkFlowContributor,
+  NetworkFlowDiagnostic,
+  NetworkFlowRow,
+} from "../services/networkFlowContractAdapter";
 import {
   acceptedContinuationRequest,
   acceptedInitialRequest,
   compileAcceptedFilters,
   type NetworkFlowAcceptedQuery,
+  reconcileNetworkFlowContributors,
+  reconcileNetworkFlowDiagnostics,
   reconcileNetworkFlowRows,
   rejectedContinuationRequest,
   rejectedInitialRequest,
@@ -101,6 +107,64 @@ describe("Network Flow query model", () => {
       changedIncoming,
     );
   });
+
+  it("preserves server order while reusing only unchanged rows and dropping removed rows", () => {
+    const first = row("nfr_1", "10");
+    const second = row("nfr_2", "20");
+    const third = row("nfr_3", "30");
+    const equalThird = { ...third };
+    const changedSecond = row("nfr_2", "21");
+    const added = row("nfr_4", "40");
+
+    const reconciled = reconcileNetworkFlowRows(
+      [first, second, third],
+      [equalThird, changedSecond, added],
+    );
+
+    expect(reconciled.map((value) => value.network_flow_row_id)).toEqual([
+      "nfr_3",
+      "nfr_2",
+      "nfr_4",
+    ]);
+    expect(reconciled[0]).toBe(third);
+    expect(reconciled[1]).toBe(changedSecond);
+    expect(reconciled[2]).toBe(added);
+    expect(reconciled).not.toContain(first);
+  });
+
+  it("reconciles rejected diagnostics and contributors at their owner identities", () => {
+    const priorDiagnostic = diagnostic("nfd_1", "invalid_ipv4");
+    const equalDiagnostic = { ...priorDiagnostic, message_args: {} };
+    const changedDiagnostic = diagnostic("nfd_1", "invalid_ipv6");
+    expect(
+      reconcileNetworkFlowDiagnostics([priorDiagnostic], [equalDiagnostic])[0],
+    ).toBe(priorDiagnostic);
+    expect(
+      reconcileNetworkFlowDiagnostics(
+        [priorDiagnostic],
+        [changedDiagnostic],
+      )[0],
+    ).toBe(changedDiagnostic);
+
+    const priorContributor = contributor(row("nfr_1", "10"));
+    const equalContributor = {
+      row: { ...priorContributor.row },
+      row_ref: { ...priorContributor.row_ref },
+    };
+    const changedContributor = contributor(row("nfr_1", "11"));
+    expect(
+      reconcileNetworkFlowContributors(
+        [priorContributor],
+        [equalContributor],
+      )[0],
+    ).toBe(priorContributor);
+    expect(
+      reconcileNetworkFlowContributors(
+        [priorContributor],
+        [changedContributor],
+      )[0],
+    ).toBe(changedContributor);
+  });
 });
 
 function row(id: string, bytes: string): NetworkFlowRow {
@@ -109,4 +173,30 @@ function row(id: string, bytes: string): NetworkFlowRow {
     "network_flow.bytes_count": bytes,
     "network_flow.observation_source_ref": { import_unit_id: "unit-1" },
   } as NetworkFlowRow;
+}
+
+function diagnostic(id: string, reasonCode: string): NetworkFlowDiagnostic {
+  return {
+    diagnostic_id: id,
+    error_code: "network_flow_invalid_ip",
+    field_key: "network_flow.src_ip",
+    message: "Invalid IP.",
+    message_args: {},
+    message_key: `network_flow.diagnostic.network_flow_invalid_ip.${reasonCode}`,
+    reason_code: reasonCode,
+    source_column_ordinal: 3,
+    source_row_number: 2,
+  } as NetworkFlowDiagnostic;
+}
+
+function contributor(row: NetworkFlowRow): NetworkFlowContributor {
+  return {
+    row,
+    row_ref: {
+      mapping_fingerprint: "a".repeat(64),
+      network_flow_row_id: row.network_flow_row_id,
+      network_flow_table_id: "nft_1",
+      source_row_number: 2,
+    },
+  };
 }

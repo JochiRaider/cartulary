@@ -38,6 +38,8 @@ import {
   genericEditSubmitTestId,
   genericEditValueTestId,
   gridActionsHeaderTestId,
+  gridDataCellsSelector,
+  gridDataRowsSelector,
   gridDraftRowSelector,
   gridFilterChipTestId,
   gridFilterFieldTestId,
@@ -562,6 +564,12 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     );
     expect(gridSavedRowsSelector()).toBe(
       '[role="row"][data-grid-record-id]:not([data-grid-record-id=""])',
+    );
+    expect(gridDataRowsSelector()).toBe(
+      '[role="row"][data-cartulary-grid-row-kind="data"]',
+    );
+    expect(gridDataCellsSelector()).toBe(
+      '[role="row"][data-cartulary-grid-row-kind="data"] [role="gridcell"]',
     );
     expect(gridDraftRowSelector()).toBe(
       '[role="row"][data-cartulary-grid-draft-row="true"]',
