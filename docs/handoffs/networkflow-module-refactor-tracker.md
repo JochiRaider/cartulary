@@ -8,7 +8,7 @@
 | Target label | `networkflow` |
 | Output path | `docs/handoffs/networkflow-module-refactor-tracker.md` |
 | Repository snapshot | Clean `main` at `63a19bf6e0c3f17a9b53afb58afa8bd04fb4c550` when planning began |
-| Status | Historical module remediation complete; Network Analysis grid-adapter adoption is executing under Section 14, with `NF-GA-00` through `NF-GA-04` `COMPLETE` |
+| Status | Historical module remediation complete; Network Analysis grid-adapter adoption is executing under Section 14, with `NF-GA-05` `ACTIVE` |
 | Authorized change | Specification, implementation, tests, contracts, generated outputs, configuration, migrations, harness inputs, documentation, and this tracker |
 | Current execution authorization | Specification, contract, generated, backend, frontend, test, harness-input, visual, and tracker changes required by Section 14; no dependency, lockfile, database, saved-view, or React Data Grid version migration |
 | Preserved non-goals | No richer graph canvas, observation creation, restore/purge behavior, existing-route response change, or HTTP schema-major expansion; one additive Core import mapping-preview route is explicitly authorized |
@@ -383,7 +383,7 @@ authorize or claim implementation completion.
 | Harness authority | `docs/testing-harness-nlspec.md`; it owns invocation, target selection, scheduling, artifacts, cleanup, and evidence accounting |
 | Adapter reference | Completed F-RDG workstreams in `docs/handoffs/grid-adapter-module-refactor-tracker.md` |
 | Current execution scope | Full Section 14 remediation, serially checkpointed |
-| Overall adoption status | `ACTIVE` (`NF-GA-00` through `NF-GA-04` `COMPLETE`; `NF-GA-05` is next and not yet activated) |
+| Overall adoption status | `ACTIVE` (`NF-GA-00` through `NF-GA-04` `COMPLETE`; `NF-GA-05 ACTIVE`) |
 
 The inspected baseline has the following implementation boundaries:
 
@@ -810,7 +810,8 @@ Every checkpoint must populate these fields:
 
 | Field | Approved value |
 | --- | --- |
-| Status | `PENDING` |
+| Status | `ACTIVE` |
+| Activation baseline | `92a1de04f59bac3b7bd56db6ef4532e8f6df2baa` |
 | Dependencies | `NF-GA-04 COMPLETE` |
 | Remediation | Enforce mutation-free grids and exact roles; add rename/delete/import-result selection; implement data-state precedence, retry behavior, superseded-response handling, invalidation, and protected-state clearing |
 | Affected areas | Network Flow controllers/workspace, authorization/collaboration interpretation, stateful tests |
