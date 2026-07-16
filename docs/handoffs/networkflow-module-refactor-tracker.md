@@ -8,7 +8,7 @@
 | Target label | `networkflow` |
 | Output path | `docs/handoffs/networkflow-module-refactor-tracker.md` |
 | Repository snapshot | Clean `main` at `63a19bf6e0c3f17a9b53afb58afa8bd04fb4c550` when planning began |
-| Status | Historical module remediation complete; Network Analysis grid-adapter adoption is executing under Section 14, with `NF-GA-02` `COMPLETE` and `NF-GA-03` pending activation |
+| Status | Historical module remediation complete; Network Analysis grid-adapter adoption is executing under Section 14, with `NF-GA-03` `ACTIVE` |
 | Authorized change | Specification, implementation, tests, contracts, generated outputs, configuration, migrations, harness inputs, documentation, and this tracker |
 | Current execution authorization | Specification, contract, generated, backend, frontend, test, harness-input, visual, and tracker changes required by Section 14; no dependency, lockfile, database, saved-view, or React Data Grid version migration |
 | Preserved non-goals | No richer graph canvas, observation creation, restore/purge behavior, existing-route response change, or HTTP schema-major expansion; one additive Core import mapping-preview route is explicitly authorized |
@@ -383,7 +383,7 @@ authorize or claim implementation completion.
 | Harness authority | `docs/testing-harness-nlspec.md`; it owns invocation, target selection, scheduling, artifacts, cleanup, and evidence accounting |
 | Adapter reference | Completed F-RDG workstreams in `docs/handoffs/grid-adapter-module-refactor-tracker.md` |
 | Current execution scope | Full Section 14 remediation, serially checkpointed |
-| Overall adoption status | `ACTIVE` (`NF-GA-00`, `NF-GA-01`, and `NF-GA-02` `COMPLETE`; `NF-GA-03 PENDING`) |
+| Overall adoption status | `ACTIVE` (`NF-GA-00`, `NF-GA-01`, and `NF-GA-02` `COMPLETE`; `NF-GA-03 ACTIVE`) |
 
 The inspected baseline has the following implementation boundaries:
 
@@ -734,7 +734,8 @@ Every checkpoint must populate these fields:
 
 | Field | Approved value |
 | --- | --- |
-| Status | `PENDING` |
+| Status | `ACTIVE` |
+| Activation baseline | `c426c6c305c3dc04a3441179f89e9e788803f59f` |
 | Dependencies | `NF-GA-02 COMPLETE` |
 | Remediation | Add typed initial/continuation requests, structured API errors, owner filters, ordered sort, opaque-cursor replay, cancellation/generation guards, and immutable-row reconciliation; remove fixed `limit=50` and message substring parsing |
 | Affected areas | Network Flow client/controllers, shared HTTP error boundary, module tests, live browser scenarios |
