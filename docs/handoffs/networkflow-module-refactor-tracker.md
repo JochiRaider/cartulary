@@ -8,7 +8,7 @@
 | Target label | `networkflow` |
 | Output path | `docs/handoffs/networkflow-module-refactor-tracker.md` |
 | Repository snapshot | Clean `main` at `63a19bf6e0c3f17a9b53afb58afa8bd04fb4c550` when planning began |
-| Status | Historical module remediation complete; Network Analysis grid-adapter adoption is executing under Section 14, with `NF-GA-05` `ACTIVE` |
+| Status | Historical module remediation complete; Network Analysis grid-adapter adoption is executing under Section 14, with `NF-GA-00` through `NF-GA-05` `COMPLETE` |
 | Authorized change | Specification, implementation, tests, contracts, generated outputs, configuration, migrations, harness inputs, documentation, and this tracker |
 | Current execution authorization | Specification, contract, generated, backend, frontend, test, harness-input, visual, and tracker changes required by Section 14; no dependency, lockfile, database, saved-view, or React Data Grid version migration |
 | Preserved non-goals | No richer graph canvas, observation creation, restore/purge behavior, existing-route response change, or HTTP schema-major expansion; one additive Core import mapping-preview route is explicitly authorized |
@@ -383,7 +383,7 @@ authorize or claim implementation completion.
 | Harness authority | `docs/testing-harness-nlspec.md`; it owns invocation, target selection, scheduling, artifacts, cleanup, and evidence accounting |
 | Adapter reference | Completed F-RDG workstreams in `docs/handoffs/grid-adapter-module-refactor-tracker.md` |
 | Current execution scope | Full Section 14 remediation, serially checkpointed |
-| Overall adoption status | `ACTIVE` (`NF-GA-00` through `NF-GA-04` `COMPLETE`; `NF-GA-05 ACTIVE`) |
+| Overall adoption status | `ACTIVE` (`NF-GA-00` through `NF-GA-05` `COMPLETE`; `NF-GA-06` is next) |
 
 The inspected baseline has the following implementation boundaries:
 
@@ -810,7 +810,7 @@ Every checkpoint must populate these fields:
 
 | Field | Approved value |
 | --- | --- |
-| Status | `ACTIVE` |
+| Status | `COMPLETE` |
 | Activation baseline | `92a1de04f59bac3b7bd56db6ef4532e8f6df2baa` |
 | Dependencies | `NF-GA-04 COMPLETE` |
 | Remediation | Enforce mutation-free grids and exact roles; add rename/delete/import-result selection; implement data-state precedence, retry behavior, superseded-response handling, invalidation, and protected-state clearing |
@@ -823,8 +823,26 @@ Every checkpoint must populate these fields:
 | Commands/evidence | `make frontend-unit`; `make browser-e2e-webserver-backed`; `make browser-e2e-stateful`; `make service-backed-slice PHASE=phase12`; stateful/accessibility evidence |
 | Rollback | State controller may roll back only if fail-closed clearing is preserved |
 | Exit criteria | Authorization-loss scenarios leave no rows, cursors, range, inspector, or graph selection |
-| Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
+| Checkpoint | Completed in Section 14.7.6 |
 | Next workstream | `NF-GA-06` |
+
+##### 14.7.6 `NF-GA-05` completion checkpoint
+
+| Checkpoint field | Recorded outcome |
+| --- | --- |
+| Status / reviewer / date | `COMPLETE`; Codex self-review; 2026-07-16 America/New_York |
+| Baseline and activation commits | Baseline `92a1de04f59bac3b7bd56db6ef4532e8f6df2baa`; activation `a336d9d60f9b4886f156021728a3085f6d8cbbf1` |
+| Implementation end commit | `cb900386b649565af71876189056fdbae9f3a093` |
+| Files changed | Network Analysis workspace and component evidence; table/query/graph/collaboration controllers and lifecycle interpreter tests; structured Network Flow error model; table mutation client and contract decoder facade; semantic selector facade; protocol decoder facade; frontend test-accounting classifications; one type-safe accessibility-helper lint correction in the owner accessibility suite |
+| Substantive result | Enforced the owner role matrix exactly: viewer read/copy; editor, reviewer, and admin import/rename/link; reviewer and admin soft-delete. Network Flow grids remain mutation-free and expose no editor, paste, fill, draft, create, reorder, or Core bulk-selection path. Added stable-ID, current-version rename and soft-delete commands, conflict-driven table-metadata refresh before retry, exact-name destructive confirmation, no-op feedback, and post-delete next-then-previous table selection. Added abort/generation guards for table lists and mutations. Structured authorization, incident-closure, inactive/deleted-table, and hidden-resource failures now drive explicit permission/lifecycle states without message parsing. Protected transitions immediately clear rows, diagnostics, cursors, page history, ranges/inspectors through grid teardown, graph/edge/contributor state, mapping workflow state, and table-scoped controls; collaboration authorization/session/closure events use the same fail-closed model. Non-protected refresh failures may retain authorized rows, while a replacement active table may recover only after owner metadata refresh. Role downgrade removes mutation surfaces without removing viewer-safe read/copy access. Import success continues to select the exact returned table reference |
+| Required gates | Final `make frontend-unit` PASS (`.cartulary/test-results/20260716T062718Z-p72557`); `make frontend-typecheck` PASS; `make browser-e2e-webserver-backed` PASS with 97 tests (`.cartulary/test-results/20260716T062746Z-p74559`); `make browser-e2e-stateful` PASS with 22 tests (`.cartulary/test-results/20260716T063001Z-p94305`); `make browser-e2e-a11y` PASS with 20 tests (`.cartulary/test-results/20260716T063421Z-p29432`); `make service-backed-slice PHASE=phase12` PASS with 37 tests (`.cartulary/test-results/20260716T063547Z-p43948`) |
+| Additional gates | `make format` PASS (`.cartulary/test-results/20260716T062707Z-p69926`); `make frontend-import-boundary-check` PASS (`.cartulary/test-results/20260716T063606Z-p58466`); `make lint-biome` PASS; `git diff --check` PASS |
+| Corrective runs | The first formatting run found only the new dialog autofocus policy and was corrected (`.cartulary/test-results/20260716T061112Z-p67504`). An early unit run passed product assertions but exposed unmapped lifecycle evidence; accounting was added. Subsequent unit runs exposed that clearing rows also cleared the structured permission error (`.cartulary/test-results/20260716T061630Z-p78378`, `.cartulary/test-results/20260716T061756Z-p80863`); protected owner state is now retained independently from cleared data. One assertion then matched both the permission heading and message (`.cartulary/test-results/20260716T061906Z-p85636`) and was corrected to the semantic region. A late format run surfaced an existing equality-search lint diagnostic in the accessibility owner plus the new incident-reset dependency (`.cartulary/test-results/20260716T062539Z-p62205`); both were corrected, and the first type-safe equality rewrite exposed a nullable DOM type (`.cartulary/test-results/20260716T062626Z-p69346`) before the final guarded implementation. The first final accessibility run missed one pre-existing Timeline tab-order sentinel (`.cartulary/test-results/20260716T063244Z-p14749`); its isolated serial rerun passed all 20 rows at the final root above. The miss was outside Network Analysis and did not reproduce. No required gate remains failing |
+| Evidence-map rows | Added bounded `unowned_regression` classifications for the exact role matrix, role downgrade, stable-ID rename/delete, version-conflict refresh, authorization-loss clearing, inactive-table clearing, controller selection/identity behavior, and incident-closure event mapping. Existing real webserver/stateful/accessibility/service-backed suites remained authoritative under their owner maps. No synthetic Network Analysis row was promoted; its replacement remains `NF-GA-09` |
+| Compatibility / migration | Existing Network Flow rename/delete/query/import wire contracts and authorization policy are unchanged; the frontend now consumes the existing table-mutation result and mirrors owner outcomes. No database, dependency, lockfile, saved-view, contract-major, or RDG version migration. No legacy mutation behavior was retained because immutable analytical rows have no continuing edit value |
+| Residual risk / deferral | Active/selected/all graph scope, explicit vertex selection, contributor production grid, and cell/range/vertex/edge linking remain `NF-GA-06`. Complete focus restoration, keyboard commands, announcements, non-color evidence, and stable production selectors remain `NF-GA-07`. Supported-load evidence remains `NF-GA-08`; synthetic Phase 12 claim replacement remains `NF-GA-09` |
+| Rollback | Revert `cb900386` atomically to remove the new lifecycle command/transition layer; not exercised because all exit gates passed. Any partial rollback must preserve structured fail-closed protected-data clearing |
+| Next workstream | `NF-GA-06`; it may activate only after this checkpoint commit |
 
 #### `NF-GA-06` — Graph selection, contributor grid, and indicator linking
 
