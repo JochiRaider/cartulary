@@ -8,7 +8,7 @@
 | Target label | `networkflow` |
 | Output path | `docs/handoffs/networkflow-module-refactor-tracker.md` |
 | Repository snapshot | Clean `main` at `63a19bf6e0c3f17a9b53afb58afa8bd04fb4c550` when planning began |
-| Status | Historical module remediation complete; Network Analysis grid-adapter adoption is executing under Section 14, with `NF-GA-06` `ACTIVE` |
+| Status | Historical module remediation complete; Network Analysis grid-adapter adoption is executing under Section 14, with `NF-GA-00` through `NF-GA-07` `COMPLETE` and `NF-GA-08` awaiting activation |
 | Authorized change | Specification, implementation, tests, contracts, generated outputs, configuration, migrations, harness inputs, documentation, and this tracker |
 | Current execution authorization | Specification, contract, generated, backend, frontend, test, harness-input, visual, and tracker changes required by Section 14; no dependency, lockfile, database, saved-view, or React Data Grid version migration |
 | Preserved non-goals | No richer graph canvas, observation creation, restore/purge behavior, existing-route response change, or HTTP schema-major expansion; one additive Core import mapping-preview route is explicitly authorized |
@@ -367,8 +367,9 @@ The first broad check exposed and led to correction of one staticcheck violation
 
 This section is the controlling plan for adopting `@cartulary/grid-adapter`
 in the Network Analysis extension workspace. Sections 1 through 13 remain the
-completed historical module-refactor record. This planning update does not
-authorize or claim implementation completion.
+completed historical module-refactor record. The initial planning update did
+not claim implementation completion; the live workstream table and committed
+completion checkpoints below now own the current execution state.
 
 | Item | Approved planning value |
 | --- | --- |
@@ -383,7 +384,7 @@ authorize or claim implementation completion.
 | Harness authority | `docs/testing-harness-nlspec.md`; it owns invocation, target selection, scheduling, artifacts, cleanup, and evidence accounting |
 | Adapter reference | Completed F-RDG workstreams in `docs/handoffs/grid-adapter-module-refactor-tracker.md` |
 | Current execution scope | Full Section 14 remediation, serially checkpointed |
-| Overall adoption status | `ACTIVE` (`NF-GA-00` through `NF-GA-05` `COMPLETE`; `NF-GA-06 ACTIVE`) |
+| Overall adoption status | `ACTIVE` (`NF-GA-00` through `NF-GA-07` `COMPLETE`; `NF-GA-08 PENDING`) |
 
 The inspected baseline has the following implementation boundaries:
 
@@ -886,7 +887,7 @@ Every checkpoint must populate these fields:
 
 | Field | Approved value |
 | --- | --- |
-| Status | `ACTIVE` |
+| Status | `COMPLETE` |
 | Activation baseline | `f80944ad8fb8c0ce809120a02c820b21798711b4` |
 | Dependencies | `NF-GA-06 COMPLETE` |
 | Remediation | Add keyboard query/layout controls, focus restoration, inspector return focus, announcements, non-color state cues, shared tokens, and stable semantic selectors |
@@ -899,8 +900,26 @@ Every checkpoint must populate these fields:
 | Commands/evidence | `make browser-e2e-a11y`; `make browser-e2e-visual`; `make frontend-unit`; accessibility/visual evidence |
 | Rollback | Visuals follow the golden-maintenance guide; focus rolls back with its adapter slice |
 | Exit criteria | Automated accessibility passes and manual keyboard scenarios are recorded |
-| Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
+| Checkpoint | Completed in Section 14.7.8 |
 | Next workstream | `NF-GA-08` |
+
+##### 14.7.8 `NF-GA-07` completion checkpoint
+
+| Checkpoint field | Recorded outcome |
+| --- | --- |
+| Status / reviewer / date | `COMPLETE`; Codex self-review; 2026-07-16 America/New_York |
+| Baseline and activation commits | Baseline `f80944ad8fb8c0ce809120a02c820b21798711b4`; activation `c90913304d80cb290cdd09370b1c82b3b1936dc5` |
+| Implementation end commit | `f3df12a4bc7c183a70262ae8d2616e3e4bbb44ea` |
+| Files changed | Network Analysis workspace and component evidence; accepted/rejected semantic-grid frame and focused production-grid tests; mapping, rename, delete, indicator-link, inspector, graph-contributor, and query controls; Network Flow presentation compiler; shared semantic-grid focus handle and adapter tests; semantic selector facade; frontend test-accounting classifications |
+| Substantive result | Added roving Network Flow table tabs with ArrowLeft/ArrowRight/Home/End activation, keyboard-operable query and column-layout actions, semantic per-cell selectors, and stable selector tokens for query, status, inspector, contributor, and graph announcements. Added an adapter-owned `focusRoot` escape hatch without exposing vendor coordinates. Immutable-row reconciliation now restores the same owner row/field when present, the same field on the nearest valid owner row when removed, and the grid root when a selected field or query context becomes invalid; it does not steal focus during table-tab activation. Inspector close/Escape returns to the semantic cell. Mapping, rename, delete, and indicator-link dialogs set deterministic initial focus, trap Tab/Shift+Tab, honor Escape when not busy, and return focus to the invoking control or workspace fallback. Contributor close/Escape returns to the explicitly selected graph object. Polite status/layout/graph announcements and assertive structured errors provide non-color state cues. New styling uses shared Cartulary spacing, border, surface, text, and danger tokens; Network Analysis retains its adopted fixed-height default density. No selector uses RDG DOM/classes, row indexes, candidate values, or serialized internal keys |
+| Required gates | Final `make frontend-unit` PASS (`.cartulary/test-results/20260716T082105Z-p13762`); `make browser-e2e-a11y` PASS with 20 tests (`.cartulary/test-results/20260716T082343Z-p32847`); `make browser-e2e-visual` PASS with 28 tests and no golden drift (`.cartulary/test-results/20260716T082505Z-p47358`) |
+| Additional gates | `make frontend-typecheck` PASS (`.cartulary/test-results/20260716T082134Z-p15823`); `make frontend-import-boundary-check` PASS (`.cartulary/test-results/20260716T082134Z-p15830`); `make lint-biome` PASS (`.cartulary/test-results/20260716T082134Z-p15825`); `make json-shape-check` PASS (`.cartulary/test-results/20260716T082003Z-p8933`); final `make format` PASS (`.cartulary/test-results/20260716T082100Z-p11484`); `git diff --check` PASS |
+| Corrective runs | Early component validation rejected raw `data-testid` selector templates in the modal helper (`.cartulary/test-results/20260716T081027Z-p60058`) and formatting rejected a redundant landmark role (`.cartulary/test-results/20260716T080917Z-p57302`); the helper now uses the shared selector facade and named sections retain their native region semantics. A later unit run caught the initial query-reset fallback stealing focus from roving table tabs (`.cartulary/test-results/20260716T082003Z-p8934`); root focus is now conditional on a real semantic selection, and the full unit suite passed. One complete accessibility run then hit the pre-existing global Phase 11 `system-view-selector` focus race outside Network Analysis (`.cartulary/test-results/20260716T082159Z-p17088`); an unchanged rerun passed all 20 tests at the required root above. No product, security, or required gate remains failing |
+| Evidence-map rows | Added bounded `unowned_regression` classifications for roving table tabs plus lifecycle-dialog focus, semantic nearest-row/root focus restoration, and keyboard column reorder announcements. Existing browser accessibility and visual matrices remained green. Component scenarios exercise mapping initial focus, trapped lifecycle dialogs, inspector return focus, graph-drawer return focus, stable production-grid cells, keyboard layout commands, and table navigation; real Phase 12 application/browser promotion remains deliberately owned by `NF-GA-09` rather than treating synthetic surfaces as authoritative |
+| Compatibility / migration | The shared adapter adds one identity-neutral focus method and all monorepo consumers compile atomically. Public HTTP routes, owner resource shapes, grid identities, server authority, role policy, saved views, and persistent layout remain unchanged. No database, dependency, lockfile, React Data Grid version, contract-major, or durable-state migration. No compatibility alias, vendor selector, fabricated identity, or Network Flow mutation path was introduced |
+| Residual risk / deferral | The supported 1,000-row/all-declared-column envelope, bounded DOM measurements, off-screen reachability, and continuity under load belong to `NF-GA-08`. Replacement of synthetic Phase 12 Network Analysis claims with real application/server evidence, final selector promotion, visual-registry reconciliation, and final accounting remain `NF-GA-09` |
+| Rollback | Revert `f3df12a4` atomically to remove Network Analysis focus/keyboard/announcement behavior and the adapter root-focus method; not exercised because all exit gates passed. Any partial rollback must preserve modal focus containment, protected-state clearing, semantic selectors, and the absence of vendor coordinates |
+| Next workstream | `NF-GA-08`; it may activate only after this checkpoint commit |
 
 #### `NF-GA-08` — Virtualization and supported-load validation
 
@@ -990,12 +1009,13 @@ permission to change the current tracker-only scope.
 | Row reorder, spanning, nested tree, master/detail | Inappropriate | Requires a separately adopted module workflow |
 | Vendor indexes/handles/classes/DOM or Network Flow cell presence | Inappropriate | Prohibited by the semantic boundary and Core presence model |
 
-### 14.11 Planning-update validation
+### 14.11 Historical planning-update validation
 
-Only this tracker is changed by the planning update. Phase ledgers, schedules,
-runtime suites, code generation, and broad checks are intentionally not run
-because no corresponding owner input changes. The required post-edit results
-must be recorded here before handoff.
+The initial planning-only update changed only this tracker. At that historical
+checkpoint, phase ledgers, schedules, runtime suites, code generation, and broad
+checks were intentionally not run because no corresponding owner input changed.
+This table records that planning checkpoint only; the live implementation gates
+and retained roots are owned by the per-workstream completion checkpoints.
 
 | Command | Result | Result root or note |
 | --- | --- | --- |
