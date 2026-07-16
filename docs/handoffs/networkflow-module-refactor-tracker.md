@@ -886,7 +886,8 @@ Every checkpoint must populate these fields:
 
 | Field | Approved value |
 | --- | --- |
-| Status | `PENDING` |
+| Status | `ACTIVE` |
+| Activation baseline | `f80944ad8fb8c0ce809120a02c820b21798711b4` |
 | Dependencies | `NF-GA-06 COMPLETE` |
 | Remediation | Add keyboard query/layout controls, focus restoration, inspector return focus, announcements, non-color state cues, shared tokens, and stable semantic selectors |
 | Affected areas | Grid/workspace accessibility, styles, selector builders, browser and visual tests |
