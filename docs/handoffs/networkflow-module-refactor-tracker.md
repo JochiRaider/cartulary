@@ -8,8 +8,9 @@
 | Target label | `networkflow` |
 | Output path | `docs/handoffs/networkflow-module-refactor-tracker.md` |
 | Repository snapshot | Clean `main` at `63a19bf6e0c3f17a9b53afb58afa8bd04fb4c550` when planning began |
-| Status | Remediation complete; focused, repository-wide, and release validation pass |
+| Status | Historical module remediation complete; Network Analysis grid-adapter adoption plan approved, with all implementation workstreams `PENDING` |
 | Authorized change | Specification, implementation, tests, contracts, generated outputs, configuration, migrations, harness inputs, documentation, and this tracker |
+| Current planning authorization | Tracker-only documentation update; no runtime, specification, contract, generated, dependency, lockfile, migration, or test change is authorized by this planning session |
 | Preserved non-goals | No UI redesign, new graph mode, observation creation, restore/purge behavior, public route, or HTTP schema-major expansion |
 | Implementation authority | The 2026-07-13 remediation task explicitly authorized the behavior corrections and refactor described by the adopted plan |
 
@@ -359,3 +360,466 @@ Implementation completion requires the focused and broad gates in Section 13. RB
 | `make release-check` | `.cartulary/test-results/20260713T215634Z-p1922938` | Pass; 14/14 work units and 1,177 tests, including a fresh 138-work-unit check |
 
 The first broad check exposed and led to correction of one staticcheck violation and one claimed test-harness composition gap. The first release attempt completed all tests but exposed a harness import error in release-evidence emission; the owner import was corrected, `harness-contract` passed, and the complete release target then passed. No required gate remains failing or skipped.
+
+## 14. Network Analysis Grid Adapter Adoption
+
+### 14.1 Activation, authority, and baseline
+
+This section is the controlling plan for adopting `@cartulary/grid-adapter`
+in the Network Analysis extension workspace. Sections 1 through 13 remain the
+completed historical module-refactor record. This planning update does not
+authorize or claim implementation completion.
+
+| Item | Approved planning value |
+| --- | --- |
+| Baseline commit | `00cd433470376f4d6ffcf2c7b90b6c25a9f3cd8f` |
+| Baseline branch | `revision/grid-adapter` |
+| Baseline worktree | Clean |
+| Controlling artifact | This existing tracker; ownership is unambiguous and no second tracker is permitted |
+| Normative authority | Core 00 through Core 04, then the adopted Network Flow Activity NLSpec inside its extension boundary |
+| Vocabulary authority | `docs/domain.md`; Network Flow tables and rows are extension analytical resources, not Core record envelopes, workbook projections, view schemas, or saved views |
+| Design direction | `docs/design.md`; preserve `extension_workspace` identity, fixed-height virtualization, keyboard operation, non-color states, and shared density/styling |
+| Harness authority | `docs/testing-harness-nlspec.md`; it owns invocation, target selection, scheduling, artifacts, cleanup, and evidence accounting |
+| Adapter reference | Completed F-RDG workstreams in `docs/handoffs/grid-adapter-module-refactor-tracker.md` |
+| Current-session write scope | This tracker only |
+| Overall adoption status | `PENDING` |
+
+The inspected baseline has the following implementation boundaries:
+
+| Concern | Current owner and behavior | Adoption consequence |
+| --- | --- | --- |
+| Accepted and rejected tables | `NetworkAnalysisWorkspace.tsx` renders manual HTML tables from fixed first-page controller results | Replace the accepted-row and diagnostic tables with semantic adapter grids; do not treat visual row numbers as identity |
+| Grid behavior | Network Analysis has no grid-adapter import or grid state | Introduce adapter use only after the semantic extension boundary is available |
+| Query behavior | Network Flow client/controller requests fixed 50-row pages without exposed filters, ordered sorts, or continuation navigation | Add owner-field queries and opaque-cursor navigation; the server remains authoritative |
+| Selection | Graph state auto-selects the first edge; there is no semantic active cell, range, or inspector | Require explicit graph selection and add extension-owned active-cell and inspector state |
+| Editing | Flow rows are immutable; corrections use reimport or table deletion | Do not expose editors, draft rows, paste, fill, or row creation |
+| Visualization | The graph controller and workspace own a module-specific graph/edge presentation | Keep graph visualization outside the grid adapter; use the adapter only for contributor rows |
+| Commands | Import and one graph-edge create-indicator path exist; table rename/delete, row linking, existing-indicator linking, and explicit table/graph selection are incomplete | Add only owner-adopted, role-gated module commands; do not enable generic bulk selection |
+| Evidence | The Phase 12 browser file uses synthetic `page.setContent` surfaces, and component tests are not yet authoritative live-grid evidence | Add real production-grid evidence and reconcile Phase 12 accounting only in the final workstream |
+
+The current Network Flow owner overrides generic grid design on route admission:
+incident closure, authorization loss, and table soft delete make data
+non-queryable and invalidate cursors. The UI must clear protected rows and
+selection state on those transitions rather than retaining generic read/copy
+access to a formerly authorized snapshot.
+
+### 14.2 Approved adapter boundary
+
+Network Analysis must not supply a fabricated `viewSchemaId`, `recordId`, or
+row version. The adapter is generalized atomically around these public semantic
+interfaces:
+
+```ts
+type GridSurfaceIdentity =
+  | { kind: "view_schema"; viewSchemaId: string }
+  | {
+      kind: "extension_grid";
+      extensionProfileId: string;
+      workspaceKey: string;
+      gridSchemaId: string;
+    };
+
+type GridRowIdentity =
+  | { kind: "core_record"; recordId: string }
+  | {
+      kind: "extension_resource";
+      extensionProfileId: string;
+      resourceKind: string;
+      resourceId: string;
+    };
+
+type GridMutationIdentity = {
+  kind: "core_row_version";
+  baseRowVersion: number;
+};
+
+type GridCellAnchor = {
+  surface: GridSurfaceIdentity;
+  rowIdentity: GridRowIdentity;
+  fieldKey: string;
+};
+```
+
+The approved adapter migration is:
+
+- rename `WorkbookDataGrid` and `WorkbookDataGridProps` to
+  `SemanticDataGrid` and `SemanticDataGridProps`;
+- replace `GridRecordRow` with `GridDataRow`, carrying `rowIdentity` and an
+  optional `mutationIdentity`;
+- replace record-specific active-row callbacks with semantic row identities;
+- keep bulk selection explicitly Core-record-only and product-command-gated;
+- require `mutationIdentity` before an editor, paste, or fill target can be
+  compiled;
+- migrate existing workbook consumers atomically, without compatibility
+  aliases, deprecated wrappers, or surface exception lists; and
+- retain the React Data Grid import boundary and stylesheet singleton.
+
+Application contracts, persisted state, focus anchors, and test selectors may
+contain only the semantic identities above. React Data Grid indexes, native
+handles, classes, DOM structure, and coordinates remain package-private.
+
+### 14.3 Network Flow presentation and query model
+
+Specification closure will amend the Network Flow NLSpec to document version
+`1.2.0` while retaining contract major `1` and the existing HTTP route and
+schema shapes. A closed repo-local derived artifact at
+`contracts/network-flow/presentation.v1.json` will be referenced by the
+Network Flow contract index and frontend entrypoints, but not added to
+`public_schema_ids`.
+
+The artifact owns three grid-schema identities:
+
+- `network_flow.accepted_rows.v1`;
+- `network_flow.rejected_rows.v1`; and
+- `network_flow.graph_contributors.v1`.
+
+Each schema declares stable field keys, label keys, value and renderer kinds,
+filter and sort capabilities, copy and link eligibility, default visibility
+and order, widths, minimum widths, and inspector-only fields. Generated
+frontend metadata is downstream of that owner input and must contain no vendor
+coordinate, class, handle, or DOM contract.
+
+Accepted-row defaults are:
+
+| Position | Field | Default width | Default posture |
+| ---: | --- | ---: | --- |
+| gutter | `source_row_number` | `64px` | Structural display only; not row identity |
+| 1 | `network_flow.flow_start_utc` | `184px` | Visible |
+| 2 | `network_flow.flow_end_utc` | `184px` | Visible |
+| 3 | `network_flow.src_ip` | `168px` | Visible and linkable |
+| 4 | `network_flow.src_port` | `88px` | Visible |
+| 5 | `network_flow.dst_ip` | `168px` | Visible and linkable |
+| 6 | `network_flow.dst_port` | `88px` | Visible |
+| 7 | `network_flow.ip_protocol` | `104px` | Visible |
+| 8 | `network_flow.bytes_count` | `120px` | Visible |
+| 9 | `network_flow.packets_count` | `120px` | Visible |
+| 10 | `network_flow.input_interface` | `144px` | Visible |
+| 11 | `network_flow.output_interface` | `144px` | Visible |
+| 12 | `network_flow.exporter_id` | `144px` | Hidden by default |
+| 13 | `network_flow.tcp_flags` | `112px` | Hidden by default |
+| 14 | `network_flow.application_label` | `160px` | Hidden by default |
+
+Table and row identities, source and normalized digests, mapping fingerprint,
+`network_flow.observation_source_ref`, and `unmapped_raw` are inspector-only.
+Diagnostics default to source row, source column, field key, error code, reason
+code, and message key. Contributor rows reuse accepted-row rendering and group
+by table display name while using `network_flow_table_id` as group identity.
+
+Query and layout ownership is fixed as follows:
+
+- The server owns authorization, filter/sort validation, cursor admission,
+  graph aggregation, link validation, rename, delete, and import.
+- Grid sort callbacks emit ordered Network Flow field-key sorts. The adapter
+  must not perform authoritative local filtering or sorting.
+- Initial row and diagnostic queries omit `limit`, using the server-owned
+  default. Continuations contain only their route-specific schema ID and opaque
+  cursor token.
+- Previous/Next navigation keeps a stack of page requests: page one reissues
+  the initial query, and later previous pages reissue the cursor request that
+  originally produced that page. An expired cursor resets to page one with an
+  explanation.
+- A row-query time window compiles to
+  `network_flow.flow_end_utc >= start_utc` and
+  `network_flow.flow_start_utc < end_utc`; graph queries use the owner-defined
+  `time_range` object.
+- Table, filter, sort, or time changes reset pagination, active range, and
+  superseded request state. Late responses are discarded by request
+  generation.
+- Unchanged rows are reconciled by `network_flow_row_id`; visual positions and
+  vendor indexes are never identities.
+- Layout state is in memory, keyed by extension profile, workspace key, and
+  grid-schema ID. It survives active-table changes for the same schema and
+  resets on browser reload. It is not stored as a Core saved view, local-storage
+  value, or server resource.
+
+### 14.4 Adopted workflows and feature classification
+
+Read-only range selection and copy are adopted for accepted rows, diagnostics,
+and contributors. Clipboard values come from semantic field values rather than
+rendered DOM. Active-cell state drives a Network Flow inspector that presents
+complete values and provenance and exposes explicit IP-link commands only for
+eligible source/destination fields.
+
+Table rename, table soft delete, import, existing/create indicator linking,
+graph table-scope selection, explicit graph vertex/edge selection, and the
+contributor drawer remain module-owned, role-gated workflows. The graph does
+not auto-select its first edge and is not compiled through the grid adapter.
+Network Flow cell state remains extension-local and must not populate Core
+presence `record_id` or `field_key` members.
+
+| Classification | Adapter capabilities and decision |
+| --- | --- |
+| Already integrated | Package dependency, shared density/styling primitives, React Data Grid containment, semantic data-state primitives, and always-on virtualization exist repository-wide; Network Analysis has no runtime grid integration yet |
+| Required for this effort | Extension-grid/resource identities; semantic component/row API; accepted, diagnostic, and contributor grids; column resize/reorder/visibility/reset; server multi-sort, filters, time window, and cursor paging; active cell and inspector; range/copy; contributor grouping; complete data/read-only/authorization states; keyboard/focus/accessibility; stable selectors; supported-load evidence |
+| Useful future enhancement | Cross-session extension-layout persistence; extension-owned saved analysis configurations; richer node-edge visualization; additional flow-profile column groups; broader cross-table analysis workflows |
+| Intentionally deferred | Bulk selection until an adopted bulk command exists; primary-flow-table grouping; summaries/footer aggregation; data-column freezing; dynamic row heights; RTL-specific behavior; additional adapter aggregation APIs |
+| Inappropriate for the module | Existing-row editing; draft/create rows; paste; fill; row reorder; RDG-local filters/sorting; client aggregation; column spanning; nested trees; master/detail rows; vendor handles/indexes/DOM contracts; Network Flow row/cell presence |
+
+Deferred and inappropriate capabilities require new owner authority before
+enablement. Their availability in the package is not product authorization.
+
+### 14.5 Gap register
+
+| ID | Remediation and affected areas | Rationale and long-term benefit | Compatibility, risk, dependencies, and rollback | Exact validation and evidence |
+| --- | --- | --- | --- | --- |
+| `NF-GAP-01` | Close presentation semantics in NLSpec `1.2.0`; add derived grid metadata and generated frontend types. Areas: specification, contracts, generation, documentation, tests | One semantic source of truth supports future flow profiles without hard-coded surface policy | Contract major and HTTP shapes remain unchanged. First dependency. Revert specification, contract inputs, and generated outputs together. Leaving it open causes divergent columns/capabilities | All three closed grid schemas and displayed fields resolve. Run `make generate`, `make generate-drift`, `make json-shape-check`, and `make lint-markdown`. Semantic/generated evidence |
+| `NF-GAP-02` | Generalize adapter surface, row, anchor, and component APIs. Areas: adapter, all consumers, tests, documentation | Prevents fake Core identities and supports later extension grids | Atomic internal TypeScript source break after `NF-GAP-01`; no shim. Revert adapter and migrated consumers together. Leaving it open violates domain boundaries | Core anchors remain stable; extension anchors contain only extension identities; mutationless rows cannot edit. Run `make frontend-unit`, `make frontend-typecheck`, `make frontend-import-boundary-check`, and `make lint-biome`. Semantic/live-grid evidence |
+| `NF-GAP-03` | Replace fixed `limit=50` clients with semantic query state, filters, ordered sort, opaque-cursor stack, cancellation, and row reconciliation. Areas: implementation, tests | Enables trustworthy larger-result analysis without offsets or visual identity | Depends on metadata/adapter identities; no server contract change. Roll back to the prior first-page client. Leaving it open presents misleading partial analysis | Exact initial/continuation requests, default sort, overlap time window, Previous/Next replay, expiry recovery, and late-response discard. Webserver-backed/stateful evidence |
+| `NF-GAP-04` | Compile metadata columns and add accessible session-only show/hide, move, resize, and reset. Areas: implementation, tests, design evidence | Stable fields survive labels, tables, and later profiles | Depends on metadata; no persisted-data migration. Rollback removes in-memory layout only. Leaving it open creates wide, inconsistent tables | Defaults/widths match metadata; state survives table changes, resets on reload/reset, and retains structural navigation. Semantic/live-grid/visual evidence |
+| `NF-GAP-05` | Add network renderers for time, IP, port, protocol, counters, nulls, references, diagnostics, and clipboard. Areas: implementation, tests | Preserves network semantics while keeping renderers module-owned | Depends on columns; each renderer rolls back independently. Leaving it open produces ambiguous or lossy combined values | Complete accessible values; canonical IPs; decimal-string counter copy; provenance only in inspector. Unit/live-grid/accessibility/visual evidence |
+| `NF-GAP-06` | Add active cell, inspector, explicit graph selection, existing/create linking, rename, delete, import, and contributor workflows. Areas: implementation, tests | Connects semantic selection only to adopted analysis commands | Depends on identities/queries; commands are independently reversible. Leaving it open risks stale or label-based targets | Requests use row/field/vertex/edge IDs and current graph digest; roles and confirmation match owners; presence stays workspace-only. Webserver/stateful evidence |
+| `NF-GAP-07` | Configure every Network Flow grid read-only; expose range/copy but omit editor, paste, fill, draft, and bulk-selection props. Areas: specification, implementation, tests, tracker | Immutable flows are corrected through reimport/delete | Depends on adapter gating; range/copy can roll back independently. Leaving it open risks unsupported mutations | Keyboard/pointer input cannot edit, paste, or fill; copy works when authorized; no mutation is emitted. Semantic/live-grid/accessibility evidence |
+| `NF-GAP-08` | Use adapter grouping only for graph contributors; retain server graph aggregation and module visualization. Areas: implementation, tests, documentation | Implements the one adopted grouping workflow without copying Timeline behavior | Depends on graph selection; contributor grouping can roll back to a flat semantic list. Leaving it open risks client aggregation or misleading primary grouping | Groups follow workspace table order and table identity; rows retain row IDs; sums remain server output. Unit/live-grid/webserver evidence |
+| `NF-GAP-09` | Map loading, refreshing, empty, filtered-empty, stale, unavailable, permission-denied, and read-only states; clear protected state when route admission fails. Areas: implementation, tests | Prevents stale disclosure and distinguishes retryable conditions | Depends on query/auth events. Rollback must still clear protected data. Leaving it open is a disclosure risk | State precedence, retry, announcements, cursor invalidation, and clearing pass for role loss, closure, soft delete, and hidden resources. Stateful/accessibility evidence |
+| `NF-GAP-10` | Add semantic focus restoration, keyboard control, announcements, token styling, non-color cues, and stable selectors. Areas: implementation, tests, design evidence | Makes the virtualized workspace operable without vendor DOM knowledge | Depends on anchors/states; styling rolls back separately and focus with the adapter slice. Leaving it open causes inaccessible navigation and brittle tests | Focus restores to row/field or deterministic fallback; inspector close returns focus; keyboard, ARIA, live-region, and non-color scenarios pass. Accessibility/visual evidence |
+| `NF-GAP-11` | Validate fixed-height row/column virtualization at 1,000 rows and all declared columns, including stable row references. Areas: implementation, measurement tests, documentation | Establishes a supported page envelope while stored tables remain server-paged | Depends on completed grids; rollback removes reconciliation/measurement changes, not paging. Leaving it open risks DOM expansion and lost selection | Rendered rows/cells remain fewer than supplied rows/cells; endpoints are reachable; unchanged row objects retain identity; no timed claim. Measurement/live-grid evidence |
+| `NF-GAP-12` | Enforce vendor imports, semantic styling, and selectors at package boundaries. Areas: implementation, tooling, tests | Preserves vendor replacement and semantic test ownership | Applies throughout; each violation rolls back with its consumer. Leaving it open leaks vendor contracts | No `react-data-grid` import outside the adapter and no vendor index/class/handle in app state or selectors. Run `make frontend-import-boundary-check` and `make lint-biome`. Boundary evidence |
+| `NF-GAP-13` | Replace synthetic-only browser claims with real application/grid scenarios; update Phase 12 maps, accounting, visual registry, and retained evidence. Areas: tests, harness inputs, documentation, generated accounting | Aligns evidence with the production grid | Final dependency; authored maps and generated ledgers/schedules roll back together. Leaving it open permits false conformance claims | Every authoritative row names a real target/artifact and evidence classes remain distinct. Harness, phase, browser, and retained-run evidence |
+
+### 14.6 Mandatory execution protocol and checkpoints
+
+Workstream order is mandatory. Every workstream starts `PENDING`. The allowed
+later states are `ACTIVE`, `BLOCKED`, and `COMPLETE`. A workstream becomes
+`COMPLETE` only after its checkpoint is written below; the next workstream must
+not begin before that tracker update. A failed exit gate is recorded as
+`BLOCKED`, never skipped.
+
+Every checkpoint must populate these fields:
+
+- status and reviewer/date;
+- baseline commit and end commit;
+- files changed;
+- commands and exact results;
+- result roots and artifacts;
+- evidence-map rows added or changed;
+- residual risks and deferred features;
+- compatibility/migration outcome;
+- rollback boundary and whether it was exercised; and
+- next workstream.
+
+### 14.7 Serial implementation workstreams
+
+#### `NF-GA-00` — Tracker activation and specification closure
+
+| Field | Approved value |
+| --- | --- |
+| Status | `PENDING` |
+| Dependencies | None |
+| Remediation | Amend Network Flow NLSpec to `1.2.0`; define presentation metadata, session layout, data states, read-only behavior, supported page envelope, and every adopted/deferred/rejected capability; update derived contract inputs and generated frontend metadata |
+| Affected areas | Specification, repo-local contracts, generation inputs/outputs, documentation, semantic tests |
+| Rationale | Close owner semantics before implementation and prevent Core-record/view-schema substitution |
+| Long-term benefit | Later profiles and extension grids reuse one closed semantic presentation model |
+| Compatibility/migration | Contract major remains `1`; no public HTTP, database, or saved-view migration |
+| Unresolved risk | Code would otherwise choose presentation defaults and capabilities ad hoc |
+| Validation criteria | All decisions in Sections 14.2 through 14.5 are owned by the amended specification or derived metadata without Core/domain/design contradiction |
+| Commands/evidence | `make generate`; `make generate-drift`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-markdown`; `git diff --check`; semantic/generated evidence |
+| Rollback | Revert NLSpec, index/frontend-entrypoint inputs, presentation artifact, and generated output together |
+| Exit criteria | Owner approval and clean generation/drift |
+| Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
+| Next workstream | `NF-GA-01` |
+
+#### `NF-GA-01` — Adapter boundary and semantic model
+
+| Field | Approved value |
+| --- | --- |
+| Status | `PENDING` |
+| Dependencies | `NF-GA-00 COMPLETE` |
+| Remediation | Implement the generalized semantic interfaces and `SemanticDataGrid`; atomically migrate existing workbook consumers; retain Core-record-only bulk selection and mutation gating |
+| Affected areas | `packages/grid-adapter`, workbook consumers, adapter semantic/live-grid tests, boundary documentation |
+| Rationale | Remove Core-only names and identities from a reusable adapter boundary |
+| Long-term benefit | Extension workspaces can adopt the grid without vendor leakage or fake Core resources |
+| Compatibility/migration | Internal TypeScript source break; no shim, dependency, lockfile, or RDG upgrade |
+| Unresolved risk | Fake identities would leak into contracts and compound future migrations |
+| Validation criteria | Existing Core behavior remains identical; extension anchors are semantic; rows without mutation identity cannot edit |
+| Commands/evidence | `make frontend-unit`; `make frontend-typecheck`; `make frontend-import-boundary-check`; `make lint-biome`; `git diff --check`; semantic/live-grid evidence |
+| Rollback | Revert adapter and all consumer migrations atomically |
+| Exit criteria | Existing workbook evidence and new extension-resource fixtures pass |
+| Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
+| Next workstream | `NF-GA-02` |
+
+#### `NF-GA-02` — Network Flow columns, query, and session layout
+
+| Field | Approved value |
+| --- | --- |
+| Status | `PENDING` |
+| Dependencies | `NF-GA-01 COMPLETE` |
+| Remediation | Compile three grid schemas; replace accepted/diagnostic HTML tables; add owner filters, graph table scope, ordered sort, opaque-cursor paging, cancellation/reconciliation, column controls, and session layout |
+| Affected areas | Network Flow client/controllers, workspace presentation, module tests, live browser scenarios |
+| Rationale | Provide scalable, stable-field analysis without client query authority |
+| Long-term benefit | New flow types, columns, and larger result sets extend through metadata and server paging |
+| Compatibility/migration | Reuse existing routes/cursors; no wire change; layout resets on reload |
+| Unresolved risk | Partial or locally reordered results may mislead analysts |
+| Validation criteria | Exact initial/continuation bodies, default sort, layout/reset, cursor history, stale-response discard, and stable row references |
+| Commands/evidence | `make frontend-unit`; `make frontend-typecheck`; `make frontend-import-boundary-check`; `make browser-e2e-webserver-backed`; `make browser-e2e-stateful`; semantic/live-grid/webserver/stateful evidence |
+| Rollback | Revert Network Analysis integration while retaining the generalized adapter |
+| Exit criteria | Accepted/diagnostic grids operate against real routes with no fixed 50-row ceiling |
+| Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
+| Next workstream | `NF-GA-03` |
+
+#### `NF-GA-03` — Renderers, inspector, and adopted command workflows
+
+| Field | Approved value |
+| --- | --- |
+| Status | `PENDING` |
+| Dependencies | `NF-GA-02 COMPLETE` |
+| Remediation | Add network renderers, active-cell inspector, explicit graph selection, contributor grouping, indicator linking, rename/delete/import controls, and canonical range/copy |
+| Affected areas | Network Flow presentation/controllers, indicator/table/graph workflow adapters, tests |
+| Rationale | Connect semantic values only to adopted analysis commands |
+| Long-term benefit | Richer inspection and later workflows can extend stable selectors and renderer kinds |
+| Compatibility/migration | Server commands remain authoritative; no row mutation or persisted client state |
+| Unresolved risk | Stale graph or visible-label selectors may target the wrong resource |
+| Validation criteria | Exact row/field/vertex/edge selectors and graph digests; roles/confirmation; clipboard values; group order; inspector provenance; workspace-only presence |
+| Commands/evidence | `make frontend-unit`; `make frontend-typecheck`; `make browser-e2e-webserver-backed`; `make browser-e2e-stateful`; semantic/live-grid/webserver/stateful evidence |
+| Rollback | Commands, inspector, contributor grid, and renderers are separately reversible |
+| Exit criteria | Every adopted command has a stable semantic target and real-route evidence |
+| Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
+| Next workstream | `NF-GA-04` |
+
+#### `NF-GA-04` — Data states, read-only behavior, and authorization transitions
+
+| Field | Approved value |
+| --- | --- |
+| Status | `PENDING` |
+| Dependencies | `NF-GA-03 COMPLETE` |
+| Remediation | Implement data-state precedence, retry behavior, read-only roles, superseded-response handling, invalidation, and protected-state clearing |
+| Affected areas | Network Flow controllers/workspace, authorization/collaboration interpretation, stateful tests |
+| Rationale | Prevent stale disclosure while making service conditions understandable |
+| Long-term benefit | Later workflows inherit one owner-correct route-admission transition model |
+| Compatibility/migration | No authorization policy change; client mirrors current owner outcomes |
+| Unresolved risk | Rows retained after closure or role loss are a security defect |
+| Validation criteria | Every named state plus closure, soft delete, role loss, hidden resource, cursor expiry, refresh, and late-response transition; no protected residual state |
+| Commands/evidence | `make frontend-unit`; `make browser-e2e-webserver-backed`; `make browser-e2e-stateful`; `make service-backed-slice PHASE=phase12`; stateful/accessibility evidence |
+| Rollback | State controller may roll back only if fail-closed clearing is preserved |
+| Exit criteria | Authorization-loss scenarios leave no rows, cursors, range, inspector, or graph selection |
+| Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
+| Next workstream | `NF-GA-05` |
+
+#### `NF-GA-05` — Keyboard, focus, accessibility, and semantic styling
+
+| Field | Approved value |
+| --- | --- |
+| Status | `PENDING` |
+| Dependencies | `NF-GA-04 COMPLETE` |
+| Remediation | Add keyboard query/layout controls, focus restoration, inspector return focus, announcements, non-color state cues, shared tokens, and stable semantic selectors |
+| Affected areas | Grid/workspace accessibility, styles, selector builders, browser and visual tests |
+| Rationale | Make virtualized analysis operable without vendor DOM knowledge |
+| Long-term benefit | Semantic focus and state styling remain stable across vendor or layout changes |
+| Compatibility/migration | Visual goldens change; no product-data migration |
+| Unresolved risk | Inaccessible navigation and brittle vendor selectors |
+| Validation criteria | Deterministic focus fallbacks, keyboard-only workflows, ARIA/live-region state, non-color cues, contrast, and stable selectors |
+| Commands/evidence | `make browser-e2e-a11y-preflight`; `make browser-e2e-a11y`; `make browser-e2e-visual`; `make frontend-unit`; accessibility/visual evidence |
+| Rollback | Visuals follow the golden-maintenance guide; focus rolls back with its adapter slice |
+| Exit criteria | Automated accessibility passes and manual keyboard scenarios are recorded |
+| Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
+| Next workstream | `NF-GA-06` |
+
+#### `NF-GA-06` — Virtualization and supported-load validation
+
+| Field | Approved value |
+| --- | --- |
+| Status | `PENDING` |
+| Dependencies | `NF-GA-05 COMPLETE` |
+| Remediation | Validate 1,000-row/all-column fixed-height virtualization, bounded DOM, scrolling, refresh reconciliation, range/inspector continuity, and server paging |
+| Affected areas | Adapter diagnostics, Network Flow reconciliation, measurement and live-grid tests, handoff evidence |
+| Rationale | Support growth without loading multi-million-row tables client-side |
+| Long-term benefit | Establish one reusable supported page envelope and stable-reference policy |
+| Compatibility/migration | No resource-limit or server-default change |
+| Unresolved risk | Large pages may expand the DOM or lose semantic selection |
+| Validation criteria | Rendered rows/cells remain fewer than supplied values; first/last rows are reachable; unchanged row objects retain identity; no vendor coordinates persist |
+| Commands/evidence | `make browser-e2e-measurement`; `make frontend-unit`; `make browser-e2e-webserver-backed`; measurement/live-grid evidence without a timing claim |
+| Rollback | Remove optimization-specific reconciliation/measurement fixtures; retain semantic paging |
+| Exit criteria | Artifacts record the supported envelope without a Core 05 claim |
+| Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
+| Next workstream | `NF-GA-07` |
+
+#### `NF-GA-07` — Evidence reconciliation, final validation, and handoff
+
+| Field | Approved value |
+| --- | --- |
+| Status | `PENDING` |
+| Dependencies | `NF-GA-06 COMPLETE` |
+| Remediation | Replace synthetic authoritative browser rows with real app/grid evidence; classify semantic and live-grid tests; update Phase 12 maps, accounting, visual registry, ledgers/schedules, retained evidence, and this tracker |
+| Affected areas | Tests, harness owner inputs, generated accounting, visual artifacts, final documentation |
+| Rationale | Make evidence accurately describe production adapter behavior |
+| Long-term benefit | Later claims can distinguish product, design, measurement, and publication evidence |
+| Compatibility/migration | Test/accounting artifacts only; no runtime or data migration |
+| Unresolved risk | Synthetic surfaces may be mistaken for live production-grid conformance |
+| Validation criteria | Every gap is closed or explicitly deferred/rejected; no unowned authoritative test; maps and generated accounting agree |
+| Commands/evidence | `make phase-ledger-drift`; `make phase-schedule-drift`; `make harness-contract`; `make phase-slice PHASE=phase12`; `make service-backed-slice PHASE=phase12`; `make generated-artifact-policy-check`; `make json-shape-check`; `make agent-finalize`; broaden to `make check` only when final risk/ownership warrants it |
+| Rollback | Revert authored evidence maps and generated outputs together; runtime rollback remains bounded by earlier workstreams |
+| Exit criteria | Final commits, successful run roots, evidence classes, deferrals, residual risk, and rollback posture are recorded; only then may adoption be marked complete |
+| Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
+| Next workstream | None |
+
+### 14.8 Evidence-class matrix
+
+| Evidence class | Required coverage | Public Make target | Ownership and claim boundary |
+| --- | --- | --- | --- |
+| Semantic unit | Metadata compilation, identity serialization, query translation, cursor stack, layout reset, state precedence, capability rejection | `make frontend-unit` | Implementation support or mapped product evidence; no live-grid claim alone |
+| Live production grid | Actual RDG callback wiring, layout events, range/copy, grouping, virtualization | `make frontend-unit` with production-grid suites | Must remain distinct from pure semantic tests |
+| Webserver-backed | Real route query/filter/sort/paging, graph selectors, link/rename/delete workflows | `make browser-e2e-webserver-backed` | Phase 12 product-conformance evidence only when mapped |
+| Stateful | Refresh, invalidation, late responses, role/closure/soft-delete transitions, focus continuity | `make browser-e2e-stateful` | Service-backed/stateful evidence |
+| Accessibility | Keyboard, focus, ARIA, announcements, permission/read-only cues | `make browser-e2e-a11y-preflight`; `make browser-e2e-a11y` | Accessibility evidence; design direction alone is not Base conformance |
+| Visual | Grid geometry, inspector, graph adjacency, and every named data state | `make browser-e2e-visual` | Design-direction evidence maintained through the visual-golden guide |
+| Measurement | 1,000-row/all-column bounded DOM and identity stability | `make browser-e2e-measurement` | Informative unless Core 05 separately authorizes a claim |
+| Claim-bearing | Adopted Phase 12 requirements and acceptance criteria with retained artifacts | `make phase-slice PHASE=phase12`; `make service-backed-slice PHASE=phase12` | Timed, benchmark, fixture-sensitive, or publication claims require Core 05 |
+| Retained run | Final successful roots and summaries | `make agent-finalize RESULTS_DIR=<run-root>` | Record the exact root; absence must be reported, not inferred |
+
+### 14.9 Migration and compatibility posture
+
+| Surface | Expected migration |
+| --- | --- |
+| Database | None |
+| Saved-view data | None; Network Flow remains outside Core saved views |
+| Public HTTP protocol | None; existing routes, request/response schemas, defaults, and contract major remain unchanged |
+| Repo-local contract | Add closed presentation metadata and generated frontend types under `NF-GA-00` |
+| Dependency or lockfile | None |
+| React Data Grid | No package version or vendor migration |
+| Adapter TypeScript API | Required atomic source migration across repository consumers; no compatibility shim |
+| Session layout | In-memory only; cross-table for the same grid schema; reset on reload; no data migration |
+| Visual goldens | Expected only after implementation, maintained through the existing guide |
+
+No unresolved behavior choice blocks this plan. Implementation still requires
+the Network Flow owner to approve NLSpec `1.2.0`, the adapter owner to approve
+the generalized semantic API, and the Phase 12/Testing Harness owners to
+approve evidence-accounting changes. These are workstream exit approvals, not
+permission to change the current tracker-only scope.
+
+### 14.10 Explicit deferred and rejected register
+
+| Capability | Posture | Reopening authority |
+| --- | --- | --- |
+| Cross-session layout or saved analysis configuration | Useful future enhancement | Network Flow extension-workspace and persistence owner amendment |
+| Richer graph canvas | Useful future enhancement | Network Flow and Graph Projection presentation owners |
+| Additional flow profiles/column groups | Useful future enhancement | Network Flow profile/specification revision |
+| Bulk selection | Intentionally deferred | Adopted Network Flow bulk command and authorization contract |
+| Primary flow-table grouping | Intentionally deferred | Adopted analysis workflow with owner grouping semantics |
+| Summaries/footer aggregation | Intentionally deferred | Server-owned aggregation/result contract |
+| Data-column freezing, dynamic row heights, RTL | Intentionally deferred | Design and adapter owner adoption |
+| Existing-row editing, draft/create, paste, fill | Inappropriate | Requires a new owner lifecycle/mutation model; unavailable in the current profile |
+| RDG-local filtering/sorting or client aggregation | Inappropriate | Requires a normative authority change; unavailable as an adapter convenience |
+| Row reorder, spanning, nested tree, master/detail | Inappropriate | Requires a separately adopted module workflow |
+| Vendor indexes/handles/classes/DOM or Network Flow cell presence | Inappropriate | Prohibited by the semantic boundary and Core presence model |
+
+### 14.11 Planning-update validation
+
+Only this tracker is changed by the planning update. Phase ledgers, schedules,
+runtime suites, code generation, and broad checks are intentionally not run
+because no corresponding owner input changes. The required post-edit results
+must be recorded here before handoff.
+
+| Command | Result | Result root or note |
+| --- | --- | --- |
+| `make generated-artifact-policy-check` | PASS | `.cartulary/test-results/20260716T024904Z-p49252` |
+| `make json-shape-check` | PASS | `.cartulary/test-results/20260716T024904Z-p49253` |
+| `make lint-markdown` | PASS | No retained result root emitted |
+| `git diff --check` | PASS | No output |
+
+Baseline inspection before this edit passed the same checks:
+
+| Command | Baseline result | Baseline result root or note |
+| --- | --- | --- |
+| `make generated-artifact-policy-check` | PASS | `.cartulary/test-results/20260716T023142Z-p43466` |
+| `make json-shape-check` | PASS | `.cartulary/test-results/20260716T023142Z-p43467` |
+| `make lint-markdown` | PASS | No retained result root emitted |
+| `git diff --check` | PASS | No output |
