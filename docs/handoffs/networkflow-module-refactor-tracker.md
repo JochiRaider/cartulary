@@ -8,7 +8,7 @@
 | Target label | `networkflow` |
 | Output path | `docs/handoffs/networkflow-module-refactor-tracker.md` |
 | Repository snapshot | Clean `main` at `63a19bf6e0c3f17a9b53afb58afa8bd04fb4c550` when planning began |
-| Status | Historical module remediation complete; Network Analysis grid-adapter adoption is executing under Section 14, with `NF-GA-03` `ACTIVE` |
+| Status | Historical module remediation complete; Network Analysis grid-adapter adoption is executing under Section 14, with `NF-GA-00` through `NF-GA-04` `COMPLETE` |
 | Authorized change | Specification, implementation, tests, contracts, generated outputs, configuration, migrations, harness inputs, documentation, and this tracker |
 | Current execution authorization | Specification, contract, generated, backend, frontend, test, harness-input, visual, and tracker changes required by Section 14; no dependency, lockfile, database, saved-view, or React Data Grid version migration |
 | Preserved non-goals | No richer graph canvas, observation creation, restore/purge behavior, existing-route response change, or HTTP schema-major expansion; one additive Core import mapping-preview route is explicitly authorized |
@@ -383,7 +383,7 @@ authorize or claim implementation completion.
 | Harness authority | `docs/testing-harness-nlspec.md`; it owns invocation, target selection, scheduling, artifacts, cleanup, and evidence accounting |
 | Adapter reference | Completed F-RDG workstreams in `docs/handoffs/grid-adapter-module-refactor-tracker.md` |
 | Current execution scope | Full Section 14 remediation, serially checkpointed |
-| Overall adoption status | `ACTIVE` (`NF-GA-00` through `NF-GA-03` `COMPLETE`; `NF-GA-04 ACTIVE`) |
+| Overall adoption status | `ACTIVE` (`NF-GA-00` through `NF-GA-04` `COMPLETE`; `NF-GA-05` is next and not yet activated) |
 
 The inspected baseline has the following implementation boundaries:
 
@@ -772,7 +772,7 @@ Every checkpoint must populate these fields:
 
 | Field | Approved value |
 | --- | --- |
-| Status | `ACTIVE` |
+| Status | `COMPLETE` |
 | Activation baseline | `3a5bbb8f0b297c0dc0f791a871800b49575d87ff` |
 | Dependencies | `NF-GA-03 COMPLETE` |
 | Remediation | Compile three grid schemas; replace accepted/diagnostic HTML tables; add metadata columns, network renderers, session layout, active-cell inspector, canonical range/copy, and every normative workspace region |
@@ -782,11 +782,29 @@ Every checkpoint must populate these fields:
 | Compatibility/migration | Session layout only; no row mutation or persisted client state |
 | Unresolved risk | Manual tables and incomplete regions keep required context and workflows unavailable |
 | Validation criteria | All regions and default columns resolve; layout/reset, clipboard values, inspector provenance, density, and shell geometry pass |
-| Commands/evidence | `make frontend-unit`; `make frontend-typecheck`; `make browser-e2e-webserver-backed`; `make browser-e2e-stateful`; semantic/live-grid/webserver/stateful evidence |
+| Commands/evidence | `make frontend-unit`; `make frontend-typecheck`; `make frontend-import-boundary-check`; `make lint-biome`; `make browser-e2e-webserver-backed`; `make browser-e2e-stateful`; `make browser-e2e-visual`; semantic/live-grid/webserver/stateful/visual evidence |
 | Rollback | Commands, inspector, contributor grid, and renderers are separately reversible |
-| Exit criteria | Every adopted command has a stable semantic target and real-route evidence |
-| Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
+| Exit criteria | Every normative workspace region exists; accepted and rejected resources use metadata-compiled production grids; default density, fixed-height rows, session layout, accessible full values, canonical copy, and active-cell inspection pass |
+| Checkpoint | Completed in Section 14.7.5 |
 | Next workstream | `NF-GA-05` |
+
+##### 14.7.5 `NF-GA-04` completion checkpoint
+
+| Checkpoint field | Recorded outcome |
+| --- | --- |
+| Status / reviewer / date | `COMPLETE`; Codex self-review; 2026-07-16 America/New_York |
+| Baseline and activation commits | Baseline `3a5bbb8f0b297c0dc0f791a871800b49575d87ff`; activation `89ceb87f72c53f6648c22c5e782d7a55d3c31798` |
+| Implementation end commit | `30fc01d1bf068ff9989375ae197195429e20b749` |
+| Files changed | Network Analysis workspace and component tests; new accepted/rejected query controls; new semantic-grid frames and active-cell inspector; new generated-metadata presentation compiler/renderers and tests; new session-layout controller and tests; mapping-modal diagnostic rendering; Network Flow contract facade; semantic selector facade; frontend test-accounting classifications |
+| Substantive result | Replaced the accepted-row and rejected-diagnostic manual HTML tables with `SemanticDataGrid` extension surfaces and immutable extension-resource row identities. Presentation metadata now owns column order, visibility, widths, minimums, filter/sort/copy capabilities, and inspector-only fields. Source row is a non-identity gutter for accepted rows. Network renderers preserve canonical timestamps, IPs, nullable ports/text, protocol numbers, decimal-string counters, TCP flags, and safe localized diagnostics while semantic clipboard values remain unformatted. Added metadata-driven show/hide/reorder/resize/reset state in browser-session memory keyed by profile, workspace, and grid schema, with no local storage or saved-view persistence. Added the complete header, table tabs, rows/rejected/graph modes, diagnostic summary, accepted/rejected filters, status strip, fixed-height grid region, pagination, and active-cell inspector. Exact component evidence proves the initial request omits `limit`, endpoint-CIDR and overlap-window filters compile to owner shapes, diagnostics use their owner query, hidden columns reset to defaults, and extension rows carry no mutation identity |
+| Required gates | Final `make frontend-unit` PASS (`.cartulary/test-results/20260716T055348Z-p19594`); `make frontend-typecheck` PASS; `make frontend-import-boundary-check` PASS (`.cartulary/test-results/20260716T055348Z-p19635`); `make lint-biome` PASS; `make browser-e2e-webserver-backed` PASS with 97 tests (`.cartulary/test-results/20260716T055429Z-p22807`); `make browser-e2e-stateful` PASS with 22 tests (`.cartulary/test-results/20260716T055647Z-p42548`); `make browser-e2e-visual` PASS with 28 tests and no golden drift (`.cartulary/test-results/20260716T054909Z-p99714`) |
+| Additional gates | `make format` PASS (`.cartulary/test-results/20260716T055336Z-p17219`); `git diff --check` PASS. The visual-golden maintenance guide was reviewed before visual validation; Phase 12 currently owns no visual row, so no unrelated golden was refreshed. Real Network Analysis visual-row ownership remains part of `NF-GA-09` evidence reconciliation |
+| Corrective runs | Early frontend-unit runs exposed the expected manual-table count change and a missing active-cell fallback in the new grid (`.cartulary/test-results/20260716T053356Z-p30942`, `.cartulary/test-results/20260716T053553Z-p35962`, `.cartulary/test-results/20260716T053627Z-p38023`); the expectation and semantic row-selection fallback were corrected. A later unit run passed every product assertion but failed test accounting for the new diagnostics scenario (`.cartulary/test-results/20260716T053952Z-p47679`); the bounded row was added. The first formatting run exposed only related Biome findings in the new query/grid/presentation files (`.cartulary/test-results/20260716T053301Z-p25776`), which were corrected. Running webserver-backed and stateful browser targets concurrently caused both Vite processes to refresh the same `apps/web/dist` tree and one build failed copying a font (`.cartulary/test-results/20260716T054342Z-p56004`); the target passed when rerun alone and passed again after final edits. No product, security, or required gate failure remains |
+| Evidence-map rows | Added bounded `unowned_regression` classifications for metadata compilation/rendering, extension-resource projection, session layout, accepted-grid anatomy/query behavior, and rejected-grid diagnostic query behavior. Stable selector helpers now own accepted rows, diagnostic resources, grids, filters, inspector, column menu, summary, reset, and workspace header without RDG DOM/classes. Existing webserver/stateful/visual suites remain green; authoritative Phase 12 synthetic-browser replacement remains `NF-GA-09` |
+| Compatibility / migration | Visual and interaction migration only. Existing Network Flow query/import/graph/link routes and response shapes are unchanged. Layout is ephemeral browser-session state, not local storage, table metadata, Core saved views, or a server resource. No database, dependency, lockfile, saved-view, contract-major, or React Data Grid version migration |
+| Residual risk / deferral | Exact authorization/lifecycle precedence, protected-state clearing, rename/delete commands, and strict role gates belong to `NF-GA-05`. Graph-scope semantics, explicit vertex selection, contributor production grid, and row/range/vertex linking belong to `NF-GA-06`. Focus restoration and complete keyboard/a11y evidence belong to `NF-GA-07`; the supported 1,000-row envelope belongs to `NF-GA-08`; real Phase 12 visual/claim accounting belongs to `NF-GA-09` |
+| Rollback | Revert `30fc01d1` atomically to restore the former manual accepted/rejected presentation while retaining semantic query, adapter, and import-preview foundations; not exercised because all exit gates passed |
+| Next workstream | `NF-GA-05`; it may activate only after this checkpoint commit |
 
 #### `NF-GA-05` — Read-only safety, lifecycle controls, and authorization transitions
 
