@@ -302,10 +302,18 @@ export function NetworkFlowAcceptedQueryControls({
         </div>
       </details>
       <div style={actionsStyle}>
-        <button type="button" onClick={apply}>
+        <button
+          data-testid={networkAnalysisTestId("accepted-query-apply")}
+          type="button"
+          onClick={apply}
+        >
           Apply query
         </button>
-        <button type="button" onClick={reset}>
+        <button
+          data-testid={networkAnalysisTestId("accepted-query-clear")}
+          type="button"
+          onClick={reset}
+        >
           Clear query
         </button>
       </div>
@@ -400,10 +408,15 @@ export function NetworkFlowRejectedQueryControls({
         />
       </label>
       <div style={actionsStyle}>
-        <button type="button" onClick={apply}>
+        <button
+          data-testid={networkAnalysisTestId("rejected-query-apply")}
+          type="button"
+          onClick={apply}
+        >
           Apply diagnostics query
         </button>
         <button
+          data-testid={networkAnalysisTestId("rejected-query-clear")}
           type="button"
           onClick={() => {
             setErrorCodes("");

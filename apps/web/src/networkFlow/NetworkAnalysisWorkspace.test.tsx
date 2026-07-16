@@ -11,6 +11,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NetworkAnalysisWorkspace } from "./NetworkAnalysisWorkspace";
 
@@ -106,6 +107,13 @@ describe("NetworkAnalysisWorkspace", () => {
     });
     fireEvent.click(
       screen.getByRole("button", { name: "Link 1 selected row" }),
+    );
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByTestId(
+          networkAnalysisTestId("indicator-link-confirmation"),
+        ),
+      ),
     );
     fireEvent.change(
       screen.getByTestId(networkAnalysisTestId("indicator-link-confirmation")),
@@ -236,7 +244,10 @@ describe("NetworkAnalysisWorkspace", () => {
     fireEvent.click(screen.getByLabelText("Active table"));
     await screen.findByTestId(networkAnalysisEdgeTestId(edgeId));
 
-    fireEvent.click(screen.getByRole("button", { name: "Select edge" }));
+    const selectEdgeButton = screen.getByRole("button", {
+      name: "Select edge",
+    });
+    fireEvent.click(selectEdgeButton);
     expect(
       await screen.findByTestId(networkAnalysisTestId("contributor-drawer")),
     ).toBeTruthy();
@@ -326,7 +337,10 @@ describe("NetworkAnalysisWorkspace", () => {
       confirm_exact_value: "192.0.2.10",
     });
 
-    fireEvent.click(screen.getByTitle("Close"));
+    fireEvent.click(
+      screen.getByTestId(networkAnalysisTestId("contributor-close")),
+    );
+    await waitFor(() => expect(document.activeElement).toBe(selectEdgeButton));
     fireEvent.click(
       screen.getAllByRole("button", { name: "Select vertex" })[0] as Element,
     );
@@ -702,6 +716,11 @@ describe("NetworkAnalysisWorkspace", () => {
     expect(
       await screen.findByTestId(networkAnalysisTestId("mapping-dialog")),
     ).toBeTruthy();
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByTestId(networkAnalysisTestId("mapping-profile")),
+      ),
+    );
     fireEvent.click(
       screen.getByTestId(networkAnalysisTestId("mapping-preview")),
     );
@@ -732,6 +751,77 @@ describe("NetworkAnalysisWorkspace", () => {
         source_profile_id: "cisco_sna_netflow_csv_v1",
       }),
     });
+  });
+
+  it("supports keyboard table navigation and restores focus from lifecycle dialogs", async () => {
+    const user = userEvent.setup();
+    const secondTableId = "nft_22222222222222222222222222222222";
+    installNetworkFlowFetchMock({
+      tables: [
+        tableResource(),
+        {
+          ...tableResource(),
+          network_flow_table_id: secondTableId,
+          display_name: "second-flows.csv",
+          source_filename_display: "second-flows.csv",
+          created_at: "2026-07-10T12:01:00Z",
+        },
+      ],
+    });
+    render(
+      <NetworkAnalysisWorkspace
+        currentIncidentRole="admin"
+        incidentId="incident-1"
+      />,
+    );
+
+    const firstTab = await screen.findByTestId(
+      networkAnalysisTableTabTestId(tableId),
+    );
+    const secondTab = screen.getByTestId(
+      networkAnalysisTableTabTestId(secondTableId),
+    );
+    firstTab.focus();
+    await user.keyboard("{ArrowRight}");
+    expect(document.activeElement).toBe(secondTab);
+    expect(secondTab.getAttribute("aria-selected")).toBe("true");
+    await user.keyboard("{Home}");
+    expect(document.activeElement).toBe(firstTab);
+    expect(firstTab.getAttribute("aria-selected")).toBe("true");
+
+    const renameTrigger = screen.getByTestId(
+      networkAnalysisTestId("rename-trigger"),
+    );
+    renameTrigger.focus();
+    await user.keyboard("{Enter}");
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByTestId(networkAnalysisTestId("rename-input")),
+      ),
+    );
+    await user.keyboard("{Shift>}{Tab}{/Shift}");
+    expect(document.activeElement).toBe(
+      screen.getByTestId(networkAnalysisTestId("rename-submit")),
+    );
+    await user.keyboard("{Tab}");
+    expect(document.activeElement).toBe(
+      screen.getByTestId(networkAnalysisTestId("rename-input")),
+    );
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(document.activeElement).toBe(renameTrigger));
+
+    const deleteTrigger = screen.getByTestId(
+      networkAnalysisTestId("delete-trigger"),
+    );
+    deleteTrigger.focus();
+    await user.keyboard("{Enter}");
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByTestId(networkAnalysisTestId("delete-confirmation")),
+      ),
+    );
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(document.activeElement).toBe(deleteTrigger));
   });
 });
 

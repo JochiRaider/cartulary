@@ -1450,6 +1450,27 @@
     },
     {
       "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
+      "title": "supports keyboard table navigation and restores focus from lifecycle dialogs",
+      "coverage": "unowned_regression",
+      "reason": "Network Analysis roving table tabs plus trapped and returned lifecycle-dialog focus are accessibility regression coverage until real Phase 12 browser evidence is promoted."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/NetworkFlowSemanticGrid.test.tsx",
+      "title": "restores semantic focus to the same field in the nearest replacement row and then the grid root",
+      "coverage": "unowned_regression",
+      "reason": "Network Flow focus reconciliation is semantic production-grid evidence for row replacement, inspector return, and deterministic root fallback."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/NetworkFlowSemanticGrid.test.tsx",
+      "title": "supports keyboard column reordering with a polite semantic announcement",
+      "coverage": "unowned_regression",
+      "reason": "Network Flow keyboard layout control and live announcement behavior are accessibility regression coverage until Phase 12 browser evidence is promoted."
+    },
+    {
+      "target": "frontend-unit",
       "file": "apps/web/src/networkFlow/networkFlowIndicatorLinkModel.test.ts",
       "title": "compiles one active IP cell to its immutable owner row identity",
       "coverage": "unowned_regression",

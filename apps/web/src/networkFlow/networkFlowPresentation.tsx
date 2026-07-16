@@ -4,7 +4,9 @@ import type {
   GridSurfaceIdentity,
 } from "@cartulary/grid-adapter";
 import {
+  networkAnalysisDiagnosticCellTestId,
   networkAnalysisDiagnosticTestId,
+  networkAnalysisRowCellTestId,
   networkAnalysisRowTestId,
 } from "@cartulary/ui-contracts";
 import type { CSSProperties, ReactNode } from "react";
@@ -236,6 +238,7 @@ function renderNetworkFlowCell(
   const label = networkFlowColumnLabel(column.label_key);
   return (
     <span
+      data-testid={networkFlowCellTestId(row, column.field_key)}
       style={cellValueStyle}
       title={canonical === "" ? "No value" : String(canonical)}
     >
@@ -245,6 +248,18 @@ function renderNetworkFlowCell(
       </span>
     </span>
   );
+}
+
+function networkFlowCellTestId(row: object, fieldKey: string) {
+  const values = row as Record<string, unknown>;
+  const rowId = values.network_flow_row_id;
+  if (typeof rowId === "string") {
+    return networkAnalysisRowCellTestId(rowId, fieldKey);
+  }
+  const diagnosticId = values.diagnostic_id;
+  return typeof diagnosticId === "string"
+    ? networkAnalysisDiagnosticCellTestId(diagnosticId, fieldKey)
+    : undefined;
 }
 
 function networkFlowFieldValue(row: object, fieldKey: string): unknown {

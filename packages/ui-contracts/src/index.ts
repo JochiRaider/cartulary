@@ -287,7 +287,10 @@ export type WorkbookShellSlot =
 
 export type NetworkAnalysisSelector =
   | "accepted-grid"
+  | "accepted-query-apply"
+  | "accepted-query-clear"
   | "column-menu"
+  | "contributor-close"
   | "contributor-grid"
   | "contributor-drawer"
   | "diagnostics-summary"
@@ -298,10 +301,12 @@ export type NetworkAnalysisSelector =
   | "delete-trigger"
   | "filters"
   | "graph-panel"
+  | "graph-live-region"
   | "graph-scope"
   | "import-input"
   | "import-trigger"
   | "inspector"
+  | "inspector-close"
   | "indicator-link-cancel"
   | "indicator-link-confirmation"
   | "indicator-link-dialog"
@@ -330,7 +335,10 @@ export type NetworkAnalysisSelector =
   | "rename-submit"
   | "rename-trigger"
   | "rejected-grid"
+  | "rejected-query-apply"
+  | "rejected-query-clear"
   | "stale-state"
+  | "status-strip"
   | "table-panel"
   | "tab"
   | "workspace"
@@ -771,11 +779,38 @@ export function networkAnalysisRowTestId(rowId: string): StableTestId {
   return stableTestId(encodedTestId("network-flow-row", rowId, "row_id"));
 }
 
+export function networkAnalysisRowCellTestId(
+  rowId: string,
+  fieldKey: string,
+): StableTestId {
+  return stableTestId(
+    `${encodedTestId("network-flow-row-cell", rowId, "row_id")}-${encodeSelectorSegment(fieldKey, "field_key")}`,
+  );
+}
+
 export function networkAnalysisDiagnosticTestId(
   diagnosticId: string,
 ): StableTestId {
   return stableTestId(
     encodedTestId("network-flow-diagnostic", diagnosticId, "diagnostic_id"),
+  );
+}
+
+export function networkAnalysisDiagnosticCellTestId(
+  diagnosticId: string,
+  fieldKey: string,
+): StableTestId {
+  return stableTestId(
+    `${encodedTestId("network-flow-diagnostic-cell", diagnosticId, "diagnostic_id")}-${encodeSelectorSegment(fieldKey, "field_key")}`,
+  );
+}
+
+export function networkAnalysisColumnActionTestId(
+  fieldKey: string,
+  action: "move-earlier" | "move-later" | "toggle",
+): StableTestId {
+  return stableTestId(
+    `network-flow-column-${encodeSelectorSegment(fieldKey, "field_key")}-${action}`,
   );
 }
 

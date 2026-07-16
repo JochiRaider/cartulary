@@ -2,12 +2,24 @@ import {
   type GridCellAnchor,
   type GridCellRange,
   type GridDataState,
+  type GridHandle,
   type GridSortEntry,
   GridViewport,
   SemanticDataGrid,
 } from "@cartulary/grid-adapter";
-import { networkAnalysisTestId } from "@cartulary/ui-contracts";
-import { type CSSProperties, useEffect, useMemo, useState } from "react";
+import {
+  networkAnalysisColumnActionTestId,
+  networkAnalysisTestId,
+} from "@cartulary/ui-contracts";
+import {
+  type CSSProperties,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type {
   NetworkFlowContributor,
   NetworkFlowDiagnostic,
@@ -93,10 +105,12 @@ export function NetworkFlowAcceptedGrid({
       {({
         activeAnchor,
         cellRange,
+        gridRef,
         onActiveAnchorChange,
         onCellRangeChange,
       }) => (
         <SemanticDataGrid
+          ref={gridRef}
           activeRowIdentity={activeAnchor?.rowIdentity ?? null}
           cellRange={cellRange}
           columns={columns}
@@ -197,10 +211,12 @@ export function NetworkFlowRejectedGrid({
       {({
         activeAnchor,
         cellRange,
+        gridRef,
         onActiveAnchorChange,
         onCellRangeChange,
       }) => (
         <SemanticDataGrid
+          ref={gridRef}
           activeRowIdentity={activeAnchor?.rowIdentity ?? null}
           cellRange={cellRange}
           columns={columns}
@@ -329,6 +345,7 @@ function NetworkFlowGridFrame<Row extends object>({
   readonly children: (state: {
     readonly activeAnchor: GridCellAnchor | null;
     readonly cellRange: GridCellRange | null;
+    readonly gridRef: RefObject<GridHandle | null>;
     readonly onActiveAnchorChange: (anchor: GridCellAnchor | null) => void;
     readonly onCellRangeChange: (range: GridCellRange | null) => void;
   }) => React.ReactNode;
@@ -349,11 +366,121 @@ function NetworkFlowGridFrame<Row extends object>({
 }) {
   const [activeAnchor, setActiveAnchor] = useState<GridCellAnchor | null>(null);
   const [cellRange, setCellRange] = useState<GridCellRange | null>(null);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const gridRef = useRef<GridHandle | null>(null);
+  const focusRestorationRef = useRef(false);
+  const lastRowIndexRef = useRef(0);
+  const restoreGridAnchor = useCallback((anchor: GridCellAnchor) => {
+    focusRestorationRef.current = true;
+    queueMicrotask(() => {
+      if (gridRef.current?.focusAnchor(anchor) !== true) {
+        gridRef.current?.focusRoot();
+      }
+      window.setTimeout(() => {
+        focusRestorationRef.current = false;
+      }, 0);
+    });
+  }, []);
+  const rowResourceIds = useMemo(
+    () =>
+      rows.flatMap((row) => {
+        const resourceId = resourceIdForRow(row, gridSchemaId);
+        return resourceId === null ? [] : [resourceId];
+      }),
+    [gridSchemaId, rows],
+  );
+  const rowResourceKey = rowResourceIds.join("\u0000");
+  const priorGridStateRef = useRef({ resetKey, rowResourceKey });
+  const handleActiveAnchorChange = useCallback(
+    (anchor: GridCellAnchor | null) => {
+      setActiveAnchor(anchor);
+      if (anchor !== null) {
+        const resourceId =
+          anchor.rowIdentity.kind === "extension_resource"
+            ? anchor.rowIdentity.resourceId
+            : null;
+        const rowIndex =
+          resourceId === null ? -1 : rowResourceIds.indexOf(resourceId);
+        if (rowIndex >= 0) lastRowIndexRef.current = rowIndex;
+        if (!focusRestorationRef.current) setInspectorOpen(true);
+      }
+    },
+    [rowResourceIds],
+  );
   useEffect(() => {
-    void resetKey;
+    const previous = priorGridStateRef.current;
+    const resetChanged = previous.resetKey !== resetKey;
+    const rowsChanged = previous.rowResourceKey !== rowResourceKey;
+    priorGridStateRef.current = { resetKey, rowResourceKey };
+    if (resetChanged) {
+      const hadSemanticSelection =
+        activeAnchor !== null || cellRange !== null || inspectorOpen;
+      setActiveAnchor(null);
+      setCellRange(null);
+      setInspectorOpen(false);
+      if (hadSemanticSelection) focusGridRoot(gridRef);
+      return;
+    }
+    if (!rowsChanged || activeAnchor === null) return;
+    const activeResourceId =
+      activeAnchor.rowIdentity.kind === "extension_resource"
+        ? activeAnchor.rowIdentity.resourceId
+        : null;
+    const exactIndex =
+      activeResourceId === null ? -1 : rowResourceIds.indexOf(activeResourceId);
+    if (exactIndex >= 0) {
+      lastRowIndexRef.current = exactIndex;
+      restoreGridAnchor(activeAnchor);
+      return;
+    }
+    const nearestResourceId =
+      rowResourceIds[
+        Math.min(lastRowIndexRef.current, rowResourceIds.length - 1)
+      ];
+    if (
+      nearestResourceId === undefined ||
+      activeAnchor.rowIdentity.kind !== "extension_resource"
+    ) {
+      setActiveAnchor(null);
+      setCellRange(null);
+      setInspectorOpen(false);
+      focusGridRoot(gridRef);
+      return;
+    }
+    const nextAnchor: GridCellAnchor = {
+      ...activeAnchor,
+      rowIdentity: {
+        ...activeAnchor.rowIdentity,
+        resourceId: nearestResourceId,
+      },
+    };
+    lastRowIndexRef.current = rowResourceIds.indexOf(nearestResourceId);
+    setActiveAnchor(nextAnchor);
+    setCellRange({ end: nextAnchor, start: nextAnchor });
+    restoreGridAnchor(nextAnchor);
+  }, [
+    activeAnchor,
+    cellRange,
+    inspectorOpen,
+    resetKey,
+    restoreGridAnchor,
+    rowResourceIds,
+    rowResourceKey,
+  ]);
+  const visibleFieldKey = columnsControl.orderedVisibleFieldKeys.join("\u0000");
+  useEffect(() => {
+    void visibleFieldKey;
+    if (
+      activeAnchor === null ||
+      columnsControl.orderedVisibleFieldKeys.includes(activeAnchor.fieldKey)
+    ) {
+      return;
+    }
     setActiveAnchor(null);
     setCellRange(null);
-  }, [resetKey]);
+    setInspectorOpen(false);
+    focusGridRoot(gridRef);
+  }, [activeAnchor, columnsControl.orderedVisibleFieldKeys, visibleFieldKey]);
   useEffect(() => {
     onSelectionChange?.(activeAnchor, cellRange);
   }, [activeAnchor, cellRange, onSelectionChange]);
@@ -383,16 +510,22 @@ function NetworkFlowGridFrame<Row extends object>({
           {children({
             activeAnchor,
             cellRange,
-            onActiveAnchorChange: setActiveAnchor,
+            gridRef,
+            onActiveAnchorChange: handleActiveAnchorChange,
             onCellRangeChange: setCellRange,
           })}
         </GridViewport>
-        {activeRow === null || activeAnchor === null ? null : (
+        {activeRow === null ||
+        activeAnchor === null ||
+        !inspectorOpen ? null : (
           <NetworkFlowInspector
             anchor={activeAnchor}
             gridSchemaId={gridSchemaId}
             row={activeRow}
-            onClose={() => setActiveAnchor(null)}
+            onClose={() => {
+              setInspectorOpen(false);
+              restoreGridAnchor(activeAnchor);
+            }}
           />
         )}
       </div>
@@ -410,6 +543,7 @@ function ColumnLayoutControls({
 }: {
   readonly control: ReturnType<typeof useNetworkFlowGridLayout>;
 }) {
+  const [announcement, setAnnouncement] = useState("");
   return (
     <div style={layoutToolbarStyle}>
       <details data-testid={networkAnalysisTestId("column-menu")}>
@@ -417,21 +551,81 @@ function ColumnLayoutControls({
         <div style={columnMenuStyle}>
           {control.allColumns.map((column) => {
             const checked = control.visibleFieldKeys.has(column.field_key);
+            const visibleIndex = control.orderedVisibleFieldKeys.indexOf(
+              column.field_key,
+            );
             return (
-              <label key={column.field_key} style={columnToggleStyle}>
-                <input
-                  checked={checked}
-                  disabled={checked && control.visibleFieldKeys.size === 1}
-                  type="checkbox"
-                  onChange={(event) =>
-                    control.setColumnVisible(
+              <div key={column.field_key} style={columnControlRowStyle}>
+                <label style={columnToggleStyle}>
+                  <input
+                    checked={checked}
+                    data-testid={networkAnalysisColumnActionTestId(
                       column.field_key,
-                      event.currentTarget.checked,
-                    )
-                  }
-                />
-                {networkFlowColumnLabel(column.label_key)}
-              </label>
+                      "toggle",
+                    )}
+                    disabled={checked && control.visibleFieldKeys.size === 1}
+                    type="checkbox"
+                    onChange={(event) => {
+                      control.setColumnVisible(
+                        column.field_key,
+                        event.currentTarget.checked,
+                      );
+                      setAnnouncement(
+                        `${networkFlowColumnLabel(column.label_key)} column ${event.currentTarget.checked ? "shown" : "hidden"}.`,
+                      );
+                    }}
+                  />
+                  {networkFlowColumnLabel(column.label_key)}
+                </label>
+                {checked ? (
+                  <span style={columnMoveActionsStyle}>
+                    <button
+                      aria-label={`Move ${networkFlowColumnLabel(column.label_key)} earlier`}
+                      data-testid={networkAnalysisColumnActionTestId(
+                        column.field_key,
+                        "move-earlier",
+                      )}
+                      disabled={visibleIndex <= 0}
+                      type="button"
+                      onClick={() => {
+                        const target =
+                          control.orderedVisibleFieldKeys[visibleIndex - 1];
+                        if (target === undefined) return;
+                        control.onColumnReorder(column.field_key, target);
+                        setAnnouncement(
+                          `${networkFlowColumnLabel(column.label_key)} column moved earlier.`,
+                        );
+                      }}
+                    >
+                      Earlier
+                    </button>
+                    <button
+                      aria-label={`Move ${networkFlowColumnLabel(column.label_key)} later`}
+                      data-testid={networkAnalysisColumnActionTestId(
+                        column.field_key,
+                        "move-later",
+                      )}
+                      disabled={
+                        visibleIndex < 0 ||
+                        visibleIndex ===
+                          control.orderedVisibleFieldKeys.length - 1
+                      }
+                      type="button"
+                      onClick={() => {
+                        const target =
+                          control.orderedVisibleFieldKeys[visibleIndex + 1];
+                        if (target === undefined) return;
+                        control.onColumnReorder(column.field_key, target);
+                        setAnnouncement(
+                          `${networkFlowColumnLabel(column.label_key)} column moved later.`,
+                        );
+                      }}
+                    >
+                      Later
+                    </button>
+                  </span>
+                ) : null}
+              </div>
             );
           })}
         </div>
@@ -439,10 +633,16 @@ function ColumnLayoutControls({
       <button
         data-testid={networkAnalysisTestId("layout-reset")}
         type="button"
-        onClick={control.reset}
+        onClick={() => {
+          control.reset();
+          setAnnouncement("Network Flow column layout reset to defaults.");
+        }}
       >
         Reset layout
       </button>
+      <span aria-live="polite" style={visuallyHiddenStyle}>
+        {announcement}
+      </span>
     </div>
   );
 }
@@ -466,6 +666,12 @@ function NetworkFlowInspector<Row extends object>({
       aria-label="Network Flow cell inspector"
       data-testid={networkAnalysisTestId("inspector")}
       style={inspectorStyle}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          onClose();
+        }
+      }}
     >
       <div style={inspectorHeaderStyle}>
         <div>
@@ -479,6 +685,7 @@ function NetworkFlowInspector<Row extends object>({
         </div>
         <button
           aria-label="Close cell inspector"
+          data-testid={networkAnalysisTestId("inspector-close")}
           type="button"
           onClick={onClose}
         >
@@ -505,6 +712,10 @@ function NetworkFlowInspector<Row extends object>({
       </dl>
     </aside>
   );
+}
+
+function focusGridRoot(gridRef: RefObject<GridHandle | null>) {
+  queueMicrotask(() => gridRef.current?.focusRoot());
 }
 
 function networkFlowGridDataState(options: {
@@ -606,6 +817,18 @@ const columnToggleStyle = {
   display: "flex",
   gap: "var(--ct-spacing-xs)",
   whiteSpace: "nowrap",
+} satisfies CSSProperties;
+
+const columnControlRowStyle = {
+  alignItems: "center",
+  display: "flex",
+  gap: "var(--ct-spacing-sm)",
+  justifyContent: "space-between",
+} satisfies CSSProperties;
+
+const columnMoveActionsStyle = {
+  display: "inline-flex",
+  gap: "var(--ct-spacing-xs)",
 } satisfies CSSProperties;
 
 const inspectorStyle = {

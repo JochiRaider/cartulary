@@ -73,6 +73,7 @@ import {
   type NetworkFlowIndicatorLinkCandidate,
   useNetworkFlowIndicatorLinkController,
 } from "./useNetworkFlowIndicatorLinkController";
+import { useNetworkFlowModalFocus } from "./useNetworkFlowModalFocus";
 import type { NetworkFlowQueryLoadState } from "./useNetworkFlowPagedQuery";
 import { useNetworkFlowRejectedRowsController } from "./useNetworkFlowRejectedRowsController";
 import { useNetworkFlowRowsController } from "./useNetworkFlowRowsController";
@@ -320,6 +321,7 @@ function NetworkAnalysisWorkspaceContent({
       data-testid={networkAnalysisTestId("workspace")}
       data-workspace-key={activeTableScopeLabel.workspace_key}
       style={workspaceStyle}
+      tabIndex={-1}
     >
       <header
         data-testid={networkAnalysisTestId("workspace-header")}
@@ -409,6 +411,7 @@ function NetworkAnalysisWorkspaceContent({
             return (
               <button
                 key={table.network_flow_table_id}
+                aria-controls="network-flow-work-area"
                 aria-selected={selected}
                 data-testid={networkAnalysisTableTabTestId(
                   table.network_flow_table_id,
@@ -418,7 +421,38 @@ function NetworkAnalysisWorkspaceContent({
                   ...innerTabStyle,
                   ...(selected ? innerTabActiveStyle : null),
                 }}
+                tabIndex={selected ? 0 : -1}
                 type="button"
+                onKeyDown={(event) => {
+                  if (
+                    event.key !== "ArrowLeft" &&
+                    event.key !== "ArrowRight" &&
+                    event.key !== "Home" &&
+                    event.key !== "End"
+                  ) {
+                    return;
+                  }
+                  event.preventDefault();
+                  const targetIndex =
+                    event.key === "Home"
+                      ? 0
+                      : event.key === "End"
+                        ? tableController.tables.length - 1
+                        : (index +
+                            (event.key === "ArrowLeft" ? -1 : 1) +
+                            tableController.tables.length) %
+                          tableController.tables.length;
+                  const targetTable = tableController.tables[targetIndex];
+                  if (targetTable === undefined) return;
+                  tableController.dispatch({
+                    type: "select_table",
+                    tableId: targetTable.network_flow_table_id,
+                  });
+                  setMode("rows");
+                  event.currentTarget.parentElement
+                    ?.querySelectorAll<HTMLButtonElement>('[role="tab"]')
+                    [targetIndex]?.focus();
+                }}
                 onClick={() => {
                   tableController.dispatch({
                     type: "select_table",
@@ -499,7 +533,7 @@ function NetworkAnalysisWorkspaceContent({
         )}
       </div>
 
-      <div style={workAreaStyle}>
+      <div id="network-flow-work-area" style={workAreaStyle}>
         {blockingState !== null ? (
           <NetworkFlowBlockingState
             state={blockingState}
@@ -626,24 +660,29 @@ function NetworkAnalysisWorkspaceContent({
         )}
       </div>
 
-      <div style={statusStripStyle}>
-        <span>
-          {tableController.loadState === "loading"
-            ? "Loading"
-            : tableController.loadState === "refreshing"
-              ? "Refreshing table metadata"
-              : `${tableController.tables.length} active table${
-                  tableController.tables.length === 1 ? "" : "s"
-                }`}
-        </span>
-        {message ? (
-          <span data-testid={networkAnalysisTestId("stale-state")}>
-            {message}
+      <div
+        data-testid={networkAnalysisTestId("status-strip")}
+        style={statusStripStyle}
+      >
+        <span aria-atomic="true" aria-live="polite" role="status">
+          <span>
+            {tableController.loadState === "loading"
+              ? "Loading"
+              : tableController.loadState === "refreshing"
+                ? "Refreshing table metadata"
+                : `${tableController.tables.length} active table${
+                    tableController.tables.length === 1 ? "" : "s"
+                  }`}
           </span>
-        ) : null}
+          {message ? (
+            <span data-testid={networkAnalysisTestId("stale-state")}>
+              {message}
+            </span>
+          ) : null}
+        </span>
         {visibleError ? (
-          <span style={errorTextStyle}>
-            {networkFlowErrorMessage(visibleError)}
+          <span aria-atomic="true" role="alert" style={errorTextStyle}>
+            Error: {networkFlowErrorMessage(visibleError)}
           </span>
         ) : null}
       </div>
@@ -779,110 +818,180 @@ function TableLifecycleControls({
         </button>
       ) : null}
       {dialog === "rename" && canRename ? (
-        <div style={commandDialogBackdropStyle}>
-          <form
-            aria-labelledby="network-flow-rename-title"
-            aria-modal="true"
-            data-testid={networkAnalysisTestId("rename-dialog")}
-            role="dialog"
-            style={commandDialogStyle}
-            onSubmit={(event) => {
-              event.preventDefault();
-              void onRename(table, renameValue).then((renamed) => {
-                if (renamed) {
-                  setDialog(null);
-                }
-              });
-            }}
-          >
-            <h3 id="network-flow-rename-title">Rename Network Flow table</h3>
-            <label style={fieldLabelStyle}>
-              Display name
-              <input
-                data-testid={networkAnalysisTestId("rename-input")}
-                maxLength={64}
-                required
-                value={renameValue}
-                onChange={(event) => setRenameValue(event.currentTarget.value)}
-              />
-            </label>
-            <div style={dialogActionsStyle}>
-              <button
-                data-testid={networkAnalysisTestId("rename-cancel")}
-                disabled={busy}
-                type="button"
-                onClick={() => setDialog(null)}
-              >
-                Cancel
-              </button>
-              <button
-                data-testid={networkAnalysisTestId("rename-submit")}
-                disabled={busy || renameValue.trim() === ""}
-                type="submit"
-              >
-                {mutationState.kind === "renaming" ? "Renaming…" : "Rename"}
-              </button>
-            </div>
-          </form>
-        </div>
+        <RenameTableDialog
+          busy={busy}
+          renameValue={renameValue}
+          renaming={mutationState.kind === "renaming"}
+          onCancel={() => setDialog(null)}
+          onRenameValueChange={setRenameValue}
+          onSubmit={() => {
+            void onRename(table, renameValue).then((renamed) => {
+              if (renamed) setDialog(null);
+            });
+          }}
+        />
       ) : null}
       {dialog === "delete" && canDelete ? (
-        <div style={commandDialogBackdropStyle}>
-          <section
-            aria-describedby="network-flow-delete-description"
-            aria-labelledby="network-flow-delete-title"
-            aria-modal="true"
-            data-testid={networkAnalysisTestId("delete-dialog")}
-            role="alertdialog"
-            style={commandDialogStyle}
-          >
-            <h3 id="network-flow-delete-title">Delete Network Flow table</h3>
-            <p id="network-flow-delete-description">
-              This soft-deletes <strong>{table.display_name}</strong> and makes
-              its rows, diagnostics, graph results, and cursors unavailable.
-              Type the exact table name to confirm.
-            </p>
-            <label style={fieldLabelStyle}>
-              Confirm table name
-              <input
-                data-testid={networkAnalysisTestId("delete-confirmation")}
-                value={deleteConfirmation}
-                onChange={(event) =>
-                  setDeleteConfirmation(event.currentTarget.value)
-                }
-              />
-            </label>
-            <div style={dialogActionsStyle}>
-              <button
-                data-testid={networkAnalysisTestId("delete-cancel")}
-                disabled={busy}
-                type="button"
-                onClick={() => setDialog(null)}
-              >
-                Cancel
-              </button>
-              <button
-                data-testid={networkAnalysisTestId("delete-confirm")}
-                disabled={busy || deleteConfirmation !== table.display_name}
-                style={dangerButtonStyle}
-                type="button"
-                onClick={() => {
-                  void onDelete(table).then((deleted) => {
-                    if (deleted) {
-                      setDialog(null);
-                    }
-                  });
-                }}
-              >
-                {mutationState.kind === "deleting"
-                  ? "Deleting…"
-                  : "Delete table"}
-              </button>
-            </div>
-          </section>
-        </div>
+        <DeleteTableDialog
+          busy={busy}
+          confirmation={deleteConfirmation}
+          deleting={mutationState.kind === "deleting"}
+          table={table}
+          onCancel={() => setDialog(null)}
+          onConfirmationChange={setDeleteConfirmation}
+          onSubmit={() => {
+            void onDelete(table).then((deleted) => {
+              if (deleted) setDialog(null);
+            });
+          }}
+        />
       ) : null}
     </>
+  );
+}
+
+function RenameTableDialog({
+  busy,
+  onCancel,
+  onRenameValueChange,
+  onSubmit,
+  renameValue,
+  renaming,
+}: {
+  readonly busy: boolean;
+  readonly onCancel: () => void;
+  readonly onRenameValueChange: (value: string) => void;
+  readonly onSubmit: () => void;
+  readonly renameValue: string;
+  readonly renaming: boolean;
+}) {
+  const modalFocus = useNetworkFlowModalFocus<HTMLFormElement>({
+    dismissDisabled: busy,
+    initialFocusTestId: networkAnalysisTestId("rename-input"),
+    onDismiss: onCancel,
+  });
+  return (
+    <div style={commandDialogBackdropStyle}>
+      <form
+        ref={modalFocus.dialogRef}
+        aria-labelledby="network-flow-rename-title"
+        aria-modal="true"
+        data-testid={networkAnalysisTestId("rename-dialog")}
+        role="dialog"
+        style={commandDialogStyle}
+        onKeyDown={modalFocus.onKeyDown}
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit();
+        }}
+      >
+        <h3 id="network-flow-rename-title">Rename Network Flow table</h3>
+        <label style={fieldLabelStyle}>
+          Display name
+          <input
+            data-testid={networkAnalysisTestId("rename-input")}
+            maxLength={64}
+            required
+            value={renameValue}
+            onChange={(event) => onRenameValueChange(event.currentTarget.value)}
+          />
+        </label>
+        <div style={dialogActionsStyle}>
+          <button
+            data-testid={networkAnalysisTestId("rename-cancel")}
+            disabled={busy}
+            type="button"
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+          <button
+            data-testid={networkAnalysisTestId("rename-submit")}
+            disabled={busy || renameValue.trim() === ""}
+            type="submit"
+          >
+            {renaming ? "Renaming…" : "Rename"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function DeleteTableDialog({
+  busy,
+  confirmation,
+  deleting,
+  onCancel,
+  onConfirmationChange,
+  onSubmit,
+  table,
+}: {
+  readonly busy: boolean;
+  readonly confirmation: string;
+  readonly deleting: boolean;
+  readonly onCancel: () => void;
+  readonly onConfirmationChange: (value: string) => void;
+  readonly onSubmit: () => void;
+  readonly table: NetworkFlowTable;
+}) {
+  const modalFocus = useNetworkFlowModalFocus<HTMLFormElement>({
+    dismissDisabled: busy,
+    initialFocusTestId: networkAnalysisTestId("delete-confirmation"),
+    onDismiss: onCancel,
+  });
+  return (
+    <div style={commandDialogBackdropStyle}>
+      <form
+        ref={modalFocus.dialogRef}
+        aria-describedby="network-flow-delete-description"
+        aria-labelledby="network-flow-delete-title"
+        aria-modal="true"
+        data-testid={networkAnalysisTestId("delete-dialog")}
+        role="alertdialog"
+        style={commandDialogStyle}
+        onKeyDown={modalFocus.onKeyDown}
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (confirmation === table.display_name) onSubmit();
+        }}
+      >
+        <h3 id="network-flow-delete-title">Delete Network Flow table</h3>
+        <p id="network-flow-delete-description">
+          This soft-deletes <strong>{table.display_name}</strong> and makes its
+          rows, diagnostics, graph results, and cursors unavailable. Type the
+          exact table name to confirm.
+        </p>
+        <label style={fieldLabelStyle}>
+          Confirm table name
+          <input
+            data-testid={networkAnalysisTestId("delete-confirmation")}
+            value={confirmation}
+            onChange={(event) =>
+              onConfirmationChange(event.currentTarget.value)
+            }
+          />
+        </label>
+        <div style={dialogActionsStyle}>
+          <button
+            data-testid={networkAnalysisTestId("delete-cancel")}
+            disabled={busy}
+            type="button"
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+          <button
+            data-testid={networkAnalysisTestId("delete-confirm")}
+            disabled={busy || confirmation !== table.display_name}
+            style={dangerButtonStyle}
+            type="submit"
+          >
+            {deleting ? "Deleting…" : "Delete table"}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 
@@ -940,6 +1049,7 @@ function NetworkFlowBlockingState({
   return (
     <section
       aria-label={`Network Analysis ${state.kind} state`}
+      aria-live={state.kind === "loading" ? "polite" : "assertive"}
       style={emptyStateStyle}
     >
       <strong>
@@ -1242,6 +1352,7 @@ function GraphPanel({
   readonly onSelectTable: (tableId: string, selected: boolean) => void;
   readonly onSelectVertex: (vertexId: string) => void;
 }) {
+  const selectedGraphButtonRef = useRef<HTMLButtonElement | null>(null);
   const selectedObject = selectedVertex ?? selectedEdge;
   return (
     <section
@@ -1355,6 +1466,11 @@ function GraphPanel({
                     </td>
                     <td style={tdStyle}>
                       <button
+                        ref={
+                          selectedVertex === vertex
+                            ? selectedGraphButtonRef
+                            : undefined
+                        }
                         aria-pressed={selectedVertex === vertex}
                         type="button"
                         onClick={() => onSelectVertex(vertexId)}
@@ -1407,6 +1523,11 @@ function GraphPanel({
                     </td>
                     <td style={tdStyle}>
                       <button
+                        ref={
+                          selectedEdge === edge
+                            ? selectedGraphButtonRef
+                            : undefined
+                        }
                         aria-pressed={selectedEdge === edge}
                         type="button"
                         onClick={() => onSelectEdge(edgeId)}
@@ -1426,6 +1547,13 @@ function GraphPanel({
           aria-label="Graph contributors"
           data-testid={networkAnalysisTestId("contributor-drawer")}
           style={drawerStyle}
+          onKeyDown={(event) => {
+            if (event.key !== "Escape") return;
+            event.preventDefault();
+            const returnTarget = selectedGraphButtonRef.current;
+            onCloseDrawer();
+            queueMicrotask(() => returnTarget?.focus());
+          }}
         >
           <div style={drawerHeaderStyle}>
             <strong>
@@ -1434,10 +1562,15 @@ function GraphPanel({
                 : `Edge ${compactID(semanticGraphEdgeId(selectedEdge as NetworkFlowGraphEdge) ?? (selectedEdge as NetworkFlowGraphEdge).edge_id)}`}
             </strong>
             <button
+              data-testid={networkAnalysisTestId("contributor-close")}
               style={iconButtonStyle}
               title="Close"
               type="button"
-              onClick={onCloseDrawer}
+              onClick={() => {
+                const returnTarget = selectedGraphButtonRef.current;
+                onCloseDrawer();
+                queueMicrotask(() => returnTarget?.focus());
+              }}
             >
               <X aria-hidden="true" size={15} />
             </button>
@@ -1494,6 +1627,21 @@ function GraphPanel({
           />
         </aside>
       ) : null}
+      <span
+        aria-live="polite"
+        data-testid={networkAnalysisTestId("graph-live-region")}
+        style={visuallyHiddenStyle}
+      >
+        {selectedVertex
+          ? `Vertex selected. ${contributors.length} contributors on page ${contributorPageNumber}.`
+          : selectedEdge
+            ? `Edge selected. ${contributors.length} contributors on page ${contributorPageNumber}.`
+            : graphLoadState === "loading"
+              ? "Loading Network Flow graph."
+              : graph
+                ? "Network Flow graph ready. Select a vertex or edge to inspect contributors."
+                : "Network Flow graph unavailable."}
+      </span>
     </section>
   );
 }
@@ -1601,6 +1749,11 @@ function IndicatorLinkDialog({
   const [mode, setMode] = useState<"create" | "existing">("create");
   const [existingIndicatorId, setExistingIndicatorId] = useState("");
   const [confirmation, setConfirmation] = useState("");
+  const modalFocus = useNetworkFlowModalFocus<HTMLFormElement>({
+    dismissDisabled: linking,
+    initialFocusTestId: networkAnalysisTestId("indicator-link-confirmation"),
+    onDismiss: onCancel,
+  });
   const target: NetworkFlowIndicatorTarget | null =
     mode === "create"
       ? {
@@ -1618,11 +1771,13 @@ function IndicatorLinkDialog({
   return (
     <div style={commandDialogBackdropStyle}>
       <form
+        ref={modalFocus.dialogRef}
         aria-labelledby="network-flow-indicator-link-title"
         aria-modal="true"
         data-testid={networkAnalysisTestId("indicator-link-dialog")}
         role="dialog"
         style={commandDialogStyle}
+        onKeyDown={modalFocus.onKeyDown}
         onSubmit={(event) => {
           event.preventDefault();
           if (target !== null && confirmation === candidate.candidateValue) {
@@ -2132,6 +2287,16 @@ const mutedTextStyle = {
 
 const errorTextStyle = {
   color: "var(--ct-colors-danger-strong)",
+} satisfies CSSProperties;
+
+const visuallyHiddenStyle = {
+  blockSize: 1,
+  clip: "rect(0 0 0 0)",
+  clipPath: "inset(50%)",
+  inlineSize: 1,
+  overflow: "hidden",
+  position: "absolute",
+  whiteSpace: "nowrap",
 } satisfies CSSProperties;
 
 const monoTextStyle = {

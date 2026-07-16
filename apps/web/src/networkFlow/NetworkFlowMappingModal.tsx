@@ -18,6 +18,7 @@ import {
 } from "./networkFlowImportModel";
 import { localizedNetworkFlowDiagnosticMessage } from "./networkFlowPresentation";
 import type { NetworkFlowImportStage } from "./useNetworkFlowImportController";
+import { useNetworkFlowModalFocus } from "./useNetworkFlowModalFocus";
 
 const unmappedColumnChoice = "__unmapped__";
 
@@ -48,16 +49,23 @@ export function NetworkFlowMappingModal({
   );
   const working = stage === "previewing" || stage === "applying";
   const timestampReady = networkFlowMappingDraftReadyForPreview(draft);
+  const modalFocus = useNetworkFlowModalFocus<HTMLElement>({
+    dismissDisabled: working,
+    initialFocusTestId: networkAnalysisTestId("mapping-profile"),
+    onDismiss: onCancel,
+  });
 
   return (
     <div style={backdropStyle}>
       <section
+        ref={modalFocus.dialogRef}
         aria-describedby="network-flow-mapping-description"
         aria-labelledby="network-flow-mapping-title"
         aria-modal="true"
         data-testid={networkAnalysisTestId("mapping-dialog")}
         role="dialog"
         style={dialogStyle}
+        onKeyDown={modalFocus.onKeyDown}
       >
         <header style={headerStyle}>
           <div>

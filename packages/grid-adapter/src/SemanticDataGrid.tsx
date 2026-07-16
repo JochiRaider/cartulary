@@ -647,6 +647,7 @@ function useSemanticDataGrid<Row>(
           vendorHandle: vendorHandle.current,
           focus: true,
         }),
+      focusRoot: () => focusGridRoot(vendorHandle.current?.element ?? null),
       getScrollElement: () => vendorHandle.current?.element ?? null,
       scrollToAnchor: (anchor) =>
         focusOrScrollAnchor({
@@ -1360,6 +1361,13 @@ function focusSemanticCellAfterRender(
       focusRegisteredCell();
     }, 0);
   }, 0);
+}
+
+function focusGridRoot(gridElement: HTMLDivElement | null): boolean {
+  if (gridElement === null) return false;
+  if (!gridElement.hasAttribute("tabindex")) gridElement.tabIndex = 0;
+  gridElement.focus({ preventScroll: true });
+  return document.activeElement === gridElement;
 }
 
 function buildSemanticPositionMap<Row>({

@@ -362,6 +362,7 @@ export type GridGroupingDescriptor<Row> = {
 
 export type GridHandle = {
   readonly focusAnchor: (anchor: GridCellAnchor) => boolean;
+  readonly focusRoot: () => boolean;
   readonly getScrollElement: () => HTMLDivElement | null;
   readonly scrollToAnchor: (anchor: GridCellAnchor) => boolean;
 };

@@ -539,6 +539,8 @@ describe("grid-adapter", () => {
     );
     expect(onEditCell).toHaveBeenCalledWith({ target });
     expect(handle.current?.getScrollElement()).toBeTruthy();
+    expect(handle.current?.focusRoot()).toBe(true);
+    expect(document.activeElement).toBe(handle.current?.getScrollElement());
     expect(handle.current?.scrollToAnchor(anchor)).toBe(true);
     const externalButton = document.createElement("button");
     document.body.append(externalButton);
