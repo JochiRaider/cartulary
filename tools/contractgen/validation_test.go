@@ -503,6 +503,7 @@ func validViewField(key string) map[string]any {
 		"groupable":                    true,
 		"read_kind":                    "scalar",
 		"write_kind":                   "direct_value",
+		"grid_editable":                true,
 		"conflict_resolution_class":    nil,
 		"entity_binding_mode":          nil,
 		"string_contract_id":           nil,

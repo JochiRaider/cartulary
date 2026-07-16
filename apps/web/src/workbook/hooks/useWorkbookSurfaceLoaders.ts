@@ -13,10 +13,15 @@ import {
   type LatestQueryRuntime,
   parseErrorMessage,
   readEnvelope,
+  workbookLoadFailureIsAccessLoss,
 } from "../../services/workbookApi";
 import type { EntityRow } from "../models/entityWorkbookModel";
 import { entityRowFromApi } from "../models/entityWorkbookModel";
 import { normalizeWorkbookViewRows } from "../models/workbookContractRows";
+import {
+  initialWorkbookQueryLoadState,
+  type WorkbookQueryLoadState,
+} from "../models/workbookGridState";
 import {
   buildQueryRequest,
   type WorkbookQueryState,
@@ -68,13 +73,18 @@ export function useWorkbookSurfaceLoaders({
 }: WorkbookSurfaceLoaderInput) {
   const [hostRows, setHostRows] = useState<EntityRow[]>([]);
   const [identityRows, setIdentityRows] = useState<EntityRow[]>([]);
-  const [entityLoadError, setEntityLoadError] = useState<string | null>(null);
+  const [entityLoadState, setEntityLoadState] =
+    useState<WorkbookQueryLoadState>(initialWorkbookQueryLoadState);
   const [genericRows, setGenericRows] = useState<EntityApiRow[]>([]);
-  const [genericLoadError, setGenericLoadError] = useState<string | null>(null);
+  const [genericLoadState, setGenericLoadState] =
+    useState<WorkbookQueryLoadState>(initialWorkbookQueryLoadState);
   const [assessmentRows, setAssessmentRows] = useState<EntityApiRow[]>([]);
-  const [assessmentLoadError, setAssessmentLoadError] = useState<string | null>(
-    null,
-  );
+  const [assessmentLoadState, setAssessmentLoadState] =
+    useState<WorkbookQueryLoadState>(initialWorkbookQueryLoadState);
+  const entityAcceptedRowCountRef = useRef(0);
+  const assessmentAcceptedRowCountRef = useRef(0);
+  const genericAcceptedRowCountRef = useRef(0);
+  const genericSurfaceRef = useRef(surface);
   const entityQueryRuntimeRef = useRef<LatestQueryRuntime>({
     controller: null,
     sequence: 0,
@@ -136,7 +146,11 @@ export function useWorkbookSurfaceLoaders({
 
   const loadEntities = useCallback(async () => {
     const request = beginLatestQuery(entityQueryRuntimeRef);
-    setEntityLoadError(null);
+    setEntityLoadState(
+      entityAcceptedRowCountRef.current > 0
+        ? { kind: "refreshing" }
+        : initialWorkbookQueryLoadState,
+    );
     try {
       const [nextHosts, nextIdentities] = await Promise.all([
         queryEntityView(
@@ -161,6 +175,9 @@ export function useWorkbookSurfaceLoaders({
       setIdentityRows((current) => [
         ...reconcileWorkbookRecordRows(current, nextIdentities),
       ]);
+      entityAcceptedRowCountRef.current =
+        nextHosts.length + nextIdentities.length;
+      setEntityLoadState({ kind: "ready" });
     } catch (error) {
       if (!request.isCurrent() || isAbortError(error)) {
         return;
@@ -170,7 +187,16 @@ export function useWorkbookSurfaceLoaders({
         "Entity load failed.",
         onIncidentAccessLost,
       );
-      setEntityLoadError(message);
+      if (workbookLoadFailureIsAccessLoss(message)) {
+        entityAcceptedRowCountRef.current = 0;
+        setHostRows([]);
+        setIdentityRows([]);
+        setEntityLoadState({ kind: "permission_denied", message });
+      } else if (entityAcceptedRowCountRef.current > 0) {
+        setEntityLoadState({ kind: "stale_error", message });
+      } else {
+        setEntityLoadState({ kind: "unavailable", message });
+      }
     }
   }, [
     hostQueryState,
@@ -191,7 +217,11 @@ export function useWorkbookSurfaceLoaders({
       return;
     }
     const request = beginLatestQuery(assessmentQueryRuntimeRef);
-    setAssessmentLoadError(null);
+    setAssessmentLoadState(
+      assessmentAcceptedRowCountRef.current > 0
+        ? { kind: "refreshing" }
+        : initialWorkbookQueryLoadState,
+    );
     try {
       const result = await fetchWorkbookJSON<ViewQueryEnvelope>(
         apiPath(
@@ -214,6 +244,8 @@ export function useWorkbookSurfaceLoaders({
       }
       const envelope = readEnvelope<ViewQueryEnvelope>(result.payload);
       setAssessmentRows(envelope.data.rows);
+      assessmentAcceptedRowCountRef.current = envelope.data.rows.length;
+      setAssessmentLoadState({ kind: "ready" });
     } catch (error) {
       if (!request.isCurrent() || isAbortError(error)) {
         return;
@@ -223,8 +255,15 @@ export function useWorkbookSurfaceLoaders({
         "Assessment load failed.",
         onIncidentAccessLost,
       );
-      setAssessmentLoadError(message);
-      setAssessmentRows([]);
+      if (workbookLoadFailureIsAccessLoss(message)) {
+        assessmentAcceptedRowCountRef.current = 0;
+        setAssessmentRows([]);
+        setAssessmentLoadState({ kind: "permission_denied", message });
+      } else if (assessmentAcceptedRowCountRef.current > 0) {
+        setAssessmentLoadState({ kind: "stale_error", message });
+      } else {
+        setAssessmentLoadState({ kind: "unavailable", message });
+      }
     }
   }, [
     apiBase,
@@ -237,11 +276,24 @@ export function useWorkbookSurfaceLoaders({
   const loadGenericSurface = useCallback(async () => {
     if (isSpecializedSurface) {
       abortLatestQuery(genericQueryRuntimeRef);
+      genericSurfaceRef.current = surface;
+      genericAcceptedRowCountRef.current = 0;
+      setGenericRows([]);
+      setGenericLoadState(initialWorkbookQueryLoadState);
       return;
     }
     const requestedSurface = surface;
+    if (genericSurfaceRef.current !== requestedSurface) {
+      genericSurfaceRef.current = requestedSurface;
+      genericAcceptedRowCountRef.current = 0;
+      setGenericRows([]);
+    }
     const request = beginLatestQuery(genericQueryRuntimeRef);
-    setGenericLoadError(null);
+    setGenericLoadState(
+      genericAcceptedRowCountRef.current > 0
+        ? { kind: "refreshing" }
+        : initialWorkbookQueryLoadState,
+    );
     try {
       const result = await fetchWorkbookJSON<ViewQueryEnvelope>(
         apiPath(
@@ -268,15 +320,17 @@ export function useWorkbookSurfaceLoaders({
           `Surface load returned ${envelope.data.view_schema_id} for ${requestedSurface}.`,
         );
       }
-      setGenericRows(
+      const nextRows =
         requestedSurface === notesViewSchemaId
           ? normalizeWorkbookViewRows(
               activeContract,
               envelope.data.rows,
               `${requestedSurface} query response`,
             )
-          : envelope.data.rows,
-      );
+          : envelope.data.rows;
+      setGenericRows(nextRows);
+      genericAcceptedRowCountRef.current = nextRows.length;
+      setGenericLoadState({ kind: "ready" });
     } catch (error) {
       if (!request.isCurrent() || isAbortError(error)) {
         return;
@@ -286,8 +340,15 @@ export function useWorkbookSurfaceLoaders({
         "Surface load failed.",
         onIncidentAccessLost,
       );
-      setGenericLoadError(message);
-      setGenericRows([]);
+      if (workbookLoadFailureIsAccessLoss(message)) {
+        genericAcceptedRowCountRef.current = 0;
+        setGenericRows([]);
+        setGenericLoadState({ kind: "permission_denied", message });
+      } else if (genericAcceptedRowCountRef.current > 0) {
+        setGenericLoadState({ kind: "stale_error", message });
+      } else {
+        setGenericLoadState({ kind: "unavailable", message });
+      }
     }
   }, [
     activeContract,
@@ -309,11 +370,11 @@ export function useWorkbookSurfaceLoaders({
   );
 
   return {
-    assessmentLoadError,
+    assessmentLoadState,
     assessmentRows,
     entityIndex,
-    entityLoadError,
-    genericLoadError,
+    entityLoadState,
+    genericLoadState,
     genericRows,
     hostRows,
     identityRows,

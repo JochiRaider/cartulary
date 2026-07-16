@@ -44,6 +44,7 @@ var (
 		"groupable",
 		"read_kind",
 		"write_kind",
+		"grid_editable",
 		"conflict_resolution_class",
 		"entity_binding_mode",
 		"string_contract_id",
@@ -813,7 +814,7 @@ func validateViewSchemaField(field map[string]any, label string) (string, error)
 		}
 	}
 	readKind, _ := field["read_kind"].(string)
-	for _, key := range []string{"default_hidden", "sortable", "groupable", "clearable", "writable"} {
+	for _, key := range []string{"default_hidden", "sortable", "groupable", "clearable", "writable", "grid_editable"} {
 		if _, err := requiredBool(field, key, label); err != nil {
 			return "", err
 		}
@@ -855,6 +856,11 @@ func validateViewSchemaField(field map[string]any, label string) (string, error)
 		}
 	}
 	writeKind, _ := field["write_kind"].(string)
+	gridEditable, _ := field["grid_editable"].(bool)
+	writable, _ := field["writable"].(bool)
+	if gridEditable && (writeKind != "direct_value" || !writable) {
+		return "", fmt.Errorf("%s.grid_editable=true requires an existing-row writable direct_value field", label)
+	}
 	switch writeKind {
 	case "direct_value":
 		if _, err := requiredString(field, "write_target", label); err != nil {

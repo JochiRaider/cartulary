@@ -21,8 +21,9 @@ import {
   useMemo,
   useState,
 } from "react";
-
+import type { WorkbookResolvedLayoutState } from "../models/workbookLayout";
 import {
+  cycleWorkbookSortField,
   type FilterDraft,
   filterChipLabel,
   filterInputMode,
@@ -34,12 +35,19 @@ type WorkbookGridControlsProps = {
   readonly contract: ViewContract;
   readonly defaultFilterPopoverOpen?: boolean | undefined;
   readonly filterDraft: FilterDraft;
+  readonly layoutState: WorkbookResolvedLayoutState;
   readonly onApplyFilter: (draft: FilterDraft) => void;
   readonly onClearAll?: (() => void) | undefined;
   readonly onFilterDraftChange: (draft: FilterDraft) => void;
   readonly onGroupByChange: (groupBy: string | null) => void;
+  readonly onColumnHiddenChange: (fieldKey: string, hidden: boolean) => void;
+  readonly onColumnMove: (
+    fieldKey: string,
+    direction: "earlier" | "later",
+  ) => void;
+  readonly onResetColumns: () => void;
   readonly onRemoveFilter: (fieldKey: string) => void;
-  readonly onToggleSort: (fieldKey: string) => void;
+  readonly onSortChange: (sort: WorkbookQueryState["sort"]) => void;
   readonly queryState: WorkbookQueryState;
   readonly surface: WorkbookSurface;
 };
@@ -48,22 +56,31 @@ export function WorkbookGridControls({
   contract,
   defaultFilterPopoverOpen = false,
   filterDraft,
+  layoutState,
   onApplyFilter,
   onClearAll,
   onFilterDraftChange,
   onGroupByChange,
+  onColumnHiddenChange,
+  onColumnMove,
+  onResetColumns,
   onRemoveFilter,
-  onToggleSort,
+  onSortChange,
   queryState,
   surface,
 }: WorkbookGridControlsProps) {
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
+  const [isColumnsMenuOpen, setIsColumnsMenuOpen] = useState(false);
   const [isFilterPopoverOpen, setIsFilterPopoverOpen] = useState(
     defaultFilterPopoverOpen,
   );
   const [draft, setDraft] = useState(filterDraft);
   const inputMode = filterInputMode(draft.fieldKey);
   const activeSort = queryState.sort[0] ?? null;
+  const hiddenFieldKeys = useMemo(
+    () => new Set(layoutState.hiddenFieldKeys),
+    [layoutState.hiddenFieldKeys],
+  );
   const visibleSortFields = useMemo(
     () =>
       contract.fields
@@ -138,7 +155,12 @@ export function WorkbookGridControls({
             style={menuStyle}
           >
             {visibleSortFields.map((fieldKey) => {
-              const isSelected = activeSort?.fieldKey === fieldKey;
+              const priority = queryState.sort.findIndex(
+                (entry) => entry.fieldKey === fieldKey,
+              );
+              const selectedSort =
+                priority < 0 ? undefined : queryState.sort[priority];
+              const isSelected = selectedSort !== undefined;
               return (
                 <button
                   key={fieldKey}
@@ -151,15 +173,89 @@ export function WorkbookGridControls({
                   }}
                   type="button"
                   onClick={() => {
-                    onToggleSort(fieldKey);
-                    setIsSortMenuOpen(false);
+                    onSortChange(
+                      cycleWorkbookSortField(
+                        contract,
+                        queryState,
+                        fieldKey,
+                        true,
+                      ).sort,
+                    );
                   }}
                 >
                   {sortLabel(contract, fieldKey)}
-                  {isSelected ? ` ${activeSort.direction}` : ""}
+                  {isSelected
+                    ? ` ${priority + 1} ${selectedSort?.direction}`
+                    : ""}
                 </button>
               );
             })}
+          </div>
+        ) : null}
+      </div>
+
+      <div style={menuFrameStyle}>
+        <button
+          aria-expanded={isColumnsMenuOpen}
+          aria-haspopup="menu"
+          style={controlButtonStyle}
+          type="button"
+          onClick={() => {
+            setIsColumnsMenuOpen((current) => !current);
+          }}
+        >
+          Columns
+        </button>
+        {isColumnsMenuOpen ? (
+          <div aria-label="Column controls" role="menu" style={menuStyle}>
+            {layoutState.columnOrder.map((fieldKey, index) => {
+              const field = contract.fieldMap[fieldKey];
+              if (field === undefined) return null;
+              const hidden = hiddenFieldKeys.has(fieldKey);
+              return (
+                <div key={fieldKey} role="none" style={columnMenuRowStyle}>
+                  <button
+                    aria-checked={!hidden}
+                    role="menuitemcheckbox"
+                    style={menuItemStyle}
+                    type="button"
+                    onClick={() => {
+                      onColumnHiddenChange(fieldKey, !hidden);
+                    }}
+                  >
+                    {field.label}
+                  </button>
+                  <button
+                    aria-label={`Move ${field.label} earlier`}
+                    disabled={index === 0}
+                    type="button"
+                    onClick={() => {
+                      onColumnMove(fieldKey, "earlier");
+                    }}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    aria-label={`Move ${field.label} later`}
+                    disabled={index === layoutState.columnOrder.length - 1}
+                    type="button"
+                    onClick={() => {
+                      onColumnMove(fieldKey, "later");
+                    }}
+                  >
+                    ↓
+                  </button>
+                </div>
+              );
+            })}
+            <button
+              role="menuitem"
+              style={menuItemStyle}
+              type="button"
+              onClick={onResetColumns}
+            >
+              Reset columns
+            </button>
           </div>
         ) : null}
       </div>
@@ -335,7 +431,11 @@ export function WorkbookGridControls({
               title={label}
               type="button"
               onClick={() => {
-                onToggleSort(sort.fieldKey);
+                onSortChange(
+                  queryState.sort.filter(
+                    (entry) => entry.fieldKey !== sort.fieldKey,
+                  ),
+                );
               }}
             >
               <span style={chipLabelStyle}>{label}</span>
@@ -403,7 +503,7 @@ function sortLabel(contract: ViewContract, fieldKey: string) {
 const queryControlsStyle = {
   display: "grid",
   gridTemplateColumns:
-    "max-content minmax(0, max-content) max-content minmax(5.5rem, 1fr)",
+    "max-content max-content minmax(0, max-content) max-content minmax(5.5rem, 1fr)",
   alignItems: "center",
   gap: "0.35rem",
   inlineSize: "100%",
@@ -419,6 +519,12 @@ const menuFrameStyle = {
   position: "relative" as const,
   display: "inline-flex",
   flex: "0 0 auto",
+};
+
+const columnMenuRowStyle = {
+  display: "grid",
+  gridTemplateColumns: "minmax(10rem, 1fr) 2rem 2rem",
+  alignItems: "center",
 };
 
 const controlButtonStyle = {

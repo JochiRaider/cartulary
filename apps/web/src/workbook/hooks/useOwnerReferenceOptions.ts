@@ -1,5 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { isAbortError } from "../../services/workbookApi";
+import { requireViewContract } from "@cartulary/view-contracts";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { apiPath } from "../../services/browserApi";
+import {
+  fetchWorkbookJSON,
+  isAbortError,
+  readEnvelope,
+} from "../../services/workbookApi";
 import { genericReferenceOptionsFromRows } from "../models/genericWorkbookModel";
 import {
   emptyGenericReferenceOptions,
@@ -36,6 +42,73 @@ const allRecordViewSchemaIds = [
   partiesViewSchemaId,
 ] as const;
 
+type MembershipEnvelope = {
+  readonly data: {
+    readonly memberships: readonly {
+      readonly display_name: string;
+      readonly user_id: string;
+    }[];
+  };
+};
+
+export function useIncidentMemberReferenceOptions({
+  apiBase,
+  enabled,
+  incidentId,
+  refreshVersion = 0,
+}: {
+  readonly apiBase: string | undefined;
+  readonly enabled: boolean;
+  readonly incidentId: string;
+  readonly refreshVersion?: number;
+}) {
+  const [options, setOptions] = useState<
+    GenericReferenceOptions["incidentMembers"]
+  >([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void refreshVersion;
+    const controller = new AbortController();
+    setError(null);
+    if (!enabled) {
+      setOptions([]);
+      return () => controller.abort();
+    }
+    void fetchWorkbookJSON<MembershipEnvelope>(
+      apiPath(apiBase, `/api/v1/incidents/${incidentId}/memberships`),
+      { signal: controller.signal },
+    )
+      .then((result) => {
+        if (controller.signal.aborted) return;
+        if (!result.ok) {
+          throw new Error("Incident member references are unavailable.");
+        }
+        setOptions(
+          readEnvelope<MembershipEnvelope>(result.payload).data.memberships.map(
+            (membership) => ({
+              label: `${membership.display_name} (${membership.user_id})`,
+              recordId: membership.user_id,
+              viewSchemaId: "incident_member",
+            }),
+          ),
+        );
+      })
+      .catch((loadError: unknown) => {
+        if (controller.signal.aborted || isAbortError(loadError)) return;
+        setOptions([]);
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Incident member references failed.",
+        );
+      });
+    return () => controller.abort();
+  }, [apiBase, enabled, incidentId, refreshVersion]);
+
+  return { error, options };
+}
+
 export function useOwnerReferenceOptions({
   apiBase,
   authorizationEpoch,
@@ -50,7 +123,18 @@ export function useOwnerReferenceOptions({
   const requirements =
     requireWorkbookSurfaceRegistration(viewSchemaId).policy
       .referenceRequirements;
+  const needsIncidentMembers = requireViewContract(viewSchemaId).fields.some(
+    (field) =>
+      field.directReferenceContractId === "incident_member_user_ref_v1",
+  );
   const [refreshVersion, setRefreshVersion] = useState(0);
+  const { error: incidentMemberLoadError, options: incidentMemberOptions } =
+    useIncidentMemberReferenceOptions({
+      apiBase,
+      enabled: needsIncidentMembers,
+      incidentId,
+      refreshVersion,
+    });
   const contextVersionRef = useRef(0);
   const [referenceOptions, setReferenceOptions] =
     useState<GenericReferenceOptions>(() => emptyGenericReferenceOptions());
@@ -72,12 +156,15 @@ export function useOwnerReferenceOptions({
       setReferenceOptions(emptyGenericReferenceOptions());
       return () => controller.abort();
     }
-    void referenceQueryBroker
-      .execute(
-        requirements,
-        { apiBase, authorizationEpoch, incidentId },
-        controller.signal,
-      )
+    const referenceRequest =
+      requirements.length === 0
+        ? Promise.resolve([])
+        : referenceQueryBroker.execute(
+            requirements,
+            { apiBase, authorizationEpoch, incidentId },
+            controller.signal,
+          );
+    void referenceRequest
       .then((results) => {
         if (
           controller.signal.aborted ||
@@ -96,6 +183,7 @@ export function useOwnerReferenceOptions({
             ...(rowsByView.get(targetViewSchemaId) ?? []),
           ]);
         const next: GenericReferenceOptions = {
+          incidentMembers: [],
           parties: optionsFor(partiesViewSchemaId),
           taskRequests: optionsFor(taskRequestsViewSchemaId),
           decisions: optionsFor(decisionsViewSchemaId),
@@ -132,9 +220,17 @@ export function useOwnerReferenceOptions({
     return () => controller.abort();
   }, [apiBase, authorizationEpoch, incidentId, refreshVersion, requirements]);
 
+  const resolvedReferenceOptions = useMemo(
+    () => ({
+      ...referenceOptions,
+      incidentMembers: incidentMemberOptions,
+    }),
+    [incidentMemberOptions, referenceOptions],
+  );
+
   return {
-    referenceLoadError,
-    referenceOptions,
+    referenceLoadError: referenceLoadError ?? incidentMemberLoadError,
+    referenceOptions: resolvedReferenceOptions,
     refreshReferenceOptions,
   };
 }

@@ -5,6 +5,8 @@ import {
   applyFilterChip,
   assertActiveFilterChipVisible,
   pasteGridMatrix,
+  scrollGridCellIntoView,
+  scrollGridTargetIntoView,
 } from "@cartulary/test-utils";
 import {
   autoResolutionNoticeTestId,
@@ -75,6 +77,7 @@ import {
   timelineInspectorTestId,
   timelineRowMarkReviewedButtonTestId,
   timelineScalarEditorTestId,
+  type WorkbookSurface,
   workbookFilterPopoverTriggerTestId,
   workbookInspectorToggleTestId,
   workbookShellReadyTestId,
@@ -558,6 +561,43 @@ async function expectVisibleFocus(locator: Locator) {
     .toBeTruthy();
 }
 
+async function mountedGridCell(
+  page: Page,
+  surface: WorkbookSurface,
+  recordId: string,
+  fieldKey: string,
+): Promise<Locator> {
+  await scrollGridCellIntoView({
+    cellKey: fieldKey,
+    page,
+    recordId,
+    surface,
+  });
+  return page.getByTestId(rowCellTestId(recordId, fieldKey));
+}
+
+async function mountedGridTarget(
+  page: Page,
+  surface: WorkbookSurface,
+  targetTestId: string,
+): Promise<Locator> {
+  await scrollGridTargetIntoView({ page, surface, targetTestId });
+  return page.getByTestId(targetTestId);
+}
+
+function semanticGridCell(content: Locator): Locator {
+  return content.locator("xpath=ancestor::*[@role='gridcell'][1]");
+}
+
+async function expectVisibleSemanticGridCellFocus(
+  content: Locator,
+): Promise<Locator> {
+  const cell = semanticGridCell(content);
+  await cell.click();
+  await expectVisibleFocus(cell);
+  return cell;
+}
+
 async function expectCurrentIncidentRole(page: Page, roleText: string) {
   const accountMenuTrigger = page.getByLabel(
     "Account and application navigation",
@@ -774,6 +814,35 @@ async function openA11ySystemSurface(
     options.viewSchemaId,
   );
   await expect(option).not.toHaveText("");
+  const menuOptions = menu.getByRole("menuitemradio");
+  await expect
+    .poll(() =>
+      menuOptions.evaluateAll((entries) => {
+        return entries.some((entry) => entry === document.activeElement);
+      }),
+    )
+    .toBeTruthy();
+  const optionCount = await menuOptions.count();
+  const activeIndex = await menuOptions.evaluateAll((entries) =>
+    entries.findIndex((entry) => entry === document.activeElement),
+  );
+  const targetIndex = await menuOptions.evaluateAll(
+    (entries, viewSchemaId) =>
+      entries.findIndex(
+        (entry) => entry.getAttribute("data-view-schema-id") === viewSchemaId,
+      ),
+    options.viewSchemaId,
+  );
+  expect(activeIndex).toBeGreaterThanOrEqual(0);
+  expect(targetIndex).toBeGreaterThanOrEqual(0);
+  const arrowCount = (targetIndex - activeIndex + optionCount) % optionCount;
+  for (let index = 1; index <= arrowCount; index += 1) {
+    await page.keyboard.press("ArrowDown");
+    await expect(
+      menuOptions.nth((activeIndex + index) % optionCount),
+    ).toBeFocused();
+  }
+  await expect(option).toBeFocused();
   await expectVisibleFocus(option);
   await option.press("Enter");
   await expect(menu).toHaveCount(0);
@@ -1020,6 +1089,11 @@ async function expectEvidenceAccessState(
     messageText?: RegExp | string;
   } = {},
 ) {
+  await mountedGridTarget(
+    page,
+    evidenceViewSchemaId,
+    evidencePreviewButtonTestId(recordId),
+  );
   await expect(evidenceAccessStateContainer(page, recordId)).toHaveAttribute(
     "data-evidence-state-key",
     stateKey,
@@ -1264,9 +1338,19 @@ test.describe("FE-P2 accessibility readiness", () => {
     await expect(
       page.getByTestId(gridGroupingSelectTestId(timelineViewSchemaId)),
     ).toBeVisible();
+    await page
+      .getByRole("dialog", { name: "Draft filters" })
+      .getByRole("button", { name: "Cancel" })
+      .click();
+    await expect(
+      page.getByTestId(gridFilterFieldTestId(timelineViewSchemaId)),
+    ).toHaveCount(0);
 
-    const summaryCell = page.getByTestId(
-      rowCellTestId(timelineRow.record_id, "timeline.activity_synopsis_text"),
+    const summaryCell = await mountedGridCell(
+      page,
+      timelineViewSchemaId,
+      timelineRow.record_id,
+      "timeline.activity_synopsis_text",
     );
     await expect(summaryCell).toBeVisible();
     await expectVisibleFocus(summaryCell);
@@ -1336,26 +1420,41 @@ test.describe("FE-P3 accessibility readiness", () => {
     await page.goto(`/?incident_id=${incidentId}`);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     await expect(
-      page.getByTestId(
-        rowCellTestId(alphaRow.record_id, "timeline.activity_synopsis_text"),
+      await mountedGridCell(
+        page,
+        timelineViewSchemaId,
+        alphaRow.record_id,
+        "timeline.activity_synopsis_text",
       ),
     ).toHaveValue("Alpha accessibility row");
 
     const betaMarkReviewed = page.getByTestId(
       timelineRowMarkReviewedButtonTestId(betaRow.record_id),
     );
-    const betaSummaryControl = page.getByTestId(
-      rowCellTestId(betaRow.record_id, "timeline.activity_synopsis_text"),
+    const betaSummaryControl = await mountedGridCell(
+      page,
+      timelineViewSchemaId,
+      betaRow.record_id,
+      "timeline.activity_synopsis_text",
     );
     await expectVisibleFocus(betaSummaryControl);
     await page.keyboard.press("Shift+F10");
     await expectVisibleFocus(betaMarkReviewed);
     await betaMarkReviewed.click();
     await expect(
-      page.getByTestId(
-        rowCellTestId(betaRow.record_id, "timeline.capture_state"),
+      await mountedGridCell(
+        page,
+        timelineViewSchemaId,
+        betaRow.record_id,
+        "timeline.capture_state",
       ),
     ).toHaveText("reviewed");
+    await mountedGridCell(
+      page,
+      timelineViewSchemaId,
+      betaRow.record_id,
+      "timeline.activity_synopsis_text",
+    );
     await expectVisibleFocus(betaSummaryControl);
     await page.keyboard.press("Shift+F10");
     await expect(
@@ -1376,8 +1475,11 @@ test.describe("FE-P3 accessibility readiness", () => {
     await expect(reviewedGroup).toBeVisible();
     await expect(reviewedGroup).toContainText("reviewed");
 
-    const betaSummary = page.getByTestId(
-      rowCellTestId(betaRow.record_id, "timeline.activity_synopsis_text"),
+    const betaSummary = await mountedGridCell(
+      page,
+      timelineViewSchemaId,
+      betaRow.record_id,
+      "timeline.activity_synopsis_text",
     );
     await expect(betaSummary).toHaveAttribute(
       "aria-label",
@@ -1389,7 +1491,9 @@ test.describe("FE-P3 accessibility readiness", () => {
     await expectStatusRole(page.getByTestId(saveStateTestId()));
 
     await expect(
-      page.getByTestId(
+      await mountedGridTarget(
+        page,
+        timelineViewSchemaId,
         gridSortHeaderTestId(
           timelineViewSchemaId,
           "timeline.activity_synopsis_text",
@@ -1469,14 +1573,23 @@ test.describe("FE-P4 accessibility readiness", () => {
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     await expectStatusRole(page.getByTestId(saveStateTestId()));
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    await mountedGridCell(
+      page,
+      timelineViewSchemaId,
+      editRow.record_id,
+      "timeline.activity_synopsis_text",
+    );
     await expectTabOrderIncludes(page, [
       workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
       gridGroupingSelectTestId(timelineViewSchemaId),
       rowCellTestId(editRow.record_id, "timeline.activity_synopsis_text"),
     ]);
 
-    const editSummary = page.getByTestId(
-      rowCellTestId(editRow.record_id, "timeline.activity_synopsis_text"),
+    const editSummary = await mountedGridCell(
+      page,
+      timelineViewSchemaId,
+      editRow.record_id,
+      "timeline.activity_synopsis_text",
     );
     await expect(editSummary).toHaveAttribute(
       "aria-label",
@@ -1505,8 +1618,11 @@ test.describe("FE-P4 accessibility readiness", () => {
     const patchController = await installPatchTransportFailureController(page);
     try {
       patchController.disconnect();
-      const pendingSummary = page.getByTestId(
-        rowCellTestId(pendingRow.record_id, "timeline.activity_synopsis_text"),
+      const pendingSummary = await mountedGridCell(
+        page,
+        timelineViewSchemaId,
+        pendingRow.record_id,
+        "timeline.activity_synopsis_text",
       );
       await expectVisibleFocus(pendingSummary);
       await pendingSummary.fill("FE-P4 accessibility pending replay");
@@ -1528,20 +1644,37 @@ test.describe("FE-P4 accessibility readiness", () => {
       await patchController.dispose();
     }
 
-    const originSummary = page.getByTestId(
-      rowCellTestId(editRow.record_id, "timeline.activity_synopsis_text"),
+    const originSummary = await mountedGridCell(
+      page,
+      timelineViewSchemaId,
+      editRow.record_id,
+      "timeline.activity_synopsis_text",
     );
     await expectVisibleFocus(originSummary);
     await openTimelineInspector(page, editRow.record_id);
+    const inspectorOriginSummary = await mountedGridCell(
+      page,
+      timelineViewSchemaId,
+      editRow.record_id,
+      "timeline.activity_synopsis_text",
+    );
+    const originSummaryCell = semanticGridCell(inspectorOriginSummary);
+    await inspectorOriginSummary.focus();
+    await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+      `${timelineViewSchemaId}:${editRow.record_id}:timeline.activity_synopsis_text`,
+    );
     const inspectorDetails = page.getByTestId(
       rowInspectorFieldTestId(editRow.record_id, "timeline.raw_activity_text"),
     );
     await expectVisibleFocus(inspectorDetails);
     await page.keyboard.press("Escape");
-    await expect(originSummary).toBeFocused();
+    await expect(originSummaryCell).toBeFocused();
 
-    const validationCell = page.getByTestId(
-      rowCellTestId(validationRow.record_id, "timeline.activity_utc_text"),
+    const validationCell = await mountedGridCell(
+      page,
+      timelineViewSchemaId,
+      validationRow.record_id,
+      "timeline.activity_utc_text",
     );
     await expectVisibleFocus(validationCell);
     await validationCell.fill("not-a-timestamp");
@@ -1551,7 +1684,9 @@ test.describe("FE-P4 accessibility readiness", () => {
     await expect(validationCell).toHaveValue("not-a-timestamp");
 
     await expect(
-      page.getByTestId(
+      await mountedGridTarget(
+        page,
+        timelineViewSchemaId,
         gridSortHeaderTestId(
           timelineViewSchemaId,
           "timeline.activity_synopsis_text",
@@ -1734,14 +1869,21 @@ test.describe("FE-P5 accessibility readiness", () => {
       page.getByTestId(mentionRestoreUnresolvedButtonTestId()),
     );
 
-    for (const synopsisCellTestId of [
-      rowCellTestId(unresolvedRow.record_id, "timeline.activity_synopsis_text"),
-      rowCellTestId(resolvedRow.record_id, "timeline.activity_synopsis_text"),
-      rowCellTestId(manualRow.record_id, "timeline.activity_synopsis_text"),
-      rowCellTestId(autoRow.record_id, "timeline.activity_synopsis_text"),
-      rowCellTestId(dismissedRow.record_id, "timeline.activity_synopsis_text"),
+    for (const recordId of [
+      unresolvedRow.record_id,
+      resolvedRow.record_id,
+      manualRow.record_id,
+      autoRow.record_id,
+      dismissedRow.record_id,
     ]) {
-      await expectVisibleFocus(page.getByTestId(synopsisCellTestId));
+      await expectVisibleFocus(
+        await mountedGridCell(
+          page,
+          timelineViewSchemaId,
+          recordId,
+          "timeline.activity_synopsis_text",
+        ),
+      );
     }
     await expectAllInteractiveControlsNamed(page);
     await expectNoFocusTrap(page);
@@ -1940,9 +2082,13 @@ test.describe("FE-P6 accessibility readiness", () => {
       path: `/api/v1/evidence-records/${failedHandle.record_id}/preview-handle`,
       reasonCode: "blob_failed",
     });
-    await page
-      .getByTestId(evidencePreviewButtonTestId(failedHandle.record_id))
-      .click();
+    await (
+      await mountedGridTarget(
+        page,
+        evidenceViewSchemaId,
+        evidencePreviewButtonTestId(failedHandle.record_id),
+      )
+    ).click();
     const failedMessage = page.getByTestId(
       evidenceAccessMessageTestId(failedHandle.record_id),
     );
@@ -1956,9 +2102,13 @@ test.describe("FE-P6 accessibility readiness", () => {
       path: `/api/v1/evidence-records/${inconsistentHandle.record_id}/preview-handle`,
       reasonCode: "evidence_inconsistent",
     });
-    await page
-      .getByTestId(evidencePreviewButtonTestId(inconsistentHandle.record_id))
-      .click();
+    await (
+      await mountedGridTarget(
+        page,
+        evidenceViewSchemaId,
+        evidencePreviewButtonTestId(inconsistentHandle.record_id),
+      )
+    ).click();
     const inconsistentMessage = page.getByTestId(
       evidenceAccessMessageTestId(inconsistentHandle.record_id),
     );
@@ -2142,7 +2292,9 @@ test.describe("FE-P8 accessibility readiness", () => {
     await page.goto(`/?incident_id=${incidentId}`);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
 
-    const summarySortHeader = page.getByTestId(
+    const summarySortHeader = await mountedGridTarget(
+      page,
+      timelineViewSchemaId,
       gridSortHeaderTestId(
         timelineViewSchemaId,
         "timeline.activity_synopsis_text",
@@ -2158,8 +2310,11 @@ test.describe("FE-P8 accessibility readiness", () => {
       timelineRowMarkReviewedButtonTestId(reviewedRow.record_id),
     );
     await expect(
-      page.getByTestId(
-        rowCellTestId(reviewedRow.record_id, "timeline.capture_state"),
+      await mountedGridCell(
+        page,
+        timelineViewSchemaId,
+        reviewedRow.record_id,
+        "timeline.capture_state",
       ),
     ).toHaveText("reviewed");
 
@@ -2317,8 +2472,11 @@ test.describe("FE-P9 accessibility readiness", () => {
     await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
     await expectVisibleFocus(toggle);
 
-    const summaryCell = page.getByTestId(
-      rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),
+    const summaryCell = await mountedGridCell(
+      page,
+      timelineViewSchemaId,
+      row.record_id,
+      "timeline.activity_synopsis_text",
     );
     await expectVisibleFocus(summaryCell);
     await openTimelineInspector(page, row.record_id);
@@ -2421,8 +2579,11 @@ test.describe("FE-P9 accessibility readiness", () => {
 
     await page.goto(`/?incident_id=${incidentId}`);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-    const summaryCell = page.getByTestId(
-      rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),
+    const summaryCell = await mountedGridCell(
+      page,
+      timelineViewSchemaId,
+      row.record_id,
+      "timeline.activity_synopsis_text",
     );
     await expectVisibleFocus(summaryCell);
     await openTimelineInspector(page, row.record_id);
@@ -2740,21 +2901,25 @@ test.describe("FE-P10 accessibility readiness", () => {
           page.getByTestId(gridGroupingSelectTestId(surface.viewSchemaId)),
         ).toBeVisible();
 
-        const sortHeader = page.getByTestId(
+        const sortHeader = await mountedGridTarget(
+          page,
+          surface.viewSchemaId,
           gridSortHeaderTestId(surface.viewSchemaId, surface.fieldKey),
         );
         await expectVisibleFocus(sortHeader);
         await expect(sortHeader).not.toHaveText("");
 
-        const cell = page.getByTestId(
-          rowCellTestId(surface.row.record_id, surface.fieldKey),
+        const cell = await mountedGridCell(
+          page,
+          surface.viewSchemaId,
+          surface.row.record_id,
+          surface.fieldKey,
         );
-        await cell.focus();
+        await expectVisibleSemanticGridCellFocus(cell);
         await expect(page.getByTestId("workbook-focus-anchor")).toContainText(
           surface.viewSchemaId,
         );
         await expectCellTextOrValue(cell, surface.expected);
-        await expectVisibleFocus(cell);
       });
     }
 
@@ -2763,11 +2928,14 @@ test.describe("FE-P10 accessibility readiness", () => {
       viewSchemaId: taskRequestsViewSchemaId,
     });
 
-    const taskTitle = page.getByTestId(
-      rowCellTestId(task.record_id, "task.title"),
+    const taskTitle = await mountedGridCell(
+      page,
+      taskRequestsViewSchemaId,
+      task.record_id,
+      "task.title",
     );
-    await expectVisibleFocus(taskTitle);
-    const copiedTaskTitle = await taskTitle.evaluate((element) => {
+    const taskTitleCell = await expectVisibleSemanticGridCellFocus(taskTitle);
+    const copiedTaskTitle = await taskTitleCell.evaluate((element) => {
       const data = new DataTransfer();
       element.dispatchEvent(
         new ClipboardEvent("copy", {
@@ -2784,8 +2952,11 @@ test.describe("FE-P10 accessibility readiness", () => {
     await expect(
       page.getByTestId(gridShellTestId(timelineViewSchemaId)),
     ).toBeVisible();
-    const clipboardSummary = page.getByTestId(
-      rowCellTestId(clipboardRow.record_id, "timeline.activity_synopsis_text"),
+    const clipboardSummary = await mountedGridCell(
+      page,
+      timelineViewSchemaId,
+      clipboardRow.record_id,
+      "timeline.activity_synopsis_text",
     );
     await expectVisibleFocus(clipboardSummary);
     await pasteGridMatrix({
@@ -2820,8 +2991,11 @@ test.describe("FE-P10 accessibility readiness", () => {
     await expect(priorityChip).toContainText("urgent");
     await expectVisibleFocus(priorityChip);
 
-    const urgentTitle = page.getByTestId(
-      rowCellTestId(urgentTask.record_id, "task.title"),
+    const urgentTitle = await mountedGridCell(
+      page,
+      taskRequestsViewSchemaId,
+      urgentTask.record_id,
+      "task.title",
     );
     await expectCellTextOrValue(urgentTitle, "FE-A11Y-P10 task urgent");
 
@@ -2930,6 +3104,13 @@ test.describe("FE-P11 accessibility readiness", () => {
     await expectStatusRole(page.getByTestId(saveStateTestId()));
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
 
+    await mountedGridCell(
+      page,
+      timelineViewSchemaId,
+      timelineRow.record_id,
+      "timeline.activity_synopsis_text",
+    );
+
     await expectTabOrderIncludes(page, [
       systemViewSwitcherTriggerTestId(),
       workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
@@ -2937,8 +3118,11 @@ test.describe("FE-P11 accessibility readiness", () => {
       rowCellTestId(timelineRow.record_id, "timeline.activity_synopsis_text"),
     ]);
 
-    const summaryCell = page.getByTestId(
-      rowCellTestId(timelineRow.record_id, "timeline.activity_synopsis_text"),
+    const summaryCell = await mountedGridCell(
+      page,
+      timelineViewSchemaId,
+      timelineRow.record_id,
+      "timeline.activity_synopsis_text",
     );
     await expect(summaryCell).toHaveAttribute(
       "aria-label",
@@ -2951,6 +3135,17 @@ test.describe("FE-P11 accessibility readiness", () => {
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
 
     await openTimelineInspector(page, timelineRow.record_id);
+    const inspectorSummaryCell = await mountedGridCell(
+      page,
+      timelineViewSchemaId,
+      timelineRow.record_id,
+      "timeline.activity_synopsis_text",
+    );
+    await inspectorSummaryCell.focus();
+    await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+      `${timelineViewSchemaId}:${timelineRow.record_id}:timeline.activity_synopsis_text`,
+    );
+    const semanticSummaryCell = semanticGridCell(inspectorSummaryCell);
     const inspectorDetails = page.getByTestId(
       rowInspectorFieldTestId(
         timelineRow.record_id,
@@ -2959,17 +3154,23 @@ test.describe("FE-P11 accessibility readiness", () => {
     );
     await expectVisibleFocus(inspectorDetails);
     await page.keyboard.press("Escape");
-    await expectVisibleFocus(summaryCell);
+    await expect(semanticSummaryCell).toBeFocused();
+    await semanticSummaryCell.press("Escape");
+    await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
+    await expect(semanticSummaryCell).toBeFocused();
 
     await openA11ySystemSurface(page, {
       groupToken: "coordination",
       viewSchemaId: taskRequestsViewSchemaId,
     });
-    const taskTitle = page.getByTestId(
-      rowCellTestId(taskRow.record_id, "task.title"),
+    const taskTitle = await mountedGridCell(
+      page,
+      taskRequestsViewSchemaId,
+      taskRow.record_id,
+      "task.title",
     );
     await expectCellTextOrValue(taskTitle, "FE-A11Y-P11 task row");
-    await expectVisibleFocus(taskTitle);
+    await expectVisibleSemanticGridCellFocus(taskTitle);
     await openFilterPopover(page, taskRequestsViewSchemaId);
     await expect(
       page.getByTestId(gridFilterFieldTestId(taskRequestsViewSchemaId)),

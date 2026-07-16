@@ -306,7 +306,9 @@ describe("FE-I-P4-01 Timeline query row identity integration", () => {
         screen.getByTestId(pendingQueueNoticeTestId()).textContent,
       ).toContain("invalid_cell_value");
     });
-    expect(screen.queryByTestId("timeline-refresh-error")).toBeNull();
+    expect(
+      container.querySelector('[data-grid-data-state="stale_error"]'),
+    ).toBeNull();
 
     fetchMock.mockResolvedValueOnce(
       successEnvelope({

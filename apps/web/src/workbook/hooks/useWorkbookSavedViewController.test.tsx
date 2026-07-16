@@ -2,6 +2,7 @@ import { requireViewContract } from "@cartulary/view-contracts";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { jsonResponse } from "../../testing/fetchMockTestSupport";
+import { defaultWorkbookLayoutState } from "../models/workbookLayout";
 import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import { useWorkbookSavedViewController } from "./useWorkbookSavedViewController";
 
@@ -11,7 +12,12 @@ const savedView = {
   display_name: "Analyst timeline",
   scope: "private",
   query_json: { filters: [], sort: [] },
-  layout_json: {},
+  layout_json: {
+    layout_schema_id: "cartulary.layout.v1",
+    column_order: ["row_version", "timeline.activity_synopsis_text"],
+    hidden_field_keys: ["timeline.activity_synopsis_text"],
+    column_widths: [{ field_key: "row_version", width_px: 96 }],
+  },
   owner_user_id: "user-1",
   saved_view_version: 1,
 } as const;
@@ -22,15 +28,22 @@ type SavedViewControllerOptions = Parameters<
 
 function SavedViewControllerHarness({
   applyIdentity,
+  applyLayout,
   applyQuery,
 }: {
   readonly applyIdentity: SavedViewControllerOptions["applyWorkbookIdentity"];
+  readonly applyLayout: SavedViewControllerOptions["applyLayoutStateForSurface"];
   readonly applyQuery: SavedViewControllerOptions["applyQueryStateForSurface"];
 }) {
   const controller = useWorkbookSavedViewController({
     activeContract: requireViewContract("cartulary.view.timeline.v2"),
+    applyLayoutStateForSurface: applyLayout,
     applyQueryStateForSurface: applyQuery,
     applyWorkbookIdentity: applyIdentity,
+    currentLayoutStateForSurface: () =>
+      defaultWorkbookLayoutState(
+        requireViewContract("cartulary.view.timeline.v2"),
+      ),
     currentQueryStateForSurface: emptyWorkbookQueryState,
     incidentId: "incident-1",
     startupSheetRef: { kind: "view_schema", id: savedView.view_schema_id },
@@ -75,9 +88,12 @@ describe("useWorkbookSavedViewController", () => {
       vi.fn<SavedViewControllerOptions["applyWorkbookIdentity"]>();
     const applyQuery =
       vi.fn<SavedViewControllerOptions["applyQueryStateForSurface"]>();
+    const applyLayout =
+      vi.fn<SavedViewControllerOptions["applyLayoutStateForSurface"]>();
     render(
       <SavedViewControllerHarness
         applyIdentity={applyIdentity}
+        applyLayout={applyLayout}
         applyQuery={applyQuery}
       />,
     );
@@ -89,6 +105,13 @@ describe("useWorkbookSavedViewController", () => {
     expect(applyQuery).toHaveBeenCalledWith(
       savedView.view_schema_id,
       expect.any(Object),
+    );
+    expect(applyLayout).toHaveBeenCalledWith(
+      savedView.view_schema_id,
+      expect.objectContaining({
+        columnOrder: ["row_version", "timeline.activity_synopsis_text"],
+        hiddenFieldKeys: ["timeline.activity_synopsis_text"],
+      }),
     );
     expect(applyIdentity).toHaveBeenCalledWith(
       {

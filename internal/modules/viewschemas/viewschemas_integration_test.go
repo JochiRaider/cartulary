@@ -219,7 +219,7 @@ func requirePublicResource(t testing.TB, resource map[string]any) {
 	}
 	for _, field := range fields {
 		entry := field.(map[string]any)
-		for _, key := range []string{"field_key", "label", "default_hidden", "sortable", "header_sort_field_key", "filter_ops", "groupable", "read_kind", "write_kind", "conflict_resolution_class", "entity_binding_mode", "string_contract_id", "direct_scalar_contract_id", "direct_reference_contract_id", "clearable", "enum_values"} {
+		for _, key := range []string{"field_key", "label", "default_hidden", "sortable", "header_sort_field_key", "filter_ops", "groupable", "read_kind", "write_kind", "grid_editable", "conflict_resolution_class", "entity_binding_mode", "string_contract_id", "direct_scalar_contract_id", "direct_reference_contract_id", "clearable", "enum_values"} {
 			if _, exists := entry[key]; !exists {
 				t.Fatalf("field entry for %s missing %s: %#v", resource["view_schema_id"], key, entry)
 			}

@@ -2108,6 +2108,15 @@
         "build-server-harness",
         "build-migrate"
       ],
+      "env": {
+        "PATH": "$(NODE_RUNTIME_DIR)/bin:$$PATH",
+        "NODE_RUNTIME_DIR": "$(NODE_RUNTIME_DIR)",
+        "NODE_BIN": "$(NODE_BIN)",
+        "PNPM": "$(PNPM)",
+        "CARTULARY_SERVER_HARNESS_BIN": "$(SERVER_HARNESS_BIN)",
+        "CARTULARY_MIGRATE_BIN": "$(MIGRATE_BIN)",
+        "CARTULARY_TEST_SERVICES_BIN": "$(TEST_SERVICES_BIN)"
+      },
       "command": [
         "bash",
         "./tools/harness/browser/run-browser-e2e-visual-update.sh"

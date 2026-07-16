@@ -54,7 +54,6 @@ describe("timelineRowsModel", () => {
       ),
     ).toEqual({ comparable: false, stale: false });
 
-    const selected: string[] = [];
     const rows = [
       workbookRow("draft", null, 0),
       workbookRow("row-a", "record-a", 2),
@@ -67,7 +66,6 @@ describe("timelineRowsModel", () => {
       renderSavedGutterContent: ({ ordinal, presences, recordId }) =>
         `${ordinal}:${recordId}:${presences.join(",")}`,
       rows,
-      selectedRowId: "record-b",
     });
 
     expect(gridRows.draftRow?.testId).toBe(
@@ -89,10 +87,8 @@ describe("timelineRowsModel", () => {
       kind: "record",
       recordId: "record-b",
       rowVersion: 3,
-      selected: true,
       gutterContent: "3:record-b:presence-b",
       gutterTestId: "cartulary.view.timeline.v2-row-gutter-record-b",
     });
-    expect(selected).toEqual([]);
   });
 });

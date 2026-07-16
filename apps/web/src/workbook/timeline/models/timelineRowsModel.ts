@@ -49,7 +49,6 @@ export function buildTimelineGridRows<TPresence>({
   renderDraftGutterContent,
   renderSavedGutterContent,
   rows,
-  selectedRowId,
 }: {
   readonly presenceForRow: (recordId: string | null) => readonly TPresence[];
   readonly renderDraftGutterContent: (row: WorkbookRow) => ReactNode;
@@ -60,7 +59,6 @@ export function buildTimelineGridRows<TPresence>({
     readonly row: WorkbookRow;
   }) => ReactNode;
   readonly rows: readonly WorkbookRow[];
-  readonly selectedRowId: string | null;
 }): TimelineGridRows {
   const recordRows: GridRecordRow<WorkbookRow>[] = [];
   let draftRow: GridDraftRow<WorkbookRow> | undefined;
@@ -93,7 +91,6 @@ export function buildTimelineGridRows<TPresence>({
       }),
       gutterLabel: ordinal,
       gutterTestId: gridRowGutterTestId(timelineViewSchemaId, row.recordId),
-      selected: row.recordId === selectedRowId,
       testId: gridRowTestId(timelineViewSchemaId, row.recordId),
     });
   });

@@ -15,11 +15,16 @@ import {
   workbookSortMenuTriggerTestId,
   workbookTopBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
-import { requireViewContract } from "@cartulary/view-contracts";
+import {
+  listViewContracts,
+  requireViewContract,
+} from "@cartulary/view-contracts";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { WorkbookGridControls } from "./components/WorkbookGridControls";
+import { workbookGridEditorKind } from "./components/WorkbookGridEditorControl";
+import { defaultWorkbookLayoutState } from "./models/workbookLayout";
 import {
   applyFilterDraft,
   buildQueryRequest,
@@ -166,6 +171,26 @@ describe("Phase 8 workbook query controls", () => {
         { direction: "asc", field_key: "timeline.activity_sort_ts" },
       ],
     });
+
+    for (const viewContract of listViewContracts()) {
+      for (const field of viewContract.fields) {
+        if (field.gridEditable) {
+          expect(workbookGridEditorKind(field), field.fieldKey).not.toBeNull();
+        } else {
+          expect(workbookGridEditorKind(field), field.fieldKey).toBeNull();
+        }
+      }
+    }
+    for (const viewSchemaId of [
+      "cartulary.view.assessments.v1",
+      "cartulary.view.indicators.v1",
+    ]) {
+      expect(
+        requireViewContract(viewSchemaId).fields.every(
+          (field) => workbookGridEditorKind(field) === null,
+        ),
+      ).toBe(true);
+    }
   });
 
   it("FE-U-P8-01 serializes saved-view query_json with canonical empty arrays and omitted inactive grouping", () => {
@@ -364,17 +389,21 @@ describe("Phase 8 workbook query controls", () => {
     const onFilterDraftChange = vi.fn();
     const onGroupByChange = vi.fn();
     const onRemoveFilter = vi.fn();
-    const onToggleSort = vi.fn();
+    const onSortChange = vi.fn();
 
     render(
       <WorkbookGridControls
         contract={contract}
         filterDraft={defaultFilterDraft(contract)}
+        layoutState={defaultWorkbookLayoutState(contract)}
         onApplyFilter={vi.fn()}
         onFilterDraftChange={onFilterDraftChange}
         onGroupByChange={onGroupByChange}
+        onColumnHiddenChange={vi.fn()}
+        onColumnMove={vi.fn()}
+        onResetColumns={vi.fn()}
         onRemoveFilter={onRemoveFilter}
-        onToggleSort={onToggleSort}
+        onSortChange={onSortChange}
         queryState={{
           filters: [
             {

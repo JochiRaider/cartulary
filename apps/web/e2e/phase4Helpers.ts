@@ -422,11 +422,16 @@ export async function exerciseEntityMerge(
     ),
   ).toBeVisible();
 
-  await page
-    .getByTestId(
-      entityInspectButtonTestId(options.entityType, options.survivor.record_id),
-    )
-    .click();
+  const inspectButtonTestId = entityInspectButtonTestId(
+    options.entityType,
+    options.survivor.record_id,
+  );
+  await scrollGridTargetIntoView({
+    page,
+    surface: options.viewSchemaId,
+    targetTestId: inspectButtonTestId,
+  });
+  await page.getByTestId(inspectButtonTestId).click();
   const inspectorTestId = entityInspectorLocalTestId(options.entityType);
   await expect(page.getByTestId(inspectorTestId)).toContainText(
     options.survivorLabel,
@@ -715,9 +720,21 @@ export async function openTimelineInspector(page: Page, recordId: string) {
 }
 
 export async function openTimelineRowActions(page: Page, recordId: string) {
-  const rowTestId = gridRowTestId(timelineViewSchemaId, recordId);
-  await ensureTimelineGridTargetVisible(page, rowTestId);
-  await page.getByTestId(rowTestId).click({ button: "right" });
+  const closeInspector = page.getByTestId(
+    workbookInspectorCloseButtonTestId(timelineViewSchemaId),
+  );
+  if ((await closeInspector.count()) > 0) {
+    await closeInspector.click();
+    await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
+  }
+  const anchorTestId = rowCellTestId(
+    recordId,
+    "timeline.activity_synopsis_text",
+  );
+  await ensureTimelineGridTargetVisible(page, anchorTestId);
+  const anchor = page.getByTestId(anchorTestId);
+  await anchor.focus();
+  await anchor.press("Shift+F10");
 }
 
 export async function clickTimelineRowAction(

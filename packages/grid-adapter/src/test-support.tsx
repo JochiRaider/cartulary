@@ -2,43 +2,73 @@
 // biome-ignore-all lint/a11y/noRedundantRoles: Explicit roles keep workbook tests independent of native accessibility-role inference.
 // biome-ignore-all lint/a11y/useFocusableInteractive: This test renderer mirrors RDG's query surface, not a production interaction model.
 import { gridScrollportClassName } from "@cartulary/ui-contracts";
-import { Fragment, type KeyboardEvent } from "react";
+import { Fragment, type KeyboardEvent, useRef } from "react";
 
 import {
   assertGridRows,
   buildGridPresentationRows,
+  type GridColumn,
+  type GridRecordRow,
+  type GridSemanticStateInput,
   type GridViewportProps,
+  gridClipboardDimensions,
   gridUnassignedGroupLabel,
+  resolveGridPasteTargets,
   type WorkbookDataGridProps,
 } from "./core";
+import {
+  gridSemanticStateClassNames,
+  mergeGridSemanticState,
+  resolveGridSemanticState,
+} from "./semanticState";
 
 export {
   assertGridRows,
   buildGridPresentationRows,
+  formatGridClipboardTSV,
   type GridActionsColumn,
   type GridBlockSizing,
+  type GridBulkSelection,
   type GridCellAnchor,
   type GridCellCopyIntent,
   type GridCellMutationIntent,
+  type GridCellRange,
   type GridCellSelection,
+  type GridCellStateContext,
+  type GridCellStateInput,
   type GridCellTarget,
   type GridColumn,
+  type GridDataState,
+  type GridDataStateAction,
   type GridDraftRow,
+  type GridEditCommitIntent,
+  type GridEditCommitOutcome,
+  type GridEditorAdapter,
+  type GridEditorRenderContext,
+  type GridExpandedCellRange,
   type GridFillIntent,
   type GridGroupingDescriptor,
   type GridGroupingScalar,
   type GridHandle,
+  type GridInteractionMode,
   type GridNavigationIntent,
   type GridNavigationKey,
   type GridRecordRow,
   type GridRowGutter,
+  type GridRowStateInput,
+  type GridSemanticStateInput,
   type GridSortDirection,
   type GridSortEntry,
+  type GridStateValidation,
   type GridViewportProps,
+  gridClipboardDimensions,
   navigateGridCellAnchor,
+  parseGridClipboardTable,
   resolveGridCellAnchor,
+  resolveGridCellRange,
   type WorkbookDataGridProps,
 } from "./core";
+export { setGridVirtualizationDisabledForDiagnostics } from "./virtualizationDiagnostics";
 
 export function GridViewport({
   children,
@@ -54,20 +84,76 @@ export function GridViewport({
 }
 
 export function WorkbookDataGrid<Row>({
+  activeRecordId = null,
+  allowPasteCreateRows = false,
   actionsColumn,
+  bulkSelection,
   columns,
+  dataState = { kind: "ready" },
   draftRow,
-  emptyMessage = "No rows",
   fillViewportInline = false,
+  getCellState,
+  getRowState,
   grouping = null,
+  interactionMode = { kind: "editable" },
+  onPasteCell,
   onSelectRecord,
-  onToggleSort,
+  onSortChange,
   recordRows,
   rowGutter,
   sort = [],
   viewSchemaId,
 }: WorkbookDataGridProps<Row>) {
+  const editable = interactionMode.kind === "editable";
+  const effectiveBulkSelection = editable ? bulkSelection : undefined;
+  const effectiveDraftRow = editable ? draftRow : undefined;
+  const selectionAnchorRecordId = useRef<string | null>(null);
   assertGridRows(recordRows);
+
+  const selectableRows =
+    effectiveBulkSelection === undefined
+      ? []
+      : recordRows.filter(
+          (row) => effectiveBulkSelection.isRecordSelectable?.(row) !== false,
+        );
+  const selectableIds = selectableRows.map((row) => row.recordId);
+  const selectedOnPage = selectableIds.filter((recordId) =>
+    effectiveBulkSelection?.selectedRecordIds.has(recordId),
+  );
+  const rowStateFor = (row: GridRecordRow<Row>): GridSemanticStateInput =>
+    mergeGridSemanticState(getRowState?.(row), {
+      bulkSelected:
+        effectiveBulkSelection?.selectedRecordIds.has(row.recordId) === true,
+      inspectorActive: row.recordId === activeRecordId,
+      readOnlyOrDerived: !editable,
+      saved: true,
+      stale: dataState.kind === "stale_error",
+    });
+  const cellStateFor = (row: GridRecordRow<Row>, column: GridColumn<Row>) => {
+    const rowState = rowStateFor(row);
+    return mergeGridSemanticState(
+      getCellState?.({
+        anchor: {
+          fieldKey: column.fieldKey,
+          recordId: row.recordId,
+          viewSchemaId,
+        },
+        row: row.data,
+        rowVersion: row.rowVersion,
+      }),
+      {
+        bulkSelected: rowState.bulkSelected,
+        inspectorActive: rowState.inspectorActive,
+        pending: false,
+        readOnlyOrDerived:
+          !editable ||
+          column.contractWritable !== true ||
+          column.editor === undefined,
+        saved: true,
+        stale: false,
+      },
+    );
+  };
 
   const renderedRows = buildGridPresentationRows({
     grouping,
@@ -75,116 +161,342 @@ export function WorkbookDataGrid<Row>({
   });
   const totalColumnCount =
     columns.length +
+    (effectiveBulkSelection === undefined ? 0 : 1) +
     (rowGutter === undefined ? 0 : 1) +
     (actionsColumn === undefined ? 0 : 1);
 
   return (
-    <table
-      className={gridScrollportClassName()}
-      role="grid"
-      style={fillViewportInline ? { minWidth: 0, width: "100%" } : undefined}
-    >
-      <thead>
-        <tr role="row">
-          {rowGutter === undefined ? null : (
-            <th role="columnheader" scope="col">
-              <span data-testid={rowGutter.headerTestId}>
-                {rowGutter.label ?? ""}
-              </span>
-            </th>
-          )}
-          {columns.map((column) => {
-            const canToggleSort =
-              onToggleSort !== undefined &&
-              column.sortableFieldKey !== null &&
-              column.sortableFieldKey !== undefined &&
-              !column.sortDisabled;
-            const sortState = sort.find(
-              (entry) =>
-                entry.fieldKey === (column.sortableFieldKey ?? column.fieldKey),
-            );
-            return (
-              <th key={column.fieldKey} role="columnheader" scope="col">
-                <button
-                  data-grid-field-key={column.fieldKey}
-                  data-testid={column.headerTestId}
-                  disabled={!canToggleSort}
-                  title={column.sortDisabledReason ?? undefined}
-                  type="button"
-                  onClick={() => {
-                    onToggleSort?.(column.sortableFieldKey ?? column.fieldKey);
-                  }}
-                >
-                  <span>{column.label}</span>
-                  {canToggleSort ? (
-                    <span>
-                      {sortState === undefined
-                        ? "Sort"
-                        : sortState.direction === "asc"
-                          ? "Asc"
-                          : "Desc"}
-                    </span>
-                  ) : null}
-                </button>
-              </th>
-            );
-          })}
-          {actionsColumn === undefined ? null : (
-            <th role="columnheader" scope="col">
-              <span>{actionsColumn.label}</span>
-            </th>
-          )}
-        </tr>
-      </thead>
-      <tbody>
-        {renderedRows.length === 0 && draftRow === undefined ? (
+    <>
+      <TestGridStatePresentation
+        dataState={dataState}
+        interactionMode={interactionMode}
+      />
+      <table
+        aria-busy={
+          dataState.kind === "initial_loading" ||
+          dataState.kind === "refreshing"
+        }
+        aria-readonly={!editable}
+        className={gridScrollportClassName()}
+        role="grid"
+        style={fillViewportInline ? { minWidth: 0, width: "100%" } : undefined}
+      >
+        <thead>
           <tr role="row">
-            <td
-              colSpan={totalColumnCount}
-              data-grid-empty="true"
-              role="gridcell"
-            >
-              {emptyMessage}
-            </td>
-          </tr>
-        ) : (
-          <Fragment>
-            {renderedRows.map((row) =>
-              row.kind === "group" ? (
-                <tr key={row.key} role="row">
-                  <td colSpan={totalColumnCount} role="gridcell">
-                    <strong data-testid={row.testId}>
-                      {row.groupLabel ?? gridUnassignedGroupLabel}
-                    </strong>
-                  </td>
-                </tr>
-              ) : (
-                <tr
-                  aria-selected={
-                    row.gridRow.selected === true ? "true" : undefined
+            {effectiveBulkSelection === undefined ? null : (
+              <th role="columnheader" scope="col">
+                <input
+                  aria-label="Select all records on this page"
+                  checked={
+                    selectableIds.length > 0 &&
+                    selectedOnPage.length === selectableIds.length
                   }
-                  data-grid-record-id={row.gridRow.recordId ?? ""}
-                  data-testid={row.gridRow.testId}
-                  key={row.key}
-                  role="row"
-                  tabIndex={onSelectRecord === undefined ? undefined : 0}
-                  onClick={() => {
-                    onSelectRecord?.(row.gridRow.recordId);
-                  }}
-                  onKeyDown={(event: KeyboardEvent<HTMLTableRowElement>) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      onSelectRecord?.(row.gridRow.recordId);
+                  disabled={selectableIds.length === 0}
+                  ref={(node) => {
+                    if (node !== null) {
+                      node.indeterminate =
+                        selectedOnPage.length > 0 &&
+                        selectedOnPage.length < selectableIds.length;
                     }
                   }}
+                  readOnly
+                  type="checkbox"
+                  onClick={() => {
+                    selectionAnchorRecordId.current = null;
+                    effectiveBulkSelection.onSelectedRecordIdsChange(
+                      selectedOnPage.length === selectableIds.length
+                        ? new Set()
+                        : new Set(selectableIds),
+                    );
+                  }}
+                />
+              </th>
+            )}
+            {rowGutter === undefined ? null : (
+              <th role="columnheader" scope="col">
+                <span data-testid={rowGutter.headerTestId}>
+                  {rowGutter.label ?? ""}
+                </span>
+              </th>
+            )}
+            {columns.map((column) => {
+              const canToggleSort =
+                onSortChange !== undefined &&
+                column.sortableFieldKey !== null &&
+                column.sortableFieldKey !== undefined &&
+                !column.sortDisabled;
+              const sortState = sort.find(
+                (entry) =>
+                  entry.fieldKey ===
+                  (column.sortableFieldKey ?? column.fieldKey),
+              );
+              return (
+                <th key={column.fieldKey} role="columnheader" scope="col">
+                  <button
+                    data-grid-field-key={column.fieldKey}
+                    data-testid={column.headerTestId}
+                    disabled={!canToggleSort}
+                    title={column.sortDisabledReason ?? undefined}
+                    type="button"
+                    onClick={(event) => {
+                      const fieldKey =
+                        column.sortableFieldKey ?? column.fieldKey;
+                      const currentIndex = sort.findIndex(
+                        (entry) => entry.fieldKey === fieldKey,
+                      );
+                      const current = sort[currentIndex];
+                      const nextEntry =
+                        current === undefined
+                          ? { fieldKey, direction: "asc" as const }
+                          : current.direction === "asc"
+                            ? { fieldKey, direction: "desc" as const }
+                            : null;
+                      const additive = event.ctrlKey || event.metaKey;
+                      if (!additive) {
+                        onSortChange?.(nextEntry === null ? [] : [nextEntry]);
+                        return;
+                      }
+                      const next = sort.filter(
+                        (entry) => entry.fieldKey !== fieldKey,
+                      );
+                      onSortChange?.(
+                        nextEntry === null ? next : [...next, nextEntry],
+                      );
+                    }}
+                  >
+                    <span>{column.label}</span>
+                    {canToggleSort ? (
+                      <span>
+                        {sortState === undefined
+                          ? "Sort"
+                          : sortState.direction === "asc"
+                            ? "Asc"
+                            : "Desc"}
+                      </span>
+                    ) : null}
+                  </button>
+                </th>
+              );
+            })}
+            {actionsColumn === undefined ? null : (
+              <th role="columnheader" scope="col">
+                <span>{actionsColumn.label}</span>
+              </th>
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          {renderedRows.length === 0 &&
+          effectiveDraftRow === undefined ? null : (
+            <Fragment>
+              {renderedRows.map((row) =>
+                row.kind === "group" ? (
+                  <tr key={row.key} role="row">
+                    <td colSpan={totalColumnCount} role="gridcell">
+                      <strong data-testid={row.testId}>
+                        {row.groupLabel ?? gridUnassignedGroupLabel}
+                      </strong>
+                    </td>
+                  </tr>
+                ) : (
+                  <tr
+                    {...testSemanticAttributes(
+                      "row",
+                      rowStateFor(row.gridRow),
+                      `row ${row.gridRow.recordId}`,
+                    )}
+                    data-grid-record-id={row.gridRow.recordId ?? ""}
+                    data-testid={row.gridRow.testId}
+                    key={row.key}
+                    role="row"
+                    tabIndex={onSelectRecord === undefined ? undefined : 0}
+                    onClick={() => {
+                      onSelectRecord?.(row.gridRow.recordId);
+                    }}
+                    onKeyDown={(event: KeyboardEvent<HTMLTableRowElement>) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        onSelectRecord?.(row.gridRow.recordId);
+                      }
+                    }}
+                  >
+                    {effectiveBulkSelection === undefined ? null : (
+                      <td role="gridcell">
+                        {effectiveBulkSelection.isRecordSelectable?.(
+                          row.gridRow,
+                        ) === false ? null : (
+                          <input
+                            aria-label={`Select record ${row.gridRow.recordId}`}
+                            checked={effectiveBulkSelection.selectedRecordIds.has(
+                              row.gridRow.recordId,
+                            )}
+                            readOnly
+                            type="checkbox"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              const next = new Set(
+                                effectiveBulkSelection.selectedRecordIds,
+                              );
+                              const anchorIndex = selectableRows.findIndex(
+                                (candidate) =>
+                                  candidate.recordId ===
+                                  selectionAnchorRecordId.current,
+                              );
+                              const rowIndex = selectableRows.findIndex(
+                                (candidate) =>
+                                  candidate.recordId === row.gridRow.recordId,
+                              );
+                              if (
+                                event.shiftKey &&
+                                anchorIndex >= 0 &&
+                                rowIndex >= 0
+                              ) {
+                                const start = Math.min(anchorIndex, rowIndex);
+                                const end = Math.max(anchorIndex, rowIndex);
+                                for (const candidate of selectableRows.slice(
+                                  start,
+                                  end + 1,
+                                )) {
+                                  next.add(candidate.recordId);
+                                }
+                              } else if (next.has(row.gridRow.recordId)) {
+                                next.delete(row.gridRow.recordId);
+                              } else {
+                                next.add(row.gridRow.recordId);
+                              }
+                              selectionAnchorRecordId.current =
+                                row.gridRow.recordId;
+                              effectiveBulkSelection.onSelectedRecordIdsChange(
+                                next,
+                              );
+                            }}
+                          />
+                        )}
+                      </td>
+                    )}
+                    {rowGutter === undefined ? null : (
+                      <th
+                        data-grid-field-key="__cartulary_row_gutter__"
+                        data-testid={row.gridRow.gutterTestId}
+                        scope="row"
+                      >
+                        {row.gridRow.gutterContent ??
+                          row.gridRow.gutterLabel ??
+                          ""}
+                      </th>
+                    )}
+                    {columns.map((column) => {
+                      const semanticState = resolveGridSemanticState(
+                        cellStateFor(row.gridRow, column),
+                        column.label,
+                      );
+                      return (
+                        <td
+                          {...testSemanticAttributes(
+                            "cell",
+                            cellStateFor(row.gridRow, column),
+                            column.label,
+                          )}
+                          data-grid-field-key={column.fieldKey}
+                          key={column.fieldKey}
+                          role="gridcell"
+                          onPaste={(event) => {
+                            if (!editable || onPasteCell === undefined) return;
+                            if (
+                              event.target instanceof HTMLInputElement ||
+                              event.target instanceof HTMLTextAreaElement ||
+                              event.target instanceof HTMLSelectElement
+                            ) {
+                              return;
+                            }
+                            const clipboardText =
+                              event.clipboardData?.getData("text/plain") ?? "";
+                            const dimensions =
+                              gridClipboardDimensions(clipboardText);
+                            const targetResolution = resolveGridPasteTargets({
+                              allowCreateRows:
+                                allowPasteCreateRows && grouping === null,
+                              columns,
+                              current: {
+                                fieldKey: column.fieldKey,
+                                recordId: row.gridRow.recordId,
+                                viewSchemaId,
+                              },
+                              pastedColumnCount: dimensions.columnCount,
+                              pastedRowCount: dimensions.rowCount,
+                              presentationRows: renderedRows,
+                            });
+                            if (
+                              targetResolution === null ||
+                              !targetResolution.columns.every((fieldKey) =>
+                                columns.some(
+                                  (candidate) =>
+                                    candidate.fieldKey === fieldKey &&
+                                    candidate.contractWritable === true &&
+                                    candidate.editor !== undefined,
+                                ),
+                              )
+                            ) {
+                              return;
+                            }
+                            event.preventDefault();
+                            onPasteCell({
+                              clipboardText,
+                              target: {
+                                baseRowVersion: row.gridRow.rowVersion,
+                                fieldKey: column.fieldKey,
+                                recordId: row.gridRow.recordId,
+                                viewSchemaId,
+                              },
+                              targetResolution,
+                            });
+                          }}
+                        >
+                          {semanticState.markers.map((marker) => (
+                            <span
+                              aria-label={marker.accessibleLabel}
+                              data-grid-state-marker={marker.kind}
+                              key={marker.kind}
+                              role="img"
+                            >
+                              {marker.glyph}
+                            </span>
+                          ))}
+                          {column.renderCell({
+                            anchor: {
+                              fieldKey: column.fieldKey,
+                              recordId: row.gridRow.recordId,
+                              viewSchemaId,
+                            },
+                            row: row.gridRow.data,
+                          })}
+                        </td>
+                      );
+                    })}
+                    {actionsColumn === undefined ? null : (
+                      <td role="gridcell">
+                        {actionsColumn.renderCell(row.gridRow)}
+                      </td>
+                    )}
+                  </tr>
+                ),
+              )}
+              {effectiveDraftRow === undefined ? null : (
+                <tr
+                  data-cartulary-grid-draft-row="true"
+                  data-grid-record-id=""
+                  data-testid={effectiveDraftRow.testId}
+                  role="row"
                 >
+                  {effectiveBulkSelection === undefined ? null : (
+                    <td role="gridcell" />
+                  )}
                   {rowGutter === undefined ? null : (
                     <th
                       data-grid-field-key="__cartulary_row_gutter__"
-                      data-testid={row.gridRow.gutterTestId}
                       scope="row"
                     >
-                      {row.gridRow.gutterContent ??
-                        row.gridRow.gutterLabel ??
+                      {effectiveDraftRow.gutterContent ??
+                        effectiveDraftRow.gutterLabel ??
                         ""}
                     </th>
                   )}
@@ -194,62 +506,103 @@ export function WorkbookDataGrid<Row>({
                       key={column.fieldKey}
                       role="gridcell"
                     >
-                      {column.renderCell({
-                        anchor: {
-                          fieldKey: column.fieldKey,
-                          recordId: row.gridRow.recordId,
-                          viewSchemaId,
-                        },
-                        row: row.gridRow.data,
-                      })}
+                      {column.renderDraftCell?.({
+                        fieldKey: column.fieldKey,
+                        row: effectiveDraftRow.data,
+                        viewSchemaId,
+                      }) ?? null}
                     </td>
                   ))}
                   {actionsColumn === undefined ? null : (
                     <td role="gridcell">
-                      {actionsColumn.renderCell(row.gridRow)}
+                      {actionsColumn.renderDraftCell?.(effectiveDraftRow)}
                     </td>
                   )}
                 </tr>
-              ),
-            )}
-            {draftRow === undefined ? null : (
-              <tr
-                data-cartulary-grid-draft-row="true"
-                data-grid-record-id=""
-                data-testid={draftRow.testId}
-                role="row"
-              >
-                {rowGutter === undefined ? null : (
-                  <th
-                    data-grid-field-key="__cartulary_row_gutter__"
-                    scope="row"
-                  >
-                    {draftRow.gutterContent ?? draftRow.gutterLabel ?? ""}
-                  </th>
-                )}
-                {columns.map((column) => (
-                  <td
-                    data-grid-field-key={column.fieldKey}
-                    key={column.fieldKey}
-                    role="gridcell"
-                  >
-                    {column.renderDraftCell?.({
-                      fieldKey: column.fieldKey,
-                      row: draftRow.data,
-                      viewSchemaId,
-                    }) ?? null}
-                  </td>
-                ))}
-                {actionsColumn === undefined ? null : (
-                  <td role="gridcell">
-                    {actionsColumn.renderDraftCell?.(draftRow)}
-                  </td>
-                )}
-              </tr>
-            )}
-          </Fragment>
-        )}
-      </tbody>
-    </table>
+              )}
+            </Fragment>
+          )}
+        </tbody>
+      </table>
+    </>
+  );
+}
+
+function testSemanticAttributes(
+  scope: "cell" | "row",
+  input: GridSemanticStateInput,
+  label: string,
+) {
+  const state = resolveGridSemanticState(input, label);
+  return {
+    "aria-busy": state.stateIds.includes("pending") || undefined,
+    "aria-current":
+      scope === "row" && state.stateIds.includes("inspector-active")
+        ? true
+        : undefined,
+    "aria-description": state.description,
+    "aria-invalid": state.stateIds.includes("invalid") || undefined,
+    "aria-readonly":
+      scope === "cell" && state.stateIds.includes("read-only")
+        ? true
+        : undefined,
+    "aria-selected":
+      scope === "row" && state.stateIds.includes("bulk-selected")
+        ? true
+        : undefined,
+    className: gridSemanticStateClassNames(scope, state),
+    "data-grid-primary-state": state.primary,
+    "data-grid-semantic-states": state.stateIds.join(" "),
+  } as const;
+}
+
+function TestGridStatePresentation({
+  dataState,
+  interactionMode,
+}: {
+  readonly dataState: NonNullable<WorkbookDataGridProps<unknown>["dataState"]>;
+  readonly interactionMode: NonNullable<
+    WorkbookDataGridProps<unknown>["interactionMode"]
+  >;
+}) {
+  let message: string | null = null;
+  if (dataState.kind === "initial_loading") {
+    message = `Loading ${dataState.surfaceLabel}…`;
+  } else if (dataState.kind === "refreshing") {
+    message = `Refreshing ${dataState.surfaceLabel}…`;
+  } else if (dataState.kind === "empty") {
+    message = dataState.message;
+  } else if (dataState.kind === "filtered_empty") {
+    message = "No rows match the current filters.";
+  } else if (dataState.kind === "stale_error") {
+    message = `${dataState.message} Previously loaded rows may be stale.`;
+  } else if (dataState.kind === "unavailable") {
+    message = dataState.message;
+  } else if (dataState.kind === "permission_denied") {
+    message =
+      dataState.message ?? "You no longer have access to this workbook.";
+  }
+  const action =
+    "action" in dataState && dataState.action !== undefined
+      ? dataState.action
+      : undefined;
+  return (
+    <>
+      {message === null ? null : (
+        <div data-grid-data-state={dataState.kind} role="status">
+          {message}
+          {action === undefined ? null : (
+            <button type="button" onClick={action.onInvoke}>
+              {action.label}
+            </button>
+          )}
+        </div>
+      )}
+      {interactionMode.kind === "read_only" ? (
+        <div data-grid-interaction-mode="read_only" role="status">
+          {interactionMode.label}
+        </div>
+      ) : null}
+    </>
   );
 }

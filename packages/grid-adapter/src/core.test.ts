@@ -3,14 +3,22 @@ import { describe, expect, it } from "vitest";
 import {
   assertGridRows,
   buildGridPresentationRows,
+  formatGridClipboardTSV,
   type GridDraftRow,
   type GridPresentationRow,
   type GridRecordRow,
   isGridColumnEditable,
   navigateGridCellAnchor,
+  parseGridClipboardTable,
   resolveGridCellAnchor,
+  resolveGridCellRange,
   resolveGridPasteTargets,
 } from "./core";
+import {
+  gridSemanticStateClassNames,
+  mergeGridSemanticState,
+  resolveGridSemanticState,
+} from "./semanticState";
 
 type HarnessRow = {
   readonly label: string;
@@ -229,6 +237,109 @@ describe("grid presentation rows", () => {
   });
 });
 
+describe("semantic grid state precedence", () => {
+  it("resolves the design priority while retaining declared co-displays", () => {
+    const resolved = resolveGridSemanticState(
+      {
+        active: true,
+        bulkSelected: true,
+        conflicted: true,
+        inspectorActive: true,
+        invalid: { message: "Required" },
+        pending: true,
+        readOnlyOrDerived: true,
+        saved: true,
+        stale: true,
+      },
+      "Summary",
+    );
+
+    expect(resolved.primary).toBe("conflicted");
+    expect(resolved.stateIds).toEqual([
+      "conflicted",
+      "active",
+      "bulk-selected",
+      "inspector-active",
+      "read-only",
+      "stale",
+    ]);
+    expect(resolved.markers).toEqual([
+      {
+        accessibleLabel: "Conflict on Summary",
+        glyph: "!",
+        kind: "conflicted",
+      },
+      {
+        accessibleLabel: "Stale Summary; refresh required",
+        glyph: "↻",
+        kind: "stale",
+      },
+    ]);
+    expect(gridSemanticStateClassNames("cell", resolved)).toContain(
+      "cartulary-grid-cell-state-conflicted",
+    );
+    expect(gridSemanticStateClassNames("cell", resolved)).not.toContain("rdg-");
+  });
+
+  it("orders invalid, pending, active, selected, read-only, and saved states", () => {
+    expect(
+      resolveGridSemanticState(
+        { invalid: { message: "Choose an allowed value" }, pending: true },
+        "Status",
+      ).primary,
+    ).toBe("invalid");
+    expect(
+      resolveGridSemanticState({ active: true, pending: true }, "Status")
+        .primary,
+    ).toBe("pending");
+    expect(
+      resolveGridSemanticState({ active: true, bulkSelected: true }, "Status")
+        .primary,
+    ).toBe("active");
+    expect(
+      resolveGridSemanticState(
+        { bulkSelected: true, readOnlyOrDerived: true },
+        "Status",
+      ).primary,
+    ).toBe("bulk-selected");
+    expect(
+      resolveGridSemanticState({ readOnlyOrDerived: true }, "Status").primary,
+    ).toBe("read-only");
+    expect(resolveGridSemanticState({ saved: true }, "Status").primary).toBe(
+      "saved",
+    );
+  });
+
+  it("merges owner state with adapter-derived context without weakening state", () => {
+    expect(
+      mergeGridSemanticState(
+        {
+          conflicted: true,
+          invalid: { message: "Owner validation" },
+          saved: false,
+        },
+        {
+          active: true,
+          bulkSelected: true,
+          readOnlyOrDerived: true,
+          saved: true,
+          stale: true,
+        },
+      ),
+    ).toEqual({
+      active: true,
+      bulkSelected: true,
+      conflicted: true,
+      inspectorActive: false,
+      invalid: { message: "Owner validation" },
+      pending: false,
+      readOnlyOrDerived: true,
+      saved: false,
+      stale: true,
+    });
+  });
+});
+
 describe("grid Cartulary anchors", () => {
   const columns = [
     { fieldKey: "summary", label: "Summary", renderCell: () => null },
@@ -283,7 +394,7 @@ describe("grid Cartulary anchors", () => {
           recordId: "record-1",
           fieldKey: "summary",
         },
-        pastedColumnCount: 1,
+        pastedColumnCount: 2,
         pastedRowCount: 2,
         presentationRows,
       }),
@@ -386,6 +497,51 @@ describe("grid Cartulary anchors", () => {
       ],
     });
     expect(
+      resolveGridCellRange({
+        columns,
+        presentationRows,
+        range: {
+          start: {
+            fieldKey: "state",
+            recordId: "record-2",
+            viewSchemaId: "test.view",
+          },
+          end: {
+            fieldKey: "summary",
+            recordId: "record-1",
+            viewSchemaId: "test.view",
+          },
+        },
+      }),
+    ).toEqual({
+      fieldKeys: ["summary", "state"],
+      recordTargets: [
+        {
+          baseRowVersion: 1,
+          fieldKey: "state",
+          recordId: "record-1",
+          viewSchemaId: "test.view",
+        },
+        {
+          baseRowVersion: 1,
+          fieldKey: "state",
+          recordId: "record-2",
+          viewSchemaId: "test.view",
+        },
+      ],
+    });
+    const clipboardText = formatGridClipboardTSV([
+      ["plain", "has\ttab"],
+      ["line\nbreak", 'has "quote"'],
+    ]);
+    expect(clipboardText).toBe(
+      'plain\t"has\ttab"\n"line\nbreak"\t"has ""quote"""',
+    );
+    expect(parseGridClipboardTable(clipboardText)).toEqual([
+      ["plain", "has\ttab"],
+      ["line\nbreak", 'has "quote"'],
+    ]);
+    expect(
       resolveGridPasteTargets({
         columns,
         current: {
@@ -431,14 +587,22 @@ describe("grid Cartulary anchors", () => {
       fieldKey: "summary",
       label: "Summary",
       renderCell: ({ row }: { readonly row: HarnessRow }) => row.label,
-      renderEditCell: () => null,
+      editor: {
+        commit: async () => ({ kind: "accepted" as const }),
+        initialDraftValue: () => "",
+        renderEditor: () => null,
+      },
     };
     const readOnlyColumn = {
       contractWritable: false,
       fieldKey: "state",
       label: "State",
       renderCell: ({ row }: { readonly row: HarnessRow }) => row.state,
-      renderEditCell: () => null,
+      editor: {
+        commit: async () => ({ kind: "accepted" as const }),
+        initialDraftValue: () => "",
+        renderEditor: () => null,
+      },
     };
     const adapterlessColumn = {
       contractWritable: true,
@@ -461,13 +625,17 @@ describe("grid Cartulary anchors", () => {
 
   it("FE-U-P3-04 Resolve renderers and editors deterministically and clean adapter-owned resources.", () => {
     const renderCell = ({ row }: { readonly row: HarnessRow }) => row.label;
-    const renderEditCell = () => null;
+    const editor = {
+      commit: async () => ({ kind: "accepted" as const }),
+      initialDraftValue: () => "",
+      renderEditor: () => null,
+    };
     const column = {
       contractWritable: true,
       fieldKey: "summary",
       label: "Summary",
       renderCell,
-      renderEditCell,
+      editor,
     };
 
     expect(column.renderCell({ row: { label: "Alpha", state: "open" } })).toBe(
@@ -590,6 +758,78 @@ describe("grid Cartulary anchors", () => {
         presentationRows: groupedRows,
       }),
     ).toBeNull();
+
+    expect(
+      navigateGridCellAnchor({
+        columns,
+        current: {
+          viewSchemaId: "test.view",
+          recordId: "record-1",
+          fieldKey: "summary",
+        },
+        intent: { key: "ArrowDown" },
+        presentationRows: groupedRows,
+      }),
+    ).toEqual({
+      recordId: "record-2",
+      fieldKey: "summary",
+      viewSchemaId: "test.view",
+    });
+  });
+
+  it("supports semantic page, row-edge, and grid-edge navigation", () => {
+    const rows = [
+      gridRow("record-1", "open"),
+      gridRow("record-2", "open"),
+      gridRow("record-3", "closed"),
+    ];
+    const presentationRows = buildGridPresentationRows({ rows });
+    const current = {
+      fieldKey: "summary",
+      recordId: "record-2",
+      viewSchemaId: "test.view",
+    };
+
+    expect(
+      navigateGridCellAnchor({
+        columns,
+        current,
+        intent: { key: "PageDown", pageSize: 8 },
+        presentationRows,
+      }),
+    ).toEqual({ ...current, recordId: "record-3" });
+    expect(
+      navigateGridCellAnchor({
+        columns,
+        current,
+        intent: { key: "Home" },
+        presentationRows,
+      }),
+    ).toEqual(current);
+    expect(
+      navigateGridCellAnchor({
+        columns,
+        current,
+        intent: { key: "End", ctrlOrMetaKey: true },
+        presentationRows,
+      }),
+    ).toEqual({
+      fieldKey: "state",
+      recordId: "record-3",
+      viewSchemaId: "test.view",
+    });
+    expect(
+      navigateGridCellAnchor({
+        columns,
+        current,
+        intent: { key: "Home", ctrlOrMetaKey: true },
+        presentationRows,
+      }),
+    ).toEqual({
+      fieldKey: "summary",
+      recordId: "record-1",
+      viewSchemaId: "test.view",
+    });
   });
 
   it("does not treat vendor selection changes alone as anchor updates", () => {
@@ -664,7 +904,7 @@ describe("grid Cartulary anchors", () => {
           recordId: "record-2",
           fieldKey: "state",
         },
-        pastedColumnCount: 2,
+        pastedColumnCount: 1,
         pastedRowCount: 3,
         presentationRows,
       }),

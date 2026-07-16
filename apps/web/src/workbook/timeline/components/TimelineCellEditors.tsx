@@ -297,6 +297,7 @@ export function TimelineScalarEditor({
   onKeyCommit,
   onPasteCommit,
   registerInput,
+  readOnly = false,
   presenceFieldKey,
   rowKey,
   rowRecordId,
@@ -327,7 +328,9 @@ export function TimelineScalarEditor({
     fieldKey: string,
     editing: boolean,
   ) => void;
-  readonly onCloseGridEditor?: ((commit: boolean) => void) | undefined;
+  readonly onCloseGridEditor?:
+    | ((commit: boolean, draftValue: string) => void)
+    | undefined;
   readonly onFocusAnchor: (recordId: string | null, fieldKey: string) => void;
   readonly onFocusRecord: (recordId: string) => void;
   readonly onKeyCommit: (
@@ -352,6 +355,7 @@ export function TimelineScalarEditor({
   readonly presenceFieldKey: string;
   readonly rowKey: string;
   readonly rowRecordId: string | null;
+  readonly readOnly?: boolean | undefined;
   readonly surface: TimelineScalarEditorSurface;
 }) {
   const displayValue = draftValue ?? committedValue;
@@ -365,26 +369,31 @@ export function TimelineScalarEditor({
   }, [displayValue, draftValue]);
 
   const handleFocus = () => {
-    hasActiveEditRef.current = true;
+    hasActiveEditRef.current = !readOnly;
     if (surface === "grid") {
       onFocusAnchor(rowRecordId, presenceFieldKey);
     }
     if (rowRecordId) {
       onFocusRecord(rowRecordId);
     }
-    onEditModeChange(rowRecordId, presenceFieldKey, true);
+    if (!readOnly) onEditModeChange(rowRecordId, presenceFieldKey, true);
   };
   const handleChange = (value: string) => {
+    if (readOnly) return;
     setEditorValue(value);
     onDraftChange(rowKey, field, surface, value);
   };
   const handleBlur = (
     event: ReactFocusEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
+    if (readOnly) return;
     hasActiveEditRef.current = false;
     onEditModeChange(rowRecordId, presenceFieldKey, false);
     onDraftChange(rowKey, field, surface, event.currentTarget.value);
     if (blockedByConflict) {
+      return;
+    }
+    if (onCloseGridEditor !== undefined) {
       return;
     }
     onBlurCommit(rowKey, field, surface, event.currentTarget.value);
@@ -392,6 +401,7 @@ export function TimelineScalarEditor({
   const handleKeyDown = (
     event: ReactKeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
+    if (readOnly) return;
     if (
       event.key === "Escape" &&
       (editorValue !== committedValue || onCloseGridEditor !== undefined)
@@ -401,24 +411,33 @@ export function TimelineScalarEditor({
         setEditorValue(committedValue);
         onDraftChange(rowKey, field, surface, committedValue);
       }
-      onCloseGridEditor?.(false);
+      onCloseGridEditor?.(false, committedValue);
+      return;
+    }
+    if (
+      surface === "grid" &&
+      onCloseGridEditor !== undefined &&
+      (event.key === "Enter" || event.key === "Tab")
+    ) {
+      event.preventDefault();
+      onCloseGridEditor(true, editorValue);
       return;
     }
     onKeyCommit(event, rowKey, field, surface);
-    if (surface === "grid" && (event.key === "Enter" || event.key === "Tab")) {
-      onCloseGridEditor?.(true);
-    }
   };
   const handlePaste = (
     event: ReactClipboardEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
+    if (readOnly) return;
     onPasteCommit(event, rowKey, field, surface);
+    event.stopPropagation();
   };
   const handleCopy = (
     event: ReactClipboardEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     event.clipboardData.setData("text/plain", editorValue);
     event.preventDefault();
+    event.stopPropagation();
     if (surface === "grid") {
       onFocusAnchor(rowRecordId, presenceFieldKey);
     }
@@ -434,6 +453,7 @@ export function TimelineScalarEditor({
         data-testid={dataTestId}
         id={controlId}
         ref={inputRef}
+        readOnly={readOnly}
         rows={surface === "grid" ? 1 : 3}
         style={surface === "grid" ? gridCellTextareaStyle : textareaStyle}
         value={editorValue}
@@ -455,6 +475,7 @@ export function TimelineScalarEditor({
       data-testid={dataTestId}
       id={controlId}
       ref={inputRef}
+      readOnly={readOnly}
       style={surface === "grid" ? gridCellInputStyle : inputStyle}
       type="text"
       value={editorValue}

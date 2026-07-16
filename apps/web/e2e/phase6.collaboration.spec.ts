@@ -102,6 +102,12 @@ test("FE-I-P7-01 Verify conflict resolver actions submit public mutations and re
   let remotePage: Page | null = null;
   try {
     await page.goto(`/?incident_id=${incidentId}`);
+    await scrollGridCellIntoView({
+      cellKey: "timeline.activity_synopsis_text",
+      page,
+      recordId: conflictId,
+      surface: timelineViewSchemaId,
+    });
     await expect(
       page.getByTestId(
         rowCellTestId(conflictId, "timeline.activity_synopsis_text"),
@@ -115,6 +121,12 @@ test("FE-I-P7-01 Verify conflict resolver actions submit public mutations and re
       password: remote.initial_password,
       purpose: "FE-I-P7 public resolver remote analyst",
       userId: remote.user_id,
+    });
+    await scrollGridCellIntoView({
+      cellKey: "timeline.activity_synopsis_text",
+      page: remotePage,
+      recordId: conflictId,
+      surface: timelineViewSchemaId,
     });
     await expect(
       remotePage.getByTestId(
@@ -511,6 +523,12 @@ test("E-6-01 shows two analysts each other's workbook presence within the expect
   try {
     await page.goto(`/?incident_id=${incidentId}`);
     await primarySocket.waitForMessage("hello_ack");
+    await scrollGridCellIntoView({
+      cellKey: "timeline.activity_synopsis_text",
+      page,
+      recordId,
+      surface: timelineViewSchemaId,
+    });
     await expect(
       page.getByTestId(
         rowCellTestId(recordId, "timeline.activity_synopsis_text"),
@@ -630,6 +648,12 @@ test("E-6-02 auto-merges different-field concurrent edits and requires explicit 
     const socketMonitor = installIncidentSocketMonitor(page, incidentId);
     await page.goto(`/?incident_id=${incidentId}`);
     await socketMonitor.waitForMessage("hello_ack");
+    await scrollGridCellIntoView({
+      cellKey: "timeline.activity_synopsis_text",
+      page,
+      recordId: differentId,
+      surface: timelineViewSchemaId,
+    });
     await expect(
       page.getByTestId(
         rowCellTestId(differentId, "timeline.activity_synopsis_text"),
@@ -643,6 +667,12 @@ test("E-6-02 auto-merges different-field concurrent edits and requires explicit 
       password: remote.initial_password,
       purpose: "Phase 6 E-6-02 remote analyst",
       userId: remote.user_id,
+    });
+    await scrollGridCellIntoView({
+      cellKey: "timeline.activity_synopsis_text",
+      page: remotePage,
+      recordId: differentId,
+      surface: timelineViewSchemaId,
     });
     await expect(
       remotePage.getByTestId(
@@ -965,6 +995,12 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
     try {
       patchController.disconnect();
       await page.goto(`/?incident_id=${incidentId}`);
+      await scrollGridCellIntoView({
+        cellKey: "timeline.activity_synopsis_text",
+        page,
+        recordId: firstId,
+        surface: timelineViewSchemaId,
+      });
       await expect(
         page.getByTestId(
           rowCellTestId(firstId, "timeline.activity_synopsis_text"),
@@ -1037,6 +1073,12 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
         userId: member.user_id,
       });
       await page.goto(`/?incident_id=${incidentId}`);
+      await scrollGridCellIntoView({
+        cellKey: "timeline.activity_synopsis_text",
+        page,
+        recordId: firstId,
+        surface: timelineViewSchemaId,
+      });
       await expect(
         page.getByTestId(
           rowCellTestId(firstId, "timeline.activity_synopsis_text"),
@@ -1104,6 +1146,12 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
 
     try {
       await page.goto(`/?incident_id=${incidentId}`);
+      await scrollGridCellIntoView({
+        cellKey: "timeline.activity_synopsis_text",
+        page,
+        recordId: firstId,
+        surface: timelineViewSchemaId,
+      });
       await expect(
         page.getByTestId(
           rowCellTestId(firstId, "timeline.activity_synopsis_text"),
@@ -1175,6 +1223,12 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
     try {
       patchController.disconnect();
       await page.goto(`/?incident_id=${incidentId}`);
+      await scrollGridCellIntoView({
+        cellKey: "timeline.activity_synopsis_text",
+        page,
+        recordId,
+        surface: timelineViewSchemaId,
+      });
       await expect(
         page.getByTestId(
           rowCellTestId(recordId, "timeline.activity_synopsis_text"),
@@ -1198,6 +1252,12 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
       });
       await page.reload();
 
+      await scrollGridCellIntoView({
+        cellKey: "timeline.activity_synopsis_text",
+        page,
+        recordId,
+        surface: timelineViewSchemaId,
+      });
       await expect(
         page.getByTestId(
           rowCellTestId(recordId, "timeline.activity_synopsis_text"),

@@ -4145,9 +4145,9 @@ Profiles: base
 Verified by: AC-116, AC-117, AC-118, AC-119, AC-120, AC-124, AC-125, AC-231
 
 **REQ-01-288**
-A base-profile implementation MUST expose the structured base-profile view-schema registry for conformance inspection through stored `view_schema` rows, the public discovery routes named in REQ-01-032, or an equivalent structured export. `GET /api/v1/view-schemas` MUST return the common success envelope with `data.view_schemas[]` plus `meta.paging`, MUST order results by `view_schema_id asc`, and MUST accept only `limit` and `cursor_token` under §3.3.7. `GET /api/v1/view-schemas/{view_schema_id}` MUST return one structured `view_schema_resource_v1` and MUST reject pagination members with `400`, `error.code=invalid_pagination_request`, and `error.details.reason_code=pagination_not_supported`. Conformance MUST NOT depend on scraping visible tab labels, column labels, or interactive UI behavior alone.
+A base-profile implementation MUST expose the structured base-profile view-schema registry for conformance inspection through stored `view_schema` rows, the public discovery routes named in REQ-01-032, or an equivalent structured export. `GET /api/v1/view-schemas` MUST return the common success envelope with `data.view_schemas[]` plus `meta.paging`, MUST order results by `view_schema_id asc`, and MUST accept only `limit` and `cursor_token` under §3.3.7. `GET /api/v1/view-schemas/{view_schema_id}` MUST return one structured `view_schema_resource_v2` and MUST reject pagination members with `400`, `error.code=invalid_pagination_request`, and `error.details.reason_code=pagination_not_supported`. Conformance MUST NOT depend on scraping visible tab labels, column labels, or interactive UI behavior alone.
 
-For public discovery, `view_schema_resource_v1` MUST expose the semantic workbook contract and MUST NOT require clients to infer structure from prose. The required members are:
+For public discovery, `view_schema_resource_v2` MUST expose the semantic workbook contract and MUST NOT require clients to infer structure from prose. The required members are:
 
 - `view_schema_id`,
 - `surface_kind`,
@@ -4164,7 +4164,7 @@ For public discovery, `view_schema_resource_v1` MUST expose the semantic workboo
 - `inspector_config`,
 - `fields`.
 
-For `view_schema_resource_v1`:
+For `view_schema_resource_v2`:
 
 - `surface_kind` MUST use the closed vocabulary `built_in_sheet` and `system_view`,
 - `title` MUST be a non-authoritative server-default-locale display hint,
@@ -4198,7 +4198,7 @@ Each `synthetic_filter_predicates[]` entry MUST use exactly:
 }
 ```
 
-Each `fields[]` entry MUST be `view_field_entry_v1` and MUST contain these required members:
+Each `fields[]` entry MUST be `view_field_entry_v2` and MUST contain these required members:
 
 - `field_key`,
 - `label`,
@@ -4209,6 +4209,7 @@ Each `fields[]` entry MUST be `view_field_entry_v1` and MUST contain these requi
 - `groupable`,
 - `read_kind`,
 - `write_kind`,
+- `grid_editable`,
 - `conflict_resolution_class`,
 - `entity_binding_mode`,
 - `string_contract_id`,
@@ -4217,7 +4218,7 @@ Each `fields[]` entry MUST be `view_field_entry_v1` and MUST contain these requi
 - `clearable`,
 - `enum_values`.
 
-For `view_field_entry_v1`:
+For `view_field_entry_v2`:
 
 - `field_key` MUST be the stable field identity from the authoritative registry,
 - `label` MUST be a non-authoritative server-default-locale display hint,
@@ -4226,21 +4227,32 @@ For `view_field_entry_v1`:
 - `filter_ops` MUST use canonical operator order from §3.3.4.1 and MUST be `[]` when the field is not filterable,
 - `read_kind` MUST use the closed vocabulary `text`, `number`, `boolean`, `timestamp`, `date`, `enum`, and `collection`,
 - `write_kind` MUST use the closed vocabulary `read_only`, `direct_value`, and `action_payload`,
+- `grid_editable` MUST be a boolean and MUST be `true` only when the field is an owner-permitted existing-row direct write; it MUST be `false` for read-only fields, action-payload fields, create-only direct values, append-only record fields, and any direct value whose owner has not adopted grid editing,
 - `conflict_resolution_class` MUST be `null` when `write_kind='read_only'` and otherwise MUST use the closed vocabulary defined by Core 03 §3.3.3,
 - `entity_binding_mode`, `string_contract_id`, `direct_scalar_contract_id`, and `direct_reference_contract_id` MUST be explicit `null` when not applicable,
 - `enum_values` MUST be an explicit ordered array of tokens when the field is governed by a closed vocabulary and `null` otherwise.
 Profiles: base
 Verified by: AC-116, AC-117, AC-118, AC-119, AC-120, AC-124, AC-125, AC-127, AC-231
 
+**REQ-01-627**
+Public view-schema discovery MUST expose `view_schema_resource_v2` with `view_field_entry_v2` fields and required `grid_editable` capability metadata. `write_kind` owns the route-level write shape and MUST NOT be used by a client as an inference that an existing row is grid-editable. A client MAY offer existing-row grid editing only when `grid_editable=true`, the current interaction mode is editable, and the server-authorized mutation route accepts the target. Every current-profile field MUST carry an explicit value. Create-only Indicator fields and append-only Assessment fields MUST use `grid_editable=false` even when their create-time `write_kind='direct_value'`. Stable `view_schema_id`, `field_key`, query, and saved-layout identities remain unchanged by the v2 resource shape.
+Profiles: base
+Verified by: AC-480, AC-482
+
+**REQ-01-628**
+`incident_member_user_ref_v1` is the exact incident-member user-reference contract. Accepted non-null input is a JSON string whose exact value is one stable internal `user_id`; the contract layer MUST NOT trim, case-fold, label-resolve, email-resolve, fuzzy-match, or auto-create the target. The addressed user MUST be active and MUST have current membership in the incident that owns the referencing record. `null` clears only when the bound field entry declares `clearable=true`. Every writable current-profile direct field whose semantic target is an incident member user MUST bind `direct_reference_contract_id=incident_member_user_ref_v1`.
+Profiles: base
+Verified by: AC-481, AC-482
+
 **REQ-01-615**
-`view_schema_resource_v1.inspector_config` MUST be a required `inspector_config_v1` object. Inspector configuration is view-schema metadata. It is selected by the active `view_schema_id`; it MUST NOT be selected from visible table labels, saved-view names, React component names, route-helper names, storage tables, CSS selectors, or grid-library APIs.
+`view_schema_resource_v2.inspector_config` MUST be a required `inspector_config_v1` object. Inspector configuration is view-schema metadata. It is selected by the active `view_schema_id`; it MUST NOT be selected from visible table labels, saved-view names, React component names, route-helper names, storage tables, CSS selectors, or grid-library APIs.
 
 `inspector_config_v1` MUST contain these required members:
 
 | Member | Rule |
 | --- | --- |
 | `inspector_config_schema_id` | Exact value `cartulary.inspector_config.v1`. |
-| `view_schema_id` | Exact match for the containing `view_schema_resource_v1.view_schema_id`. |
+| `view_schema_id` | Exact match for the containing `view_schema_resource_v2.view_schema_id`. |
 | `default_open` | Exact value `false` in the current profile. |
 | `subject_binding` | Object with exact current-profile value `{ "kind": "selected_record" }`. |
 | `no_row_state` | Exact value `no_row_selected`. |
@@ -4323,7 +4335,7 @@ Verified by: AC-453
 
 **REQ-01-289**
 View behavior MUST bind to `view_schema_id`, not to the visible tab label, column header text, or any other display label. `title` and field `label` values exposed by discovery are non-authoritative display hints only. The public discovery resource MUST describe semantic workbook behavior and MUST NOT expose `base_projection`, `canonical_source_filter`, storage-table names, internal write targets, or other storage-realization details.
-Repo-local owner contract artifacts MAY carry internal-only projection-binding metadata, including `base_projection` and `canonical_source_filter`, when needed for conformance checks and generated implementation inputs. `canonical_source_filter` MUST be an object with `kind`, `field`, and `value`; in the current profile, artifact-subtype workbook surfaces use `{ "kind": "artifact_type", "field": "artifact_type", "value": <artifact_type> }`. That metadata MUST remain outside `view_schema_resource_v1` and other runtime discovery payloads.
+Repo-local owner contract artifacts MAY carry internal-only projection-binding metadata, including `base_projection` and `canonical_source_filter`, when needed for conformance checks and generated implementation inputs. `canonical_source_filter` MUST be an object with `kind`, `field`, and `value`; in the current profile, artifact-subtype workbook surfaces use `{ "kind": "artifact_type", "field": "artifact_type", "value": <artifact_type> }`. That metadata MUST remain outside `view_schema_resource_v2` and other runtime discovery payloads.
 For workbook-surface realization, this document distinguishes public surface ownership from source-record, projection/query, saved-view, revision/conflict, and collaboration-publisher ownership. A workbook surface may be public and workbook-native while its authoritative source mutations, projection materialization, revision conflict substrate, saved-view lifecycle, and replayable collaboration publication are owned by separate Core-defined concerns. Public discovery and query contracts MUST expose stable workbook identity and row semantics, not internal owner package names or storage realization.
 Profiles: base
 Verified by: AC-116, AC-117, AC-118, AC-119, AC-120, AC-124, AC-125, AC-231
@@ -4604,7 +4616,7 @@ A standardized optional surface that is not implemented must be omitted from `GE
 This preserves the Core 03 rule that preseeded links remain editable context and do not satisfy minimum create signals.
 
 **REQ-01-309**
-Each schema subsection below, together with the addenda in §19, is an exhaustive per-field registry for its `view_schema_id`, not an illustrative example. In particular, §7.4.2 through §7.4.4 close the base-profile interface contract for the built-in Hosts, Identities, and Evidence sheets, and §19 closes the Parties, coordination-artifact, and standardized optional artifact-backed surface contracts. Core 02 §10.4.4A MAY inventory the closed tagged-variant family for artifact-backed notes, coordination artifacts, and structured findings, but that registry is not a second owner for exhaustive field membership, create-time behavior, omitted-versus-`null` behavior, defaults, write targets or actions, or discovery metadata. These sections are also the sole authoritative source for populating public field and query members of `view_schema_resource_v1`, `view_field_entry_v1`, and `synthetic_filter_predicates[]` discovery output; REQ-01-615 and REQ-01-616 own the `inspector_config_v1` member and per-surface inspector matrix. Implementations MUST NOT invent alternate base-profile or standardized optional writable `field_key` strings, write targets or actions, `conflict_resolution_class` assignments, `entity_binding_mode` values, inspector feature keys, route-binding kinds, or discovery metadata that conflicts with this registry. Surface `title` and field `label` values remain non-authoritative display hints only and MAY change without changing `view_schema_id` when field semantics do not change.
+Each schema subsection below, together with the addenda in §19, is an exhaustive per-field registry for its `view_schema_id`, not an illustrative example. In particular, §7.4.2 through §7.4.4 close the base-profile interface contract for the built-in Hosts, Identities, and Evidence sheets, and §19 closes the Parties, coordination-artifact, and standardized optional artifact-backed surface contracts. Core 02 §10.4.4A MAY inventory the closed tagged-variant family for artifact-backed notes, coordination artifacts, and structured findings, but that registry is not a second owner for exhaustive field membership, create-time behavior, omitted-versus-`null` behavior, defaults, write targets or actions, or discovery metadata. These sections are also the sole authoritative source for populating public field and query members of `view_schema_resource_v2`, `view_field_entry_v2`, and `synthetic_filter_predicates[]` discovery output; REQ-01-615 and REQ-01-616 own the `inspector_config_v1` member and per-surface inspector matrix. Implementations MUST NOT invent alternate base-profile or standardized optional writable `field_key` strings, write targets or actions, `conflict_resolution_class` assignments, `entity_binding_mode` values, inspector feature keys, route-binding kinds, or discovery metadata that conflicts with this registry. Surface `title` and field `label` values remain non-authoritative display hints only and MAY change without changing `view_schema_id` when field semantics do not change.
 Profiles: base
 Verified by: AC-116, AC-117, AC-118, AC-119, AC-120, AC-121, AC-122, AC-124, AC-125, AC-231, AC-281, AC-282, AC-283, AC-284, AC-285, AC-286, AC-287, AC-410
 
@@ -5184,7 +5196,7 @@ Verified by: AC-018, AC-080, AC-081, AC-082, AC-083, AC-084, AC-118, AC-121, AC-
 - writable fields:
   - `task.title`: read `title`; write target the `title` field on the underlying `task_request` record; `string_contract_id=single_line_title_v1`; `conflict_resolution_class=text_compare_merge`
   - `task.status`: read `status`; write target the `status` field on the underlying `task_request` record; legal writes MUST be validated and any required lifecycle normalization MUST be applied under Core 02 §10.4.1.1 before commit; `conflict_resolution_class=atomic_replace`
-  - `task.owner_user_id`: read `owner_user_id`; write target the `owner_user_id` field on the underlying `task_request` record; `conflict_resolution_class=atomic_replace`
+  - `task.owner_user_id`: read `owner_user_id`; write target the `owner_user_id` field on the underlying `task_request` record; `direct_reference_contract_id=incident_member_user_ref_v1`; `conflict_resolution_class=atomic_replace`
   - `task.priority`: read `priority`; write target the `priority` field on the underlying `task_request` record; `conflict_resolution_class=atomic_replace`
   - `task.task_kind`: read `task_kind`; write target the `task_kind` field on the underlying `task_request` record; `conflict_resolution_class=atomic_replace`
   - `task.workstream`: read `workstream`; write target the `workstream` field on the underlying `task_request` record; `conflict_resolution_class=atomic_replace`
@@ -5230,7 +5242,7 @@ Verified by: AC-085, AC-118, AC-124, AC-137, AC-138, AC-139, AC-140, AC-145, AC-
 - writable fields:
   - `decision.summary`: read `summary`; write target the `summary` field on the underlying `decision` record; `string_contract_id=single_line_title_v1`; `conflict_resolution_class=text_compare_merge`
   - `decision.status`: read `status`; write target the `status` field on the underlying `decision` record; legal direct writes MUST be validated against Core 02 §10.4.2.1, and a direct write whose requested `status` is `superseded` MUST be rejected; `conflict_resolution_class=atomic_replace`
-  - `decision.owner_user_id`: read `owner_user_id`; write target the `owner_user_id` field on the underlying `decision` record; `conflict_resolution_class=atomic_replace`
+  - `decision.owner_user_id`: read `owner_user_id`; write target the `owner_user_id` field on the underlying `decision` record; `direct_reference_contract_id=incident_member_user_ref_v1`; `conflict_resolution_class=atomic_replace`
   - `decision.decision_type`: read `decision_type`; write target the `decision_type` field on the underlying `decision` record; `conflict_resolution_class=atomic_replace`
   - `decision.decided_at`: read `decided_at`; write target the `decided_at` field on the underlying `decision` record; `direct_scalar_contract_id=timestamp_instant_v1`; `clearable=false`; `conflict_resolution_class=atomic_replace`
   - `decision.rationale`: read `rationale`; write target the `rationale` field on the underlying `decision` record; `string_contract_id=multiline_body_v1`; `conflict_resolution_class=text_compare_merge`
@@ -7818,6 +7830,8 @@ Verified by: AC-315, AC-316, AC-317, AC-318
 Profiles: base
 Verified by: AC-315, AC-316, AC-317, AC-319
 
+`incident_member_user_ref_v1` is defined by REQ-01-628 and is part of this closed direct-reference registry. It preserves exact internal user identity and adds active same-incident membership validation; user display labels and email addresses are presentation only.
+
 ## 19. Parties system-view addendum
 
 **REQ-01-499**
@@ -7939,8 +7953,8 @@ Verified by: AC-116, AC-117, AC-118, AC-231, AC-281, AC-300, AC-301, AC-302, AC-
 - these defaults MUST NOT satisfy the minimum create signal
 - writable fields:
   - `handoff.timestamp_utc`: read `timestamp_utc`; write target the `timestamp_utc` field on the underlying `handoff` artifact subtype; `direct_scalar_contract_id=timestamp_instant_v1`; `clearable=false`; `conflict_resolution_class=atomic_replace`
-  - `handoff.outgoing_owner_user_id`: read `outgoing_owner_user_id`; write target the `outgoing_owner_user_id` field on the underlying `handoff` artifact subtype; `conflict_resolution_class=atomic_replace`
-  - `handoff.incoming_owner_user_id`: read `incoming_owner_user_id`; write target the `incoming_owner_user_id` field on the underlying `handoff` artifact subtype; `conflict_resolution_class=atomic_replace`
+  - `handoff.outgoing_owner_user_id`: read `outgoing_owner_user_id`; write target the `outgoing_owner_user_id` field on the underlying `handoff` artifact subtype; `direct_reference_contract_id=incident_member_user_ref_v1`; `conflict_resolution_class=atomic_replace`
+  - `handoff.incoming_owner_user_id`: read `incoming_owner_user_id`; write target the `incoming_owner_user_id` field on the underlying `handoff` artifact subtype; `direct_reference_contract_id=incident_member_user_ref_v1`; `conflict_resolution_class=atomic_replace`
   - `handoff.current_state_summary`: read `current_state_summary`; write target the `current_state_summary` field on the underlying `handoff` artifact subtype; `string_contract_id=multiline_body_v1`; `conflict_resolution_class=text_compare_merge`
   - `handoff.open_task_ids`: read linked task-request references; write action upsert or remove same-incident `task_request` references using the `record_ref` family defined below; `conflict_resolution_class=collection_review`
   - `handoff.open_decision_ids`: read linked decision references; write action upsert or remove same-incident `decision` references using the `record_ref` family defined below; `conflict_resolution_class=collection_review`
@@ -7999,7 +8013,7 @@ Verified by: AC-116, AC-117, AC-118, AC-231, AC-282, AC-300, AC-301, AC-302, AC-
 - these defaults MUST NOT satisfy the minimum create signal
 - writable fields:
   - `status_review.timestamp_utc`: read `timestamp_utc`; write target the `timestamp_utc` field on the underlying `status_review` artifact subtype; `direct_scalar_contract_id=timestamp_instant_v1`; `clearable=false`; `conflict_resolution_class=atomic_replace`
-  - `status_review.review_owner_user_id`: read `review_owner_user_id`; write target the `review_owner_user_id` field on the underlying `status_review` artifact subtype; `conflict_resolution_class=atomic_replace`
+  - `status_review.review_owner_user_id`: read `review_owner_user_id`; write target the `review_owner_user_id` field on the underlying `status_review` artifact subtype; `direct_reference_contract_id=incident_member_user_ref_v1`; `conflict_resolution_class=atomic_replace`
   - `status_review.current_state_summary`: read `current_state_summary`; write target the `current_state_summary` field on the underlying `status_review` artifact subtype; `string_contract_id=multiline_body_v1`; `conflict_resolution_class=text_compare_merge`
   - `status_review.blocked_task_ids`: read linked blocked task references; write action upsert or remove same-incident `task_request` references using the `record_ref` family defined below; `conflict_resolution_class=collection_review`
   - `status_review.pending_evidence_ids`: read linked pending evidence references; write action upsert or remove same-incident `evidence` references using the `record_ref` family defined below; `conflict_resolution_class=collection_review`
@@ -8031,7 +8045,7 @@ Verified by: AC-116, AC-117, AC-118, AC-231, AC-283, AC-300, AC-301, AC-302, AC-
 - writable fields:
   - `lesson.timestamp_utc`: read `timestamp_utc`; write target the `timestamp_utc` field on the underlying `lesson` artifact subtype; `direct_scalar_contract_id=timestamp_instant_v1`; `clearable=false`; `conflict_resolution_class=atomic_replace`
   - `lesson.summary`: read `summary`; write target the `summary` field on the underlying `lesson` artifact subtype; `string_contract_id=single_line_title_v1`; `conflict_resolution_class=text_compare_merge`
-  - `lesson.owner_user_id`: read `owner_user_id`; write target the `owner_user_id` field on the underlying `lesson` artifact subtype; `conflict_resolution_class=atomic_replace`
+  - `lesson.owner_user_id`: read `owner_user_id`; write target the `owner_user_id` field on the underlying `lesson` artifact subtype; `direct_reference_contract_id=incident_member_user_ref_v1`; `conflict_resolution_class=atomic_replace`
   - `lesson.closure_state`: read `closure_state`; write target the `closure_state` field on the underlying `lesson` artifact subtype; `conflict_resolution_class=atomic_replace`
   - `lesson.follow_up_task_ids`: read linked follow-up task references; write action upsert or remove same-incident `task_request` references using the `record_ref` family defined below; `conflict_resolution_class=collection_review`
   - `lesson.evidence_refs`: read linked evidence references; write action upsert or remove same-incident `evidence` references using the `record_ref` family defined below; `conflict_resolution_class=collection_review`
@@ -8061,7 +8075,7 @@ Verified by: AC-116, AC-117, AC-118, AC-231, AC-284, AC-300, AC-302, AC-303
   - `finding.statement`: read `statement`; write target the `statement` field on the underlying structured finding row; `string_contract_id=multiline_body_v1`; `conflict_resolution_class=text_compare_merge`
   - `finding.kind`: read `kind`; write target the `kind` field on the underlying structured finding row; legal writes MUST use the exact closed vocabulary defined in Core 02 §18; `conflict_resolution_class=atomic_replace`
   - `finding.state`: read `state`; write target the `state` field on the underlying structured finding row; legal writes MUST apply the server-managed `finding.closed_at` rule from Core 02 §10.4.6 before commit; `conflict_resolution_class=atomic_replace`
-  - `finding.owner_user_id`: read `owner_user_id`; write target the `owner_user_id` field on the underlying structured finding row; `conflict_resolution_class=atomic_replace`
+  - `finding.owner_user_id`: read `owner_user_id`; write target the `owner_user_id` field on the underlying structured finding row; `direct_reference_contract_id=incident_member_user_ref_v1`; `conflict_resolution_class=atomic_replace`
   - `finding.confidence_score`: read `confidence_score`; write target the `confidence_score` field on the underlying structured finding row; `conflict_resolution_class=atomic_replace`
   - `finding.supporting_refs`: read supporting record references; write action upsert or remove supporting structured references; `conflict_resolution_class=collection_review`
   - `finding.contradictory_refs`: read contradictory record references; write action upsert or remove contradictory structured references; `conflict_resolution_class=collection_review`

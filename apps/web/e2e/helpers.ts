@@ -1,11 +1,13 @@
 import { createHmac } from "node:crypto";
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { scrollGridTargetIntoView } from "@cartulary/test-utils";
 import {
   dataTestIdSelector,
   draftCellTestId,
   gridDraftRowSelector,
   gridSavedRowsSelector,
   gridShellTestId,
+  gridSortHeaderTestId,
   type IncidentControlsSection,
   incidentControlsMenuItemTestId,
   incidentControlsMenuTestId,
@@ -1431,6 +1433,15 @@ export async function waitForCommittedRowSummary(
     timeoutMs: number;
   },
 ) {
+  await scrollGridTargetIntoView({
+    page,
+    surface: options.surface,
+    targetTestId: gridSortHeaderTestId(
+      options.surface,
+      "timeline.activity_synopsis_text",
+    ),
+    timeoutMs: options.timeoutMs,
+  });
   const startedAtMs =
     options.startedAtMs ?? (await page.evaluate(() => performance.now()));
   return page.evaluate(

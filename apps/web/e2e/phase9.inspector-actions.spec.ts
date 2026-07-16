@@ -1,4 +1,8 @@
 import {
+  scrollGridCellIntoView,
+  scrollGridTargetIntoView,
+} from "@cartulary/test-utils";
+import {
   draftCellTestId,
   entityInspectButtonTestId,
   gridShellTestId,
@@ -287,6 +291,12 @@ test("FE-E-P9-01 Verify inspector Details, Relationships, Evidence, History, rol
   const rollbackAnchor = rollbackPreviewAnchor(rollbackItem, "history_entry");
 
   await openTimelineSurface(page, incidentId);
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_synopsis_text",
+    page,
+    recordId: target.record_id,
+    surface: timelineViewSchemaId,
+  });
   await page
     .getByTestId(
       rowCellTestId(target.record_id, "timeline.activity_synopsis_text"),
@@ -550,9 +560,16 @@ test("FE-E-P9-02 Verify default-closed inspector state, no-row state, surface sw
   await expect(
     page.getByTestId(gridShellTestId(hostsViewSchemaId)),
   ).toBeVisible();
-  await page
-    .getByTestId(entityInspectButtonTestId("host", hostSeed.record_id))
-    .click();
+  const hostInspectButtonTestId = entityInspectButtonTestId(
+    "host",
+    hostSeed.record_id,
+  );
+  await scrollGridTargetIntoView({
+    page,
+    surface: hostsViewSchemaId,
+    targetTestId: hostInspectButtonTestId,
+  });
+  await page.getByTestId(hostInspectButtonTestId).click();
   await expect(page.getByTestId("host-inspector")).toContainText(
     "FE-E-P9-02 host",
   );
@@ -560,9 +577,13 @@ test("FE-E-P9-02 Verify default-closed inspector state, no-row state, surface sw
   await expect(page.getByTestId("host-inspector")).toHaveCount(0);
   await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
 
-  const draftSummary = page.getByTestId(
-    draftCellTestId("timeline.activity_synopsis_text"),
-  );
+  const draftSummaryTestId = draftCellTestId("timeline.activity_synopsis_text");
+  await scrollGridTargetIntoView({
+    page,
+    surface: timelineViewSchemaId,
+    targetTestId: draftSummaryTestId,
+  });
+  const draftSummary = page.getByTestId(draftSummaryTestId);
   await draftSummary.fill("FE-E-P9-02 hot path created");
   await draftSummary.press("Enter");
   const created = await waitForCommittedRowSummary(page, {

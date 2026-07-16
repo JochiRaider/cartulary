@@ -1,4 +1,9 @@
-import { pasteGridMatrix, sortByHeader } from "@cartulary/test-utils";
+import {
+  pasteGridMatrix,
+  scrollGridCellIntoView,
+  scrollGridTargetIntoView,
+  sortByHeader,
+} from "@cartulary/test-utils";
 import {
   conflictMarkerTestId,
   draftCellTestId,
@@ -162,6 +167,12 @@ async function dispatchClipboardText(
   fieldKey: string,
   clipboardText: string,
 ) {
+  await scrollGridCellIntoView({
+    cellKey: fieldKey,
+    page,
+    recordId,
+    surface: timelineViewSchemaId,
+  });
   const cell = page.getByTestId(rowCellTestId(recordId, fieldKey));
   await cell.scrollIntoViewIfNeeded();
   await cell.evaluate((element, text) => {
@@ -287,6 +298,12 @@ test(
       expect(
         (queryBody.data as { view_schema_id?: string }).view_schema_id,
       ).toBe(timelineViewSchemaId);
+      await scrollGridCellIntoView({
+        cellKey: "timeline.activity_synopsis_text",
+        page,
+        recordId: alpha.record_id,
+        surface: timelineViewSchemaId,
+      });
       await expect(
         page.getByTestId(
           rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
@@ -303,6 +320,14 @@ test(
       };
       await page.route(createRoute, createRouteHandler);
       try {
+        const draftSynopsisTestId = draftCellTestId(
+          "timeline.activity_synopsis_text",
+        );
+        await scrollGridTargetIntoView({
+          page,
+          surface: timelineViewSchemaId,
+          targetTestId: draftSynopsisTestId,
+        });
         const createResponse = page.waitForResponse(
           (response) =>
             response.request().method() === "POST" &&
@@ -313,11 +338,9 @@ test(
               ),
         );
         await page
-          .getByTestId(draftCellTestId("timeline.activity_synopsis_text"))
+          .getByTestId(draftSynopsisTestId)
           .fill("FE-E-P4-01 Rough summary");
-        await page
-          .getByTestId(draftCellTestId("timeline.activity_synopsis_text"))
-          .press("Enter");
+        await page.getByTestId(draftSynopsisTestId).press("Enter");
         const createEnvelope = await readTimelineMutation(await createResponse);
         const createdRow = createEnvelope.data.row;
         expect(createBodies).toHaveLength(1);
@@ -334,6 +357,12 @@ test(
         expect(createBody).not.toHaveProperty("row_version");
         expect(createBody).not.toHaveProperty("timeline.capture_state");
         expect(createBody).not.toHaveProperty("timeline.edited_at");
+        await scrollGridCellIntoView({
+          cellKey: "timeline.activity_synopsis_text",
+          page,
+          recordId: createdRow.record_id,
+          surface: timelineViewSchemaId,
+        });
         await expect(
           page.getByTestId(
             rowCellTestId(
@@ -342,6 +371,12 @@ test(
             ),
           ),
         ).toHaveValue("FE-E-P4-01 Rough summary");
+        await scrollGridCellIntoView({
+          cellKey: "timeline.capture_state",
+          page,
+          recordId: createdRow.record_id,
+          surface: timelineViewSchemaId,
+        });
         await expect(
           page.getByTestId(
             rowCellTestId(createdRow.record_id, "timeline.capture_state"),
@@ -381,6 +416,12 @@ test(
       try {
         const heldPatch = patchController.holdNextPatch({
           recordId: beta.record_id,
+        });
+        await scrollGridCellIntoView({
+          cellKey: "timeline.activity_synopsis_text",
+          page,
+          recordId: beta.record_id,
+          surface: timelineViewSchemaId,
         });
         await page
           .getByTestId(
@@ -575,6 +616,12 @@ test(
         );
 
         await page.reload();
+        await scrollGridCellIntoView({
+          cellKey: "timeline.activity_synopsis_text",
+          page,
+          recordId: beta.record_id,
+          surface: timelineViewSchemaId,
+        });
         await expect(
           page.getByTestId(
             rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
@@ -608,6 +655,12 @@ test(
             response.request().method() === "PATCH" &&
             response.url().endsWith(`/api/v1/records/${pasteSeed.record_id}`),
         );
+        await scrollGridCellIntoView({
+          cellKey: "timeline.activity_synopsis_text",
+          page,
+          recordId: pasteSeed.record_id,
+          surface: timelineViewSchemaId,
+        });
         await page
           .getByTestId(
             rowCellTestId(
@@ -810,6 +863,12 @@ test(
             "visible stale Timeline record did not map to paste text",
           );
         }
+        await scrollGridCellIntoView({
+          cellKey: "timeline.activity_synopsis_text",
+          page: stalePage,
+          recordId: staleStartRecordId,
+          surface: timelineViewSchemaId,
+        });
         await stalePage
           .getByTestId(
             rowCellTestId(
@@ -913,6 +972,12 @@ test(
 
     await test.step("public string date edits preserve unparseable authored text", async () => {
       await openTimelineIncident(page, incidentId);
+      await scrollGridCellIntoView({
+        cellKey: "timeline.activity_utc_text",
+        page,
+        recordId: beta.record_id,
+        surface: timelineViewSchemaId,
+      });
       const validationResponse = page.waitForResponse(
         (response) =>
           response.request().method() === "PATCH" &&
@@ -983,6 +1048,12 @@ test(
       const alphaSummaryCell = page.getByTestId(
         rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
       );
+      await scrollGridCellIntoView({
+        cellKey: "timeline.activity_synopsis_text",
+        page,
+        recordId: alpha.record_id,
+        surface: timelineViewSchemaId,
+      });
       await alphaSummaryCell.scrollIntoViewIfNeeded();
       await alphaSummaryCell.fill("FE-E-P4-01 unknown fallback local");
       await alphaSummaryCell.press("Enter");

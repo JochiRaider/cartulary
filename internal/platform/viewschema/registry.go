@@ -18,6 +18,7 @@ type Field struct {
 	Groupable                 bool     `json:"groupable"`
 	ReadKind                  string   `json:"read_kind"`
 	WriteKind                 string   `json:"write_kind"`
+	GridEditable              bool     `json:"grid_editable"`
 	Writable                  bool     `json:"writable"`
 	CreateWritable            bool     `json:"create_writable"`
 	HeaderSortFieldKey        *string  `json:"header_sort_field_key"`
@@ -161,6 +162,7 @@ type ViewFieldEntry struct {
 	Groupable                 bool     `json:"groupable"`
 	ReadKind                  string   `json:"read_kind"`
 	WriteKind                 string   `json:"write_kind"`
+	GridEditable              bool     `json:"grid_editable"`
 	ConflictResolutionClass   *string  `json:"conflict_resolution_class"`
 	EntityBindingMode         *string  `json:"entity_binding_mode"`
 	StringContractID          *string  `json:"string_contract_id"`
@@ -354,6 +356,7 @@ func buildPublicResource(document schemaDocument) ViewSchemaResource {
 			Groupable:                 field.Groupable,
 			ReadKind:                  field.ReadKind,
 			WriteKind:                 field.WriteKind,
+			GridEditable:              field.GridEditable,
 			ConflictResolutionClass:   nullableString(field.ConflictResolutionClass),
 			EntityBindingMode:         cloneStringPointer(field.EntityBindingMode),
 			StringContractID:          cloneStringPointer(field.StringContractID),

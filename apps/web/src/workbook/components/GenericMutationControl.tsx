@@ -211,8 +211,9 @@ export function GenericMutationControl({
         aria-label={controlLabel}
         data-testid={testId}
         id={id}
+        inputMode="numeric"
         style={inputControlStyle}
-        type="number"
+        type={surface === "grid" ? "text" : "number"}
         value={value}
         onChange={(event) => {
           onChange(event.target.value);

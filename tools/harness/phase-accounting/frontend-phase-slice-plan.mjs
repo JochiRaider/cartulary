@@ -204,15 +204,20 @@ function childTargets(entries, phase) {
     }
   }
   return Array.from(byTarget.values())
-    .map((entry) => ({
-      target: entry.target,
-      row_count: uniqueSorted(entry.ids).length,
-      ids: uniqueSorted(entry.ids),
-      frontend_row_accounting_scope: selectedFrontendRowAccountingScope(
-        phase,
-        entry.accountingIDs,
-      ),
-    }))
+    .map((entry) => {
+      const accountingIDs = uniqueSorted(entry.accountingIDs);
+      return {
+        target: entry.target,
+        row_count: uniqueSorted(entry.ids).length,
+        ids: uniqueSorted(entry.ids),
+        ...(accountingIDs.length > 0
+          ? {
+              frontend_row_accounting_scope:
+                selectedFrontendRowAccountingScope(phase, accountingIDs),
+            }
+          : {}),
+      };
+    })
     .sort(
       (left, right) =>
         targetOrder(left.target) - targetOrder(right.target) ||
@@ -222,6 +227,62 @@ function childTargets(entries, phase) {
 
 function targetWeight(rowCount) {
   return Math.max(1, rowCount) * 1000;
+}
+
+function serializeCompositeGateWorkUnits(workUnits, taskSurfaceManifest) {
+  const compositeUnits = workUnits.filter((unit) => {
+    const type = taskSurfaceManifest.make_recipes?.[unit.target]?.type;
+    return type === "check_schedule" || type === "sequence";
+  });
+  if (compositeUnits.length === 0) {
+    return compositeUnits;
+  }
+
+  const leafCompletionKeys = workUnits
+    .filter((unit) => !compositeUnits.includes(unit))
+    .flatMap((unit) => unit.completionKeys ?? [unit.id]);
+  let precedingComposite = null;
+  for (const unit of compositeUnits) {
+    unit.needs = uniqueSorted([
+      ...(unit.needs ?? []),
+      ...leafCompletionKeys,
+      ...(precedingComposite === null
+        ? []
+        : (precedingComposite.completionKeys ?? [precedingComposite.id])),
+    ]);
+    precedingComposite = unit;
+  }
+  return compositeUnits;
+}
+
+function scheduleCompositeGatesAfterServiceCompletion(plan, compositeUnits) {
+  if (compositeUnits.length === 0) {
+    return;
+  }
+  const serviceComplete = plan.workUnits.find(
+    (unit) => unit.kind === "service_complete",
+  );
+  if (!serviceComplete) {
+    return;
+  }
+
+  const serviceSessionKey = `service_session:${plan.target}`;
+  const serviceCompleteKey = `service_complete:${plan.target}`;
+  const compositeCompletionKeys = new Set(
+    compositeUnits.flatMap((unit) => unit.completionKeys ?? [unit.id]),
+  );
+  serviceComplete.needs = (serviceComplete.needs ?? []).filter(
+    (need) => !compositeCompletionKeys.has(need),
+  );
+  for (const unit of compositeUnits) {
+    unit.needs = uniqueSorted([
+      ...(unit.needs ?? []).filter((need) => need !== serviceSessionKey),
+      serviceCompleteKey,
+    ]);
+    delete unit.serviceSession;
+    delete unit.service_session;
+    unit.isolatedRetainedRun = true;
+  }
 }
 
 function resourceLimitsForWorkUnits(workUnits, label) {
@@ -291,12 +352,14 @@ function validateFrontendAccountingBoundaries({
   children,
 }) {
   for (const child of children) {
-    frontendRowsForAccountingTarget({
-      root,
-      registry,
-      target: child.target,
-      scope: child.frontend_row_accounting_scope,
-    });
+    if (child.frontend_row_accounting_scope !== undefined) {
+      frontendRowsForAccountingTarget({
+        root,
+        registry,
+        target: child.target,
+        scope: child.frontend_row_accounting_scope,
+      });
+    }
     for (const prerequisite of declaredTargetPrerequisites(
       taskSurface.manifest,
       child.target,
@@ -383,9 +446,18 @@ export function buildFrontendPhaseSlicePlan(
     weightMs: targetWeight(child.row_count),
     make_prerequisite_policy: "skip",
     resourceClaims: resourceClaimsForTarget(child.target),
-    frontend_row_accounting_scope: child.frontend_row_accounting_scope,
+    ...(child.frontend_row_accounting_scope === undefined
+      ? {}
+      : {
+          frontend_row_accounting_scope:
+            child.frontend_row_accounting_scope,
+        }),
     order: index,
   }));
+  const compositeUnits = serializeCompositeGateWorkUnits(
+    workUnitModels,
+    taskSurface.manifest,
+  );
   const target = mode === "service_backed" ? "service-backed-slice" : "phase-slice";
   const serviceRequirements = serviceRequirementsForTargets(targetNames);
   const schedulerPlan = {
@@ -396,6 +468,7 @@ export function buildFrontendPhaseSlicePlan(
     nextOrder: workUnitModels.length,
   };
   normalizePhaseSliceSchedulerDAG(schedulerPlan, root);
+  scheduleCompositeGatesAfterServiceCompletion(schedulerPlan, compositeUnits);
   const resourceLimits = resourceLimitsForWorkUnits(
     schedulerPlan.workUnits,
     `${target} ${phase} frontend resource_limits`,

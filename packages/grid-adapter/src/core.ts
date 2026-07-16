@@ -15,12 +15,11 @@ export type GridColumn<Row> = {
   readonly headerTestId?: string | undefined;
   readonly label: string;
   readonly renderCell: (context: GridCellRenderContext<Row>) => ReactNode;
+  readonly getClipboardValue?: ((row: Row) => unknown) | undefined;
   readonly renderDraftCell?:
     | ((context: GridDraftCellRenderContext<Row>) => ReactNode)
     | undefined;
-  readonly renderEditCell?:
-    | ((context: GridCellEditorContext<Row>) => ReactNode)
-    | undefined;
+  readonly editor?: GridEditorAdapter<Row> | undefined;
   readonly sortableFieldKey?: string | null;
   readonly sortDisabled?: boolean | undefined;
   readonly sortDisabledReason?: string | null | undefined;
@@ -38,9 +37,81 @@ export type GridRecordRow<Row> = {
   readonly gutterContent?: ReactNode | undefined;
   readonly gutterLabel?: string | undefined;
   readonly gutterTestId?: string | undefined;
-  readonly selected?: boolean | undefined;
   readonly testId?: string | undefined;
 };
+
+export type GridStateValidation = {
+  readonly message: string;
+};
+
+/**
+ * Vendor-neutral semantic state supplied by workbook owners. The adapter adds
+ * active-cell, bulk-selection, inspector, read-only, stale-query, and saved
+ * defaults before compiling private RDG classes and accessibility attributes.
+ */
+export type GridSemanticStateInput = {
+  readonly active?: boolean | undefined;
+  readonly bulkSelected?: boolean | undefined;
+  readonly conflicted?: boolean | undefined;
+  readonly inspectorActive?: boolean | undefined;
+  readonly invalid?: GridStateValidation | false | undefined;
+  readonly pending?: boolean | undefined;
+  readonly readOnlyOrDerived?: boolean | undefined;
+  readonly saved?: boolean | undefined;
+  readonly stale?: boolean | undefined;
+};
+
+export type GridCellStateInput = GridSemanticStateInput;
+export type GridRowStateInput = GridSemanticStateInput;
+
+export type GridCellStateContext<Row> = GridCellRenderContext<Row> & {
+  readonly rowVersion: number;
+};
+
+export type GridBulkSelection<Row> = {
+  readonly isRecordSelectable?:
+    | ((row: GridRecordRow<Row>) => boolean)
+    | undefined;
+  readonly onSelectedRecordIdsChange: (recordIds: ReadonlySet<string>) => void;
+  readonly selectedRecordIds: ReadonlySet<string>;
+};
+
+export type GridDataStateAction = {
+  readonly label: string;
+  readonly onInvoke: () => void;
+};
+
+export type GridDataState =
+  | { readonly kind: "ready" }
+  | { readonly kind: "initial_loading"; readonly surfaceLabel: string }
+  | { readonly kind: "refreshing"; readonly surfaceLabel: string }
+  | {
+      readonly kind: "empty";
+      readonly message: string;
+      readonly action?: GridDataStateAction | undefined;
+    }
+  | {
+      readonly kind: "filtered_empty";
+      readonly action: GridDataStateAction;
+    }
+  | {
+      readonly kind: "stale_error";
+      readonly message: string;
+      readonly action?: GridDataStateAction | undefined;
+    }
+  | {
+      readonly kind: "unavailable";
+      readonly message: string;
+      readonly action?: GridDataStateAction | undefined;
+    }
+  | {
+      readonly kind: "permission_denied";
+      readonly message?: string | undefined;
+    };
+
+export type GridInteractionMode =
+  | { readonly kind: "editable" }
+  | { readonly kind: "read_only"; readonly label: string };
 
 export type GridDraftRow<Row> = {
   readonly kind: "draft";
@@ -82,36 +153,48 @@ export type GridViewportProps = PropsWithChildren<{
 }>;
 
 export type WorkbookDataGridProps<Row> = {
+  readonly allowPasteCreateRows?: boolean | undefined;
+  readonly activeRecordId?: string | null | undefined;
   readonly actionsColumn?: GridActionsColumn<Row> | undefined;
   readonly columns: readonly GridColumn<Row>[];
+  readonly bulkSelection?: GridBulkSelection<Row> | undefined;
+  readonly cellRange?: GridCellRange | null | undefined;
   readonly columnWidths?: Readonly<Record<string, number>> | undefined;
+  readonly dataState?: GridDataState | undefined;
   readonly density?: GridDensity | undefined;
   readonly draftRow?: GridDraftRow<Row> | undefined;
-  readonly emptyMessage?: ReactNode | undefined;
   readonly fillViewportInline?: boolean | undefined;
   readonly grouping?: GridGroupingDescriptor<Row> | null | undefined;
+  readonly getCellState?:
+    | ((context: GridCellStateContext<Row>) => GridCellStateInput)
+    | undefined;
+  readonly getRowState?:
+    | ((row: GridRecordRow<Row>) => GridRowStateInput)
+    | undefined;
+  readonly interactionMode?: GridInteractionMode | undefined;
   readonly onActiveCellChange?:
     | ((anchor: GridCellAnchor | null) => void)
+    | undefined;
+  readonly onCellRangeChange?:
+    | ((range: GridCellRange | null) => void)
     | undefined;
   readonly onCopyCell?: ((intent: GridCellCopyIntent) => void) | undefined;
   readonly onEditCell?: ((intent: GridCellMutationIntent) => void) | undefined;
   readonly onFillCells?: ((intent: GridFillIntent) => void) | undefined;
   readonly onPasteCell?: ((intent: GridCellMutationIntent) => void) | undefined;
-  readonly onToggleSort?: ((fieldKey: string) => void) | undefined;
   readonly onSortChange?:
     | ((sort: readonly GridSortEntry[]) => void)
+    | undefined;
+  readonly onColumnReorder?:
+    | ((sourceFieldKey: string, targetFieldKey: string) => void)
     | undefined;
   readonly onColumnWidthChange?:
     | ((fieldKey: string, width: number) => void)
     | undefined;
   readonly onSelectRecord?: ((recordId: string) => void) | undefined;
-  readonly onSelectedRecordIdsChange?:
-    | ((recordIds: ReadonlySet<string>) => void)
-    | undefined;
   readonly recordRows: readonly GridRecordRow<Row>[];
   readonly rowGutter?: GridRowGutter | undefined;
   readonly sort?: readonly GridSortEntry[] | undefined;
-  readonly selectedRecordIds?: ReadonlySet<string> | undefined;
   readonly viewSchemaId: string;
 };
 
@@ -143,6 +226,16 @@ export type GridCellTarget = GridCellAnchor & {
   readonly baseRowVersion: number;
 };
 
+export type GridCellRange = {
+  readonly end: GridCellAnchor;
+  readonly start: GridCellAnchor;
+};
+
+export type GridExpandedCellRange = {
+  readonly fieldKeys: readonly string[];
+  readonly recordTargets: readonly GridCellTarget[];
+};
+
 export type GridCellRenderContext<Row> = {
   readonly anchor: GridCellAnchor;
   readonly row: Row;
@@ -154,11 +247,38 @@ export type GridDraftCellRenderContext<Row> = {
   readonly viewSchemaId: string;
 };
 
-export type GridCellEditorContext<Row> = {
-  readonly closeEditor: (commit: boolean) => void;
+export type GridEditCommitIntent<Row> = {
+  readonly draftValue: unknown;
   readonly row: Row;
   readonly target: GridCellTarget;
-  readonly updateRow: (row: Row) => void;
+};
+
+export type GridEditCommitOutcome =
+  | { readonly kind: "accepted" }
+  | { readonly kind: "validation_error"; readonly message: string }
+  | { readonly kind: "conflict"; readonly message: string }
+  | { readonly kind: "stale_target"; readonly message: string }
+  | { readonly kind: "rejected_mutation"; readonly message: string };
+
+export type GridEditorRenderContext<Row> = {
+  readonly cancel: () => void;
+  readonly commit: (draftValueOverride?: unknown) => Promise<void>;
+  readonly draftValue: unknown;
+  readonly outcome: GridEditCommitOutcome | null;
+  readonly pending: boolean;
+  readonly row: Row;
+  readonly setDraftValue: (value: unknown) => void;
+  readonly target: GridCellTarget;
+};
+
+export type GridEditorAdapter<Row> = {
+  /** Draft value used by Backspace/Delete entry when this field permits clear. */
+  readonly clearDraftValue?: unknown;
+  readonly commit: (
+    intent: GridEditCommitIntent<Row>,
+  ) => Promise<GridEditCommitOutcome>;
+  readonly initialDraftValue: (row: Row) => unknown;
+  readonly renderEditor: (context: GridEditorRenderContext<Row>) => ReactNode;
 };
 
 export type GridGroupingScalar = boolean | number | string | null;
@@ -185,15 +305,28 @@ export type GridHandle = {
 
 export type GridCellCopyIntent = {
   readonly anchor: GridCellAnchor;
+  readonly range: GridCellRange;
+  readonly expandedRange: GridExpandedCellRange;
 };
 
 export type GridCellMutationIntent = {
+  readonly clipboardText?: string | undefined;
+  readonly range?: GridCellRange | undefined;
+  readonly targetResolution?: GridPasteTargetResolution | undefined;
   readonly target: GridCellTarget;
 };
 
 export type GridFillIntent = {
+  readonly range: GridCellRange;
   readonly source: GridCellTarget;
   readonly target: GridCellTarget;
+  readonly targets: readonly GridCellTarget[];
+};
+
+export type ResolveGridCellRangeProps<Row> = {
+  readonly columns: readonly GridColumn<Row>[];
+  readonly presentationRows: readonly GridPresentationRow<Row>[];
+  readonly range: GridCellRange;
 };
 
 export type GridCellSelection = {
@@ -206,11 +339,18 @@ export type GridNavigationKey =
   | "ArrowLeft"
   | "ArrowRight"
   | "ArrowUp"
+  | "End"
   | "Enter"
+  | "Home"
+  | "PageDown"
+  | "PageUp"
   | "Tab";
 
 export type GridNavigationIntent = {
+  readonly ctrlOrMetaKey?: boolean | undefined;
   readonly key: GridNavigationKey;
+  /** Semantic page step, normally visible body rows minus one. */
+  readonly pageSize?: number | undefined;
   readonly shiftKey?: boolean | undefined;
 };
 
@@ -271,9 +411,7 @@ export type RecordIdentity = {
 export const gridUnassignedGroupLabel = "Unassigned";
 
 export function isGridColumnEditable<Row>(column: GridColumn<Row>): boolean {
-  return (
-    column.contractWritable === true && column.renderEditCell !== undefined
-  );
+  return column.contractWritable === true && column.editor !== undefined;
 }
 
 export function assertGridRows<Row extends RecordIdentity>(
@@ -408,8 +546,9 @@ export function navigateGridCellAnchor<Row>({
   intent,
   presentationRows,
 }: NavigateGridCellAnchorProps<Row>): GridCellAnchor | null {
-  const currentRowIndex = presentationRows.findIndex(
-    (row) => row.kind === "data" && row.gridRow.recordId === current.recordId,
+  const dataRows = presentationRows.filter((row) => row.kind === "data");
+  const currentRowIndex = dataRows.findIndex(
+    (row) => row.gridRow.recordId === current.recordId,
   );
   const currentColumnIndex = columns.findIndex(
     (column) => column.fieldKey === current.fieldKey,
@@ -423,7 +562,7 @@ export function navigateGridCellAnchor<Row>({
     columnCount: columns.length,
     intent,
     rowIndex: currentRowIndex,
-    rowCount: presentationRows.length,
+    rowCount: dataRows.length,
   });
   if (target === null) {
     return null;
@@ -432,15 +571,134 @@ export function navigateGridCellAnchor<Row>({
   if (targetColumn === undefined) {
     return null;
   }
-  return resolveGridCellAnchor({
-    columns,
-    presentationRows,
-    selection: {
-      fieldKey: targetColumn.fieldKey,
-      rowIndex: target.rowIndex,
-    },
+  const targetRow = dataRows[target.rowIndex];
+  if (targetRow === undefined) return null;
+  return {
+    fieldKey: targetColumn.fieldKey,
+    recordId: targetRow.gridRow.recordId,
     viewSchemaId: current.viewSchemaId,
-  });
+  };
+}
+
+export function resolveGridCellRange<Row>({
+  columns,
+  presentationRows,
+  range,
+}: ResolveGridCellRangeProps<Row>): GridExpandedCellRange | null {
+  if (range.start.viewSchemaId !== range.end.viewSchemaId) return null;
+  const startColumnIndex = columns.findIndex(
+    (column) => column.fieldKey === range.start.fieldKey,
+  );
+  const endColumnIndex = columns.findIndex(
+    (column) => column.fieldKey === range.end.fieldKey,
+  );
+  const startRowIndex = presentationRows.findIndex(
+    (row) =>
+      row.kind === "data" && row.gridRow.recordId === range.start.recordId,
+  );
+  const endRowIndex = presentationRows.findIndex(
+    (row) => row.kind === "data" && row.gridRow.recordId === range.end.recordId,
+  );
+  if (
+    startColumnIndex < 0 ||
+    endColumnIndex < 0 ||
+    startRowIndex < 0 ||
+    endRowIndex < 0
+  ) {
+    return null;
+  }
+  const firstColumnIndex = Math.min(startColumnIndex, endColumnIndex);
+  const lastColumnIndex = Math.max(startColumnIndex, endColumnIndex);
+  const firstRowIndex = Math.min(startRowIndex, endRowIndex);
+  const lastRowIndex = Math.max(startRowIndex, endRowIndex);
+  const fieldKeys = columns
+    .slice(firstColumnIndex, lastColumnIndex + 1)
+    .map((column) => column.fieldKey);
+  const recordTargets = presentationRows
+    .slice(firstRowIndex, lastRowIndex + 1)
+    .flatMap((row) =>
+      row.kind === "group"
+        ? []
+        : [
+            {
+              baseRowVersion: row.gridRow.rowVersion,
+              fieldKey: range.start.fieldKey,
+              recordId: row.gridRow.recordId,
+              viewSchemaId: range.start.viewSchemaId,
+            },
+          ],
+    );
+  return fieldKeys.length === 0 || recordTargets.length === 0
+    ? null
+    : { fieldKeys, recordTargets };
+}
+
+export function parseGridClipboardTable(text: string): string[][] {
+  const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const trimmed = normalized.replace(/\n+$/u, "");
+  if (trimmed === "") return [[""]];
+  const delimiter = trimmed.includes("\t") ? "\t" : ",";
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+  for (let index = 0; index < trimmed.length; index += 1) {
+    const char = trimmed[index];
+    if (char === '"') {
+      if (quoted && trimmed[index + 1] === '"') {
+        cell += '"';
+        index += 1;
+      } else {
+        quoted = !quoted;
+      }
+      continue;
+    }
+    if (!quoted && char === delimiter) {
+      row.push(cell);
+      cell = "";
+      continue;
+    }
+    if (!quoted && char === "\n") {
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = "";
+      continue;
+    }
+    cell += char;
+  }
+  row.push(cell);
+  rows.push(row);
+  return rows;
+}
+
+export function gridClipboardDimensions(text: string): {
+  readonly columnCount: number;
+  readonly rowCount: number;
+} {
+  const rows = parseGridClipboardTable(text);
+  return {
+    columnCount: rows.reduce((max, row) => Math.max(max, row.length), 1),
+    rowCount: Math.max(1, rows.length),
+  };
+}
+
+export function formatGridClipboardTSV(
+  values: readonly (readonly unknown[])[],
+): string {
+  return values
+    .map((row) => row.map(formatGridClipboardCell).join("\t"))
+    .join("\n");
+}
+
+function formatGridClipboardCell(value: unknown): string {
+  const text =
+    value === null || value === undefined
+      ? ""
+      : typeof value === "boolean" || typeof value === "number"
+        ? String(value)
+        : String(value);
+  return /[\t\n\r"]/u.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
 export function resolveGridPasteTargets<Row>({
@@ -470,7 +728,7 @@ export function resolveGridPasteTargets<Row>({
   const targetColumns = columns
     .slice(startColumnIndex, startColumnIndex + pastedColumnCount)
     .map((column) => column.fieldKey);
-  if (targetColumns.length === 0) {
+  if (targetColumns.length !== pastedColumnCount) {
     return null;
   }
 
@@ -533,6 +791,7 @@ function navigateGridCellCoordinates({
 }): { columnIndex: number; rowIndex: number } | null {
   let nextColumnIndex = columnIndex;
   let nextRowIndex = rowIndex;
+  const pageSize = Math.max(1, Math.floor(intent.pageSize ?? 1));
   switch (intent.key) {
     case "ArrowDown":
       nextRowIndex += 1;
@@ -545,6 +804,20 @@ function navigateGridCellCoordinates({
       break;
     case "ArrowRight":
       nextColumnIndex += 1;
+      break;
+    case "PageDown":
+      nextRowIndex = Math.min(rowCount - 1, rowIndex + pageSize);
+      break;
+    case "PageUp":
+      nextRowIndex = Math.max(0, rowIndex - pageSize);
+      break;
+    case "Home":
+      if (intent.ctrlOrMetaKey === true) nextRowIndex = 0;
+      nextColumnIndex = 0;
+      break;
+    case "End":
+      if (intent.ctrlOrMetaKey === true) nextRowIndex = rowCount - 1;
+      nextColumnIndex = columnCount - 1;
       break;
     case "Enter":
       nextRowIndex += intent.shiftKey === true ? -1 : 1;

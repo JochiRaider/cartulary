@@ -10,7 +10,6 @@ import {
   resolveHeaderSortFieldKey,
   type ViewContract,
   type ViewFieldContract,
-  visibleFields,
 } from "@cartulary/view-contracts";
 
 export type WorkbookViewApiCell = {
@@ -66,13 +65,11 @@ export function workbookGridRows<Row>({
   getRecordId,
   getRowVersion,
   rows,
-  selectedRecordId,
   surface,
 }: {
   readonly getRecordId: (row: Row) => string;
   readonly getRowVersion: (row: Row) => number;
   readonly rows: readonly Row[];
-  readonly selectedRecordId?: string | null | undefined;
   readonly surface: WorkbookSurface;
 }): readonly GridRecordRow<Row>[] {
   return rows.map((row) => {
@@ -82,9 +79,6 @@ export function workbookGridRows<Row>({
       recordId,
       rowVersion: getRowVersion(row),
       data: row,
-      ...(selectedRecordId === null || selectedRecordId === undefined
-        ? {}
-        : { selected: recordId === selectedRecordId }),
       testId: gridRowTestId(surface, recordId),
     };
   });
@@ -99,7 +93,7 @@ export function workbookContractColumns<Row>({
   readonly surface: WorkbookSurface;
   readonly widthForField?: (field: ViewFieldContract) => number;
 }): readonly GridColumn<Row>[] {
-  return visibleFields(contract).map((field) => ({
+  return contract.fields.map((field) => ({
     fieldKey: field.fieldKey,
     headerTestId: gridSortHeaderTestId(surface, field.fieldKey),
     label: field.label,

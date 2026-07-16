@@ -16,6 +16,7 @@ const [root] = process.argv.slice(2);
 const nodeBin = process.env.NODE_BIN || process.execPath;
 const script = path.join(root, "tools/harness/phase-accounting/phase-slice-cli.mjs");
 const { runNormalizedSchedule } = await import(pathToFileURL(path.join(root, "tools/harness/scheduler/scheduler-runner.mjs")).href);
+const { retainedRunEnvForUnit } = await import(pathToFileURL(path.join(root, "tools/harness/scheduler/phase-slice-execution.mjs")).href);
 const { validateSchemaSync } = await import(pathToFileURL(path.join(root, "tools/harness/contract/index.mjs")).href);
 const { validatePhaseSlicePlanContract } = await import(pathToFileURL(path.join(root, "tools/harness/phase-accounting/phase-slice-plan-contract.mjs")).href);
 const {
@@ -598,6 +599,74 @@ assert.ok(
 assert.ok(
   !feP3FrontendUnit.frontend_row_accounting_scope.selected_row_ids.includes("FE-U-P4-01"),
   "FE-P3 selected accounting must exclude later FE-P4 rows",
+);
+
+const feP11 = frontendPlan("FE-P11", "phase");
+const feP11Check = feP11.work_units.find((unit) => unit.target === "check");
+const feP11ReleaseCheck = feP11.work_units.find(
+  (unit) => unit.target === "release-check",
+);
+const feP11ServiceComplete = feP11.work_units.find(
+  (unit) => unit.kind === "service_complete",
+);
+assert.equal(
+  feP11Check.frontend_row_accounting_scope,
+  undefined,
+  "FE-P11 check must not expose an empty selected-row accounting scope to nested evidence targets",
+);
+assert.equal(
+  feP11ReleaseCheck.frontend_row_accounting_scope,
+  undefined,
+  "FE-P11 release-check must not expose an empty selected-row accounting scope to nested evidence targets",
+);
+for (const dependency of ["frontend-unit", "browser-e2e-visual"]) {
+  assert.ok(
+    feP11Check.needs.includes(dependency),
+    `FE-P11 check must wait for leaf target ${dependency}`,
+  );
+}
+assert.ok(
+  feP11Check.needs.includes("service_complete:phase-slice"),
+  "FE-P11 check must wait for the outer phase-slice service session to close",
+);
+assert.ok(
+  !feP11Check.needs.includes("service_session:phase-slice"),
+  "FE-P11 check must not borrow the outer phase-slice service session",
+);
+assert.equal(
+  feP11Check.serviceSession,
+  undefined,
+  "FE-P11 check must be free to own its nested service-backed suite",
+);
+assert.equal(
+  feP11Check.isolatedRetainedRun,
+  true,
+  "FE-P11 check must not reuse leaf fixture accounting from the outer retained run",
+);
+assert.deepEqual(
+  retainedRunEnvForUnit(
+    { runId: "outer-run" },
+    feP11Check,
+  ),
+  { CARTULARY_TEST_RUN_ID: "outer-run-check" },
+  "FE-P11 check must receive a deterministic isolated retained run identity",
+);
+assert.ok(
+  feP11ReleaseCheck.needs.includes("check"),
+  "FE-P11 release-check must run after the check composite gate",
+);
+assert.ok(
+  feP11ServiceComplete.needs.includes("browser-e2e-visual"),
+  "FE-P11 service cleanup must wait for leaf browser evidence",
+);
+assert.ok(
+  feP11ServiceComplete.needs.includes("frontend-unit"),
+  "FE-P11 service cleanup must wait for leaf frontend evidence",
+);
+assert.ok(
+  !feP11ServiceComplete.needs.includes("check") &&
+    !feP11ServiceComplete.needs.includes("release-check"),
+  "FE-P11 service cleanup must precede composite gates",
 );
 
 const feP3Service = frontendPlan("FE-P3", "service-backed");

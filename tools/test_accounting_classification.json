@@ -1164,7 +1164,7 @@
     {
       "target": "frontend-unit",
       "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
-      "title": "Phase 9 grid anchor shell support updates Cartulary anchors for Enter, Shift+Enter, and Tab navigation",
+      "title": "Phase 9 grid anchor shell support updates Cartulary anchors for Enter and Shift+Enter while Tab exits",
       "coverage": "support",
       "reason": "Phase 9 grid-anchor shell checks are intentional support coverage for keyboard and paste integration.",
       "phase": "phase9"
@@ -1234,10 +1234,26 @@
     {
       "target": "frontend-unit",
       "file": "packages/grid-adapter/src/core.test.ts",
+      "title": "merges owner state with adapter-derived context without weakening state",
+      "coverage": "support",
+      "reason": "Semantic state precedence is adapter support evidence; live accessibility and visual suites remain authoritative for rendered state claims.",
+      "phase": "phase3"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "packages/grid-adapter/src/core.test.ts",
       "title": "normalizes committed empty group labels to the unassigned group without test IDs",
       "coverage": "support",
       "reason": "Shared grid adapter anchor, grouping, and paste-coordinate checks support workbook grid phases without claiming a row.",
       "phase": "phase9"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "packages/grid-adapter/src/core.test.ts",
+      "title": "orders invalid, pending, active, selected, read-only, and saved states",
+      "coverage": "support",
+      "reason": "Semantic state precedence is adapter support evidence; live accessibility and visual suites remain authoritative for rendered state claims.",
+      "phase": "phase3"
     },
     {
       "target": "frontend-unit",
@@ -1258,9 +1274,25 @@
     {
       "target": "frontend-unit",
       "file": "packages/grid-adapter/src/core.test.ts",
+      "title": "resolves the design priority while retaining declared co-displays",
+      "coverage": "support",
+      "reason": "Semantic state precedence is adapter support evidence; live accessibility and visual suites remain authoritative for rendered state claims.",
+      "phase": "phase3"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "packages/grid-adapter/src/core.test.ts",
       "title": "targets sorted paste rows by stable visible record identities",
       "coverage": "support",
       "reason": "Shared grid adapter anchor, grouping, and paste-coordinate checks support workbook grid phases without claiming a row.",
+      "phase": "phase9"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "packages/grid-adapter/src/core.test.ts",
+      "title": "supports semantic page, row-edge, and grid-edge navigation",
+      "coverage": "support",
+      "reason": "Shared grid adapter keyboard-state checks support workbook grid phases without claiming a row.",
       "phase": "phase9"
     },
     {

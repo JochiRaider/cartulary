@@ -21,6 +21,7 @@ import {
   requirePress,
 } from "./browser";
 import { pasteMatrixText } from "./matrix";
+import { scrollGridCellIntoView, scrollGridTargetIntoView } from "./scrolling";
 
 export type GridAnchorCommandScenario = {
   commit: (context: {
@@ -71,9 +72,13 @@ export async function resizeGridColumn(options: {
   surface: WorkbookSurface;
 }) {
   void options.deltaPx;
-  const header = options.page.getByTestId(
-    gridSortHeaderTestId(options.surface, options.fieldKey),
-  );
+  const headerTestId = gridSortHeaderTestId(options.surface, options.fieldKey);
+  await scrollGridTargetIntoView({
+    page: options.page,
+    surface: options.surface,
+    targetTestId: headerTestId,
+  });
+  const header = options.page.getByTestId(headerTestId);
   const evaluate = requireEvaluate(
     header,
     `resizeGridColumn(${options.surface}) requires locator.evaluate() support`,
@@ -101,6 +106,12 @@ export async function pasteGridMatrix(options: {
   recordId: string;
   surface: WorkbookSurface;
 }) {
+  await scrollGridCellIntoView({
+    cellKey: options.fieldKey,
+    page: options.page,
+    recordId: options.recordId,
+    surface: options.surface,
+  });
   const cell = options.page.getByTestId(
     rowCellTestId(options.recordId, options.fieldKey),
   );
@@ -132,7 +143,9 @@ export async function sortByHeader(
   surface: WorkbookSurface,
   fieldKey: string,
 ) {
-  await page.getByTestId(gridSortHeaderTestId(surface, fieldKey)).click();
+  const headerTestId = gridSortHeaderTestId(surface, fieldKey);
+  await scrollGridTargetIntoView({ page, surface, targetTestId: headerTestId });
+  await page.getByTestId(headerTestId).click();
 }
 
 export async function applyFilterChip(

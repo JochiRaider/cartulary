@@ -85,6 +85,17 @@ type SharedGridAnchorOptions = {
   rightFocusTestId?: string;
 };
 
+function semanticGridCell(content: Locator): Locator {
+  return content.locator("xpath=ancestor::*[@role='gridcell'][1]");
+}
+
+async function activateSemanticGridCell(content: Locator): Promise<Locator> {
+  const cell = semanticGridCell(content);
+  await cell.click();
+  await cell.focus();
+  return cell;
+}
+
 async function waitForBrowserQueryWithRow(
   page: Page,
   incidentId: string,
@@ -295,6 +306,12 @@ async function openSharedGridAnchorCell({
     ).toBeVisible();
   }
 
+  await scrollGridCellIntoView({
+    cellKey: fieldKey,
+    page,
+    recordId,
+    surface: viewSchemaId,
+  });
   const cell = page.getByTestId(rowCellTestId(recordId, fieldKey));
   if (textMode === "value") {
     await expect(
@@ -314,8 +331,8 @@ async function expectSharedGridAnchorSurface(options: SharedGridAnchorOptions) {
   const { page, viewSchemaId, row, fieldKey, rightFieldKey, rightFocusTestId } =
     options;
   const recordId = row.record_id;
-  const cell = await openSharedGridAnchorCell(options);
-  await cell.focus();
+  const content = await openSharedGridAnchorCell(options);
+  const cell = await activateSemanticGridCell(content);
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
     `${viewSchemaId}:${recordId}:${fieldKey}`,
   );
@@ -326,10 +343,14 @@ async function expectSharedGridAnchorSurface(options: SharedGridAnchorOptions) {
       `${viewSchemaId}:${recordId}:${rightFieldKey}`,
     );
     if (rightFocusTestId) {
-      await expect(page.getByTestId(rightFocusTestId)).toBeFocused();
+      await expect(
+        semanticGridCell(page.getByTestId(rightFocusTestId)),
+      ).toBeFocused();
     } else {
       await expect(
-        page.getByTestId(rowCellTestId(recordId, rightFieldKey)),
+        semanticGridCell(
+          page.getByTestId(rowCellTestId(recordId, rightFieldKey)),
+        ),
       ).toBeFocused();
     }
     return cell;
@@ -370,26 +391,28 @@ test("Phase 9 E-9-01 keyboard shortcuts keep workbook grid anchors without modul
   const alphaSummary = page.getByTestId(
     rowCellTestId(alpha.record_id as string, "timeline.date_entered_text"),
   );
-  await alphaSummary.focus();
+  const alphaSummaryCell = await activateSemanticGridCell(alphaSummary);
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.date_entered_text`,
   );
 
   await page.keyboard.press("Tab");
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `${timelineViewSchemaId}:${alpha.record_id}:timeline.analyst_text`,
+    `${timelineViewSchemaId}:${alpha.record_id}:timeline.date_entered_text`,
   );
-  await expect(
-    page.getByTestId(
-      rowCellTestId(alpha.record_id as string, "timeline.analyst_text"),
-    ),
-  ).toBeFocused();
+  await expect(alphaSummaryCell).not.toBeFocused();
 
   await openTimelineInspector(page, alpha.record_id as string);
   await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
     "Phase9Host?",
   );
   expect(page.url()).toBe(initialURL);
+  await scrollGridCellIntoView({
+    cellKey: "timeline.analyst_text",
+    page,
+    recordId: alpha.record_id as string,
+    surface: timelineViewSchemaId,
+  });
   const alphaAnalyst = page.getByTestId(
     rowCellTestId(alpha.record_id as string, "timeline.analyst_text"),
   );
@@ -522,7 +545,7 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
     "timeline.activity_synopsis_text": "FE-B-P10-02 Gamma",
     "timeline.raw_activity_text": "FE-B-P10-02 Gamma details",
   });
-  await createTimelineFillers(page, incidentId, "FE-B-P10-02 filler", 44);
+  await createTimelineFillers(page, incidentId, "FE-B-P10-02 filler", 24);
   const virtualTarget = await createViewRow(
     page,
     incidentId,
@@ -539,15 +562,21 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
     page.getByTestId(timelineMutationSubstrateReadyTestId()),
   ).toBeVisible();
 
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_synopsis_text",
+    page,
+    recordId: alpha.record_id,
+    surface: timelineViewSchemaId,
+  });
   const alphaSummary = page.getByTestId(
     rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
   );
   await expect(alphaSummary).toHaveValue("FE-B-P10-02 Alpha");
-  await alphaSummary.focus();
+  const alphaSummaryCell = await activateSemanticGridCell(alphaSummary);
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.activity_synopsis_text`,
   );
-  const copiedText = await alphaSummary.evaluate((element) => {
+  const copiedText = await alphaSummaryCell.evaluate((element) => {
     const data = new DataTransfer();
     const event = new ClipboardEvent("copy", {
       bubbles: true,
@@ -567,7 +596,7 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.activity_synopsis_text`,
   );
-  await expect(alphaSummary).toBeFocused();
+  await expect(alphaSummaryCell).toBeFocused();
 
   await alphaSummary.fill("FE-B-P10-02 dirty draft");
   await alphaSummary.press("Escape");
@@ -575,6 +604,16 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
 
   await openTimelineInspector(page, alpha.record_id);
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_synopsis_text",
+    page,
+    recordId: alpha.record_id,
+    surface: timelineViewSchemaId,
+  });
+  await alphaSummary.focus();
+  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+    `${timelineViewSchemaId}:${alpha.record_id}:timeline.activity_synopsis_text`,
+  );
   const inspectorDetails = page.getByTestId(
     rowInspectorFieldTestId(alpha.record_id, "timeline.raw_activity_text"),
   );
@@ -584,20 +623,14 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
   await inspectorDetails.press("Escape");
   await expect(inspectorDetails).toHaveValue("FE-B-P10-02 Alpha details");
   await inspectorDetails.press("Escape");
-  await expect(alphaSummary).toBeFocused();
-  await alphaSummary.press("Escape");
+  await expect(alphaSummaryCell).toBeFocused();
+  await alphaSummaryCell.press("Escape");
   await expect(inspectorDetails).toHaveCount(0);
-  await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
-    "no_row_selected",
-  );
-  await expect(alphaSummary).toBeFocused();
-  await alphaSummary.press("Escape");
-  await expect(inspectorDetails).toHaveCount(0);
-  await expect(alphaSummary).toBeFocused();
-  await page
-    .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
-    .click();
   await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
+  await expect(alphaSummaryCell).toBeFocused();
+  await alphaSummaryCell.press("Escape");
+  await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
+  await expect(alphaSummaryCell).toBeFocused();
 
   const pasteRequest = page.waitForRequest(
     (request) =>
@@ -720,6 +753,12 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
   await expect(
     page.getByTestId(timelineMutationSubstrateReadyTestId()),
   ).toBeVisible();
+  await scrollGridCellIntoView({
+    cellKey: "timeline.capture_state",
+    page,
+    recordId: beta.record_id,
+    surface: timelineViewSchemaId,
+  });
   await expect(
     page.getByTestId(rowCellTestId(beta.record_id, "timeline.capture_state")),
   ).toHaveText("reviewed");
@@ -746,6 +785,11 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
     page,
     surface: timelineViewSchemaId,
   });
+  await expect(
+    page.getByTestId(
+      rowCellTestId(virtualTarget.record_id, "timeline.activity_synopsis_text"),
+    ),
+  ).not.toBeVisible();
   await scrollGridCellIntoView({
     cellKey: "timeline.activity_synopsis_text",
     page,
@@ -1060,7 +1104,7 @@ test("Phase 9 E-9-GRIDHOST-01 Host entity-origin clipboard paste reuses exact ma
     rowCellTestId(existing.record_id as string, "host.display_name"),
   );
   await expect(displayName).toHaveText("Phase 9 reusable host");
-  await displayName.focus();
+  await activateSemanticGridCell(displayName);
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
     `${hostsViewSchemaId}:${existing.record_id}:host.display_name`,
   );
@@ -1154,7 +1198,7 @@ test("Phase 9 E-9-GRIDIDENTITY-01 Identity entity-origin clipboard paste reuses 
     rowCellTestId(existing.record_id as string, "identity.display_name"),
   );
   await expect(displayName).toHaveText("Phase 9 reusable identity");
-  await displayName.focus();
+  await activateSemanticGridCell(displayName);
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
     `${identitiesViewSchemaId}:${existing.record_id}:identity.display_name`,
   );

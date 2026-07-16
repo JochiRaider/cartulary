@@ -1,6 +1,8 @@
 import {
   applyFilterChip,
   removeFilterChip,
+  scrollGridCellIntoView,
+  scrollGridTargetIntoView,
   sortByHeader,
 } from "@cartulary/test-utils";
 import {
@@ -28,6 +30,7 @@ import {
   systemViewSwitcherTriggerTestId,
   timelineInspectorTestId,
   timelineMutationSubstrateReadyTestId,
+  type WorkbookSurface,
   workbookAddRowButtonTestId,
   workbookFilterPopoverTriggerTestId,
   workbookInspectorFeatureActionTestId,
@@ -37,7 +40,7 @@ import {
   workbookShellSlotTestId,
   workbookTopBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
-import type { Page, Request } from "@playwright/test";
+import type { Locator, Page, Request } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
@@ -77,6 +80,14 @@ import {
 } from "./phase4Helpers";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v2";
+
+async function activateSemanticGridCell(content: Locator) {
+  const cell = content.locator("xpath=ancestor::*[@role='gridcell'][1]");
+  await cell.click();
+  await cell.focus();
+  return cell;
+}
+
 const requiredBaseViewSchemaIds = [
   assessmentsViewSchemaId,
   commLogViewSchemaId,
@@ -195,6 +206,12 @@ test("Phase 9 E-9-PASTE-02 pastes a representative 20x5 Timeline clipboard range
     page.getByTestId(timelineMutationSubstrateReadyTestId()),
   ).toBeVisible();
 
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_synopsis_text",
+    page,
+    recordId: seed.record_id as string,
+    surface: timelineViewSchemaId,
+  });
   const seedSummary = page.getByTestId(
     rowCellTestId(seed.record_id as string, "timeline.activity_synopsis_text"),
   );
@@ -332,6 +349,12 @@ test("Phase 9 E-9-CONFLICT-02 groups paste conflicts and preserves selection con
       "timeline.activity_synopsis_text",
     ),
   );
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_synopsis_text",
+    page,
+    recordId: pasteStartRecordId as string,
+    surface: timelineViewSchemaId,
+  });
   await pasteStartSummary.focus();
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
     `${timelineViewSchemaId}:${pasteStartRecordId}:timeline.activity_synopsis_text`,
@@ -617,9 +640,11 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
   expect(
     refreshedEvidence?.cells["evidence.collector_party_id"]?.value,
   ).toBeNull();
-  await page
-    .getByTestId(rowCellTestId(evidence.record_id as string, "evidence.title"))
-    .focus();
+  await activateSemanticGridCell(
+    page.getByTestId(
+      rowCellTestId(evidence.record_id as string, "evidence.title"),
+    ),
+  );
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
     `${evidenceViewSchemaId}:${evidence.record_id}:evidence.title`,
   );
@@ -814,9 +839,9 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
     typedRequesterText,
   );
   expect(refreshedTask?.cells["task.requester_party_id"]?.value).toBeNull();
-  await page
-    .getByTestId(rowCellTestId(task.record_id as string, "task.title"))
-    .focus();
+  await activateSemanticGridCell(
+    page.getByTestId(rowCellTestId(task.record_id as string, "task.title")),
+  );
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
     `${taskRequestsViewSchemaId}:${task.record_id}:task.title`,
   );
@@ -982,9 +1007,11 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
   await page
     .getByTestId(genericEditRecordSelectTestId(commLogViewSchemaId))
     .selectOption(commLog.record_id as string);
-  await page
-    .getByTestId(rowCellTestId(commLog.record_id as string, "comm_log.summary"))
-    .focus();
+  await activateSemanticGridCell(
+    page.getByTestId(
+      rowCellTestId(commLog.record_id as string, "comm_log.summary"),
+    ),
+  );
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
     `${commLogViewSchemaId}:${commLog.record_id}:comm_log.summary`,
   );
@@ -1172,11 +1199,23 @@ test("Phase 9 E-9-05 assessment workflow keeps invalid timestamp drafts local", 
     createdSuspected.record_id,
     createdUnknown.record_id,
   ]);
+  await scrollGridCellIntoView({
+    cellKey: "assessment.subject_ref",
+    page,
+    recordId: createdDisproven.record_id,
+    surface: assessmentsViewSchemaId,
+  });
   await expect(
     page.getByTestId(
       rowCellTestId(createdDisproven.record_id, "assessment.subject_ref"),
     ),
   ).toHaveText(subjectB.record_id as string);
+  await scrollGridCellIntoView({
+    cellKey: "assessment.supporting_link_count",
+    page,
+    recordId: createdConfirmed.record_id,
+    surface: assessmentsViewSchemaId,
+  });
   await expect(
     page.getByTestId(
       rowCellTestId(
@@ -1185,6 +1224,12 @@ test("Phase 9 E-9-05 assessment workflow keeps invalid timestamp drafts local", 
       ),
     ),
   ).toHaveText("1");
+  await scrollGridCellIntoView({
+    cellKey: "assessment.confidence_band",
+    page,
+    recordId: createdUnknown.record_id,
+    surface: assessmentsViewSchemaId,
+  });
   await expect(
     page.getByTestId(
       rowCellTestId(createdUnknown.record_id, "assessment.confidence_band"),
@@ -2880,7 +2925,13 @@ async function setPhase9GenericCreateField(
   fieldKey: string,
   value: string | string[],
 ) {
-  const input = page.getByTestId(genericCreateFieldTestId(fieldKey));
+  const fieldTestId = genericCreateFieldTestId(fieldKey);
+  await scrollGridTargetIntoView({
+    page,
+    surface: currentWorkbookSurface(page),
+    targetTestId: fieldTestId,
+  });
+  const input = page.getByTestId(fieldTestId);
   const tagName = await input.evaluate((element) => element.tagName);
   const inputType = await input.getAttribute("type");
   if (inputType === "checkbox") {
@@ -2896,6 +2947,11 @@ async function setPhase9GenericCreateField(
     return;
   }
   await input.fill(Array.isArray(value) ? value.join("\n") : value);
+}
+
+function currentWorkbookSurface(page: Page): WorkbookSurface {
+  const viewSchemaId = new URL(page.url()).searchParams.get("view_schema_id");
+  return (viewSchemaId ?? timelineViewSchemaId) as WorkbookSurface;
 }
 
 async function editPhase9GenericCell(
@@ -2944,6 +3000,11 @@ async function waitForPhase9GenericOption(
   testId: string,
   value: string,
 ) {
+  await scrollGridTargetIntoView({
+    page,
+    surface: currentWorkbookSurface(page),
+    targetTestId: testId,
+  });
   await expect(
     page.getByTestId(testId).locator(`option[value="${value}"]`),
   ).toHaveCount(1, { timeout: 15_000 });

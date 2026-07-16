@@ -1848,7 +1848,7 @@ test("harness NLSpec registry mirrors public target output classes and side effe
     .join("\n")}\n`;
   assert.equal(
     createHash("sha256").update(publicIdentityBytes).digest("hex"),
-    "1c0dad62c56e78727827e5eb60833b81f6c161743277a68dc94bb294efc10e2b",
+    "157dfee4eb4b394b4dc5b2bba30e6990449fb6556c799709a6a233f503b47370",
     "public target and command ID inventory changed; revise the NLSpec and this explicit compatibility digest together",
   );
   for (const target of publicTargets) {

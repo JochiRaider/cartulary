@@ -1,4 +1,8 @@
 import {
+  scrollGridCellIntoView,
+  scrollGridTargetIntoView,
+} from "@cartulary/test-utils";
+import {
   draftCellTestId,
   gridSortHeaderTestId,
   pendingQueueNoticeTestId,
@@ -175,6 +179,12 @@ test(exactScenarioTitle, async ({ page }) => {
   expect(nullGroupQuery.status).toBeLessThan(500);
 
   await page.goto(`/?incident_id=${incidentId}`);
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_synopsis_text",
+    page,
+    recordId: alpha.record_id,
+    surface: timelineViewSchemaId,
+  });
   await expect(
     page.getByTestId(
       rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
@@ -211,12 +221,14 @@ test(exactScenarioTitle, async ({ page }) => {
           `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/rows`,
         ),
   );
-  await page
-    .getByTestId(draftCellTestId("timeline.activity_synopsis_text"))
-    .fill("FE-I-P4-01 Created");
-  await page
-    .getByTestId(draftCellTestId("timeline.activity_synopsis_text"))
-    .press("Enter");
+  const draftSummaryTestId = draftCellTestId("timeline.activity_synopsis_text");
+  await scrollGridTargetIntoView({
+    page,
+    surface: timelineViewSchemaId,
+    targetTestId: draftSummaryTestId,
+  });
+  await page.getByTestId(draftSummaryTestId).fill("FE-I-P4-01 Created");
+  await page.getByTestId(draftSummaryTestId).press("Enter");
   const createEnvelope = await readTimelineMutation(await createResponse);
   const createdRecordId = createEnvelope.data.row.record_id;
   await expect(
@@ -226,6 +238,12 @@ test(exactScenarioTitle, async ({ page }) => {
   ).toHaveValue("FE-I-P4-01 Created");
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
 
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_utc_text",
+    page,
+    recordId: beta.record_id,
+    surface: timelineViewSchemaId,
+  });
   const betaOccurredAtCell = page.getByTestId(
     rowCellTestId(beta.record_id, "timeline.activity_utc_text"),
   );

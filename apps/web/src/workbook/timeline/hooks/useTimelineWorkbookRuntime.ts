@@ -10,7 +10,7 @@ import {
   defaultFilterDraft,
   emptyWorkbookQueryState,
   type FilterDraft,
-  toggleSortField,
+  replaceWorkbookSort,
   updateGroupBy,
   type WorkbookQueryState,
 } from "../../models/workbookQuery";
@@ -54,6 +54,7 @@ export function useTimelineWorkbookRuntime({
   onQueryStateChange,
 }: TimelineWorkbookRuntimeInput) {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [saveState, setSaveState] =
@@ -87,10 +88,10 @@ export function useTimelineWorkbookRuntime({
     [setQueryState],
   );
 
-  const handleQuerySortToggle = useCallback(
-    (fieldKey: string) => {
+  const handleQuerySortChange = useCallback(
+    (sort: WorkbookQueryState["sort"]) => {
       setQueryState((current) =>
-        toggleSortField(timelineRuntimeContract, current, fieldKey),
+        replaceWorkbookSort(timelineRuntimeContract, current, sort),
       );
     },
     [setQueryState],
@@ -99,11 +100,13 @@ export function useTimelineWorkbookRuntime({
   return {
     lifecycle: {
       isInitialLoading,
+      isRefreshing,
       loadError,
       refreshError,
       saveState,
       saveStateSecondaryMessage,
       setIsInitialLoading,
+      setIsRefreshing,
       setLoadError,
       setRefreshError,
       setSaveState,
@@ -113,7 +116,7 @@ export function useTimelineWorkbookRuntime({
       applyQueryFilter,
       filterDraft,
       handleQueryGroupByChange,
-      handleQuerySortToggle,
+      handleQuerySortChange,
       queryState,
       setFilterDraft,
       setQueryState,

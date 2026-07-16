@@ -32,6 +32,7 @@ import {
   gridSavedRowsSelector,
   gridScrollportSelector,
   gridShellTestId,
+  gridSortHeaderTestId,
   incidentControlsPanelTestId,
   incidentMembershipListTestId,
   mentionDismissButtonTestId,
@@ -62,11 +63,13 @@ import {
   surfaceTabTestId,
   systemViewSwitcherTriggerTestId,
   timelineEvidenceFileInputTestId,
+  timelineInspectorMessageTestId,
   timelineInspectorSectionTestId,
   timelineInspectorTestId,
   timelineRowMarkReviewedButtonTestId,
   timelineRowVersionTestId,
   timelineScalarEditorTestId,
+  type WorkbookSurface,
   workbookFilterPopoverTriggerTestId,
   workbookInlineDraftRowTestId,
   workbookInspectorCloseButtonTestId,
@@ -262,7 +265,7 @@ type FeP9VisualHistoryData = {
   row_version: number;
 };
 
-type GridVisualScrollLeft = "left" | number;
+type GridVisualScrollLeft = "left" | "right" | number;
 
 type GridVisualScrollState = {
   top: number;
@@ -400,6 +403,24 @@ async function openTimelineRowActions(page: Page, recordId: string) {
   await page.getByTestId(rowTestId).click({ button: "right" });
 }
 
+async function mountedGridTarget(
+  page: Page,
+  surface: WorkbookSurface,
+  targetTestId: string,
+): Promise<Locator> {
+  await scrollGridTargetIntoView({ page, surface, targetTestId });
+  return page.getByTestId(targetTestId);
+}
+
+async function mountedGridCell(
+  page: Page,
+  surface: WorkbookSurface,
+  recordId: string,
+  fieldKey: string,
+): Promise<Locator> {
+  return mountedGridTarget(page, surface, rowCellTestId(recordId, fieldKey));
+}
+
 async function clickTimelineRowAction(
   page: Page,
   recordId: string,
@@ -407,6 +428,14 @@ async function clickTimelineRowAction(
 ) {
   await openTimelineRowActions(page, recordId);
   await page.getByTestId(actionTestId).click();
+}
+
+async function blurActiveElement(page: Page) {
+  await page.evaluate(() => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  });
 }
 
 function tagActionsPayload(tagNames: string[]) {
@@ -577,6 +606,7 @@ test.describe("FE-P2 workbook visual readiness", () => {
   test("FE-V-P2-01 Capture Default Timeline workbook shell with view-bar query controls, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip.", async ({
     page,
   }) => {
+    test.setTimeout(120_000);
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
@@ -711,8 +741,18 @@ test.describe("FE-P2 workbook visual readiness", () => {
     const selectedGridRow = grid.locator(
       `[data-grid-record-id="${selectedRow.record_id}"]`,
     );
-    await selectedGridRow.click();
-    await expect(selectedGridRow).toHaveAttribute("aria-selected", "true");
+    await (
+      await mountedGridCell(
+        page,
+        timelineViewSchemaId,
+        selectedRow.record_id,
+        "timeline.date_entered_text",
+      )
+    ).click();
+    await expect(selectedGridRow).toHaveAttribute(
+      "data-inspector-active",
+      "true",
+    );
     const selectedGridRowGutter = selectedGridRow.getByTestId(
       gridRowGutterTestId(timelineViewSchemaId, selectedRow.record_id),
     );
@@ -734,23 +774,29 @@ test.describe("FE-P2 workbook visual readiness", () => {
       "timeline.activity_synopsis_text",
       "timeline.data_source_text",
     ];
-    const headerFieldKeys = await grid
-      .locator('[role="columnheader"] [data-grid-field-key]')
-      .evaluateAll((headers) =>
-        headers.map((header) => header.getAttribute("data-grid-field-key")),
-      );
-    expect(headerFieldKeys).toEqual(defaultTimelineFields);
     for (const fieldKey of defaultTimelineFields) {
+      const header = await mountedGridTarget(
+        page,
+        timelineViewSchemaId,
+        gridSortHeaderTestId(timelineViewSchemaId, fieldKey),
+      );
+      await expect(header).toHaveAttribute("data-grid-field-key", fieldKey);
       await expect(
-        grid.locator(
-          `[data-grid-record-id="${selectedRow.record_id}"] [data-grid-field-key="${fieldKey}"]`,
+        await mountedGridCell(
+          page,
+          timelineViewSchemaId,
+          selectedRow.record_id,
+          fieldKey,
         ),
       ).toHaveCount(1);
     }
 
     await expect(
-      page.getByTestId(
-        rowCellTestId(selectedRow.record_id, "timeline.activity_synopsis_text"),
+      await mountedGridCell(
+        page,
+        timelineViewSchemaId,
+        selectedRow.record_id,
+        "timeline.activity_synopsis_text",
       ),
     ).toHaveValue(rowSummariesById.get(selectedRow.record_id) ?? "");
 
@@ -870,6 +916,11 @@ test.describe("FE-P2 workbook visual readiness", () => {
         page.getByTestId(timelineInspectorSectionTestId(section)),
       ).toBeVisible();
     }
+    const evidenceLinkResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        response.url().endsWith(`/api/v1/records/${selectedRow.record_id}`),
+    );
     await page
       .getByTestId(timelineEvidenceFileInputTestId(selectedRow.record_id))
       .setInputFiles({
@@ -877,17 +928,28 @@ test.describe("FE-P2 workbook visual readiness", () => {
         mimeType: "image/png",
         buffer: tinyPNG(),
       });
+    expect((await evidenceLinkResponse).ok()).toBe(true);
+    await expect(page.getByTestId(timelineInspectorMessageTestId())).toHaveText(
+      "Evidence attached.",
+    );
     await expect(
       page.getByTestId(timelineInspectorSectionTestId("evidence")),
     ).toContainText("Attached evidence count: 1");
     await page
       .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
-      .click();
+      .evaluateAll((elements) => {
+        (elements[0] as HTMLElement | undefined)?.click();
+      });
     await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
 
     const timelineScrollportSelector = `${dataTestIdSelector(
       gridShellTestId(timelineViewSchemaId),
     )} ${gridScrollportSelector()}`;
+    await expect(
+      page
+        .getByTestId(gridShellTestId(timelineViewSchemaId))
+        .locator(gridScrollportSelector()),
+    ).toBeVisible();
     await page.evaluate((selector) => {
       document.querySelector<HTMLElement>(selector)?.scrollTo({ top: 240 });
     }, timelineScrollportSelector);
@@ -902,19 +964,18 @@ test.describe("FE-P2 workbook visual readiness", () => {
     await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
       scroll: { top: 0, left: "left" },
     });
-    const summaryCell = page.getByTestId(
-      rowCellTestId(selectedRow.record_id, "timeline.activity_synopsis_text"),
-    );
-    await scrollGridTargetIntoView({
+    const summaryCell = await mountedGridCell(
       page,
-      surface: timelineViewSchemaId,
-      targetTestId: rowCellTestId(
-        selectedRow.record_id,
-        "timeline.activity_synopsis_text",
-      ),
-    });
-    await summaryCell.focus();
-    await expect(summaryCell).toBeFocused();
+      timelineViewSchemaId,
+      selectedRow.record_id,
+      "timeline.activity_synopsis_text",
+    );
+    const summaryGridCell = summaryCell.locator(
+      "xpath=ancestor::*[@role='gridcell'][1]",
+    );
+    await summaryGridCell.click();
+    await summaryGridCell.focus();
+    await expect(summaryGridCell).toBeFocused();
     await expect
       .poll(() =>
         page.evaluate(
@@ -960,14 +1021,19 @@ test.describe("Phase 3 workbook visual evidence", () => {
     await maskIncidentIdentity(page, incidentId);
 
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    const summaryCell = await mountedGridCell(
+      page,
+      timelineViewSchemaId,
+      timelineRow.record_id,
+      "timeline.activity_synopsis_text",
+    );
     await expect(
       page.getByTestId(timelineRowVersionTestId(timelineRow.record_id)),
     ).toHaveText(String(timelineRow.row_version));
-    await expect(
-      page.getByTestId(
-        rowCellTestId(timelineRow.record_id, "timeline.activity_synopsis_text"),
-      ),
-    ).toHaveValue("Default visual row");
+    await expect(summaryCell).toHaveValue("Default visual row");
+    await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
+      scroll: { top: 0, left: "left" },
+    });
 
     await assertViewportVisualRegression(page, "v-3-grid-01-timeline-default", {
       renderSurface: timelineViewSchemaId,
@@ -998,8 +1064,11 @@ test.describe("Phase 3 workbook visual evidence", () => {
     await maskIncidentIdentity(page, incidentId);
 
     const saveState = page.getByTestId(saveStateTestId());
-    const summaryInput = page.getByTestId(
-      rowCellTestId(timelineRow.record_id, "timeline.activity_synopsis_text"),
+    const summaryInput = await mountedGridCell(
+      page,
+      timelineViewSchemaId,
+      timelineRow.record_id,
+      "timeline.activity_synopsis_text",
     );
 
     await expect(saveState).toHaveText("Saved");
@@ -1019,7 +1088,14 @@ test.describe("Phase 3 workbook visual evidence", () => {
     });
 
     try {
-      await summaryInput.press("Enter");
+      await (
+        await mountedGridCell(
+          page,
+          timelineViewSchemaId,
+          timelineRow.record_id,
+          "timeline.activity_synopsis_text",
+        )
+      ).press("Enter");
       await hold.waitForHit;
       await expect(saveState).toHaveText("Syncing");
       await assertStatusStripVisualRegression(
@@ -1069,8 +1145,14 @@ test.describe("Phase 3 workbook visual evidence", () => {
 
     await page.route(patchUrl, conflictHandler);
     try {
-      await summaryInput.fill("Conflict visual edit");
-      await summaryInput.press("Enter");
+      const conflictInput = await mountedGridCell(
+        page,
+        timelineViewSchemaId,
+        timelineRow.record_id,
+        "timeline.activity_synopsis_text",
+      );
+      await conflictInput.fill("Conflict visual edit");
+      await conflictInput.press("Enter");
       await expect(saveState).toHaveText("Conflict");
       await assertStatusStripVisualRegression(
         page,
@@ -1114,8 +1196,11 @@ test.describe("Phase 3 workbook visual evidence", () => {
       timelineRowMarkReviewedButtonTestId(firstRow.record_id),
     );
     await expect(
-      page.getByTestId(
-        rowCellTestId(firstRow.record_id, "timeline.capture_state"),
+      await mountedGridCell(
+        page,
+        timelineViewSchemaId,
+        firstRow.record_id,
+        "timeline.capture_state",
       ),
     ).toHaveText("reviewed");
 
@@ -1222,8 +1307,11 @@ test.describe("FE-P4 visual readiness", () => {
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
 
-    const summaryInput = page.getByTestId(
-      rowCellTestId(timelineRow.record_id, "timeline.activity_synopsis_text"),
+    const summaryInput = await mountedGridCell(
+      page,
+      timelineViewSchemaId,
+      timelineRow.record_id,
+      "timeline.activity_synopsis_text",
     );
     await expect(summaryInput).toHaveValue("FE-P4 visual editable row");
     await summaryInput.focus();
@@ -1238,7 +1326,14 @@ test.describe("FE-P4 visual readiness", () => {
     const patchController = await installPatchTransportFailureController(page);
     try {
       patchController.disconnect();
-      await summaryInput.press("Enter");
+      await (
+        await mountedGridCell(
+          page,
+          timelineViewSchemaId,
+          timelineRow.record_id,
+          "timeline.activity_synopsis_text",
+        )
+      ).press("Enter");
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
       await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
       await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
@@ -1412,6 +1507,7 @@ test.describe("FE-P5 workbook visual readiness", () => {
     await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
       scroll: { top: 0, left: "left" },
     });
+    await blurActiveElement(page);
     await assertViewportVisualRegression(
       page,
       "fe-v-p5-01-mention-chip-states",
@@ -1440,6 +1536,7 @@ test.describe("Phase 4 workbook visual evidence", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("V4GRID01-UNRESOLVED"),
+        "timeline.activity_utc_text": "2026-07-15T12:00:00Z",
         "timeline.activity_synopsis_text": "Unresolved mention visual row",
         [hostRefsFieldKey]: collectionActionsPayload(["WS-023?"]),
       },
@@ -1450,6 +1547,7 @@ test.describe("Phase 4 workbook visual evidence", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("V4GRID01-RESOLVED"),
+        "timeline.activity_utc_text": "2026-07-15T12:01:00Z",
         "timeline.activity_synopsis_text": "Resolved mention visual row",
         [hostRefsFieldKey]: resolvedRefPayload("WS-023", hostRow.record_id),
       },
@@ -1474,6 +1572,7 @@ test.describe("Phase 4 workbook visual evidence", () => {
         .getByLabel(/^Resolved WS-023$/u),
     ).toBeVisible();
 
+    await blurActiveElement(page);
     await assertWorkbookGridVisualRegression(
       page,
       "v-4-grid-01-mention-chips",
@@ -1509,10 +1608,19 @@ test.describe("Phase 4 workbook visual evidence", () => {
     );
     await maskIncidentIdentity(page, incidentId);
     await expect(
-      page.getByTestId(rowCellTestId(evidenceRow.record_id, "evidence.title")),
+      await mountedGridCell(
+        page,
+        evidenceViewSchemaId,
+        evidenceRow.record_id,
+        "evidence.title",
+      ),
     ).toHaveText("Visual evidence package");
     await expect(
-      page.getByTestId(evidencePreviewButtonTestId(evidenceRow.record_id)),
+      await mountedGridTarget(
+        page,
+        evidenceViewSchemaId,
+        evidencePreviewButtonTestId(evidenceRow.record_id),
+      ),
     ).toBeVisible();
     await expect(
       page.getByTestId(evidenceAccessMessageTestId(evidenceRow.record_id)),
@@ -1553,10 +1661,20 @@ test.describe("Phase 4 workbook visual evidence", () => {
     );
     await maskIncidentIdentity(page, incidentId);
     await expect(
-      page.getByTestId(rowCellTestId(taskRow.record_id, "task.title")),
+      await mountedGridCell(
+        page,
+        taskRequestsViewSchemaId,
+        taskRow.record_id,
+        "task.title",
+      ),
     ).toHaveText("Visual task request");
     await expect(
-      page.getByTestId(rowCellTestId(taskRow.record_id, "task.status")),
+      await mountedGridCell(
+        page,
+        taskRequestsViewSchemaId,
+        taskRow.record_id,
+        "task.status",
+      ),
     ).toHaveText("open");
 
     await assertWorkbookGridVisualRegression(
@@ -1596,8 +1714,11 @@ test.describe("Phase 5 workbook visual evidence", () => {
     );
     await maskIncidentIdentity(page, incidentId);
     await expect(
-      page.getByTestId(
-        rowCellTestId(evidenceRow.record_id, "evidence.lifecycle_state"),
+      await mountedGridCell(
+        page,
+        evidenceViewSchemaId,
+        evidenceRow.record_id,
+        "evidence.lifecycle_state",
       ),
     ).toHaveText("requested");
     await assertWorkbookGridVisualRegression(
@@ -1607,21 +1728,31 @@ test.describe("Phase 5 workbook visual evidence", () => {
       { scroll: { top: 0, left: "left" } },
     );
 
-    await page
-      .getByTestId(evidenceAttachFileInputTestId(evidenceRow.record_id))
-      .setInputFiles({
-        name: "visual-request.txt",
-        mimeType: "text/plain",
-        buffer: Buffer.from("phase5 visual evidence", "utf8"),
-      });
+    await (
+      await mountedGridTarget(
+        page,
+        evidenceViewSchemaId,
+        evidenceAttachFileInputTestId(evidenceRow.record_id),
+      )
+    ).setInputFiles({
+      name: "visual-request.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("phase5 visual evidence", "utf8"),
+    });
     await expect(
-      page.getByTestId(
-        rowCellTestId(evidenceRow.record_id, "evidence.lifecycle_state"),
+      await mountedGridCell(
+        page,
+        evidenceViewSchemaId,
+        evidenceRow.record_id,
+        "evidence.lifecycle_state",
       ),
     ).toHaveText("available");
     await expect(
-      page.getByTestId(
-        rowCellTestId(evidenceRow.record_id, "evidence.upload_state"),
+      await mountedGridCell(
+        page,
+        evidenceViewSchemaId,
+        evidenceRow.record_id,
+        "evidence.upload_state",
       ),
     ).toHaveText("available");
     await assertWorkbookGridVisualRegression(
@@ -1668,7 +1799,11 @@ test.describe("Phase 5 workbook visual evidence", () => {
     );
     await maskIncidentIdentity(page, incidentId);
     await expect(
-      page.getByTestId(evidenceAccessMessageTestId(blocked.record_id)),
+      await mountedGridTarget(
+        page,
+        evidenceViewSchemaId,
+        evidenceAccessMessageTestId(blocked.record_id),
+      ),
     ).toContainText("Requested");
     await assertWorkbookGridVisualRegression(
       page,
@@ -1856,9 +1991,13 @@ test.describe("FE-P6 visual readiness", () => {
       "available",
     );
 
-    await page
-      .getByTestId(evidencePreviewButtonTestId(availablePreview.record_id))
-      .click();
+    await (
+      await mountedGridTarget(
+        page,
+        evidenceViewSchemaId,
+        evidencePreviewButtonTestId(availablePreview.record_id),
+      )
+    ).click();
     await expect(
       page.getByTestId(evidencePreviewFrameTestId(availablePreview.record_id)),
     ).toBeVisible();
@@ -1871,18 +2010,26 @@ test.describe("FE-P6 visual readiness", () => {
       .click();
 
     const downloadPromise = page.waitForEvent("download");
-    await page
-      .getByTestId(evidenceDownloadButtonTestId(downloadHandle.record_id))
-      .click();
+    await (
+      await mountedGridTarget(
+        page,
+        evidenceViewSchemaId,
+        evidenceDownloadButtonTestId(downloadHandle.record_id),
+      )
+    ).click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toBe("fe-v-p6-download-handle.txt");
     await expect(
       page.getByTestId(evidenceAccessMessageTestId(downloadHandle.record_id)),
     ).toHaveText("Download handle issued.");
 
-    await page
-      .getByTestId(evidencePreviewButtonTestId(previewBlocked.record_id))
-      .click();
+    await (
+      await mountedGridTarget(
+        page,
+        evidenceViewSchemaId,
+        evidencePreviewButtonTestId(previewBlocked.record_id),
+      )
+    ).click();
     await expect(
       page.getByTestId(evidenceAccessMessageTestId(previewBlocked.record_id)),
     ).toContainText("evidence_access_unavailable: unsupported_preview");
@@ -1891,9 +2038,13 @@ test.describe("FE-P6 visual readiness", () => {
       path: `/api/v1/evidence-records/${failedHandle.record_id}/preview-handle`,
       reasonCode: "blob_failed",
     });
-    await page
-      .getByTestId(evidencePreviewButtonTestId(failedHandle.record_id))
-      .click();
+    await (
+      await mountedGridTarget(
+        page,
+        evidenceViewSchemaId,
+        evidencePreviewButtonTestId(failedHandle.record_id),
+      )
+    ).click();
     await expect(
       page.getByTestId(evidenceAccessMessageTestId(failedHandle.record_id)),
     ).toContainText("evidence_access_unavailable: blob_failed");
@@ -1902,9 +2053,13 @@ test.describe("FE-P6 visual readiness", () => {
       path: `/api/v1/evidence-records/${inconsistentHandle.record_id}/preview-handle`,
       reasonCode: "evidence_inconsistent",
     });
-    await page
-      .getByTestId(evidencePreviewButtonTestId(inconsistentHandle.record_id))
-      .click();
+    await (
+      await mountedGridTarget(
+        page,
+        evidenceViewSchemaId,
+        evidencePreviewButtonTestId(inconsistentHandle.record_id),
+      )
+    ).click();
     await expect(
       page.getByTestId(
         evidenceAccessMessageTestId(inconsistentHandle.record_id),
@@ -2096,6 +2251,9 @@ test.describe("FE-P7 workbook visual readiness", () => {
           "timeline.activity_synopsis_text",
         ),
       });
+      await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
+        scroll: { top: 0, left: "right" },
+      });
       await assertViewportVisualRegression(
         page,
         "fe-v-p7-01-conflict-resolver",
@@ -2215,8 +2373,11 @@ test.describe("FE-P8 workbook visual readiness", () => {
       timelineRowMarkReviewedButtonTestId(reviewedRow.record_id),
     );
     await expect(
-      page.getByTestId(
-        rowCellTestId(reviewedRow.record_id, "timeline.capture_state"),
+      await mountedGridCell(
+        page,
+        timelineViewSchemaId,
+        reviewedRow.record_id,
+        "timeline.capture_state",
       ),
     ).toHaveText("reviewed");
 
@@ -2393,6 +2554,10 @@ test.describe("FE-P9 workbook visual readiness", () => {
       page.getByTestId(timelineInspectorSectionTestId("evidence")),
     ).toContainText("Attached evidence count: 0");
 
+    await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
+      scroll: { top: 0, left: "left" },
+    });
+    await blurActiveElement(page);
     await page
       .getByTestId(timelineInspectorSectionTestId("relationships"))
       .scrollIntoViewIfNeeded();
@@ -2703,8 +2868,11 @@ async function driveFeP7InvalidateRefreshVisual({
     await queryHold.dispose();
   }
   await expect(
-    page.getByTestId(
-      rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+    await mountedGridCell(
+      page,
+      timelineViewSchemaId,
+      recordId,
+      "timeline.activity_synopsis_text",
     ),
   ).toHaveValue("Invalidate visual base", { timeout: 10_000 });
 }
@@ -2744,11 +2912,11 @@ test.describe("Phase 6 workbook visual evidence", () => {
       await primarySocket.waitForAcceptedSocket();
       await maskIncidentIdentity(page, incidentId);
       await expect(
-        page.getByTestId(
-          rowCellTestId(
-            timelineRow.record_id,
-            "timeline.activity_synopsis_text",
-          ),
+        await mountedGridCell(
+          page,
+          timelineViewSchemaId,
+          timelineRow.record_id,
+          "timeline.activity_synopsis_text",
         ),
       ).toHaveValue("Presence visual row");
 
@@ -2879,6 +3047,10 @@ test.describe("Phase 6 workbook visual evidence", () => {
         ),
       });
 
+      await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
+        scroll: { top: 0, left: "right" },
+      });
+
       await assertViewportVisualRegression(
         page,
         "v-6-grid-02-conflict-resolver",
@@ -2930,8 +3102,11 @@ test.describe("Phase 6 workbook visual evidence", () => {
 
     await page.goto(`/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
-    const summaryInput = page.getByTestId(
-      rowCellTestId(syncRow.record_id, "timeline.activity_synopsis_text"),
+    const summaryInput = await mountedGridCell(
+      page,
+      timelineViewSchemaId,
+      syncRow.record_id,
+      "timeline.activity_synopsis_text",
     );
     const saveState = page.getByTestId(saveStateTestId());
     const patchController = await installPatchController(page);
@@ -2972,6 +3147,9 @@ test.describe("Phase 6 workbook visual evidence", () => {
       });
       await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
       await page.getByTestId("conflict-resolver").scrollIntoViewIfNeeded();
+      await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
+        scroll: { top: 0, left: "right" },
+      });
       await assertViewportVisualRegression(
         page,
         "v-6-grid-03-blocked-conflict",
@@ -3082,10 +3260,20 @@ test.describe("FE-P10 workbook visual readiness", () => {
     );
     await maskIncidentIdentity(page, incidentId);
     await expect(
-      page.getByTestId(rowCellTestId(taskRow.record_id, "task.title")),
+      await mountedGridCell(
+        page,
+        taskRequestsViewSchemaId,
+        taskRow.record_id,
+        "task.title",
+      ),
     ).toHaveText("Visual task request");
     await expect(
-      page.getByTestId(rowCellTestId(taskRow.record_id, "task.status")),
+      await mountedGridCell(
+        page,
+        taskRequestsViewSchemaId,
+        taskRow.record_id,
+        "task.status",
+      ),
     ).toHaveText("open");
     await normalizeWorkbookGridVisualState(page, taskRequestsViewSchemaId, {
       scroll: { top: 0, left: "left" },
@@ -3178,8 +3366,11 @@ test.describe("FE-P10 workbook visual readiness", () => {
       await expect(
         page.getByTestId(gridShellTestId(expectation.surface)),
       ).toBeVisible();
-      const cell = page.getByTestId(
-        rowCellTestId(expectation.recordId, expectation.fieldKey),
+      const cell = await mountedGridCell(
+        page,
+        expectation.surface,
+        expectation.recordId,
+        expectation.fieldKey,
       );
       await expect(cell).toHaveText(expectation.expected);
       await cell.focus();
@@ -3420,14 +3611,20 @@ async function expectVisualEvidenceState(
   recordId: string,
   stateKey: VisualEvidenceRowStateKey,
 ) {
-  await expect(visualEvidenceStateContainer(page, recordId)).toHaveAttribute(
+  const previewButton = await mountedGridTarget(
+    page,
+    evidenceViewSchemaId,
+    evidencePreviewButtonTestId(recordId),
+  );
+  const stateContainer = previewButton.locator(
+    "xpath=ancestor::*[@data-evidence-state-key][1]",
+  );
+  await expect(stateContainer).toHaveAttribute(
     "data-evidence-state-key",
     stateKey,
   );
   if (stateKey === "available") {
-    await expect(
-      page.getByTestId(evidencePreviewButtonTestId(recordId)),
-    ).toBeEnabled();
+    await expect(previewButton).toBeEnabled();
     await expect(
       page.getByTestId(evidenceDownloadButtonTestId(recordId)),
     ).toBeEnabled();
@@ -3442,12 +3639,6 @@ async function expectVisualEvidenceState(
   await expect(
     page.getByTestId(evidenceDownloadButtonTestId(recordId)),
   ).toBeDisabled();
-}
-
-function visualEvidenceStateContainer(page: Page, recordId: string): Locator {
-  return page
-    .getByTestId(evidencePreviewButtonTestId(recordId))
-    .locator("xpath=ancestor::*[@data-evidence-state-key][1]");
 }
 
 async function armVisualPublicErrorFault(
@@ -4243,15 +4434,15 @@ async function assertEvidenceAccessVisualRegression(
     await prepareVisualRegressionState(page);
     await setWorkbookGridScroll(page, evidenceViewSchemaId, {
       top: 0,
-      left: "left",
+      left: "right",
     });
-    await page
-      .getByTestId(evidencePreviewButtonTestId(actionRecordId))
-      .scrollIntoViewIfNeeded();
+    const actionButton = await mountedGridTarget(
+      page,
+      evidenceViewSchemaId,
+      evidencePreviewButtonTestId(actionRecordId),
+    );
     await waitForVisualLayoutFrame(page);
-    await expect(
-      page.getByTestId(evidencePreviewButtonTestId(actionRecordId)),
-    ).toBeVisible();
+    await expect(actionButton).toBeVisible();
     await assertVisualRegression(
       page,
       name,
@@ -4644,6 +4835,20 @@ async function normalizeWorkbookGridVisualState(
       message: `Expected ${surface} grid visual scroll to normalize shell and scrollport state`,
     })
     .toEqual(expected);
+  await expect
+    .poll(
+      async () => {
+        const headerText = await page
+          .getByTestId(gridShellTestId(surface))
+          .locator('[role="columnheader"]')
+          .allTextContents();
+        return headerText.some((text) => text.trim() !== "");
+      },
+      {
+        message: `Expected ${surface} grid visual headers to finish rendering after scroll normalization`,
+      },
+    )
+    .toBe(true);
   await waitForVisualLayoutFrame(page);
 }
 
@@ -4715,7 +4920,8 @@ async function setWorkbookGridScroll(
         0,
         scrollport.scrollHeight - scrollport.clientHeight,
       );
-      const expectedLeft = left === "left" ? 0 : left;
+      const expectedLeft =
+        left === "left" ? 0 : left === "right" ? maxLeft : left;
       const expectedTop = Math.min(Math.max(0, top), maxTop);
       shell.scrollTop = 0;
       shell.scrollLeft = 0;

@@ -139,6 +139,10 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
       autoResolutionReviewButtonTestId(String(eligibleItem.item_ref)),
     ),
   ).toBeVisible();
+  await ensureTimelineGridTargetVisible(
+    page,
+    rowCellTestId(eligibleRow.record_id, "timeline.activity_synopsis_text"),
+  );
   await expect(
     page.getByTestId(
       rowCellTestId(eligibleRow.record_id, "timeline.activity_synopsis_text"),
@@ -158,6 +162,10 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
   await expect(autoNotice).toHaveCount(0);
   await expect(eligibleRowItems.getByTestId(eligibleChipId)).not.toContainText(
     "Auto",
+  );
+  await ensureTimelineGridTargetVisible(
+    page,
+    rowCellTestId(eligibleRow.record_id, "timeline.activity_synopsis_text"),
   );
   await expect(
     page.getByTestId(

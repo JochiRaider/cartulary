@@ -1,9 +1,13 @@
-import { scrollGridToBottom } from "@cartulary/test-utils";
+import {
+  scrollGridCellIntoView,
+  scrollGridToBottom,
+} from "@cartulary/test-utils";
 import {
   mentionDismissButtonTestId,
   mentionItemTestId,
   mentionRestoreUnresolvedButtonTestId,
   relationshipItemsTestId,
+  rowCellTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import type { Page, Response } from "@playwright/test";
@@ -90,6 +94,17 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_synopsis_text",
+    page,
+    recordId: row.record_id,
+    surface: timelineViewSchemaId,
+  });
+  await page
+    .getByTestId(
+      rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),
+    )
+    .focus();
   await openTimelineInspector(page, row.record_id);
   await expect(
     page

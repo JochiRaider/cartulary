@@ -258,6 +258,31 @@ A user who can open a visible saved view MUST be able to duplicate it into a new
 Profiles: base
 Verified by: AC-152, AC-231
 
+**REQ-03-295**
+The workbook MUST own column order, hidden field keys, and sparse widths by `view_schema_id` using `cartulary.layout.v1`. Selecting or starting on a saved view MUST apply its layout; create, update, and duplicate MUST capture the current semantic layout; dirty comparison MUST include that layout; and reset MUST restore the selected saved-view layout or the schema default when no saved view is selected. The complete nontechnical field permutation remains authoritative even when fields are hidden. Structural grid columns, selection, focus, scroll, expansion, inspector, and vendor state MUST NOT enter the saved layout.
+Profiles: base
+Verified by: AC-480
+
+**REQ-03-296**
+Workbook sorting MUST be a controlled ordered list. Ordinary header or View-bar activation replaces the list; Ctrl/Cmd activation adds, cycles, or removes one field without changing the relative priority of other entries; both pointer and keyboard-accessible controls MUST expose priority and removal; and the adopted eight-entry maximum MUST be enforced before a query is dispatched. Sort state MUST use semantic field keys and MUST NOT persist vendor coordinates.
+Profiles: base
+Verified by: AC-480
+
+**REQ-03-297**
+Bulk record selection MUST be opt-in per view schema and MUST exist only when an adopted multi-record command consumes it. In the current profile, Timeline MAY expose selection for `multi_row_tag_assignment_v1`; other surfaces MUST omit bulk selection until an owner adopts a command. Active cell, inspector subject, and bulk selection are distinct state. Selection MUST use committed `record_id` values, exclude group and draft rows, carry current `base_row_version` targets at dispatch, and prune records removed from the accepted query result or authorization scope. Select-all means selectable committed records in the current query page only.
+Profiles: base
+Verified by: AC-481
+
+**REQ-03-298**
+Existing-row grid editing MUST be offered exactly for fields whose discovery entry declares `grid_editable=true`. Editors MUST preserve invalid local text and the original base row version until accepted, canceled, or explicitly discarded; MUST distinguish validation, conflict, stale-target, authorization, and other rejection outcomes; and MUST restore focus to the semantic record-and-field anchor after close. Create-only Indicator fields, append-only Assessment fields, action-payload fields, group rows, draft-as-record targets, and read-only interaction mode MUST reject existing-row grid mutation.
+Profiles: base
+Verified by: AC-482
+
+**REQ-03-299**
+Workbook grids MUST model query data state independently from interaction permission. The closed data-state vocabulary is `initial_loading`, `ready`, `refreshing`, `empty`, `filtered_empty`, `stale_error`, `unavailable`, and `permission_denied`; the interaction vocabulary is `editable` and `read_only`. Refreshing and stale-error states preserve prior authorized rows and dirty drafts; permission or incident-access loss clears protected rows and follows the existing access-loss path. Closed incidents retain readable rows and copy behavior, display the exact lifecycle text `Closed, read-only`, and prohibit editor, paste, fill, create, and bulk-command dispatch. These states are status or overlay presentation and MUST NOT be synthetic record rows.
+Profiles: base
+Verified by: AC-483, AC-484
+
 ### 2.4 Startup and default surface selection
 
 **REQ-03-027**

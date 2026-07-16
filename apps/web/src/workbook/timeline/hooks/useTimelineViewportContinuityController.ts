@@ -1,4 +1,4 @@
-import type { GridHandle } from "@cartulary/grid-adapter";
+import type { GridCellAnchor, GridHandle } from "@cartulary/grid-adapter";
 import {
   dataTestIdSelector,
   draftCellTestId,
@@ -154,15 +154,15 @@ export function useTimelineViewportContinuityController({
       if (gridShell === null || scroll === null || scrollElement === null) {
         return null;
       }
+      const containerRect = scrollElement.getBoundingClientRect();
+      const targetRect = target?.getBoundingClientRect() ?? null;
       return {
         scroll,
         anchor:
-          target === null
+          targetRect === null ||
+          !isRectFullyVisibleWithinContainer(containerRect, targetRect)
             ? null
-            : captureViewportAnchor(
-                scrollElement.getBoundingClientRect(),
-                target.getBoundingClientRect(),
-              ),
+            : captureViewportAnchor(containerRect, targetRect),
       };
     },
     [currentGridScrollElement, currentGridScrollSnapshot, gridShellRef],
@@ -192,11 +192,16 @@ export function useTimelineViewportContinuityController({
       preservedViewport: ViewportSnapshot | null,
     ) => {
       const currentViewport =
-        preservedViewport ??
-        ({
-          scroll: currentGridScrollSnapshot(),
-          anchor: null,
-        } satisfies ViewportSnapshot);
+        preservedViewport?.anchor === null
+          ? ({
+              scroll: currentGridScrollSnapshot(),
+              anchor: null,
+            } satisfies ViewportSnapshot)
+          : (preservedViewport ??
+            ({
+              scroll: currentGridScrollSnapshot(),
+              anchor: null,
+            } satisfies ViewportSnapshot));
       const preservedScroll = currentViewport.scroll;
       const focusResolvedElement = () => {
         const element = resolveElement();
@@ -351,11 +356,47 @@ export function useTimelineViewportContinuityController({
   const advanceViewportContinuityRef = useRef(advanceViewportContinuity);
   advanceViewportContinuityRef.current = advanceViewportContinuity;
 
+  const scrollToViewportContinuityTarget = useCallback(
+    (target: TimelineViewportContinuityTarget) => {
+      let anchor: GridCellAnchor | null = null;
+      if (target.kind === "row-inspect") {
+        anchor = {
+          fieldKey: "timeline.activity_synopsis_text",
+          recordId: target.recordId,
+          viewSchemaId: timelineViewSchemaId,
+        };
+      } else if (target.kind === "input") {
+        const [rowKey, fieldKey] = target.focusKey.split(":");
+        const scalarBinding = timelineScalarBindings.find(
+          (binding) => binding.key === fieldKey,
+        );
+        if (
+          rowKey !== undefined &&
+          !rowKey.startsWith("draft-") &&
+          scalarBinding !== undefined
+        ) {
+          anchor = {
+            fieldKey: scalarBinding.fieldKey,
+            recordId: rowKey,
+            viewSchemaId: timelineViewSchemaId,
+          };
+        }
+      }
+      return anchor === null
+        ? false
+        : (gridHandleRef.current?.scrollToAnchor(anchor) ?? false);
+    },
+    [gridHandleRef],
+  );
+
   const tryRestoreViewportContinuity = useCallback(
     (continuity: TimelineViewportContinuityRequest) => {
       if (continuity.target.kind === "scroll-only") {
         restoreGridScroll(continuity.preservedViewport?.scroll ?? null);
         return true;
+      }
+      if (resolveViewportContinuityElement(continuity.target) === null) {
+        scrollToViewportContinuityTarget(continuity.target);
       }
       return restoreGridViewportForElement(
         () => resolveViewportContinuityElement(continuity.target),
@@ -366,6 +407,7 @@ export function useTimelineViewportContinuityController({
       resolveViewportContinuityElement,
       restoreGridScroll,
       restoreGridViewportForElement,
+      scrollToViewportContinuityTarget,
     ],
   );
 
@@ -442,6 +484,7 @@ export function useTimelineViewportContinuityController({
       resolveViewportContinuityElement,
       restoreGridScroll,
       restoreGridViewportForElement,
+      scrollToViewportContinuityTarget,
       settleViewportContinuityBarrier,
     },
     refs: {

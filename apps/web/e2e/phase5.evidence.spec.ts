@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-
+import { scrollGridTargetIntoView } from "@cartulary/test-utils";
 import {
   dataTestIdSelector,
   evidenceAccessMessageTestId,
@@ -171,7 +171,13 @@ test("E-5-03 redeems inline-safe previews and shows explicit blocked-preview out
   });
 
   await openEvidenceSurface(page, incidentId);
-  await page.getByTestId(evidencePreviewButtonTestId(safe.record_id)).click();
+  const safePreviewButtonTestId = evidencePreviewButtonTestId(safe.record_id);
+  await scrollGridTargetIntoView({
+    page,
+    surface: evidenceViewSchemaId,
+    targetTestId: safePreviewButtonTestId,
+  });
+  await page.getByTestId(safePreviewButtonTestId).click();
   await expect(
     page.getByTestId(evidencePreviewFrameTestId(safe.record_id)),
   ).toBeVisible();
@@ -183,7 +189,15 @@ test("E-5-03 redeems inline-safe previews and shows explicit blocked-preview out
       .locator("body"),
   ).toContainText("safe preview body");
 
-  await page.getByTestId(evidencePreviewButtonTestId(unsafe.record_id)).click();
+  const unsafePreviewButtonTestId = evidencePreviewButtonTestId(
+    unsafe.record_id,
+  );
+  await scrollGridTargetIntoView({
+    page,
+    surface: evidenceViewSchemaId,
+    targetTestId: unsafePreviewButtonTestId,
+  });
+  await page.getByTestId(unsafePreviewButtonTestId).click();
   await expect(
     page.getByTestId(evidenceAccessMessageTestId(unsafe.record_id)),
   ).toContainText("unsupported_preview");
@@ -210,23 +224,48 @@ test("E-5-04 tracks requested evidence before a blob exists and later advances i
   await openEvidenceSurface(page, incidentId);
   await setGenericCreateField(page, "evidence.title", "Requested package");
   await setGenericCreateField(page, "evidence.storage_ref", "ticket://E5-04");
-  await page
-    .getByTestId(genericCreateSubmitTestId(evidenceViewSchemaId))
-    .click();
+  const submitTestId = genericCreateSubmitTestId(evidenceViewSchemaId);
+  await scrollGridTargetIntoView({
+    page,
+    surface: evidenceViewSchemaId,
+    targetTestId: submitTestId,
+  });
+  await page.getByTestId(submitTestId).click();
 
   const requested = await waitForEvidenceRow(
     page,
     incidentId,
     "Requested package",
   );
+  await scrollGridTargetIntoView({
+    page,
+    surface: evidenceViewSchemaId,
+    targetTestId: rowCellTestId(requested.record_id, "evidence.title"),
+  });
+  await page
+    .getByTestId(rowCellTestId(requested.record_id, "evidence.title"))
+    .focus();
   await expect(
     page.getByTestId(rowCellTestId(requested.record_id, "evidence.title")),
   ).toHaveText("Requested package");
+  await scrollGridTargetIntoView({
+    page,
+    surface: evidenceViewSchemaId,
+    targetTestId: rowCellTestId(
+      requested.record_id,
+      "evidence.lifecycle_state",
+    ),
+  });
   await expect(
     page.getByTestId(
       rowCellTestId(requested.record_id, "evidence.lifecycle_state"),
     ),
   ).toHaveText("requested");
+  await scrollGridTargetIntoView({
+    page,
+    surface: evidenceViewSchemaId,
+    targetTestId: rowCellTestId(requested.record_id, "evidence.upload_state"),
+  });
   await expect(
     page.getByTestId(
       rowCellTestId(requested.record_id, "evidence.upload_state"),
@@ -282,6 +321,11 @@ test("E-5-04 tracks requested evidence before a blob exists and later advances i
   ).toBeVisible();
 
   await openEvidenceSurface(page, incidentId);
+  await scrollGridTargetIntoView({
+    page,
+    surface: evidenceViewSchemaId,
+    targetTestId: evidenceAttachFileInputTestId(requested.record_id),
+  });
   await page
     .getByTestId(evidenceAttachFileInputTestId(requested.record_id))
     .setInputFiles({
@@ -295,11 +339,21 @@ test("E-5-04 tracks requested evidence before a blob exists and later advances i
     incidentId,
     "Requested package",
   );
+  await scrollGridTargetIntoView({
+    page,
+    surface: evidenceViewSchemaId,
+    targetTestId: rowCellTestId(advanced.record_id, "evidence.lifecycle_state"),
+  });
   await expect(
     page.getByTestId(
       rowCellTestId(advanced.record_id, "evidence.lifecycle_state"),
     ),
   ).toHaveText("available");
+  await scrollGridTargetIntoView({
+    page,
+    surface: evidenceViewSchemaId,
+    targetTestId: rowCellTestId(advanced.record_id, "evidence.upload_state"),
+  });
   await expect(
     page.getByTestId(
       rowCellTestId(advanced.record_id, "evidence.upload_state"),
@@ -436,7 +490,13 @@ async function setGenericCreateField(
   fieldKey: string,
   value: string,
 ) {
-  await page.getByTestId(genericCreateFieldTestId(fieldKey)).fill(value);
+  const fieldTestId = genericCreateFieldTestId(fieldKey);
+  await scrollGridTargetIntoView({
+    page,
+    surface: evidenceViewSchemaId,
+    targetTestId: fieldTestId,
+  });
+  await page.getByTestId(fieldTestId).fill(value);
 }
 
 async function waitForEvidenceRow(
@@ -455,6 +515,11 @@ async function waitForEvidenceRow(
       (candidate) => candidate.cells["evidence.title"]?.value === title,
     );
     if (row !== undefined) {
+      await scrollGridTargetIntoView({
+        page,
+        surface: evidenceViewSchemaId,
+        targetTestId: rowCellTestId(row.record_id, "evidence.title"),
+      });
       await expect(
         page.getByTestId(rowCellTestId(row.record_id, "evidence.title")),
       ).toBeVisible();

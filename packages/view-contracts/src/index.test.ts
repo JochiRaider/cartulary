@@ -30,6 +30,7 @@ function fixtureRawContract() {
         field_key: "fixture.editable",
         label: "Editable Field",
         write_kind: "direct_value",
+        grid_editable: true,
       },
       {
         field_key: "fixture.queryable",
@@ -299,6 +300,14 @@ describe("view-contracts", () => {
     expect(
       assessments.fieldMap["assessment.confidence_band"]?.enumValues,
     ).toEqual(["unset", "low", "medium", "high"]);
+    expect(
+      assessments.fieldMap["assessment.assessment_state"]?.gridEditable,
+    ).toBe(false);
+    expect(
+      requireViewContract("cartulary.view.indicators.v1").fieldMap[
+        "indicator.display_value"
+      ]?.gridEditable,
+    ).toBe(false);
   });
 
   it("exposes mutation metadata needed by workbook controls", () => {
@@ -314,6 +323,11 @@ describe("view-contracts", () => {
       evidence.fieldMap["evidence.collector_party_id"]
         ?.directReferenceContractId,
     ).toBe("same_incident_party_ref_v1");
+    expect(
+      requireViewContract("cartulary.view.task_requests.v1").fieldMap[
+        "task.owner_user_id"
+      ]?.directReferenceContractId,
+    ).toBe("incident_member_user_ref_v1");
     expect(evidence.fieldMap["evidence.lifecycle_state"]?.enumValues).toEqual([
       "requested",
       "pending_receipt",
@@ -688,6 +702,7 @@ describe("FE-U-P0-02 view-schema field-key adapter contract", () => {
           field_key: "fixture.editable",
           label: "Editable Field Renamed",
           write_kind: "direct_value",
+          grid_editable: true,
         },
         {
           field_key: "fixture.queryable",
@@ -738,6 +753,7 @@ describe("FE-U-P0-02 view-schema field-key adapter contract", () => {
           field_key: "fixture.editable",
           label: "Shared Display Label",
           write_kind: "direct_value",
+          grid_editable: true,
         },
         {
           field_key: "fixture.queryable",

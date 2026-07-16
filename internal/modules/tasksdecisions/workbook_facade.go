@@ -470,7 +470,7 @@ func validateCreateRequest(request WorkbookCreateRequest) error {
 func validateCreateReferencesTx(ctx context.Context, tx pgx.Tx, linkStore workbookCollectionLinkPort, incidentID uuid.UUID, request WorkbookCreateRequest) error {
 	for fieldKey, value := range request.Values {
 		if value.UUID != nil && strings.HasSuffix(fieldKey, "_user_id") {
-			if err := validateActiveUserTx(ctx, tx, *value.UUID, fieldKey); err != nil {
+			if err := validateIncidentMemberUserTx(ctx, tx, incidentID, *value.UUID, fieldKey); err != nil {
 				return err
 			}
 		}
@@ -491,7 +491,7 @@ func validateCreateReferencesTx(ctx context.Context, tx pgx.Tx, linkStore workbo
 func validatePatchReferencesTx(ctx context.Context, tx pgx.Tx, linkStore workbookCollectionLinkPort, incidentID uuid.UUID, request WorkbookPatchRequest) error {
 	for _, change := range request.Changes {
 		if change.Value != nil && change.Value.UUID != nil && strings.HasSuffix(change.FieldKey, "_user_id") {
-			if err := validateActiveUserTx(ctx, tx, *change.Value.UUID, change.FieldKey); err != nil {
+			if err := validateIncidentMemberUserTx(ctx, tx, incidentID, *change.Value.UUID, change.FieldKey); err != nil {
 				return err
 			}
 		}
@@ -520,9 +520,17 @@ func validateDirectReferenceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.U
 	}
 }
 
-func validateActiveUserTx(ctx context.Context, tx pgx.Tx, userID uuid.UUID, field string) error {
+func validateIncidentMemberUserTx(ctx context.Context, tx pgx.Tx, incidentID, userID uuid.UUID, field string) error {
 	var exists bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM users WHERE id = $1 AND is_active = true)`, userID).Scan(&exists); err != nil {
+	if err := tx.QueryRow(ctx, `
+SELECT EXISTS (
+  SELECT 1
+    FROM users u
+    JOIN incident_memberships m ON m.user_id = u.id
+   WHERE u.id = $1
+     AND u.is_active = true
+     AND m.incident_id = $2
+)`, userID, incidentID).Scan(&exists); err != nil {
 		return fmt.Errorf("validate user: %w", err)
 	}
 	if !exists {

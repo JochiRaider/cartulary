@@ -333,6 +333,7 @@ describe("WorkbookShell surface selection", () => {
     source: "default" | "explicit" | "home" | "timeline";
   };
   let uploadShouldFail: boolean;
+  let incidentStatus: "active" | "closed";
 
   beforeEach(() => {
     window.history.replaceState({}, "", "/");
@@ -356,6 +357,7 @@ describe("WorkbookShell surface selection", () => {
       source: "timeline",
     };
     uploadShouldFail = false;
+    incidentStatus = "active";
     fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       const method = (init?.method ?? "GET").toUpperCase();
@@ -376,6 +378,7 @@ describe("WorkbookShell surface selection", () => {
           current_phase: null,
           primary_external_case_ref: null,
           incident_version: 1,
+          status: incidentStatus,
         });
       }
       if (url.endsWith("/api/v1/incidents/incident-1/memberships")) {
@@ -722,6 +725,23 @@ describe("WorkbookShell surface selection", () => {
     cleanup();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it("keeps closed incidents readable while disabling grid mutation entry points", async () => {
+    incidentStatus = "closed";
+
+    render(<WorkbookShell incidentId="incident-1" />);
+
+    expect(await screen.findByText("Closed, read-only")).toBeTruthy();
+    const addRow = await screen.findByTestId(
+      workbookAddRowButtonTestId(timelineViewSchemaId),
+    );
+    expect((addRow as HTMLButtonElement).disabled).toBe(true);
+    await waitFor(() => {
+      expect(screen.getByRole("grid").getAttribute("aria-readonly")).toBe(
+        "true",
+      );
+    });
   });
 
   it("opens incident controls from a menu into a bounded drawer without mounting all controls from the trigger", async () => {
@@ -1262,10 +1282,10 @@ describe("WorkbookShell surface selection", () => {
     render(<WorkbookShell incidentId="incident-1" />);
 
     expect(
-      (await screen.findByTestId("generic-surface-load-error")).textContent,
-    ).toContain(
-      `Surface load returned ${evidenceViewSchemaId} for ${statusReviewViewSchemaId}.`,
-    );
+      await screen.findByText(
+        `Surface load returned ${evidenceViewSchemaId} for ${statusReviewViewSchemaId}.`,
+      ),
+    ).toBeTruthy();
     expect(
       screen.queryByTestId(
         rowCellTestId("status-review-1", "status_review.current_state_summary"),
@@ -1745,16 +1765,45 @@ describe("WorkbookShell surface selection", () => {
     expect(currentRecordIds(evidenceViewSchemaId)).toEqual(["evidence-newer"]);
   });
 
+  it("retains accepted generic rows and marks them stale when refresh fails", async () => {
+    evidenceRows = [evidenceRow("evidence-retained", 3, "retained")];
+    queryResponseOverride = (viewSchemaId, init) => {
+      if (viewSchemaId !== evidenceViewSchemaId) return null;
+      return stringFilterValue(parseRequestBody(init)) === "failure"
+        ? errorEnvelope("projection_failed", 500)
+        : null;
+    };
+
+    render(<WorkbookShell incidentId="incident-1" />);
+    fireEvent.click(
+      await screen.findByTestId(surfaceTabTestId(evidenceViewSchemaId)),
+    );
+    await expectRecordIds(evidenceViewSchemaId, ["evidence-retained"]);
+
+    applyGenericFilter(evidenceViewSchemaId, "evidence.storage_ref", "failure");
+
+    expect(
+      await screen.findByText(
+        "projection_failed Previously loaded rows may be stale.",
+      ),
+    ).toBeTruthy();
+    expect(currentRecordIds(evidenceViewSchemaId)).toEqual([
+      "evidence-retained",
+    ]);
+  });
+
   it("keeps generic surface access loss routed through the shell access-lost callback", async () => {
     const onIncidentAccessLost = vi.fn();
+    evidenceRows = [evidenceRow("evidence-protected", 2, "protected")];
     startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: evidenceViewSchemaId },
       selected_view_schema_id: evidenceViewSchemaId,
       selected_saved_view: null,
       source: "explicit",
     };
-    queryResponseOverride = (viewSchemaId) =>
-      viewSchemaId === evidenceViewSchemaId
+    queryResponseOverride = (viewSchemaId, init) =>
+      viewSchemaId === evidenceViewSchemaId &&
+      stringFilterValue(parseRequestBody(init)) === "denied"
         ? errorEnvelope("authorization_denied", 403)
         : null;
 
@@ -1765,12 +1814,14 @@ describe("WorkbookShell surface selection", () => {
       />,
     );
 
+    await expectRecordIds(evidenceViewSchemaId, ["evidence-protected"]);
+    applyGenericFilter(evidenceViewSchemaId, "evidence.storage_ref", "denied");
+
     await waitFor(() => {
       expect(onIncidentAccessLost).toHaveBeenCalledTimes(1);
     });
-    expect(
-      (await screen.findByTestId("generic-surface-load-error")).textContent,
-    ).toContain("authorization_denied");
+    expect(await screen.findByText("authorization_denied")).toBeTruthy();
+    expect(currentRecordIds(evidenceViewSchemaId)).toEqual([]);
   });
 
   it("keeps entity surface access loss routed through the shell access-lost callback", async () => {
@@ -1796,9 +1847,7 @@ describe("WorkbookShell surface selection", () => {
     await waitFor(() => {
       expect(onIncidentAccessLost).toHaveBeenCalledTimes(1);
     });
-    expect((await screen.findByTestId("entity-load-error")).textContent).toBe(
-      "authorization_denied",
-    );
+    expect(await screen.findByText("authorization_denied")).toBeTruthy();
   });
 
   it("keeps assessment surface access loss routed through the shell access-lost callback", async () => {
@@ -1824,9 +1873,7 @@ describe("WorkbookShell surface selection", () => {
     await waitFor(() => {
       expect(onIncidentAccessLost).toHaveBeenCalledTimes(1);
     });
-    expect(
-      (await screen.findByTestId("assessment-surface-load-error")).textContent,
-    ).toBe("authorization_denied");
+    expect(await screen.findByText("authorization_denied")).toBeTruthy();
   });
 
   it("dispatches entity-origin paste through create targets while preserving exact-match reuse results", async () => {
@@ -1850,6 +1897,7 @@ describe("WorkbookShell surface selection", () => {
     const displayNameCell = await screen.findByTestId(
       rowCellTestId("host-existing", "host.display_name"),
     );
+    fireEvent.click(displayNameCell);
     const pasteEvent = createEvent.paste(displayNameCell, {
       clipboardData: {
         getData: () =>

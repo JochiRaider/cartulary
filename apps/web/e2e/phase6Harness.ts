@@ -1,5 +1,5 @@
 import { performance } from "node:perf_hooks";
-
+import { scrollGridCellIntoView } from "@cartulary/test-utils";
 import {
   cellPresenceMarkerTestId,
   conflictMarkerTestId,
@@ -117,6 +117,12 @@ export async function openIncidentAsTrackedUserReady(
   const socketMonitor = installIncidentSocketMonitor(page, options.incidentId);
   await page.goto(`/?incident_id=${options.incidentId}`);
   const acceptedSocket = await socketMonitor.waitForAcceptedSocket();
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_synopsis_text",
+    page,
+    recordId: options.readyRecordId,
+    surface: timelineViewSchemaId,
+  });
   await expect(
     page.getByTestId(
       rowCellTestId(options.readyRecordId, "timeline.activity_synopsis_text"),
@@ -158,6 +164,12 @@ export async function editTimelineSummary(
   recordId: string,
   value: string,
 ) {
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_synopsis_text",
+    page,
+    recordId,
+    surface: timelineViewSchemaId,
+  });
   const input = page.getByTestId(
     rowCellTestId(recordId, "timeline.activity_synopsis_text"),
   );
@@ -395,6 +407,12 @@ export async function exerciseRevokedPendingReplay({
     const socketMonitor = installIncidentSocketMonitor(page, incidentId);
     await page.goto(`/?incident_id=${incidentId}`);
     await socketMonitor.waitForAcceptedSocket();
+    await scrollGridCellIntoView({
+      cellKey: "timeline.activity_synopsis_text",
+      page,
+      recordId: firstReplayItem.recordId,
+      surface: timelineViewSchemaId,
+    });
     await expect(
       page.getByTestId(
         rowCellTestId(
@@ -431,6 +449,12 @@ export async function exerciseRevokedPendingReplay({
       await editTimelineSummary(page, item.recordId, item.value);
     }
     for (const item of replayItems) {
+      await scrollGridCellIntoView({
+        cellKey: "timeline.activity_synopsis_text",
+        page,
+        recordId: item.recordId,
+        surface: timelineViewSchemaId,
+      });
       await expect(
         page.getByTestId(
           rowCellTestId(item.recordId, "timeline.activity_synopsis_text"),
@@ -783,6 +807,18 @@ export async function focusRemoteTimelineCellAndWaitForPresence({
       ...(timeoutMs === undefined ? {} : { timeoutMs }),
     },
   );
+  await scrollGridCellIntoView({
+    cellKey: fieldKey,
+    page: remotePage,
+    recordId,
+    surface: timelineViewSchemaId,
+  });
+  await scrollGridCellIntoView({
+    cellKey: fieldKey,
+    page: primaryPage,
+    recordId,
+    surface: timelineViewSchemaId,
+  });
   await remotePage.getByTestId(rowCellTestId(recordId, fieldKey)).focus();
   const presenceMessage = await markerPresence;
   const rowMarker = primaryPage.getByTestId(rowPresenceMarkerTestId(recordId));

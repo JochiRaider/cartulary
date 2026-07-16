@@ -8,6 +8,7 @@ import {
 
 import {
   type BrowserEvaluate,
+  type BrowserLocator,
   type BrowserPageLike,
   delay,
   isLocatorVisible,
@@ -19,12 +20,13 @@ export const viewportVisibilityTolerancePx = 1;
 type GridScrollAction =
   | { kind: "bottom" }
   | { kind: "none" }
-  | { kind: "offset"; top: number };
+  | { kind: "offset"; left?: number; top: number };
 
 export type GridScrollDiagnostics = {
   readonly clientHeight: number;
   readonly clientWidth: number;
   readonly left: number;
+  readonly maxLeft: number;
   readonly maxTop: number;
   readonly mountedRowIds: readonly string[];
   readonly scrollHeight: number;
@@ -69,6 +71,20 @@ export async function scrollGridToOffset(
   return readScrollSnapshot(evaluate, surface, { kind: "offset", top });
 }
 
+async function scrollGridToPosition(
+  page: BrowserPageLike,
+  surface: WorkbookSurface,
+  top: number,
+  left: number,
+) {
+  const grid = page.getByTestId(gridShellTestId(surface));
+  const evaluate = requireEvaluate(
+    grid,
+    `scrollGridToPosition(${surface}) requires locator.evaluate() support`,
+  );
+  return readScrollSnapshot(evaluate, surface, { kind: "offset", left, top });
+}
+
 export async function scrollGridCellIntoView(options: {
   cellKey: string;
   intervalMs?: number;
@@ -106,8 +122,7 @@ export async function scrollGridTargetIntoView(options: {
     timeoutMs = 3_000,
   } = options;
   const target = page.getByTestId(targetTestId);
-  if (await isLocatorVisible(target)) {
-    await target.scrollIntoViewIfNeeded?.();
+  if (await alignVisibleGridTarget(target)) {
     return readGridScroll(page, surface);
   }
 
@@ -116,30 +131,41 @@ export async function scrollGridTargetIntoView(options: {
   const observation = createGridTargetScanObservation();
 
   for (;;) {
-    if (await isLocatorVisible(target)) {
-      await target.scrollIntoViewIfNeeded?.();
+    if (await alignVisibleGridTarget(target)) {
       return readGridScroll(page, surface);
     }
 
     let state = await readGridScrollDiagnostics(page, surface);
     observeGridTargetScanState(observation, state);
     let scanRangeGrew = false;
+    const scanMaxLeft = state.maxLeft;
     const scanMaxTop = state.maxTop;
-    const scanOffsets = buildGridScanOffsets(state);
+    const scanTopOffsets = buildGridAxisScanOffsets(
+      state.maxTop,
+      state.clientHeight,
+    );
+    const scanLeftOffsets = buildGridAxisScanOffsets(
+      state.maxLeft,
+      state.clientWidth,
+    );
 
-    for (const top of scanOffsets) {
-      await scrollGridToOffset(page, surface, top);
-      observation.scrollAttempts += 1;
-      await waitForGridTargetRetry(retryIntervalMs);
-      if (await isLocatorVisible(target)) {
-        await target.scrollIntoViewIfNeeded?.();
-        return readGridScroll(page, surface);
+    for (const left of scanLeftOffsets) {
+      for (const top of scanTopOffsets) {
+        await scrollGridToPosition(page, surface, top, left);
+        observation.scrollAttempts += 1;
+        await waitForGridTargetRetry(retryIntervalMs);
+        if (await alignVisibleGridTarget(target)) {
+          return readGridScroll(page, surface);
+        }
+        state = await readGridScrollDiagnostics(page, surface);
+        observeGridTargetScanState(observation, state);
+        if (state.maxTop > scanMaxTop || state.maxLeft > scanMaxLeft) {
+          observation.scrollRangeGrowths += 1;
+          scanRangeGrew = true;
+          break;
+        }
       }
-      state = await readGridScrollDiagnostics(page, surface);
-      observeGridTargetScanState(observation, state);
-      if (state.maxTop > scanMaxTop) {
-        observation.scrollRangeGrowths += 1;
-        scanRangeGrew = true;
+      if (scanRangeGrew) {
         break;
       }
     }
@@ -152,6 +178,10 @@ export async function scrollGridTargetIntoView(options: {
     observation.completedScanMaxTop = Math.max(
       observation.completedScanMaxTop,
       scanMaxTop,
+    );
+    observation.completedScanMaxLeft = Math.max(
+      observation.completedScanMaxLeft,
+      scanMaxLeft,
     );
     if (Date.now() > deadline) {
       break;
@@ -167,7 +197,10 @@ export async function scrollGridTargetIntoView(options: {
       `scrollTop=${finalState.top}`,
       `scrollLeft=${finalState.left}`,
       `clientHeight=${finalState.clientHeight}`,
+      `clientWidth=${finalState.clientWidth}`,
       `scrollHeight=${finalState.scrollHeight}`,
+      `scrollWidth=${finalState.scrollWidth}`,
+      `maxLeft=${finalState.maxLeft}`,
       `maxTop=${finalState.maxTop}`,
       `mountedRowIds=${finalState.mountedRowIds.join(",") || "(none)"}`,
       `scanCycles=${observation.scanCycles}`,
@@ -175,13 +208,30 @@ export async function scrollGridTargetIntoView(options: {
       `scrollAttempts=${observation.scrollAttempts}`,
       `scrollRangeGrowths=${observation.scrollRangeGrowths}`,
       `observedScrollable=${observation.scrollableScanCycles > 0}`,
+      `observedMaxLeft=${observation.maxLeft}`,
       `observedMaxTop=${observation.maxTop}`,
+      `completedScanMaxLeft=${observation.completedScanMaxLeft}`,
       `completedScanMaxTop=${observation.completedScanMaxTop}`,
       `observedMountedRowIds=${
         Array.from(observation.mountedRowIds).join(",") || "(none)"
       }`,
     ].join(" "),
   );
+}
+
+async function alignVisibleGridTarget(target: BrowserLocator) {
+  if (!(await isLocatorVisible(target))) {
+    return false;
+  }
+  try {
+    await target.scrollIntoViewIfNeeded?.();
+  } catch {
+    // RDG may remount a virtualized cell while Playwright is waiting for that
+    // element to settle. Treat the detached node as a scan retry; the stable
+    // semantic locator will resolve the replacement on the next attempt.
+    return false;
+  }
+  return isLocatorVisible(target);
 }
 
 export async function assertMountedGridRowCountAtMost(options: {
@@ -353,6 +403,7 @@ function readGridScrollState(
     typeof rawAction === "object" && rawAction !== null
       ? (rawAction as {
           kind?: unknown;
+          left?: unknown;
           savedRowsSelector?: unknown;
           scrollportSelector?: unknown;
           surface?: unknown;
@@ -388,6 +439,9 @@ function readGridScrollState(
         ? action.top
         : 0;
     gridScrollport.scrollTop = nextTop;
+    if (typeof action.left === "number" && Number.isFinite(action.left)) {
+      gridScrollport.scrollLeft = action.left;
+    }
   }
 
   const scrollHeight = gridScrollport.scrollHeight;
@@ -400,6 +454,10 @@ function readGridScrollState(
     clientHeight,
     clientWidth: gridScrollport.clientWidth,
     left: gridScrollport.scrollLeft,
+    maxLeft: Math.max(
+      0,
+      gridScrollport.scrollWidth - gridScrollport.clientWidth,
+    ),
     maxTop: Math.max(0, scrollHeight - clientHeight),
     mountedRowIds: Array.from(
       element.querySelectorAll<HTMLElement>(savedRowsSelector),
@@ -410,23 +468,25 @@ function readGridScrollState(
   };
 }
 
-function buildGridScanOffsets(state: GridScrollDiagnostics) {
-  const maxTop = Math.max(0, state.maxTop);
-  if (maxTop === 0) {
+function buildGridAxisScanOffsets(maximum: number, viewportSize: number) {
+  const maxOffset = Math.max(0, maximum);
+  if (maxOffset === 0) {
     return [0];
   }
-  const step = Math.max(1, Math.floor(Math.max(state.clientHeight, 1) / 2));
+  const step = Math.max(1, Math.floor(Math.max(viewportSize, 1) / 2));
   const offsets = [0];
-  for (let top = step; top < maxTop; top += step) {
-    offsets.push(top);
+  for (let offset = step; offset < maxOffset; offset += step) {
+    offsets.push(offset);
   }
-  offsets.push(maxTop);
+  offsets.push(maxOffset);
   return Array.from(new Set(offsets));
 }
 
 type GridTargetScanObservation = {
   completedScanCycles: number;
+  completedScanMaxLeft: number;
   completedScanMaxTop: number;
+  maxLeft: number;
   maxTop: number;
   mountedRowIds: Set<string>;
   scanCycles: number;
@@ -438,7 +498,9 @@ type GridTargetScanObservation = {
 function createGridTargetScanObservation(): GridTargetScanObservation {
   return {
     completedScanCycles: 0,
+    completedScanMaxLeft: 0,
     completedScanMaxTop: 0,
+    maxLeft: 0,
     maxTop: 0,
     mountedRowIds: new Set(),
     scanCycles: 0,
@@ -453,8 +515,9 @@ function observeGridTargetScanState(
   state: GridScrollDiagnostics,
 ) {
   observation.scanCycles += 1;
+  observation.maxLeft = Math.max(observation.maxLeft, state.maxLeft);
   observation.maxTop = Math.max(observation.maxTop, state.maxTop);
-  if (state.maxTop > 0) {
+  if (state.maxTop > 0 || state.maxLeft > 0) {
     observation.scrollableScanCycles += 1;
   }
   for (const rowId of state.mountedRowIds) {

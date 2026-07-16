@@ -3,6 +3,7 @@ import {
   type GridDensity,
   type GridGroupingDescriptor,
   type GridHandle,
+  type GridInteractionMode,
   type GridRecordRow,
   GridViewport,
   WorkbookDataGrid,
@@ -17,7 +18,6 @@ import {
 import {
   requireViewContract,
   resolveHeaderSortFieldKey,
-  visibleFields,
 } from "@cartulary/view-contracts";
 import { X } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
@@ -41,9 +41,17 @@ import {
 } from "../models/genericWorkbookModel";
 import { workbookGridRows } from "../models/workbookContractRows";
 import {
+  type WorkbookQueryLoadState,
+  workbookGridDataState,
+} from "../models/workbookGridState";
+import {
   inspectorPanelIsDeclared,
   selectInspectorConfig,
 } from "../models/workbookInspectorModel";
+import {
+  applyWorkbookLayoutToColumns,
+  type WorkbookResolvedLayoutState,
+} from "../models/workbookLayout";
 import type { ViewMutationEnvelope } from "../models/workbookMutations";
 import type { WorkbookQueryState } from "../models/workbookQuery";
 import { assessmentsViewSchemaId } from "../models/workbookSurfaceRegistry";
@@ -66,7 +74,6 @@ import {
   WorkbookSurfaceFrame,
   workbookSurfaceGridShellStyle,
   workbookSurfaceInspectorPanelStyle,
-  workbookSurfaceOverlayPanelStyle,
 } from "./WorkbookSurfaceFrame";
 
 const assessmentsContract = requireViewContract(assessmentsViewSchemaId);
@@ -81,9 +88,14 @@ export type AssessmentWorkbookSurfaceProps = {
   hostRows: EntityRow[];
   identityRows: EntityRow[];
   incidentId: string;
-  loadError: string | null;
+  layoutState: WorkbookResolvedLayoutState;
+  loadState: WorkbookQueryLoadState;
+  interactionMode: GridInteractionMode;
+  onClearFilters: () => void;
   onRefreshAssessmentRows: () => Promise<void>;
-  onToggleSort: (fieldKey: string) => void;
+  onColumnReorder: (sourceFieldKey: string, targetFieldKey: string) => void;
+  onColumnWidthChange: (fieldKey: string, width: number) => void;
+  onSortChange: (sort: WorkbookQueryState["sort"]) => void;
   queryState: WorkbookQueryState;
 };
 
@@ -97,9 +109,14 @@ export function AssessmentWorkbookSurface({
   hostRows,
   identityRows,
   incidentId,
-  loadError,
+  layoutState,
+  loadState,
+  interactionMode,
+  onClearFilters,
   onRefreshAssessmentRows,
-  onToggleSort,
+  onColumnReorder,
+  onColumnWidthChange,
+  onSortChange,
   queryState,
 }: AssessmentWorkbookSurfaceProps) {
   const [draft, setDraft] = useState<AssessmentCreateDraft>(() =>
@@ -120,9 +137,10 @@ export function AssessmentWorkbookSurface({
   );
   const subjectRows = draft.subjectType === "host" ? hostRows : identityRows;
   const canCreate =
-    currentIncidentRole === "editor" ||
-    currentIncidentRole === "reviewer" ||
-    currentIncidentRole === "admin";
+    interactionMode.kind === "editable" &&
+    (currentIncidentRole === "editor" ||
+      currentIncidentRole === "reviewer" ||
+      currentIncidentRole === "admin");
   const stateOptions = enumValuesFor(
     assessmentsContract,
     "assessment.assessment_state",
@@ -133,25 +151,38 @@ export function AssessmentWorkbookSurface({
     "assessment.confidence_band",
     ["unset", "low", "medium", "high"],
   ).filter(isAssessmentConfidenceBand);
-  const anchorColumns: readonly GridColumn<EntityApiRow>[] = visibleFields(
-    assessmentsContract,
-  ).map((field) => ({
-    fieldKey: field.fieldKey,
-    headerTestId: gridSortHeaderTestId(assessmentsViewSchemaId, field.fieldKey),
-    label: field.label,
-    width: assessmentColumnWidth(field.fieldKey),
-    renderCell: () => null,
-    sortableFieldKey: resolveHeaderSortFieldKey(
-      assessmentsContract,
-      field.fieldKey,
-    ),
-  }));
-  const gridRows: readonly GridRecordRow<EntityApiRow>[] = workbookGridRows({
-    getRecordId: (row) => row.record_id,
-    getRowVersion: (row) => row.row_version,
-    rows: assessmentRows,
-    surface: assessmentsViewSchemaId,
-  });
+  const anchorColumns = useMemo<readonly GridColumn<EntityApiRow>[]>(
+    () =>
+      applyWorkbookLayoutToColumns(
+        assessmentsContract,
+        assessmentsContract.fields.map((field) => ({
+          fieldKey: field.fieldKey,
+          headerTestId: gridSortHeaderTestId(
+            assessmentsViewSchemaId,
+            field.fieldKey,
+          ),
+          label: field.label,
+          width: assessmentColumnWidth(field.fieldKey),
+          renderCell: () => null,
+          sortableFieldKey: resolveHeaderSortFieldKey(
+            assessmentsContract,
+            field.fieldKey,
+          ),
+        })),
+        layoutState,
+      ),
+    [layoutState],
+  );
+  const gridRows = useMemo<readonly GridRecordRow<EntityApiRow>[]>(
+    () =>
+      workbookGridRows({
+        getRecordId: (row) => row.record_id,
+        getRowVersion: (row) => row.row_version,
+        rows: assessmentRows,
+        surface: assessmentsViewSchemaId,
+      }),
+    [assessmentRows],
+  );
   const grouping = useMemo<GridGroupingDescriptor<EntityApiRow> | null>(() => {
     const fieldKey = queryState.groupBy;
     if (fieldKey === null) {
@@ -184,9 +215,26 @@ export function AssessmentWorkbookSurface({
     rows: gridRows,
     surface: assessmentsViewSchemaId,
   });
+  const dataState = workbookGridDataState({
+    emptyAction: canCreate
+      ? {
+          label: "Add assessment",
+          onInvoke: () => setIsInspectorOpen(true),
+        }
+      : undefined,
+    emptyMessage: "No assessments have been recorded.",
+    loadState,
+    onClearFilters,
+    onRetry: () => void onRefreshAssessmentRows(),
+    queryState,
+    rowCount: gridRows.length,
+    surfaceLabel: assessmentsContract.title,
+  });
   const columns: readonly GridColumn<EntityApiRow>[] = anchorColumns.map(
     (field) => ({
       ...field,
+      getClipboardValue: (row) =>
+        genericCellLabel(row.cells[field.fieldKey]?.value),
       renderCell: ({ row }) => (
         <FocusableWorkbookCell
           fieldKey={field.fieldKey}
@@ -224,6 +272,7 @@ export function AssessmentWorkbookSurface({
   }, [subjectRows]);
 
   async function submitAssessment() {
+    if (!canCreate) return;
     const payload = buildAssessmentCreatePayload(
       draft,
       `assessment-${Date.now()}`,
@@ -487,9 +536,20 @@ export function AssessmentWorkbookSurface({
           <WorkbookDataGrid
             ref={gridHandleRef}
             columns={columns}
+            columnWidths={layoutState.columnWidths}
+            dataState={dataState}
             density={density}
             grouping={grouping}
-            onToggleSort={onToggleSort}
+            interactionMode={interactionMode}
+            onActiveCellChange={(anchor) =>
+              assessmentFocus.update(
+                anchor?.recordId ?? null,
+                anchor?.fieldKey ?? "",
+              )
+            }
+            onColumnReorder={onColumnReorder}
+            onColumnWidthChange={onColumnWidthChange}
+            onSortChange={onSortChange}
             recordRows={gridRows}
             sort={queryState.sort}
             viewSchemaId={assessmentsViewSchemaId}
@@ -516,16 +576,6 @@ export function AssessmentWorkbookSurface({
         />
       }
       viewSchemaId={assessmentsViewSchemaId}
-      workAreaOverlays={
-        loadError ? (
-          <p
-            data-testid="assessment-surface-load-error"
-            style={surfaceNoticeOverlayStyle}
-          >
-            {loadError}
-          </p>
-        ) : undefined
-      }
     />
   );
 }
@@ -542,17 +592,6 @@ const bodyStyle = {
   margin: 0,
   lineHeight: 1.5,
   color: "var(--ct-colors-ink-muted)",
-};
-
-const surfaceNoticeOverlayStyle = {
-  ...workbookSurfaceOverlayPanelStyle,
-  margin: 0,
-  padding: "0.85rem 1rem",
-  borderRadius: "var(--ct-rounded-sm)",
-  border: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-2)",
-  color: "var(--ct-colors-ink-muted)",
-  boxShadow: "var(--ct-elevation-popover)",
 };
 
 const gridShellStyle = {

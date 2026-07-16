@@ -203,9 +203,11 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
         `${timelineViewSchemaId}:record-2:timeline.activity_synopsis_text`,
       );
       expect(document.activeElement).toBe(
-        screen.getByTestId(
-          rowCellTestId("record-2", "timeline.activity_synopsis_text"),
-        ),
+        screen
+          .getByTestId(
+            rowCellTestId("record-2", "timeline.activity_synopsis_text"),
+          )
+          .closest('[role="gridcell"]'),
       );
     });
 
@@ -222,9 +224,9 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
         `${timelineViewSchemaId}:record-2:timeline.data_source_text`,
       );
       expect(document.activeElement).toBe(
-        screen.getByTestId(
-          rowCellTestId("record-2", "timeline.data_source_text"),
-        ),
+        screen
+          .getByTestId(rowCellTestId("record-2", "timeline.data_source_text"))
+          .closest('[role="gridcell"]'),
       );
     });
 
@@ -325,7 +327,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     });
   });
 
-  it("Phase 9 grid anchor shell support updates Cartulary anchors for Enter, Shift+Enter, and Tab navigation", async () => {
+  it("Phase 9 grid anchor shell support updates Cartulary anchors for Enter and Shift+Enter while Tab exits", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "incident-1",
@@ -370,9 +372,11 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
         `${timelineViewSchemaId}:record-2:timeline.activity_synopsis_text`,
       );
       expect(document.activeElement).toBe(
-        screen.getByTestId(
-          rowCellTestId("record-2", "timeline.activity_synopsis_text"),
-        ),
+        screen
+          .getByTestId(
+            rowCellTestId("record-2", "timeline.activity_synopsis_text"),
+          )
+          .closest('[role="gridcell"]'),
       );
     });
 
@@ -390,9 +394,11 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
         `${timelineViewSchemaId}:record-1:timeline.activity_synopsis_text`,
       );
       expect(document.activeElement).toBe(
-        screen.getByTestId(
-          rowCellTestId("record-1", "timeline.activity_synopsis_text"),
-        ),
+        screen
+          .getByTestId(
+            rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+          )
+          .closest('[role="gridcell"]'),
       );
     });
 
@@ -406,13 +412,13 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     );
     await waitFor(() => {
       expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
-        `${timelineViewSchemaId}:record-1:timeline.data_source_text`,
+        `${timelineViewSchemaId}:record-1:timeline.activity_synopsis_text`,
       );
-      expect(document.activeElement).toBe(
-        screen.getByTestId(
-          rowCellTestId("record-1", "timeline.data_source_text"),
-        ),
-      );
+      expect(
+        container
+          .querySelector('[role="grid"]')
+          ?.contains(document.activeElement),
+      ).toBe(false);
     });
   });
 
@@ -840,9 +846,17 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     });
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(
+        fetchMock.mock.calls.filter(([request]) =>
+          String(request).endsWith("/clipboard-paste"),
+        ),
+      ).toHaveLength(1);
     });
-    const body = extractTimelineJSONBody(fetchMock, 1);
+    const pasteCallIndex = fetchMock.mock.calls.findIndex(([request]) =>
+      String(request).endsWith("/clipboard-paste"),
+    );
+    expect(pasteCallIndex).toBeGreaterThanOrEqual(0);
+    const body = extractTimelineJSONBody(fetchMock, pasteCallIndex);
     expect(body).toMatchObject({
       view_schema_id: timelineViewSchemaId,
       format: "csv",
@@ -1062,7 +1076,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
           fieldKey: "state",
           recordId: "record-2",
         },
-        pastedColumnCount: 2,
+        pastedColumnCount: 1,
         pastedRowCount: 3,
         presentationRows,
       }),
@@ -1122,6 +1136,88 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
         presentationRows: groupedRows,
       }),
     ).toBeNull();
+  });
+
+  it("Phase 9 I-9-GRID-01 dispatches one versioned multi-row tag command from Timeline selection", async () => {
+    const selectedRows = [
+      timelineRow({
+        recordId: "11111111-1111-4111-8111-111111111111",
+        rowVersion: 3,
+        summary: "Alpha",
+        captureState: "rough",
+      }),
+      timelineRow({
+        recordId: "22222222-2222-4222-8222-222222222222",
+        rowVersion: 4,
+        summary: "Beta",
+        captureState: "reviewed",
+      }),
+    ];
+    fetchMock
+      .mockResolvedValueOnce(
+        successEnvelope({
+          incident_id: "incident-1",
+          view_schema_id: timelineViewSchemaId,
+          rows: selectedRows,
+        }),
+      )
+      .mockResolvedValueOnce(successEnvelope({ change_set_id: "change-1" }))
+      .mockResolvedValueOnce(
+        successEnvelope({
+          incident_id: "incident-1",
+          view_schema_id: timelineViewSchemaId,
+          rows: selectedRows,
+        }),
+      );
+
+    const { container } = render(
+      <TimelineWorkbook currentIncidentRole="editor" incidentId="incident-1" />,
+    );
+    await waitForTimelineWorkbookReady(container, 2);
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: "Select record 11111111-1111-4111-8111-111111111111",
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: "Select record 22222222-2222-4222-8222-222222222222",
+      }),
+    );
+    fireEvent.change(
+      screen.getByRole("textbox", {
+        name: "Tag for selected Timeline records",
+      }),
+      { target: { value: "bulk-tag" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Assign tag" }));
+
+    const bulkCallIndex = await waitForFetchCallIndex(
+      fetchMock,
+      "Timeline bulk tag assignment",
+      (call) =>
+        fetchCallMethod(call) === "POST" &&
+        fetchCallURL(call).endsWith(
+          `/views/${timelineViewSchemaId}/bulk-mutations`,
+        ),
+    );
+    expect(extractTimelineJSONBody(fetchMock, bulkCallIndex)).toMatchObject({
+      view_schema_id: timelineViewSchemaId,
+      kind: "multi_row_tag_assignment_v1",
+      tag_name: "bulk-tag",
+      targets: [
+        {
+          record_id: "11111111-1111-4111-8111-111111111111",
+          base_row_version: 3,
+        },
+        {
+          record_id: "22222222-2222-4222-8222-222222222222",
+          base_row_version: 4,
+        },
+      ],
+    });
+    await screen.findByText("Assigned tag to 2 selected records.");
+    expect(screen.getByText("2 selected")).toBeTruthy();
   });
 
   it("Phase 9 I-9-GRID-01 requires a Cartulary anchor instead of vendor coordinates alone", () => {

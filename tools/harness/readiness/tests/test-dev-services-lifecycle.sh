@@ -124,6 +124,7 @@ run_service() {
   (
     cd "$repo_root"
     PATH="$fake_bin:$PATH" \
+      GO=go \
       FAKE_DOCKER_LOG="$docker_log" \
       FAKE_GO_LOG="$go_log" \
       CARTULARY_RUNTIME_DIR="$tmp_dir/runtime" \

@@ -135,11 +135,15 @@ export function handleWorkbookLoadFailure(
       : error instanceof Error
         ? error.message
         : fallbackMessage;
-  if (
-    message.includes("incident_not_found") ||
-    message.includes("authorization_denied")
-  ) {
+  if (workbookLoadFailureIsAccessLoss(message)) {
     onIncidentAccessLost?.();
   }
   return message;
+}
+
+export function workbookLoadFailureIsAccessLoss(message: string): boolean {
+  return (
+    message.includes("incident_not_found") ||
+    message.includes("authorization_denied")
+  );
 }

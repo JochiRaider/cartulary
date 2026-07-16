@@ -14,7 +14,7 @@ import {
   emptyWorkbookQueryState,
   type FilterDraft,
   removeFilterField,
-  toggleSortField,
+  replaceWorkbookSort,
   updateGroupBy,
   type WorkbookQueryState,
 } from "../models/workbookQuery";
@@ -49,7 +49,7 @@ export type WorkbookActiveQueryControls = {
   readonly onFilterDraftChange: Dispatch<SetStateAction<FilterDraft>>;
   readonly onGroupByChange: (groupBy: string | null) => void;
   readonly onRemoveFilter: (fieldKey: string) => void;
-  readonly onToggleSort: (fieldKey: string) => void;
+  readonly onSortChange: (sort: WorkbookQueryState["sort"]) => void;
   readonly queryState: WorkbookQueryState;
   readonly surface: WorkbookSurface;
 };
@@ -225,9 +225,9 @@ export function useWorkbookQueryController({
       onRemoveFilter: (fieldKey) => {
         setActiveQueryState((current) => removeFilterField(current, fieldKey));
       },
-      onToggleSort: (fieldKey) => {
+      onSortChange: (sort) => {
         setActiveQueryState((current) =>
-          toggleSortField(activeContract, current, fieldKey),
+          replaceWorkbookSort(activeContract, current, sort),
         );
       },
       queryState: activeEntry.queryState,

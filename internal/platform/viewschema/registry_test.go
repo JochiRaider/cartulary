@@ -396,6 +396,12 @@ func requirePublicResourceShape(t testing.TB, resource ViewSchemaResource) {
 			t.Fatalf("%s exposes duplicate field key %s", resource.ViewSchemaID, field.FieldKey)
 		}
 		fieldKeys[field.FieldKey] = struct{}{}
+		if field.GridEditable {
+			internalField, ok := LookupField(resource.ViewSchemaID, field.FieldKey)
+			if !ok || internalField.WriteKind != "direct_value" || !internalField.Writable {
+				t.Fatalf("%s exposes invalid grid-editable field %s", resource.ViewSchemaID, field.FieldKey)
+			}
+		}
 		if field.Sortable {
 			sortFieldKey := field.FieldKey
 			if field.HeaderSortFieldKey != nil {

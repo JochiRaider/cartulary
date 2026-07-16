@@ -1,5 +1,11 @@
 import { gridScrollportClassName } from "@cartulary/ui-contracts";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { type ChangeEvent, createRef, useMemo, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -12,6 +18,7 @@ import {
   GridViewport,
   WorkbookDataGrid,
 } from "./index";
+import { setGridVirtualizationDisabledForDiagnostics } from "./virtualizationDiagnostics";
 
 type HarnessRow = {
   readonly label: string;
@@ -39,6 +46,7 @@ const columns: readonly GridColumn<HarnessRow>[] = [
 
 describe("grid-adapter", () => {
   beforeEach(() => {
+    setGridVirtualizationDisabledForDiagnostics(false);
     vi.stubGlobal(
       "IntersectionObserver",
       class {
@@ -60,6 +68,8 @@ describe("grid-adapter", () => {
   });
 
   afterEach(() => {
+    setGridVirtualizationDisabledForDiagnostics(true);
+    cleanup();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -72,6 +82,240 @@ describe("grid-adapter", () => {
     expect(() =>
       assertGridRows([{ recordId: "record-1" }, { recordId: "record-1" }]),
     ).toThrow(/duplicate record_id/i);
+  });
+
+  it("renders semantic data states without manufacturing rows and keeps interaction mode independent", async () => {
+    const onAction = vi.fn();
+    const { container, rerender } = render(
+      <WorkbookDataGrid
+        viewSchemaId="test.view"
+        columns={columns}
+        dataState={{ kind: "initial_loading", surfaceLabel: "Records" }}
+        interactionMode={{ kind: "read_only", label: "Closed, read-only" }}
+        recordRows={[]}
+      />,
+    );
+
+    expect(screen.getByText("Loading Records…")).toBeTruthy();
+    expect(screen.getByText("Closed, read-only")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByRole("grid").getAttribute("aria-busy")).toBe("true");
+      expect(screen.getByRole("grid").getAttribute("aria-readonly")).toBe(
+        "true",
+      );
+    });
+    expect(
+      container.querySelector('[data-cartulary-grid-row-kind="record"]'),
+    ).toBeNull();
+
+    rerender(
+      <WorkbookDataGrid
+        viewSchemaId="test.view"
+        columns={columns}
+        dataState={{
+          action: { label: "Clear filters", onInvoke: onAction },
+          kind: "filtered_empty",
+        }}
+        recordRows={[]}
+      />,
+    );
+    expect(screen.getByText("No rows match the current filters.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(onAction).toHaveBeenCalledOnce();
+
+    rerender(
+      <WorkbookDataGrid
+        viewSchemaId="test.view"
+        columns={columns}
+        dataState={{
+          kind: "stale_error",
+          message: "Refresh failed.",
+        }}
+        recordRows={[
+          {
+            data: { label: "Retained", state: "saved" },
+            kind: "record",
+            recordId: "record-retained",
+            rowVersion: 4,
+          },
+        ]}
+      />,
+    );
+    expect(
+      screen.getByText("Refresh failed. Previously loaded rows may be stale."),
+    ).toBeTruthy();
+    expect(
+      container.querySelector('[data-grid-record-id="record-retained"]'),
+    ).toBeTruthy();
+  });
+
+  it("compiles semantic row and cell state into private classes, markers, and ARIA", async () => {
+    const statefulRow: GridRecordRow<HarnessRow> = {
+      data: { label: "Alpha", state: "invalid" },
+      kind: "record",
+      recordId: "record-stateful",
+      rowVersion: 7,
+      testId: "stateful-row",
+    };
+
+    render(
+      <WorkbookDataGrid
+        activeRecordId="record-stateful"
+        bulkSelection={{
+          onSelectedRecordIdsChange: vi.fn(),
+          selectedRecordIds: new Set(["record-stateful"]),
+        }}
+        columns={columns}
+        dataState={{ kind: "stale_error", message: "Refresh failed." }}
+        getCellState={({ anchor }) =>
+          anchor.fieldKey === "label"
+            ? { conflicted: true }
+            : { invalid: { message: "Choose an allowed state" } }
+        }
+        getRowState={() => ({ pending: true })}
+        recordRows={[statefulRow]}
+        viewSchemaId="test.view"
+      />,
+    );
+
+    const row = await screen.findByTestId("stateful-row");
+    await waitFor(() => {
+      expect(row.getAttribute("aria-busy")).toBe("true");
+      expect(row.getAttribute("aria-current")).toBe("true");
+      expect(row.getAttribute("aria-selected")).toBe("true");
+      expect(row.className).toContain("cartulary-grid-row-is-pending");
+      expect(row.className).toContain("cartulary-grid-row-is-stale");
+    });
+
+    const labelContent = row.querySelector<HTMLElement>(
+      '[data-grid-field-key="label"]',
+    );
+    const stateContent = row.querySelector<HTMLElement>(
+      '[data-grid-field-key="state"]',
+    );
+    const labelCell = labelContent?.closest<HTMLElement>('[role="gridcell"]');
+    const stateCell = stateContent?.closest<HTMLElement>('[role="gridcell"]');
+    expect(labelCell?.dataset.gridPrimaryState).toBe("conflicted");
+    expect(labelCell?.getAttribute("aria-readonly")).toBe("true");
+    expect(
+      labelContent?.querySelector('[aria-label="Conflict on Label"]'),
+    ).toBeTruthy();
+    expect(stateCell?.dataset.gridPrimaryState).toBe("invalid");
+    expect(stateCell?.getAttribute("aria-invalid")).toBe("true");
+    expect(stateCell?.getAttribute("aria-description")).toContain(
+      "Choose an allowed state",
+    );
+    expect(
+      stateContent?.querySelector(
+        '[aria-label="Invalid State: Choose an allowed state"]',
+      ),
+    ).toBeTruthy();
+  });
+
+  it("keeps inspector context distinct from opt-in record selection", async () => {
+    function SelectionHarness() {
+      const [selectedRecordIds, setSelectedRecordIds] = useState<
+        ReadonlySet<string>
+      >(() => new Set());
+      return (
+        <WorkbookDataGrid
+          activeRecordId="record-2"
+          bulkSelection={{
+            isRecordSelectable: (row) => row.recordId !== "record-2",
+            onSelectedRecordIdsChange: setSelectedRecordIds,
+            selectedRecordIds,
+          }}
+          columns={columns}
+          recordRows={[
+            {
+              kind: "record",
+              recordId: "record-1",
+              rowVersion: 1,
+              data: { label: "Alpha", state: "open" },
+            },
+            {
+              kind: "record",
+              recordId: "record-2",
+              rowVersion: 1,
+              data: { label: "Beta", state: "reviewed" },
+            },
+          ]}
+          viewSchemaId="test.view"
+        />
+      );
+    }
+
+    render(<SelectionHarness />);
+    const first = await screen.findByRole("checkbox", {
+      name: "Select record record-1",
+    });
+    expect(
+      screen.queryByRole("checkbox", { name: "Select record record-2" }),
+    ).toBeNull();
+    fireEvent.click(first);
+    expect((first as HTMLInputElement).checked).toBe(true);
+    const activeRow = document.querySelector(
+      '[data-grid-record-id="record-2"]',
+    );
+    expect(activeRow?.getAttribute("data-inspector-active")).toBe("true");
+    expect(activeRow?.getAttribute("aria-selected")).not.toBe("true");
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: "Select all records on this page",
+      }),
+    );
+    expect((first as HTMLInputElement).checked).toBe(false);
+  });
+
+  it("keeps the bottom create draft recordless and usable with zero committed rows", async () => {
+    const onPasteCell = vi.fn();
+    render(
+      <WorkbookDataGrid
+        bulkSelection={{
+          onSelectedRecordIdsChange: vi.fn(),
+          selectedRecordIds: new Set(),
+        }}
+        columns={[
+          {
+            contractWritable: true,
+            fieldKey: "label",
+            label: "Label",
+            renderCell: ({ row }) => row.label,
+            renderDraftCell: () => (
+              <input aria-label="Zero-row create draft" defaultValue="" />
+            ),
+          },
+        ]}
+        draftRow={{
+          data: { label: "", state: "open" },
+          kind: "draft",
+          testId: "zero-row-create-draft",
+        }}
+        onPasteCell={onPasteCell}
+        recordRows={[]}
+        viewSchemaId="test.view"
+      />,
+    );
+
+    const draftInput = await screen.findByRole("textbox", {
+      name: "Zero-row create draft",
+    });
+    const draftRow = draftInput.closest('[role="row"]');
+    expect(draftRow).toBeTruthy();
+    expect(draftRow?.getAttribute("data-cartulary-grid-draft-row")).toBe(
+      "true",
+    );
+    expect(draftRow?.getAttribute("data-grid-record-id")).toBeNull();
+    expect(draftRow?.querySelectorAll('input[type="checkbox"]')).toHaveLength(
+      0,
+    );
+    expect(document.querySelectorAll("[data-grid-record-id]")).toHaveLength(0);
+    fireEvent.change(draftInput, { target: { value: "Draft remains usable" } });
+    expect((draftInput as HTMLInputElement).value).toBe("Draft remains usable");
+    fireEvent.paste(draftInput, {
+      clipboardData: { getData: () => "must not become a record paste" },
+    });
+    expect(onPasteCell).not.toHaveBeenCalled();
   });
 
   it("translates live cell events and the restricted handle through semantic coordinates", async () => {
@@ -92,9 +336,16 @@ describe("grid-adapter", () => {
             renderCell: ({ row }) => (
               <span data-testid="semantic-live-cell">{row.label}</span>
             ),
-            renderEditCell: ({ row }) => (
-              <input aria-label="Semantic editor" defaultValue={row.label} />
-            ),
+            editor: {
+              commit: async () => ({ kind: "accepted" }),
+              initialDraftValue: (row) => row.label,
+              renderEditor: ({ draftValue }) => (
+                <input
+                  aria-label="Semantic editor"
+                  defaultValue={String(draftValue)}
+                />
+              ),
+            },
           },
         ]}
         onActiveCellChange={onActiveCellChange}
@@ -130,19 +381,340 @@ describe("grid-adapter", () => {
     };
     const target = { ...anchor, baseRowVersion: 7 };
     expect(onActiveCellChange).toHaveBeenCalledWith(anchor);
-    expect(onCopyCell).toHaveBeenCalledWith({ anchor });
-    expect(onPasteCell).toHaveBeenCalledWith({ target });
+    expect(onCopyCell).toHaveBeenCalledWith(
+      expect.objectContaining({ anchor }),
+    );
+    expect(onPasteCell).toHaveBeenCalledWith(
+      expect.objectContaining({ target }),
+    );
     expect(onEditCell).toHaveBeenCalledWith({ target });
     expect(handle.current?.getScrollElement()).toBeTruthy();
     expect(handle.current?.scrollToAnchor(anchor)).toBe(true);
+    const externalButton = document.createElement("button");
+    document.body.append(externalButton);
+    externalButton.focus();
+    expect(document.activeElement).toBe(externalButton);
     expect(handle.current?.focusAnchor(anchor)).toBe(true);
+    await waitFor(() => {
+      const currentContent = document.querySelector(
+        '[role="row"][data-grid-record-id="record-1"] [data-grid-field-key="label"]',
+      );
+      expect(document.activeElement).toBe(
+        currentContent?.closest('[role="gridcell"]'),
+      );
+    });
+    expect(handle.current?.focusAnchor(anchor)).toBe(true);
+    await new Promise<void>((resolve) => {
+      window.setTimeout(() => {
+        externalButton.focus();
+        resolve();
+      }, 0);
+    });
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+    expect(document.activeElement).toBe(externalButton);
+    externalButton.remove();
     expect(
       handle.current?.focusAnchor({ ...anchor, viewSchemaId: "wrong.view" }),
     ).toBe(false);
   });
 
+  it("owns semantic navigation, range extension, keyboard entry, cancellation, and grid exit", async () => {
+    const onActiveCellChange = vi.fn();
+    const commit = vi.fn().mockResolvedValue({ kind: "accepted" });
+    const keyboardColumns: readonly GridColumn<HarnessRow>[] = [
+      {
+        contractWritable: true,
+        editor: {
+          clearDraftValue: "",
+          commit,
+          initialDraftValue: (row) => row.label,
+          renderEditor: (context) => (
+            <input
+              aria-label="Keyboard editor"
+              value={String(context.draftValue)}
+              onChange={(event) =>
+                context.setDraftValue(event.currentTarget.value)
+              }
+            />
+          ),
+        },
+        fieldKey: "label",
+        label: "Label",
+        renderCell: ({ row }) => (
+          <span data-testid={`keyboard-${row.label}`}>{row.label}</span>
+        ),
+      },
+      {
+        fieldKey: "state",
+        label: "State",
+        renderCell: ({ row }) => row.state,
+      },
+    ];
+    render(
+      <>
+        <button type="button">Before grid</button>
+        <WorkbookDataGrid
+          columns={keyboardColumns}
+          onActiveCellChange={onActiveCellChange}
+          recordRows={[
+            {
+              data: { label: "Alpha", state: "open" },
+              kind: "record",
+              recordId: "record-1",
+              rowVersion: 1,
+            },
+            {
+              data: { label: "Beta", state: "open" },
+              kind: "record",
+              recordId: "record-2",
+              rowVersion: 2,
+            },
+            {
+              data: { label: "Gamma", state: "closed" },
+              kind: "record",
+              recordId: "record-3",
+              rowVersion: 3,
+            },
+          ]}
+          viewSchemaId="test.view"
+        />
+        <button type="button">After grid</button>
+      </>,
+    );
+
+    const alphaCell = (await screen.findByTestId("keyboard-Alpha")).closest(
+      '[role="gridcell"]',
+    );
+    if (!(alphaCell instanceof HTMLElement)) {
+      throw new Error("Expected Alpha grid cell");
+    }
+    fireEvent.mouseDown(alphaCell);
+    fireEvent.click(alphaCell);
+    fireEvent.keyDown(alphaCell, { key: "ArrowDown", shiftKey: true });
+    expect(
+      await screen.findByText("Selected 2 rows by 1 columns."),
+    ).toBeTruthy();
+    const betaCell = screen
+      .getByTestId("keyboard-Beta")
+      .closest<HTMLElement>('[role="gridcell"]');
+    expect(betaCell?.getAttribute("aria-selected")).toBe("true");
+
+    fireEvent.keyDown(betaCell as HTMLElement, {
+      ctrlKey: true,
+      key: "End",
+    });
+    await waitFor(() =>
+      expect(onActiveCellChange).toHaveBeenLastCalledWith({
+        fieldKey: "state",
+        recordId: "record-3",
+        viewSchemaId: "test.view",
+      }),
+    );
+
+    fireEvent.keyDown(
+      screen
+        .getByTestId("keyboard-Gamma")
+        .closest('[role="gridcell"]') as HTMLElement,
+      { ctrlKey: true, key: "Home" },
+    );
+    await waitFor(() =>
+      expect(onActiveCellChange).toHaveBeenLastCalledWith({
+        fieldKey: "label",
+        recordId: "record-1",
+        viewSchemaId: "test.view",
+      }),
+    );
+
+    fireEvent.keyDown(alphaCell, { key: "Z" });
+    const editor = await screen.findByRole("textbox", {
+      name: "Keyboard editor",
+    });
+    expect((editor as HTMLInputElement).value).toBe("Z");
+    fireEvent.keyDown(editor, { key: "Escape" });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("textbox", { name: "Keyboard editor" }),
+      ).toBeNull(),
+    );
+    expect(commit).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(
+      screen
+        .getByTestId("keyboard-Alpha")
+        .closest('[role="gridcell"]') as HTMLElement,
+      { key: "Delete" },
+    );
+    expect(
+      (
+        await screen.findByRole("textbox", { name: "Keyboard editor" })
+      ).getAttribute("value"),
+    ).toBe("");
+    fireEvent.keyDown(
+      screen.getByRole("textbox", { name: "Keyboard editor" }),
+      { key: "Escape" },
+    );
+    fireEvent.keyDown(
+      screen
+        .getByTestId("keyboard-Alpha")
+        .closest('[role="gridcell"]') as HTMLElement,
+      { key: "Enter" },
+    );
+    const acceptedEditor = await screen.findByRole("textbox", {
+      name: "Keyboard editor",
+    });
+    fireEvent.change(acceptedEditor, { target: { value: "Accepted" } });
+    fireEvent.keyDown(acceptedEditor, { key: "Enter" });
+    await waitFor(() => expect(commit).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(onActiveCellChange).toHaveBeenLastCalledWith({
+        fieldKey: "label",
+        recordId: "record-2",
+        viewSchemaId: "test.view",
+      }),
+    );
+    fireEvent.keyDown(
+      screen
+        .getByTestId("keyboard-Beta")
+        .closest('[role="gridcell"]') as HTMLElement,
+      { key: "Tab" },
+    );
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "After grid" }),
+    );
+  });
+
+  it("does not republish an unchanged semantic anchor when the active record updates", async () => {
+    const onActiveCellChange = vi.fn();
+
+    function UpdatingRecordHarness() {
+      const [version, setVersion] = useState(1);
+      return (
+        <>
+          <button type="button" onClick={() => setVersion(2)}>
+            Apply record update
+          </button>
+          <WorkbookDataGrid
+            viewSchemaId="test.view"
+            columns={columns}
+            onActiveCellChange={onActiveCellChange}
+            recordRows={[
+              {
+                kind: "record",
+                recordId: "record-1",
+                rowVersion: version,
+                data: { label: `Alpha ${version}`, state: "open" },
+              },
+            ]}
+          />
+        </>
+      );
+    }
+
+    render(<UpdatingRecordHarness />);
+    const cell = screen.getByText("Alpha 1").closest('[role="gridcell"]');
+    if (!(cell instanceof HTMLElement)) throw new Error("Expected live cell");
+    fireEvent.mouseDown(cell);
+    fireEvent.click(cell);
+    await waitFor(() => expect(onActiveCellChange).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Apply record update" }),
+    );
+
+    expect(await screen.findByText("Alpha 2")).toBeTruthy();
+    expect(onActiveCellChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("retains semantic editor drafts for validation outcomes and closes only after acceptance", async () => {
+    const commit = vi
+      .fn()
+      .mockResolvedValueOnce({
+        kind: "validation_error",
+        message: "Enter a valid value.",
+      })
+      .mockResolvedValueOnce({ kind: "accepted" });
+    render(
+      <WorkbookDataGrid
+        columns={[
+          {
+            contractWritable: true,
+            editor: {
+              commit,
+              initialDraftValue: (row: HarnessRow) => row.label,
+              renderEditor: (context) => (
+                <div>
+                  <input
+                    aria-label="Retained semantic draft"
+                    value={String(context.draftValue)}
+                    onChange={(event) =>
+                      context.setDraftValue(event.currentTarget.value)
+                    }
+                  />
+                  <button type="button" onClick={() => void context.commit()}>
+                    Commit semantic edit
+                  </button>
+                </div>
+              ),
+            },
+            fieldKey: "label",
+            label: "Label",
+            renderCell: ({ row }) => (
+              <span data-testid="semantic-edit-cell">{row.label}</span>
+            ),
+          },
+        ]}
+        recordRows={[
+          {
+            data: { label: "Alpha", state: "open" },
+            kind: "record",
+            recordId: "record-1",
+            rowVersion: 7,
+          },
+        ]}
+        viewSchemaId="test.view"
+      />,
+    );
+    const cell = (await screen.findByTestId("semantic-edit-cell")).closest(
+      '[role="gridcell"]',
+    );
+    if (!(cell instanceof HTMLElement)) {
+      throw new Error("Expected live RDG cell");
+    }
+    fireEvent.doubleClick(cell);
+    const input = await screen.findByRole("textbox", {
+      name: "Retained semantic draft",
+    });
+    fireEvent.change(input, { target: { value: "invalid draft" } });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Commit semantic edit" }),
+    );
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Enter a valid value.",
+    );
+    expect((input as HTMLInputElement).value).toBe("invalid draft");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Commit semantic edit" }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("textbox", { name: "Retained semantic draft" }),
+      ).toBeNull(),
+    );
+    expect(commit).toHaveBeenLastCalledWith({
+      draftValue: "invalid draft",
+      row: { label: "Alpha", state: "open" },
+      target: {
+        baseRowVersion: 7,
+        fieldKey: "label",
+        recordId: "record-1",
+        viewSchemaId: "test.view",
+      },
+    });
+  });
+
   it("renders stable semantic row attributes, sort translation, and presentation-only group rows", async () => {
-    const onToggleSort = vi.fn();
+    const onSortChange = vi.fn();
+    const groupedHandle = createRef<GridHandle>();
     const rows: readonly GridRecordRow<HarnessRow>[] = [
       {
         kind: "record",
@@ -169,6 +741,7 @@ describe("grid-adapter", () => {
     render(
       <GridViewport testId="grid-shell">
         <WorkbookDataGrid
+          ref={groupedHandle}
           viewSchemaId="test.view"
           actionsColumn={{
             label: "Actions",
@@ -182,7 +755,7 @@ describe("grid-adapter", () => {
               label === null ? undefined : `group-${fieldKey}-${label}`,
             getValue: (row) => row.state,
           }}
-          onToggleSort={onToggleSort}
+          onSortChange={onSortChange}
           recordRows={rows}
           sort={[{ fieldKey: "label", direction: "asc" }]}
         />
@@ -216,21 +789,37 @@ describe("grid-adapter", () => {
     fireEvent.click(openGroupToggle);
     expect(openGroupToggle.getAttribute("aria-expanded")).toBe("false");
     expect(screen.queryByTestId("row-record-1")).toBeNull();
+    expect(
+      groupedHandle.current?.focusAnchor({
+        fieldKey: "label",
+        recordId: "record-1",
+        viewSchemaId: "test.view",
+      }),
+    ).toBe(false);
     fireEvent.click(openGroupToggle);
     expect(openGroupToggle.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByTestId("row-record-1")).toBeTruthy();
+    expect(
+      groupedHandle.current?.focusAnchor({
+        fieldKey: "label",
+        recordId: "record-2",
+        viewSchemaId: "test.view",
+      }),
+    ).toBe(true);
 
     const labelHeader = screen.getByTestId("label-header");
     expect(labelHeader.getAttribute("data-grid-field-key")).toBe("label");
     fireEvent.click(labelHeader);
-    expect(onToggleSort).toHaveBeenCalledWith("label");
+    expect(onSortChange).toHaveBeenCalledWith([
+      { fieldKey: "label", direction: "desc" },
+    ]);
 
     const stateHeader = screen.getByTestId("state-header");
     expect(stateHeader.getAttribute("title")).toBe(
       "State sorting disabled in this harness",
     );
     fireEvent.click(stateHeader);
-    expect(onToggleSort).toHaveBeenCalledTimes(1);
+    expect(onSortChange).toHaveBeenCalledTimes(1);
   });
 
   it("preserves typed bucket order, scoped expansion, and draft exclusion", async () => {
@@ -380,21 +969,36 @@ describe("grid-adapter", () => {
 
   it("renders the production DataGrid with bounded fixed-height row output", async () => {
     const rowCount = 500;
+    const handle = createRef<GridHandle>();
     const rows: readonly GridRecordRow<HarnessRow>[] = Array.from(
       { length: rowCount },
       (_, index) => ({
         kind: "record" as const,
         recordId: `virtual-record-${index}`,
         rowVersion: 1,
-        data: { label: `Record ${index}`, state: "open" },
+        data: {
+          label: `Record ${index}`,
+          state: index % 2 === 0 ? "open" : "reviewed",
+        },
+      }),
+    );
+    const wideColumns: readonly GridColumn<HarnessRow>[] = Array.from(
+      { length: 24 },
+      (_, index) => ({
+        fieldKey: `wide-${index}`,
+        label: `Wide ${index}`,
+        renderCell: ({ row }) => `${row.label} ${index}`,
+        width: 180,
       }),
     );
 
-    render(
+    const { rerender } = render(
       <GridViewport testId="virtualized-grid-shell">
         <WorkbookDataGrid
+          key="ungrouped-virtualized-grid"
+          ref={handle}
           viewSchemaId="test.view"
-          columns={columns}
+          columns={wideColumns}
           recordRows={rows}
         />
       </GridViewport>,
@@ -408,6 +1012,42 @@ describe("grid-adapter", () => {
     expect(grid?.getAttribute("aria-rowcount")).toBe(String(rowCount + 1));
     expect(mountedRecordRows.length).toBeGreaterThan(0);
     expect(mountedRecordRows.length).toBeLessThan(rowCount);
+    const mountedHeaders = shell.querySelectorAll('[role="columnheader"]');
+    expect(mountedHeaders.length).toBeGreaterThan(0);
+    expect(mountedHeaders.length).toBeLessThan(wideColumns.length);
+
+    const lastAnchor = {
+      fieldKey: "wide-23",
+      recordId: "virtual-record-499",
+      viewSchemaId: "test.view",
+    };
+    expect(handle.current?.scrollToAnchor(lastAnchor)).toBe(true);
+
+    rerender(
+      <GridViewport testId="virtualized-grid-shell">
+        <WorkbookDataGrid
+          key="grouped-virtualized-grid"
+          ref={handle}
+          viewSchemaId="test.view"
+          columns={wideColumns}
+          grouping={{
+            fieldKey: "state",
+            formatLabel: (value) => (value === null ? null : String(value)),
+            getTestId: (fieldKey, _value, label) =>
+              label === null ? undefined : `virtual-group-${fieldKey}-${label}`,
+            getValue: (row) => row.state,
+          }}
+          recordRows={rows}
+        />
+      </GridViewport>,
+    );
+
+    expect(shell.querySelector('[role="treegrid"]')).toBeTruthy();
+    expect(screen.getByTestId("virtual-group-state-open")).toBeTruthy();
+    expect(
+      shell.querySelectorAll('[role="row"][data-grid-record-id]').length,
+    ).toBeLessThan(rowCount);
+    expect(handle.current?.scrollToAnchor(lastAnchor)).toBe(true);
   });
 
   it("keeps standalone block sizing by default and supports shell-owned fill block sizing", async () => {
@@ -777,8 +1417,8 @@ describe("grid-adapter", () => {
           <WorkbookDataGrid
             viewSchemaId="test.view"
             columns={editableColumns}
-            onToggleSort={(fieldKey) => {
-              setSort([{ fieldKey, direction: "desc" }]);
+            onSortChange={(nextSort) => {
+              setSort(nextSort);
               setRows((current) =>
                 [...current].sort((left, right) =>
                   right.label.localeCompare(left.label),

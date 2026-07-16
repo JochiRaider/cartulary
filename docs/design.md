@@ -472,7 +472,7 @@ Design contract. Each density mode MUST define its row rhythm through `rowHeight
 
 Design contract. Grid-mode cell editors MUST fill the whole grid cell. The grid cell owns the outer cell box and border; text input, textarea, select, collection input, and read-only focus-anchor controls inside the cell MUST use the active density metrics, fill the available inline and block size, and MUST NOT add fixed inner minimum heights or grid-mode padding that creates dead space between the control and the cell boundary. Inspector-mode editors and non-grid detail editors MAY keep form-style padding and multiline height independent from grid density.
 
-Design contract. Large incident grids use fixed-height rows by default. Variable-height rows are valid only in inspector sections, preview areas, or non-grid detail regions. Omission of variable-height grid rows is conformant.
+Design contract. Workbook grids use fixed-height rows and the same virtualized interaction posture at every result size. Variable-height rows are valid only in inspector sections, preview areas, or non-grid detail regions. Omission of variable-height grid rows is conformant.
 
 ### 3.10 Iconography profile
 
@@ -935,6 +935,12 @@ Design contract. Sort, filter, and group controls live in the View bar immediate
 
 Design contract. Active chips MUST render in this order: group chip, sort chips in applied order, then filter chips in normalized query order.
 
+Design contract. The View bar MUST expose a keyboard-accessible `Columns` control that lists semantic field labels, reports visibility, supports show or hide, move earlier or later, and reset, and remains usable when every data column is hidden. Pointer header drag MAY provide the same reorder operation as a convenience but MUST NOT be the only reorder mechanism. Adapter-private structural columns are excluded from this control and from saved layout.
+
+Design contract. Sort controls MUST expose the complete ordered sort list and priority. Ordinary header activation replaces the list. Ctrl/Cmd header activation adds, cycles, or removes the field. The View bar MUST expose equivalent keyboard-accessible add, direction, priority, and removal operations without requiring discovery of the modifier gesture.
+
+Design contract. Bulk record selection MUST appear only on a surface with an adopted bulk command. Its checkbox column MUST be visually distinct from inspector-row context and active-cell focus, identify select-all as current-page selection, omit controls for group and draft rows, and announce the selected committed-record count after changes.
+
 Core restatement. Saved views are incident-bound workbook configurations over exactly one `view_schema_id`; a `system` saved view is not the same object as a contract-backed system view. Owner: `03_workbook_interaction_collaboration_and_workflows.md` §2.3, REQ-03-012 through REQ-03-026.
 
 Design contract. Saved-view dirty state MUST be selected by this deterministic algorithm:
@@ -1035,6 +1041,8 @@ Design contract. The key-command table is exhaustive for grid-owned key chords i
 | `Ctrl/Cmd+V` | `grid_navigation` | Clipboard has text. | Dispatch base-profile paste handling for active surface. | Paste plan governs. | Yes. |
 
 Design contract. Browser defaults not explicitly prevented in the table MUST remain available only when they do not move focus, mutate data, or trigger browser navigation away from the workbook shell.
+
+Non-goal. Right-to-left grid direction is not enabled by this design revision. The grid keyboard state machine uses left-to-right visible-field order until a localization or bidirectionality owner adopts direction metadata, mirrored interaction rules, and corresponding accessibility and browser evidence. Adapter capability alone does not authorize `direction="rtl"`.
 
 ## 9. Progressive structure, chips, and semantic states
 
@@ -1392,6 +1400,8 @@ Design contract. Grid editors MUST preserve visible cell context and row identit
 
 Design contract. Invalid editor state MUST show field-local message and accessible invalid state. It MUST NOT rely on red border alone.
 
+Design contract. Existing-row editor choice is driven by declared grid-editable field capability and semantic scalar or reference contract, never by display labels. Enum, boolean, numeric, RFC 3339 timestamp, reference, single-line text, and multiline text editors share one commit, cancel, validation, conflict, and focus-restoration posture. Multiline editors use `Enter` to commit and `Shift+Enter` for a newline. A dirty editor MUST retain its local value across rejection, stale refresh, and read-only transition until the user cancels or an accepted result replaces it.
+
 ### 12.6 Menus and popovers
 
 Design contract. Menus and popovers MUST be anchored to invoking controls, close through §8.5, and restore focus through §8.5.
@@ -1415,6 +1425,10 @@ Design contract. Empty grids MUST distinguish successful empty query, no permiss
 | No permission | Restrained error. | No create action. |
 | Surface unavailable | Error with retry or repair path if owner behavior exposes one. | No design-local repair route. |
 | Loading | Pending state. | No fake rows. |
+
+Design contract. Background refresh and stale-refresh failure MUST preserve prior authorized rows and communicate `Refreshing` or stale status in a status region. Permission or incident-access loss MUST clear protected rows rather than presenting them as stale. Closed incidents MUST retain read and copy affordances, display the exact lifecycle text `Closed, read-only`, and omit or disable every mutation entry point.
+
+Design contract. Grid state announcements use polite live regions for loading, refreshing, selection count, and saved-state changes. Validation, conflicts, authorization loss, and rejected bulk operations use assertive announcements when immediate action is required. Announcements MUST not duplicate ordinary focused-control names.
 
 Design contract. Toasts MUST NOT carry critical unresolved state as the only visible location. Critical unresolved state MUST also appear in the relevant row, cell, inspector section, or status strip.
 

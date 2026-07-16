@@ -53,6 +53,12 @@ test("FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, g
   });
 
   await page.goto(`/?incident_id=${incidentId}`);
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_synopsis_text",
+    page,
+    recordId: alphaRow.record_id,
+    surface: timelineViewSchemaId,
+  });
   await expect(
     page.getByTestId(
       rowCellTestId(alphaRow.record_id, "timeline.activity_synopsis_text"),
@@ -64,6 +70,12 @@ test("FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, g
     betaRow.record_id,
     timelineRowMarkReviewedButtonTestId(betaRow.record_id),
   );
+  await scrollGridCellIntoView({
+    cellKey: "timeline.capture_state",
+    page,
+    recordId: betaRow.record_id,
+    surface: timelineViewSchemaId,
+  });
   await expect(
     page.getByTestId(
       rowCellTestId(betaRow.record_id, "timeline.capture_state"),
@@ -138,6 +150,12 @@ test("FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, g
   await expandGridGroup({
     groupTestId: reviewedGroupTestId,
     page,
+    surface: timelineViewSchemaId,
+  });
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_synopsis_text",
+    page,
+    recordId: betaRow.record_id,
     surface: timelineViewSchemaId,
   });
   await expect(
@@ -305,6 +323,12 @@ test("support Phase 3 keeps a pending edit anchored to its record under sort, fi
     const alphaSummary = page.getByTestId(
       rowCellTestId(alphaRow.record_id, "timeline.activity_synopsis_text"),
     );
+    await scrollGridCellIntoView({
+      cellKey: "timeline.activity_synopsis_text",
+      page,
+      recordId: alphaRow.record_id,
+      surface: timelineViewSchemaId,
+    });
     await alphaSummary.fill("Zulu anchored");
     await alphaSummary.press("Enter");
     await heldPatch.waitForHit;
@@ -385,6 +409,12 @@ test("support Phase 3 keeps repeated scalar grid edits out of the RDG measured-w
   const recordId = row.record_id as string;
 
   await page.goto(`/?incident_id=${incidentId}`);
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_synopsis_text",
+    page,
+    recordId,
+    surface: timelineViewSchemaId,
+  });
   await expect(
     page.getByTestId(
       rowCellTestId(recordId, "timeline.activity_synopsis_text"),
@@ -411,6 +441,13 @@ test("support Phase 3 keeps repeated scalar grid edits out of the RDG measured-w
       ),
     ),
   ).toBeVisible();
+
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_synopsis_text",
+    page,
+    recordId,
+    surface: timelineViewSchemaId,
+  });
 
   await expectNoPageCrashDuring(page, async () => {
     for (const value of [

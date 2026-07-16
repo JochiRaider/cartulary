@@ -1,14 +1,15 @@
 import {
-  buildGridPresentationRows,
   type GridActionsColumn,
+  type GridCellMutationIntent,
   type GridColumn,
   type GridDensity,
   type GridDraftRow,
+  type GridEditCommitOutcome,
   type GridGroupingDescriptor,
   type GridHandle,
+  type GridInteractionMode,
   type GridRecordRow,
   GridViewport,
-  resolveGridPasteTargets,
   WorkbookDataGrid,
 } from "@cartulary/grid-adapter";
 import {
@@ -36,7 +37,6 @@ import {
 import { requireViewContract } from "@cartulary/view-contracts";
 import { MoreHorizontal, X } from "lucide-react";
 import {
-  type ClipboardEvent as ReactClipboardEvent,
   type ReactNode,
   useCallback,
   useEffect,
@@ -74,10 +74,18 @@ import {
   workbookGridRows,
 } from "../models/workbookContractRows";
 import {
+  type WorkbookQueryLoadState,
+  workbookGridDataState,
+} from "../models/workbookGridState";
+import {
   inspectorNoRowState,
   inspectorPanelIsDeclared,
   selectInspectorConfig,
 } from "../models/workbookInspectorModel";
+import {
+  applyWorkbookLayoutToColumns,
+  type WorkbookResolvedLayoutState,
+} from "../models/workbookLayout";
 import {
   submitWorkbookPatchMutation,
   type ViewMutationEnvelope,
@@ -91,15 +99,13 @@ import {
 } from "../models/workbookSurfaceRegistry";
 import { RelationshipChip } from "../timeline/components/TimelineCellEditors";
 import type { EntityApiRow } from "../timeline/models/workbookTimelineModel";
-import {
-  clipboardGridDimensions,
-  clipboardTextLooksTabular,
-} from "../utils/workbookClipboard";
+import { parseClipboardTable } from "../utils/workbookClipboard";
 import {
   FocusableWorkbookCell,
   useWorkbookGridFocus,
 } from "../utils/workbookGridFocus";
 import { GenericMutationControl } from "./GenericMutationControl";
+import { workbookGridEditorAdapter } from "./WorkbookGridEditorControl";
 import {
   type InspectorDisabledToken,
   WorkbookInspectorPanelSection,
@@ -169,12 +175,18 @@ export type EntityWorkbookSurfaceProps = {
   entityType: EntityRow["entityType"];
   inspectorResetKey: string;
   savedViewSelector?: ReactNode | undefined;
-  onToggleSort: (fieldKey: string) => void;
+  layoutState: WorkbookResolvedLayoutState;
+  onColumnReorder: (sourceFieldKey: string, targetFieldKey: string) => void;
+  onColumnWidthChange: (fieldKey: string, width: number) => void;
+  onSortChange: (sort: WorkbookQueryState["sort"]) => void;
   queryState: WorkbookQueryState;
   rows: EntityRow[];
   currentIncidentRole: WorkbookIncidentRole | null;
   entityIndex: Record<string, EntityRow>;
   onRefreshEntities: () => Promise<void>;
+  interactionMode: GridInteractionMode;
+  loadState: WorkbookQueryLoadState;
+  onClearFilters: () => void;
 };
 
 function mergePreconditionDetailLines(
@@ -266,12 +278,18 @@ export function EntityWorkbookSurface({
   entityType,
   inspectorResetKey,
   savedViewSelector,
+  layoutState,
   rows,
   queryState,
-  onToggleSort,
+  onColumnReorder,
+  onColumnWidthChange,
+  onSortChange,
   currentIncidentRole,
   entityIndex,
   onRefreshEntities,
+  interactionMode,
+  loadState,
+  onClearFilters,
 }: EntityWorkbookSurfaceProps) {
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
@@ -355,6 +373,11 @@ export function EntityWorkbookSurface({
       }),
     [contract, surface],
   );
+  const visibleEntityAnchorColumns = useMemo(
+    () =>
+      applyWorkbookLayoutToColumns(contract, entityAnchorColumns, layoutState),
+    [contract, entityAnchorColumns, layoutState],
+  );
   const draftEntityRawRow = useMemo<EntityApiRow>(
     () => ({
       record_id: draftRowRecordId,
@@ -378,10 +401,9 @@ export function EntityWorkbookSurface({
         getRecordId: (row: EntityRow) => row.recordId,
         getRowVersion: (row: EntityRow) => row.rowVersion,
         rows,
-        selectedRecordId: selectedEntity?.recordId ?? null,
         surface,
       }),
-    [rows, selectedEntity?.recordId, surface],
+    [rows, surface],
   );
   const entityDraftRow = useMemo<GridDraftRow<EntityRow> | undefined>(
     () =>
@@ -414,38 +436,140 @@ export function EntityWorkbookSurface({
   }, [contract.fieldMap, queryState.groupBy, surface]);
   const gridHandleRef = useRef<GridHandle | null>(null);
   const entityFocus = useWorkbookGridFocus({
-    columns: entityAnchorColumns,
+    columns: visibleEntityAnchorColumns,
     gridHandleRef,
     grouping,
     rows: entityGridRows,
     surface,
   });
-  const handleEntityPaste = useCallback(
+  const focusEntityDraft = useCallback(() => {
+    const firstWritableField = writableFields[0];
+    if (!firstWritableField || interactionMode.kind === "read_only") return;
+    window.setTimeout(() => {
+      document
+        .querySelector<HTMLElement>(
+          dataTestIdSelector(
+            genericCreateFieldTestId(firstWritableField.fieldKey),
+          ),
+        )
+        ?.focus({ preventScroll: true });
+    }, 0);
+  }, [interactionMode.kind, writableFields]);
+  const dataState = workbookGridDataState({
+    emptyAction:
+      writableFields.length > 0 && interactionMode.kind === "editable"
+        ? { label: "Add row", onInvoke: focusEntityDraft }
+        : undefined,
+    emptyMessage: `No ${entityType === "host" ? "hosts" : "identities"} have been added.`,
+    loadState,
+    onClearFilters,
+    onRetry: () => void onRefreshEntities(),
+    queryState,
+    rowCount: entityGridRows.length,
+    surfaceLabel: contract.title,
+  });
+  const commitGridEdit = useCallback(
     async (
-      event: ReactClipboardEvent<HTMLElement>,
-      anchor: { readonly fieldKey: string; readonly recordId: string },
-    ) => {
-      const clipboardText = event.clipboardData?.getData("text/plain") ?? "";
-      if (!clipboardTextLooksTabular(clipboardText)) {
+      fieldKey: string,
+      draftValue: string,
+      target: {
+        readonly baseRowVersion: number;
+        readonly recordId: string;
+      },
+    ): Promise<GridEditCommitOutcome> => {
+      const field = contract.fieldMap[fieldKey];
+      if (field?.gridEditable !== true) {
+        return {
+          kind: "rejected_mutation",
+          message: "This field is not grid-editable.",
+        };
+      }
+      const current = rows.find((row) => row.recordId === target.recordId);
+      if (
+        current === undefined ||
+        current.rowVersion !== target.baseRowVersion
+      ) {
+        return {
+          kind: "stale_target",
+          message: "The record changed before this edit was submitted.",
+        };
+      }
+      const change = buildGenericPatchChange(field, draftValue);
+      if (change === null) {
+        return {
+          kind: "validation_error",
+          message:
+            "Enter a valid value, or clear only a field that permits null.",
+        };
+      }
+      setMutationState("Syncing");
+      setMutationError(null);
+      const result = await fetchWorkbookJSON<ViewMutationEnvelope>(
+        apiPath(apiBase, `/api/v1/records/${target.recordId}`),
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            view_schema_id: contract.viewSchemaId,
+            base_row_version: target.baseRowVersion,
+            client_txn_id: `grid-edit-${contract.viewSchemaId}-${Date.now()}`,
+            changes: [change],
+          }),
+        },
+      );
+      if (!result.ok) {
+        const message = parseErrorMessage(result.payload);
+        setMutationState("Conflict");
+        setMutationError(message);
+        if (result.status === 409) return { kind: "conflict", message };
+        if (result.status === 404) return { kind: "stale_target", message };
+        if (result.status === 400) {
+          return { kind: "validation_error", message };
+        }
+        return { kind: "rejected_mutation", message };
+      }
+      await onRefreshEntities();
+      setSelectedRecordId(target.recordId);
+      setMutationState("Saved");
+      return { kind: "accepted" };
+    },
+    [apiBase, contract, onRefreshEntities, rows],
+  );
+  const handleEntityPaste = useCallback(
+    async (intent: GridCellMutationIntent) => {
+      const clipboardText = intent.clipboardText ?? "";
+      const targetResolution = intent.targetResolution;
+      const values = parseClipboardTable(clipboardText);
+      if (
+        targetResolution === undefined ||
+        targetResolution.columns.length === 0 ||
+        targetResolution.rowTargets.length !== values.length
+      ) {
+        setMutationError("Paste targets are incomplete or incompatible.");
         return;
       }
-      const dimensions = clipboardGridDimensions(clipboardText);
-      const presentationRows = buildGridPresentationRows({
-        grouping,
-        rows: entityGridRows,
-      });
-      const targetResolution = resolveGridPasteTargets({
-        columns: entityAnchorColumns,
-        current: { ...anchor, viewSchemaId: surface },
-        pastedColumnCount: dimensions.columnCount,
-        pastedRowCount: dimensions.rowCount,
-        presentationRows,
-      });
-      if (targetResolution === null) {
+      if (values.length === 1 && values[0]?.length === 1) {
+        const rowTarget = targetResolution.rowTargets[0];
+        if (rowTarget?.kind !== "record") {
+          setMutationError("Scalar paste requires an existing record target.");
+          return;
+        }
+        const outcome = await commitGridEdit(
+          targetResolution.columns[0] ?? intent.target.fieldKey,
+          values[0]?.[0] ?? "",
+          {
+            baseRowVersion: rowTarget.baseRowVersion,
+            recordId: rowTarget.recordId,
+          },
+        );
+        if (outcome.kind !== "accepted") setMutationError(outcome.message);
         return;
       }
-
-      event.preventDefault();
+      if (grouping !== null) {
+        setMutationError(
+          "Rectangular entity creation paste is unavailable while grouped.",
+        );
+        return;
+      }
       setMergeMessage(null);
       setMergePreconditionDetails([]);
       const result = await fetchWorkbookJSON<EntityClipboardPasteEnvelope>(
@@ -460,7 +584,7 @@ export function EntityWorkbookSurface({
             client_txn_id: `${contract.viewSchemaId}-paste-${Date.now()}`,
             clipboard_text: clipboardText,
             format: clipboardText.includes("\t") ? "tsv" : "csv",
-            start_field_key: anchor.fieldKey,
+            start_field_key: intent.target.fieldKey,
             columns: targetResolution.columns,
             targets: targetResolution.rowTargets.map(() => ({
               kind: "create",
@@ -477,66 +601,82 @@ export function EntityWorkbookSurface({
       );
       const firstRow = envelope.data.rows[0];
       await onRefreshEntities();
-      if (firstRow) {
-        setSelectedRecordId(firstRow.record_id);
-      }
+      if (firstRow) setSelectedRecordId(firstRow.record_id);
       setMergeMessage(
         `Paste applied to ${envelope.data.rows.length} ${entityType === "host" ? "host" : "identity"} row${envelope.data.rows.length === 1 ? "" : "s"}.`,
       );
     },
     [
       apiBase,
+      commitGridEdit,
       contract.viewSchemaId,
-      entityAnchorColumns,
-      entityGridRows,
       entityType,
+      grouping,
       incidentId,
       onRefreshEntities,
-      grouping,
-      surface,
     ],
   );
   const entityColumns: readonly GridColumn<EntityRow>[] =
-    entityAnchorColumns.map((column) => ({
-      ...column,
-      renderDraftCell: () => {
-        const writableField =
-          writableFields.find(
-            (candidate) => candidate.fieldKey === column.fieldKey,
-          ) ?? null;
-        if (writableField === null) {
-          return <span style={draftCellPlaceholderStyle}>-</span>;
-        }
-        return (
-          <GenericMutationControl
-            collectionMode="add"
-            field={writableField}
-            referenceOptions={entityReferenceOptions}
-            surface="grid"
-            testId={genericCreateFieldTestId(writableField.fieldKey)}
-            value={createDraft[writableField.fieldKey] ?? ""}
-            onChange={(value) => {
-              setCreateDraft((current) => ({
-                ...current,
-                [writableField.fieldKey]: value,
-              }));
-            }}
-          />
-        );
-      },
-      renderCell: ({ row }) => {
-        return (
-          <FocusableWorkbookCell
-            fieldKey={column.fieldKey}
-            focus={entityFocus}
-            onPaste={handleEntityPaste}
-            recordId={row.recordId}
-          >
-            {entityCellContent(entityType, row, column.fieldKey)}
-          </FocusableWorkbookCell>
-        );
-      },
-    }));
+    visibleEntityAnchorColumns.map((column) => {
+      const field = contract.fieldMap[column.fieldKey];
+      return {
+        ...column,
+        contractWritable: field?.gridEditable === true,
+        getClipboardValue: (row: EntityRow) => {
+          const value = row.rawRow.cells[column.fieldKey]?.value;
+          return field?.readKind === "collection"
+            ? genericCellLabel(value)
+            : value;
+        },
+        editor:
+          field?.gridEditable === true
+            ? workbookGridEditorAdapter({
+                commit: (draftValue, target) =>
+                  commitGridEdit(field.fieldKey, draftValue, target),
+                field,
+                readValue: (row: EntityRow) =>
+                  row.rawRow.cells[field.fieldKey]?.value,
+                referenceOptions: entityReferenceOptions,
+              })
+            : undefined,
+        renderDraftCell: () => {
+          const writableField =
+            writableFields.find(
+              (candidate) => candidate.fieldKey === column.fieldKey,
+            ) ?? null;
+          if (writableField === null) {
+            return <span style={draftCellPlaceholderStyle}>-</span>;
+          }
+          return (
+            <GenericMutationControl
+              collectionMode="add"
+              field={writableField}
+              referenceOptions={entityReferenceOptions}
+              surface="grid"
+              testId={genericCreateFieldTestId(writableField.fieldKey)}
+              value={createDraft[writableField.fieldKey] ?? ""}
+              onChange={(value) => {
+                setCreateDraft((current) => ({
+                  ...current,
+                  [writableField.fieldKey]: value,
+                }));
+              }}
+            />
+          );
+        },
+        renderCell: ({ row }) => {
+          return (
+            <FocusableWorkbookCell
+              fieldKey={column.fieldKey}
+              focus={entityFocus}
+              recordId={row.recordId}
+            >
+              {entityCellContent(entityType, row, column.fieldKey)}
+            </FocusableWorkbookCell>
+          );
+        },
+      };
+    });
   const entityActionsColumn: GridActionsColumn<EntityRow> = {
     headerTestId: gridActionsHeaderTestId(surface),
     label: "",
@@ -717,6 +857,7 @@ export function EntityWorkbookSurface({
   }
 
   async function submitEntityCreate() {
+    if (interactionMode.kind === "read_only") return;
     const payload = buildGenericCreatePayload(
       contract,
       createDraft,
@@ -1171,12 +1312,26 @@ export function EntityWorkbookSurface({
         >
           <WorkbookDataGrid
             ref={gridHandleRef}
+            activeRecordId={selectedRecordId}
+            allowPasteCreateRows
             actionsColumn={entityActionsColumn}
             columns={entityColumns}
+            columnWidths={layoutState.columnWidths}
+            dataState={dataState}
             density={density}
             draftRow={entityDraftRow}
             grouping={grouping}
-            onToggleSort={onToggleSort}
+            interactionMode={interactionMode}
+            onActiveCellChange={(anchor) =>
+              entityFocus.update(
+                anchor?.recordId ?? null,
+                anchor?.fieldKey ?? "",
+              )
+            }
+            onColumnReorder={onColumnReorder}
+            onColumnWidthChange={onColumnWidthChange}
+            onPasteCell={(intent) => void handleEntityPaste(intent)}
+            onSortChange={onSortChange}
             recordRows={entityGridRows}
             sort={queryState.sort}
             viewSchemaId={surface}
@@ -1192,23 +1347,11 @@ export function EntityWorkbookSurface({
       }
       viewBar={
         <WorkbookSheetToolbar
-          addRowDisabled={writableFields.length === 0}
+          addRowDisabled={
+            writableFields.length === 0 || interactionMode.kind === "read_only"
+          }
           leading={savedViewSelector}
-          onAddRow={() => {
-            const firstWritableField = writableFields[0];
-            if (!firstWritableField) {
-              return;
-            }
-            window.setTimeout(() => {
-              document
-                .querySelector<HTMLElement>(
-                  dataTestIdSelector(
-                    genericCreateFieldTestId(firstWritableField.fieldKey),
-                  ),
-                )
-                ?.focus({ preventScroll: true });
-            }, 0);
-          }}
+          onAddRow={focusEntityDraft}
           onInspectorToggle={() => {
             setIsInspectorOpen(true);
           }}

@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -109,6 +110,24 @@ function runtimeBinaryEnvForIDs(ids = []) {
 
 function runtimeBinaryEnvForUnit(unit) {
   return runtimeBinaryEnvForIDs(unit.runtime_binaries ?? []);
+}
+
+export function retainedRunEnvForUnit(context, unit) {
+  if (unit.isolatedRetainedRun !== true) {
+    return {};
+  }
+  const candidate = `${context.runId}-${unit.target}`;
+  if (/^[A-Za-z0-9_.-]{1,96}$/u.test(candidate)) {
+    return { CARTULARY_TEST_RUN_ID: candidate };
+  }
+  const targetSlug = String(unit.target)
+    .replaceAll(/[^A-Za-z0-9_.-]/gu, "-")
+    .slice(0, 24) || "composite";
+  const digest = createHash("sha256").update(candidate).digest("hex").slice(0, 12);
+  const prefixLength = 96 - targetSlug.length - digest.length - 2;
+  return {
+    CARTULARY_TEST_RUN_ID: `${String(context.runId).slice(0, prefixLength)}-${targetSlug}-${digest}`,
+  };
 }
 
 function phaseSliceNeedsService(plan) {
@@ -353,6 +372,7 @@ function attachRuntime(plan, context, metadataDir, serviceRuntime) {
           skipPrerequisites: unit.make_prerequisite_policy !== "run",
           env: await runtimeEnvForUnit(context, serviceRuntime, unit, {
             CARTULARY_TEST_TARGET: unit.target,
+            ...retainedRunEnvForUnit(context, unit),
             ...frontendRowAccountingEnv(unit),
             MAKEFLAGS: "",
           }),

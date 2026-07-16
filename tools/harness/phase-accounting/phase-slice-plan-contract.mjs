@@ -239,6 +239,10 @@ export function validatePhaseSlicePlanContract(plan, label = "phase-slice plan")
     validateOptionalBoolean(unit.countInTotal, `${unitLabel}.countInTotal`);
     validateOptionalBoolean(unit.countsStarted, `${unitLabel}.countsStarted`);
     validateOptionalBoolean(unit.completeOnFailure, `${unitLabel}.completeOnFailure`);
+    validateOptionalBoolean(
+      unit.isolatedRetainedRun,
+      `${unitLabel}.isolatedRetainedRun`,
+    );
     validateStringArray(unit.needs ?? [], `${unitLabel}.needs`);
     validateStringArray(unit.runningDependencyKeys ?? [], `${unitLabel}.runningDependencyKeys`);
     validateStringArray(unit.shardNames ?? [], `${unitLabel}.shardNames`);

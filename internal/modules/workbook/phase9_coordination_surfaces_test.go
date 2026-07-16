@@ -498,6 +498,16 @@ func TestPhase9Sprint7_CoordinationSemanticFilters_U_9_08(t *testing.T) {
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "sprint7-filters@example.test", "Sprint7 Filters", "Sprint7Filters1!", false, false, true)
 	alternate := recordstoretest.SeedLocalUserFlags(t, harness.DB, "sprint7-filters-alt@example.test", "Sprint7 Filters Alt", "Sprint7FiltersAlt1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint7-filters-incident", "IR-S7-FILTERS", "Phase 9 Sprint 7 semantic filters")
+	_, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
+		ViewSchemaID: workbook.HandoffViewSchemaID,
+		ClientTxnID:  "txn-phase9-sprint7-filter-nonmember-owner",
+		Values: map[string]workbook.ValueChange{
+			"handoff.incoming_owner_user_id": sprint7UUID(alternate.ID),
+			"handoff.current_state_summary":  sprint7Text("Non-member owner must fail"),
+		},
+	}, []byte("txn-phase9-sprint7-filter-nonmember-owner"), "req-phase9-sprint7-filter-nonmember-owner", sprint7Time(0))
+	requireSprint7MutationValidation(t, err, "handoff.incoming_owner_user_id", "invalid_value")
+	recordstoretest.SeedIncidentMembership(t, harness.DB, incident.ID, alternate.ID, alternate.DisplayName, "editor", actor.ID)
 
 	commPositive := mustCreateSprint7Row(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-phase9-sprint7-filter-comm-positive", map[string]workbook.ValueChange{
 		"comm_log.timestamp_utc":      sprint7Timestamp(time.Date(2026, 5, 19, 9, 0, 0, 0, time.UTC)),

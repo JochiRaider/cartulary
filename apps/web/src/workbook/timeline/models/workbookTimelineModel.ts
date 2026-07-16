@@ -2,7 +2,6 @@ import {
   normalizeViewRowPatchV1,
   normalizeViewRowV1,
   requireViewContract,
-  visibleFields,
 } from "@cartulary/view-contracts";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { PendingReplayUnitState } from "../../utils/workbookPendingQueue";
@@ -278,9 +277,7 @@ export function timelineFieldBinding(fieldKey: string): TimelineFieldBinding {
 }
 
 export const timelineVisibleBindings: readonly TimelineFieldBinding[] =
-  visibleFields(timelineContract).map((field) =>
-    timelineFieldBinding(field.fieldKey),
-  );
+  timelineContract.fields.map((field) => timelineFieldBinding(field.fieldKey));
 
 export const timelineInspectorBindings: readonly TimelineScalarBinding[] =
   timelineInspectorEditableFields.map(

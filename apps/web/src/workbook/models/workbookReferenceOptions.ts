@@ -8,6 +8,7 @@ export type GenericReferenceOption = {
 };
 
 export type GenericReferenceOptions = {
+  incidentMembers: GenericReferenceOption[];
   parties: GenericReferenceOption[];
   taskRequests: GenericReferenceOption[];
   decisions: GenericReferenceOption[];
@@ -22,6 +23,7 @@ export type GenericReferenceOptions = {
 
 export function emptyGenericReferenceOptions(): GenericReferenceOptions {
   return {
+    incidentMembers: [],
     parties: [],
     taskRequests: [],
     decisions: [],
@@ -44,6 +46,9 @@ export function referenceOptionsForField(
   }
   if (field.directReferenceContractId === "same_incident_decision_ref_v1") {
     return options.decisions;
+  }
+  if (field.directReferenceContractId === "incident_member_user_ref_v1") {
+    return options.incidentMembers;
   }
   if (isPartyRefCollection(field.fieldKey)) {
     return options.parties;
@@ -88,6 +93,9 @@ export function genericFieldUsesReferenceOptions(
       ],
       allRecords: [
         { recordId: "record", label: "record", viewSchemaId: "record" },
+      ],
+      incidentMembers: [
+        { recordId: "user", label: "user", viewSchemaId: "incident_member" },
       ],
     }).length > 0
   );

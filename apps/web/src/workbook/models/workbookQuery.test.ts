@@ -1,9 +1,18 @@
+import type { GridColumn } from "@cartulary/grid-adapter";
 import { requireViewContract } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
-
+import {
+  applyWorkbookLayoutToColumns,
+  defaultWorkbookLayoutState,
+  moveWorkbookColumn,
+  reorderWorkbookColumns,
+  setWorkbookColumnHidden,
+  setWorkbookColumnWidth,
+} from "./workbookLayout";
 import {
   applyFilterDraft,
   buildQueryRequest,
+  cycleWorkbookSortField,
   defaultFilterDraft,
   emptyWorkbookQueryState,
   filterChipLabel,
@@ -72,6 +81,38 @@ describe("workbookQuery", () => {
     });
   });
 
+  it("supports ordered additive sort cycles and enforces the owner limit", () => {
+    const contract = requireViewContract("cartulary.view.timeline.v2");
+    const sortable = contract.fields
+      .map((field) => field.fieldKey)
+      .filter((fieldKey) => contract.sortableFieldMap[fieldKey])
+      .slice(0, 9);
+    let state = emptyWorkbookQueryState();
+    for (const fieldKey of sortable) {
+      state = cycleWorkbookSortField(contract, state, fieldKey, true);
+    }
+    expect(state.sort).toHaveLength(Math.min(8, sortable.length));
+    const first = state.sort[0];
+    expect(first).toBeDefined();
+    if (first === undefined) return;
+    const descending = cycleWorkbookSortField(
+      contract,
+      state,
+      first.fieldKey,
+      true,
+    );
+    expect(descending.sort[0]).toEqual({ ...first, direction: "desc" });
+    const removed = cycleWorkbookSortField(
+      contract,
+      descending,
+      first.fieldKey,
+      true,
+    );
+    expect(
+      removed.sort.some((entry) => entry.fieldKey === first.fieldKey),
+    ).toBe(false);
+  });
+
   it("describes filter chip labels from contract metadata", () => {
     const contract = requireViewContract("cartulary.view.timeline.v2");
     expect(
@@ -101,5 +142,50 @@ describe("workbookQuery", () => {
     expect(
       workbookContractForViewSchemaId("cartulary.view.notes.v1").viewSchemaId,
     ).toBe("cartulary.view.notes.v1");
+  });
+
+  it("keeps a full semantic layout permutation while compiling visible columns", () => {
+    const contract = requireViewContract("cartulary.view.timeline.v2");
+    const initial = defaultWorkbookLayoutState(contract);
+    const [first, second] = initial.columnOrder;
+    expect(first).toBeDefined();
+    expect(second).toBeDefined();
+    if (first === undefined || second === undefined) return;
+    const reordered = reorderWorkbookColumns(contract, initial, second, first);
+    const hidden = setWorkbookColumnHidden(contract, reordered, first, true);
+    const sized = setWorkbookColumnWidth(contract, hidden, second, 480);
+    const columns = contract.fields.map(
+      (field): GridColumn<Record<string, never>> => ({
+        fieldKey: field.fieldKey,
+        label: field.label,
+        renderCell: () => null,
+      }),
+    );
+
+    expect(sized.columnOrder).toHaveLength(contract.fields.length);
+    expect(sized.columnOrder.slice(0, 2)).toEqual([second, first]);
+    expect(
+      applyWorkbookLayoutToColumns(contract, columns, sized)
+        .slice(0, 1)
+        .map((column) => ({ key: column.fieldKey, width: column.width })),
+    ).toEqual([{ key: second, width: 480 }]);
+    expect(moveWorkbookColumn(contract, sized, second, "earlier")).toEqual(
+      sized,
+    );
+  });
+
+  it("rejects structural layout keys and out-of-range widths", () => {
+    const contract = requireViewContract("cartulary.view.timeline.v2");
+    const initial = defaultWorkbookLayoutState(contract);
+    expect(
+      setWorkbookColumnWidth(contract, initial, "__selection__", 96),
+    ).toEqual(initial);
+    const fieldKey = initial.columnOrder[0] ?? "";
+    expect(setWorkbookColumnWidth(contract, initial, fieldKey, 39)).toEqual(
+      initial,
+    );
+    expect(setWorkbookColumnWidth(contract, initial, fieldKey, 4097)).toEqual(
+      initial,
+    );
   });
 });

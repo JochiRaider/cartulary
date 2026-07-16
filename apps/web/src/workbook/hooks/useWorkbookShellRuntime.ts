@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { apiPath } from "../../services/browserApi";
 import { fetchWorkbookJSON, readEnvelope } from "../../services/workbookApi";
+import { workbookLayoutStateFromSavedViewLayoutJson } from "../models/workbookQuery";
 import { savedViewQueryStateForRuntime } from "../models/workbookSavedViewRuntime";
 import { normalizeSavedViewResource } from "../models/workbookSavedViews";
 import {
@@ -9,6 +10,7 @@ import {
 } from "../models/workbookStartup";
 import { workbookContractForViewSchemaId } from "../models/workbookSurfaceQueryRuntime";
 import { knownWorkbookViewSchemaId } from "../models/workbookSurfaceRegistry";
+import { useWorkbookLayoutController } from "./useWorkbookLayoutController";
 import { useWorkbookQueryController } from "./useWorkbookQueryController";
 import { useWorkbookSavedViewController } from "./useWorkbookSavedViewController";
 import { useWorkbookStartupController } from "./useWorkbookStartupController";
@@ -75,12 +77,21 @@ export function useWorkbookShellRuntime({
     setIdentityQueryState,
     setTimelineQueryState,
   } = workbookQueries.commands;
+  const workbookLayouts = useWorkbookLayoutController({
+    activeContract,
+    startupSheetRef,
+  });
+  const { activeLayoutControls, activeLayoutState } = workbookLayouts.snapshot;
+  const { applyLayoutStateForSurface, currentLayoutStateForSurface } =
+    workbookLayouts.commands;
 
   const savedViewController = useWorkbookSavedViewController({
     activeContract,
     apiBase,
+    applyLayoutStateForSurface,
     applyQueryStateForSurface,
     applyWorkbookIdentity,
+    currentLayoutStateForSurface,
     currentQueryStateForSurface,
     incidentId,
     onIncidentAccessLost,
@@ -137,6 +148,13 @@ export function useWorkbookShellRuntime({
           nextSurface,
           savedViewQueryStateForRuntime(contract, startupSavedView),
         );
+        applyLayoutStateForSurface(
+          nextSurface,
+          workbookLayoutStateFromSavedViewLayoutJson(
+            contract,
+            startupSavedView.layout_json,
+          ),
+        );
       }
       applyStartupIdentity({
         sheetRef: startup.selectedSheetRef,
@@ -150,6 +168,7 @@ export function useWorkbookShellRuntime({
   }, [
     apiBase,
     applyQueryStateForSurface,
+    applyLayoutStateForSurface,
     applyStartupIdentity,
     incidentId,
     params,
@@ -177,6 +196,8 @@ export function useWorkbookShellRuntime({
     },
     snapshot: {
       activeContract,
+      activeLayoutControls,
+      activeLayoutState,
       activeQueryControls,
       activeSavedViewModified,
       assessmentQueryState,

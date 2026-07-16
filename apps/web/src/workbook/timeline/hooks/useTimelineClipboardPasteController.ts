@@ -1,4 +1,7 @@
-import type { GridCellAnchor } from "@cartulary/grid-adapter";
+import type {
+  GridCellAnchor,
+  GridCellMutationIntent,
+} from "@cartulary/grid-adapter";
 import { type ClipboardEvent as ReactClipboardEvent, useCallback } from "react";
 import { apiPath } from "../../../services/browserApi";
 import { fetchWorkbookJSON, readEnvelope } from "../../../services/workbookApi";
@@ -46,6 +49,7 @@ type TimelineCommittedRecordIdle = {
 
 export function useTimelineClipboardPasteController({
   apiBase,
+  applyResponseRows,
   beginSave,
   beginViewportContinuity,
   clearViewportContinuity,
@@ -67,6 +71,7 @@ export function useTimelineClipboardPasteController({
   waitForCommittedRecordIdle,
 }: {
   readonly apiBase?: string | undefined;
+  readonly applyResponseRows: (rows: readonly unknown[]) => void;
   readonly beginSave: () => void;
   readonly beginViewportContinuity: (
     target:
@@ -227,6 +232,7 @@ export function useTimelineClipboardPasteController({
                 } else if (pasteConflictKeys.length === 0) {
                   setPasteConflictGroup(null);
                 }
+                applyResponseRows(envelope.data.rows);
                 await loadRowsRef.current({
                   showLoading: false,
                   viewportContinuityToken,
@@ -264,6 +270,7 @@ export function useTimelineClipboardPasteController({
     },
     [
       apiBase,
+      applyResponseRows,
       beginSave,
       beginViewportContinuity,
       clearViewportContinuity,
@@ -286,8 +293,30 @@ export function useTimelineClipboardPasteController({
     ],
   );
 
+  const handleGridPaste = useCallback(
+    (intent: GridCellMutationIntent) => {
+      const clipboardText = intent.clipboardText;
+      if (clipboardText === undefined) return;
+      const binding = timelineScalarBindingForField(intent.target.fieldKey);
+      if (binding === null) return;
+      handlePaste(
+        {
+          clipboardData: {
+            getData: () => clipboardText,
+          },
+          preventDefault: () => undefined,
+        } as unknown as ReactClipboardEvent<HTMLInputElement>,
+        intent.target.recordId,
+        binding.key,
+        "grid",
+      );
+    },
+    [handlePaste],
+  );
+
   return {
     commands: {
+      handleGridPaste,
       handlePaste,
     },
   };

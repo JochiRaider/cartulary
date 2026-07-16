@@ -7,6 +7,7 @@ import type {
   ObjectBlobCreateEnvelope,
   ObjectBlobCreateRequest,
 } from "@cartulary/protocol-ts";
+import { scrollGridTargetIntoView } from "@cartulary/test-utils";
 import {
   dataTestIdSelector,
   evidenceAccessMessageTestId,
@@ -560,6 +561,11 @@ async function openEvidenceSurface(page: Page, incidentId: string) {
 async function expectStableEvidenceControls(page: Page, recordId: string) {
   await expectStableEvidenceActionControls(page, recordId);
   const testId = evidenceAccessMessageTestId(recordId);
+  await scrollGridTargetIntoView({
+    page,
+    surface: evidenceViewSchemaId,
+    targetTestId: testId,
+  });
   await expect(page.getByTestId(testId)).toHaveAttribute("data-testid", testId);
 }
 
@@ -572,6 +578,11 @@ async function expectStableEvidenceActionControls(
     evidencePreviewButtonTestId(recordId),
     evidenceDownloadButtonTestId(recordId),
   ]) {
+    await scrollGridTargetIntoView({
+      page,
+      surface: evidenceViewSchemaId,
+      targetTestId: testId,
+    });
     await expect(page.getByTestId(testId)).toHaveAttribute(
       "data-testid",
       testId,

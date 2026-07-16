@@ -10,7 +10,9 @@ import {
 import {
   buildSavedViewLayoutJson,
   buildSavedViewQueryJson,
+  type WorkbookLayoutState,
   type WorkbookQueryState,
+  workbookLayoutStateFromSavedViewLayoutJson,
 } from "../models/workbookQuery";
 import {
   fallbackIdentityAfterSavedViewDelete,
@@ -40,8 +42,10 @@ type WorkbookIdentity = {
 export function useWorkbookSavedViewController({
   activeContract,
   apiBase,
+  applyLayoutStateForSurface,
   applyQueryStateForSurface,
   applyWorkbookIdentity,
+  currentLayoutStateForSurface,
   currentQueryStateForSurface,
   incidentId,
   onIncidentAccessLost,
@@ -49,6 +53,10 @@ export function useWorkbookSavedViewController({
 }: {
   readonly activeContract: ViewContract;
   readonly apiBase?: string | undefined;
+  readonly applyLayoutStateForSurface: (
+    viewSchemaId: string,
+    layoutState: WorkbookLayoutState,
+  ) => void;
   readonly applyQueryStateForSurface: (
     viewSchemaId: string,
     queryState: WorkbookQueryState,
@@ -57,6 +65,9 @@ export function useWorkbookSavedViewController({
     identity: WorkbookIdentity,
     options?: { readonly reloadSheet?: boolean },
   ) => void;
+  readonly currentLayoutStateForSurface: (
+    viewSchemaId: string,
+  ) => WorkbookLayoutState;
   readonly currentQueryStateForSurface: (
     viewSchemaId: string,
   ) => WorkbookQueryState;
@@ -78,11 +89,22 @@ export function useWorkbookSavedViewController({
         nextSurface,
         savedViewQueryStateForRuntime(contract, savedView),
       );
+      applyLayoutStateForSurface(
+        nextSurface,
+        workbookLayoutStateFromSavedViewLayoutJson(
+          contract,
+          savedView.layout_json,
+        ),
+      );
       applyWorkbookIdentity(savedViewIdentityForSelection(savedView), {
         reloadSheet: true,
       });
     },
-    [applyQueryStateForSurface, applyWorkbookIdentity],
+    [
+      applyLayoutStateForSurface,
+      applyQueryStateForSurface,
+      applyWorkbookIdentity,
+    ],
   );
 
   const createSavedView = useCallback(
@@ -91,6 +113,9 @@ export function useWorkbookSavedViewController({
       readonly scope: "private" | "shared";
     }) => {
       const queryState = currentQueryStateForSurface(
+        activeContract.viewSchemaId,
+      );
+      const layoutState = currentLayoutStateForSurface(
         activeContract.viewSchemaId,
       );
       const result = await fetchWorkbookJSON<SavedViewEnvelope>(
@@ -102,7 +127,7 @@ export function useWorkbookSavedViewController({
             display_name: input.displayName,
             scope: input.scope,
             query_json: buildSavedViewQueryJson(activeContract, queryState),
-            layout_json: buildSavedViewLayoutJson(activeContract),
+            layout_json: buildSavedViewLayoutJson(activeContract, layoutState),
           }),
         },
       );
@@ -123,6 +148,7 @@ export function useWorkbookSavedViewController({
       activeContract,
       apiBase,
       currentQueryStateForSurface,
+      currentLayoutStateForSurface,
       incidentId,
       selectSavedView,
       upsertSavedView,
@@ -179,6 +205,9 @@ export function useWorkbookSavedViewController({
         savedView.view_schema_id,
       );
       const queryState = currentQueryStateForSurface(savedView.view_schema_id);
+      const layoutState = currentLayoutStateForSurface(
+        savedView.view_schema_id,
+      );
       const result = await fetchWorkbookJSON<SavedViewEnvelope>(
         apiPath(
           apiBase,
@@ -191,7 +220,7 @@ export function useWorkbookSavedViewController({
             display_name: input.displayName,
             scope: input.scope,
             query_json: buildSavedViewQueryJson(contract, queryState),
-            layout_json: buildSavedViewLayoutJson(contract),
+            layout_json: buildSavedViewLayoutJson(contract, layoutState),
           }),
         },
       );
@@ -207,7 +236,13 @@ export function useWorkbookSavedViewController({
       upsertSavedView(updated);
       return updated;
     },
-    [apiBase, currentQueryStateForSurface, incidentId, upsertSavedView],
+    [
+      apiBase,
+      currentLayoutStateForSurface,
+      currentQueryStateForSurface,
+      incidentId,
+      upsertSavedView,
+    ],
   );
 
   const deleteSavedView = useCallback(
@@ -299,6 +334,9 @@ export function useWorkbookSavedViewController({
   );
   const activeSavedViewModified = savedViewConfigurationIsModified({
     contract: activeContract,
+    currentLayoutState: currentLayoutStateForSurface(
+      activeContract.viewSchemaId,
+    ),
     currentQueryState: currentQueryStateForSurface(activeContract.viewSchemaId),
     savedView:
       activeSavedView?.view_schema_id === activeContract.viewSchemaId

@@ -1,4 +1,8 @@
-import { applyFilterChip, removeFilterChip } from "@cartulary/test-utils";
+import {
+  applyFilterChip,
+  removeFilterChip,
+  scrollGridCellIntoView,
+} from "@cartulary/test-utils";
 import {
   rowCellTestId,
   workbookAddRowButtonTestId,
@@ -135,6 +139,12 @@ test("E-4-05 creates append-only assessment history through the workbook UI", as
       rowCellTestId(created.cleared.record_id, "assessment.confidence_band"),
     ),
   ).toHaveText("high");
+  await scrollGridCellIntoView({
+    cellKey: "assessment.supporting_link_count",
+    page,
+    recordId: created.confirmed.record_id,
+    surface: assessmentsViewSchemaId,
+  });
   await expect(
     page.getByTestId(
       rowCellTestId(

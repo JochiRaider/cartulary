@@ -502,7 +502,11 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
-    expect(await screen.findByTestId("timeline-refresh-error")).toBeTruthy();
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-grid-data-state="stale_error"]'),
+      ).toBeTruthy();
+    });
     expect(
       screen.getByTestId(gridFilterFieldTestId(timelineViewSchemaId)),
     ).toBeTruthy();
@@ -730,7 +734,9 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
       expect(fetchMock).toHaveBeenCalledTimes(4);
     });
     await waitFor(() => {
-      expect(screen.queryByTestId("timeline-refresh-error")).toBeNull();
+      expect(
+        container.querySelector('[data-grid-data-state="stale_error"]'),
+      ).toBeNull();
       expect(
         screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
       ).toBe("2");

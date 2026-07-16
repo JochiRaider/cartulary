@@ -1,5 +1,6 @@
 type RecordIdentity = {
   readonly recordId: string | null;
+  readonly rowVersion?: number | null;
 };
 
 export function reconcileWorkbookRecordRows<Row extends RecordIdentity>(
@@ -17,9 +18,14 @@ export function reconcileWorkbookRecordRows<Row extends RecordIdentity>(
       return row;
     }
     const previous = previousByRecordId.get(row.recordId);
-    return previous !== undefined && shallowEqualRecord(previous, row)
-      ? previous
-      : row;
+    if (previous === undefined) return row;
+    if (
+      typeof previous.rowVersion === "number" &&
+      previous.rowVersion === row.rowVersion
+    ) {
+      return previous;
+    }
+    return shallowEqualRecord(previous, row) ? previous : row;
   });
 }
 

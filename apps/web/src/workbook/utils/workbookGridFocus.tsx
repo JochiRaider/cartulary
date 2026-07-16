@@ -8,20 +8,14 @@ import {
   type GridRecordRow,
   navigateGridCellAnchor,
 } from "@cartulary/grid-adapter";
-import {
-  dataTestIdSelector,
-  rowCellTestId,
-  type WorkbookSurface,
-} from "@cartulary/ui-contracts";
+import { rowCellTestId, type WorkbookSurface } from "@cartulary/ui-contracts";
 import {
   type ClipboardEvent as ReactClipboardEvent,
-  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   type RefObject,
   useCallback,
   useState,
 } from "react";
-import { mapWorkbookKeyboardCommand } from "./workbookKeyboard";
 import { focusableCellStyle, visuallyHiddenStyle } from "./workbookStyles";
 
 export type WorkbookFocusAnchor = GridCellAnchor & {
@@ -92,12 +86,6 @@ export function useWorkbookGridFocus<Row>({
       setAnchor({ ...nextAnchor, surface });
       window.setTimeout(() => {
         gridHandleRef?.current?.focusAnchor(nextAnchor);
-        const element = document.querySelector<HTMLElement>(
-          dataTestIdSelector(
-            rowCellTestId(nextAnchor.recordId, nextAnchor.fieldKey),
-          ),
-        );
-        element?.focus({ preventScroll: true });
       }, 0);
     },
     [columns, gridHandleRef, grouping, rows, surface],
@@ -156,25 +144,7 @@ export function FocusableWorkbookCell({
             }
           : undefined
       }
-      onKeyDown={(event: ReactKeyboardEvent<HTMLElement>) => {
-        const command = mapWorkbookKeyboardCommand(event);
-        if (command.preventDefault) {
-          event.preventDefault();
-          // The semantic cell focus runtime owns these navigation commands.
-          // Keep RDG's root key handler from also moving its presentation
-          // selection from the independently focused header cell.
-          event.stopPropagation();
-        }
-        if (command.kind === "navigate") {
-          focus.navigate(
-            { fieldKey, recordId, viewSchemaId: focus.viewSchemaId },
-            command.intent,
-          );
-        }
-      }}
       style={focusableCellStyle}
-      // biome-ignore lint/a11y/noNoninteractiveTabindex: The grid adapter owns cell semantics; this wrapper keeps keyboard focus anchored inside the rendered cell.
-      tabIndex={0}
     >
       {children}
     </span>

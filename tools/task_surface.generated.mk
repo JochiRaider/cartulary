@@ -864,7 +864,7 @@ browser-e2e-visual-update:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e-visual-update)
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate; fi
-	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_PHASE_SCRIPT) "browser-e2e-visual-update" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) bash ./tools/harness/browser/run-browser-e2e-visual-update.sh
+	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_PHASE_SCRIPT) "browser-e2e-visual-update" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" NODE_BIN="$(NODE_BIN)" PNPM="$(PNPM)" CARTULARY_SERVER_HARNESS_BIN="$(SERVER_HARNESS_BIN)" CARTULARY_MIGRATE_BIN="$(MIGRATE_BIN)" CARTULARY_TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" bash ./tools/harness/browser/run-browser-e2e-visual-update.sh
 	$(call RUN_TARGET_SUMMARY,browser-e2e-visual-update,pass)
 
 test-local: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1

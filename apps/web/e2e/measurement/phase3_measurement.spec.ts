@@ -1,3 +1,4 @@
+import { scrollGridTargetIntoView } from "@cartulary/test-utils";
 import {
   draftCellTestId,
   saveStateTestId,
@@ -35,6 +36,12 @@ test("E-3-02 measures user-visible typing_ack and blank-row-create completion wi
     page.getByTestId(timelineMutationSubstrateReadyTestId()),
   ).toBeVisible();
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+
+  await scrollGridTargetIntoView({
+    page,
+    surface: timelineViewSchemaId,
+    targetTestId: draftSummaryTestId,
+  });
 
   const draftSummary = page.getByTestId(draftSummaryTestId);
   const visibleSaveStateSummary = `Visible save state ${uniqueTxn("save-state")}`;

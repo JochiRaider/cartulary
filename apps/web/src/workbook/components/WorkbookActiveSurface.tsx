@@ -1,10 +1,13 @@
-import type { GridDensity } from "@cartulary/grid-adapter";
+import type { GridDensity, GridInteractionMode } from "@cartulary/grid-adapter";
 import type { ViewContract } from "@cartulary/view-contracts";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import type { EntityRow } from "../models/entityWorkbookModel";
+import type { WorkbookQueryLoadState } from "../models/workbookGridState";
+import type { WorkbookResolvedLayoutState } from "../models/workbookLayout";
 import {
-  toggleSortField,
+  emptyWorkbookQueryState,
+  replaceWorkbookSort,
   type WorkbookQueryState,
 } from "../models/workbookQuery";
 import type { WorkbookSheetRef } from "../models/workbookStartup";
@@ -18,7 +21,7 @@ import { ContractWorkbookSurface } from "./GenericWorkbookSurface";
 export type WorkbookActiveSurfaceProps = {
   readonly activeContract: ViewContract;
   readonly apiBase?: string | undefined;
-  readonly assessmentLoadError: string | null;
+  readonly assessmentLoadState: WorkbookQueryLoadState;
   readonly assessmentQueryState: WorkbookQueryState;
   readonly assessmentRows: EntityApiRow[];
   readonly authorizationEpoch: string;
@@ -26,7 +29,7 @@ export type WorkbookActiveSurfaceProps = {
   readonly currentUserId: string | null;
   readonly density: GridDensity;
   readonly entityIndex: Record<string, EntityRow>;
-  readonly genericLoadError: string | null;
+  readonly genericLoadState: WorkbookQueryLoadState;
   readonly genericQueryState: WorkbookQueryState;
   readonly genericRows: EntityApiRow[];
   readonly hostQueryState: WorkbookQueryState;
@@ -34,10 +37,25 @@ export type WorkbookActiveSurfaceProps = {
   readonly identityQueryState: WorkbookQueryState;
   readonly identityRows: EntityRow[];
   readonly incidentId: string;
+  readonly interactionMode: GridInteractionMode;
   readonly inspectorResetKey: string;
+  readonly layoutState: WorkbookResolvedLayoutState;
   readonly loadAssessmentSurface: () => Promise<void>;
   readonly loadEntities: () => Promise<void>;
   readonly loadGenericSurface: () => Promise<void>;
+  readonly entityLoadState: WorkbookQueryLoadState;
+  readonly onIncidentAccessLost: (() => void) | undefined;
+  readonly onColumnReorder: (
+    sourceFieldKey: string,
+    targetFieldKey: string,
+  ) => void;
+  readonly onColumnHiddenChange: (fieldKey: string, hidden: boolean) => void;
+  readonly onColumnMove: (
+    fieldKey: string,
+    direction: "earlier" | "later",
+  ) => void;
+  readonly onResetColumns: () => void;
+  readonly onColumnWidthChange: (fieldKey: string, width: number) => void;
   readonly savedViewSelector?: ReactNode | undefined;
   readonly setAssessmentQueryState: Dispatch<
     SetStateAction<WorkbookQueryState>
@@ -55,7 +73,7 @@ export type WorkbookActiveSurfaceProps = {
 export function WorkbookActiveSurface({
   activeContract,
   apiBase,
-  assessmentLoadError,
+  assessmentLoadState,
   assessmentQueryState,
   assessmentRows,
   authorizationEpoch,
@@ -63,7 +81,7 @@ export function WorkbookActiveSurface({
   currentUserId,
   density,
   entityIndex,
-  genericLoadError,
+  genericLoadState,
   genericQueryState,
   genericRows,
   hostQueryState,
@@ -71,10 +89,19 @@ export function WorkbookActiveSurface({
   identityQueryState,
   identityRows,
   incidentId,
+  interactionMode,
   inspectorResetKey,
+  layoutState,
   loadAssessmentSurface,
   loadEntities,
   loadGenericSurface,
+  entityLoadState,
+  onIncidentAccessLost,
+  onColumnHiddenChange,
+  onColumnMove,
+  onColumnReorder,
+  onColumnWidthChange,
+  onResetColumns,
   savedViewSelector,
   setAssessmentQueryState,
   setGenericQueryState,
@@ -98,9 +125,17 @@ export function WorkbookActiveSurface({
         hostEntities={hostRows}
         identityEntities={identityRows}
         incidentId={incidentId}
+        interactionMode={interactionMode}
         inspectorResetKey={inspectorResetKey}
+        layoutState={layoutState}
+        onColumnHiddenChange={onColumnHiddenChange}
+        onColumnMove={onColumnMove}
+        onColumnReorder={onColumnReorder}
+        onColumnWidthChange={onColumnWidthChange}
+        onResetColumns={onResetColumns}
         onQueryStateChange={setTimelineQueryState}
         onRefreshEntities={loadEntities}
+        onIncidentAccessLost={onIncidentAccessLost}
         queryState={timelineQueryState}
         reloadToken={sheetReloadToken}
         renderInlineQueryControls={false}
@@ -123,17 +158,26 @@ export function WorkbookActiveSurface({
         entityIndex={entityIndex}
         entityType={isHosts ? "host" : "identity"}
         incidentId={incidentId}
+        interactionMode={interactionMode}
         inspectorResetKey={inspectorResetKey}
+        layoutState={layoutState}
+        loadState={entityLoadState}
         onRefreshEntities={loadEntities}
-        onToggleSort={(fieldKey) => {
+        onColumnReorder={onColumnReorder}
+        onColumnWidthChange={onColumnWidthChange}
+        onClearFilters={() => {
+          if (isHosts) setHostQueryState(emptyWorkbookQueryState());
+          else setIdentityQueryState(emptyWorkbookQueryState());
+        }}
+        onSortChange={(sort) => {
           if (isHosts) {
             setHostQueryState((current) =>
-              toggleSortField(registration.contract, current, fieldKey),
+              replaceWorkbookSort(registration.contract, current, sort),
             );
             return;
           }
           setIdentityQueryState((current) =>
-            toggleSortField(registration.contract, current, fieldKey),
+            replaceWorkbookSort(registration.contract, current, sort),
           );
         }}
         queryState={isHosts ? hostQueryState : identityQueryState}
@@ -154,11 +198,18 @@ export function WorkbookActiveSurface({
         identityRows={identityRows}
         incidentId={incidentId}
         inspectorResetKey={inspectorResetKey}
-        loadError={assessmentLoadError}
+        layoutState={layoutState}
+        loadState={assessmentLoadState}
+        interactionMode={interactionMode}
         onRefreshAssessmentRows={loadAssessmentSurface}
-        onToggleSort={(fieldKey) => {
+        onColumnReorder={onColumnReorder}
+        onColumnWidthChange={onColumnWidthChange}
+        onClearFilters={() => {
+          setAssessmentQueryState(emptyWorkbookQueryState());
+        }}
+        onSortChange={(sort) => {
           setAssessmentQueryState((current) =>
-            toggleSortField(registration.contract, current, fieldKey),
+            replaceWorkbookSort(registration.contract, current, sort),
           );
         }}
         queryState={assessmentQueryState}
@@ -177,11 +228,18 @@ export function WorkbookActiveSurface({
       density={density}
       incidentId={incidentId}
       inspectorResetKey={inspectorResetKey}
-      loadError={genericLoadError}
+      loadState={genericLoadState}
+      interactionMode={interactionMode}
+      layoutState={layoutState}
+      onColumnReorder={onColumnReorder}
+      onColumnWidthChange={onColumnWidthChange}
+      onClearFilters={() => {
+        setGenericQueryState(emptyWorkbookQueryState());
+      }}
       onRefresh={loadGenericSurface}
-      onToggleSort={(fieldKey) => {
+      onSortChange={(sort) => {
         setGenericQueryState((current) =>
-          toggleSortField(activeContract, current, fieldKey),
+          replaceWorkbookSort(activeContract, current, sort),
         );
       }}
       queryState={genericQueryState}

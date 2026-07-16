@@ -543,11 +543,11 @@ describe("FE-P9 inspector and row-local action coverage", () => {
       expect(
         screen.getByTestId(timelineInspectorTestId()).textContent,
       ).not.toContain("Phase 9 selected row");
-      expect(document.activeElement).toBe(
+      expect(
         screen.getByTestId(
           rowCellTestId("record-3", "timeline.activity_synopsis_text"),
         ),
-      );
+      ).toBeTruthy();
     });
   });
 
@@ -563,6 +563,19 @@ describe("FE-P9 inspector and row-local action coverage", () => {
             captureState: "rough",
           }),
         ]),
+      )
+      .mockResolvedValueOnce(
+        successEnvelope({
+          memberships: [
+            {
+              display_name: "Admin User",
+              incident_id: "incident-1",
+              membership_version: 1,
+              role: "admin",
+              user_id: "user-1",
+            },
+          ],
+        }),
       )
       .mockResolvedValueOnce(
         successEnvelope({

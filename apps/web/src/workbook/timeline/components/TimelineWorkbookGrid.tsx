@@ -1,11 +1,19 @@
 import {
+  type GridBulkSelection,
+  type GridCellAnchor,
+  type GridCellMutationIntent,
+  type GridCellStateInput,
   type GridColumn,
+  type GridDataState,
   type GridDensity,
   type GridDraftRow,
+  type GridFillIntent,
   type GridGroupingDescriptor,
   type GridHandle,
+  type GridInteractionMode,
   type GridRecordRow,
   type GridRowGutter,
+  type GridRowStateInput,
   GridViewport,
   WorkbookDataGrid,
 } from "@cartulary/grid-adapter";
@@ -32,12 +40,32 @@ const timelineContract = requireViewContract(timelineViewSchemaId);
 export const TimelineWorkbookGrid = forwardRef<
   GridHandle,
   {
+    readonly activeRecordId: string | null;
+    readonly bulkSelection: GridBulkSelection<WorkbookRow>;
     readonly columns: readonly GridColumn<WorkbookRow>[];
+    readonly columnWidths: Readonly<Record<string, number>>;
     readonly density: GridDensity;
+    readonly dataState: GridDataState;
+    readonly getCellState: (input: {
+      readonly recordId: string;
+      readonly fieldKey: string;
+    }) => GridCellStateInput;
     readonly getGroupLabel: (row: WorkbookRow, fieldKey: string) => string;
     readonly getGroupRowTestId: (fieldKey: string, value: string) => string;
+    readonly getRowState: (
+      row: GridRecordRow<WorkbookRow>,
+    ) => GridRowStateInput;
     readonly groupBy: WorkbookQueryState["groupBy"];
-    readonly onToggleSort: (fieldKey: string) => void;
+    readonly interactionMode: GridInteractionMode;
+    readonly onActiveCellChange: (anchor: GridCellAnchor | null) => void;
+    readonly onColumnReorder: (
+      sourceFieldKey: string,
+      targetFieldKey: string,
+    ) => void;
+    readonly onColumnWidthChange: (fieldKey: string, width: number) => void;
+    readonly onFillCells: (intent: GridFillIntent) => void;
+    readonly onPasteCell: (intent: GridCellMutationIntent) => void;
+    readonly onSortChange: (sort: WorkbookQueryState["sort"]) => void;
     readonly onSelectRecord: (recordId: string) => void;
     readonly rowGutter: GridRowGutter;
     readonly rows: readonly WorkbookRow[];
@@ -49,12 +77,24 @@ export const TimelineWorkbookGrid = forwardRef<
   }
 >(function TimelineWorkbookGrid(
   {
+    activeRecordId,
+    bulkSelection,
     columns,
+    columnWidths,
+    dataState,
     density,
+    getCellState,
     getGroupLabel,
     getGroupRowTestId,
+    getRowState,
     groupBy,
-    onToggleSort,
+    interactionMode,
+    onActiveCellChange,
+    onColumnReorder,
+    onColumnWidthChange,
+    onFillCells,
+    onPasteCell,
+    onSortChange,
     onSelectRecord,
     rowGutter,
     rows,
@@ -89,12 +129,30 @@ export const TimelineWorkbookGrid = forwardRef<
     >
       <WorkbookDataGrid
         ref={ref}
+        activeRecordId={activeRecordId}
+        allowPasteCreateRows
+        bulkSelection={bulkSelection}
         columns={columns}
+        columnWidths={columnWidths}
+        dataState={dataState}
         density={density}
         draftRow={timelineDraftRow}
         fillViewportInline
+        getCellState={({ anchor }) =>
+          getCellState({
+            fieldKey: anchor.fieldKey,
+            recordId: anchor.recordId,
+          })
+        }
+        getRowState={getRowState}
         grouping={grouping}
-        onToggleSort={onToggleSort}
+        interactionMode={interactionMode}
+        onActiveCellChange={onActiveCellChange}
+        onColumnReorder={onColumnReorder}
+        onColumnWidthChange={onColumnWidthChange}
+        onFillCells={onFillCells}
+        onPasteCell={onPasteCell}
+        onSortChange={onSortChange}
         onSelectRecord={onSelectRecord}
         rowGutter={rowGutter}
         recordRows={timelineGridRows}

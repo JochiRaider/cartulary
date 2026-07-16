@@ -1,3 +1,4 @@
+import { setGridVirtualizationDisabledForDiagnostics } from "@cartulary/grid-adapter/test-support";
 import { configure } from "@testing-library/dom";
 
 function positiveIntegerEnv(name: string, fallback: number) {
@@ -41,6 +42,11 @@ if (typeof window !== "undefined") {
     value: () => {},
   });
 }
+
+// jsdom cannot model RDG's virtual scroll window. Semantic browser-unit
+// fixtures opt into the test-support-only diagnostic mode; live browser
+// suites and production never call this seam.
+setGridVirtualizationDisabledForDiagnostics(true);
 
 if (
   typeof HTMLElement !== "undefined" &&

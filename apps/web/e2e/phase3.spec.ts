@@ -1,4 +1,8 @@
 import {
+  scrollGridCellIntoView,
+  scrollGridTargetIntoView,
+} from "@cartulary/test-utils";
+import {
   currentIncidentRoleTestId,
   draftCellTestId,
   draftRowCreateButtonTestId,
@@ -64,9 +68,13 @@ test("E-3-01 creates a Timeline row in-grid and continues editing on the draft r
     page.getByTestId(timelineMutationSubstrateReadyTestId()),
   ).toBeVisible();
 
-  const draftSummary = page.getByTestId(
-    draftCellTestId("timeline.activity_synopsis_text"),
-  );
+  const draftSummaryTestId = draftCellTestId("timeline.activity_synopsis_text");
+  await scrollGridTargetIntoView({
+    page,
+    surface: timelineViewSchemaId,
+    targetTestId: draftSummaryTestId,
+  });
+  const draftSummary = page.getByTestId(draftSummaryTestId);
   await draftSummary.fill("First browser fact");
   await draftSummary.press("Enter");
 
@@ -302,6 +310,12 @@ test("E-3-04 uses a disclosed hybrid replay harness to prove replay avoids dupli
   const summaryInput = page.getByTestId(
     rowCellTestId(recordId, "timeline.activity_synopsis_text"),
   );
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_synopsis_text",
+    page,
+    recordId,
+    surface: timelineViewSchemaId,
+  });
   const firstPatchResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "PATCH" &&

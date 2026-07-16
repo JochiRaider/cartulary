@@ -30,5 +30,27 @@ describe("workbook row reconciliation", () => {
     expect(reconcileWorkbookRecordRows([previousDraft], [nextDraft])[0]).toBe(
       nextDraft,
     );
+    const stableVersioned = {
+      recordId: "record-versioned",
+      rowVersion: 7,
+      cells: { title: { value: "Stable" } },
+    };
+    const sameVersion = {
+      recordId: "record-versioned",
+      rowVersion: 7,
+      cells: { title: { value: "Stable" } },
+    };
+    const nextVersion = {
+      recordId: "record-versioned",
+      rowVersion: 8,
+      cells: { title: { value: "Changed" } },
+    };
+
+    expect(
+      reconcileWorkbookRecordRows([stableVersioned], [sameVersion])[0],
+    ).toBe(stableVersioned);
+    expect(
+      reconcileWorkbookRecordRows([stableVersioned], [nextVersion])[0],
+    ).toBe(nextVersion);
   });
 });

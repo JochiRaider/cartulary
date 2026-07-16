@@ -1,3 +1,4 @@
+import type { GridEditCommitOutcome } from "@cartulary/grid-adapter";
 import { useCallback, useRef } from "react";
 import { apiPath } from "../../../services/browserApi";
 import {
@@ -115,6 +116,17 @@ export function useTimelinePendingReplayController({
   readonly setRows: (rows: WorkbookRow[]) => void;
   readonly trackPendingSocketTxn: (clientTxnId: string) => void;
 }) {
+  const completionCallbacksRef = useRef(
+    new Map<string, Array<(outcome: GridEditCommitOutcome) => void>>(),
+  );
+  const settleCompletionCallbacks = useCallback(
+    (unitId: string, outcome: GridEditCommitOutcome) => {
+      const callbacks = completionCallbacksRef.current.get(unitId) ?? [];
+      completionCallbacksRef.current.delete(unitId);
+      for (const callback of callbacks) callback(outcome);
+    },
+    [],
+  );
   const clearPendingSignatureForUnit = useCallback(
     (unit: {
       readonly rowKey: string;
@@ -252,7 +264,10 @@ export function useTimelinePendingReplayController({
   );
 
   const enqueuePendingReplayUnit = useCallback(
-    (unit: TimelinePendingReplayControllerAdmission) => {
+    (
+      unit: TimelinePendingReplayControllerAdmission,
+      onSettled?: ((outcome: GridEditCommitOutcome) => void) | undefined,
+    ) => {
       const pending = pendingSavesRefsRef.current.pendingQueueRef.current;
       const {
         focusField,
@@ -277,15 +292,32 @@ export function useTimelinePendingReplayController({
       };
       const admission = pending.model.admit(input as PendingReplayUnitInput);
       if (admission.status === "duplicate") {
+        if (onSettled !== undefined) {
+          const callbacks =
+            completionCallbacksRef.current.get(admission.unit.id) ?? [];
+          callbacks.push(onSettled);
+          completionCallbacksRef.current.set(admission.unit.id, callbacks);
+        }
         clearViewportContinuity(unit.viewportContinuityToken);
         publishPendingQueueState();
         return;
       }
       if (admission.status === "refused") {
+        onSettled?.({
+          kind: "rejected_mutation",
+          message: "The pending edit queue rejected this mutation.",
+        });
         clearPendingSignatureForUnit(unit);
         clearViewportContinuity(unit.viewportContinuityToken);
         publishPendingQueueState();
         return;
+      }
+
+      if (onSettled !== undefined) {
+        const callbacks =
+          completionCallbacksRef.current.get(admission.unit.id) ?? [];
+        callbacks.push(onSettled);
+        completionCallbacksRef.current.set(admission.unit.id, callbacks);
       }
 
       pending.metaByUnitId.set(admission.unit.id, meta);
@@ -353,6 +385,10 @@ export function useTimelinePendingReplayController({
         }
       }
       publishPendingQueueState();
+      settleCompletionCallbacks(unit.id, {
+        kind: "rejected_mutation",
+        message: "Queued edit metadata is missing.",
+      });
       return;
     }
 
@@ -420,6 +456,12 @@ export function useTimelinePendingReplayController({
       }
 
       if (settlement.outcome === "same_field_conflict") {
+        const message =
+          publicError.message ?? parseErrorMessage(result.payload);
+        settleCompletionCallbacks(dispatchedUnit.id, {
+          kind: "conflict",
+          message,
+        });
         if (
           handleMutationConflict(
             result.payload,
@@ -451,6 +493,17 @@ export function useTimelinePendingReplayController({
       } else {
         setRefreshError(parseErrorMessage(result.payload));
       }
+      const message = publicError.message ?? parseErrorMessage(result.payload);
+      settleCompletionCallbacks(
+        dispatchedUnit.id,
+        result.status === 400
+          ? { kind: "validation_error", message }
+          : result.status === 404
+            ? { kind: "stale_target", message }
+            : result.status === 409
+              ? { kind: "conflict", message }
+              : { kind: "rejected_mutation", message },
+      );
       publishPendingQueueState();
       return;
     }
@@ -508,6 +561,13 @@ export function useTimelinePendingReplayController({
       if (settlement.outcome === "halted") {
         setRefreshError(settlement.halt.message);
       }
+      settleCompletionCallbacks(dispatchedUnit.id, {
+        kind: "rejected_mutation",
+        message:
+          error instanceof Error
+            ? error.message
+            : "The accepted edit could not be applied.",
+      });
       publishPendingQueueState();
       return;
     }
@@ -529,6 +589,7 @@ export function useTimelinePendingReplayController({
     if (settlement.outcome === "success") {
       pending.metaByUnitId.delete(settlement.unit.id);
       clearPendingSignatureForUnit(settlement.unit);
+      settleCompletionCallbacks(settlement.unit.id, { kind: "accepted" });
     }
     publishPendingQueueState();
     requestPendingReplay("unit_completed");

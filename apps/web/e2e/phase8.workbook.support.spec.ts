@@ -7,6 +7,7 @@ import {
   expandGridGroup,
   readSavedViewSelectionState,
   removeFilterChip,
+  scrollGridCellIntoView,
   selectSavedView,
   selectSavedViewScope,
   setCurrentSavedViewAsDefaultAndWait,
@@ -60,6 +61,12 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_synopsis_text",
+    page,
+    recordId: alpha.record_id,
+    surface: timelineViewSchemaId,
+  });
   await expect(
     page.getByTestId(
       rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
@@ -71,6 +78,12 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
     beta.record_id,
     timelineRowMarkReviewedButtonTestId(beta.record_id),
   );
+  await scrollGridCellIntoView({
+    cellKey: "timeline.capture_state",
+    page,
+    recordId: beta.record_id,
+    surface: timelineViewSchemaId,
+  });
   await expect(
     page.getByTestId(rowCellTestId(beta.record_id, "timeline.capture_state")),
   ).toHaveText("reviewed");
@@ -159,6 +172,12 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
   await expandGridGroup({
     groupTestId: reviewedGroupTestId,
     page,
+    surface: timelineViewSchemaId,
+  });
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_synopsis_text",
+    page,
+    recordId: beta.record_id,
     surface: timelineViewSchemaId,
   });
   await expect(

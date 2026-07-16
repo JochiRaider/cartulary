@@ -61,7 +61,6 @@ describe("genericWorkbookModel", () => {
         getRecordId: (row) => row.record_id,
         getRowVersion: (row) => row.row_version,
         rows,
-        selectedRecordId: "party-2",
         surface: partiesViewSchemaId,
       }),
     ).toEqual([
@@ -70,7 +69,6 @@ describe("genericWorkbookModel", () => {
         recordId: "party-1",
         rowVersion: 1,
         data: rows[0],
-        selected: false,
         testId: "grid-row-cartulary.view.parties.v1-party-1",
       },
       {
@@ -78,7 +76,6 @@ describe("genericWorkbookModel", () => {
         recordId: "party-2",
         rowVersion: 2,
         data: rows[1],
-        selected: true,
         testId: "grid-row-cartulary.view.parties.v1-party-2",
       },
     ]);
@@ -241,6 +238,7 @@ describe("genericWorkbookModel", () => {
   });
 
   it("rejects invalid number and boolean direct payload values", () => {
+    const evidence = requireViewContract(evidenceViewSchemaId);
     const forensicKeywords = requireViewContract(forensicKeywordsViewSchemaId);
     const findings = requireViewContract(findingsViewSchemaId);
     const booleanField = requireField(
@@ -251,6 +249,7 @@ describe("genericWorkbookModel", () => {
       findings,
       "finding.confidence_score",
     );
+    const timestampField = requireField(evidence, "evidence.requested_at");
 
     expect(buildGenericPatchChange(booleanField, "false")).toEqual({
       field_key: "forensic_keyword.case_sensitive",
@@ -267,6 +266,15 @@ describe("genericWorkbookModel", () => {
         confidenceScoreField,
         String(Number.MAX_SAFE_INTEGER + 1),
       ),
+    ).toBeNull();
+    expect(
+      buildGenericPatchChange(timestampField, "2026-07-15T16:20:00Z"),
+    ).toEqual({
+      field_key: "evidence.requested_at",
+      value: "2026-07-15T16:20:00Z",
+    });
+    expect(
+      buildGenericPatchChange(timestampField, "tomorrow at noon"),
     ).toBeNull();
   });
 

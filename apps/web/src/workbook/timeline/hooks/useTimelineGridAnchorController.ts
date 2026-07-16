@@ -9,13 +9,6 @@ import {
   navigateGridCellAnchor,
   resolveGridPasteTargets,
 } from "@cartulary/grid-adapter";
-import {
-  dataTestIdSelector,
-  gridRowGutterTestId,
-  rowCellTestId,
-  timelineCollectionInputTestId,
-  timelineRowVersionTestId,
-} from "@cartulary/ui-contracts";
 import { useCallback } from "react";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import {
@@ -24,9 +17,6 @@ import {
 } from "../../utils/workbookClipboard";
 import type { TimelinePasteTargetResolution } from "../models/timelineControllerPorts";
 import {
-  inputFocusKey,
-  timelineFieldBinding,
-  timelineFocusFieldForFieldKey,
   timelineGroupLabel,
   type WorkbookRow,
 } from "../models/workbookTimelineModel";
@@ -99,7 +89,6 @@ function resolveDraftTimelinePasteTargets({
 export function useTimelineGridAnchorController({
   gridHandleRef,
   groupBy,
-  resolveInputElement,
   rowsRef,
   timelineAnchorColumnsRef,
   timelineAnchorRowsRef,
@@ -108,7 +97,6 @@ export function useTimelineGridAnchorController({
 }: {
   readonly gridHandleRef: TimelineReadonlyRef<GridHandle | null>;
   readonly groupBy: string | null;
-  readonly resolveInputElement: (focusKey: string) => HTMLElement | null;
   readonly rowsRef: TimelineReadonlyRef<readonly WorkbookRow[]>;
   readonly timelineAnchorColumnsRef: TimelineReadonlyRef<
     readonly GridColumn<WorkbookRow>[]
@@ -122,54 +110,17 @@ export function useTimelineGridAnchorController({
   ) => void;
   readonly updateWorkbookFocusAnchor: (anchor: null) => void;
 }) {
-  const resolveTimelineAnchorElement = useCallback(
-    (anchor: GridCellAnchor) => {
-      const focusField = timelineFocusFieldForFieldKey(anchor.fieldKey);
-      if (focusField !== null) {
-        const inputElement = resolveInputElement(
-          inputFocusKey(anchor.recordId, focusField, "grid"),
-        );
-        if (inputElement !== null) {
-          return inputElement;
-        }
-      }
-      const binding = timelineFieldBinding(anchor.fieldKey);
-      if (binding.kind === "collection") {
-        const collectionInput = document.querySelector<HTMLInputElement>(
-          dataTestIdSelector(
-            timelineCollectionInputTestId(anchor.recordId, anchor.fieldKey),
-          ),
-        );
-        if (collectionInput !== null) {
-          return collectionInput;
-        }
-      }
-      const testId =
-        anchor.fieldKey === "timeline.capture_state"
-          ? gridRowGutterTestId(timelineViewSchemaId, anchor.recordId)
-          : anchor.fieldKey === "row_version"
-            ? timelineRowVersionTestId(anchor.recordId)
-            : rowCellTestId(anchor.recordId, anchor.fieldKey);
-      return document.querySelector<HTMLElement>(dataTestIdSelector(testId));
-    },
-    [resolveInputElement],
-  );
-
   const restoreTimelineFocusAnchor = useCallback(
     (anchor: GridCellAnchor) => {
-      const gridScrolled =
-        gridHandleRef.current?.scrollToAnchor(anchor) ?? false;
-      const element = resolveTimelineAnchorElement(anchor);
-      if (element === null) {
-        return gridHandleRef.current?.focusAnchor(anchor) ?? gridScrolled;
+      const restored = gridHandleRef.current?.focusAnchor(anchor) ?? false;
+      if (!restored) {
+        window.setTimeout(() => {
+          gridHandleRef.current?.focusAnchor(anchor);
+        }, 0);
       }
-      if (!element.hasAttribute("tabindex")) {
-        element.tabIndex = -1;
-      }
-      element.focus({ preventScroll: true });
-      return document.activeElement === element;
+      return restored;
     },
-    [gridHandleRef, resolveTimelineAnchorElement],
+    [gridHandleRef],
   );
 
   const currentTimelineAnchorFor = useCallback(
@@ -292,7 +243,6 @@ export function useTimelineGridAnchorController({
         nextAnchor.recordId,
         nextAnchor.fieldKey,
       );
-      gridHandleRef.current?.scrollToAnchor(nextAnchor);
       const restoredNow = restoreTimelineFocusAnchor(nextAnchor);
       window.setTimeout(() => {
         if (restoredNow) {
@@ -303,7 +253,6 @@ export function useTimelineGridAnchorController({
     },
     [
       groupBy,
-      gridHandleRef,
       restoreTimelineFocusAnchor,
       timelineAnchorColumnsRef,
       timelineAnchorRowsRef,
@@ -315,7 +264,6 @@ export function useTimelineGridAnchorController({
   return {
     currentTimelineAnchorFor,
     navigateTimelineFocusAnchor,
-    resolveTimelineAnchorElement,
     resolveTimelinePasteTargetResolution,
     restoreTimelineFocusAnchor,
   };

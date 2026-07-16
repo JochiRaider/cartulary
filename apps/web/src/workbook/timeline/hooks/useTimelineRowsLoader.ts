@@ -1,8 +1,13 @@
 import type { ViewContract } from "@cartulary/view-contracts";
 import type { Dispatch, SetStateAction } from "react";
-import { startTransition, useCallback, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { apiPath } from "../../../services/browserApi";
-import { fetchWorkbookJSON, readEnvelope } from "../../../services/workbookApi";
+import {
+  fetchWorkbookJSON,
+  parseErrorMessage,
+  readEnvelope,
+  workbookLoadFailureIsAccessLoss,
+} from "../../../services/workbookApi";
 import {
   buildQueryRequest,
   type WorkbookQueryState,
@@ -64,6 +69,7 @@ export function useTimelineRowsLoader({
   loadRowsRef,
   markRowsLoaded,
   nextDraftIndex,
+  onIncidentAccessLost,
   pendingSavesRefsRef,
   pruneAutoResolutionNoticesForRows,
   pruneDismissedMentionsForRow,
@@ -73,6 +79,7 @@ export function useTimelineRowsLoader({
   scalarDraftValuesRef,
   setDismissedMentionsByRow,
   setIsInitialLoading,
+  setIsRefreshing,
   setLoadError,
   setRefreshError,
   setRows,
@@ -107,6 +114,7 @@ export function useTimelineRowsLoader({
   >;
   readonly markRowsLoaded: () => void;
   readonly nextDraftIndex: () => number;
+  readonly onIncidentAccessLost?: (() => void) | undefined;
   readonly pendingSavesRefsRef: TimelineMutableRef<
     TimelinePendingSavesRefs<PendingReplayRuntimeMeta>
   >;
@@ -127,6 +135,7 @@ export function useTimelineRowsLoader({
     SetStateAction<Record<string, DismissedMention[]>>
   >;
   readonly setIsInitialLoading: (loading: boolean) => void;
+  readonly setIsRefreshing: (refreshing: boolean) => void;
   readonly setLoadError: (message: string | null) => void;
   readonly setRefreshError: (message: string | null) => void;
   readonly setRows: Dispatch<SetStateAction<WorkbookRow[]>>;
@@ -214,6 +223,7 @@ export function useTimelineRowsLoader({
         setIsInitialLoading(true);
       }
       if (hasLoadedRows()) {
+        setIsRefreshing(true);
         setRefreshError(null);
       } else {
         setLoadError(null);
@@ -229,6 +239,7 @@ export function useTimelineRowsLoader({
       }
 
       if (committedRowsChangedSince(queryStartEpoch)) {
+        setIsRefreshing(false);
         const refreshed = await refreshTimelineRowsAfterStaleResult(options);
         if (!refreshed && !hasLoadedRows()) {
           setIsInitialLoading(false);
@@ -237,10 +248,19 @@ export function useTimelineRowsLoader({
       }
 
       if (!result.ok) {
+        setIsRefreshing(false);
         if (options.viewportContinuityToken !== undefined) {
           clearViewportContinuity(options.viewportContinuityToken);
         }
-        const message = "Timeline projection load failed.";
+        const message = parseErrorMessage(result.payload);
+        if (workbookLoadFailureIsAccessLoss(message)) {
+          rowsRef.current = [];
+          setRows([]);
+          setLoadError(message);
+          setIsInitialLoading(false);
+          onIncidentAccessLost?.();
+          return;
+        }
         if (hasLoadedRows()) {
           setRefreshError(message);
         } else {
@@ -263,6 +283,7 @@ export function useTimelineRowsLoader({
           ),
         );
       } catch {
+        setIsRefreshing(false);
         if (options.viewportContinuityToken !== undefined) {
           clearViewportContinuity(options.viewportContinuityToken);
         }
@@ -291,10 +312,8 @@ export function useTimelineRowsLoader({
           nextDraftIndex,
         });
       acceptCommittedTimelineRows(committedRows);
-      startTransition(() => {
-        rowsRef.current = hydratedRows;
-        setRows(hydratedRows);
-      });
+      rowsRef.current = hydratedRows;
+      setRows(hydratedRows);
       advanceViewportContinuity(options.viewportContinuityToken);
       setDismissedMentionsByRow((current) => {
         const next = { ...current };
@@ -311,6 +330,7 @@ export function useTimelineRowsLoader({
         pendingSavesRefsRef.current.pendingQueueRef.current,
       );
       markRowsLoaded();
+      setIsRefreshing(false);
       setLoadError(null);
       setRefreshError(null);
       setIsInitialLoading(false);
@@ -326,6 +346,7 @@ export function useTimelineRowsLoader({
       isCurrentLoadSequence,
       markRowsLoaded,
       nextDraftIndex,
+      onIncidentAccessLost,
       pendingSavesRefsRef,
       pruneAutoResolutionNoticesForRows,
       pruneDismissedMentionsForRow,
@@ -337,6 +358,7 @@ export function useTimelineRowsLoader({
       scalarDraftValuesRef,
       setDismissedMentionsByRow,
       setIsInitialLoading,
+      setIsRefreshing,
       setLoadError,
       setRefreshError,
       setRows,

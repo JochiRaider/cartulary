@@ -1,4 +1,7 @@
-import type { GridColumn } from "@cartulary/grid-adapter";
+import type {
+  GridColumn,
+  GridEditCommitOutcome,
+} from "@cartulary/grid-adapter";
 import {
   conflictMarkerTestId,
   dataTestIdSelector,
@@ -85,6 +88,12 @@ type ScalarPasteCommit = (
   surface: TimelineScalarEditorSurface,
 ) => void;
 
+type ScalarGridCommit = (
+  rowKey: string,
+  field: keyof RowValues,
+  value: string,
+) => Promise<GridEditCommitOutcome>;
+
 type RegisterTimelineInput = (
   rowKey: string,
   field: FocusFieldKey,
@@ -116,7 +125,9 @@ export type TimelineWorkbookRenderers = {
   readonly renderTimelineGridEditor: (
     row: WorkbookRow,
     binding: TimelineScalarBinding,
-    closeGridEditor?: ((commit: boolean) => void) | undefined,
+    closeGridEditor?:
+      | ((commit: boolean, draftValue: string) => void)
+      | undefined,
   ) => ReactNode;
   readonly renderTimelineInspectorEditor: (
     row: WorkbookRow,
@@ -129,6 +140,7 @@ export type TimelineWorkbookRenderers = {
 export function useTimelineWorkbookRenderers({
   activeCollectionInputKey,
   conflictQueue,
+  commitScalarGridEdit,
   editingPresenceForCell,
   entityIndex,
   gridShellWidth,
@@ -143,6 +155,7 @@ export function useTimelineWorkbookRenderers({
   openInspectorForRow,
   queueCollectionSave,
   registerInput,
+  readOnly,
   rowGutterWidth,
   scalarDraftValuesRef,
   setScalarEditorDraftValue,
@@ -153,6 +166,7 @@ export function useTimelineWorkbookRenderers({
 }: {
   readonly activeCollectionInputKey: string | null;
   readonly conflictQueue: Record<string, { readonly key: string }>;
+  readonly commitScalarGridEdit: ScalarGridCommit;
   readonly editingPresenceForCell: (
     recordId: string | null,
     fieldKey: string,
@@ -177,6 +191,7 @@ export function useTimelineWorkbookRenderers({
   readonly openInspectorForRow: (recordId: string) => void;
   readonly queueCollectionSave: CollectionSave;
   readonly registerInput: RegisterTimelineInput;
+  readonly readOnly: boolean;
   readonly rowGutterWidth: number;
   readonly scalarDraftValuesRef: RefObject<Map<string, string>>;
   readonly setScalarEditorDraftValue: ScalarDraftChange;
@@ -213,7 +228,9 @@ export function useTimelineWorkbookRenderers({
       binding: TimelineScalarBinding,
       surface: TimelineScalarEditorSurface,
       controlId: string,
-      closeGridEditor?: ((commit: boolean) => void) | undefined,
+      closeGridEditor?:
+        | ((commit: boolean, draftValue: string) => void)
+        | undefined,
     ) => {
       const label = timelineBindingLabel(binding.fieldKey);
       const gridAccessibleLabel =
@@ -252,6 +269,7 @@ export function useTimelineWorkbookRenderers({
             onCloseGridEditor={closeGridEditor}
             onFocusAnchor={updateTimelineSurfaceFocusAnchor}
             registerInput={registerInput}
+            readOnly={readOnly}
             presenceFieldKey={binding.fieldKey}
             rowKey={row.key}
             rowRecordId={row.recordId}
@@ -295,6 +313,7 @@ export function useTimelineWorkbookRenderers({
       handlePaste,
       handleSelectRow,
       registerInput,
+      readOnly,
       scalarDraftValuesRef,
       setScalarEditorDraftValue,
       setActiveConflictKey,
@@ -307,7 +326,9 @@ export function useTimelineWorkbookRenderers({
     (
       row: WorkbookRow,
       binding: TimelineScalarBinding,
-      closeGridEditor?: ((commit: boolean) => void) | undefined,
+      closeGridEditor?:
+        | ((commit: boolean, draftValue: string) => void)
+        | undefined,
     ) => {
       return renderTimelineScalarControl(
         row,
@@ -360,6 +381,7 @@ export function useTimelineWorkbookRenderers({
       const hiddenItems = items.slice(visibleItemLimit);
       const hiddenItemCount = Math.max(0, items.length - visibleItems.length);
       const activateCollectionInput = () => {
+        if (readOnly) return;
         setActiveCollectionInputKey(collectionFocusKey);
         window.requestAnimationFrame(() => {
           document
@@ -376,6 +398,7 @@ export function useTimelineWorkbookRenderers({
           aria-label={`${label} collection cell`}
           style={collectionCellStyle}
           onClick={(event) => {
+            if (readOnly) return;
             const target = event.target;
             if (
               target instanceof HTMLElement &&
@@ -386,6 +409,7 @@ export function useTimelineWorkbookRenderers({
             activateCollectionInput();
           }}
           onKeyDown={(event) => {
+            if (readOnly) return;
             if (event.key !== "Enter" && event.key !== "F2") {
               return;
             }
@@ -497,6 +521,7 @@ export function useTimelineWorkbookRenderers({
                 element,
               );
             }}
+            readOnly={readOnly}
             tabIndex={isCollectionInputActive ? 0 : -1}
             style={
               isCollectionInputActive
@@ -506,12 +531,14 @@ export function useTimelineWorkbookRenderers({
             type="text"
             defaultValue={row.collectionDrafts[binding.draftKey]}
             onChange={(event) => {
+              if (readOnly) return;
               handleCollectionInputChange(
                 inputFocusKey(row.key, binding.draftKey, "grid"),
                 event.currentTarget.value,
               );
             }}
             onBlur={(event) => {
+              if (readOnly) return;
               queueCollectionSave(
                 row.key,
                 binding.fieldKey,
@@ -532,6 +559,7 @@ export function useTimelineWorkbookRenderers({
               }
             }}
             onKeyDown={(event) => {
+              if (readOnly) return;
               handleCollectionKeyDown(
                 event,
                 row.key,
@@ -557,6 +585,7 @@ export function useTimelineWorkbookRenderers({
       handleSelectRow,
       openInspectorForRow,
       queueCollectionSave,
+      readOnly,
       registerInput,
       setActiveCollectionInputKey,
       timelineBindingLabel,
@@ -654,8 +683,13 @@ export function useTimelineWorkbookRenderers({
           );
         };
         return {
-          contractWritable: binding.kind === "scalar",
+          contractWritable:
+            timelineContract.fieldMap[binding.fieldKey]?.gridEditable === true,
           fieldKey: binding.fieldKey,
+          getClipboardValue: (row) =>
+            stringifyGridValue(
+              readTimelineCellValue(row.rawRow, binding.fieldKey),
+            ),
           headerTestId: gridSortHeaderTestId(
             timelineViewSchemaId,
             binding.fieldKey,
@@ -666,10 +700,30 @@ export function useTimelineWorkbookRenderers({
             timelineColumnWidth(binding.fieldKey),
           renderCell: ({ row }) => renderCell(row),
           renderDraftCell: ({ row }) => renderCell(row),
-          renderEditCell:
+          editor:
             binding.kind === "scalar"
-              ? ({ closeEditor, row }) =>
-                  renderTimelineGridEditor(row, binding, closeEditor)
+              ? {
+                  ...(timelineContract.fieldMap[binding.fieldKey]?.clearable
+                    ? { clearDraftValue: "" }
+                    : {}),
+                  commit: (intent) =>
+                    commitScalarGridEdit(
+                      intent.row.key,
+                      binding.key,
+                      String(intent.draftValue ?? ""),
+                    ),
+                  initialDraftValue: (row) =>
+                    readTimelineCellValue(row.rawRow, binding.fieldKey),
+                  renderEditor: (context) =>
+                    renderTimelineGridEditor(
+                      context.row,
+                      binding,
+                      (commit, draftValue) => {
+                        if (commit) void context.commit(draftValue);
+                        else context.cancel();
+                      },
+                    ),
+                }
               : undefined,
           sortableFieldKey: resolveHeaderSortFieldKey(
             timelineContract,
@@ -680,6 +734,7 @@ export function useTimelineWorkbookRenderers({
     [
       renderTimelineCollectionInput,
       renderTimelineGridEditor,
+      commitScalarGridEdit,
       timelineBindingLabel,
       timelineColumnWidths,
       timelineContract,

@@ -82,6 +82,7 @@ import {
   type AccountDensityMode,
   resolveEffectiveWorkbookDensity,
 } from "./models/workbookDensity";
+import { workbookGridInteractionMode } from "./models/workbookGridState";
 import type { WorkbookIncidentIdentity } from "./models/workbookIncidentIdentity";
 import {
   requiredBuiltInWorkbookSurfaceIds,
@@ -174,6 +175,8 @@ function WorkbookShellContent({
   });
   const {
     activeContract,
+    activeLayoutControls,
+    activeLayoutState,
     activeQueryControls,
     activeSavedViewModified,
     assessmentQueryState,
@@ -235,11 +238,11 @@ function WorkbookShellContent({
     drawerSection: incidentControlsDrawerSection,
   } = useIncidentControlsDrawer();
   const {
-    assessmentLoadError,
+    assessmentLoadState,
     assessmentRows,
     entityIndex,
-    entityLoadError,
-    genericLoadError,
+    entityLoadState,
+    genericLoadState,
     genericRows,
     hostRows,
     identityRows,
@@ -257,6 +260,10 @@ function WorkbookShellContent({
     onIncidentAccessLost,
     surface,
   });
+  const interactionMode = workbookGridInteractionMode(
+    incidentIdentity?.status,
+    currentIncidentRole,
+  );
   useEffect(() => {
     if (account?.user_id) {
       setCurrentUserId(account.user_id);
@@ -566,12 +573,16 @@ function WorkbookShellContent({
             <WorkbookGridControls
               contract={activeQueryControls.contract}
               filterDraft={activeQueryControls.filterDraft}
+              layoutState={activeLayoutState}
               onApplyFilter={activeQueryControls.onApplyFilter}
               onClearAll={activeQueryControls.onClearAll}
               onFilterDraftChange={activeQueryControls.onFilterDraftChange}
               onGroupByChange={activeQueryControls.onGroupByChange}
+              onColumnHiddenChange={activeLayoutControls.onColumnHiddenChange}
+              onColumnMove={activeLayoutControls.onColumnMove}
+              onResetColumns={activeLayoutControls.onResetColumns}
               onRemoveFilter={activeQueryControls.onRemoveFilter}
-              onToggleSort={activeQueryControls.onToggleSort}
+              onSortChange={activeQueryControls.onSortChange}
               queryState={activeQueryControls.queryState}
               surface={activeQueryControls.surface}
             />
@@ -589,18 +600,12 @@ function WorkbookShellContent({
       </WorkbookShellSlotRegion>
 
       <div style={shellContentRegionStyle}>
-        {entityLoadError ? (
-          <p data-testid="entity-load-error" style={shellContentNoticeStyle}>
-            {entityLoadError}
-          </p>
-        ) : null}
-
         <div style={shellActiveSurfaceStyle}>
           {activeExtensionWorkspace ?? (
             <WorkbookActiveSurface
               activeContract={activeContract}
               apiBase={apiBase}
-              assessmentLoadError={assessmentLoadError}
+              assessmentLoadState={assessmentLoadState}
               assessmentQueryState={assessmentQueryState}
               assessmentRows={assessmentRows}
               authorizationEpoch={`${currentUserId ?? "anonymous"}:${currentIncidentRole ?? "none"}`}
@@ -608,7 +613,8 @@ function WorkbookShellContent({
               currentUserId={currentUserId}
               density={effectiveDensity}
               entityIndex={entityIndex}
-              genericLoadError={genericLoadError}
+              entityLoadState={entityLoadState}
+              genericLoadState={genericLoadState}
               genericQueryState={genericQueryState}
               genericRows={genericRows}
               hostQueryState={hostQueryState}
@@ -616,10 +622,18 @@ function WorkbookShellContent({
               identityQueryState={identityQueryState}
               identityRows={identityRows}
               incidentId={incidentId}
+              interactionMode={interactionMode}
               inspectorResetKey={inspectorResetKey}
+              layoutState={activeLayoutState}
               loadAssessmentSurface={loadAssessmentSurface}
               loadEntities={loadEntities}
               loadGenericSurface={loadGenericSurface}
+              onColumnHiddenChange={activeLayoutControls.onColumnHiddenChange}
+              onColumnMove={activeLayoutControls.onColumnMove}
+              onColumnReorder={activeLayoutControls.onColumnReorder}
+              onColumnWidthChange={activeLayoutControls.onColumnWidthChange}
+              onIncidentAccessLost={onIncidentAccessLost}
+              onResetColumns={activeLayoutControls.onResetColumns}
               savedViewSelector={activeSavedViewSelector}
               setAssessmentQueryState={setAssessmentQueryState}
               setGenericQueryState={setGenericQueryState}

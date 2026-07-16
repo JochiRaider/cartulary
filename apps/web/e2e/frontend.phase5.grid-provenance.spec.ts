@@ -1,5 +1,9 @@
 import {
-  gridShellTestId,
+  scrollGridCellIntoView,
+  scrollGridTargetIntoView,
+} from "@cartulary/test-utils";
+import {
+  gridSortHeaderTestId,
   rowCellTestId,
   surfaceTabTestId,
   workbookShellReadyTestId,
@@ -44,13 +48,23 @@ const identityAllFieldKeys = identitiesContract.fields.map(
 );
 const noteAllFieldKeys = notesContract.fields.map((field) => field.fieldKey);
 
-function visibleHeaderFieldKeys(page: Page, viewSchemaId: string) {
-  return page
-    .getByTestId(gridShellTestId(viewSchemaId))
-    .locator('[role="columnheader"] [data-grid-field-key]')
-    .evaluateAll((headers) =>
-      headers.map((header) => header.getAttribute("data-grid-field-key") ?? ""),
+async function expectVisibleContractFieldsReachable(
+  page: Page,
+  viewSchemaId: string,
+  fieldKeys: readonly string[],
+) {
+  for (const fieldKey of fieldKeys) {
+    const headerTestId = gridSortHeaderTestId(viewSchemaId, fieldKey);
+    await scrollGridTargetIntoView({
+      page,
+      surface: viewSchemaId,
+      targetTestId: headerTestId,
+    });
+    await expect(page.getByTestId(headerTestId)).toHaveAttribute(
+      "data-grid-field-key",
+      fieldKey,
     );
+  }
 }
 
 function assertFullCells(row: ViewRow, expectedFieldKeys: readonly string[]) {
@@ -229,9 +243,17 @@ test(exactScenarioTitle, async ({ page }) => {
     )}`,
   );
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-  await expect
-    .poll(async () => visibleHeaderFieldKeys(page, hostsViewSchemaId))
-    .toEqual([...hostVisibleFields]);
+  await expectVisibleContractFieldsReachable(
+    page,
+    hostsViewSchemaId,
+    hostVisibleFields,
+  );
+  await scrollGridCellIntoView({
+    cellKey: "host.aliases",
+    page,
+    recordId: host.record_id,
+    surface: hostsViewSchemaId,
+  });
   await expect(
     page.getByTestId(rowCellTestId(host.record_id, "host.aliases")),
   ).toContainText("FEIP501 Gateway");
@@ -255,14 +277,28 @@ test(exactScenarioTitle, async ({ page }) => {
   expect(String(hostPatch.client_txn_id)).toMatch(
     /^entity-patch-cartulary\.view\.hosts\.v1-\d+$/u,
   );
+  await scrollGridCellIntoView({
+    cellKey: "host.display_name",
+    page,
+    recordId: host.record_id,
+    surface: hostsViewSchemaId,
+  });
   await expect(
     page.getByTestId(rowCellTestId(host.record_id, "host.display_name")),
   ).toHaveText("FE-I-P5 Gateway edited");
 
   await page.getByTestId(surfaceTabTestId(identitiesViewSchemaId)).click();
-  await expect
-    .poll(async () => visibleHeaderFieldKeys(page, identitiesViewSchemaId))
-    .toEqual([...identityVisibleFields]);
+  await expectVisibleContractFieldsReachable(
+    page,
+    identitiesViewSchemaId,
+    identityVisibleFields,
+  );
+  await scrollGridCellIntoView({
+    cellKey: "identity.aliases",
+    page,
+    recordId: identity.record_id,
+    surface: identitiesViewSchemaId,
+  });
   await expect(
     page.getByTestId(rowCellTestId(identity.record_id, "identity.aliases")),
   ).toContainText("FEIP501 Analyst");
@@ -286,6 +322,12 @@ test(exactScenarioTitle, async ({ page }) => {
   expect(String(identityPatch.client_txn_id)).toMatch(
     /^entity-patch-cartulary\.view\.identities\.v1-\d+$/u,
   );
+  await scrollGridCellIntoView({
+    cellKey: "identity.display_name",
+    page,
+    recordId: identity.record_id,
+    surface: identitiesViewSchemaId,
+  });
   await expect(
     page.getByTestId(
       rowCellTestId(identity.record_id, "identity.display_name"),
@@ -293,9 +335,11 @@ test(exactScenarioTitle, async ({ page }) => {
   ).toHaveText("FE-I-P5 Analyst edited");
 
   await page.getByTestId(surfaceTabTestId(notesViewSchemaId)).click();
-  await expect
-    .poll(async () => visibleHeaderFieldKeys(page, notesViewSchemaId))
-    .toEqual([...noteVisibleFields]);
+  await expectVisibleContractFieldsReachable(
+    page,
+    notesViewSchemaId,
+    noteVisibleFields,
+  );
   const notePatch = await patchBodyForEdit(
     page,
     notesViewSchemaId,
@@ -316,6 +360,12 @@ test(exactScenarioTitle, async ({ page }) => {
   expect(String(notePatch.client_txn_id)).toMatch(
     /^generic-patch-cartulary\.view\.notes\.v1-\d+$/u,
   );
+  await scrollGridCellIntoView({
+    cellKey: "note.body",
+    page,
+    recordId: note.record_id,
+    surface: notesViewSchemaId,
+  });
   await expect(
     page.getByTestId(rowCellTestId(note.record_id, "note.body")),
   ).toHaveText("Edited provenance note");
@@ -323,16 +373,34 @@ test(exactScenarioTitle, async ({ page }) => {
   await page.reload();
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   await page.getByTestId(surfaceTabTestId(hostsViewSchemaId)).click();
+  await scrollGridCellIntoView({
+    cellKey: "host.display_name",
+    page,
+    recordId: host.record_id,
+    surface: hostsViewSchemaId,
+  });
   await expect(
     page.getByTestId(rowCellTestId(host.record_id, "host.display_name")),
   ).toHaveText("FE-I-P5 Gateway edited");
   await page.getByTestId(surfaceTabTestId(identitiesViewSchemaId)).click();
+  await scrollGridCellIntoView({
+    cellKey: "identity.display_name",
+    page,
+    recordId: identity.record_id,
+    surface: identitiesViewSchemaId,
+  });
   await expect(
     page.getByTestId(
       rowCellTestId(identity.record_id, "identity.display_name"),
     ),
   ).toHaveText("FE-I-P5 Analyst edited");
   await page.getByTestId(surfaceTabTestId(notesViewSchemaId)).click();
+  await scrollGridCellIntoView({
+    cellKey: "note.body",
+    page,
+    recordId: note.record_id,
+    surface: notesViewSchemaId,
+  });
   await expect(
     page.getByTestId(rowCellTestId(note.record_id, "note.body")),
   ).toHaveText("Edited provenance note");

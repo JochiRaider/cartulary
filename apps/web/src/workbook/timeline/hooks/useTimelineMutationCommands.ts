@@ -1,3 +1,4 @@
+import type { GridEditCommitOutcome } from "@cartulary/grid-adapter";
 import {
   type Dispatch,
   type SetStateAction,
@@ -103,6 +104,7 @@ export function useTimelineMutationCommands({
   >;
   readonly enqueuePendingReplayUnit: (
     unit: TimelinePendingReplayAdmissionRequest<PendingReplayRuntimeMeta>,
+    onSettled?: ((outcome: GridEditCommitOutcome) => void) | undefined,
   ) => void;
   readonly finishSave: (result: "Conflict" | "Saved" | "Syncing") => void;
   readonly incidentId: string;
@@ -144,6 +146,7 @@ export function useTimelineMutationCommands({
       surface,
       viewportContinuityToken,
       visibleEdit,
+      onSettled,
     }: {
       readonly clientTxnId: string;
       readonly continueOnFreshDraft: boolean;
@@ -158,6 +161,9 @@ export function useTimelineMutationCommands({
       readonly surface: TimelineScalarEditorSurface;
       readonly viewportContinuityToken: number;
       readonly visibleEdit?: PendingReplayUnitInput["visibleEdit"];
+      readonly onSettled?:
+        | ((outcome: GridEditCommitOutcome) => void)
+        | undefined;
     }) => {
       pendingSavesRefsRef.current.pendingSignaturesRef.current.set(
         rowKey,
@@ -182,37 +188,41 @@ export function useTimelineMutationCommands({
               `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/rows`,
             )
           : apiPath(apiBase, `/api/v1/records/${rowSnapshot.recordId}`);
-      enqueuePendingReplayUnit({
-        id: `pending-${clientTxnId}`,
-        kind: rowSnapshot.recordId === null ? "create" : "patch",
-        source: "autosave",
-        incidentId,
-        clientInstanceId,
-        viewSchemaId: timelineViewSchemaId,
-        rowKey,
-        recordId: rowSnapshot.recordId,
-        focusField,
-        focusKey,
-        surface,
-        method: rowSnapshot.recordId === null ? "POST" : "PATCH",
-        path: targetPath,
-        payloadIntent,
-        clientTxnId,
-        mutationSignature,
-        coalesceKey:
-          rowSnapshot.recordId === null
-            ? `draft:${rowKey}`
-            : `record:${rowSnapshot.recordId}`,
-        enqueueOrder: pendingSavesRefsRef.current.pendingReplayOrderRef.current,
-        operationClass: "hot_path",
-        status: "queued",
-        ...(visibleEdit === undefined ? {} : { visibleEdit }),
-        rowSnapshot,
-        continueOnFreshDraft,
-        detectAutoResolution,
-        promoteToCommittedRowInspect,
-        viewportContinuityToken,
-      });
+      enqueuePendingReplayUnit(
+        {
+          id: `pending-${clientTxnId}`,
+          kind: rowSnapshot.recordId === null ? "create" : "patch",
+          source: "autosave",
+          incidentId,
+          clientInstanceId,
+          viewSchemaId: timelineViewSchemaId,
+          rowKey,
+          recordId: rowSnapshot.recordId,
+          focusField,
+          focusKey,
+          surface,
+          method: rowSnapshot.recordId === null ? "POST" : "PATCH",
+          path: targetPath,
+          payloadIntent,
+          clientTxnId,
+          mutationSignature,
+          coalesceKey:
+            rowSnapshot.recordId === null
+              ? `draft:${rowKey}`
+              : `record:${rowSnapshot.recordId}`,
+          enqueueOrder:
+            pendingSavesRefsRef.current.pendingReplayOrderRef.current,
+          operationClass: "hot_path",
+          status: "queued",
+          ...(visibleEdit === undefined ? {} : { visibleEdit }),
+          rowSnapshot,
+          continueOnFreshDraft,
+          detectAutoResolution,
+          promoteToCommittedRowInspect,
+          viewportContinuityToken,
+        },
+        onSettled,
+      );
       pendingSavesRefsRef.current.pendingReplayOrderRef.current += 1;
     },
     [
@@ -232,6 +242,7 @@ export function useTimelineMutationCommands({
       focusField: keyof RowValues,
       options: TimelineScalarSaveOptions,
       currentValue?: string,
+      onSettled?: ((outcome: GridEditCommitOutcome) => void) | undefined,
     ) => {
       const requestedRowSnapshot = rowsRef.current.find(
         (candidate) => candidate.key === rowKey,
@@ -252,6 +263,10 @@ export function useTimelineMutationCommands({
               value: scalarDraftValuesRef.current.get(focusKey) ?? currentValue,
             });
       if (!snapshot) {
+        onSettled?.({
+          kind: "stale_target",
+          message: "The timeline row is no longer available.",
+        });
         return;
       }
       const binding = timelineScalarBindings.find(
@@ -262,6 +277,10 @@ export function useTimelineMutationCommands({
         binding &&
         conflictQueueRef.current[`${snapshot.recordId}:${binding.fieldKey}`]
       ) {
+        onSettled?.({
+          kind: "conflict",
+          message: "Resolve the existing field conflict before editing.",
+        });
         return;
       }
 
@@ -274,6 +293,7 @@ export function useTimelineMutationCommands({
           : buildScalarPatchIntent(snapshot, clientTxnId);
       if (payload === null) {
         scalarDraftValuesRef.current.delete(focusKey);
+        onSettled?.({ kind: "accepted" });
         return;
       }
 
@@ -283,6 +303,7 @@ export function useTimelineMutationCommands({
           effectiveRowKey,
         ) === mutationSignature
       ) {
+        onSettled?.({ kind: "accepted" });
         return;
       }
       const visibleEdit =
@@ -321,6 +342,7 @@ export function useTimelineMutationCommands({
         rowSnapshot: snapshot,
         viewportContinuityToken,
         visibleEdit,
+        onSettled,
       });
     },
     [
@@ -333,6 +355,28 @@ export function useTimelineMutationCommands({
       rowsRef,
       scalarDraftValuesRef,
     ],
+  );
+
+  const commitScalarGridEdit = useCallback(
+    (
+      rowKey: string,
+      focusField: keyof RowValues,
+      currentValue: string,
+    ): Promise<GridEditCommitOutcome> =>
+      new Promise((resolve) => {
+        queueScalarSave(
+          rowKey,
+          focusField,
+          {
+            continueOnFreshDraft: false,
+            preserveInputFocus: false,
+            surface: "grid",
+          },
+          currentValue,
+          resolve,
+        );
+      }),
+    [queueScalarSave],
   );
 
   const queueCollectionSave = useCallback(
@@ -527,6 +571,7 @@ export function useTimelineMutationCommands({
   );
 
   return {
+    commitScalarGridEdit,
     queueAction,
     queueCollectionSave,
     queueScalarSave,

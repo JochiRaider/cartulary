@@ -1,3 +1,4 @@
+import { scrollGridCellIntoView } from "@cartulary/test-utils";
 import {
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
@@ -202,6 +203,12 @@ test("E-4-06 creates and edits required workbook mutation surfaces through typed
   await expect(
     page.getByTestId(rowCellTestId(task.record_id, "task.priority")),
   ).toHaveText("normal");
+  await scrollGridCellIntoView({
+    cellKey: "task.linked_record_count",
+    page,
+    recordId: task.record_id,
+    surface: taskRequestsViewSchemaId,
+  });
   await expect(
     page.getByTestId(rowCellTestId(task.record_id, "task.linked_record_count")),
   ).toHaveText("1");
@@ -212,6 +219,12 @@ test("E-4-06 creates and edits required workbook mutation surfaces through typed
     "task.title",
     "Updated browser task",
   );
+  await scrollGridCellIntoView({
+    cellKey: "task.title",
+    page,
+    recordId: task.record_id,
+    surface: taskRequestsViewSchemaId,
+  });
   await expect(
     page.getByTestId(rowCellTestId(task.record_id, "task.title")),
   ).toHaveText("Updated browser task");

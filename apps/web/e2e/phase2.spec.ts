@@ -1,4 +1,5 @@
 import {
+  scrollGridCellIntoView,
   setCurrentSavedViewAsDefault,
   setCurrentSavedViewAsHome,
 } from "@cartulary/test-utils";
@@ -341,6 +342,12 @@ test("FE-B-P2-01 updates workbook density from Account Settings while the workbo
   try {
     await page.goto(`/?incident_id=${incidentId}`);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+    await scrollGridCellIntoView({
+      cellKey: "timeline.activity_synopsis_text",
+      page,
+      recordId: row.record_id,
+      surface: timelineViewSchemaId,
+    });
     await expect(
       page.getByTestId(
         rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),

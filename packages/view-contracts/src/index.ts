@@ -21,6 +21,7 @@ export type ViewFieldContract = {
   readonly sortable: boolean;
   readonly readKind: string;
   readonly writeKind: "read_only" | "direct_value" | "action_payload";
+  readonly gridEditable: boolean;
   readonly clearable: boolean;
   readonly conflictResolutionClass: string | null;
   readonly entityBindingMode: string | null;
@@ -213,6 +214,7 @@ type RawField = {
   readonly string_contract_id?: string | null;
   readonly write_action?: string | null;
   readonly write_kind?: "read_only" | "direct_value" | "action_payload";
+  readonly grid_editable?: boolean;
 };
 
 type RawSyntheticFilterPredicate = {
@@ -1552,6 +1554,7 @@ export function parseViewContractJSON(
         sortable: field.sortable ?? false,
         readKind: field.read_kind ?? "text",
         writeKind: field.write_kind ?? "read_only",
+        gridEditable: field.grid_editable ?? false,
         clearable: field.clearable ?? false,
         conflictResolutionClass: field.conflict_resolution_class ?? null,
         entityBindingMode: field.entity_binding_mode ?? null,
@@ -1582,6 +1585,7 @@ export function parseViewContractJSON(
           sortable: false,
           readKind: "synthetic_filter",
           writeKind: "read_only",
+          gridEditable: false,
           clearable: false,
           conflictResolutionClass: null,
           entityBindingMode: null,
@@ -1773,7 +1777,7 @@ export function fieldCapability(
 ): ViewFieldCapability {
   const field = contract.fieldMap[fieldKey];
   return {
-    editable: field?.writeKind !== undefined && field.writeKind !== "read_only",
+    editable: field?.gridEditable ?? false,
     filterable: (field?.filterOps.length ?? 0) > 0,
     groupable: field?.groupable ?? false,
     sortable: field?.sortable ?? false,

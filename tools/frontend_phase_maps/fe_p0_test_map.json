@@ -3,7 +3,7 @@
   "schema_version": 4,
   "phase_namespace": "frontend",
   "phase_id": "FE-P0",
-  "guide_digest": "67a7f802822c244b0c2c604b430fe3ec9a5b78ec94b69f162ec4be717b8e5b4a",
+  "guide_digest": "854b402d754712a15eba2bac471d34c2c6b614f74e2eb7657197920d5263c713",
   "rows": [
     {
       "id": "FE-U-P0-01",

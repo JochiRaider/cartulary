@@ -1,3 +1,4 @@
+import { scrollGridCellIntoView } from "@cartulary/test-utils";
 import {
   gridRowTestId,
   gridShellTestId,
@@ -418,6 +419,12 @@ test("E-7-03 soft-deletes and restores a row with tombstone concurrency", async 
   });
 
   await openTimelineSurface(page, incidentId);
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_synopsis_text",
+    page,
+    recordId: row.record_id,
+    surface: timelineViewSchemaId,
+  });
   await expect(
     page.getByTestId(
       rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),
@@ -503,6 +510,12 @@ test("E-7-04 whole-row restore appends a new attributed revision", async ({
   });
 
   await openTimelineSurface(page, incidentId);
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_synopsis_text",
+    page,
+    recordId: row.record_id,
+    surface: timelineViewSchemaId,
+  });
   await expect(
     page.getByTestId(
       rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),

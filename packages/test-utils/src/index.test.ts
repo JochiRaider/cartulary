@@ -75,11 +75,23 @@ describe("@cartulary/test-utils selector choreography", () => {
     const observed: string[] = [];
     const selected: Record<string, string | readonly string[]> = {};
     const filled: Record<string, string> = {};
+    const gridShell = document.createElement("div");
+    const gridScrollport = document.createElement("div");
+    gridScrollport.className = gridScrollportClassName();
+    gridShell.append(gridScrollport);
     const page = {
       getByTestId(value: string) {
         observed.push(value);
+        const element =
+          value === gridShellTestId(testTimelineViewSchemaId)
+            ? gridShell
+            : document.createElement("button");
         return {
           click: async () => undefined,
+          evaluate: async (
+            pageFunction: (element: Element, arg?: unknown) => unknown,
+            arg?: unknown,
+          ) => pageFunction(element, arg),
           fill: async (nextValue: string) => {
             filled[value] = nextValue;
           },
@@ -103,6 +115,8 @@ describe("@cartulary/test-utils selector choreography", () => {
     await changeGrouping(page, surface, "timeline.capture_state");
 
     expect(observed).toEqual([
+      gridSortHeaderTestId(surface, "timeline.activity_synopsis_text"),
+      gridShellTestId(surface),
       gridSortHeaderTestId(surface, "timeline.activity_synopsis_text"),
       workbookFilterPopoverTriggerTestId(surface),
       gridFilterFieldTestId(surface),
@@ -641,12 +655,16 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
     const { grid, page, scrollIntoViewCalls, targetTestId } =
       installGridTargetFixture({
         clientHeight: 200,
+        clientWidth: 400,
         currentScroll: { left: 0, top: 0 },
-        isTargetVisible: (candidateGrid) => candidateGrid.scrollTop >= 400,
+        isTargetVisible: (candidateGrid) =>
+          candidateGrid.scrollTop >= 400 && candidateGrid.scrollLeft >= 600,
         onTargetScrollIntoView: (candidateGrid) => {
+          candidateGrid.scrollLeft = 720;
           candidateGrid.scrollTop = 520;
         },
         scrollHeight: 900,
+        scrollWidth: 1_200,
       });
 
     await expect(
@@ -657,8 +675,9 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
         targetTestId,
         timeoutMs: 1_000,
       }),
-    ).resolves.toEqual({ left: 0, top: 520 });
+    ).resolves.toEqual({ left: 720, top: 520 });
 
+    expect(grid.scrollLeft).toBe(720);
     expect(grid.scrollTop).toBe(520);
     expect(scrollIntoViewCalls).toEqual([targetTestId]);
   });
@@ -1073,6 +1092,7 @@ function installGridContinuityFixture(
 function installGridTargetFixture(
   options: {
     clientHeight?: number;
+    clientWidth?: number;
     currentScroll?: { left: number; top: number };
     includeTarget?: boolean;
     isTargetVisible?: (grid: HTMLDivElement) => boolean;
@@ -1081,6 +1101,7 @@ function installGridTargetFixture(
     onTargetScrollIntoView?: (grid: HTMLDivElement) => void;
     outerScrollable?: boolean;
     scrollHeight?: number;
+    scrollWidth?: number;
     targetTestId?: string;
   } = {},
 ) {
@@ -1124,7 +1145,7 @@ function installGridTargetFixture(
     },
     clientWidth: {
       configurable: true,
-      value: 400,
+      value: options.clientWidth ?? 400,
     },
     scrollHeight: {
       configurable: true,
@@ -1132,7 +1153,7 @@ function installGridTargetFixture(
     },
     scrollWidth: {
       configurable: true,
-      value: 400,
+      value: options.scrollWidth ?? 400,
     },
   });
   if (options.outerScrollable) {

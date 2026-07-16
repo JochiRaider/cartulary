@@ -96,6 +96,15 @@ export function toggleSortField(
   state: WorkbookQueryState,
   fieldKey: string,
 ): WorkbookQueryState {
+  return cycleWorkbookSortField(contract, state, fieldKey, false);
+}
+
+export function cycleWorkbookSortField(
+  contract: ViewContract,
+  state: WorkbookQueryState,
+  fieldKey: string,
+  additive: boolean,
+): WorkbookQueryState {
   const sortableFieldKey = resolveHeaderSortFieldKey(contract, fieldKey);
   if (!sortableFieldKey || !contract.sortableFieldMap[sortableFieldKey]) {
     return state;
@@ -107,18 +116,45 @@ export function toggleSortField(
   if (!existing) {
     return {
       ...state,
-      sort: [{ fieldKey: sortableFieldKey, direction: "asc" }],
+      sort: additive
+        ? [
+            ...state.sort,
+            { fieldKey: sortableFieldKey, direction: "asc" as const },
+          ].slice(0, 8)
+        : [{ fieldKey: sortableFieldKey, direction: "asc" }],
     };
   }
   if (existing.direction === "asc") {
     return {
       ...state,
-      sort: [{ fieldKey: sortableFieldKey, direction: "desc" }],
+      sort: additive
+        ? state.sort.map((entry) =>
+            entry.fieldKey === sortableFieldKey
+              ? { ...entry, direction: "desc" as const }
+              : entry,
+          )
+        : [{ fieldKey: sortableFieldKey, direction: "desc" }],
     };
   }
   return {
     ...state,
-    sort: state.sort.filter((entry) => entry.fieldKey !== sortableFieldKey),
+    sort: additive
+      ? state.sort.filter((entry) => entry.fieldKey !== sortableFieldKey)
+      : [],
+  };
+}
+
+export function replaceWorkbookSort(
+  contract: ViewContract,
+  state: WorkbookQueryState,
+  sort: readonly WorkbookSortEntry[],
+): WorkbookQueryState {
+  return {
+    ...state,
+    sort: normalizeUserSortForPersistence(contract, { ...state, sort }).slice(
+      0,
+      8,
+    ),
   };
 }
 
@@ -362,6 +398,9 @@ function savedViewSortFromQueryJson(
       direction: entry.direction,
       fieldKey: entry.field_key,
     });
+    if (sort.length === 8) {
+      break;
+    }
   }
   return sort;
 }
@@ -423,6 +462,9 @@ function normalizeUserSortForPersistence(
     }
     seen.add(entry.fieldKey);
     sort.push(entry);
+    if (sort.length === 8) {
+      break;
+    }
   }
   return sort;
 }

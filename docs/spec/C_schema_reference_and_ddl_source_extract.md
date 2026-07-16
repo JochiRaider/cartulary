@@ -1390,7 +1390,7 @@ CREATE TABLE incident_workbook_preferences (
 -- authoritative public identity of the required base surface.
 ```
 
-### Illustrative public `view_schema_resource_v1` example
+### Illustrative public `view_schema_resource_v2` example
 
 ```json
 {
@@ -1440,6 +1440,7 @@ CREATE TABLE incident_workbook_preferences (
       "groupable": false,
       "read_kind": "text",
       "write_kind": "direct_value",
+      "grid_editable": true,
       "conflict_resolution_class": "text_compare_merge",
       "entity_binding_mode": null,
       "string_contract_id": "single_line_title_v1",
@@ -1458,6 +1459,7 @@ CREATE TABLE incident_workbook_preferences (
       "groupable": false,
       "read_kind": "enum",
       "write_kind": "direct_value",
+      "grid_editable": true,
       "conflict_resolution_class": "atomic_replace",
       "entity_binding_mode": null,
       "string_contract_id": null,
@@ -1476,6 +1478,7 @@ CREATE TABLE incident_workbook_preferences (
       "groupable": false,
       "read_kind": "timestamp",
       "write_kind": "direct_value",
+      "grid_editable": true,
       "conflict_resolution_class": "atomic_replace",
       "entity_binding_mode": null,
       "string_contract_id": null,
@@ -1494,6 +1497,7 @@ CREATE TABLE incident_workbook_preferences (
       "groupable": false,
       "read_kind": "timestamp",
       "write_kind": "direct_value",
+      "grid_editable": true,
       "conflict_resolution_class": "atomic_replace",
       "entity_binding_mode": null,
       "string_contract_id": null,
@@ -1512,6 +1516,7 @@ CREATE TABLE incident_workbook_preferences (
       "groupable": false,
       "read_kind": "text",
       "write_kind": "direct_value",
+      "grid_editable": true,
       "conflict_resolution_class": "atomic_replace",
       "entity_binding_mode": null,
       "string_contract_id": "locator_text_v1",
@@ -1530,6 +1535,7 @@ CREATE TABLE incident_workbook_preferences (
       "groupable": false,
       "read_kind": "text",
       "write_kind": "read_only",
+      "grid_editable": false,
       "conflict_resolution_class": null,
       "entity_binding_mode": null,
       "string_contract_id": null,
@@ -1548,6 +1554,7 @@ CREATE TABLE incident_workbook_preferences (
       "groupable": false,
       "read_kind": "text",
       "write_kind": "direct_value",
+      "grid_editable": true,
       "conflict_resolution_class": "text_compare_merge",
       "entity_binding_mode": null,
       "string_contract_id": "party_text_v1",
@@ -1566,6 +1573,7 @@ CREATE TABLE incident_workbook_preferences (
       "groupable": false,
       "read_kind": "text",
       "write_kind": "direct_value",
+      "grid_editable": true,
       "conflict_resolution_class": "atomic_replace",
       "entity_binding_mode": null,
       "string_contract_id": null,
@@ -1584,6 +1592,7 @@ CREATE TABLE incident_workbook_preferences (
       "groupable": false,
       "read_kind": "text",
       "write_kind": "direct_value",
+      "grid_editable": true,
       "conflict_resolution_class": "text_compare_merge",
       "entity_binding_mode": null,
       "string_contract_id": "party_text_v1",
@@ -1602,6 +1611,7 @@ CREATE TABLE incident_workbook_preferences (
       "groupable": false,
       "read_kind": "text",
       "write_kind": "direct_value",
+      "grid_editable": true,
       "conflict_resolution_class": "atomic_replace",
       "entity_binding_mode": null,
       "string_contract_id": null,
@@ -1620,6 +1630,7 @@ CREATE TABLE incident_workbook_preferences (
       "groupable": false,
       "read_kind": "enum",
       "write_kind": "read_only",
+      "grid_editable": false,
       "conflict_resolution_class": null,
       "entity_binding_mode": null,
       "string_contract_id": null,
@@ -1638,6 +1649,7 @@ CREATE TABLE incident_workbook_preferences (
       "groupable": false,
       "read_kind": "number",
       "write_kind": "read_only",
+      "grid_editable": false,
       "conflict_resolution_class": null,
       "entity_binding_mode": null,
       "string_contract_id": null,
@@ -1656,6 +1668,7 @@ CREATE TABLE incident_workbook_preferences (
       "groupable": false,
       "read_kind": "timestamp",
       "write_kind": "read_only",
+      "grid_editable": false,
       "conflict_resolution_class": null,
       "entity_binding_mode": null,
       "string_contract_id": null,
@@ -1668,7 +1681,7 @@ CREATE TABLE incident_workbook_preferences (
 }
 ```
 
-### Illustrative public `view_field_entry_v1` example
+### Illustrative public `view_field_entry_v2` example
 
 ```json
 {
@@ -1681,6 +1694,7 @@ CREATE TABLE incident_workbook_preferences (
   "groupable": false,
   "read_kind": "text",
   "write_kind": "direct_value",
+  "grid_editable": true,
   "conflict_resolution_class": "atomic_replace",
   "entity_binding_mode": null,
   "string_contract_id": null,
