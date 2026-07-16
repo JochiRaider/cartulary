@@ -8,7 +8,7 @@
 | Target label | `networkflow` |
 | Output path | `docs/handoffs/networkflow-module-refactor-tracker.md` |
 | Repository snapshot | Clean `main` at `63a19bf6e0c3f17a9b53afb58afa8bd04fb4c550` when planning began |
-| Status | Historical module remediation complete; Network Analysis grid-adapter adoption is executing under Section 14, with `NF-GA-02` `ACTIVE` |
+| Status | Historical module remediation complete; Network Analysis grid-adapter adoption is executing under Section 14, with `NF-GA-02` `COMPLETE` and `NF-GA-03` pending activation |
 | Authorized change | Specification, implementation, tests, contracts, generated outputs, configuration, migrations, harness inputs, documentation, and this tracker |
 | Current execution authorization | Specification, contract, generated, backend, frontend, test, harness-input, visual, and tracker changes required by Section 14; no dependency, lockfile, database, saved-view, or React Data Grid version migration |
 | Preserved non-goals | No richer graph canvas, observation creation, restore/purge behavior, existing-route response change, or HTTP schema-major expansion; one additive Core import mapping-preview route is explicitly authorized |
@@ -383,7 +383,7 @@ authorize or claim implementation completion.
 | Harness authority | `docs/testing-harness-nlspec.md`; it owns invocation, target selection, scheduling, artifacts, cleanup, and evidence accounting |
 | Adapter reference | Completed F-RDG workstreams in `docs/handoffs/grid-adapter-module-refactor-tracker.md` |
 | Current execution scope | Full Section 14 remediation, serially checkpointed |
-| Overall adoption status | `ACTIVE` (`NF-GA-00` and `NF-GA-01` `COMPLETE`; `NF-GA-02 ACTIVE`) |
+| Overall adoption status | `ACTIVE` (`NF-GA-00`, `NF-GA-01`, and `NF-GA-02` `COMPLETE`; `NF-GA-03 PENDING`) |
 
 The inspected baseline has the following implementation boundaries:
 
@@ -696,7 +696,7 @@ Every checkpoint must populate these fields:
 
 | Field | Approved value |
 | --- | --- |
-| Status | `ACTIVE` |
+| Status | `COMPLETE` |
 | Activation baseline | `e9dc61566fba85d27c8a4efad2a4a29f9dda53d1` |
 | Dependencies | `NF-GA-01 COMPLETE` |
 | Remediation | Implement the additive Core mapping-preview route and validated owner wrapper; generate mapping registries; refactor import coordination into upload/discover, preview, and approve/select/apply; replace the fixed payload with an explicit ordinal-aware modal and fingerprint binding |
@@ -709,8 +709,26 @@ Every checkpoint must populate these fields:
 | Commands/evidence | Backend import tests; `make frontend-unit`; `make frontend-typecheck`; `make test-fast`; focused Phase 12 import evidence |
 | Rollback | Revert route, registry consumers, coordinator, and modal together; existing durable import route remains intact |
 | Exit criteria | Explicit mapping and preview work end to end for valid, conflicting, rejected, stale, and unauthorized inputs |
-| Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
+| Checkpoint | Completed in Section 14.7.3 |
 | Next workstream | `NF-GA-03` |
+
+##### 14.7.3 `NF-GA-02` completion checkpoint
+
+| Checkpoint field | Recorded outcome |
+| --- | --- |
+| Status / reviewer / date | `COMPLETE`; Codex self-review; 2026-07-16 America/New_York |
+| Baseline and activation commits | Baseline `e9dc61566fba85d27c8a4efad2a4a29f9dda53d1`; activation `aa3dadd450de5b5835bc14ee01b0faaeb6385fc4` |
+| Implementation end commit | `de1494573ca437f75cc4b1891c981701b749ac71` |
+| Files changed | Core Imports API/facade/routes/store and integration evidence; Network Flow mapping/import facade and contract evidence; mapping-registry generator and generated Go/TypeScript artifacts; protocol facade; three-stage shared import coordinator and tests; Network Flow mapping model/modal/controller/workspace tests; semantic selector facade; frontend inventory and test-accounting classification; NLSpec omission clarification |
+| Substantive result | Added the closed Core-owned `POST .../mapping-preview` route with editor/reviewer/admin admission, server-derived source capability, strict owner-result validation, and no mapping, selection, table, idempotency, or apply side effect. Renamed the owner boundary to the semantically complete `ExtensionImportFacade`. Generated Go mapping-registry tables and refactored backend defaults, aliases, required fields, transforms, empty policies, derivations, and supported policies to consume them. Replaced the production fixed-header payload with explicit upload/discover, preview, and fingerprint-bound approve/select/apply stages. Added an accessible ordinal-aware modal with profile, timestamp, unknown-column, explicit-ignore, required-count, safe-sample, preview-count, diagnostic, and fingerprint presentation. Mapping changes invalidate the preview; mismatched durable approval stops before selection/apply; successful apply selects the exact returned table resource |
+| Required gates | `make generate` PASS (`.cartulary/test-results/20260716T041211Z-p20328`); `make frontend-unit` PASS (`.cartulary/test-results/20260716T044310Z-p51853`); `make frontend-typecheck` PASS; final `make test-fast` PASS with 1,233 tests (`.cartulary/test-results/20260716T044935Z-p9866`); focused `make backend-integration-support` PASS after adding viewer denial and closed-request evidence |
+| Additional gates | `make generate-drift` PASS (`.cartulary/test-results/20260716T044621Z-p96786`); `make json-shape-check` PASS (`.cartulary/test-results/20260716T044621Z-p96790`); `make frontend-import-boundary-check` PASS (`.cartulary/test-results/20260716T044621Z-p96771`); `make lint-biome` PASS; `make lint-markdown` PASS; `make format` PASS (`.cartulary/test-results/20260716T044849Z-p5876`); `git diff --check` PASS |
+| Corrective runs | The first final typecheck exposed the expected remaining imports of the removed one-shot coordinator (`.cartulary/test-results/20260716T042857Z-p87825`) and then static selector ownership omissions (`.cartulary/test-results/20260716T043443Z-p89621`); the coordinator consumers and semantic selector facade were completed. The first unit run passed product tests but correctly failed on four unmapped mapping-model scenarios (`.cartulary/test-results/20260716T043533Z-p90694`); bounded regression accounting was added. Two subsequent workspace runs exposed unsupported Chai DOM matchers and one missing selector-helper import (`.cartulary/test-results/20260716T044156Z-p47771`, `.cartulary/test-results/20260716T044230Z-p49786`); assertions/imports were corrected. Early fast runs caught a missing Go import and an NLSpec MAY-omission sentence; both were related and corrected. No failure remains |
+| Evidence-map rows | Added bounded `unowned_regression` classifications for generated-registry mapping-model tests and the real component-level explicit preview/returned-table-selection scenario. Extended Core service-backed integration evidence to cover exact closed request shape, viewer denial, replay-stable preview, absent durable unit/idempotency/table effects, and preview-to-approval fingerprint equality. No synthetic browser claim was promoted or relabeled; authoritative Phase 12 browser reconciliation remains `NF-GA-09` |
+| Compatibility / migration | One additive contract-major-1 route. Existing durable `PUT .../mapping`, selection, apply, and response shapes are unchanged. No database, dependency, lockfile, saved-view, or RDG migration. The internal owner-facade rename is atomic with no compatibility alias |
+| Residual risk / deferral | Production browser evidence for the modal and replacement of synthetic Phase 12 claims remain in later workstreams, especially `NF-GA-09`. Role-loss/incident-closure clearing while a modal is open belongs to `NF-GA-05`; keyboard focus trapping/restoration belongs to `NF-GA-07`. No persistent preview cache was added |
+| Rollback | Revert `de149457` atomically to remove the additive route, registry consumer, coordinator, and modal while retaining the prior durable import route; not exercised because all exit gates passed |
+| Next workstream | `NF-GA-03`; it may activate only after this checkpoint commit |
 
 #### `NF-GA-03` — Query, pagination, reconciliation, and structured errors
 
