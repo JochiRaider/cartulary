@@ -26,6 +26,10 @@ import type {
   NetworkFlowTable,
 } from "./networkFlowClient";
 import { networkAnalysisSheetRef } from "./networkFlowClient";
+import {
+  type NetworkFlowWorkspaceError,
+  networkFlowErrorMessage,
+} from "./networkFlowErrors";
 import { useNetworkFlowCollaborationController } from "./useNetworkFlowCollaborationController";
 import { useNetworkFlowGraphController } from "./useNetworkFlowGraphController";
 import { useNetworkFlowImportController } from "./useNetworkFlowImportController";
@@ -54,7 +58,8 @@ function NetworkAnalysisWorkspaceContent({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [mode, setMode] = useState<NetworkAnalysisMode>("rows");
   const [message, setMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] =
+    useState<NetworkFlowWorkspaceError | null>(null);
   const canImport =
     currentIncidentRole === "editor" ||
     currentIncidentRole === "reviewer" ||
@@ -272,12 +277,32 @@ function NetworkAnalysisWorkspaceContent({
         ) : mode === "rejected" ? (
           <RejectedRowsPanel
             activeTable={tableController.activeTable}
+            canNext={rejectedRowsController.canNext}
+            canPrevious={rejectedRowsController.canPrevious}
             diagnostics={rejectedRowsController.diagnostics}
+            loading={
+              rejectedRowsController.loadState === "loading" ||
+              rejectedRowsController.loadState === "refreshing"
+            }
+            notice={rejectedRowsController.notice}
+            pageNumber={rejectedRowsController.pageNumber}
+            onNext={rejectedRowsController.nextPage}
+            onPrevious={rejectedRowsController.previousPage}
           />
         ) : (
           <RowsPanel
             activeTable={tableController.activeTable}
+            canNext={rowsController.canNext}
+            canPrevious={rowsController.canPrevious}
+            loading={
+              rowsController.loadState === "loading" ||
+              rowsController.loadState === "refreshing"
+            }
+            notice={rowsController.notice}
+            pageNumber={rowsController.pageNumber}
             rows={rowsController.rows}
+            onNext={rowsController.nextPage}
+            onPrevious={rowsController.previousPage}
           />
         )}
       </div>
@@ -296,7 +321,9 @@ function NetworkAnalysisWorkspaceContent({
           </span>
         ) : null}
         {visibleError ? (
-          <span style={errorTextStyle}>{visibleError}</span>
+          <span style={errorTextStyle}>
+            {networkFlowErrorMessage(visibleError)}
+          </span>
         ) : null}
       </div>
       {importController.mappingOpen &&
@@ -370,9 +397,23 @@ function EmptyNetworkAnalysisState({
 
 function RowsPanel({
   activeTable,
+  canNext,
+  canPrevious,
+  loading,
+  notice,
+  onNext,
+  onPrevious,
+  pageNumber,
   rows,
 }: {
   readonly activeTable: NetworkFlowTable | null;
+  readonly canNext: boolean;
+  readonly canPrevious: boolean;
+  readonly loading: boolean;
+  readonly notice: string | null;
+  readonly onNext: () => void;
+  readonly onPrevious: () => void;
+  readonly pageNumber: number;
   readonly rows: readonly NetworkFlowRow[];
 }) {
   return (
@@ -415,16 +456,39 @@ function RowsPanel({
           </tbody>
         </table>
       </div>
+      <QueryPagination
+        canNext={canNext}
+        canPrevious={canPrevious}
+        loading={loading}
+        notice={notice}
+        pageNumber={pageNumber}
+        onNext={onNext}
+        onPrevious={onPrevious}
+      />
     </section>
   );
 }
 
 function RejectedRowsPanel({
   activeTable,
+  canNext,
+  canPrevious,
   diagnostics,
+  loading,
+  notice,
+  onNext,
+  onPrevious,
+  pageNumber,
 }: {
   readonly activeTable: NetworkFlowTable | null;
+  readonly canNext: boolean;
+  readonly canPrevious: boolean;
   readonly diagnostics: readonly NetworkFlowDiagnostic[];
+  readonly loading: boolean;
+  readonly notice: string | null;
+  readonly onNext: () => void;
+  readonly onPrevious: () => void;
+  readonly pageNumber: number;
 }) {
   return (
     <section
@@ -459,7 +523,62 @@ function RejectedRowsPanel({
           </tbody>
         </table>
       </div>
+      <QueryPagination
+        canNext={canNext}
+        canPrevious={canPrevious}
+        loading={loading}
+        notice={notice}
+        pageNumber={pageNumber}
+        onNext={onNext}
+        onPrevious={onPrevious}
+      />
     </section>
+  );
+}
+
+function QueryPagination({
+  canNext,
+  canPrevious,
+  loading,
+  notice,
+  onNext,
+  onPrevious,
+  pageNumber,
+}: {
+  readonly canNext: boolean;
+  readonly canPrevious: boolean;
+  readonly loading: boolean;
+  readonly notice: string | null;
+  readonly onNext: () => void;
+  readonly onPrevious: () => void;
+  readonly pageNumber: number;
+}) {
+  return (
+    <nav aria-label="Network Flow result pages" style={paginationStyle}>
+      <button
+        data-testid={networkAnalysisTestId("page-previous")}
+        disabled={!canPrevious || loading}
+        type="button"
+        onClick={onPrevious}
+      >
+        Previous
+      </button>
+      <span
+        aria-live="polite"
+        data-testid={networkAnalysisTestId("page-status")}
+      >
+        {loading ? "Loading page" : `Page ${pageNumber}`}
+      </span>
+      <button
+        data-testid={networkAnalysisTestId("page-next")}
+        disabled={!canNext || loading}
+        type="button"
+        onClick={onNext}
+      >
+        Next
+      </button>
+      {notice === null ? null : <span role="status">{notice}</span>}
+    </nav>
   );
 }
 
@@ -754,10 +873,21 @@ const emptyStateStyle = {
 
 const panelGridStyle = {
   display: "grid",
-  gridTemplateRows: "auto minmax(0, 1fr)",
+  gridTemplateRows: "auto minmax(0, 1fr) auto",
   blockSize: "100%",
   minBlockSize: 0,
   minWidth: 0,
+} satisfies CSSProperties;
+
+const paginationStyle = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-end",
+  gap: "var(--ct-spacing-sm)",
+  padding: "var(--ct-spacing-xs) var(--ct-spacing-md)",
+  borderBlockStart: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-1)",
+  fontSize: "0.8125rem",
 } satisfies CSSProperties;
 
 const panelHeaderStyle = {

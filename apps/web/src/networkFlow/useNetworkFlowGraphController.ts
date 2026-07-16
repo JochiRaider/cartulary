@@ -5,7 +5,11 @@ import {
   queryNetworkFlowContributors,
   queryNetworkFlowGraph,
 } from "./networkFlowClient";
-import { isNetworkFlowAuthorizationLoss } from "./networkFlowErrors";
+import {
+  isNetworkFlowAuthorizationLoss,
+  type NetworkFlowRequestError,
+  networkFlowErrorFromUnknown,
+} from "./networkFlowErrors";
 
 export function useNetworkFlowGraphController({
   apiBase,
@@ -18,7 +22,7 @@ export function useNetworkFlowGraphController({
   readonly apiBase: string | undefined;
   readonly enabled: boolean;
   readonly incidentId: string;
-  readonly onError: (message: string | null) => void;
+  readonly onError: (error: NetworkFlowRequestError | null) => void;
   readonly onIncidentAccessLost: (() => void) | undefined;
   readonly tableIds: readonly string[];
 }) {
@@ -59,12 +63,14 @@ export function useNetworkFlowGraphController({
         if (controller.signal.aborted) {
           return;
         }
-        const message =
-          caught instanceof Error ? caught.message : "graph_query_failed";
-        if (isNetworkFlowAuthorizationLoss(message)) {
+        const requestError = networkFlowErrorFromUnknown(
+          caught,
+          "Network Flow graph query failed.",
+        );
+        if (isNetworkFlowAuthorizationLoss(requestError)) {
           onIncidentAccessLost?.();
         }
-        onError(message);
+        onError(requestError);
       });
     return () => controller.abort();
   }, [apiBase, enabled, incidentId, onError, onIncidentAccessLost, tableIds]);
@@ -92,14 +98,14 @@ export function useNetworkFlowGraphController({
         if (controller.signal.aborted) {
           return;
         }
-        const message =
-          caught instanceof Error
-            ? caught.message
-            : "contributors_query_failed";
-        if (isNetworkFlowAuthorizationLoss(message)) {
+        const requestError = networkFlowErrorFromUnknown(
+          caught,
+          "Network Flow contributor query failed.",
+        );
+        if (isNetworkFlowAuthorizationLoss(requestError)) {
           onIncidentAccessLost?.();
         }
-        onError(message);
+        onError(requestError);
         setContributors([]);
       });
     return () => controller.abort();

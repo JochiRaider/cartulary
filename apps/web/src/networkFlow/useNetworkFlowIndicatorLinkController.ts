@@ -4,6 +4,10 @@ import type {
   NetworkFlowGraphResult,
 } from "./networkFlowClient";
 import { linkNetworkFlowIndicator } from "./networkFlowClient";
+import {
+  type NetworkFlowWorkspaceError,
+  networkFlowErrorFromUnknown,
+} from "./networkFlowErrors";
 
 export function useNetworkFlowIndicatorLinkController({
   apiBase,
@@ -18,7 +22,7 @@ export function useNetworkFlowIndicatorLinkController({
   readonly firstContributor: NetworkFlowContributor | null;
   readonly graph: NetworkFlowGraphResult | null;
   readonly incidentId: string;
-  readonly onError: (message: string | null) => void;
+  readonly onError: (error: NetworkFlowWorkspaceError | null) => void;
   readonly onMessage: (message: string) => void;
   readonly selectedEdge: NetworkFlowEdgeAnnotation | null;
 }) {
@@ -50,7 +54,10 @@ export function useNetworkFlowIndicatorLinkController({
       onError(null);
     } catch (caught) {
       onError(
-        caught instanceof Error ? caught.message : "indicator_link_failed",
+        networkFlowErrorFromUnknown(
+          caught,
+          "Network Flow indicator link failed.",
+        ),
       );
     }
   };

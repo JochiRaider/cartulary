@@ -4,7 +4,11 @@ import {
   initialNetworkFlowControllerState,
   networkFlowControllerReducer,
 } from "./networkFlowController";
-import { isNetworkFlowAuthorizationLoss } from "./networkFlowErrors";
+import {
+  isNetworkFlowAuthorizationLoss,
+  type NetworkFlowRequestError,
+  networkFlowErrorFromUnknown,
+} from "./networkFlowErrors";
 
 export function useNetworkFlowTableController({
   apiBase,
@@ -22,7 +26,7 @@ export function useNetworkFlowTableController({
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
     "loading",
   );
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<NetworkFlowRequestError | null>(null);
 
   const loadTables = useCallback(
     async (selectTableId?: string) => {
@@ -41,13 +45,15 @@ export function useNetworkFlowTableController({
         setLoadState("ready");
         setError(null);
       } catch (caught) {
-        const message =
-          caught instanceof Error ? caught.message : "load_failed";
-        if (isNetworkFlowAuthorizationLoss(message)) {
+        const requestError = networkFlowErrorFromUnknown(
+          caught,
+          "Network Flow tables could not be loaded.",
+        );
+        if (isNetworkFlowAuthorizationLoss(requestError)) {
           onIncidentAccessLost?.();
         }
         setLoadState("error");
-        setError(message);
+        setError(requestError);
       }
     },
     [apiBase, incidentId, onIncidentAccessLost],

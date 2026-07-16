@@ -47,6 +47,32 @@ export {
   networkFlowPresentationRegistry,
 };
 
+export type NetworkFlowErrorRetryAction =
+  | "correct_request"
+  | "refresh_resource"
+  | "restart_query"
+  | "reduce_scope_or_limits"
+  | "retry_with_backoff"
+  | "do_not_retry";
+
+export type NetworkFlowErrorContract = {
+  readonly code: string;
+  readonly http_status: number | null;
+  readonly retry_action: NetworkFlowErrorRetryAction;
+  readonly scope: string;
+};
+
+export type NetworkFlowErrorRegistry = {
+  readonly schema_id: "cartulary.network_flow_error_contracts.v1";
+  readonly errors: readonly NetworkFlowErrorContract[];
+};
+
+export function getNetworkFlowErrorRegistry(): NetworkFlowErrorRegistry {
+  return parseContractArtifact<NetworkFlowErrorRegistry>(
+    "contracts/network-flow/errors.v1.json",
+  );
+}
+
 export type ContractArtifact = {
   readonly path: string;
   readonly json: string;

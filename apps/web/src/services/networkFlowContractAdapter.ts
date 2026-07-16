@@ -3,11 +3,13 @@ import {
   type DecodeFailure,
   type Decoder,
   type EdgeAnnotation,
+  type Filter,
   type GraphContributorQueryRequest,
   type GraphContributorQueryResult,
   type GraphQueryRequest,
   type GraphQueryResult,
   type GraphSemanticQuery,
+  getNetworkFlowErrorRegistry,
   type ImportPreviewResult,
   type IndicatorLinkRequest,
   type IndicatorLinkResult,
@@ -20,9 +22,12 @@ import {
   networkFlowMappingRegistry,
   type PagingMeta,
   type RejectedRowDiagnostic,
+  type RejectedRowsQueryContinuation,
   type RejectedRowsQueryRequest,
   type RejectedRowsQueryResult,
+  type Sort,
   type TableList,
+  type TableQueryContinuation,
   type TableQueryRequest,
   type TableQueryResult,
 } from "@cartulary/protocol-ts";
@@ -41,12 +46,18 @@ export type NetworkFlowIndicatorLinkResult = IndicatorLinkResult;
 export type NetworkFlowIndicatorLinkRequest = IndicatorLinkRequest;
 export type NetworkFlowImportPreviewResult = ImportPreviewResult;
 export type NetworkFlowMappingCandidate = MappingCandidate;
+export type NetworkFlowFilter = Filter;
 export type NetworkFlowPaging = PagingMeta;
+export type NetworkFlowRejectedRowsQueryContinuation =
+  RejectedRowsQueryContinuation;
 export type NetworkFlowRejectedRowsQueryRequest = RejectedRowsQueryRequest;
+export type NetworkFlowSort = Sort;
+export type NetworkFlowTableQueryContinuation = TableQueryContinuation;
 export type NetworkFlowTableQueryRequest = TableQueryRequest;
 
 export { networkFlowContractDescriptor };
 export const networkFlowMappingMetadata = networkFlowMappingRegistry;
+export const networkFlowErrorMetadata = getNetworkFlowErrorRegistry();
 
 const supportedNetworkFlowContractMajors = new Set([1]);
 

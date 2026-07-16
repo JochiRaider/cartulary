@@ -1,9 +1,15 @@
-import { useEffect, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { queryNetworkFlowTable } from "./networkFlowClient";
+import type { NetworkFlowRequestError } from "./networkFlowErrors";
 import {
-  type NetworkFlowRow,
-  queryNetworkFlowTable,
-} from "./networkFlowClient";
-import { isNetworkFlowAuthorizationLoss } from "./networkFlowErrors";
+  acceptedContinuationRequest,
+  acceptedInitialRequest,
+  emptyNetworkFlowAcceptedQuery,
+  type NetworkFlowAcceptedPageRequest,
+  type NetworkFlowAcceptedQuery,
+  reconcileNetworkFlowRows,
+} from "./networkFlowQueryModel";
+import { useNetworkFlowPagedQuery } from "./useNetworkFlowPagedQuery";
 
 export function useNetworkFlowRowsController({
   activeTableId,
@@ -17,47 +23,47 @@ export function useNetworkFlowRowsController({
   readonly apiBase: string | undefined;
   readonly enabled: boolean;
   readonly incidentId: string;
-  readonly onError: (message: string | null) => void;
+  readonly onError: (error: NetworkFlowRequestError | null) => void;
   readonly onIncidentAccessLost: (() => void) | undefined;
 }) {
-  const [rows, setRows] = useState<NetworkFlowRow[]>([]);
-  useEffect(() => {
-    if (!enabled || activeTableId === null) {
-      setRows([]);
-      return;
-    }
-    const controller = new AbortController();
-    void queryNetworkFlowTable({
-      apiBase,
-      incidentId,
-      tableId: activeTableId,
-      signal: controller.signal,
-    })
-      .then((result) => {
-        if (!controller.signal.aborted) {
-          setRows(result.rows);
-          onError(null);
-        }
-      })
-      .catch((caught: unknown) => {
-        if (controller.signal.aborted) {
-          return;
-        }
-        const message =
-          caught instanceof Error ? caught.message : "query_failed";
-        if (isNetworkFlowAuthorizationLoss(message)) {
-          onIncidentAccessLost?.();
-        }
-        onError(message);
+  const [query, setQuery] = useState<NetworkFlowAcceptedQuery>(
+    emptyNetworkFlowAcceptedQuery,
+  );
+  const initialRequest = useMemo(() => acceptedInitialRequest(query), [query]);
+  const fetchPage = useCallback(
+    async (request: NetworkFlowAcceptedPageRequest, signal: AbortSignal) => {
+      if (activeTableId === null) {
+        throw new Error("network_flow_table_not_selected");
+      }
+      const result = await queryNetworkFlowTable({
+        apiBase,
+        incidentId,
+        tableId: activeTableId,
+        request,
+        signal,
       });
-    return () => controller.abort();
-  }, [
-    activeTableId,
-    apiBase,
-    enabled,
-    incidentId,
+      return { items: result.rows, paging: result.paging };
+    },
+    [activeTableId, apiBase, incidentId],
+  );
+  const paged = useNetworkFlowPagedQuery({
+    enabled: enabled && activeTableId !== null,
+    fetchPage,
+    initialRequest,
+    isContinuation: (request) =>
+      request.schema_id ===
+      "cartulary.network_flow.table_query_continuation.v1",
+    makeContinuation: acceptedContinuationRequest,
     onError,
     onIncidentAccessLost,
-  ]);
-  return { clearRows: () => setRows([]), rows };
+    queryKey: `${activeTableId ?? "none"}:${JSON.stringify(initialRequest)}`,
+    reconcile: reconcileNetworkFlowRows,
+  });
+  return {
+    ...paged,
+    clearRows: paged.clear,
+    query,
+    rows: paged.items,
+    setQuery,
+  };
 }

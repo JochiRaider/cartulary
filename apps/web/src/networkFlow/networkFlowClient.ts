@@ -8,10 +8,8 @@ import type {
   NetworkFlowIndicatorLinkRequest,
   NetworkFlowIndicatorLinkResult,
   NetworkFlowPaging,
-  NetworkFlowRejectedRowsQueryRequest,
   NetworkFlowRow,
   NetworkFlowTable,
-  NetworkFlowTableQueryRequest,
 } from "../services/networkFlowContractAdapter";
 import {
   decodeNetworkFlowContributorResult,
@@ -21,8 +19,13 @@ import {
   decodeNetworkFlowTableList,
   decodeNetworkFlowTableQueryResult,
 } from "../services/networkFlowContractAdapter";
-import { fetchWorkbookJSON, parseErrorMessage } from "../services/workbookApi";
+import { fetchWorkbookJSON } from "../services/workbookApi";
 import type { WorkbookSheetRef } from "../shared/workbookSheetRef";
+import { networkFlowRequestError } from "./networkFlowErrors";
+import type {
+  NetworkFlowAcceptedPageRequest,
+  NetworkFlowRejectedPageRequest,
+} from "./networkFlowQueryModel";
 
 export type {
   NetworkFlowContributor,
@@ -84,7 +87,7 @@ export async function listNetworkFlowTables(options: {
     requestInit({}, options.signal),
   );
   if (!result.ok) {
-    throw new Error(parseErrorMessage(result.payload));
+    throw networkFlowRequestError(result.status, result.payload);
   }
   return decodeNetworkFlowTableList(result.payload).tables;
 }
@@ -93,15 +96,12 @@ export async function queryNetworkFlowTable(options: {
   readonly apiBase?: string | undefined;
   readonly incidentId: string;
   readonly tableId: string;
+  readonly request: NetworkFlowAcceptedPageRequest;
   readonly signal?: AbortSignal | undefined;
 }): Promise<{
   readonly rows: NetworkFlowRow[];
   readonly paging: NetworkFlowPaging;
 }> {
-  const request: NetworkFlowTableQueryRequest = {
-    schema_id: "cartulary.network_flow.table_query_request.v1",
-    limit: 50,
-  };
   const result = await fetchWorkbookJSON<unknown>(
     apiPath(
       options.apiBase,
@@ -110,13 +110,13 @@ export async function queryNetworkFlowTable(options: {
     requestInit(
       {
         method: "POST",
-        body: JSON.stringify(request),
+        body: JSON.stringify(options.request),
       },
       options.signal,
     ),
   );
   if (!result.ok) {
-    throw new Error(parseErrorMessage(result.payload));
+    throw networkFlowRequestError(result.status, result.payload);
   }
   const response = decodeNetworkFlowTableQueryResult(result.payload);
   return { rows: response.rows, paging: response.meta.paging };
@@ -126,15 +126,12 @@ export async function queryNetworkFlowRejectedRows(options: {
   readonly apiBase?: string | undefined;
   readonly incidentId: string;
   readonly tableId: string;
+  readonly request: NetworkFlowRejectedPageRequest;
   readonly signal?: AbortSignal | undefined;
 }): Promise<{
   readonly diagnostics: NetworkFlowDiagnostic[];
   readonly paging: NetworkFlowPaging;
 }> {
-  const request: NetworkFlowRejectedRowsQueryRequest = {
-    schema_id: "cartulary.network_flow.rejected_rows_query_request.v1",
-    limit: 50,
-  };
   const result = await fetchWorkbookJSON<unknown>(
     apiPath(
       options.apiBase,
@@ -143,13 +140,13 @@ export async function queryNetworkFlowRejectedRows(options: {
     requestInit(
       {
         method: "POST",
-        body: JSON.stringify(request),
+        body: JSON.stringify(options.request),
       },
       options.signal,
     ),
   );
   if (!result.ok) {
-    throw new Error(parseErrorMessage(result.payload));
+    throw networkFlowRequestError(result.status, result.payload);
   }
   const response = decodeNetworkFlowRejectedRowsQueryResult(result.payload);
   return {
@@ -197,7 +194,7 @@ export async function queryNetworkFlowGraph(options: {
     ),
   );
   if (!result.ok) {
-    throw new Error(parseErrorMessage(result.payload));
+    throw networkFlowRequestError(result.status, result.payload);
   }
   return decodeNetworkFlowGraphResult(result.payload);
 }
@@ -230,7 +227,7 @@ export async function queryNetworkFlowContributors(options: {
     ),
   );
   if (!result.ok) {
-    throw new Error(parseErrorMessage(result.payload));
+    throw networkFlowRequestError(result.status, result.payload);
   }
   return decodeNetworkFlowContributorResult(result.payload);
 }
@@ -271,7 +268,7 @@ export async function linkNetworkFlowIndicator(options: {
     },
   );
   if (!result.ok) {
-    throw new Error(parseErrorMessage(result.payload));
+    throw networkFlowRequestError(result.status, result.payload);
   }
   return decodeNetworkFlowIndicatorLinkResult(result.payload);
 }

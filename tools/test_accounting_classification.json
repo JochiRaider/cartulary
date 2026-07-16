@@ -45,6 +45,24 @@
     },
     {
       "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/networkFlowQueryModel.test.ts",
+      "coverage": "unowned_regression",
+      "reason": "Network Flow semantic query compilation and immutable-resource reconciliation are direct product regression coverage; authoritative request and cursor behavior remains owned by mapped Phase 12 evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/networkFlowErrors.test.ts",
+      "coverage": "unowned_regression",
+      "reason": "Structured Network Flow error preservation and exact authorization classification are direct product regression coverage; authoritative security transitions remain owned by mapped Phase 12 evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/useNetworkFlowPagedQuery.test.tsx",
+      "coverage": "unowned_regression",
+      "reason": "Network Flow cursor history, expiry restart, cancellation, and late-response rejection are direct product regression coverage; authoritative pagination behavior remains owned by mapped Phase 12 evidence."
+    },
+    {
+      "target": "frontend-unit",
       "file": "apps/web/src/collaboration/IncidentCollaborationSession.test.tsx",
       "coverage": "unowned_regression",
       "reason": "Shared collaboration-session lifecycle is direct product regression coverage; authoritative collaboration behavior remains owned by mapped Core phase rows."

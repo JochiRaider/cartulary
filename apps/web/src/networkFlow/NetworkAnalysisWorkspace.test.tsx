@@ -47,6 +47,15 @@ describe("NetworkAnalysisWorkspace", () => {
     expect(await screen.findAllByText("flows.csv")).toHaveLength(2);
     expect(await screen.findByText("192.0.2.10:443")).toBeTruthy();
 
+    const initialRowsCall = fetchSpy.mock.calls.find(([input]) =>
+      requestURL(input).endsWith(
+        `/api/v1/incidents/incident-1/network-flow/tables/${tableId}/query`,
+      ),
+    );
+    expect(JSON.parse(String(initialRowsCall?.[1]?.body))).toEqual({
+      schema_id: "cartulary.network_flow.table_query_request.v1",
+    });
+
     fireEvent.click(screen.getByTestId(networkAnalysisTestId("mode-graph")));
 
     expect(
@@ -214,7 +223,7 @@ function installImportFlowFetchMock(returnedTableId: string) {
               table_ids: [responseTableId],
             },
             paging: {
-              limit: 50,
+              limit: 200,
               returned_count: 0,
               next_cursor_token: null,
             },
@@ -384,7 +393,7 @@ function installNetworkFlowFetchMock(options: { tables?: unknown[] } = {}) {
               table_ids: [tableId],
             },
             paging: {
-              limit: 50,
+              limit: 200,
               returned_count: 1,
               next_cursor_token: null,
             },
