@@ -848,7 +848,7 @@ Every checkpoint must populate these fields:
 
 | Field | Approved value |
 | --- | --- |
-| Status | `ACTIVE` |
+| Status | `COMPLETE` |
 | Activation baseline | `362f17311ecfc7103bb03f0ae3b6a1a3fca15bb2` |
 | Dependencies | `NF-GA-05 COMPLETE` |
 | Remediation | Add active/selected/all table scope, explicit vertex/edge selection, contributor grouping/paging, and row-cell, same-value row-range, vertex, and edge linking to existing/create indicator targets |
@@ -861,8 +861,26 @@ Every checkpoint must populate these fields:
 | Commands/evidence | `make frontend-unit`; `make browser-e2e-webserver-backed`; `make browser-e2e-stateful`; focused Phase 12 graph/link evidence |
 | Rollback | Graph/link controls and contributor grid are reversible without weakening read-only/auth clearing |
 | Exit criteria | Every adopted graph/link command has stable semantic targeting and real-route evidence |
-| Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
+| Checkpoint | Completed in Section 14.7.7 |
 | Next workstream | `NF-GA-07` |
+
+##### 14.7.7 `NF-GA-06` completion checkpoint
+
+| Checkpoint field | Recorded outcome |
+| --- | --- |
+| Status / reviewer / date | `COMPLETE`; Codex self-review; 2026-07-16 America/New_York |
+| Baseline and activation commits | Baseline `362f17311ecfc7103bb03f0ae3b6a1a3fca15bb2`; activation `1b8fb66fd827833e22daf29eca1f3be8051f560c` |
+| Implementation end commit | `2c2377bb35020bb41c583b468100134a8d24d71b` |
+| Files changed | Network Analysis workspace and component evidence; graph, indicator-link, and grid-layout controllers; semantic row/range link compiler and tests; Network Flow client and presentation compiler/tests; contributor production grid; shared semantic-grid exact cell-anchor callback; Network Flow contract decoder facade; protocol decoder facade; semantic selector facade; frontend test-accounting classifications |
+| Substantive result | Added explicit `active_table`, `selected_tables`, and `all_active_tables` graph scope with active-table default and workspace-ordered selected IDs. Graph queries carry the current owner filters and overlap time range, use abort/generation protection, and never auto-select a result. Projection IDs are translated back to stable owner endpoint/flow-edge IDs before contributor or link requests. Explicit vertex and edge selection drives exact initial/continuation contributor requests, replayable previous-page history, stale-digest invalidation, and a read-only `SemanticDataGrid` grouped by table display name plus stable table ID while retaining server contributor order and owner row identities. Added cell, same-value range, vertex, and source/destination edge linking to both existing and create-indicator targets. Row ranges compile only from exact Network Flow extension surfaces, use ordered owner row refs, enforce the advertised binding-row limit, reject mixed fields/values and foreign identities, and require byte-exact canonical confirmation. Link requests retain current semantic graph query, digest, owner IDs, linkable field key, and closed Core target variant. Graph rendering remains module-owned; no vendor graph abstraction or client sort/filter/aggregation was added |
+| Required gates | Final `make frontend-unit` PASS (`.cartulary/test-results/20260716T074750Z-p20332`); `make frontend-typecheck` PASS (`.cartulary/test-results/20260716T074750Z-p20333`); final `make browser-e2e-webserver-backed` PASS with 97 tests (`.cartulary/test-results/20260716T074849Z-p23655`); `make browser-e2e-stateful` PASS with 22 tests (`.cartulary/test-results/20260716T073837Z-p59093`); focused Phase 12 rows `E-12-NFAC029-29`, `E-12-NFAC030-30`, `E-12-NFAC036-36`, and `E-12-NFAC037-37` PASS under base-phase accounting scope (`.cartulary/test-results/20260716T074317Z-p96807`) |
+| Additional gates | `make format` PASS (`.cartulary/test-results/20260716T074738Z-p17969`); `make frontend-import-boundary-check` PASS (`.cartulary/test-results/20260716T074831Z-p22812`); `make lint-biome` PASS (`.cartulary/test-results/20260716T074831Z-p22810`); `git diff --check` PASS |
+| Corrective runs | Early component runs exposed that a synthetic row callback targeted the first visible column instead of the clicked semantic cell and that the standard fetch fixture omitted the source-profile limit route (`.cartulary/test-results/20260716T072040Z-p76526`, `.cartulary/test-results/20260716T073240Z-p31024`); the adapter now compiles the clicked column anchor and the fixture serves the owner registry. A focused browser invocation passed its selected tests but failed whole-target frontend accounting because base-phase accounting was not disabled (`.cartulary/test-results/20260716T074146Z-p79569`); the corrected scoped invocation passed at the focused root above. Final range hardening first exposed an incomplete TypeScript narrowing and then a mixed-field range falling back to a single cell (`.cartulary/test-results/20260716T074608Z-p14352`, `.cartulary/test-results/20260716T074608Z-p14365`); the exact extension-identity type guard and fail-closed range logic corrected both. No product, security, or required gate remains failing |
+| Evidence-map rows | Added bounded `unowned_regression` classifications for semantic cell selection, same-value range row-ref compilation, active-cell position independence, and fail-closed mixed/foreign/over-limit selection. Existing real webserver/stateful Phase 12 graph and link rows remained green, including the four focused rows above. Stable selectors now cover graph scope, owner vertex/edge identities, contributor grid/drawer, and indicator-link dialog actions without RDG DOM/classes or candidate values in selector tokens |
+| Compatibility / migration | Existing graph, contributor, source-profile, and indicator-link public routes and response shapes are unchanged. The frontend now uses the advertised source-profile limit and existing closed selector/target variants. No database, dependency, lockfile, saved-view, contract-major, React Data Grid version, or durable-state migration. No compatibility wrapper, fabricated Core identity, implicit graph selection, or client-authoritative contributor ordering was retained |
+| Residual risk / deferral | Deterministic focus restoration, inspector return focus, complete keyboard operation, live announcements, non-color cues, token review, and accessibility/visual evidence belong to `NF-GA-07`. The supported 1,000-row/all-column envelope belongs to `NF-GA-08`; real Phase 12 synthetic-evidence replacement and final accounting reconciliation remain `NF-GA-09` |
+| Rollback | Revert `2c2377bb` atomically to remove graph-scope/link/contributor presentation changes while retaining the prior read-only lifecycle boundary; not exercised because all exit gates passed. Any partial rollback must preserve explicit selection, current graph digest validation, exact owner identities, canonical confirmation, and server-owned contributor ordering |
+| Next workstream | `NF-GA-07`; it may activate only after this checkpoint commit |
 
 #### `NF-GA-07` — Keyboard, focus, accessibility, and semantic styling
 
