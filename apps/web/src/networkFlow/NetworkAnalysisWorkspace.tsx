@@ -1,6 +1,5 @@
 import {
   networkAnalysisEdgeTestId,
-  networkAnalysisRowTestId,
   networkAnalysisTableTabTestId,
   networkAnalysisTestId,
 } from "@cartulary/ui-contracts";
@@ -17,6 +16,14 @@ import { type CSSProperties, useCallback, useRef, useState } from "react";
 import { IncidentCollaborationBoundary } from "../collaboration/IncidentCollaborationSession";
 import type { WorkbookIncidentRole } from "../shared/workbookShellContracts";
 import { NetworkFlowMappingModal } from "./NetworkFlowMappingModal";
+import {
+  NetworkFlowAcceptedQueryControls,
+  NetworkFlowRejectedQueryControls,
+} from "./NetworkFlowQueryControls";
+import {
+  NetworkFlowAcceptedGrid,
+  NetworkFlowRejectedGrid,
+} from "./NetworkFlowSemanticGrid";
 import type {
   NetworkFlowContributor,
   NetworkFlowDiagnostic,
@@ -30,10 +37,15 @@ import {
   type NetworkFlowWorkspaceError,
   networkFlowErrorMessage,
 } from "./networkFlowErrors";
+import type {
+  NetworkFlowAcceptedQuery,
+  NetworkFlowRejectedQuery,
+} from "./networkFlowQueryModel";
 import { useNetworkFlowCollaborationController } from "./useNetworkFlowCollaborationController";
 import { useNetworkFlowGraphController } from "./useNetworkFlowGraphController";
 import { useNetworkFlowImportController } from "./useNetworkFlowImportController";
 import { useNetworkFlowIndicatorLinkController } from "./useNetworkFlowIndicatorLinkController";
+import type { NetworkFlowQueryLoadState } from "./useNetworkFlowPagedQuery";
 import { useNetworkFlowRejectedRowsController } from "./useNetworkFlowRejectedRowsController";
 import { useNetworkFlowRowsController } from "./useNetworkFlowRowsController";
 import { useNetworkFlowTableController } from "./useNetworkFlowTableController";
@@ -138,37 +150,19 @@ function NetworkAnalysisWorkspaceContent({
       data-workspace-key={activeTableScopeLabel.workspace_key}
       style={workspaceStyle}
     >
-      <div style={viewBarStyle}>
-        <div aria-label="Network Flow tables" role="tablist" style={tabsStyle}>
-          {tableController.tables.map((table, index) => {
-            const selected =
-              table.network_flow_table_id === tableController.activeTableId;
-            return (
-              <button
-                key={table.network_flow_table_id}
-                aria-selected={selected}
-                data-testid={networkAnalysisTableTabTestId(
-                  table.network_flow_table_id,
-                )}
-                role="tab"
-                style={{
-                  ...innerTabStyle,
-                  ...(selected ? innerTabActiveStyle : null),
-                }}
-                type="button"
-                onClick={() => {
-                  tableController.dispatch({
-                    type: "select_table",
-                    tableId: table.network_flow_table_id,
-                  });
-                  setMode("rows");
-                }}
-              >
-                <span>{table.display_name}</span>
-                <small style={tabCountStyle}>{index + 1}</small>
-              </button>
-            );
-          })}
+      <header
+        data-testid={networkAnalysisTestId("workspace-header")}
+        style={workspaceHeaderStyle}
+      >
+        <div>
+          <h2 style={workspaceTitleStyle}>Network Analysis</h2>
+          <span style={mutedTextStyle}>
+            {tableController.tables.length} active table
+            {tableController.tables.length === 1 ? "" : "s"}
+            {tableController.activeTable === null
+              ? ""
+              : ` · ${tableController.activeTable.display_name}`}
+          </span>
         </div>
         <div style={viewActionsStyle}>
           <button
@@ -202,6 +196,39 @@ function NetworkAnalysisWorkspaceContent({
               Import NetFlow CSV
             </button>
           ) : null}
+        </div>
+      </header>
+      <div style={viewBarStyle}>
+        <div aria-label="Network Flow tables" role="tablist" style={tabsStyle}>
+          {tableController.tables.map((table, index) => {
+            const selected =
+              table.network_flow_table_id === tableController.activeTableId;
+            return (
+              <button
+                key={table.network_flow_table_id}
+                aria-selected={selected}
+                data-testid={networkAnalysisTableTabTestId(
+                  table.network_flow_table_id,
+                )}
+                role="tab"
+                style={{
+                  ...innerTabStyle,
+                  ...(selected ? innerTabActiveStyle : null),
+                }}
+                type="button"
+                onClick={() => {
+                  tableController.dispatch({
+                    type: "select_table",
+                    tableId: table.network_flow_table_id,
+                  });
+                  setMode("rows");
+                }}
+              >
+                <span>{table.display_name}</span>
+                <small style={tabCountStyle}>{index + 1}</small>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -249,6 +276,26 @@ function NetworkAnalysisWorkspaceContent({
         </button>
       </div>
 
+      <div style={queryBandsStyle}>
+        {tableController.activeTable === null ? null : (
+          <>
+            <DiagnosticsSummary table={tableController.activeTable} />
+            {mode === "rejected" ? (
+              <NetworkFlowRejectedQueryControls
+                query={rejectedRowsController.query}
+                onChange={rejectedRowsController.setQuery}
+              />
+            ) : (
+              <NetworkFlowAcceptedQueryControls
+                graphMode={mode === "graph"}
+                query={rowsController.query}
+                onChange={rowsController.setQuery}
+              />
+            )}
+          </>
+        )}
+      </div>
+
       <div style={workAreaStyle}>
         {empty ? (
           <EmptyNetworkAnalysisState
@@ -280,29 +327,44 @@ function NetworkAnalysisWorkspaceContent({
             canNext={rejectedRowsController.canNext}
             canPrevious={rejectedRowsController.canPrevious}
             diagnostics={rejectedRowsController.diagnostics}
-            loading={
-              rejectedRowsController.loadState === "loading" ||
-              rejectedRowsController.loadState === "refreshing"
-            }
+            loadState={rejectedRowsController.loadState}
             notice={rejectedRowsController.notice}
             pageNumber={rejectedRowsController.pageNumber}
+            query={rejectedRowsController.query}
             onNext={rejectedRowsController.nextPage}
             onPrevious={rejectedRowsController.previousPage}
+            onResetQuery={() =>
+              rejectedRowsController.setQuery({
+                errorCodes: [],
+                fieldKeys: [],
+                sourceRowRange: null,
+              })
+            }
+            onRetry={rejectedRowsController.refresh}
           />
         ) : (
           <RowsPanel
             activeTable={tableController.activeTable}
             canNext={rowsController.canNext}
             canPrevious={rowsController.canPrevious}
-            loading={
-              rowsController.loadState === "loading" ||
-              rowsController.loadState === "refreshing"
-            }
+            loadState={rowsController.loadState}
             notice={rowsController.notice}
             pageNumber={rowsController.pageNumber}
+            query={rowsController.query}
             rows={rowsController.rows}
             onNext={rowsController.nextPage}
             onPrevious={rowsController.previousPage}
+            onResetQuery={() =>
+              rowsController.setQuery({
+                filters: [],
+                sort: [],
+                timeWindow: null,
+              })
+            }
+            onRetry={rowsController.refresh}
+            onSortChange={(sort) =>
+              rowsController.setQuery((current) => ({ ...current, sort }))
+            }
           />
         )}
       </div>
@@ -399,23 +461,32 @@ function RowsPanel({
   activeTable,
   canNext,
   canPrevious,
-  loading,
+  loadState,
   notice,
   onNext,
   onPrevious,
+  onResetQuery,
+  onRetry,
+  onSortChange,
   pageNumber,
+  query,
   rows,
 }: {
   readonly activeTable: NetworkFlowTable | null;
   readonly canNext: boolean;
   readonly canPrevious: boolean;
-  readonly loading: boolean;
+  readonly loadState: NetworkFlowQueryLoadState;
   readonly notice: string | null;
   readonly onNext: () => void;
   readonly onPrevious: () => void;
+  readonly onResetQuery: () => void;
+  readonly onRetry: () => void;
+  readonly onSortChange: (sort: NetworkFlowAcceptedQuery["sort"]) => void;
   readonly pageNumber: number;
+  readonly query: NetworkFlowAcceptedQuery;
   readonly rows: readonly NetworkFlowRow[];
 }) {
+  const loading = loadState === "loading" || loadState === "refreshing";
   return (
     <section
       aria-label="Network Flow table rows"
@@ -423,39 +494,16 @@ function RowsPanel({
       style={panelGridStyle}
     >
       <PanelHeader table={activeTable} />
-      <div style={tableScrollStyle}>
-        <table style={dataTableStyle}>
-          <thead>
-            <tr>
-              <th style={thStyle}>Row</th>
-              <th style={thStyle}>Start</th>
-              <th style={thStyle}>Source</th>
-              <th style={thStyle}>Destination</th>
-              <th style={thStyle}>Protocol</th>
-              <th style={thStyle}>Bytes</th>
-              <th style={thStyle}>Packets</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr
-                key={row.network_flow_row_id}
-                data-testid={networkAnalysisRowTestId(row.network_flow_row_id)}
-              >
-                <td style={tdMonoStyle}>{row.source_row_number}</td>
-                <td style={tdStyle}>
-                  {shortTimestamp(row["network_flow.flow_start_utc"])}
-                </td>
-                <td style={tdMonoStyle}>{endpointLabel(row, "src")}</td>
-                <td style={tdMonoStyle}>{endpointLabel(row, "dst")}</td>
-                <td style={tdMonoStyle}>{row["network_flow.ip_protocol"]}</td>
-                <td style={tdMonoStyle}>{row["network_flow.bytes_count"]}</td>
-                <td style={tdMonoStyle}>{row["network_flow.packets_count"]}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <NetworkFlowAcceptedGrid
+        filtered={query.filters.length > 0 || query.timeWindow !== null}
+        loadState={loadState}
+        resetKey={`${activeTable?.network_flow_table_id ?? "none"}:${JSON.stringify(query)}`}
+        rows={rows}
+        sort={query.sort}
+        onResetQuery={onResetQuery}
+        onRetry={onRetry}
+        onSortChange={onSortChange}
+      />
       <QueryPagination
         canNext={canNext}
         canPrevious={canPrevious}
@@ -474,22 +522,29 @@ function RejectedRowsPanel({
   canNext,
   canPrevious,
   diagnostics,
-  loading,
+  loadState,
   notice,
   onNext,
   onPrevious,
+  onResetQuery,
+  onRetry,
   pageNumber,
+  query,
 }: {
   readonly activeTable: NetworkFlowTable | null;
   readonly canNext: boolean;
   readonly canPrevious: boolean;
   readonly diagnostics: readonly NetworkFlowDiagnostic[];
-  readonly loading: boolean;
+  readonly loadState: NetworkFlowQueryLoadState;
   readonly notice: string | null;
   readonly onNext: () => void;
   readonly onPrevious: () => void;
+  readonly onResetQuery: () => void;
+  readonly onRetry: () => void;
   readonly pageNumber: number;
+  readonly query: NetworkFlowRejectedQuery;
 }) {
+  const loading = loadState === "loading" || loadState === "refreshing";
   return (
     <section
       aria-label="Network Flow rejected rows"
@@ -497,32 +552,18 @@ function RejectedRowsPanel({
       style={panelGridStyle}
     >
       <PanelHeader table={activeTable} />
-      <div style={tableScrollStyle}>
-        <table style={dataTableStyle}>
-          <thead>
-            <tr>
-              <th style={thStyle}>Row</th>
-              <th style={thStyle}>Column</th>
-              <th style={thStyle}>Field</th>
-              <th style={thStyle}>Reason</th>
-              <th style={thStyle}>Diagnostic</th>
-            </tr>
-          </thead>
-          <tbody>
-            {diagnostics.map((diagnostic) => (
-              <tr key={diagnostic.diagnostic_id}>
-                <td style={tdMonoStyle}>{diagnostic.source_row_number}</td>
-                <td style={tdMonoStyle}>
-                  {diagnostic.source_column_ordinal ?? ""}
-                </td>
-                <td style={tdMonoStyle}>{diagnostic.field_key ?? ""}</td>
-                <td style={tdMonoStyle}>{diagnostic.reason_code}</td>
-                <td style={tdStyle}>{diagnostic.message}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <NetworkFlowRejectedGrid
+        diagnostics={diagnostics}
+        filtered={
+          query.errorCodes.length > 0 ||
+          query.fieldKeys.length > 0 ||
+          query.sourceRowRange !== null
+        }
+        loadState={loadState}
+        resetKey={`${activeTable?.network_flow_table_id ?? "none"}:${JSON.stringify(query)}`}
+        onResetQuery={onResetQuery}
+        onRetry={onRetry}
+      />
       <QueryPagination
         canNext={canNext}
         canPrevious={canPrevious}
@@ -715,6 +756,35 @@ function GraphPanel({
   );
 }
 
+function DiagnosticsSummary({ table }: { readonly table: NetworkFlowTable }) {
+  return (
+    <section
+      aria-label="Network Flow diagnostics summary"
+      data-testid={networkAnalysisTestId("diagnostics-summary")}
+      style={diagnosticsSummaryStyle}
+    >
+      <span>
+        <strong>{table.row_count_accepted}</strong> accepted
+      </span>
+      <span>
+        <strong>{table.row_count_rejected}</strong> rejected
+      </span>
+      <span>
+        Mapping <code>{table.source_profile_id}</code>
+      </span>
+      <span>
+        Parser <code>{table.parser_profile_id}</code>
+      </span>
+      <span>
+        Source <strong>{table.source_filename_display}</strong>
+      </span>
+      <span>
+        Diagnostics {table.diagnostics_truncated ? "truncated" : "complete"}
+      </span>
+    </section>
+  );
+}
+
 function PanelHeader({ table }: { readonly table: NetworkFlowTable | null }) {
   return (
     <div style={panelHeaderStyle}>
@@ -739,10 +809,6 @@ function endpointLabel(row: NetworkFlowRow, kind: "src" | "dst"): string {
   return port === null ? ip : `${ip}:${port}`;
 }
 
-function shortTimestamp(value: string): string {
-  return value.replace("T", " ").replace(/(?:\.[0-9]+)?Z$/u, "Z");
-}
-
 function compactID(value: string): string {
   if (value.length <= 18) {
     return value;
@@ -753,12 +819,42 @@ function compactID(value: string): string {
 const workspaceStyle = {
   display: "grid",
   gridTemplateRows:
-    "var(--ct-layout-viewBarHeight) auto minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
+    "auto var(--ct-layout-viewBarHeight) auto auto minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
   blockSize: "100%",
   minBlockSize: 0,
   minWidth: 0,
   background: "var(--ct-colors-canvas)",
   color: "var(--ct-colors-text-primary)",
+} satisfies CSSProperties;
+
+const queryBandsStyle = {
+  minWidth: 0,
+} satisfies CSSProperties;
+
+const workspaceHeaderStyle = {
+  alignItems: "center",
+  background: "var(--ct-colors-surface-1)",
+  borderBlockEnd: "var(--ct-border-hairline)",
+  display: "flex",
+  gap: "var(--ct-spacing-md)",
+  justifyContent: "space-between",
+  padding: "var(--ct-spacing-sm) var(--ct-spacing-md)",
+} satisfies CSSProperties;
+
+const workspaceTitleStyle = {
+  fontSize: "1rem",
+  margin: 0,
+} satisfies CSSProperties;
+
+const diagnosticsSummaryStyle = {
+  alignItems: "center",
+  background: "var(--ct-colors-surface-1)",
+  borderBlockEnd: "var(--ct-border-hairline)",
+  display: "flex",
+  flexWrap: "wrap",
+  fontSize: "0.75rem",
+  gap: "var(--ct-spacing-md)",
+  padding: "var(--ct-spacing-xs) var(--ct-spacing-md)",
 } satisfies CSSProperties;
 
 const viewBarStyle = {

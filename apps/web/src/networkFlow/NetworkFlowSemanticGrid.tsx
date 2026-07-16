@@ -1,0 +1,568 @@
+import {
+  type GridCellAnchor,
+  type GridCellRange,
+  type GridDataState,
+  type GridSortEntry,
+  GridViewport,
+  SemanticDataGrid,
+} from "@cartulary/grid-adapter";
+import { networkAnalysisTestId } from "@cartulary/ui-contracts";
+import { type CSSProperties, useEffect, useMemo, useState } from "react";
+import type {
+  NetworkFlowDiagnostic,
+  NetworkFlowRow,
+  NetworkFlowSort,
+} from "../services/networkFlowContractAdapter";
+import {
+  compileNetworkFlowColumns,
+  localizedNetworkFlowDiagnosticMessage,
+  type NetworkFlowGridSchemaId,
+  networkFlowClipboardValue,
+  networkFlowColumnLabel,
+  networkFlowDiagnosticsForGrid,
+  networkFlowGridSurface,
+  networkFlowPresentationColumns,
+  networkFlowRowsForGrid,
+} from "./networkFlowPresentation";
+import { useNetworkFlowGridLayout } from "./useNetworkFlowGridLayout";
+import type { NetworkFlowQueryLoadState } from "./useNetworkFlowPagedQuery";
+
+export function NetworkFlowAcceptedGrid({
+  filtered,
+  loadState,
+  onResetQuery,
+  onRetry,
+  onSortChange,
+  resetKey,
+  rows,
+  sort,
+}: {
+  readonly filtered: boolean;
+  readonly loadState: NetworkFlowQueryLoadState;
+  readonly onResetQuery: () => void;
+  readonly onRetry: () => void;
+  readonly onSortChange: (sort: readonly NetworkFlowSort[]) => void;
+  readonly resetKey: string;
+  readonly rows: readonly NetworkFlowRow[];
+  readonly sort: readonly NetworkFlowSort[];
+}) {
+  const layout = useNetworkFlowGridLayout("network_flow.accepted_rows.v1");
+  const columns = useMemo(
+    () =>
+      compileNetworkFlowColumns<NetworkFlowRow>({
+        gridSchemaId: "network_flow.accepted_rows.v1",
+        orderedVisibleFieldKeys: layout.orderedVisibleFieldKeys,
+        widths: layout.columnWidths,
+      }),
+    [layout.columnWidths, layout.orderedVisibleFieldKeys],
+  );
+  const dataRows = useMemo(() => networkFlowRowsForGrid(rows), [rows]);
+  const sortableFieldKeys = useMemo(
+    () =>
+      new Set(
+        networkFlowPresentationColumns("network_flow.accepted_rows.v1")
+          .filter((column) => column.sortable)
+          .map((column) => column.field_key),
+      ),
+    [],
+  );
+  return (
+    <NetworkFlowGridFrame
+      columnsControl={layout}
+      dataState={networkFlowGridDataState({
+        filtered,
+        itemCount: rows.length,
+        loadState,
+        onResetQuery,
+        onRetry,
+        surfaceLabel: "accepted Network Flow rows",
+      })}
+      gridSchemaId="network_flow.accepted_rows.v1"
+      resetKey={resetKey}
+      rows={rows}
+    >
+      {({
+        activeAnchor,
+        cellRange,
+        onActiveAnchorChange,
+        onCellRangeChange,
+      }) => (
+        <SemanticDataGrid
+          activeRowIdentity={activeAnchor?.rowIdentity ?? null}
+          cellRange={cellRange}
+          columns={columns}
+          columnWidths={layout.columnWidths}
+          dataRows={dataRows}
+          dataState={networkFlowGridDataState({
+            filtered,
+            itemCount: rows.length,
+            loadState,
+            onResetQuery,
+            onRetry,
+            surfaceLabel: "accepted Network Flow rows",
+          })}
+          density="default"
+          fillViewportInline
+          interactionMode={{
+            kind: "read_only",
+            label:
+              "Network Flow rows are read-only. Range selection and copy are available.",
+          }}
+          onActiveCellChange={onActiveAnchorChange}
+          onCellRangeChange={onCellRangeChange}
+          onColumnReorder={layout.onColumnReorder}
+          onColumnWidthChange={layout.onColumnWidthChange}
+          onSelectRow={(rowIdentity) =>
+            onActiveAnchorChange({
+              fieldKey: columns[0]?.fieldKey ?? "network_flow.flow_start_utc",
+              rowIdentity,
+              surface: networkFlowGridSurface("network_flow.accepted_rows.v1"),
+            })
+          }
+          onSortChange={(nextSort) =>
+            onSortChange(
+              nextSort.flatMap((entry) =>
+                sortableFieldKeys.has(entry.fieldKey)
+                  ? [
+                      {
+                        field_key:
+                          entry.fieldKey as NetworkFlowSort["field_key"],
+                        direction: entry.direction,
+                      },
+                    ]
+                  : [],
+              ),
+            )
+          }
+          rowGutter={{ label: "Source row", minWidth: 56, width: 64 }}
+          sort={sort.map(
+            (entry): GridSortEntry => ({
+              fieldKey: entry.field_key,
+              direction: entry.direction,
+            }),
+          )}
+          surface={networkFlowGridSurface("network_flow.accepted_rows.v1")}
+        />
+      )}
+    </NetworkFlowGridFrame>
+  );
+}
+
+export function NetworkFlowRejectedGrid({
+  diagnostics,
+  filtered,
+  loadState,
+  onResetQuery,
+  onRetry,
+  resetKey,
+}: {
+  readonly diagnostics: readonly NetworkFlowDiagnostic[];
+  readonly filtered: boolean;
+  readonly loadState: NetworkFlowQueryLoadState;
+  readonly onResetQuery: () => void;
+  readonly onRetry: () => void;
+  readonly resetKey: string;
+}) {
+  const layout = useNetworkFlowGridLayout("network_flow.rejected_rows.v1");
+  const columns = useMemo(
+    () =>
+      compileNetworkFlowColumns<NetworkFlowDiagnostic>({
+        gridSchemaId: "network_flow.rejected_rows.v1",
+        orderedVisibleFieldKeys: layout.orderedVisibleFieldKeys,
+        widths: layout.columnWidths,
+      }),
+    [layout.columnWidths, layout.orderedVisibleFieldKeys],
+  );
+  const dataRows = useMemo(
+    () => networkFlowDiagnosticsForGrid(diagnostics),
+    [diagnostics],
+  );
+  return (
+    <NetworkFlowGridFrame
+      columnsControl={layout}
+      dataState={networkFlowGridDataState({
+        filtered,
+        itemCount: diagnostics.length,
+        loadState,
+        onResetQuery,
+        onRetry,
+        surfaceLabel: "rejected-row diagnostics",
+      })}
+      gridSchemaId="network_flow.rejected_rows.v1"
+      resetKey={resetKey}
+      rows={diagnostics}
+    >
+      {({
+        activeAnchor,
+        cellRange,
+        onActiveAnchorChange,
+        onCellRangeChange,
+      }) => (
+        <SemanticDataGrid
+          activeRowIdentity={activeAnchor?.rowIdentity ?? null}
+          cellRange={cellRange}
+          columns={columns}
+          columnWidths={layout.columnWidths}
+          dataRows={dataRows}
+          dataState={networkFlowGridDataState({
+            filtered,
+            itemCount: diagnostics.length,
+            loadState,
+            onResetQuery,
+            onRetry,
+            surfaceLabel: "rejected-row diagnostics",
+          })}
+          density="default"
+          fillViewportInline
+          interactionMode={{
+            kind: "read_only",
+            label:
+              "Rejected-row diagnostics are read-only. Range selection and copy are available.",
+          }}
+          onActiveCellChange={onActiveAnchorChange}
+          onCellRangeChange={onCellRangeChange}
+          onColumnReorder={layout.onColumnReorder}
+          onColumnWidthChange={layout.onColumnWidthChange}
+          onSelectRow={(rowIdentity) =>
+            onActiveAnchorChange({
+              fieldKey: columns[0]?.fieldKey ?? "source_row_number",
+              rowIdentity,
+              surface: networkFlowGridSurface("network_flow.rejected_rows.v1"),
+            })
+          }
+          surface={networkFlowGridSurface("network_flow.rejected_rows.v1")}
+        />
+      )}
+    </NetworkFlowGridFrame>
+  );
+}
+
+function NetworkFlowGridFrame<Row extends object>({
+  children,
+  columnsControl,
+  dataState,
+  gridSchemaId,
+  resetKey,
+  rows,
+}: {
+  readonly children: (state: {
+    readonly activeAnchor: GridCellAnchor | null;
+    readonly cellRange: GridCellRange | null;
+    readonly onActiveAnchorChange: (anchor: GridCellAnchor | null) => void;
+    readonly onCellRangeChange: (range: GridCellRange | null) => void;
+  }) => React.ReactNode;
+  readonly columnsControl: ReturnType<typeof useNetworkFlowGridLayout>;
+  readonly dataState: GridDataState;
+  readonly gridSchemaId: Exclude<
+    NetworkFlowGridSchemaId,
+    "network_flow.graph_contributors.v1"
+  >;
+  readonly resetKey: string;
+  readonly rows: readonly Row[];
+}) {
+  const [activeAnchor, setActiveAnchor] = useState<GridCellAnchor | null>(null);
+  const [cellRange, setCellRange] = useState<GridCellRange | null>(null);
+  useEffect(() => {
+    void resetKey;
+    setActiveAnchor(null);
+    setCellRange(null);
+  }, [resetKey]);
+  const activeRow = activeAnchor
+    ? (rows.find(
+        (row) =>
+          resourceIdForRow(row, gridSchemaId) ===
+          (activeAnchor.rowIdentity.kind === "extension_resource"
+            ? activeAnchor.rowIdentity.resourceId
+            : null),
+      ) ?? null)
+    : null;
+
+  return (
+    <div style={gridFrameStyle}>
+      <ColumnLayoutControls control={columnsControl} />
+      <div style={gridAndInspectorStyle}>
+        <GridViewport
+          blockSizing="fill"
+          style={gridViewportStyle}
+          testId={networkAnalysisTestId(
+            gridSchemaId === "network_flow.accepted_rows.v1"
+              ? "accepted-grid"
+              : "rejected-grid",
+          )}
+        >
+          {children({
+            activeAnchor,
+            cellRange,
+            onActiveAnchorChange: setActiveAnchor,
+            onCellRangeChange: setCellRange,
+          })}
+        </GridViewport>
+        {activeRow === null || activeAnchor === null ? null : (
+          <NetworkFlowInspector
+            anchor={activeAnchor}
+            gridSchemaId={gridSchemaId}
+            row={activeRow}
+            onClose={() => setActiveAnchor(null)}
+          />
+        )}
+      </div>
+      <span aria-live="polite" style={visuallyHiddenStyle}>
+        {dataState.kind === "ready"
+          ? "Network Flow grid ready"
+          : dataState.kind}
+      </span>
+    </div>
+  );
+}
+
+function ColumnLayoutControls({
+  control,
+}: {
+  readonly control: ReturnType<typeof useNetworkFlowGridLayout>;
+}) {
+  return (
+    <div style={layoutToolbarStyle}>
+      <details data-testid={networkAnalysisTestId("column-menu")}>
+        <summary>Columns</summary>
+        <div style={columnMenuStyle}>
+          {control.allColumns.map((column) => {
+            const checked = control.visibleFieldKeys.has(column.field_key);
+            return (
+              <label key={column.field_key} style={columnToggleStyle}>
+                <input
+                  checked={checked}
+                  disabled={checked && control.visibleFieldKeys.size === 1}
+                  type="checkbox"
+                  onChange={(event) =>
+                    control.setColumnVisible(
+                      column.field_key,
+                      event.currentTarget.checked,
+                    )
+                  }
+                />
+                {networkFlowColumnLabel(column.label_key)}
+              </label>
+            );
+          })}
+        </div>
+      </details>
+      <button
+        data-testid={networkAnalysisTestId("layout-reset")}
+        type="button"
+        onClick={control.reset}
+      >
+        Reset layout
+      </button>
+    </div>
+  );
+}
+
+function NetworkFlowInspector<Row extends object>({
+  anchor,
+  gridSchemaId,
+  onClose,
+  row,
+}: {
+  readonly anchor: GridCellAnchor;
+  readonly gridSchemaId:
+    | "network_flow.accepted_rows.v1"
+    | "network_flow.rejected_rows.v1";
+  readonly onClose: () => void;
+  readonly row: Row;
+}) {
+  const metadata = networkFlowPresentationColumns(gridSchemaId);
+  return (
+    <aside
+      aria-label="Network Flow cell inspector"
+      data-testid={networkAnalysisTestId("inspector")}
+      style={inspectorStyle}
+    >
+      <div style={inspectorHeaderStyle}>
+        <div>
+          <strong>Cell inspector</strong>
+          <div style={mutedStyle}>
+            {networkFlowColumnLabel(
+              metadata.find((column) => column.field_key === anchor.fieldKey)
+                ?.label_key ?? anchor.fieldKey,
+            )}
+          </div>
+        </div>
+        <button
+          aria-label="Close cell inspector"
+          type="button"
+          onClick={onClose}
+        >
+          Close
+        </button>
+      </div>
+      <dl style={inspectorListStyle}>
+        {metadata.map((column) => {
+          const value =
+            column.renderer_kind === "diagnostic_message"
+              ? localizedNetworkFlowDiagnosticMessage(
+                  row as NetworkFlowDiagnostic,
+                )
+              : networkFlowClipboardValue(row, column);
+          return (
+            <div key={column.field_key} style={inspectorEntryStyle}>
+              <dt style={mutedStyle}>
+                {networkFlowColumnLabel(column.label_key)}
+              </dt>
+              <dd style={inspectorValueStyle}>{value === "" ? "—" : value}</dd>
+            </div>
+          );
+        })}
+      </dl>
+    </aside>
+  );
+}
+
+function networkFlowGridDataState(options: {
+  readonly filtered: boolean;
+  readonly itemCount: number;
+  readonly loadState: NetworkFlowQueryLoadState;
+  readonly onResetQuery: () => void;
+  readonly onRetry: () => void;
+  readonly surfaceLabel: string;
+}): GridDataState {
+  if (options.loadState === "loading") {
+    return { kind: "initial_loading", surfaceLabel: options.surfaceLabel };
+  }
+  if (options.loadState === "refreshing") {
+    return { kind: "refreshing", surfaceLabel: options.surfaceLabel };
+  }
+  if (options.loadState === "error") {
+    return options.itemCount > 0
+      ? {
+          kind: "stale_error",
+          message: "Refresh failed. Previously loaded rows may be stale.",
+          action: { label: "Retry", onInvoke: options.onRetry },
+        }
+      : {
+          kind: "unavailable",
+          message: "Network Flow rows are unavailable.",
+          action: { label: "Retry", onInvoke: options.onRetry },
+        };
+  }
+  if (options.itemCount === 0) {
+    return options.filtered
+      ? {
+          kind: "filtered_empty",
+          action: { label: "Clear filters", onInvoke: options.onResetQuery },
+        }
+      : { kind: "empty", message: `No ${options.surfaceLabel}.` };
+  }
+  return { kind: "ready" };
+}
+
+function resourceIdForRow(
+  row: object,
+  gridSchemaId:
+    | "network_flow.accepted_rows.v1"
+    | "network_flow.rejected_rows.v1",
+): string | null {
+  const key =
+    gridSchemaId === "network_flow.accepted_rows.v1"
+      ? "network_flow_row_id"
+      : "diagnostic_id";
+  const value = (row as Record<string, unknown>)[key];
+  return typeof value === "string" ? value : null;
+}
+
+const gridFrameStyle = {
+  display: "grid",
+  gridTemplateRows: "auto minmax(0, 1fr)",
+  minBlockSize: 0,
+  minWidth: 0,
+} satisfies CSSProperties;
+
+const gridAndInspectorStyle = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  minBlockSize: 0,
+  minWidth: 0,
+} satisfies CSSProperties;
+
+const gridViewportStyle = {
+  minBlockSize: 0,
+  minWidth: 0,
+} satisfies CSSProperties;
+
+const layoutToolbarStyle = {
+  alignItems: "center",
+  background: "var(--ct-colors-surface-1)",
+  borderBlockEnd: "var(--ct-border-hairline)",
+  display: "flex",
+  gap: "var(--ct-spacing-sm)",
+  justifyContent: "flex-end",
+  padding: "var(--ct-spacing-xs) var(--ct-spacing-md)",
+} satisfies CSSProperties;
+
+const columnMenuStyle = {
+  background: "var(--ct-colors-surface-1)",
+  border: "var(--ct-border-hairline)",
+  boxShadow: "var(--ct-shadow-popover)",
+  display: "grid",
+  gap: "var(--ct-spacing-xs)",
+  maxBlockSize: "20rem",
+  overflow: "auto",
+  padding: "var(--ct-spacing-sm)",
+  position: "absolute",
+  zIndex: 5,
+} satisfies CSSProperties;
+
+const columnToggleStyle = {
+  alignItems: "center",
+  display: "flex",
+  gap: "var(--ct-spacing-xs)",
+  whiteSpace: "nowrap",
+} satisfies CSSProperties;
+
+const inspectorStyle = {
+  background: "var(--ct-colors-surface-1)",
+  borderInlineStart: "var(--ct-border-hairline)",
+  inlineSize: "min(24rem, 35vw)",
+  overflow: "auto",
+  padding: "var(--ct-spacing-md)",
+} satisfies CSSProperties;
+
+const inspectorHeaderStyle = {
+  alignItems: "flex-start",
+  display: "flex",
+  gap: "var(--ct-spacing-md)",
+  justifyContent: "space-between",
+} satisfies CSSProperties;
+
+const inspectorListStyle = {
+  display: "grid",
+  gap: "var(--ct-spacing-sm)",
+  margin: "var(--ct-spacing-md) 0 0",
+} satisfies CSSProperties;
+
+const inspectorEntryStyle = {
+  borderBlockEnd: "var(--ct-border-hairline)",
+  display: "grid",
+  gap: "0.125rem",
+  paddingBlockEnd: "var(--ct-spacing-xs)",
+} satisfies CSSProperties;
+
+const inspectorValueStyle = {
+  margin: 0,
+  overflowWrap: "anywhere",
+  whiteSpace: "pre-wrap",
+} satisfies CSSProperties;
+
+const mutedStyle = {
+  color: "var(--ct-colors-ink-muted)",
+  fontSize: "0.75rem",
+} satisfies CSSProperties;
+
+const visuallyHiddenStyle = {
+  blockSize: 1,
+  clip: "rect(0 0 0 0)",
+  clipPath: "inset(50%)",
+  inlineSize: 1,
+  overflow: "hidden",
+  position: "absolute",
+  whiteSpace: "nowrap",
+} satisfies CSSProperties;

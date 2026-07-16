@@ -18,6 +18,8 @@ const rowId =
   "nfr_1111111111111111111111111111111111111111111111111111111111111111";
 const edgeId =
   "nff_2222222222222222222222222222222222222222222222222222222222222222";
+const diagnosticId =
+  "nfd_3333333333333333333333333333333333333333333333333333333333333333";
 const mappingFingerprint =
   "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const graphDigest =
@@ -44,8 +46,33 @@ describe("NetworkAnalysisWorkspace", () => {
       />,
     );
 
-    expect(await screen.findAllByText("flows.csv")).toHaveLength(2);
-    expect(await screen.findByText("192.0.2.10:443")).toBeTruthy();
+    expect(await screen.findAllByText("flows.csv")).toHaveLength(3);
+    expect(await screen.findByText("192.0.2.10")).toBeTruthy();
+    expect(
+      screen.getByTestId(networkAnalysisTestId("workspace-header")),
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId(networkAnalysisTestId("diagnostics-summary")),
+    ).toBeTruthy();
+    expect(screen.getByTestId(networkAnalysisTestId("filters"))).toBeTruthy();
+    expect(
+      screen.getByTestId(networkAnalysisTestId("accepted-grid")),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByText("Columns"));
+    fireEvent.click(screen.getByLabelText("Exporter"));
+    expect(
+      screen.getByRole("columnheader", { name: /Exporter/u }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByTestId(networkAnalysisTestId("layout-reset")));
+    expect(
+      screen.queryByRole("columnheader", { name: /Exporter/u }),
+    ).toBeNull();
+    fireEvent.click(
+      screen.getByRole("gridcell", { name: /Source IP: 192\.0\.2\.10/u }),
+    );
+    expect(
+      await screen.findByTestId(networkAnalysisTestId("inspector")),
+    ).toBeTruthy();
 
     const initialRowsCall = fetchSpy.mock.calls.find(([input]) =>
       requestURL(input).endsWith(
@@ -54,6 +81,49 @@ describe("NetworkAnalysisWorkspace", () => {
     );
     expect(JSON.parse(String(initialRowsCall?.[1]?.body))).toEqual({
       schema_id: "cartulary.network_flow.table_query_request.v1",
+    });
+
+    fireEvent.change(screen.getByLabelText("Endpoint IP operator"), {
+      target: { value: "cidr_contains" },
+    });
+    fireEvent.change(screen.getByLabelText("Endpoint IP value"), {
+      target: { value: "192.0.2.0/24" },
+    });
+    fireEvent.change(screen.getByLabelText("Flow overlap starts at"), {
+      target: { value: "2026-07-10T00:00:00Z" },
+    });
+    fireEvent.change(screen.getByLabelText("Flow overlap ends before"), {
+      target: { value: "2026-07-11T00:00:00Z" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Apply query" }));
+
+    await waitFor(() => {
+      const rowQueries = fetchSpy.mock.calls.filter(([input]) =>
+        requestURL(input).endsWith(
+          `/api/v1/incidents/incident-1/network-flow/tables/${tableId}/query`,
+        ),
+      );
+      expect(rowQueries.length).toBeGreaterThanOrEqual(2);
+      expect(JSON.parse(String(rowQueries.at(-1)?.[1]?.body))).toEqual({
+        schema_id: "cartulary.network_flow.table_query_request.v1",
+        filters: [
+          {
+            field_key: "network_flow.endpoint_ip",
+            op: "cidr_contains",
+            value: "192.0.2.0/24",
+          },
+          {
+            field_key: "network_flow.flow_end_utc",
+            op: "range",
+            value: { gte: "2026-07-10T00:00:00Z", lt: null },
+          },
+          {
+            field_key: "network_flow.flow_start_utc",
+            op: "range",
+            value: { gte: null, lt: "2026-07-11T00:00:00Z" },
+          },
+        ],
+      });
     });
 
     fireEvent.click(screen.getByTestId(networkAnalysisTestId("mode-graph")));
@@ -114,6 +184,43 @@ describe("NetworkAnalysisWorkspace", () => {
     expect(
       screen.queryByTestId(networkAnalysisTestId("import-trigger")),
     ).toBeNull();
+  });
+
+  it("renders rejected diagnostics through the semantic grid and applies owner filters", async () => {
+    const fetchSpy = installNetworkFlowFetchMock();
+    render(
+      <NetworkAnalysisWorkspace
+        currentIncidentRole="reviewer"
+        incidentId="incident-1"
+      />,
+    );
+
+    await screen.findAllByText("flows.csv");
+    fireEvent.click(screen.getByTestId(networkAnalysisTestId("mode-rejected")));
+
+    expect(
+      await screen.findByTestId(networkAnalysisTestId("rejected-grid")),
+    ).toBeTruthy();
+    expect(
+      await screen.findByText("The value is not a valid IP address."),
+    ).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Error codes"), {
+      target: { value: "network_flow_invalid_ip" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Apply diagnostics query" }),
+    );
+
+    await waitFor(() => {
+      const matching = fetchSpy.mock.calls.filter(([input]) =>
+        requestURL(input).endsWith("/rejected-rows/query"),
+      );
+      expect(matching.length).toBeGreaterThanOrEqual(2);
+      expect(JSON.parse(String(matching.at(-1)?.[1]?.body))).toEqual({
+        schema_id: "cartulary.network_flow.rejected_rows_query_request.v1",
+        error_codes: ["network_flow_invalid_ip"],
+      });
+    });
   });
 
   it("previews an ordinal-aware mapping and selects the returned table resource", async () => {
@@ -378,6 +485,31 @@ function installNetworkFlowFetchMock(options: { tables?: unknown[] } = {}) {
       if (
         method === "POST" &&
         url.endsWith(
+          `/api/v1/incidents/incident-1/network-flow/tables/${tableId}/rejected-rows/query`,
+        )
+      ) {
+        return jsonResponse({
+          schema_id: "cartulary.network_flow.rejected_rows_query_result.v1",
+          network_flow_table_id: tableId,
+          diagnostics: [diagnosticResource()],
+          meta: {
+            query: {
+              error_codes: [],
+              field_keys: [],
+              source_row_range: null,
+              effective_sort: [],
+            },
+            paging: {
+              limit: 200,
+              returned_count: 1,
+              next_cursor_token: null,
+            },
+          },
+        });
+      }
+      if (
+        method === "POST" &&
+        url.endsWith(
           `/api/v1/incidents/incident-1/network-flow/tables/${tableId}/query`,
         )
       ) {
@@ -534,6 +666,26 @@ function rowResource() {
     },
     created_at: "2026-07-10T12:00:00Z",
     created_by_user_id: "user-1",
+  };
+}
+
+function diagnosticResource() {
+  return {
+    diagnostic_id: diagnosticId,
+    source_row_number: 2,
+    source_column_ordinal: 3,
+    raw_header_sha256: sourceDigest,
+    field_key: "network_flow.src_ip",
+    error_code: "network_flow_invalid_ip",
+    reason_code: "invalid_ipv4",
+    safe_sample: "999.0.2.1",
+    raw_value_sha256: sourceDigest,
+    message_key: "network_flow.diagnostic.network_flow_invalid_ip.invalid_ipv4",
+    message_args: {},
+    message: "network_flow.diagnostic.network_flow_invalid_ip.invalid_ipv4",
+    limit_name: null,
+    limit_value: null,
+    actual_value: null,
   };
 }
 

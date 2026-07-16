@@ -51,6 +51,12 @@
     },
     {
       "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/networkFlowPresentation.test.tsx",
+      "coverage": "unowned_regression",
+      "reason": "Generated Network Flow presentation compilation, canonical clipboard scalars, safe diagnostics, and extension-resource grid identities are direct product regression coverage; authoritative live-grid behavior remains owned by mapped Phase 12 evidence."
+    },
+    {
+      "target": "frontend-unit",
       "file": "apps/web/src/networkFlow/networkFlowErrors.test.ts",
       "coverage": "unowned_regression",
       "reason": "Structured Network Flow error preservation and exact authorization classification are direct product regression coverage; authoritative security transitions remain owned by mapped Phase 12 evidence."
@@ -60,6 +66,12 @@
       "file": "apps/web/src/networkFlow/useNetworkFlowPagedQuery.test.tsx",
       "coverage": "unowned_regression",
       "reason": "Network Flow cursor history, expiry restart, cancellation, and late-response rejection are direct product regression coverage; authoritative pagination behavior remains owned by mapped Phase 12 evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/useNetworkFlowGridLayout.test.tsx",
+      "coverage": "unowned_regression",
+      "reason": "Network Flow session-memory column visibility, order, width, reset, and remount behavior are direct product regression coverage; authoritative live-grid layout behavior remains owned by mapped Phase 12 evidence."
     },
     {
       "target": "frontend-unit",
@@ -1379,6 +1391,13 @@
       "title": "keeps the import entry role-gated",
       "coverage": "unowned_regression",
       "reason": "Network Analysis workspace role gating is intentional product regression coverage until the Phase 12 frontend selector promotion workstream maps it as authoritative evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
+      "title": "renders rejected diagnostics through the semantic grid and applies owner filters",
+      "coverage": "unowned_regression",
+      "reason": "The production rejected-diagnostic grid, safe localized rendering, and exact owner-filter request are direct product regression coverage until Phase 12 frontend selector promotion maps them as authoritative evidence."
     },
     {
       "target": "frontend-unit",

@@ -286,10 +286,16 @@ export type WorkbookShellSlot =
   | "view-bar";
 
 export type NetworkAnalysisSelector =
+  | "accepted-grid"
+  | "column-menu"
   | "contributor-drawer"
+  | "diagnostics-summary"
+  | "filters"
   | "graph-panel"
   | "import-input"
   | "import-trigger"
+  | "inspector"
+  | "layout-reset"
   | "mapping-apply"
   | "mapping-dialog"
   | "mapping-display-name"
@@ -306,10 +312,12 @@ export type NetworkAnalysisSelector =
   | "page-previous"
   | "page-status"
   | "refresh"
+  | "rejected-grid"
   | "stale-state"
   | "table-panel"
   | "tab"
-  | "workspace";
+  | "workspace"
+  | "workspace-header";
 
 export const workbookShellSlots = [
   "top-bar",
@@ -738,6 +746,14 @@ export function networkAnalysisEdgeTestId(edgeId: string): StableTestId {
 
 export function networkAnalysisRowTestId(rowId: string): StableTestId {
   return stableTestId(encodedTestId("network-flow-row", rowId, "row_id"));
+}
+
+export function networkAnalysisDiagnosticTestId(
+  diagnosticId: string,
+): StableTestId {
+  return stableTestId(
+    encodedTestId("network-flow-diagnostic", diagnosticId, "diagnostic_id"),
+  );
 }
 
 export function networkAnalysisMappingColumnTestId(

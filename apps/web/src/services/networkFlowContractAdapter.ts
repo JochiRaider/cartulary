@@ -20,6 +20,7 @@ import {
   networkFlowContractDescriptor,
   networkFlowDecoders,
   networkFlowMappingRegistry,
+  networkFlowPresentationRegistry,
   type PagingMeta,
   type RejectedRowDiagnostic,
   type RejectedRowsQueryContinuation,
@@ -58,6 +59,7 @@ export type NetworkFlowTableQueryRequest = TableQueryRequest;
 export { networkFlowContractDescriptor };
 export const networkFlowMappingMetadata = networkFlowMappingRegistry;
 export const networkFlowErrorMetadata = getNetworkFlowErrorRegistry();
+export const networkFlowPresentationMetadata = networkFlowPresentationRegistry;
 
 const supportedNetworkFlowContractMajors = new Set([1]);
 

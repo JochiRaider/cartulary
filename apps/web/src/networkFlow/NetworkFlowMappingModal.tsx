@@ -16,6 +16,7 @@ import {
   sourceColumnLabel,
   withNetworkFlowColumnChoice,
 } from "./networkFlowImportModel";
+import { localizedNetworkFlowDiagnosticMessage } from "./networkFlowPresentation";
 import type { NetworkFlowImportStage } from "./useNetworkFlowImportController";
 
 const unmappedColumnChoice = "__unmapped__";
@@ -415,7 +416,8 @@ function PreviewSummary({
               {diagnostic.source_column_ordinal === null
                 ? ""
                 : `, column ${diagnostic.source_column_ordinal}`}
-              : {diagnostic.message} ({diagnostic.reason_code})
+              : {localizedNetworkFlowDiagnosticMessage(diagnostic)} (
+              {diagnostic.reason_code})
             </li>
           ))}
         </ul>
