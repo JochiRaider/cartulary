@@ -186,6 +186,259 @@ describe("NetworkAnalysisWorkspace", () => {
     ).toBeNull();
   });
 
+  it("enforces the viewer, editor, reviewer, and admin command matrix", async () => {
+    const expectations = [
+      {
+        role: "viewer" as const,
+        canImport: false,
+        canRename: false,
+        canDelete: false,
+      },
+      {
+        role: "editor" as const,
+        canImport: true,
+        canRename: true,
+        canDelete: false,
+      },
+      {
+        role: "reviewer" as const,
+        canImport: true,
+        canRename: true,
+        canDelete: true,
+      },
+      {
+        role: "admin" as const,
+        canImport: true,
+        canRename: true,
+        canDelete: true,
+      },
+    ];
+
+    for (const expectation of expectations) {
+      const fetchSpy = installNetworkFlowFetchMock();
+      const rendered = render(
+        <NetworkAnalysisWorkspace
+          currentIncidentRole={expectation.role}
+          incidentId="incident-1"
+        />,
+      );
+      await screen.findByTestId(networkAnalysisTestId("accepted-grid"));
+      expect(
+        screen.queryByTestId(networkAnalysisTestId("import-trigger")) !== null,
+      ).toBe(expectation.canImport);
+      expect(
+        screen.queryByTestId(networkAnalysisTestId("rename-trigger")) !== null,
+      ).toBe(expectation.canRename);
+      expect(
+        screen.queryByTestId(networkAnalysisTestId("delete-trigger")) !== null,
+      ).toBe(expectation.canDelete);
+
+      fireEvent.paste(
+        screen.getByTestId(networkAnalysisTestId("accepted-grid")),
+        { clipboardData: { getData: () => "replacement" } },
+      );
+      expect(
+        fetchSpy.mock.calls.some(
+          ([, init]) => init?.method === "PATCH" || init?.method === "DELETE",
+        ),
+      ).toBe(false);
+      rendered.unmount();
+    }
+  });
+
+  it("removes mutation surfaces immediately when the role is downgraded", async () => {
+    installNetworkFlowFetchMock();
+    const rendered = render(
+      <NetworkAnalysisWorkspace
+        currentIncidentRole="editor"
+        incidentId="incident-1"
+      />,
+    );
+    await screen.findByTestId(networkAnalysisTestId("accepted-grid"));
+    fireEvent.click(
+      screen.getByTestId(networkAnalysisTestId("rename-trigger")),
+    );
+    expect(
+      screen.getByTestId(networkAnalysisTestId("rename-dialog")),
+    ).toBeTruthy();
+
+    rendered.rerender(
+      <NetworkAnalysisWorkspace
+        currentIncidentRole="viewer"
+        incidentId="incident-1"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId(networkAnalysisTestId("rename-dialog")),
+      ).toBeNull();
+    });
+    expect(
+      screen.queryByTestId(networkAnalysisTestId("rename-trigger")),
+    ).toBeNull();
+    expect(
+      screen.queryByTestId(networkAnalysisTestId("delete-trigger")),
+    ).toBeNull();
+    expect(
+      screen.getByTestId(networkAnalysisTestId("accepted-grid")),
+    ).toBeTruthy();
+  });
+
+  it("renames by stable table identity and soft-deletes only after exact confirmation", async () => {
+    const fetchSpy = installNetworkFlowFetchMock();
+    render(
+      <NetworkAnalysisWorkspace
+        currentIncidentRole="reviewer"
+        incidentId="incident-1"
+      />,
+    );
+    await screen.findByTestId(networkAnalysisTestId("accepted-grid"));
+
+    fireEvent.click(
+      screen.getByTestId(networkAnalysisTestId("rename-trigger")),
+    );
+    fireEvent.change(
+      screen.getByTestId(networkAnalysisTestId("rename-input")),
+      {
+        target: { value: "Renamed flows" },
+      },
+    );
+    fireEvent.click(screen.getByTestId(networkAnalysisTestId("rename-submit")));
+    await screen.findAllByText("Renamed flows");
+
+    const renameCall = fetchSpy.mock.calls.find(
+      ([input, init]) =>
+        requestURL(input).endsWith(`/network-flow/tables/${tableId}`) &&
+        init?.method === "PATCH",
+    );
+    expect(JSON.parse(String(renameCall?.[1]?.body))).toMatchObject({
+      base_table_version: 1,
+      display_name: "Renamed flows",
+    });
+
+    fireEvent.click(
+      screen.getByTestId(networkAnalysisTestId("delete-trigger")),
+    );
+    const confirm = screen.getByTestId(
+      networkAnalysisTestId("delete-confirm"),
+    ) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    fireEvent.change(
+      screen.getByTestId(networkAnalysisTestId("delete-confirmation")),
+      { target: { value: "Renamed flows" } },
+    );
+    expect(confirm.disabled).toBe(false);
+    fireEvent.click(confirm);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId(networkAnalysisTableTabTestId(tableId)),
+      ).toBeNull();
+      expect(
+        screen.queryByTestId(networkAnalysisTestId("accepted-grid")),
+      ).toBeNull();
+    });
+    const deleteCall = fetchSpy.mock.calls.find(
+      ([input, init]) =>
+        requestURL(input).endsWith(`/network-flow/tables/${tableId}`) &&
+        init?.method === "DELETE",
+    );
+    expect(JSON.parse(String(deleteCall?.[1]?.body))).toMatchObject({
+      base_table_version: 2,
+    });
+  });
+
+  it("refreshes table metadata after a rename version conflict before retry", async () => {
+    const fetchSpy = installNetworkFlowFetchMock({ renameConflictOnce: true });
+    render(
+      <NetworkAnalysisWorkspace
+        currentIncidentRole="editor"
+        incidentId="incident-1"
+      />,
+    );
+    await screen.findByTestId(networkAnalysisTestId("accepted-grid"));
+    fireEvent.click(
+      screen.getByTestId(networkAnalysisTestId("rename-trigger")),
+    );
+    fireEvent.change(
+      screen.getByTestId(networkAnalysisTestId("rename-input")),
+      {
+        target: { value: "Analyst flows" },
+      },
+    );
+    fireEvent.click(screen.getByTestId(networkAnalysisTestId("rename-submit")));
+
+    await screen.findAllByText("server-flows.csv");
+    fireEvent.click(screen.getByTestId(networkAnalysisTestId("rename-submit")));
+    await screen.findAllByText("Analyst flows");
+
+    const renameBodies = fetchSpy.mock.calls
+      .filter(
+        ([input, init]) =>
+          requestURL(input).endsWith(`/network-flow/tables/${tableId}`) &&
+          init?.method === "PATCH",
+      )
+      .map(
+        ([, init]) => JSON.parse(String(init?.body)) as Record<string, unknown>,
+      );
+    expect(renameBodies).toHaveLength(2);
+    expect(renameBodies.map((body) => body.base_table_version)).toEqual([1, 2]);
+  });
+
+  it("clears protected data immediately when authorization is lost", async () => {
+    const onIncidentAccessLost = vi.fn();
+    installNetworkFlowFetchMock({ rowFailureAfter: 1 });
+    render(
+      <NetworkAnalysisWorkspace
+        currentIncidentRole="viewer"
+        incidentId="incident-1"
+        onIncidentAccessLost={onIncidentAccessLost}
+      />,
+    );
+    await screen.findByText("192.0.2.10");
+    fireEvent.change(screen.getByLabelText("Endpoint IP value"), {
+      target: { value: "192.0.2.10" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Apply query" }));
+
+    await screen.findByRole("region", {
+      name: "Network Analysis permission state",
+    });
+    expect(screen.queryByText("192.0.2.10")).toBeNull();
+    expect(
+      screen.queryByTestId(networkAnalysisTestId("accepted-grid")),
+    ).toBeNull();
+    expect(onIncidentAccessLost).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears table-scoped state when the active table becomes inactive", async () => {
+    installNetworkFlowFetchMock({
+      removeTablesOnRowFailure: true,
+      rowFailureAfter: 1,
+      rowFailureCode: "network_flow_table_not_active",
+      rowFailureReason: "soft_deleted",
+      rowFailureStatus: 409,
+    });
+    render(
+      <NetworkAnalysisWorkspace
+        currentIncidentRole="reviewer"
+        incidentId="incident-1"
+      />,
+    );
+    await screen.findByText("192.0.2.10");
+    fireEvent.change(screen.getByLabelText("Endpoint IP value"), {
+      target: { value: "192.0.2.10" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Apply query" }));
+
+    await screen.findByRole("region", {
+      name: "Network Analysis lifecycle state",
+    });
+    expect(screen.queryByText("192.0.2.10")).toBeNull();
+    expect(screen.queryByTestId(networkAnalysisTestId("inspector"))).toBeNull();
+  });
+
   it("renders rejected diagnostics through the semantic grid and applies owner filters", async () => {
     const fetchSpy = installNetworkFlowFetchMock();
     render(
@@ -466,8 +719,20 @@ function importJob(jobId: string) {
   return { job_id: jobId, status: "succeeded", result_summary: null };
 }
 
-function installNetworkFlowFetchMock(options: { tables?: unknown[] } = {}) {
-  const tables = options.tables ?? [tableResource()];
+function installNetworkFlowFetchMock(
+  options: {
+    readonly renameConflictOnce?: boolean;
+    readonly removeTablesOnRowFailure?: boolean;
+    readonly rowFailureAfter?: number;
+    readonly rowFailureCode?: string;
+    readonly rowFailureReason?: string;
+    readonly rowFailureStatus?: number;
+    readonly tables?: Array<Record<string, unknown>>;
+  } = {},
+) {
+  let tables = options.tables ?? [tableResource()];
+  let renameConflictUsed = false;
+  let rowQueryCount = 0;
   const fetchSpy = vi.fn(
     async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = requestURL(input);
@@ -483,11 +748,118 @@ function installNetworkFlowFetchMock(options: { tables?: unknown[] } = {}) {
         });
       }
       if (
+        method === "PATCH" &&
+        url.endsWith(
+          `/api/v1/incidents/incident-1/network-flow/tables/${tableId}`,
+        )
+      ) {
+        if (options.renameConflictOnce && !renameConflictUsed) {
+          renameConflictUsed = true;
+          tables = tables.map((table) =>
+            table.network_flow_table_id === tableId
+              ? {
+                  ...table,
+                  display_name: "server-flows.csv",
+                  table_version: 2,
+                  updated_at: "2026-07-10T12:01:00Z",
+                }
+              : table,
+          );
+          return jsonResponse(
+            {
+              error: {
+                code: "network_flow_table_version_conflict",
+                message: "The table changed.",
+                details: {
+                  field: "base_table_version",
+                  reason_code: "stale_version",
+                },
+              },
+            },
+            409,
+          );
+        }
+        const request = JSON.parse(String(init?.body)) as {
+          base_table_version: number;
+          display_name: string;
+        };
+        const current = tables.find(
+          (table) => table.network_flow_table_id === tableId,
+        );
+        if (current === undefined) {
+          return jsonResponse({ error: { code: "unexpected_table" } }, 404);
+        }
+        const unchanged = current.display_name === request.display_name.trim();
+        const renamed = {
+          ...current,
+          display_name: request.display_name.trim(),
+          table_version: unchanged
+            ? current.table_version
+            : Number(current.table_version) + 1,
+          updated_at: unchanged ? current.updated_at : "2026-07-10T12:02:00Z",
+        };
+        tables = tables.map((table) =>
+          table.network_flow_table_id === tableId ? renamed : table,
+        );
+        return jsonResponse({
+          schema_id: "cartulary.network_flow.table_mutation_result.v1",
+          table: renamed,
+        });
+      }
+      if (
+        method === "DELETE" &&
+        url.endsWith(
+          `/api/v1/incidents/incident-1/network-flow/tables/${tableId}`,
+        )
+      ) {
+        const current = tables.find(
+          (table) => table.network_flow_table_id === tableId,
+        );
+        if (current === undefined) {
+          return jsonResponse({ error: { code: "unexpected_table" } }, 404);
+        }
+        const deleted = {
+          ...current,
+          table_status: "soft_deleted",
+          table_version: Number(current.table_version) + 1,
+          updated_at: "2026-07-10T12:03:00Z",
+          deleted_at: "2026-07-10T12:03:00Z",
+        };
+        tables = tables.filter(
+          (table) => table.network_flow_table_id !== tableId,
+        );
+        return jsonResponse({
+          schema_id: "cartulary.network_flow.table_mutation_result.v1",
+          table: deleted,
+        });
+      }
+      if (
         method === "POST" &&
         url.endsWith(
           `/api/v1/incidents/incident-1/network-flow/tables/${tableId}/rejected-rows/query`,
         )
       ) {
+        rowQueryCount += 1;
+        if (
+          options.rowFailureAfter !== undefined &&
+          rowQueryCount > options.rowFailureAfter
+        ) {
+          if (options.removeTablesOnRowFailure) {
+            tables = [];
+          }
+          return jsonResponse(
+            {
+              error: {
+                code: options.rowFailureCode ?? "authorization_denied",
+                message: "Network Flow query access changed.",
+                details: {
+                  reason_code: options.rowFailureReason ?? "role_changed",
+                },
+              },
+            },
+            options.rowFailureStatus ?? 403,
+          );
+        }
         return jsonResponse({
           schema_id: "cartulary.network_flow.rejected_rows_query_result.v1",
           network_flow_table_id: tableId,
@@ -513,6 +885,27 @@ function installNetworkFlowFetchMock(options: { tables?: unknown[] } = {}) {
           `/api/v1/incidents/incident-1/network-flow/tables/${tableId}/query`,
         )
       ) {
+        rowQueryCount += 1;
+        if (
+          options.rowFailureAfter !== undefined &&
+          rowQueryCount > options.rowFailureAfter
+        ) {
+          if (options.removeTablesOnRowFailure) {
+            tables = [];
+          }
+          return jsonResponse(
+            {
+              error: {
+                code: options.rowFailureCode ?? "authorization_denied",
+                message: "Network Flow query access changed.",
+                details: {
+                  reason_code: options.rowFailureReason ?? "role_changed",
+                },
+              },
+            },
+            options.rowFailureStatus ?? 403,
+          );
+        }
         return jsonResponse({
           schema_id: "cartulary.network_flow.table_query_result.v1",
           network_flow_table_id: tableId,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   type NetworkFlowContributor,
   type NetworkFlowGraphResult,
@@ -7,6 +7,7 @@ import {
 } from "./networkFlowClient";
 import {
   isNetworkFlowAuthorizationLoss,
+  isNetworkFlowProtectedStateLoss,
   type NetworkFlowRequestError,
   networkFlowErrorFromUnknown,
 } from "./networkFlowErrors";
@@ -70,6 +71,11 @@ export function useNetworkFlowGraphController({
         if (isNetworkFlowAuthorizationLoss(requestError)) {
           onIncidentAccessLost?.();
         }
+        if (isNetworkFlowProtectedStateLoss(requestError)) {
+          setGraph(null);
+          setSelectedEdgeId(null);
+          setContributors([]);
+        }
         onError(requestError);
       });
     return () => controller.abort();
@@ -105,6 +111,10 @@ export function useNetworkFlowGraphController({
         if (isNetworkFlowAuthorizationLoss(requestError)) {
           onIncidentAccessLost?.();
         }
+        if (isNetworkFlowProtectedStateLoss(requestError)) {
+          setGraph(null);
+          setSelectedEdgeId(null);
+        }
         onError(requestError);
         setContributors([]);
       });
@@ -118,11 +128,11 @@ export function useNetworkFlowGraphController({
     selectedEdgeId,
   ]);
 
-  const clearGraph = () => {
+  const clearGraph = useCallback(() => {
     setGraph(null);
     setSelectedEdgeId(null);
     setContributors([]);
-  };
+  }, []);
 
   return {
     clearGraph,

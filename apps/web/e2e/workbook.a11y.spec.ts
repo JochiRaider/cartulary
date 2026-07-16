@@ -823,9 +823,16 @@ async function openA11ySystemSurface(
     )
     .toBeTruthy();
   const optionCount = await menuOptions.count();
-  const activeIndex = await menuOptions.evaluateAll((entries) =>
-    entries.findIndex((entry) => entry === document.activeElement),
-  );
+  const activeIndex = await menuOptions.evaluateAll((entries) => {
+    const activeElement = document.activeElement;
+    if (
+      !(activeElement instanceof HTMLElement) &&
+      !(activeElement instanceof SVGElement)
+    ) {
+      return -1;
+    }
+    return entries.indexOf(activeElement);
+  });
   const targetIndex = await menuOptions.evaluateAll(
     (entries, viewSchemaId) =>
       entries.findIndex(

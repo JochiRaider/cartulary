@@ -1395,6 +1395,48 @@
     {
       "target": "frontend-unit",
       "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
+      "title": "enforces the viewer, editor, reviewer, and admin command matrix",
+      "coverage": "unowned_regression",
+      "reason": "The exact Network Analysis read/import/rename/delete role matrix and mutation-free production grid are direct security regression coverage until Phase 12 selector promotion."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
+      "title": "removes mutation surfaces immediately when the role is downgraded",
+      "coverage": "unowned_regression",
+      "reason": "Immediate role-downgrade removal of Network Analysis mutation surfaces is direct authorization-transition regression coverage until Phase 12 stateful evidence promotion."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
+      "title": "renames by stable table identity and soft-deletes only after exact confirmation",
+      "coverage": "unowned_regression",
+      "reason": "Version-bound table rename, accessible destructive confirmation, and fail-closed table removal are direct Network Flow lifecycle regression coverage until Phase 12 selector promotion."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
+      "title": "refreshes table metadata after a rename version conflict before retry",
+      "coverage": "unowned_regression",
+      "reason": "Network Flow version-conflict refresh and stable-ID retry behavior are direct lifecycle regression coverage until Phase 12 selector promotion."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
+      "title": "clears protected data immediately when authorization is lost",
+      "coverage": "unowned_regression",
+      "reason": "Authorization-loss clearing of rows, cursors, grids, and commands is direct security regression coverage until Phase 12 stateful evidence promotion."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
+      "title": "clears table-scoped state when the active table becomes inactive",
+      "coverage": "unowned_regression",
+      "reason": "Soft-delete lifecycle clearing and owner-precedence presentation are direct security regression coverage until Phase 12 stateful evidence promotion."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
       "title": "renders rejected diagnostics through the semantic grid and applies owner filters",
       "coverage": "unowned_regression",
       "reason": "The production rejected-diagnostic grid, safe localized rendering, and exact owner-filter request are direct product regression coverage until Phase 12 frontend selector promotion maps them as authoritative evidence."
@@ -1444,6 +1486,13 @@
     {
       "target": "frontend-unit",
       "file": "apps/web/src/networkFlow/networkFlowController.test.ts",
+      "title": "preserves table identity on rename and selects next then previous on deletion",
+      "coverage": "unowned_regression",
+      "reason": "Stable-ID rename and owner-defined post-delete selection are direct Network Flow lifecycle regression coverage; authoritative Phase 12 behavior remains separately mapped."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/networkFlowController.test.ts",
       "title": "clears all table state when authorization is lost",
       "coverage": "unowned_regression",
       "reason": "Network Flow authorization-loss UI state is direct product regression coverage; authoritative Phase 12 behavior remains owned by criterion-scoped runtime and browser selectors."
@@ -1454,6 +1503,13 @@
       "title": "deduplicates changes and resumes after reconnect",
       "coverage": "unowned_regression",
       "reason": "Network Flow reconnect and deduplication behavior is direct product regression coverage; authoritative Phase 12 behavior remains owned by criterion-scoped runtime and browser selectors."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/useNetworkFlowExtensionEvents.test.tsx",
+      "title": "maps incident closure to a fail-closed workspace removal",
+      "coverage": "unowned_regression",
+      "reason": "Incident-closure collaboration events clearing the Network Analysis workspace are direct lifecycle and disclosure regression coverage until Phase 12 stateful evidence promotion."
     },
     {
       "target": "frontend-unit",

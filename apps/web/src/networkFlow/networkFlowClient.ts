@@ -10,6 +10,8 @@ import type {
   NetworkFlowPaging,
   NetworkFlowRow,
   NetworkFlowTable,
+  NetworkFlowTableRenameRequest,
+  NetworkFlowTableSoftDeleteRequest,
 } from "../services/networkFlowContractAdapter";
 import {
   decodeNetworkFlowContributorResult,
@@ -17,6 +19,7 @@ import {
   decodeNetworkFlowIndicatorLinkResult,
   decodeNetworkFlowRejectedRowsQueryResult,
   decodeNetworkFlowTableList,
+  decodeNetworkFlowTableMutationResult,
   decodeNetworkFlowTableQueryResult,
 } from "../services/networkFlowContractAdapter";
 import { fetchWorkbookJSON } from "../services/workbookApi";
@@ -90,6 +93,48 @@ export async function listNetworkFlowTables(options: {
     throw networkFlowRequestError(result.status, result.payload);
   }
   return decodeNetworkFlowTableList(result.payload).tables;
+}
+
+export async function renameNetworkFlowTable(options: {
+  readonly apiBase?: string | undefined;
+  readonly baseTableVersion: number;
+  readonly displayName: string;
+  readonly incidentId: string;
+  readonly tableId: string;
+}): Promise<NetworkFlowTable> {
+  const request: NetworkFlowTableRenameRequest = {
+    client_txn_id: clientTxnID("nf-table-rename"),
+    base_table_version: options.baseTableVersion,
+    display_name: options.displayName,
+  };
+  const result = await fetchWorkbookJSON<unknown>(
+    tableURL(options),
+    requestInit({ method: "PATCH", body: JSON.stringify(request) }, undefined),
+  );
+  if (!result.ok) {
+    throw networkFlowRequestError(result.status, result.payload);
+  }
+  return decodeNetworkFlowTableMutationResult(result.payload).table;
+}
+
+export async function softDeleteNetworkFlowTable(options: {
+  readonly apiBase?: string | undefined;
+  readonly baseTableVersion: number;
+  readonly incidentId: string;
+  readonly tableId: string;
+}): Promise<NetworkFlowTable> {
+  const request: NetworkFlowTableSoftDeleteRequest = {
+    client_txn_id: clientTxnID("nf-table-delete"),
+    base_table_version: options.baseTableVersion,
+  };
+  const result = await fetchWorkbookJSON<unknown>(
+    tableURL(options),
+    requestInit({ method: "DELETE", body: JSON.stringify(request) }, undefined),
+  );
+  if (!result.ok) {
+    throw networkFlowRequestError(result.status, result.payload);
+  }
+  return decodeNetworkFlowTableMutationResult(result.payload).table;
 }
 
 export async function queryNetworkFlowTable(options: {
@@ -275,6 +320,17 @@ export async function linkNetworkFlowIndicator(options: {
 
 function indicatorTypeForIP(value: string): "ipv4_addr" | "ipv6_addr" {
   return value.includes(":") ? "ipv6_addr" : "ipv4_addr";
+}
+
+function tableURL(options: {
+  readonly apiBase?: string | undefined;
+  readonly incidentId: string;
+  readonly tableId: string;
+}): string {
+  return apiPath(
+    options.apiBase,
+    `/api/v1/incidents/${options.incidentId}/network-flow/tables/${options.tableId}`,
+  );
 }
 
 function requestInit(

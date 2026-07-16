@@ -26,6 +26,7 @@ import type {
   IndicatorLinkResult,
   RejectedRowsQueryResult,
   TableList,
+  TableMutationResult,
   TableQueryResult,
 } from "./generated/network-flow-types.js";
 import * as generatedProtocolValidators from "./generated/protocol-validators.js";
@@ -379,6 +380,9 @@ export function createGeneratedDecoder<T>(schemaId: string): Decoder<T> {
 export const networkFlowDecoders = Object.freeze({
   tableList: createGeneratedDecoder<TableList>(
     "cartulary.network_flow.table_list.v1",
+  ),
+  tableMutationResult: createGeneratedDecoder<TableMutationResult>(
+    "cartulary.network_flow.table_mutation_result.v1",
   ),
   tableQueryResult: createGeneratedDecoder<TableQueryResult>(
     "cartulary.network_flow.table_query_result.v1",

@@ -57,6 +57,41 @@ describe("networkFlowControllerReducer", () => {
     ).toBe("nft_a");
   });
 
+  it("preserves table identity on rename and selects next then previous on deletion", () => {
+    const loaded = networkFlowControllerReducer(
+      initialNetworkFlowControllerState,
+      {
+        type: "replace_tables",
+        tables: [table("nft_a"), table("nft_b"), table("nft_c")],
+      },
+    );
+    const selected = networkFlowControllerReducer(loaded, {
+      type: "select_table",
+      tableId: "nft_b",
+    });
+    const renamed = networkFlowControllerReducer(selected, {
+      type: "replace_table",
+      table: { ...table("nft_b"), display_name: "Renamed", table_version: 2 },
+    });
+    expect(renamed.activeTableId).toBe("nft_b");
+    expect(renamed.tables.map((candidate) => candidate.display_name)).toEqual([
+      "nft_a",
+      "Renamed",
+      "nft_c",
+    ]);
+
+    const removedMiddle = networkFlowControllerReducer(renamed, {
+      type: "remove_table",
+      tableId: "nft_b",
+    });
+    expect(removedMiddle.activeTableId).toBe("nft_c");
+    const removedLast = networkFlowControllerReducer(removedMiddle, {
+      type: "remove_table",
+      tableId: "nft_c",
+    });
+    expect(removedLast.activeTableId).toBe("nft_a");
+  });
+
   it("clears all table state when authorization is lost", () => {
     const loaded = networkFlowControllerReducer(
       initialNetworkFlowControllerState,

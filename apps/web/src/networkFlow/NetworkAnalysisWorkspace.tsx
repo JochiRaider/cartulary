@@ -7,12 +7,20 @@ import {
   Link2,
   Network,
   PanelRightOpen,
+  Pencil,
   RefreshCw,
   Table2,
+  Trash2,
   Upload,
   X,
 } from "lucide-react";
-import { type CSSProperties, useCallback, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { IncidentCollaborationBoundary } from "../collaboration/IncidentCollaborationSession";
 import type { WorkbookIncidentRole } from "../shared/workbookShellContracts";
 import { NetworkFlowMappingModal } from "./NetworkFlowMappingModal";
@@ -34,6 +42,10 @@ import type {
 } from "./networkFlowClient";
 import { networkAnalysisSheetRef } from "./networkFlowClient";
 import {
+  isNetworkFlowAuthorizationLoss,
+  isNetworkFlowLifecycleLoss,
+  isNetworkFlowProtectedStateLoss,
+  NetworkFlowRequestError,
   type NetworkFlowWorkspaceError,
   networkFlowErrorMessage,
 } from "./networkFlowErrors";
@@ -48,7 +60,10 @@ import { useNetworkFlowIndicatorLinkController } from "./useNetworkFlowIndicator
 import type { NetworkFlowQueryLoadState } from "./useNetworkFlowPagedQuery";
 import { useNetworkFlowRejectedRowsController } from "./useNetworkFlowRejectedRowsController";
 import { useNetworkFlowRowsController } from "./useNetworkFlowRowsController";
-import { useNetworkFlowTableController } from "./useNetworkFlowTableController";
+import {
+  type NetworkFlowTableMutationState,
+  useNetworkFlowTableController,
+} from "./useNetworkFlowTableController";
 
 type NetworkAnalysisMode = "rows" | "rejected" | "graph";
 
@@ -72,14 +87,36 @@ function NetworkAnalysisWorkspaceContent({
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] =
     useState<NetworkFlowWorkspaceError | null>(null);
+  const [protectedStateError, setProtectedStateError] =
+    useState<NetworkFlowRequestError | null>(null);
+  const handleWorkspaceError = useCallback(
+    (error: NetworkFlowWorkspaceError | null) => {
+      setErrorMessage(error);
+      if (
+        error instanceof NetworkFlowRequestError &&
+        isNetworkFlowProtectedStateLoss(error)
+      ) {
+        setProtectedStateError(error);
+      }
+    },
+    [],
+  );
+  const canRead =
+    currentIncidentRole === "viewer" ||
+    currentIncidentRole === "editor" ||
+    currentIncidentRole === "reviewer" ||
+    currentIncidentRole === "admin";
   const canImport =
     currentIncidentRole === "editor" ||
     currentIncidentRole === "reviewer" ||
     currentIncidentRole === "admin";
-  const canLink =
-    currentIncidentRole === "editor" || currentIncidentRole === "admin";
+  const canRename = canImport;
+  const canLink = canImport;
+  const canDelete =
+    currentIncidentRole === "reviewer" || currentIncidentRole === "admin";
   const tableController = useNetworkFlowTableController({
     apiBase,
+    enabled: canRead,
     incidentId,
     onIncidentAccessLost,
   });
@@ -88,7 +125,7 @@ function NetworkAnalysisWorkspaceContent({
     apiBase,
     enabled: mode === "rows",
     incidentId,
-    onError: setErrorMessage,
+    onError: handleWorkspaceError,
     onIncidentAccessLost,
   });
   const rejectedRowsController = useNetworkFlowRejectedRowsController({
@@ -96,22 +133,36 @@ function NetworkAnalysisWorkspaceContent({
     apiBase,
     enabled: mode === "rejected",
     incidentId,
-    onError: setErrorMessage,
+    onError: handleWorkspaceError,
     onIncidentAccessLost,
   });
   const graphController = useNetworkFlowGraphController({
     apiBase,
     enabled: mode === "graph",
     incidentId,
-    onError: setErrorMessage,
+    onError: handleWorkspaceError,
     onIncidentAccessLost,
     tableIds: tableController.tableIds,
   });
+  const importController = useNetworkFlowImportController({
+    apiBase,
+    canImport,
+    incidentId,
+    onError: handleWorkspaceError,
+    onImported: tableController.loadTables,
+    onMessage: setMessage,
+  });
+  const clearRows = rowsController.clearRows;
+  const clearDiagnostics = rejectedRowsController.clearDiagnostics;
+  const clearGraph = graphController.clearGraph;
+  const resetImport = importController.reset;
   const clearResources = useCallback(() => {
-    rowsController.clearRows();
-    rejectedRowsController.clearDiagnostics();
-    graphController.clearGraph();
-  }, [graphController, rejectedRowsController, rowsController]);
+    clearRows();
+    clearDiagnostics();
+    clearGraph();
+    resetImport();
+    setMode("rows");
+  }, [clearDiagnostics, clearGraph, clearRows, resetImport]);
   useNetworkFlowCollaborationController({
     apiBase,
     clearResources,
@@ -119,28 +170,82 @@ function NetworkAnalysisWorkspaceContent({
     incidentId,
     loadTables: tableController.loadTables,
     onMessage: setMessage,
-  });
-  const importController = useNetworkFlowImportController({
-    apiBase,
-    canImport,
-    incidentId,
-    onError: setErrorMessage,
-    onImported: tableController.loadTables,
-    onMessage: setMessage,
+    onProtectedStateLoss: handleWorkspaceError,
   });
   const indicatorLinkController = useNetworkFlowIndicatorLinkController({
     apiBase,
     firstContributor: graphController.firstContributor,
     graph: graphController.graph,
     incidentId,
-    onError: setErrorMessage,
+    onError: handleWorkspaceError,
     onMessage: setMessage,
     selectedEdge: graphController.selectedEdge,
   });
+  useEffect(() => {
+    if (!canImport) {
+      resetImport();
+    }
+  }, [canImport, resetImport]);
+  useEffect(() => {
+    void incidentId;
+    setErrorMessage(null);
+    setProtectedStateError(null);
+  }, [incidentId]);
+  useEffect(() => {
+    const error =
+      protectedStateError ??
+      (errorMessage instanceof NetworkFlowRequestError
+        ? errorMessage
+        : tableController.error);
+    if (error === null || !isNetworkFlowProtectedStateLoss(error)) {
+      return;
+    }
+    clearResources();
+    if (
+      isNetworkFlowAuthorizationLoss(error) ||
+      error.code === "incident_closed"
+    ) {
+      tableController.clearAuthorization();
+      return;
+    }
+    if (isNetworkFlowLifecycleLoss(error)) {
+      void tableController.loadTables();
+    }
+  }, [
+    clearResources,
+    errorMessage,
+    protectedStateError,
+    tableController.clearAuthorization,
+    tableController.error,
+    tableController.loadTables,
+  ]);
+  useEffect(() => {
+    if (
+      protectedStateError !== null &&
+      protectedStateError.code !== "incident_closed" &&
+      isNetworkFlowLifecycleLoss(protectedStateError) &&
+      tableController.loadState === "ready" &&
+      tableController.activeTableId !== null
+    ) {
+      setErrorMessage(null);
+      setProtectedStateError(null);
+    }
+  }, [
+    protectedStateError,
+    tableController.activeTableId,
+    tableController.loadState,
+  ]);
   const empty =
     tableController.loadState === "ready" &&
     tableController.tables.length === 0;
-  const visibleError = errorMessage ?? tableController.error;
+  const visibleError =
+    protectedStateError ?? errorMessage ?? tableController.error;
+  const blockingState = networkFlowWorkspaceBlockingState({
+    canRead,
+    error: visibleError,
+    loadState: tableController.loadState,
+    tableCount: tableController.tables.length,
+  });
 
   return (
     <section
@@ -165,6 +270,38 @@ function NetworkAnalysisWorkspaceContent({
           </span>
         </div>
         <div style={viewActionsStyle}>
+          <TableLifecycleControls
+            canDelete={canDelete}
+            canRename={canRename}
+            mutationState={tableController.mutationState}
+            table={tableController.activeTable}
+            onDelete={async (table) => {
+              const deleted = await tableController.softDeleteTable({
+                baseTableVersion: table.table_version,
+                tableId: table.network_flow_table_id,
+              });
+              if (deleted) {
+                clearResources();
+                setMessage(`${table.display_name} was deleted.`);
+              }
+              return deleted;
+            }}
+            onRename={async (table, displayName) => {
+              const renamed = await tableController.renameTable({
+                baseTableVersion: table.table_version,
+                displayName,
+                tableId: table.network_flow_table_id,
+              });
+              if (renamed) {
+                setMessage(
+                  displayName.trim() === table.display_name
+                    ? "The table name is unchanged."
+                    : "The table was renamed.",
+                );
+              }
+              return renamed;
+            }}
+          />
           <button
             data-testid={networkAnalysisTestId("refresh")}
             style={iconButtonStyle}
@@ -297,7 +434,14 @@ function NetworkAnalysisWorkspaceContent({
       </div>
 
       <div style={workAreaStyle}>
-        {empty ? (
+        {blockingState !== null ? (
+          <NetworkFlowBlockingState
+            state={blockingState}
+            onRetry={() => {
+              void tableController.loadTables();
+            }}
+          />
+        ) : empty ? (
           <EmptyNetworkAnalysisState
             canImport={canImport}
             importing={importController.importing}
@@ -373,9 +517,11 @@ function NetworkAnalysisWorkspaceContent({
         <span>
           {tableController.loadState === "loading"
             ? "Loading"
-            : `${tableController.tables.length} active table${
-                tableController.tables.length === 1 ? "" : "s"
-              }`}
+            : tableController.loadState === "refreshing"
+              ? "Refreshing table metadata"
+              : `${tableController.tables.length} active table${
+                  tableController.tables.length === 1 ? "" : "s"
+                }`}
         </span>
         {message ? (
           <span data-testid={networkAnalysisTestId("stale-state")}>
@@ -423,6 +569,264 @@ export function NetworkAnalysisWorkspace(props: NetworkAnalysisWorkspaceProps) {
     >
       <NetworkAnalysisWorkspaceContent {...props} />
     </IncidentCollaborationBoundary>
+  );
+}
+
+function TableLifecycleControls({
+  canDelete,
+  canRename,
+  mutationState,
+  onDelete,
+  onRename,
+  table,
+}: {
+  readonly canDelete: boolean;
+  readonly canRename: boolean;
+  readonly mutationState: NetworkFlowTableMutationState;
+  readonly onDelete: (table: NetworkFlowTable) => Promise<boolean>;
+  readonly onRename: (
+    table: NetworkFlowTable,
+    displayName: string,
+  ) => Promise<boolean>;
+  readonly table: NetworkFlowTable | null;
+}) {
+  const tableId = table?.network_flow_table_id ?? null;
+  const [dialog, setDialog] = useState<"delete" | "rename" | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  useEffect(() => {
+    void tableId;
+    setDialog(null);
+    setRenameValue("");
+    setDeleteConfirmation("");
+  }, [tableId]);
+  useEffect(() => {
+    if (
+      (dialog === "rename" && !canRename) ||
+      (dialog === "delete" && !canDelete)
+    ) {
+      setDialog(null);
+      setRenameValue("");
+      setDeleteConfirmation("");
+    }
+  }, [canDelete, canRename, dialog]);
+  if (table === null) {
+    return null;
+  }
+  const busy = mutationState.kind !== "idle";
+  return (
+    <>
+      {canRename ? (
+        <button
+          data-testid={networkAnalysisTestId("rename-trigger")}
+          disabled={busy}
+          style={iconButtonStyle}
+          title="Rename active table"
+          type="button"
+          onClick={() => {
+            setRenameValue(table.display_name);
+            setDialog("rename");
+          }}
+        >
+          <Pencil aria-hidden="true" size={16} />
+          Rename
+        </button>
+      ) : null}
+      {canDelete ? (
+        <button
+          data-testid={networkAnalysisTestId("delete-trigger")}
+          disabled={busy}
+          style={dangerButtonStyle}
+          type="button"
+          onClick={() => {
+            setDeleteConfirmation("");
+            setDialog("delete");
+          }}
+        >
+          <Trash2 aria-hidden="true" size={16} />
+          Delete
+        </button>
+      ) : null}
+      {dialog === "rename" && canRename ? (
+        <div style={commandDialogBackdropStyle}>
+          <form
+            aria-labelledby="network-flow-rename-title"
+            aria-modal="true"
+            data-testid={networkAnalysisTestId("rename-dialog")}
+            role="dialog"
+            style={commandDialogStyle}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void onRename(table, renameValue).then((renamed) => {
+                if (renamed) {
+                  setDialog(null);
+                }
+              });
+            }}
+          >
+            <h3 id="network-flow-rename-title">Rename Network Flow table</h3>
+            <label style={fieldLabelStyle}>
+              Display name
+              <input
+                data-testid={networkAnalysisTestId("rename-input")}
+                maxLength={64}
+                required
+                value={renameValue}
+                onChange={(event) => setRenameValue(event.currentTarget.value)}
+              />
+            </label>
+            <div style={dialogActionsStyle}>
+              <button
+                data-testid={networkAnalysisTestId("rename-cancel")}
+                disabled={busy}
+                type="button"
+                onClick={() => setDialog(null)}
+              >
+                Cancel
+              </button>
+              <button
+                data-testid={networkAnalysisTestId("rename-submit")}
+                disabled={busy || renameValue.trim() === ""}
+                type="submit"
+              >
+                {mutationState.kind === "renaming" ? "Renaming…" : "Rename"}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+      {dialog === "delete" && canDelete ? (
+        <div style={commandDialogBackdropStyle}>
+          <section
+            aria-describedby="network-flow-delete-description"
+            aria-labelledby="network-flow-delete-title"
+            aria-modal="true"
+            data-testid={networkAnalysisTestId("delete-dialog")}
+            role="alertdialog"
+            style={commandDialogStyle}
+          >
+            <h3 id="network-flow-delete-title">Delete Network Flow table</h3>
+            <p id="network-flow-delete-description">
+              This soft-deletes <strong>{table.display_name}</strong> and makes
+              its rows, diagnostics, graph results, and cursors unavailable.
+              Type the exact table name to confirm.
+            </p>
+            <label style={fieldLabelStyle}>
+              Confirm table name
+              <input
+                data-testid={networkAnalysisTestId("delete-confirmation")}
+                value={deleteConfirmation}
+                onChange={(event) =>
+                  setDeleteConfirmation(event.currentTarget.value)
+                }
+              />
+            </label>
+            <div style={dialogActionsStyle}>
+              <button
+                data-testid={networkAnalysisTestId("delete-cancel")}
+                disabled={busy}
+                type="button"
+                onClick={() => setDialog(null)}
+              >
+                Cancel
+              </button>
+              <button
+                data-testid={networkAnalysisTestId("delete-confirm")}
+                disabled={busy || deleteConfirmation !== table.display_name}
+                style={dangerButtonStyle}
+                type="button"
+                onClick={() => {
+                  void onDelete(table).then((deleted) => {
+                    if (deleted) {
+                      setDialog(null);
+                    }
+                  });
+                }}
+              >
+                {mutationState.kind === "deleting"
+                  ? "Deleting…"
+                  : "Delete table"}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+type NetworkFlowBlockingState =
+  | { readonly kind: "lifecycle"; readonly message: string }
+  | { readonly kind: "loading"; readonly message: string }
+  | { readonly kind: "permission"; readonly message: string }
+  | { readonly kind: "unavailable"; readonly message: string };
+
+function networkFlowWorkspaceBlockingState(options: {
+  readonly canRead: boolean;
+  readonly error: NetworkFlowWorkspaceError | null;
+  readonly loadState: "error" | "loading" | "ready" | "refreshing";
+  readonly tableCount: number;
+}): NetworkFlowBlockingState | null {
+  if (!options.canRead) {
+    return {
+      kind: "permission",
+      message:
+        "You no longer have access to Network Analysis for this incident.",
+    };
+  }
+  if (options.error instanceof NetworkFlowRequestError) {
+    if (isNetworkFlowAuthorizationLoss(options.error)) {
+      return { kind: "permission", message: options.error.message };
+    }
+    if (isNetworkFlowLifecycleLoss(options.error)) {
+      return { kind: "lifecycle", message: options.error.message };
+    }
+  }
+  if (
+    options.tableCount === 0 &&
+    (options.loadState === "loading" || options.loadState === "refreshing")
+  ) {
+    return { kind: "loading", message: "Loading Network Analysis…" };
+  }
+  if (options.tableCount === 0 && options.loadState === "error") {
+    return {
+      kind: "unavailable",
+      message:
+        networkFlowErrorMessage(options.error) ??
+        "Network Analysis is unavailable.",
+    };
+  }
+  return null;
+}
+
+function NetworkFlowBlockingState({
+  onRetry,
+  state,
+}: {
+  readonly onRetry: () => void;
+  readonly state: NetworkFlowBlockingState;
+}) {
+  return (
+    <section
+      aria-label={`Network Analysis ${state.kind} state`}
+      style={emptyStateStyle}
+    >
+      <strong>
+        {state.kind === "permission"
+          ? "Access changed"
+          : state.kind === "lifecycle"
+            ? "Resource unavailable"
+            : state.kind === "loading"
+              ? "Loading"
+              : "Unavailable"}
+      </strong>
+      <span>{state.message}</span>
+      {state.kind === "unavailable" ? (
+        <button type="button" onClick={onRetry}>
+          Retry
+        </button>
+      ) : null}
+    </section>
   );
 }
 
@@ -933,6 +1337,44 @@ const iconButtonStyle = {
   color: "var(--ct-colors-text-primary)",
 } satisfies CSSProperties;
 
+const dangerButtonStyle = {
+  ...commandButtonStyle,
+  borderColor: "var(--ct-colors-danger-strong)",
+  color: "var(--ct-colors-danger-strong)",
+} satisfies CSSProperties;
+
+const commandDialogBackdropStyle = {
+  alignItems: "center",
+  background: "color-mix(in srgb, var(--ct-colors-canvas) 72%, transparent)",
+  display: "flex",
+  inset: 0,
+  justifyContent: "center",
+  position: "fixed",
+  zIndex: 20,
+} satisfies CSSProperties;
+
+const commandDialogStyle = {
+  background: "var(--ct-colors-surface-1)",
+  border: "var(--ct-border-hairline)",
+  borderRadius: "var(--ct-rounded-md)",
+  boxShadow: "var(--ct-elevation-drawer)",
+  display: "grid",
+  gap: "var(--ct-spacing-md)",
+  inlineSize: "min(32rem, calc(100vw - 2rem))",
+  padding: "var(--ct-spacing-lg)",
+} satisfies CSSProperties;
+
+const fieldLabelStyle = {
+  display: "grid",
+  gap: "var(--ct-spacing-xs)",
+} satisfies CSSProperties;
+
+const dialogActionsStyle = {
+  display: "flex",
+  gap: "var(--ct-spacing-sm)",
+  justifyContent: "flex-end",
+} satisfies CSSProperties;
+
 const modeBarStyle = {
   display: "flex",
   alignItems: "center",
@@ -961,6 +1403,8 @@ const workAreaStyle = {
 const emptyStateStyle = {
   display: "flex",
   alignItems: "center",
+  flexDirection: "column",
+  gap: "var(--ct-spacing-sm)",
   justifyContent: "center",
   blockSize: "100%",
   minBlockSize: "12rem",

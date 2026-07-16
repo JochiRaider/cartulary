@@ -34,11 +34,15 @@ export function useNetworkFlowExtensionEvents({
     return session.subscribe((event) => {
       if (
         event.kind === "authorization_lost" ||
-        event.kind === "session_revoked"
+        event.kind === "session_revoked" ||
+        event.kind === "incident_closed"
       ) {
         void onResourceChange({
           changeKind: "remove",
-          reasonCode: "authorization_lost",
+          reasonCode:
+            event.kind === "incident_closed"
+              ? "incident_closed"
+              : "authorization_lost",
           resourceId: "*",
         });
         return;

@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { NetworkFlowRequestError } from "./networkFlowErrors";
 import {
   type NetworkFlowExtensionResourceChange,
   useNetworkFlowExtensionEvents,
@@ -11,6 +12,7 @@ export function useNetworkFlowCollaborationController({
   incidentId,
   loadTables,
   onMessage,
+  onProtectedStateLoss,
 }: {
   readonly apiBase: string | undefined;
   readonly clearResources: () => void;
@@ -27,6 +29,7 @@ export function useNetworkFlowCollaborationController({
   readonly incidentId: string;
   readonly loadTables: () => Promise<void>;
   readonly onMessage: (message: string) => void;
+  readonly onProtectedStateLoss: (error: NetworkFlowRequestError) => void;
 }) {
   const handleResourceChange = useCallback(
     async (change: NetworkFlowExtensionResourceChange) => {
@@ -35,9 +38,25 @@ export function useNetworkFlowCollaborationController({
         change.reasonCode === "authorization_lost" ||
         (change.changeKind === "remove" && change.resourceId === "*")
       ) {
+        const incidentClosed = change.reasonCode === "incident_closed";
+        onProtectedStateLoss(
+          new NetworkFlowRequestError({
+            code: incidentClosed ? "incident_closed" : "authorization_denied",
+            retryAction: "do_not_retry",
+            retryable: false,
+            safeMessage: incidentClosed
+              ? "This incident is closed. Network Analysis is unavailable."
+              : "You no longer have access to Network Analysis for this incident.",
+            status: incidentClosed ? 409 : 403,
+          }),
+        );
         dispatchTableAction({ type: "clear_authorization" });
         clearResources();
-        onMessage("Network Analysis access changed.");
+        onMessage(
+          incidentClosed
+            ? "This incident is closed. Network Analysis data was cleared."
+            : "Network Analysis access changed. Protected data was cleared.",
+        );
         return;
       }
       if (change.changeKind === "remove") {
@@ -50,7 +69,13 @@ export function useNetworkFlowCollaborationController({
       }
       await loadTables();
     },
-    [clearResources, dispatchTableAction, loadTables, onMessage],
+    [
+      clearResources,
+      dispatchTableAction,
+      loadTables,
+      onMessage,
+      onProtectedStateLoss,
+    ],
   );
   useNetworkFlowExtensionEvents({
     apiBase,

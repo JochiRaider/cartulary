@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   isNetworkFlowAuthorizationLoss,
+  isNetworkFlowLifecycleLoss,
+  isNetworkFlowProtectedStateLoss,
   networkFlowRequestError,
 } from "./networkFlowErrors";
 
@@ -48,5 +50,28 @@ describe("Network Flow structured errors", () => {
       },
     });
     expect(error.message).toBe("Request failed.");
+  });
+
+  it("classifies lifecycle and hidden-resource failures for fail-closed clearing", () => {
+    const softDeleted = networkFlowRequestError(409, {
+      error: {
+        code: "network_flow_table_not_active",
+        message: "The table is not active.",
+        details: { reason_code: "soft_deleted" },
+      },
+    });
+    const hidden = networkFlowRequestError(404, {
+      error: {
+        code: "network_flow_table_not_found",
+        message: "The table was not found.",
+      },
+    });
+    const transport = networkFlowRequestError(503, {
+      error: { code: "network_flow_unavailable", message: "Unavailable." },
+    });
+
+    expect(isNetworkFlowLifecycleLoss(softDeleted)).toBe(true);
+    expect(isNetworkFlowProtectedStateLoss(hidden)).toBe(true);
+    expect(isNetworkFlowProtectedStateLoss(transport)).toBe(false);
   });
 });

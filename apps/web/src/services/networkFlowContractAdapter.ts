@@ -28,9 +28,12 @@ import {
   type RejectedRowsQueryResult,
   type Sort,
   type TableList,
+  type TableMutationResult,
   type TableQueryContinuation,
   type TableQueryRequest,
   type TableQueryResult,
+  type TableRenameRequest,
+  type TableSoftDeleteRequest,
 } from "@cartulary/protocol-ts";
 
 export type { NetworkFlowRow, NetworkFlowRowRef, NetworkFlowTable };
@@ -55,6 +58,9 @@ export type NetworkFlowRejectedRowsQueryRequest = RejectedRowsQueryRequest;
 export type NetworkFlowSort = Sort;
 export type NetworkFlowTableQueryContinuation = TableQueryContinuation;
 export type NetworkFlowTableQueryRequest = TableQueryRequest;
+export type NetworkFlowTableMutationResult = TableMutationResult;
+export type NetworkFlowTableRenameRequest = TableRenameRequest;
+export type NetworkFlowTableSoftDeleteRequest = TableSoftDeleteRequest;
 
 export { networkFlowContractDescriptor };
 export const networkFlowMappingMetadata = networkFlowMappingRegistry;
@@ -111,6 +117,12 @@ function decodeOrThrow<T>(decoder: Decoder<T>, value: unknown): T {
 
 export function decodeNetworkFlowTableList(value: unknown): TableList {
   return decodeOrThrow(networkFlowDecoders.tableList, value);
+}
+
+export function decodeNetworkFlowTableMutationResult(
+  value: unknown,
+): TableMutationResult {
+  return decodeOrThrow(networkFlowDecoders.tableMutationResult, value);
 }
 
 export function decodeNetworkFlowTableQueryResult(

@@ -3,6 +3,7 @@ import type { NetworkFlowPaging } from "../services/networkFlowContractAdapter";
 import {
   isNetworkFlowAuthorizationLoss,
   isNetworkFlowCursorInvalid,
+  isNetworkFlowProtectedStateLoss,
   type NetworkFlowRequestError,
   networkFlowErrorFromUnknown,
 } from "./networkFlowErrors";
@@ -107,6 +108,7 @@ export function useNetworkFlowPagedQuery<Item, Request>(options: {
         if (
           !recoveredCursor &&
           isContinuationRef.current(request) &&
+          !isNetworkFlowProtectedStateLoss(requestError) &&
           isNetworkFlowCursorInvalid(requestError)
         ) {
           recoveredCursor = true;
@@ -122,8 +124,18 @@ export function useNetworkFlowPagedQuery<Item, Request>(options: {
           setLoadState("loading");
           continue;
         }
-        if (isNetworkFlowAuthorizationLoss(requestError)) {
-          onIncidentAccessLostRef.current?.();
+        if (isNetworkFlowProtectedStateLoss(requestError)) {
+          historyRef.current = [initialRequestRef.current];
+          pageIndexRef.current = 0;
+          itemsRef.current = [];
+          pagingRef.current = null;
+          setItems([]);
+          setPaging(null);
+          setPageIndex(0);
+          setNotice(null);
+          if (isNetworkFlowAuthorizationLoss(requestError)) {
+            onIncidentAccessLostRef.current?.();
+          }
         }
         setError(requestError);
         setLoadState("error");
@@ -214,7 +226,6 @@ export function useNetworkFlowPagedQuery<Item, Request>(options: {
     setLoadState("idle");
     setError(null);
     setNotice(null);
-    onErrorRef.current(null);
   }, []);
 
   return {

@@ -115,4 +115,32 @@ describe("useNetworkFlowExtensionEvents", () => {
       payload: { resume_token: "resume-1", last_seen_stream_seq: 8 },
     });
   });
+
+  it("maps incident closure to a fail-closed workspace removal", () => {
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+
+    const socket = FakeWebSocket.instances[0];
+    if (socket) {
+      socket.readyState = FakeWebSocket.OPEN;
+    }
+    socket?.onopen?.();
+    socket?.onmessage?.({
+      data: JSON.stringify({
+        type: "error",
+        payload: {
+          code: "incident_closed",
+          message: "Incident is closed.",
+          retryable: false,
+        },
+      }),
+    });
+
+    expect(onChange).toHaveBeenCalledWith({
+      changeKind: "remove",
+      reasonCode: "incident_closed",
+      resourceId: "*",
+    });
+  });
 });

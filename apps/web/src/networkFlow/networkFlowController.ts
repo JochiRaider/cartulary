@@ -11,6 +11,7 @@ export type NetworkFlowControllerAction =
       readonly tables: readonly NetworkFlowTable[];
     }
   | { readonly type: "select_table"; readonly tableId: string }
+  | { readonly type: "replace_table"; readonly table: NetworkFlowTable }
   | { readonly type: "remove_table"; readonly tableId: string }
   | { readonly type: "clear_authorization" };
 
@@ -39,7 +40,24 @@ export function networkFlowControllerReducer(
       )
         ? { ...state, activeTableId: action.tableId }
         : state;
+    case "replace_table":
+      return state.tables.some(
+        (table) =>
+          table.network_flow_table_id === action.table.network_flow_table_id,
+      )
+        ? {
+            ...state,
+            tables: state.tables.map((table) =>
+              table.network_flow_table_id === action.table.network_flow_table_id
+                ? action.table
+                : table,
+            ),
+          }
+        : state;
     case "remove_table": {
+      const removedIndex = state.tables.findIndex(
+        (table) => table.network_flow_table_id === action.tableId,
+      );
       const tables = state.tables.filter(
         (table) => table.network_flow_table_id !== action.tableId,
       );
@@ -47,7 +65,9 @@ export function networkFlowControllerReducer(
         tables,
         activeTableId:
           state.activeTableId === action.tableId
-            ? (tables[0]?.network_flow_table_id ?? null)
+            ? (tables[removedIndex]?.network_flow_table_id ??
+              tables[removedIndex - 1]?.network_flow_table_id ??
+              null)
             : state.activeTableId,
       };
     }

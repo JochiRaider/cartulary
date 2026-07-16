@@ -101,6 +101,24 @@ export function isNetworkFlowAuthorizationLoss(
   );
 }
 
+export function isNetworkFlowLifecycleLoss(
+  error: NetworkFlowRequestError,
+): boolean {
+  return (
+    error.code === "incident_closed" ||
+    error.code === "network_flow_table_not_active" ||
+    error.code === "network_flow_table_not_found"
+  );
+}
+
+export function isNetworkFlowProtectedStateLoss(
+  error: NetworkFlowRequestError,
+): boolean {
+  return (
+    isNetworkFlowAuthorizationLoss(error) || isNetworkFlowLifecycleLoss(error)
+  );
+}
+
 export function isNetworkFlowCursorInvalid(
   error: NetworkFlowRequestError,
 ): boolean {
