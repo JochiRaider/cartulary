@@ -383,7 +383,7 @@ authorize or claim implementation completion.
 | Harness authority | `docs/testing-harness-nlspec.md`; it owns invocation, target selection, scheduling, artifacts, cleanup, and evidence accounting |
 | Adapter reference | Completed F-RDG workstreams in `docs/handoffs/grid-adapter-module-refactor-tracker.md` |
 | Current execution scope | Full Section 14 remediation, serially checkpointed |
-| Overall adoption status | `ACTIVE` (`NF-GA-00`, `NF-GA-01`, and `NF-GA-02` `COMPLETE`; `NF-GA-03 ACTIVE`) |
+| Overall adoption status | `ACTIVE` (`NF-GA-00` through `NF-GA-03` `COMPLETE`; `NF-GA-04` is the next eligible workstream) |
 
 The inspected baseline has the following implementation boundaries:
 
@@ -734,7 +734,7 @@ Every checkpoint must populate these fields:
 
 | Field | Approved value |
 | --- | --- |
-| Status | `ACTIVE` |
+| Status | `COMPLETE` |
 | Activation baseline | `c426c6c305c3dc04a3441179f89e9e788803f59f` |
 | Dependencies | `NF-GA-02 COMPLETE` |
 | Remediation | Add typed initial/continuation requests, structured API errors, owner filters, ordered sort, opaque-cursor replay, cancellation/generation guards, and immutable-row reconciliation; remove fixed `limit=50` and message substring parsing |
@@ -747,8 +747,26 @@ Every checkpoint must populate these fields:
 | Commands/evidence | `make frontend-unit`; `make frontend-typecheck`; `make frontend-import-boundary-check`; `make browser-e2e-webserver-backed`; `make browser-e2e-stateful`; semantic/live-grid/webserver/stateful evidence |
 | Rollback | Revert Network Analysis integration while retaining the generalized adapter |
 | Exit criteria | Accepted/diagnostic grids operate against real routes with no fixed 50-row ceiling |
-| Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
+| Checkpoint | Completed in Section 14.7.4 |
 | Next workstream | `NF-GA-04` |
+
+##### 14.7.4 `NF-GA-03` completion checkpoint
+
+| Checkpoint field | Recorded outcome |
+| --- | --- |
+| Status / reviewer / date | `COMPLETE`; Codex self-review; 2026-07-16 America/New_York |
+| Baseline and activation commits | Baseline `c426c6c305c3dc04a3441179f89e9e788803f59f`; activation `5246596cd6c7ec9bacb35ccb11927efa68f1a089` |
+| Implementation end commit | `ab8b41e65ab9fc638769bee3894b89fb3fdfadba` |
+| Files changed | Network Flow query client and accepted/rejected controllers; generic paged-query hook; semantic query compiler and reconciliation model; structured error model and generated error-registry facade; graph, table, and indicator-link error consumers; Network Analysis pagination UI and semantic selectors; component, query, error, and hook tests; frontend test-accounting classifications |
+| Substantive result | Replaced fixed 50-row first-page requests with closed typed initial and continuation unions. Initial accepted and rejected requests omit `limit` and therefore use the server-owned default 200; continuation bodies contain only their continuation schema ID and opaque cursor. Added registered accepted/diagnostic filters, ordered multi-sort pass-through, endpoint-IP support, overlap-window compilation, cursor history with exact previous-request replay, expiry/mismatch restart with explanation, cancellation and generation guards, and immutable owner-ID reconciliation that preserves object references only for contract-equal resources. API failures now retain status, code, field, reason, retry action, retryability, and safe public message. Authorization loss is classified from exact structured status/code/reason signals rather than message substrings |
+| Required gates | Final `make frontend-unit` PASS (`.cartulary/test-results/20260716T052058Z-p15985`); `make frontend-typecheck` PASS; `make frontend-import-boundary-check` PASS (`.cartulary/test-results/20260716T051459Z-p73630`); `make browser-e2e-webserver-backed` PASS with 97 tests (`.cartulary/test-results/20260716T051512Z-p74797`); `make browser-e2e-stateful` PASS with 22 tests (`.cartulary/test-results/20260716T051733Z-p95284`) |
+| Additional gates | `make lint-biome` PASS; `make format` PASS (`.cartulary/test-results/20260716T051417Z-p69248`); `git diff --check` PASS |
+| Corrective runs | The first unit run was manually interrupted after a render loop prevented report emission (`.cartulary/test-results/20260716T050401Z-p59884`); a diagnostic single-worker rerun confirmed the same related loop (`.cartulary/test-results/20260716T050948Z-p63864`). The cause was an unstable inline error callback retriggering the disabled graph-clearing effect; restoring the stable state setter removed the loop. A temporary skipped-test diagnostic was removed before the passing full suite. No failed assertion or gate remains |
+| Evidence-map rows | Added bounded `unowned_regression` classifications for query compilation/reconciliation, structured error preservation, and cursor/cancellation/generation semantics. Extended the real Network Analysis component test to prove the production initial accepted-row body is exactly the schema ID with no fixed limit. Existing webserver-backed and stateful suites remained green. No synthetic browser claim was promoted; final Phase 12 claim reconciliation remains `NF-GA-09` |
+| Compatibility / migration | Existing query routes, cursor contracts, response shapes, and server authority are unchanged. The client now honors the advertised default page envelope instead of forcing 50. No database, dependency, lockfile, saved-view, contract-major, or RDG migration |
+| Residual risk / deferral | Visible query/filter/sort controls, active range and inspector reset, and filtered-empty presentation depend on the metadata-driven grids in `NF-GA-04`. Protected-state clearing for authorization/lifecycle transitions belongs to `NF-GA-05`. Contributor pagination and graph scope remain `NF-GA-06`; no client sorting, filtering, or aggregation was introduced |
+| Rollback | Revert `ab8b41e6` atomically to restore the former first-page controllers while retaining the generalized adapter and import-preview work; not exercised because all exit gates passed |
+| Next workstream | `NF-GA-04`; it may activate only after this checkpoint commit |
 
 #### `NF-GA-04` — Workspace grids, renderers, layout, and normative regions
 
