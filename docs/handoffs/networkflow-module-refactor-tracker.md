@@ -8,7 +8,7 @@
 | Target label | `networkflow` |
 | Output path | `docs/handoffs/networkflow-module-refactor-tracker.md` |
 | Repository snapshot | Clean `main` at `63a19bf6e0c3f17a9b53afb58afa8bd04fb4c550` when planning began |
-| Status | Historical module remediation complete; Network Analysis grid-adapter adoption is executing under Section 14, with `NF-GA-00` through `NF-GA-08` `COMPLETE` and `NF-GA-09` `ACTIVE` |
+| Status | Historical module remediation and Section 14 Network Analysis grid-adapter adoption are `COMPLETE`; `NF-GA-00` through `NF-GA-09` are committed and validated |
 | Authorized change | Specification, implementation, tests, contracts, generated outputs, configuration, migrations, harness inputs, documentation, and this tracker |
 | Current execution authorization | Specification, contract, generated, backend, frontend, test, harness-input, visual, and tracker changes required by Section 14; no dependency, lockfile, database, saved-view, or React Data Grid version migration |
 | Preserved non-goals | No richer graph canvas, observation creation, restore/purge behavior, existing-route response change, or HTTP schema-major expansion; one additive Core import mapping-preview route is explicitly authorized |
@@ -384,7 +384,7 @@ completion checkpoints below now own the current execution state.
 | Harness authority | `docs/testing-harness-nlspec.md`; it owns invocation, target selection, scheduling, artifacts, cleanup, and evidence accounting |
 | Adapter reference | Completed F-RDG workstreams in `docs/handoffs/grid-adapter-module-refactor-tracker.md` |
 | Current execution scope | Full Section 14 remediation, serially checkpointed |
-| Overall adoption status | `ACTIVE` (`NF-GA-00` through `NF-GA-08` `COMPLETE`; `NF-GA-09 ACTIVE`) |
+| Overall adoption status | `COMPLETE` (`NF-GA-00` through `NF-GA-09` `COMPLETE`) |
 
 The inspected baseline has the following implementation boundaries:
 
@@ -574,6 +574,11 @@ Deferred and inappropriate capabilities require new owner authority before
 enablement. Their availability in the package is not product authorization.
 
 ### 14.5 Gap register
+
+This register retains the approved remediation phrasing as the execution
+baseline. Section 14.7.10 records the final closure disposition: all 15 gaps
+are closed for the adopted profile, while the deliberately deferred and
+rejected capabilities remain governed by Section 14.10.
 
 | ID | Remediation and affected areas | Rationale and long-term benefit | Compatibility, risk, dependencies, and rollback | Exact validation and evidence |
 | --- | --- | --- | --- | --- |
@@ -964,21 +969,44 @@ Every checkpoint must populate these fields:
 
 | Field | Approved value |
 | --- | --- |
-| Status | `ACTIVE` |
+| Status | `COMPLETE` |
 | Activation baseline | `f417ae62b573d12ff066308ce87c5ef1280dfe0e` |
 | Dependencies | `NF-GA-08 COMPLETE` |
 | Remediation | Replace synthetic authoritative browser rows with real app/grid evidence; classify semantic and live-grid tests; update Phase 12 maps, accounting, visual registry, ledgers/schedules, retained evidence, and this tracker |
 | Affected areas | Tests, harness owner inputs, generated accounting, visual artifacts, final documentation |
 | Rationale | Make evidence accurately describe production adapter behavior |
 | Long-term benefit | Later claims can distinguish product, design, measurement, and publication evidence |
-| Compatibility/migration | Test/accounting artifacts only; no runtime or data migration |
-| Unresolved risk | Synthetic surfaces may be mistaken for live production-grid conformance |
+| Compatibility/migration | Harness/evidence schemas advance and current retained evidence must be regenerated; no production database, dependency, lockfile, saved-view, route, or data migration |
+| Unresolved risk | None in the adopted profile; explicit future/deferred capabilities remain in Section 14.10 |
 | Validation criteria | Every gap is closed or explicitly deferred/rejected; no unowned authoritative test; maps and generated accounting agree |
-| Commands/evidence | `make phase-ledger-drift`; `make phase-schedule-drift`; `make harness-contract`; `make phase-slice PHASE=phase12`; `make service-backed-slice PHASE=phase12`; `make generated-artifact-policy-check`; `make json-shape-check`; `make agent-finalize`; broaden to `make check` only when final risk/ownership warrants it |
+| Commands/evidence | Generation/drift, frontend/static, all browser families, base and FE-P12 phase/service slices, `make check`, `make release-check`, and retained-run `make agent-finalize`; exact roots are in Section 14.7.10 |
 | Rollback | Revert authored evidence maps and generated outputs together; runtime rollback remains bounded by earlier workstreams |
 | Exit criteria | Final commits, successful run roots, evidence classes, deferrals, residual risk, and rollback posture are recorded; only then may adoption be marked complete |
-| Checkpoint | Status; commits; files; commands/results; result roots; evidence rows; residual risk; migration; rollback; reviewer/date |
+| Checkpoint | Completed in Section 14.7.10 |
 | Next workstream | None |
+
+##### 14.7.10 `NF-GA-09` completion checkpoint
+
+| Checkpoint field | Recorded outcome |
+| --- | --- |
+| Status / reviewer / date | `COMPLETE`; Codex self-review; 2026-07-16 America/New_York |
+| Baseline and activation commits | Baseline `f417ae62b573d12ff066308ce87c5ef1280dfe0e`; activation `5dc28c43332022473ac9dc6092d2158df29ff464` |
+| Implementation end commit | `baab14cb3766aa0f8a8bf1d77c5ad618f454f093` (`networkflow: complete grid adapter evidence remediation`) |
+| Files changed | 93 implementation/evidence files across Network Flow backend/frontend/contracts, the shared semantic adapter, real Phase 12 browser fixtures, claimed-profile harness/runtime/topology ownership, FE-P12 and visual owners, generated contracts/ledgers/schedules, retained timing baselines, NLSpecs, and harness lifecycle/sequence regression tests |
+| Substantive result | The nine authoritative Network Flow browser workflows now use the real application: unclaimed absence runs under `default`, while claimed empty/import/mapping/apply/delete/graph/contributor/collision behavior runs under `network_flow_claimed`. Runtime profiles are immutable startup identities, incompatible profiles are partitioned, attach/profile mismatches fail before Playwright, reset remains data-only, and retained stack metadata contains only the profile ID and a non-secret fingerprint. Claimed sessions generate distinct cursor and safe-digest secrets in child runtime memory and never retain their values. Actual claimed accessibility and visual evidence covers workspace tabs, query/layout controls, all grids, inspector, graph, contributor drawer, mapping modal, focus return, ARIA/axe posture, and deterministic 1440-by-900 goldens. No authoritative Network Flow browser file contains `page.setContent` |
+| Gap closure | `NF-GAP-01` through `NF-GAP-15` are `CLOSED` for the adopted profile. Semantic extension identities, application-owned reconciliation, server query/graph authority, registry-owned layout/rendering, read-only behavior, lifecycle clearing, keyboard/focus/accessibility, supported load, vendor containment, real evidence integrity, mapping preview, and complete workspace composition all have current implementation and evidence. Section 14.10 remains an intentional continuing-value deferral/rejection register, not an unresolved remediation gap |
+| Runtime and harness integrity | Added authored `default` and `network_flow_claimed` topology profiles, profile-aware browser groups/sessions/retained metadata, unknown/mixed/attach failure checks, multi-profile accessibility aggregation, profile-isolated visual stacks, and secure runtime secret generation/redaction. During final slice validation, two latent generic harness defects were closed structurally: scheduled support work now preserves its assigned worker offset/count, and `service_complete` performs teardown before releasing dependent composite gates. Aggregate sequence normal/parallel steps clear inherited prerequisite-skip state; only explicitly marked skip steps receive it. Regression tests cover all three boundaries |
+| Evidence ownership | Base authoritative rows `E-12-NFAC001-01`, `E-12-NFAC002-02`, `E-12-NFAC006-06`, `E-12-NFAC023-23`, `E-12-NFAC029-29`, `E-12-NFAC030-30`, `E-12-NFAC036-36`, `E-12-NFAC037-37`, and `E-12-NFAC074-74` now execute through real product workflows; `E-12-NFAC050-50` remains informative real production-grid measurement. Active FE-P12 owns `FE-U-P12-01`, `FE-I-P12-01`, `FE-B-P12-01`, `FE-E-P12-01`, `FE-A11Y-P12-01`, `FE-V-P12-01`, and non-conformance measurement `FE-B-P12-02`. `FE-VFIX-22` owns accepted-with-inspector, rejected-diagnostics, and graph-with-contributors goldens. Corresponding permanent `unowned_regression` classifications were removed, and generated ledger/schedule/accounting outputs are current |
+| Browser gates | `make browser-e2e-webserver-backed` PASS, 97 scenarios (`.cartulary/test-results/20260716T151830Z-p25464`); `make browser-e2e-stateful` PASS (`.cartulary/test-results/20260716T135033Z-p63273`); final `make browser-e2e-a11y` PASS, 21 scenarios (`.cartulary/test-results/20260716T155459Z-p69707`); strict `make browser-e2e-visual` PASS, 29 scenarios (`.cartulary/test-results/20260716T145349Z-p10525`); `make browser-e2e-measurement` PASS (`.cartulary/test-results/20260716T141957Z-p45146`). Visual update output, actual/diff artifacts, all three new P12 goldens, and four deterministic existing-golden pixel updates were reviewed before the strict pass |
+| Phase and release gates | Final FE-P12 `make phase-slice PHASE_NAMESPACE=frontend PHASE=FE-P12` PASS, 17/17 units and 106 tests (`.cartulary/test-results/20260716T164111Z-p87608`); FE-P12 service-backed slice PASS, 6/6 and 106 tests (`.cartulary/test-results/20260716T165839Z-p97872`); base Phase 12 slice PASS, 6/6 and 134 tests (`.cartulary/test-results/20260716T170445Z-p44238`); base Phase 12 service-backed slice PASS, 5/5 and 38 tests (`.cartulary/test-results/20260716T170533Z-p63757`). Current nested `make release-check` PASS, 14/14 release units and 1,265 tests (`.cartulary/test-results/20260716T164111Z-p87608-release-check`) |
+| Final warm and retained evidence | Final standalone `make check` PASS, 135/135 work units and 1,206 tests (`.cartulary/test-results/20260716T170637Z-p83233`). `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260716T170637Z-p83233` PASS and refreshed four retained timing baselines (`.cartulary/test-results/20260716T170813Z-p66936`). The earlier pre-broad finalize correctly recorded `RESULTS_DIR` unset and skipped retained-run maintenance (`.cartulary/test-results/20260716T151543Z-p37427`) |
+| Narrow and drift gates | Final `make format` and `make generate` PASS (`.cartulary/test-results/20260716T170851Z-p69143`, `.cartulary/test-results/20260716T170858Z-p71418`). `make generate-drift`, generated-artifact policy, JSON shape, phase-ledger drift, phase-schedule drift, and toolchain drift all PASS at `20260716T170909Z` roots. Final frontend unit/import-boundary checks PASS (`.cartulary/test-results/20260716T170926Z-p75686`, `.cartulary/test-results/20260716T170926Z-p75775`); typecheck, Biome, script, shell, Markdown, and harness-contract gates PASS. `git diff --check` and the added-secret literal scan PASS |
+| Corrective runs | Early final checks exposed a support-worker slot collision that revoked another browser shard's admin session (`.cartulary/test-results/20260716T151556Z-p38882`, `20260716T152131Z-p48324`, `20260716T152824Z-p35379`, `20260716T153306Z-p25988`, and `20260716T153632Z-p17595`); scheduler-owned support offset/count preservation and a zero-work authorization-notice invariant removed the race, after which check passed. The first release attempt (`.cartulary/test-results/20260716T154135Z-p87677`) found a brittle exact virtualized-cell tab-order assertion; it now asserts semantic grid entry while later exact-cell focus remains explicit, and the full accessibility/release gates pass. FE-P12 attempts then exposed a real outer-service teardown race (`.cartulary/test-results/20260716T160700Z-p64057`), the expected generated-schedule provenance guard after its repair (`.cartulary/test-results/20260716T162215Z-p886`), and inherited prerequisite-skip leakage into normal release steps (`.cartulary/test-results/20260716T162908Z-p55050`). Service teardown is now completion-key-gated, schedules were regenerated, sequence prerequisite state is step-owned, SeaweedFS reachability passes, and the final FE-P12/release roots above are green |
+| Compatibility / migration | Default development remains unclaimed. No production database migration, dependency or lockfile change, saved-view/local-storage persistence, new production route, server paging default/limit change, client graph authority, editing capability, legacy adapter alias, or synthetic fallback was added. Harness, topology, frontend-accounting, visual, and retained-artifact schemas advance atomically; artifacts created before runtime-profile/current accounting adoption cannot close current rows and must be regenerated |
+| Boundary and security audit | Active-source searches plus static tests found no direct grid-vendor import outside `packages/grid-adapter`, no raw row/column index or vendor handle in Network Flow consumers/selectors, no obsolete adapter facade, no synthetic authoritative Phase 12 markup, and no extension row represented as a Core record/view schema. The only Network Flow `view_schema_id` source occurrence deletes a legacy URL key. Added source contains no retained session secret literal; commands, summaries, and artifacts retain only references/fingerprints |
+| Residual risk / deferral | No blocking or unclosed remediation risk. Claimed-profile browser work has deliberate explicit execution cost and old retained runs are intentionally incompatible. Cross-session layout, richer graphs, additional profiles, bulk commands, aggregation/freeze/dynamic-height/RTL features, and all rejected mutation/vendor-coordinate capabilities remain governed by Section 14.10 and require new owner authority |
+| Rollback | Revert implementation commit `baab14cb` atomically for NF-GA-09 runtime-profile/evidence/accounting/product changes, then regenerate owner-derived contracts/ledgers/schedules and remove current retained evidence. Synthetic authoritative markup is not an acceptable rollback target. The generic service-completion, sequence-prerequisite, and support-worker isolation fixes should be retained independently if product evidence is rolled back. Earlier semantic adapter, mapping-preview, paging, lifecycle, read-only, and virtualization workstreams remain mandatory and are not rolled back by this boundary. No rollback was exercised |
+| Next workstream | None; Section 14 adoption and handoff are complete |
 
 ### 14.8 Evidence-class matrix
 
@@ -1008,11 +1036,11 @@ Every checkpoint must populate these fields:
 | Session layout | In-memory only; cross-table for the same grid schema; reset on reload; no data migration |
 | Visual goldens | Expected only after implementation, maintained through the existing guide |
 
-No unresolved behavior choice blocks this plan. Implementation still requires
-the Network Flow owner to approve NLSpec `1.2.0`, the adapter owner to approve
-the generalized semantic API, and the Phase 12/Testing Harness owners to
-approve evidence-accounting changes. These are workstream exit approvals, not
-permission to change the current tracker-only scope.
+No unresolved behavior or approval choice blocks the adopted profile. The
+committed NLSpec, semantic adapter API, Phase 12/FE-P12 owner maps, harness
+contract, completion checkpoints, and passing retained evidence record the
+required owner approvals. Reopening a Section 14.10 capability requires new
+authority rather than a compatibility exception to this completed effort.
 
 ### 14.10 Explicit deferred and rejected register
 
