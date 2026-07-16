@@ -109,6 +109,8 @@ func TestPhase12NetworkFlow_I_12_NFAC039_39_ExampleRefsEvidence(t *testing.T) {
 
 func TestPhase12NetworkFlow_I_12_NFAC040_40_GraphProjectionAdapterEvidence(t *testing.T) {
 	phase12AssertIntegrationSelector(t, "NF-AC-040")
+	phase12AssertGraphProjectionTimestampNormalizesToProviderPrecision(t)
+	phase12AssertGraphProjectionAdapterAcceptsCanonicalImportFixture(t)
 }
 
 func TestPhase12NetworkFlow_I_12_NFAC041_41_ExistingIndicatorBindingEvidence(t *testing.T) {
@@ -420,6 +422,14 @@ func phase12AssertQueryAndTableScopeBoundary(t *testing.T) {
 	request, apiErr := decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1"}`), schemaTableQueryRequest, schemaTableQueryContinuation, Limits{MaxQueryLimit: 50})
 	if apiErr != nil || request.Limit != 50 {
 		t.Fatalf("default query limit got request=%#v err=%v", request, apiErr)
+	}
+	acceptedEcho := string(canonicalJSON(acceptedRowsQueryEcho(nil, nil, effectiveSort(nil), []string{"nft_a"})))
+	if !strings.Contains(acceptedEcho, `"filters":[]`) || !strings.Contains(acceptedEcho, `"sort":[]`) {
+		t.Fatalf("accepted query echo must materialize omitted arrays: %s", acceptedEcho)
+	}
+	rejectedEcho := string(canonicalJSON(rejectedRowsQueryEcho(RejectedRowsQueryRequest{})))
+	if !strings.Contains(rejectedEcho, `"error_codes":[]`) || !strings.Contains(rejectedEcho, `"field_keys":[]`) {
+		t.Fatalf("rejected query echo must materialize omitted arrays: %s", rejectedEcho)
 	}
 	phase12AssertKeysetAndCursorRuntime(t)
 }

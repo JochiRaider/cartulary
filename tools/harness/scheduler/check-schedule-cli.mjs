@@ -170,7 +170,7 @@ function attachRuntime(
         context.reporter.setSchemaValidationEnabled(true);
         await emitRunStart();
       }
-      await serviceSessionRuntime.afterUnitFinish(context.unit);
+      await serviceSessionRuntime.afterUnitFinish(context.unit, context.result);
     },
     beforeUnitStart: async ({ unit, started, total, reporter }) => {
       await serviceSessionRuntime.beforeUnitStart(unit);

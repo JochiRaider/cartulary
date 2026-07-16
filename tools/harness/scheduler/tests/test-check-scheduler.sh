@@ -567,6 +567,11 @@ active_file="${FAKE_CHECK_SCHEDULER_ACTIVE:?}"
 max_file="${FAKE_CHECK_SCHEDULER_MAX:?}"
 event_log="${FAKE_CHECK_SCHEDULER_EVENT_LOG:?}"
 
+if [[ "$target" == "after-service" && -n "${FAKE_SERVICE_TERMINATED_FILE:-}" && ! -f "$FAKE_SERVICE_TERMINATED_FILE" ]]; then
+  echo "after-service started before service teardown completed" >&2
+  exit 17
+fi
+
 mkdir -p "$(dirname "$active_file")"
 touch "$active_file" "$max_file" "$event_log"
 
@@ -1068,6 +1073,9 @@ case "$mode" in
     ;;
   terminate-suite)
     sleep 0.02
+    if [[ -n "${FAKE_SERVICE_TERMINATED_FILE:-}" ]]; then
+      touch "$FAKE_SERVICE_TERMINATED_FILE"
+    fi
     ;;
   record-lifecycle)
     ;;
@@ -1141,6 +1149,18 @@ cat >"$smoke_service_timing_manifest" <<'JSON'
           "resource_claims": {},
           "service_session": { "target": "service-timing-suite" },
           "command": { "type": "service_complete", "service_target": "service-timing-suite" }
+        },
+        {
+          "id": "after-service",
+          "kind": "make_target",
+          "target": "after-service",
+          "label": "after-service",
+          "weight_ms": 1,
+          "needs": ["service-timing-suite"],
+          "completion_keys": ["after-service"],
+          "failure_keys": ["after-service"],
+          "resource_claims": { "host_cpu": 1 },
+          "command": { "type": "make_target", "target": "after-service" }
         }
       ],
       "finalizers": []
@@ -1149,10 +1169,12 @@ cat >"$smoke_service_timing_manifest" <<'JSON'
 }
 JSON
 smoke_service_timing_output="$(
+  FAKE_SERVICE_TERMINATED_FILE="${smoke_service_timing_dir}/service-terminated" \
   TEST_SERVICES_BIN="${smoke_service_timing_dir}/fake-test-services" \
     run_scheduler "$smoke_service_timing_dir" "$smoke_service_timing_manifest" smoke-service-timing 2>&1
 )"
 assert_contains "$smoke_service_timing_output" "[SUMMARY] target=check status=pass" "smoke service timing scheduler success"
+assert_file_present "${smoke_service_timing_dir}/service-terminated" "service completion teardown marker"
 smoke_service_timing_summary="${smoke_service_timing_dir}/results/smoke-service-timing/check/scheduler-summary.json"
 assert_file_present "$smoke_service_timing_summary" "smoke service timing scheduler summary"
 "$NODE_BIN" - "$smoke_service_timing_summary" <<'EOF'

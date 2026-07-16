@@ -18,7 +18,10 @@ export function timelinePendingQueueMessage(
   if (pendingQueueSnapshot.haltedMessage !== null) {
     return pendingQueueSnapshot.haltedMessage;
   }
-  if (pendingQueueSnapshot.authPaused) {
+  if (
+    pendingQueueSnapshot.authPaused &&
+    pendingQueueSnapshot.queuedCount + pendingQueueSnapshot.inFlightCount > 0
+  ) {
     return "Authentication is required before queued edits can replay.";
   }
   if (

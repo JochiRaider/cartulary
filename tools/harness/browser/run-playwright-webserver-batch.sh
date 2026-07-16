@@ -83,6 +83,7 @@ phase_filter="${CARTULARY_PHASE_SLICE_PHASE:-}"
 frontend_row_accounting_scope="${CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE:-}"
 frontend_row_ids="${CARTULARY_FRONTEND_ROW_ACCOUNTING_ROW_IDS:-}"
 selected_row_ids="${CARTULARY_BROWSER_SELECTED_ROW_IDS:-}"
+runtime_profile_id="${CARTULARY_BROWSER_RUNTIME_PROFILE_ID:-default}"
 
 resolve_functional_shard_limit() {
   local configured="${BROWSER_E2E_FUNCTIONAL_SHARDS:-auto}"
@@ -119,6 +120,7 @@ resolve_functional_worker_offset() {
 
 if [[ "$mode" != "support" ]]; then
   shard_plan_command=("$node_bin" "$shard_plan_script" plan --max-shards "$functional_shard_limit")
+  shard_plan_command+=(--runtime-profile-id "$runtime_profile_id")
   if [[ -n "$phase_filter" ]]; then
     shard_plan_command+=(--phase "$phase_filter")
   fi
@@ -204,7 +206,9 @@ EOF
   )
 fi
 
-if [[ -n "$phase_filter" ]]; then
+if [[ "$runtime_profile_id" != "default" ]]; then
+  support_phases=()
+elif [[ -n "$phase_filter" ]]; then
   support_count="$("$node_bin" "$manifest_script" playwright-count "$phase_filter" supplemental browser_support)"
   if [[ "$support_count" != "0" ]]; then
     support_phases=("$phase_filter")
@@ -391,13 +395,13 @@ if [[ "$mode" != "support" ]]; then
     active_shards=$((active_shards - 1))
   done
 
-  if compgen -G "${batch_dir}/browser-functional-shard-*.stdout.log" >/dev/null; then
-    cat "${batch_dir}"/browser-functional-shard-*.stdout.log >"$stdout_log"
+  if compgen -G "${batch_dir}/browser-functional*-shard-*.stdout.log" >/dev/null; then
+    cat "${batch_dir}"/browser-functional*-shard-*.stdout.log >"$stdout_log"
   else
     : >"$stdout_log"
   fi
-  if compgen -G "${batch_dir}/browser-functional-shard-*.stderr.log" >/dev/null; then
-    cat "${batch_dir}"/browser-functional-shard-*.stderr.log >"$stderr_log"
+  if compgen -G "${batch_dir}/browser-functional*-shard-*.stderr.log" >/dev/null; then
+    cat "${batch_dir}"/browser-functional*-shard-*.stderr.log >"$stderr_log"
   else
     : >"$stderr_log"
   fi
@@ -406,7 +410,7 @@ if [[ "$mode" != "support" ]]; then
     cat "$stderr_log" >&2
   fi
 
-  "$node_bin" "$shard_plan_script" merge-reports "$run_report" "${batch_dir}"/browser-functional-shard-*.json
+  "$node_bin" "$shard_plan_script" merge-reports "$run_report" "${batch_dir}"/browser-functional*-shard-*.json
 else
   : >"$stdout_log"
   : >"$stderr_log"
@@ -414,6 +418,14 @@ fi
 
 support_status=0
 if [[ ("$mode" == "webserver-backed" || "$mode" == "support") && "${#support_selection_specs[@]}" -gt 0 ]]; then
+  support_worker_count="$functional_shard_limit"
+  support_worker_offset=0
+  support_playwright_workers="$functional_shard_limit"
+  if [[ "$mode" == "support" && -n "${CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET:-}" ]]; then
+    support_worker_count="$playwright_worker_count"
+    support_worker_offset="$CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET"
+    support_playwright_workers=1
+  fi
   support_run_command=("${command[@]}" --reporter=json --output "${output_dir}/support" --project support)
   if [[ "$output_mode" != "quiet" ]]; then
     support_run_command=("${command[@]}" "--reporter=dot,json" --output "${output_dir}/support" --project support)
@@ -424,6 +436,9 @@ if [[ ("$mode" == "webserver-backed" || "$mode" == "support") && "${#support_sel
   CARTULARY_PLAYWRIGHT_FUNCTIONAL_FILES="$all_functional_files" \
   CARTULARY_PLAYWRIGHT_SUPPORT_GREP="$all_support_grep" \
   CARTULARY_PLAYWRIGHT_SUPPORT_FILES="$all_support_files" \
+  CARTULARY_PLAYWRIGHT_WORKER_COUNT="$support_worker_count" \
+  CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET="$support_worker_offset" \
+  PLAYWRIGHT_WORKERS="$support_playwright_workers" \
   PLAYWRIGHT_JSON_OUTPUT_FILE="$support_report" \
     "${support_run_command[@]}" >"$support_stdout_log" 2>"$support_stderr_log"
   support_status=$?

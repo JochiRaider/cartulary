@@ -836,7 +836,30 @@ func (s *Service) projectNetworkFlowGraph(ctx context.Context, actorUserID uuid.
 	if err != nil {
 		return nil, graphProjectionFailed("adapter_contract_rejected")
 	}
-	input := map[string]any{
+	input := networkFlowProjectionInput(graphViewID, graphViewKey, actorUserID, sourceSnapshotID, composition, requestedAt)
+	projectionResource, err := projector.ProjectEphemeral(ctx, canonicalJSON(input))
+	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
+			return nil, graphProjectionFailed("projection_cancelled")
+		}
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return nil, graphProjectionFailed("projection_timeout")
+		}
+		var adapterErr *graphProjectionAdapterError
+		if errors.As(err, &adapterErr) {
+			return nil, graphProjectionFailed(adapterErr.reason)
+		}
+		return nil, graphProjectionFailed("projection_unavailable")
+	}
+	summary, ok := projectionResource["validation_summary"].(map[string]any)
+	if !ok || summary["fatal_count"] != 0 || summary["error_count"] != 0 || summary["warning_count"] != 0 || summary["info_count"] != 0 {
+		return nil, graphProjectionFailed("adapter_contract_rejected")
+	}
+	return projectionResource, nil
+}
+
+func networkFlowProjectionInput(graphViewID string, graphViewKey string, actorUserID uuid.UUID, sourceSnapshotID string, composition graphComposition, requestedAt time.Time) map[string]any {
+	return map[string]any{
 		"projection_schema_id": graphProjectionSchemaID,
 		"graph_view_id":        graphViewID,
 		"source_snapshot_id":   sourceSnapshotID,
@@ -857,28 +880,13 @@ func (s *Service) projectNetworkFlowGraph(ctx context.Context, actorUserID uuid.
 		},
 		"relationship_definitions": []any{},
 		"property_definitions":     graphPropertyDefinitions(),
-		"requested_at":             requestedAt.UTC().Format(time.RFC3339Nano),
+		"requested_at":             graphProjectionTimestamp(requestedAt),
 		"requested_by":             actorUserID.String(),
 	}
-	projectionResource, err := projector.ProjectEphemeral(ctx, canonicalJSON(input))
-	if err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
-			return nil, graphProjectionFailed("projection_cancelled")
-		}
-		if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			return nil, graphProjectionFailed("projection_timeout")
-		}
-		var adapterErr *graphProjectionAdapterError
-		if errors.As(err, &adapterErr) {
-			return nil, graphProjectionFailed(adapterErr.reason)
-		}
-		return nil, graphProjectionFailed("projection_unavailable")
-	}
-	summary, ok := projectionResource["validation_summary"].(map[string]any)
-	if !ok || summary["fatal_count"] != 0 || summary["error_count"] != 0 || summary["warning_count"] != 0 || summary["info_count"] != 0 {
-		return nil, graphProjectionFailed("adapter_contract_rejected")
-	}
-	return projectionResource, nil
+}
+
+func graphProjectionTimestamp(value time.Time) string {
+	return value.UTC().Truncate(time.Microsecond).Format(time.RFC3339Nano)
 }
 
 func networkFlowProjectionConfig(graphViewKey string) map[string]any {
@@ -907,7 +915,6 @@ func networkFlowProjectionConfig(graphViewKey string) map[string]any {
 				"inclusion_predicate":      "always",
 				"direction_policy":         "preserve",
 				"emit_reverse_edge":        false,
-				"reverse_edge_kind":        "network_flow.flow_edge.v1",
 				"label_policy":             "mapping_only",
 				"mapping_labels":           []any{},
 				"required_property_keys":   []any{"bytes_sum", "contributing_table_ids", "dst_endpoint_id", "dst_port", "edge_id", "example_refs_total_count", "example_refs_truncated", "first_flow_start_utc", "flow_row_count", "ip_protocol", "last_flow_end_utc", "packets_sum", "src_endpoint_id"},
@@ -1291,10 +1298,14 @@ func (s *Service) recordGraphQueryAudit(ctx context.Context, incidentID uuid.UUI
 }
 
 func graphSemanticQueryResource(tableIDs []string, filters []Filter, timeRange graphTimeRange, aggregation graphAggregation, limits graphResultLimits) map[string]any {
+	normalizedFilters := filters
+	if normalizedFilters == nil {
+		normalizedFilters = []Filter{}
+	}
 	return map[string]any{
 		"schema_id":          schemaGraphSemanticQuery,
 		"selected_table_ids": tableIDs,
-		"filters":            filters,
+		"filters":            normalizedFilters,
 		"time_range":         graphTimeRangeResource(timeRange),
 		"aggregation":        graphAggregationResource(aggregation),
 		"result_limits":      graphResultLimitsResource(limits),
@@ -1352,12 +1363,16 @@ func graphSelectorResource(selector graphSelector) map[string]any {
 func graphQueryDigest(incidentID uuid.UUID, tableIDs []string, filters []Filter, timeRange graphTimeRange, aggregation graphAggregation) string {
 	sortedTableIDs := append([]string(nil), tableIDs...)
 	sort.Strings(sortedTableIDs)
+	normalizedFilters := filters
+	if normalizedFilters == nil {
+		normalizedFilters = []Filter{}
+	}
 	var b bytes.Buffer
 	writeDigestPart(&b, "cartulary.network_flow.graph_query_digest.v1")
 	writeDigestPart(&b, incidentID.String())
 	b.Write(canonicalJSON(map[string]any{"table_ids": sortedTableIDs}))
 	b.WriteByte(0)
-	b.Write(canonicalJSON(filters))
+	b.Write(canonicalJSON(normalizedFilters))
 	b.WriteByte(0)
 	if timeRange.Omitted || (timeRange.StartUTC == nil && timeRange.EndUTC == nil) {
 		b.Write(canonicalJSON(nil))

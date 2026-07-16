@@ -1024,7 +1024,7 @@ export interface GraphProjectionEdgeMetadata {
  * via the `definition` "GraphProjectionValidationSummary".
  */
 export interface GraphProjectionValidationSummary {
-  status: "valid";
+  status: "passed";
   fatal_count: 0;
   error_count: 0;
   warning_count: 0;

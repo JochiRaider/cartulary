@@ -73,12 +73,17 @@ run_group() {
   local selected_phase="$6"
   local selected_row_ids="$7"
   local browser_session_group="$8"
-  shift 8
+  local runtime_profile_id="$9"
+  shift 9
 
   local -a group_env=(
     env
     "CARTULARY_TEST_TARGET=$target"
     "NODE_BIN=$PLAYWRIGHT_OWNED_STACK_NODE_BIN"
+    "CARTULARY_BROWSER_RUNTIME_PROFILE_ID=$runtime_profile_id"
+    "CARTULARY_BROWSER_GROUP_KIND=$kind"
+    "CARTULARY_BROWSER_GROUP_COVERAGE=$coverage"
+    "CARTULARY_BROWSER_GROUP_EXECUTION_DEPENDENCY=$execution_dependency"
   )
 
   if [[ -n "$selected_phase" ]]; then
@@ -94,7 +99,11 @@ run_group() {
   fi
 
   if [[ "$workers" != "default" ]]; then
-    group_env+=("PLAYWRIGHT_WORKERS=$workers")
+    group_env+=(
+      "CARTULARY_PLAYWRIGHT_WORKER_COUNT=$workers"
+      "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET=0"
+      "PLAYWRIGHT_WORKERS=$workers"
+    )
   fi
 
   case "$kind" in
@@ -170,7 +179,11 @@ fi
 
 for group_row in "${stage_groups[@]}"; do
   group_row_fields="${group_row//$'\t'/$'\x1f'}"
-  IFS=$'\x1f' read -r _group_name target kind workers reset_before coverage execution_dependency _stage_schedule_tags _stage_scheduler_needs selected_phase selected_row_ids browser_session_group _browser_session_isolation_reason <<<"$group_row_fields"
+  IFS=$'\x1f' read -r _group_name target kind workers reset_before coverage execution_dependency _stage_schedule_tags _stage_scheduler_needs selected_phase selected_row_ids browser_session_group _browser_session_isolation_reason runtime_profile_id <<<"$group_row_fields"
+
+  if [[ -n "${CARTULARY_BROWSER_SELECTED_GROUPS:-}" && ",${CARTULARY_BROWSER_SELECTED_GROUPS}," != *",${_group_name},"* ]]; then
+    continue
+  fi
 
   if [[ -n "${CARTULARY_BROWSER_SELECTED_ROW_IDS:-}" ]]; then
     selected_phase="${CARTULARY_BROWSER_SELECTED_PHASE:-${CARTULARY_PHASE_SLICE_PHASE:-$selected_phase}}"
@@ -184,7 +197,7 @@ for group_row in "${stage_groups[@]}"; do
   fi
 
   set +e
-  run_group "$target" "$kind" "$workers" "$coverage" "$execution_dependency" "$selected_phase" "$selected_row_ids" "$browser_session_group"
+  run_group "$target" "$kind" "$workers" "$coverage" "$execution_dependency" "$selected_phase" "$selected_row_ids" "$browser_session_group" "$runtime_profile_id"
   group_status=$?
   set -e
 

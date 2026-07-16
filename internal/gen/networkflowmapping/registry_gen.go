@@ -72,8 +72,8 @@ var Registry = MappingRegistry{
 			},
 			SupportedTimestampModes: []string{"rfc3339", "epoch_seconds", "epoch_milliseconds", "netflow_sys_uptime_milliseconds"},
 			Fields: []Field{
-				{FieldKey: "network_flow.flow_start_utc", Requirement: "required", TransformID: "timestamp_profile_v1", EmptyValuePolicy: "empty_string_is_invalid", Aliases: []string{"Flow Start Time", "First Seen", "FIRST_SWITCHED", "flowStartMilliseconds", "flowStartSeconds"}},
-				{FieldKey: "network_flow.flow_end_utc", Requirement: "required", TransformID: "timestamp_profile_v1", EmptyValuePolicy: "empty_string_is_invalid", Aliases: []string{"Flow End Time", "Last Seen", "LAST_SWITCHED", "flowEndMilliseconds", "flowEndSeconds"}},
+				{FieldKey: "network_flow.flow_start_utc", Requirement: "required", TransformID: "timestamp_profile_v1", EmptyValuePolicy: "empty_string_is_invalid", Aliases: []string{"Start Time", "Flow Start Time", "First Seen", "FIRST_SWITCHED", "flowStartMilliseconds", "flowStartSeconds"}},
+				{FieldKey: "network_flow.flow_end_utc", Requirement: "required", TransformID: "timestamp_profile_v1", EmptyValuePolicy: "empty_string_is_invalid", Aliases: []string{"End Time", "Flow End Time", "Last Seen", "LAST_SWITCHED", "flowEndMilliseconds", "flowEndSeconds"}},
 				{FieldKey: "network_flow.src_ip", Requirement: "required", TransformID: "ip_literal_v1", EmptyValuePolicy: "empty_string_is_invalid", Aliases: []string{"Source IP Address", "Source IP", "IPV4_SRC_ADDR", "sourceIPv4Address", "IPV6_SRC_ADDR", "sourceIPv6Address"}},
 				{FieldKey: "network_flow.dst_ip", Requirement: "required", TransformID: "ip_literal_v1", EmptyValuePolicy: "empty_string_is_invalid", Aliases: []string{"Destination IP Address", "Destination IP", "IPV4_DST_ADDR", "destinationIPv4Address", "IPV6_DST_ADDR", "destinationIPv6Address"}},
 				{FieldKey: "network_flow.src_port", Requirement: "required", TransformID: "port_number_v1", EmptyValuePolicy: "empty_string_is_invalid", Aliases: []string{"Source Port", "L4_SRC_PORT", "sourceTransportPort"}},

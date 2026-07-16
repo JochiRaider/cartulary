@@ -39,6 +39,7 @@ import {
   mentionItemTestId,
   mentionResolveExistingButtonTestId,
   mentionResolveTargetSelectTestId,
+  networkAnalysisTestId,
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
   phase1AuthTestId,
@@ -133,6 +134,11 @@ import {
   openIncidentAsTrackedUserReady,
   successfulPatchCalls,
 } from "./phase6Harness";
+import {
+  importPhase12NetworkFlowCSV,
+  openClaimedNetworkAnalysis,
+  phase12NetworkFlowMinimalCSV,
+} from "./phase12NetworkFlowHarness";
 import { injectDesignFixture } from "./visualFixtureHelpers";
 
 type ViewRow = {
@@ -173,8 +179,8 @@ type FrontendVisualFixtureRegistry = {
   schema_id: string;
 };
 
-const expectedFeP11VisualFixtureIds = Array.from(
-  { length: 21 },
+const expectedFrontendVisualFixtureIds = Array.from(
+  { length: 22 },
   (_, index) => `FE-VFIX-${String(index + 1).padStart(2, "0")}`,
 );
 
@@ -3444,7 +3450,7 @@ test.describe("FE-P11 visual readiness", () => {
       "docs/guides/cartulary_frontend_implementation_testing_guide.md",
     );
     expect(registry.fixtures.map((fixture) => fixture.fixture_id)).toEqual(
-      expectedFeP11VisualFixtureIds,
+      expectedFrontendVisualFixtureIds,
     );
     for (const fixture of registry.fixtures) {
       if (fixture.status === "current") {
@@ -3489,7 +3495,7 @@ test.describe("FE-P11 visual readiness", () => {
     const fixturesById = new Map(
       registry.fixtures.map((fixture) => [fixture.fixture_id, fixture]),
     );
-    expect([...fixturesById.keys()]).toEqual(expectedFeP11VisualFixtureIds);
+    expect([...fixturesById.keys()]).toEqual(expectedFrontendVisualFixtureIds);
 
     const defaultShell = fixturesById.get("FE-VFIX-01");
     expect(defaultShell?.fixture_title).toBe("Default Timeline workbook shell");
@@ -3513,8 +3519,8 @@ test.describe("FE-P11 visual readiness", () => {
       body: Buffer.from(
         JSON.stringify(
           {
-            fixture_ids: expectedFeP11VisualFixtureIds,
-            matrix_titles: expectedFeP11VisualFixtureIds.map(
+            fixture_ids: expectedFrontendVisualFixtureIds,
+            matrix_titles: expectedFrontendVisualFixtureIds.map(
               (fixtureId) => fixturesById.get(fixtureId)?.fixture_title,
             ),
             non_claim_boundaries: [
@@ -5577,4 +5583,55 @@ function tinyPNG() {
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
     "base64",
   );
+}
+
+if (
+  (process.env.CARTULARY_BROWSER_RUNTIME_PROFILE_ID ?? "default") ===
+  "network_flow_claimed"
+) {
+  test("FE-V-P12-01 Capture claimed Network Analysis accepted inspector, rejected diagnostics, and graph contributor drawer at the deterministic desktop viewport.", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openClaimedNetworkAnalysis(page, "FEP12VISUAL");
+    const fixture = readFileSync(phase12NetworkFlowMinimalCSV, "utf8");
+    const lines = fixture.trimEnd().split("\n");
+    const invalidRow = lines.at(-1)?.replace("192.0.2.10", "not-an-ip") ?? "";
+    await importPhase12NetworkFlowCSV(page, {
+      displayName: "visual-flow",
+      file: {
+        name: "visual-flow.csv",
+        mimeType: "text/csv",
+        buffer: Buffer.from(`${fixture.trimEnd()}\n${invalidRow}\n`),
+      },
+    });
+    await page
+      .getByRole("gridcell", { name: /Source IP:/u })
+      .first()
+      .click();
+    await expect(
+      page.getByTestId(networkAnalysisTestId("inspector")),
+    ).toBeVisible();
+
+    await assertViewportVisualRegression(
+      page,
+      "fe-v-p12-01-network-analysis-accepted-inspector",
+    );
+    await page.getByTestId(networkAnalysisTestId("mode-rejected")).click();
+    await assertViewportVisualRegression(
+      page,
+      "fe-v-p12-01-network-analysis-rejected-diagnostics",
+    );
+    await page.getByTestId(networkAnalysisTestId("mode-graph")).click();
+    const edge = page.getByTestId(/^network-flow-edge-/).first();
+    await expect(edge).toBeVisible();
+    await edge.getByRole("button", { name: "Select edge" }).click();
+    await expect(
+      page.getByTestId(networkAnalysisTestId("contributor-drawer")),
+    ).toBeVisible();
+    await assertViewportVisualRegression(
+      page,
+      "fe-v-p12-01-network-analysis-graph-contributors",
+    );
+  });
 }

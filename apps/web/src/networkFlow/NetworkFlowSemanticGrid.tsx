@@ -112,6 +112,7 @@ export function NetworkFlowAcceptedGrid({
       }) => (
         <SemanticDataGrid
           ref={gridRef}
+          accessibleLabel="Accepted Network Flow rows"
           activeRowIdentity={activeAnchor?.rowIdentity ?? null}
           cellRange={cellRange}
           columns={columns}
@@ -218,6 +219,7 @@ export function NetworkFlowRejectedGrid({
       }) => (
         <SemanticDataGrid
           ref={gridRef}
+          accessibleLabel="Rejected Network Flow diagnostics"
           activeRowIdentity={activeAnchor?.rowIdentity ?? null}
           cellRange={cellRange}
           columns={columns}
@@ -291,7 +293,7 @@ export function NetworkFlowContributorGrid({
       getValue: (row: NetworkFlowRow) => row.network_flow_table_id,
       formatLabel: (value: boolean | number | string | null) =>
         typeof value === "string"
-          ? `${tableNames.get(value) ?? "Unavailable table"} (${value})`
+          ? (tableNames.get(value) ?? "Unavailable table")
           : null,
     }),
     [tableNames],
@@ -305,6 +307,7 @@ export function NetworkFlowContributorGrid({
         testId={networkAnalysisTestId("contributor-grid")}
       >
         <SemanticDataGrid
+          accessibleLabel="Network Flow graph contributors"
           columns={columns}
           columnWidths={layout.columnWidths}
           dataRows={dataRows}

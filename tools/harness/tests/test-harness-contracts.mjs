@@ -568,11 +568,10 @@ test("network flow authored contracts are closed and index-owned", async () => {
   const tempIndex = {
     ...contractIndex,
     contract_files: {
+      ...contractIndex.contract_files,
       routes: relativePath(tempRoutesPath),
       schemas: relativePath(tempSchemasPath),
       errors: relativePath(tempErrorsPath),
-      timezone_provenance: contractIndex.contract_files.timezone_provenance,
-      key_rings: contractIndex.contract_files.key_rings,
     },
   };
   const writeTempContracts = ({

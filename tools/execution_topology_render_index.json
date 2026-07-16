@@ -2,27 +2,27 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:7867f24eef439100a7bec7a93ca43898293157043798e276b3a86bedc9330c28",
+  "input_digest": "sha256:23146130c0ba770e8a8520b73b1a651db5e1239bde0f5d98b5ee558565b278f9",
   "inputs": [
     {
       "path": "tools/browser_e2e_duration_baselines.json",
       "role": "duration_baseline",
-      "hash": "sha256:e5891d8acb990389ea554af0232187f832f5d697fc56d0a23076ac3716f21d49"
+      "hash": "sha256:71f337e16fbee1e688e772a849f8ff3f031341138b115bbf46f8f20717c3fcae"
     },
     {
       "path": "tools/execution_topology_manifest.json",
       "role": "execution_topology",
-      "hash": "sha256:788a7d9cb1142d6b6ee0099429a834386895ffd0bbfbc6e7548f4a4b5c3dcf64"
+      "hash": "sha256:c00f7f28992bb63f660411c5ea7c9a115ad692721af9f3c66ffde55f2db602e0"
     },
     {
       "path": "tools/go_test_duration_baselines.json",
       "role": "duration_baseline",
-      "hash": "sha256:30bc57dbc18a75addb607e4c7c865ca73acbc9c3a2fd014f1d4f4eeceaab605d"
+      "hash": "sha256:7dd9f108a55f7b65295a1abb1c76aed1131603a0caf6ca5db3db9333403f328e"
     },
     {
       "path": "tools/harness_smoke_duration_baselines.json",
       "role": "duration_baseline",
-      "hash": "sha256:8de7b3fe5f73ec835df1037e5d8d5be2a58b9061d6d8804f4bab6c362e58243a"
+      "hash": "sha256:18a9b5b4a76ff022b375f3cd3485f0192e659e766f775c8c1c2c4769ad8d87a3"
     },
     {
       "path": "tools/harness/backend/backend-duration-accounting.mjs",
@@ -157,17 +157,22 @@
     {
       "path": "tools/harness/browser/accessibility-summary-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:88f7747577b4da6ec906f9808a22db80fb1636204c087b1ccca756d336778e10"
+      "hash": "sha256:eca4e4239a0a540b7041c5f23c4513e3ca857297ff7178b862362bfabd18caef"
     },
     {
       "path": "tools/harness/browser/browser-batch-manifest.mjs",
       "role": "renderer_source",
-      "hash": "sha256:8ace86be9a7f181466e00d115db54b92c649300e354d34d6e143845340a07316"
+      "hash": "sha256:d6f07b7bd92f9ac04cc17f5b5f375f4596be986b265bdb697cf8c78dde024cd8"
     },
     {
       "path": "tools/harness/browser/browser-duration-accounting.mjs",
       "role": "renderer_source",
-      "hash": "sha256:3c8399369f29885d8cfec694bcbbab3c753cce306d6cb00a5f72d3186acedd25"
+      "hash": "sha256:76506bfa90c2604c559b54aea35c37ccb77c3d442658b280cacf7bd34efbcf92"
+    },
+    {
+      "path": "tools/harness/browser/browser-runtime-profile.mjs",
+      "role": "renderer_source",
+      "hash": "sha256:9553b3d7381da4270136f3b79d7e4ecffe3f9241dfba9a893bc6f2cbcc31562c"
     },
     {
       "path": "tools/harness/browser/browser-scheduler-dependencies.mjs",
@@ -177,7 +182,7 @@
     {
       "path": "tools/harness/browser/browser-shard-plan.mjs",
       "role": "renderer_source",
-      "hash": "sha256:86ff3699c0525df1875e247d1d5ba50b77d3040a4fb8c2f26a5aee3f40adbf4f"
+      "hash": "sha256:2d7ded001ba9f0e28d1155d8b5cac4b009a8bf99cb0a60d81dc774c01548e288"
     },
     {
       "path": "tools/harness/browser/playwright-report.mjs",
@@ -212,12 +217,12 @@
     {
       "path": "tools/harness/execution/service-backed/schedule-browser-planning.mjs",
       "role": "renderer_source",
-      "hash": "sha256:f78f58c7f8f117ba95e0124b77feedfc6568b7bde8fdd245d2cbb63a90d9b5ce"
+      "hash": "sha256:31911e04a6f7c8293a57d00a46ad2edb55914a5cbe369a2e9c144e808aee0bda"
     },
     {
       "path": "tools/harness/execution/service-backed/schedule-expansion.mjs",
       "role": "renderer_source",
-      "hash": "sha256:8ff7caeab50d46cf85cc96112b0cb0046591dbe8743c7b66374d42ff3265ca7f"
+      "hash": "sha256:8c83b439f868af0e05067ed9e348550d4e09f9cde6331906c563eab53a14cf81"
     },
     {
       "path": "tools/harness/execution/service-backed/schedule-go-planning.mjs",
@@ -227,7 +232,7 @@
     {
       "path": "tools/harness/execution/service-backed/schedule-manifest.mjs",
       "role": "renderer_source",
-      "hash": "sha256:b5f6261a4dd879373916a0797b578c70e28eceb96c5524eef0a0f398d67f5a7e"
+      "hash": "sha256:b34fbccbaa44f05d16cc2c46c760dfbd254c35eced6f531605fc09f35017c9e0"
     },
     {
       "path": "tools/harness/execution/service-backed/schedule-planning.mjs",
@@ -307,7 +312,7 @@
     {
       "path": "tools/harness/generated-artifacts/execution-topology.mjs",
       "role": "renderer_source",
-      "hash": "sha256:8beb6f1809548bacc4b86d1a6c8aeef73fad96903a59dfa5ee22bf6db57ab1d1"
+      "hash": "sha256:e74d99ed35d406b33369726c91dab08d96558803b3c659fd4cc2bcf3a491302f"
     },
     {
       "path": "tools/harness/generated-artifacts/index.mjs",
@@ -337,7 +342,7 @@
     {
       "path": "tools/harness/generated-artifacts/render-service-backed-schedule-manifest.mjs",
       "role": "renderer_source",
-      "hash": "sha256:86ec7c89630f6677ae917363954c339307d2518c620cea22bfb4188e3aa34014"
+      "hash": "sha256:a3b0a24e2189923595e58acdf8ee1ac0ed30e262078c85d869ddb124cb71cd22"
     },
     {
       "path": "tools/harness/generated-artifacts/render-task-surface-make.mjs",
@@ -417,7 +422,7 @@
     {
       "path": "tools/harness/phase-accounting/frontend/cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:ec8546795af5c087b57411e74c11968deeedd4d701302b622fec00db294623f3"
+      "hash": "sha256:73744818e358c0be2b7b2c0ad610c528812189eb3a228d69a8b89b236e54ed01"
     },
     {
       "path": "tools/harness/phase-accounting/frontend/common.mjs",
@@ -427,7 +432,7 @@
     {
       "path": "tools/harness/phase-accounting/frontend/constants.mjs",
       "role": "renderer_source",
-      "hash": "sha256:b169e9e7c6e22cb3176992822476b1751851e336a2a631dd90a97d8c6cbc1d98"
+      "hash": "sha256:dd4112c8cec8ac2bb2063753734837180811f61f8a44cbba6f3eb2adce585400"
     },
     {
       "path": "tools/harness/phase-accounting/frontend/evidence-audit.mjs",
@@ -472,7 +477,7 @@
     {
       "path": "tools/harness/phase-accounting/frontend/phase-map-validation.mjs",
       "role": "renderer_source",
-      "hash": "sha256:99ce8a2ed8a148670cc9a3bc097b5e2bbf8aaf6c52dd92381cf8949f9954cca3"
+      "hash": "sha256:0e6dd586f3312385eaa69658a36f651cba95bfb862532c103abd4ff5d8aaa7db"
     },
     {
       "path": "tools/harness/phase-accounting/frontend/registry-loader.mjs",
@@ -492,7 +497,7 @@
     {
       "path": "tools/harness/phase-accounting/frontend/scenario-grep.mjs",
       "role": "renderer_source",
-      "hash": "sha256:23d653fa4f164ac66e91d5de15bb0d5a9a8582c36ef075f5ccd954bd14955b74"
+      "hash": "sha256:b95758406d9933e2256701289335be205302b3b6f1dc2b6abb3bac986093131a"
     },
     {
       "path": "tools/harness/phase-accounting/frontend/source-index.mjs",
@@ -557,7 +562,7 @@
     {
       "path": "tools/harness/phase-accounting/phase-manifest-shape.mjs",
       "role": "renderer_source",
-      "hash": "sha256:1b60eefe31f6b2ec2d5f8446fc72f9c0bab3712858fc1c343a8d168453988f43"
+      "hash": "sha256:f91d8bec6b0c39b22c583a051308c0699e63ce385cfe6137e5338825818dd1f7"
     },
     {
       "path": "tools/harness/phase-accounting/phase-manifest-source-scan.mjs",
@@ -662,12 +667,12 @@
     {
       "path": "tools/harness/scheduler/check-schedule-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:34a67e7b5c56dd149e17f18b9199c7b3859d138a9fa47c975e47918d747d5e03"
+      "hash": "sha256:61c4322e4ba5c192079997a9303931a381bf655cdfdc259e06574043ee0cc44b"
     },
     {
       "path": "tools/harness/scheduler/phase-slice-execution.mjs",
       "role": "renderer_source",
-      "hash": "sha256:be878b849ac49695728eb6178e7470dd1427cf04629669919d23f7ce99d5e064"
+      "hash": "sha256:172d38b7d81674ce857b9b2743620b59af81c1058732b2a47b7138721a2d8867"
     },
     {
       "path": "tools/harness/scheduler/process-executor.mjs",
@@ -777,7 +782,7 @@
     {
       "path": "tools/harness/scheduler/scheduler/service-session-runtime.mjs",
       "role": "renderer_source",
-      "hash": "sha256:18057872e892bda127e4c055fe6aa459a923a273d658d447253d689ade0e7c2c"
+      "hash": "sha256:5171e2d1e9e4920a7d3d164188b7f68d1b92f8d58109131981f1289a5529d496"
     },
     {
       "path": "tools/harness/scheduler/scheduler/state.mjs",
@@ -792,7 +797,7 @@
     {
       "path": "tools/harness/scheduler/service-backed-schedule-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:47f33a36896f6589d9dce686be2761efb750a488b56cb63ec252d73be892acdf"
+      "hash": "sha256:931f54d02de31c194850425f315ff20651bde24b7460d1bdcb4afa2297bf20cf"
     },
     {
       "path": "tools/phase_registry.json",
@@ -822,7 +827,7 @@
     {
       "path": "tools/phase12_test_map.json",
       "role": "active_phase_manifest",
-      "hash": "sha256:ba5da0e1db552e012d232f34c2f78cd35fa1bc5f4b435b54de3384a93896d102"
+      "hash": "sha256:a1eaa33a28be7aa449ac3b0b0bd51fcdfb23a3b386fcc35f8c941acc2f4dde56"
     },
     {
       "path": "tools/phase2_test_map.json",
@@ -872,7 +877,7 @@
     {
       "path": "tools/service_backed_make_target_duration_baselines.json",
       "role": "duration_baseline",
-      "hash": "sha256:eed9c2199b419d0a110ba0f0697a448da3a4519df92b3ba102351a0485aa9452"
+      "hash": "sha256:bd3c8ef95467b2f911e4382eacb7728cac93e9523aeef5554e08f5fd3ad1a130"
     },
     {
       "path": "tools/task_surface_owner.json",
@@ -881,8 +886,8 @@
     }
   ],
   "outputs": {
-    "tools/browser_e2e_batch_manifest.json": "sha256:81b3f556718b21bb7d2aa22a68cde47a5238dd26e8a4f9ddf641e6a199f67765",
-    "tools/scheduler_manifest.json": "sha256:ce51a3e56e5154cadc88ec63f7d05259a9e02b594894ffc7230336475f29e635",
+    "tools/browser_e2e_batch_manifest.json": "sha256:42bb6f78ba4d7421a6981c20d07ae22227e77d61733d2e9130df834cecae1337",
+    "tools/scheduler_manifest.json": "sha256:decadd5be50887e552b2268c5a565a193464759ad456d3931e7a47b3ed0fa99a",
     "tools/task_surface_manifest.json": "sha256:cd182efd952ff5b5e7aceb0518c66b95ecf32b873c8d29873a0fcec50689d418",
     "tools/task_surface.generated.mk": "sha256:e983b324959c3602ddc2ffff2ba32f91780073a12fb3d547f8a8e5f254286633",
     "tools/task_surface.runtime.generated.mk": "sha256:e871011214662f0ca43437cca5c270858d8998b7631416d37b4c756b1b9ccec7"

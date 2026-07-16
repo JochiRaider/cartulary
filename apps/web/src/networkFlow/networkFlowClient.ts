@@ -57,6 +57,18 @@ export type {
 export const networkFlowActivityProfileId = "network_flow_activity";
 export const networkAnalysisWorkspaceKey = "network_analysis";
 
+function networkFlowResponseData(payload: unknown): unknown {
+  if (
+    payload === null ||
+    typeof payload !== "object" ||
+    Array.isArray(payload) ||
+    !("data" in payload)
+  ) {
+    throw new Error("invalid_network_flow_success_envelope");
+  }
+  return payload.data;
+}
+
 export function networkAnalysisSheetRef(): Extract<
   WorkbookSheetRef,
   { kind: "extension_workspace" }
@@ -103,7 +115,8 @@ export async function listNetworkFlowTables(options: {
   if (!result.ok) {
     throw networkFlowRequestError(result.status, result.payload);
   }
-  return decodeNetworkFlowTableList(result.payload).tables;
+  return decodeNetworkFlowTableList(networkFlowResponseData(result.payload))
+    .tables;
 }
 
 export async function renameNetworkFlowTable(options: {
@@ -125,7 +138,9 @@ export async function renameNetworkFlowTable(options: {
   if (!result.ok) {
     throw networkFlowRequestError(result.status, result.payload);
   }
-  return decodeNetworkFlowTableMutationResult(result.payload).table;
+  return decodeNetworkFlowTableMutationResult(
+    networkFlowResponseData(result.payload),
+  ).table;
 }
 
 export async function softDeleteNetworkFlowTable(options: {
@@ -145,7 +160,9 @@ export async function softDeleteNetworkFlowTable(options: {
   if (!result.ok) {
     throw networkFlowRequestError(result.status, result.payload);
   }
-  return decodeNetworkFlowTableMutationResult(result.payload).table;
+  return decodeNetworkFlowTableMutationResult(
+    networkFlowResponseData(result.payload),
+  ).table;
 }
 
 export async function queryNetworkFlowTable(options: {
@@ -174,7 +191,9 @@ export async function queryNetworkFlowTable(options: {
   if (!result.ok) {
     throw networkFlowRequestError(result.status, result.payload);
   }
-  const response = decodeNetworkFlowTableQueryResult(result.payload);
+  const response = decodeNetworkFlowTableQueryResult(
+    networkFlowResponseData(result.payload),
+  );
   return { rows: response.rows, paging: response.meta.paging };
 }
 
@@ -204,7 +223,9 @@ export async function queryNetworkFlowRejectedRows(options: {
   if (!result.ok) {
     throw networkFlowRequestError(result.status, result.payload);
   }
-  const response = decodeNetworkFlowRejectedRowsQueryResult(result.payload);
+  const response = decodeNetworkFlowRejectedRowsQueryResult(
+    networkFlowResponseData(result.payload),
+  );
   return {
     diagnostics: response.diagnostics,
     paging: response.meta.paging,
@@ -247,7 +268,7 @@ export async function queryNetworkFlowGraph(options: {
   if (!result.ok) {
     throw networkFlowRequestError(result.status, result.payload);
   }
-  return decodeNetworkFlowGraphResult(result.payload);
+  return decodeNetworkFlowGraphResult(networkFlowResponseData(result.payload));
 }
 
 export async function queryNetworkFlowContributors(options: {
@@ -272,7 +293,9 @@ export async function queryNetworkFlowContributors(options: {
   if (!result.ok) {
     throw networkFlowRequestError(result.status, result.payload);
   }
-  return decodeNetworkFlowContributorResult(result.payload);
+  return decodeNetworkFlowContributorResult(
+    networkFlowResponseData(result.payload),
+  );
 }
 
 export async function linkNetworkFlowIndicator(options: {
@@ -303,7 +326,9 @@ export async function linkNetworkFlowIndicator(options: {
   if (!result.ok) {
     throw networkFlowRequestError(result.status, result.payload);
   }
-  return decodeNetworkFlowIndicatorLinkResult(result.payload);
+  return decodeNetworkFlowIndicatorLinkResult(
+    networkFlowResponseData(result.payload),
+  );
 }
 
 export async function getNetworkFlowBindingSourceRowLimit(options: {
@@ -321,7 +346,9 @@ export async function getNetworkFlowBindingSourceRowLimit(options: {
   if (!result.ok) {
     throw networkFlowRequestError(result.status, result.payload);
   }
-  const response = decodeNetworkFlowSourceProfileList(result.payload);
+  const response = decodeNetworkFlowSourceProfileList(
+    networkFlowResponseData(result.payload),
+  );
   return response.effective_limits["network_flow.max_binding_source_row_refs"];
 }
 

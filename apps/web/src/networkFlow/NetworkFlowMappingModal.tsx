@@ -205,6 +205,12 @@ export function NetworkFlowMappingModal({
         </div>
 
         <section aria-label="Source-column mappings" style={mappingListStyle}>
+          {draft.unresolvedAliasCollisionOrdinals.length === 0 ? null : (
+            <div aria-label="Alias collision" role="alert" style={alertStyle}>
+              Duplicate source aliases suggest the same target field. Explicitly
+              map or ignore every highlighted column before previewing.
+            </div>
+          )}
           {discovery.preview.columns.map((column) => {
             const sourceColumn = preview?.source_columns.find(
               (candidate) =>
@@ -214,7 +220,17 @@ export function NetworkFlowMappingModal({
             const choice =
               draft.columnChoices[column.source_column_ordinal] ?? null;
             return (
-              <div key={column.source_column_ordinal} style={mappingRowStyle}>
+              <div
+                key={column.source_column_ordinal}
+                data-alias-collision={
+                  draft.unresolvedAliasCollisionOrdinals.includes(
+                    column.source_column_ordinal,
+                  )
+                    ? "unresolved"
+                    : undefined
+                }
+                style={mappingRowStyle}
+              >
                 <div>
                   <strong>{sourceColumnLabel(column)}</strong>
                   {sourceColumn === undefined ? null : (

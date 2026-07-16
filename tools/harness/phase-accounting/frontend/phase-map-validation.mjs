@@ -151,6 +151,11 @@ export function validateFrontendPhaseMap(
     if (row.default_check_reason !== undefined) {
       requireString(row.default_check_reason, `${rowLabel}.default_check_reason`);
     }
+    if (row.runtime_profile_id !== undefined) {
+      requireString(row.runtime_profile_id, `${rowLabel}.runtime_profile_id`, {
+        pattern: /^[a-z][a-z0-9_]*$/u,
+      });
+    }
     requireObjectArray(row.owner_refs, `${rowLabel}.owner_refs`, {
       nonEmpty: true,
     }).forEach((ownerRef, ownerIndex) => {

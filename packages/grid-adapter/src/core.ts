@@ -176,6 +176,7 @@ export type GridViewportProps = PropsWithChildren<{
 }>;
 
 type SemanticDataGridBaseProps<Row> = {
+  readonly accessibleLabel?: string | undefined;
   readonly allowPasteCreateRows?: boolean | undefined;
   readonly activeRowIdentity?: GridRowIdentity | null | undefined;
   readonly actionsColumn?: GridActionsColumn<Row> | undefined;

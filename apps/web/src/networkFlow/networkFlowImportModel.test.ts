@@ -10,7 +10,7 @@ import {
 } from "./networkFlowImportModel";
 
 describe("Network Flow import mapping model", () => {
-  it("keeps duplicate aliases and empty headers distinct by ordinal", () => {
+  it("keeps duplicate aliases distinct and blocks preview until every collision is explicit", () => {
     const columns = [
       column(1, "Source IP"),
       column(2, "Source IP"),
@@ -20,11 +20,25 @@ describe("Network Flow import mapping model", () => {
     const draft = createNetworkFlowMappingDraft(columns);
 
     expect(draft.columnChoices).toEqual({
-      1: "network_flow.src_ip",
+      1: null,
       2: null,
       3: null,
       4: "network_flow.dst_ip",
     });
+    expect(draft.unresolvedAliasCollisionOrdinals).toEqual([1, 2]);
+    expect(networkFlowMappingDraftReadyForPreview(draft)).toBe(false);
+    const firstResolved = withNetworkFlowColumnChoice(
+      draft,
+      1,
+      "network_flow.src_ip",
+    );
+    const resolved = withNetworkFlowColumnChoice(
+      firstResolved,
+      2,
+      ignoredColumnChoice,
+    );
+    expect(resolved.unresolvedAliasCollisionOrdinals).toEqual([]);
+    expect(networkFlowMappingDraftReadyForPreview(resolved)).toBe(true);
     expect(sourceColumnLabel(column(2, "Source IP"))).toBe(
       "Source IP · column 2",
     );

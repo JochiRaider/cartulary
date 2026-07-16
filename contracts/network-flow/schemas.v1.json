@@ -904,7 +904,7 @@
       "additionalProperties": false,
       "required": ["status", "fatal_count", "error_count", "warning_count", "info_count", "issues"],
       "properties": {
-		"status": { "const": "valid" },
+		"status": { "const": "passed" },
         "fatal_count": { "const": 0 },
         "error_count": { "const": 0 },
         "warning_count": { "const": 0 },

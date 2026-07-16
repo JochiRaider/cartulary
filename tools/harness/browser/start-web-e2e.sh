@@ -54,6 +54,12 @@ cleanup_done=0
 SESSION_MODE="wrap"
 SESSION_ENV_FILE=""
 SESSION_LEASE_FILE=""
+RUNTIME_PROFILE_ID="${CARTULARY_BROWSER_RUNTIME_PROFILE_ID:-default}"
+RUNTIME_PROFILE_KIND=""
+RUNTIME_PROFILE_FINGERPRINT=""
+RUNTIME_PROFILE_KEY_RING_MANIFEST=""
+RUNTIME_PROFILE_CURSOR_SECRET=""
+RUNTIME_PROFILE_SAFE_DIGEST_SECRET=""
 
 usage() {
   echo "usage: start-web-e2e.sh [-- <command...>]" >&2
@@ -193,6 +199,29 @@ prepare_runtime_root() {
   export CARTULARY_S3_OBJECT_PRIMARY_BUCKET="${CARTULARY_S3_OBJECT_PRIMARY_BUCKET:-cartulary}"
 }
 
+prepare_runtime_profile() {
+  local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
+  local profile_row=""
+  if [[ ! -x "${node_bin}" ]]; then
+    node_bin="node"
+  fi
+  profile_row="$(
+    "${node_bin}" "${ROOT_DIR}/tools/harness/browser/browser-runtime-profile.mjs" \
+      resolve "${ROOT_DIR}/tools/execution_topology_manifest.json" "${RUNTIME_PROFILE_ID}"
+  )"
+  IFS=$'\t' read -r RUNTIME_PROFILE_ID RUNTIME_PROFILE_KIND RUNTIME_PROFILE_KEY_RING_MANIFEST RUNTIME_PROFILE_FINGERPRINT <<<"${profile_row}"
+  if [[ "${RUNTIME_PROFILE_KEY_RING_MANIFEST}" == "-" ]]; then
+    RUNTIME_PROFILE_KEY_RING_MANIFEST=""
+  fi
+  if [[ "${RUNTIME_PROFILE_KIND}" == "network_flow_claimed" ]]; then
+    RUNTIME_PROFILE_CURSOR_SECRET="$(dd if=/dev/urandom bs=32 count=1 status=none | base64 | tr '+/' '-_' | tr -d '=\n')"
+    RUNTIME_PROFILE_SAFE_DIGEST_SECRET="$(dd if=/dev/urandom bs=32 count=1 status=none | base64 | tr '+/' '-_' | tr -d '=\n')"
+  fi
+  export CARTULARY_BROWSER_RUNTIME_PROFILE_ID="${RUNTIME_PROFILE_ID}"
+  export CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID="${RUNTIME_PROFILE_ID}"
+  export CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT="${RUNTIME_PROFILE_FINGERPRINT}"
+}
+
 write_stack_metadata() {
   local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
 
@@ -209,6 +238,8 @@ CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS=${STARTUP_DIAGNOSTIC_FILE}
 CARTULARY_WEB_E2E_FRONTEND_MODE=${FRONTEND_MODE}
 CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND=${FRONTEND_COMMAND_KIND}
 CARTULARY_TEST_ROUTE_TOKEN_FILE=${TEST_ROUTE_TOKEN_FILE}
+CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID=${RUNTIME_PROFILE_ID}
+CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT=${RUNTIME_PROFILE_FINGERPRINT}
 EOF
   chmod 600 "${STACK_ENV_FILE}" 2>/dev/null || true
 
@@ -224,6 +255,8 @@ EOF
   CARTULARY_WEB_E2E_FRONTEND_MODE="${FRONTEND_MODE}" \
   CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND="${FRONTEND_COMMAND_KIND}" \
   CARTULARY_TEST_ROUTE_TOKEN_FILE="${TEST_ROUTE_TOKEN_FILE}" \
+  CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID="${RUNTIME_PROFILE_ID}" \
+  CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT="${RUNTIME_PROFILE_FINGERPRINT}" \
   CARTULARY_WEB_E2E_SERVER_PGID="${SERVER_PGID}" \
   CARTULARY_WEB_E2E_VITE_PGID="${VITE_PGID}" \
   CARTULARY_WEB_E2E_BACKEND_READY_AT="${BACKEND_READY_AT}" \
@@ -252,6 +285,8 @@ const payload = {
   web_log: process.env.CARTULARY_WEB_E2E_WEB_LOG,
   startup_diagnostics: stringOrUndefined(process.env.CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS),
   test_route_token_file: process.env.CARTULARY_TEST_ROUTE_TOKEN_FILE,
+  runtime_profile_id: process.env.CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID,
+  runtime_profile_fingerprint: process.env.CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT,
   backend_process_group_id: numberOrUndefined(process.env.CARTULARY_WEB_E2E_SERVER_PGID),
   frontend_process_group_id: numberOrUndefined(process.env.CARTULARY_WEB_E2E_VITE_PGID),
   backend_ready_at: stringOrUndefined(process.env.CARTULARY_WEB_E2E_BACKEND_READY_AT),
@@ -718,6 +753,8 @@ write_session_files() {
   CARTULARY_WEB_E2E_FRONTEND_MODE="${FRONTEND_MODE}" \
   CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND="${FRONTEND_COMMAND_KIND}" \
   CARTULARY_TEST_ROUTE_TOKEN_FILE="${TEST_ROUTE_TOKEN_FILE}" \
+  CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID="${RUNTIME_PROFILE_ID}" \
+  CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT="${RUNTIME_PROFILE_FINGERPRINT}" \
   CARTULARY_WEB_E2E_SERVER_PGID="${SERVER_PGID}" \
   CARTULARY_WEB_E2E_VITE_PGID="${VITE_PGID}" \
   CARTULARY_WEB_E2E_KEEP_RUNTIME_ROOT="${KEEP_RUNTIME_ROOT}" \
@@ -741,6 +778,8 @@ const env = {
   CARTULARY_WEB_E2E_FRONTEND_MODE: process.env.CARTULARY_WEB_E2E_FRONTEND_MODE,
   CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND: process.env.CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND,
   CARTULARY_TEST_ROUTE_TOKEN_FILE: process.env.CARTULARY_TEST_ROUTE_TOKEN_FILE,
+  CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID: process.env.CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID,
+  CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT: process.env.CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT,
 };
 const lease = {
   schema_id: "cartulary.web_e2e_session_lease.v1",
@@ -759,6 +798,8 @@ const lease = {
   e2e_db: process.env.CARTULARY_WEB_E2E_DB,
   test_services_metadata_file: process.env.CARTULARY_WEB_E2E_TEST_SERVICES_METADATA_FILE,
   test_services_active: process.env.CARTULARY_WEB_E2E_TEST_SERVICES_ACTIVE === "1",
+  runtime_profile_id: process.env.CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID,
+  runtime_profile_fingerprint: process.env.CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT,
 };
 
 fs.writeFileSync(process.env.CARTULARY_WEB_E2E_SESSION_ENV_FILE, `${JSON.stringify(env, null, 2)}\n`, { mode: 0o600 });
@@ -1272,6 +1313,8 @@ supervise_stack() {
 main() {
   parse_child_command "$@"
 
+  prepare_runtime_profile
+
   if [[ "${SESSION_MODE}" == "stop" ]]; then
     stop_session
     return $?
@@ -1308,6 +1351,15 @@ main() {
     --
     "${server_command[@]}"
   )
+  local -a runtime_profile_env=()
+  if [[ "${RUNTIME_PROFILE_KIND}" == "network_flow_claimed" ]]; then
+    runtime_profile_env=(
+      CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED=true
+      CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH="${ROOT_DIR}/${RUNTIME_PROFILE_KEY_RING_MANIFEST}"
+      CARTULARY_SECRET_NETWORK_FLOW_CURSOR_ACTIVE="${RUNTIME_PROFILE_CURSOR_SECRET}"
+      CARTULARY_SECRET_NETWORK_FLOW_SAFE_DIGEST_ACTIVE="${RUNTIME_PROFILE_SAFE_DIGEST_SECRET}"
+    )
+  fi
 
   run_timing_span "server_startup" "browser-e2e start backend process" \
   start_process_group SERVER_PGID "${SERVER_LOG}" \
@@ -1330,6 +1382,7 @@ main() {
     CARTULARY__ROOTS__REFERENCE_PACK_STORAGE__PATH="${RUNTIME_ROOT_BASE}/reference-pack-storage" \
     CARTULARY__ROOTS__TEMPORARY_WORK__PATH="${RUNTIME_ROOT_BASE}/temporary-work" \
     CARTULARY__ROOTS__EXPORT_OUTPUTS__PATH="${RUNTIME_ROOT_BASE}/export-outputs" \
+    "${runtime_profile_env[@]}" \
     GOCACHE=/tmp/cartulary-go-build \
     GOMODCACHE=/tmp/cartulary-go-mod \
     "${backend_listen_command[@]}"

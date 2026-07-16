@@ -747,6 +747,9 @@ function projectedBrowserRowIDs(rowIDs, rowIndex, { target, executionDependency,
 }
 
 function projectBrowserGroupForDefaultCheck(group, rowIndex, label) {
+  if (group.runtimeProfileID !== "default") {
+    return null;
+  }
   if (!Array.isArray(group.selectedRowIDs) || group.selectedRowIDs.length === 0) {
     return group;
   }
@@ -762,7 +765,7 @@ function projectBrowserGroupForDefaultCheck(group, rowIndex, label) {
 }
 
 function browserGroupSessionFields(stage, group, sessionGroup) {
-  const fields = {};
+  const fields = { runtime_profile_id: group.runtimeProfileID };
   if (group.browserSessionGroup) {
     fields.browser_session_group = group.browserSessionGroup;
   } else if (group.kind === "stateful_partition") {
@@ -807,7 +810,17 @@ function browserGroupSources(
   const groups = [];
   const functionalSharding = browserFunctionalSharding(profile);
   for (const group of stage.groups) {
-    if (stage.name === "webserver-backed" && group.kind === "duration_balanced_specs") {
+    const projectedGroup = defaultCheckOnly
+      ? projectBrowserGroupForDefaultCheck(
+          group,
+          rowIndex,
+          `${scheduleTarget} browser stage ${stage.name} group ${group.name}`,
+        )
+      : group;
+    if (!projectedGroup) {
+      continue;
+    }
+    if (stage.name === "webserver-backed" && projectedGroup.kind === "duration_balanced_specs") {
       const selectedEntries = selectedEntriesForPlan(repoRoot, { defaultCheckOnly });
       const plan = createBrowserShardPlanFromEntries({
         baselineFile: path.join(repoRoot, "tools", "browser_e2e_duration_baselines.json"),
@@ -815,6 +828,7 @@ function browserGroupSources(
         maxShards: functionalSharding.maxShards,
         baselineEntries: browserDurationBaselineEntries(repoRoot),
         selectedEntries,
+        runtimeProfileID: projectedGroup.runtimeProfileID,
       });
       for (const [index, shard] of plan.shards.entries()) {
         const id = `${stage.target}:${shard.name}`;
@@ -835,21 +849,23 @@ function browserGroupSources(
           kind: "functional_shard",
           target: stage.target,
           aggregate_target: stage.target,
-          coverage: group.coverage,
-          execution_dependency: group.executionDependency,
+          coverage: projectedGroup.coverage,
+          execution_dependency: projectedGroup.executionDependency,
           shard_name: shard.name,
           shard_index: index,
           shard_count: plan.shard_count,
           workers: "1",
           phases: shard.phases,
           entry_ids: entryIDs,
+          runtime_profile_id: projectedGroup.runtimeProfileID,
+          ...browserGroupSessionFields(stage, projectedGroup, sessionGroup),
           ...(Object.keys(env).length > 0 ? { env } : {}),
           priority: priorities.browserCriticalPath,
           weight_ms: shard.weight_ms,
           resource_claims: browserGroupResourceClaims(profile, stage.name),
         });
       }
-      groups.push({
+      if (projectedGroup.runtimeProfileID === "default") groups.push({
         id: `${stage.target}:support`,
         name: "support",
         kind: "support",
@@ -858,21 +874,12 @@ function browserGroupSources(
         coverage: "supplemental",
         execution_dependency: "browser_support",
         workers: "1",
+        runtime_profile_id: "default",
+        ...browserGroupSessionFields(stage, projectedGroup, sessionGroup),
         priority: priorities.browserCriticalPath,
         weight_ms: browserGroupWeight(timing, scheduleTarget, `${stage.target}:support`, stage.target),
         resource_claims: browserGroupResourceClaims(profile, stage.name),
       });
-      continue;
-    }
-
-    const projectedGroup = defaultCheckOnly
-      ? projectBrowserGroupForDefaultCheck(
-          group,
-          rowIndex,
-          `${scheduleTarget} browser stage ${stage.name} group ${group.name}`,
-        )
-      : group;
-    if (!projectedGroup) {
       continue;
     }
     const id = `${stage.target}:${group.name}`;
@@ -893,6 +900,7 @@ function browserGroupSources(
       coverage: projectedGroup.coverage,
       execution_dependency: projectedGroup.executionDependency,
       workers: projectedGroup.workers,
+      runtime_profile_id: projectedGroup.runtimeProfileID,
       ...selectedGroupFields(projectedGroup),
       ...browserGroupSessionFields(stage, projectedGroup, sessionGroup),
       ...(Object.keys(env).length > 0 ? { env } : {}),
@@ -1008,17 +1016,30 @@ function validateStageHasServiceBackedEvidence(stage, scheduleTarget) {
 }
 
 function hasPlaywrightRows(coverage, executionDependency) {
-  if (executionDependency === "browser_a11y") {
+  const frontendTargetByDependency = new Map([
+    ["browser_functional", "browser-e2e-webserver-backed"],
+    ["browser_stateful", "browser-e2e-stateful"],
+    ["browser_measurement", "browser-e2e-measurement"],
+    ["browser_a11y", "browser-e2e-a11y"],
+    ["browser_visual", "browser-e2e-visual"],
+  ]);
+  const frontendTarget = frontendTargetByDependency.get(executionDependency);
+  if (frontendTarget) {
     const registry = loadFrontendPhaseRegistry(repoRoot);
-    return registry.phases.some((phase) => {
+    const hasFrontendRows = registry.phases.some((phase) => {
       const { manifest } = loadFrontendPhaseMap(repoRoot, phase.phase_id);
       return manifest.rows.some(
         (row) =>
-          row.id.startsWith("FE-A11Y-") &&
-          row.targets.some((target) => target.target_name === "browser-e2e-a11y") &&
-          coverage === "authoritative",
+          row.targets.some((target) => target.target_name === frontendTarget) &&
+          (coverage === "authoritative"
+            ? executionDependency === "browser_a11y"
+            : coverage === "supplemental" &&
+              row.evidence_class !== "product_conformance"),
       );
     });
+    if (hasFrontendRows) {
+      return true;
+    }
   }
   for (const phase of phaseManifestNames(repoRoot)) {
     const { manifest } = loadManifest(repoRoot, phase);

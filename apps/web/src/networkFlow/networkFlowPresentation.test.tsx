@@ -16,7 +16,7 @@ import {
 } from "./networkFlowPresentation";
 
 describe("Network Flow presentation metadata", () => {
-  it("compiles the accepted default order while leaving optional and inspector fields out", () => {
+  it("FE-U-P12-01 Verify Network Analysis presentation, query, layout, lifecycle, and reconciliation units use extension-owned semantic contracts.", () => {
     const metadata = networkFlowPresentationColumns(
       "network_flow.accepted_rows.v1",
     );

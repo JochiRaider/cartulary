@@ -396,6 +396,26 @@ function validateExecutionDependencyTargets(dependencies, taskTargets) {
 
 function validateBrowserBatch(topology, dependencyByID, taskTargets) {
   const batch = requireObject(topology.browser_e2e_batch, "browser_e2e_batch");
+  const runtimeProfiles = requireNonEmptyArray(
+    batch.runtime_profiles,
+    "browser_e2e_batch.runtime_profiles",
+  );
+  const runtimeProfileIDs = new Set();
+  for (const [index, profile] of runtimeProfiles.entries()) {
+    const profileLabel = `browser_e2e_batch.runtime_profiles[${index + 1}]`;
+    const profileID = requireString(profile?.id, `${profileLabel}.id`);
+    requireString(profile?.kind, `${profileLabel}.kind`);
+    if (!/^[a-z][a-z0-9_]*$/u.test(profileID)) {
+      throw new Error(`${profileLabel}.id must be a snake_case token`);
+    }
+    if (runtimeProfileIDs.has(profileID)) {
+      throw new Error(`duplicate browser runtime profile ${profileID}`);
+    }
+    runtimeProfileIDs.add(profileID);
+  }
+  if (!runtimeProfileIDs.has("default")) {
+    throw new Error("browser_e2e_batch.runtime_profiles must declare default");
+  }
   const stages = requireNonEmptyArray(batch.stages, "browser_e2e_batch.stages");
   const seenStages = new Set();
   for (const [index, stage] of stages.entries()) {

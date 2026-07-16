@@ -28,6 +28,7 @@ export type NetworkFlowMappingDraft = {
     | "epoch_milliseconds";
   readonly netflowExporterUptimeColumnOrdinal: number | null;
   readonly columnChoices: Readonly<Record<number, string | null>>;
+  readonly unresolvedAliasCollisionOrdinals: readonly number[];
 };
 
 const sourceProfile = networkFlowMappingMetadata.source_profiles[0];
@@ -45,18 +46,29 @@ export const networkFlowRequiredFieldKeys = sourceProfile.fields
 export function createNetworkFlowMappingDraft(
   columns: readonly DiscoveredImportColumn[],
 ): NetworkFlowMappingDraft {
-  const usedFields = new Set<string>();
+  const fieldOwnerOrdinals = new Map<string, number>();
+  const collisionOrdinals = new Set<number>();
   const columnChoices: Record<number, string | null> = {};
   for (const column of columns) {
     const matchKey = sourceAliasMatchKey(column.source_header_text ?? "");
-    const suggested = networkFlowMappingFields.find(
-      (field) =>
-        !usedFields.has(field.field_key) &&
-        field.aliases.some((alias) => sourceAliasMatchKey(alias) === matchKey),
+    const suggested = networkFlowMappingFields.find((field) =>
+      field.aliases.some((alias) => sourceAliasMatchKey(alias) === matchKey),
     );
-    columnChoices[column.source_column_ordinal] = suggested?.field_key ?? null;
+    const ordinal = column.source_column_ordinal;
+    const existingOwner =
+      suggested === undefined
+        ? undefined
+        : fieldOwnerOrdinals.get(suggested.field_key);
+    if (suggested !== undefined && existingOwner !== undefined) {
+      columnChoices[existingOwner] = null;
+      columnChoices[ordinal] = null;
+      collisionOrdinals.add(existingOwner);
+      collisionOrdinals.add(ordinal);
+      continue;
+    }
+    columnChoices[ordinal] = suggested?.field_key ?? null;
     if (suggested !== undefined) {
-      usedFields.add(suggested.field_key);
+      fieldOwnerOrdinals.set(suggested.field_key, ordinal);
     }
   }
   return {
@@ -69,6 +81,9 @@ export function createNetworkFlowMappingDraft(
     netflowExportTimeMode: "rfc3339",
     netflowExporterUptimeColumnOrdinal: null,
     columnChoices,
+    unresolvedAliasCollisionOrdinals: [...collisionOrdinals].sort(
+      (left, right) => left - right,
+    ),
   };
 }
 
@@ -93,7 +108,16 @@ export function withNetworkFlowColumnChoice(
     }
   }
   columnChoices[ordinal] = choice;
-  return { ...draft, columnChoices };
+  return {
+    ...draft,
+    columnChoices,
+    unresolvedAliasCollisionOrdinals:
+      choice === null
+        ? draft.unresolvedAliasCollisionOrdinals
+        : draft.unresolvedAliasCollisionOrdinals.filter(
+            (candidate) => candidate !== ordinal,
+          ),
+  };
 }
 
 export function buildNetworkFlowMappingCandidate(
@@ -165,11 +189,12 @@ export function networkFlowMappingDraftReadyForPreview(
   draft: NetworkFlowMappingDraft,
 ): boolean {
   return (
-    draft.timestampMode !== "netflow_sys_uptime_milliseconds" ||
-    (draft.netflowExportTimeColumnOrdinal !== null &&
-      draft.netflowExporterUptimeColumnOrdinal !== null &&
-      draft.netflowExportTimeColumnOrdinal !==
-        draft.netflowExporterUptimeColumnOrdinal)
+    draft.unresolvedAliasCollisionOrdinals.length === 0 &&
+    (draft.timestampMode !== "netflow_sys_uptime_milliseconds" ||
+      (draft.netflowExportTimeColumnOrdinal !== null &&
+        draft.netflowExporterUptimeColumnOrdinal !== null &&
+        draft.netflowExportTimeColumnOrdinal !==
+          draft.netflowExporterUptimeColumnOrdinal))
   );
 }
 

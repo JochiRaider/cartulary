@@ -51,6 +51,7 @@ export const rowKeys = new Set([
   "duplicate_of",
   "evidence_delta",
   "warm_local_cost_class",
+  "runtime_profile_id",
   "owner_refs",
   "core_req_ids",
   "core_ac_ids",

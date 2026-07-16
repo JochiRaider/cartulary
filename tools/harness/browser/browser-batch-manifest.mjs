@@ -14,7 +14,7 @@ import {
 export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v5";
 
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
-const browserBatchKeys = new Set(["schema_id", "stages"]);
+const browserBatchKeys = new Set(["schema_id", "runtime_profiles", "stages"]);
 const browserStageKeys = new Set([
   "name",
   "target",
@@ -39,6 +39,7 @@ const browserGroupKeys = new Set([
   "selected_row_ids",
   "browser_session_group",
   "browser_session_isolation_reason",
+  "runtime_profile_id",
   "specs",
 ]);
 const allowedGroupKinds = new Set([
@@ -63,6 +64,18 @@ export function validateBrowserBatchManifestShape(fileOrManifest, label = fileOr
   const manifest = manifestValue(fileOrManifest, label);
   validateObjectShape(manifest, label, { keys: browserBatchKeys });
   requireSchemaID(manifest, browserBatchManifestSchemaID, label);
+  validateObjectArray(
+    manifest.runtime_profiles,
+    `${label}.runtime_profiles`,
+    { nonEmpty: true, keys: new Set(["id", "kind", "key_ring_manifest_path"]) },
+    (profile, profileLabel) => {
+      requireString(profile.id, `${profileLabel}.id`, { pattern: /^[a-z][a-z0-9_]*$/u });
+      requireString(profile.kind, `${profileLabel}.kind`, { pattern: /^[a-z][a-z0-9_]*$/u });
+      if (profile.key_ring_manifest_path !== undefined) {
+        requireString(profile.key_ring_manifest_path, `${profileLabel}.key_ring_manifest_path`);
+      }
+    },
+  );
   validateObjectArray(
     manifest.stages,
     `${label}.stages`,
@@ -104,9 +117,13 @@ export function loadBrowserBatchStages(manifestPath) {
 }
 
 export function normalizeBrowserBatchStages(manifest) {
+  const runtimeProfiles = new Set((manifest.runtime_profiles ?? []).map((profile) => profile.id));
+  if (!runtimeProfiles.has("default")) {
+    throw new Error("browser E2E batch manifest must declare the default runtime profile");
+  }
   const stages = new Map();
   for (const [index, rawStage] of manifest.stages.entries()) {
-    const stage = normalizeStage(rawStage, index + 1);
+    const stage = normalizeStage(rawStage, index + 1, runtimeProfiles);
     if (stages.has(stage.name)) {
       throw new Error(`duplicate browser batch stage ${stage.name}`);
     }
@@ -124,7 +141,7 @@ export function resolveBrowserBatchStage(manifestPath, stageName) {
   return stage;
 }
 
-function normalizeStage(stage, index) {
+function normalizeStage(stage, index, runtimeProfiles) {
   const label = `browser E2E batch stage ${index}`;
   if (!stage || typeof stage !== "object" || Array.isArray(stage)) {
     throw new Error(`${label} must be an object`);
@@ -163,7 +180,9 @@ function normalizeStage(stage, index) {
   if (!Array.isArray(groups) || groups.length === 0) {
     throw new Error(`browser E2E batch stage ${stage.name} must declare groups[]`);
   }
-  const normalizedGroups = groups.map((group, groupIndex) => normalizeGroup(stage.name, group, groupIndex + 1));
+  const normalizedGroups = groups.map((group, groupIndex) =>
+    normalizeGroup(stage.name, group, groupIndex + 1, runtimeProfiles),
+  );
   const groupTargets = new Set(normalizedGroups.map((group) => group.target));
   for (const child of normalizedSummaryChildren) {
     if (!groupTargets.has(child)) {
@@ -233,7 +252,7 @@ function normalizeSchedulerNeeds(stage) {
   return needs;
 }
 
-function normalizeGroup(stageName, group, index) {
+function normalizeGroup(stageName, group, index, runtimeProfiles) {
   if (!group || typeof group !== "object" || Array.isArray(group)) {
     throw new Error(`browser E2E batch stage ${stageName} group ${index} must be an object`);
   }
@@ -244,6 +263,12 @@ function normalizeGroup(stageName, group, index) {
   }
   if (!allowedGroupKinds.has(group.kind)) {
     throw new Error(`browser E2E batch group ${group.name} has unsupported kind ${group.kind}`);
+  }
+  const runtimeProfileID = normalizeOptionalString(group.runtime_profile_id) || "default";
+  if (!runtimeProfiles.has(runtimeProfileID)) {
+    throw new Error(
+      `browser E2E batch group ${group.name} references unknown runtime profile ${runtimeProfileID}`,
+    );
   }
   return {
     name: group.name.trim(),
@@ -258,6 +283,7 @@ function normalizeGroup(stageName, group, index) {
     selectedRowIDs: normalizeSelectedRowIDs(group),
     browserSessionGroup: normalizeOptionalString(group.browser_session_group),
     browserSessionIsolationReason: normalizeOptionalString(group.browser_session_isolation_reason),
+    runtimeProfileID,
   };
 }
 
@@ -322,6 +348,7 @@ function printRunnerMetadata(stage) {
         group.selectedRowIDs.join(","),
         group.browserSessionGroup,
         group.browserSessionIsolationReason,
+        group.runtimeProfileID,
       ].join("\t") + "\n",
     );
   }
@@ -344,6 +371,29 @@ function printGroupSelections(manifestPath) {
         ].join("\t") + "\n",
       );
     }
+  }
+}
+
+function printStageSessions(stage) {
+  const sessions = new Map();
+  for (const group of stage.groups) {
+    const sessionGroup = group.browserSessionGroup || stage.target;
+    const current = sessions.get(sessionGroup) ?? {
+      runtimeProfileID: group.runtimeProfileID,
+      groupNames: [],
+    };
+    if (current.runtimeProfileID !== group.runtimeProfileID) {
+      throw new Error(
+        `browser session ${sessionGroup} mixes runtime profiles ${current.runtimeProfileID} and ${group.runtimeProfileID}`,
+      );
+    }
+    current.groupNames.push(group.name);
+    sessions.set(sessionGroup, current);
+  }
+  for (const [sessionGroup, session] of sessions) {
+    process.stdout.write(
+      [sessionGroup, session.runtimeProfileID, session.groupNames.join(",")].join("\t") + "\n",
+    );
   }
 }
 
@@ -374,9 +424,15 @@ function main(argv) {
       }
       printGroupSelections(manifestPath);
       return;
+    case "stage-sessions":
+      if (!manifestPath || !stageName) {
+        throw new Error("usage: browser-batch-manifest.mjs stage-sessions <manifest> <stage>");
+      }
+      printStageSessions(resolveBrowserBatchStage(manifestPath, stageName));
+      return;
     default:
       throw new Error(
-        "usage: browser-batch-manifest.mjs <validate|stage-target|stage-runner|group-selections> <manifest> [stage]",
+        "usage: browser-batch-manifest.mjs <validate|stage-target|stage-runner|stage-sessions|group-selections> <manifest> [stage]",
       );
   }
 }

@@ -82,7 +82,10 @@ function infoSessionRetainsSourceTarget(source, info) {
 }
 
 function browserGroupSelectionEnv(group) {
-  const env = {};
+  const env = {
+    CARTULARY_BROWSER_RUNTIME_PROFILE_ID:
+      String(group.runtime_profile_id ?? "default").trim() || "default",
+  };
   if (typeof group.selected_phase === "string" && group.selected_phase.trim() !== "") {
     env.CARTULARY_BROWSER_SELECTED_PHASE = group.selected_phase.trim();
   }
@@ -189,6 +192,10 @@ export function expandServiceBackedScheduleForCheck({
           },
           browser_stage: source.browser_stage,
           browser_session_group: sessionGroup,
+          env: {
+            CARTULARY_BROWSER_RUNTIME_PROFILE_ID:
+              sessionInfo.runtimeProfileID || "default",
+          },
           ...(sessionInfo.isolationReason
             ? { browser_session_isolation_reason: sessionInfo.isolationReason }
             : {}),
@@ -219,7 +226,6 @@ export function expandServiceBackedScheduleForCheck({
         count_in_total: false,
         counts_started: false,
         resource_claims: {},
-        ...(source.env ? { env: clone(source.env) } : {}),
         release_retained_resource_claims: finalizeOnStageComplete
           ? (completeSessionInfo?.retainedClaims ?? {})
           : {},
@@ -228,6 +234,11 @@ export function expandServiceBackedScheduleForCheck({
         },
         browser_stage: source.browser_stage,
         browser_session_group: completeSessionGroup,
+        env: {
+          ...(source.env ?? {}),
+          CARTULARY_BROWSER_RUNTIME_PROFILE_ID:
+            completeSessionInfo?.runtimeProfileID || "default",
+        },
         browser_session_finalizer: finalizeOnStageComplete,
         ...(completeSessionInfo?.isolationReason
           ? { browser_session_isolation_reason: completeSessionInfo.isolationReason }
@@ -281,7 +292,6 @@ export function expandServiceBackedScheduleForCheck({
         priority: priority(source.priority),
         weight_ms: source.weight_ms,
         needs: sourceNeeds(source, serviceSessionKey),
-        ...(source.env ? { env: clone(source.env) } : {}),
         ...(source.runtime_binaries ? { runtime_binaries: clone(source.runtime_binaries) } : {}),
         completion_keys: [source.target],
         failure_keys: [source.target],
@@ -487,6 +497,10 @@ export function expandServiceBackedSchedule({
           retained_resource_claims: sessionInfo.retainedClaims,
           browser_stage: source.browser_stage,
           browser_session_group: sessionGroup,
+          env: {
+            CARTULARY_BROWSER_RUNTIME_PROFILE_ID:
+              sessionInfo.runtimeProfileID || "default",
+          },
           ...(sessionInfo.isolationReason
             ? { browser_session_isolation_reason: sessionInfo.isolationReason }
             : {}),
@@ -518,12 +532,16 @@ export function expandServiceBackedSchedule({
         count_in_total: false,
         counts_started: false,
         resource_claims: {},
-        ...(source.env ? { env: clone(source.env) } : {}),
         release_retained_resource_claims: finalizeOnStageComplete
           ? (completeSessionInfo?.retainedClaims ?? {})
           : {},
         browser_stage: source.browser_stage,
         browser_session_group: completeSessionGroup,
+        env: {
+          ...(source.env ?? {}),
+          CARTULARY_BROWSER_RUNTIME_PROFILE_ID:
+            completeSessionInfo?.runtimeProfileID || "default",
+        },
         browser_session_finalizer: finalizeOnStageComplete,
         ...(completeSessionInfo?.isolationReason
           ? { browser_session_isolation_reason: completeSessionInfo.isolationReason }

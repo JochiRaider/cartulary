@@ -139,11 +139,32 @@ export function createServiceSessionRuntime({
           };
         };
       } else if (unit.kind === "service_complete") {
-        unit.command = () => ({
-          command: process.execPath,
-          args: ["-e", ""],
-          env: process.env,
-        });
+        unit.command = () => {
+          const target = serviceSessionTarget(unit);
+          const sessionFiles = files.get(target);
+          if (!sessionFiles?.leaseFile || !existsSync(sessionFiles.leaseFile)) {
+            cleanupStatus.set(target, "skipped_no_lease");
+            return {
+              command: process.execPath,
+              args: ["-e", ""],
+              env: process.env,
+            };
+          }
+          requireTestServicesBin();
+          cleanupStatus.set(target, "running");
+          cleanupDurationMs.set(target, -Date.now());
+          return {
+            command: testServicesBin,
+            args: ["terminate-suite", "--lease", sessionFiles.leaseFile],
+            env: schedulerChildEnv({
+              ...process.env,
+              CARTULARY_TEST_RESULTS_DIR: resultsDir,
+              CARTULARY_TEST_RUN_ID: runId,
+              CARTULARY_TEST_TARGET: unit.target,
+              CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+            }),
+          };
+        };
       }
     }
   };
@@ -155,7 +176,18 @@ export function createServiceSessionRuntime({
     await recordChildLifecycle(unit, "child_started");
   };
 
-  const afterUnitFinish = async (unit) => {
+  const afterUnitFinish = async (unit, result = null) => {
+    if (unit.kind === "service_complete") {
+      const target = serviceSessionTarget(unit);
+      const startedAt = cleanupDurationMs.get(target);
+      if (typeof startedAt === "number" && startedAt < 0) {
+        cleanupDurationMs.set(target, Math.max(0, Date.now() + startedAt));
+      }
+      if (cleanupStatus.get(target) === "running") {
+        cleanupStatus.set(target, result?.status === 0 ? "pass" : "failed");
+      }
+      return;
+    }
     await recordChildLifecycle(unit, "child_finished");
   };
 
@@ -163,6 +195,9 @@ export function createServiceSessionRuntime({
     let cleanupFailure = null;
     for (const target of targets) {
       const sessionFiles = files.get(target);
+      if (cleanupStatus.get(target) === "pass") {
+        continue;
+      }
       if (!sessionFiles?.leaseFile) {
         continue;
       }

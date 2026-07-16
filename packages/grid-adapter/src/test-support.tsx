@@ -95,6 +95,7 @@ export function GridViewport({
 }
 
 export function SemanticDataGrid<Row>({
+  accessibleLabel,
   activeRowIdentity = null,
   allowPasteCreateRows = false,
   actionsColumn,
@@ -202,6 +203,7 @@ export function SemanticDataGrid<Row>({
         interactionMode={effectiveInteractionMode}
       />
       <table
+        aria-label={accessibleLabel}
         aria-busy={
           dataState.kind === "initial_loading" ||
           dataState.kind === "refreshing"

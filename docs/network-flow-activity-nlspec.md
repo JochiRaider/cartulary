@@ -1029,8 +1029,8 @@ A token not listed in Table 9-E MUST fail with `network_flow_invalid_protocol`. 
 | `Layer 3 Protocol`, `Protocol`, `PROTOCOL`, `protocolIdentifier` | `network_flow.ip_protocol` | `required` | Accept numeric values and declared tokens in Table 9-E. |
 | `Bytes Count`, `Bytes`, `IN_BYTES`, `octetDeltaCount` | `network_flow.bytes_count` | `required` | Decimal-string storage. |
 | `Packet count`, `Packets`, `IN_PKTS`, `packetDeltaCount` | `network_flow.packets_count` | `required` | Decimal-string storage. |
-| `Flow Start Time`, `First Seen`, `FIRST_SWITCHED`, `flowStartMilliseconds`, `flowStartSeconds` | `network_flow.flow_start_utc` | `required` | Mapping must declare timestamp profile. |
-| `Flow End Time`, `Last Seen`, `LAST_SWITCHED`, `flowEndMilliseconds`, `flowEndSeconds` | `network_flow.flow_end_utc` | `required` | End must be greater than or equal to start. |
+| `Start Time`, `Flow Start Time`, `First Seen`, `FIRST_SWITCHED`, `flowStartMilliseconds`, `flowStartSeconds` | `network_flow.flow_start_utc` | `required` | Mapping must declare timestamp profile. |
+| `End Time`, `Flow End Time`, `Last Seen`, `LAST_SWITCHED`, `flowEndMilliseconds`, `flowEndSeconds` | `network_flow.flow_end_utc` | `required` | End must be greater than or equal to start. |
 | `Interface input`, `Input Interface`, `ingressInterface` | `network_flow.input_interface` | `optional_map_when_present` | Mapped when present; absence is not a blocking warning. |
 | `Interface output`, `Output Interface`, `egressInterface` | `network_flow.output_interface` | `optional_map_when_present` | Mapped when present; absence is not a blocking warning. |
 

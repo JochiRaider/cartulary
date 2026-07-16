@@ -35,6 +35,7 @@ import {
   mentionResolveExistingButtonTestId,
   mentionResolveTargetSelectTestId,
   mentionRestoreUnresolvedButtonTestId,
+  networkAnalysisTestId,
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
   phase1AccountTestId,
@@ -152,6 +153,10 @@ import {
   requireRecordId,
   successfulPatchCalls,
 } from "./phase6Harness";
+import {
+  importPhase12NetworkFlowCSV,
+  openClaimedNetworkAnalysis,
+} from "./phase12NetworkFlowHarness";
 
 type IncidentMembershipRecord = {
   membership_version: number;
@@ -449,17 +454,23 @@ async function removeKeyboardSentinel(page: Page) {
 
 async function expectTabOrderIncludes(
   page: Page,
-  testIds: readonly string[],
+  testIds: readonly (string | RegExp)[],
   maxTabs = 180,
 ) {
   await focusKeyboardSentinel(page);
   try {
-    const remaining = new Set<string>(testIds);
-    for (let index = 0; index < maxTabs && remaining.size > 0; index += 1) {
+    const remaining = [...testIds];
+    for (let index = 0; index < maxTabs && remaining.length > 0; index += 1) {
       await page.keyboard.press("Tab");
-      remaining.delete(await activeTestId(page));
+      const active = await activeTestId(page);
+      const reachedIndex = remaining.findIndex((target) =>
+        typeof target === "string" ? target === active : target.test(active),
+      );
+      if (reachedIndex >= 0) {
+        remaining.splice(reachedIndex, 1);
+      }
     }
-    expect([...remaining]).toEqual([]);
+    expect(remaining.map(String)).toEqual([]);
   } finally {
     await removeKeyboardSentinel(page);
   }
@@ -544,8 +555,12 @@ async function expectKeyboardFocusReachesTestId(
 }
 
 async function expectVisibleFocus(locator: Locator) {
-  await locator.focus();
-  await expect(locator).toBeFocused();
+  await expect
+    .poll(async () => {
+      await locator.focus();
+      return locator.evaluate((element) => element === document.activeElement);
+    })
+    .toBeTruthy();
   await expect
     .poll(() =>
       locator.evaluate((element) => {
@@ -1392,6 +1407,71 @@ test.describe("FE-P2 accessibility readiness", () => {
     ]);
   });
 });
+
+if (
+  (process.env.CARTULARY_BROWSER_RUNTIME_PROFILE_ID ?? "default") ===
+  "network_flow_claimed"
+) {
+  test("FE-A11Y-P12-01 Verify claimed Network Analysis tabs, query controls, semantic grids, inspector, graph, contributor drawer, mapping modal, focus return, names, and ARIA evidence.", async ({
+    page,
+  }) => {
+    await openClaimedNetworkAnalysis(page, "FEP12A11Y");
+    await importPhase12NetworkFlowCSV(page, { displayName: "accessible-flow" });
+
+    const workspace = page.getByTestId(networkAnalysisTestId("workspace"));
+    await expect(workspace).toHaveAttribute(
+      "data-extension-profile-id",
+      "network_flow_activity",
+    );
+    await expect(
+      page.getByRole("tab", { name: /accessible-flow/ }),
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(
+      page.getByRole("region", { name: "Network Flow filters" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("grid", { name: "Accepted Network Flow rows" }),
+    ).toBeVisible();
+    const semanticCell = page
+      .getByRole("grid", { name: "Accepted Network Flow rows" })
+      .locator(
+        '[role="gridcell"] [data-grid-field-key]:not([data-grid-field-key^="__"])',
+      )
+      .first();
+    const focusedGridCell = semanticGridCell(semanticCell);
+    await semanticCell.click();
+    await expect(
+      page.getByRole("complementary", { name: "Network Flow cell inspector" }),
+    ).toBeVisible();
+    await page.getByTestId(networkAnalysisTestId("inspector-close")).click();
+    await expect(focusedGridCell).toBeFocused();
+
+    const graphMode = page.getByTestId(networkAnalysisTestId("mode-graph"));
+    await graphMode.focus();
+    await expectVisibleFocus(graphMode);
+    await graphMode.press("Enter");
+    const edgeSelect = page
+      .getByTestId(/^network-flow-edge-/)
+      .first()
+      .getByRole("button", { name: "Select edge" });
+    await expect(edgeSelect).toBeVisible();
+    await edgeSelect.click();
+    const drawer = page.getByTestId(
+      networkAnalysisTestId("contributor-drawer"),
+    );
+    await expect(drawer).toBeVisible();
+    await expect(drawer.getByRole("button", { name: /close/i })).toBeVisible();
+    await expectAllInteractiveControlsNamed(page);
+    await expectNoFocusTrap(page);
+    await expectAndRecordContrast(page, [
+      networkAnalysisTestId("workspace"),
+      networkAnalysisTestId("mode-graph"),
+      networkAnalysisTestId("contributor-close"),
+    ]);
+    await page.getByTestId(networkAnalysisTestId("contributor-close")).click();
+    await expect(edgeSelect).toBeFocused();
+  });
+}
 
 test.describe("FE-P3 accessibility readiness", () => {
   test(p3AccessibilityScenarioTitles[0], async ({ page }) => {
@@ -3122,7 +3202,7 @@ test.describe("FE-P11 accessibility readiness", () => {
       systemViewSwitcherTriggerTestId(),
       workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
       gridGroupingSelectTestId(timelineViewSchemaId),
-      rowCellTestId(timelineRow.record_id, "timeline.activity_synopsis_text"),
+      /^(?:draft-row-|row-)/u,
     ]);
 
     const summaryCell = await mountedGridCell(

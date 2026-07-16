@@ -18,6 +18,7 @@ function parseArgs(argv) {
     status: "pass",
     phaseDir: "",
     contrastDir: "",
+    runtimeProfileId: "default",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -41,10 +42,19 @@ function parseArgs(argv) {
       index += 1;
       continue;
     }
+    if (arg === "--runtime-profile-id") {
+      options.runtimeProfileId = argv[index + 1] ?? "";
+      index += 1;
+      continue;
+    }
     throw new Error(`unknown option ${arg}`);
   }
-  if (!options.output || !["pass", "fail"].includes(options.status)) {
-    throw new Error("usage: write-frontend-accessibility-summary.mjs --output <path> --status <pass|fail> [--phase-dir <path>] [--contrast-dir <path>]");
+  if (
+    !options.output ||
+    !["pass", "fail"].includes(options.status) ||
+    !/^[a-z][a-z0-9_]*$/u.test(options.runtimeProfileId)
+  ) {
+    throw new Error("usage: write-frontend-accessibility-summary.mjs --output <path> --status <pass|fail> [--phase-dir <path>] [--contrast-dir <path>] [--runtime-profile-id <id>]");
   }
   return options;
 }
@@ -216,6 +226,9 @@ function collectRowsAndScenarios(options) {
   for (const phase of registry.phases) {
     const { manifest } = loadFrontendPhaseMap(process.cwd(), phase.phase_id);
     for (const row of scenarioRowsForAccessibility(manifest)) {
+      if ((row.runtime_profile_id ?? "default") !== options.runtimeProfileId) {
+        continue;
+      }
       phaseRows.push({
         row_id: row.id,
         phase_id: phase.phase_id,
@@ -313,9 +326,59 @@ function buildEvidenceSummary(options) {
   return summary;
 }
 
+function mergedEvidenceSummary(output, current) {
+  if (!existsSync(output)) {
+    return current;
+  }
+  const previous = JSON.parse(readFileSync(output, "utf8"));
+  validateSchemaSync(accessibilitySummarySchemaID, previous);
+  const currentRowIds = new Set(current.phase_rows.map((row) => row.row_id));
+  const replaceRows = (previousEntries, currentEntries) => [
+    ...previousEntries.filter((entry) => !currentRowIds.has(entry.row_id)),
+    ...currentEntries,
+  ];
+  const artifactRefs = [...previous.artifact_refs, ...current.artifact_refs].filter(
+    (entry, index, entries) =>
+      entries.findIndex((candidate) =>
+        candidate.role === entry.role &&
+        candidate.path_kind === entry.path_kind &&
+        candidate.path === entry.path
+      ) === index,
+  );
+  const summary = {
+    schema_id: accessibilitySummarySchemaID,
+    status: "pass",
+    phase_rows: replaceRows(previous.phase_rows, current.phase_rows),
+    scenarios: replaceRows(previous.scenarios, current.scenarios),
+    keyboard_matrix: replaceRows(previous.keyboard_matrix, current.keyboard_matrix),
+    state_communication_checks: replaceRows(
+      previous.state_communication_checks,
+      current.state_communication_checks,
+    ),
+    contrast_checks: replaceRows(previous.contrast_checks, current.contrast_checks),
+    violations: replaceRows(previous.violations, current.violations),
+    artifact_refs: artifactRefs,
+  };
+  if (
+    previous.status !== "pass" ||
+    current.status !== "pass" ||
+    summary.scenarios.some((scenario) => scenario.status !== "pass") ||
+    summary.keyboard_matrix.some((check) => check.result !== "pass") ||
+    summary.state_communication_checks.some((check) => check.result !== "pass") ||
+    summary.contrast_checks.some((check) => check.result !== "pass") ||
+    summary.violations.length > 0
+  ) {
+    summary.status = "fail";
+  }
+  return summary;
+}
+
 function main() {
   const options = parseArgs(process.argv.slice(2));
-  const summary = buildEvidenceSummary(options);
+  const summary = mergedEvidenceSummary(
+    options.output,
+    buildEvidenceSummary(options),
+  );
 
   validateSchemaSync(summary.schema_id, summary);
   writeFileSync(options.output, `${JSON.stringify(summary, null, 2)}\n`, "utf8");

@@ -154,6 +154,7 @@ export const phaseManifestEntryKeys = new Set([
   "execution_family",
   "execution_label",
   "runtime_binaries",
+  "runtime_profile_id",
   "fixture_policy",
   "fixture_budget",
   "fixture_proof",
@@ -340,6 +341,14 @@ export function validatePhaseManifestShape(manifest, label) {
         requireStringArray(entry.runtime_binaries, `${entryLabel}.runtime_binaries`, {
           nonEmpty: true,
         });
+      }
+      if (entry.runtime_profile_id !== undefined) {
+        requireString(entry.runtime_profile_id, `${entryLabel}.runtime_profile_id`, {
+          pattern: /^[a-z][a-z0-9_]*$/u,
+        });
+        if (entry.runner !== "playwright") {
+          throw new Error(`${entryLabel}.runtime_profile_id is only valid for Playwright evidence`);
+        }
       }
       if (entry.claim_status !== undefined) {
         requireEnum(entry.claim_status, `${entryLabel}.claim_status`, validClaimStatuses);

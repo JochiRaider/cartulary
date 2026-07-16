@@ -48,6 +48,7 @@ export const networkFlowMappingRegistry = {
           "transform_id": "timestamp_profile_v1",
           "empty_value_policy": "empty_string_is_invalid",
           "aliases": [
+            "Start Time",
             "Flow Start Time",
             "First Seen",
             "FIRST_SWITCHED",
@@ -61,6 +62,7 @@ export const networkFlowMappingRegistry = {
           "transform_id": "timestamp_profile_v1",
           "empty_value_policy": "empty_string_is_invalid",
           "aliases": [
+            "End Time",
             "Flow End Time",
             "Last Seen",
             "LAST_SWITCHED",

@@ -153,6 +153,9 @@ describe("FE-U-P4-02 WorkbookShell save-state status strip", () => {
       type: "session_revoked",
       payload: { reason_code: "session_revoked" },
     });
+    await waitFor(() => {
+      expect(screen.queryByTestId(pendingQueueNoticeTestId())).toBeNull();
+    });
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "Auth queued" } });
     fireEvent.blur(input);

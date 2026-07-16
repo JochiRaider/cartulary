@@ -24,6 +24,42 @@ cat >"$measurement_metadata_file" <<EOF
 }
 EOF
 
-exec "$ROOT_DIR/tools/harness/browser/run-browser-e2e-manifest-dependency.sh" \
-  browser-e2e-measurement authoritative browser_measurement -- \
-  "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" --dir apps/web exec playwright test
+status=0
+group_coverage="${CARTULARY_BROWSER_GROUP_COVERAGE:-authoritative}"
+runtime_profile_id="${CARTULARY_BROWSER_RUNTIME_PROFILE_ID:-default}"
+
+if [[ "$runtime_profile_id" == "default" ]]; then
+  "$ROOT_DIR/tools/harness/browser/run-browser-e2e-manifest-dependency.sh" \
+    browser-e2e-measurement "$group_coverage" browser_measurement -- \
+    "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" --dir apps/web exec playwright test ||
+    status=1
+fi
+
+frontend_grep=""
+frontend_scope="${CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE:-}"
+if [[ "$frontend_scope" != "disabled" ]]; then
+  frontend_grep_args=(
+    playwright-grep browser-e2e-measurement browser_integration
+    --runtime-profile-id "$runtime_profile_id"
+  )
+  if [[ "$frontend_scope" == "selected_rows" ]]; then
+    frontend_grep_args+=(--row-ids "${CARTULARY_FRONTEND_ROW_ACCOUNTING_ROW_IDS:-}")
+  fi
+  frontend_grep="$(
+    NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
+      "${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" "$ROOT_DIR/tools/harness/phase-accounting/frontend-phase-manifest.mjs" \
+        "${frontend_grep_args[@]}"
+  )"
+fi
+
+if [[ -n "$frontend_grep" ]]; then
+  "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}" \
+    NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
+    "$ROOT_DIR/tools/harness/browser/run-playwright-phase.sh" \
+    "browser-e2e-measurement frontend-readiness-${runtime_profile_id}" -- \
+    "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" --dir apps/web exec playwright test \
+    apps/web/e2e/measurement -g "$frontend_grep" ||
+    status=1
+fi
+
+exit "$status"

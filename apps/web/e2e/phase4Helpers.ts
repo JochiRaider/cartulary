@@ -659,12 +659,6 @@ export async function addRelationshipTokenViaUI(
           .catch((error: unknown) => {
             return `<<failed to read row version: ${String(error)}>>`;
           }),
-        saveState: await page
-          .getByTestId(saveStateTestId())
-          .textContent()
-          .catch((error: unknown) => {
-            return `<<failed to read save state: ${String(error)}>>`;
-          }),
       }),
       {
         message: [
@@ -681,7 +675,6 @@ export async function addRelationshipTokenViaUI(
       inputValue: "",
       pendingQueueNoticeCount: 0,
       renderedRowVersion: String(envelope.data.row.row_version),
-      saveState: "Saved",
     });
   return envelope;
 }

@@ -240,6 +240,24 @@ Default browser schedule generation MUST apply row-level admissibility after sta
 Default browser projection artifacts MUST expose the selected scope. For frontend rows selected by a default browser projection, retained `cartulary.frontend_row_accounting.v5` artifacts MUST use `accounting_scope.mode="selected_rows"` with the exact selected frontend row IDs. If a default browser group retains only base rows and no frontend rows, frontend row accounting MUST be disabled for that group rather than closing broad active frontend target rows. Standalone direct browser targets MUST keep broad `active_target` accounting when they map frontend rows outside an explicit slice or projection.
 
 The `browser-e2e-stateful` public target MAY be implemented as generated `stateful_partition` browser groups when every partition declares a selected base phase, explicit selected row IDs, and an isolated browser session group. Partitioning MUST preserve the same stateful base row IDs and frontend row-accounting IDs selected by the unpartitioned public target. Frontend-only partitions MUST skip empty base manifest execution rather than treating absence of base rows as success for product rows; mixed partitions MUST execute the selected base phase and the selected frontend rows in the same isolated browser session. Direct `browser-e2e-stateful` execution MUST reset between stateful partitions, while scheduler execution MUST start and finalize each partition session independently. Stateful partitioning MUST NOT remove reset, taint, teardown, route-token, runtime identity, frontend row-accounting, or target-summary evidence.
+
+### 3.4 Browser runtime profiles
+
+Browser evidence MAY declare a named `runtime_profile_id` only through the authored execution-topology registry and phase/frontend evidence maps. The current closed profiles are `default`, which uses ordinary unclaimed development configuration, and `network_flow_claimed`, which starts the server with the committed reference-only Network Flow key-ring manifest plus two distinct session-generated 32-byte secrets for cursor and safe-digest references. Unknown profiles MUST fail before Playwright starts. Arbitrary per-test environment injection and runtime routes that toggle extension claims are forbidden.
+
+A browser runtime profile is immutable startup identity. Generated groups, shards, and sessions MUST carry the profile ID; incompatible profiles MUST use distinct browser session groups. A mixed-profile session, attach request whose expected profile differs from the retained stack, or profile/configuration fingerprint mismatch MUST fail closed before product assertions. Runtime reset is data-only and MUST NOT change the profile, extension claims, key-ring identity, or child-process environment.
+
+The harness MUST generate claimed-profile secrets in memory for each owned stack, pass them only in the child server environment, and redact their values from commands, logs, diagnostics, summaries, retained metadata, and failure messages. Retained `cartulary.web_e2e_stack.v3` metadata MUST include the non-secret `runtime_profile_id` and a deterministic non-secret configuration fingerprint. It MUST NOT include secret values or a reversible representation of them.
+
+Profile-aware batch collation MUST preserve every compatible session's selected runner results and must not allow a later session to overwrite evidence from an earlier profile. Phase and frontend accounting MUST select rows only for the active profile and MUST reject an unknown row/profile association. Default local `make check` remains on `default`; claimed-profile rows are explicit-only and run through direct phase/frontend slices, full browser targets, CI, and release validation. Retained browser artifacts created before this profile contract or without current profile metadata cannot close current profile-aware evidence rows and MUST be regenerated.
+
+When an accessibility target selects more than one runtime profile, each profile
+session MUST emit a distinct contribution and the target MUST merge those
+contributions into one canonical accessibility summary before accounting. Visual
+targets and the visual-update helper MUST likewise execute each selected profile
+against its own immutable stack while retaining one target-level result. A
+per-profile contribution is not independently sufficient evidence when another
+selected profile fails, is missing, or cannot be attached safely.
 Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-018
 
 **TH-HARNESS-REQ-057**
@@ -1716,7 +1734,7 @@ For every command type, fields not listed for that type are forbidden. Scheduler
 | `browser_session_finalizer` | `service_target`, `browser_session_group` | none | `target`, `shard`, `group_id`, `browser_stage` | Stops a shared browser session and releases its retained browser/process claims after every group in the session has finished. |
 | `go_shard` | `target`, `shard`, `service_target` | `complete_on_failure=false` unless explicitly declared on the work unit. | `browser_stage`, `group_id` | Runs one Go shard under the service session. Product assertion failures map as product failures; setup and runtime failures map through Section 9. |
 | `go_shard_finalize` | `target`, `service_target` | top-level `work_units[].shard_names[]` is required and is not a command field. | `shard`, `browser_stage`, `group_id` | Aggregates summaries for scheduler-selected shards and emits the target summary. Missing or inconsistent evidence for a selected shard is an artifact or scheduler-accounting failure; shards omitted by the scheduler selection MUST NOT be required by this finalizer. |
-| `service_complete` | `service_target` | none | `target`, `shard`, `browser_stage`, `group_id` | Finalizes service-backed aggregate evidence after dependent work completes. Cleanup remains owned by scheduler finalizers and lifecycle rules. |
+| `service_complete` | `service_target` | none | `target`, `shard`, `browser_stage`, `group_id` | Terminates the owned service lease after dependent work completes and emits its completion key only after teardown succeeds. End-of-schedule cleanup remains an idempotent failure/interruption fallback and MUST NOT be the ordinary teardown path when later work depends on the service-complete key. |
 
 `weight_ms` is an advisory scheduling estimate. It MUST NOT be treated as a logical resource claim, timeout, benchmark claim, pass/fail threshold, or product performance conformance statement.
 
@@ -1731,6 +1749,14 @@ Phase-map Go rows that carry multiple Go symbols MAY declare `scenario_symbols` 
 For the `check` scheduler, a service-backed suite session SHOULD start as soon as the suite's own readiness prerequisites are satisfied. Browser build artifacts such as server and migration binaries MUST be modeled as dependencies of browser stage sessions that require them, not as prerequisites of the shared service-suite readiness unit. Backend service-backed shards that use the suite template database MAY depend only on the service-session readiness completion key when they do not require those browser build artifacts.
 
 For the `check` scheduler, readiness work such as frontend install, pinned tool bootstrap, binary builds, and service-image warmup SHOULD be represented as first-class scheduler work units with completion keys. Scheduler-invoked child targets MAY suppress recursive Make prerequisite setup only when `make_prerequisite_policy=skip` and their declared readiness keys are already satisfied. Direct public Make target invocation MUST continue to run its normal prerequisites.
+
+An aggregate sequence invoked by a scheduler work unit MUST treat its authored
+per-step prerequisite policy as authoritative. A normal serial or parallel sequence
+step MUST clear inherited scheduler prerequisite-skip state before invoking its Make
+target. Only a sequence step explicitly declared with `skip_prerequisites=true` MAY
+inject prerequisite-skip and prerequisite-satisfied state. An outer composite gate's
+`make_prerequisite_policy=skip` MUST NOT suppress prerequisites owned by ordinary
+inner sequence steps.
 
 A scheduled work unit that inspects, embeds, serves, signs, packages, or otherwise consumes a generated build artifact MUST depend on the scheduler-visible work unit that produces or proves that artifact. This includes static/security conformance scanners that inspect built bundle roots. A build-artifact cache hit MAY satisfy the producer work unit only under the Section 8 cache contract; it MUST NOT allow an artifact consumer to start without the producer completion key. Cache-profile smoke fixtures MUST create every declared file and directory output for the profile they exercise; partial-output fixtures MUST model a rebuild or fail-closed path and MUST NOT accept success by incomplete output.
 

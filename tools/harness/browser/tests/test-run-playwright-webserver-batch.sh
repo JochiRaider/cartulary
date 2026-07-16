@@ -579,6 +579,35 @@ if (!functional[0].includes("worker_count=10 ") || !functional[0].includes("work
 }
 NODE
 
+scheduled_support_invocations="$tmp_dir/batch-scheduled-support-invocations.log"
+scheduled_support_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
+  CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
+  CARTULARY_TEST_RUN_ID="batch-scheduled-support" \
+  CARTULARY_BROWSER_GROUP_KIND="support" \
+  CARTULARY_PLAYWRIGHT_WORKER_COUNT="10" \
+  CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET="6" \
+  NODE_BIN="${NODE:-node}" \
+  FAKE_PLAYWRIGHT_INVOCATIONS="$scheduled_support_invocations" \
+    "$HELPER" support -- "$fake_playwright"
+)"
+assert_empty "$scheduled_support_output" "scheduled playwright support success"
+"${NODE:-node}" - "$scheduled_support_invocations" <<'NODE'
+const fs = require("node:fs");
+const lines = fs.readFileSync(process.argv[2], "utf8").trim().split(/\n/u).filter(Boolean);
+const support = lines.filter((line) => line.startsWith("project=support "));
+if (support.length !== 1) {
+  throw new Error(`expected one scheduled support invocation, got ${support.length}`);
+}
+if (!support[0].includes("worker_count=10 ") || !support[0].includes("worker_offset=6 ")) {
+  throw new Error(`scheduled support worker routing did not preserve scheduler allocation: ${support[0]}`);
+}
+if (lines.some((line) => line.startsWith("project=functional "))) {
+  throw new Error("support mode must not run the functional project");
+}
+NODE
+
 selected_frontend_multititle_shard_invocations="$tmp_dir/batch-selected-frontend-multititle-shard-invocations.log"
 selected_frontend_multititle_shard_output="$(
   CARTULARY_OUTPUT_MODE=quiet \

@@ -108,6 +108,7 @@ function emptySessionInfo(group, source, sourceIndex) {
     isolationReason: "",
     sources: [],
     groups: [],
+    runtimeProfileID: "",
   };
 }
 
@@ -117,6 +118,13 @@ function applySessionGroup(info, source, group, {
   needs,
   priority,
 }) {
+  const runtimeProfileID = String(group.runtime_profile_id ?? "default").trim() || "default";
+  if (info.runtimeProfileID && info.runtimeProfileID !== runtimeProfileID) {
+    throw new Error(
+      `browser session ${info.group} mixes runtime profiles ${info.runtimeProfileID} and ${runtimeProfileID}`,
+    );
+  }
+  info.runtimeProfileID = runtimeProfileID;
   if (!info.sources.includes(source)) {
     info.sources.push(source);
   }

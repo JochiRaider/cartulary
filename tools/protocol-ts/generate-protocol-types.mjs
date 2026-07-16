@@ -248,7 +248,7 @@ function validatorSource(entries) {
       /const (func\d+) = require\("ajv\/dist\/runtime\/equal"\)\.default;/gu,
       "const $1 = cartularyDeepEqual;",
     );
-  return `${generatedMarker}\n// @ts-nocheck\nimport cartularyDeepEqual from "ajv/dist/runtime/equal.js";\nimport cartularyUcs2Length from "ajv/dist/runtime/ucs2length.js";\n${source}\n`;
+  return `${generatedMarker}\n// @ts-nocheck\nimport cartularyDeepEqualRuntime from "ajv/dist/runtime/equal.js";\nimport cartularyUcs2LengthRuntime from "ajv/dist/runtime/ucs2length.js";\nconst cartularyDeepEqual = typeof cartularyDeepEqualRuntime === "function" ? cartularyDeepEqualRuntime : cartularyDeepEqualRuntime.default;\nconst cartularyUcs2Length = typeof cartularyUcs2LengthRuntime === "function" ? cartularyUcs2LengthRuntime : cartularyUcs2LengthRuntime.default;\n${source}\n`;
 }
 
 function generatedConstSource(exportName, value) {

@@ -235,7 +235,11 @@ run_step() {
   case "${kind}" in
     step)
       target="${rest}"
-      env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 "${MAKE_BIN}" --no-print-directory "${target}"
+      env -u CARTULARY_TEST_TARGET \
+        -u CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES \
+        -u CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED \
+        CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
+        "${MAKE_BIN}" --no-print-directory "${target}"
       ;;
     step-skip)
       target="${rest}"
@@ -248,7 +252,11 @@ run_step() {
         echo "invalid parallel step ${rest}; expected <target>:<jobs>" >&2
         return 2
       fi
-      env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 "${MAKE_BIN}" --no-print-directory --output-sync=target "-j${jobs}" "${target}"
+      env -u CARTULARY_TEST_TARGET \
+        -u CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES \
+        -u CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED \
+        CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
+        "${MAKE_BIN}" --no-print-directory --output-sync=target "-j${jobs}" "${target}"
       ;;
     *)
       echo "unknown step kind ${kind}" >&2

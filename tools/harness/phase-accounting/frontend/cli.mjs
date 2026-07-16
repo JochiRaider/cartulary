@@ -5,7 +5,7 @@ import {
 import { validateFrontendPhaseArtifacts } from "./phase-artifacts.mjs";
 
 const grepUsage =
-  "usage: frontend-phase-manifest.mjs playwright-grep|title-grep <target> [layer] [--row-ids <ids>]";
+  "usage: frontend-phase-manifest.mjs playwright-grep|title-grep <target> [layer] [--row-ids <ids>] [--runtime-profile-id <id>]";
 
 export function runFrontendPhaseManifestCLI(
   argv = process.argv.slice(2),
@@ -22,13 +22,18 @@ export function runFrontendPhaseManifestCLI(
     const target = args.shift() ?? "";
     let layer = "";
     let rowIDs = null;
-    if (args[0] && args[0] !== "--row-ids") {
+    let runtimeProfileID = null;
+    if (args[0] && !args[0].startsWith("--")) {
       layer = args.shift();
     }
     while (args.length > 0) {
       const arg = args.shift();
       if (arg === "--row-ids") {
         rowIDs = args.shift() ?? "";
+        continue;
+      }
+      if (arg === "--runtime-profile-id") {
+        runtimeProfileID = args.shift() ?? "";
         continue;
       }
       console.error(grepUsage);
@@ -40,8 +45,14 @@ export function runFrontendPhaseManifestCLI(
     }
     console.log(
       command === "title-grep"
-        ? frontendExactTitleGrepForTarget(root, target, layer, { rowIDs })
-        : frontendPlaywrightGrepForTarget(root, target, layer, { rowIDs }),
+        ? frontendExactTitleGrepForTarget(root, target, layer, {
+            rowIDs,
+            runtimeProfileID,
+          })
+        : frontendPlaywrightGrepForTarget(root, target, layer, {
+            rowIDs,
+            runtimeProfileID,
+          }),
     );
     return;
   }

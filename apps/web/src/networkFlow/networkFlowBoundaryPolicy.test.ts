@@ -54,4 +54,25 @@ describe("Network Flow frontend boundary policy", () => {
     expect(client).toContain("../services/networkFlowContractAdapter");
     expect(client).not.toContain("@cartulary/protocol-ts");
   });
+
+  it("keeps the grid vendor and raw coordinate handles outside Network Flow consumers", () => {
+    for (const file of sourceFiles(webSourceDirectory)) {
+      const source = readFileSync(file, "utf8");
+      expect(source, file).not.toContain("react-data-grid");
+      if (file.startsWith(networkFlowDirectory)) {
+        expect(source, file).not.toMatch(
+          /(?:rowIdx|columnIdx|selectedPosition|rawGridHandle)/u,
+        );
+      }
+    }
+  });
+
+  it("rejects synthetic markup in authoritative Phase 12 Network Flow browser evidence", () => {
+    const evidence = readFileSync(
+      path.resolve(webSourceDirectory, "../e2e/phase12.network-flow.spec.ts"),
+      "utf8",
+    );
+    expect(evidence).not.toContain("page.setContent");
+    expect(evidence).toContain("openClaimedNetworkAnalysis");
+  });
 });

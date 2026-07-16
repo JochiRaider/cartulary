@@ -2,9 +2,11 @@ package networkflow
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -123,6 +125,95 @@ func TestGraphProjectionFailureClassification(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			requireAPIError(t, graphProjectionFailedForProjectionError(test.err), "network_flow_graph_projection_failed", test.reason)
 		})
+	}
+}
+
+func phase12AssertGraphProjectionTimestampNormalizesToProviderPrecision(t *testing.T) {
+	t.Helper()
+	input := time.Date(2026, 7, 10, 12, 0, 0, 123456789, time.FixedZone("test", -4*60*60))
+	if got, want := graphProjectionTimestamp(input), "2026-07-10T16:00:00.123456Z"; got != want {
+		t.Fatalf("graph projection timestamp = %q, want %q", got, want)
+	}
+}
+
+func phase12AssertGraphProjectionAdapterAcceptsCanonicalImportFixture(t *testing.T) {
+	t.Helper()
+	semanticQuery := graphSemanticQueryResource([]string{"nft_" + strings.Repeat("a", 64)}, nil, graphTimeRange{}, graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true}, graphResultLimits{})
+	if encoded := string(canonicalJSON(semanticQuery)); !strings.Contains(encoded, `"filters":[]`) {
+		t.Fatalf("default-materialized semantic graph filters = %s, want empty array", encoded)
+	}
+	digestIncidentID := phase12IncidentID()
+	digestAggregation := graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true}
+	digestTimeRange := graphTimeRange{Omitted: true}
+	if omittedDigest, emptyDigest := graphQueryDigest(digestIncidentID, []string{"nft_" + strings.Repeat("a", 64)}, nil, digestTimeRange, digestAggregation), graphQueryDigest(digestIncidentID, []string{"nft_" + strings.Repeat("a", 64)}, []Filter{}, digestTimeRange, digestAggregation); omittedDigest != emptyDigest {
+		t.Fatalf("omitted and empty graph filters produced different digests: %s != %s", omittedDigest, emptyDigest)
+	}
+	fixture := phase12ReadFile(t, "fixtures/network-flow/NF-FIX-001-cisco-sna-minimal/source/cisco-sna-minimal.csv")
+	parsed, err := ParseCSVApply(bytes.NewReader(fixture), "", DefaultLimits())
+	if err != nil {
+		t.Fatalf("parse canonical Network Flow fixture: %v", err)
+	}
+	mapping := phase12ApprovedMapping(SourceProfileCiscoSNANetFlowCSV)
+	mapping.SourceColumns = parsed.SourceColumns
+	fingerprint := MappingFingerprint(mapping, parsed.SourceContentSHA256)
+	rows, diagnostics, _, err := ValidateRows(parsed, mapping, fingerprint, DefaultLimits())
+	if err != nil || len(diagnostics) != 0 {
+		t.Fatalf("validate canonical Network Flow fixture: rows=%d diagnostics=%#v err=%v", len(rows), diagnostics, err)
+	}
+	incidentID := phase12IncidentID()
+	tableID := "nft_" + strings.Repeat("a", 64)
+	for index := range rows {
+		rows[index].IncidentID = incidentID
+		rows[index].NetworkFlowTableID = tableID
+		rows[index].RowID = fmt.Sprintf("nfr_%064x", index+1)
+	}
+	table := TableRecord{
+		IncidentID:         incidentID,
+		TableID:            tableID,
+		MappingFingerprint: fingerprint,
+	}
+	limits := DefaultLimits()
+	composition := graphComposition{
+		SourceTables:     []TableRecord{table},
+		TableRanks:       map[string]int{tableID: 0},
+		Vertices:         map[string]*graphVertex{},
+		Edges:            map[string]*graphEdge{},
+		SelectedTableIDs: []string{tableID},
+		ResultLimits: graphResultLimits{
+			MaxVertices:               int(limits.MaxGraphVertices),
+			MaxEdges:                  int(limits.MaxGraphEdges),
+			MaxExampleRowRefsPerEdge:  int(limits.MaxExampleRowRefsPerEdge),
+			MaxAggregateCounterDigits: int(limits.MaxAggregateCounterDigits),
+		},
+	}
+	if apiErr := composeGraphObjects(incidentID, rows, map[string]TableRecord{tableID: table}, &composition); apiErr != nil {
+		t.Fatalf("compose canonical Network Flow graph: %#v", apiErr)
+	}
+	requestedAt := time.Date(2026, 7, 10, 12, 0, 0, 123456789, time.UTC)
+	adapter := newGraphProjectionAdapter(func() time.Time { return requestedAt })
+	graphViewKey := "network_flow_activity:" + incidentID.String() + ":" + strings.Repeat("b", 64)
+	graphViewID, err := adapter.GraphViewID(graphViewKey)
+	if err != nil {
+		t.Fatalf("derive graph view ID: %v", err)
+	}
+	input := networkFlowProjectionInput(
+		graphViewID,
+		graphViewKey,
+		uuid.MustParse("00000000-0000-4000-8000-000000000012"),
+		"nfsnap_"+strings.Repeat("b", 64),
+		composition,
+		requestedAt,
+	)
+	result, err := adapter.ProjectEphemeral(context.Background(), canonicalJSON(input))
+	if err != nil {
+		var lifecycleErr *graphprojection.LifecycleError
+		if errors.As(err, &lifecycleErr) {
+			t.Fatalf("project canonical Network Flow graph: code=%s reason=%s field=%s details=%#v", lifecycleErr.Code, lifecycleErr.ReasonCode, lifecycleErr.Field, lifecycleErr.Details)
+		}
+		t.Fatalf("project canonical Network Flow graph: %v", err)
+	}
+	if summary, ok := result["validation_summary"].(map[string]any); !ok || summary["fatal_count"] != 0 || summary["error_count"] != 0 || summary["warning_count"] != 0 || summary["info_count"] != 0 {
+		t.Fatalf("canonical Network Flow graph produced validation issues: %#v", result["validation_summary"])
 	}
 }
 

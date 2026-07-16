@@ -33,7 +33,7 @@ function usage() {
   process.stderr.write(
     [
       "usage:",
-      "  browser-shard-plan.mjs plan [--baseline-file <path>] [--min-shards <n>] [--max-shards <n>] [--frontend-row-ids <ids>] [--entry-ids <ids>] [--single-shard-name <name>]",
+      "  browser-shard-plan.mjs plan [--baseline-file <path>] [--min-shards <n>] [--max-shards <n>] [--frontend-row-ids <ids>] [--entry-ids <ids>] [--runtime-profile-id <id>] [--single-shard-name <name>]",
       "  browser-shard-plan.mjs selected-tests <plan-file> <phase> [<shard-name>]",
       "  browser-shard-plan.mjs merge-reports <output-report> <input-report...>",
       "  browser-shard-plan.mjs update-baselines [--baseline-file <path>] <results-dir>",
@@ -257,6 +257,10 @@ export function createPlanFromEntries({
   phase = "",
   frontendRowIDs = new Set(),
   selectedEntryIDs = new Set(),
+  runtimeProfileID = "default",
+  shardNamePrefix = runtimeProfileID === "default"
+    ? "browser-functional"
+    : `browser-functional-${runtimeProfileID.replaceAll("_", "-")}`,
   singleShardName = "",
   baselineEntries = [],
   selectedEntries = [],
@@ -266,6 +270,7 @@ export function createPlanFromEntries({
     baselineEntries,
   );
   const entries = selectedEntries
+    .filter((entry) => (entry.runtime_profile_id ?? "default") === runtimeProfileID)
     .filter((entry) => frontendRowIDs.size === 0 || frontendRowIDs.has(entry.id))
     .filter((entry) => selectedEntryIDs.size === 0 || selectedEntryIDs.has(entry.id))
     .map((entry) => ({
@@ -287,7 +292,7 @@ export function createPlanFromEntries({
     throw new Error(message);
   }
   if (selectedEntryIDs.size > 0) {
-    const found = new Set(entries.map((entry) => entry.id));
+    const found = new Set(selectedEntries.map((entry) => entry.id));
     const unknown = [...selectedEntryIDs]
       .filter((id) => !found.has(id))
       .sort();
@@ -348,7 +353,7 @@ export function createPlanFromEntries({
     shardTargetMs: baseline.shardTargetMs,
   });
   const shards = Array.from({ length: shardCount }, (_, index) => ({
-    name: `browser-functional-shard-${String(index + 1).padStart(2, "0")}`,
+    name: `${shardNamePrefix}-shard-${String(index + 1).padStart(2, "0")}`,
     weight_ms: 0,
     files: new Set(),
     phases: new Set(),
@@ -507,6 +512,7 @@ function parsePlanArgs(argv) {
     frontendRowIDs: new Set(),
     selectedEntryIDs: new Set(),
     singleShardName: "",
+    runtimeProfileID: "default",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -566,7 +572,15 @@ function parsePlanArgs(argv) {
     if (arg === "--single-shard-name") {
       options.singleShardName = argv[index + 1] ?? "";
       index += 1;
-      if (!/^browser-functional-shard-[0-9]{2}$/.test(options.singleShardName)) {
+      if (!/^browser-functional(?:-[a-z0-9-]+)?-shard-[0-9]{2}$/.test(options.singleShardName)) {
+        usage();
+      }
+      continue;
+    }
+    if (arg === "--runtime-profile-id") {
+      options.runtimeProfileID = argv[index + 1] ?? "";
+      index += 1;
+      if (!/^[a-z][a-z0-9_]*$/u.test(options.runtimeProfileID)) {
         usage();
       }
       continue;

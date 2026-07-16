@@ -181,6 +181,13 @@ write_fake_make() {
 set -euo pipefail
 
 echo "$*" >>"${FAKE_MAKE_LOG}"
+if [[ -n "${FAKE_MAKE_ENV_LOG:-}" ]]; then
+  printf 'target=%s skip=%s satisfied=%s\n' \
+    "${@: -1}" \
+    "${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-unset}" \
+    "${CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED:-unset}" \
+    >>"${FAKE_MAKE_ENV_LOG}"
+fi
 
 if [[ -n "${CARTULARY_TEST_RESULTS_DIR:-}" && -n "${CARTULARY_TEST_RUN_ID:-}" ]]; then
   write_summary() {
@@ -276,7 +283,7 @@ sequence_manifest="${manifest_dir}/task_surface_manifest.json"
 const fs = require("node:fs");
 const [source, destination] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(source, "utf8"));
-for (const name of ["alpha", "beta", "smoke", "dry-run"]) {
+for (const name of ["alpha", "beta", "gamma", "smoke", "dry-run"]) {
   let target = manifest.targets.find((entry) => entry.name === name);
   if (!target) {
     target = { name, target_class: "internal_helper", default_inclusion_sets: [], lifecycle_state: "candidate_child" };
@@ -298,10 +305,12 @@ manifest.sequences.smoke = {
   summary_groups: [
     { name: "alpha-group", summary_targets: ["alpha"] },
     { name: "beta-group", summary_targets: ["beta"] },
+    { name: "gamma-group", summary_targets: ["gamma"] },
   ],
   steps: [
     { type: "step", target: "alpha", produces_summary_targets: ["alpha"] },
     { type: "parallel", target: "beta", jobs: 3, produces_summary_targets: ["beta"] },
+    { type: "step", target: "gamma", skip_prerequisites: true, produces_summary_targets: ["gamma"] },
   ],
 };
 manifest.make_recipes.smoke = { type: "sequence", prerequisites: [], sequence: "smoke" };
@@ -323,6 +332,9 @@ success_output="$(
   CARTULARY_OUTPUT_MODE="" \
   MAKE="${success_dir}/fake-make" \
   FAKE_MAKE_LOG="${success_dir}/make.log" \
+  FAKE_MAKE_ENV_LOG="${success_dir}/make-env.log" \
+  CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES=1 \
+  CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED=1 \
   CARTULARY_TEST_RESULTS_DIR="${success_dir}/results" \
   CARTULARY_TEST_RUN_ID="success" \
   TASK_SURFACE_MANIFEST="${sequence_manifest}" \
@@ -336,6 +348,9 @@ assert_contains "${success_output}" "[ARTIFACTS] target=smoke" "success artifact
 assert_file_present "${success_dir}/results/success/smoke/target-summary.json" "success target summary"
 assert_equals "$(json_field "${success_dir}/results/success/smoke/target-summary.json" "target")" "smoke" "success target summary identity"
 assert_contains "$(cat "${success_dir}/make.log")" "--output-sync=target -j3 beta" "parallel make invocation"
+assert_contains "$(cat "${success_dir}/make-env.log")" "target=alpha skip=unset satisfied=unset" "normal sequence step clears inherited prerequisite state"
+assert_contains "$(cat "${success_dir}/make-env.log")" "target=beta skip=unset satisfied=unset" "parallel sequence step clears inherited prerequisite state"
+assert_contains "$(cat "${success_dir}/make-env.log")" "target=gamma skip=1 satisfied=1" "explicit skip sequence step owns prerequisite state"
 
 leaf_budget_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-leaf-budget.XXXXXX")"
 cleanup_paths+=("${leaf_budget_dir}")

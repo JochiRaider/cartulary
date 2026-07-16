@@ -22,11 +22,16 @@ type graphProjectionAdapter struct {
 }
 
 type graphProjectionAdapterError struct {
+	cause  error
 	reason string
 }
 
 func (e *graphProjectionAdapterError) Error() string {
 	return "Network Flow graph projection adapter: " + e.reason
+}
+
+func (e *graphProjectionAdapterError) Unwrap() error {
+	return e.cause
 }
 
 func newGraphProjectionAdapter(now func() time.Time) graphProjectionPort {
@@ -45,11 +50,11 @@ func (a *graphProjectionAdapter) ProjectEphemeral(ctx context.Context, input jso
 	var lifecycleErr *graphprojection.LifecycleError
 	if errors.As(err, &lifecycleErr) {
 		if lifecycleErr.Code == "invalid_projection_request" || lifecycleErr.Code == "ephemeral_projection_failed" && lifecycleErr.ReasonCode == "fatal_validation" {
-			return nil, &graphProjectionAdapterError{reason: "adapter_contract_rejected"}
+			return nil, &graphProjectionAdapterError{cause: err, reason: "adapter_contract_rejected"}
 		}
-		return nil, &graphProjectionAdapterError{reason: "projection_unavailable"}
+		return nil, &graphProjectionAdapterError{cause: err, reason: "projection_unavailable"}
 	}
-	return nil, &graphProjectionAdapterError{reason: "projection_unavailable"}
+	return nil, &graphProjectionAdapterError{cause: err, reason: "projection_unavailable"}
 }
 
 // graphProjectionFailedForProjectionError is retained beside the sole provider

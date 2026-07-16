@@ -34,10 +34,20 @@ export function frontendScenarioTitlesForTarget(
             .map((rowID) => String(rowID).trim())
             .filter(Boolean),
         );
+  const runtimeProfileID =
+    options.runtimeProfileID === undefined || options.runtimeProfileID === null
+      ? null
+      : String(options.runtimeProfileID).trim();
   const titles = [];
   for (const phase of registry.phases) {
     const { manifest } = loadFrontendPhaseMap(root, phase.phase_id);
     for (const row of manifest.rows) {
+      if (
+        runtimeProfileID !== null &&
+        (row.runtime_profile_id ?? "default") !== runtimeProfileID
+      ) {
+        continue;
+      }
       if (selectedRowIDs && !selectedRowIDs.has(row.id)) {
         continue;
       }

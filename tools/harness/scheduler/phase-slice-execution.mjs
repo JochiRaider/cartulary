@@ -428,7 +428,7 @@ function attachRuntime(plan, context, metadataDir, serviceRuntime) {
       ),
     }),
     afterUnitFinish: async ({ unit, result }) => {
-      await serviceRuntime.afterUnitFinish(unit);
+      await serviceRuntime.afterUnitFinish(unit, result);
       await emitMakeTargetUnitSummary(context, unit, result.status);
     },
     afterSummary: async ({ requestedStatus }) => {

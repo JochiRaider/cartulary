@@ -114,6 +114,7 @@ function browserFunctionalEntries(
           duplicate_of: entry.duplicate_of,
           evidence_delta: entry.evidence_delta,
           warm_local_cost_class: entry.warm_local_cost_class,
+          runtime_profile_id: entry.runtime_profile_id ?? "default",
         });
       }
     }
@@ -232,6 +233,7 @@ function frontendBrowserReadinessEntries(
           duplicate_of: row.duplicate_of,
           evidence_delta: row.evidence_delta,
           warm_local_cost_class: row.warm_local_cost_class,
+          runtime_profile_id: row.runtime_profile_id ?? "default",
         });
       }
     }

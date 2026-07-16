@@ -75,6 +75,17 @@ test("E-12-NFAC050-50 measures bounded Network Flow production-grid virtualizati
   });
 });
 
+test("FE-B-P12-02 Measure the 1000-resource all-column production Network Flow grid envelope as informative implementation evidence.", async ({
+  page,
+}) => {
+  const supported = await measureFixture(page, 1_000);
+  for (const surface of fixtureSurfaces) {
+    const result = supported[surface.gridSelector];
+    expect(result.mountedRows).toBeLessThan(1_000);
+    expect(result.scrollHeight).toBeGreaterThan(result.clientHeight);
+  }
+});
+
 async function measureFixture(page: Page, logicalRows: 100 | 1_000) {
   await page.goto(
     `/?debug=harness&fixture=network-flow-grid-load&fixture_rows=${logicalRows}`,

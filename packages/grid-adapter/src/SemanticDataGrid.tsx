@@ -181,6 +181,7 @@ function useSemanticDataGrid<Row>(
   ref: ForwardedRef<GridHandle>,
 ) {
   const {
+    accessibleLabel,
     activeRowIdentity = null,
     allowPasteCreateRows = false,
     actionsColumn,
@@ -249,7 +250,9 @@ function useSemanticDataGrid<Row>(
     if (element === null || element === undefined) return;
     element.setAttribute("aria-busy", String(gridBusy));
     element.setAttribute("aria-readonly", String(!editable));
-  }, [editable, gridBusy]);
+    if (accessibleLabel === undefined) element.removeAttribute("aria-label");
+    else element.setAttribute("aria-label", accessibleLabel);
+  }, [accessibleLabel, editable, gridBusy]);
   const selectionAnchorRecordId = useRef<string | null>(null);
   const [internalCellRange, setInternalCellRange] =
     useState<GridCellRange | null>(null);

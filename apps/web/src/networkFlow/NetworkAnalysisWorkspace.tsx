@@ -1354,6 +1354,44 @@ function GraphPanel({
 }) {
   const selectedGraphButtonRef = useRef<HTMLButtonElement | null>(null);
   const selectedObject = selectedVertex ?? selectedEdge;
+  const graphVertices = useMemo(
+    () =>
+      [...(graph?.graph_projection_result.vertices ?? [])].sort((left, right) =>
+        graphVertexLabel(left).localeCompare(graphVertexLabel(right)),
+      ),
+    [graph],
+  );
+  const graphEndpointLabels = useMemo(
+    () =>
+      new Map(
+        graphVertices.flatMap((vertex) => {
+          const endpointId = semanticGraphVertexId(vertex);
+          return endpointId === null
+            ? []
+            : ([[endpointId, graphVertexLabel(vertex)]] as const);
+        }),
+      ),
+    [graphVertices],
+  );
+  const graphEdges = useMemo(
+    () =>
+      [...(graph?.graph_projection_result.edges ?? [])].sort((left, right) =>
+        graphEdgeLabel(left, graphEndpointLabels).localeCompare(
+          graphEdgeLabel(right, graphEndpointLabels),
+        ),
+      ),
+    [graph, graphEndpointLabels],
+  );
+  const graphTableLabels = useMemo(
+    () =>
+      new Map(
+        tables.map((table) => [
+          table.network_flow_table_id,
+          table.display_name,
+        ]),
+      ),
+    [tables],
+  );
   return (
     <section
       aria-label="Network Flow graph"
@@ -1419,7 +1457,7 @@ function GraphPanel({
             {graphLoadState === "loading"
               ? "Loading graph…"
               : graph
-                ? compactID(graph.graph_query_digest)
+                ? "Graph ready"
                 : "No graph"}
           </span>
           <span style={mutedTextStyle}>
@@ -1445,7 +1483,7 @@ function GraphPanel({
               </tr>
             </thead>
             <tbody>
-              {(graph?.graph_projection_result.vertices ?? []).map((vertex) => {
+              {graphVertices.map((vertex) => {
                 const vertexId = semanticGraphVertexId(vertex);
                 if (vertexId === null) {
                   return null;
@@ -1462,7 +1500,10 @@ function GraphPanel({
                       {graphScalar(vertex.properties.flow_row_count)}
                     </td>
                     <td style={tdMonoStyle}>
-                      {graphList(vertex.properties.contributing_table_ids)}
+                      {graphTableList(
+                        vertex.properties.contributing_table_ids,
+                        graphTableLabels,
+                      )}
                     </td>
                     <td style={tdStyle}>
                       <button
@@ -1495,7 +1536,7 @@ function GraphPanel({
               </tr>
             </thead>
             <tbody>
-              {(graph?.graph_projection_result.edges ?? []).map((edge) => {
+              {graphEdges.map((edge) => {
                 const edgeId = semanticGraphEdgeId(edge);
                 if (edgeId === null) {
                   return null;
@@ -1509,10 +1550,16 @@ function GraphPanel({
                     data-testid={networkAnalysisEdgeTestId(edgeId)}
                   >
                     <td style={tdMonoStyle}>
-                      {graphScalar(edge.properties.src_endpoint_id)}
+                      {graphEndpointLabel(
+                        edge.properties.src_endpoint_id,
+                        graphEndpointLabels,
+                      )}
                     </td>
                     <td style={tdMonoStyle}>
-                      {graphScalar(edge.properties.dst_endpoint_id)}
+                      {graphEndpointLabel(
+                        edge.properties.dst_endpoint_id,
+                        graphEndpointLabels,
+                      )}
                     </td>
                     <td style={tdMonoStyle}>
                       {graphScalar(edge.properties.ip_protocol)}
@@ -1558,8 +1605,8 @@ function GraphPanel({
           <div style={drawerHeaderStyle}>
             <strong>
               {selectedVertex
-                ? `Vertex ${compactID(semanticGraphVertexId(selectedVertex) ?? selectedVertex.vertex_id)}`
-                : `Edge ${compactID(semanticGraphEdgeId(selectedEdge as NetworkFlowGraphEdge) ?? (selectedEdge as NetworkFlowGraphEdge).edge_id)}`}
+                ? `Vertex ${graphVertexLabel(selectedVertex)}`
+                : `Edge ${graphEdgeLabel(selectedEdge as NetworkFlowGraphEdge, graphEndpointLabels)}`}
             </strong>
             <button
               data-testid={networkAnalysisTestId("contributor-close")}
@@ -1724,12 +1771,46 @@ function graphScalar(value: unknown): string {
     : "—";
 }
 
-function graphList(value: unknown): string {
-  return Array.isArray(value)
-    ? value
-        .filter((item): item is string => typeof item === "string")
-        .join(", ")
-    : "—";
+function graphVertexLabel(vertex: NetworkFlowGraphVertex): string {
+  return graphScalar(vertex.properties.endpoint_value);
+}
+
+function graphEndpointLabel(
+  value: unknown,
+  labels: ReadonlyMap<string, string>,
+): string {
+  const endpointId = graphString(value);
+  return endpointId === null
+    ? "—"
+    : (labels.get(endpointId) ?? "Unavailable endpoint");
+}
+
+function graphEdgeLabel(
+  edge: NetworkFlowGraphEdge,
+  endpointLabels: ReadonlyMap<string, string>,
+): string {
+  const source = graphEndpointLabel(
+    edge.properties.src_endpoint_id,
+    endpointLabels,
+  );
+  const destination = graphEndpointLabel(
+    edge.properties.dst_endpoint_id,
+    endpointLabels,
+  );
+  const protocol = graphScalar(edge.properties.ip_protocol);
+  const port = graphScalar(edge.properties.dst_port);
+  return `${source} → ${destination} · protocol ${protocol} · port ${port}`;
+}
+
+function graphTableList(
+  value: unknown,
+  labels: ReadonlyMap<string, string>,
+): string {
+  if (!Array.isArray(value)) return "—";
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((tableId) => labels.get(tableId) ?? "Unavailable table")
+    .join(", ");
 }
 
 function IndicatorLinkDialog({

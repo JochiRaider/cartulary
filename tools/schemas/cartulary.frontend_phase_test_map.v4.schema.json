@@ -65,7 +65,8 @@
         "primary_evidence_owner": { "type": "string", "minLength": 1 },
         "duplicate_of": { "type": "string", "minLength": 1 },
         "evidence_delta": { "type": "string", "minLength": 1 },
-        "warm_local_cost_class": { "type": "string", "minLength": 1 }
+        "warm_local_cost_class": { "type": "string", "minLength": 1 },
+        "runtime_profile_id": { "pattern": "^[a-z][a-z0-9_]*$", "type": "string" }
       }
     },
     "target_ref": {

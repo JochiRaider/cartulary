@@ -31,8 +31,8 @@
       },
       "supported_timestamp_modes": ["rfc3339", "epoch_seconds", "epoch_milliseconds", "netflow_sys_uptime_milliseconds"],
       "fields": [
-        { "field_key": "network_flow.flow_start_utc", "requirement": "required", "transform_id": "timestamp_profile_v1", "empty_value_policy": "empty_string_is_invalid", "aliases": ["Flow Start Time", "First Seen", "FIRST_SWITCHED", "flowStartMilliseconds", "flowStartSeconds"] },
-        { "field_key": "network_flow.flow_end_utc", "requirement": "required", "transform_id": "timestamp_profile_v1", "empty_value_policy": "empty_string_is_invalid", "aliases": ["Flow End Time", "Last Seen", "LAST_SWITCHED", "flowEndMilliseconds", "flowEndSeconds"] },
+        { "field_key": "network_flow.flow_start_utc", "requirement": "required", "transform_id": "timestamp_profile_v1", "empty_value_policy": "empty_string_is_invalid", "aliases": ["Start Time", "Flow Start Time", "First Seen", "FIRST_SWITCHED", "flowStartMilliseconds", "flowStartSeconds"] },
+        { "field_key": "network_flow.flow_end_utc", "requirement": "required", "transform_id": "timestamp_profile_v1", "empty_value_policy": "empty_string_is_invalid", "aliases": ["End Time", "Flow End Time", "Last Seen", "LAST_SWITCHED", "flowEndMilliseconds", "flowEndSeconds"] },
         { "field_key": "network_flow.src_ip", "requirement": "required", "transform_id": "ip_literal_v1", "empty_value_policy": "empty_string_is_invalid", "aliases": ["Source IP Address", "Source IP", "IPV4_SRC_ADDR", "sourceIPv4Address", "IPV6_SRC_ADDR", "sourceIPv6Address"] },
         { "field_key": "network_flow.dst_ip", "requirement": "required", "transform_id": "ip_literal_v1", "empty_value_policy": "empty_string_is_invalid", "aliases": ["Destination IP Address", "Destination IP", "IPV4_DST_ADDR", "destinationIPv4Address", "IPV6_DST_ADDR", "destinationIPv6Address"] },
         { "field_key": "network_flow.src_port", "requirement": "required", "transform_id": "port_number_v1", "empty_value_policy": "empty_string_is_invalid", "aliases": ["Source Port", "L4_SRC_PORT", "sourceTransportPort"] },

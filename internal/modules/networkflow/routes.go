@@ -554,6 +554,18 @@ func (s *Service) ensureActiveTables(ctx context.Context, incidentID uuid.UUID, 
 }
 
 func acceptedRowsQueryEcho(filters []Filter, sortSpecs []SortSpec, effective []SortSpec, tableIDs []string) map[string]any {
+	if filters == nil {
+		filters = []Filter{}
+	}
+	if sortSpecs == nil {
+		sortSpecs = []SortSpec{}
+	}
+	if effective == nil {
+		effective = []SortSpec{}
+	}
+	if tableIDs == nil {
+		tableIDs = []string{}
+	}
 	return map[string]any{
 		"filters":        filters,
 		"sort":           sortSpecs,
@@ -563,6 +575,14 @@ func acceptedRowsQueryEcho(filters []Filter, sortSpecs []SortSpec, effective []S
 }
 
 func rejectedRowsQueryEcho(request RejectedRowsQueryRequest) map[string]any {
+	errorCodes := request.ErrorCodes
+	if errorCodes == nil {
+		errorCodes = []string{}
+	}
+	fieldKeys := request.FieldKeys
+	if fieldKeys == nil {
+		fieldKeys = []string{}
+	}
 	var sourceRange any
 	if request.SourceRowGTE != nil || request.SourceRowLTE != nil {
 		value := map[string]any{"gte": nil, "lte": nil}
@@ -575,8 +595,8 @@ func rejectedRowsQueryEcho(request RejectedRowsQueryRequest) map[string]any {
 		sourceRange = value
 	}
 	return map[string]any{
-		"error_codes":      request.ErrorCodes,
-		"field_keys":       request.FieldKeys,
+		"error_codes":      errorCodes,
+		"field_keys":       fieldKeys,
 		"source_row_range": sourceRange,
 		"effective_sort": []map[string]string{
 			{"field_key": "source_row_number", "direction": "asc"},

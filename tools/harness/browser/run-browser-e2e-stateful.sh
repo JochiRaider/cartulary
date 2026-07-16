@@ -9,6 +9,7 @@ status=0
 
 selected_row_ids="${CARTULARY_BROWSER_SELECTED_ROW_IDS:-}"
 selected_phase="${CARTULARY_BROWSER_SELECTED_PHASE:-${CARTULARY_PHASE_SLICE_PHASE:-}}"
+group_coverage="${CARTULARY_BROWSER_GROUP_COVERAGE:-authoritative}"
 frontend_row_ids=()
 
 if [[ -n "$selected_row_ids" ]]; then
@@ -29,7 +30,7 @@ if [[ -n "$selected_row_ids" && -n "$selected_phase" ]]; then
   phase_stateful_count="$(
     NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
       "${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" "$ROOT_DIR/tools/harness/phase-accounting/phase-manifest.mjs" \
-        playwright-count "$selected_phase" authoritative browser_stateful
+        playwright-count "$selected_phase" "$group_coverage" browser_stateful
   )"
   if [[ "$phase_stateful_count" == "0" ]]; then
     run_base_manifest=0
@@ -42,7 +43,7 @@ if [[ "$run_base_manifest" -eq 1 ]]; then
     base_env+=("CARTULARY_PHASE_SLICE_PHASE=$selected_phase")
   fi
   "${base_env[@]}" "$ROOT_DIR/tools/harness/browser/run-browser-e2e-manifest-dependency.sh" \
-    browser-e2e-stateful authoritative browser_stateful -- \
+    browser-e2e-stateful "$group_coverage" browser_stateful -- \
     "$ROOT_DIR/tools/harness/browser/run-browser-e2e-owned-stack.sh" "$@" ||
     status=1
 fi
@@ -50,7 +51,10 @@ fi
 frontend_grep=""
 frontend_scope="${CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE:-}"
 if [[ "$frontend_scope" != "disabled" ]]; then
-  frontend_grep_args=(playwright-grep browser-e2e-stateful e2e)
+  frontend_grep_args=(
+    playwright-grep browser-e2e-stateful e2e
+    --runtime-profile-id "${CARTULARY_BROWSER_RUNTIME_PROFILE_ID:-default}"
+  )
   if [[ -n "$selected_row_ids" ]]; then
     if [[ "${#frontend_row_ids[@]}" -eq 0 ]]; then
       frontend_scope="disabled"

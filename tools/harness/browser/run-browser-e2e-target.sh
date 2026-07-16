@@ -34,9 +34,23 @@ target="$(printf '%s\n' "$stage_metadata" | sed -n '1p')"
 summary_children="$(printf '%s\n' "$stage_metadata" | sed -n '2p')"
 
 status=0
-env CARTULARY_TEST_TARGET="$target" \
-  NODE_BIN="$node_bin" \
-  "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" -- "$ROOT_DIR/tools/harness/browser/run-browser-e2e-batch.sh" "$stage" --defer-summary || status=$?
+mapfile -t stage_sessions < <(
+  "$node_bin" "$ROOT_DIR/tools/harness/browser/browser-batch-manifest.mjs" stage-sessions "$MANIFEST" "$stage"
+)
+for session_row in "${stage_sessions[@]}"; do
+  session_row_fields="${session_row//$'\t'/$'\x1f'}"
+  IFS=$'\x1f' read -r session_group runtime_profile_id selected_groups <<<"$session_row_fields"
+  session_status=0
+  env CARTULARY_TEST_TARGET="$target" \
+    CARTULARY_BROWSER_SESSION_GROUP="$session_group" \
+    CARTULARY_BROWSER_RUNTIME_PROFILE_ID="$runtime_profile_id" \
+    CARTULARY_BROWSER_SELECTED_GROUPS="$selected_groups" \
+    NODE_BIN="$node_bin" \
+    "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" -- "$ROOT_DIR/tools/harness/browser/run-browser-e2e-batch.sh" "$stage" --defer-summary || session_status=$?
+  if [[ "$session_status" -ne 0 && "$status" -eq 0 ]]; then
+    status="$session_status"
+  fi
+done
 
 if [[ "$status" -eq 0 ]]; then
   requested=pass

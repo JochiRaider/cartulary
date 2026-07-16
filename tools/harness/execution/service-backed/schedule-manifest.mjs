@@ -40,6 +40,7 @@ const serviceSourceKeys = new Set([
   "browser_stage",
   "browser_session_group",
   "browser_session_isolation_reason",
+  "runtime_profile_id",
   "groups",
 ]);
 const serviceBrowserGroupKeys = new Set([
@@ -61,6 +62,7 @@ const serviceBrowserGroupKeys = new Set([
   "selected_row_ids",
   "browser_session_group",
   "browser_session_isolation_reason",
+  "runtime_profile_id",
   "priority",
   "weight_ms",
   "resource_claims",

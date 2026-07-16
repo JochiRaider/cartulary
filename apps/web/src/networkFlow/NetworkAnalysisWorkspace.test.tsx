@@ -48,7 +48,7 @@ describe("NetworkAnalysisWorkspace", () => {
     vi.restoreAllMocks();
   });
 
-  it("loads tables, opens graph contributors, and links an edge endpoint", async () => {
+  it("FE-I-P12-01 Verify production Network Flow grids, read-only behavior, stable references, virtualization, and adapter boundaries compose through semantic identities.", async () => {
     const decodedGraph = networkFlowDecoders.graphQueryResult.decode(
       graphResource(),
     );
@@ -1519,7 +1519,7 @@ function graphResource(
         },
       ],
       validation_summary: {
-        status: "valid",
+        status: "passed",
         fatal_count: 0,
         error_count: 0,
         warning_count: 0,
@@ -1662,7 +1662,18 @@ function sourceProfileListResource() {
 }
 
 function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
+  const envelope =
+    status >= 200 &&
+    status < 300 &&
+    body !== null &&
+    typeof body === "object" &&
+    !Array.isArray(body) &&
+    "schema_id" in body &&
+    typeof body.schema_id === "string" &&
+    body.schema_id.startsWith("cartulary.network_flow.")
+      ? { data: body, meta: { request_id: "req-network-flow-unit" } }
+      : body;
+  return new Response(JSON.stringify(envelope), {
     status,
     headers: { "Content-Type": "application/json" },
   });

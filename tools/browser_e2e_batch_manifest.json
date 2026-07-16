@@ -1,5 +1,16 @@
 {
   "schema_id": "cartulary.browser_e2e_batch_manifest.v5",
+  "runtime_profiles": [
+    {
+      "id": "default",
+      "kind": "default"
+    },
+    {
+      "id": "network_flow_claimed",
+      "kind": "network_flow_claimed",
+      "key_ring_manifest_path": "configs/dev/network-flow-key-rings.example.json"
+    }
+  ],
   "stages": [
     {
       "name": "webserver-backed",
@@ -10,12 +21,24 @@
       ],
       "groups": [
         {
-          "name": "functional-support",
+          "name": "functional-support-default",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default"
+          "workers": "default",
+          "runtime_profile_id": "default"
+        },
+        {
+          "name": "functional-support-network-flow-claimed",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-functional-network-flow-claimed",
+          "browser_session_isolation_reason": "claimed Network Flow evidence requires immutable startup-only extension configuration"
         }
       ]
     },
@@ -24,12 +47,24 @@
       "target": "browser-e2e-functional",
       "groups": [
         {
-          "name": "functional",
+          "name": "functional-default",
           "target": "browser-e2e-functional",
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default"
+          "workers": "default",
+          "runtime_profile_id": "default"
+        },
+        {
+          "name": "functional-network-flow-claimed",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-functional-network-flow-claimed",
+          "browser_session_isolation_reason": "claimed Network Flow evidence requires immutable startup-only extension configuration"
         }
       ]
     },
@@ -162,6 +197,22 @@
           "selected_row_ids": [
             "FE-E-P10-01"
           ]
+        },
+        {
+          "name": "stateful-phase12-network-flow-claimed",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful_partition",
+          "coverage": "supplemental",
+          "execution_dependency": "browser_stateful",
+          "workers": "1",
+          "reset_before": "stateful-phase10-to-phase12-network-flow-claimed",
+          "selected_phase": "phase12",
+          "selected_row_ids": [
+            "FE-E-P12-01"
+          ],
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-stateful-network-flow-claimed",
+          "browser_session_isolation_reason": "claimed Network Flow stateful evidence requires immutable startup-only extension configuration"
         }
       ]
     },
@@ -196,6 +247,17 @@
           "coverage": "authoritative",
           "execution_dependency": "browser_a11y",
           "workers": "1"
+        },
+        {
+          "name": "a11y-network-flow-claimed",
+          "target": "browser-e2e-a11y",
+          "kind": "a11y",
+          "coverage": "supplemental",
+          "execution_dependency": "browser_a11y",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-a11y-network-flow-claimed",
+          "browser_session_isolation_reason": "claimed Network Flow accessibility evidence requires immutable startup-only extension configuration"
         }
       ]
     },
@@ -213,6 +275,17 @@
           "coverage": "authoritative",
           "execution_dependency": "browser_visual",
           "workers": "1"
+        },
+        {
+          "name": "visual-network-flow-claimed",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "supplemental",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-visual-network-flow-claimed",
+          "browser_session_isolation_reason": "claimed Network Flow visual evidence requires immutable startup-only extension configuration"
         }
       ]
     },
@@ -362,6 +435,22 @@
           ]
         },
         {
+          "name": "stateful-phase12-network-flow-claimed",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful_partition",
+          "coverage": "supplemental",
+          "execution_dependency": "browser_stateful",
+          "workers": "1",
+          "reset_before": "stateful-phase10-to-phase12-network-flow-claimed",
+          "selected_phase": "phase12",
+          "selected_row_ids": [
+            "FE-E-P12-01"
+          ],
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-stateful-network-flow-claimed",
+          "browser_session_isolation_reason": "claimed Network Flow stateful evidence requires immutable startup-only extension configuration"
+        },
+        {
           "name": "measurement",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
@@ -380,6 +469,18 @@
           "reset_before": "measurement-to-a11y"
         },
         {
+          "name": "a11y-network-flow-claimed",
+          "target": "browser-e2e-a11y",
+          "kind": "a11y",
+          "coverage": "supplemental",
+          "execution_dependency": "browser_a11y",
+          "workers": "1",
+          "reset_before": "a11y-to-network-flow-claimed",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-a11y-network-flow-claimed",
+          "browser_session_isolation_reason": "claimed Network Flow accessibility evidence requires immutable startup-only extension configuration"
+        },
+        {
           "name": "visual",
           "target": "browser-e2e-visual",
           "kind": "visual",
@@ -387,6 +488,18 @@
           "execution_dependency": "browser_visual",
           "workers": "1",
           "reset_before": "a11y-to-visual"
+        },
+        {
+          "name": "visual-network-flow-claimed",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "coverage": "supplemental",
+          "execution_dependency": "browser_visual",
+          "workers": "1",
+          "reset_before": "visual-to-network-flow-claimed",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-visual-network-flow-claimed",
+          "browser_session_isolation_reason": "claimed Network Flow visual evidence requires immutable startup-only extension configuration"
         }
       ]
     }

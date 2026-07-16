@@ -131,6 +131,7 @@ describe("grid-adapter", () => {
     render(
       <SemanticDataGrid
         ref={handle}
+        accessibleLabel="Accepted Network Flow resources"
         columns={[
           {
             fieldKey: "label",
@@ -155,6 +156,9 @@ describe("grid-adapter", () => {
       />,
     );
 
+    expect(
+      screen.getByRole("grid", { name: "Accepted Network Flow resources" }),
+    ).toBeTruthy();
     const row = await screen.findByTestId("extension-live-row");
     expect(row.getAttribute("data-grid-row-identity-kind")).toBe(
       "extension_resource",
