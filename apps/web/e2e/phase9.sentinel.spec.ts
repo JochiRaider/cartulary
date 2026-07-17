@@ -83,7 +83,7 @@ const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
 async function activateSemanticGridCell(content: Locator) {
   const cell = content.locator("xpath=ancestor::*[@role='gridcell'][1]");
-  await cell.click();
+  await cell.dispatchEvent("mousedown", { button: 0 });
   await cell.focus();
   return cell;
 }
@@ -215,7 +215,7 @@ test("Phase 9 E-9-PASTE-02 pastes a representative 20x5 Timeline clipboard range
   const seedSummary = page.getByTestId(
     rowCellTestId(seed.record_id as string, "timeline.activity_synopsis_text"),
   );
-  await seedSummary.focus();
+  await activateSemanticGridCell(seedSummary);
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
     `${timelineViewSchemaId}:${seed.record_id}:timeline.activity_synopsis_text`,
   );
@@ -261,7 +261,7 @@ test("Phase 9 E-9-PASTE-02 pastes a representative 20x5 Timeline clipboard range
         "timeline.activity_synopsis_text",
       ),
     ),
-  ).toHaveValue("Phase 9 paste summary 1");
+  ).toHaveText("Phase 9 paste summary 1");
   await expect(
     page.getByTestId(gridShellTestId(timelineViewSchemaId)),
   ).toBeVisible();
@@ -355,7 +355,11 @@ test("Phase 9 E-9-CONFLICT-02 groups paste conflicts and preserves selection con
     recordId: pasteStartRecordId as string,
     surface: timelineViewSchemaId,
   });
-  await pasteStartSummary.focus();
+  const pasteStartGridCell = pasteStartSummary.locator(
+    "xpath=ancestor::*[@role='gridcell'][1]",
+  );
+  await pasteStartGridCell.dispatchEvent("mousedown", { button: 0 });
+  await pasteStartGridCell.focus();
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
     `${timelineViewSchemaId}:${pasteStartRecordId}:timeline.activity_synopsis_text`,
   );

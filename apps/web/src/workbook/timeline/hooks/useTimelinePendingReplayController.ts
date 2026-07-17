@@ -269,6 +269,10 @@ export function useTimelinePendingReplayController({
       onSettled?: ((outcome: GridEditCommitOutcome) => void) | undefined,
     ) => {
       const pending = pendingSavesRefsRef.current.pendingQueueRef.current;
+      const snapshotBeforeAdmission = pending.model.snapshot();
+      const admissionIsBacklogged =
+        snapshotBeforeAdmission.inFlightCount > 0 ||
+        snapshotBeforeAdmission.queuedCount > 0;
       const {
         focusField,
         focusKey,
@@ -313,12 +317,13 @@ export function useTimelinePendingReplayController({
         return;
       }
 
-      if (onSettled !== undefined) {
+      if (onSettled !== undefined && !admissionIsBacklogged) {
         const callbacks =
           completionCallbacksRef.current.get(admission.unit.id) ?? [];
         callbacks.push(onSettled);
         completionCallbacksRef.current.set(admission.unit.id, callbacks);
       }
+      if (admissionIsBacklogged) onSettled?.({ kind: "accepted" });
 
       pending.metaByUnitId.set(admission.unit.id, meta);
       pendingSavesRefsRef.current.pendingSignaturesRef.current.set(
@@ -434,6 +439,7 @@ export function useTimelinePendingReplayController({
         },
       });
       publishPendingQueueState();
+      settleCompletionCallbacks(dispatchedUnit.id, { kind: "accepted" });
       schedulePendingReplayRetry();
       return;
     }
@@ -451,6 +457,7 @@ export function useTimelinePendingReplayController({
           "Authentication required before queued edits can replay.",
         );
         publishPendingQueueState();
+        settleCompletionCallbacks(dispatchedUnit.id, { kind: "accepted" });
         scheduleAuthRecoveryProbe();
         return;
       }

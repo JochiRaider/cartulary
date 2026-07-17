@@ -436,7 +436,7 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
     page.getByTestId(
       rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveValue("Alpha FE-B");
+  ).toHaveText("Alpha FE-B");
 
   await clickTimelineRowAction(
     page,
@@ -713,7 +713,7 @@ async function verifySavedViewPersistenceReplay(
     page.getByTestId(
       rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveValue("Alpha FE-E");
+  ).toHaveText("Alpha FE-E");
 
   await clickTimelineRowAction(
     page,
@@ -1135,7 +1135,7 @@ test("E-8-03 browser Timeline sort, filter, and group controls submit stable que
         "timeline.activity_synopsis_text",
       ),
     ),
-  ).toHaveValue("Alpha Phase 8");
+  ).toHaveText("Alpha Phase 8");
 
   await clickTimelineRowAction(
     page,

@@ -1478,9 +1478,30 @@ function TimelineWorkbookContent({
   const timelineConflictResolverCoordinator =
     useTimelineConflictResolverCoordinator({
       activeConflictKey,
+      activateGridEditor: (recordId, fieldKey, draftValue) =>
+        timelineGridHandleRef.current?.activateEdit(
+          {
+            fieldKey,
+            rowIdentity: { kind: "core_record", recordId },
+            surface: {
+              kind: "view_schema",
+              viewSchemaId: timelineViewSchemaId,
+            },
+          },
+          { value: draftValue },
+        ) ?? false,
       apiBase,
       applyRowMutation,
       beginViewportContinuity,
+      cancelGridEditor: (recordId, fieldKey) =>
+        timelineGridHandleRef.current?.cancelEdit({
+          fieldKey,
+          rowIdentity: { kind: "core_record", recordId },
+          surface: {
+            kind: "view_schema",
+            viewSchemaId: timelineViewSchemaId,
+          },
+        }) ?? false,
       conflictQueue,
       nextClientTxnId,
       pasteConflictGroup,

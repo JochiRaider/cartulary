@@ -726,8 +726,13 @@ export async function openTimelineRowActions(page: Page, recordId: string) {
   );
   await ensureTimelineGridTargetVisible(page, anchorTestId);
   const anchor = page.getByTestId(anchorTestId);
-  await anchor.focus();
-  await anchor.press("Shift+F10");
+  await anchor.evaluate((element) => {
+    const gridCell = element.closest<HTMLElement>('[role="gridcell"]');
+    if (gridCell === null)
+      throw new Error("Expected Timeline action anchor cell");
+    gridCell.focus();
+  });
+  await page.keyboard.press("Shift+F10");
 }
 
 export async function clickTimelineRowAction(
@@ -914,6 +919,7 @@ export async function expectTimelineContinuity(
   });
   await page.getByTestId(focusTestId).scrollIntoViewIfNeeded();
   await assertGridFocusContinuity({
+    allowContainingGridCell: true,
     focusTestId,
     page,
     preservedScroll,

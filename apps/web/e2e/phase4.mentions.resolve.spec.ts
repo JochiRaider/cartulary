@@ -86,7 +86,7 @@ test("E-4-01 resolves and creates entities from Timeline mentions in the inspect
     "timeline.activity_synopsis_text",
   );
   await ensureTimelineGridTargetVisible(page, mainSummaryTestId);
-  await expect(page.getByTestId(mainSummaryTestId)).toHaveValue(
+  await expect(page.getByTestId(mainSummaryTestId)).toHaveText(
     "E-4-01 workbook row",
   );
 

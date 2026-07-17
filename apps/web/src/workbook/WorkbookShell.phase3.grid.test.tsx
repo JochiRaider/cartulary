@@ -28,6 +28,7 @@ import {
   errorEnvelope,
   extractTimelineJSONBody,
   extractTimelinePatchBody,
+  findWorkbookCell,
   gridScalarInput,
   installTimelineWorkbookTestGlobals,
   latestTimelineWebSocket,
@@ -192,7 +193,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
     expect(secondVisibleRow.getAttribute("data-grid-record-id")).toBe(
       "record-1",
     );
-    expect(within(secondVisibleRow).getByDisplayValue("Zulu")).toBeTruthy();
+    expect(within(secondVisibleRow).getByText("Zulu")).toBeTruthy();
     expect(
       screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
     ).toBe("7");
@@ -283,11 +284,9 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
       expect(visibleGridRows(container)).toHaveLength(1);
     });
     expect(
-      (
-        screen.getByTestId(
-          rowCellTestId("record-created", "timeline.activity_synopsis_text"),
-        ) as HTMLInputElement
-      ).value,
+      screen.getByTestId(
+        rowCellTestId("record-created", "timeline.activity_synopsis_text"),
+      ).textContent,
     ).toBe("First browser fact");
     expect(
       (
@@ -372,14 +371,12 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
       expect(visibleGridRows(container)).toHaveLength(1);
     });
     expect(
-      (
-        screen.getByTestId(
-          rowCellTestId(
-            "record-pending-created",
-            "timeline.activity_synopsis_text",
-          ),
-        ) as HTMLInputElement
-      ).value,
+      screen.getByTestId(
+        rowCellTestId(
+          "record-pending-created",
+          "timeline.activity_synopsis_text",
+        ),
+      ).textContent,
     ).toBe("Pending browser fact");
     expect(
       (
@@ -586,9 +583,12 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
-    const summaryInput = screen.getByTestId(
-      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
-    ) as HTMLInputElement;
+    const summaryInput = await findWorkbookCell(
+      container,
+      timelineViewSchemaId,
+      "record-1",
+      "timeline.activity_synopsis_text",
+    );
     await changeInputValue(summaryInput, "Zulu anchored");
     fireEvent.blur(summaryInput);
     await waitFor(() => {
@@ -599,11 +599,9 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
         screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
       ).toBe("2");
       expect(
-        (
-          screen.getByTestId(
-            rowCellTestId("record-1", "timeline.activity_synopsis_text"),
-          ) as HTMLInputElement
-        ).value,
+        screen.getByTestId(
+          rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+        ).textContent,
       ).toBe("Zulu anchored");
     });
 
@@ -629,17 +627,18 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
         screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
       ).toBe("2");
       expect(
-        (
-          screen.getByTestId(
-            rowCellTestId("record-1", "timeline.activity_synopsis_text"),
-          ) as HTMLInputElement
-        ).value,
+        screen.getByTestId(
+          rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+        ).textContent,
       ).toBe("Zulu anchored");
     });
 
-    const replayInput = screen.getByTestId(
-      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
-    ) as HTMLInputElement;
+    const replayInput = await findWorkbookCell(
+      container,
+      timelineViewSchemaId,
+      "record-1",
+      "timeline.activity_synopsis_text",
+    );
     await changeInputValue(replayInput, "Replay should not regress");
     fireEvent.blur(replayInput);
     await waitFor(() => {
@@ -650,11 +649,9 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
         screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
       ).toBe("2");
       expect(
-        (
-          screen.getByTestId(
-            rowCellTestId("record-1", "timeline.activity_synopsis_text"),
-          ) as HTMLInputElement
-        ).value,
+        screen.getByTestId(
+          rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+        ).textContent,
       ).toBe("Zulu anchored");
     });
   });
@@ -720,9 +717,12 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
-    const summaryInput = screen.getByTestId(
-      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
-    ) as HTMLInputElement;
+    const summaryInput = await findWorkbookCell(
+      container,
+      timelineViewSchemaId,
+      "record-1",
+      "timeline.activity_synopsis_text",
+    );
     await changeInputValue(summaryInput, "Zulu anchored");
     fireEvent.blur(summaryInput);
     await waitFor(() => {
@@ -741,11 +741,9 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
         screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
       ).toBe("2");
       expect(
-        (
-          screen.getByTestId(
-            rowCellTestId("record-1", "timeline.activity_synopsis_text"),
-          ) as HTMLInputElement
-        ).value,
+        screen.getByTestId(
+          rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+        ).textContent,
       ).toBe("Zulu anchored");
     });
   });
@@ -798,11 +796,9 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
         screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
       ).toBe("2");
       expect(
-        (
-          screen.getByTestId(
-            rowCellTestId("record-1", "timeline.activity_synopsis_text"),
-          ) as HTMLInputElement
-        ).value,
+        screen.getByTestId(
+          rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+        ).textContent,
       ).toBe("Zulu anchored");
     });
   });

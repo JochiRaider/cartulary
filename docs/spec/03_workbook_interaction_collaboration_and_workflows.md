@@ -1894,6 +1894,15 @@ Selecting a cell and typing MUST edit it immediately.
 Profiles: base
 Verified by: AC-005, AC-043, AC-231
 
+**REQ-03-300**
+One primary pointer click on a committed cell whose active view contract declares `grid_editable=true` and whose direct-value editor is authorized MUST create exactly one edit session, focus that editor's declared primary control, and place a collapsed caret immediately after the existing scalar text without selecting that text. A subsequent click inside the same editor MAY reposition its caret, but double-click MUST NOT create a second edit transition, duplicate presence publication, or duplicate mutation dispatch.
+
+A pointer click on a read-only, derived, unauthorized, lifecycle-blocked, collection-valued, or otherwise non-grid-editable cell MUST preserve ordinary cell or row selection without creating an editor. Recordless create-draft controls remain immediately editable. Buttons, checkboxes, relationship chips, overflow controls, collection-token controls, and other owner-declared embedded actions MUST execute only their declared action and MUST NOT activate a parent scalar editor.
+
+Moving from an active editor to another cell or outside focus MUST use one deduplicated commit transition. The destination MAY open only after acceptance. Validation, same-field conflict, stale-target, authorization, and other rejection outcomes MUST retain the exact local draft, semantic target, and focusable original editor. `Escape` MUST cancel the draft and return focus to the same semantic cell anchor.
+Profiles: base
+Verified by: AC-485
+
 **REQ-03-218**
 Enter MUST commit and move vertically. Tab MUST commit and move horizontally.
 Profiles: base
@@ -1924,6 +1933,7 @@ The base profile MUST support:
 - Arrow keys to move selection,
 - Enter and Shift+Enter row navigation,
 - `Ctrl+V` for paste,
+- `Ctrl+D` or `Cmd+D` for fill-down across a selected valid one-column vertical range,
 - `Ctrl+K` for quick link or resolve on the current cell,
 - `Space` to preview linked evidence for the selected row,
 - `Alt+H` to open history for the selected row,
@@ -1953,6 +1963,8 @@ The current base-profile explicit bulk command vocabulary is:
 - `multi_row_tag_assignment_v1`: applies one submitted tag label to explicit stable Timeline row targets through the `timeline.tags` collection contract.
 
 Each command MUST commit as one attributable batch when all accepted target mutations commit, MUST record one visible `change_set` for the committed non-conflicting portion, and MUST reject presentation-only, group-row, vendor-coordinate, row-index-only, missing, deleted, wrong-surface, wrong-type, or foreign-incident targets. Bulk target ownership and visibility MUST be validated before row-version comparison, conflict construction, batch commit, or response row serialization. Later expansion MAY add additional explicit command kinds, but MUST NOT reinterpret these command identifiers.
+
+The fill affordance MUST appear only for a selected writable non-collection committed cell in navigation mode and MUST expose the label `Drag to fill this value`. Pointer drag and `Ctrl+D` or `Cmd+D` MUST construct the same semantic `fill_down_v1` intent from stable record identifiers and current row versions. Keyboard fill uses the top cell of the selected range as source and every remaining committed row as an explicit target. Vendor-provided double-click fill-to-end behavior MUST be suppressed and MUST dispatch no mutation.
 
 ## 14. Sorting, filtering, and grouping
 

@@ -144,9 +144,11 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
     rowCellTestId(eligibleRow.record_id, "timeline.activity_synopsis_text"),
   );
   await expect(
-    page.getByTestId(
-      rowCellTestId(eligibleRow.record_id, "timeline.activity_synopsis_text"),
-    ),
+    page
+      .getByTestId(
+        rowCellTestId(eligibleRow.record_id, "timeline.activity_synopsis_text"),
+      )
+      .locator("xpath=ancestor::*[@role='gridcell'][1]"),
   ).toBeFocused();
   await expectTimelineContinuity(page, eligibleRow.record_id, autoScroll);
 
@@ -168,9 +170,11 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
     rowCellTestId(eligibleRow.record_id, "timeline.activity_synopsis_text"),
   );
   await expect(
-    page.getByTestId(
-      rowCellTestId(eligibleRow.record_id, "timeline.activity_synopsis_text"),
-    ),
+    page
+      .getByTestId(
+        rowCellTestId(eligibleRow.record_id, "timeline.activity_synopsis_text"),
+      )
+      .locator("xpath=ancestor::*[@role='gridcell'][1]"),
   ).toBeFocused();
   await expectTimelineContinuity(page, eligibleRow.record_id, undoScroll);
   expect(undoBody).toMatchObject({

@@ -6,6 +6,7 @@ import {
   pendingQueueNoticeTestId,
   rowCellTestId,
   saveStateTestId,
+  timelineScalarEditorTestId,
   type WorkbookSurface,
   workbookTopBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
@@ -760,7 +761,58 @@ export function gridScalarInput(
   if (!row) {
     throw new Error(`Expected visible grid row for record ${recordId}.`);
   }
-  return within(row).getByTestId(rowCellTestId(recordId, fieldKey));
+  const displayCell = within(row).queryByTestId(
+    rowCellTestId(recordId, fieldKey),
+  );
+  if (displayCell !== null) {
+    const gridCell = displayCell.closest('[role="gridcell"]');
+    if (!(gridCell instanceof HTMLElement)) {
+      throw new Error(`Expected gridcell for ${recordId}:${fieldKey}.`);
+    }
+    fireEvent.mouseDown(displayCell);
+    fireEvent.click(displayCell);
+  }
+  const editorTestId = timelineScalarEditorTestId({
+    fieldKey,
+    recordId,
+    surface: "grid",
+  });
+  let editor = within(row).queryByTestId(editorTestId);
+  if (
+    !(editor instanceof HTMLInputElement) &&
+    !(editor instanceof HTMLTextAreaElement) &&
+    displayCell !== null
+  ) {
+    const gridCell = displayCell.closest('[role="gridcell"]');
+    if (gridCell instanceof HTMLElement) {
+      // The production adapter defers nested-content normalization until the
+      // original delegated click unwinds. This synchronous test helper drives
+      // the same public gridcell activation directly before using the
+      // keyboard fallback.
+      fireEvent.click(gridCell);
+      editor = within(row).queryByTestId(editorTestId);
+    }
+  }
+  if (
+    !(editor instanceof HTMLInputElement) &&
+    !(editor instanceof HTMLTextAreaElement) &&
+    displayCell !== null
+  ) {
+    const gridCell = displayCell.closest('[role="gridcell"]');
+    if (gridCell instanceof HTMLElement) {
+      fireEvent.keyDown(gridCell, { key: "Enter" });
+      editor = within(row).queryByTestId(editorTestId);
+    }
+  }
+  if (
+    !(editor instanceof HTMLInputElement) &&
+    !(editor instanceof HTMLTextAreaElement)
+  ) {
+    throw new Error(
+      `Expected activated scalar editor for ${recordId}:${fieldKey}.`,
+    );
+  }
+  return editor;
 }
 
 function elementDiagnostic(element: Element | null) {
@@ -905,8 +957,14 @@ export async function changeQueuedCellValue(
   value: string,
 ) {
   const testId = input.getAttribute("data-testid");
-  fireEvent.focus(input);
-  fireEvent.change(input, { target: { value } });
+  const renderedInput = testId === null ? null : screen.queryByTestId(testId);
+  const currentInput =
+    renderedInput instanceof HTMLInputElement ||
+    renderedInput instanceof HTMLTextAreaElement
+      ? renderedInput
+      : input;
+  fireEvent.focus(currentInput);
+  fireEvent.change(currentInput, { target: { value } });
   await waitFor(
     () => {
       const currentInput =
@@ -933,6 +991,7 @@ export async function changeQueuedCellValue(
       timeout: workbookAsyncTimeoutMs,
     },
   );
+  return currentInput;
 }
 
 function pendingQueueDiagnostic(options: {

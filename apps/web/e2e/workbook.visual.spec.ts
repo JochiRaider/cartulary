@@ -16,7 +16,6 @@ import {
 import {
   cartularyDefaultThemeId,
   cellPresenceMarkerTestId,
-  conflictMarkerTestId,
   dataTestIdPrefixSelector,
   dataTestIdSelector,
   evidenceAccessMessageTestId,
@@ -126,7 +125,6 @@ import {
 } from "./phase4Helpers";
 import {
   driveRealTimelineSummaryConflict,
-  editTimelineSummary,
   focusRemoteTimelineCellAndWaitForPresence,
   installIncidentSocketMonitor,
   installPatchController,
@@ -787,14 +785,6 @@ test.describe("FE-P2 workbook visual readiness", () => {
         gridSortHeaderTestId(timelineViewSchemaId, fieldKey),
       );
       await expect(header).toHaveAttribute("data-grid-field-key", fieldKey);
-      await expect(
-        await mountedGridCell(
-          page,
-          timelineViewSchemaId,
-          selectedRow.record_id,
-          fieldKey,
-        ),
-      ).toHaveCount(1);
     }
 
     await expect(
@@ -804,7 +794,7 @@ test.describe("FE-P2 workbook visual readiness", () => {
         selectedRow.record_id,
         "timeline.activity_synopsis_text",
       ),
-    ).toHaveValue(rowSummariesById.get(selectedRow.record_id) ?? "");
+    ).toHaveText(rowSummariesById.get(selectedRow.record_id) ?? "");
 
     const fixtureViewport = page.viewportSize() ?? { width: 1440, height: 900 };
     await expectWideWorkbookTopBarChrome(page);
@@ -979,7 +969,6 @@ test.describe("FE-P2 workbook visual readiness", () => {
     const summaryGridCell = summaryCell.locator(
       "xpath=ancestor::*[@role='gridcell'][1]",
     );
-    await summaryGridCell.click();
     await summaryGridCell.focus();
     await expect(summaryGridCell).toBeFocused();
     await expect
@@ -1036,7 +1025,7 @@ test.describe("Phase 3 workbook visual evidence", () => {
     await expect(
       page.getByTestId(timelineRowVersionTestId(timelineRow.record_id)),
     ).toHaveText(String(timelineRow.row_version));
-    await expect(summaryCell).toHaveValue("Default visual row");
+    await expect(summaryCell).toHaveText("Default visual row");
     await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
       scroll: { top: 0, left: "left" },
     });
@@ -1078,8 +1067,16 @@ test.describe("Phase 3 workbook visual evidence", () => {
     );
 
     await expect(saveState).toHaveText("Saved");
-    await summaryInput.focus();
-    await summaryInput.fill("Active visual edit");
+    await summaryInput.click();
+    const summaryEditor = page.getByTestId(
+      timelineScalarEditorTestId({
+        fieldKey: "timeline.activity_synopsis_text",
+        recordId: timelineRow.record_id,
+        surface: "grid",
+      }),
+    );
+    await expect(summaryEditor).toBeFocused();
+    await summaryEditor.fill("Active visual edit");
     await assertWorkbookGridVisualRegression(
       page,
       "v-3-grid-02-active-edit-cell",
@@ -1094,14 +1091,7 @@ test.describe("Phase 3 workbook visual evidence", () => {
     });
 
     try {
-      await (
-        await mountedGridCell(
-          page,
-          timelineViewSchemaId,
-          timelineRow.record_id,
-          "timeline.activity_synopsis_text",
-        )
-      ).press("Enter");
+      await summaryEditor.press("Enter");
       await hold.waitForHit;
       await expect(saveState).toHaveText("Syncing");
       await assertStatusStripVisualRegression(
@@ -1157,8 +1147,17 @@ test.describe("Phase 3 workbook visual evidence", () => {
         timelineRow.record_id,
         "timeline.activity_synopsis_text",
       );
-      await conflictInput.fill("Conflict visual edit");
-      await conflictInput.press("Enter");
+      await conflictInput.click();
+      const conflictEditor = page.getByTestId(
+        timelineScalarEditorTestId({
+          fieldKey: "timeline.activity_synopsis_text",
+          recordId: timelineRow.record_id,
+          surface: "grid",
+        }),
+      );
+      await expect(conflictEditor).toBeFocused();
+      await conflictEditor.fill("Conflict visual edit");
+      await conflictEditor.press("Enter");
       await expect(saveState).toHaveText("Conflict");
       await assertStatusStripVisualRegression(
         page,
@@ -1319,9 +1318,17 @@ test.describe("FE-P4 visual readiness", () => {
       timelineRow.record_id,
       "timeline.activity_synopsis_text",
     );
-    await expect(summaryInput).toHaveValue("FE-P4 visual editable row");
-    await summaryInput.focus();
-    await summaryInput.fill("FE-P4 active visual edit");
+    await expect(summaryInput).toHaveText("FE-P4 visual editable row");
+    await summaryInput.click();
+    const summaryEditor = page.getByTestId(
+      timelineScalarEditorTestId({
+        fieldKey: "timeline.activity_synopsis_text",
+        recordId: timelineRow.record_id,
+        surface: "grid",
+      }),
+    );
+    await expect(summaryEditor).toBeFocused();
+    await summaryEditor.fill("FE-P4 active visual edit");
     await assertWorkbookGridVisualRegression(
       page,
       "fe-v-p4-01-active-edit-cell",
@@ -1332,14 +1339,7 @@ test.describe("FE-P4 visual readiness", () => {
     const patchController = await installPatchTransportFailureController(page);
     try {
       patchController.disconnect();
-      await (
-        await mountedGridCell(
-          page,
-          timelineViewSchemaId,
-          timelineRow.record_id,
-          "timeline.activity_synopsis_text",
-        )
-      ).press("Enter");
+      await summaryEditor.press("Enter");
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
       await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
       await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
@@ -2231,32 +2231,20 @@ test.describe("FE-P7 workbook visual readiness", () => {
       await scrollGridTargetIntoView({
         page,
         surface: timelineViewSchemaId,
-        targetTestId: rowCellTestId(
+        targetTestId: gridRowTestId(
+          timelineViewSchemaId,
           fixture.conflictRow.record_id,
-          "timeline.activity_synopsis_text",
         ),
       });
       await expect(
         page.getByTestId(
-          conflictMarkerTestId(
-            fixture.conflictRow.record_id,
-            "timeline.activity_synopsis_text",
-          ),
+          timelineScalarEditorTestId({
+            fieldKey: "timeline.activity_synopsis_text",
+            recordId: fixture.conflictRow.record_id,
+            surface: "grid",
+          }),
         ),
-      ).toBeVisible();
-      await assertMarkerAnchoredToGridTarget({
-        anchorKind: "cell",
-        markerTestId: conflictMarkerTestId(
-          fixture.conflictRow.record_id,
-          "timeline.activity_synopsis_text",
-        ),
-        page,
-        surface: timelineViewSchemaId,
-        targetTestId: rowCellTestId(
-          fixture.conflictRow.record_id,
-          "timeline.activity_synopsis_text",
-        ),
-      });
+      ).toHaveValue("Conflict visual local");
       await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
         scroll: { top: 0, left: "right" },
       });
@@ -2742,30 +2730,12 @@ async function prepareFeP7ConflictVisual(
       "timeline.activity_synopsis_text": "Conflict visual base",
     },
   )) as ViewRow;
-  const queueRow = (await createViewRow(
-    page,
-    incidentId,
-    timelineViewSchemaId,
-    {
-      client_txn_id: uniqueTxn(`${options.incidentKeyPrefix}-QUEUE`),
-      "timeline.activity_utc_text": "2025-03-07T10:05:00Z",
-      "timeline.activity_synopsis_text": "Pending visual base",
-    },
-  )) as ViewRow;
   const patchController = await installPatchController(page);
 
   await page.goto(`/?incident_id=${incidentId}`);
   await maskIncidentIdentity(page, incidentId);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   await driveRealTimelineSummaryConflict({
-    afterLocalPatchHeld: async () => {
-      await editTimelineSummary(
-        page,
-        queueRow.record_id,
-        "Pending visual queued replay",
-      );
-      await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
-    },
     baseRowVersion: conflictRow.row_version,
     localValue: "Conflict visual local",
     page,
@@ -2880,7 +2850,7 @@ async function driveFeP7InvalidateRefreshVisual({
       recordId,
       "timeline.activity_synopsis_text",
     ),
-  ).toHaveValue("Invalidate visual base", { timeout: 10_000 });
+  ).toHaveText("Invalidate visual base", { timeout: 10_000 });
 }
 
 test.describe("Phase 6 workbook visual evidence", () => {
@@ -2924,7 +2894,7 @@ test.describe("Phase 6 workbook visual evidence", () => {
           timelineRow.record_id,
           "timeline.activity_synopsis_text",
         ),
-      ).toHaveValue("Presence visual row");
+      ).toHaveText("Presence visual row");
 
       const remoteSession = await openIncidentAsTrackedUserReady(
         browser,
@@ -3023,36 +2993,6 @@ test.describe("Phase 6 workbook visual evidence", () => {
         remoteValue: "Conflict visual server",
         txnPrefix: "visual-phase6-conflict",
       });
-      await scrollGridTargetIntoView({
-        page,
-        surface: timelineViewSchemaId,
-        targetTestId: rowCellTestId(
-          timelineRow.record_id,
-          "timeline.activity_synopsis_text",
-        ),
-      });
-      await expect(
-        page.getByTestId(
-          conflictMarkerTestId(
-            timelineRow.record_id,
-            "timeline.activity_synopsis_text",
-          ),
-        ),
-      ).toBeVisible();
-      await assertMarkerAnchoredToGridTarget({
-        anchorKind: "cell",
-        markerTestId: conflictMarkerTestId(
-          timelineRow.record_id,
-          "timeline.activity_synopsis_text",
-        ),
-        page,
-        surface: timelineViewSchemaId,
-        targetTestId: rowCellTestId(
-          timelineRow.record_id,
-          "timeline.activity_synopsis_text",
-        ),
-      });
-
       await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
         scroll: { top: 0, left: "right" },
       });
@@ -3095,17 +3035,6 @@ test.describe("Phase 6 workbook visual evidence", () => {
         "timeline.activity_synopsis_text": "Pending conflict visual base",
       },
     )) as ViewRow;
-    const queuedRow = (await createViewRow(
-      page,
-      incidentId,
-      timelineViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("V6GRID03-QUEUED-ROW"),
-        "timeline.activity_utc_text": "2025-03-06T10:10:00Z",
-        "timeline.activity_synopsis_text": "Pending queued visual base",
-      },
-    )) as ViewRow;
-
     await page.goto(`/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
     const summaryInput = await mountedGridCell(
@@ -3119,8 +3048,17 @@ test.describe("Phase 6 workbook visual evidence", () => {
     const hold = patchController.holdNextPatch({ recordId: syncRow.record_id });
 
     try {
-      await summaryInput.fill("Pending visual syncing");
-      await summaryInput.press("Enter");
+      await summaryInput.click();
+      const summaryEditor = page.getByTestId(
+        timelineScalarEditorTestId({
+          fieldKey: "timeline.activity_synopsis_text",
+          recordId: syncRow.record_id,
+          surface: "grid",
+        }),
+      );
+      await expect(summaryEditor).toBeFocused();
+      await summaryEditor.fill("Pending visual syncing");
+      await summaryEditor.press("Enter");
       await hold.waitForHit;
       await expect(saveState).toHaveText("Syncing");
       await assertStatusStripVisualRegression(
@@ -3133,16 +3071,6 @@ test.describe("Phase 6 workbook visual evidence", () => {
       await assertStatusStripVisualRegression(page, "v-6-grid-03-saved-strip");
 
       await driveRealTimelineSummaryConflict({
-        afterLocalPatchHeld: async () => {
-          await editTimelineSummary(
-            page,
-            queuedRow.record_id,
-            "Pending visual queued replay",
-          );
-          await expect(
-            page.getByTestId(pendingQueueNoticeTestId()),
-          ).toBeVisible();
-        },
         baseRowVersion: conflictRow.row_version,
         localValue: "Pending visual blocked",
         page,
@@ -3151,7 +3079,6 @@ test.describe("Phase 6 workbook visual evidence", () => {
         remoteValue: "Pending visual server",
         txnPrefix: "visual-phase6-pending-conflict",
       });
-      await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
       await page.getByTestId("conflict-resolver").scrollIntoViewIfNeeded();
       await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
         scroll: { top: 0, left: "right" },

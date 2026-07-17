@@ -1274,7 +1274,8 @@ export function timelineScalarEditorTestId(options: {
     options.recordId === null
       ? draftCellTestId(options.fieldKey)
       : rowCellTestId(options.recordId, options.fieldKey);
-  return options.surface === "inspector" ? `${base}-inspector` : base;
+  if (options.surface === "inspector") return `${base}-inspector`;
+  return options.recordId === null ? base : `${base}-grid-editor`;
 }
 
 export function rowInspectorFieldTestId(

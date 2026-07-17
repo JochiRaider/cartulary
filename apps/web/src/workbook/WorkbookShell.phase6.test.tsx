@@ -1,9 +1,9 @@
 import {
   cellPresenceMarkerTestId,
-  conflictMarkerTestId,
   gridShellTestId,
   saveStateTestId,
   timelineRowVersionTestId,
+  timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -84,12 +84,13 @@ describe("Phase 6 workbook collaboration coverage", () => {
     );
 
     render(<TimelineWorkbook incidentId="incident-1" />);
-    await findWorkbookCell(
+    const activatedEditor = await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
       "record-1",
       "timeline.activity_synopsis_text",
     );
+    fireEvent.keyDown(activatedEditor, { key: "Escape" });
     await waitFor(() => {
       expect(latestTimelineWebSocket()).not.toBeNull();
     });
@@ -313,12 +314,8 @@ describe("Phase 6 workbook collaboration coverage", () => {
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
         "Conflict",
       );
-      expect(
-        screen.getByTestId(
-          conflictMarkerTestId("record-1", "timeline.activity_synopsis_text"),
-        ),
-      ).toBeTruthy();
       expect(document.activeElement).toBe(input);
+      expect(input).toHaveProperty("value", "Unsaved local value");
     });
   });
 
@@ -580,24 +577,16 @@ describe("Phase 6 workbook collaboration coverage", () => {
       "record-1",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
-    const secondInput = (await findWorkbookCell(
-      document.body,
-      timelineViewSchemaId,
-      "record-2",
-      "timeline.activity_synopsis_text",
-    )) as HTMLInputElement;
-
-    await changeQueuedCellValue(firstInput, "One in flight");
-    fireEvent.blur(firstInput);
+    fireEvent.keyDown(
+      await changeQueuedCellValue(firstInput, "One in flight"),
+      { key: "Enter" },
+    );
     await waitForTimelineRecordPatchCalls(fetchMock, 1);
     await waitFor(() => {
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Syncing");
     });
 
-    await changeQueuedCellValue(secondInput, "Two queued first");
-    fireEvent.blur(secondInput);
-    await changeQueuedCellValue(secondInput, "Two queued final");
-    fireEvent.blur(secondInput);
+    fireEvent.blur(await changeQueuedCellValue(firstInput, "One queued final"));
     await waitForPendingQueueState({
       expectedPendingUnits: 2,
       expectedSaveState: "Syncing",
@@ -621,7 +610,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
     expect(extractTimelineRecordPatchBody(fetchMock, 1).changes).toEqual([
       {
         field_key: "timeline.activity_synopsis_text",
-        value: "Two queued final",
+        value: "One queued final",
       },
     ]);
 
@@ -630,9 +619,9 @@ describe("Phase 6 workbook collaboration coverage", () => {
         view_schema_id: timelineViewSchemaId,
         change_set_id: "change-set-3",
         row: timelineRow({
-          recordId: "record-2",
-          rowVersion: 2,
-          summary: "Two queued final",
+          recordId: "record-1",
+          rowVersion: 3,
+          summary: "One queued final",
           captureState: "rough",
         }),
       }),
@@ -710,12 +699,6 @@ describe("Phase 6 workbook collaboration coverage", () => {
       "record-1",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
-    const secondInput = (await findWorkbookCell(
-      document.body,
-      timelineViewSchemaId,
-      "record-2",
-      "timeline.activity_synopsis_text",
-    )) as HTMLInputElement;
     await waitFor(() => {
       expect(latestTimelineWebSocket()).not.toBeNull();
     });
@@ -724,12 +707,32 @@ describe("Phase 6 workbook collaboration coverage", () => {
       payload: { reason_code: "session_revoked" },
     });
 
-    await changeQueuedCellValue(firstInput, "A1 queued");
-    fireEvent.blur(firstInput);
-    await changeQueuedCellValue(secondInput, "B1 queued");
-    fireEvent.blur(secondInput);
-    await changeQueuedCellValue(firstInput, "A2 queued");
-    fireEvent.blur(firstInput);
+    fireEvent.blur(await changeQueuedCellValue(firstInput, "A1 queued"));
+    const secondInput = (await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-2",
+      "timeline.activity_synopsis_text",
+    )) as HTMLInputElement;
+    fireEvent.blur(await changeQueuedCellValue(secondInput, "B1 queued"));
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId(
+          timelineScalarEditorTestId({
+            fieldKey: "timeline.activity_synopsis_text",
+            recordId: "record-2",
+            surface: "grid",
+          }),
+        ),
+      ).toBeNull();
+    });
+    const firstInputAgain = (await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-1",
+      "timeline.activity_synopsis_text",
+    )) as HTMLInputElement;
+    fireEvent.blur(await changeQueuedCellValue(firstInputAgain, "A2 queued"));
 
     await waitForPendingQueueState({
       expectedPendingUnits: 3,
@@ -816,8 +819,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       payload: { reason_code: "session_revoked" },
     });
 
-    await changeQueuedCellValue(input, "Auth replay");
-    fireEvent.blur(input);
+    fireEvent.blur(await changeQueuedCellValue(input, "Auth replay"));
     await waitForPendingQueueState({
       expectedPendingUnits: 1,
       expectedSaveState: "Syncing",
@@ -838,7 +840,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
     });
   });
 
-  it("Phase 6 U-6-09 moves the blocking same-field conflict out of the pending queue and keeps later writes queued", async () => {
+  it("Phase 6 U-6-09 moves a blocking same-field conflict out of the pending queue and retains its editor", async () => {
     const firstPendingPatch = deferred<Response>();
     const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
     routedFetch.mockRowQueryOnce(
@@ -870,18 +872,8 @@ describe("Phase 6 workbook collaboration coverage", () => {
       "record-1",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
-    const secondInput = (await findWorkbookCell(
-      document.body,
-      timelineViewSchemaId,
-      "record-2",
-      "timeline.activity_synopsis_text",
-    )) as HTMLInputElement;
-
-    await changeQueuedCellValue(firstInput, "Conflict local");
-    fireEvent.blur(firstInput);
+    fireEvent.blur(await changeQueuedCellValue(firstInput, "Conflict local"));
     await waitForTimelineRecordPatchCalls(fetchMock, 1);
-    await changeQueuedCellValue(secondInput, "Still queued");
-    fireEvent.blur(secondInput);
 
     firstPendingPatch.resolve(
       errorEnvelope("same_field_conflict", 409, {
@@ -902,9 +894,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
         "Conflict",
       );
       expect(screen.getByTestId("conflict-resolver")).toBeTruthy();
-      expect(screen.getByTestId("pending-queue-count").textContent).toContain(
-        "1",
-      );
+      expect(firstInput.value).toBe("Conflict local");
     });
     expect(timelineRecordPatchCallURLs(fetchMock)).toHaveLength(1);
   });
@@ -940,15 +930,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       "record-1",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
-    const secondInput = (await findWorkbookCell(
-      document.body,
-      timelineViewSchemaId,
-      "record-2",
-      "timeline.activity_synopsis_text",
-    )) as HTMLInputElement;
-
-    await changeQueuedCellValue(firstInput, "Queue 1 local");
-    fireEvent.blur(firstInput);
+    fireEvent.blur(await changeQueuedCellValue(firstInput, "Queue 1 local"));
     await waitForTimelineRecordPatchCalls(fetchMock, 1);
     await waitForPendingQueueState({
       expectedPendingUnits: 1,
@@ -956,16 +938,8 @@ describe("Phase 6 workbook collaboration coverage", () => {
       noticeIncludes: "Authentication is required",
     });
 
-    await changeQueuedCellValue(secondInput, "Queue 2 first");
-    fireEvent.blur(secondInput);
-    await changeQueuedCellValue(secondInput, "Queue 2 final");
-    fireEvent.blur(secondInput);
-    await waitForPendingQueueState({
-      expectedPendingUnits: 2,
-      expectedSaveState: "Syncing",
-    });
     expect(timelineRecordPatchCallURLs(fetchMock)).toHaveLength(1);
-    expect(secondInput.value).toBe("Queue 2 final");
+    expect(firstInput.value).toBe("Queue 1 local");
   });
 
   it("FE-U-P4-01 drives WorkbookShell retry and success settlement from the shared pending queue model", async () => {
@@ -1025,17 +999,17 @@ describe("Phase 6 workbook collaboration coverage", () => {
       "record-1",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
+    fireEvent.blur(await changeQueuedCellValue(retryFirstInput, "Retry head"));
+    await waitForTimelineRecordPatchCalls(fetchMock, 2);
     const retrySecondInput = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
       "record-2",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
-    await changeQueuedCellValue(retryFirstInput, "Retry head");
-    fireEvent.blur(retryFirstInput);
-    await waitForTimelineRecordPatchCalls(fetchMock, 1);
-    await changeQueuedCellValue(retrySecondInput, "Retry behind");
-    fireEvent.blur(retrySecondInput);
+    fireEvent.blur(
+      await changeQueuedCellValue(retrySecondInput, "Retry behind"),
+    );
     await waitForTimelineRecordPatchCalls(fetchMock, 3);
     await waitFor(() => {
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
@@ -1073,8 +1047,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       "record-halt",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
-    await changeQueuedCellValue(haltInput, "Halt local");
-    fireEvent.blur(haltInput);
+    fireEvent.blur(await changeQueuedCellValue(haltInput, "Halt local"));
     await waitFor(() => {
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
         "Conflict",

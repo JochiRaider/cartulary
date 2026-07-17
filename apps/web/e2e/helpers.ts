@@ -1484,10 +1484,16 @@ export async function waitForCommittedRowSummary(
             if (recordId === null || recordId.trim() === "") {
               continue;
             }
-            const candidate = findByTestId<
-              HTMLInputElement | HTMLTextAreaElement
-            >(row, rowCellTestIdFor(recordId, summaryFieldKey));
-            if (candidate?.value !== expectedSummary) {
+            const candidate = findByTestId<HTMLElement>(
+              row,
+              rowCellTestIdFor(recordId, summaryFieldKey),
+            );
+            const candidateValue =
+              candidate instanceof HTMLInputElement ||
+              candidate instanceof HTMLTextAreaElement
+                ? candidate.value
+                : candidate?.textContent?.trim();
+            if (candidateValue !== expectedSummary) {
               continue;
             }
             const rowVersionText =

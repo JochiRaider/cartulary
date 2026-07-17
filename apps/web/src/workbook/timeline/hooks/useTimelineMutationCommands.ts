@@ -65,6 +65,12 @@ type CommittedRecordIdle = {
   readonly rowVersion: number;
 };
 
+function isCollectionDraftKey(
+  field: FocusFieldKey,
+): field is CollectionDraftKey {
+  return field === "hostRefs" || field === "identityRefs" || field === "tags";
+}
+
 export function useTimelineMutationCommands({
   acceptTimelineActionResult,
   apiBase,
@@ -173,7 +179,29 @@ export function useTimelineMutationCommands({
         setRows((current) => {
           const nextRows = current.map((row) =>
             row.key === rowKey
-              ? { ...row, pendingSignature: mutationSignature }
+              ? {
+                  ...row,
+                  pendingSignature: mutationSignature,
+                  rawRow:
+                    visibleEdit === undefined || row.rawRow === null
+                      ? row.rawRow
+                      : {
+                          ...row.rawRow,
+                          cells: {
+                            ...row.rawRow.cells,
+                            [visibleEdit.fieldKey]: {
+                              ...row.rawRow.cells[visibleEdit.fieldKey],
+                              value: visibleEdit.value,
+                            },
+                          },
+                        },
+                  values: isCollectionDraftKey(focusField)
+                    ? row.values
+                    : {
+                        ...row.values,
+                        [focusField]: rowSnapshot.values[focusField],
+                      },
+                }
               : row,
           );
           rowsRef.current = nextRows;

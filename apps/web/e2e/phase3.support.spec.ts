@@ -14,6 +14,7 @@ import {
   saveStateTestId,
   timelineRowMarkReviewedButtonTestId,
   timelineRowVersionTestId,
+  timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 
@@ -35,7 +36,7 @@ import {
 
 const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
-test("FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers.", async ({
+test("FE-B-P3-01 Verify one-click focused editing, rejected-transition retention, sort, filter, group, paste, exact-range fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers.", async ({
   page,
 }) => {
   const incidentId = await createIncident(
@@ -51,6 +52,15 @@ test("FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, g
     client_txn_id: uniqueTxn("s301-beta"),
     "timeline.activity_synopsis_text": "Beta summary",
   });
+  const clickEditRow = await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("s301-click-edit"),
+      "timeline.device_object_text": "Host Alpha",
+    },
+  );
 
   await page.goto(`/?incident_id=${incidentId}`);
   await scrollGridCellIntoView({
@@ -63,7 +73,57 @@ test("FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, g
     page.getByTestId(
       rowCellTestId(alphaRow.record_id, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveValue("Alpha summary");
+  ).toHaveText("Alpha summary");
+
+  await scrollGridCellIntoView({
+    cellKey: "timeline.device_object_text",
+    page,
+    recordId: clickEditRow.record_id,
+    surface: timelineViewSchemaId,
+  });
+  const deviceCell = page.getByTestId(
+    rowCellTestId(clickEditRow.record_id, "timeline.device_object_text"),
+  );
+  await expect(deviceCell).toHaveText("Host Alpha");
+  const clickEditPatches: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "PATCH" &&
+      request.url().endsWith(`/api/v1/records/${clickEditRow.record_id}`)
+    ) {
+      clickEditPatches.push(request.postData() ?? "");
+    }
+  });
+  await deviceCell.click();
+  const deviceEditor = page.getByTestId(
+    timelineScalarEditorTestId({
+      fieldKey: "timeline.device_object_text",
+      recordId: clickEditRow.record_id,
+      surface: "grid",
+    }),
+  );
+  await expect(deviceEditor).toBeFocused();
+  await expect(deviceEditor).toHaveValue("Host Alpha");
+  expect(
+    await deviceEditor.evaluate((element) => ({
+      end: (element as HTMLInputElement).selectionEnd,
+      start: (element as HTMLInputElement).selectionStart,
+    })),
+  ).toEqual({ end: 10, start: 10 });
+  await page.keyboard.insertText(" edited");
+  await expect(deviceEditor).toHaveValue("Host Alpha edited");
+  await deviceEditor.press("Enter");
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+  expect(clickEditPatches).toHaveLength(1);
+  expect(JSON.parse(clickEditPatches[0] ?? "{}")).toMatchObject({
+    base_row_version: clickEditRow.row_version,
+    changes: [
+      {
+        field_key: "timeline.device_object_text",
+        value: "Host Alpha edited",
+      },
+    ],
+  });
 
   await clickTimelineRowAction(
     page,
@@ -113,7 +173,7 @@ test("FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, g
     page.getByTestId(
       rowCellTestId(betaRow.record_id, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveValue("Beta summary");
+  ).toHaveText("Beta summary");
 
   const groupRequest = waitForTimelineQuery(page, incidentId);
   await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
@@ -216,8 +276,16 @@ test("FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, g
   const betaSummary = page.getByTestId(
     rowCellTestId(betaRow.record_id, "timeline.activity_synopsis_text"),
   );
-  await betaSummary.fill("Beta summary anchored");
-  await betaSummary.press("Enter");
+  await betaSummary.click();
+  const betaSummaryEditor = page.getByTestId(
+    timelineScalarEditorTestId({
+      fieldKey: "timeline.activity_synopsis_text",
+      recordId: betaRow.record_id,
+      surface: "grid",
+    }),
+  );
+  await betaSummaryEditor.fill("Beta summary anchored");
+  await betaSummaryEditor.press("Enter");
   assertRecordFieldMutationAnchor({
     actualRecordId: betaRow.record_id,
     body: readPostBody(await summaryPatch),
@@ -229,7 +297,7 @@ test("FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, g
     page.getByTestId(
       rowCellTestId(betaRow.record_id, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveValue("Beta summary anchored");
+  ).toHaveText("Beta summary anchored");
 
   const pasteRequest = page.waitForRequest(
     (request) =>
@@ -329,8 +397,16 @@ test("support Phase 3 keeps a pending edit anchored to its record under sort, fi
       recordId: alphaRow.record_id,
       surface: timelineViewSchemaId,
     });
-    await alphaSummary.fill("Zulu anchored");
-    await alphaSummary.press("Enter");
+    await alphaSummary.click();
+    const alphaSummaryEditor = page.getByTestId(
+      timelineScalarEditorTestId({
+        fieldKey: "timeline.activity_synopsis_text",
+        recordId: alphaRow.record_id,
+        surface: "grid",
+      }),
+    );
+    await alphaSummaryEditor.fill("Zulu anchored");
+    await alphaSummaryEditor.press("Enter");
     await heldPatch.waitForHit;
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
 
@@ -372,7 +448,7 @@ test("support Phase 3 keeps a pending edit anchored to its record under sort, fi
     page.getByTestId(
       rowCellTestId(alphaRow.record_id, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveValue("Zulu anchored");
+  ).toHaveText("Zulu anchored");
   const alphaCaptureState = (
     (await page
       .getByTestId(rowCellTestId(alphaRow.record_id, "timeline.capture_state"))
@@ -419,7 +495,7 @@ test("support Phase 3 keeps repeated scalar grid edits out of the RDG measured-w
     page.getByTestId(
       rowCellTestId(recordId, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveValue("RDG edit row");
+  ).toHaveText("RDG edit row");
   await sortByHeader(
     page,
     timelineViewSchemaId,
@@ -450,17 +526,26 @@ test("support Phase 3 keeps repeated scalar grid edits out of the RDG measured-w
   });
 
   await expectNoPageCrashDuring(page, async () => {
+    const summaryDisplay = page.getByTestId(
+      rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+    );
+    const summaryEditor = page.getByTestId(
+      timelineScalarEditorTestId({
+        fieldKey: "timeline.activity_synopsis_text",
+        recordId,
+        surface: "grid",
+      }),
+    );
+    await summaryDisplay.click();
+    await expect(summaryEditor).toBeFocused();
     for (const value of [
       "RDG edit row patched 1",
       "RDG edit row patched 2",
       "RDG edit row patched 3",
       "RDG edit row final",
     ]) {
-      const summaryInput = page.getByTestId(
-        rowCellTestId(recordId, "timeline.activity_synopsis_text"),
-      );
-      await summaryInput.fill(value);
-      await expect(summaryInput).toHaveValue(value);
+      await summaryEditor.fill(value);
+      await expect(summaryEditor).toHaveValue(value);
       await expect(
         page.getByTestId(gridRowTestId(timelineViewSchemaId, recordId)),
       ).toBeAttached();
@@ -471,9 +556,7 @@ test("support Phase 3 keeps repeated scalar grid edits out of the RDG measured-w
         response.request().method() === "PATCH" &&
         response.url().endsWith(`/api/v1/records/${recordId}`),
     );
-    await page
-      .getByTestId(rowCellTestId(recordId, "timeline.activity_synopsis_text"))
-      .press("Enter");
+    await summaryEditor.press("Enter");
     await patchResponse;
   });
 
@@ -484,7 +567,7 @@ test("support Phase 3 keeps repeated scalar grid edits out of the RDG measured-w
     page.getByTestId(
       rowCellTestId(recordId, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveValue("RDG edit row final");
+  ).toHaveText("RDG edit row final");
 });
 
 function waitForTimelineQuery(page: Page, incidentId: string) {

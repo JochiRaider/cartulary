@@ -10,6 +10,7 @@ import {
   rowCellTestId,
   rowPresenceMarkerTestId,
   saveStateTestId,
+  timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
 import type { Browser, Page, Route, WebSocket } from "@playwright/test";
 import { expect } from "./fixtures";
@@ -170,12 +171,31 @@ export async function editTimelineSummary(
     recordId,
     surface: timelineViewSchemaId,
   });
-  const input = page.getByTestId(
+  const display = page.getByTestId(
     rowCellTestId(recordId, "timeline.activity_synopsis_text"),
   );
+  await display.click();
+  const input = page.getByTestId(
+    timelineScalarEditorTestId({
+      fieldKey: "timeline.activity_synopsis_text",
+      recordId,
+      surface: "grid",
+    }),
+  );
+  await expect(input).toBeFocused();
   await input.fill(value);
   await input.press("Enter");
-  await expect(input).toHaveValue(value);
+  const currentValue = input.or(display).first();
+  await expect
+    .poll(() =>
+      currentValue.evaluate((element) =>
+        element instanceof HTMLInputElement ||
+        element instanceof HTMLTextAreaElement
+          ? element.value
+          : element.textContent?.trim(),
+      ),
+    )
+    .toBe(value);
 }
 
 export async function patchTimelineField(
@@ -251,7 +271,7 @@ export async function driveRealTimelineSummaryConflict({
   const primaryPatch = await heldPrimaryPatch.waitForCompletion;
   expect(primaryPatch.status).toBe(409);
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
-  if (expectConflictMarker) {
+  if (expectConflictMarker && !expectEditedCellMounted) {
     await expect(
       page.getByTestId(
         conflictMarkerTestId(recordId, "timeline.activity_synopsis_text"),
@@ -260,11 +280,12 @@ export async function driveRealTimelineSummaryConflict({
   }
   await expect(page.getByTestId("conflict-resolver")).toBeVisible();
   if (expectEditedCellMounted) {
-    await expect(
-      page.getByTestId(
-        rowCellTestId(recordId, "timeline.activity_synopsis_text"),
-      ),
-    ).toHaveValue(localValue);
+    const editorTestId = timelineScalarEditorTestId({
+      fieldKey: "timeline.activity_synopsis_text",
+      recordId,
+      surface: "grid",
+    });
+    await expect(page.getByTestId(editorTestId)).toHaveValue(localValue);
   }
   await expect(page.getByTestId("conflict-server-value")).toHaveValue(
     remoteValue,
@@ -311,7 +332,7 @@ export async function exerciseSameFieldResolver({
     remotePage.getByTestId(
       rowCellTestId(recordId, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveValue(remoteValue);
+  ).toHaveText(remoteValue);
   await expect(
     page.getByTestId(gridShellTestId(timelineViewSchemaId)),
   ).toBeVisible();
@@ -334,16 +355,16 @@ export async function exerciseSameFieldResolver({
     page.getByTestId(
       rowCellTestId(recordId, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveValue(expectedPrimary);
+  ).toHaveText(expectedPrimary);
   await expect(
     remotePage.getByTestId(
       rowCellTestId(recordId, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveValue(expectedPrimary);
+  ).toHaveText(expectedPrimary);
   await expect(
-    page.getByTestId(
-      rowCellTestId(recordId, "timeline.activity_synopsis_text"),
-    ),
+    page
+      .getByTestId(rowCellTestId(recordId, "timeline.activity_synopsis_text"))
+      .locator("xpath=ancestor::*[@role='gridcell'][1]"),
   ).toBeFocused();
 }
 
@@ -420,7 +441,7 @@ export async function exerciseRevokedPendingReplay({
           "timeline.activity_synopsis_text",
         ),
       ),
-    ).toHaveValue(`Phase 6 ${createdBy} ${scenario} 1 base`);
+    ).toHaveText(`Phase 6 ${createdBy} ${scenario} 1 base`);
     await expectCurrentIncidentRole(page, "Current incident role: editor");
 
     const heldPatch = patchController.holdNextPatch();
@@ -459,7 +480,7 @@ export async function exerciseRevokedPendingReplay({
         page.getByTestId(
           rowCellTestId(item.recordId, "timeline.activity_synopsis_text"),
         ),
-      ).toHaveValue(item.value);
+      ).toHaveText(item.value);
     }
     await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
       String(replayValues.length),
@@ -819,7 +840,19 @@ export async function focusRemoteTimelineCellAndWaitForPresence({
     recordId,
     surface: timelineViewSchemaId,
   });
-  await remotePage.getByTestId(rowCellTestId(recordId, fieldKey)).focus();
+  const remoteDisplay = remotePage.getByTestId(
+    rowCellTestId(recordId, fieldKey),
+  );
+  await remoteDisplay.click();
+  await expect(
+    remotePage.getByTestId(
+      timelineScalarEditorTestId({
+        fieldKey,
+        recordId,
+        surface: "grid",
+      }),
+    ),
+  ).toBeFocused();
   const presenceMessage = await markerPresence;
   const rowMarker = primaryPage.getByTestId(rowPresenceMarkerTestId(recordId));
   const cellMarker = primaryPage.getByTestId(

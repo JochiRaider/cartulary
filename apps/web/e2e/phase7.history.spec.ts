@@ -429,7 +429,7 @@ test("E-7-03 soft-deletes and restores a row with tombstone concurrency", async 
     page.getByTestId(
       rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveValue("E-7-03 delete restore row");
+  ).toHaveText("E-7-03 delete restore row");
   await listener.close();
 });
 
@@ -520,7 +520,7 @@ test("E-7-04 whole-row restore appends a new attributed revision", async ({
     page.getByTestId(
       rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveValue("E-7-04 historical snapshot");
+  ).toHaveText("E-7-04 historical snapshot");
   const historyAfter = await fetchRecordHistory(page, row.record_id);
   expect(historyAfter.items.length).toBeGreaterThan(historyBefore.items.length);
   expect(

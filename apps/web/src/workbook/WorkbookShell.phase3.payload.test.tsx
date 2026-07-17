@@ -128,10 +128,10 @@ describe("Phase 3 Timeline workbook payload coverage", () => {
       await new Promise((resolve) => window.setTimeout(resolve, 0));
     });
 
-    const committedSummary = (await screen.findByTestId(
+    const committedSummary = await screen.findByTestId(
       rowCellTestId("record-zero", "timeline.activity_synopsis_text"),
-    )) as HTMLInputElement;
-    expect(committedSummary.value).toBe("");
+    );
+    expect(committedSummary.textContent).toBe("—");
     expect(
       screen.getByTestId(rowCellTestId("record-zero", "timeline.capture_state"))
         .textContent,

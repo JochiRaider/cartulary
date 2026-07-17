@@ -50,9 +50,11 @@ function saveStateConflictAnchorFromPayload(
 
 export function useTimelineConflictResolverCoordinator({
   activeConflictKey,
+  activateGridEditor,
   apiBase,
   applyRowMutation,
   beginViewportContinuity,
+  cancelGridEditor,
   conflictQueue,
   nextClientTxnId,
   pasteConflictGroup,
@@ -78,10 +80,17 @@ export function useTimelineConflictResolverCoordinator({
       readonly viewportContinuityToken?: number;
     },
   ) => WorkbookRow;
-  readonly beginViewportContinuity: (target: {
-    readonly kind: "input";
-    readonly focusKey: string;
-  }) => number;
+  readonly beginViewportContinuity: (
+    target:
+      | { readonly kind: "input"; readonly focusKey: string }
+      | { readonly kind: "row-inspect"; readonly recordId: string },
+  ) => number;
+  readonly activateGridEditor: (
+    recordId: string,
+    fieldKey: string,
+    draftValue: unknown,
+  ) => boolean;
+  readonly cancelGridEditor: (recordId: string, fieldKey: string) => boolean;
   readonly conflictQueue: Record<string, LocalConflictState>;
   readonly nextClientTxnId: () => string;
   readonly pasteConflictGroup: PasteConflictGroupState | null;
@@ -133,6 +142,7 @@ export function useTimelineConflictResolverCoordinator({
       conflict: SameFieldConflictPayload,
       focusKey: string,
       surface: TimelineScalarEditorSurface,
+      reactivateEditor = false,
     ) => {
       const queueKey = sameFieldConflictQueueKey(conflict);
       const binding = timelineScalarBindingForField(conflict.field_key);
@@ -194,8 +204,22 @@ export function useTimelineConflictResolverCoordinator({
         return next;
       });
       setActiveConflictKey(queueKey);
+      if (
+        reactivateEditor &&
+        surface === "grid" &&
+        conflict.client_value !== undefined
+      ) {
+        window.setTimeout(() => {
+          activateGridEditor(
+            conflict.record_id,
+            conflict.field_key,
+            conflict.client_value,
+          );
+        }, 0);
+      }
     },
     [
+      activateGridEditor,
       rowsRef,
       scalarDraftValuesRef,
       setActiveConflictKey,
@@ -220,6 +244,7 @@ export function useTimelineConflictResolverCoordinator({
         conflict,
         inputFocusKey(rowKey, focusField, surface),
         surface,
+        true,
       );
       return true;
     },
@@ -353,6 +378,7 @@ export function useTimelineConflictResolverCoordinator({
                   refreshedConflict,
                   conflict.focusKey,
                   "grid",
+                  true,
                 );
                 setSaveState("Conflict");
                 setSaveStateSecondaryMessage("Conflict requires review.");
@@ -380,11 +406,22 @@ export function useTimelineConflictResolverCoordinator({
                 );
               }
             }
+            const focusSurface = conflict.focusKey.split(":")[2];
+            if (focusSurface === "grid") {
+              cancelGridEditor(
+                conflict.conflict.record_id,
+                conflict.conflict.field_key,
+              );
+            }
             applyRowMutation(conflict.conflict.record_id, envelope, {
-              viewportContinuityToken: beginViewportContinuity({
-                kind: "input",
-                focusKey: conflict.focusKey,
-              }),
+              viewportContinuityToken: beginViewportContinuity(
+                focusSurface === "grid"
+                  ? {
+                      kind: "row-inspect",
+                      recordId: conflict.conflict.record_id,
+                    }
+                  : { kind: "input", focusKey: conflict.focusKey },
+              ),
             });
             clearLocalConflict(conflict);
           });
@@ -393,6 +430,7 @@ export function useTimelineConflictResolverCoordinator({
       apiBase,
       applyRowMutation,
       beginViewportContinuity,
+      cancelGridEditor,
       clearLocalConflict,
       nextClientTxnId,
       pendingSavesRefsRef,

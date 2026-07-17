@@ -1405,7 +1405,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       ).toBe(
         surface === "inspector"
           ? "row-record-1-timeline.activity_synopsis_text-inspector"
-          : "row-record-1-timeline.activity_synopsis_text",
+          : "row-record-1-timeline.activity_synopsis_text-grid-editor",
       );
     }
     expect(

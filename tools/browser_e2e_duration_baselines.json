@@ -342,7 +342,7 @@
     },
     "FE-B-P10-02": {
       "file": "apps/web/e2e/phase9.keyboard.spec.ts",
-      "title": "FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder.",
+      "title": "FE-B-P10-02 Verify full keyboard/clipboard contract: one-click edit, copy, paste, exact-range fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder.",
       "weight_ms": 6887
     },
     "FE-B-P2-01": {

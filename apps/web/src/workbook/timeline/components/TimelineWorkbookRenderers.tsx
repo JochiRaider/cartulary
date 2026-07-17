@@ -1,6 +1,7 @@
 import type {
   GridColumn,
   GridEditCommitOutcome,
+  GridEditorFocusTarget,
 } from "@cartulary/grid-adapter";
 import {
   conflictMarkerTestId,
@@ -128,6 +129,11 @@ export type TimelineWorkbookRenderers = {
     closeGridEditor?:
       | ((commit: boolean, draftValue: string) => void)
       | undefined,
+    focusTargetRef?:
+      | ((element: GridEditorFocusTarget | null) => void)
+      | undefined,
+    controlledDraftValue?: string | undefined,
+    onControlledDraftChange?: ((value: string) => void) | undefined,
   ) => ReactNode;
   readonly renderTimelineInspectorEditor: (
     row: WorkbookRow,
@@ -231,6 +237,11 @@ export function useTimelineWorkbookRenderers({
       closeGridEditor?:
         | ((commit: boolean, draftValue: string) => void)
         | undefined,
+      focusTargetRef?:
+        | ((element: GridEditorFocusTarget | null) => void)
+        | undefined,
+      controlledDraftValue?: string | undefined,
+      onControlledDraftChange?: ((value: string) => void) | undefined,
     ) => {
       const label = timelineBindingLabel(binding.fieldKey);
       const gridAccessibleLabel =
@@ -246,11 +257,6 @@ export function useTimelineWorkbookRenderers({
         row.recordId === null ? null : `${row.recordId}:${binding.fieldKey}`;
       const localConflict =
         conflictKey === null ? undefined : conflictQueue[conflictKey];
-      const sameCellPresence = editingPresenceForCell(
-        row.recordId,
-        binding.fieldKey,
-      );
-
       return (
         <>
           <TimelineScalarEditor
@@ -260,10 +266,14 @@ export function useTimelineWorkbookRenderers({
             committedValue={row.values[binding.key]}
             controlId={controlId}
             dataTestId={dataTestId}
-            draftValue={scalarDraftValuesRef.current?.get(
-              inputFocusKey(row.key, binding.key, surface),
-            )}
+            draftValue={
+              controlledDraftValue ??
+              scalarDraftValuesRef.current?.get(
+                inputFocusKey(row.key, binding.key, surface),
+              )
+            }
             field={binding.key}
+            focusTargetRef={focusTargetRef}
             multiline={binding.multiline}
             onEditModeChange={handleEditModePresence}
             onCloseGridEditor={closeGridEditor}
@@ -275,12 +285,15 @@ export function useTimelineWorkbookRenderers({
             rowRecordId={row.recordId}
             surface={surface}
             onBlurCommit={handleBlur}
-            onDraftChange={setScalarEditorDraftValue}
+            onDraftChange={(rowKey, field, editorSurface, value) => {
+              setScalarEditorDraftValue(rowKey, field, editorSurface, value);
+              onControlledDraftChange?.(value);
+            }}
             onFocusRecord={handleSelectRow}
             onKeyCommit={handleKeyDown}
             onPasteCommit={handlePaste}
           />
-          {localConflict && surface === "grid" ? (
+          {localConflict && surface === "inspector" ? (
             <button
               type="button"
               data-testid={conflictMarkerTestId(
@@ -293,20 +306,11 @@ export function useTimelineWorkbookRenderers({
               Conflict
             </button>
           ) : null}
-          {surface === "grid" ? (
-            <TimelineCellPresenceMarker
-              fieldKey={binding.fieldKey}
-              fieldLabel={timelineBindingLabel(binding.fieldKey)}
-              presences={sameCellPresence}
-              recordId={row.recordId}
-            />
-          ) : null}
         </>
       );
     },
     [
       conflictQueue,
-      editingPresenceForCell,
       handleBlur,
       handleEditModePresence,
       handleKeyDown,
@@ -329,6 +333,11 @@ export function useTimelineWorkbookRenderers({
       closeGridEditor?:
         | ((commit: boolean, draftValue: string) => void)
         | undefined,
+      focusTargetRef?:
+        | ((element: GridEditorFocusTarget | null) => void)
+        | undefined,
+      controlledDraftValue?: string | undefined,
+      onControlledDraftChange?: ((value: string) => void) | undefined,
     ) => {
       return renderTimelineScalarControl(
         row,
@@ -336,9 +345,65 @@ export function useTimelineWorkbookRenderers({
         "grid",
         timelineScalarControlId(row, binding, "grid"),
         closeGridEditor,
+        focusTargetRef,
+        controlledDraftValue,
+        onControlledDraftChange,
       );
     },
     [renderTimelineScalarControl, timelineScalarControlId],
+  );
+
+  const renderTimelineScalarCell = useCallback(
+    (row: WorkbookRow, binding: TimelineScalarBinding) => {
+      const conflictKey =
+        row.recordId === null ? null : `${row.recordId}:${binding.fieldKey}`;
+      const localConflict =
+        conflictKey === null ? undefined : conflictQueue[conflictKey];
+      const presences = editingPresenceForCell(row.recordId, binding.fieldKey);
+      const text = stringifyGridValue(
+        readTimelineCellValue(row.rawRow, binding.fieldKey),
+      );
+      return (
+        <>
+          <span
+            data-testid={
+              row.recordId === null
+                ? undefined
+                : rowCellTestId(row.recordId, binding.fieldKey)
+            }
+            style={bodyStyle}
+          >
+            {text === "" ? "—" : text}
+          </span>
+          {localConflict === undefined ? null : (
+            <button
+              data-grid-prevent-cell-edit="true"
+              data-testid={conflictMarkerTestId(
+                row.recordId ?? "draft",
+                binding.fieldKey,
+              )}
+              style={conflictMarkerStyle}
+              type="button"
+              onClick={() => setActiveConflictKey(localConflict.key)}
+            >
+              Conflict
+            </button>
+          )}
+          <TimelineCellPresenceMarker
+            fieldKey={binding.fieldKey}
+            fieldLabel={timelineBindingLabel(binding.fieldKey)}
+            presences={presences}
+            recordId={row.recordId}
+          />
+        </>
+      );
+    },
+    [
+      conflictQueue,
+      editingPresenceForCell,
+      setActiveConflictKey,
+      timelineBindingLabel,
+    ],
   );
 
   const renderTimelineInspectorEditor = useCallback(
@@ -609,7 +674,7 @@ export function useTimelineWorkbookRenderers({
       timelineVisibleBindings.map((binding): GridColumn<WorkbookRow> => {
         const renderCell = (row: WorkbookRow) => {
           if (binding.kind === "scalar") {
-            return renderTimelineGridEditor(row, binding);
+            return renderTimelineScalarCell(row, binding);
           }
           if (binding.kind === "collection") {
             return renderTimelineCollectionInput(row, binding);
@@ -699,7 +764,10 @@ export function useTimelineWorkbookRenderers({
             timelineColumnWidths[binding.fieldKey] ??
             timelineColumnWidth(binding.fieldKey),
           renderCell: ({ row }) => renderCell(row),
-          renderDraftCell: ({ row }) => renderCell(row),
+          renderDraftCell: ({ row }) =>
+            binding.kind === "scalar"
+              ? renderTimelineGridEditor(row, binding)
+              : renderCell(row),
           editor:
             binding.kind === "scalar"
               ? {
@@ -722,6 +790,9 @@ export function useTimelineWorkbookRenderers({
                         if (commit) void context.commit(draftValue);
                         else context.cancel();
                       },
+                      context.focusTargetRef,
+                      String(context.draftValue ?? ""),
+                      (value) => context.setDraftValue(value),
                     ),
                 }
               : undefined,
@@ -734,6 +805,7 @@ export function useTimelineWorkbookRenderers({
     [
       renderTimelineCollectionInput,
       renderTimelineGridEditor,
+      renderTimelineScalarCell,
       commitScalarGridEdit,
       timelineBindingLabel,
       timelineColumnWidths,

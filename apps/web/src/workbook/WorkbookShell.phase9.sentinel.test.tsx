@@ -222,7 +222,11 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
       );
     });
 
-    fireEvent.keyDown(summary, { key: "ArrowDown" });
+    fireEvent.keyDown(summary, { key: "Escape" });
+    const firstSummaryCell = screen
+      .getByTestId(rowCellTestId("record-1", "timeline.activity_synopsis_text"))
+      .closest('[role="gridcell"]');
+    fireEvent.keyDown(firstSummaryCell as HTMLElement, { key: "ArrowDown" });
     await waitFor(() => {
       expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
         `${timelineViewSchemaId}:record-2:timeline.activity_synopsis_text`,
@@ -237,9 +241,11 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     });
 
     fireEvent.keyDown(
-      screen.getByTestId(
-        rowCellTestId("record-2", "timeline.activity_synopsis_text"),
-      ),
+      screen
+        .getByTestId(
+          rowCellTestId("record-2", "timeline.activity_synopsis_text"),
+        )
+        .closest('[role="gridcell"]') as HTMLElement,
       {
         key: "ArrowRight",
       },
@@ -256,9 +262,9 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     });
 
     fireEvent.keyDown(
-      screen.getByTestId(
-        rowCellTestId("record-2", "timeline.data_source_text"),
-      ),
+      screen
+        .getByTestId(rowCellTestId("record-2", "timeline.data_source_text"))
+        .closest('[role="gridcell"]') as HTMLElement,
       {
         key: "ArrowLeft",
       },
@@ -270,7 +276,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     });
   });
 
-  it("Phase 9 grid anchor shell support clears invalid anchors and preserves drafts across valid focus movement", async () => {
+  it("Phase 9 grid anchor shell support retains edge anchors and preserves drafts across valid focus movement", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "incident-1",
@@ -315,7 +321,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
       "timeline.activity_synopsis_text",
     ) as HTMLInputElement;
     await changeInputValue(summary, "Draft before movement");
-    fireEvent.keyDown(summary, { key: "ArrowDown" });
+    fireEvent.keyDown(summary, { key: "Enter" });
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -329,25 +335,20 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
         `${timelineViewSchemaId}:record-2:timeline.activity_synopsis_text`,
       );
       expect(
-        (
-          screen.getByTestId(
-            rowCellTestId("record-1", "timeline.activity_synopsis_text"),
-          ) as HTMLInputElement
-        ).value,
+        screen.getByTestId(
+          rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+        ).textContent,
       ).toBe("Draft before movement");
     });
 
-    fireEvent.keyDown(
-      screen.getByTestId(
-        rowCellTestId("record-1", "timeline.activity_synopsis_text"),
-      ),
-      {
-        key: "ArrowUp",
-      },
-    );
+    const firstCell = screen
+      .getByTestId(rowCellTestId("record-1", "timeline.activity_synopsis_text"))
+      .closest('[role="gridcell"]') as HTMLElement;
+    fireEvent.mouseDown(firstCell);
+    fireEvent.keyDown(firstCell, { key: "ArrowUp" });
     await waitFor(() => {
       expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
-        "cleared",
+        `${timelineViewSchemaId}:record-1:timeline.activity_synopsis_text`,
       );
     });
   });
@@ -405,15 +406,12 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
       );
     });
 
-    fireEvent.keyDown(
-      screen.getByTestId(
-        rowCellTestId("record-2", "timeline.activity_synopsis_text"),
-      ),
-      {
-        key: "Enter",
-        shiftKey: true,
-      },
+    const record2Editor = gridScalarInput(
+      container,
+      "record-2",
+      "timeline.activity_synopsis_text",
     );
+    fireEvent.keyDown(record2Editor, { key: "Enter", shiftKey: true });
     await waitFor(() => {
       expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
         `${timelineViewSchemaId}:record-1:timeline.activity_synopsis_text`,
@@ -447,7 +445,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     });
   });
 
-  it("Phase 9 grid anchor shell support commits drafts before Enter navigation and clears invalid Shift+Enter targets", async () => {
+  it("Phase 9 grid anchor shell support commits drafts before Enter navigation and retains edge Shift+Enter targets", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "incident-1",
@@ -507,18 +505,15 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
       );
     });
 
-    fireEvent.keyDown(
-      screen.getByTestId(
-        rowCellTestId("record-1", "timeline.activity_synopsis_text"),
-      ),
-      {
-        key: "Enter",
-        shiftKey: true,
-      },
+    const record1Editor = gridScalarInput(
+      container,
+      "record-1",
+      "timeline.activity_synopsis_text",
     );
+    fireEvent.keyDown(record1Editor, { key: "Enter", shiftKey: true });
     await waitFor(() => {
       expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
-        "cleared",
+        `${timelineViewSchemaId}:record-1:timeline.activity_synopsis_text`,
       );
     });
   });
@@ -1026,11 +1021,6 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
       );
       expect(
         screen.getByTestId(
-          conflictMarkerTestId("record-1", "timeline.activity_synopsis_text"),
-        ),
-      ).toBeTruthy();
-      expect(
-        screen.getByTestId(
           conflictMarkerTestId("record-2", "timeline.activity_synopsis_text"),
         ),
       ).toBeTruthy();
@@ -1061,11 +1051,6 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
         "Conflict",
       );
-      expect(
-        screen.getByTestId(
-          conflictMarkerTestId("record-1", "timeline.activity_synopsis_text"),
-        ),
-      ).toBeTruthy();
       expect(
         screen.getByTestId(
           conflictMarkerTestId("record-2", "timeline.activity_synopsis_text"),

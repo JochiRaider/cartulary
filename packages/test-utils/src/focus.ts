@@ -12,6 +12,7 @@ import {
  * visible. Exact scroll preservation is stricter and must be opted into.
  */
 export async function assertGridFocusContinuity(options: {
+  allowContainingGridCell?: boolean;
   focusTestId: string;
   intervalMs?: number;
   page: BrowserPageLike;
@@ -22,6 +23,7 @@ export async function assertGridFocusContinuity(options: {
   timeoutMs?: number;
 }) {
   const {
+    allowContainingGridCell = false,
     focusTestId,
     intervalMs = 50,
     page,
@@ -42,6 +44,7 @@ export async function assertGridFocusContinuity(options: {
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     try {
       await assertGridFocusContinuityOnce({
+        allowContainingGridCell,
         focusTestId,
         page,
         preservedScroll,
@@ -63,6 +66,7 @@ export async function assertGridFocusContinuity(options: {
 }
 
 async function assertGridFocusContinuityOnce(options: {
+  allowContainingGridCell: boolean;
   focusTestId: string;
   page: BrowserPageLike;
   preservedScroll: { left: number; top: number };
@@ -71,6 +75,7 @@ async function assertGridFocusContinuityOnce(options: {
   surface: WorkbookSurface;
 }) {
   const {
+    allowContainingGridCell,
     focusTestId,
     page,
     preservedScroll,
@@ -84,7 +89,11 @@ async function assertGridFocusContinuityOnce(options: {
     `assertGridFocusContinuity(${surface}, ${focusTestId}) requires locator.evaluate() support`,
   );
   const isFocused = (await evaluateFocusTarget(
-    (element) => document.activeElement === element,
+    (element, allowGridCell) =>
+      document.activeElement === element ||
+      (allowGridCell &&
+        document.activeElement === element.closest('[role="gridcell"]')),
+    allowContainingGridCell,
   )) as boolean;
   if (!isFocused) {
     throw new Error(

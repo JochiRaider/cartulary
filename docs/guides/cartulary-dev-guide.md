@@ -744,6 +744,8 @@ Semantic state styling MUST follow `docs/design.md` §8.2: conflict, invalid, an
 
 Layout-critical RDG inline styles, CSS variables, and measured dimensions MUST be treated as vendor-owned layout mechanics. Cartulary styling MAY wrap or override semantic state presentation, but it MUST NOT remove layout styles required for virtualization, frozen columns, active-cell preservation, measuring cells, resize handles, or drag-fill handles.
 
+The adapter owns committed scalar edit mode. A committed navigation cell renders static content until one primary click or a declared keyboard command activates its contract-backed editor; the editor registers one primary focus target and the adapter owns commit, cancel, rejection retention, and presence lifecycle. Recordless draft controls and owner-declared collection actions are the explicit exceptions. The RDG drag-fill square is labeled `Drag to fill this value`, uses Cartulary accent tokens, routes through semantic `fill_down_v1`, and does not expose vendor double-click fill-to-end behavior.
+
 Visual regression fixtures MUST cover the supported `dark_graphite` theme. Light or high-contrast theme fixtures MUST NOT be claimed until those themes are exposed by the product and backed by complete owner tokens, accessibility coverage, and visual baselines.
 
 ### 6.9 Row identity and performance guardrails

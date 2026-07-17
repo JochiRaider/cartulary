@@ -481,6 +481,8 @@ When opened explicitly, the inspector is mounted adjacent to the grid at base vi
 
 *Design direction.* Multi-cell paste, fill-down, and multi-row tag assignment are required workbook behaviors in the base design. They MUST NOT rely on hidden macro semantics.
 
+*Design direction.* One primary click on a writable committed scalar cell enters edit mode, focuses the primary control, and places a collapsed caret after the existing text so typing appends by default. Read-only cells remain selectable, while chips and embedded action controls retain their own behavior. The fill handle is an accent-colored, labeled fill affordance rather than an edit affordance; `Ctrl/Cmd+D` provides the keyboard equivalent, and double-click fill-to-end is not supported.
+
 *Design direction.* Clipboard paste is part of the base hot path. It SHOULD accept TSV and CSV copied directly from spreadsheet tools, create additional rows automatically when the pasted range exceeds the existing visible set, and preserve selection and row identity rather than turning paste into an import wizard.[^4][^8]
 
 ### 7.4 Autosave, save states, and `Esc`

@@ -273,6 +273,10 @@ async function readTimelineSummaryGeometry(page: Page, recordId: string) {
         control: rectFor(controlElement),
         density: gridStyle.getPropertyValue("--cartulary-grid-density").trim(),
         fontSize: controlStyle.fontSize,
+        hasEditableControl:
+          cellElement.querySelector(
+            "input, textarea, select, [contenteditable='true']",
+          ) !== null,
         lineHeight: controlStyle.lineHeight,
       };
     });
@@ -352,7 +356,7 @@ test("FE-B-P2-01 updates workbook density from Account Settings while the workbo
       page.getByTestId(
         rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),
       ),
-    ).toHaveValue("FE-B-P2-01 density row");
+    ).toHaveText("FE-B-P2-01 density row");
     await expectWorkbookShellComposition(page, {
       incidentId,
       incidentKey,
@@ -398,24 +402,10 @@ test("FE-B-P2-01 updates workbook density from Account Settings while the workbo
     );
     expect(compactGeometry.cell.blockSize).toBeGreaterThanOrEqual(23);
     expect(compactGeometry.cell.blockSize).toBeLessThanOrEqual(26);
-    expect(compactGeometry.fontSize).toBe("12px");
-    expectNear(Number.parseFloat(compactGeometry.lineHeight), 14.4);
-    expectNear(
-      compactGeometry.control.insetBlockStart,
-      compactGeometry.cell.insetBlockStart,
-    );
-    expectNear(
-      compactGeometry.control.insetInlineStart,
-      compactGeometry.cell.insetInlineStart,
-    );
-    expectNear(
-      compactGeometry.control.blockSize,
-      compactGeometry.cell.blockSize,
-    );
-    expectNear(
-      compactGeometry.control.inlineSize,
-      compactGeometry.cell.inlineSize,
-    );
+    expect(compactGeometry.fontSize).toBe("13px");
+    expectNear(Number.parseFloat(compactGeometry.lineHeight), 19.5);
+    expect(comfortableGeometry.hasEditableControl).toBe(false);
+    expect(compactGeometry.hasEditableControl).toBe(false);
   } finally {
     await putAccountDensityPreference(page, originalPreferences.density_mode);
   }

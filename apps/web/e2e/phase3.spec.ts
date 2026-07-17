@@ -13,6 +13,7 @@ import {
   timelineRowReplacementInputTestId,
   timelineRowSupersedeButtonTestId,
   timelineRowVersionTestId,
+  timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
 import type { Page, Route } from "@playwright/test";
 
@@ -90,7 +91,7 @@ test("E-3-01 creates a Timeline row in-grid and continues editing on the draft r
     page.getByTestId(
       rowCellTestId(committedRow.recordId, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveValue("First browser fact");
+  ).toHaveText("First browser fact");
   await expect(
     page.getByTestId(draftCellTestId("timeline.activity_synopsis_text")),
   ).toBeFocused();
@@ -135,7 +136,7 @@ test("E-3-01 supports explicit blank Timeline row creation with only client_txn_
     page.getByTestId(
       rowCellTestId(committedRow.recordId, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveValue("");
+  ).toHaveText("—");
   await expect(
     page.getByTestId(
       rowCellTestId(committedRow.recordId, "timeline.capture_state"),
@@ -307,7 +308,7 @@ test("E-3-04 uses a disclosed hybrid replay harness to prove replay avoids dupli
   );
 
   await page.goto(`/?incident_id=${incidentId}`);
-  const summaryInput = page.getByTestId(
+  const summaryDisplay = page.getByTestId(
     rowCellTestId(recordId, "timeline.activity_synopsis_text"),
   );
   await scrollGridCellIntoView({
@@ -322,8 +323,17 @@ test("E-3-04 uses a disclosed hybrid replay harness to prove replay avoids dupli
       response.url().endsWith(`/api/v1/records/${recordId}`),
   );
 
-  await summaryInput.fill("Replay row patched");
-  await summaryInput.press("Enter");
+  await summaryDisplay.click();
+  const summaryEditor = page.getByTestId(
+    timelineScalarEditorTestId({
+      fieldKey: "timeline.activity_synopsis_text",
+      recordId,
+      surface: "grid",
+    }),
+  );
+  await expect(summaryEditor).toBeFocused();
+  await summaryEditor.fill("Replay row patched");
+  await summaryEditor.press("Enter");
   const patchResponse = await firstPatchResponse;
   const firstPatchBody = JSON.parse(
     patchResponse.request().postData() ?? "{}",

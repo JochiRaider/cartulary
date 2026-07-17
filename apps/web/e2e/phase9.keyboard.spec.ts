@@ -21,6 +21,7 @@ import {
   systemViewSwitcherTriggerTestId,
   timelineInspectorTestId,
   timelineMutationSubstrateReadyTestId,
+  timelineScalarEditorTestId,
   workbookFilterPopoverTriggerTestId,
   workbookInspectorCloseButtonTestId,
   workbookResponsiveBandTestId,
@@ -58,7 +59,6 @@ import {
   statusReviewViewSchemaId,
   taskRequestsViewSchemaId,
 } from "./phase4Helpers";
-import { fillDownGridCells } from "./workbookRequestSupport";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
@@ -91,7 +91,7 @@ function semanticGridCell(content: Locator): Locator {
 
 async function activateSemanticGridCell(content: Locator): Promise<Locator> {
   const cell = semanticGridCell(content);
-  await cell.click();
+  await cell.dispatchEvent("mousedown", { button: 0 });
   await cell.focus();
   return cell;
 }
@@ -385,7 +385,7 @@ test("Phase 9 E-9-01 keyboard shortcuts keep workbook grid anchors without modul
     page.getByTestId(
       rowCellTestId(alpha.record_id as string, "timeline.date_entered_text"),
     ),
-  ).toHaveValue("Phase 9 alpha");
+  ).toHaveText("Phase 9 alpha");
   const initialURL = page.url();
 
   const alphaSummary = page.getByTestId(
@@ -416,7 +416,7 @@ test("Phase 9 E-9-01 keyboard shortcuts keep workbook grid anchors without modul
   const alphaAnalyst = page.getByTestId(
     rowCellTestId(alpha.record_id as string, "timeline.analyst_text"),
   );
-  await alphaAnalyst.focus();
+  await activateSemanticGridCell(alphaAnalyst);
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.analyst_text`,
   );
@@ -432,6 +432,9 @@ test("Phase 9 E-9-01 keyboard shortcuts keep workbook grid anchors without modul
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.analyst_text`,
   );
   await page.keyboard.press("Escape");
+  if (await page.getByTestId(rowHistoryPanelTestId()).isVisible()) {
+    await page.keyboard.press("Escape");
+  }
   await expect(page.getByTestId(rowHistoryPanelTestId())).toHaveCount(0);
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.analyst_text`,
@@ -522,7 +525,7 @@ test("FE-B-P9-LAYOUT-01 keeps the incident workbook inside the browser viewport 
   );
 });
 
-test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder.", async ({
+test("FE-B-P10-02 Verify full keyboard/clipboard contract: one-click edit, copy, paste, exact-range fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder.", async ({
   page,
 }) => {
   const incidentId = await createIncident(
@@ -540,7 +543,7 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
     "timeline.activity_synopsis_text": "FE-B-P10-02 Beta",
     "timeline.raw_activity_text": "FE-B-P10-02 Beta details",
   });
-  const gamma = await createViewRow(page, incidentId, timelineViewSchemaId, {
+  await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("fe-b-p10-02-gamma"),
     "timeline.activity_synopsis_text": "FE-B-P10-02 Gamma",
     "timeline.raw_activity_text": "FE-B-P10-02 Gamma details",
@@ -571,7 +574,7 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
   const alphaSummary = page.getByTestId(
     rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
   );
-  await expect(alphaSummary).toHaveValue("FE-B-P10-02 Alpha");
+  await expect(alphaSummary).toHaveText("FE-B-P10-02 Alpha");
   const alphaSummaryCell = await activateSemanticGridCell(alphaSummary);
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.activity_synopsis_text`,
@@ -598,9 +601,17 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
   );
   await expect(alphaSummaryCell).toBeFocused();
 
-  await alphaSummary.fill("FE-B-P10-02 dirty draft");
-  await alphaSummary.press("Escape");
-  await expect(alphaSummary).toHaveValue("FE-B-P10-02 Alpha");
+  await alphaSummary.click();
+  const alphaSummaryEditor = page.getByTestId(
+    timelineScalarEditorTestId({
+      fieldKey: "timeline.activity_synopsis_text",
+      recordId: alpha.record_id,
+      surface: "grid",
+    }),
+  );
+  await alphaSummaryEditor.fill("FE-B-P10-02 dirty draft");
+  await alphaSummaryEditor.press("Escape");
+  await expect(alphaSummary).toHaveText("FE-B-P10-02 Alpha");
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
 
   await openTimelineInspector(page, alpha.record_id);
@@ -673,7 +684,7 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
     page.getByTestId(
       rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveValue("FE-B-P10-02 pasted Beta");
+  ).toHaveText("FE-B-P10-02 pasted Beta");
   const betaAfterPaste = await waitForViewRow(
     page,
     incidentId,
@@ -684,6 +695,86 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
     "FE-B-P10-02 pasted Beta",
   );
 
+  await scrollGridCellIntoView({
+    cellKey: "timeline.raw_activity_text",
+    page,
+    recordId: beta.record_id,
+    surface: timelineViewSchemaId,
+  });
+  const [fillSourceRecordId, fillTargetRecordId] = await page
+    .getByTestId(gridShellTestId(timelineViewSchemaId))
+    .evaluate(
+      (grid, knownSourceRecordIds) => {
+        const recordIds = Array.from(
+          grid.querySelectorAll<HTMLElement>(
+            '[role="row"][data-grid-record-id]',
+          ),
+          (row) => row.dataset.gridRecordId,
+        ).filter((recordId): recordId is string => recordId !== undefined);
+        for (let index = 0; index < recordIds.length - 1; index += 1) {
+          const sourceRecordId = recordIds[index];
+          const targetRecordId = recordIds[index + 1];
+          if (
+            sourceRecordId !== undefined &&
+            targetRecordId !== undefined &&
+            knownSourceRecordIds.includes(sourceRecordId)
+          ) {
+            return [sourceRecordId, targetRecordId] as [string, string];
+          }
+        }
+        throw new Error(
+          "Expected a visible non-empty source with a committed fill target",
+        );
+      },
+      [alpha.record_id, beta.record_id],
+    );
+  const fillSource = await waitForViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    fillSourceRecordId,
+  );
+  const fillTarget = await waitForViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    fillTargetRecordId,
+  );
+  const fillSourceValue = stringCell(fillSource, "timeline.raw_activity_text");
+  const fillSourceDisplay = page.getByTestId(
+    rowCellTestId(fillSourceRecordId, "timeline.raw_activity_text"),
+  );
+  const fillSourceCell = await activateSemanticGridCell(fillSourceDisplay);
+  const fillRequests: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      request
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/bulk-mutations`,
+        )
+    ) {
+      fillRequests.push(request.postData() ?? "");
+    }
+  });
+  const fillHandle = page.locator(".rdg-cell-drag-handle");
+  await expect(fillHandle).toHaveAttribute(
+    "aria-label",
+    "Drag to fill this value",
+  );
+  await fillHandle.evaluate((handle) => {
+    handle.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+  });
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
+  expect(fillRequests).toHaveLength(0);
+
+  await fillSourceCell.press("Shift+ArrowDown");
   const fillRequest = page.waitForRequest(
     (request) =>
       request.method() === "POST" &&
@@ -693,40 +784,27 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
           `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/bulk-mutations`,
         ),
   );
-  const fillResponse = await fillDownGridCells({
-    apiBase,
-    csrfHeaders: await csrfHeaders(page),
-    fieldKey: "timeline.raw_activity_text",
-    incidentId,
-    page,
-    surface: timelineViewSchemaId,
-    targetRecords: [
-      {
-        baseRowVersion: alpha.row_version,
-        recordId: alpha.record_id,
-      },
-      {
-        baseRowVersion: gamma.row_version,
-        recordId: gamma.record_id,
-      },
-    ],
-    value: "FE-B-P10-02 filled details",
-  });
-  expect(fillResponse.ok()).toBeTruthy();
+  const fillResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/bulk-mutations`,
+        ),
+  );
+  await fillSourceCell.press("Control+d");
+  expect((await fillResponse).ok()).toBeTruthy();
   expect(readPostBody(await fillRequest)).toMatchObject({
     field_key: "timeline.raw_activity_text",
     kind: "fill_down_v1",
     targets: [
       {
-        base_row_version: alpha.row_version,
-        record_id: alpha.record_id,
-      },
-      {
-        base_row_version: gamma.row_version,
-        record_id: gamma.record_id,
+        base_row_version: fillTarget.row_version,
+        record_id: fillTarget.record_id,
       },
     ],
-    value: "FE-B-P10-02 filled details",
+    value: fillSourceValue,
     view_schema_id: timelineViewSchemaId,
   });
 
@@ -840,7 +918,6 @@ test("Phase 9 E-9-GRIDANCHORS-01 shared grid keyboard anchors stay stable across
       row,
       fieldKey: "timeline.activity_synopsis_text",
       expectedText: "Phase 9 grid anchor",
-      textMode: "value",
       rightFieldKey: "timeline.data_source_text",
       rightFocusTestId: rowCellTestId(
         row.record_id,

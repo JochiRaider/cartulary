@@ -1168,7 +1168,7 @@
     {
       "target": "frontend-unit",
       "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
-      "title": "Phase 9 grid anchor shell support clears invalid anchors and preserves drafts across valid focus movement",
+      "title": "Phase 9 grid anchor shell support retains edge anchors and preserves drafts across valid focus movement",
       "coverage": "support",
       "reason": "Phase 9 grid-anchor shell checks are intentional support coverage for keyboard and paste integration.",
       "phase": "phase9"
@@ -1176,7 +1176,7 @@
     {
       "target": "frontend-unit",
       "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
-      "title": "Phase 9 grid anchor shell support commits drafts before Enter navigation and clears invalid Shift+Enter targets",
+      "title": "Phase 9 grid anchor shell support commits drafts before Enter navigation and retains edge Shift+Enter targets",
       "coverage": "support",
       "reason": "Phase 9 grid-anchor shell checks are intentional support coverage for keyboard and paste integration.",
       "phase": "phase9"

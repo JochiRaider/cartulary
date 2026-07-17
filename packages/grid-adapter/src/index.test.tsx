@@ -220,7 +220,7 @@ describe("grid-adapter", () => {
       columns,
       dataRows: [],
       interactionMode: { kind: "editable" },
-      onEditCell: vi.fn(),
+      onFillCells: vi.fn(),
       surface: {
         kind: "extension_grid",
         extensionProfileId: "network_flow_activity",
@@ -473,7 +473,6 @@ describe("grid-adapter", () => {
   it("translates live cell events and the restricted handle through semantic coordinates", async () => {
     const onActiveCellChange = vi.fn();
     const onCopyCell = vi.fn();
-    const onEditCell = vi.fn();
     const onPasteCell = vi.fn();
     const handle = createRef<GridHandle>();
     render(
@@ -486,15 +485,25 @@ describe("grid-adapter", () => {
             fieldKey: "label",
             label: "Label",
             renderCell: ({ row }) => (
-              <span data-testid="semantic-live-cell">{row.label}</span>
+              // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useKeyWithClickEvents: this test fixture deliberately models vendor click interception on passive cell content.
+              <span
+                data-testid="semantic-live-cell"
+                onClick={(event) => event.stopPropagation()}
+              >
+                {row.label}
+              </span>
             ),
             editor: {
               commit: async () => ({ kind: "accepted" }),
               initialDraftValue: (row) => row.label,
-              renderEditor: ({ draftValue }) => (
+              renderEditor: ({ cancel, draftValue, focusTargetRef }) => (
                 <input
                   aria-label="Semantic editor"
                   defaultValue={String(draftValue)}
+                  ref={focusTargetRef}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") cancel();
+                  }}
                 />
               ),
             },
@@ -502,7 +511,6 @@ describe("grid-adapter", () => {
         ]}
         onActiveCellChange={onActiveCellChange}
         onCopyCell={onCopyCell}
-        onEditCell={onEditCell}
         onPasteCell={onPasteCell}
         dataRows={[
           {
@@ -514,18 +522,26 @@ describe("grid-adapter", () => {
         ]}
       />,
     );
-    const cell = (await screen.findByTestId("semantic-live-cell")).closest(
-      '[role="gridcell"]',
-    );
+    const cellContent = await screen.findByTestId("semantic-live-cell");
+    const cell = cellContent.closest('[role="gridcell"]');
     if (!(cell instanceof HTMLElement))
       throw new Error("Expected live RDG cell");
-    fireEvent.mouseDown(cell);
-    fireEvent.click(cell);
+    // Exercise the production pointer path: users click the rendered static
+    // content, not the vendor-owned gridcell wrapper.
+    fireEvent.mouseDown(cellContent);
+    fireEvent.mouseUp(cellContent);
+    fireEvent.click(cellContent);
     await waitFor(() => expect(onActiveCellChange).toHaveBeenCalled());
+    const editor = await screen.findByRole("textbox", {
+      name: "Semantic editor",
+    });
+    expect(document.activeElement).toBe(editor);
+    expect((editor as HTMLInputElement).selectionStart).toBe(5);
+    expect((editor as HTMLInputElement).selectionEnd).toBe(5);
+    fireEvent.keyDown(editor, { key: "Escape" });
     const liveGrid = screen.getByRole("grid");
     fireEvent.copy(liveGrid);
     fireEvent.paste(liveGrid);
-    fireEvent.doubleClick(cell);
     const anchor = gridAnchor("record-1", "label");
     const target = {
       ...anchor,
@@ -541,7 +557,6 @@ describe("grid-adapter", () => {
     expect(onPasteCell).toHaveBeenCalledWith(
       expect.objectContaining({ target }),
     );
-    expect(onEditCell).toHaveBeenCalledWith({ target });
     expect(handle.current?.getScrollElement()).toBeTruthy();
     expect(handle.current?.focusRoot()).toBe(true);
     expect(document.activeElement).toBe(handle.current?.getScrollElement());
@@ -590,6 +605,7 @@ describe("grid-adapter", () => {
           renderEditor: (context) => (
             <input
               aria-label="Keyboard editor"
+              ref={context.focusTargetRef}
               value={String(context.draftValue)}
               onChange={(event) =>
                 context.setDraftValue(event.currentTarget.value)
@@ -648,7 +664,6 @@ describe("grid-adapter", () => {
       throw new Error("Expected Alpha grid cell");
     }
     fireEvent.mouseDown(alphaCell);
-    fireEvent.click(alphaCell);
     fireEvent.keyDown(alphaCell, { key: "ArrowDown", shiftKey: true });
     expect(
       await screen.findByText("Selected 2 rows by 1 columns."),
@@ -736,6 +751,117 @@ describe("grid-adapter", () => {
     );
   });
 
+  it("keeps embedded actions independent and routes labeled pointer and keyboard fill through semantic targets", async () => {
+    const onAction = vi.fn();
+    const onFillCells = vi.fn();
+    const fillColumns: readonly GridColumn<HarnessRow>[] = [
+      {
+        contractWritable: true,
+        editor: {
+          commit: async () => ({ kind: "accepted" }),
+          initialDraftValue: (row) => row.label,
+          renderEditor: (context) => (
+            <input
+              aria-label="Fill editor"
+              ref={context.focusTargetRef}
+              value={String(context.draftValue)}
+              onChange={(event) =>
+                context.setDraftValue(event.currentTarget.value)
+              }
+            />
+          ),
+        },
+        fieldKey: "label",
+        label: "Label",
+        renderCell: ({ row }) => (
+          <span data-testid={`fill-${row.label}`}>{row.label}</span>
+        ),
+      },
+      {
+        fieldKey: "state",
+        label: "State",
+        renderCell: ({ row }) => (
+          <button type="button" onClick={onAction}>
+            Inspect {row.state}
+          </button>
+        ),
+      },
+    ];
+    render(
+      <SemanticDataGrid
+        columns={fillColumns}
+        onFillCells={onFillCells}
+        dataRows={[
+          {
+            data: { label: "Alpha", state: "open" },
+            kind: "data",
+            mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+            rowIdentity: { kind: "core_record", recordId: "record-1" },
+          },
+          {
+            data: { label: "Beta", state: "open" },
+            kind: "data",
+            mutationIdentity: { kind: "core_row_version", baseRowVersion: 2 },
+            rowIdentity: { kind: "core_record", recordId: "record-2" },
+          },
+        ]}
+        surface={testSurface}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Inspect open" })[0] as HTMLElement,
+    );
+    expect(onAction).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("textbox", { name: "Fill editor" })).toBeNull();
+
+    const alphaCell = screen
+      .getByTestId("fill-Alpha")
+      .closest<HTMLElement>('[role="gridcell"]');
+    if (alphaCell === null) throw new Error("Expected fill source cell");
+    fireEvent.mouseDown(alphaCell);
+    const fillHandle = await waitFor(() => {
+      const handle = document.querySelector<HTMLElement>(
+        ".rdg-cell-drag-handle",
+      );
+      expect(handle).toBeTruthy();
+      expect(handle?.getAttribute("aria-label")).toBe(
+        "Drag to fill this value",
+      );
+      return handle as HTMLElement;
+    });
+    fireEvent.doubleClick(fillHandle);
+    expect(onFillCells).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(alphaCell, { key: "ArrowDown", shiftKey: true });
+    const betaCell = screen
+      .getByTestId("fill-Beta")
+      .closest<HTMLElement>('[role="gridcell"]');
+    if (betaCell === null) throw new Error("Expected fill target cell");
+    fireEvent.keyDown(betaCell, { ctrlKey: true, key: "d" });
+    await waitFor(() => expect(onFillCells).toHaveBeenCalledTimes(1));
+    expect(onFillCells).toHaveBeenCalledWith({
+      range: {
+        end: gridAnchor("record-2", "label"),
+        start: gridAnchor("record-1", "label"),
+      },
+      source: {
+        ...gridAnchor("record-1", "label"),
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+      },
+      target: {
+        ...gridAnchor("record-2", "label"),
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 2 },
+      },
+      targets: [
+        {
+          ...gridAnchor("record-2", "label"),
+          mutationIdentity: { kind: "core_row_version", baseRowVersion: 2 },
+        },
+      ],
+    });
+  });
+
   it("does not republish an unchanged semantic anchor when the active record updates", async () => {
     const onActiveCellChange = vi.fn();
 
@@ -801,6 +927,7 @@ describe("grid-adapter", () => {
                 <div>
                   <input
                     aria-label="Retained semantic draft"
+                    ref={context.focusTargetRef}
                     value={String(context.draftValue)}
                     onChange={(event) =>
                       context.setDraftValue(event.currentTarget.value)
@@ -836,7 +963,8 @@ describe("grid-adapter", () => {
     if (!(cell instanceof HTMLElement)) {
       throw new Error("Expected live RDG cell");
     }
-    fireEvent.doubleClick(cell);
+    fireEvent.mouseDown(cell);
+    fireEvent.click(cell);
     const input = await screen.findByRole("textbox", {
       name: "Retained semantic draft",
     });
@@ -862,6 +990,107 @@ describe("grid-adapter", () => {
       target: {
         fieldKey: "label",
         mutationIdentity: { kind: "core_row_version", baseRowVersion: 7 },
+        rowIdentity: { kind: "core_record", recordId: "record-1" },
+        surface: testSurface,
+      },
+    });
+  });
+
+  it("keeps a rejected inter-cell transition on its semantic draft and opens the destination only after acceptance", async () => {
+    const commit = vi
+      .fn()
+      .mockResolvedValueOnce({
+        kind: "validation_error",
+        message: "Keep the original draft.",
+      })
+      .mockResolvedValueOnce({ kind: "accepted" });
+    const transitionColumns: readonly GridColumn<HarnessRow>[] = [
+      {
+        contractWritable: true,
+        editor: {
+          commit,
+          initialDraftValue: (row) => row.label,
+          renderEditor: (context) => (
+            <input
+              aria-label={`${context.row.label} transition editor`}
+              ref={context.focusTargetRef}
+              value={String(context.draftValue)}
+              onChange={(event) =>
+                context.setDraftValue(event.currentTarget.value)
+              }
+            />
+          ),
+        },
+        fieldKey: "label",
+        label: "Label",
+        renderCell: ({ row }) => (
+          <span data-testid={`transition-${row.label}`}>{row.label}</span>
+        ),
+      },
+    ];
+    render(
+      <SemanticDataGrid
+        columns={transitionColumns}
+        dataRows={[
+          {
+            data: { label: "Alpha", state: "open" },
+            kind: "data",
+            mutationIdentity: { kind: "core_row_version", baseRowVersion: 4 },
+            rowIdentity: { kind: "core_record", recordId: "record-1" },
+          },
+          {
+            data: { label: "Beta", state: "open" },
+            kind: "data",
+            mutationIdentity: { kind: "core_row_version", baseRowVersion: 9 },
+            rowIdentity: { kind: "core_record", recordId: "record-2" },
+          },
+        ]}
+        surface={testSurface}
+      />,
+    );
+
+    const alphaCell = screen
+      .getByTestId("transition-Alpha")
+      .closest<HTMLElement>('[role="gridcell"]');
+    const betaCell = screen
+      .getByTestId("transition-Beta")
+      .closest<HTMLElement>('[role="gridcell"]');
+    if (alphaCell === null || betaCell === null) {
+      throw new Error("Expected transition cells");
+    }
+    fireEvent.mouseDown(alphaCell);
+    fireEvent.click(alphaCell);
+    const alphaEditor = await screen.findByRole("textbox", {
+      name: "Alpha transition editor",
+    });
+    fireEvent.change(alphaEditor, { target: { value: "unsaved exact draft" } });
+
+    fireEvent.mouseDown(betaCell);
+    fireEvent.click(betaCell);
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Keep the original draft.",
+    );
+    expect(alphaEditor).toHaveProperty("value", "unsaved exact draft");
+    expect(document.activeElement).toBe(alphaEditor);
+    expect(commit).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByRole("textbox", { name: "Beta transition editor" }),
+    ).toBeNull();
+
+    fireEvent.mouseDown(betaCell);
+    fireEvent.click(betaCell);
+    const betaEditor = await screen.findByRole("textbox", {
+      name: "Beta transition editor",
+    });
+    expect(document.activeElement).toBe(betaEditor);
+    expect(betaEditor).toHaveProperty("value", "Beta");
+    expect(commit).toHaveBeenCalledTimes(2);
+    expect(commit).toHaveBeenLastCalledWith({
+      draftValue: "unsaved exact draft",
+      row: { label: "Alpha", state: "open" },
+      target: {
+        fieldKey: "label",
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 4 },
         rowIdentity: { kind: "core_record", recordId: "record-1" },
         surface: testSurface,
       },

@@ -1277,6 +1277,7 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-03-218 | Core 03 §13.1 Grid editing | base | AC-005, AC-043, AC-231 |
 | REQ-03-219 | Core 03 §13.1 Grid editing | base | AC-005, AC-043, AC-231 |
 | REQ-03-220 | Core 03 §13.2 Required keyboard actions | base | AC-005, AC-231 |
+| REQ-03-300 | Core 03 §13.1 Grid editing | base | AC-485 |
 | REQ-03-221 | Core 03 §13.3 Bulk editing | base | AC-003, AC-040, AC-231 |
 | REQ-03-222 | Core 03 §13.3 Bulk editing | base | AC-003, AC-040, AC-231 |
 | REQ-03-223 | Core 03 §14.1 Sort and filter behavior | base | AC-013..AC-014, AC-044, AC-047, AC-124, AC-184..AC-185, AC-231, AC-387 |
@@ -1471,6 +1472,7 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | AC-003 | REQ-01-015..REQ-01-017, REQ-03-145..REQ-03-152, REQ-03-221..REQ-03-222 |
 | AC-004 | REQ-01-015..REQ-01-017, REQ-03-116..REQ-03-119 |
 | AC-005 | REQ-01-015..REQ-01-017, REQ-03-001..REQ-03-003, REQ-03-217..REQ-03-220, REQ-03-263 |
+| AC-485 | REQ-03-220..REQ-03-222, REQ-03-300 |
 | AC-006 | REQ-03-129..REQ-03-134, REQ-03-209..REQ-03-216, REQ-03-247..REQ-03-249 |
 | AC-007 | REQ-03-138..REQ-03-140, REQ-03-261..REQ-03-262 |
 | AC-008 | REQ-03-090..REQ-03-091 |

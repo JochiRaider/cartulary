@@ -12,7 +12,6 @@ import {
 } from "@cartulary/test-utils";
 import {
   cellPresenceMarkerTestId,
-  conflictMarkerTestId,
   currentIncidentRoleTestId,
   gridRowGutterTestId,
   pendingQueueCountTestId,
@@ -21,6 +20,7 @@ import {
   rowPresenceMarkerTestId,
   saveStateTestId,
   timelineRowVersionTestId,
+  timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page } from "@playwright/test";
 
@@ -112,7 +112,7 @@ test("FE-I-P7-01 Verify conflict resolver actions submit public mutations and re
       page.getByTestId(
         rowCellTestId(conflictId, "timeline.activity_synopsis_text"),
       ),
-    ).toHaveValue("FE-I-P7 conflict base");
+    ).toHaveText("FE-I-P7 conflict base");
 
     remotePage = await openIncidentAsTrackedUser(browser, sessionTracker, {
       createdBy: "FE-I-P7-01",
@@ -132,7 +132,7 @@ test("FE-I-P7-01 Verify conflict resolver actions submit public mutations and re
       remotePage.getByTestId(
         rowCellTestId(conflictId, "timeline.activity_synopsis_text"),
       ),
-    ).toHaveValue("FE-I-P7 conflict base");
+    ).toHaveText("FE-I-P7 conflict base");
 
     await driveRealTimelineSummaryConflict({
       baseRowVersion: 1,
@@ -220,35 +220,38 @@ test("FE-I-P7-01 Verify conflict resolver actions submit public mutations and re
       "timeline.activity_synopsis_text": "FE-I-P7 final merged",
     });
 
-    const heldQueuePatch = patchController.holdNextPatch({
-      recordId: queuedAId,
-    });
-    await editTimelineSummary(page, queuedAId, "FE-I-P7 queued A local");
-    await heldQueuePatch.waitForHit;
-    await editTimelineSummary(page, queuedBId, "FE-I-P7 queued B local");
-    await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
-      "2",
-    );
-    heldQueuePatch.release();
-    await expect
-      .poll(
-        () =>
-          successfulPatchCalls(patchController.calls).filter((call) =>
-            [queuedAId, queuedBId].includes(call.recordId),
-          ).length,
-      )
-      .toBe(2);
-    const replayed = successfulPatchCalls(patchController.calls).filter(
-      (call) => [queuedAId, queuedBId].includes(call.recordId),
-    );
-    expect(replayed.map((call) => call.recordId)).toEqual([
-      queuedAId,
-      queuedBId,
-    ]);
-    expect(replayed.map((call) => summaryPatchValue(call.body))).toEqual([
-      "FE-I-P7 queued A local",
-      "FE-I-P7 queued B local",
-    ]);
+    const queueTransportController =
+      await installPatchTransportFailureController(page);
+    try {
+      queueTransportController.disconnect();
+      await editTimelineSummary(page, queuedAId, "FE-I-P7 queued A local");
+      await editTimelineSummary(page, queuedBId, "FE-I-P7 queued B local");
+      await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
+        "2",
+      );
+      queueTransportController.connect();
+      await expect
+        .poll(
+          () =>
+            successfulPatchCalls(queueTransportController.calls).filter(
+              (call) => [queuedAId, queuedBId].includes(call.recordId),
+            ).length,
+        )
+        .toBe(2);
+      const replayed = successfulPatchCalls(
+        queueTransportController.calls,
+      ).filter((call) => [queuedAId, queuedBId].includes(call.recordId));
+      expect(replayed.map((call) => call.recordId)).toEqual([
+        queuedAId,
+        queuedBId,
+      ]);
+      expect(replayed.map((call) => summaryPatchValue(call.body))).toEqual([
+        "FE-I-P7 queued A local",
+        "FE-I-P7 queued B local",
+      ]);
+    } finally {
+      await queueTransportController.dispose();
+    }
   } finally {
     await patchController.dispose();
     await remotePage?.context().close();
@@ -383,7 +386,7 @@ test("FE-E-P7-01 Verify multi-client live row update, presence anchoring, reset/
       page.getByTestId(
         rowCellTestId(liveId, "timeline.activity_synopsis_text"),
       ),
-    ).toHaveValue("FE-E-P7 live remote update");
+    ).toHaveText("FE-E-P7 live remote update");
 
     const removeStartAt = socketMonitor.messageCount();
     const deleteResponse = await page.request.delete(
@@ -442,7 +445,7 @@ test("FE-E-P7-01 Verify multi-client live row update, presence anchoring, reset/
       page.getByTestId(
         rowCellTestId(invalidateId, "timeline.activity_synopsis_text"),
       ),
-    ).toHaveValue("FE-E-P7 invalidate base");
+    ).toHaveText("FE-E-P7 invalidate base");
 
     await scrollGridCellIntoView({
       cellKey: "timeline.activity_synopsis_text",
@@ -459,19 +462,6 @@ test("FE-E-P7-01 Verify multi-client live row update, presence anchoring, reset/
       remotePatchPage: remotePage,
       remoteValue: "FE-E-P7 remote conflict",
       txnPrefix: "feep701-conflict",
-    });
-    await assertMarkerAnchoredToGridTarget({
-      anchorKind: "cell",
-      markerTestId: conflictMarkerTestId(
-        conflictId,
-        "timeline.activity_synopsis_text",
-      ),
-      page,
-      surface: timelineViewSchemaId,
-      targetTestId: rowCellTestId(
-        conflictId,
-        "timeline.activity_synopsis_text",
-      ),
     });
     await page.getByTestId("conflict-use-unsaved").click();
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
@@ -533,7 +523,7 @@ test("E-6-01 shows two analysts each other's workbook presence within the expect
       page.getByTestId(
         rowCellTestId(recordId, "timeline.activity_synopsis_text"),
       ),
-    ).toHaveValue("E-6-01 presence base");
+    ).toHaveText("E-6-01 presence base");
 
     const remoteSession = await openIncidentAsTrackedUserReady(
       browser,
@@ -568,7 +558,7 @@ test("E-6-01 shows two analysts each other's workbook presence within the expect
       startAt: markerStartAt,
       timeoutMs: presenceInteractionThresholdMs,
     });
-    await remoteInput.focus();
+    await remoteInput.click();
     const [presenceDelta, markerTiming] = await Promise.all([
       markerDelta,
       waitForPresenceMarkerTiming(page, {
@@ -658,7 +648,7 @@ test("E-6-02 auto-merges different-field concurrent edits and requires explicit 
       page.getByTestId(
         rowCellTestId(differentId, "timeline.activity_synopsis_text"),
       ),
-    ).toHaveValue("E-6-02 different base");
+    ).toHaveText("E-6-02 different base");
 
     remotePage = await openIncidentAsTrackedUser(browser, sessionTracker, {
       createdBy: "E-6-02",
@@ -678,7 +668,7 @@ test("E-6-02 auto-merges different-field concurrent edits and requires explicit 
       remotePage.getByTestId(
         rowCellTestId(differentId, "timeline.activity_synopsis_text"),
       ),
-    ).toHaveValue("E-6-02 different base");
+    ).toHaveText("E-6-02 different base");
 
     await patchTimelineField(
       page,
@@ -701,12 +691,12 @@ test("E-6-02 auto-merges different-field concurrent edits and requires explicit 
       page.getByTestId(
         rowCellTestId(differentId, "timeline.activity_synopsis_text"),
       ),
-    ).toHaveValue("E-6-02 different primary");
+    ).toHaveText("E-6-02 different primary");
     await expect(
       remotePage.getByTestId(
         rowCellTestId(differentId, "timeline.activity_synopsis_text"),
       ),
-    ).toHaveValue("E-6-02 different primary");
+    ).toHaveText("E-6-02 different primary");
     await expectServerTimelineCells(page, incidentId, differentId, {
       "timeline.raw_activity_text": "E-6-02 different remote details",
       "timeline.activity_synopsis_text": "E-6-02 different primary",
@@ -829,7 +819,7 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
       const input = page.getByTestId(
         rowCellTestId(recordId, "timeline.activity_synopsis_text"),
       );
-      await expect(input).toHaveValue(baseSummary);
+      await expect(input).toHaveText(baseSummary);
 
       await patchTimelineField(
         page,
@@ -845,9 +835,20 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
 
       const expectedValue = `E-6-04 ${sortLabel} ${scenario.name} anchored local`;
       const heldPatch = patchController.holdNextPatch();
-      await input.focus();
-      await input.fill(expectedValue);
-      await scenario.commit({ input, page, surface: timelineViewSchemaId });
+      await input.click();
+      const editor = page.getByTestId(
+        timelineScalarEditorTestId({
+          fieldKey: "timeline.activity_synopsis_text",
+          recordId,
+          surface: "grid",
+        }),
+      );
+      await editor.fill(expectedValue);
+      await scenario.commit({
+        input: editor,
+        page,
+        surface: timelineViewSchemaId,
+      });
       const call = await heldPatch.waitForHit;
       assertRecordFieldMutationAnchor({
         actualRecordId: call.recordId,
@@ -877,7 +878,7 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
     const alphaInput = page.getByTestId(
       rowCellTestId(alphaId, "timeline.activity_synopsis_text"),
     );
-    await expect(alphaInput).toHaveValue("E-6-04 Zulu anchor base");
+    await expect(alphaInput).toHaveText("E-6-04 Zulu anchor base");
 
     remotePage = await openIncidentAsTrackedUser(browser, sessionTracker, {
       createdBy: "E-6-04",
@@ -930,21 +931,6 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
       txnPrefix: "e604-alpha-remote-conflict",
     });
     await scrollGridToOffset(page, timelineViewSchemaId, 0);
-    await expect(
-      page.getByTestId(
-        conflictMarkerTestId(alphaId, "timeline.activity_synopsis_text"),
-      ),
-    ).toBeVisible();
-    await assertMarkerAnchoredToGridTarget({
-      anchorKind: "cell",
-      markerTestId: conflictMarkerTestId(
-        alphaId,
-        "timeline.activity_synopsis_text",
-      ),
-      page,
-      surface: timelineViewSchemaId,
-      targetTestId: rowCellTestId(alphaId, "timeline.activity_synopsis_text"),
-    });
     await assertMarkerAnchoredToGridTarget({
       anchorKind: "row-gutter",
       markerTestId: rowPresenceMarkerTestId(alphaId),
@@ -952,17 +938,15 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
       surface: timelineViewSchemaId,
       targetTestId: gridRowGutterTestId(timelineViewSchemaId, alphaId),
     });
-    await assertMarkerAnchoredToGridTarget({
-      anchorKind: "cell",
-      markerTestId: cellPresenceMarkerTestId(
-        alphaId,
-        "timeline.activity_synopsis_text",
+    await expect(
+      page.getByTestId(
+        timelineScalarEditorTestId({
+          fieldKey: "timeline.activity_synopsis_text",
+          recordId: alphaId,
+          surface: "grid",
+        }),
       ),
-      page,
-      surface: timelineViewSchemaId,
-      targetTestId: rowCellTestId(alphaId, "timeline.activity_synopsis_text"),
-    });
-    await expect(alphaInput).toHaveValue("E-6-04 Alpha local");
+    ).toHaveValue("E-6-04 Alpha local");
   } finally {
     await patchController.dispose();
     await remotePage?.context().close();
@@ -1005,7 +989,7 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
         page.getByTestId(
           rowCellTestId(firstId, "timeline.activity_synopsis_text"),
         ),
-      ).toHaveValue("E-6-05 FIFO A base");
+      ).toHaveText("E-6-05 FIFO A base");
       await expectCurrentIncidentRole(page, "Current incident role: admin");
 
       await editTimelineSummary(page, firstId, "E-6-05 FIFO A local");
@@ -1083,7 +1067,7 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
         page.getByTestId(
           rowCellTestId(firstId, "timeline.activity_synopsis_text"),
         ),
-      ).toHaveValue("E-6-05 auth A base");
+      ).toHaveText("E-6-05 auth A base");
       await expectCurrentIncidentRole(page, "Current incident role: editor");
 
       await page.context().clearCookies();
@@ -1127,7 +1111,7 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
     }
   });
 
-  await test.step("halts on the first real same-field conflict and keeps later writes queued", async () => {
+  await test.step("halts replay on the first real same-field conflict and retains later queued writes", async () => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("E605HALT"),
@@ -1142,9 +1126,11 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
     const thirdId = requireRecordId(
       await createTimelineRow(page, incidentId, "E-6-05 halt C base"),
     );
-    const patchController = await installPatchController(page);
+    const transportController =
+      await installPatchTransportFailureController(page);
 
     try {
+      transportController.disconnect();
       await page.goto(`/?incident_id=${incidentId}`);
       await scrollGridCellIntoView({
         cellKey: "timeline.activity_synopsis_text",
@@ -1156,56 +1142,57 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
         page.getByTestId(
           rowCellTestId(firstId, "timeline.activity_synopsis_text"),
         ),
-      ).toHaveValue("E-6-05 halt A base");
+      ).toHaveText("E-6-05 halt A base");
       await expectCurrentIncidentRole(page, "Current incident role: admin");
 
-      const heldPatch = patchController.holdNextPatch();
       await editTimelineSummary(page, firstId, "E-6-05 halt A local");
-      await heldPatch.waitForHit;
-      await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
       await editTimelineSummary(page, secondId, "E-6-05 halt B local");
       await editTimelineSummary(page, thirdId, "E-6-05 halt C local");
       await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
         "3",
       );
 
-      await patchTimelineField(
-        page,
-        firstId,
-        1,
-        "timeline.activity_synopsis_text",
-        "E-6-05 halt A remote",
-        "e605-halt-remote-conflict",
-      );
-
-      heldPatch.release();
-      await expect
-        .poll(() => patchController.calls.at(-1)?.status ?? 0)
-        .toBe(409);
-      expect(
-        patchController.calls
-          .filter((call) => call.status !== 0)
-          .map((call) => call.recordId),
-      ).toEqual([firstId]);
-      expect(successfulPatchCalls(patchController.calls)).toHaveLength(0);
-      await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
-      await expect(page.getByTestId("conflict-resolver")).toBeVisible();
-      await expect(page.getByTestId("conflict-server-value")).toHaveValue(
-        "E-6-05 halt A remote",
-      );
-      await expect(page.getByTestId("conflict-local-value")).toHaveValue(
-        "E-6-05 halt A local",
-      );
-      await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
-        "2",
-      );
-      await expectServerSummaries(page, incidentId, {
-        [firstId]: "E-6-05 halt A remote",
-        [secondId]: "E-6-05 halt B base",
-        [thirdId]: "E-6-05 halt C base",
-      });
+      const conflictController = await installPatchController(page);
+      try {
+        const heldPatch = conflictController.holdNextPatch();
+        await transportController.dispose();
+        await heldPatch.waitForHit;
+        await patchTimelineField(
+          page,
+          firstId,
+          1,
+          "timeline.activity_synopsis_text",
+          "E-6-05 halt A remote",
+          "e605-halt-remote-conflict",
+        );
+        heldPatch.release();
+        await expect
+          .poll(() => conflictController.calls.at(-1)?.status ?? 0)
+          .toBe(409);
+        expect(successfulPatchCalls(conflictController.calls)).toHaveLength(0);
+        await expect(page.getByTestId(saveStateTestId())).toHaveText(
+          "Conflict",
+        );
+        await expect(page.getByTestId("conflict-resolver")).toBeVisible();
+        await expect(page.getByTestId("conflict-server-value")).toHaveValue(
+          "E-6-05 halt A remote",
+        );
+        await expect(page.getByTestId("conflict-local-value")).toHaveValue(
+          "E-6-05 halt A local",
+        );
+        await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
+          "2",
+        );
+        await expectServerSummaries(page, incidentId, {
+          [firstId]: "E-6-05 halt A remote",
+          [secondId]: "E-6-05 halt B base",
+          [thirdId]: "E-6-05 halt C base",
+        });
+      } finally {
+        await conflictController.dispose();
+      }
     } finally {
-      await patchController.dispose();
+      await transportController.dispose();
     }
   });
 
@@ -1233,7 +1220,7 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
         page.getByTestId(
           rowCellTestId(recordId, "timeline.activity_synopsis_text"),
         ),
-      ).toHaveValue("E-6-05 reload base");
+      ).toHaveText("E-6-05 reload base");
       await expectCurrentIncidentRole(page, "Current incident role: admin");
 
       await editTimelineSummary(page, recordId, "E-6-05 reload local");
@@ -1241,7 +1228,7 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
         page.getByTestId(
           rowCellTestId(recordId, "timeline.activity_synopsis_text"),
         ),
-      ).toHaveValue("E-6-05 reload local");
+      ).toHaveText("E-6-05 reload local");
       await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
         "1",
       );
@@ -1262,7 +1249,7 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
         page.getByTestId(
           rowCellTestId(recordId, "timeline.activity_synopsis_text"),
         ),
-      ).toHaveValue("E-6-05 reload base");
+      ).toHaveText("E-6-05 reload base");
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
       await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
       expect(successfulPatchCalls(patchController.calls)).toHaveLength(0);

@@ -1,3 +1,4 @@
+import type { GridEditorFocusTarget } from "@cartulary/grid-adapter";
 import {
   draftRowCreateButtonTestId,
   relationshipChipTestId,
@@ -294,6 +295,7 @@ export function TimelineScalarEditor({
   onCloseGridEditor,
   onFocusAnchor,
   onFocusRecord,
+  focusTargetRef,
   onKeyCommit,
   onPasteCommit,
   registerInput,
@@ -310,6 +312,9 @@ export function TimelineScalarEditor({
   readonly dataTestId: string;
   readonly draftValue?: string | undefined;
   readonly field: keyof RowValues;
+  readonly focusTargetRef?:
+    | ((element: GridEditorFocusTarget | null) => void)
+    | undefined;
   readonly multiline?: boolean | undefined;
   readonly onBlurCommit: (
     rowKey: string,
@@ -368,6 +373,15 @@ export function TimelineScalarEditor({
     }
   }, [displayValue, draftValue]);
 
+  useEffect(
+    () => () => {
+      if (hasActiveEditRef.current) {
+        onEditModeChange(rowRecordId, presenceFieldKey, false);
+      }
+    },
+    [onEditModeChange, presenceFieldKey, rowRecordId],
+  );
+
   const handleFocus = () => {
     hasActiveEditRef.current = !readOnly;
     if (surface === "grid") {
@@ -420,7 +434,7 @@ export function TimelineScalarEditor({
       (event.key === "Enter" || event.key === "Tab")
     ) {
       event.preventDefault();
-      onCloseGridEditor(true, editorValue);
+      onCloseGridEditor(true, event.currentTarget.value);
       return;
     }
     onKeyCommit(event, rowKey, field, surface);
@@ -443,6 +457,7 @@ export function TimelineScalarEditor({
     }
   };
   const inputRef = (element: HTMLInputElement | HTMLTextAreaElement | null) => {
+    focusTargetRef?.(element);
     registerInput(rowKey, field, surface, dataTestId, element);
   };
 

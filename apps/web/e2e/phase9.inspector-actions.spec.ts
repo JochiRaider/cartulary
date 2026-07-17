@@ -596,12 +596,24 @@ test("FE-E-P9-02 Verify default-closed inspector state, no-row state, surface sw
   const createdSummary = page.getByTestId(
     rowCellTestId(created.recordId, "timeline.activity_synopsis_text"),
   );
-  await createdSummary.fill("FE-E-P9-02 hot path edited");
-  await createdSummary.press("Tab");
+  await createdSummary.click();
+  const createdSummaryEditor = page.getByTestId(
+    timelineScalarEditorTestId({
+      fieldKey: "timeline.activity_synopsis_text",
+      recordId: created.recordId,
+      surface: "grid",
+    }),
+  );
+  await createdSummaryEditor.fill("FE-E-P9-02 hot path edited");
+  await createdSummaryEditor.press("Tab");
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
   await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
 
-  await createdSummary.focus();
+  const createdSummaryCell = createdSummary.locator(
+    "xpath=ancestor::*[@role='gridcell'][1]",
+  );
+  await createdSummaryCell.dispatchEvent("mousedown", { button: 0 });
+  await createdSummaryCell.focus();
   const pasteResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&

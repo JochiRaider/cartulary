@@ -86,7 +86,7 @@ describe("Phase 5 workbook evidence coverage", () => {
       <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
     );
 
-    await screen.findByDisplayValue("Endpoint screenshot");
+    await screen.findByText("Endpoint screenshot");
     expect(visibleGridRows(container).length).toBeGreaterThanOrEqual(1);
     const gridShellBeforeRefresh = screen.getByTestId(
       gridShellTestId(timelineViewSchemaId),
@@ -121,9 +121,7 @@ describe("Phase 5 workbook evidence coverage", () => {
       );
       expect(committedRow).toBeTruthy();
       expect(
-        within(committedRow as HTMLElement).getByDisplayValue(
-          "Endpoint screenshot",
-        ),
+        within(committedRow as HTMLElement).getByText("Endpoint screenshot"),
       ).toBeTruthy();
       expect(
         within(committedRow as HTMLElement).queryByTestId(

@@ -9,6 +9,7 @@ import {
   rowCellTestId,
   saveStateTestId,
   timelineRowVersionTestId,
+  timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 
@@ -189,19 +190,22 @@ test(exactScenarioTitle, async ({ page }) => {
     page.getByTestId(
       rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveValue("FE-I-P4-01 Alpha");
+  ).toHaveText("FE-I-P4-01 Alpha");
 
   const betaPatchResponse = waitForTimelinePatch(page, beta.record_id);
-  await page
-    .getByTestId(
-      rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
-    )
-    .fill("FE-I-P4-01 Beta patched");
-  await page
-    .getByTestId(
-      rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
-    )
-    .press("Enter");
+  const betaSummaryCell = page.getByTestId(
+    rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
+  );
+  await betaSummaryCell.click();
+  const betaSummaryEditor = page.getByTestId(
+    timelineScalarEditorTestId({
+      fieldKey: "timeline.activity_synopsis_text",
+      recordId: beta.record_id,
+      surface: "grid",
+    }),
+  );
+  await betaSummaryEditor.fill("FE-I-P4-01 Beta patched");
+  await betaSummaryEditor.press("Enter");
   const betaPatchEnvelope = await readTimelineMutation(await betaPatchResponse);
   await expect(
     page.getByTestId(timelineRowVersionTestId(beta.record_id)),
@@ -210,7 +214,7 @@ test(exactScenarioTitle, async ({ page }) => {
     page.getByTestId(
       rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveValue("FE-I-P4-01 Beta patched");
+  ).toHaveText("FE-I-P4-01 Beta patched");
 
   const createResponse = page.waitForResponse(
     (response) =>
@@ -235,7 +239,7 @@ test(exactScenarioTitle, async ({ page }) => {
     page.getByTestId(
       rowCellTestId(createdRecordId, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveValue("FE-I-P4-01 Created");
+  ).toHaveText("FE-I-P4-01 Created");
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
 
   await scrollGridCellIntoView({
@@ -249,14 +253,22 @@ test(exactScenarioTitle, async ({ page }) => {
   );
   await expect(betaOccurredAtCell).toHaveCount(1);
   await betaOccurredAtCell.scrollIntoViewIfNeeded();
-  await betaOccurredAtCell.fill("not-a-timestamp");
-  await expect(betaOccurredAtCell).toHaveValue("not-a-timestamp");
+  await betaOccurredAtCell.click();
+  const betaOccurredAtEditor = page.getByTestId(
+    timelineScalarEditorTestId({
+      fieldKey: "timeline.activity_utc_text",
+      recordId: beta.record_id,
+      surface: "grid",
+    }),
+  );
+  await betaOccurredAtEditor.fill("not-a-timestamp");
+  await expect(betaOccurredAtEditor).toHaveValue("not-a-timestamp");
   const validationResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "PATCH" &&
       response.url().endsWith(`/api/v1/records/${beta.record_id}`),
   );
-  await betaOccurredAtCell.press("Enter");
+  await betaOccurredAtEditor.press("Enter");
   const validation = await validationResponse;
   const validationEnvelope = await readTimelineMutation(validation);
   expect(
@@ -279,12 +291,12 @@ test(exactScenarioTitle, async ({ page }) => {
     page.getByTestId(
       rowCellTestId(beta.record_id, "timeline.activity_utc_text"),
     ),
-  ).toHaveValue("not-a-timestamp");
+  ).toHaveText("not-a-timestamp");
   await expect(
     page.getByTestId(
       rowCellTestId(alpha.record_id, "timeline.activity_utc_text"),
     ),
-  ).toHaveValue("2026-04-10T10:00:00.000Z");
+  ).toHaveText("2026-04-10T10:00:00.000Z");
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
 
   const invalidRow = {

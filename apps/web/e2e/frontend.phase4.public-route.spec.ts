@@ -13,6 +13,7 @@ import {
   saveStateTestId,
   timelineMutationSubstrateReadyTestId,
   timelineRowVersionTestId,
+  timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
 import type { APIResponse, Page, Response, Route } from "@playwright/test";
 
@@ -167,13 +168,20 @@ async function dispatchClipboardText(
   fieldKey: string,
   clipboardText: string,
 ) {
-  await scrollGridCellIntoView({
-    cellKey: fieldKey,
-    page,
-    recordId,
-    surface: timelineViewSchemaId,
-  });
-  const cell = page.getByTestId(rowCellTestId(recordId, fieldKey));
+  const editor = page.getByTestId(
+    timelineScalarEditorTestId({ fieldKey, recordId, surface: "grid" }),
+  );
+  const cell = (await editor.count())
+    ? editor
+    : page.getByTestId(rowCellTestId(recordId, fieldKey));
+  if (!(await editor.count())) {
+    await scrollGridCellIntoView({
+      cellKey: fieldKey,
+      page,
+      recordId,
+      surface: timelineViewSchemaId,
+    });
+  }
   await cell.scrollIntoViewIfNeeded();
   await cell.evaluate((element, text) => {
     if (element instanceof HTMLElement) {
@@ -308,7 +316,7 @@ test(
         page.getByTestId(
           rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
         ),
-      ).toHaveValue("FE-E-P4-01 Alpha");
+      ).toHaveText("FE-E-P4-01 Alpha");
 
       const createBodies: Record<string, unknown>[] = [];
       const createRoute = `**/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/rows`;
@@ -370,7 +378,7 @@ test(
               "timeline.activity_synopsis_text",
             ),
           ),
-        ).toHaveValue("FE-E-P4-01 Rough summary");
+        ).toHaveText("FE-E-P4-01 Rough summary");
         await scrollGridCellIntoView({
           cellKey: "timeline.capture_state",
           page,
@@ -423,16 +431,19 @@ test(
           recordId: beta.record_id,
           surface: timelineViewSchemaId,
         });
-        await page
-          .getByTestId(
-            rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
-          )
-          .fill("FE-E-P4-01 Beta inline edit");
-        await page
-          .getByTestId(
-            rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
-          )
-          .press("Enter");
+        const betaInlineCell = page.getByTestId(
+          rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
+        );
+        await betaInlineCell.click();
+        const betaInlineEditor = page.getByTestId(
+          timelineScalarEditorTestId({
+            fieldKey: "timeline.activity_synopsis_text",
+            recordId: beta.record_id,
+            surface: "grid",
+          }),
+        );
+        await betaInlineEditor.fill("FE-E-P4-01 Beta inline edit");
+        await betaInlineEditor.press("Enter");
         const heldCall = await heldPatch.waitForHit;
         expect(heldCall.recordId).toBe(beta.record_id);
         expect(heldCall.body).toMatchObject({
@@ -479,7 +490,7 @@ test(
           page.getByTestId(
             rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
           ),
-        ).toHaveValue("FE-E-P4-01 Beta inline edit");
+        ).toHaveText("FE-E-P4-01 Beta inline edit");
         await expect(
           page.getByTestId(timelineRowVersionTestId(beta.record_id)),
         ).toHaveText(String(patchEnvelope.data.row.row_version));
@@ -626,7 +637,7 @@ test(
           page.getByTestId(
             rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
           ),
-        ).toHaveValue("FE-E-P4-01 Beta inline edit");
+        ).toHaveText("FE-E-P4-01 Beta inline edit");
         await expect(
           page.getByTestId(timelineRowVersionTestId(beta.record_id)),
         ).toHaveText(String(patchEnvelope.data.row.row_version));
@@ -661,12 +672,17 @@ test(
           recordId: pasteSeed.record_id,
           surface: timelineViewSchemaId,
         });
+        const scalarPasteCell = page.getByTestId(
+          rowCellTestId(pasteSeed.record_id, "timeline.activity_synopsis_text"),
+        );
+        await scalarPasteCell.click();
         await page
           .getByTestId(
-            rowCellTestId(
-              pasteSeed.record_id,
-              "timeline.activity_synopsis_text",
-            ),
+            timelineScalarEditorTestId({
+              fieldKey: "timeline.activity_synopsis_text",
+              recordId: pasteSeed.record_id,
+              surface: "grid",
+            }),
           )
           .fill("FE-E-P4-01 scalar, comma only");
         await dispatchClipboardText(
@@ -744,7 +760,7 @@ test(
             "timeline.activity_synopsis_text",
           ),
         ),
-      ).toHaveValue("FE-E-P4-01 tabular summary");
+      ).toHaveText("FE-E-P4-01 tabular summary");
 
       const foreignIncidentId = await createIncident(
         page,
@@ -869,14 +885,16 @@ test(
           recordId: staleStartRecordId,
           surface: timelineViewSchemaId,
         });
-        await stalePage
+        const staleStartCell = stalePage
           .getByTestId(
             rowCellTestId(
               staleStartRecordId,
               "timeline.activity_synopsis_text",
             ),
           )
-          .focus();
+          .locator("xpath=ancestor::*[@role='gridcell'][1]");
+        await staleStartCell.dispatchEvent("mousedown", { button: 0 });
+        await staleStartCell.focus();
         await expect(stalePage.getByTestId("workbook-focus-anchor")).toHaveText(
           `${timelineViewSchemaId}:${staleStartRecordId}:timeline.activity_synopsis_text`,
         );
@@ -983,16 +1001,19 @@ test(
           response.request().method() === "PATCH" &&
           response.url().endsWith(`/api/v1/records/${beta.record_id}`),
       );
-      await page
-        .getByTestId(
-          rowCellTestId(beta.record_id, "timeline.activity_utc_text"),
-        )
-        .fill("not-a-timestamp");
-      await page
-        .getByTestId(
-          rowCellTestId(beta.record_id, "timeline.activity_utc_text"),
-        )
-        .press("Enter");
+      const betaUtcCell = page.getByTestId(
+        rowCellTestId(beta.record_id, "timeline.activity_utc_text"),
+      );
+      await betaUtcCell.click();
+      const betaUtcEditor = page.getByTestId(
+        timelineScalarEditorTestId({
+          fieldKey: "timeline.activity_utc_text",
+          recordId: beta.record_id,
+          surface: "grid",
+        }),
+      );
+      await betaUtcEditor.fill("not-a-timestamp");
+      await betaUtcEditor.press("Enter");
       const validationEnvelope = await readTimelineMutation(
         await validationResponse,
       );
@@ -1009,7 +1030,7 @@ test(
         page.getByTestId(
           rowCellTestId(beta.record_id, "timeline.activity_utc_text"),
         ),
-      ).toHaveValue("not-a-timestamp");
+      ).toHaveText("not-a-timestamp");
       await page.reload();
       await openTimelineIncident(page, incidentId);
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
@@ -1055,8 +1076,16 @@ test(
         surface: timelineViewSchemaId,
       });
       await alphaSummaryCell.scrollIntoViewIfNeeded();
-      await alphaSummaryCell.fill("FE-E-P4-01 unknown fallback local");
-      await alphaSummaryCell.press("Enter");
+      await alphaSummaryCell.click();
+      const alphaSummaryEditor = page.getByTestId(
+        timelineScalarEditorTestId({
+          fieldKey: "timeline.activity_synopsis_text",
+          recordId: alpha.record_id,
+          surface: "grid",
+        }),
+      );
+      await alphaSummaryEditor.fill("FE-E-P4-01 unknown fallback local");
+      await alphaSummaryEditor.press("Enter");
       const unknownEnvelope = await expectPublicError(
         await unknownPatchResponse,
         418,
@@ -1071,7 +1100,7 @@ test(
       await expect(notice).not.toContainText("/home/cartulary");
       await expect(notice).not.toContainText("stack trace");
       await expect(notice).not.toContainText("private.go");
-      await expect(alphaSummaryCell).toHaveValue(
+      await expect(alphaSummaryEditor).toHaveValue(
         "FE-E-P4-01 unknown fallback local",
       );
 

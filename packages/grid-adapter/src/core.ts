@@ -1,4 +1,9 @@
-import type { CSSProperties, PropsWithChildren, ReactNode } from "react";
+import type {
+  CSSProperties,
+  PropsWithChildren,
+  ReactNode,
+  RefCallback,
+} from "react";
 
 export type GridSortDirection = "asc" | "desc";
 
@@ -205,7 +210,6 @@ type SemanticDataGridBaseProps<Row> = {
     | ((range: GridCellRange | null) => void)
     | undefined;
   readonly onCopyCell?: ((intent: GridCellCopyIntent) => void) | undefined;
-  readonly onEditCell?: ((intent: GridCellMutationIntent) => void) | undefined;
   readonly onFillCells?: ((intent: GridFillIntent) => void) | undefined;
   readonly onPasteCell?: ((intent: GridCellMutationIntent) => void) | undefined;
   readonly onSortChange?:
@@ -238,7 +242,6 @@ export type SemanticDataGridProps<Row> =
       | "coreRecordBulkSelection"
       | "draftRow"
       | "interactionMode"
-      | "onEditCell"
       | "onFillCells"
       | "onPasteCell"
     > & {
@@ -254,7 +257,6 @@ export type SemanticDataGridProps<Row> =
         readonly kind: "read_only";
         readonly label: string;
       };
-      readonly onEditCell?: never;
       readonly onFillCells?: never;
       readonly onPasteCell?: never;
     });
@@ -324,7 +326,24 @@ export type GridEditCommitOutcome =
   | { readonly kind: "stale_target"; readonly message: string }
   | { readonly kind: "rejected_mutation"; readonly message: string };
 
+export type GridEditorActivation = {
+  readonly source:
+    | "clear"
+    | "enter"
+    | "pointer"
+    | "printable"
+    | "programmatic"
+    | "shift_enter";
+  readonly initialSelection: "all" | "end" | "seed";
+};
+
+export type GridEditorFocusTarget =
+  | HTMLInputElement
+  | HTMLSelectElement
+  | HTMLTextAreaElement;
+
 export type GridEditorRenderContext<Row> = {
+  readonly activation: GridEditorActivation;
   readonly cancel: () => void;
   readonly commit: (draftValueOverride?: unknown) => Promise<void>;
   readonly draftValue: unknown;
@@ -332,6 +351,7 @@ export type GridEditorRenderContext<Row> = {
   readonly pending: boolean;
   readonly row: Row;
   readonly setDraftValue: (value: unknown) => void;
+  readonly focusTargetRef: RefCallback<GridEditorFocusTarget>;
   readonly target: GridCellTarget;
 };
 
@@ -362,6 +382,11 @@ export type GridGroupingDescriptor<Row> = {
 };
 
 export type GridHandle = {
+  readonly activateEdit: (
+    anchor: GridCellAnchor,
+    seed?: { readonly value: unknown } | undefined,
+  ) => boolean;
+  readonly cancelEdit: (anchor: GridCellAnchor) => boolean;
   readonly focusAnchor: (anchor: GridCellAnchor) => boolean;
   readonly focusRoot: () => boolean;
   readonly getScrollElement: () => HTMLDivElement | null;

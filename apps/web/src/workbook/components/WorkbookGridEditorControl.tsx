@@ -53,6 +53,7 @@ export function workbookGridEditorAdapter<Row>({
           <GenericMutationControl
             collectionMode="add"
             field={field}
+            focusTargetRef={context.focusTargetRef}
             referenceOptions={referenceOptions}
             surface="grid"
             testId={`grid-editor-${

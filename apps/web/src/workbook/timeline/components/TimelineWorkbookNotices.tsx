@@ -164,6 +164,7 @@ const actionButtonStyle = {
 const secondaryActionButtonStyle = {
   ...actionButtonStyle,
   background: "var(--ct-colors-surface-3)",
+  pointerEvents: "auto",
 } satisfies CSSProperties;
 
 const inlineButtonRowStyle = {
@@ -203,7 +204,7 @@ const noticeCardStyle = {
   minWidth: 0,
   alignSelf: "start",
   boxShadow: "var(--ct-elevation-popover)",
-  pointerEvents: "auto",
+  pointerEvents: "none",
 } satisfies CSSProperties;
 
 const pendingQueueNoticeCardStyle = {
@@ -217,7 +218,7 @@ const pendingQueueNoticeCardStyle = {
   minWidth: 0,
   overflow: "hidden",
   boxShadow: "var(--ct-elevation-popover)",
-  pointerEvents: "auto",
+  pointerEvents: "none",
 } satisfies CSSProperties;
 
 const pendingQueueTitleStyle = {

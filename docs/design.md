@@ -966,7 +966,7 @@ Design contract. Keyboard behavior MUST use the matrix below. `Tab` order MUST e
 | `System views` switcher | `Tab` to button | Arrow keys by group and item | `Enter` or `Space` selects | Selection commits immediately | `Esc` closes menu | Close menu | Invoking control | Active surface selector |
 | Saved-view selector | `Tab` to selector | Arrow keys in menu | `Enter` or `Space` selects | Selection commits immediately | `Esc` closes menu | Close menu | Invoking control | Active surface selector |
 | Filter chips | `Tab` to chip group | Arrow keys between chips | `Enter` opens editor; `Delete` removes focused chip | Apply control commits | `Esc` closes editor | Close chip editor | Focused chip or chip group | Filter control |
-| Grid navigation mode | `Tab` to grid | §8.6 key-command table | `Enter` or printable key enters edit when writable | Not applicable | `Esc` no-op | No-op | Active cell | Grid container |
+| Grid navigation mode | `Tab` to grid or one primary click on a committed cell | §8.6 key-command table | One primary click, `Enter`, or printable key enters edit when writable | Not applicable | `Esc` no-op | No-op | Active cell | Grid container |
 | Grid edit mode | From active writable cell | §8.6 key-command table | Editor-specific | `Enter`, blur by explicit commit, or declared commit shortcut | `Esc` discards uncommitted editor value | Exit edit mode | Edited cell | Grid container |
 | Relationship chip | `Tab` or arrow within cell | Arrow keys within chip list | `Enter` opens inspect/action menu | Action commits through owner route | `Esc` closes menu | Close menu | Invoking chip | Owning cell |
 | Inspector tab/section | `Tab` to inspector | Arrow keys for tabs; headings tabbable only when interactive | `Enter` or `Space` opens control | Control-specific | `Esc` closes overlay inspector only | Close overlay inspector in responsive bands | Invoking row/control | Active grid container |
@@ -1005,7 +1005,7 @@ Design contract. Grid keyboard behavior MUST use the modes below.
 | Mode | Entered by | Exited by | Focus target | Mutation permitted |
 | --- | --- | --- | --- | --- |
 | `grid_navigation` | `Tab` into grid, committed edit, canceled edit, restored focus | Enter edit, leave grid, overlay opens | Active cell | No direct text mutation. |
-| `grid_edit` | `Enter`, printable key on writable cell, explicit edit command | Commit, cancel, declared blur commit | Editor | Yes. |
+| `grid_edit` | One primary click, `Enter`, printable key on writable cell, explicit edit command | Commit, cancel, declared blur commit | Declared primary editor control | Yes. |
 | `grid_range_selection` | `Shift+Arrow*` in navigation mode | Modifier release, explicit collapse, edit entry | Active range | No direct mutation. |
 | `grid_disabled_or_read_only` | Active cell is non-writable | Move focus, leave grid, overlay opens | Active cell or containing row | No mutation. |
 
@@ -1039,6 +1039,11 @@ Design contract. The key-command table is exhaustive for grid-owned key chords i
 | `Delete` | `grid_navigation` | Active cell writable and emptying is permitted by owner behavior. | Enter `grid_edit`; seed editor with empty value. | None. | Yes. |
 | `Ctrl/Cmd+C` | `grid_navigation` or `grid_range_selection` | Selection exists. | Copy selected visible cell values using workbook copy presentation. | None. | Yes. |
 | `Ctrl/Cmd+V` | `grid_navigation` | Clipboard has text. | Dispatch base-profile paste handling for active surface. | Paste plan governs. | Yes. |
+| `Ctrl/Cmd+D` | `grid_range_selection` | Selection is a writable one-column vertical range with at least two committed rows. | Dispatch `fill_down_v1` using the top cell as source and every remaining row as an explicit stable-ID target. | One semantic fill batch. | Yes. |
+
+Design contract. Pointer activation uses the same semantic edit state machine as keyboard activation. The first primary click on an eligible committed scalar cell MUST create one editor, focus its declared primary control, and place a collapsed caret immediately after the existing text without selecting it. A second click inside that editor MAY reposition the caret. Read-only cells remain selectable, embedded action controls do not activate the parent scalar editor, and double-click does not define another edit mode.
+
+Design contract. The fill handle uses `{colors.accent}`, exposes `Drag to fill this value`, and appears only on an eligible selected committed scalar cell in `grid_navigation`. It is absent for edit, read-only, grouped, draft, presentation-only, and collection states. Pointer drag and keyboard fill share one semantic intent path. Vendor double-click fill-to-end behavior is disabled.
 
 Design contract. Browser defaults not explicitly prevented in the table MUST remain available only when they do not move focus, mutate data, or trigger browser navigation away from the workbook shell.
 

@@ -531,7 +531,7 @@
         "Phase 6 U-6-09 does not coalesce non-contiguous same-record pending patches",
         "Phase 6 U-6-09 exposes the browser-runtime pending queue capacity as exactly 64 replay units",
         "Phase 6 U-6-09 preserves queued work through session revocation and resumes after re-authentication",
-        "Phase 6 U-6-09 moves the blocking same-field conflict out of the pending queue and keeps later writes queued"
+        "Phase 6 U-6-09 moves a blocking same-field conflict out of the pending queue and retains its editor"
       ],
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",

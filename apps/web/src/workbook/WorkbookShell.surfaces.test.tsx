@@ -1897,7 +1897,9 @@ describe("WorkbookShell surface selection", () => {
     const displayNameCell = await screen.findByTestId(
       rowCellTestId("host-existing", "host.display_name"),
     );
-    fireEvent.click(displayNameCell);
+    const displayNameGridCell = displayNameCell.closest('[role="gridcell"]');
+    expect(displayNameGridCell).toBeTruthy();
+    fireEvent.mouseDown(displayNameGridCell as HTMLElement);
     const pasteEvent = createEvent.paste(displayNameCell, {
       clipboardData: {
         getData: () =>

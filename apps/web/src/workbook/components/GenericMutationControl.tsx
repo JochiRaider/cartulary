@@ -1,5 +1,5 @@
 import type { ViewFieldContract } from "@cartulary/view-contracts";
-import type { CSSProperties } from "react";
+import type { CSSProperties, RefCallback } from "react";
 import {
   type GenericCollectionMode,
   isMultilineGenericField,
@@ -15,6 +15,7 @@ function GenericMultiSelectControl({
   ariaLabel,
   id,
   options,
+  focusTargetRef,
   size,
   style,
   testId,
@@ -27,6 +28,7 @@ function GenericMultiSelectControl({
     readonly label: string;
     readonly value: string;
   }[];
+  readonly focusTargetRef?: RefCallback<HTMLSelectElement> | undefined;
   readonly size: number;
   readonly style: CSSProperties;
   readonly testId: string;
@@ -39,6 +41,7 @@ function GenericMultiSelectControl({
       data-testid={testId}
       id={id}
       multiple
+      ref={focusTargetRef}
       size={size}
       style={style}
       value={splitDraftValues(value)}
@@ -63,6 +66,7 @@ export function GenericMutationControl({
   collectionItems = [],
   collectionMode,
   field,
+  focusTargetRef,
   id,
   referenceOptions,
   surface = "form",
@@ -73,6 +77,9 @@ export function GenericMutationControl({
   collectionItems?: Array<{ itemRef: string; displayText: string }>;
   collectionMode: GenericCollectionMode;
   field: ViewFieldContract;
+  focusTargetRef?:
+    | RefCallback<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+    | undefined;
   id?: string;
   referenceOptions: GenericReferenceOptions;
   surface?: "form" | "grid";
@@ -91,6 +98,7 @@ export function GenericMutationControl({
         <GenericMultiSelectControl
           ariaLabel={controlLabel}
           id={id}
+          focusTargetRef={focusTargetRef}
           options={collectionItems.map((item) => ({
             label: item.displayText,
             value: item.itemRef,
@@ -114,6 +122,7 @@ export function GenericMutationControl({
         <GenericMultiSelectControl
           ariaLabel={controlLabel}
           id={id}
+          focusTargetRef={focusTargetRef}
           options={options.map((option) => ({
             label: option.label,
             value: option.recordId,
@@ -134,6 +143,7 @@ export function GenericMutationControl({
         aria-label={controlLabel}
         data-testid={testId}
         id={id}
+        ref={focusTargetRef}
         rows={surface === "grid" ? 1 : 3}
         style={textareaControlStyle}
         value={value}
@@ -151,6 +161,7 @@ export function GenericMutationControl({
         aria-label={controlLabel}
         data-testid={testId}
         id={id}
+        ref={focusTargetRef}
         style={selectControlStyle}
         value={value}
         onChange={(event) => {
@@ -173,6 +184,7 @@ export function GenericMutationControl({
         aria-label={controlLabel}
         data-testid={testId}
         id={id}
+        ref={focusTargetRef}
         style={selectControlStyle}
         value={value}
         onChange={(event) => {
@@ -195,6 +207,7 @@ export function GenericMutationControl({
         aria-label={controlLabel}
         data-testid={testId}
         id={id}
+        ref={focusTargetRef}
         style={surface === "grid" ? gridCheckboxStyle : inputStyle}
         type="checkbox"
         checked={value === "true"}
@@ -211,6 +224,7 @@ export function GenericMutationControl({
         aria-label={controlLabel}
         data-testid={testId}
         id={id}
+        ref={focusTargetRef}
         inputMode="numeric"
         style={inputControlStyle}
         type={surface === "grid" ? "text" : "number"}
@@ -228,6 +242,7 @@ export function GenericMutationControl({
         aria-label={controlLabel}
         data-testid={testId}
         id={id}
+        ref={focusTargetRef}
         rows={surface === "grid" ? 1 : 3}
         style={textareaControlStyle}
         value={value}
@@ -243,6 +258,7 @@ export function GenericMutationControl({
       aria-label={controlLabel}
       data-testid={testId}
       id={id}
+      ref={focusTargetRef}
       placeholder={
         field.directScalarContractId === "timestamp_instant_v1"
           ? "RFC3339 timestamp"

@@ -3,7 +3,7 @@
   "schema_version": 4,
   "phase_namespace": "frontend",
   "phase_id": "FE-P10",
-  "guide_digest": "854b402d754712a15eba2bac471d34c2c6b614f74e2eb7657197920d5263c713",
+  "guide_digest": "1f27bf7711b334e71dd6c54152eb0e7ec3049df540b2c3901eaf3042dd7ce1b7",
   "rows": [
     {
       "id": "FE-U-P10-01",
@@ -221,13 +221,14 @@
         {
           "source_key": "core03",
           "path": "docs/spec/03_workbook_interaction_collaboration_and_workflows.md",
-          "section_ref": "Core 03 Sections 4.1, 14, 18, and 19",
-          "heading_text": "4.1 Autosave; 14 Sorting, filtering, and grouping; 18 Excel-like feel versus intentional differences; 19 Interaction invariants",
+          "section_ref": "Core 03 Sections 4.1, 13, 14, 18, and 19",
+          "heading_text": "4.1 Autosave; 13 Keyboard and editing contract; 14 Sorting, filtering, and grouping; 18 Excel-like feel versus intentional differences; 19 Interaction invariants",
           "req_ids": [
             "REQ-03-217",
             "REQ-03-235",
             "REQ-03-263",
-            "REQ-03-265"
+            "REQ-03-265",
+            "REQ-03-300"
           ],
           "ac_ids": [],
           "role": "product_owner",
@@ -248,7 +249,8 @@
         "REQ-03-217",
         "REQ-03-235",
         "REQ-03-263",
-        "REQ-03-265"
+        "REQ-03-265",
+        "REQ-03-300"
       ],
       "core_ac_ids": [
         "AC-003",
@@ -271,7 +273,8 @@
         "AC-033",
         "AC-039",
         "AC-080",
-        "AC-086"
+        "AC-086",
+        "AC-485"
       ],
       "support_or_design_ac_ids": [],
       "targets": [
@@ -293,11 +296,11 @@
         }
       ],
       "scenario_titles": [
-        "FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder."
+        "FE-B-P10-02 Verify full keyboard/clipboard contract: one-click edit, copy, paste, exact-range fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder."
       ],
       "claim_status": "implemented",
       "claim": {
-        "statement": "Verify full keyboard/clipboard contract: copy, paste, fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder.",
+        "statement": "Verify full keyboard/clipboard contract: one-click edit, copy, paste, exact-range pointer and Ctrl/Cmd+D fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder.",
         "claim_publication_intent": "none",
         "closure_scope": "scenario"
       },

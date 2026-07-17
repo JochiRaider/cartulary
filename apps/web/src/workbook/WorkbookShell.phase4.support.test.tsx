@@ -1903,9 +1903,9 @@ async function expectTimelineFocusAndScroll(
 ) {
   await waitFor(() => {
     expect(document.activeElement).toBe(
-      screen.getByTestId(
-        rowCellTestId(recordId, "timeline.activity_synopsis_text"),
-      ),
+      screen
+        .getByTestId(rowCellTestId(recordId, "timeline.activity_synopsis_text"))
+        .closest('[role="gridcell"]'),
     );
     const grid = timelineGridScrollport();
     expect(grid.scrollTop).toBe(options.expectedTop ?? preservedScroll.top);
@@ -1947,6 +1947,12 @@ function installTimelineInspectGeometry(
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
     function mockRect(this: HTMLElement) {
       const testId = this.getAttribute("data-testid");
+      const isFocusGridCell =
+        this.getAttribute("role") === "gridcell" &&
+        Array.from(this.querySelectorAll<HTMLElement>("[data-testid]")).some(
+          (element) =>
+            element.getAttribute("data-testid") === focusTargetTestId,
+        );
       if (this.matches(gridScrollportSelector())) {
         return rectFromBox({
           height: options.containerHeight,
@@ -1955,7 +1961,7 @@ function installTimelineInspectGeometry(
           width: options.containerWidth,
         });
       }
-      if (testId === focusTargetTestId) {
+      if (testId === focusTargetTestId || isFocusGridCell) {
         const grid = timelineGridScrollport();
         const contentTop =
           typeof options.contentTop === "function"

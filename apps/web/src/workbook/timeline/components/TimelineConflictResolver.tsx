@@ -54,6 +54,7 @@ export function TimelineConflictResolver({
 
   return (
     <section
+      data-grid-editor-external-action="true"
       data-testid="conflict-resolver"
       data-conflict-record-id={activeConflict.anchor.record_id}
       data-conflict-field-key={activeConflict.anchor.field_key}

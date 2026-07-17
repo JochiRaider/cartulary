@@ -1,4 +1,6 @@
 .cartulary-grid {
+  --rdg-selection-color: var(--ct-colors-accent);
+
   background: var(--ct-colors-surface-1);
   border: 0;
   color: var(--ct-colors-ink);
@@ -7,6 +9,10 @@
   font-size: var(--ct-density-default-fontSize);
   min-block-size: 176px;
   min-inline-size: 0;
+}
+
+.cartulary-grid .rdg-cell-drag-handle {
+  background-color: var(--ct-colors-accent);
 }
 
 .cartulary-grid-live-region {
@@ -30,6 +36,10 @@
   min-block-size: 0;
   min-inline-size: 0;
   position: relative;
+}
+
+.cartulary-grid-cell-content[data-grid-editing="true"] {
+  background: var(--ct-colors-surface-1);
 }
 
 .cartulary-grid-data-cell {

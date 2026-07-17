@@ -1,8 +1,8 @@
 import {
-  rowCellTestId,
   rowInspectButtonTestId,
   saveStateTestId,
   timelineRowVersionTestId,
+  timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,6 +13,7 @@ import {
   cleanupTimelineWorkbookTestGlobals,
   errorEnvelope,
   extractTimelinePatchBody,
+  findWorkbookCell,
   flushWorkbookAsync,
   installTimelineWorkbookTestGlobals,
   setInputValueWithoutEvent,
@@ -97,14 +98,21 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       "Saved",
     );
     expect(screen.queryByRole("button", { name: /^save$/i })).toBeNull();
-    return (await screen.findByTestId(
-      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+    return (await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-1",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
   }
 
   async function openTimelineInspectorFromContext(recordId: string) {
     const summaryCell = await screen.findByTestId(
-      rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+      timelineScalarEditorTestId({
+        fieldKey: "timeline.activity_synopsis_text",
+        recordId,
+        surface: "grid",
+      }),
     );
     fireEvent.contextMenu(summaryCell, { clientX: 32, clientY: 48 });
     fireEvent.click(
@@ -312,8 +320,11 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
 
     renderTimelineWorkbook();
 
-    const conflictInput = (await screen.findByTestId(
-      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+    const conflictInput = (await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-1",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.focus(conflictInput);
     await changeInputValue(conflictInput, "Conflict value");
@@ -362,8 +373,11 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     renderTimelineWorkbook();
 
     await screen.findByTestId(saveStateTestId());
-    const summaryInput = (await screen.findByTestId(
-      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+    const summaryInput = (await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-1",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
 
     setInputValueWithoutEvent(summaryInput, `Stale-proof ${key}`);
@@ -417,8 +431,11 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     renderTimelineWorkbook();
 
     await screen.findByTestId(saveStateTestId());
-    const summaryInput = (await screen.findByTestId(
-      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+    const summaryInput = (await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-1",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
 
     setInputValueWithoutEvent(summaryInput, "Pasted stale-proof summary");
@@ -461,8 +478,11 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
 
     await screen.findByTestId(saveStateTestId());
 
-    const summaryInput = (await screen.findByTestId(
-      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+    const summaryInput = (await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-1",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     await changeInputValue(summaryInput, "Pending deduplicated summary");
     fireEvent.keyDown(summaryInput, { key: "Enter" });
@@ -542,8 +562,11 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
 
     await screen.findByTestId(saveStateTestId());
 
-    const summaryInput = (await screen.findByTestId(
-      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+    const summaryInput = (await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-1",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     await changeInputValue(summaryInput, "First pending summary");
     fireEvent.keyDown(summaryInput, { key: "Enter" });

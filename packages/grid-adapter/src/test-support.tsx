@@ -2,18 +2,34 @@
 // biome-ignore-all lint/a11y/noRedundantRoles: Explicit roles keep workbook tests independent of native accessibility-role inference.
 // biome-ignore-all lint/a11y/useFocusableInteractive: This test renderer mirrors RDG's query surface, not a production interaction model.
 import { gridScrollportClassName } from "@cartulary/ui-contracts";
-import { Fragment, type KeyboardEvent, useRef } from "react";
+import {
+  type FocusEvent,
+  Fragment,
+  type KeyboardEvent,
+  type ReactNode,
+  type Ref,
+  useCallback,
+  useImperativeHandle,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 import {
   assertGridRows,
   buildGridPresentationRows,
   type GridColumn,
   type GridDataRow,
+  type GridEditCommitOutcome,
+  type GridEditorAdapter,
+  type GridEditorFocusTarget,
+  type GridHandle,
   type GridRowIdentity,
   type GridSemanticStateInput,
   type GridViewportProps,
   gridClipboardDimensions,
   gridRowIdentitiesEqual,
+  gridSurfaceIdentitiesEqual,
   gridUnassignedGroupLabel,
   resolveGridPasteTargets,
   type SemanticDataGridProps,
@@ -115,7 +131,8 @@ export function SemanticDataGrid<Row>({
   rowGutter,
   sort = [],
   surface,
-}: SemanticDataGridProps<Row>) {
+  ref,
+}: SemanticDataGridProps<Row> & { readonly ref?: Ref<GridHandle> }) {
   const effectiveInteractionMode =
     interactionMode ??
     (surface.kind === "extension_grid"
@@ -125,6 +142,43 @@ export function SemanticDataGrid<Row>({
   const effectiveBulkSelection = editable ? coreRecordBulkSelection : undefined;
   const effectiveDraftRow = editable ? draftRow : undefined;
   const selectionAnchorRecordId = useRef<string | null>(null);
+  const [activeEditor, setActiveEditor] = useState<{
+    readonly fieldKey: string;
+    readonly rowIdentity: GridRowIdentity;
+  } | null>(null);
+  useImperativeHandle(
+    ref,
+    () => ({
+      activateEdit: (anchor) => {
+        if (!gridSurfaceIdentitiesEqual(surface, anchor.surface)) return false;
+        setActiveEditor({
+          fieldKey: anchor.fieldKey,
+          rowIdentity: anchor.rowIdentity,
+        });
+        return true;
+      },
+      cancelEdit: (anchor) => {
+        if (
+          activeEditor === null ||
+          activeEditor.fieldKey !== anchor.fieldKey ||
+          !gridRowIdentitiesEqual(
+            activeEditor.rowIdentity,
+            anchor.rowIdentity,
+          ) ||
+          !gridSurfaceIdentitiesEqual(surface, anchor.surface)
+        ) {
+          return false;
+        }
+        setActiveEditor(null);
+        return true;
+      },
+      focusAnchor: () => false,
+      focusRoot: () => false,
+      getScrollElement: () => null,
+      scrollToAnchor: () => false,
+    }),
+    [activeEditor, surface],
+  );
   assertGridRows(dataRows);
 
   const selectableRows =
@@ -437,6 +491,39 @@ export function SemanticDataGrid<Row>({
                           data-grid-field-key={column.fieldKey}
                           key={column.fieldKey}
                           role="gridcell"
+                          onClick={(event) => {
+                            if (
+                              !editable ||
+                              column.contractWritable !== true ||
+                              column.editor === undefined ||
+                              column.valueKind === "collection" ||
+                              (event.target instanceof Element &&
+                                event.target.closest(
+                                  "button, a, input, select, textarea, [role='button'], [data-grid-prevent-cell-edit='true']",
+                                ) !== null)
+                            ) {
+                              return;
+                            }
+                            setActiveEditor({
+                              fieldKey: column.fieldKey,
+                              rowIdentity: row.gridRow.rowIdentity,
+                            });
+                          }}
+                          onKeyDown={(event) => {
+                            if (
+                              event.key !== "Enter" ||
+                              !editable ||
+                              column.contractWritable !== true ||
+                              column.editor === undefined ||
+                              column.valueKind === "collection"
+                            ) {
+                              return;
+                            }
+                            setActiveEditor({
+                              fieldKey: column.fieldKey,
+                              rowIdentity: row.gridRow.rowIdentity,
+                            });
+                          }}
                           onPaste={(event) => {
                             if (!editable || onPasteCell === undefined) return;
                             if (
@@ -502,14 +589,35 @@ export function SemanticDataGrid<Row>({
                               {marker.glyph}
                             </span>
                           ))}
-                          {column.renderCell({
-                            anchor: {
-                              fieldKey: column.fieldKey,
-                              rowIdentity: row.gridRow.rowIdentity,
-                              surface,
-                            },
-                            row: row.gridRow.data,
-                          })}
+                          {activeEditor?.fieldKey === column.fieldKey &&
+                          gridRowIdentitiesEqual(
+                            activeEditor.rowIdentity,
+                            row.gridRow.rowIdentity,
+                          ) &&
+                          surface.kind === "view_schema" &&
+                          row.gridRow.mutationIdentity !== undefined &&
+                          column.editor !== undefined ? (
+                            <TestGridEditor
+                              adapter={column.editor}
+                              row={row.gridRow.data}
+                              target={{
+                                fieldKey: column.fieldKey,
+                                mutationIdentity: row.gridRow.mutationIdentity,
+                                rowIdentity: row.gridRow.rowIdentity,
+                                surface,
+                              }}
+                              onClose={() => setActiveEditor(null)}
+                            />
+                          ) : (
+                            column.renderCell({
+                              anchor: {
+                                fieldKey: column.fieldKey,
+                                rowIdentity: row.gridRow.rowIdentity,
+                                surface,
+                              },
+                              row: row.gridRow.data,
+                            })
+                          )}
                         </td>
                       );
                     })}
@@ -568,6 +676,129 @@ export function SemanticDataGrid<Row>({
       </table>
     </>
   );
+}
+
+function TestGridEditor<Row>({
+  adapter,
+  row,
+  target,
+  onClose,
+}: {
+  readonly adapter: GridEditorAdapter<Row>;
+  readonly row: Row;
+  readonly target: Parameters<GridEditorAdapter<Row>["commit"]>[0]["target"];
+  readonly onClose: () => void;
+}) {
+  const [draftValue, setDraftValue] = useState(() =>
+    adapter.initialDraftValue(row),
+  );
+  const [outcome, setOutcome] = useState<GridEditCommitOutcome | null>(null);
+  const [pending, setPending] = useState(false);
+  const focusTarget = useRef<GridEditorFocusTarget | null>(null);
+  const commitPromises = useRef(
+    new Map<string, Promise<GridEditCommitOutcome>>(),
+  );
+  const latestCommitSequence = useRef(0);
+  const focusTargetRef = useCallback(
+    (element: GridEditorFocusTarget | null) => {
+      focusTarget.current = element;
+    },
+    [],
+  );
+  useLayoutEffect(() => {
+    const element = focusTarget.current;
+    if (element === null) return;
+    element.focus();
+    if (
+      element instanceof HTMLInputElement ||
+      element instanceof HTMLTextAreaElement
+    ) {
+      const end = element.value.length;
+      element.setSelectionRange(end, end);
+    }
+  }, []);
+  const commit = useCallback(
+    (draftValueOverride?: unknown) => {
+      const requestedDraft =
+        draftValueOverride === undefined ? draftValue : draftValueOverride;
+      const draftKey = testGridEditorDraftKey(requestedDraft);
+      const duplicate = commitPromises.current.get(draftKey);
+      if (duplicate !== undefined) return duplicate;
+      const sequence = latestCommitSequence.current + 1;
+      latestCommitSequence.current = sequence;
+      setPending(true);
+      setOutcome(null);
+      const request = adapter
+        .commit({
+          draftValue: requestedDraft,
+          row,
+          target,
+        })
+        .then((next) => {
+          commitPromises.current.delete(draftKey);
+          setPending(commitPromises.current.size > 0);
+          const isLatest = latestCommitSequence.current === sequence;
+          if (isLatest) setOutcome(next);
+          if (
+            next.kind === "accepted" &&
+            isLatest &&
+            commitPromises.current.size === 0
+          ) {
+            onClose();
+          }
+          return next;
+        });
+      commitPromises.current.set(draftKey, request);
+      return request;
+    },
+    [adapter, draftValue, onClose, row, target],
+  );
+  const handleBlur = (event: FocusEvent<HTMLDivElement>) => {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      return;
+    }
+    void commit();
+  };
+  return (
+    <div
+      onBlurCapture={handleBlur}
+      onKeyDownCapture={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          onClose();
+        }
+      }}
+    >
+      {
+        adapter.renderEditor({
+          activation: { initialSelection: "end", source: "pointer" },
+          cancel: onClose,
+          commit: async (draftValueOverride) => {
+            await commit(draftValueOverride);
+          },
+          draftValue,
+          focusTargetRef,
+          outcome,
+          pending,
+          row,
+          setDraftValue,
+          target,
+        }) as ReactNode
+      }
+    </div>
+  );
+}
+
+function testGridEditorDraftKey(value: unknown): string {
+  if (value === undefined) return "undefined";
+  if (typeof value === "string") return `string:${value}`;
+  if (typeof value === "number") return `number:${String(value)}`;
+  if (typeof value === "boolean") return `boolean:${String(value)}`;
+  try {
+    return `json:${JSON.stringify(value)}`;
+  } catch {
+    return `opaque:${String(value)}`;
+  }
 }
 
 function testSemanticAttributes(

@@ -121,22 +121,22 @@ export function useTimelineViewportContinuityController({
   const resolveViewportContinuityElement = useCallback(
     (target: TimelineViewportContinuityTarget) => {
       switch (target.kind) {
-        case "row-inspect":
+        case "row-inspect": {
+          const content = document.querySelector<HTMLElement>(
+            dataTestIdSelector(
+              rowCellTestId(target.recordId, "timeline.activity_synopsis_text"),
+            ),
+          );
           return (
-            document.querySelector<HTMLElement>(
-              dataTestIdSelector(
-                rowCellTestId(
-                  target.recordId,
-                  "timeline.activity_synopsis_text",
-                ),
-              ),
-            ) ??
+            content?.closest<HTMLElement>('[role="gridcell"]') ??
+            content ??
             document.querySelector<HTMLElement>(
               dataTestIdSelector(
                 gridRowGutterTestId(timelineViewSchemaId, target.recordId),
               ),
             )
           );
+        }
         case "input":
           return resolveInputElement(target.focusKey);
         case "scroll-only":

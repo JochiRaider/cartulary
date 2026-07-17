@@ -190,7 +190,7 @@ describe("FE-U-P4-02 WorkbookShell save-state status strip", () => {
     );
     expect(pendingNotice.parentElement?.style.overflowY).toBe("auto");
     expect(pendingNotice.parentElement?.style.pointerEvents).toBe("none");
-    expect(pendingNotice.style.pointerEvents).toBe("auto");
+    expect(pendingNotice.style.pointerEvents).toBe("none");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

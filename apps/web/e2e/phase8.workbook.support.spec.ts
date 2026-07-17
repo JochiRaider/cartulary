@@ -71,7 +71,7 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
     page.getByTestId(
       rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveValue("Alpha support FE-B");
+  ).toHaveText("Alpha support FE-B");
 
   await clickTimelineRowAction(
     page,

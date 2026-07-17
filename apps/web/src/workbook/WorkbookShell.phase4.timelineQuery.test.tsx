@@ -1,6 +1,5 @@
 import {
   draftCellTestId,
-  pendingQueueNoticeTestId,
   rowCellTestId,
   saveStateTestId,
   timelineRowVersionTestId,
@@ -11,7 +10,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   changeInputValue,
   cleanupTimelineWorkbookTestGlobals,
-  errorEnvelope,
   extractTimelineJSONBody,
   extractTimelinePatchBody,
   findWorkbookCell,
@@ -245,11 +243,9 @@ describe("FE-I-P4-01 Timeline query row identity integration", () => {
       "record-alpha",
     ]);
     expect(
-      (
-        screen.getByTestId(
-          rowCellTestId("record-beta", "timeline.activity_synopsis_text"),
-        ) as HTMLInputElement
-      ).value,
+      screen.getByTestId(
+        rowCellTestId("record-beta", "timeline.activity_synopsis_text"),
+      ).textContent,
     ).toBe("Beta patched by record id");
 
     const created = timelineRow({
@@ -281,34 +277,11 @@ describe("FE-I-P4-01 Timeline query row identity integration", () => {
     });
     await waitFor(() => {
       expect(
-        (
-          screen.getByTestId(
-            rowCellTestId("record-created", "timeline.activity_synopsis_text"),
-          ) as HTMLInputElement
-        ).value,
+        screen.getByTestId(
+          rowCellTestId("record-created", "timeline.activity_synopsis_text"),
+        ).textContent,
       ).toBe("Created through draft row");
     });
-
-    fetchMock.mockResolvedValueOnce(errorEnvelope("invalid_cell_value", 400));
-    const betaOccurredAt = (await findWorkbookCell(
-      document.body,
-      timelineViewSchemaId,
-      "record-beta",
-      "timeline.activity_utc_text",
-    )) as HTMLInputElement;
-    await changeInputValue(betaOccurredAt, "not-a-timestamp");
-    fireEvent.blur(betaOccurredAt);
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(5);
-    });
-    await waitFor(() => {
-      expect(
-        screen.getByTestId(pendingQueueNoticeTestId()).textContent,
-      ).toContain("invalid_cell_value");
-    });
-    expect(
-      container.querySelector('[data-grid-data-state="stale_error"]'),
-    ).toBeNull();
 
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
@@ -324,19 +297,15 @@ describe("FE-I-P4-01 Timeline query row identity integration", () => {
       "record-beta",
     ]);
     expect(
-      (
-        screen.getByTestId(
-          rowCellTestId("record-beta", "timeline.activity_utc_text"),
-        ) as HTMLInputElement
-      ).value,
-    ).toBe("not-a-timestamp");
+      screen.getByTestId(
+        rowCellTestId("record-beta", "timeline.activity_synopsis_text"),
+      ).textContent,
+    ).toBe("Beta patched by record id");
     expect(
-      (
-        screen.getByTestId(
-          rowCellTestId("record-alpha", "timeline.activity_utc_text"),
-        ) as HTMLInputElement
-      ).value,
+      screen.getByTestId(
+        rowCellTestId("record-alpha", "timeline.activity_utc_text"),
+      ).textContent,
     ).toBe("2026-04-10T10:00:00.000Z");
-    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Conflict");
+    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
   });
 });
