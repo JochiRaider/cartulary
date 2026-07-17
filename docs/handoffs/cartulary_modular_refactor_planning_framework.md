@@ -2,7 +2,7 @@
 
 ## 1. Purpose and use
 
-This framework is a reusable local planning artifact for generating specific module-by-module refactoring plans from the current repository state. It assumes Cartulary remains a modular monolith and that production code must be organized around module boundaries, while phase-based testing and evidence accounting may remain intact.
+This framework is a reusable local planning artifact for generating specific module-by-module refactoring plans from the current repository state. It assumes Cartulary remains a modular monolith and that production code, test ownership, and evidence accounting are organized around durable module, platform, application, package, web, and harness owners.
 
 Use this file before creating a Codex `/goal` prompt or before asking a local agent to plan or implement a refactor slice. The current repository is the final source of code truth. This framework does not claim that any repository file, test, package, or import currently exists until the local agent has inspected it.
 
@@ -23,7 +23,7 @@ When owner documents conflict, mark `BLOCKED: owner contradiction` and do not pi
 
 A refactor plan must preserve observable behavior unless the scoped task explicitly authorizes a behavior change. Observable behavior includes route shape, request and response envelopes, WebSocket paths and event semantics, workbook interaction behavior, storage semantics, authorization outcomes, generated contract surfaces, and harness accounting.
 
-The implementation must move from phase-shaped or UI-shaped production code toward module-shaped production code. Phase maps, phase ledgers, visual fixtures, and test rows may remain phase-based as evidence accounting, but runtime production structure must not depend on phase identity.
+The implementation must move from phase-shaped or UI-shaped production code toward module-shaped production code. Test rows and visual fixtures use semantic owner/family identities; historical delivery phases are not an execution, accounting, or compatibility boundary.
 
 A module boundary is valid only when it hides a real design decision. Prefer deep modules with small public facades and private complexity over shallow helper scattering.
 

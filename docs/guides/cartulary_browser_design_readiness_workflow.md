@@ -225,25 +225,24 @@ Prioritize these artifacts:
 - `*-render-diagnostics` attachments;
 - `*-grid-diagnostics` attachments;
 - font manifest digest attachments;
-- `frontend-row-accounting.json`;
+- `test-evidence-accounting.json`;
 - `frontend-accessibility-summary.json`.
 
-If a complete frontend evidence packet is needed, run
-`make frontend-evidence-audit` only after fresh retained roots exist for
+If a complete owner evidence packet is needed, run
+`make test-evidence-audit` only after fresh retained roots exist for
 `make check`, `make browser-e2e-support`, `make browser-e2e-visual`, and
 `make browser-e2e-a11y`:
 
 ```bash
-make frontend-evidence-audit \
-  PHASE_NAMESPACE=frontend \
-  PHASE=FE-P11 \
+make test-evidence-audit \
+  OWNER=web.workbook \
   CHECK_RESULTS_DIR=<check-root> \
   BROWSER_SUPPORT_RESULTS_DIR=<support-root> \
   BROWSER_VISUAL_RESULTS_DIR=<visual-root> \
   BROWSER_A11Y_RESULTS_DIR=<a11y-root>
 ```
 
-If those roots do not exist, record that frontend evidence audit was skipped
+If those roots do not exist, record that owner evidence audit was skipped
 because the workflow was still in design-discovery mode.
 
 ## Acceptance
@@ -259,5 +258,5 @@ The pre-MVP browser design review is complete when:
   design, product, fixture, or stale-golden classification;
 - `make browser-e2e-a11y` either passes or has actionable keyboard, focus,
   accessible-name, contrast, or state-communication findings;
-- any skipped `make frontend-evidence-audit` run is explicitly recorded with
+- any skipped `make test-evidence-audit` run is explicitly recorded with
   the missing retained roots.

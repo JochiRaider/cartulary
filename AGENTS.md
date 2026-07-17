@@ -30,7 +30,7 @@
 
 - Do not hand-edit generated roots declared by `tools/generated_artifact_policy.json`: `internal/gen/**`, `packages/protocol-ts/src/generated/**`, and `packages/ui-contracts/src/generated/**`.
 - Do not hand-edit generated harness/topology outputs such as `tools/task_surface.generated.mk` or generated outputs listed in `tools/execution_topology_manifest.json`.
-- Generated phase ledgers and schedules are downstream of phase manifests and frontend phase maps. Update the owner inputs, then run the relevant Make generator or drift target.
+- Generated topology and schedules are downstream of the owner catalog and authored execution topology. Update owner inputs, then run the relevant Make generator or drift target.
 - Do not hand-edit `go.sum`, `pnpm-lock.yaml`, or tool-managed dependency/install artifacts.
 - For visual golden changes, follow `docs/guides/cartulary_visual_golden_maintenance.md`. Visual and accessibility artifacts remain design-direction or implementation-support evidence unless a Core 05 claim-publication boundary is separately satisfied.
 
@@ -40,10 +40,10 @@
 - Canonical repo-control pin values live in `tools/toolchain_pins.json`; mirrored toolchain text is checked by `make toolchain-drift`.
 - Pinned bootstrap tools: `github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0`, `github.com/pressly/goose/v3/cmd/goose@v3.27.0`, `honnef.co/go/tools/cmd/staticcheck@v0.7.0`, `golang.org/x/vuln/cmd/govulncheck@v1.3.0`, `github.com/securego/gosec/v2/cmd/gosec@v2.26.1`, `github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.10.0`, `github.com/anchore/syft/cmd/syft@v1.44.0`, ShellCheck `0.11.0`, and `github.com/testcontainers/testcontainers-go v0.42.0`.
 - Use `make help` for the compact task surface and `make help-all` for the current public target inventory. Do not copy target lists into new docs when a pointer is sufficient.
-- Use `make task-guide ROLE=<role> PHASE=phaseN` to choose narrow verification by role and phase. Useful roles include `local-dev`, `feature-dev`, `phase-author`, `ci-investigator`, and `release`.
-- Use investigation targets such as `make explain-phase PHASE=phaseN`, `make explain-target TARGET=<target> DETAIL=summary|rows|artifacts`, `make explain-run RESULTS_DIR=<root|run-dir>`, `make target-plan`, and `make target-plan-json` before rerunning broad suites.
+- Use `make task-guide ROLE=module-author OWNER=<owner-id>` to choose narrow owner verification. Use `make help` and `make help-all` for the current role and target inventory.
+- Use investigation targets such as `make explain-test-owner OWNER=<owner-id>`, `make explain-target TARGET=<target> DETAIL=summary|rows|artifacts`, `make explain-run RESULTS_DIR=<root|run-dir>`, `make target-plan`, and `make target-plan-json` before rerunning broad suites.
 - Local setup and dev: `make doctor`, `make bootstrap`, `make db-up`, `make db-reset`, `make services-up`, `make object-store-init`, and `make dev`.
-- Generation and drift: `make generate`, `make generate-drift`, `make generated-artifact-policy-check`, `make json-shape-check`, `make toolchain-drift`, `make migration-drift`, `make phase-ledger-drift`, and `make phase-schedule-drift`.
+- Generation and drift: `make generate`, `make generate-drift`, `make generated-artifact-policy-check`, `make json-shape-check`, `make toolchain-drift`, and `make migration-drift`.
 - Common verification: `make test-fast`, `make test`, `make check`, `make lint`, `make frontend-typecheck`, `make frontend-unit`, `make frontend-import-boundary-check`, `make lint-biome`, `make lint-scripts`, `make lint-markdown`, `make lint-shell`, `make go-vulncheck`, `make go-gosec-targeted`, and `make go-gosec-audit`.
 - Browser and frontend readiness targets include `make browser-e2e`, `make browser-e2e-webserver-backed`, `make browser-e2e-stateful`, `make browser-e2e-measurement`, `make browser-e2e-a11y`, and `make browser-e2e-visual`.
 - Release/build targets include `make ci`, `make release-check`, `make harness-contract`, `make build`, `make build-server`, `make build-migrate`, `make build-operator`, and `make build-web`.
@@ -51,7 +51,7 @@
 
 ## Verification And Handoff
 
-- Choose the narrowest target that covers the change, then broaden only when risk or ownership requires it. For phase work, prefer `make phase-slice PHASE=phaseN` and `make service-backed-slice PHASE=phaseN` after checking `make task-guide`.
+- Choose the narrowest target that covers the change, then broaden only when risk or ownership requires it. Prefer `make test-slice OWNER=<owner-id> [ROWS=<row-id,...>]` and `make service-backed-test-slice OWNER=<owner-id> [ROWS=<row-id,...>]` after checking `make task-guide ROLE=module-author OWNER=<owner-id>`.
 - Run `make agent-finalize` before broader end-of-run verification. If using retained successful run evidence, pass `RESULTS_DIR=<successful full warm check run root>`; otherwise report that retained-run maintenance was skipped because `RESULTS_DIR` was unset.
 - For docs-only changes, use documentation/harness validation targets such as `make generated-artifact-policy-check`, `make json-shape-check`, and command-surface inspection before considering broad `make check`.
 - `make format` rewrites authored Go and frontend sources; do not run it solely for Markdown-only edits unless another touched file needs that formatter.

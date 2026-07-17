@@ -304,9 +304,9 @@ Repository-local recommended meanings:
 - `make dev`: run the Go server and, once present, the Vite dev server.
 - `make generate`: regenerate `sqlc` outputs and contract-derived outputs.
 - `make help-all` remains the exhaustive public catalog grouped by operator workflow: local dev, fast verification, full gates, investigate a run, phase maintenance, and release.
-- `make task-guide`, `make task-surface-report`, `make target-plan`, `make target-plan-json`, `make explain-phase`, `make explain-target`, `make explain-run`, and `make fixture-report` are investigation commands for role or phase guidance, existing task-surface, target-plan, phase-registry and active phase-manifest metadata, run-summary, scheduler-progress, scheduler-log, and fixture-cost artifacts.
+- `make task-guide ROLE=module-author OWNER=<owner-id>`, `make task-surface-report`, `make target-plan`, `make target-plan-json`, `make explain-test-owner OWNER=<owner-id>`, `make explain-target`, `make explain-run`, and `make fixture-report` are investigation commands for owner guidance, task-surface and catalog metadata, run summaries, scheduler progress/logs, and fixture-cost artifacts.
 - Duration-baseline refresh and drift commands belong to phase maintenance with generated-artifact, toolchain, migration, phase-registry, phase-ledger, phase-schedule, and benchmark-claim checks.
-- `make backend-store`: run the service-backed store-domain `U-*` backend slice that preserves unit-layer phase IDs while using real Postgres.
+- `make backend-store`: run the service-backed store-domain backend inventory using real Postgres; owner rows preserve their semantic row identities through batching.
 - `make test-fast`: run the pure backend unit slice, the service-backed backend store and integration slices, explicit support integration and process-smoke coverage, frontend type-checking, and frontend unit tests.
 - `make test`: run the authoritative full corpus, including manifest-verified browser E2E and explicit supplemental support suites. Backend service-backed work, webserver-backed browser evidence, and the isolated `browser-e2e` batch should run through one service-backed stage scheduled from `tools/scheduler_manifest.json` by declared resource capacity; authoritative browser functional rows are selected from phase manifests but executed as duration-balanced Playwright manifest-entry shards using `tools/browser_e2e_duration_baselines.json`, while the isolated stage keeps stateful, measurement, and visual browser reset boundaries in the topology-derived `tools/browser_e2e_batch_manifest.json`. Aggregate target summaries are finalized after the `cartulary-test-services` wrapper has completed teardown so leak-check, janitor, and service-termination spans remain visible. Summary artifacts report wall, critical-path wall, executed, logical, reused, derived, and teardown durations as separate fields, with backend service-backed and aggregate browser duration groups reported separately.
 - `make lint`: run Go gofmt, vet, and Staticcheck plus authored frontend Biome, JavaScript orchestration script Biome, blocking ShellCheck, and frontend type-check.
@@ -374,7 +374,7 @@ Once the harness exists, make the TDD loop mechanical.
 
 For every slice of work:
 
-1. choose one phase row or a very small cluster of rows from the progressive implementation and testing guide.[^9]
+1. choose one owner row or a very small semantic family from the owner catalog.[^9]
 2. create the failing unit tests first and include the phase test IDs in the test names or comments.
 3. implement the smallest code needed to make those tests pass.
 4. add or activate the matching integration tests against real backing services.

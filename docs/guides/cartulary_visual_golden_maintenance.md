@@ -21,20 +21,16 @@ regression inputs until the live layout has been reviewed directly in a browser.
 - Retained actual/diff artifacts from failed runs live under the run root reported by the harness, usually `.cartulary/test-results/<run-id>/.../playwright-output/`.
 - Concept images and external bitmaps are design inputs only. The only committed golden source is Playwright output captured from the running app.
 
-The authoritative current-profile visual rows are the `V-*` rows in
-`tools/phase*_test_map.json` whose `execution_dependency` is `browser_visual`.
-Those rows are separate from frontend `FE-*` readiness rows. A golden refresh
-for an existing `V-*` row MUST cite the affected `V-*` row IDs. When the same
-golden also serves a frontend visual fixture, the refresh MUST additionally cite
-the applicable `frontend_fixture_refs`, `FE-VFIX-*` IDs, and frontend phase-map
-rows. Do not infer frontend row closure from a Playwright title, filename, or
-base phase manifest entry alone.
+The authoritative current-profile visual rows are the active `visual` evidence
+rows in `tools/test_families/*.json`. A golden refresh MUST cite the affected
+owner row IDs and stable fixture IDs. Do not infer row closure from a Playwright
+title, filename, or fixture identifier alone.
 
 ## Visual Fixture Matrix
 
-The fixture matrix is implementation-support ownership for visual readiness rows. It does not create product behavior, does not replace frontend phase maps, and does not make visual screenshots claim-bearing evidence.
+The fixture matrix is implementation-support ownership for visual readiness rows. It does not create product behavior, does not replace the owner catalog, and does not make visual screenshots claim-bearing evidence.
 
-Fixture status is closed to `current`, `missing`, and `retired`. `current` means the fixture has an owned Playwright scenario and committed golden. `missing` means the fixture is required by frontend readiness planning but cannot satisfy support validation until added or explicitly blocked with a reason in the frontend phase map. `retired` means the fixture is intentionally no longer required and MUST name the replacement row or removal reason before the phase row can be complete.
+Fixture status is closed to `current`, `missing`, and `retired`. `current` means the fixture has an owned Playwright scenario and committed golden. `missing` means an active owner row requires the fixture but cannot satisfy support validation until it is added or the row is removed through owner review. `retired` means the fixture is intentionally no longer required and MUST name the replacement row or owner-approved removal reason.
 
 | Fixture ID | Fixture title | Intended phase | Required surface state | Required scroll normalization | Status |
 | --- | --- | --- | --- | --- | --- |
@@ -67,7 +63,7 @@ Fixture status is closed to `current`, `missing`, and `retired`. `current` means
 | `VG-AC-001` | The matrix MUST contain exactly one row for each fixture identifier currently declared by `tools/frontend_visual_fixture_registry.json` and MUST NOT contain duplicate fixture IDs. |
 | `VG-AC-002` | Every `current` fixture MUST declare deterministic seed data, viewport, browser zoom, fixture order, capture scope, dynamic masks or an explicit no-dynamic-regions declaration, artifact owner rows, a primary golden filename, and every supporting golden artifact owned by the fixture before golden refresh is accepted. |
 | `VG-AC-003` | Every workbook-grid fixture MUST declare scroll normalization using `GridVisualScrollState` or an equivalent named anchor before capture. |
-| `VG-AC-004` | Every golden refresh MUST cite an accepted refresh trigger, the affected authoritative `V-*` phase rows, any affected `FE-VFIX-*` fixture IDs and corresponding frontend phase-map rows when applicable, and whether dynamic masks, viewport state, or screenshot scope changed. |
+| `VG-AC-004` | Every golden refresh MUST cite an accepted refresh trigger, the affected owner row IDs and stable fixture IDs, and whether dynamic masks, viewport state, or screenshot scope changed. |
 | `VG-AC-005` | A `missing` fixture MUST remain explicit in `tools/frontend_visual_fixture_registry.json` with a precise `blocked_reason`, and it MUST NOT be cited as closing visual evidence until a row-owned Playwright scenario and committed golden make the fixture `current`. |
 
 ### Current shell/status refresh citation map
@@ -221,7 +217,7 @@ When a frontend fixture is added, the handoff or pull request must state:
 
 - the `FE-VFIX-*` row IDs claimed;
 - the surface state, seed data, scroll state, focus/editor state, inspector state, dynamic masks, browser viewport, and target golden names;
-- the matching frontend phase-map rows that own the fixture;
+- the matching owner catalog rows that own the fixture;
 - whether the fixture is `current`, remains `missing`, or retires a prior fixture row with replacement rationale.
 
 When the vendored font bundle changes, treat the change as an intentional visual-refresh trigger only after reviewing the diff. The visual harness waits for `document.fonts.ready`, requires active Inter and JetBrains Mono faces to load, and retains the `FONT_MANIFEST.json` SHA-256 with screenshot artifacts so font metric changes can be traced to the bundle version.
@@ -242,11 +238,11 @@ Skipped work units after a `browser-e2e-visual/visual` failure should be treated
 Before handoff:
 
 - run `make browser-e2e-visual-update` when committed Playwright goldens are intentionally refreshed;
-- validate the visual fixture matrix before `make browser-e2e-visual`; any missing fixture row fails support validation unless it is marked blocked with a precise reason in the frontend phase map;
+- validate the visual fixture matrix before `make browser-e2e-visual`; any missing active owner fixture fails support validation until restored or removed through owner review;
 - inspect the generated diff and confirm it matches the intended visual contract;
 - run `make frontend-unit` or `tools/harness/frontend/font-bundle-check-cli.mjs` when font files, font CSS, manifests, or generated report templates changed;
 - run `make browser-e2e-visual`;
 - run `make agent-finalize`, passing `RESULTS_DIR=<successful full warm check run root>` when a successful retained run should refresh and validate timing maintenance inputs;
 - report whether `agent-finalize` ran unchanged, updated generated artifacts, skipped retained-run maintenance because `RESULTS_DIR` was unset, or failed.
 
-`RESULTS_DIR` must identify a successful, uncontaminated full warm `make check` retained run. Failed runs, service-backed-only runs, browser-only runs, phase-slice runs, and `make check` runs whose summaries report `failure_class=product` are invalid finalizer input; running `make agent-finalize` without `RESULTS_DIR` validates only the non-retained-run maintenance path.
+`RESULTS_DIR` must identify a successful, uncontaminated full warm `make check` retained run. Failed runs, owner-slice runs, service-backed-only runs, browser-only runs, and `make check` runs whose summaries report `failure_class=product` are invalid finalizer input; running `make agent-finalize` without `RESULTS_DIR` validates only the non-retained-run maintenance path.

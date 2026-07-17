@@ -10,7 +10,7 @@
 | Baseline branch | `revision/grid-adapter` |
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
-| Tracker state | `READY` — WS-00 complete; WS-01 is the next safe workstream |
+| Tracker state | `READY` — WS-01 complete; WS-02 is the next safe workstream |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -483,7 +483,7 @@ These follow-ups do not block harness completion unless the old production ident
 | ID | Workstream | Status | Depends on | Primary evidence | Rollback boundary |
 | --- | --- | --- | --- | --- | --- |
 | WS-00 | Freeze baseline and build migration crosswalk | DONE | None | `tools/test_migration_baseline.json`; `tools/test_migration_crosswalk.json` | Revert inventory-only commit. |
-| WS-01 | Revise owner contracts and repository procedure | TODO | WS-00 | Adopted harness contract and command-policy review | Revert contract commit before implementation consumers land. |
+| WS-01 | Revise owner contracts and repository procedure | DONE | WS-00 | Adopted harness contract and command-policy review | Revert contract commit before implementation consumers land. |
 | WS-02 | Create machine verification owners and remove documentation parsing | TODO | WS-01 | Schema-valid contracts and decoupling ledger closure | Revert an owner contract and its consumers together. |
 | WS-03 | Build unified test catalog | TODO | WS-01, WS-02 | Registry/manifests loader and catalog checks | Revert catalog stack; old catalog remains authoritative only before cutover. |
 | WS-04 | Migrate backend rows | TODO | WS-03 | 456 backend dispositions and focused tests | Revert complete owner slices, never individual aliases. |
@@ -689,8 +689,8 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-005 | Inventory phase-shaped test identities and goldens | WS-00 | DONE | None | Migration baseline semantic inventory and 56 golden digests | Exact rename population and initial visual bytes frozen. |
 | T-006 | Inventory direct/indirect documentation reads | WS-00 | DONE | None | 68-candidate decoupling inventory | Known executable/document coupling candidates are frozen for WS-02 adjudication. |
 | T-007 | Inventory production-source follow-ups | WS-00 | DONE | None | 13 classified follow-ups | Seven authored identities and six generated descendants have owners and dispositions. |
-| T-008 | Adopt owner-based harness NLSpec | WS-01 | TODO | T-004,T-006 | Owner-doc review | Phase mechanics no longer normative. |
-| T-009 | Update active command/procedure docs | WS-01 | TODO | T-008 | Docs checks | No active phase command guidance remains. |
+| T-008 | Adopt owner-based harness NLSpec | WS-01 | DONE | T-004,T-006 | 216-requirement/72-acceptance editorial audit | Phase mechanics are retirement history only; owner mechanics are normative. |
+| T-009 | Update active command/procedure docs | WS-01 | DONE | T-008 | Markdown lint and active-doc command scan | No active procedure directs contributors to a phase command. |
 | T-010 | Register verification schemas | WS-02 | TODO | T-008 | JSON shape evidence | Registry and owner contracts validate. |
 | T-011 | Migrate harness executable requirements | WS-02 | TODO | T-010 | Focused harness tests | Harness tests consume machine owners only. |
 | T-012 | Migrate product/tool documentation readers | WS-02 | TODO | T-010 | Per-owner tests and scan | Section 6 is closed. |
@@ -878,6 +878,19 @@ Each entry must include:
 - Skipped checks: owner catalog, owner slices, generation, browser, broad verification, finalization, and release checks remain inapplicable before WS-02 through WS-10 create the v2 implementation.
 - Next safe task: WS-01/T-008 and T-009, auditing the v2 owner contract against the frozen baseline and removing active procedure guidance that would direct contributors to the v1 phase surface.
 - Rollback boundary: revert the WS-00 migration evidence and this tracker checkpoint together; no runtime or generated consumer depends on it.
+
+#### 2026-07-17 — WS-01 owner contract and procedure checkpoint
+
+- Branch/commit at start: `revision/grid-adapter` at `9a4ad28b`; the tree contained only this workstream's documentation edits.
+- Workstream/task state: WS-01, T-008, and T-009 are `DONE`; no WS-02 machine owner or implementation consumer was started.
+- Authored files changed: `AGENTS.md`, the modular-refactor framework, active development/bootstrap/browser/frontend/implementation/visual guides, and this tracker. Generated files changed: none. The frontend implementation-testing guide was intentionally replaced with a compact owner-catalog guide; product behavior remains owned by Core/adopted owner documents.
+- Contract audit: the v2 NLSpec contains 216 unique requirement definitions and 72 unique acceptance rows with no duplicate IDs. Its current normative command, catalog, evidence, and retirement rules remain the final-state contract; the migration branch is still non-releasable until atomic parity.
+- Procedure result: active contributor guidance now uses `OWNER`, semantic `ROWS`, `module-author`, `test-slice`, `service-backed-test-slice`, `explain-test-owner`, and `test-evidence-audit`. No active procedure or guide directs contributors to a retired phase command or phase input; historical retirement mentions remain in the NLSpec and migration tracker only.
+- Passed checks: the requirement/acceptance uniqueness audit, active-doc command scan, `git diff --check`, and `make lint-markdown`.
+- Expected migration drift: current v1 guide digests, phase-map guide restatements, generated help, and task-surface behavior do not yet match these final-state procedures. They remain branch-local blockers assigned to WS-05, WS-09, and WS-10 rather than compatibility exceptions.
+- Skipped checks: JSON shape, harness contract, generation, owner slices, broad verification, finalization, and release checks remain blocked on WS-02 through WS-10 implementation inputs.
+- Next safe task: WS-02/T-010 through T-013, creating reviewed verification owner contracts and replacing executable documentation parsing with machine-owner validation.
+- Rollback boundary: revert the WS-01 documentation checkpoint as one unit before any consumer relies on the new commands; do not restore phase-preservation language selectively.
 
 ## 17. First-resumer checklist
 
