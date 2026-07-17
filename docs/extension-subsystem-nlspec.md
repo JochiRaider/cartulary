@@ -4,7 +4,7 @@ status: draft
 document_class: nlspec
 profile: base
 schema_id: cartulary.extensions_subsystem_nlspec.v1
-document_version: 0.3.0
+document_version: 0.4.0
 contract_major: 1
 ---
 
@@ -32,7 +32,7 @@ The Extensions Subsystem MUST own only these behavior families:
 - shared extension state-presence, migration-ledger, and migration-lock behavior;
 - non-destructive unclaim, reclaim, upgrade, and retirement mechanics;
 - extension-owned job proof and reconciliation when a profile is inactive;
-- shared extension fatal-integrity shutdown behavior;
+- the closed extension fatal-condition registry and extension-local consequences imported into the Core 04 fatal lifecycle;
 - shared extension security, egress, backup, portability, observability, and conformance boundaries where those behaviors are not already owned by Core 00 through Core 04.
 
 Profiles: base
@@ -49,6 +49,7 @@ This NLSpec MUST NOT own:
 - deployment-configuration artifact discovery, overlay parsing, unknown-key rejection, or the top-level deployment-configuration error envelope;
 - extension-specific resources, route bodies, domain algorithms, resource limits, state transitions, or authorization matrices except for the shared boundaries explicitly allocated by this NLSpec;
 - Reporting derivation, report composition, Graph Projection, OpenTelemetry signal semantics, or Testing Harness execution mechanics;
+- process lifecycle, readiness-envelope shape, health-envelope shape, or process-exit semantics owned by Core 04;
 - physical database-table, object-bucket, source-package, or generated-file placement;
 - runtime installation, update, revocation, or execution of independently distributed third-party packages.
 
@@ -62,10 +63,10 @@ Verified by: EXT-AC-001, EXT-AC-059, EXT-AC-070, EXT-AC-074
 | Contract family | Primary normative owner | Extensions Subsystem interaction |
 | --- | --- | --- |
 | Recognized `profile_id` values, current claimability, current contract major, adopted owner identity | Core 00 | Consumes digest-bound owner facts; MUST NOT infer or override them. |
-| Public extension discovery route, response envelope, Base route-reservation registry, reserved route families, dispatch precedence, authorized workspace-availability input, common public errors, common job shell, cross-owner final-commit protocol, staged-object publication, and shared cleanup orchestration | Core 01 | Supplies descriptor-derived inputs and imports the public contracts. |
+| Public extension discovery and workbook-startup routes, response envelope, Base route-reservation registry, reserved route families, dispatch precedence, authorized workspace availability, common public errors, common job shell, cross-owner final-commit protocol, staged-object publication/cleanup, and physical backup orchestration | Core 01 | Supplies descriptor-derived inputs and imports the public contracts. |
 | Core record and relationship model | Core 02 | Enforces the no-implicit-promotion and no-cross-owner-write boundaries. |
 | Extension workspace rendering, startup fallback, lazy loading, unknown-value behavior, and authorization-loss consequences | Core 03 | Supplies declared workspace identities and imports client behavior. |
-| Deployment configuration, claim keys, secret references, authorization, startup validation, application-process lease, extension deadline keys, publication admission gate, readiness, and process-exit behavior | Core 04 | Defines namespace-local claim semantics and requires Core 04 companion adoption. |
+| Deployment configuration, claim keys, secret references, authorization, startup validation, application-process lease, extension deadline keys, publication admission gate, readiness, fatal shutdown lifecycle, and process-exit behavior | Core 04 | Defines namespace-local claim semantics and requires Core 04 companion adoption. |
 | Extension-specific resources, routes, algorithms, limits, lifecycle, migration semantics, and role matrix | Named extension owner contract | Publishes owner fragments and imports shared descriptor, claim, dependency, compatibility, state, and lifecycle mechanics. |
 | Graph-oriented projection | Graph Projection NLSpec | No redefinition. Extensions consume only declared interfaces admitted by their named owners. |
 | Reporting and report composition | Reporting Subsystem and Report Composition NLSpecs | No redefinition. Extension participation is typed and explicit. |
@@ -111,7 +112,7 @@ Each `imported_artifacts[]` row MUST contain exactly:
 - `artifact_sha256`;
 - `safe_ref`.
 
-`imported_artifacts[]` MUST contain `0..64` rows, reject duplicate `artifact_id` values, and sort by ascending UTF-8 bytes of `artifact_id`. An `artifact_id` MUST occur in at most one dependency row. `artifact_id` and `schema_id` MUST each satisfy the public schema-ID scalar contract. `artifact_sha256` MUST be a SHA-256 digest string. `safe_ref` MUST satisfy EXT-REQ-161. The Core 01 dependency row MUST include exactly one artifact whose `artifact_id='cartulary.base_route_reservation_registry.current'` and `schema_id='cartulary.base_route_reservation_registry.v1'`. Every other dependency row MUST NOT declare that artifact ID.
+`imported_artifacts[]` MUST contain `0..64` rows, reject duplicate `artifact_id` values, and sort by ascending UTF-8 bytes of `artifact_id`. An `artifact_id` MUST occur in at most one dependency row. `artifact_id` and `schema_id` MUST each satisfy the public schema-ID scalar contract. `artifact_sha256` MUST be a SHA-256 digest string. `safe_ref` MUST satisfy EXT-REQ-233. The Core 01 dependency row MUST include exactly one artifact whose `artifact_id='cartulary.base_route_reservation_registry.current'` and `schema_id='cartulary.base_route_reservation_registry.v1'`. Every other dependency row MUST NOT declare that artifact ID.
 
 Omission behavior: no dependency row or member has a default. A missing, extra, unresolved, non-adopted, version-mismatched, digest-mismatched, schema-mismatched, algorithm-mismatched, manifest-mismatched, or imported-artifact-mismatched dependency MUST block registry generation and coordinated adoption.
 
@@ -376,7 +377,7 @@ Verified by: EXT-AC-004, EXT-AC-021, EXT-AC-040, EXT-AC-077
 | `resource_ref_kind` | `<profile_id>.<local_key>`; maximum 129 ASCII bytes. |
 | `participant_id` | `<profile_id>.<local_key>`; maximum 129 ASCII bytes. |
 | Extension resource kind | `<profile_id>.<local_key>` unless an already adopted owner fragment declares one exact legacy token; maximum 129 ASCII bytes. |
-| `final_commit_id` | ASCII `1..160` bytes matching `[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}` and globally unique within one deployment. |
+| `final_commit_id` | Exact EXT-REQ-233 safe identifier; deployment-unique. |
 | `contract_major` | JSON integer in `1..2147483647`. |
 | State schema version | JSON integer in `1..2147483647`. |
 | Claim key | Exactly `<profile_id>.claimed`. |
@@ -453,7 +454,7 @@ Each `anchors[]` row MUST contain exactly:
 - `anchor_sha256`;
 - `closure_categories[]`.
 
-For `anchor_kind='req'`, `closure_categories[]` MUST contain `1..18` unique category tokens from Table 19-A, sorted by ascending UTF-8 bytes. For every other anchor kind, `closure_categories[]` MUST equal `[]`. Category assignment is owner-authored normative metadata used only to derive the closure catalog; it does not replace the requirement text or permit a profile owner to omit the requirement from closure.
+For `anchor_kind='req'`, `closure_categories[]` MUST contain `1..19` unique category tokens from Table 19-A, sorted by ascending UTF-8 bytes. For every other anchor kind, `closure_categories[]` MUST equal `[]`. Category assignment is owner-authored normative metadata used only to derive the closure catalog; it does not replace the requirement text or permit a profile owner to omit the requirement from closure.
 
 `anchors[]` MUST contain `1..4096` rows. `(anchor_kind, anchor_id)` MUST be unique. `start_byte` and `end_byte` MUST be zero-based JSON integers satisfying `0 <= start_byte < end_byte <= owner_document.byte_length`. The interval is half-open `[start_byte, end_byte)`, MUST begin and end on UTF-8 scalar boundaries, and `anchor_sha256` MUST hash exactly those bytes. Exactly one `document` anchor MUST exist, its ID MUST equal `owner_document_schema_id`, and its interval MUST equal `[0, byte_length)`. Overlapping non-document anchor intervals are permitted and have no identity effect.
 
@@ -789,7 +790,7 @@ Verified by: EXT-AC-003, EXT-AC-004, EXT-AC-011, EXT-AC-016, EXT-AC-024, EXT-AC-
 | `enterprise_authentication` | `core_managed` | `owner_declared` | `no_authoritative_incident_state` | `no_participation` |
 | `import` | `core_managed` | `none` | `no_authoritative_incident_state` | `no_participation` |
 | `incident_portability` | `core_managed` | `none` | `no_authoritative_incident_state` | `no_participation` |
-| `network_flow_activity` | `extension_versioned`, current `1`, minimum `1`, lineage `network_flow_activity.state_v1` | `none` | `blocked_when_present` | `no_participation` |
+| `network_flow_activity` | `extension_versioned`, current `1`, minimum `1`, lineage `network_flow_activity.state_v1`, initialization `empty` | `none` | `blocked_when_present` | `no_participation` |
 | `reference_pack` | `core_managed` | `owner_declared` | `no_authoritative_incident_state` | `no_participation` |
 | `snapshot_reporting` | `core_managed` | `none` | `participant` | `participant` |
 
@@ -891,13 +892,15 @@ Verified by: EXT-AC-008, EXT-AC-030, EXT-AC-069
 | --- | --- | --- |
 | `none` | `kind` | The profile owns no durable state. |
 | `core_managed` | `kind` | Durable state is owned and semantically versioned entirely by existing Core owners. |
-| `extension_versioned` | `kind`, `current_state_version`, `minimum_migratable_state_version`, `migration_lineage_id`, `state_presence_contract_ref`, `final_state_validation_algorithm_id`, `final_state_validation_algorithm_ref` | The profile owns durable state under §21. |
+| `extension_versioned` | `kind`, `current_state_version`, `minimum_migratable_state_version`, `migration_lineage_id`, `state_presence_contract_ref`, `initialization_definition_ref`, `initialization_definition_sha256`, `final_state_validation_algorithm_id`, `final_state_validation_algorithm_ref` | The profile owns durable state under §21. |
 
 For `extension_versioned`:
 
 - `1 <= minimum_migratable_state_version <= current_state_version <= 2147483647`;
 - `migration_lineage_id` MUST satisfy Table 4-B and use the profile prefix;
 - `state_presence_contract_ref` MUST be an `owner_locator_v1` with `anchor-kind='schema'` that resolves to the profile's `cartulary.extension_state_presence_manifest.v1` declaration;
+- `initialization_definition_ref` MUST be an `owner_locator_v1` with `anchor-kind='schema'` that resolves to the profile's `cartulary.extension_state_initialization_definition.v1` object;
+- `initialization_definition_sha256` MUST equal the object's `extension_state_initialization_definition_sha256_v1` digest;
 - `final_state_validation_algorithm_id` MUST satisfy the public schema-ID scalar contract;
 - `final_state_validation_algorithm_ref` MUST use `anchor-kind='algorithm'`, have an anchor ID exactly equal to `final_state_validation_algorithm_id`, and resolve in the profile owner contract.
 
@@ -1011,7 +1014,7 @@ Verified by: EXT-AC-003, EXT-AC-004, EXT-AC-005, EXT-AC-082
 9. one canonical file or object byte form is the canonical JSON bytes followed by exactly one LF byte;
 10. no BOM or trailing byte after the required LF is emitted or accepted.
 
-`extension_dependency_snapshot_sha256_v1`, `extension_owner_contract_manifest_sha256_v1`, `extension_owner_fragment_sha256_v1`, `extension_descriptor_sha256_v1`, `extension_contribution_sha256_v1`, `extension_owner_input_registry_sha256_v1`, `extension_registry_sha256_v1`, `extension_implementation_binding_sha256_v1`, `extension_profile_configuration_contract_sha256_v1`, `extension_base_route_reservation_registry_sha256_v1`, `extension_client_support_registry_sha256_v1`, `client_asset_set_sha256_v1`, `extension_physical_state_binding_sha256_v1`, `extension_job_kind_contract_sha256_v1`, `extension_participant_contract_sha256_v1`, `extension_validation_condition_registry_sha256_v1`, `extension_contract_closure_catalog_sha256_v1`, `extension_fixture_case_manifest_sha256_v1`, and `extension_registry_integrity_sha256_v1` are the lowercase SHA-256 hexadecimal digests of their respective canonical byte forms. No other digest input or newline convention is conformant for those identifiers.
+`extension_dependency_snapshot_sha256_v1`, `extension_owner_contract_manifest_sha256_v1`, `extension_owner_fragment_sha256_v1`, `extension_descriptor_sha256_v1`, `extension_contribution_sha256_v1`, `extension_owner_input_registry_sha256_v1`, `extension_registry_sha256_v1`, `extension_implementation_binding_sha256_v1`, `extension_profile_configuration_contract_sha256_v1`, `extension_base_route_reservation_registry_sha256_v1`, `extension_client_support_registry_sha256_v1`, `client_asset_set_sha256_v1`, `extension_physical_state_binding_sha256_v1`, `extension_state_presence_manifest_sha256_v1`, `extension_state_initialization_definition_sha256_v1`, `extension_backup_binding_codec_sha256_v1`, `extension_job_kind_contract_sha256_v1`, `extension_participant_contract_sha256_v1`, `extension_validation_condition_registry_sha256_v1`, `extension_contract_closure_catalog_sha256_v1`, `extension_fixture_family_contract_sha256_v1`, `extension_fixture_case_manifest_sha256_v1`, `extension_fixture_manifest_index_sha256_v1`, and `extension_registry_integrity_sha256_v1` are the lowercase SHA-256 hexadecimal digests of their respective canonical byte forms. No other digest input or newline convention is conformant for those identifiers.
 
 This algorithm is a Cartulary-specific canonicalization algorithm. It MUST NOT be labeled or treated as another JSON canonicalization standard.
 
@@ -1075,11 +1078,11 @@ Verified by: EXT-AC-079, EXT-FIX-035
 
 Each `generator_sources[]` item MUST contain exactly `source_ref` and `source_sha256`. `source_ref` MUST be a normalized repository-relative POSIX path of `1..512` UTF-8 bytes; it MUST reject an absolute path, backslash, NUL, empty segment, `.` segment, `..` segment, symlink, non-regular file, or path outside the repository root. `source_sha256` MUST be the lowercase SHA-256 digest of the exact regular-file bytes. The array MUST include every generator source file, template, schema attachment, static mapping, and lock or manifest file whose bytes the generator reads and whose effect is not already bound by `dependency_snapshot_sha256`, `owner_input_registry_sha256`, an owner-fragment digest, a descriptor digest, an implementation-binding digest, or `generated_schema_digests[]`. A generator MUST NOT read an undeclared byte-affecting repo-control file, network resource, clock, random source, host setting, or environment value.
 
-Each `supporting_contract_artifact_digests[]` item MUST contain exactly `artifact_id`, `schema_id`, and `artifact_sha256`. It MUST include every profile configuration contract, Base route-reservation registry, client support registry, client asset-set manifest, physical-state binding, job-kind contract, participant specialization contract, validation-condition registry, contract-closure catalog, and fixture-case manifest required by the recognized profile set. It MUST NOT contain a deployment-generated profile configuration view, runtime state, result object, or run evidence. Duplicate artifact IDs are invalid.
+Each `supporting_contract_artifact_digests[]` item MUST contain exactly `artifact_id`, `schema_id`, and `artifact_sha256`. It MUST include every profile configuration contract, Base route-reservation registry, client support registry, client asset-set manifest, physical-state binding, state-presence manifest, state-initialization definition, backup-binding codec, job-kind contract, participant specialization contract, validation-condition registry, contract-closure catalog, fixture-family contract, fixture-case manifest, and fixture-manifest index required by the recognized profile set. It MUST NOT contain a deployment-generated profile configuration view, runtime state, result object, or run evidence. Duplicate artifact IDs are invalid.
 
 Each `generated_schema_digests[]` item MUST contain exactly `schema_id` and `schema_sha256`. The schema artifact MUST be a closed canonical JSON object serialized under `extension_registry_canonical_json_v1`; `schema_sha256` MUST be the lowercase SHA-256 digest of that canonical byte form. Duplicate schema IDs are invalid. Each array MUST reject duplicates and sort by its first identity member, then digest, using ascending UTF-8 bytes. `owner_contract_manifest_digests[]` MUST sort by manifest ID; `supporting_contract_artifact_digests[]` MUST sort by `artifact_id`, then `schema_id`, then digest; `generator_sources[]` MUST sort by `source_ref`, then `source_sha256`; `generated_schema_digests[]` MUST sort by `schema_id`, then `schema_sha256`. The integrity object MUST contain `1..8388608` bytes including its final LF. It MUST contain no timestamp or environment-dependent path.
 
-The build MUST package exactly one canonical dependency snapshot, owner-input registry, canonical extension registry, registry-integrity object, and set of implementation bindings. The build MUST bind the expected `extension_registry_integrity_sha256_v1` digest into the application executable or another packaged application artifact whose bytes cannot be changed independently of that executable. The embedding mechanism is not prescribed; the expected digest's immutability and runtime comparison are required.
+Generation and drift verification MUST resolve every `generator_sources[]` path inside the repository root and verify its exact regular-file bytes against `source_sha256`. The build MUST package exactly one canonical dependency snapshot, owner-input registry, canonical extension registry, registry-integrity object, set of implementation bindings, and every canonical runtime supporting artifact named by the integrity object. The build MUST bind the expected `extension_registry_integrity_sha256_v1` digest into the application executable or another packaged application artifact whose bytes cannot be changed independently of that executable. The embedding mechanism is not prescribed; the expected digest's immutability and runtime comparison are required.
 
 **EXT-REQ-180**
 Before claim resolution, runtime admission MUST:
@@ -1089,14 +1092,14 @@ Before claim resolution, runtime admission MUST:
 3. decode and validate the dependency snapshot, owner-input registry, canonical registry, registry-integrity object, and every implementation binding;
 4. reserialize each object and require byte identity with its packaged bytes;
 5. verify the build-bound integrity-object digest;
-6. verify the dependency-snapshot, owner-contract-manifest, owner-input, owner-fragment, descriptor, registry, binding, supporting-contract-artifact, every generator-source, and schema digest and exact identity set;
+6. verify the dependency-snapshot, owner-contract-manifest, owner-input, owner-fragment, descriptor, registry, binding, supporting-contract-artifact, and schema digest and exact packaged identity set;
 7. require no extra or missing recognized profile, descriptor, owner contract manifest, owner fragment, binding digest, supporting contract artifact, or generated-schema digest entry;
 8. execute all registry cross-field and collision validation;
 9. fail before claim-key processing, listener startup, worker startup, state mutation, or external egress on any discrepancy.
 
-Semantically equivalent but noncanonical JSON MUST fail. Runtime MUST NOT silently recanonicalize packaged bytes and continue.
+Semantically equivalent but noncanonical JSON MUST fail. Runtime MUST NOT silently recanonicalize packaged bytes and continue. Runtime MUST validate each `generator_sources[]` row structurally, including its path grammar and digest grammar, but MUST NOT resolve the path, require the source bytes, or require a repository checkout. Generator sources are generation and drift provenance inputs, not runtime dependencies.
 
-A packaged registry is stale if any owner-document version or digest, owner-contract-manifest identity or digest, imported anchor, imported schema, algorithm, or artifact ID, owner-fragment digest, dependency-snapshot digest, owner-input digest, descriptor digest, registry digest, binding digest, supporting-contract-artifact identity or digest, generator source set or digest, generated schema ID or digest, or build-bound integrity digest differs from the validated packaged set.
+A generated or built artifact set is stale if any owner-document version or digest, owner-contract-manifest identity or digest, imported anchor, imported schema, algorithm, or artifact ID, owner-fragment digest, dependency-snapshot digest, owner-input digest, descriptor digest, registry digest, binding digest, supporting-contract-artifact identity or digest, generator source set or digest, generated schema ID or digest, or build-bound integrity digest differs from the generation inputs. Runtime staleness is determined only from packaged artifact bytes, their exact packaged identity sets and digests, and the embedded root integrity-object digest.
 
 Every failure in this requirement MUST use `extension_registry_invalid`, except a declared byte or count ceiling uses `extension_registry_limit_exceeded`.
 
@@ -1211,9 +1214,11 @@ Core 04 processing MUST execute in this order:
 4. load and digest-validate the exact configuration contract;
 5. for a claimed profile, apply omission policies, validate every value schema, classify references, and construct the complete normalized view;
 6. for an unclaimed profile, reject every `forbidden` key and syntax-validate a `syntax_only` key without resolving a secret, reading a file, loading trust material, opening a connection, invoking profile code, or performing egress;
-7. for a recognized unclaimable profile, recognize keys only from the retained last-adopted configuration-contract digest, enforce only deployment-artifact syntax and byte bounds, and keep every value inert without value-schema validation, reference resolution, logging, diagnostics containing the value, profile code, or egress.
+7. for a recognized unclaimable profile, recognize keys only from the retained last-adopted configuration-contract digest, apply each row's `forbidden` or `syntax_only` policy exactly, and keep every syntax-only value inert without semantic value validation, reference resolution, logging, diagnostics containing the value, profile code, or egress.
 
 Required failure classes are `unknown_key`, `inactive_key_forbidden`, `explicit_null_not_allowed`, `missing_required_key`, `value_schema_mismatch`, `configuration_contract_digest_mismatch`, and `configuration_contract_major_unsupported`. Their exact diagnostic mapping MUST come from EXT-REQ-224.
+
+The only inactive policies are `forbidden` and `syntax_only`. `syntax_only` validates JSON shape, scalar or reference grammar, and declared byte and nesting-depth bounds. It MUST NOT perform secret resolution, file access, trust loading, reference-existence checks, connection validation, DNS, egress, or profile-code invocation. Local availability checks begin only for a claimed profile in Stage 2.
 
 Profiles: base
 Verified by: EXT-AC-102, EXT-AC-103, EXT-FIX-057, EXT-FIX-058
@@ -1267,8 +1272,13 @@ Verified by: EXT-AC-082, EXT-FIX-038
 | Ephemeral publication plan or component bytes | `1..16777216` | `extension_registry_limit_exceeded` |
 | Canonical Base route-reservation registry bytes | `1..1048576` | `extension_registry_limit_exceeded` |
 | Canonical physical-state binding bytes per profile | `1..1048576` | `extension_registry_limit_exceeded` |
+| Canonical state-presence manifest bytes per profile | `1..1048576` | `extension_registry_limit_exceeded` |
+| Canonical state-initialization definition bytes per profile | `1..1048576` | `extension_registry_limit_exceeded` |
+| Canonical backup-binding codec bytes per binding | `1..1048576` | `extension_registry_limit_exceeded` |
 | Canonical contract-closure catalog bytes per profile | `1..33554432` | `extension_registry_limit_exceeded` |
+| Canonical fixture-family contract bytes per family | `1..16777216` | `extension_registry_limit_exceeded` |
 | Canonical fixture-case manifest bytes per family | `1..16777216` | `extension_registry_limit_exceeded` |
+| Canonical fixture-manifest index bytes | `1..16777216` | `extension_registry_limit_exceeded` |
 | Static supporting contract artifacts | `0..65536` | `extension_registry_limit_exceeded` |
 | Canonical validation-condition registry bytes | `1..16777216` | `extension_registry_limit_exceeded` |
 | Canonical descriptor bytes | `1..262144` | `extension_registry_limit_exceeded` |
@@ -1296,10 +1306,11 @@ Verified by: EXT-AC-082, EXT-FIX-038
 | `timeouts.extensions.process_lease_acquire_seconds` | Integer | `30` | `1..300` | Fail before Stage 1 with `extension_application_process_active`; perform no profile mutation. |
 | `timeouts.extensions.process_lease_loss_detection_seconds` | Integer | `5` | `1..30` | Enter fatal integrity shutdown after confirmed lease loss. |
 | `timeouts.extensions.publication_seconds` | Integer | `30` | `1..300` | Keep the admission gate closed and fail startup with `extension_publication_failed`. |
+| `timeouts.extensions.transaction_participant_seconds` | Integer | `30` | `1..300` | Roll back when absence of commit is proven; otherwise apply the final-commit outcome rules. |
 | `timeouts.extensions.cancellation_grace_seconds` | Integer | `2` | `0..30` | Terminate the process when a canceled operation remains active after grace. |
-| `intervals.extensions.staged_object_sweep_seconds` | Integer | `300` | `30..3600` | Expired staged objects become inaccessible within the running-process lag. |
+| `intervals.extensions.staged_object_sweep_seconds` | Integer | `300` | `30..3600` | Begin the next cleanup sweep; logical inaccessibility does not depend on the sweep. |
 | `limits.extensions.staged_object_cleanup_batch` | Integer | `1000` | `1..10000` | Process at most the configured ordered candidates per batch. |
-| `timeouts.extensions.staged_object_cleanup_seconds` | Integer | `300` | `30..3600` | Startup remains not-ready when expired rows cannot be made inaccessible. |
+| `timeouts.extensions.staged_object_cleanup_seconds` | Integer | `300` | `30..3600` | Startup remains not-ready until its captured cutoff set is drained or cleanup fails. |
 | `timeouts.extensions.portability_participant_seconds` | Integer | `300` | `1..3600` | Cancel and fail the portability operation without publishing a bundle or target state. |
 | `timeouts.extensions.snapshot_reporting_participant_seconds` | Integer | `300` | `1..3600` | Cancel and fail the snapshot/reporting operation without publishing participant output. |
 | `timeouts.extensions.backup_restore_participant_seconds` | Integer | `900` | `1..7200` | Cancel and fail the active participant operation under the backup/restore owner; an indeterminate mutation is fatal. |
@@ -1312,7 +1323,7 @@ Contract major `1` permits exactly one active Cartulary application process to s
 
 Before Stage 1, Core 04 MUST acquire one deployment-global, crash-released `application_process_lease`. The lease MUST be exclusive, remain held for the full serving-process lifetime, and be released by process exit or loss of the underlying lease session. Failure to acquire it within `timeouts.extensions.process_lease_acquire_seconds` MUST perform no migration or profile mutation, start no listener or job dequeuer, emit startup reason `extension_application_process_active`, and exit with code `2`.
 
-The runtime MUST detect confirmed lease loss within `timeouts.extensions.process_lease_loss_detection_seconds`. Lease loss after startup is fatal condition `application_process_lease_lost`; it MUST close readiness, stop admitting HTTP, WebSocket, and job work, and execute EXT-REQ-193 with exit code `70`. Browser sessions, incident roles, `deployment_admin`, and profile claim state MUST NOT authorize or replace the lease.
+The runtime MUST detect confirmed lease loss within `timeouts.extensions.process_lease_loss_detection_seconds`. Lease loss while starting or serving is fatal condition `application_process_lease_lost`; it MUST close readiness, stop admitting HTTP, WebSocket, and job work, and execute EXT-REQ-193 with exit code `70`. Browser sessions, incident roles, `deployment_admin`, and profile claim state MUST NOT authorize or replace the lease.
 
 Profiles: base
 Verified by: EXT-AC-104, EXT-FIX-059
@@ -1380,6 +1391,7 @@ The deadline boundaries in Table 9-E are exhaustive.
 | --- | --- | --- |
 | Application-process lease acquisition | Immediately before the first acquisition attempt | Lease acquired or acquisition failed |
 | Migration lock acquisition | Immediately before the first lock attempt | Lock acquired or acquisition failed |
+| Fresh state initialization | Immediately before the initialization transaction is created | Commit or rollback outcome is known |
 | One migration step | Immediately before the step transaction is created | Commit or rollback outcome is known |
 | Whole-profile migration | Immediately after the migration lock is acquired | Final profile-state validation completes |
 | Preflight or post-migration algorithm | Immediately before invocation | Result passes schema validation |
@@ -1387,10 +1399,11 @@ The deadline boundaries in Table 9-E are exhaustive.
 | Incident Portability participant | Immediately before the claimed-profile participant invocation | Result and referenced payload pass schema, digest, and limit validation |
 | Snapshot/Reporting participant | Immediately before the claimed-profile participant invocation | Result and referenced output pass schema, digest, redaction, and limit validation |
 | Backup/restore participant | Immediately before the claimed-profile participant invocation | Result passes schema validation and any admitted mutation outcome is known |
+| Cross-owner transaction protocol | Immediately before step 3 of EXT-REQ-219 constructs participant inputs | Commit or rollback outcome is known |
 | Inactive-job reconciliation | Immediately before the first selected-job read | Reconciliation transaction outcome is known |
 | Stage 6 publication | Immediately before component preparation begins | `serving` or `failed` |
-| Staged-object startup cleanup | Immediately before the first expired-candidate read | No expired unprocessed row remains or cleanup fails |
-| Fatal shutdown | On transition to `quiescing` | Process exit |
+| Staged-object startup cleanup | Immediately before the cutoff is captured | No eligible unprocessed row in the cutoff set remains, or cleanup fails |
+| Fatal shutdown | On the imported lifecycle's first transition out of `starting` or `running` | Process exit |
 
 On expiry, the runtime MUST issue cancellation, reject and discard any later normal result, roll back an active transaction where one exists, retain required locks until rollback or process termination is proven, and wait no longer than `timeouts.extensions.cancellation_grace_seconds`. A non-cooperative operation remaining active after grace MUST cause process termination; it MUST NOT continue in the background after a timeout result is reported.
 
@@ -1405,7 +1418,7 @@ Outcome classification MUST use Table 9-F.
 | Durable commit proven absent | Return timeout, cancellation, or conflict as the owning operation specifies. |
 | Commit or mutation outcome indeterminate | Enter fatal integrity shutdown with `indeterminate_database_commit`. |
 
-No cancellation mechanism is required by name. Any selected cooperative-cancellation, subprocess-isolation, transaction-cancellation, or process-supervision mechanism MUST satisfy every observable result above. Queueing time and lock-wait time are included only where the start boundary table says they are included.
+No cancellation mechanism is required by name. Any selected cooperative-cancellation, subprocess-isolation, transaction-cancellation, or process-supervision mechanism MUST satisfy every observable result above. For the cross-owner transaction protocol, queueing, participant input construction, prepare, lock acquisition, validation, write, and commit time are included. For other operations, queueing time and lock-wait time are included only where the start boundary table says they are included.
 
 Profiles: base
 Verified by: EXT-AC-106, EXT-FIX-061
@@ -1489,7 +1502,7 @@ A preflight or post-migration algorithm MUST return exactly one result object be
 
 Preflight and post-migration algorithms MUST be deterministic, local, read-only, and free of third-party egress. A dependency probe MUST be read-only, MUST be listed in the descriptor and binding, MUST use only the owner-declared egress destination and secret-resolution interface, and MUST NOT create, update, or delete external state. When a dependency probe requires a raw secret, Core 04 MUST make that value available only through its in-process secret boundary; otherwise no raw secret value is supplied. A raw secret value MUST NOT appear in the context, result, diagnostic, log, telemetry, or retained artifact.
 
-### Stage 1: global structural admission
+## Stage 1: global structural admission
 
 The runtime MUST:
 
@@ -1505,7 +1518,7 @@ The runtime MUST:
 
 Stage 1 MUST perform no profile-state mutation and no third-party egress.
 
-### Stage 2: all-profile side-effect-free preflight
+## Stage 2: all-profile side-effect-free preflight
 
 For every requested profile in dependency order, the runtime MUST validate:
 
@@ -1522,7 +1535,7 @@ A null preflight algorithm reference means no additional profile-owned preflight
 
 A migration MUST NOT begin unless every requested profile passes Stage 2.
 
-### Stage 3: ordered migration
+## Stage 3: ordered migration
 
 For each requested profile in dependency order, the runtime MUST:
 
@@ -1534,7 +1547,7 @@ For each requested profile in dependency order, the runtime MUST:
 
 Each migration step commits independently and atomically. A committed step remains committed if a later step or later profile fails. Cross-profile rollback is forbidden. No route, workspace, capability, profile worker, or listener is published after such a failure. The next startup MUST resume from the committed state metadata and ledger.
 
-### Stage 4: post-migration validation
+## Stage 4: post-migration validation
 
 For every requested profile in dependency order, the runtime MUST:
 
@@ -1545,11 +1558,11 @@ For every requested profile in dependency order, the runtime MUST:
 
 A failed validation or probe blocks readiness but does not reverse a committed migration. The runtime MUST stop Stage 4 at the first failing profile and first failing algorithm or probe in the declared order.
 
-### Stage 5: inactive-profile reconciliation
+## Stage 5: inactive-profile reconciliation
 
 For every profile in state `unclaimed` or `recognized_unclaimable`, ordered by ascending UTF-8 bytes of `profile_id`, the runtime MUST execute `reconcile_inactive_extension_jobs_v1` under §22. The runtime MUST perform no profile-local semantic migration, start no profile worker, and make no third-party request for an inactive profile.
 
-### Stage 6: publication
+## Stage 6: publication
 
 The runtime MUST NOT execute the `unpublished -> prepared -> committed -> serving` lifecycle in EXT-REQ-214 until Stages 1 through 5 all succeed. After they succeed, the runtime MUST execute that exact lifecycle. The resolved claim set, contribution registry, route dispatch plan, workspace registry, worker plan, listener plan, client support registry, and implementation-binding set MUST be bound into one immutable publication plan. Discovery, dispatch, workbook startup, telemetry, job admission, and conformance MUST consume that same `serving` epoch. A publication failure MUST expose no partial epoch, accept no public work, and terminate startup with exit code `2`.
 
@@ -1689,9 +1702,16 @@ Verified by: EXT-AC-080, EXT-FIX-036
 | `state_ownership_kind` | Exactly `none`, `core_managed`, or `extension_versioned`. |
 | `preflight_algorithm_id` | Algorithm anchor ID from the descriptor admission-validation object, or `null`. |
 | `post_migration_algorithm_id` | Algorithm anchor ID from the descriptor admission-validation object, or `null`. |
+| `initialization_definition_sha256` | EXT-REQ-234 definition digest for `extension_versioned`, otherwise `null`. |
+| `initialization_algorithm_id` | Algorithm variant anchor ID, or `null` for `empty` and non-versioned profiles. |
 | `final_state_validation_algorithm_id` | Final state-validator anchor ID for `extension_versioned`, otherwise `null`. |
 | `dependency_probe_ids[]` | Unique probe IDs implemented by the packaged binding. |
 | `migration_definitions[]` | Closed migration binding objects. |
+| `physical_state_binding_sha256` | EXT-REQ-223 binding digest for `extension_versioned`, otherwise `null`. |
+| `backup_codec_bindings[]` | Closed binding-to-codec identity and digest rows. |
+| `rebuild_algorithm_ids[]` | Exact derived-state rebuild algorithm set. |
+| `transaction_participant_limits` | Closed EXT-REQ-219 limit object. |
+| `supporting_schema_ids[]` | Exact packaged shared/profile supporting schema set required by this binding. |
 | `worker_kinds[]` | Unique implemented worker kinds. |
 | `job_kind_contracts[]` | Closed implemented job-kind contract bindings. |
 | `participant_contracts[]` | Closed implemented participant-contract bindings. |
@@ -1711,6 +1731,10 @@ A `job_kind_contracts[]` item MUST contain exactly `job_kind` and `job_kind_cont
 
 A `participant_contracts[]` item MUST contain exactly `participant_id`, `participant_contract_sha256`, and `algorithm_ids[]`. The digest MUST equal the canonical digest of the participant contract selected by the contribution. `algorithm_ids[]` MUST equal every packaged algorithm ID required by that contract, contain `1..16` unique values, and sort by ascending UTF-8 bytes. The array MUST contain `0..64` items, reject duplicate participant IDs, and sort by ascending UTF-8 bytes of `participant_id`.
 
+A `backup_codec_bindings[]` item MUST contain exactly `binding_id`, `backup_codec_id`, and `backup_codec_sha256`. It MUST equal one physical-state binding row and one packaged EXT-REQ-235 codec. The array MUST contain `0..4096` rows, reject duplicate binding and codec identities, and sort by `binding_id`.
+
+`transaction_participant_limits` MUST contain exactly `participant_input_bytes=16777216`, `aggregate_input_bytes=67108864`, `serialization_keys_per_participant=1024`, `aggregate_serialization_keys=4096`, `result_bytes=1048576`, and `validation_findings=256`. These values are parity declarations, not configurable limits. `supporting_schema_ids[]` MUST contain `0..4096` unique current schema IDs sorted by UTF-8 bytes. `rebuild_algorithm_ids[]` MUST contain `0..4096` unique current algorithm IDs sorted by UTF-8 bytes.
+
 All other binding arrays, including `dependency_probe_ids[]`, MUST sort by ascending UTF-8 bytes of their exact token. A null algorithm ID is valid only when the matching descriptor algorithm reference is null. A canonical binding MUST contain `1..1048576` bytes including its final LF.
 
 **EXT-REQ-182**
@@ -1729,16 +1753,23 @@ Verified by: EXT-AC-080, EXT-FIX-036
 | `state_ownership_kind` | Exact equality with `descriptor.state_ownership.kind`. |
 | `preflight_algorithm_id` | Equal to the preflight algorithm locator anchor ID, or `null` exactly when the descriptor reference is `null`. |
 | `post_migration_algorithm_id` | Equal to the post-migration algorithm locator anchor ID, or `null` exactly when the descriptor reference is `null`. |
+| `initialization_definition_sha256` | Equal to `descriptor.state_ownership.initialization_definition_sha256` for `extension_versioned`; `null` otherwise. |
+| `initialization_algorithm_id` | Equal to the EXT-REQ-234 algorithm ID for `kind='algorithm'`; `null` for `kind='empty'` and non-versioned profiles. |
 | `final_state_validation_algorithm_id` | Equal to `descriptor.state_ownership.final_state_validation_algorithm_id` for `extension_versioned`; `null` otherwise. |
 | `dependency_probe_ids[]` | Exact equality with descriptor `admission_validation.dependency_probes[].probe_id`. |
 | `implemented_contribution_ids[]` | Exact equality with descriptor contribution IDs whose Table 16-A `binding_requirement` is `handler`, `participant`, or `worker`. |
 | `supported_capability_ids[]` | Subset of descriptor `capability_ids[]`; every emitted discovery capability must also be present here and pass capability-specific admission. |
 | `migration_definitions[]` | Exact equality with normalized owner migration definitions for `extension_versioned`; `[]` for the other state kinds. |
+| `physical_state_binding_sha256` | Exact digest of the required EXT-REQ-223 object for `extension_versioned`; `null` otherwise. |
+| `backup_codec_bindings[]` | Exact binding ID, codec ID, and codec digest set from the physical-state binding; `[]` when no binding exists. |
+| `rebuild_algorithm_ids[]` | Exact non-null rebuild algorithm set from derived binding rows. |
+| `transaction_participant_limits` | Exact equality with the closed EXT-REQ-219 limits. |
+| `supporting_schema_ids[]` | Exact current runtime schema set required by the descriptor, initialization, migration, state, transaction, backup, job, and participant contracts supplied by the binding; Harness-only schemas remain integrity-accounted and are not binding dependencies. |
 | `worker_kinds[]` | Exact equality with normalized owner `worker_kind` facts. |
 | `job_kind_contracts[]` | Exact equality with normalized owner job-kind identities and canonical contract digests. |
 | `participant_contracts[]` | Exact equality with every contribution that requires a participant, its canonical contract digest, and every algorithm ID declared by that contract. |
 
-An extra contribution, capability, admission algorithm, dependency probe, migration, worker, job, participant contract, or participant algorithm declaration is invalid. A missing required contribution, admission algorithm, dependency probe, migration, worker, job, participant contract, or participant algorithm declaration is invalid. Capability omission is valid because capabilities are additive; an omitted capability MUST NOT be advertised or invoked.
+An extra contribution, capability, admission algorithm, dependency probe, initialization, migration, physical binding, codec, rebuild algorithm, schema, worker, job, participant contract, or participant algorithm declaration is invalid. A missing required declaration in any of those families is invalid. Capability omission is valid because capabilities are additive; an omitted capability MUST NOT be advertised or invoked.
 
 # 13. Registry collision detection
 
@@ -2252,7 +2283,13 @@ Profiles: base
 Verified by: EXT-AC-108, EXT-AC-127, EXT-FIX-063, EXT-FIX-080
 
 **EXT-REQ-212**
-Core 01 MUST add one required `extension_workspace_availability` member to the incident workbook-bootstrap response. That member MUST conform to `cartulary.extension_workspace_availability.v1` and contain exactly:
+Core 01 MUST add one required `data.extension_workspace_availability` member to the successful common response envelope for:
+
+```text
+GET /api/v1/incidents/{incident_id}/workbook-startup
+```
+
+The member MUST conform to `cartulary.extension_workspace_availability.v1` and contain exactly:
 
 - `schema_id`, exactly `cartulary.extension_workspace_availability.v1`;
 - `incident_id`, exactly the addressed incident identity;
@@ -2265,6 +2302,8 @@ Core 01 MUST add one required `extension_workspace_availability` member to the i
 
 Rows MUST reject duplicate identities and sort by `extension_profile_id`, then `workspace_key`, ascending UTF-8 bytes. The response MUST include a row only when the profile is in the resolved claim set and the current caller is authorized at response construction time to open that workspace shell for the addressed incident. The object MUST disclose no denial reason, required role, hidden resource count, or profile-local authorization detail.
 
+`workspaces[]` MUST be present even when empty. Every successful response from this route MUST use `Cache-Control: no-store`; an ETag validator, `If-None-Match` reuse, and HTTP `304` response are forbidden. An error response MUST use the Core error envelope and MUST NOT carry `extension_workspace_availability`. An older compatible client that does not know the additive member MUST ignore it under the Core tolerant-consumer rule.
+
 The client MUST compute:
 
 ```text
@@ -2274,14 +2313,23 @@ renderable_extension_workspaces =
     INTERSECT extension_workspace_availability.workspaces
 ```
 
-The intersection is by exact `(extension_profile_id, workspace_key)`. A missing member, invalid object, incident mismatch, stale bootstrap response after current authorization changes, or invalid client-support registry yields the empty set and requires a fresh authorized bootstrap response; the client MUST NOT render the workspace before that response succeeds. Discovery does not authorize a workspace, and hiding a workspace does not replace route-time authorization.
+The intersection is by exact `(extension_profile_id, workspace_key)`. A client version that requires the member MUST treat a missing member, malformed object, incident mismatch, stale response, or invalid client-support registry as an extension protocol defect: it MUST clear incident-local extension state, hide every extension workspace, retain Base behavior, and MUST NOT enter an automatic retry loop. A later explicit user action or a Core 03 current-authorization invalidation event MAY initiate one new workbook-startup request; when neither occurs, no request is initiated. Discovery does not authorize a workspace, and hiding a workspace does not replace route-time authorization.
 
-For each `(client_instance_id, incident_id)`, the client MUST maintain one unsigned 64-bit `extension_availability_generation`, initialized to `0`. Before issuing a workbook-bootstrap request, and immediately upon any current-authorization invalidation affecting that incident, the client MUST increment the generation and tag all resulting local request work with the new value. A bootstrap or profile response is eligible to update client state only when its tagged generation equals the current generation; a matching response MUST then be processed under its owner response contract. Every lower-generation response MUST be ignored without rendering, caching, queue replay, or draft mutation. On attempted increment past `18446744073709551615`, the client MUST discard all incident-local extension state, create a fresh `client_instance_id`, reset the generation to `1`, and issue a new authorized bootstrap request before rendering an extension workspace. The generation is client-local, MUST NOT be sent as authorization evidence, and MUST NOT be persisted across a client-instance restart.
+For each `(client_instance_id, incident_id)`, the client MUST maintain:
 
-An explicit launch, home, default, presence, or deep-link target absent from the intersection MUST use the Core 03 unavailable-target fallback. When authorization is lost while a workspace is open, the client MUST increment `extension_availability_generation`, discard loaded profile data, invalidate every pending profile-request result tagged with an older generation, ignore every later response from that generation, remove the workspace from navigation, execute Base fallback, and retain no cached content that can be reopened without a new authorized response. The client MAY additionally issue transport-level cancellation; omission behavior is that generation invalidation and response discard remain mandatory.
+- `extension_availability_epoch_id`, exactly 64 lowercase hexadecimal characters generated from 32 cryptographically secure random bytes; and
+- `extension_availability_generation`, an unsigned 64-bit integer initialized to `0`.
+
+Before a workbook-startup request, before every HTTP request initiated from an extension route contribution for extension workspace or resource state, and immediately upon any current-authorization invalidation affecting that incident, the client MUST increment the generation and tag all resulting local request work with the current `(extension_availability_epoch_id, extension_availability_generation)` tuple. A response is eligible to update client state only when both tagged values equal the current tuple; an eligible response MUST then be processed under its owner response contract. A response tagged with another epoch or a lower generation MUST be ignored without rendering, caching, queue replay, draft mutation, or automatic retry.
+
+On attempted increment past `18446744073709551615`, the client MUST generate a new epoch ID, reset the generation to `1`, and clear incident-local extension state. It MUST NOT change `client_instance_id`. The epoch and generation are local-only, non-authorizing, non-persisted across a client-instance restart, and never transmitted. If secure randomness is unavailable when an epoch is required, the client MUST disable extension rendering for that client instance and retain Base behavior.
+
+An explicit launch, home, default, presence, or deep-link target absent from the intersection MUST use the Core 03 unavailable-target fallback. When authorization is lost while a workspace is open, the client MUST advance the tuple, discard loaded profile data, invalidate every pending extension-route result tagged with an older tuple, ignore every later response from that tuple, remove the workspace from navigation, execute Base fallback, and retain no cached content that can be reopened without a new authorized response. The client MAY additionally issue transport-level cancellation; omission means tuple invalidation and response discard remain mandatory.
+
+Epoch creation, rollover, invalidation, and extension fallback MUST preserve the Core WebSocket resume identity, `client_instance_id`, Base drafts, and the Core pending queue. Extension state MUST NOT be stored in or recovered from those Base or transport identities.
 
 Profiles: base
-Verified by: EXT-AC-109, EXT-FIX-064
+Verified by: EXT-AC-109, EXT-AC-139, EXT-FIX-064
 
 **EXT-REQ-102**
 An extension workspace is not a Base built-in tab, `view_schema`, system view, saved view, or member of the Base surface registry. Claiming any profile MUST NOT change the five Base built-in tabs or the canonical Base `view_schema_id` ordering.
@@ -2485,6 +2533,7 @@ Verified by: EXT-AC-095, EXT-AC-121, EXT-FIX-051, EXT-FIX-076
 | `backup_restore` | Authoritative/derived classification, physical backup inclusion, restore validation, and rebuild behavior. |
 | `portability` | Export/import mode, state-presence matrix, target compatibility, inactive behavior, and errors. |
 | `snapshot_reporting` | Participation mode, inputs, outputs, empty/omit behavior, redaction, retained inactive state, and errors. |
+| `conformance_evidence` | Required boundary scenarios, executable-case identity, exact behavior binding, and current Harness result coverage. |
 
 **EXT-REQ-226**
 `cartulary.extension_contract_closure_catalog.v1` MUST contain exactly:
@@ -2503,7 +2552,7 @@ Each `items[]` row MUST contain exactly:
 - `subject_id`;
 - `allowed_not_applicable_reason_codes[]`.
 
-`subject_kind` MUST equal `baseline`, `owner_requirement`, `configuration_key`, `public_schema`, `contribution`, `job_kind`, `migration`, or `state_family`. `category` MUST use Table 19-A. `subject_id` MUST be the exact stable owner identity for the subject and contain `1..512` UTF-8 bytes. `allowed_not_applicable_reason_codes[]` MUST contain `0..8` unique Table 27-A2 tokens sorted by ascending UTF-8 bytes. `[]` means the item can be closed only as `specified`.
+`subject_kind` MUST equal `baseline`, `owner_requirement`, `configuration_key`, `public_schema`, `contribution`, `job_kind`, `migration`, `initialization`, `state_family`, `backup_codec`, or `fixture_scenario`. `category` MUST use Table 19-A. `subject_id` MUST be the exact stable owner identity for the subject and contain `1..512` UTF-8 bytes. `allowed_not_applicable_reason_codes[]` MUST contain `0..8` unique Table 27-A2 tokens sorted by ascending UTF-8 bytes. `[]` means the item can be closed only as `specified`.
 
 `closure_item_id` MUST equal `extclosure:` followed by the first 32 lowercase hexadecimal characters of SHA-256 over the canonical JSON object containing exactly `profile_id`, `contract_major`, `category`, `subject_kind`, and `subject_id`, serialized under `extension_registry_canonical_json_v1` without the final LF.
 
@@ -2516,7 +2565,10 @@ Each `items[]` row MUST contain exactly:
 5. one `contribution` item for every contribution, under every Table 19-A category required by that contribution kind's shared contract;
 6. one `job_kind` item for every job-kind contract, covering `jobs_reconciliation`, `idempotency_concurrency`, `errors_precedence_retry`, and `resource_lifecycle_retention`;
 7. one `migration` item for every migration definition, covering `state_migration`, `errors_precedence_retry`, and `audit_observability`;
-8. one `state_family` item for every logical state family, covering `resource_lifecycle_retention`, `backup_restore`, and the selected portability and Snapshot/Reporting categories.
+8. one `initialization` item for the state-initialization definition, covering `state_migration`, `defaults_omission_null`, `scalar_collection_bounds`, and `security_secrets_egress`;
+9. one `state_family` item for every logical state family, covering `resource_lifecycle_retention`, `backup_restore`, and the selected portability and Snapshot/Reporting categories;
+10. one `backup_codec` item for every physical binding codec, covering `backup_restore`, `identity_canonicalization_ordering`, `scalar_collection_bounds`, and `errors_precedence_retry`;
+11. one `fixture_scenario` item for every required applicable fixture scenario, covering `conformance_evidence`.
 
 The profile owner MUST NOT remove, rename, merge, suppress, or mark optional a derived item. Duplicate item identities are invalid. Items MUST sort by `category`, `subject_kind`, `subject_id`, then `closure_item_id`, using ascending UTF-8 bytes. The catalog MUST contain `1..65536` items and `1..33554432` canonical bytes. `extension_contract_closure_catalog_sha256_v1` is the lowercase SHA-256 digest of the canonical byte form.
 
@@ -2547,6 +2599,7 @@ Verified by: EXT-AC-121, EXT-FIX-076
 | `recovery_contract` | `backup_restore` | Are physical bindings, backup, restore validation, and rebuild complete? | `no_durable_state` |
 | `portability_contract` | `portability` | Is the selected portability mode and its state matrix complete? | None |
 | `snapshot_reporting_contract` | `snapshot_reporting` | Is the selected Snapshot/Reporting mode and its state matrix complete? | None |
+| `scenario_coverage` | `conformance_evidence` | Does every required boundary and semantic scenario have a current executable passing case? | None |
 
 `None` in the final column means `allowed_not_applicable_reason_codes=[]`.
 
@@ -2620,7 +2673,8 @@ The shared logical interfaces are:
 - `cartulary.extension_transaction_participant_context.v1`;
 - `cartulary.extension_transaction_participant_prepare_result.v1`;
 - `cartulary.extension_transaction_participant_validation_result.v1`;
-- `cartulary.extension_transaction_participant_write_result.v1`.
+- `cartulary.extension_transaction_participant_write_result.v1`;
+- `cartulary.extension_transaction_participant_finding.v1`.
 
 The context MUST contain exactly:
 
@@ -2635,11 +2689,11 @@ The context MUST contain exactly:
 - `deadline_monotonic_ns`;
 - `transaction_access`.
 
-`phase` MUST equal `prepare`, `validate`, or `write`. `participant_input` MUST conform to the contract's `participant_input_schema_id` and contain no value outside the participant's declared operation scope. `transaction_access` MUST be `null` for `prepare`, a shared read-only transaction capability for `validate`, and a shared read-write transaction capability for `write`.
+`phase` MUST equal `prepare`, `validate`, or `write`. `participant_input` MUST conform to the contract's `participant_input_schema_id`, contain no value outside the participant's declared operation scope, and contain `1..16777216` canonical bytes per participant. The aggregate participant input constructed at step 3 MUST contain `0..67108864` canonical bytes. `deadline_monotonic_ns` MUST be a process-local JSON integer in `1..9223372036854775807` and MUST represent the Table 9-E deadline. `operation_id` MUST use the exact Core operation-ID scalar imported by the invoking owner. `transaction_access` MUST be `null` for `prepare`, a shared read-only transaction capability for `validate`, and a shared read-write transaction capability for `write`.
 
 The transaction capability is process-local and MUST NOT be serialized, persisted, logged, or returned. The read-only capability MUST read only declared mutable preconditions and declared logical state families. The read-write capability MUST mutate only `owned_state_family_ids[]`. Each capability MUST NOT acquire an undeclared lock, commit, roll back, open another transaction, perform egress, read a secret not present in `participant_input`, or access another state family.
 
-The prepare result MUST contain exactly `schema_id`, `participant_id`, and `serialization_keys[]`. Each serialization key MUST contain exactly `participant_id`, `key_kind`, and `key`. `key_kind` MUST occur in the participant contract. `key` MUST be an internal non-secret UTF-8 scalar of `1..512` bytes. Keys MUST reject duplicates and sort by `participant_id`, then `key_kind`, then ascending UTF-8 bytes of `key`.
+The prepare result MUST contain exactly `schema_id`, `participant_id`, and `serialization_keys[]`. Each serialization key MUST contain exactly `participant_id`, `key_kind`, and `key`. `key_kind` MUST occur in the participant contract. `key` MUST be an internal non-secret UTF-8 scalar of `1..512` bytes. Keys MUST reject duplicates and sort by `participant_id`, then `key_kind`, then ascending UTF-8 bytes of `key`. `serialization_keys[]` MUST contain `0..1024` rows per participant, and their aggregate union MUST contain `0..4096` rows. Each canonical prepare result MUST contain `1..1048576` bytes.
 
 The validation result MUST be exactly one closed variant:
 
@@ -2653,13 +2707,15 @@ or:
 {"schema_id":"cartulary.extension_transaction_participant_validation_result.v1","participant_id":"...","status":"invalid","findings":[...]}
 ```
 
-`findings[]` MUST contain `0..256` secret-safe deterministic findings. `valid` requires `[]`; `invalid` requires at least one finding.
+`findings[]` MUST contain `0..256` `cartulary.extension_transaction_participant_finding.v1` objects. Each finding MUST contain exactly `path`, `reason_code`, `message`, and `details`. `path` MUST use `extension_diagnostic_path_v1` against the normalized participant input. `reason_code`, `message`, and the exact closed `details` shape MUST resolve through `error_contract_ref`; unknown members and owner-unmapped tokens are invalid. Findings MUST contain no secret or physical identity, reject duplicates, and sort by `path`, then `reason_code`, then canonical `details` bytes. `valid` requires `[]`; `invalid` requires `1..256` findings. Each canonical validation result MUST contain `1..1048576` bytes.
 
 The write result MUST contain exactly:
 
 ```json
 {"schema_id":"cartulary.extension_transaction_participant_write_result.v1","participant_id":"...","status":"written"}
 ```
+
+The canonical write result MUST contain `1..1048576` bytes.
 
 The final-commit protocol MUST execute exactly:
 
@@ -2678,12 +2734,12 @@ The final-commit protocol MUST execute exactly:
 13. write shared job proof, idempotency outcome, audit outbox, history, collaboration invalidation, staged-object publication references, and terminal result as applicable;
 14. commit exactly once.
 
-Prepare and validation algorithms MUST be side-effect free. Write algorithms MUST NOT begin until every validation passes. Contract major `1` performs no automatic transaction retry. A deadlock or serialization abort with a proven absent commit MUST return HTTP `409` where public, `error.code='transaction_conflict'`, `reason_code` equal to exactly one of `deadlock_detected` or `serialization_failure`, and `retryable=true`. Any caller retry MUST use the owning idempotency contract; without a retry, the conflict is terminal for that invocation.
+Prepare and validation algorithms MUST be side-effect free. Write algorithms MUST NOT begin until every validation passes. Contract major `1` performs no automatic transaction retry. A deadlock or serialization abort with a proven absent commit MUST return HTTP `409` where public, `error.code='transaction_conflict'`, `reason_code` equal to exactly one of `deadlock_detected` or `serialization_failure`, and `retryable=true`. A timeout with proven absent commit MUST return HTTP `503` where public, `error.code='service_unavailable'`, `reason_code='extension_transaction_timeout'`, and `retryable=true`. Any caller retry MUST use the owning idempotency contract; without a retry, the conflict or timeout is terminal for that invocation.
 
-Cancellation before final commit MUST roll back. Once final commit begins, the operation MUST resolve to committed success, committed replay, proven conflict, or fatal indeterminate outcome. It MUST NOT report ordinary cancellation while commit outcome is unknown.
+Cancellation or timeout before step 7 MUST cancel without opening a database transaction. During steps 7 through 13, it MUST request rollback and MUST report cancellation or timeout only after rollback or other absence of commit is proven. The final-commit boundary begins when step 14 invokes database commit. From that point, the operation MUST return only committed success, committed replay, proven absent-commit cancellation or conflict, or fatal indeterminate outcome. It MUST NOT report ordinary cancellation, timeout, or conflict while commit outcome is unknown.
 
 Profiles: base
-Verified by: EXT-AC-111, EXT-FIX-066
+Verified by: EXT-AC-111, EXT-AC-130, EXT-FIX-066
 
 **EXT-REQ-192**
 An operation that publishes authoritative non-database bytes MUST use one shared non-public `cartulary.extension_staged_object.v1` record containing exactly:
@@ -2694,8 +2750,8 @@ An operation that publishes authoritative non-database bytes MUST use one shared
 - `storage_identity`, an opaque non-secret UTF-8 string of `1..512` bytes under the shared object-storage owner;
 - `expected_byte_size`, a JSON integer in `0..9223372036854775807` that also satisfies the owning operation's lower ceiling;
 - `expected_sha256`, a SHA-256 digest string;
-- `staged_at`;
-- `staging_expires_at`;
+- `staged_at`, a Core canonical UTC timestamp;
+- `staging_expires_at`, a Core canonical UTC timestamp;
 - `ready_at`, a canonical timestamp or `null`;
 - `published_at`, a canonical timestamp or `null`;
 - `abandoned_at`, a canonical timestamp or `null`;
@@ -2705,7 +2761,7 @@ An operation that publishes authoritative non-database bytes MUST use one shared
 - `next_delete_attempt_at`, a canonical timestamp or `null`;
 - `last_delete_error_code`, a safe ASCII token of `1..128` bytes or `null`.
 
-`staging_expires_at` MUST equal `staged_at + 24 hours`. It is the deadline after which an unpublished object must be inaccessible and eligible for physical deletion; it is not an unconditional physical-deletion completion guarantee during deployment downtime or storage failure.
+`staging_expires_at` MUST equal `staged_at + 24 hours`. Every transition timestamp MUST use the Core canonical UTC timestamp contract. At or after `staging_expires_at`, redemption of every unpublished object MUST fail before object-storage access, independently of janitor progress. Published objects follow their authoritative resource contract and MUST NOT be invalidated by staging expiry. Physical deletion has no completion service-level guarantee during deployment downtime or storage failure.
 
 The allowed state transitions are `allocated -> ready -> published`, `allocated -> abandoned`, and `ready -> abandoned`. No reverse transition is valid. `ready_at` MUST be non-null only in `ready` or `published`. `published_at` MUST be non-null only in `published`. `abandoned_at` MUST be non-null only in `abandoned`. `delete_state='not_applicable'` is required in `allocated`, `ready`, and `published`; `delete_state` is `pending` or `deleted` only in `abandoned`. `next_delete_attempt_at` and `last_delete_error_code` MUST be null unless `delete_state='pending'`.
 
@@ -2723,7 +2779,13 @@ The allowed state transitions are `allocated -> ready -> published`, `allocated 
 
 The staged storage identity MUST be the final referenced identity. Public correctness MUST NOT depend on a post-commit move or rename. A final publication commit at or after `staging_expires_at` is forbidden. An existing storage identity MUST satisfy idempotent replay only when the owning idempotency contract proves the same normalized request and committed result and the stored bytes match the committed size and digest exactly. In every other identity-reuse case, the operation MUST fail integrity validation; different bytes MUST NOT overwrite.
 
-The shared janitor, not an inactive profile worker, MUST execute `cleanup_extension_staged_objects_v1` at startup before Stage 6 and every `intervals.extensions.staged_object_sweep_seconds` while serving. It MUST process at most `limits.extensions.staged_object_cleanup_batch` candidates ordered by `staging_expires_at`, then `staging_id`.
+The shared janitor, not an inactive profile worker, MUST execute `cleanup_extension_staged_objects_v1` at startup before Stage 6 and every `intervals.extensions.staged_object_sweep_seconds` while serving. One sweep cycle MUST:
+
+1. capture one Core canonical UTC `cycle_cutoff_at` before its first candidate read;
+2. repeatedly select eligible rows with `staging_expires_at <= cycle_cutoff_at`, ordered by `staging_expires_at`, then `staging_id`;
+3. process at most `limits.extensions.staged_object_cleanup_batch` rows in one database transaction;
+4. continue bounded batches until no eligible row at or before the cutoff remains; and
+5. leave every later expiration for the next cycle.
 
 For each candidate at or after expiry, the janitor MUST:
 
@@ -2731,9 +2793,9 @@ For each candidate at or after expiry, the janitor MUST:
 2. enter fatal integrity shutdown if a committed authoritative reference exists while the staging record is not `published`;
 3. otherwise transition `allocated` or `ready` to `abandoned`, set `abandoned_at`, `delete_state='pending'`, and `next_delete_attempt_at` to the current Core wall time;
 4. commit the inaccessible state before attempting physical deletion;
-5. delete the object; an already absent object is success;
-6. on success, set `delete_state='deleted'`, clear retry fields, and durably record the outcome;
-7. on transient failure, increment `delete_attempt_count` with saturation at `2147483647`, record one safe error code, and set:
+5. attempt physical deletion and classify the outcome through Table 20-B;
+6. durably record the exact Table 20-B result;
+7. for every outcome that preserves `delete_state='pending'`, increment `delete_attempt_count` with saturation at `2147483647`, record one safe error code, and set:
 
 ```text
 retry_delay_seconds = min(60 * 2^(delete_attempt_count - 1), 86400)
@@ -2741,14 +2803,23 @@ retry_delay_seconds = min(60 * 2^(delete_attempt_count - 1), 86400)
 
 No random jitter is permitted in contract major `1`. After saturation, retries continue every `86400` seconds.
 
-While the process is continuously serving, an expired object MUST become inaccessible no later than `staging_expires_at + intervals.extensions.staged_object_sweep_seconds`. After downtime, every expired object MUST become inaccessible before readiness on the next startup. Startup cleanup MUST continue bounded batches until no expired unprocessed row remains and MUST complete within `timeouts.extensions.staged_object_cleanup_seconds`; otherwise startup fails and remains not-ready. A physical deletion that has not succeeded MUST remain pending only under the durable retry state above.
+**Table 20-B. Staged-object physical deletion outcomes**
+
+| Outcome | Required behavior |
+| --- | --- |
+| Success or object already absent | Set `delete_state='deleted'`, clear `next_delete_attempt_at` and `last_delete_error_code`, and durably record the outcome. |
+| Retryable or unknown failure | Preserve `delete_state='pending'` and use the retry schedule above. |
+| Authorization or storage-configuration failure | Preserve `delete_state='pending'`, use the same retry schedule, and expose Core readiness `degraded_dependency` with reason `extension_staged_object_cleanup_dependency_failed` until the dependency succeeds. |
+| Digest, storage identity, publication-state, or authoritative-reference contradiction | Invoke fatal integrity shutdown under EXT-REQ-134. |
+
+Logical inaccessibility is enforced at redemption and has no sweep lag. Startup cleanup MUST capture its cutoff set, continue bounded batches until no row in that set remains unprocessed, and complete within `timeouts.extensions.staged_object_cleanup_seconds`; otherwise startup fails and remains not-ready. A physical deletion that has not succeeded MUST remain pending only under the durable retry state above. Authorization or storage-configuration failure may leave physical bytes pending indefinitely, but it MUST NOT make them accessible through Cartulary.
 
 A preview, download, owner route, object-store handle, portability payload, snapshot, or report MUST NOT expose `allocated`, `ready`, or `abandoned` bytes. The shared owner MAY retain a non-secret deleted staging record under its diagnostic-retention contract. Omission behavior: without such retention, the record is removed only after the deletion outcome is durable.
 
 If the storage-write outcome is indeterminate, final database commit MUST NOT begin. If final database-commit outcome is indeterminate, the runtime MUST invoke fatal integrity shutdown. Post-commit finalization MAY be retried only when it is idempotent and cannot change public identity or committed bytes; omission behavior is no required post-commit finalization.
 
 Profiles: base
-Verified by: EXT-AC-089, EXT-AC-112, EXT-FIX-045, EXT-FIX-067
+Verified by: EXT-AC-089, EXT-AC-112, EXT-AC-131, EXT-FIX-045, EXT-FIX-067
 
 # 21. Unclaim, reclaim, retirement, and state migration
 
@@ -2803,12 +2874,59 @@ Every `extension_versioned` profile MUST publish one closed `cartulary.extension
 - `object_reference_family_ids[]`;
 - `presence_mode`, exactly `any_authoritative_member`.
 
-Each family ID MUST use `<profile_id>.<local_key>`, be unique across both arrays, and sort by ascending UTF-8 bytes. At least one of the two arrays MUST be non-empty. A shared storage owner MUST bind logical family IDs to physical storage through implementation-support manifests. The profile MUST NOT provide an arbitrary executable state-presence callback.
+The two arrays contain authoritative families only. Each array MUST contain `0..4096` family IDs. The combined unique count MUST be `1..4096`. Each family ID MUST use `<profile_id>.<local_key>`, be unique across both arrays, and sort by ascending UTF-8 bytes. A shared storage owner MUST bind logical family IDs to physical storage through implementation-support manifests. The profile MUST NOT provide an arbitrary executable state-presence callback.
 
-State presence is true when at least one authoritative member exists in any declared family. Rebuildable caches, projections, temporary files, staged orphan objects, common job rows, audit rows, and migration metadata alone MUST NOT make state presence true unless the named profile owner explicitly classifies the family as authoritative profile state.
+State presence is true when at least one authoritative member exists in any declared family. Rebuildable caches, projections, temporary files, staged orphan objects, common job rows, audit rows, and migration metadata MUST NOT appear in the manifest and MUST NOT make state presence true.
+
+The manifest MUST serialize under `extension_registry_canonical_json_v1`, contain `1..1048576` canonical bytes, and have digest `extension_state_presence_manifest_sha256_v1`. Its schema, canonical bytes, digest, and identity MUST appear in generated-schema accounting, registry integrity, implementation-binding parity, the contract-closure catalog, and conformance accounting.
 
 Profiles: base
-Verified by: EXT-AC-086, EXT-FIX-042
+Verified by: EXT-AC-086, EXT-AC-132, EXT-FIX-042
+
+**EXT-REQ-234**
+Every `extension_versioned` profile MUST publish exactly one closed `cartulary.extension_state_initialization_definition.v1` object containing exactly:
+
+- `schema_id`, exactly `cartulary.extension_state_initialization_definition.v1`;
+- `profile_id`;
+- `migration_lineage_id`;
+- `target_state_version`;
+- `initialization`.
+
+`target_state_version` MUST equal the descriptor's `current_state_version`. `initialization` MUST be exactly one of these closed variants:
+
+```json
+{"kind":"empty"}
+```
+
+```json
+{"kind":"algorithm","algorithm_id":"...","algorithm_ref":"...","algorithm_definition_sha256":"..."}
+```
+
+For `kind='algorithm'`, `algorithm_id` MUST satisfy the public schema-ID scalar, `algorithm_ref` MUST be an `owner_locator_v1` with `anchor-kind='algorithm'` and anchor ID equal to `algorithm_id`, and `algorithm_definition_sha256` MUST bind the exact canonical algorithm definition resolved by that locator. For `kind='empty'`, all three algorithm members are absent. The initialization definition MUST serialize under `extension_registry_canonical_json_v1`, contain `1..1048576` canonical bytes, and have digest `extension_state_initialization_definition_sha256_v1`. The descriptor, owner facts, implementation binding, registry integrity object, and conformance artifacts MUST agree on the exact definition identity and digest.
+
+An algorithm initialization MUST receive one closed `cartulary.extension_state_initialization_context.v1` object containing exactly:
+
+- `schema_id`, exactly `cartulary.extension_state_initialization_context.v1`;
+- `profile_id`;
+- `migration_lineage_id`;
+- `target_state_version`;
+- `authoritative_state_family_ids[]`;
+- `initialization_definition_sha256`;
+- `deadline_monotonic_ns`;
+- `scoped_write_capability_id`.
+
+`authoritative_state_family_ids[]` MUST equal the state-presence manifest's combined family set and sort by ascending UTF-8 bytes. The digest MUST equal the verified definition digest. The deadline MUST use `timeouts.extensions.migration_step_seconds` and be a process-local integer in `1..9223372036854775807`. The scoped capability is transaction-local, permits writes only to the declared authoritative families and pending state metadata, and cannot commit or roll back. The context and capability MUST expose no secret, wall clock, incident-authored value, egress, filesystem, unrestricted SQL, Core-owned family, or other-profile family.
+
+The algorithm MUST return exactly:
+
+```json
+{"schema_id":"cartulary.extension_state_initialization_result.v1","status":"ready_to_validate"}
+```
+
+Initialization runs inside the initial metadata transaction. `kind='empty'` performs no profile-code invocation and constructs empty authoritative state plus pending metadata. `kind='algorithm'` invokes only the digest-bound packaged algorithm. Both variants then invoke the final state validator exactly once against pending state and metadata and commit exactly once only when it returns `valid`. A malformed result, forbidden access, timeout, or final validation failure rolls back the complete initialization transaction and blocks claim publication.
+
+Profiles: base
+Verified by: EXT-AC-132, EXT-AC-133, EXT-FIX-069
 
 **EXT-REQ-216**
 Every `extension_versioned` profile MUST implement the shared migration interfaces:
@@ -2903,7 +3021,7 @@ One migration step MUST execute exactly:
 
 Owner semantic validation MUST NOT first occur after commit. Any migration mutation MUST be limited to transactionally protected structured state. When immutable object bytes are required, it MUST use the staged-object contract and publish only references in a final database commit; it MUST NOT perform an irreversible external mutation that cannot be rolled back, abandoned, or reconciled.
 
-After every required migration step, including an already-current or zero-step path, the runtime MUST invoke the final state validator with read-only state access while holding the profile migration lock. Fresh initialization MUST invoke that same validator against pending state and pending metadata inside the initialization transaction before the first metadata commit. Fresh metadata becomes authoritative only when that transaction's final-state result is `valid`. A final validation failure after earlier committed migration steps leaves those steps committed, leaves the profile unclaimed, preserves the resumable state version, and emits `extension_state_validation_failed`.
+After the complete migration sequence, including an already-current or zero-step path, the runtime MUST invoke the final state validator exactly once with read-only state access while holding the profile migration lock. It MUST NOT invoke the final validator after each migration step; each step uses only its migration-definition pending-state validator. Fresh initialization invokes the final validator exactly once against pending state and pending metadata inside the initialization transaction. Fresh metadata becomes authoritative only when that result is `valid`. A final validation failure after earlier committed migration steps leaves those steps committed, leaves the profile unclaimed, preserves the resumable state version, and emits `extension_state_validation_failed`.
 
 Profiles: base
 Verified by: EXT-AC-114, EXT-FIX-069
@@ -2912,7 +3030,7 @@ Verified by: EXT-AC-114, EXT-FIX-069
 
 | State metadata | Authoritative owner state | Required result |
 | --- | --- | --- |
-| Absent | Absent | Initialize fresh state and metadata inside one transaction that passes the final state validator before commit; no migration ledger row is created. |
+| Absent | Absent | Execute the exact EXT-REQ-234 initialization variant, create pending state and metadata, invoke final validation once, and commit once only when valid; no migration ledger row is created. |
 | Absent | Present | Fail `extension_state_metadata_missing`; do not infer or initialize a version. |
 | Present | Absent | Fail `extension_state_incomplete`; do not treat the profile as fresh. |
 | Present | Present | Validate lineage and stored version; migrate when required. |
@@ -2961,16 +3079,16 @@ For `state_ownership.kind='extension_versioned'`, `migrate_extension_state_v1` M
 
 1. acquire the profile lock and re-read state under EXT-REQ-189;
 2. evaluate Table 21-A;
-3. if fresh initialization applies, open one initialization transaction, construct pending fresh state and metadata at `current_state_version`, run the final state validator against that pending state, and commit only when the result is `valid`;
+3. if fresh initialization applies, execute the exact EXT-REQ-234 definition in one initialization transaction, construct pending state and metadata at `current_state_version`, run the final state validator exactly once against that pending state, and commit only when the result is `valid`;
 4. require metadata `migration_lineage_id` to equal the descriptor lineage;
-5. if the stored version equals `current_state_version`, validate without migration;
+5. if the stored version equals `current_state_version`, run the final validator exactly once without migration;
 6. if the stored version is greater than `current_state_version`, fail with `extension_state_version_unsupported` before mutation;
 7. if the stored version is lower than `minimum_migratable_state_version`, fail with `extension_state_version_unsupported` before mutation;
 8. for each integer version from the stored version through `current_state_version - 1`, require exactly one owner migration definition from N to N+1 and one matching implementation-binding declaration;
 9. reject a missing, duplicate, changed-digest, nonconsecutive, or wrong-lineage step before applying the first migration;
 10. apply each migration in ascending version order and validate pending state before atomically committing under EXT-REQ-189 and EXT-REQ-217;
 11. verify each committed ledger and metadata transition after commit;
-12. validate final state at `current_state_version` before profile availability.
+12. after every required step has committed, validate final state exactly once at `current_state_version` before profile availability.
 
 Profiles: base
 Verified by: EXT-AC-044, EXT-AC-045, EXT-AC-046, EXT-AC-047, EXT-AC-048, EXT-AC-086
@@ -3001,6 +3119,7 @@ For the current adoption baseline, `network_flow_activity` MUST declare:
 - `minimum_migratable_state_version=1`;
 - `migration_lineage_id='network_flow_activity.state_v1'`;
 - one adopted `cartulary.extension_state_presence_manifest.v1` owner declaration;
+- one `cartulary.extension_state_initialization_definition.v1` with `initialization={"kind":"empty"}`;
 - one final state-validation algorithm and implementation binding.
 
 Profiles: network_flow_activity
@@ -3018,11 +3137,12 @@ Verified by: EXT-AC-087, EXT-FIX-043
 | --- | --- | --- |
 | `claimed=true` | Ordinary requested-profile admission. | Fail `extension_profile_not_claimable`. |
 | Claim key omitted or false | Accepted. | Accepted. |
-| Non-prestage profile configuration | Fail `extension_config_without_claim`. | Last-adopted known keys are accepted as inert retired configuration. |
+| `inactive_policy='forbidden'` key present | Fail `extension_config_without_claim`. | Fail `extension_config_without_claim` using the last-adopted contract. |
+| `inactive_policy='syntax_only'` key present | Validate only JSON shape, scalar/reference grammar, bytes, and depth; keep inert. | Apply the same checks using the last-adopted contract; keep inert. |
 | Unknown profile-local key | Fail. | Fail. |
-| Inert retired value handling | Not applicable. | Do not semantically validate, secret-resolve, file-resolve, log, emit, or transmit the value. |
-| Secret resolution | None except an exact pre-stage key whose owner contract requires local availability validation. | None. |
-| File or trust-material resolution | None except an exact pre-stage key whose owner contract requires local availability validation. | None. |
+| Syntax-only value handling | Do not semantically validate, resolve, log, emit, or transmit the value. | Same. |
+| Secret resolution | None. Syntax-only checks validate reference grammar, bytes, and depth only. | None. |
+| File or trust-material resolution | None. Syntax-only checks validate reference grammar, bytes, and depth only. | None. |
 | Third-party egress or dependency probe | Forbidden. | Forbidden. |
 | Profile-local semantic migration | Forbidden. | Forbidden. |
 | Profile worker | Zero. | Zero. |
@@ -3032,6 +3152,8 @@ Verified by: EXT-AC-087, EXT-FIX-043
 | Authoritative state | Preserve unchanged. | Preserve unchanged. |
 | Reserved route and workspace identity | Preserve in registry and discovery. | Preserve in registry and discovery. |
 | Later activation | Ordinary reclaim admission. | Ordinary reclaim admission only after Core 00 makes the profile claimable again. |
+
+Local availability, secret-existence, file-existence, and trust-material checks begin only for a claimed profile in Stage 2. No inactive-policy exception exists in contract major `1`.
 
 The set of last-adopted known retired keys MUST come from the retained digest-bound owner fragment, not from implementation code or local configuration history.
 
@@ -3085,7 +3207,7 @@ The proof MUST contain exactly:
 - `audit_correlation_id`;
 - `committed_at` under the Core canonical UTC timestamp contract.
 
-`idempotency_identity` MUST conform to the exact schema selected by the job-kind contract or be `null` exactly when `idempotency_policy='none'`. `audit_correlation_id` MUST be a non-empty safe identifier or `null` exactly when the owner declares no audit occurrence. `terminal_result` MUST conform to the job-kind contract `terminal_result_schema_id` and be the exact canonical Core common-job terminal success object originally committed. `terminal_result_sha256` MUST be the digest of its canonical bytes. `resource_refs[]` MUST use only declared resource-reference contracts, respect every per-kind and aggregate bound, reject duplicates, and sort by kind then canonical resource ID bytes. The complete proof MUST NOT exceed `max_proof_bytes` or nesting depth `32`. `final_commit_id` MUST be globally unique within the deployment.
+`idempotency_identity` MUST conform to the exact schema selected by the job-kind contract or be `null` exactly when `idempotency_policy='none'`. `job_id`, `audit_correlation_id`, and `final_commit_id` MUST satisfy EXT-REQ-233. `audit_correlation_id` is `null` exactly when the owner declares no audit occurrence. `terminal_result` MUST conform to the job-kind contract `terminal_result_schema_id` and be the exact canonical Core common-job terminal success object originally committed. `terminal_result_sha256` MUST be the digest of its canonical bytes. `resource_refs[]` MUST use only declared resource-reference contracts, respect every per-kind and aggregate bound, reject duplicates, and sort by kind then canonical resource ID bytes. The complete proof MUST NOT exceed `max_proof_bytes` or nesting depth `32`. Committed replay MUST preserve both original correlation identifiers.
 
 A durable precommit cancellation observation MUST conform to `cartulary.extension_job_cancellation_observation.v1` and contain exactly:
 
@@ -3094,6 +3216,8 @@ A durable precommit cancellation observation MUST conform to `cartulary.extensio
 - `job_id`;
 - `observed_at`;
 - `observed_before_final_commit`, exactly `true`.
+
+`cancellation_request_id` and `job_id` MUST satisfy the exact Core owner scalars imported by EXT-REQ-233. `observed_at` MUST satisfy the Core canonical UTC timestamp contract.
 
 Profiles: base
 Verified by: EXT-AC-088, EXT-FIX-044
@@ -3147,7 +3271,7 @@ The extension framework MUST initiate fatal integrity shutdown only after detect
 - an in-memory canonical-registry, registry-integrity, or resolved-claim-set digest mismatch;
 - a committed extension migration-ledger version or digest that does not match committed extension state metadata;
 - confirmed loss of the deployment-global application-process lease while the process is starting or serving;
-- a committed authoritative object reference whose staging record is not `published`, or a `published` staging record whose committed object reference is absent or digest-inconsistent.
+- a staged-object digest, storage-identity, publication-state, or authoritative-reference contradiction, including a committed authoritative object reference whose staging record is not `published`, or a `published` staging record whose committed object reference is absent or digest-inconsistent.
 
 Every other runtime extension failure MUST remain isolated under EXT-REQ-133. A profile owner MUST NOT add a fatal condition through a profile-local error mapping. Adding another fatal condition requires a revision of this requirement and Table 26-A1.
 
@@ -3155,13 +3279,16 @@ Profiles: base
 Verified by: EXT-AC-054, EXT-AC-090, EXT-AC-104, EXT-AC-112
 
 **EXT-REQ-193**
-Fatal integrity shutdown MUST follow this lifecycle:
+Core 04 is the sole lifecycle and process-exit owner. Before coordinated adoption, Core 04 MUST publish `fatal_integrity_shutdown_v1`; this subsystem MUST import that exact contract and MUST NOT define an independent lifecycle. The imported contract MUST admit exactly these transitions:
 
 ```text
-running -> quiescing -> terminating -> exited
+starting -> terminating -> exited
+running  -> quiescing -> terminating -> exited
 ```
 
-On detection, the runtime MUST:
+For fatal detection while `starting`, the imported contract MUST close the admission gate, cancel or roll back every precommit operation, close any prepared or bound listener without admitting a public socket, preserve committed state and durable queued jobs, emit exactly one safe fatal diagnostic, and exit with code `70`. It MUST emit no WebSocket terminal event when no public WebSocket was admitted.
+
+For fatal detection while `running`, the imported contract MUST:
 
 1. transition atomically from `running` to `quiescing`; a repeated fatal signal MUST NOT restart the drain deadline;
 2. set `/readyz` to HTTP `503` with safe status token `fatal_integrity_failure`;
@@ -3176,10 +3303,10 @@ On detection, the runtime MUST:
 11. transition to `terminating`, force-close remaining connections and workers, and emit one safe fatal diagnostic;
 12. exit with process exit code `70`.
 
-A startup extension/configuration admission failure MUST start no listener and exit with process exit code `2`. Core 04 MUST reserve these exact exit codes before coordinated adoption. A fatal diagnostic MUST NOT contain a secret, incident value, storage identifier, SQL, or raw cryptographic detail.
+A repeated signal for the same or another fatal condition MUST be idempotent: it MUST NOT reopen admission, duplicate the safe diagnostic, duplicate a WebSocket terminal event, restart a timeout, or change the selected exit code. A startup configuration or ordinary admission failure MUST start no public listener and exit with code `2`; it MUST NOT use fatal shutdown. Core 04 MUST reserve these exact exit codes and readiness/health behaviors before coordinated adoption. A fatal diagnostic MUST NOT contain a secret, incident value, storage identifier, SQL, or raw cryptographic detail.
 
 Profiles: base
-Verified by: EXT-AC-090, EXT-FIX-046
+Verified by: EXT-AC-090, EXT-AC-137, EXT-FIX-046
 
 **EXT-REQ-135**
 Profile workers MUST start only for claimed profiles and only after complete Stage 6 publication. Inactive profiles MUST have zero active profile workers.
@@ -3202,7 +3329,7 @@ Profiles: base
 Verified by: EXT-AC-061, EXT-AC-063, EXT-AC-073
 
 **EXT-REQ-223**
-Every profile with durable state MUST have one canonical `cartulary.extension_physical_state_binding.v1` build-time object containing exactly:
+Every profile with `state_ownership.kind='extension_versioned'` MUST have one canonical `cartulary.extension_physical_state_binding.v1` build-time object containing exactly:
 
 - `schema_id`, exactly `cartulary.extension_physical_state_binding.v1`;
 - `profile_id`;
@@ -3218,36 +3345,88 @@ Each `bindings[]` row MUST contain exactly:
 - `state_class`;
 - `backup_inclusion`;
 - `restore_order_group`;
+- `backup_codec_id`;
+- `backup_codec_sha256`;
 - `post_restore_validation_algorithm_id`;
 - `rebuild_algorithm_id`.
 
-`binding_id` MUST equal `<profile_id>.<local_key>` under Table 4-B. `logical_family_id` MUST resolve exactly once in the digest-bound state-presence manifest. `storage_kind` MUST equal `postgres`, `object_store`, or `filesystem`. `state_class` MUST equal `authoritative` or `derived`. `backup_inclusion` MUST equal `required` or `excluded_rebuildable`. An authoritative binding MUST use `backup_inclusion='required'`; `excluded_rebuildable` is valid only for derived state. `restore_order_group` MUST be a JSON integer in `0..1024`.
+`state_presence_manifest_sha256` MUST equal the current canonical profile manifest's `extension_state_presence_manifest_sha256_v1` digest.
+
+`binding_id` MUST equal `<profile_id>.<local_key>` under Table 4-B. `storage_kind` MUST equal `postgres`, `object_store`, or `filesystem`. `state_class` MUST equal `authoritative` or `derived`. An authoritative row's `logical_family_id` MUST resolve exactly once in the digest-bound state-presence manifest. A derived row's `logical_family_id` MUST NOT resolve in that manifest; the binding row is its sole family declaration. Logical family IDs MUST be unique across authoritative and derived rows. `backup_inclusion` MUST equal `required` or `excluded_rebuildable`. An authoritative binding MUST use `backup_inclusion='required'`. A derived binding MUST use `backup_inclusion='excluded_rebuildable'` and declare a rebuild algorithm. In contract major `1`, every `filesystem` binding MUST be derived and `excluded_rebuildable`; authoritative filesystem binding is invalid. `restore_order_group` MUST be a JSON integer in `0..1024`.
 
 `physical_ref` MUST be an opaque, non-secret implementation-local storage selector containing `1..512` UTF-8 bytes. It MUST contain no credential, endpoint host, bucket name, object key, database name, absolute filesystem path, query, fragment, C0 or C1 control, or incident value. It MUST NOT appear in public responses, ordinary diagnostics, telemetry, portability payloads, profile descriptors, or conformance findings. Its resolution to actual implementation storage is build-time implementation data and MUST preserve the exact one-to-one binding checks in this requirement.
 
-`post_restore_validation_algorithm_id` MUST equal the exact shared storage-owner algorithm in Table 23-E for the row's `storage_kind`. It MUST resolve through the Core backup/restore owner manifest and packaged Core implementation binding, not through profile executable code. `rebuild_algorithm_id` MUST be non-null exactly when `state_class='derived'` and `backup_inclusion='excluded_rebuildable'`; otherwise it MUST be `null`. A rebuild algorithm MUST resolve through the profile owner manifest and implementation binding. Any rebuild execution MUST occur only after the profile is claimed and its compatibility and final-state admission have succeeded.
+`backup_codec_id` MUST satisfy the public schema-ID scalar and identify the exact EXT-REQ-235 codec for the row. `backup_codec_sha256` MUST equal that codec's `extension_backup_binding_codec_sha256_v1` digest. `post_restore_validation_algorithm_id` MUST equal the exact shared storage-owner algorithm in Table 23-E for the row's `storage_kind`. It MUST resolve through the Core backup/restore owner manifest and packaged Core implementation binding, not through profile executable code. `rebuild_algorithm_id` MUST be non-null exactly when `state_class='derived'` and `backup_inclusion='excluded_rebuildable'`; otherwise it MUST be `null`. A rebuild algorithm MUST resolve through the profile owner manifest and implementation binding. Any rebuild execution MUST occur only after the profile is claimed and its compatibility and final-state admission have succeeded.
 
-`bindings[]` MUST contain `1..4096` rows, reject duplicate `binding_id` and duplicate `physical_ref` values, and sort by `restore_order_group`, then `logical_family_id`, then `binding_id`, using ascending numeric or UTF-8 order as applicable. Every authoritative logical family in the state-presence manifest MUST have at least one required backup binding. Every physical authoritative store owned by the implementation MUST appear exactly once. A derived store MUST NOT be the sole backup source for authoritative state.
+`bindings[]` MUST contain `1..4096` rows, reject duplicate `binding_id`, `logical_family_id`, and `physical_ref` values, and sort by `restore_order_group`, then `logical_family_id`, then `binding_id`, using ascending numeric or UTF-8 order as applicable. Every authoritative logical family in the state-presence manifest MUST have exactly one required backup binding. Every physical authoritative store owned by the implementation MUST appear exactly once. Derived state never affects state presence and MUST NOT be a backup source for authoritative state.
 
 The object MUST serialize under `extension_registry_canonical_json_v1`, contain `1..1048576` canonical bytes, and have digest `extension_physical_state_binding_sha256_v1`.
 
-Backup, restore, and conformance MUST use this digest-bound mapping. Physical names remain implementation-specific and do not become public interoperability contracts. During inactive-profile restore, the shared storage-owner validator MUST verify restored count, byte length, and digest parity against the backup manifest for the binding without parsing profile semantics or executing profile code. Excluded rebuildable derived state remains absent until a later successful claim invokes its rebuild algorithm. Missing authoritative binding, extra undeclared authoritative storage, inactive-profile exclusion, unvalidated restore, or unrebuildable excluded derived state is a conformance failure.
+Backup, restore, and conformance MUST use this digest-bound mapping. The implementation binding MUST repeat and exactly match every initialization algorithm and definition digest, backup codec ID and digest, rebuild algorithm, transaction-participant limit, and supporting schema identity required by the profile. Physical names remain implementation-specific and do not become public interoperability contracts. During inactive-profile restore, the shared storage-owner validator MUST verify restored count, byte length, codec, and digest parity against the backup manifest for the binding without parsing profile semantics or executing profile code. Excluded rebuildable derived state remains absent until a later successful claim invokes its rebuild algorithm. Missing authoritative binding, extra undeclared authoritative storage, inactive-profile exclusion, unvalidated restore, or unrebuildable excluded derived state is a conformance failure.
 
 Profiles: base
-Verified by: EXT-AC-116, EXT-FIX-071
+Verified by: EXT-AC-116, EXT-AC-132, EXT-AC-135, EXT-FIX-071
+
+**EXT-REQ-235**
+Every physical-state binding MUST resolve to one canonical `cartulary.extension_backup_binding_codec.v1` object containing exactly:
+
+- `schema_id`, exactly `cartulary.extension_backup_binding_codec.v1`;
+- `backup_codec_id`;
+- `binding_id`;
+- `storage_kind`;
+- `codec_contract_ref`;
+- `logical_identity_algorithm_id`;
+- `content_encoding_algorithm_id`;
+- `max_items`;
+- `max_entry_bytes`;
+- `max_binding_bytes`;
+- `historical_restore_codecs[]`.
+
+The codec ID and binding ID MUST equal the physical-binding row. `storage_kind` MUST equal that row's storage kind. The three algorithm or contract identifiers MUST resolve to exact packaged implementation-binding definitions. `max_items` MUST be a JSON integer in `1..1048576`; `max_entry_bytes` and `max_binding_bytes` MUST be JSON integers in `1..9223372036854775807`, with `max_entry_bytes <= max_binding_bytes`. An empty binding remains admitted because its actual item and content-byte counts are zero. `historical_restore_codecs[]` MUST contain `0..16` closed `{backup_codec_id, backup_codec_sha256}` rows, reject duplicate IDs and digests, exclude the current codec, and sort by `backup_codec_id`, then digest. Each listed historical codec MUST also be packaged, resolve under the same binding, and be digest-bound by registry integrity. Omission materializes `historical_restore_codecs=[]`; explicit `null` is invalid. The codec object MUST serialize under `extension_registry_canonical_json_v1`, contain `1..1048576` bytes, and have digest `extension_backup_binding_codec_sha256_v1`.
+
+For any byte string `x`, define:
+
+```text
+frame(x) = uint64_big_endian_length(x) || x
+
+digest_input =
+  "cartulary.extension.binding.v1\0"
+  + frame(binding_id_utf8)
+  + frame(storage_kind_utf8)
+  + frame(decimal_item_count_ascii)
+  + each ordered entry
+
+entry =
+  frame(logical_identity_bytes)
+  + frame(raw_32_byte_content_sha256)
+  + frame(decimal_byte_length_ascii)
+
+binding_digest = SHA256(digest_input)
+```
+
+The length prefix is the unsigned 64-bit length of `x` in exactly eight big-endian bytes. Decimal counts and byte lengths use base-10 ASCII with no sign and no leading zero except `0`. Entry identities MUST contain `1..4096` bytes. The item count MUST be `0..max_items`; each entry byte length MUST be `0..max_entry_bytes`; and the sum of entry content byte lengths MUST be `0..max_binding_bytes`. The first excess MUST fail before partial backup publication; truncation is forbidden. Entries sort by unsigned lexicographic `logical_identity_bytes`; duplicate identities are invalid. An empty binding has item count `0`, no entries, and the digest of the remaining framed input. `binding_digest` is stored as exactly 64 lowercase hexadecimal characters encoding the raw SHA-256 result. The backup manifest MUST record the exact binding ID, storage kind, item count, binding digest, codec ID, and codec digest.
+
+A PostgreSQL codec MUST map each row to canonical JSON under `extension_registry_canonical_json_v1` using stable logical field IDs declared by `codec_contract_ref`, use those canonical bytes as the content bytes, and hash those exact bytes; physical table or column names and database-native row serialization are forbidden digest inputs. An object-store codec MUST hash the exact immutable object bytes and use the codec's declared logical object identity. A filesystem codec MUST use a normalized relative POSIX path as logical identity and hash exact regular-file bytes; a leading slash, backslash, NUL, empty segment, `.`, `..`, symlink, or non-regular file is invalid.
+
+Restore MUST select the codec by the backup metadata's exact ID and digest before any restore mutation. An unrecognized or unpackaged pair MUST fail with `backup_binding_codec_unsupported`. A recognized pair whose packaged bytes do not match its digest is `extension_registry_invalid`. Historical codec support exists only through an explicit packaged and digest-bound `historical_restore_codecs[]` row; inference, best-effort decoding, and use of the current codec for historical bytes are forbidden.
+
+Physical backup is implementation-binding-specific. Incident Portability remains the logical cross-implementation interchange boundary and MUST NOT expose physical codec frames or storage identities.
+
+Profiles: base
+Verified by: EXT-AC-135, EXT-FIX-071
 
 **Table 23-E. Shared post-restore binding validators**
 
 | `storage_kind` | Required `post_restore_validation_algorithm_id` | Exact validation scope |
 | --- | --- | --- |
-| `postgres` | `extension_validate_postgres_binding_restore_v1` | Compare the restored binding identity, row count, and canonical per-binding content digest with the backup manifest through the shared storage adapter. |
-| `object_store` | `extension_validate_object_store_binding_restore_v1` | Compare the restored binding identity, object count, each immutable object digest and byte length, and the aggregate binding digest with the backup manifest. |
-| `filesystem` | `extension_validate_filesystem_binding_restore_v1` | Compare the restored binding identity, normalized relative-path manifest, regular-file count, each file digest and byte length, and the aggregate binding digest with the backup manifest without following symlinks. |
+| `postgres` | `extension_validate_postgres_binding_restore_v1` | Apply the exact EXT-REQ-235 codec, then compare binding identity, codec ID/digest, row count, entry identities, byte lengths, content hashes, and binding digest with the backup manifest. |
+| `object_store` | `extension_validate_object_store_binding_restore_v1` | Apply the exact EXT-REQ-235 codec, then compare binding identity, codec ID/digest, object count, entry identities, exact immutable-byte hashes, byte lengths, and binding digest. |
+| `filesystem` | `extension_validate_filesystem_binding_restore_v1` | Apply the exact EXT-REQ-235 codec, reject forbidden path or file forms, then compare binding identity, codec ID/digest, ordered relative paths, file hashes, byte lengths, and binding digest. |
 
 Every validator result MUST be `valid` or `invalid` under `cartulary.extension_backup_restore_participant_result.v1`. A storage read failure, missing item, extra item, digest mismatch, byte-length mismatch, symlink, non-regular file, or manifest mismatch is `invalid`; it MUST NOT be repaired, ignored, or converted into a profile-semantic validation result.
 
 **EXT-REQ-138**
-Restore MUST preserve inactive extension state without invoking profile semantic code, semantically migrating it, or exposing it. A profile claimed after restore MUST complete state-presence, metadata, compatibility, migration, and post-restore validation before availability. Derived state, when rebuilt, MUST use only declared authoritative inputs.
+Restore MUST preserve inactive extension state without invoking profile semantic code, semantically migrating it, or exposing it. A profile claimed after restore MUST complete physical binding and codec validation, state-presence and metadata validation, compatibility and any migration, and then final state validation exactly once before availability. A migrated restored profile uses each migration step's pending-state validator but no intermediate final validator. Derived state, when rebuilt after successful claim admission, MUST use only declared authoritative inputs.
 
 Profiles: base
 Verified by: EXT-AC-062, EXT-AC-063
@@ -3283,14 +3462,14 @@ Every `incident_portability_participant`, `snapshot_reporting_participant`, and 
 - `max_output_bytes`;
 - `max_items`.
 
-The operation set MUST equal the exact Table 23-D set for the participant kind. `shared_context_schema_id` is the complete serialized input schema for every operation of that specialization; an operation MUST NOT extend the shared context with profile-local members. Algorithm and output schema IDs MUST resolve through current owner manifests and implementation bindings. `authorization_contract_ref`, `error_contract_ref`, and every non-null `redaction_contract_ref` MUST resolve to exact adopted owner requirements. `redaction_contract_ref` MUST be non-null only for `snapshot_reporting.emit`; it MUST be `null` for every other current operation.
+`operations[]` MUST reject duplicate `operation_kind` values and sort by ascending UTF-8 bytes of `operation_kind`; array position has no other semantic meaning, and the specialization digest uses that order. The operation set MUST equal the exact Table 23-D set for the participant kind. `shared_context_schema_id` is the complete serialized input schema for every operation of that specialization; an operation MUST NOT extend the shared context with profile-local members. Algorithm and output schema IDs MUST resolve through current owner manifests and implementation bindings. `authorization_contract_ref`, `error_contract_ref`, and every non-null `redaction_contract_ref` MUST resolve to exact adopted owner requirements. `redaction_contract_ref` MUST be non-null only for `snapshot_reporting.emit`; it MUST be `null` for every other current operation.
 
-`state_family_ids[]` MUST contain `0..64` unique logical state-family IDs sorted by UTF-8 bytes and each ID MUST resolve in the profile state-presence manifest. `max_input_bytes` and `max_output_bytes` MUST be JSON integers in `1..67108864` and `0..67108864`, respectively; `max_items` MUST be a JSON integer in `0..1048576`. `max_input_bytes` limits the aggregate canonical bytes of the shared context plus every state, snapshot, portability-payload, or physical-binding item made available through the scoped input accessor. `max_items` independently limits both the selected input item count and emitted output item count. `max_output_bytes=0` means the operation permits only the generic empty or omit result and no referenced payload or output bytes. `max_items=0` means the scoped input accessor exposes no selected item and the result emits no item. `ordering_algorithm_id` is required even when the output can contain at most one item; in that case it MUST resolve to an exact identity-order algorithm.
+`state_family_ids[]` MUST contain `0..64` unique logical state-family IDs sorted by UTF-8 bytes. Portability, Snapshot/Reporting, `backup_enumerate`, and `restore_validate` IDs MUST resolve in the authoritative state-presence manifest. `restore_rebuild` IDs MUST resolve only to derived `excluded_rebuildable` physical-binding rows and MUST NOT resolve in the state-presence manifest. `max_input_bytes` and `max_output_bytes` MUST be JSON integers in `1..67108864` and `0..67108864`, respectively; `max_items` MUST be a JSON integer in `0..1048576`. `max_input_bytes` limits the aggregate canonical bytes of the shared context plus every state, snapshot, portability-payload, or physical-binding item made available through the scoped input accessor. `max_items` independently limits both the selected input item count and emitted output item count. `max_output_bytes=0` means the operation permits only the generic empty or omit result and no referenced payload or output bytes. `max_items=0` means the scoped input accessor exposes no selected item and the result emits no item. `ordering_algorithm_id` is required even when the output can contain at most one item; in that case it MUST resolve to an exact identity-order algorithm.
 
 The specialization MUST define all profile-specific input selection, payload/output schema, ordering, authorization, redaction, error mapping, state-family access, and limits. It MUST NOT contain physical table, bucket, object key, package, component, callback, secret, incident value, or deployment endpoint data. It MUST serialize under `extension_registry_canonical_json_v1`, contain `1..1048576` canonical bytes, and have digest `extension_participant_contract_sha256_v1` equal to the contribution's `participant_contract_sha256`.
 
 Profiles: base
-Verified by: EXT-AC-117, EXT-FIX-072
+Verified by: EXT-AC-117, EXT-AC-134, EXT-FIX-072
 
 **Table 23-D. Participant specialization operation sets**
 
@@ -3300,8 +3479,23 @@ Verified by: EXT-AC-117, EXT-FIX-072
 | `snapshot_reporting` | `cartulary.extension_snapshot_reporting_participant_context.v1` | `cartulary.extension_snapshot_reporting_participant_result.v1` | `emit` |
 | `backup_restore` | `cartulary.extension_backup_restore_participant_context.v1` | `cartulary.extension_backup_restore_participant_result.v1` | `backup_enumerate`, `restore_validate`, `restore_rebuild` |
 
+**Table 23-F. Shared-owner and profile-code invocation matrix**
+
+| Operation | Authoritative-state and claim condition | Required invocation behavior |
+| --- | --- | --- |
+| Portability export | No authoritative state; any claim state | Shared owner returns `omit`; invoke no profile code. |
+| Portability export | Authoritative state present; claimed and participant mode | Invoke the typed participant. |
+| Snapshot/Reporting emit | No authoritative state; any claim state | Shared owner returns `empty`; invoke no profile code. |
+| Snapshot/Reporting emit | Authoritative state present; claimed participant | Invoke the typed participant. |
+| Backup enumerate | Any state or claim condition | Shared owner enumerates the physical-state binding; invoke no profile code. |
+| Restore validate | Any state or claim condition | Shared storage validator executes EXT-REQ-235; invoke no profile code. |
+| Restore rebuild | Claimed profile with an excluded derived binding requiring rebuild | Invoke only that binding's declared rebuild algorithm. |
+| Restore rebuild | Every other condition | Perform no rebuild and invoke no profile code. |
+| Portability import with payload | Claimed and compatible | Invoke the typed participant irrespective of prior target state. |
+| Portability import with payload | Any other condition | Fail under Table 23-B before profile-code invocation. |
+
 **EXT-REQ-221**
-The shared portability, Snapshot/Reporting, and backup/restore participant boundaries are closed logical interfaces. Each participant contribution MUST bind one specialization through `participant_contract_ref` and `participant_contract_sha256`. Any participant-algorithm invocation MUST occur only for `claim_state='claimed'`; inactive behavior is performed by the shared owner through Tables 23-A through 23-C and the physical-state binding.
+The shared portability, Snapshot/Reporting, and backup/restore participant boundaries are closed logical interfaces. Each participant contribution MUST bind one specialization through `participant_contract_ref` and `participant_contract_sha256`. Profile-code invocation MUST follow Table 23-F exactly and may occur only for `claim_state='claimed'`. Shared-owner enumeration, omission, empty-result, and storage validation are not participant-algorithm invocations and MUST run in the Table 23-F rows that require them.
 
 The shared `claim_state` vocabulary is exactly `claimed`, `unclaimed`, and `recognized_unclaimable`. `state_present` is Boolean. For an `extension_versioned` profile with present authoritative state, `state_version` MUST be the exact stored positive state version; otherwise it MUST be `null`. Every `authorization_view_sha256`, `redaction_profile_sha256`, payload digest, output digest, and physical-binding digest MUST be a SHA-256 digest string. Every `timeout_seconds` MUST equal the effective Table 9-C value for the participant kind.
 
@@ -3316,11 +3510,11 @@ The shared `claim_state` vocabulary is exactly `claimed`, `unclaimed`, and `reco
 - `state_version`, an integer or `null`;
 - `incident_ref`;
 - `authorization_view_sha256`;
-- `payload_ref`, a safe logical reference or `null`;
+- `payload_ref`, an `extension_safe_logical_ref_v1` value or `null`;
 - `payload_sha256`, a digest or `null`;
 - `timeout_seconds`.
 
-`incident_ref` MUST satisfy the Core incident-reference scalar contract. For export, `payload_ref` and `payload_sha256` MUST both be `null`. For import, both MUST be non-null and bind exact inert payload bytes admitted by the bundle owner. The shared context is the complete serialized invocation input and MUST conform to the specialization's `shared_context_schema_id`. The runtime MUST expose no profile-local context extension.
+`incident_ref` MUST satisfy the Core incident-reference scalar contract. For export, `payload_ref` and `payload_sha256` MUST both be `null`. For import, both MUST be non-null, `payload_ref` MUST satisfy `extension_safe_logical_ref_v1`, and both MUST bind exact inert payload bytes admitted by the bundle owner. The shared context is the complete serialized invocation input and MUST conform to the specialization's `shared_context_schema_id`. The runtime MUST expose no profile-local context extension.
 
 `cartulary.extension_portability_participant_result.v1` MUST be exactly one closed variant:
 
@@ -3334,7 +3528,7 @@ or:
 {"schema_id":"cartulary.extension_portability_participant_result.v1","kind":"payload","payload_schema_id":"...","payload_contract_major":1,"state_version":1,"canonical_payload_sha256":"...","payload_byte_size":0,"payload_ref":"..."}
 ```
 
-`omit` means successful participation with no portable state and is distinct from participant absence or failure. In a `payload` result, `payload_schema_id` MUST equal the specialization output schema, `payload_contract_major` and `state_version` MUST be positive integers, `payload_byte_size` MUST equal the exact bytes and remain within `max_output_bytes`, and `payload_ref` MUST be a safe logical reference. The payload contract MUST define canonical bytes, exact ordering, empty-payload semantics, import compatibility, state-version behavior, and permitted Core references. An output that exceeds its declared byte, item, or nesting limit is invalid and MUST NOT be published.
+`omit` means successful participation with no portable state and is distinct from participant absence or failure. In a `payload` result, `payload_schema_id` MUST equal the specialization output schema, `payload_contract_major` and `state_version` MUST be positive integers, `payload_byte_size` MUST equal the exact bytes and remain within `max_output_bytes`, and `payload_ref` MUST satisfy `extension_safe_logical_ref_v1`. The payload contract MUST define canonical bytes, exact ordering, empty-payload semantics, import compatibility, state-version behavior, and permitted Core references. An output that exceeds its declared byte, item, or nesting limit is invalid and MUST NOT be published.
 
 `cartulary.extension_snapshot_reporting_participant_context.v1` MUST contain exactly:
 
@@ -3350,7 +3544,7 @@ or:
 - `redaction_profile_sha256`;
 - `timeout_seconds`.
 
-`snapshot_ref` MUST bind one immutable snapshot under the Snapshot/Reporting owner. Its result MUST be exactly:
+`snapshot_ref` MUST satisfy `extension_safe_logical_ref_v1` and bind one immutable snapshot through the Snapshot/Reporting owner's scoped accessor. Its result MUST be exactly:
 
 ```json
 {"schema_id":"cartulary.extension_snapshot_reporting_participant_result.v1","kind":"empty"}
@@ -3362,7 +3556,7 @@ or:
 {"schema_id":"cartulary.extension_snapshot_reporting_participant_result.v1","kind":"output","output_schema_id":"...","output_sha256":"...","output_byte_size":0,"output_ref":"...","item_count":0}
 ```
 
-`empty` is successful participation with no emitted items. In an `output` result, `output_schema_id` MUST equal the specialization output schema, `output_byte_size` and `item_count` MUST equal the exact output and remain within the specialization limits, and `output_ref` MUST be a safe logical reference. The operation MUST apply the exact authorization, redaction, selection, and ordering contracts named by the specialization before returning a digest.
+`empty` is successful participation with no emitted items. In an `output` result, `output_schema_id` MUST equal the specialization output schema, `output_byte_size` and `item_count` MUST equal the exact output and remain within the specialization limits, and `output_ref` MUST satisfy `extension_safe_logical_ref_v1`. The operation MUST apply the exact authorization, redaction, selection, and ordering contracts named by the specialization before returning a digest.
 
 `cartulary.extension_backup_restore_participant_context.v1` MUST contain exactly:
 
@@ -3379,17 +3573,17 @@ or:
 `operation` MUST equal `backup_enumerate`, `restore_validate`, or `restore_rebuild`. `logical_family_ids[]` MUST equal the specialization operation's admitted state-family set, reject duplicates, and sort by UTF-8 bytes. `cartulary.extension_backup_restore_participant_result.v1` MUST be one operation-matching closed variant:
 
 - `backup_enumerate`: exactly `schema_id`, `operation='backup_enumerate'`, `binding_ids[]`, and `object_reference_family_ids[]`;
-- `restore_validate`: exactly `schema_id`, `operation='restore_validate'`, `status`, and `findings[]`, where `status='valid'` requires `findings=[]` and `status='invalid'` requires `1..256` findings;
+- `restore_validate`: exactly `schema_id`, `operation='restore_validate'`, `status`, and `findings[]`, where `findings[]` contains `0..256` `cartulary.extension_transaction_participant_finding.v1` objects, `status='valid'` requires `findings=[]`, and `status='invalid'` requires `1..256` findings;
 - `restore_rebuild`: exactly `schema_id`, `operation='restore_rebuild'`, `status='completed'`, and `rebuilt_family_ids[]`.
 
-The `schema_id` in every backup/restore result MUST equal `cartulary.extension_backup_restore_participant_result.v1`. Result arrays MUST reject duplicates and sort by ascending UTF-8 bytes. Findings MUST be secret-safe and deterministic. The participant MUST NOT return a binding or family absent from the physical binding and specialization.
+The `schema_id` in every backup/restore result MUST equal `cartulary.extension_backup_restore_participant_result.v1`. Result arrays MUST reject duplicates and sort by ascending UTF-8 bytes. Restore findings MUST follow the EXT-REQ-219 path, owner-mapping, secrecy, uniqueness, and sorting rules. The participant MUST NOT return a binding or family absent from the physical binding and specialization.
 
 All participant inputs and results MUST reject unknown members, duplicate members, wrong types, and explicit invalid `null`. For a claimed-profile invocation, the shared owner MUST provide one process-local read-only input accessor constrained to the exact context references and `state_family_ids[]` in the specialization. The accessor MUST count every selected item's canonical bytes and item count against `max_input_bytes` and `max_items`, MUST apply the specialization ordering before exposure, and MUST reject any attempt to enumerate or read another incident, snapshot, payload, binding, or logical family. The accessor MUST NOT be serialized, persisted, logged, returned, or retained after invocation.
 
 A result returned after its deadline is discarded under EXT-REQ-215. Backup and restore for inactive profiles MUST use the physical state binding and shared validators without profile code. A participant MUST NOT discover physical storage, incident data, another owner's state, secrets, or egress capability outside its exact context, scoped accessor, and specialization.
 
 Profiles: base
-Verified by: EXT-AC-117, EXT-FIX-072
+Verified by: EXT-AC-117, EXT-AC-134, EXT-FIX-072
 
 **EXT-REQ-140**
 For `incident_portability_mode='participant'`, the named profile owner MUST specialize the context and result schemas in EXT-REQ-221. The specialization MUST define logical export and import schema IDs and versions, canonical payload bytes and digest, authorization inputs, state and claim behavior, validation and errors, byte and item bounds, ordering, target publication participation, and every compatibility case in EXT-REQ-198. Unknown payloads remain inert and MUST NOT be executed.
@@ -3398,7 +3592,7 @@ Profiles: base
 Verified by: EXT-AC-066, EXT-AC-073, EXT-AC-094
 
 **EXT-REQ-141**
-For `incident_portability_mode='blocked_when_present'`, Incident Portability MUST evaluate the exact `cartulary.extension_state_blocking_predicate.v1` object under EXT-REQ-222. When it evaluates true, export MUST fail before bundle publication. The failure MUST identify the safe `profile_id` and MAY identify a safe logical family ID and bounded count. Omission behavior: when family or count is omitted, `profile_id` remains sufficient. The implementation MUST NOT silently omit state or publish a partial-success bundle.
+For `incident_portability_mode='blocked_when_present'`, Incident Portability MUST evaluate the exact `cartulary.extension_state_blocking_predicate.v1` object under EXT-REQ-222. When it evaluates true, export MUST fail before bundle publication. Generic error `details` MUST contain exactly `profile_id`; a family ID, count, physical identity, or profile-authored detail is forbidden. The implementation MUST NOT silently omit state or publish a partial-success bundle.
 
 Profiles: base
 Verified by: EXT-AC-034, EXT-AC-064
@@ -3453,7 +3647,7 @@ Verified by: EXT-AC-094, EXT-FIX-050
 | --- | ---: | --- | --- |
 | `no_authoritative_incident_state` | No | Any | Emit no profile payload. |
 | `no_authoritative_incident_state` | Yes | Any | Fail owner-integrity validation before bundle publication. |
-| `participant` | No | Any | Return participant result `omit` and emit no profile payload. |
+| `participant` | No | Any | Shared owner returns `omit` and emits no profile payload without invoking profile code. |
 | `participant` | Yes | Claimed | Invoke the typed participant; include only a valid `payload` result or omit on a valid `omit` result. |
 | `participant` | Yes | Unclaimed or recognized unclaimable | Fail before bundle publication with `extension_state_unavailable_for_portability`. |
 | `blocked_when_present` | No | Any | Continue without profile payload. |
@@ -3468,7 +3662,7 @@ Verified by: EXT-AC-094, EXT-FIX-050
 | Present | Profile recognized unclaimable | Fail before target publication. |
 | Present | Profile claimable but unclaimed | Fail before target publication. |
 | Present | Profile claimed with unsupported contract major, state version, lineage, schema, or digest | Fail before target publication. |
-| Present | Profile claimed and compatible | Validate through the typed participant and join final target publication. |
+| Present | Profile claimed and compatible | Invoke the typed participant irrespective of prior target state and join final target publication. |
 
 Contract major `1` defines no store-now-activate-later portability payload. Unknown or inactive payloads remain inert and cause import failure before publication.
 
@@ -3483,7 +3677,7 @@ Verified by: EXT-AC-094, EXT-FIX-050
 | Mode | Authoritative state present | Claim state | Required result |
 | --- | ---: | --- | --- |
 | `no_participation` | Any | Any | Do not query the profile and emit no profile output. |
-| `participant` | No | Any | Emit result `empty` and invoke no state reader that requires profile code. |
+| `participant` | No | Any | Shared owner returns `empty` and invokes no profile code. |
 | `participant` | Yes | Claimed | Invoke the typed participant and accept only `empty` or `output`. |
 | `participant` | Yes | Unclaimed or recognized unclaimable | Fail snapshot or render admission with `extension_state_unavailable_for_snapshot`. |
 
@@ -3606,8 +3800,30 @@ Verified by: EXT-AC-053, EXT-AC-057, EXT-AC-058
 
 # 26. Errors and startup diagnostics
 
+**EXT-REQ-233**
+`extension_safe_logical_ref_v1` MUST have exactly this form:
+
+```text
+<namespace>:<kind>:<opaque-id>
+```
+
+`namespace` and `kind` MUST each match `[a-z][a-z0-9_.-]{0,63}`. `opaque-id` MUST match `[A-Za-z0-9][A-Za-z0-9._~-]{0,381}`. The complete value MUST contain `5..512` UTF-8 bytes and exactly two colons. A slash, backslash, whitespace, control character, credential, endpoint, physical storage identity, absolute path, or incident-authored text is forbidden. A safe logical reference is non-authorizing and MUST resolve only through the owning scoped accessor; parsing its opaque ID into a physical identity is forbidden.
+
+The shared identifier closures are:
+
+- `audit_correlation_id` and `final_commit_id` MUST match `[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}` and contain `1..160` ASCII bytes;
+- `final_commit_id` MUST be unique within one deployment;
+- committed replay MUST return the original, identical `audit_correlation_id` and `final_commit_id`;
+- `operation_id`, `job_id`, and `cancellation_request_id` MUST import the exact scalar and bound from their adopted Core owner and MUST NOT define a local extension substitute; and
+- `config_path` MUST use `extension_diagnostic_path_v1` against the normalized configuration view, including the exact normalized key path.
+
+For malformed packaged bytes, `extension_registry_invalid.details.safe_ref` MUST derive only from the package slot's declared artifact kind and declared artifact identity, never from the malformed content. The value MUST be `cartulary:<artifact_kind>:<declared-artifact-id>` when that value satisfies this grammar. Otherwise it MUST be `cartulary:<artifact_kind>:sha256-<digest>`, where `<digest>` is the lowercase SHA-256 of the UTF-8 declared slot identity. It MUST NOT hash, quote, truncate, or encode malformed artifact bytes.
+
+Profiles: base
+Verified by: EXT-AC-138
+
 **EXT-REQ-159**
-Core 04 MUST add the generic reason codes in Table 26-A under top-level `error.code='invalid_deployment_config'` for startup admission. The fatal runtime reason `extension_integrity_failure` uses the Core runtime `service_unavailable` and fatal-readiness envelopes defined in §22. Profile-local startup codes MAY replace a generic code only under EXT-REQ-186.
+Core 04 MUST add the startup-admission reason codes in Table 26-A under top-level `error.code='invalid_deployment_config'`. The three rows explicitly owned by transaction, backup/restore, and readiness use their stated non-startup envelopes. The fatal runtime reason `extension_integrity_failure` uses the Core runtime `service_unavailable` and fatal-readiness envelopes defined in §22. Profile-local startup codes MAY replace a generic code only under EXT-REQ-186.
 
 Profiles: base
 Verified by: EXT-AC-005, EXT-AC-009, EXT-AC-010, EXT-AC-012, EXT-AC-013, EXT-AC-016, EXT-AC-018, EXT-AC-028, EXT-AC-084
@@ -3639,6 +3855,9 @@ Verified by: EXT-AC-005, EXT-AC-009, EXT-AC-010, EXT-AC-012, EXT-AC-013, EXT-AC-
 | `extension_unclaim_reconciliation_failed` | Nonterminal extension work cannot be reconciled safely while inactive. |
 | `extension_application_process_active` | Another application process owns the deployment-global serving lease. |
 | `extension_publication_failed` | Stage 6 could not reach the externally visible `serving` state. |
+| `extension_transaction_timeout` | Cross-owner transaction deadline expired and absence of commit was proven; HTTP `503`, `error.code='service_unavailable'`, and `retryable=true`. |
+| `backup_binding_codec_unsupported` | Backup metadata names a codec ID and digest that are not explicitly packaged for the binding; fail before restore mutation. |
+| `extension_staged_object_cleanup_dependency_failed` | Authorization or storage configuration prevents physical staged-object deletion; Core readiness is `degraded_dependency`. |
 | `extension_state_validation_failed` | Fresh, current-version, migrated, or restored profile state failed the final state validator. |
 | `extension_validation_result_invalid` | An owner algorithm returned malformed validation-result bytes or a structurally invalid result. |
 | `extension_diagnostic_overflow` | A validation phase or valid findings array would produce more than 4096 findings. |
@@ -3649,11 +3868,13 @@ Verified by: EXT-AC-005, EXT-AC-009, EXT-AC-010, EXT-AC-012, EXT-AC-013, EXT-AC-
 
 | Detail member | Closed values or derivation |
 | --- | --- |
-| `artifact_kind` | Exactly `dependency_snapshot`, `owner_contract_manifest`, `owner_fragment`, `owner_input_registry`, `profile_configuration_contract`, `profile_configuration_view`, `descriptor_source`, `descriptor`, `registry`, `registry_integrity`, `implementation_binding`, `client_support_registry`, `base_route_reservation_registry`, `physical_state_binding`, `job_kind_contract`, `participant_contract`, `validation_condition_registry`, `contract_closure_catalog`, `fixture_case_manifest`, `admission_validation`, `admission_validation_context`, `admission_validation_result`, `generated_schema`, `generator_source`, `conformance_manifest`, `manifest_index`, `accounting`, or `clause_traceability`. |
-| `phase` | Exactly `dependency_snapshot`, `owner_contract_manifest`, `owner_fragment`, `owner_input_registry`, `configuration_contract`, `descriptor_materialization`, `registry_generation`, `registry_collision`, `claim_configuration`, `process_lease`, `implementation_binding`, `dependency_validation`, `profile_preflight`, `migration`, `state_validation`, `post_migration_validation`, `dependency_probe`, `inactive_reconciliation`, `staged_object_cleanup`, `publication`, `fixture_execution`, `normative_source_lint`, or `conformance_accounting`. |
+| `artifact_kind` | Exactly `dependency_snapshot`, `owner_contract_manifest`, `owner_fragment`, `owner_input_registry`, `profile_configuration_contract`, `profile_configuration_view`, `descriptor_source`, `descriptor`, `registry`, `registry_integrity`, `implementation_binding`, `client_support_registry`, `base_route_reservation_registry`, `physical_state_binding`, `state_presence_manifest`, `state_initialization_definition`, `backup_binding_codec`, `job_kind_contract`, `participant_contract`, `validation_condition_registry`, `contract_closure_catalog`, `fixture_family_contract`, `fixture_case_manifest`, `fixture_manifest_index`, `admission_validation`, `admission_validation_context`, `admission_validation_result`, `generated_schema`, `generator_source`, `conformance_manifest`, `manifest_index`, `accounting`, or `clause_traceability`. |
+| `phase` | Exactly `dependency_snapshot`, `owner_contract_manifest`, `owner_fragment`, `owner_input_registry`, `configuration_contract`, `descriptor_materialization`, `registry_generation`, `registry_collision`, `claim_configuration`, `process_lease`, `implementation_binding`, `dependency_validation`, `profile_preflight`, `migration`, `state_validation`, `post_migration_validation`, `dependency_probe`, `transaction`, `backup_restore`, `inactive_reconciliation`, `staged_object_cleanup`, `publication`, `fixture_execution`, `normative_source_lint`, or `conformance_accounting`. |
 | `collision_class` | Exactly one `collision_class` token from Table 13-A; owner-input completeness and unrecognized-profile failures are not collision classes. |
 | Migration-timeout `operation_kind` | Exactly `migration_step` or `profile_migration`. |
 | `fatal_condition` | Exactly `indeterminate_database_commit`, `in_memory_contract_digest_mismatch`, `migration_ledger_state_mismatch`, `application_process_lease_lost`, or `staged_object_publication_mismatch`. |
+
+`staged_object_publication_mismatch` is the single safe classification for every digest, storage-identity, publication-state, or authoritative-reference contradiction in Table 20-B; it MUST NOT disclose the physical identity or select another fatal token.
 
 **EXT-REQ-160**
 Every generic finding MUST conform to `cartulary.extension_startup_finding.v1` and the reason-specific detail contract in Table 26-B. No unlisted detail member is valid.
@@ -3688,16 +3909,19 @@ Verified by: EXT-AC-069, EXT-AC-084
 | `extension_unclaim_reconciliation_failed` | `Extension-owned nonterminal work could not be reconciled safely.` | `profile_id`, `job_id`; `job_id` is nullable. |
 | `extension_application_process_active` | `Another Cartulary application process is active for this deployment.` | `timeout_seconds`. |
 | `extension_publication_failed` | `Extension publication did not reach the serving state.` | `phase`, `timeout_seconds`. |
+| `extension_transaction_timeout` | `The extension transaction did not complete before its deadline.` | `operation_id`, `timeout_seconds`. |
+| `backup_binding_codec_unsupported` | `The backup binding codec is not supported by this build.` | `profile_id`, `binding_id`, `backup_codec_id`, `backup_codec_sha256`. |
+| `extension_staged_object_cleanup_dependency_failed` | `Staged-object cleanup cannot access its storage dependency.` | None; `details` is exactly `{}`. |
 | `extension_state_validation_failed` | `Extension state failed final validation.` | `profile_id`, `phase`, `algorithm_id`. |
 | `extension_validation_result_invalid` | `An extension validation algorithm returned an invalid result.` | `profile_id`, `phase`, `algorithm_id`, `actual`; `profile_id` and `algorithm_id` are nullable; `actual` MUST use a safe formatter token from Table 26-D. |
 | `extension_diagnostic_overflow` | `Extension validation produced too many findings.` | `phase`, `limit`, `actual`. |
 | `extension_accounting_overflow` | `Extension conformance accounting produced too many findings.` | `phase`, `limit`, `actual`. |
 | `extension_integrity_failure` | `The process detected an extension integrity failure and is shutting down.` | `fatal_condition`. |
 
-All identifiers and digests in details MUST satisfy their owning scalar contracts. `artifact_kind`, `phase`, `collision_class`, migration-timeout `operation_kind`, and `fatal_condition` MUST use Table 26-A1. `safe_ref` MUST satisfy EXT-REQ-161. Nullable `expected` and `actual` under `extension_registry_invalid` MUST each be either `null` or a non-secret UTF-8 string of `0..512` bytes. `conflicting_profile_ids[]` MUST contain every recognized profile ID whose normalized declaration participates in the collision, no other profile ID, and `0..256` unique values sorted by ascending UTF-8 bytes; it MUST be `[]` only when the collision is not attributable to a recognized profile. `conflicting_tokens[]` MUST contain `1..256` unique strings derived exactly by Table 13-A and sorted by ascending UTF-8 bytes. `duplicate_count` MUST equal the actual normalized declaration or edge count as a JSON integer in `2..2147483647` when the Table 13-A predicate requires two or more declarations or duplicate edges. It MUST be `null` exactly for `route_family_overlap`, `base_route_capture`, `dependency_self`, and `dependency_cycle`. `timed_out` is Boolean. `timeout_seconds` MUST equal the effective Table 9-C value. For `extension_admission_validation_failed`, diagnostic `phase` MUST be `profile_preflight` when context phase is `preflight` and `post_migration_validation` when context phase is `post_migration`. For `extension_dependency_probe_failed`, diagnostic `phase` is not a details member and the startup phase is `dependency_probe`. `algorithm_id` and `probe_id` MUST satisfy their owning identifier contracts. `limit` and numeric `actual` values are non-negative JSON integers. `timeout_seconds` for `extension_application_process_active` and `extension_publication_failed` MUST equal the effective Table 9-C value for the applicable operation. For diagnostic or accounting overflow, `limit` MUST equal `4096` and `actual` MUST equal `4097`, representing the first finding beyond the permitted set. A string-valued `actual` MUST be one exact safe formatter output admitted by Table 26-D.
+All identifiers and digests in details MUST satisfy their owning scalar contracts. `artifact_kind`, `phase`, `collision_class`, migration-timeout `operation_kind`, and `fatal_condition` MUST use Table 26-A1. `safe_ref` MUST satisfy EXT-REQ-233. Nullable `expected` and `actual` under `extension_registry_invalid` MUST each be either `null` or a non-secret UTF-8 string of `0..512` bytes. `conflicting_profile_ids[]` MUST contain every recognized profile ID whose normalized declaration participates in the collision, no other profile ID, and `0..256` unique values sorted by ascending UTF-8 bytes; it MUST be `[]` only when the collision is not attributable to a recognized profile. `conflicting_tokens[]` MUST contain `1..256` unique strings derived exactly by Table 13-A and sorted by ascending UTF-8 bytes. `duplicate_count` MUST equal the actual normalized declaration or edge count as a JSON integer in `2..2147483647` when the Table 13-A predicate requires two or more declarations or duplicate edges. It MUST be `null` exactly for `route_family_overlap`, `base_route_capture`, `dependency_self`, and `dependency_cycle`. `timed_out` is Boolean. `timeout_seconds` MUST equal the effective Table 9-C value. For `extension_admission_validation_failed`, diagnostic `phase` MUST be `profile_preflight` when context phase is `preflight` and `post_migration_validation` when context phase is `post_migration`. For `extension_dependency_probe_failed`, diagnostic `phase` is not a details member and the startup phase is `dependency_probe`. `algorithm_id` and `probe_id` MUST satisfy their owning identifier contracts. `limit` and numeric `actual` values are non-negative JSON integers. `timeout_seconds` for `extension_application_process_active`, `extension_publication_failed`, and `extension_transaction_timeout` MUST equal the effective Table 9-C value for the applicable operation. For diagnostic or accounting overflow, `limit` MUST equal `4096` and `actual` MUST equal `4097`, representing the first finding beyond the permitted set. A string-valued `actual` MUST be one exact safe formatter output admitted by Table 26-D.
 
 **EXT-REQ-161**
-Diagnostics MUST NOT include raw secret values, transformed secret values, incident content, provider assertions, access tokens, table names, column names, SQL, object keys, bucket names, database names, raw endpoint credentials, source cells, file bytes, raw cryptographic failure details, or absolute filesystem paths. A `safe_ref` MUST be a non-secret `owner_locator_v1` or a harness-owned logical artifact reference.
+Diagnostics MUST NOT include raw secret values, transformed secret values, incident content, provider assertions, access tokens, table names, column names, SQL, object keys, bucket names, database names, raw endpoint credentials, source cells, file bytes, raw cryptographic failure details, or absolute filesystem paths. A `safe_ref` MUST be a non-secret `owner_locator_v1` or `extension_safe_logical_ref_v1`. Malformed packaged bytes use the package-slot derivation in EXT-REQ-233.
 
 Profiles: base
 Verified by: EXT-AC-069
@@ -3765,6 +3989,8 @@ Each `conditions[]` row MUST contain exactly:
 
 Rows MUST sort by `phase`, then `condition_id`, using ascending UTF-8 bytes. The array MUST contain `1..16384` rows. The canonical object MUST contain `1..16777216` bytes and serialize under `extension_registry_canonical_json_v1`. `extension_validation_condition_registry_sha256_v1` is the lowercase SHA-256 digest of that canonical byte form.
 
+The registry MUST include exact rows for transaction deadline expiry with proven absent commit using `extension_transaction_timeout`, unsupported backup codec selection using `backup_binding_codec_unsupported`, and staged-object cleanup authorization or storage-configuration failure using `extension_staged_object_cleanup_dependency_failed`. Their paths, formatters, multiplicity, secrecy, and owner locators MUST match EXT-REQ-219, EXT-REQ-235, and Table 20-B; omission of any row is invalid.
+
 An implementation MUST NOT infer a diagnostic path, reason code, expected value, actual value, multiplicity, or secret policy from local validation-library behavior. A condition absent from the canonical registry is a specification or generator defect and MUST fail conformance rather than produce an implementation-selected diagnostic.
 
 Every public error token named by an extension profile but owned elsewhere MUST resolve through `owner_contract_ref` to the exact owner contract for HTTP status or process outcome, `error.code`, reason-code vocabulary, retryability, and closed safe details. A locator that proves only the token spelling is insufficient.
@@ -3795,6 +4021,7 @@ Verified by: EXT-AC-119, EXT-AC-126, EXT-FIX-074
 | `collision` | Two or more otherwise valid declarations collide under a closed collision predicate. |
 | `algorithm_result_invalid` | An invoked algorithm returns bytes or a value outside its result schema. |
 | `timeout` | A declared deadline expires. |
+| `dependency_unavailable` | A required scoped storage or authorization dependency cannot be used. |
 | `commit_indeterminate` | A durable mutation or commit outcome cannot be proven. |
 
 **Table 26-D. Closed diagnostic formatter outputs**
@@ -3807,6 +4034,7 @@ Verified by: EXT-AC-119, EXT-AC-126, EXT-FIX-074
 | `diagnostic_integer_range_v1` | Exactly `integer:<minimum>..<maximum>` using base-10 integers. |
 | `diagnostic_count_v1` | Exactly `count:<decimal>` using a non-negative base-10 integer. |
 | `diagnostic_sha256_v1` | Exactly `sha256:<64-lowercase-hex>`. |
+| `diagnostic_safe_logical_ref_v1` | Exactly one `extension_safe_logical_ref_v1` value; no quoting or transformation. |
 | `diagnostic_redacted_v1` | Exactly `redacted`. |
 
 A configuration value classified as `secret_ref`, `regular_file_ref`, `trust_material_ref`, or `diagnostic_policy='name_only'` MUST use `diagnostic_redacted_v1`. Raw value interpolation, library exception text, parser excerpts, SQL errors, storage names, or absolute paths are forbidden.
@@ -3866,13 +4094,15 @@ Verified by: EXT-AC-004, EXT-AC-072, EXT-AC-073, EXT-AC-076, EXT-AC-081
 | `cartulary.extension_admission_validation_context.v1` schema | Extensions Subsystem |
 | `cartulary.extension_admission_validation_result.v1` schema | Extensions Subsystem |
 | `cartulary.extension_migration_context.v1` and migration apply/validation/final-state result schemas | Extensions Subsystem |
-| `cartulary.extension_state_presence_manifest.v1` | Each `extension_versioned` profile owner |
+| `cartulary.extension_state_presence_manifest.v1`, canonical digest artifacts, and golden vectors | Each `extension_versioned` profile owner plus Extensions generator |
+| `cartulary.extension_state_initialization_definition.v1`, context, and result schemas | Extensions Subsystem shape; each `extension_versioned` profile owner supplies one definition |
 | `cartulary.extension_physical_state_binding.v1` | Build system plus each durable profile owner |
+| `cartulary.extension_backup_binding_codec.v1` and codec/digest vectors | Build system, backup owner, and each durable profile owner |
 | `cartulary.extension_state_metadata.v1` logical schema | Extensions Subsystem |
 | `cartulary.extension_migration_ledger_entry.v1` logical schema | Extensions Subsystem |
 | `cartulary.extension_job_kind_contract.v1` and one contract per declared job kind | Extensions Subsystem shape; named profile owner content |
 | `cartulary.extension_job_commit_proof.v1` and cancellation-observation schemas | Core 01 common jobs plus Extensions Subsystem |
-| `cartulary.extension_transaction_participant_contract.v1` and shared context/result schemas | Core 01 plus Extensions Subsystem |
+| `cartulary.extension_transaction_participant_contract.v1`, shared context/result schemas, and `cartulary.extension_transaction_participant_finding.v1` | Core 01 plus Extensions Subsystem |
 | `cartulary.extension_participant_specialization.v1` plus portability, Snapshot/Reporting, and backup/restore participant context/result schemas and specialization contracts | Applicable shared and profile owners |
 | `cartulary.extension_state_blocking_predicate.v1` | Extensions Subsystem plus applicable profile owner |
 | `cartulary.extension_staged_object.v1` logical schema | Core 01 object-storage owner plus Extensions Subsystem |
@@ -3882,9 +4112,13 @@ Verified by: EXT-AC-004, EXT-AC-072, EXT-AC-073, EXT-AC-076, EXT-AC-081
 | `cartulary.extension_conformance_manifest.v1` | Named profile owner plus Testing Harness |
 | `cartulary.extension_conformance_manifest_index.v1` | Testing Harness |
 | `cartulary.extension_registry_accounting.v1` | Testing Harness |
+| `cartulary.extension_fixture_family_contract.v1` per Table 27-B fixture family | Applicable behavior owners plus Extensions generator |
 | `cartulary.extension_fixture_case_manifest.v1` per Table 27-B fixture family | Applicable owners plus Testing Harness |
+| `cartulary.extension_fixture_manifest_index.v1` | Testing Harness |
+| `cartulary.extension_fixture_scenario_result.v1` schema | Testing Harness; imported evidence interface only |
 | `cartulary.extension_clause_traceability.v1` | Testing Harness plus specification owner |
 | Canonicalization and normative-source-lint golden vectors | Extensions Subsystem plus Testing Harness |
+| `extension_safe_logical_ref_v1` schema and golden vectors | Extensions Subsystem |
 | Current-profile discovery fixture | Core 01 plus Testing Harness |
 | Claim and inactive-profile matrix fixtures | Core 04 plus Testing Harness |
 | Registry, dependency, binding, migration, recovery, compatibility, portability, reporting, security, client-state, diagnostics, closure, and accounting fixture sets | Applicable owners plus Testing Harness |
@@ -3909,17 +4143,21 @@ Verified by: EXT-AC-081, EXT-AC-095, EXT-AC-121, EXT-AC-122, EXT-FIX-037, EXT-FI
 | `requirement_ids[]` | `1..4096` unique ASCII owner requirement IDs of `1..128` bytes, sorted by numeric suffix where the family has one, then UTF-8 bytes. |
 | `acceptance_criterion_ids[]` | `1..4096` unique ASCII owner acceptance IDs of `1..128` bytes, sorted by numeric suffix where the family has one, then UTF-8 bytes. |
 | `fixture_ids[]` | `1..4096` unique Table 27-B family IDs or owner fixture-family IDs of `1..128` bytes, sorted by numeric suffix where the family has one, then UTF-8 bytes. |
+| `fixture_family_contract_digests[]` | `1..4096` closed `{fixture_family_id, fixture_family_contract_sha256}` rows for every applicable family, sorted by fixture-family numeric suffix. |
 | `fixture_case_ids[]` | `1..65536` unique executable case IDs matching EXT-REQ-228, sorted by fixture-family number and then case key. |
+| `fixture_scenario_ids[]` | Exact `1..65536` set of required scenario IDs from the applicable fixture-family contracts, sorted by fixture-family number and scenario ID. |
 | `public_schema_ids[]` | Exact canonical descriptor array. |
 | `contribution_ids[]` | Exact descriptor contribution IDs, sorted by UTF-8 bytes. |
 | `harness_target_ids[]` | `1..256` unique stable ASCII command or evidence-target IDs of `1..160` bytes, sorted by UTF-8 bytes. |
 | `contract_closure[]` | Exactly one resolution row per catalog item, ordered by the matching catalog item order. |
 
+`fixture_family_contract_digests[]` MUST reject duplicate family IDs, and each digest MUST equal the current family contract. `fixture_scenario_ids[]` MUST reject duplicates and equal the union of those contracts' required scenario IDs; omission or addition is invalid.
+
 `owner_contract_refs[]` MUST equal the complete union of:
 
 - every owner locator that supplied a descriptor fact for the profile;
 - every owner locator in a `contract_closure[]` row with `status='specified'`;
-- every owner locator required by the profile's participant, job-kind, migration, configuration, and public-schema contracts.
+- every owner locator required by the profile's participant, job-kind, initialization, migration, state-family, backup-codec, rebuild, configuration, fixture-scenario, and public-schema contracts.
 
 The manifest MUST contain no run timestamp, run ID, result root, manually asserted pass/fail claim, secret, incident value, implementation package path, physical storage name, or absolute path. It MUST serialize under `extension_registry_canonical_json_v1`. `extension_conformance_manifest_sha256_v1` is the lowercase SHA-256 digest of that canonical byte form.
 
@@ -3967,7 +4205,7 @@ Each `manifests[]` row MUST contain exactly:
 - `manifest_sha256`;
 - `safe_ref`.
 
-`safe_ref` MUST be a harness-owned non-secret logical artifact reference. Each claimable descriptor MUST resolve to exactly one index row and exactly one matching manifest. An unclaimable descriptor with `conformance_manifest_id=null` MUST have no row and no manifest. Zero matches, multiple matches, ID mismatch, profile mismatch, major mismatch, or digest mismatch is a conformance failure.
+`safe_ref` MUST be an `extension_safe_logical_ref_v1` whose namespace is exactly `harness`. Each claimable descriptor MUST resolve to exactly one index row and exactly one matching manifest. An unclaimable descriptor with `conformance_manifest_id=null` MUST have no row and no manifest. Zero matches, multiple matches, ID mismatch, profile mismatch, major mismatch, or digest mismatch is a conformance failure.
 
 **Table 27-A4. `cartulary.extension_registry_accounting.v1`**
 
@@ -3988,9 +4226,9 @@ Each `checks[]` row MUST contain exactly:
 - `input_digests[]`;
 - `safe_refs[]`.
 
-`profile_id` MUST be `null` exactly for registry-global checks. `status` MUST equal `pass` or `fail`. Each `input_digests[]` row MUST contain exactly `artifact_id` and `sha256`, reject duplicate artifact IDs, and sort by `artifact_id`. `safe_refs[]` MUST contain `0..64` unique non-secret owner locators or harness logical references sorted by UTF-8 bytes. A check result is valid only when its exact predicate from Table 27-A5 produced it from those exact input digests.
+`profile_id` MUST be `null` exactly for registry-global checks. `status` MUST equal `pass` or `fail`. Each `input_digests[]` row MUST contain exactly `artifact_id` and `sha256`, reject duplicate artifact IDs, and sort by `artifact_id`. `safe_refs[]` MUST contain `0..64` unique non-secret owner locators or `extension_safe_logical_ref_v1` values sorted by UTF-8 bytes. A check result is valid only when its exact predicate from Table 27-A5 produced it from those exact input digests.
 
-Each `findings[]` object MUST contain exactly `profile_id`, `check_id`, `reason_code`, and `safe_ref`. `profile_id` follows the matching check scope. `check_id` MUST use Table 27-A5. `reason_code` MUST use Table 27-A6. `safe_ref` is a non-secret owner locator or harness logical reference of at most 512 UTF-8 bytes.
+Each `findings[]` object MUST contain exactly `profile_id`, `check_id`, `reason_code`, and `safe_ref`. `profile_id` follows the matching check scope. `check_id` MUST use Table 27-A5. `reason_code` MUST use Table 27-A6. `safe_ref` is a non-secret owner locator or `extension_safe_logical_ref_v1`.
 
 `status` MUST equal `pass` if and only if every required check instance is present exactly once, every check has `status='pass'`, every check input digest equals its declared source, and `findings=[]`. Every other valid accounting object MUST use `status='fail'`. If finding 4097 would be produced, the harness MUST fail with `extension_accounting_overflow` and MUST NOT emit a conformant truncated accounting object.
 
@@ -4025,13 +4263,13 @@ Verified by: EXT-AC-122, EXT-FIX-077
 | `owner_contract_match` | `profile` | Every owner locator, requirement, schema, algorithm, configuration, migration, job, state, and participant declaration resolves through current owner manifests. |
 | `implementation_binding_match` | `profile` | The packaged binding satisfies every descriptor and owner-contract parity rule and supplies no undeclared behavior. |
 | `client_support_match` | `profile` | The packaged client support registry advertises only current descriptor majors, workspaces, capabilities, and schemas and binds to the verified canonical client asset-set manifest digest. |
-| `physical_state_binding_match` | `profile` | Logical state-presence families and implementation-owned physical authoritative stores have complete exact bindings, backup inclusion, validators, and rebuild declarations. |
+| `physical_state_binding_match` | `profile` | Authoritative and derived families, state-presence digest, implementation-owned stores, initialization definitions, backup codecs, backup inclusion, validators, and rebuild declarations have exact binding parity. |
 | `job_kind_contract_match` | `profile` | Every declared job kind has exactly one digest-bound contract and every proof/cancellation behavior matches it. |
 | `participant_contract_match` | `profile` | Every contribution requiring a participant resolves to one current shared interface and specialization digest, with no extra participant. |
 | `telemetry_match` | `profile` | The OpenTelemetry claimed-profile representation derives from the same resolved claim-set identity and current profile major. |
 | `conformance_manifest_match` | `profile` | Claimable descriptors resolve to exactly one matching manifest and index row; unclaimable descriptors resolve to neither. |
 | `contract_closure_match` | `profile` | The closure catalog digest is current and every catalog item has exactly one valid manifest resolution. |
-| `fixture_case_match` | `profile` | Every applicable fixture family has at least one current executable case, all cases map to current clauses, and all declared cases executed under the required harness target set. |
+| `fixture_case_match` | `profile` | Every applicable family contract is current, every required scenario has at least one current executable case naming exactly that scenario, all cases map to current clauses, and the adopted Harness reports a passing result for each required scenario. One case cannot account for another scenario identity. |
 
 **Table 27-A6. Closed accounting finding reasons**
 
@@ -4060,7 +4298,7 @@ Verified by: EXT-AC-073, EXT-AC-097
 | `EXT-FIX-001` | Canonical current-profile descriptor set and byte-identical registry regeneration. |
 | `EXT-FIX-002` | Missing, duplicate, extra, malformed, and unrecognized descriptor failures. |
 | `EXT-FIX-003` | Claim-key omission, true, false, explicit null, and wrong-type matrix. |
-| `EXT-FIX-004` | Inactive profile-local config rejection and exact pre-stage exception. |
+| `EXT-FIX-004` | Inactive forbidden and syntax-only configuration across plain, secret, file, trust, malformed, omitted, null, and unknown values without resource activation. |
 | `EXT-FIX-005` | Recognized-unclaimable claim failure. |
 | `EXT-FIX-006` | Missing, duplicate, and contract-major-mismatched implementation binding. |
 | `EXT-FIX-007` | Network Flow requires explicitly claimed Import and never auto-claims it. |
@@ -4091,7 +4329,7 @@ Verified by: EXT-AC-073, EXT-AC-097
 | `EXT-FIX-032` | Locator syntax, traversal, symlink, stale digest, zero-match, and multi-match rejection. |
 | `EXT-FIX-033` | Owner-fragment and owner-input registry derivation without prose extraction. |
 | `EXT-FIX-034` | Descriptor-source omission and canonical default materialization. |
-| `EXT-FIX-035` | Registry integrity, canonical bytes, stale detection, and build-bound digest admission. |
+| `EXT-FIX-035` | Build-time source drift, packaged-artifact integrity, runtime startup without a source checkout, and build-bound digest admission. |
 | `EXT-FIX-036` | Binding-to-descriptor contribution, capability, admission-algorithm, dependency-probe, state, migration, worker, and job parity. |
 | `EXT-FIX-037` | Manifest ID/index resolution, pass/fail biconditional, and accounting overflow. |
 | `EXT-FIX-038` | Every static and configured limit at minimum, maximum, and first invalid value. |
@@ -4102,7 +4340,7 @@ Verified by: EXT-AC-073, EXT-AC-097
 | `EXT-FIX-043` | Complete unclaimed and recognized-unclaimable behavior matrix. |
 | `EXT-FIX-044` | Job proof precedence, exact terminal success replay, contradictory proof, limit, and timeout. |
 | `EXT-FIX-045` | Non-database staging, publication instant, replay, and orphan cleanup. |
-| `EXT-FIX-046` | Fatal runtime shutdown state machine for every fatal condition. |
+| `EXT-FIX-046` | Imported fatal shutdown before listener bind, after bind but before serving, and while serving, including idempotent repeated signals. |
 | `EXT-FIX-047` | Strict current discovery producer and tolerant compatible decoder. |
 | `EXT-FIX-048` | Additive generic discovery transition and removal of the Network Flow local item. |
 | `EXT-FIX-049` | Compatibility action matrix, unsupported-major state, and unknown-value handling. |
@@ -4114,28 +4352,28 @@ Verified by: EXT-AC-073, EXT-AC-097
 | `EXT-FIX-055` | Zero-profile owner input, registry, integrity, discovery, and canonical empty byte forms. |
 | `EXT-FIX-056` | Descriptor-source ephemerality and prohibition on retained source bytes, digests, or runtime consumption. |
 | `EXT-FIX-057` | Complete profile configuration contract, defaults, explicit-null rejection, key bounds, and claimed-profile normalization. |
-| `EXT-FIX-058` | Inactive and retired configuration syntax-only handling without secret, file, trust-material, egress, or profile-code activation. |
+| `EXT-FIX-058` | Inactive and retired forbidden/syntax-only handling for plain, secret, file, trust, malformed, omitted, null, and unknown values without resolution, existence checks, egress, or profile code. |
 | `EXT-FIX-059` | Application-process lease acquisition, concurrent-process denial, crash release, lease-loss detection, and fatal shutdown. |
 | `EXT-FIX-060` | Stage 6 unpublished, prepared, committed, serving, rollback, and externally visible publication instant. |
 | `EXT-FIX-061` | Monotonic deadline start/end points, cancellation, grace, late-result discard, and indeterminate-outcome fatality. |
 | `EXT-FIX-062` | Base route-reservation exact/descendant overlap, parameter compatibility, parity, and extension collision behavior. |
 | `EXT-FIX-063` | Packaged client profile-major, workspace, capability, public-schema, and asset-digest support registry. |
-| `EXT-FIX-064` | Authorized workspace availability intersection, explicit unavailable targets, authorization loss, and cached-content disposal. |
+| `EXT-FIX-064` | Missing, malformed, incident-mismatched, current, stale-generation, stale-epoch, overflow-rollover, and secure-randomness-unavailable workspace availability. |
 | `EXT-FIX-065` | Network Flow generic discovery transition and explicit contract-major-2 version action. |
-| `EXT-FIX-066` | Cross-owner participant derivation, serialization-key order, lock order, validation/write order, conflict, replay, and cancellation. |
-| `EXT-FIX-067` | Staged-object startup sweep, running-process expiry lag, inaccessibility, deterministic deletion retries, and publication mismatch fatality. |
+| `EXT-FIX-066` | Transaction input/result/key bounds, participant ordering, timeout before transaction, rollback at steps 7–13, step-14 indeterminacy, conflict, and replay. |
+| `EXT-FIX-067` | Multi-batch staged-object cutoff sweep, expiry-time route denial, every closed deletion outcome, deterministic retries, and integrity fatality. |
 | `EXT-FIX-068` | Migration context capability scope, apply result, pending-state validation result, and final-state validation interfaces. |
-| `EXT-FIX-069` | Same-transaction migration postcondition validation and final validation for fresh, current, migrated, and restored state. |
+| `EXT-FIX-069` | Empty and algorithmic initialization plus exact-once final validation for fresh, current, multi-step migrated, failed-final-validation, and restored state. |
 | `EXT-FIX-070` | Job-kind proof policy, idempotency policy, resource-reference contracts, proof uniqueness, bounds, and cancellation policy. |
-| `EXT-FIX-071` | Logical-to-physical state binding completeness, backup inclusion, restore order, validation, and derived-state rebuild. |
-| `EXT-FIX-072` | Portability, Snapshot/Reporting, and backup/restore participant context and closed result variants. |
+| `EXT-FIX-071` | Authoritative/derived binding closure plus empty, single, multiple, duplicate, malformed-path, historical, unsupported-codec, and digest backup vectors. |
+| `EXT-FIX-072` | Participant operation ordering/duplicates and every portability, Snapshot/Reporting, and backup/restore invocation-matrix row with profile-code invocation counters. |
 | `EXT-FIX-073` | Declarative inactive-state blocking predicate across active, soft-deleted, failed-retained, and metadata-only state. |
 | `EXT-FIX-074` | Validation-condition registry completeness, path and formatter algorithms, multiplicity, secret policy, and external error locators. |
 | `EXT-FIX-075` | Owner validation-result structural, overflow, and ordinary-finding precedence at 4096 and 4097 findings. |
 | `EXT-FIX-076` | Generated closure catalog baseline, derived subject items, Core-owned specified locators, and item-specific not-applicable reasons. |
 | `EXT-FIX-077` | Named accounting predicates, exact input digests, required check instances, findings, and pass/fail biconditional. |
-| `EXT-FIX-078` | Executable fixture-case manifest inputs, clock, seed, operation, expected outcome, state digest, side effects, and cleanup. |
-| `EXT-FIX-079` | Accepted normative Markdown subset, linter failures, clause extraction, Table 28 continuity, and golden vectors. |
+| `EXT-FIX-078` | Fixture-family scenarios, executable case inputs, clock, seed, operation, expected outcome, state digest, side effects, and per-scenario accounting. |
+| `EXT-FIX-079` | Accepted normative Markdown subset, heading-depth changes, linter failures, clause extraction, Table 28 continuity, and golden vectors. |
 | `EXT-FIX-080` | Shared aggregate byte, depth, member, string, array, first-overflow, no-truncation, and integrity-set limits. |
 
 **Table 27-C. Fixture-to-requirement mapping**
@@ -4199,28 +4437,28 @@ Verified by: EXT-AC-073, EXT-AC-097
 | `EXT-FIX-055` | EXT-REQ-041..EXT-REQ-043, EXT-REQ-206 |
 | `EXT-FIX-056` | EXT-REQ-034, EXT-REQ-178, EXT-REQ-209 |
 | `EXT-FIX-057` | EXT-REQ-037, EXT-REQ-047..EXT-REQ-050, EXT-REQ-207..EXT-REQ-208 |
-| `EXT-FIX-058` | EXT-REQ-050, EXT-REQ-190, EXT-REQ-207..EXT-REQ-208 |
+| `EXT-FIX-058` | EXT-REQ-050, EXT-REQ-190, EXT-REQ-207..EXT-REQ-208, EXT-REQ-233 |
 | `EXT-FIX-059` | EXT-REQ-054, EXT-REQ-133..EXT-REQ-134, EXT-REQ-163, EXT-REQ-193, EXT-REQ-213 |
 | `EXT-FIX-060` | EXT-REQ-054..EXT-REQ-058, EXT-REQ-135, EXT-REQ-214 |
 | `EXT-FIX-061` | EXT-REQ-056, EXT-REQ-127, EXT-REQ-188..EXT-REQ-189, EXT-REQ-215 |
 | `EXT-FIX-062` | EXT-REQ-068..EXT-REQ-072, EXT-REQ-210 |
 | `EXT-FIX-063` | EXT-REQ-100..EXT-REQ-107, EXT-REQ-181..EXT-REQ-182, EXT-REQ-211 |
-| `EXT-FIX-064` | EXT-REQ-100..EXT-REQ-106, EXT-REQ-197, EXT-REQ-201, EXT-REQ-212 |
+| `EXT-FIX-064` | EXT-REQ-100..EXT-REQ-106, EXT-REQ-197, EXT-REQ-201, EXT-REQ-212, EXT-REQ-233 |
 | `EXT-FIX-065` | EXT-REQ-080, EXT-REQ-083, EXT-REQ-086, EXT-REQ-170, EXT-REQ-195, EXT-REQ-231 |
-| `EXT-FIX-066` | EXT-REQ-115..EXT-REQ-119, EXT-REQ-219 |
-| `EXT-FIX-067` | EXT-REQ-115..EXT-REQ-119, EXT-REQ-192 |
+| `EXT-FIX-066` | EXT-REQ-115..EXT-REQ-119, EXT-REQ-215, EXT-REQ-219, EXT-REQ-233 |
+| `EXT-FIX-067` | EXT-REQ-115..EXT-REQ-119, EXT-REQ-134, EXT-REQ-192 |
 | `EXT-FIX-068` | EXT-REQ-125..EXT-REQ-129, EXT-REQ-216 |
-| `EXT-FIX-069` | EXT-REQ-122, EXT-REQ-125..EXT-REQ-129, EXT-REQ-217 |
+| `EXT-FIX-069` | EXT-REQ-122, EXT-REQ-125..EXT-REQ-129, EXT-REQ-217, EXT-REQ-234 |
 | `EXT-FIX-070` | EXT-REQ-130..EXT-REQ-132, EXT-REQ-191, EXT-REQ-218 |
-| `EXT-FIX-071` | EXT-REQ-136..EXT-REQ-138, EXT-REQ-223 |
-| `EXT-FIX-072` | EXT-REQ-038, EXT-REQ-139..EXT-REQ-144, EXT-REQ-221..EXT-REQ-222, EXT-REQ-232 |
+| `EXT-FIX-071` | EXT-REQ-136..EXT-REQ-138, EXT-REQ-188, EXT-REQ-223, EXT-REQ-235 |
+| `EXT-FIX-072` | EXT-REQ-038, EXT-REQ-139..EXT-REQ-144, EXT-REQ-221..EXT-REQ-223, EXT-REQ-232, EXT-REQ-235 |
 | `EXT-FIX-073` | EXT-REQ-139..EXT-REQ-142, EXT-REQ-198, EXT-REQ-222 |
-| `EXT-FIX-074` | EXT-REQ-159..EXT-REQ-162, EXT-REQ-186, EXT-REQ-224 |
+| `EXT-FIX-074` | EXT-REQ-159..EXT-REQ-162, EXT-REQ-186, EXT-REQ-224, EXT-REQ-233, EXT-REQ-235 |
 | `EXT-FIX-075` | EXT-REQ-186, EXT-REQ-225 |
 | `EXT-FIX-076` | EXT-REQ-183, EXT-REQ-200, EXT-REQ-226 |
 | `EXT-FIX-077` | EXT-REQ-164, EXT-REQ-183, EXT-REQ-227 |
-| `EXT-FIX-078` | EXT-REQ-165..EXT-REQ-166, EXT-REQ-202, EXT-REQ-228 |
-| `EXT-FIX-079` | EXT-REQ-202, EXT-REQ-229 |
+| `EXT-FIX-078` | EXT-REQ-165..EXT-REQ-166, EXT-REQ-202, EXT-REQ-228, EXT-REQ-236 |
+| `EXT-FIX-079` | EXT-REQ-202, EXT-REQ-229, EXT-REQ-236 |
 | `EXT-FIX-080` | EXT-REQ-042..EXT-REQ-046, EXT-REQ-179..EXT-REQ-180, EXT-REQ-184, EXT-REQ-230 |
 
 **EXT-REQ-166**
@@ -4247,6 +4485,7 @@ Each `clauses[]` row MUST contain exactly:
 - `clause_text_sha256`;
 - `requirement_ids[]`;
 - `acceptance_criterion_ids[]`;
+- `fixture_scenario_ids[]`;
 - `fixture_case_ids[]`.
 
 `parent_anchor_kind` is closed to `document` and `req`. For `document`, `parent_anchor_id` MUST equal this NLSpec's `schema_id`; for `req`, it MUST equal one current `EXT-REQ-*` ID. `clause_kind` is closed to `front_matter_member`, `prose_block`, `unordered_list_item`, `ordered_list_item`, `table_caption`, `table_data_row`, `fenced_literal`, and `acceptance_row`. `document_ordinal` is the zero-based ordinal of the emitted clause in document order. `clause_ordinal` is the zero-based ordinal among rows having the same `(parent_anchor_kind, parent_anchor_id, clause_kind)` tuple.
@@ -4266,9 +4505,9 @@ Before extraction, the exact source bytes MUST pass `lint_extension_normative_so
 
 `clause_text_sha256` MUST be SHA-256 of those exact raw clause bytes. No prefix removal, whitespace normalization, Unicode normalization, line reflow, or Markdown rendering is permitted. `clause_id` MUST equal `extcl:` followed by the first 32 lowercase hexadecimal characters of SHA-256 over the canonical JSON object containing `extensions_document_sha256`, `document_ordinal`, `parent_anchor_kind`, `parent_anchor_id`, `clause_kind`, `clause_ordinal`, and `clause_text_sha256` under `extension_registry_canonical_json_v1`.
 
-Clause rows MUST sort by `document_ordinal`; that order MUST also make `document_ordinal` contiguous from `0`. Requirement and acceptance arrays MUST contain unique current identifiers sorted by numeric suffix. `fixture_case_ids[]` MUST contain unique IDs of the exact form `EXT-FIX-NNN:<case_key>`, where `<case_key>` matches `[a-z][a-z0-9_]{0,63}`, sorted first by fixture number and then by case key. Each clause row MUST map to at least one acceptance criterion or fixture case. Every acceptance criterion and fixture case MUST map back to at least one current clause row.
+Clause rows MUST sort by `document_ordinal`; that order MUST also make `document_ordinal` contiguous from `0`. Requirement and acceptance arrays MUST contain unique current identifiers sorted by numeric suffix. `fixture_scenario_ids[]` and `fixture_case_ids[]` MUST contain unique IDs of the exact form `EXT-FIX-NNN:<key>`, where `<key>` matches `[a-z][a-z0-9_]{0,63}`, sorted first by fixture number and then key. A case and its named scenario MUST map to at least one common current clause. Each clause row MUST map to at least one acceptance criterion or fixture scenario/case. Every acceptance criterion, required scenario, and fixture case MUST map back to at least one current clause row.
 
-A requirement ID mapped to one broad criterion does not close an untested distinguishing clause. Any unmapped clause, orphan criterion or case, duplicate clause identity, noncontiguous ordinal, ordinal collision, stale document digest, stale clause-text digest, invalid fixture-case ID, unresolved parent requirement, or linter/source-digest mismatch MUST fail adoption accounting.
+A requirement ID mapped to one broad criterion does not close an untested distinguishing clause. Any unmapped clause, orphan criterion, scenario, or case, case/scenario clause mismatch, duplicate clause identity, noncontiguous ordinal, ordinal collision, stale document digest, stale clause-text digest, invalid fixture scenario/case ID, unresolved parent requirement, or linter/source-digest mismatch MUST fail adoption accounting.
 
 Profiles: base
 Verified by: EXT-AC-097, EXT-AC-123, EXT-AC-124, EXT-FIX-078, EXT-FIX-079
@@ -4283,6 +4522,7 @@ Each Table 27-B fixture family MUST have one canonical `cartulary.extension_fixt
 `fixture_family_id` MUST equal one Table 27-B ID. `cases[]` MUST contain `1..1024` rows. Each case row MUST contain exactly:
 
 - `case_id`;
+- `scenario_id`;
 - `dependency_digests[]`;
 - `initial_state_refs[]`;
 - `configuration_ref`;
@@ -4293,10 +4533,9 @@ Each Table 27-B fixture family MUST have one canonical `cartulary.extension_fixt
 - `input_artifact_refs[]`;
 - `expected_outcome`;
 - `expected_state_manifest_sha256`;
-- `expected_side_effects[]`;
-- `cleanup_policy`.
+- `expected_side_effects[]`.
 
-`case_id` MUST equal `<fixture_family_id>:<case_key>`, where `<case_key>` matches `[a-z][a-z0-9_]{0,63}`. `dependency_digests[]` MUST contain closed `{artifact_id, sha256}` rows. `initial_state_refs[]` and `input_artifact_refs[]` MUST contain closed `{safe_ref, sha256}` rows. Those arrays MUST reject duplicate identities and sort by identity then digest. `configuration_ref` MUST be a harness-owned safe logical reference to one closed configuration object, and `configuration_sha256` MUST bind its exact canonical bytes.
+`case_id` MUST equal `<fixture_family_id>:<case_key>`, where `<case_key>` matches `[a-z][a-z0-9_]{0,63}`. `scenario_id` MUST identify exactly one required scenario in the family's EXT-REQ-236 contract. A case MUST NOT name multiple scenarios or satisfy accounting for another scenario identity. `dependency_digests[]` MUST contain closed `{artifact_id, sha256}` rows. `initial_state_refs[]` and `input_artifact_refs[]` MUST contain closed `{safe_ref, sha256}` rows. Those arrays MUST reject duplicate identities and sort by identity then digest. Every reference MUST satisfy `extension_safe_logical_ref_v1`. `configuration_ref` MUST be an `extension_safe_logical_ref_v1` whose namespace is exactly `harness` and MUST resolve to one closed configuration object; `configuration_sha256` MUST bind its exact canonical bytes.
 
 `clock` MUST contain exactly:
 
@@ -4311,35 +4550,74 @@ Each Table 27-B fixture family MUST have one canonical `cartulary.extension_fixt
 - success: `{kind, result_schema_id, result_sha256, findings_sha256, exit_code}` with `kind='success'`, non-null result schema and digest, the digest of the exact empty finding set when no findings exist, and an integer or `null` exit code;
 - failure: `{kind, error_code, reason_code, findings_sha256, exit_code}` with `kind='failure'`, exact expected error and reason tokens, exact finding-set digest, and an integer or `null` exit code.
 
-`expected_state_manifest_sha256` MUST bind the complete sorted regular-file and logical-state manifest after the operation, including the canonical empty state manifest when no state exists. Each `expected_side_effects[]` row MUST contain exactly `effect_kind` and `identity_sha256`. `effect_kind` MUST equal `database_commit`, `object_publication`, `audit_occurrence`, `job_terminal`, `websocket_event`, `listener_state`, or `process_exit`. The array MUST reject duplicate `(effect_kind, identity_sha256)` tuples and sort by effect kind then digest. `cleanup_policy` MUST equal `isolated_discard`.
+`expected_state_manifest_sha256` MUST bind the complete sorted regular-file and logical-state manifest after the operation, including the canonical empty state manifest when no state exists. Each `expected_side_effects[]` row MUST contain exactly `effect_kind` and `identity_sha256`. `effect_kind` MUST equal `database_commit`, `object_publication`, `audit_occurrence`, `job_terminal`, `websocket_event`, `listener_state`, or `process_exit`. The array MUST reject duplicate `(effect_kind, identity_sha256)` tuples and sort by effect kind then digest.
 
 The manifest MUST contain `1..16777216` canonical bytes, have nesting depth no greater than `32`, and reference no more than `1024` artifacts or expected effects per case. Large bytes MUST be digest-referenced rather than embedded. `extension_fixture_case_manifest_sha256_v1` is the lowercase SHA-256 digest of the canonical byte form.
 
-The Testing Harness MUST execute every current case in isolation and retain a closed result containing the case ID, resolved input digests, actual outcome, actual state-manifest digest, actual side-effect set, pass/fail result, and safe failure details. A fixture family name, test title, or broad target success without at least one current executable case MUST NOT satisfy Table 27-B.
+Execution, isolation, cleanup, scheduling, result paths, and result retention are owned exclusively by the adopted Testing Harness contract. This NLSpec imports `cartulary.extension_fixture_scenario_result.v1` from that owner and requires one current `status='pass'` result, bound to the case and dependency digests, for at least one executable case of every required scenario. A fixture family name, test title, broad target success, or one broad case mapped to multiple scenario identities MUST NOT satisfy Table 27-B.
 
 Profiles: base
-Verified by: EXT-AC-123, EXT-FIX-078
+Verified by: EXT-AC-123, EXT-AC-140, EXT-FIX-078
+
+**EXT-REQ-236**
+Every Table 27-B fixture family MUST have one canonical `cartulary.extension_fixture_family_contract.v1` containing exactly:
+
+- `schema_id`, exactly `cartulary.extension_fixture_family_contract.v1`;
+- `fixture_family_id`;
+- `required_scenarios[]`.
+
+Each scenario MUST contain exactly:
+
+- `scenario_id`;
+- `requirement_refs[]`;
+- `expected_behavior_ref`;
+- `boundary_class`.
+
+`scenario_id` MUST equal `<fixture_family_id>:<scenario_key>`, where `<scenario_key>` matches `[a-z][a-z0-9_]{0,63}`. `requirement_refs[]` MUST contain `1..64` unique current requirement IDs sorted by numeric suffix. `expected_behavior_ref` MUST be an `owner_locator_v1` that resolves to one exact owner requirement, table, schema, or algorithm. `boundary_class` MUST equal `min`, `max`, `below_min`, `above_max`, `omitted`, `explicit`, `explicit_null`, `wrong_type`, `enum_token`, `unknown_enum`, `matrix_row`, `failure_injection_position`, or `semantic`. Scenarios MUST reject duplicate IDs and sort by `scenario_id`. Distinct enum-token, matrix-row, and injection-position scenarios MAY share an owner locator only when their `scenario_id` keys identify the distinct admitted token, row identity, or step position.
+
+The required scenario set MUST be generated and supplemented exactly as follows:
+
+| Contract feature | Required scenario derivation |
+| --- | --- |
+| Numeric or byte bound | `min`, `max`, `below_min` when the scalar domain can represent it, and `above_max`. |
+| Defaulted optional value | `omitted`, `explicit`, `explicit_null`, and `wrong_type`. |
+| Closed enum | One `enum_token` per admitted token and one `unknown_enum`. |
+| Behavior matrix | One `matrix_row` per matrix row. |
+| Ordered failure-injection protocol | One `failure_injection_position` per injection position. |
+| Semantic condition not covered above | One explicitly authored `semantic` scenario row per independently observable condition. |
+
+When one feature satisfies more than one derivation class, every distinct scenario identity remains required. `required_scenarios[]` MUST contain `1..1024` rows so each scenario can have a distinct case within the matching case-manifest bound. The family contract MUST serialize under `extension_registry_canonical_json_v1`, contain `1..16777216` canonical bytes, and have digest `extension_fixture_family_contract_sha256_v1`. It MUST appear in the fixture manifest index, registry integrity, closure catalog, conformance manifest, accounting inputs, and clause traceability.
+
+`cartulary.extension_fixture_manifest_index.v1` MUST contain exactly `schema_id`, exactly `cartulary.extension_fixture_manifest_index.v1`, and `families[]`. Each row MUST contain exactly `fixture_family_id`, `fixture_family_contract_sha256`, `fixture_case_manifest_sha256`, and `safe_ref`. It MUST contain exactly one row per Table 27-B family, reject duplicates and extras, and sort by fixture-family numeric suffix. Both digests MUST equal the current canonical artifacts. `safe_ref` MUST be an `extension_safe_logical_ref_v1` whose namespace is exactly `harness`. The index MUST contain `1..16777216` canonical bytes and have digest `extension_fixture_manifest_index_sha256_v1`.
+
+The Testing Harness-owned `cartulary.extension_fixture_scenario_result.v1` evidence interface MUST be a closed object containing exactly `schema_id`, `fixture_family_id`, `scenario_id`, `case_id`, `fixture_family_contract_sha256`, `fixture_case_manifest_sha256`, `dependency_digests[]`, `status`, and `finding_refs[]`. `schema_id` MUST equal `cartulary.extension_fixture_scenario_result.v1`. The identities and digests MUST equal the executed current manifests. `dependency_digests[]` MUST equal the case inputs and sort by artifact ID. `status` MUST equal `pass` or `fail`; `pass` requires `finding_refs=[]`, and `fail` requires `1..64` `extension_safe_logical_ref_v1` values whose namespace is exactly `harness`. Run identity, path, scheduling, cleanup, timestamps, retention, and log shape are outside this interface and remain Harness-owned.
+
+Every executable fixture case names exactly one required scenario. Every required scenario MUST have at least one current executable case and at least one passing imported Harness result. An executable case MAY provide additional evidence, but it MUST NOT close another scenario's accounting row.
+
+Profiles: base
+Verified by: EXT-AC-140, EXT-FIX-078
 
 **EXT-REQ-229**
 `lint_extension_normative_source_v1` MUST accept a normative source document if and only if all of these conditions hold:
 
 1. bytes are valid UTF-8, contain no BOM, CR, NUL, or tab byte, and end with exactly one LF;
 2. headings use ATX syntax only, with one ASCII space after `#` characters; Setext headings are forbidden;
-3. fenced code blocks open at column 1 with exactly three backticks followed by an optional info string and close at column 1 with exactly three backticks; four-or-more-backtick fences, indented fences, and unterminated fences are invalid;
-4. indented code blocks and raw HTML blocks are forbidden;
-5. pipe tables use a leading and trailing pipe on every row, contain exactly one header row and one delimiter row, and use the same column count on every row;
-6. a literal pipe inside a table cell is escaped exactly as `\|`; a blank line or another block-level construct terminates the table, and a later pipe row begins another table rather than continuing the first;
-7. unordered and ordered list markers begin at column 1; nested list markers and multiline list continuations are forbidden in this revision;
-8. requirement markers use the exact line form `**EXT-REQ-NNN**`; acceptance IDs use `EXT-AC-NNN`; fixture-family IDs use `EXT-FIX-NNN`; duplicate IDs are invalid;
-9. Table 28-A is one continuous table, acceptance IDs are unique and contiguous from `EXT-AC-001` through the highest declared ID, and no acceptance-looking row exists outside that table;
-10. table-looking, requirement-looking, acceptance-looking, and fixture-looking text inside code fences is ignored for structural classification.
+3. outside code fences, the first heading MAY have any depth `1..6`; each later heading MAY remain at the same depth or decrease by any number of levels, but an increase MUST be by exactly one level;
+4. fenced code blocks open at column 1 with exactly three backticks followed by an optional info string and close at column 1 with exactly three backticks; four-or-more-backtick fences, indented fences, and unterminated fences are invalid;
+5. indented code blocks and raw HTML blocks are forbidden;
+6. pipe tables use a leading and trailing pipe on every row, contain exactly one header row and one delimiter row, and use the same column count on every row;
+7. a literal pipe inside a table cell is escaped exactly as `\|`; a blank line or another block-level construct terminates the table, and a later pipe row begins another table rather than continuing the first;
+8. unordered and ordered list markers begin at column 1; nested list markers and multiline list continuations are forbidden in this revision;
+9. requirement markers use the exact line form `**EXT-REQ-NNN**`; acceptance IDs use `EXT-AC-NNN`; fixture-family IDs use `EXT-FIX-NNN`; duplicate IDs are invalid;
+10. Table 28-A is one continuous table, acceptance IDs are unique and contiguous from `EXT-AC-001` through exactly `EXT-AC-141`, and no acceptance-looking row exists outside that table;
+11. table-looking, requirement-looking, acceptance-looking, and fixture-looking text inside code fences is ignored for structural classification.
 
 The linter result MUST bind the exact source digest and contain either `status='valid'` with `findings=[]` or `status='invalid'` with `1..4096` findings. Linter findings MUST use the §26 diagnostic path, ordering, formatter, and overflow rules. The linter MUST run before owner-anchor range validation, clause extraction, closure-catalog derivation, or adoption accounting.
 
-The golden vector set MUST include valid and invalid cases for: a blank line splitting two table blocks; an escaped pipe; a pipe inside a code fence; an invalid nested list; a missing final LF; a duplicate acceptance ID; a skipped acceptance ID; a table with unequal columns; a tab; a CRLF file; a BOM; raw HTML; Setext headings; four-backtick fences; and an unterminated fence.
+The golden vector set MUST include valid and invalid cases for: an H1-to-H2 increase; an invalid H1-to-H3 increase; a valid H4-to-H1 decrease; a blank line splitting two table blocks; an escaped pipe; a pipe inside a code fence; an invalid nested list; a missing final LF; a duplicate acceptance ID; a skipped acceptance ID; a table with unequal columns; a tab; a CRLF file; a BOM; raw HTML; Setext headings; four-backtick fences; and an unterminated fence.
 
 Profiles: base
-Verified by: EXT-AC-124, EXT-FIX-079
+Verified by: EXT-AC-124, EXT-AC-141, EXT-FIX-079
 
 **EXT-REQ-230**
 Unless a narrower contract applies, every canonical extension JSON artifact MUST enforce Table 27-D before emitting canonical bytes or a digest.
@@ -4362,7 +4640,7 @@ Profiles: base
 Verified by: EXT-AC-082, EXT-AC-125, EXT-AC-127, EXT-FIX-038, EXT-FIX-080
 
 **EXT-REQ-167**
-A required owner fragment, dependency snapshot, descriptor, binding, state-presence declaration, migration definition, fixture, owner reference, conformance manifest, manifest index, generated schema, accounting artifact, or adoption gate MUST NOT contain a `TODO` placeholder when this document is promoted to `adopted/current`.
+A required owner fragment, dependency snapshot, descriptor, binding, state-presence declaration, initialization definition, migration definition, backup codec, fixture-family contract, fixture-case manifest, fixture index, owner reference, conformance manifest, generated schema, accounting artifact, or adoption gate MUST NOT contain a `TODO` placeholder when this document is promoted to `adopted/current`.
 
 Profiles: base
 Verified by: EXT-AC-075, EXT-AC-128
@@ -4386,7 +4664,7 @@ The implementation and coordinated document set are conformant only when every c
 | `EXT-AC-009` | A recognized unclaimable profile remains discoverable and rejects a true claim request before startup. |
 | `EXT-AC-010` | A missing, duplicate, unrecognized, or major-mismatched implementation binding fails before profile migration or contribution registration. |
 | `EXT-AC-011` | Every omitted claim key materializes as `false`; explicit `false` produces the same resolved unclaimed state; true is only a request until admission succeeds. |
-| `EXT-AC-012` | Explicit null, string, integer, array, or object claim values fail, and unclaimed profile-local config fails unless the exact key is pre-stageable. |
+| `EXT-AC-012` | Explicit null, string, integer, array, or object claim values fail; unclaimed profile-local config is either forbidden or syntax-only under its exact configuration-contract row. |
 | `EXT-AC-013` | Any requested-claim failure starts no HTTP listener, WebSocket listener, or background-job runner and yields non-zero exit. |
 | `EXT-AC-014` | A requested unclaimable profile fails with `extension_profile_not_claimable`. |
 | `EXT-AC-015` | Public compatibility is determined by contract major and capabilities, not route version, document version, or package version. |
@@ -4453,18 +4731,18 @@ The implementation and coordinated document set are conformant only when every c
 | `EXT-AC-076` | Every descriptor fact derives from a digest-bound adopted owner fragment; arbitrary prose, implementation, route, and database extraction cannot create a fact. |
 | `EXT-AC-077` | Every owner locator resolves exactly once against the declared owner-document digest; absolute, traversal, backslash, symlink, stale, zero-match, and multi-match cases fail. |
 | `EXT-AC-078` | Descriptor-source omissions materialize exactly as specified, explicit `null` never invokes a default, and every canonical descriptor member is present. |
-| `EXT-AC-079` | Runtime accepts only the exact canonical dependency, owner-input, registry, integrity, and binding bytes bound into the build; semantically equivalent noncanonical or stale bytes fail. |
-| `EXT-AC-080` | Binding profile, major, descriptor digest, executable contributions, capabilities, admission algorithms, dependency probes, state kind, migrations, workers, and jobs satisfy the exact parity rules. |
+| `EXT-AC-079` | Generation and build verify every declared generator-source path and byte digest, while runtime accepts only the exact packaged canonical artifact identity and digest sets plus the embedded root digest and does not require source bytes. |
+| `EXT-AC-080` | Binding profile, major, descriptor digest, contributions, capabilities, admission, initialization, state, migration, codec, rebuild, transaction-limit, schema, worker, job, and participant declarations satisfy exact parity. |
 | `EXT-AC-081` | Every claimable descriptor manifest ID resolves to exactly one matching manifest; accounting pass/fail is biconditional; an unclaimable null manifest has no entry; overflow emits no conformant truncated accounting object. |
 | `EXT-AC-082` | Every static and configured limit accepts both valid boundaries and rejects the first value outside the domain with the exact reason and no partial admission. |
 | `EXT-AC-083` | Missing dependency edges are reported before graph ordering; each maximal multi-profile strongly connected component produces one canonical cycle finding; duplicate and pair findings follow the closed multiplicity table. |
 | `EXT-AC-084` | Startup finding paths, exact generic messages, closed detail objects, ordering, profile-local replacement rules, and overflow behavior match §26. |
 | `EXT-AC-085` | Every requested profile completes side-effect-free preflight before the first migration; a later failure publishes no routes or workers, while earlier committed migration steps remain resumable. |
 | `EXT-AC-086` | State presence, metadata consistency, lineage, migration lock, immutable definition digest, ledger, step timeout, profile timeout, and indeterminate-commit handling produce their exact outcomes. |
-| `EXT-AC-087` | Unclaimed and recognized-unclaimable profiles satisfy every row of Table 21-B, including inert retired configuration and generic job reconciliation. |
+| `EXT-AC-087` | Unclaimed and recognized-unclaimable profiles satisfy every Table 21-B row; syntax-only values remain inert, local availability checks never run, and generic job reconciliation remains shared-owner behavior. |
 | `EXT-AC-088` | Valid commit proof takes precedence over cancellation, the exact stored original success is replayed once, absent proof fails or cancels as specified, and contradictory proof blocks startup. |
 | `EXT-AC-089` | Authoritative non-database bytes are durable before database publication, become queryable exactly at final database commit, reject different-byte replay, and orphan within the required interval. |
-| `EXT-AC-090` | Every fatal integrity condition performs the exact quiesce, readiness, admission, drain, WebSocket, preservation, timeout, diagnostic, and exit-code sequence; nonfatal failures remain operation-local. |
+| `EXT-AC-090` | Every closed fatal condition imports Core 04 `fatal_integrity_shutdown_v1`, preserves committed state and durable jobs, is idempotent under repeated signals, emits no unadmitted WebSocket event, and exits `70`; ordinary admission failure exits `2`. |
 | `EXT-AC-091` | Current discovery producers emit no extra member; compatible consumers ignore additive unknown members but reject malformed known members and never execute unknown data. |
 | `EXT-AC-092` | Discovery retains the existing three Core fields, adds exactly the four generic fields, and no Network Flow profile-local discovery item remains normative or emitted. |
 | `EXT-AC-093` | Every compatibility-matrix row causes the required document, contract, state, schema, or algorithm action; unsupported majors and unknown values follow their exact client outcomes. |
@@ -4477,32 +4755,45 @@ The implementation and coordinated document set are conformant only when every c
 | `EXT-AC-100` | Zero recognized profiles, with the required dependency manifests retained but zero adopted owner fragments and zero normalized facts, produce the exact canonical empty-profile owner input, registry, integrity, discovery, and accounting states. |
 | `EXT-AC-101` | Descriptor-source instances remain ephemeral and are never persisted, hashed, packaged, logged, drift-checked, or consumed at runtime. |
 | `EXT-AC-102` | Every profile-local configuration key has a value schema, omission policy, inactive policy, resolution kind, diagnostic policy, and bound; claimed normalization produces the exact configuration view. |
-| `EXT-AC-103` | Inactive and retired configuration performs only the permitted syntax checks and never resolves secrets or files, loads trust material, performs egress, or invokes profile code. |
+| `EXT-AC-103` | Inactive and retired configuration performs only JSON-shape, scalar/reference-grammar, byte, and depth checks and never performs resolution, existence checks, DNS, connection validation, egress, or profile code. |
 | `EXT-AC-104` | Exactly one application process owns the deployment serving lease; a concurrent process performs no mutation or listener start, and confirmed lease loss enters fatal shutdown. |
 | `EXT-AC-105` | Stage 6 exposes no route, workspace, job dequeue, WebSocket subscription, or readiness success before every mandatory component reaches the atomic `serving` transition. |
-| `EXT-AC-106` | Every declared timeout uses the exact monotonic start and end points, cancellation signal, grace period, late-result discard, rollback/lock behavior, and indeterminate-outcome classification. |
+| `EXT-AC-106` | Every declared timeout uses the exact monotonic start/end points, included queue/lock work, cancellation checkpoint, grace, late-result discard, rollback/lock behavior, and final-commit outcome classification. |
 | `EXT-AC-107` | Every Base public path namespace appears exactly once in the canonical Base route-reservation registry, and exact/descendant overlap with every extension route family is deterministic. |
 | `EXT-AC-108` | The packaged client support registry advertises only digest-bound current profile majors, workspace keys, capabilities, and public schemas present in the canonical extension registry. |
-| `EXT-AC-109` | The client renders an extension workspace if and only if it lies in the exact intersection of claimed discovery, supported contract major, supported workspace key, and current authorized workspace availability; lower-generation bootstrap and profile responses cannot restore stale access. |
+| `EXT-AC-109` | The no-store workbook-startup member and local epoch/generation tuple gate the exact discovery/support/authorization intersection; stale or defective extension responses cannot render or alter Base behavior. |
 | `EXT-AC-110` | Network Flow discovery uses only the generic seven-member discovery item under explicitly adopted contract major 2 unless the adopted never-effective-defect exception proves every required condition. |
-| `EXT-AC-111` | Cross-owner participants derive and acquire serialization keys in one deterministic order, validate and write in one deterministic order, perform no automatic transaction retry, and publish no partial result. |
-| `EXT-AC-112` | Expired staged objects become inaccessible within the declared running-process lag or before readiness after downtime; deletion retries follow the exact schedule, and publication inconsistency is fatal. |
+| `EXT-AC-111` | Cross-owner participants satisfy exact input, result, key, finding, deadline, ordering, cancellation, conflict, timeout, replay, and final-commit outcomes with no automatic retry or partial result. |
+| `EXT-AC-112` | At expiry, unpublished staged bytes fail before storage access independently of cleanup; cutoff batches and every physical-deletion outcome follow the closed table, and integrity contradictions are fatal. |
 | `EXT-AC-113` | Every migration receives only its closed scoped context and returns only the closed apply and validation result variants; undeclared state and cross-owner access are impossible through the interface. |
-| `EXT-AC-114` | A migration step commits only after apply and pending-state postcondition validation pass in the same transaction, and final state validation passes for fresh, current, migrated, and restored state before claim publication. |
+| `EXT-AC-114` | Fresh initialization commits only after one final validation; current, fully migrated, and restored paths each invoke final validation exactly once, while migration steps use only pending-state validation and remain resumable after later failure. |
 | `EXT-AC-115` | Proof requiredness, proof prohibition, idempotency identity, terminal result, resource-reference contract, proof bounds, and cancellation behavior derive from the job-kind contract alone. |
-| `EXT-AC-116` | Every authoritative logical state family and physical authoritative store has a complete exact physical binding, backup inclusion, restore ordering, shared storage validator, and required rebuild declaration; inactive restore executes no profile code and defers excluded derived-state rebuild until claim admission. |
-| `EXT-AC-117` | Portability, Snapshot/Reporting, and backup/restore participants accept only their closed contexts and scoped input access, return only their closed result variants, enforce aggregate input/output limits, and preserve exact omit, empty, output, and error meanings. |
+| `EXT-AC-116` | Every authoritative and derived family has exact presence/binding classification, codec, backup inclusion, restore ordering, validator, and rebuild parity; filesystem is derived-only and inactive restore invokes no profile code. |
+| `EXT-AC-117` | Participant operations have canonical order and unique kinds; closed contexts/results, scoped access, limits, logical references, findings, and every shared-owner/profile-code invocation row are exact. |
 | `EXT-AC-118` | Inactive-state portability blockage is evaluated only by the declarative shared predicate over declared logical state families; inactive and retired profile code never executes. |
-| `EXT-AC-119` | Every reachable invalid condition maps to exactly one phase, path algorithm, reason code, formatter set, multiplicity, secret policy, and behavior-owner locator. |
+| `EXT-AC-119` | Every reachable invalid condition, including transaction timeout, unsupported backup codec, and cleanup dependency failure, maps to exactly one phase, path algorithm, reason, formatter set, multiplicity, secret policy, and owner locator. |
 | `EXT-AC-120` | Validation-result precedence distinguishes invalid bytes, invalid shape, 4097-item overflow, remaining schema defects, and valid ordinary findings exactly, without a truncated result. |
-| `EXT-AC-121` | The generated closure catalog contains every fixed baseline, owner requirement, configuration, schema, contribution, job, migration, and state-family item, and no profile owner can reduce the set. |
+| `EXT-AC-121` | The closure catalog contains every baseline, owner requirement, configuration, schema, contribution, job, migration, initialization, state-family, backup-codec, and fixture-scenario item, and no profile owner can reduce it. |
 | `EXT-AC-122` | Every accounting status is produced by a named predicate over exact current input digests; all required check instances are present once, and no manual Boolean or broad target result can produce `pass`. |
-| `EXT-AC-123` | Every Table 27-B fixture family has at least one executable digest-bound case with fixed configuration, clock, seed, operation, expected outcome, state digest, side effects, and isolated cleanup. |
-| `EXT-AC-124` | The normative-source linter accepts only the declared Markdown subset; Table 28-A is one continuous table with unique contiguous acceptance IDs, and all golden vectors produce their exact classification. |
-| `EXT-AC-125` | Every canonical artifact enforces total bytes, nesting, object-member, string, array, and first-overflow rules without truncation, partial output, or partial digest. |
+| `EXT-AC-123` | Every required fixture scenario has a digest-bound executable case naming exactly that scenario and a current passing Harness-owned result; family-level or multi-scenario shortcuts fail accounting. |
+| `EXT-AC-124` | The normative-source linter accepts only the declared Markdown subset and heading transitions; Table 28-A is continuous with unique contiguous IDs, and all golden vectors classify exactly. |
+| `EXT-AC-125` | Every canonical artifact, including state-presence, initialization, codec, and fixture-family artifacts, enforces total bytes, nesting, members, strings, arrays, and first-overflow without partial output or digest. |
 | `EXT-AC-126` | Every public error token owned outside the profile resolves to the exact owner contract for status, code, reason vocabulary, retryability, and closed safe details. |
-| `EXT-AC-127` | The registry-integrity object and runtime admission cover every owner manifest and every required static supporting contract artifact with exact identity and digest parity. |
+| `EXT-AC-127` | Registry integrity and runtime admission cover every owner manifest and required static supporting artifact with exact identity/digest parity while generator source bytes remain build-only provenance. |
 | `EXT-AC-128` | No current-scope owner input, closure item, fixture case, generated artifact, accounting predicate, acceptance mapping, or adoption gate contains unresolved `TODO` placeholder or an open delegation phrase. |
+| `EXT-AC-129` | Inactive syntax-only configuration never resolves, probes, validates existence of, or activates an external or local resource. |
+| `EXT-AC-130` | Transaction input, result, finding, key, and deadline bounds; cancellation checkpoints; and commit-boundary outcomes are exact. |
+| `EXT-AC-131` | Staged bytes become inaccessible independently of cleanup, and every storage outcome follows Table 20-B. |
+| `EXT-AC-132` | Authoritative/derived families, filesystem restriction, state-presence bytes and digest, and implementation-binding parity are exact. |
+| `EXT-AC-133` | Fresh, already-current, fully migrated, and restored paths invoke initialization and final validation exactly as specified. |
+| `EXT-AC-134` | Participant operation ordering and every state/claim invocation-matrix row are exact. |
+| `EXT-AC-135` | Backup codec framing, bounds, ordering, empty state, digest, historical-codec, and unsupported-codec behavior are exact. |
+| `EXT-AC-136` | Build verifies generator-source bytes while runtime needs only packaged artifacts and the embedded root digest. |
+| `EXT-AC-137` | Fatal conditions during startup and serving use the imported Core lifecycle and the correct idempotent exit-code behavior. |
+| `EXT-AC-138` | Every new or reused scalar satisfies its exact grammar, bound, secrecy, derivation, owner-import, and replay rule. |
+| `EXT-AC-139` | Workbook startup carries no-store availability; stale responses cannot render; `client_instance_id` and every Base/transport identity remain stable through epoch rollover. |
+| `EXT-AC-140` | Every required fixture scenario has an executable passing Harness-owned result, and no family-level coverage shortcut is accepted. |
+| `EXT-AC-141` | The exact document passes repository Markdown lint and the updated normative-source linter with acceptance IDs through `EXT-AC-141`. |
 
 # 29. Coordinated adoption gates and required companion amendments
 
@@ -4517,33 +4808,33 @@ Verified by: EXT-AC-001, EXT-AC-072, EXT-AC-075, EXT-AC-128
 | Gate ID | Required closure |
 | --- | --- |
 | `EXT-GATE-001` | Core 00 adopts this NLSpec for shared extension mechanics, associates every adopted owner document with one digest-bound owner contract manifest, sets every current profile major, sets `network_flow_activity@2`, and records `network_flow_activity -> import@1`. |
-| `EXT-GATE-002` | Core 01 adopts the strict seven-member discovery producer, tolerant compatible decoder, canonical Base route-reservation registry, reserved roots while inactive, authorized extension-workspace availability input, route overlap, and exact public dispatch precedence. |
-| `EXT-GATE-003` | Core 01 adopts the deterministic cross-owner transaction-participant protocol, generic extension-owned job proof and reconciliation, typed portability/reporting/backup participation, staged-object lifecycle, final-commit publication boundary, and post-commit recovery. |
-| `EXT-GATE-004` | Core 02 adopts or confirms the generic extension-resource boundary, logical state-family ownership boundary, and direct cross-owner authoritative-table-write prohibition. |
-| `EXT-GATE-005` | Core 03 binds workspace rendering to the exact discovery, packaged-client-support, and current-authorized-availability intersection and adopts lazy loading, unsupported-major behavior, Base fallback, authorization-loss disposal, and the complete client cache/request/queue/draft cleanup matrix. |
-| `EXT-GATE-006` | Core 04 adopts every claim key and complete profile configuration contract boundary, application-process lease, single-active-process deployment rule, monotonic deadline configuration, Stage 6 publication state machine, startup findings, readiness behavior, fatal shutdown reasons, and exact exit codes. |
-| `EXT-GATE-007` | Network Flow Activity publishes its owner manifest and fragments, removes public `document_version` and singular `route_root`, imports the generic discovery item, adopts contract major 2 unless the complete never-effective-defect exception is recorded, and declares Import dependency, migration lineage, final state validator, state presence, physical binding, job kinds, and declarative portability blocking. |
+| `EXT-GATE-002` | Core 01 adopts the strict seven-member discovery producer, tolerant decoder, Base route reservations, exact workbook-startup availability member and no-store behavior, reserved inactive routes, route overlap, and public dispatch precedence. |
+| `EXT-GATE-003` | Core 01 adopts the bounded transaction protocol and errors, staged-object access/cleanup and errors, backup codec selection/error, job proof/reconciliation, typed portability/reporting/backup participation, final-commit boundary, and recovery. |
+| `EXT-GATE-004` | Core 02 adopts or confirms the generic extension-resource boundary, authoritative/derived logical state-family ownership boundary, state-presence exclusion rules, and cross-owner authoritative-write prohibition. |
+| `EXT-GATE-005` | Core 03 adopts availability epoch/generation, stable `client_instance_id` and WebSocket identity, exact discovery/support/authorization intersection, lazy loading, unsupported-major behavior, Base fallback, authorization-loss disposal, and Base cache/request/queue/draft preservation. |
+| `EXT-GATE-006` | Core 04 adopts forbidden/syntax-only inactive processing, every timeout, process lease, single-active-process rule, Stage 6 publication, readiness including cleanup dependency degradation, `fatal_integrity_shutdown_v1`, and exit codes `2` and `70`. |
+| `EXT-GATE-007` | Network Flow Activity publishes its owner manifest and fragments, removes its competing discovery shape, adopts major 2 unless the complete exception is recorded, and declares Import dependency, empty initialization, migration/final validation, state presence/bindings/codecs, job kinds, participants, rebuilds, and portability blocking. |
 | `EXT-GATE-008` | Reporting and Report Composition import the generic descriptor, claim, compatibility, state-presence, participant-context, result, and lifecycle contracts without transferring reporting or composition ownership. |
-| `EXT-GATE-009` | Testing Harness adopts every §27 schema and predicate, canonical generation and drift checks, manifest index, named accounting checks, fixture-case execution, normative-source linter, clause ledger, overflow behavior, and `EXT-FIX-001` through `EXT-FIX-080`. |
+| `EXT-GATE-009` | Testing Harness adopts scenario execution/result mechanics, every §27 schema and predicate, generation/drift checks, manifest index, scenario accounting, fixture-case execution, normative-source linter, clause ledger, overflow behavior, and `EXT-FIX-001` through `EXT-FIX-080`. |
 | `EXT-GATE-010` | OpenTelemetry derives `cartulary.profile.claims` only from the canonical resolved claim set and its published digest and records no profile-local secret or incident content. |
 | `EXT-GATE-011` | `docs/domain.md` and implementation-support guides remove stale discovery, unclaimable, multi-process, migration, client-support, and owner-boundary language and add the adopted extension vocabulary without becoming behavior owners. |
-| `EXT-GATE-012` | Every required artifact, static supporting contract, fixture-case manifest, closure catalog, and generated schema exists; every acceptance criterion passes; and no required `TODO` placeholder or open delegation remains. |
+| `EXT-GATE-012` | Every required artifact, static supporting contract, fixture-family contract, fixture-case manifest, closure catalog, and generated schema exists; every acceptance criterion passes; and no required placeholder or open delegation remains. |
 | `EXT-GATE-013` | Every contributing owner document has one current owner contract manifest; its anchor ranges validate against the exact owner-document digest; and its adopted fragment ID/path/digest set matches exactly. |
-| `EXT-GATE-014` | The dependency snapshot, owner manifests, owner-input registry, descriptors, canonical registry, registry-integrity object, implementation bindings, supporting-contract artifact set, and build-bound integrity digest generate and validate without drift. |
-| `EXT-GATE-015` | Core 04 and the Extensions generator adopt every static/configurable limit, timeout, validation-condition row, diagnostic formatter, exact message/detail object, readiness state, and process exit code. |
-| `EXT-GATE-016` | Every state-owning profile adopts a state-presence manifest, physical-state binding, migration lineage, canonical migration definitions, scoped migration interfaces, same-transaction postcondition validation, final state validator, metadata, ledger, lock behavior, and job-kind contracts. |
+| `EXT-GATE-014` | Dependency snapshot, owner manifests/input, descriptors, registry/integrity, bindings, state-presence/init/codec/fixture artifacts, schemas, and embedded root digest generate and validate without drift. |
+| `EXT-GATE-015` | Core 04 and the Extensions generator adopt every static/configurable limit, timeout, validation-condition row, new runtime reason, diagnostic formatter, exact message/details object, readiness state, lifecycle import, and exit code. |
+| `EXT-GATE-016` | Every state-owning profile adopts state presence, initialization definition, physical binding, backup codecs, migration definitions/interfaces, exact-once final validation, rebuild algorithms, metadata, ledger, locks, and job-kind contracts. |
 | `EXT-GATE-017` | Core 01 and Network Flow complete the additive generic discovery transition under the adopted major-version action, and no competing profile-local discovery item or inactive precedence remains normative or emitted. |
-| `EXT-GATE-018` | Incident Portability, Reporting, Report Composition, and backup owners adopt the closed participant contexts/results, declarative inactive-state predicate, and complete state-presence and claim-state matrices in §23. |
+| `EXT-GATE-018` | Incident Portability, Reporting, Report Composition, and backup owners adopt the closed participant contexts/results/findings, logical-reference scalar, invocation matrix, declarative inactive predicate, physical codec boundary, and complete state/claim matrices. |
 | `EXT-GATE-019` | Every claimable profile has a current generated closure catalog and its conformance manifest resolves every catalog item through exact owner locators or one item-permitted not-applicable reason. |
-| `EXT-GATE-020` | Clause-level traceability passes, every current fixture family has executable cases, every requirement/criterion/case maps bidirectionally, every source digest is current, and named-predicate accounting reports `status='pass'`. |
+| `EXT-GATE-020` | Clause traceability passes; every required scenario has a current executable passing case; every requirement, criterion, scenario, and case maps bidirectionally; all digests are current; and accounting passes. |
 | `EXT-GATE-021` | The packaged browser assets include one digest-bound client support registry whose profile majors, workspaces, capabilities, and public schemas pass registry parity. |
 | `EXT-GATE-022` | The canonical Base route-reservation registry covers every Base public path namespace exactly once and passes parity against packaged Base handlers without capturing an extension-owned namespace. |
-| `EXT-GATE-023` | Deployment fixtures prove a second application process cannot mutate or serve, crash-released lease behavior is bounded, and lease loss produces the exact fatal shutdown sequence. |
-| `EXT-GATE-024` | Migration fixtures prove scoped access, apply/validation result closure, rollback before commit, no postcommit first validation, resumability, and final validation for fresh, current, migrated, and restored state. |
-| `EXT-GATE-025` | Cross-owner fixtures inject failure at every participant validation and write position and prove deterministic lock ordering, no automatic retry, exact conflict errors, and no partial effects. |
-| `EXT-GATE-026` | Staged-object fixtures prove startup sweeping, bounded running-process inaccessibility, deterministic deletion retries, no byte exposure, and fatal handling of publication inconsistency. |
-| `EXT-GATE-027` | Every Table 27-B fixture-case manifest is current, source-isolated, executable, digest-bound, retained under the Testing Harness, and mapped to current clauses. |
-| `EXT-GATE-028` | The normative-source linter accepts this exact document, Table 28-A is one continuous table with `EXT-AC-001` through `EXT-AC-128`, and aggregate-limit fixtures prove no partial output or digest. |
+| `EXT-GATE-023` | Deployment fixtures prove second-process denial and crash release, plus lease loss before bind, after bind before serving, and while serving under the exact imported fatal lifecycle. |
+| `EXT-GATE-024` | State fixtures prove empty/algorithm initialization, scoped access, pending-state validation, rollback, exact-once final validation, resumability, and fresh/current/migrated/restored outcomes. |
+| `EXT-GATE-025` | Transaction fixtures inject failure or cancellation at every ordered position and prove input/result/key limits, deadline, lock order, no retry, exact conflict/timeout/commit outcomes, and no partial effects. |
+| `EXT-GATE-026` | Staged-object fixtures prove multi-batch cutoff sweeping, access denial at expiry independently of cleanup, every deletion outcome, deterministic retry, no exposure, readiness degradation, and fatal contradictions. |
+| `EXT-GATE-027` | Every fixture-family and case manifest is current, executable, digest-bound, mapped to clauses, and has a passing scenario-bound result under the adopted Testing Harness schema. |
+| `EXT-GATE-028` | The normative-source linter accepts this exact document, including heading depth; Table 28-A is one continuous table with `EXT-AC-001` through `EXT-AC-141`; and aggregate-limit fixtures prove no partial output or digest. |
 
 **EXT-REQ-169**
 Core 00 MUST preserve ownership of recognition and claimability after adoption. This NLSpec's current-profile parity tables and generated registry MUST be regenerated when Core 00 changes; they MUST NOT prevent a valid later profile addition or retirement performed through a new coordinated contract revision.
@@ -4625,6 +4916,10 @@ R08 demonstrates the value of declarative plugin registration, dependency checks
 
 R09 demonstrates the importance of stable owner-provided row identity, controlled state, explicit renderer boundaries, and browser/node/visual verification. Those findings support stable extension workspace and resource identifiers, closed contribution points, and conformance fixtures that do not depend on visible position or labels.[^9]
 
+Across R01 through R09, the recurring architectural lesson is that boundaries must remain visible at failure and recovery time. That rationale supports explicit migration and shutdown commit boundaries, trust-isolated initialization and validation capabilities, stale-result suppression that does not rotate Base identity, and separation of authoritative state from rebuildable projections. It also supports the selected static typed extension points: stable identity and owner-controlled interfaces allow extensibility without a generic executable hook bus.
+
+The reports remain supporting evidence only. Product behavior, public compatibility, security outcomes, and conformance conditions belong in the Core Documents and named NLSpecs; worked examples, operational recipes, library observations, and design advice remain in appendices or implementation-support guides. This ownership split prevents research guidance from becoming an accidental second normative contract.
+
 # Appendix B. Non-normative worked examples
 
 These examples illustrate the normative contracts. They do not add behavior.
@@ -4680,7 +4975,11 @@ The following object is an illustrative field fragment, not a conforming complet
     "current_state_version": 1,
     "minimum_migratable_state_version": 1,
     "migration_lineage_id": "network_flow_activity.state_v1",
-    "state_presence_contract_ref": "docs/network-flow-activity-nlspec.md#schema:cartulary.extension_state_presence_manifest.v1"
+    "state_presence_contract_ref": "docs/network-flow-activity-nlspec.md#schema:cartulary.extension_state_presence_manifest.v1",
+    "initialization_definition_ref": "docs/network-flow-activity-nlspec.md#schema:cartulary.extension_state_initialization_definition.v1",
+    "initialization_definition_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "final_state_validation_algorithm_id": "network_flow_activity_validate_state_v1",
+    "final_state_validation_algorithm_ref": "docs/network-flow-activity-nlspec.md#algorithm:network_flow_activity_validate_state_v1"
   },
   "egress_mode": "none",
   "incident_portability_mode": "blocked_when_present",
@@ -4725,6 +5024,30 @@ Current run:  network_flow_activity.claimed = false
 ```
 
 The current run retains Network Flow authoritative state, starts no Network Flow worker, omits the Network Analysis workspace, and returns Core's reserved-unclaimed route error for the Network Flow family. Reclaim on a later restart validates the retained state before restoring availability.
+
+## B.5 Transaction cancellation positions
+
+If cancellation is already present before protocol step 7, the shared coordinator opens no database transaction. If cancellation arrives while step 10 validates participants, the coordinator requests rollback and reports cancellation only after absence of commit is proven. If cancellation races with the step-14 commit invocation, the ordinary cancellation response is no longer eligible; the result follows the normative final-commit outcome classification.
+
+## B.6 Staged-object sweep cutoff
+
+Suppose a cycle captures cutoff `T` and its eligible set needs three configured-size batches. Objects expiring at or before `T` remain in that cycle until all three batches are processed. An object expiring immediately after `T` waits for the next cycle. Independently, redemption of any unpublished object fails at its own expiry before storage access, so cleanup backlog does not extend logical availability.
+
+## B.7 Fresh state initialization
+
+Network Flow selects the `empty` initialization variant. The shared coordinator creates pending empty authoritative state and metadata in one transaction, invokes no profile initialization code, runs the final validator once against that pending state, and commits once only after a valid result. A profile selecting the algorithm variant follows the same transaction and final-validation boundary but invokes only its digest-bound scoped algorithm.
+
+## B.8 Backup binding framing
+
+For an empty binding, the digest input contains the domain-separation prefix and the framed binding ID, storage kind, and ASCII item count `0`; it has no entry frames. For a populated binding, entries are first ordered by their logical identity bytes, then each identity, raw content digest, and ASCII byte length is framed. These examples merely illustrate EXT-REQ-235; the appendix does not define another codec.
+
+## B.9 Availability epoch rollover
+
+When a generation increment would overflow, the client clears incident-local extension state, generates a new epoch, and continues at generation `1`. The existing `client_instance_id`, WebSocket resume identity, Base drafts, and Core pending queue remain unchanged. A response tagged with the prior epoch is ignored even if its numeric generation happens to match.
+
+## B.10 Fixture scenario accounting
+
+A fixture family that owns a bounded integer has separate scenario identities for its admitted endpoints and first invalid neighbors. One broad executable case may exercise several inputs for debugging convenience, but its manifest names exactly one scenario and its passing result closes only that scenario. The other scenario identities still require their own named executable cases and passing Harness results.
 
 ## Sources
 
