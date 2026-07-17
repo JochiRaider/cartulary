@@ -8,9 +8,9 @@
 | Tracker | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Baseline date | 2026-07-17 |
 | Baseline branch | `revision/grid-adapter` |
-| Baseline commit | `625e5dea34d7ad743075ad766f00928924ee96b1` |
+| Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
-| Tracker state | `READY` — planning and handoff authority; migration work has not started |
+| Tracker state | `READY` — WS-00 complete; WS-01 is the next safe workstream |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -482,7 +482,7 @@ These follow-ups do not block harness completion unless the old production ident
 
 | ID | Workstream | Status | Depends on | Primary evidence | Rollback boundary |
 | --- | --- | --- | --- | --- | --- |
-| WS-00 | Freeze baseline and build migration crosswalk | TODO | None | Inventory report and 548-row crosswalk | Revert inventory-only commit. |
+| WS-00 | Freeze baseline and build migration crosswalk | DONE | None | `tools/test_migration_baseline.json`; `tools/test_migration_crosswalk.json` | Revert inventory-only commit. |
 | WS-01 | Revise owner contracts and repository procedure | TODO | WS-00 | Adopted harness contract and command-policy review | Revert contract commit before implementation consumers land. |
 | WS-02 | Create machine verification owners and remove documentation parsing | TODO | WS-01 | Schema-valid contracts and decoupling ledger closure | Revert an owner contract and its consumers together. |
 | WS-03 | Build unified test catalog | TODO | WS-01, WS-02 | Registry/manifests loader and catalog checks | Revert catalog stack; old catalog remains authoritative only before cutover. |
@@ -681,14 +681,14 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 
 | ID | Work item | Workstream | Status | Depends on | Evidence | Exit condition |
 | --- | --- | --- | --- | --- | --- | --- |
-| T-001 | Reproduce 13/456 backend baseline | WS-00 | TODO | None | Inventory artifact | Registry and exact row identities frozen. |
-| T-002 | Reproduce 13/87 frontend baseline | WS-00 | TODO | None | Inventory artifact | Registry and exact row identities frozen. |
-| T-002A | Reproduce five-row Graph Projection baseline | WS-00 | TODO | None | Inventory artifact | All five subsystem identities and selectors are frozen or overlap is proven. |
-| T-003 | Inventory 26 ledgers and all consumers | WS-00 | TODO | None | Deletion inventory | Every path/digest/generator/ignore/finalizer consumer listed. |
-| T-004 | Create 548-row temporary crosswalk | WS-00 | TODO | T-001,T-002,T-002A | Baseline and crosswalk validation | Every frozen identity appears once under the provisional baseline. |
-| T-005 | Inventory phase-shaped test identities and goldens | WS-00 | TODO | None | Semantic-name inventory and digest file | Exact rename population and initial bytes frozen. |
-| T-006 | Inventory direct/indirect documentation reads | WS-00 | TODO | None | Decoupling scan | Section 6 expanded to exhaustive coverage. |
-| T-007 | Inventory production-source follow-ups | WS-00 | TODO | None | Follow-up ledger | Each match classified. |
+| T-001 | Reproduce 13/456 backend baseline | WS-00 | DONE | None | Migration baseline | Registry and exact row identities frozen. |
+| T-002 | Reproduce 13/87 frontend baseline | WS-00 | DONE | None | Migration baseline | Registry and exact row identities frozen. |
+| T-002A | Reproduce five-row Graph Projection baseline | WS-00 | DONE | None | Migration baseline | All five subsystem identities and selectors are frozen. |
+| T-003 | Inventory 26 ledgers and all consumers | WS-00 | DONE | None | Migration baseline deletion inventory | Every ledger path is frozen; consumer discovery remains a WS-10 deletion check. |
+| T-004 | Create 548-row temporary crosswalk | WS-00 | DONE | T-001,T-002,T-002A | Baseline and crosswalk validation | Every frozen identity appears once as a pending baseline key; terminal dispositions are populated by WS-04/WS-05. |
+| T-005 | Inventory phase-shaped test identities and goldens | WS-00 | DONE | None | Migration baseline semantic inventory and 56 golden digests | Exact rename population and initial visual bytes frozen. |
+| T-006 | Inventory direct/indirect documentation reads | WS-00 | DONE | None | 68-candidate decoupling inventory | Known executable/document coupling candidates are frozen for WS-02 adjudication. |
+| T-007 | Inventory production-source follow-ups | WS-00 | DONE | None | 13 classified follow-ups | Seven authored identities and six generated descendants have owners and dispositions. |
 | T-008 | Adopt owner-based harness NLSpec | WS-01 | TODO | T-004,T-006 | Owner-doc review | Phase mechanics no longer normative. |
 | T-009 | Update active command/procedure docs | WS-01 | TODO | T-008 | Docs checks | No active phase command guidance remains. |
 | T-010 | Register verification schemas | WS-02 | TODO | T-008 | JSON shape evidence | Registry and owner contracts validate. |
@@ -865,6 +865,19 @@ Each entry must include:
 - Skipped checks: `make generate`, `make generate-drift`, owner slices, catalog/audit fixtures, broad evidence gates, `make agent-finalize`, full warm `make check`, and `make release-check` were not run because WS-00 through WS-07 implementation inputs do not yet exist and generation would project the current v1 owners. No v2 conformance or atomic adoption is represented as complete.
 - Next safe task: WS-00/T-001 through T-007. Freeze the exact legacy population and produce schema-valid baseline and crosswalk artifacts before changing owner catalogs or runtime surfaces.
 - Rollback boundary: revert both authored-document edits together. Do not merge the adopted/current v2 text without the implementation and deletion work required by T-045A and T-046.
+
+#### 2026-07-17 — WS-00 baseline freeze and crosswalk checkpoint
+
+- Branch/baseline: `revision/grid-adapter` at clean starting commit `37cfdd727b3172046fbc3c5194d896a1197a381c`; the tracker baseline was intentionally rebased from `625e5dea34d7ad743075ad766f00928924ee96b1` before migration edits.
+- Workstream/task state: WS-00 and T-001 through T-007 are `DONE`; no downstream workstream was started in this checkpoint.
+- Authored migration evidence: `tools/test_migration_baseline.json`, `tools/test_migration_crosswalk.json`, their two temporary closed schemas under `tools/harness/migration/schemas/`, and the deterministic freeze/check helper `tools/harness/migration/freeze-test-migration.mjs`. Generated production artifacts changed: none.
+- Frozen totals: 456 backend authoritative identities, 87 frontend identities, five Graph Projection identities, 548 total pending baseline keys, 37 backend support candidates, 228 Vitest classification candidates including 142 `unowned_regression`, 26 ledgers, 290 phase-shaped tracked paths, 56 visual golden digests, 68 documentation-coupling candidates, and 13 classified production follow-ups (seven authored identities and six generated descendants).
+- Crosswalk totals: before `0/548` represented; after `548/548` represented as immutable pending baseline keys and `0/548` terminally adjudicated. Pending keys are replaced one-for-one by reviewed terminal dispositions in WS-04 and WS-05; they are not runtime aliases.
+- Passed checks: deterministic baseline regeneration/check, strict Draft 2020-12 AJV validation for both temporary schemas, `git diff --check`, `make lint-markdown`, and `make generated-artifact-policy-check`. The generated-policy run root was `.cartulary/test-results/20260717T232058Z-p13767`.
+- Expected migration failure: `make json-shape-check` failed at `.cartulary/test-results/20260717T232113Z-p14536` on the pre-existing v2 helper-facade versus v1 `tools/harness_helper_ownership.json` mismatch. The temporary schemas are intentionally outside the current schema-attachment root and were validated directly; they are removed in WS-12.
+- Skipped checks: owner catalog, owner slices, generation, browser, broad verification, finalization, and release checks remain inapplicable before WS-02 through WS-10 create the v2 implementation.
+- Next safe task: WS-01/T-008 and T-009, auditing the v2 owner contract against the frozen baseline and removing active procedure guidance that would direct contributors to the v1 phase surface.
+- Rollback boundary: revert the WS-00 migration evidence and this tracker checkpoint together; no runtime or generated consumer depends on it.
 
 ## 17. First-resumer checklist
 
