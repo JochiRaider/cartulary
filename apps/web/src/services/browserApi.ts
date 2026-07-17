@@ -1,4 +1,5 @@
 import { type PublicAPIError, publicErrorView } from "../shared/publicError";
+import { createClientTransactionId } from "./clientTransactionId";
 import {
   csrfCookieName,
   csrfHeaderName,
@@ -49,11 +50,5 @@ export function extractError(payload: unknown): APIError | null {
 }
 
 export function clientTxnID(prefix: string): string {
-  if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-  ) {
-    return `${prefix}-${crypto.randomUUID()}`;
-  }
-  return `${prefix}-${Date.now()}`;
+  return createClientTransactionId(prefix);
 }

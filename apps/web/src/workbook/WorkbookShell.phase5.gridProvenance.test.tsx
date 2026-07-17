@@ -453,7 +453,7 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
         view_schema_id: hostsViewSchemaId,
         base_row_version: 3,
         client_txn_id: expect.stringMatching(
-          /^entity-patch-cartulary\.view\.hosts\.v1-\d+$/u,
+          /^entity-patch-cartulary\.view\.hosts\.v1-[0-9a-f-]{36}$/u,
         ),
         changes: [
           { field_key: "host.display_name", value: "Gateway Host Edited" },
@@ -492,7 +492,7 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
       viewSchemaId: hostsViewSchemaId,
       body: {
         client_txn_id: expect.stringMatching(
-          /^entity-create-cartulary\.view\.hosts\.v1-\d+$/u,
+          /^entity-create-cartulary\.view\.hosts\.v1-[0-9a-f-]{36}$/u,
         ),
         "host.display_name": "Created Host",
       },
@@ -542,7 +542,7 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
         view_schema_id: identitiesViewSchemaId,
         base_row_version: 4,
         client_txn_id: expect.stringMatching(
-          /^entity-patch-cartulary\.view\.identities\.v1-\d+$/u,
+          /^entity-patch-cartulary\.view\.identities\.v1-[0-9a-f-]{36}$/u,
         ),
         changes: [
           {
@@ -585,7 +585,7 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
       viewSchemaId: identitiesViewSchemaId,
       body: {
         client_txn_id: expect.stringMatching(
-          /^entity-create-cartulary\.view\.identities\.v1-\d+$/u,
+          /^entity-create-cartulary\.view\.identities\.v1-[0-9a-f-]{36}$/u,
         ),
         "identity.display_name": "Created Identity",
       },
@@ -657,7 +657,7 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
         view_schema_id: notesViewSchemaId,
         base_row_version: 5,
         client_txn_id: expect.stringMatching(
-          /^generic-patch-cartulary\.view\.notes\.v1-\d+$/u,
+          /^generic-patch-cartulary\.view\.notes\.v1-[0-9a-f-]{36}$/u,
         ),
         changes: [{ field_key: "note.body", value: "Edited note body" }],
       },

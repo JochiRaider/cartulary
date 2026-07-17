@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
 } from "react";
 import { apiPath } from "../../../services/browserApi";
 import { fetchWorkbookJSON, readEnvelope } from "../../../services/workbookApi";
@@ -118,6 +119,45 @@ export function useTimelineConflictResolverCoordinator({
   readonly setSaveState: (state: TimelineSaveState) => void;
   readonly setSaveStateSecondaryMessage: (message: string | null) => void;
 }) {
+  const pendingResolverFocusRef = useRef<{
+    frame: number | null;
+    timer: number | null;
+  }>({ frame: null, timer: null });
+
+  const cancelScheduledResolverFocus = useCallback(() => {
+    const pending = pendingResolverFocusRef.current;
+    if (pending.frame !== null) {
+      window.cancelAnimationFrame(pending.frame);
+      pending.frame = null;
+    }
+    if (pending.timer !== null) {
+      window.clearTimeout(pending.timer);
+      pending.timer = null;
+    }
+  }, []);
+
+  const scheduleResolverSummaryFocus = useCallback(() => {
+    cancelScheduledResolverFocus();
+    pendingResolverFocusRef.current.frame = window.requestAnimationFrame(() => {
+      pendingResolverFocusRef.current.frame = null;
+      pendingResolverFocusRef.current.timer = window.setTimeout(() => {
+        pendingResolverFocusRef.current.timer = null;
+        (
+          document.querySelector(
+            dataTestIdSelector("conflict-resolver-summary"),
+          ) as HTMLElement | null
+        )?.focus({ preventScroll: true });
+      }, 0);
+    });
+  }, [cancelScheduledResolverFocus]);
+
+  useEffect(
+    () => () => {
+      cancelScheduledResolverFocus();
+    },
+    [cancelScheduledResolverFocus],
+  );
+
   const restoreConflictFocus = useCallback(
     (focusKey: string) => {
       window.setTimeout(() => {
@@ -204,6 +244,7 @@ export function useTimelineConflictResolverCoordinator({
         return next;
       });
       setActiveConflictKey(queueKey);
+      const shouldFocusResolverAfterEditor = activeConflictKey !== queueKey;
       if (
         reactivateEditor &&
         surface === "grid" &&
@@ -215,13 +256,18 @@ export function useTimelineConflictResolverCoordinator({
             conflict.field_key,
             conflict.client_value,
           );
+          if (shouldFocusResolverAfterEditor) {
+            scheduleResolverSummaryFocus();
+          }
         }, 0);
       }
     },
     [
+      activeConflictKey,
       activateGridEditor,
       rowsRef,
       scalarDraftValuesRef,
+      scheduleResolverSummaryFocus,
       setActiveConflictKey,
       setConflictQueueState,
       setRows,
@@ -268,19 +314,14 @@ export function useTimelineConflictResolverCoordinator({
       : activePasteConflictKeys.indexOf(activeConflictKey);
   const showPasteConflictNavigator =
     activePasteConflictKeys.length > 1 && activePasteConflictIndex >= 0;
+  const activeConflictIsOpen = activeConflict !== null;
 
   useEffect(() => {
-    if (activeConflict === null) {
+    if (!activeConflictIsOpen || activeConflictKey === null) {
       return;
     }
-    window.setTimeout(() => {
-      (
-        document.querySelector(
-          dataTestIdSelector("conflict-resolver-summary"),
-        ) as HTMLElement | null
-      )?.focus();
-    }, 0);
-  }, [activeConflict]);
+    scheduleResolverSummaryFocus();
+  }, [activeConflictIsOpen, activeConflictKey, scheduleResolverSummaryFocus]);
 
   const closeConflictResolver = useCallback(
     (conflict: LocalConflictState) => {

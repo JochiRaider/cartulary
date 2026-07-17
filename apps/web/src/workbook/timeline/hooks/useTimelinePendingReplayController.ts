@@ -1,6 +1,6 @@
 import type { GridEditCommitOutcome } from "@cartulary/grid-adapter";
 import { useCallback, useRef } from "react";
-import { apiPath } from "../../../services/browserApi";
+import { apiPath, clientTxnID } from "../../../services/browserApi";
 import {
   fetchWorkbookJSON,
   parseErrorMessage,
@@ -8,6 +8,7 @@ import {
 } from "../../../services/workbookApi";
 import {
   type PendingReplayUnitInput,
+  type PendingReplayUnitState,
   parsePendingReplayPublicError,
 } from "../../utils/workbookPendingQueue";
 import type { PendingReplayRuntimeMeta } from "../models/timelineControllerPorts";
@@ -66,6 +67,7 @@ export function useTimelinePendingReplayController({
   latestCommittedTimelineRow,
   pendingSavesRefsRef,
   publishPendingQueueState,
+  reconcileDiscardedPendingUnit,
   recordWorkbookTiming,
   resolvePendingSocketTxn,
   rowsRef,
@@ -103,6 +105,10 @@ export function useTimelinePendingReplayController({
     TimelinePendingSavesRefs<PendingReplayRuntimeMeta>
   >;
   readonly publishPendingQueueState: () => void;
+  readonly reconcileDiscardedPendingUnit: (
+    discardedUnit: PendingReplayUnitState,
+    remainingUnits: readonly PendingReplayUnitState[],
+  ) => void;
   readonly recordWorkbookTiming: (
     name: string,
     details?: Record<string, unknown>,
@@ -347,6 +353,78 @@ export function useTimelinePendingReplayController({
       publishPendingQueueState,
       recordWorkbookTiming,
       requestPendingReplay,
+    ],
+  );
+
+  const retryBlockedEdit = useCallback(
+    (unitId: string): boolean => {
+      const pending = pendingSavesRefsRef.current.pendingQueueRef.current;
+      let replacementClientTxnId: string;
+      try {
+        replacementClientTxnId = clientTxnID("timeline-client");
+      } catch (error) {
+        setRefreshError(
+          error instanceof Error
+            ? error.message
+            : "A secure request identifier could not be created.",
+        );
+        publishPendingQueueState();
+        return false;
+      }
+      const recovery = pending.model.retryHaltedWithNewClientTxnId(
+        unitId,
+        replacementClientTxnId,
+      );
+      if (!recovery.recovered) {
+        publishPendingQueueState();
+        return false;
+      }
+      setRefreshError(null);
+      publishPendingQueueState();
+      requestPendingReplay("client_transaction_conflict_retried");
+      return true;
+    },
+    [
+      pendingSavesRefsRef,
+      publishPendingQueueState,
+      requestPendingReplay,
+      setRefreshError,
+    ],
+  );
+
+  const discardBlockedEdit = useCallback(
+    (unitId: string): boolean => {
+      const pending = pendingSavesRefsRef.current.pendingQueueRef.current;
+      const recovery = pending.model.discardHaltedUnit(unitId);
+      if (!recovery.recovered) {
+        publishPendingQueueState();
+        return false;
+      }
+      const meta = pending.metaByUnitId.get(recovery.unit.id);
+      reconcileDiscardedPendingUnit(recovery.unit, recovery.snapshot.units);
+      pending.metaByUnitId.delete(recovery.unit.id);
+      clearPendingSignatureForUnit(recovery.unit);
+      if (meta !== undefined) {
+        clearViewportContinuity(meta.viewportContinuityToken);
+      }
+      settleCompletionCallbacks(recovery.unit.id, {
+        kind: "rejected_mutation",
+        message: "The blocked edit was discarded.",
+      });
+      setRefreshError(null);
+      publishPendingQueueState();
+      requestPendingReplay("blocked_edit_discarded");
+      return true;
+    },
+    [
+      clearPendingSignatureForUnit,
+      clearViewportContinuity,
+      pendingSavesRefsRef,
+      publishPendingQueueState,
+      reconcileDiscardedPendingUnit,
+      requestPendingReplay,
+      setRefreshError,
+      settleCompletionCallbacks,
     ],
   );
 
@@ -603,7 +681,9 @@ export function useTimelinePendingReplayController({
   };
 
   return {
+    discardBlockedEdit,
     enqueuePendingReplayUnit,
+    retryBlockedEdit,
     scheduleAuthRecoveryProbeRef,
     schedulePendingReplay,
   };

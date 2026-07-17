@@ -21,7 +21,7 @@ import {
 } from "@cartulary/view-contracts";
 import { X } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { apiPath } from "../../services/browserApi";
+import { apiPath, clientTxnID } from "../../services/browserApi";
 import {
   fetchWorkbookJSON,
   parseErrorMessage,
@@ -275,7 +275,7 @@ export function AssessmentWorkbookSurface({
     if (!canCreate) return;
     const payload = buildAssessmentCreatePayload(
       draft,
-      `assessment-${Date.now()}`,
+      clientTxnID("assessment"),
     );
     if (payload === null) {
       setMessage("Subject, state, and rationale are required.");

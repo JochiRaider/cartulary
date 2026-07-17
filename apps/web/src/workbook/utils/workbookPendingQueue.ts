@@ -312,6 +312,45 @@ export type PendingReplaySettlement =
       snapshot: PendingQueueSnapshot;
     };
 
+export type PendingReplayRecoveryRefusal =
+  | "in_flight"
+  | "invalid_client_txn_id"
+  | "not_halted"
+  | "same_client_txn_id"
+  | "unsupported_error"
+  | "wrong_unit";
+
+export type PendingReplayRetryRecoveryResult =
+  | {
+      recovered: true;
+      status: "retried";
+      unit: PendingReplayUnitState;
+      snapshot: PendingQueueSnapshot;
+    }
+  | {
+      recovered: false;
+      status: "refused";
+      reason: PendingReplayRecoveryRefusal;
+      snapshot: PendingQueueSnapshot;
+    };
+
+export type PendingReplayDiscardRecoveryResult =
+  | {
+      recovered: true;
+      status: "discarded";
+      unit: PendingReplayUnitState;
+      snapshot: PendingQueueSnapshot;
+    }
+  | {
+      recovered: false;
+      status: "refused";
+      reason: Exclude<
+        PendingReplayRecoveryRefusal,
+        "invalid_client_txn_id" | "same_client_txn_id" | "unsupported_error"
+      >;
+      snapshot: PendingQueueSnapshot;
+    };
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -1284,6 +1323,140 @@ export class WorkbookPendingQueueModel {
       outcome: "halted",
       unit: cloneUnit(unit),
       halt: cloneHalt(this.halted),
+      snapshot: this.snapshot(),
+    };
+  }
+
+  retryHaltedWithNewClientTxnId(
+    unitId: string,
+    newClientTxnId: string,
+  ): PendingReplayRetryRecoveryResult {
+    const snapshot = this.snapshot();
+    if (snapshot.inFlightCount > 0) {
+      return {
+        recovered: false,
+        status: "refused",
+        reason: "in_flight",
+        snapshot,
+      };
+    }
+    if (this.halted === null) {
+      return {
+        recovered: false,
+        status: "refused",
+        reason: "not_halted",
+        snapshot,
+      };
+    }
+    if (this.halted.unit_id !== unitId) {
+      return {
+        recovered: false,
+        status: "refused",
+        reason: "wrong_unit",
+        snapshot,
+      };
+    }
+    if (this.halted.error_code !== "client_txn_conflict") {
+      return {
+        recovered: false,
+        status: "refused",
+        reason: "unsupported_error",
+        snapshot,
+      };
+    }
+    const replacement = newClientTxnId.trim();
+    if (replacement === "") {
+      return {
+        recovered: false,
+        status: "refused",
+        reason: "invalid_client_txn_id",
+        snapshot,
+      };
+    }
+    const unit = this.units.find((candidate) => candidate.id === unitId);
+    if (unit === undefined) {
+      return {
+        recovered: false,
+        status: "refused",
+        reason: "wrong_unit",
+        snapshot,
+      };
+    }
+    if (unit.clientTxnId === replacement) {
+      return {
+        recovered: false,
+        status: "refused",
+        reason: "same_client_txn_id",
+        snapshot,
+      };
+    }
+
+    unit.clientTxnId = replacement;
+    unit.payloadIntent = {
+      ...unit.payloadIntent,
+      client_txn_id: replacement,
+    };
+    unit.identity = buildPendingReplayMutationIdentity(unit);
+    this.halted = null;
+    return {
+      recovered: true,
+      status: "retried",
+      unit: cloneUnit(unit),
+      snapshot: this.snapshot(),
+    };
+  }
+
+  discardHaltedUnit(unitId: string): PendingReplayDiscardRecoveryResult {
+    const snapshot = this.snapshot();
+    if (snapshot.inFlightCount > 0) {
+      return {
+        recovered: false,
+        status: "refused",
+        reason: "in_flight",
+        snapshot,
+      };
+    }
+    if (this.halted === null) {
+      return {
+        recovered: false,
+        status: "refused",
+        reason: "not_halted",
+        snapshot,
+      };
+    }
+    if (this.halted.unit_id !== unitId) {
+      return {
+        recovered: false,
+        status: "refused",
+        reason: "wrong_unit",
+        snapshot,
+      };
+    }
+    const unitIndex = this.units.findIndex(
+      (candidate) => candidate.id === unitId,
+    );
+    if (unitIndex < 0) {
+      return {
+        recovered: false,
+        status: "refused",
+        reason: "wrong_unit",
+        snapshot,
+      };
+    }
+    const [unit] = this.units.splice(unitIndex, 1);
+    if (unit === undefined) {
+      return {
+        recovered: false,
+        status: "refused",
+        reason: "wrong_unit",
+        snapshot,
+      };
+    }
+    this.halted = null;
+    return {
+      recovered: true,
+      status: "discarded",
+      unit: cloneUnit(unit),
       snapshot: this.snapshot(),
     };
   }

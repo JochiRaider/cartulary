@@ -29,6 +29,7 @@ export function useTimelinePendingSaves<TMeta>({
       queuedCount: 0,
       inFlightCount: 0,
       haltedMessage: null,
+      blockedEdit: null,
       authPaused: false,
       overflowMessage: null,
       resetRefreshInFlight: false,

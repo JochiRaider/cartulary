@@ -1,6 +1,10 @@
 import {
   cellPresenceMarkerTestId,
   gridShellTestId,
+  pendingQueueDiscardButtonTestId,
+  pendingQueueRecoveryPanelTestId,
+  pendingQueueRetryButtonTestId,
+  saveStateActionButtonTestId,
   saveStateTestId,
   timelineRowVersionTestId,
   timelineScalarEditorTestId,
@@ -1059,5 +1063,175 @@ describe("Phase 6 workbook collaboration coverage", () => {
         "future_terminal_public_error",
       );
     });
+  });
+
+  it("FE-U-P4-01 recovers a Timeline client transaction conflict with a fresh opaque request ID", async () => {
+    const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
+    routedFetch.mockRowQueryOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-retry-conflict",
+            rowVersion: 1,
+            summary: "Retry base",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    routedFetch.mockRecordPatchOnce(errorEnvelope("client_txn_conflict", 409));
+    routedFetch.mockRecordPatchOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-retry-conflict",
+        row: timelineRow({
+          recordId: "record-retry-conflict",
+          rowVersion: 2,
+          summary: "Retry local",
+          captureState: "rough",
+        }),
+      }),
+    );
+
+    render(<TimelineWorkbook incidentId="incident-1" />);
+    const input = (await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-retry-conflict",
+      "timeline.activity_synopsis_text",
+    )) as HTMLInputElement;
+    fireEvent.blur(await changeQueuedCellValue(input, "Retry local"));
+
+    const recoveryPanel = await screen.findByTestId(
+      pendingQueueRecoveryPanelTestId(),
+    );
+    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Conflict");
+    expect(
+      screen.getByRole("button", { name: "Retry with a new request ID" }),
+    ).toBe(screen.getByTestId(pendingQueueRetryButtonTestId()));
+    expect(screen.getByRole("button", { name: "Discard blocked edit" })).toBe(
+      screen.getByTestId(pendingQueueDiscardButtonTestId()),
+    );
+    expect(recoveryPanel.textContent).not.toContain("timeline-client-");
+
+    fireEvent.click(screen.getByTestId(saveStateActionButtonTestId()));
+    expect(document.activeElement).toBe(
+      screen.getByTestId("pending-queue-notice"),
+    );
+    fireEvent.click(screen.getByTestId(pendingQueueRetryButtonTestId()));
+    await waitForTimelineRecordPatchCalls(fetchMock, 2);
+    await waitFor(() => {
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
+    });
+
+    const first = extractTimelineRecordPatchBody(fetchMock, 0) as ReturnType<
+      typeof extractTimelineRecordPatchBody
+    > & { client_txn_id: string };
+    const retried = extractTimelineRecordPatchBody(fetchMock, 1) as ReturnType<
+      typeof extractTimelineRecordPatchBody
+    > & { client_txn_id: string };
+    expect(first.client_txn_id).toMatch(/^timeline-client-[0-9a-f-]{36}$/u);
+    expect(retried.client_txn_id).toMatch(/^timeline-client-[0-9a-f-]{36}$/u);
+    expect(retried.client_txn_id).not.toBe(first.client_txn_id);
+    expect(retried.base_row_version).toBe(1);
+    expect(retried.changes).toEqual(first.changes);
+  });
+
+  it("FE-U-P7-02 routes a same-field conflict from transaction recovery into the normal resolver", async () => {
+    const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
+    routedFetch.mockRowQueryOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-retry-same-field",
+            rowVersion: 3,
+            summary: "Resolver base",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    routedFetch.mockRecordPatchOnce(errorEnvelope("client_txn_conflict", 409));
+    routedFetch.mockRecordPatchOnce(
+      errorEnvelope("same_field_conflict", 409, {
+        conflict_token: "conflict-token-retry",
+        record_id: "record-retry-same-field",
+        field_key: "timeline.activity_synopsis_text",
+        conflict_resolution_class: "text_compare_merge",
+        base_row_version: 3,
+        current_row_version: 4,
+        client_value: "Resolver local",
+        server_value: "Resolver saved",
+        base_value: "Resolver base",
+      }),
+    );
+
+    render(<TimelineWorkbook incidentId="incident-1" />);
+    const input = (await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-retry-same-field",
+      "timeline.activity_synopsis_text",
+    )) as HTMLInputElement;
+    fireEvent.blur(await changeQueuedCellValue(input, "Resolver local"));
+    fireEvent.click(await screen.findByTestId(pendingQueueRetryButtonTestId()));
+
+    expect(await screen.findByTestId("conflict-resolver")).toBeTruthy();
+    expect(screen.queryByTestId(pendingQueueRecoveryPanelTestId())).toBeNull();
+    expect(
+      (screen.getByTestId("conflict-local-value") as HTMLInputElement).value,
+    ).toBe("Resolver local");
+    expect(
+      (screen.getByTestId("conflict-server-value") as HTMLInputElement).value,
+    ).toBe("Resolver saved");
+  });
+
+  it("FE-U-P4-01 discards a blocked edit locally without issuing another mutation", async () => {
+    const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
+    routedFetch.mockRowQueryOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-discard-conflict",
+            rowVersion: 1,
+            summary: "Discard base",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    routedFetch.mockRecordPatchOnce(errorEnvelope("client_txn_conflict", 409));
+
+    render(<TimelineWorkbook incidentId="incident-1" />);
+    const input = (await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-discard-conflict",
+      "timeline.activity_synopsis_text",
+    )) as HTMLInputElement;
+    fireEvent.blur(await changeQueuedCellValue(input, "Discard local"));
+    fireEvent.click(
+      await screen.findByTestId(pendingQueueDiscardButtonTestId()),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
+    });
+    expect(timelineRecordPatchCallURLs(fetchMock)).toEqual([
+      "/api/v1/records/record-discard-conflict",
+    ]);
+    const restored = (await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-discard-conflict",
+      "timeline.activity_synopsis_text",
+    )) as HTMLInputElement;
+    expect(restored.value).toBe("Discard base");
   });
 });

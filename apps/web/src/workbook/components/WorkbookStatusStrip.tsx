@@ -1,7 +1,9 @@
 import {
+  saveStateActionButtonTestId,
   saveStateTestId,
   statusStripQueueCountTestId,
 } from "@cartulary/ui-contracts";
+import type { CSSProperties } from "react";
 import {
   type WorkbookFocusAnchor,
   WorkbookFocusAnchorStatus,
@@ -29,6 +31,7 @@ export function WorkbookStatusStrip({
   queuedCount,
   saveState,
   saveStateSecondaryMessage,
+  onActivateConflict,
   workbookFocusAnchor,
 }: {
   readonly activeSheetPresenceRecords: readonly PresenceRecord[];
@@ -36,6 +39,7 @@ export function WorkbookStatusStrip({
   readonly queuedCount: number;
   readonly saveState: WorkbookStatusSaveState;
   readonly saveStateSecondaryMessage: string | null;
+  readonly onActivateConflict?: (() => void) | undefined;
   readonly workbookFocusAnchor: WorkbookFocusAnchor | null;
 }) {
   const headerPresence = visiblePresence(activeSheetPresenceRecords, 5);
@@ -43,15 +47,35 @@ export function WorkbookStatusStrip({
     <>
       <span style={statusStripItemStyle}>
         <span aria-hidden="true" style={statusIconStyle(saveState)} />
-        <strong
-          aria-live="polite"
-          aria-label="Save state"
-          data-density-role="narrow-metadata"
-          data-testid={saveStateTestId()}
-          role="status"
-        >
-          {saveState}
-        </strong>
+        {saveState === "Conflict" && onActivateConflict !== undefined ? (
+          <button
+            aria-label="Open conflict recovery"
+            data-testid={saveStateActionButtonTestId()}
+            style={statusStripActionButtonStyle}
+            type="button"
+            onClick={onActivateConflict}
+          >
+            <strong
+              aria-live="polite"
+              aria-label="Save state"
+              data-density-role="narrow-metadata"
+              data-testid={saveStateTestId()}
+              role="status"
+            >
+              {saveState}
+            </strong>
+          </button>
+        ) : (
+          <strong
+            aria-live="polite"
+            aria-label="Save state"
+            data-density-role="narrow-metadata"
+            data-testid={saveStateTestId()}
+            role="status"
+          >
+            {saveState}
+          </strong>
+        )}
       </span>
       {saveStateSecondaryMessage !== null ? (
         <span style={statusStripSecondaryItemStyle}>
@@ -139,3 +163,14 @@ const surfaceStatusStripErrorStyle = {
   color: "var(--ct-colors-semantic-conflict)",
   fontWeight: 700,
 };
+
+const statusStripActionButtonStyle = {
+  appearance: "none",
+  border: 0,
+  borderRadius: "var(--ct-rounded-xs)",
+  background: "transparent",
+  color: "inherit",
+  cursor: "pointer",
+  font: "inherit",
+  padding: "0.1rem 0.2rem",
+} satisfies CSSProperties;

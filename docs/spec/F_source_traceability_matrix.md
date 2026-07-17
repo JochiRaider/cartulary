@@ -228,7 +228,7 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-01-067 | Core 01 §3.3.5 Mutation contract | base | AC-125..AC-126, AC-181..AC-183, AC-188..AC-190, AC-200..AC-218, AC-221..AC-225, AC-231 |
 | REQ-01-068 | Core 01 §3.3.5 Mutation contract | base, snapshot_reporting | AC-125..AC-126, AC-181..AC-183, AC-188..AC-190, AC-200..AC-218, AC-221..AC-225, AC-231, AC-233 |
 | REQ-01-069 | Core 01 §3.3.5 Mutation contract | base | AC-125..AC-126, AC-181..AC-183, AC-188..AC-190, AC-200..AC-218, AC-221..AC-225, AC-231, AC-299 |
-| REQ-01-070 | Core 01 §3.3.5 Mutation contract | base | AC-125..AC-126, AC-181..AC-183, AC-188..AC-190, AC-200..AC-218, AC-221..AC-225, AC-231, AC-299 |
+| REQ-01-070 | Core 01 §3.3.5 Mutation contract | base | AC-125..AC-126, AC-181..AC-183, AC-188..AC-190, AC-200..AC-218, AC-221..AC-225, AC-231, AC-299, AC-486 |
 | REQ-01-071 | Core 01 §3.3.5 Mutation contract | base | AC-125..AC-126, AC-181..AC-183, AC-188..AC-190, AC-200..AC-218, AC-221..AC-225, AC-231 |
 | REQ-01-072 | Core 01 §3.3.5 Mutation contract | base | AC-125..AC-126, AC-181..AC-183, AC-188..AC-190, AC-200..AC-218, AC-221..AC-225, AC-231 |
 | REQ-01-073 | Core 01 §3.3.5 Mutation contract | base | AC-125..AC-126, AC-181..AC-183, AC-188..AC-190, AC-200..AC-218, AC-221..AC-225, AC-231 |
@@ -1278,6 +1278,8 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-03-219 | Core 03 §13.1 Grid editing | base | AC-005, AC-043, AC-231 |
 | REQ-03-220 | Core 03 §13.2 Required keyboard actions | base | AC-005, AC-231 |
 | REQ-03-300 | Core 03 §13.1 Grid editing | base | AC-485 |
+| REQ-03-301 | Core 03 §4.4 Local pending queue | base | AC-486 |
+| REQ-03-302 | Core 03 §4.4 Local pending queue | base | AC-486 |
 | REQ-03-221 | Core 03 §13.3 Bulk editing | base | AC-003, AC-040, AC-231 |
 | REQ-03-222 | Core 03 §13.3 Bulk editing | base | AC-003, AC-040, AC-231 |
 | REQ-03-223 | Core 03 §14.1 Sort and filter behavior | base | AC-013..AC-014, AC-044, AC-047, AC-124, AC-184..AC-185, AC-231, AC-387 |
@@ -1473,6 +1475,7 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | AC-004 | REQ-01-015..REQ-01-017, REQ-03-116..REQ-03-119 |
 | AC-005 | REQ-01-015..REQ-01-017, REQ-03-001..REQ-03-003, REQ-03-217..REQ-03-220, REQ-03-263 |
 | AC-485 | REQ-03-220..REQ-03-222, REQ-03-300 |
+| AC-486 | REQ-01-070, REQ-03-301..REQ-03-302 |
 | AC-006 | REQ-03-129..REQ-03-134, REQ-03-209..REQ-03-216, REQ-03-247..REQ-03-249 |
 | AC-007 | REQ-03-138..REQ-03-140, REQ-03-261..REQ-03-262 |
 | AC-008 | REQ-03-090..REQ-03-091 |

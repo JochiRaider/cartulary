@@ -1,6 +1,6 @@
 import type { ViewContract } from "@cartulary/view-contracts";
 import { useEffect, useState } from "react";
-import { apiPath } from "../../../services/browserApi";
+import { apiPath, clientTxnID } from "../../../services/browserApi";
 import { fetchWorkbookJSON } from "../../../services/workbookApi";
 import type { GenericSurfaceMutationController } from "../../hooks/useGenericSurfaceMutationController";
 import {
@@ -95,7 +95,7 @@ export function CoordinationWorkflowBindings({
         body: JSON.stringify({
           view_schema_id: taskRequestsViewSchemaId,
           base_row_version: target.row_version,
-          client_txn_id: `task-lifecycle-${Date.now()}`,
+          client_txn_id: clientTxnID("task-lifecycle"),
           changes,
         }),
       },
@@ -132,7 +132,7 @@ export function CoordinationWorkflowBindings({
         method: "POST",
         body: JSON.stringify({
           base_row_version: target.row_version,
-          client_txn_id: `decision-supersede-${Date.now()}`,
+          client_txn_id: clientTxnID("decision-supersede"),
           replacement_record_id: supersedeReplacementId,
           reason,
         }),

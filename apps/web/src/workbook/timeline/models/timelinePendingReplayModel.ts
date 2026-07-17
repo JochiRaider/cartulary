@@ -20,9 +20,18 @@ export type TimelinePendingQueueSnapshot = {
   queuedCount: number;
   inFlightCount: number;
   haltedMessage: string | null;
+  blockedEdit: TimelineBlockedEditRecovery | null;
   authPaused: boolean;
   overflowMessage: string | null;
   resetRefreshInFlight: boolean;
+};
+
+export type TimelineBlockedEditRecovery = {
+  unitId: string;
+  errorCode: string;
+  message: string;
+  canRetryWithNewClientTxnId: boolean;
+  canDiscard: true;
 };
 
 export type TimelinePendingReplayAdmissionRequest<TMeta> =
@@ -70,6 +79,17 @@ export function timelinePendingQueueSnapshot<TMeta>(
     queuedCount: snapshot.queuedCount,
     inFlightCount: snapshot.inFlightCount,
     haltedMessage: snapshot.halted?.message ?? null,
+    blockedEdit:
+      snapshot.halted === null
+        ? null
+        : {
+            unitId: snapshot.halted.unit_id,
+            errorCode: snapshot.halted.error_code,
+            message: snapshot.halted.message,
+            canRetryWithNewClientTxnId:
+              snapshot.halted.error_code === "client_txn_conflict",
+            canDiscard: true,
+          },
     authPaused: snapshot.authPaused,
     overflowMessage: snapshot.overflow?.message ?? null,
     resetRefreshInFlight: pending.resetRefreshInFlight,

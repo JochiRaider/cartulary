@@ -8,8 +8,12 @@ import {
   conflictMarkerTestId,
   draftCellTestId,
   gridShellTestId,
+  pendingQueueDiscardButtonTestId,
   pendingQueueNoticeTestId,
+  pendingQueueRecoveryPanelTestId,
+  pendingQueueRetryButtonTestId,
   rowCellTestId,
+  saveStateActionButtonTestId,
   saveStateTestId,
   timelineMutationSubstrateReadyTestId,
   timelineRowVersionTestId,
@@ -43,6 +47,8 @@ import {
 const timelineViewSchemaId = "cartulary.view.timeline.v2";
 const exactScenarioTitle =
   "FE-E-P4-01 Verify rough Timeline row creation, inline edit, paste, pending save, refresh, and replay through /api/v1/ route contracts.";
+const recoveryScenarioTitle =
+  "FE-E-P4-01 Recover Timeline client transaction blockers through remount-safe IDs, retry, discard, and same-field resolver handoff.";
 
 const allowedCreateFieldKeys = new Set([
   "client_txn_id",
@@ -245,6 +251,31 @@ async function openTimelineIncident(page: Page, incidentId: string) {
   await expect(
     page.getByTestId(gridShellTestId(timelineViewSchemaId)),
   ).toBeVisible();
+}
+
+async function submitTimelineSummary(
+  page: Page,
+  recordId: string,
+  value: string,
+) {
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_synopsis_text",
+    page,
+    recordId,
+    surface: timelineViewSchemaId,
+  });
+  await page
+    .getByTestId(rowCellTestId(recordId, "timeline.activity_synopsis_text"))
+    .click();
+  const editor = page.getByTestId(
+    timelineScalarEditorTestId({
+      fieldKey: "timeline.activity_synopsis_text",
+      recordId,
+      surface: "grid",
+    }),
+  );
+  await editor.fill(value);
+  await editor.press("Enter");
 }
 
 test(
@@ -1135,3 +1166,243 @@ test(
     });
   },
 );
+
+test(recoveryScenarioTitle, async ({ browser, page }) => {
+  test.setTimeout(180_000);
+
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("FEEP401RECOVERY"),
+    "FE-E-P4-01 transaction conflict recovery",
+  );
+  const remountRow = await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("feep401-remount-row"),
+      "timeline.activity_synopsis_text": "FE-E-P4-01 remount base",
+    },
+  );
+  const retryRow = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("feep401-retry-row"),
+    "timeline.activity_synopsis_text": "FE-E-P4-01 retry base",
+  });
+  const discardRow = await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("feep401-discard-row"),
+      "timeline.activity_synopsis_text": "FE-E-P4-01 discard base",
+    },
+  );
+  const sameFieldRow = await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("feep401-same-field-row"),
+      "timeline.activity_synopsis_text": "FE-E-P4-01 resolver base",
+    },
+  );
+
+  await openTimelineIncident(page, incidentId);
+  const patchController = await installPatchController(page);
+  try {
+    await test.step("new logical edits remain unique across a workbook remount", async () => {
+      await submitTimelineSummary(
+        page,
+        remountRow.record_id,
+        "FE-E-P4-01 remount first",
+      );
+      await expect.poll(() => patchController.calls.length).toBe(1);
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+      const firstClientTxnId = String(
+        patchController.calls[0]?.body.client_txn_id,
+      );
+
+      await page.reload();
+      await openTimelineIncident(page, incidentId);
+      await submitTimelineSummary(
+        page,
+        remountRow.record_id,
+        "FE-E-P4-01 remount second",
+      );
+      await expect.poll(() => patchController.calls.length).toBe(2);
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+      const secondClientTxnId = String(
+        patchController.calls[1]?.body.client_txn_id,
+      );
+
+      expect(firstClientTxnId).toMatch(
+        /^timeline-client-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+      );
+      expect(secondClientTxnId).toMatch(
+        /^timeline-client-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+      );
+      expect(secondClientTxnId).not.toBe(firstClientTxnId);
+    });
+
+    await test.step("retry rekeys only the blocker and rematerializes the current row version", async () => {
+      patchController.failNextPatch(409, "client_txn_conflict", {
+        recordId: retryRow.record_id,
+      });
+      await submitTimelineSummary(
+        page,
+        retryRow.record_id,
+        "FE-E-P4-01 retry local",
+      );
+      await expect.poll(() => patchController.calls.length).toBe(3);
+      const blockedCall = patchController.calls[2];
+      expect(blockedCall?.status).toBe(409);
+      const blockedClientTxnId = String(blockedCall?.body.client_txn_id);
+
+      const recoveryPanel = page.getByTestId(pendingQueueRecoveryPanelTestId());
+      await expect(recoveryPanel).toBeVisible();
+      expect(await recoveryPanel.getByRole("button").allTextContents()).toEqual(
+        ["Retry with a new request ID", "Discard blocked edit"],
+      );
+      await expect(
+        page.getByTestId(pendingQueueNoticeTestId()),
+      ).not.toContainText(blockedClientTxnId);
+
+      const serverAdvanceResponse = await patchTimelinePublic(
+        page,
+        retryRow.record_id,
+        {
+          view_schema_id: timelineViewSchemaId,
+          base_row_version: blockedCall?.body.base_row_version,
+          client_txn_id: uniqueTxn("feep401-retry-server-advance"),
+          changes: [
+            {
+              field_key: "timeline.data_source_text",
+              value: "FE-E-P4-01 server advance",
+            },
+          ],
+        },
+      );
+      expect(serverAdvanceResponse.ok()).toBeTruthy();
+      const serverAdvance = (await serverAdvanceResponse.json()) as {
+        data: { row: ViewApiRow };
+      };
+      await expect(
+        page.getByTestId(timelineRowVersionTestId(retryRow.record_id)),
+      ).toHaveText(String(serverAdvance.data.row.row_version));
+
+      await page.getByTestId(saveStateActionButtonTestId()).click();
+      await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeFocused();
+      const retryButton = page.getByTestId(pendingQueueRetryButtonTestId());
+      await retryButton.focus();
+      await retryButton.press("Enter");
+      await expect.poll(() => patchController.calls.length).toBe(4);
+      const retriedCall = patchController.calls[3];
+      expect(retriedCall?.status).toBe(200);
+      expect(retriedCall?.body.client_txn_id).not.toBe(blockedClientTxnId);
+      expect(retriedCall?.body.base_row_version).toBe(
+        serverAdvance.data.row.row_version,
+      );
+      expect(retriedCall?.body.changes).toEqual(blockedCall?.body.changes);
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+      await expect(recoveryPanel).toHaveCount(0);
+    });
+
+    await test.step("discard restores committed display without a server mutation", async () => {
+      patchController.failNextPatch(409, "client_txn_conflict", {
+        recordId: discardRow.record_id,
+      });
+      await submitTimelineSummary(
+        page,
+        discardRow.record_id,
+        "FE-E-P4-01 discard local",
+      );
+      await expect.poll(() => patchController.calls.length).toBe(5);
+      await expect(
+        page.getByTestId(pendingQueueRecoveryPanelTestId()),
+      ).toBeVisible();
+      const discardButton = page.getByTestId(pendingQueueDiscardButtonTestId());
+      await discardButton.focus();
+      await discardButton.press("Space");
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+      await expect(
+        page.getByTestId(pendingQueueRecoveryPanelTestId()),
+      ).toHaveCount(0);
+      await expect(
+        page.getByTestId(
+          rowCellTestId(
+            discardRow.record_id,
+            "timeline.activity_synopsis_text",
+          ),
+        ),
+      ).toHaveText("FE-E-P4-01 discard base");
+      expect(patchController.calls).toHaveLength(5);
+    });
+  } finally {
+    await patchController.dispose();
+  }
+
+  await test.step("a genuine same-field conflict after rekey opens the normal resolver", async () => {
+    const staleContext = await browser.newContext({
+      storageState: await page.context().storageState(),
+    });
+    const stalePage = await staleContext.newPage();
+    try {
+      await disableWorkbookSockets(stalePage);
+      await openTimelineIncident(stalePage, incidentId);
+      const stalePatchController = await installPatchController(stalePage);
+      try {
+        stalePatchController.failNextPatch(409, "client_txn_conflict", {
+          recordId: sameFieldRow.record_id,
+        });
+        await submitTimelineSummary(
+          stalePage,
+          sameFieldRow.record_id,
+          "FE-E-P4-01 resolver local",
+        );
+        await expect.poll(() => stalePatchController.calls.length).toBe(1);
+        const blockedCall = stalePatchController.calls[0];
+
+        const serverPatch = await patchTimelinePublic(
+          page,
+          sameFieldRow.record_id,
+          {
+            view_schema_id: timelineViewSchemaId,
+            base_row_version: sameFieldRow.row_version,
+            client_txn_id: uniqueTxn("feep401-resolver-server"),
+            changes: [
+              {
+                field_key: "timeline.activity_synopsis_text",
+                value: "FE-E-P4-01 resolver server",
+              },
+            ],
+          },
+        );
+        expect(serverPatch.ok()).toBeTruthy();
+
+        await stalePage.getByTestId(pendingQueueRetryButtonTestId()).click();
+        await expect.poll(() => stalePatchController.calls.length).toBe(2);
+        const retriedCall = stalePatchController.calls[1];
+        expect(retriedCall?.status).toBe(409);
+        expect(retriedCall?.body.client_txn_id).not.toBe(
+          blockedCall?.body.client_txn_id,
+        );
+        expect(retriedCall?.body.base_row_version).toBe(
+          sameFieldRow.row_version,
+        );
+        await expect(stalePage.getByTestId("conflict-local-value")).toHaveValue(
+          "FE-E-P4-01 resolver local",
+        );
+        await expect(
+          stalePage.getByTestId("conflict-server-value"),
+        ).toHaveValue("FE-E-P4-01 resolver server");
+        await expect(
+          stalePage.getByTestId(pendingQueueRecoveryPanelTestId()),
+        ).toHaveCount(0);
+      } finally {
+        await stalePatchController.dispose();
+      }
+    } finally {
+      await staleContext.close();
+    }
+  });
+});

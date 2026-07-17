@@ -1137,6 +1137,10 @@ export function saveStateTestId(): string {
   return "save-state";
 }
 
+export function saveStateActionButtonTestId(): string {
+  return "save-state-action";
+}
+
 export function statusStripQueueCountTestId(): string {
   return "status-strip-queue-count";
 }
@@ -1147,6 +1151,18 @@ export function pendingQueueNoticeTestId(): string {
 
 export function pendingQueueCountTestId(): string {
   return "pending-queue-count";
+}
+
+export function pendingQueueRecoveryPanelTestId(): string {
+  return "pending-queue-recovery-panel";
+}
+
+export function pendingQueueRetryButtonTestId(): string {
+  return "pending-queue-retry-new-request-id";
+}
+
+export function pendingQueueDiscardButtonTestId(): string {
+  return "pending-queue-discard-blocked-edit";
 }
 
 export function referencePackAdminPanelTestId(): string {

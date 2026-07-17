@@ -3,7 +3,7 @@
   "schema_version": 4,
   "phase_namespace": "frontend",
   "phase_id": "FE-P4",
-  "guide_digest": "1f27bf7711b334e71dd6c54152eb0e7ec3049df540b2c3901eaf3042dd7ce1b7",
+  "guide_digest": "31c017dd9613ce4e915e27a28bb8b905c9db51d1964a3e1544cc508a0db002af",
   "rows": [
     {
       "id": "FE-U-P4-01",
@@ -33,7 +33,9 @@
             "REQ-03-222",
             "REQ-03-236",
             "REQ-03-241",
-            "REQ-03-282"
+            "REQ-03-282",
+            "REQ-03-301",
+            "REQ-03-302"
           ],
           "ac_ids": [],
           "role": "product_owner",
@@ -47,7 +49,9 @@
         "REQ-03-222",
         "REQ-03-236",
         "REQ-03-241",
-        "REQ-03-282"
+        "REQ-03-282",
+        "REQ-03-301",
+        "REQ-03-302"
       ],
       "core_ac_ids": [
         "AC-003",
@@ -70,7 +74,8 @@
         "AC-299",
         "AC-354",
         "AC-394",
-        "AC-396"
+        "AC-396",
+        "AC-486"
       ],
       "support_or_design_ac_ids": [],
       "targets": [
@@ -96,7 +101,16 @@
         "FE-U-P4-01 keeps action result row versions ahead of stale projection reloads",
         "FE-U-P4-01 drives WorkbookShell admission, coalescing, and save-state from the shared pending queue model",
         "FE-U-P4-01 drives WorkbookShell retry and success settlement from the shared pending queue model",
-        "FE-U-P4-01 drives WorkbookShell terminal halt presentation from the shared pending queue model"
+        "FE-U-P4-01 drives WorkbookShell terminal halt presentation from the shared pending queue model",
+        "FE-U-P4-01 rekeys only a client transaction blocker and preserves FIFO intent",
+        "FE-U-P4-01 rejects invalid recovery transitions without changing queue state",
+        "FE-U-P4-01 discards exactly the halted blocker and resumes later FIFO work",
+        "FE-U-P4-01 recovers a Timeline client transaction conflict with a fresh opaque request ID",
+        "FE-U-P4-01 discards a blocked edit locally without issuing another mutation",
+        "FE-U-P4-01 retains the prefix and uses the platform UUID generator",
+        "FE-U-P4-01 uses RFC 4122 v4 formatting with secure random bytes as fallback",
+        "FE-U-P4-01 fails locally when Web Crypto is unavailable",
+        "FE-U-P4-01 keeps browser mutation IDs independent of counters, clocks, and insecure randomness"
       ],
       "claim_status": "implemented",
       "claim": {
@@ -347,13 +361,15 @@
         {
           "source_key": "core03",
           "path": "docs/spec/03_workbook_interaction_collaboration_and_workflows.md",
-          "section_ref": "Core 03 Sections 4.1 and 15",
-          "heading_text": "4.1 Autosave; 15 Timeline read and write contract",
+          "section_ref": "Core 03 Sections 4.1, 4.4, and 15",
+          "heading_text": "4.1 Autosave; 4.4 Local pending queue; 15 Timeline read and write contract",
           "req_ids": [
             "REQ-03-217",
             "REQ-03-222",
             "REQ-03-236",
-            "REQ-03-241"
+            "REQ-03-241",
+            "REQ-03-301",
+            "REQ-03-302"
           ],
           "ac_ids": [],
           "role": "product_owner",
@@ -368,7 +384,9 @@
         "REQ-03-217",
         "REQ-03-222",
         "REQ-03-236",
-        "REQ-03-241"
+        "REQ-03-241",
+        "REQ-03-301",
+        "REQ-03-302"
       ],
       "core_ac_ids": [
         "AC-003",
@@ -392,7 +410,8 @@
         "AC-354",
         "AC-394",
         "AC-396",
-        "AC-406"
+        "AC-406",
+        "AC-486"
       ],
       "support_or_design_ac_ids": [],
       "targets": [
@@ -414,11 +433,12 @@
         }
       ],
       "scenario_titles": [
-        "FE-E-P4-01 Verify rough Timeline row creation, inline edit, paste, pending save, refresh, and replay through /api/v1/ route contracts."
+        "FE-E-P4-01 Verify rough Timeline row creation, inline edit, paste, pending save, refresh, and replay through /api/v1/ route contracts.",
+        "FE-E-P4-01 Recover Timeline client transaction blockers through remount-safe IDs, retry, discard, and same-field resolver handoff."
       ],
       "claim_status": "implemented",
       "claim": {
-        "statement": "Verify rough Timeline row creation, inline edit, paste, pending save, refresh, and replay through /api/v1/ route contracts.",
+        "statement": "Verify Timeline public mutations, remount-safe transaction IDs, and blocked-edit recovery through retry, discard, and same-field resolver handoff.",
         "claim_publication_intent": "none",
         "closure_scope": "scenario"
       },
@@ -484,11 +504,11 @@
         }
       ],
       "scenario_titles": [
-        "FE-V-P4-01 Capture save-state strip, pending replay indication, inline edit cell, and empty successful Timeline query fixtures."
+        "FE-V-P4-01 Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures."
       ],
       "claim_status": "implemented",
       "claim": {
-        "statement": "Capture save-state strip, pending replay indication, inline edit cell, and empty successful Timeline query fixtures.",
+        "statement": "Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures.",
         "claim_publication_intent": "none",
         "closure_scope": "scenario"
       },

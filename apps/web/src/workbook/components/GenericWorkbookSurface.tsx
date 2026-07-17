@@ -39,7 +39,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { apiPath } from "../../services/browserApi";
+import { apiPath, clientTxnID } from "../../services/browserApi";
 import {
   fetchWorkbookJSON,
   parseErrorMessage,
@@ -256,7 +256,7 @@ export function ContractWorkbookSurface({
     const payload = buildGenericCreatePayload(
       contract,
       createDraft,
-      `generic-create-${contract.viewSchemaId}-${Date.now()}`,
+      clientTxnID(`generic-create-${contract.viewSchemaId}`),
     );
     if (payload === null) {
       setValidationError(genericCreateMinimumMessage(contract.viewSchemaId));
@@ -349,7 +349,7 @@ export function ContractWorkbookSurface({
           body: JSON.stringify({
             view_schema_id: contract.viewSchemaId,
             base_row_version: target.baseRowVersion,
-            client_txn_id: `grid-edit-${contract.viewSchemaId}-${Date.now()}`,
+            client_txn_id: clientTxnID(`grid-edit-${contract.viewSchemaId}`),
             changes: [change],
           }),
         },
@@ -664,7 +664,7 @@ export function ContractWorkbookSurface({
     const payload = await submitPatchMutation({
       baseRowVersion: selectedEditRow.row_version,
       changes: [change],
-      clientTxnId: `generic-patch-${contract.viewSchemaId}-${Date.now()}`,
+      clientTxnId: clientTxnID(`generic-patch-${contract.viewSchemaId}`),
       recordId: selectedEditRow.record_id,
       viewSchemaId: contract.viewSchemaId,
     });
@@ -686,7 +686,7 @@ export function ContractWorkbookSurface({
     const payload = await submitPatchMutation({
       baseRowVersion: selectedEditRow.row_version,
       changes,
-      clientTxnId: `${txnPrefix}-${contract.viewSchemaId}-${Date.now()}`,
+      clientTxnId: clientTxnID(`${txnPrefix}-${contract.viewSchemaId}`),
       recordId: selectedEditRow.record_id,
       viewSchemaId: contract.viewSchemaId,
     });
@@ -713,7 +713,7 @@ export function ContractWorkbookSurface({
     }
     beginMutation();
     const createPayload: Record<string, unknown> = {
-      client_txn_id: `party-from-text-${contract.viewSchemaId}-${Date.now()}`,
+      client_txn_id: clientTxnID(`party-from-text-${contract.viewSchemaId}`),
       "party.display_name": rawText,
       "party.party_kind": "person",
     };

@@ -1121,6 +1121,7 @@ Design contract. `save_state_input_v1` MUST use the schema below before the save
 | `same_field_conflict_count` | non-negative integer | yes | no | none | Validation fails. |
 | `queue_overflow_refused` | boolean | yes | no | none | Validation fails. |
 | `non_retryable_replay_failure` | boolean | yes | no | none | Validation fails. |
+| `client_txn_conflict_blocked` | boolean | yes | no | none | Validation fails. |
 | `in_flight_workbook_mutation_count` | non-negative integer | yes | no | none | Validation fails. |
 | `pending_queue_size` | non-negative integer | yes | no | none | Validation fails. |
 | `replay_paused_for_recovery` | boolean | yes | no | none | Validation fails. |
@@ -1150,6 +1151,8 @@ select_primary_save_label(state):
 ```
 
 Design contract. `Conflict` has precedence over `Syncing`. Presence MUST NOT change the primary save label. A secondary message MAY describe lower-priority state. Omission behavior: absence of the secondary message MUST NOT change the primary label. For same-field conflicts, any ordinary visible secondary message MUST summarize the affected count in user-facing language and MUST NOT use `record_id`, `field_key`, `conflict_token`, route names, or raw error text as its primary copy.
+
+Design contract. When `client_txn_conflict_blocked=true`, the `Conflict` label is an entry point to the transaction-recovery panel defined in §10.5. Activating it moves focus to that panel. When a same-field resolver is the actionable conflict target, activating `Conflict` opens or focuses the first resolver by stable conflict-queue order. When overflow is the actionable target, activating `Conflict` focuses the overflow notice. The primary label remains `Conflict` in all three cases.
 
 | Label | Visual treatment | Required accessible representation |
 | --- | --- | --- |
@@ -1217,6 +1220,17 @@ Design contract. Same-field conflict UI MUST satisfy the table below.
 | Non-conflicting work | Other rows and cells remain editable only when the active Core 03 writeability and concurrency contract permits editing for those rows and cells. |
 
 Design contract. Same-field conflict resolution controls MUST NOT use primary accent fill. Destructive discard actions MUST use destructive styling and label text.
+
+### 10.5 Client transaction recovery
+
+Core restatement. A confirmed `client_txn_conflict` is an idempotency-key collision, not a same-field data conflict. It uses the local pending-queue recovery path and MUST NOT open the same-field resolver unless a re-keyed retry later receives a structured `same_field_conflict`. Owner: `03_workbook_interaction_collaboration_and_workflows.md` §4.4, REQ-03-301 through REQ-03-302.
+
+Design contract. The recovery panel is a same-surface non-modal notice in the workbook work area. It does not move focus when it appears. Its heading is `Queued edits`; it provides a safe user-facing explanation without raw transaction IDs, routes, tokens, payloads, stack paths, or server implementation terms. For `client_txn_conflict`, controls appear in this tab order:
+
+1. `Retry with a new request ID`, using secondary-action styling.
+2. `Discard blocked edit`, using destructive text and border styling.
+
+Design contract. Both controls remain ordinary keyboard-operable buttons and disable immediately after activation until the transition changes the panel state. The panel uses a polite live announcement for the safe failure message. A terminal replay failure that is not `client_txn_conflict` MAY show only `Discard blocked edit`; it MUST NOT show re-key retry. Successful retry or discard removes the recovery panel and returns the save-state presentation to its state-machine-derived label without a celebratory transition.
 
 ## 11. Evidence design
 
@@ -1510,6 +1524,7 @@ Design contract. Live-region behavior MUST use this matrix.
 | Save state changes to `Saved` | Polite only after prior non-saved state. | `Saved`. |
 | Save state changes to `Conflict` | Assertive. | `Conflict. <count> unresolved` when count is present. |
 | Same-field conflict opens | Assertive. | Field label and conflict state. |
+| Client transaction recovery opens | Polite. | Queued edit blocked and recovery actions available; no raw identifier or server detail. |
 | Evidence preview blocked | Polite. | Evidence title or row context plus blocker. |
 | Evidence upload failed | Assertive. | Evidence or upload context plus failure state. |
 | Presence update only | No live announcement. | None. |

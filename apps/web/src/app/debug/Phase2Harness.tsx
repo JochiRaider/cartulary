@@ -9,7 +9,12 @@ import {
   phase2SelectIncidentButtonTestId,
 } from "@cartulary/ui-contracts";
 import { type CSSProperties, useCallback, useEffect, useState } from "react";
-import { type APIError, apiPath, fetchJSON } from "../../services/browserApi";
+import {
+  type APIError,
+  apiPath,
+  clientTxnID,
+  fetchJSON,
+} from "../../services/browserApi";
 
 type SessionMembership = {
   incident_id: string;
@@ -254,7 +259,7 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
       {
         method: "POST",
         body: JSON.stringify({
-          client_txn_id: `phase2-ui-create-${Date.now()}`,
+          client_txn_id: clientTxnID("phase2-ui-create"),
           incident_key: createIncidentKey,
           title: createIncidentTitle,
         }),
@@ -317,7 +322,7 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
       {
         method: "POST",
         body: JSON.stringify({
-          client_txn_id: `phase2-ui-membership-${Date.now()}`,
+          client_txn_id: clientTxnID("phase2-ui-membership"),
           email: membershipEmail,
           role: membershipRole,
         }),
@@ -506,7 +511,7 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
                 {
                   method: "POST",
                   body: JSON.stringify({
-                    client_txn_id: `phase2-ui-invalid-create-${Date.now()}`,
+                    client_txn_id: clientTxnID("phase2-ui-invalid-create"),
                     incident_key: "IR-PROBE-CREATE",
                     title: "Invalid",
                     initial_memberships: [],
@@ -528,7 +533,9 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
                 {
                   method: "POST",
                   body: JSON.stringify({
-                    client_txn_id: `phase2-ui-invalid-create-unknown-${Date.now()}`,
+                    client_txn_id: clientTxnID(
+                      "phase2-ui-invalid-create-unknown",
+                    ),
                     incident_key: "IR-PROBE-CREATE",
                     title: "Invalid",
                     unexpected: true,

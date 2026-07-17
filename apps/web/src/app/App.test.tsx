@@ -14,6 +14,7 @@ import { deferred } from "../testing/fetchMockTestSupport";
 import {
   buildRecordChangedPayload,
   emitRecordChanged,
+  extractTimelineJSONBody,
   findWorkbookCell,
   successEnvelope,
   timelineRow,
@@ -84,13 +85,16 @@ describe("Phase 3 Timeline workbook", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
+    const submittedClientTxnId = String(
+      extractTimelineJSONBody(fetchMock, 1).client_txn_id,
+    );
 
     emitRecordChanged(
       webSocketInstance,
       buildRecordChangedPayload({
         recordId: "record-1",
         rowVersion: 2,
-        clientTxnId: "timeline-client-1",
+        clientTxnId: submittedClientTxnId,
         changeSetId: "change-set-socket",
         changedFieldKeys: ["timeline.activity_synopsis_text"],
       }),

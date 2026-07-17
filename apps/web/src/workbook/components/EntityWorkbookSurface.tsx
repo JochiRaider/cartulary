@@ -44,7 +44,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { apiPath } from "../../services/browserApi";
+import { apiPath, clientTxnID } from "../../services/browserApi";
 import {
   fetchWorkbookJSON,
   parseErrorMessage,
@@ -511,7 +511,7 @@ export function EntityWorkbookSurface({
           body: JSON.stringify({
             view_schema_id: contract.viewSchemaId,
             base_row_version: target.baseRowVersion,
-            client_txn_id: `grid-edit-${contract.viewSchemaId}-${Date.now()}`,
+            client_txn_id: clientTxnID(`grid-edit-${contract.viewSchemaId}`),
             changes: [change],
           }),
         },
@@ -581,7 +581,7 @@ export function EntityWorkbookSurface({
           method: "POST",
           body: JSON.stringify({
             view_schema_id: contract.viewSchemaId,
-            client_txn_id: `${contract.viewSchemaId}-paste-${Date.now()}`,
+            client_txn_id: clientTxnID(`${contract.viewSchemaId}-paste`),
             clipboard_text: clipboardText,
             format: clipboardText.includes("\t") ? "tsv" : "csv",
             start_field_key: intent.target.fieldKey,
@@ -811,7 +811,7 @@ export function EntityWorkbookSurface({
       apiBase,
       baseRowVersion: selectedEditRow.rowVersion,
       changes: [change],
-      clientTxnId: `entity-patch-${contract.viewSchemaId}-${Date.now()}`,
+      clientTxnId: clientTxnID(`entity-patch-${contract.viewSchemaId}`),
       recordId: selectedEditRow.recordId,
       setMutationError,
       setMutationState,
@@ -846,7 +846,7 @@ export function EntityWorkbookSurface({
           action_payload: { kind: "collection_actions_v1", actions },
         },
       ],
-      clientTxnId: `entity-alias-${selectedEntity.recordId}-${Date.now()}`,
+      clientTxnId: clientTxnID(`entity-alias-${selectedEntity.recordId}`),
       recordId: selectedEntity.recordId,
       setMutationError,
       setMutationState,
@@ -867,7 +867,7 @@ export function EntityWorkbookSurface({
     const payload = buildGenericCreatePayload(
       contract,
       createDraft,
-      `entity-create-${contract.viewSchemaId}-${Date.now()}`,
+      clientTxnID(`entity-create-${contract.viewSchemaId}`),
     );
     if (payload === null) {
       setMutationError(genericCreateMinimumMessage(contract.viewSchemaId));
@@ -908,7 +908,7 @@ export function EntityWorkbookSurface({
           loser_record_id: loserEntity.recordId,
           survivor_base_row_version: selectedEntity.rowVersion,
           loser_base_row_version: loserEntity.rowVersion,
-          client_txn_id: `merge-${Date.now()}`,
+          client_txn_id: clientTxnID("merge"),
           reason: mergeReason,
         }),
       },

@@ -3,7 +3,7 @@ import type {
   ViewContract,
 } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useState } from "react";
-import { apiPath } from "../../../services/browserApi";
+import { apiPath, clientTxnID } from "../../../services/browserApi";
 import {
   fetchWorkbookJSON,
   parseErrorMessage,
@@ -208,7 +208,9 @@ export function useTimelineCreateRelatedWorkflow({
     const payload = buildGenericCreatePayload(
       activeWorkflow.targetContract,
       activeWorkflow.draft,
-      `timeline-create-related-${activeWorkflow.featureGroup.featureGroupKey}-${Date.now()}`,
+      clientTxnID(
+        `timeline-create-related-${activeWorkflow.featureGroup.featureGroupKey}`,
+      ),
     );
     if (payload === null) {
       setWorkflow({
@@ -256,7 +258,7 @@ export function useTimelineCreateRelatedWorkflow({
       const patchPayload = buildAttachedEvidencePatchPayload(
         sourceRow,
         createdRecordId,
-        `timeline-link-created-evidence-${Date.now()}`,
+        clientTxnID("timeline-link-created-evidence"),
       );
       if (patchPayload === null) {
         setWorkflow({

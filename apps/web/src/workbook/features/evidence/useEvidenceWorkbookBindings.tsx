@@ -7,6 +7,7 @@ import {
   evidencePreviewPanelTestId,
 } from "@cartulary/ui-contracts";
 import { type CSSProperties, useCallback, useEffect, useState } from "react";
+import { clientTxnID } from "../../../services/browserApi";
 import {
   createAndAttachEvidenceBlob,
   evidenceAccessMessageLiveRegion,
@@ -117,9 +118,9 @@ export function useEvidenceWorkbookBindings({
       try {
         await createAndAttachEvidenceBlob({
           apiBase,
-          attachClientTxnId: () => `evidence-attach-${Date.now()}`,
+          attachClientTxnId: () => clientTxnID("evidence-attach"),
           baseRowVersion: row.row_version,
-          createClientTxnId: () => `evidence-blob-${Date.now()}`,
+          createClientTxnId: () => clientTxnID("evidence-blob"),
           evidenceRecordId: row.record_id,
           file,
           incidentId,

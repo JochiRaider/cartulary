@@ -275,7 +275,7 @@ test(exactScenarioTitle, async ({ page }) => {
     ],
   });
   expect(String(hostPatch.client_txn_id)).toMatch(
-    /^entity-patch-cartulary\.view\.hosts\.v1-\d+$/u,
+    /^entity-patch-cartulary\.view\.hosts\.v1-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u,
   );
   await scrollGridCellIntoView({
     cellKey: "host.display_name",
@@ -320,7 +320,7 @@ test(exactScenarioTitle, async ({ page }) => {
     ],
   });
   expect(String(identityPatch.client_txn_id)).toMatch(
-    /^entity-patch-cartulary\.view\.identities\.v1-\d+$/u,
+    /^entity-patch-cartulary\.view\.identities\.v1-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u,
   );
   await scrollGridCellIntoView({
     cellKey: "identity.display_name",
@@ -358,7 +358,7 @@ test(exactScenarioTitle, async ({ page }) => {
     ],
   });
   expect(String(notePatch.client_txn_id)).toMatch(
-    /^generic-patch-cartulary\.view\.notes\.v1-\d+$/u,
+    /^generic-patch-cartulary\.view\.notes\.v1-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u,
   );
   await scrollGridCellIntoView({
     cellKey: "note.body",

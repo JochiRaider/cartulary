@@ -3,10 +3,16 @@ import {
   autoResolutionReviewButtonTestId,
   autoResolutionUndoButtonTestId,
   pendingQueueCountTestId,
+  pendingQueueDiscardButtonTestId,
   pendingQueueNoticeTestId,
+  pendingQueueRecoveryPanelTestId,
+  pendingQueueRetryButtonTestId,
 } from "@cartulary/ui-contracts";
-import type { CSSProperties } from "react";
-import type { TimelinePendingQueueSnapshot } from "../models/timelinePendingReplayModel";
+import { type CSSProperties, type RefObject, useState } from "react";
+import type {
+  TimelineBlockedEditRecovery,
+  TimelinePendingQueueSnapshot,
+} from "../models/timelinePendingReplayModel";
 import type { AutoResolutionNotice } from "../models/workbookMentionChips";
 
 export function timelinePendingQueueMessage(
@@ -39,7 +45,10 @@ export function TimelineWorkbookNotices({
   inspectorOpen = false,
   onReviewAutoResolution,
   onUndoAutoResolution,
+  onDiscardBlockedEdit,
+  onRetryBlockedEdit,
   pendingQueueSnapshot,
+  recoveryPanelRef,
 }: {
   readonly autoResolutionNotices: readonly AutoResolutionNotice[];
   readonly entityIndex: Record<string, { label: string }>;
@@ -49,8 +58,14 @@ export function TimelineWorkbookNotices({
     itemRef: string,
   ) => void;
   readonly onUndoAutoResolution: (notice: AutoResolutionNotice) => void;
+  readonly onDiscardBlockedEdit: (unitId: string) => boolean;
+  readonly onRetryBlockedEdit: (unitId: string) => boolean;
   readonly pendingQueueSnapshot: TimelinePendingQueueSnapshot;
+  readonly recoveryPanelRef: RefObject<HTMLDivElement | null>;
 }) {
+  const blockedEdit = pendingQueueSnapshot.blockedEdit;
+  const noticeIsFocusable =
+    blockedEdit !== null || pendingQueueSnapshot.overflowMessage !== null;
   const pendingQueueMessage = timelinePendingQueueMessage(pendingQueueSnapshot);
   const pendingQueueCount =
     pendingQueueSnapshot.queuedCount + pendingQueueSnapshot.inFlightCount;
@@ -115,17 +130,90 @@ export function TimelineWorkbookNotices({
       {pendingQueueMessage !== null ? (
         <div
           data-testid={pendingQueueNoticeTestId()}
-          role="status"
-          style={pendingQueueNoticeCardStyle}
+          ref={recoveryPanelRef}
+          role={blockedEdit === null ? "status" : undefined}
+          style={
+            blockedEdit === null
+              ? pendingQueueNoticeCardStyle
+              : pendingQueueRecoveryCardStyle
+          }
+          tabIndex={noticeIsFocusable ? -1 : undefined}
         >
-          <strong style={pendingQueueTitleStyle}>Queued edits</strong>
-          <span style={noticeMessageStyle}>{pendingQueueMessage}</span>
+          <strong
+            id={
+              blockedEdit === null ? undefined : "pending-queue-recovery-title"
+            }
+            style={pendingQueueTitleStyle}
+          >
+            Queued edits
+          </strong>
+          <span aria-live="polite" style={noticeMessageStyle}>
+            {pendingQueueMessage}
+          </span>
           <span data-testid={pendingQueueCountTestId()} style={queueCountStyle}>
             Pending {pendingQueueCount}
           </span>
+          {blockedEdit === null ? null : (
+            <BlockedEditRecoveryActions
+              blockedEdit={blockedEdit}
+              key={blockedEdit.unitId}
+              onDiscardBlockedEdit={onDiscardBlockedEdit}
+              onRetryBlockedEdit={onRetryBlockedEdit}
+            />
+          )}
         </div>
       ) : null}
     </aside>
+  );
+}
+
+function BlockedEditRecoveryActions({
+  blockedEdit,
+  onDiscardBlockedEdit,
+  onRetryBlockedEdit,
+}: {
+  readonly blockedEdit: TimelineBlockedEditRecovery;
+  readonly onDiscardBlockedEdit: (unitId: string) => boolean;
+  readonly onRetryBlockedEdit: (unitId: string) => boolean;
+}) {
+  const [recoveryActionPending, setRecoveryActionPending] = useState(false);
+  return (
+    <section
+      aria-labelledby="pending-queue-recovery-title"
+      data-testid={pendingQueueRecoveryPanelTestId()}
+      style={recoveryActionsStyle}
+    >
+      {blockedEdit.canRetryWithNewClientTxnId ? (
+        <button
+          data-testid={pendingQueueRetryButtonTestId()}
+          disabled={recoveryActionPending}
+          style={secondaryActionButtonStyle}
+          type="button"
+          onClick={() => {
+            setRecoveryActionPending(true);
+            if (!onRetryBlockedEdit(blockedEdit.unitId)) {
+              setRecoveryActionPending(false);
+            }
+          }}
+        >
+          Retry with a new request ID
+        </button>
+      ) : null}
+      <button
+        data-testid={pendingQueueDiscardButtonTestId()}
+        disabled={recoveryActionPending}
+        style={destructiveActionButtonStyle}
+        type="button"
+        onClick={() => {
+          setRecoveryActionPending(true);
+          if (!onDiscardBlockedEdit(blockedEdit.unitId)) {
+            setRecoveryActionPending(false);
+          }
+        }}
+      >
+        Discard blocked edit
+      </button>
+    </section>
   );
 }
 
@@ -164,6 +252,13 @@ const actionButtonStyle = {
 const secondaryActionButtonStyle = {
   ...actionButtonStyle,
   background: "var(--ct-colors-surface-3)",
+  pointerEvents: "auto",
+} satisfies CSSProperties;
+
+const destructiveActionButtonStyle = {
+  ...actionButtonStyle,
+  borderColor: "var(--ct-colors-semantic-destructive)",
+  color: "var(--ct-colors-semantic-destructive)",
   pointerEvents: "auto",
 } satisfies CSSProperties;
 
@@ -219,6 +314,21 @@ const pendingQueueNoticeCardStyle = {
   overflow: "hidden",
   boxShadow: "var(--ct-elevation-popover)",
   pointerEvents: "none",
+} satisfies CSSProperties;
+
+const pendingQueueRecoveryCardStyle = {
+  ...pendingQueueNoticeCardStyle,
+  alignItems: "start",
+  display: "grid",
+  overflow: "visible",
+  pointerEvents: "auto",
+} satisfies CSSProperties;
+
+const recoveryActionsStyle = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "0.5rem",
+  pointerEvents: "auto",
 } satisfies CSSProperties;
 
 const pendingQueueTitleStyle = {

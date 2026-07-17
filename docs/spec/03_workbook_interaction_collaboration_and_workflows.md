@@ -938,6 +938,20 @@ Replayed writes MUST still satisfy ordinary `base_row_version`, authorization, a
 Profiles: base
 Verified by: AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231, AC-376, AC-377, AC-378, AC-379, AC-380, AC-381, AC-382
 
+**REQ-03-301**
+Every new logical browser mutation that requires `client_txn_id` MUST receive a cryptographically collision-resistant identifier whose uniqueness does not depend on a component counter, wall-clock value, mount lifecycle, tab, or browser instance. The browser MUST use Web Crypto randomness and MUST fail the mutation locally with safe user-facing feedback when secure randomness is unavailable; it MUST NOT fall back to a counter, `Date.now()`, `Math.random()`, or another non-cryptographic source. An uncertain transport replay of the same logical mutation MUST retain its existing `client_txn_id`. A new identifier MUST be created only for a new logical action or for the explicit `client_txn_conflict` recovery defined by REQ-03-302.
+Profiles: base
+Verified by: AC-486
+
+**REQ-03-302**
+When FIFO replay halts on `client_txn_conflict`, the workbook MUST expose a same-surface, non-modal recovery panel with actions labeled exactly `Retry with a new request ID` and `Discard blocked edit`. The panel MUST be keyboard reachable, MUST NOT steal focus when it appears, MUST keep raw transaction identifiers, routes, tokens, payloads, and server internals out of visible and accessible copy, and MUST disable recovery actions while the chosen transition is being applied. The primary `Conflict` status MUST provide a keyboard-operable entry point to this panel whenever it is actionable. A terminal failure other than `client_txn_conflict` MAY expose `Discard blocked edit` but MUST NOT expose re-key retry.
+
+Retry MUST be an atomic queue transition available only for the current FIFO blocker, only while no replay unit is in flight, and only after a definitive `client_txn_conflict`. It MUST replace `client_txn_id` in the replay unit and request payload while preserving the stable local unit identity, mutation intent, metadata, signature, original enqueue order, and every later queued unit. Replay MUST then use the ordinary dispatch path, including materializing a patch's `base_row_version` from the latest committed row version known at dispatch. A resulting structured `same_field_conflict` MUST leave the pending queue and open the ordinary same-field resolver required by §3.3; re-key retry MUST NOT bypass authorization, CSRF, lifecycle, validation, optimistic-concurrency, or conflict handling.
+
+Discard MUST issue no server mutation. It MUST remove exactly the blocking replay unit, clear that halt, reconcile the visible row to the latest committed state plus any remaining later queued intents for that row, retain all later queued units in their original order, and resume FIFO replay. Discarding a blocked create MUST remove or reset its local draft. Repeated, stale, same-ID, unsupported-error, or in-flight recovery attempts MUST fail locally without changing queue state.
+Profiles: base
+Verified by: AC-486
+
 ## 5. Locking policy
 
 **REQ-03-101**

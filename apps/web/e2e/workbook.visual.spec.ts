@@ -40,7 +40,9 @@ import {
   mentionResolveTargetSelectTestId,
   networkAnalysisTestId,
   pendingQueueCountTestId,
+  pendingQueueDiscardButtonTestId,
   pendingQueueNoticeTestId,
+  pendingQueueRecoveryPanelTestId,
   phase1AuthTestId,
   phase1ErrorCodeTestId,
   relationshipChipTestId,
@@ -1287,7 +1289,7 @@ test.describe("FE-P3 visual readiness", () => {
 });
 
 test.describe("FE-P4 visual readiness", () => {
-  test("FE-V-P4-01 Capture save-state strip, pending replay indication, inline edit cell, and empty successful Timeline query fixtures.", async ({
+  test("FE-V-P4-01 Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures.", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -1359,6 +1361,49 @@ test.describe("FE-P4 visual readiness", () => {
     } finally {
       patchController.connect();
       await patchController.dispose();
+    }
+
+    const conflictController = await installPatchController(page);
+    try {
+      conflictController.failNextPatch(409, "client_txn_conflict", {
+        recordId: timelineRow.record_id,
+      });
+      const blockedSummary = await mountedGridCell(
+        page,
+        timelineViewSchemaId,
+        timelineRow.record_id,
+        "timeline.activity_synopsis_text",
+      );
+      await blockedSummary.click();
+      const blockedEditor = page.getByTestId(
+        timelineScalarEditorTestId({
+          fieldKey: "timeline.activity_synopsis_text",
+          recordId: timelineRow.record_id,
+          surface: "grid",
+        }),
+      );
+      await blockedEditor.fill("FE-P4 blocked transaction edit");
+      await blockedEditor.press("Enter");
+      await expect.poll(() => conflictController.calls.length).toBe(1);
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
+      await expect(
+        page.getByTestId(pendingQueueRecoveryPanelTestId()),
+      ).toBeVisible();
+      await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
+        scroll: { top: 0, left: "left" },
+      });
+      await assertVisualRegression(
+        page,
+        "fe-v-p4-01-transaction-recovery-panel",
+      );
+
+      await page.getByTestId(pendingQueueDiscardButtonTestId()).click();
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+      await expect(
+        page.getByTestId(pendingQueueRecoveryPanelTestId()),
+      ).toHaveCount(0);
+    } finally {
+      await conflictController.dispose();
     }
 
     const emptyIncidentId = await createIncident(
@@ -2248,6 +2293,7 @@ test.describe("FE-P7 workbook visual readiness", () => {
       await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
         scroll: { top: 0, left: "right" },
       });
+      await stabilizeConflictResolverVisual(page);
       await assertViewportVisualRegression(
         page,
         "fe-v-p7-01-conflict-resolver",
@@ -2996,6 +3042,7 @@ test.describe("Phase 6 workbook visual evidence", () => {
       await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
         scroll: { top: 0, left: "right" },
       });
+      await stabilizeConflictResolverVisual(page);
 
       await assertViewportVisualRegression(
         page,
@@ -3083,6 +3130,7 @@ test.describe("Phase 6 workbook visual evidence", () => {
       await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
         scroll: { top: 0, left: "right" },
       });
+      await stabilizeConflictResolverVisual(page);
       await assertViewportVisualRegression(
         page,
         "v-6-grid-03-blocked-conflict",
@@ -4459,6 +4507,28 @@ async function prepareVisualRegressionState(page: Page) {
   await waitForVendoredFonts(page);
   await attachFontManifestDigest();
   await maskVisualDynamicText(page);
+}
+
+async function parkVisualPointer(page: Page) {
+  await page.mouse.move(720, 360);
+  await waitForVisualLayoutFrame(page);
+}
+
+async function stabilizeConflictResolverVisual(page: Page) {
+  const gridEditorIsActive = await page.evaluate(
+    () => document.activeElement?.closest('[role="gridcell"]') !== null,
+  );
+  if (gridEditorIsActive) {
+    await page.keyboard.press("Escape");
+  }
+  await expect(page.getByTestId("conflict-resolver")).toBeVisible();
+  await expect(
+    page.getByText("Resolve the existing field conflict before editing.", {
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await blurActiveElement(page);
+  await parkVisualPointer(page);
 }
 
 async function waitForVendoredFonts(page: Page) {

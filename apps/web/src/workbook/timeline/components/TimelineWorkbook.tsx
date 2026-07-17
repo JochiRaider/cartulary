@@ -37,7 +37,7 @@ import {
   IncidentCollaborationBoundary,
   useIncidentCollaborationSession,
 } from "../../../collaboration/IncidentCollaborationSession";
-import { apiPath } from "../../../services/browserApi";
+import { apiPath, clientTxnID } from "../../../services/browserApi";
 import {
   fetchWorkbookJSON,
   parseErrorMessage,
@@ -88,6 +88,7 @@ import {
   mapWorkbookKeyboardCommand,
   type WorkbookKeyboardCommand,
 } from "../../utils/workbookKeyboard";
+import type { PendingReplayUnitState } from "../../utils/workbookPendingQueue";
 import { visuallyHiddenStyle } from "../../utils/workbookStyles";
 import { stringifyGridValue } from "../../utils/workbookValueFormat";
 import { useTimelineClipboardPasteController } from "../hooks/useTimelineClipboardPasteController";
@@ -161,6 +162,7 @@ import {
   rowFromApi,
   type TimelinePatchCells,
   type TimelineScalarEditorSurface,
+  timelineFieldBinding,
   timelineGroupLabel,
   timelineRelationshipLabel,
   timelineScalarBindingForField,
@@ -176,6 +178,12 @@ function gridCoreRecordId(
   return anchor.rowIdentity.kind === "core_record"
     ? anchor.rowIdentity.recordId
     : null;
+}
+
+function isCollectionDraftKey(
+  field: FocusFieldKey,
+): field is CollectionDraftKey {
+  return field === "hostRefs" || field === "identityRefs" || field === "tags";
 }
 
 import {
@@ -674,6 +682,7 @@ function TimelineWorkbookContent({
   const timelineAnchorRowsRef = useRef<readonly GridDataRow<WorkbookRow>[]>([]);
   const timelineGridHandleRef = useRef<GridHandle | null>(null);
   const gridShellRef = useRef<HTMLDivElement | null>(null);
+  const recoveryPanelRef = useRef<HTMLDivElement | null>(null);
   const [timelineGridShellWidth, setTimelineGridShellWidth] = useState(0);
   const viewportContinuityTokenRef = useRef(1);
   const timelineGridInteractionRefs: TimelineGridInteractionRefs = {
@@ -806,7 +815,6 @@ function TimelineWorkbookContent({
     setRowHistory,
     setRowHistoryPendingAction,
   } = timelineHistoryState.commands;
-  const clientTxnRef = useRef(1);
   const timelineCommittedRows = useTimelineCommittedRows({ rowsRef });
   const {
     acceptCommittedTimelineRow,
@@ -1404,9 +1412,7 @@ function TimelineWorkbookContent({
   });
 
   const nextClientTxnId = useCallback(() => {
-    const value = clientTxnRef.current;
-    clientTxnRef.current += 1;
-    return `timeline-client-${value}`;
+    return clientTxnID("timeline-client");
   }, []);
 
   const assignTagToSelectedRows = useCallback(async () => {
@@ -1601,8 +1607,181 @@ function TimelineWorkbookContent({
     [],
   );
 
+  const reconcileDiscardedPendingUnit = useCallback(
+    (
+      discardedUnit: PendingReplayUnitState,
+      remainingUnits: readonly PendingReplayUnitState[],
+    ) => {
+      const pending = pendingSavesRefsRef.current.pendingQueueRef.current;
+      const discardedMeta = pending.metaByUnitId.get(discardedUnit.id);
+      const remainingForRow = remainingUnits
+        .filter(
+          (unit) =>
+            unit.rowKey === discardedUnit.rowKey ||
+            (discardedUnit.recordId !== null &&
+              unit.recordId === discardedUnit.recordId),
+        )
+        .sort((left, right) => left.enqueueOrder - right.enqueueOrder);
+      const remainingFocusKeys = new Set(
+        remainingForRow
+          .map((unit) => pending.metaByUnitId.get(unit.id)?.focusKey)
+          .filter((focusKey): focusKey is string => focusKey !== undefined),
+      );
+      if (
+        discardedMeta !== undefined &&
+        !remainingFocusKeys.has(discardedMeta.focusKey)
+      ) {
+        scalarDraftValuesRef.current.delete(discardedMeta.focusKey);
+      }
+      for (const binding of timelineScalarBindings) {
+        for (const surface of timelineScalarEditorSurfaces) {
+          const focusKey = inputFocusKey(
+            discardedUnit.rowKey,
+            binding.key,
+            surface,
+          );
+          if (!remainingFocusKeys.has(focusKey)) {
+            scalarDraftValuesRef.current.delete(focusKey);
+          }
+        }
+      }
+      const discardedFocusField = discardedMeta?.focusField;
+      const discardedScalarBinding =
+        discardedFocusField === undefined ||
+        isCollectionDraftKey(discardedFocusField)
+          ? null
+          : timelineScalarBindings.find(
+              (binding) => binding.key === discardedFocusField,
+            );
+      if (
+        discardedUnit.recordId !== null &&
+        discardedScalarBinding !== null &&
+        discardedScalarBinding !== undefined
+      ) {
+        timelineGridHandleRef.current?.cancelEdit({
+          fieldKey: discardedScalarBinding.fieldKey,
+          rowIdentity: {
+            kind: "core_record",
+            recordId: discardedUnit.recordId,
+          },
+          surface: {
+            kind: "view_schema",
+            viewSchemaId: timelineViewSchemaId,
+          },
+        });
+      }
+
+      if (discardedUnit.kind === "create") {
+        const nextRows = rowsRef.current.filter(
+          (row) => row.key !== discardedUnit.rowKey,
+        );
+        if (!nextRows.some((row) => row.recordId === null)) {
+          nextRows.push(createDraftRow(nextDraftIndex()));
+        }
+        rowsRef.current = nextRows;
+        setRows(nextRows);
+        return;
+      }
+
+      const currentRow = rowsRef.current.find(
+        (row) =>
+          row.key === discardedUnit.rowKey ||
+          row.recordId === discardedUnit.recordId,
+      );
+      const committedRow =
+        discardedUnit.recordId === null
+          ? null
+          : latestCommittedTimelineRow(discardedUnit.recordId);
+      if (committedRow === null && currentRow === undefined) {
+        return;
+      }
+      const baseRow = committedRow ?? currentRow;
+      if (baseRow === undefined) {
+        return;
+      }
+      let reconciled: WorkbookRow = {
+        ...baseRow,
+        key: discardedUnit.rowKey,
+        values: { ...baseRow.committedValues },
+        pendingSignature: remainingForRow.at(-1)?.mutationSignature ?? null,
+      };
+      if (reconciled.rawRow !== null) {
+        const committedScalarCells = Object.fromEntries(
+          timelineScalarBindings.map((binding) => [
+            binding.fieldKey,
+            { value: reconciled.committedValues[binding.key] },
+          ]),
+        );
+        reconciled = {
+          ...reconciled,
+          rawRow: {
+            ...reconciled.rawRow,
+            cells: { ...reconciled.rawRow.cells, ...committedScalarCells },
+          },
+        };
+      }
+
+      for (const unit of remainingForRow) {
+        const meta = pending.metaByUnitId.get(unit.id);
+        const changes = Array.isArray(unit.payloadIntent.changes)
+          ? unit.payloadIntent.changes
+          : [];
+        for (const change of changes) {
+          if (change === null || typeof change !== "object") {
+            continue;
+          }
+          const candidate = change as Record<string, unknown>;
+          if (typeof candidate.field_key !== "string") {
+            continue;
+          }
+          const binding = timelineFieldBinding(candidate.field_key);
+          if (binding.kind === "scalar" && "value" in candidate) {
+            const value =
+              typeof candidate.value === "string" ? candidate.value : "";
+            reconciled = {
+              ...reconciled,
+              values: { ...reconciled.values, [binding.key]: value },
+              rawRow:
+                reconciled.rawRow === null
+                  ? null
+                  : {
+                      ...reconciled.rawRow,
+                      cells: {
+                        ...reconciled.rawRow.cells,
+                        [binding.fieldKey]: { value: candidate.value },
+                      },
+                    },
+            };
+          }
+        }
+        if (meta !== undefined && isCollectionDraftKey(meta.focusField)) {
+          reconciled = {
+            ...reconciled,
+            collectionDrafts: {
+              ...reconciled.collectionDrafts,
+              [meta.focusField]:
+                meta.rowSnapshot.collectionDrafts[meta.focusField],
+            },
+          };
+        }
+      }
+
+      const nextRows = rowsRef.current.map((row) =>
+        row.key === discardedUnit.rowKey ||
+        row.recordId === discardedUnit.recordId
+          ? reconciled
+          : row,
+      );
+      rowsRef.current = nextRows;
+      setRows(nextRows);
+    },
+    [latestCommittedTimelineRow, nextDraftIndex, setRows],
+  );
+
   const {
+    discardBlockedEdit,
     enqueuePendingReplayUnit,
+    retryBlockedEdit,
     scheduleAuthRecoveryProbeRef,
     schedulePendingReplay,
   } = useTimelinePendingReplayController({
@@ -1615,6 +1794,7 @@ function TimelineWorkbookContent({
     latestCommittedTimelineRow,
     pendingSavesRefsRef,
     publishPendingQueueState,
+    reconcileDiscardedPendingUnit,
     recordWorkbookTiming,
     resolvePendingSocketTxn,
     rowsRef,
@@ -2476,6 +2656,35 @@ function TimelineWorkbookContent({
 
   const pendingQueueDisplayMessage =
     timelinePendingQueueMessage(pendingQueueSnapshot);
+  const conflictStatusIsActionable =
+    pendingQueueSnapshot.blockedEdit !== null ||
+    pendingQueueSnapshot.overflowMessage !== null ||
+    Object.keys(conflictQueue).length > 0;
+  const activateConflictStatus = useCallback(() => {
+    if (
+      pendingQueueSnapshot.blockedEdit !== null ||
+      pendingQueueSnapshot.overflowMessage !== null
+    ) {
+      recoveryPanelRef.current?.focus();
+      return;
+    }
+    const firstConflictKey = Object.keys(conflictQueue)[0];
+    if (firstConflictKey === undefined) {
+      return;
+    }
+    setActiveConflictKey(firstConflictKey);
+    window.requestAnimationFrame(() => {
+      const summary = document.querySelector<HTMLElement>(
+        '[data-testid="conflict-resolver-summary"]',
+      );
+      summary?.focus();
+    });
+  }, [
+    conflictQueue,
+    pendingQueueSnapshot.blockedEdit,
+    pendingQueueSnapshot.overflowMessage,
+    setActiveConflictKey,
+  ]);
   const visibleRefreshError =
     refreshError !== null && refreshError !== pendingQueueDisplayMessage
       ? refreshError
@@ -2590,6 +2799,9 @@ function TimelineWorkbookContent({
           queuedCount={pendingQueueSnapshot.queuedCount}
           saveState={saveState}
           saveStateSecondaryMessage={saveStateSecondaryMessage}
+          onActivateConflict={
+            conflictStatusIsActionable ? activateConflictStatus : undefined
+          }
           workbookFocusAnchor={workbookFocusAnchor}
         />
       }
@@ -2686,9 +2898,12 @@ function TimelineWorkbookContent({
             autoResolutionNotices={autoResolutionNotices}
             entityIndex={entityIndex}
             inspectorOpen={isInspectorOpen}
+            onDiscardBlockedEdit={discardBlockedEdit}
             onReviewAutoResolution={handleSelectMention}
+            onRetryBlockedEdit={retryBlockedEdit}
             onUndoAutoResolution={handleUndoAutoResolutionNotice}
             pendingQueueSnapshot={pendingQueueSnapshot}
+            recoveryPanelRef={recoveryPanelRef}
           />
           {rowContextMenu === null ? null : (
             <TimelineRowContextMenu

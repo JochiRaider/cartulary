@@ -1036,6 +1036,175 @@ describe("FE-U-P4-01 pending queue unit model", () => {
     ).toEqual(["txn-details-only-same-field"]);
   });
 
+  it("FE-U-P4-01 rekeys only a client transaction blocker and preserves FIFO intent", () => {
+    const queue = createQueue();
+    const blocker = expectAccepted(
+      queue.admit(
+        patchUnit({
+          clientTxnId: "txn-client-conflict",
+          recordId: "record-client-conflict",
+          order: 1,
+          value: "local intent",
+        }),
+      ),
+    );
+    expectAccepted(
+      queue.admit(
+        patchUnit({
+          clientTxnId: "txn-later",
+          recordId: "record-later",
+          order: 2,
+        }),
+      ),
+    );
+    const originalSignature = blocker.mutationSignature;
+
+    queue.dispatchNext();
+    queue.settleDispatched({
+      ok: false,
+      status: 409,
+      error: { code: "client_txn_conflict" },
+    });
+
+    expect(
+      queue.retryHaltedWithNewClientTxnId(blocker.id, "txn-client-rekeyed"),
+    ).toMatchObject({
+      recovered: true,
+      status: "retried",
+      unit: {
+        id: blocker.id,
+        clientTxnId: "txn-client-rekeyed",
+        mutationSignature: originalSignature,
+        enqueueOrder: 1,
+        payloadIntent: {
+          client_txn_id: "txn-client-rekeyed",
+          changes: [
+            {
+              field_key: "timeline.activity_synopsis_text",
+              value: "local intent",
+            },
+          ],
+        },
+        identity: { client_txn_id: "txn-client-rekeyed" },
+      },
+    });
+    expect(queue.snapshot().halted).toBeNull();
+    expect(queue.snapshot().units.map((unit) => unit.clientTxnId)).toEqual([
+      "txn-client-rekeyed",
+      "txn-later",
+    ]);
+    expect(queue.dispatchNext()?.unit.id).toBe(blocker.id);
+  });
+
+  it("FE-U-P4-01 rejects invalid recovery transitions without changing queue state", () => {
+    const queue = createQueue();
+    const blocker = expectAccepted(
+      queue.admit(
+        patchUnit({
+          clientTxnId: "txn-terminal",
+          recordId: "record-terminal",
+          order: 1,
+        }),
+      ),
+    );
+
+    expect(
+      queue.retryHaltedWithNewClientTxnId(blocker.id, "txn-replacement"),
+    ).toMatchObject({ recovered: false, reason: "not_halted" });
+    queue.dispatchNext();
+    expect(
+      queue.retryHaltedWithNewClientTxnId(blocker.id, "txn-replacement"),
+    ).toMatchObject({ recovered: false, reason: "in_flight" });
+    queue.settleDispatched({
+      ok: false,
+      status: 400,
+      error: { code: "invalid_mutation_payload" },
+    });
+    expect(
+      queue.retryHaltedWithNewClientTxnId(blocker.id, "txn-replacement"),
+    ).toMatchObject({ recovered: false, reason: "unsupported_error" });
+    expect(queue.snapshot().units).toHaveLength(1);
+
+    const clientConflictQueue = createQueue();
+    const clientBlocker = expectAccepted(
+      clientConflictQueue.admit(
+        patchUnit({
+          clientTxnId: "txn-client-conflict",
+          recordId: "record-client-conflict",
+          order: 1,
+        }),
+      ),
+    );
+    clientConflictQueue.dispatchNext();
+    clientConflictQueue.settleDispatched({
+      ok: false,
+      status: 409,
+      error: { code: "client_txn_conflict" },
+    });
+    expect(
+      clientConflictQueue.retryHaltedWithNewClientTxnId(
+        "stale-unit",
+        "txn-replacement",
+      ),
+    ).toMatchObject({ recovered: false, reason: "wrong_unit" });
+    expect(
+      clientConflictQueue.retryHaltedWithNewClientTxnId(clientBlocker.id, " "),
+    ).toMatchObject({ recovered: false, reason: "invalid_client_txn_id" });
+    expect(
+      clientConflictQueue.retryHaltedWithNewClientTxnId(
+        clientBlocker.id,
+        clientBlocker.clientTxnId,
+      ),
+    ).toMatchObject({ recovered: false, reason: "same_client_txn_id" });
+    expect(clientConflictQueue.snapshot().halted?.unit_id).toBe(
+      clientBlocker.id,
+    );
+  });
+
+  it("FE-U-P4-01 discards exactly the halted blocker and resumes later FIFO work", () => {
+    const queue = createQueue();
+    const blocker = expectAccepted(
+      queue.admit(
+        patchUnit({
+          clientTxnId: "txn-blocker",
+          recordId: "record-blocker",
+          order: 1,
+        }),
+      ),
+    );
+    expectAccepted(
+      queue.admit(
+        patchUnit({
+          clientTxnId: "txn-later",
+          recordId: "record-later",
+          order: 2,
+        }),
+      ),
+    );
+    queue.dispatchNext();
+    queue.settleDispatched({
+      ok: false,
+      status: 400,
+      error: { code: "invalid_mutation_payload" },
+    });
+
+    expect(queue.discardHaltedUnit("stale-unit")).toMatchObject({
+      recovered: false,
+      reason: "wrong_unit",
+    });
+    const discarded = queue.discardHaltedUnit(blocker.id);
+    expect(discarded).toMatchObject({
+      recovered: true,
+      status: "discarded",
+      unit: { id: blocker.id, clientTxnId: "txn-blocker" },
+    });
+    expect(queue.snapshot().halted).toBeNull();
+    expect(queue.snapshot().units.map((unit) => unit.clientTxnId)).toEqual([
+      "txn-later",
+    ]);
+    expect(queue.dispatchNext()?.unit.clientTxnId).toBe("txn-later");
+  });
+
   it("FE-U-P4-01 applies successful replay without retargeting by visible row order or labels", () => {
     const queue = createQueue();
     expectAccepted(

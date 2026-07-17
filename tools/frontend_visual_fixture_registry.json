@@ -374,9 +374,10 @@
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-conflict-strip-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-recovered-saved-strip-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-reset-invalidate-notice-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-pending-replay-status-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-02-saved-strip-linux.png",
+      "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-reset-invalidate-notice-linux.png",
+      "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-pending-replay-status-linux.png",
+      "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-transaction-recovery-panel-linux.png",
+      "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-02-saved-strip-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-02-syncing-strip-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-02-conflict-strip-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-6-grid-03-syncing-strip-linux.png",
@@ -585,7 +586,7 @@
         "FE-V-P4-01",
         "FE-V-P10-01"
       ],
-      "playwright_scenario_title": "FE-V-P4-01 Capture save-state strip, pending replay indication, inline edit cell, and empty successful Timeline query fixtures.",
+      "playwright_scenario_title": "FE-V-P4-01 Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-active-edit-cell-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-active-edit-cell-linux.png",
@@ -739,7 +740,7 @@
         "FE-V-P4-01",
         "FE-V-P8-01"
       ],
-      "playwright_scenario_title": "FE-V-P4-01 Capture save-state strip, pending replay indication, inline edit cell, and empty successful Timeline query fixtures.",
+      "playwright_scenario_title": "FE-V-P4-01 Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-empty-timeline-query-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-empty-timeline-query-linux.png",

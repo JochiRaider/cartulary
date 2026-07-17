@@ -1632,13 +1632,16 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
+    const submittedClientTxnId = String(
+      extractTimelineJSONBody(fetchMock, 1).client_txn_id,
+    );
 
     emitRecordChanged(
       webSocketInstance,
       buildRecordChangedPayload({
         recordId: "record-1",
         rowVersion: 2,
-        clientTxnId: "timeline-client-1",
+        clientTxnId: submittedClientTxnId,
       }),
     );
 

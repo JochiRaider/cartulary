@@ -36,7 +36,10 @@ import {
   mentionRestoreUnresolvedButtonTestId,
   networkAnalysisTestId,
   pendingQueueCountTestId,
+  pendingQueueDiscardButtonTestId,
   pendingQueueNoticeTestId,
+  pendingQueueRecoveryPanelTestId,
+  pendingQueueRetryButtonTestId,
   phase1AccountTestId,
   phase1AuthTestId,
   phase1ErrorCodeTestId,
@@ -68,6 +71,7 @@ import {
   savedViewSetDefaultButtonTestId,
   savedViewSetHomeButtonTestId,
   savedViewStatusTestId,
+  saveStateActionButtonTestId,
   saveStateTestId,
   surfaceTabTestId,
   systemViewSwitcherMenuTestId,
@@ -79,6 +83,7 @@ import {
   timelineScalarEditorTestId,
   type WorkbookSurface,
   workbookFilterPopoverTriggerTestId,
+  workbookInspectorCloseButtonTestId,
   workbookInspectorToggleTestId,
   workbookShellReadyTestId,
   workbookShellSlotLabel,
@@ -428,6 +433,15 @@ async function activeElementSignature(page: Page) {
       role === "" ? "" : ` role:${role}`,
       nameParts.length === 0 ? "" : `:${nameParts.join(" ")}`,
     ].join("");
+  });
+}
+
+async function blurActiveElement(page: Page) {
+  await page.evaluate(() => {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) {
+      active.blur();
+    }
   });
 }
 
@@ -1834,31 +1848,83 @@ test.describe("FE-P4 accessibility readiness", () => {
       ),
     ).toHaveText("not-a-timestamp");
 
-    await expect(
-      await mountedGridTarget(
+    const recoveryController = await installPatchController(page);
+    try {
+      const closeInspector = page.getByTestId(
+        workbookInspectorCloseButtonTestId(timelineViewSchemaId),
+      );
+      if (await closeInspector.isVisible()) {
+        await closeInspector.click();
+        await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(
+          0,
+        );
+      }
+      recoveryController.failNextPatch(409, "client_txn_conflict", {
+        recordId: pendingRow.record_id,
+      });
+      const blockedSummary = await activateTimelineGridEditor(
         page,
-        timelineViewSchemaId,
+        pendingRow.record_id,
+        "timeline.activity_synopsis_text",
+      );
+      await blockedSummary.fill("FE-P4 accessibility blocked edit");
+      await blockedSummary.press("Enter");
+      await expect.poll(() => recoveryController.calls.length).toBe(1);
+
+      const recoveryPanel = page.getByTestId(pendingQueueRecoveryPanelTestId());
+      const retryButton = page.getByTestId(pendingQueueRetryButtonTestId());
+      const discardButton = page.getByTestId(pendingQueueDiscardButtonTestId());
+      await expect(recoveryPanel).toHaveRole("region");
+      await expect(recoveryPanel).toHaveAccessibleName("Queued edits");
+      await expect(recoveryPanel).not.toBeFocused();
+      await expect(retryButton).toHaveAccessibleName(
+        "Retry with a new request ID",
+      );
+      await expect(discardButton).toHaveAccessibleName("Discard blocked edit");
+      await expect(retryButton).toBeEnabled();
+      await expect(discardButton).toBeEnabled();
+
+      await page.getByTestId(saveStateActionButtonTestId()).click();
+      await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeFocused();
+      await retryButton.focus();
+      await page.keyboard.press("Tab");
+      await expect(discardButton).toBeFocused();
+
+      await expect(
+        await mountedGridTarget(
+          page,
+          timelineViewSchemaId,
+          gridSortHeaderTestId(
+            timelineViewSchemaId,
+            "timeline.activity_synopsis_text",
+          ),
+        ),
+      ).toContainText("Activity Synopsis");
+      await expectAllInteractiveControlsNamed(page);
+      await expectNoFocusTrap(page);
+      await expectAndRecordContrast(page, [
+        workbookShellSlotTestId("status-strip"),
+        workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
+        gridGroupingSelectTestId(timelineViewSchemaId),
         gridSortHeaderTestId(
           timelineViewSchemaId,
           "timeline.activity_synopsis_text",
         ),
-      ),
-    ).toContainText("Activity Synopsis");
-    await expectAllInteractiveControlsNamed(page);
-    await expectNoFocusTrap(page);
-    await expectAndRecordContrast(page, [
-      workbookShellSlotTestId("status-strip"),
-      workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
-      gridGroupingSelectTestId(timelineViewSchemaId),
-      gridSortHeaderTestId(
-        timelineViewSchemaId,
-        "timeline.activity_synopsis_text",
-      ),
-      rowCellTestId(editRow.record_id, "timeline.activity_synopsis_text"),
-      rowCellTestId(validationRow.record_id, "timeline.activity_utc_text"),
-      pendingQueueNoticeTestId(),
-      saveStateTestId(),
-    ]);
+        rowCellTestId(editRow.record_id, "timeline.activity_synopsis_text"),
+        rowCellTestId(validationRow.record_id, "timeline.activity_utc_text"),
+        pendingQueueNoticeTestId(),
+        pendingQueueRetryButtonTestId(),
+        pendingQueueDiscardButtonTestId(),
+        saveStateTestId(),
+      ]);
+
+      await discardButton.press("Space");
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+      await expect(recoveryPanel).toHaveCount(0);
+      expect(recoveryController.calls).toHaveLength(1);
+    } finally {
+      await recoveryController.dispose();
+    }
   });
 });
 
@@ -3276,6 +3342,14 @@ test.describe("FE-P11 accessibility readiness", () => {
       /^(?:draft-row-|row-)/u,
     ]);
 
+    await page.keyboard.press("Escape");
+    await blurActiveElement(page);
+    await scrollGridCellIntoView({
+      cellKey: "timeline.activity_synopsis_text",
+      page,
+      recordId: timelineRow.record_id,
+      surface: timelineViewSchemaId,
+    });
     const summaryCell = await activateTimelineGridEditor(
       page,
       timelineRow.record_id,

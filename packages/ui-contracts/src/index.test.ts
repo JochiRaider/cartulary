@@ -88,7 +88,10 @@ import {
   mentionResolveTargetSelectTestId,
   mentionRestoreUnresolvedButtonTestId,
   pendingQueueCountTestId,
+  pendingQueueDiscardButtonTestId,
   pendingQueueNoticeTestId,
+  pendingQueueRecoveryPanelTestId,
+  pendingQueueRetryButtonTestId,
   phase1AccountTestId,
   phase1AdminTestId,
   phase1AuthTestId,
@@ -156,6 +159,7 @@ import {
   savedViewSetHomeButtonTestId,
   savedViewStatusTestId,
   savedViewUpdateButtonTestId,
+  saveStateActionButtonTestId,
   saveStateTestId,
   statusStripQueueCountTestId,
   surfaceTabTestId,
@@ -647,6 +651,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       cellPresenceMarkerTestId("record-1", "timeline.activity_synopsis_text"),
     ).toBe("presence-cell-record-1-timeline.activity_synopsis_text");
     expect(saveStateTestId()).toBe("save-state");
+    expect(saveStateActionButtonTestId()).toBe("save-state-action");
     expect(statusStripQueueCountTestId()).toBe("status-strip-queue-count");
     expect(referencePackAdminPanelTestId()).toBe("reference-pack-admin-panel");
     expect(referencePackFileInputTestId()).toBe("reference-pack-file");
@@ -669,6 +674,15 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     );
     expect(pendingQueueNoticeTestId()).toBe("pending-queue-notice");
     expect(pendingQueueCountTestId()).toBe("pending-queue-count");
+    expect(pendingQueueRecoveryPanelTestId()).toBe(
+      "pending-queue-recovery-panel",
+    );
+    expect(pendingQueueRetryButtonTestId()).toBe(
+      "pending-queue-retry-new-request-id",
+    );
+    expect(pendingQueueDiscardButtonTestId()).toBe(
+      "pending-queue-discard-blocked-edit",
+    );
     expect(savedViewFamilySelector()).toBe('[data-testid^="saved-view-"]');
     expect(savedViewSelectorTestId("cartulary.view.hosts.v1")).toBe(
       "saved-view-selector-cartulary.view.hosts.v1",

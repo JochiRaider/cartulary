@@ -45,7 +45,7 @@ Fixture status is closed to `current`, `missing`, and `retired`. `current` means
 | `FE-VFIX-05` | Evidence affordance | `FE-P6` | Evidence grid count, access-control affordance, available, requested, pending, blocked, failed-handle, inconsistent-handle, unsupported-preview, download-handle states, and Timeline inspector evidence count are visible. | Evidence grid right-edge actions column; Timeline row anchor with inspector evidence section open; incident and generated record identifiers masked. | `current` |
 | `FE-VFIX-06` | Grouped result | `FE-P8` | Grouped grid result or group header row is visible. | Group row anchor; scroll top normalized before capture. | `current` |
 | `FE-VFIX-07` | Task Requests or Decisions | `FE-P10` | Task Requests or Decisions view state is visible with representative rows. | Top-left or named task row anchor. | `current` |
-| `FE-VFIX-08` | Save-state strip | `FE-P4`, `FE-P7` | Saved, syncing, conflict, or recovered save-state strip is isolated for comparison. | Strip-level crop; grid scroll irrelevant unless row context is included. | `current` |
+| `FE-VFIX-08` | Save-state and recovery | `FE-P4`, `FE-P7` | Saved, syncing, conflict, recovered save-state, and actionable blocked-edit recovery presentations are isolated for comparison. | Strip-level or full-viewport capture; grid scroll is normalized when row context is included. | `current` |
 | `FE-VFIX-09` | Frozen column | `FE-P3`, `FE-P10` | Frozen column remains visible while horizontal scroll exposes far-right state. | Horizontal scroll right; frozen-column edge visible. | `current` |
 | `FE-VFIX-10` | Resize handle | `FE-P3`, `FE-P10` | Column resize affordance is visible in a deterministic hover/focus state. | Top-left grid scroll; pointer/hover state declared. | `current` |
 | `FE-VFIX-11` | Fill-down handle | `FE-P3`, `FE-P10` | Fill-down affordance is visible in a deterministic focus/editor state. | Top-left grid scroll; active cell declared. | `current` |
@@ -118,14 +118,15 @@ later row-gutter or grouped-result query behavior into FE-P3.
 ### Current FE-P4 visual readiness fixture citation map
 
 The FE-P4 visual readiness fixture uses deterministic app-owned Timeline
-workbook state. It captures the real status strip, pending queue notice, active
-inline edit cell, and successful empty Timeline query state. This map is
+workbook state. It captures the real status strip, pending queue notice,
+transaction-conflict recovery panel, active inline edit cell, and successful
+empty Timeline query state. This map is
 design-direction evidence only; it does not create product conformance or Core
 05 publication evidence.
 
 | Affected row | Owner map | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
 | --- | --- | --- | --- | --- | --- | --- |
-| `FE-V-P4-01` | `tools/frontend_phase_maps/fe_p4_test_map.json` | `FE-VFIX-08`, `FE-VFIX-12`, `FE-VFIX-15` | Deterministic workbook incident with one Timeline row, held transport failure for pending replay, and a fresh zero-row Timeline incident for the empty query state. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; generated record identifiers and clock-derived labels masked by visual preparation. | Grid/status captures, snapshots `fe-v-p4-01-active-edit-cell`, `fe-v-p4-01-pending-replay-status`, and `fe-v-p4-01-empty-timeline-query`. |
+| `FE-V-P4-01` | `tools/frontend_phase_maps/fe_p4_test_map.json` | `FE-VFIX-08`, `FE-VFIX-12`, `FE-VFIX-15` | Deterministic workbook incident with one Timeline row, held transport failure for pending replay, one injected transaction conflict for actionable recovery, and a fresh zero-row Timeline incident for the empty query state. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; generated record identifiers and clock-derived labels masked by visual preparation; transaction identifiers are not rendered. | Grid/status captures, snapshots `fe-v-p4-01-active-edit-cell`, `fe-v-p4-01-pending-replay-status`, `fe-v-p4-01-transaction-recovery-panel`, and `fe-v-p4-01-empty-timeline-query`. |
 
 ### Current FE-P5 visual readiness fixture citation map
 
