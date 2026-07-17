@@ -6,7 +6,7 @@ import {
   pasteGridMatrix,
   scrollGridCellIntoView,
   sortByHeader,
-} from "@cartulary/test-utils";
+} from "@cartulary/test-utils/grid";
 import {
   gridGroupRowTestId,
   gridRowTestId,
@@ -19,20 +19,20 @@ import {
 import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
+import { csrfHeaders } from "./support/auth/browserSession";
+import { createIncident } from "./support/incidents/fixtures";
+import { apiBase } from "./support/runtime/configuration";
 import {
-  apiBase,
-  createIncident,
-  createViewRow,
-  csrfHeaders,
-  holdBrowserApiRequest,
   uniqueIncidentKey,
   uniqueTxn,
-} from "./helpers";
-import { clickTimelineRowAction } from "./phase4Helpers";
+} from "./support/runtime/fixtureIdentity";
+import { holdBrowserRequest as holdBrowserApiRequest } from "./support/transport/requestInterception";
 import {
   assertRecordFieldMutationAnchor,
   fillDownGridCells,
-} from "./workbookRequestSupport";
+} from "./support/workbook/mutationAnchors";
+import { createViewRow } from "./support/workbook/query";
+import { clickTimelineRowAction } from "./support/workbook/rowMutations";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v2";
 

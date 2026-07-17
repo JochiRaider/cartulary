@@ -1,7 +1,7 @@
 import {
   scrollGridCellIntoView,
   scrollGridTargetIntoView,
-} from "@cartulary/test-utils";
+} from "@cartulary/test-utils/grid";
 import {
   currentIncidentRoleTestId,
   draftCellTestId,
@@ -18,29 +18,29 @@ import {
 import type { Page, Route } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
+import { waitForCommittedRowSummary } from "./measurement/timingSupport";
+import { openIncidentAsTrackedUser } from "./pages/incidentDirectory";
+import { gridDraftRows, gridSavedRows } from "./pages/workbookInspector";
+import { csrfHeaders } from "./support/auth/browserSession";
+import { createIncident } from "./support/incidents/fixtures";
+import { createIncidentMemberUser } from "./support/incidents/memberships";
+import { apiBase, webBase } from "./support/runtime/configuration";
 import {
-  apiBase,
-  createIncident,
-  createIncidentMemberUser,
-  createViewRow,
-  csrfHeaders,
-  fetchTimelineRecordChangeCount,
-  fetchTimelineRecordSubstrate,
-  gridDraftRows,
-  gridSavedRows,
-  openIncidentAsTrackedUser,
   uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
-  waitForCommittedRowSummary,
-  webBase,
-} from "./helpers";
+} from "./support/runtime/fixtureIdentity";
+import { createViewRow } from "./support/workbook/query";
+import {
+  fetchTimelineRecordChangeCount,
+  fetchTimelineRecordSubstrate,
+} from "./support/workbook/refresh";
 import {
   clickTimelineRowAction,
   commitInspectorScalarEdit,
   openTimelineInspector,
   openTimelineRowActions,
-} from "./phase4Helpers";
+} from "./support/workbook/rowMutations";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v2";
 

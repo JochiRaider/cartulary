@@ -1,4 +1,4 @@
-import { scrollGridCellIntoView } from "@cartulary/test-utils";
+import { scrollGridCellIntoView } from "@cartulary/test-utils/grid";
 import {
   gridRowTestId,
   gridShellTestId,
@@ -14,30 +14,34 @@ import {
 import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
+import { csrfHeaders } from "./support/auth/browserSession";
 import {
-  apiBase,
-  createIncident,
-  createViewRow,
-  csrfHeaders,
-  patchRecord,
-  queryViewRows,
-  uniqueIncidentKey,
-  uniqueTxn,
-} from "./helpers";
+  evidenceViewSchemaId,
+  hostsViewSchemaId,
+  timelineViewSchemaId,
+} from "./support/contracts/workbookSurfaces";
 import {
   aliasCollectionActionsPayload,
-  clickTimelineRowAction,
   collectionActionsPayload,
   collectionItems,
-  evidenceViewSchemaId,
   findRow,
   hostRefsFieldKey,
-  hostsViewSchemaId,
   requireItemByRawText,
-  timelineViewSchemaId,
   type ViewRow,
-} from "./phase4Helpers";
-import { installIncidentSocketMonitor } from "./phase6Harness";
+} from "./support/entities/mentions";
+import { createIncident } from "./support/incidents/fixtures";
+import { apiBase } from "./support/runtime/configuration";
+import {
+  uniqueIncidentKey,
+  uniqueTxn,
+} from "./support/runtime/fixtureIdentity";
+import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
+import {
+  createViewRow,
+  patchRecord,
+  queryViewRows,
+} from "./support/workbook/query";
+import { clickTimelineRowAction } from "./support/workbook/rowMutations";
 
 type HistoryItem = {
   actor_user_id: string;

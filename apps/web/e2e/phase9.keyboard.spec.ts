@@ -4,8 +4,9 @@ import {
   changeGrouping,
   pasteGridMatrix,
   scrollGridCellIntoView,
+  scrollGridToOffset,
   sortByHeader,
-} from "@cartulary/test-utils";
+} from "@cartulary/test-utils/grid";
 import {
   dataTestIdSelector,
   gridGroupingSelectTestId,
@@ -31,34 +32,38 @@ import {
 import type { Locator, Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
-import {
-  apiBase,
-  createIncident,
-  createViewRow,
-  csrfHeaders,
-  queryViewRows,
-  uniqueIncidentKey,
-  uniqueTxn,
-  type ViewApiRow,
-  waitForViewRow,
-} from "./helpers";
+import { csrfHeaders } from "./support/auth/browserSession";
 import {
   assessmentsViewSchemaId,
-  collectionActionsPayload,
   commLogViewSchemaId,
-  createTimelineFillers,
   decisionsViewSchemaId,
   handoffViewSchemaId,
-  hostRefsFieldKey,
   hostsViewSchemaId,
   identitiesViewSchemaId,
   indicatorsViewSchemaId,
   lessonViewSchemaId,
   notesViewSchemaId,
-  openTimelineInspector,
   statusReviewViewSchemaId,
   taskRequestsViewSchemaId,
-} from "./phase4Helpers";
+} from "./support/contracts/workbookSurfaces";
+import {
+  collectionActionsPayload,
+  hostRefsFieldKey,
+} from "./support/entities/mentions";
+import { createIncident } from "./support/incidents/fixtures";
+import { apiBase } from "./support/runtime/configuration";
+import {
+  uniqueIncidentKey,
+  uniqueTxn,
+} from "./support/runtime/fixtureIdentity";
+import { createTimelineFillers } from "./support/timeline/fixtures";
+import {
+  createViewRow,
+  queryViewRows,
+  type ViewApiRow,
+  waitForViewRow,
+} from "./support/workbook/query";
+import { openTimelineInspector } from "./support/workbook/rowMutations";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
@@ -807,13 +812,19 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: one-click edit, copy,
     value: fillSourceValue,
     view_schema_id: timelineViewSchemaId,
   });
+  const betaBeforeReview = await waitForViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    beta.record_id,
+  );
 
   const reviewResponse = await page.request.post(
     `${apiBase}/api/v1/records/${beta.record_id}/mark-reviewed`,
     {
       headers: await csrfHeaders(page),
       data: {
-        base_row_version: betaAfterPaste.row_version,
+        base_row_version: betaBeforeReview.row_version,
         client_txn_id: uniqueTxn("fe-b-p10-02-review-beta"),
         reason: "FE-B-P10-02 grouping setup",
       },
@@ -858,6 +869,7 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: one-click edit, copy,
     timelineViewSchemaId,
     "timeline.activity_synopsis_text",
   );
+  await scrollGridToOffset(page, timelineViewSchemaId, 0);
   await assertMountedGridRowCountAtMost({
     maxRows: 48,
     page,

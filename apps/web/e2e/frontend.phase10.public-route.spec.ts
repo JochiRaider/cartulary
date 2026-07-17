@@ -1,17 +1,7 @@
 import type { APIResponse, Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
-import {
-  apiBase,
-  createIncident,
-  createIncidentMemberUser,
-  createViewRow,
-  csrfHeaders,
-  uniqueEmail,
-  uniqueIncidentKey,
-  uniqueTxn,
-  type ViewApiRow,
-} from "./helpers";
+import { csrfHeaders } from "./support/auth/browserSession";
 import {
   commLogViewSchemaId,
   decisionsViewSchemaId,
@@ -20,7 +10,16 @@ import {
   partiesViewSchemaId,
   statusReviewViewSchemaId,
   taskRequestsViewSchemaId,
-} from "./phase4Helpers";
+} from "./support/contracts/workbookSurfaces";
+import { createIncident } from "./support/incidents/fixtures";
+import { createIncidentMemberUser } from "./support/incidents/memberships";
+import { apiBase } from "./support/runtime/configuration";
+import {
+  uniqueEmail,
+  uniqueIncidentKey,
+  uniqueTxn,
+} from "./support/runtime/fixtureIdentity";
+import { createViewRow, type ViewApiRow } from "./support/workbook/query";
 
 type PublicEnvelope<TData> = {
   data: TData;

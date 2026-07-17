@@ -1,7 +1,7 @@
 import {
   scrollGridCellIntoView,
   scrollGridTargetIntoView,
-} from "@cartulary/test-utils";
+} from "@cartulary/test-utils/grid";
 import {
   gridSortHeaderTestId,
   rowCellTestId,
@@ -13,25 +13,26 @@ import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
-  createIncident,
-  createViewRow,
-  queryViewRows,
-  uniqueIncidentKey,
-  uniqueTxn,
-} from "./helpers";
+  hostsViewSchemaId,
+  identitiesViewSchemaId,
+  notesViewSchemaId,
+  timelineViewSchemaId,
+} from "./support/contracts/workbookSurfaces";
 import {
   aliasCollectionActionsPayload,
   collectionItems,
-  editGenericCell,
   findRow,
   hostRefsFieldKey,
-  hostsViewSchemaId,
-  identitiesViewSchemaId,
   identityRefsFieldKey,
-  notesViewSchemaId,
-  timelineViewSchemaId,
   type ViewRow,
-} from "./phase4Helpers";
+} from "./support/entities/mentions";
+import { createIncident } from "./support/incidents/fixtures";
+import {
+  uniqueIncidentKey,
+  uniqueTxn,
+} from "./support/runtime/fixtureIdentity";
+import { createViewRow, queryViewRows } from "./support/workbook/query";
+import { editGenericCell } from "./support/workbook/rowMutations";
 
 const exactScenarioTitle =
   "FE-I-P5-01 Verify Hosts, Identities, and Notes grids render contract-derived columns and preserve mention/entity provenance through edit and refresh.";

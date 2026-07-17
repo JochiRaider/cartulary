@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   fieldCapability,
   getViewContract,
+  getWorkbookSurfaceContract,
   listViewContracts,
+  listWorkbookSurfaceContracts,
   normalizeViewRowPatchV1,
   normalizeViewRowV1,
   parseViewContractJSON,
@@ -128,6 +130,41 @@ function expectInvariantFailure(raw: unknown, pattern: RegExp) {
 }
 
 describe("view-contracts", () => {
+  it("joins workbook identity and status metadata in Core 01 Table 7.4-A order", () => {
+    const entries = listWorkbookSurfaceContracts();
+
+    expect(entries.map((entry) => entry.viewSchemaId)).toEqual([
+      "cartulary.view.timeline.v2",
+      "cartulary.view.hosts.v1",
+      "cartulary.view.identities.v1",
+      "cartulary.view.evidence.v1",
+      "cartulary.view.notes.v1",
+      "cartulary.view.indicators.v1",
+      "cartulary.view.assessments.v1",
+      "cartulary.view.task_requests.v1",
+      "cartulary.view.decisions.v1",
+      "cartulary.view.parties.v1",
+      "cartulary.view.comm_log.v1",
+      "cartulary.view.handoff.v1",
+      "cartulary.view.status_review.v1",
+      "cartulary.view.lesson.v1",
+      "cartulary.view.findings.v1",
+      "cartulary.view.investigative_queries.v1",
+      "cartulary.view.forensic_keywords.v1",
+    ]);
+    expect(entries.map((entry) => entry.surfaceStatus)).toEqual([
+      ...Array.from({ length: 5 }, () => "required_built_in_sheet"),
+      ...Array.from({ length: 9 }, () => "required_system_view"),
+      ...Array.from(
+        { length: 3 },
+        () => "standardized_optional_workbook_surface",
+      ),
+    ]);
+    expect(
+      getWorkbookSurfaceContract("cartulary.view.missing.v1"),
+    ).toBeUndefined();
+  });
+
   it("parses sortable, filterable, and inline-create metadata", () => {
     const timeline = requireViewContract("cartulary.view.timeline.v2");
     const hosts = requireViewContract("cartulary.view.hosts.v1");

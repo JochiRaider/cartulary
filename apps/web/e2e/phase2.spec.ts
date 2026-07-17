@@ -1,8 +1,4 @@
-import {
-  scrollGridCellIntoView,
-  setCurrentSavedViewAsDefault,
-  setCurrentSavedViewAsHome,
-} from "@cartulary/test-utils";
+import { scrollGridCellIntoView } from "@cartulary/test-utils/grid";
 import {
   currentIncidentRoleTestId,
   dataTestIdSelector,
@@ -37,30 +33,37 @@ import {
   workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
+import { expect, test } from "./fixtures";
+import { AccountSettings } from "./pages/accountSettings";
+import { openIncidentControls } from "./pages/deploymentAdministration";
+import {
+  IncidentDirectory,
+  openIncidentAsTrackedUser,
+  openIncidentFromLanding,
+} from "./pages/incidentDirectory";
+import { csrfHeaders } from "./support/auth/browserSession";
 import {
   hostsViewSchemaId,
   indicatorsViewSchemaId,
   requiredBuiltInWorkbookSurfaceIds,
-} from "../src/workbook/models/workbookSurfaceRegistry";
-import { expect, test } from "./fixtures";
+  timelineViewSchemaId,
+} from "./support/contracts/workbookSurfaces";
+import { createIncident } from "./support/incidents/fixtures";
+import { createLocalUser } from "./support/incidents/memberships";
+import { apiBase } from "./support/runtime/configuration";
 import {
-  apiBase,
-  createIncident,
-  createLocalUser,
-  createSavedView,
-  createViewRow,
-  csrfHeaders,
-  openIncidentAsTrackedUser,
-  openIncidentControls,
-  openIncidentFromLanding,
-  seedSystemSavedView,
   uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
-} from "./helpers";
-import { Phase1Page } from "./phase1Page";
+} from "./support/runtime/fixtureIdentity";
+import { createViewRow } from "./support/workbook/query";
+import {
+  createSavedView,
+  seedSystemSavedView,
+  setCurrentSavedViewAsDefault,
+  setCurrentSavedViewAsHome,
+} from "./support/workbook/savedViews";
 
-const timelineViewSchemaId = "cartulary.view.timeline.v2";
 type AccountDensityMode = "compact" | "default" | "comfortable" | null;
 type AccountPreferencesResource = {
   density_mode: AccountDensityMode;
@@ -296,7 +299,7 @@ test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on 
   await page.goto("/");
 
   const incidentKey = uniqueIncidentKey("E201");
-  await new Phase1Page(page).createAndOpenIncident(
+  await new IncidentDirectory(page).createAndOpenIncident(
     incidentKey,
     "Phase 2 E-2-01",
   );
@@ -363,8 +366,7 @@ test("FE-B-P2-01 updates workbook density from Account Settings while the workbo
       incidentTitle,
     });
 
-    const phase1Page = new Phase1Page(page);
-    await phase1Page.openAccountSettings("account-appearance");
+    await new AccountSettings(page).open("account-appearance");
     const densitySelect = page.getByTestId(
       phase1AccountTestId("appearance-density-mode"),
     );
@@ -679,9 +681,8 @@ test("E-2-02 shows incident discovery, raw querystring deep-link retrieval, and 
 }) => {
   const incidentKey = uniqueIncidentKey("E202");
   const incidentId = await createIncident(page, incidentKey, "Phase 2 E-2-02");
-  const phase1 = new Phase1Page(page);
 
-  await phase1.gotoIncidentDirectory();
+  await new IncidentDirectory(page).goto();
   await expect(
     page.getByTestId(landingIncidentCardTestId(incidentId)),
   ).toBeVisible();

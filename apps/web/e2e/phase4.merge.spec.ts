@@ -1,24 +1,25 @@
 import { test } from "./fixtures";
 import {
-  createIncident,
-  createViewRow,
-  patchRecord,
-  uniqueIncidentKey,
-  uniqueTxn,
-} from "./helpers";
+  hostsViewSchemaId,
+  identitiesViewSchemaId,
+  timelineViewSchemaId,
+} from "./support/contracts/workbookSurfaces";
 import {
   aliasCollectionActionsPayload,
   collectionActionsPayload,
   collectionItems,
-  exerciseEntityMerge,
   hostRefsFieldKey,
-  hostsViewSchemaId,
-  identitiesViewSchemaId,
   identityRefsFieldKey,
   requireItemByRawText,
-  timelineViewSchemaId,
   type ViewRow,
-} from "./phase4Helpers";
+} from "./support/entities/mentions";
+import { exerciseEntityMerge } from "./support/entities/merge";
+import { createIncident } from "./support/incidents/fixtures";
+import {
+  uniqueIncidentKey,
+  uniqueTxn,
+} from "./support/runtime/fixtureIdentity";
+import { createViewRow, patchRecord } from "./support/workbook/query";
 
 test("E-4-03 merges duplicate entities from the inspector and preserves survivor identity", async ({
   page,

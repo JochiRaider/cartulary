@@ -6,14 +6,16 @@ import {
 } from "@cartulary/ui-contracts";
 
 import { expect, test } from "./fixtures";
+import { createIncident } from "./support/incidents/fixtures";
 import {
-  createIncident,
   createIncidentMembership,
   createIncidentMemberUser,
   createLocalUser,
+} from "./support/incidents/memberships";
+import {
   uniqueEmail,
   uniqueIncidentKey,
-} from "./helpers";
+} from "./support/runtime/fixtureIdentity";
 
 test("E-11-02 shows enterprise providers and begins provider sign-in from the anonymous shell", async ({
   browser,

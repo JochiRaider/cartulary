@@ -2,7 +2,7 @@ import {
   applyFilterChip,
   removeFilterChip,
   scrollGridCellIntoView,
-} from "@cartulary/test-utils";
+} from "@cartulary/test-utils/grid";
 import {
   rowCellTestId,
   workbookAddRowButtonTestId,
@@ -11,19 +11,21 @@ import {
 
 import { expect, test } from "./fixtures";
 import {
-  createIncident,
-  createViewRow,
-  uniqueIncidentKey,
-  uniqueTxn,
-} from "./helpers";
-import {
-  assessmentsViewSchemaId,
   createAssessmentViaUI,
   expectAssessmentGridOrder,
+} from "./support/assessments/fixtures";
+import {
+  assessmentsViewSchemaId,
   hostsViewSchemaId,
   timelineViewSchemaId,
-  type ViewRow,
-} from "./phase4Helpers";
+} from "./support/contracts/workbookSurfaces";
+import type { ViewRow } from "./support/entities/mentions";
+import { createIncident } from "./support/incidents/fixtures";
+import {
+  uniqueIncidentKey,
+  uniqueTxn,
+} from "./support/runtime/fixtureIdentity";
+import { createViewRow } from "./support/workbook/query";
 
 test("E-4-05 creates append-only assessment history through the workbook UI", async ({
   page,

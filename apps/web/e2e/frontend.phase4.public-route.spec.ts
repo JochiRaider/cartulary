@@ -3,7 +3,7 @@ import {
   scrollGridCellIntoView,
   scrollGridTargetIntoView,
   sortByHeader,
-} from "@cartulary/test-utils";
+} from "@cartulary/test-utils/grid";
 import {
   conflictMarkerTestId,
   draftCellTestId,
@@ -20,29 +20,30 @@ import {
   timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
 import type { APIResponse, Page, Response, Route } from "@playwright/test";
-
-import { revokeAllSessions } from "./authRuntime";
 import { expect, test } from "./fixtures";
-import {
-  apiBase,
-  createIncident,
-  createViewRow,
-  csrfHeaders,
-  gridSavedRows,
-  openIncidentFromLanding,
-  patchRecord,
-  queryViewRows,
-  safeUnroute,
-  testRouteHeaders,
-  uniqueIncidentKey,
-  uniqueTxn,
-  type ViewApiRow,
-} from "./helpers";
-import { readTimelineMutation } from "./phase4Helpers";
+import { openIncidentFromLanding } from "./pages/incidentDirectory";
+import { gridSavedRows } from "./pages/workbookInspector";
+import { csrfHeaders } from "./support/auth/browserSession";
+import { revokeAllSessions } from "./support/auth/sessions";
 import {
   exerciseRevokedPendingReplay,
   installPatchController,
-} from "./phase6Harness";
+} from "./support/collaboration/replay";
+import { createIncident } from "./support/incidents/fixtures";
+import { apiBase } from "./support/runtime/configuration";
+import {
+  uniqueIncidentKey,
+  uniqueTxn,
+} from "./support/runtime/fixtureIdentity";
+import { safelyRemoveRoute as safeUnroute } from "./support/transport/requestInterception";
+import { createEnvironmentTestControlClient } from "./support/transport/testControlEnvironment";
+import {
+  createViewRow,
+  patchRecord,
+  queryViewRows,
+  type ViewApiRow,
+} from "./support/workbook/query";
+import { readTimelineMutation } from "./support/workbook/rowMutations";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v2";
 const exactScenarioTitle =
@@ -154,18 +155,15 @@ async function postTimelinePastePublic(
 }
 
 async function armPublicErrorFault(page: Page, body: Record<string, unknown>) {
-  const response = await page.request.post(
-    `${apiBase}/api/v1/test/runtime/public-error-faults`,
-    {
-      headers: testRouteHeaders(),
-      data: {
-        ...body,
-        consume_once: true,
-      },
-    },
-  );
-  expect(response.status()).toBe(201);
-  return readEnvelope(response);
+  const response = await createEnvironmentTestControlClient(page.request, {
+    endpointOrigin: apiBase,
+  }).request({
+    body: { ...body, consume_once: true },
+    method: "POST",
+    path: "/api/v1/test/runtime/public-error-faults",
+  });
+  expect(response.status).toBe(201);
+  return response.body as { data: Record<string, unknown> };
 }
 
 async function dispatchClipboardText(

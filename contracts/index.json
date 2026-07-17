@@ -46,7 +46,7 @@
       "ts_name": "viewSchemaArtifacts",
       "output_order": 2,
       "owner_document": "docs/spec/01_architecture_storage_and_view_contracts.md",
-      "owner_sections": ["8.5"],
+      "owner_sections": ["3.3.1", "7.4"],
       "generated_outputs": [
         "internal/gen/contracts/contracts_gen.go",
         "packages/protocol-ts/src/generated/contracts.ts",

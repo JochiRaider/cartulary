@@ -99,6 +99,12 @@
     },
     {
       "target": "frontend-unit",
+      "file_pattern": "apps/web/e2e/support/**/*.test.ts",
+      "coverage": "tooling_support",
+      "reason": "Semantic browser-support characterization protects Playwright payload, transport, cleanup, and choreography behavior without claiming product conformance."
+    },
+    {
+      "target": "frontend-unit",
       "file": "apps/web/src/app/App.landing.test.tsx",
       "title": "aborts an in-flight refresh when entering the debug harness and loads the ordinary shell after leaving it",
       "coverage": "unowned_regression",

@@ -1,4 +1,4 @@
-import { scrollGridTargetIntoView } from "@cartulary/test-utils";
+import { scrollGridTargetIntoView } from "@cartulary/test-utils/grid";
 import {
   draftCellTestId,
   saveStateTestId,
@@ -6,18 +6,19 @@ import {
 } from "@cartulary/ui-contracts";
 
 import { expect, test } from "../fixtures";
-
+import { createIncident } from "../support/incidents/fixtures";
 import {
-  createIncident,
-  holdBrowserApiRequest,
+  uniqueIncidentKey,
+  uniqueTxn,
+} from "../support/runtime/fixtureIdentity";
+import { holdBrowserRequest as holdBrowserApiRequest } from "../support/transport/requestInterception";
+import {
   measureBlankRowCreate,
   measureTypingAck,
   ordinaryMeasurementSamplePolicy,
   percentile95,
   type ServerTimingMetric,
-  uniqueIncidentKey,
-  uniqueTxn,
-} from "../helpers";
+} from "./timingSupport";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v2";
 const draftSummaryTestId = draftCellTestId("timeline.activity_synopsis_text");

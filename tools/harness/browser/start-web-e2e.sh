@@ -237,7 +237,6 @@ CARTULARY_WEB_E2E_WEB_LOG=${WEB_LOG}
 CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS=${STARTUP_DIAGNOSTIC_FILE}
 CARTULARY_WEB_E2E_FRONTEND_MODE=${FRONTEND_MODE}
 CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND=${FRONTEND_COMMAND_KIND}
-CARTULARY_TEST_ROUTE_TOKEN_FILE=${TEST_ROUTE_TOKEN_FILE}
 CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID=${RUNTIME_PROFILE_ID}
 CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT=${RUNTIME_PROFILE_FINGERPRINT}
 EOF
@@ -284,7 +283,6 @@ const payload = {
   server_log: process.env.CARTULARY_WEB_E2E_SERVER_LOG,
   web_log: process.env.CARTULARY_WEB_E2E_WEB_LOG,
   startup_diagnostics: stringOrUndefined(process.env.CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS),
-  test_route_token_file: process.env.CARTULARY_TEST_ROUTE_TOKEN_FILE,
   runtime_profile_id: process.env.CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID,
   runtime_profile_fingerprint: process.env.CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT,
   backend_process_group_id: numberOrUndefined(process.env.CARTULARY_WEB_E2E_SERVER_PGID),
@@ -646,6 +644,38 @@ cleanup_standalone_database() {
     -c "DROP DATABASE IF EXISTS \"${E2E_DB}\" WITH (FORCE);" >/dev/null 2>&1
 }
 
+remove_retained_secret_material() {
+  local candidate=""
+  local status=0
+  local -a candidates=()
+
+  if [[ -n "${TEST_ROUTE_TOKEN_FILE:-}" ]]; then
+    candidates+=("${TEST_ROUTE_TOKEN_FILE}")
+  fi
+  if [[ -n "${TEST_SERVICES_ENV_FILE:-}" ]]; then
+    candidates+=("${TEST_SERVICES_ENV_FILE}")
+  fi
+  if [[ -n "${SESSION_ENV_FILE:-}" ]]; then
+    candidates+=("${SESSION_ENV_FILE}")
+  fi
+  if [[ -n "${PLAYWRIGHT_STATE_DIR:-}" ]]; then
+    candidates+=(
+      "${PLAYWRIGHT_STATE_DIR}/cartulary-playwright-admin-totp.txt"
+      "${PLAYWRIGHT_STATE_DIR}/cartulary-playwright-worker-admins.json"
+    )
+  fi
+
+  for candidate in "${candidates[@]}"; do
+    if ! rm -f -- "${candidate}" >/dev/null 2>&1; then
+      status=1
+    fi
+  done
+  if [[ "${status}" -ne 0 ]]; then
+    echo "browser e2e cleanup could not remove retained secret material" >&2
+  fi
+  return "${status}"
+}
+
 cleanup() {
   if [[ "${cleanup_done}" -eq 1 ]]; then
     return 0
@@ -698,6 +728,7 @@ cleanup() {
     fi
     emit_target_timing_span "teardown" "browser-e2e cleanup standalone database" "${step_start_time}" "${step_end_time}" "${step_duration_ms}" "${step_span_status}" "${step_status}"
   fi
+  remove_retained_secret_material || cleanup_status=$?
   if [[ "${KEEP_RUNTIME_ROOT}" -ne 1 ]]; then
     step_start_time="$(phase_now_utc)"
     step_start_ms="$(phase_now_monotonic_ms)"
@@ -784,6 +815,7 @@ const env = {
 const lease = {
   schema_id: "cartulary.web_e2e_session_lease.v1",
   env,
+  session_env_file: process.env.CARTULARY_WEB_E2E_SESSION_ENV_FILE,
   backend_port: Number.parseInt(process.env.CARTULARY_WEB_E2E_BACKEND_PORT ?? "", 10),
   frontend_port: Number.parseInt(process.env.CARTULARY_WEB_E2E_FRONTEND_PORT ?? "", 10),
   runtime_root: process.env.CARTULARY_WEB_E2E_RUNTIME_ROOT,
@@ -827,7 +859,10 @@ console.log(`FRONTEND_PORT=${q(lease.frontend_port)}`);
 console.log(`RUNTIME_ROOT_BASE=${q(lease.runtime_root)}`);
 console.log(`SERVER_LOG=${q(lease.server_log)}`);
 console.log(`WEB_LOG=${q(lease.web_log)}`);
-console.log(`CARTULARY_TEST_ROUTE_TOKEN_FILE=${q(lease.env?.CARTULARY_TEST_ROUTE_TOKEN_FILE)}`);
+console.log(`PLAYWRIGHT_STATE_DIR=${q(lease.env?.CARTULARY_PLAYWRIGHT_STATE_DIR)}`);
+console.log(`TEST_ROUTE_TOKEN_FILE=${q(lease.env?.CARTULARY_TEST_ROUTE_TOKEN_FILE)}`);
+console.log(`TEST_SERVICES_ENV_FILE=${q(lease.runtime_root ? `${lease.runtime_root}/test-services-web-e2e.env` : "")}`);
+console.log(`SESSION_ENV_FILE=${q(lease.session_env_file)}`);
 console.log(`KEEP_RUNTIME_ROOT=${lease.keep_runtime_root ? "1" : "0"}`);
 console.log(`E2E_DB=${q(lease.e2e_db)}`);
 console.log(`TEST_SERVICES_METADATA_FILE=${q(lease.test_services_metadata_file)}`);
@@ -835,17 +870,23 @@ console.log(`CARTULARY_TEST_SERVICES_ACTIVE=${lease.test_services_active ? "1" :
 EOF
   )"
   export CARTULARY_TEST_SERVICES_ACTIVE
+  CARTULARY_TEST_ROUTE_TOKEN_FILE="${TEST_ROUTE_TOKEN_FILE}"
   export CARTULARY_TEST_ROUTE_TOKEN_FILE
 }
 
 stop_session() {
+  local status=0
+
   if [[ ! -f "${SESSION_LEASE_FILE}" ]]; then
     echo "browser e2e session lease ${SESSION_LEASE_FILE} is missing" >&2
     return 1
   fi
   load_session_lease "${SESSION_LEASE_FILE}"
-  cleanup
-  rm -f "${SESSION_LEASE_FILE}"
+  cleanup || status=$?
+  if ! rm -f -- "${SESSION_LEASE_FILE}" >/dev/null 2>&1; then
+    status=1
+  fi
+  return "${status}"
 }
 
 on_exit() {

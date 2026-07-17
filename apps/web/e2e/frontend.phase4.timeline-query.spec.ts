@@ -1,7 +1,7 @@
 import {
   scrollGridCellIntoView,
   scrollGridTargetIntoView,
-} from "@cartulary/test-utils";
+} from "@cartulary/test-utils/grid";
 import {
   draftCellTestId,
   gridSortHeaderTestId,
@@ -14,15 +14,18 @@ import {
 import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
+import { gridSavedRows } from "./pages/workbookInspector";
+import { createIncident } from "./support/incidents/fixtures";
+import { apiBase } from "./support/runtime/configuration";
 import {
-  apiBase,
-  createIncident,
-  createViewRow,
-  gridSavedRows,
   uniqueIncidentKey,
   uniqueTxn,
-} from "./helpers";
-import { readTimelineMutation, waitForTimelinePatch } from "./phase4Helpers";
+} from "./support/runtime/fixtureIdentity";
+import { createViewRow } from "./support/workbook/query";
+import {
+  readTimelineMutation,
+  waitForTimelinePatch,
+} from "./support/workbook/rowMutations";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v2";
 const exactScenarioTitle =

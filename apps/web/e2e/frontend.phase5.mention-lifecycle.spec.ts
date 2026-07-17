@@ -16,12 +16,9 @@ import type { Page, Response, Route } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
-  createIncident,
-  createViewRow,
-  queryViewRows,
-  uniqueIncidentKey,
-  uniqueTxn,
-} from "./helpers";
+  hostsViewSchemaId,
+  timelineViewSchemaId,
+} from "./support/contracts/workbookSurfaces";
 import {
   addRelationshipTokenViaUI,
   aliasCollectionActionsPayload,
@@ -29,12 +26,16 @@ import {
   collectionItems,
   findRow,
   hostRefsFieldKey,
-  hostsViewSchemaId,
-  openTimelineInspector,
   requireItemByRawText,
-  timelineViewSchemaId,
   type ViewRow,
-} from "./phase4Helpers";
+} from "./support/entities/mentions";
+import { createIncident } from "./support/incidents/fixtures";
+import {
+  uniqueIncidentKey,
+  uniqueTxn,
+} from "./support/runtime/fixtureIdentity";
+import { createViewRow, queryViewRows } from "./support/workbook/query";
+import { openTimelineInspector } from "./support/workbook/rowMutations";
 
 const exactScenarioTitle =
   "FE-E-P5-01 Verify manual mention resolution, dismissal, auto-resolution disclosure, and undo through public mutation routes and refreshed rows.";

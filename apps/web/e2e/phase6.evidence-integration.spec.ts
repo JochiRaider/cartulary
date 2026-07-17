@@ -7,7 +7,7 @@ import type {
   ObjectBlobCreateEnvelope,
   ObjectBlobCreateRequest,
 } from "@cartulary/protocol-ts";
-import { scrollGridTargetIntoView } from "@cartulary/test-utils";
+import { scrollGridTargetIntoView } from "@cartulary/test-utils/grid";
 import {
   dataTestIdSelector,
   evidenceAccessMessageTestId,
@@ -20,19 +20,18 @@ import {
 import type { APIRequestContext, Page, Request } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
+import { csrfHeaders } from "./support/auth/browserSession";
+import { evidenceViewSchemaId } from "./support/contracts/workbookSurfaces";
+import type { ViewRow } from "./support/entities/mentions";
+import { createIncident } from "./support/incidents/fixtures";
+import { createIncidentMemberUser } from "./support/incidents/memberships";
+import { apiBase, webBase } from "./support/runtime/configuration";
 import {
-  apiBase,
-  createIncident,
-  createIncidentMemberUser,
-  createViewRow,
-  csrfHeaders,
-  queryViewRows,
   uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
-  webBase,
-} from "./helpers";
-import { evidenceViewSchemaId, type ViewRow } from "./phase4Helpers";
+} from "./support/runtime/fixtureIdentity";
+import { createViewRow, queryViewRows } from "./support/workbook/query";
 
 test.beforeEach(({ page }) => {
   failOnUnexpectedPageError(page);

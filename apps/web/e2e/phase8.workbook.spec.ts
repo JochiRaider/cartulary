@@ -4,22 +4,11 @@ import {
   assertGroupRowPresentationOnly,
   changeGrouping,
   collapseGridGroup,
-  createSavedViewFromCurrentSurface,
-  deleteSavedViewFromCurrentSurface,
-  duplicateSavedViewFromCurrentSurface,
   expandGridGroup,
-  openSavedViewActionMenu,
-  readSavedViewSelectionState,
   removeFilterChip,
   scrollGridCellIntoView,
-  selectSavedView,
-  selectSavedViewScope,
-  setCurrentSavedViewAsDefaultAndWait,
-  setCurrentSavedViewAsHomeAndWait,
-  setSavedViewDraftName,
   sortByHeader,
-  updateSavedViewFromCurrentSurface,
-} from "@cartulary/test-utils";
+} from "@cartulary/test-utils/grid";
 import {
   gridGroupRowsSelector,
   gridGroupRowTestId,
@@ -36,19 +25,31 @@ import {
 import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
+import { csrfHeaders, loginLocalSession } from "./support/auth/browserSession";
+import { createIncident } from "./support/incidents/fixtures";
+import { createIncidentMemberUser } from "./support/incidents/memberships";
+import { apiBase } from "./support/runtime/configuration";
 import {
-  apiBase,
-  createIncident,
-  createIncidentMemberUser,
-  createViewRow,
-  csrfHeaders,
-  loginLocalSession,
-  seedSystemSavedView,
   uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
-} from "./helpers";
-import { clickTimelineRowAction } from "./phase4Helpers";
+} from "./support/runtime/fixtureIdentity";
+import { createViewRow } from "./support/workbook/query";
+import { clickTimelineRowAction } from "./support/workbook/rowMutations";
+import {
+  createSavedViewFromCurrentSurface,
+  deleteSavedViewFromCurrentSurface,
+  duplicateSavedViewFromCurrentSurface,
+  openSavedViewActionMenu,
+  readSavedViewSelectionState,
+  seedSystemSavedView,
+  selectSavedView,
+  selectSavedViewScope,
+  setCurrentSavedViewAsDefaultAndWait,
+  setCurrentSavedViewAsHomeAndWait,
+  setSavedViewDraftName,
+  updateSavedViewFromCurrentSurface,
+} from "./support/workbook/savedViews";
 
 const evidenceViewSchemaId = "cartulary.view.evidence.v1";
 const hostsViewSchemaId = "cartulary.view.hosts.v1";

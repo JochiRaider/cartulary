@@ -7,6 +7,8 @@ import {
   type Page,
   request,
 } from "@playwright/test";
+import type { StorageState } from "./playwrightTypes";
+import { applyStorageState } from "./support/auth/browserSession";
 import {
   loginBootstrapControlPlaneContext,
   loginTrackedUserViaPage,
@@ -16,18 +18,14 @@ import {
   verifyRevokedSession,
   verifySessionUnauthorized,
   type WorkerAdmin,
-} from "./authRuntime";
-import {
-  apiBase,
-  applyStorageState,
-  authHeadersForStorageState,
-} from "./helpers";
-import type { StorageState } from "./playwrightTypes";
+} from "./support/auth/sessions";
+import { authHeadersForStorageState } from "./support/auth/storageState";
 import {
   loadWorkerAdminManifest,
   markWorkerAdminCleaned,
-  OwnedSessionTracker,
-} from "./sessionSupport";
+} from "./support/auth/workerAdmin";
+import { OwnedSessionTracker } from "./support/runtime/cleanup";
+import { apiBase } from "./support/runtime/configuration";
 
 type SessionTracker = {
   captureCurrentSession: (
@@ -105,7 +103,7 @@ export const test = base.extend<CartularyTestFixtures, CartularyWorkerFixtures>(
           );
           await verifySessionUnauthorized(
             workerAdmin.storageState,
-            `${workerAdmin.user_id} (${workerAdmin.email}) worker admin cached session`,
+            `worker admin cached session worker=${workerAdminIndex}`,
           );
           markWorkerAdminCleaned(workerAdminIndex);
         } finally {

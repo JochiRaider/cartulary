@@ -1,17 +1,17 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import type { FullConfig } from "@playwright/test";
-import { prepareWorkerAdminSuite } from "./authRuntime";
+import { prepareWorkerAdminSuite } from "./support/auth/sessions";
+import {
+  clearSuiteAdminTotpSecret,
+  prepareSuiteAdminState,
+} from "./support/auth/suiteAdmin";
+import { clearWorkerAdminSuiteState } from "./support/auth/workerAdmin";
 import {
   isExternalServerHarnessMode,
   resolvePlaywrightStateDirectory,
   usesSharedPlaywrightState,
-} from "./harnessState";
-import {
-  clearSuiteAdminTotpSecret,
-  prepareSuiteAdminState,
-  verifyOwnedHarnessRuntime,
-} from "./helpers";
-import { clearWorkerAdminSuiteState } from "./sessionSupport";
+} from "./support/runtime/harnessState";
+import { verifyOwnedHarnessRuntime } from "./support/runtime/readiness";
 
 export default async function globalSetup(config: FullConfig) {
   if (!isExternalServerHarnessMode()) {

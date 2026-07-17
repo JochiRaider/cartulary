@@ -354,6 +354,140 @@
           "path": "apps/web/src/testing/timelineWorkbookTestSupport"
         }
       ]
+    },
+    {
+      "id": "web-e2e-workbook-contract-boundary",
+      "level": "error",
+      "message": "E2E workbook support must consume derived surface metadata through support/contracts/workbookSurfaces.",
+      "applies_to": {
+        "include": ["apps/web/e2e/**"],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/models/workbookSurfaceRegistry"
+        }
+      ]
+    },
+    {
+      "id": "web-e2e-test-utils-subpath-boundary",
+      "level": "error",
+      "message": "Import @cartulary/test-utils through its semantic grid, accessibility, or visual subpaths.",
+      "applies_to": {
+        "include": ["apps/web/e2e/**"],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "package",
+          "name": "@cartulary/test-utils",
+          "include_subpaths": false
+        }
+      ]
+    },
+    {
+      "id": "web-e2e-public-control-transport-boundary",
+      "level": "error",
+      "message": "Public JSON transport must not import privileged test-control transport.",
+      "applies_to": {
+        "include": ["apps/web/e2e/support/transport/publicJsonClient.ts"],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/e2e/support/transport/testControl"
+        }
+      ]
+    },
+    {
+      "id": "web-e2e-semantic-fixture-direction",
+      "level": "error",
+      "message": "Semantic fixtures must not depend on accessibility or visual evidence composition.",
+      "applies_to": {
+        "include": [
+          "apps/web/e2e/support/auth/**",
+          "apps/web/e2e/support/collaboration/**",
+          "apps/web/e2e/support/contracts/**",
+          "apps/web/e2e/support/evidence/**",
+          "apps/web/e2e/support/extensions/**",
+          "apps/web/e2e/support/incidents/**",
+          "apps/web/e2e/support/runtime/**",
+          "apps/web/e2e/support/transport/**",
+          "apps/web/e2e/support/workbook/**"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/e2e/support/accessibility"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/e2e/support/visual"
+        }
+      ]
+    },
+    {
+      "id": "web-e2e-core-support-direction",
+      "level": "error",
+      "message": "Core E2E support must not depend on higher semantic fixture or evidence owners.",
+      "applies_to": {
+        "include": [
+          "apps/web/e2e/support/auth/**",
+          "apps/web/e2e/support/contracts/**",
+          "apps/web/e2e/support/incidents/**",
+          "apps/web/e2e/support/runtime/**",
+          "apps/web/e2e/support/transport/**",
+          "apps/web/e2e/support/workbook/**"
+        ],
+        "exclude": ["apps/web/e2e/support/runtime/architecturePolicy.test.ts"]
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/e2e/support/accessibility"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/e2e/support/assessments"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/e2e/support/collaboration"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/e2e/support/entities"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/e2e/support/evidence"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/e2e/support/extensions"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/e2e/support/recovery"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/e2e/support/timeline"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/e2e/support/visual"
+        }
+      ]
     }
   ],
   "raw_design_token_literal_checks": [

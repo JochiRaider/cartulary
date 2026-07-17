@@ -9,13 +9,14 @@ import {
 } from "@cartulary/ui-contracts";
 
 import { expect, test } from "./fixtures";
-import { Phase1Page } from "./phase1Page";
+import { AccountSettings } from "./pages/accountSettings";
+import { DeploymentAdministration } from "./pages/deploymentAdministration";
+import { IncidentDirectory } from "./pages/incidentDirectory";
 
 test("FE-S-P1-01 Verify bootstrap route selectors and error-state selectors use stable test-id builders.", async ({
   page,
 }) => {
-  const phase1 = new Phase1Page(page);
-  await phase1.gotoIncidentDirectory();
+  await new IncidentDirectory(page).goto();
 
   await expect(page.getByTestId(phase1RouteTestId("app-shell"))).toBeVisible();
   await expect(page.getByTestId(phase1LandingTestId("shell"))).toBeVisible();
@@ -26,14 +27,14 @@ test("FE-S-P1-01 Verify bootstrap route selectors and error-state selectors use 
   await expect(
     page.getByTestId(phase1ErrorSummaryTestIds("landing").container),
   ).toBeAttached();
-  await phase1.openAccountSettings("account-security");
+  await new AccountSettings(page).open("account-security");
   await expect(
     page.getByTestId(phase1AccountTestId("refresh-state")),
   ).toBeVisible();
   await expect(
     page.getByTestId(phase1ErrorSummaryTestIds("account").message),
   ).toBeAttached();
-  await phase1.openDeploymentAdministration();
+  await new DeploymentAdministration(page).open();
   await expect(page.getByTestId(phase1AdminTestId("status"))).toBeVisible();
   expect(phase1AuthTestId("bootstrap-token")).toBe("auth-bootstrap-token");
 

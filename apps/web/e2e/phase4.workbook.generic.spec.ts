@@ -1,4 +1,4 @@
-import { scrollGridCellIntoView } from "@cartulary/test-utils";
+import { scrollGridCellIntoView } from "@cartulary/test-utils/grid";
 import {
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
@@ -10,15 +10,8 @@ import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
-  createIncident,
-  createViewRow,
-  uniqueIncidentKey,
-  uniqueTxn,
-} from "./helpers";
-import {
   commLogViewSchemaId,
   decisionsViewSchemaId,
-  editGenericCell,
   evidenceViewSchemaId,
   handoffViewSchemaId,
   lessonViewSchemaId,
@@ -27,9 +20,18 @@ import {
   statusReviewViewSchemaId,
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
-  type ViewRow,
+} from "./support/contracts/workbookSurfaces";
+import type { ViewRow } from "./support/entities/mentions";
+import { createIncident } from "./support/incidents/fixtures";
+import {
+  uniqueIncidentKey,
+  uniqueTxn,
+} from "./support/runtime/fixtureIdentity";
+import { createViewRow } from "./support/workbook/query";
+import {
+  editGenericCell,
   waitForViewRowByCell,
-} from "./phase4Helpers";
+} from "./support/workbook/rowMutations";
 
 test("E-4-06 creates and edits required workbook mutation surfaces through typed generic controls", async ({
   page,

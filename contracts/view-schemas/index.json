@@ -4,157 +4,191 @@
   "note": "Derived repo-local artifact from the owner docs chain. This file is not the behavioral authority.",
   "view_schemas": [
     {
-      "view_schema_id": "cartulary.view.assessments.v1",
-      "title": "Assessments",
-      "surface_kind": "system_view",
-      "source_record_types": [
-        "assessment"
-      ],
-      "artifact_path": "contracts/view-schemas/cartulary.view.assessments.v1.json"
-    },
-    {
-      "view_schema_id": "cartulary.view.comm_log.v1",
-      "title": "Communications Log",
-      "surface_kind": "system_view",
-      "source_record_types": [
-        "artifact"
-      ],
-      "artifact_path": "contracts/view-schemas/cartulary.view.comm_log.v1.json"
-    },
-    {
-      "view_schema_id": "cartulary.view.decisions.v1",
-      "title": "Decisions",
-      "surface_kind": "system_view",
-      "source_record_types": [
-        "decision"
-      ],
-      "artifact_path": "contracts/view-schemas/cartulary.view.decisions.v1.json"
-    },
-    {
-      "view_schema_id": "cartulary.view.evidence.v1",
-      "title": "Evidence",
+      "view_schema_id": "cartulary.view.timeline.v2",
+      "title": "Timeline",
       "surface_kind": "built_in_sheet",
+      "surface_status": "required_built_in_sheet",
       "source_record_types": [
-        "evidence"
+        "timeline_event"
       ],
-      "artifact_path": "contracts/view-schemas/cartulary.view.evidence.v1.json"
-    },
-    {
-      "view_schema_id": "cartulary.view.findings.v1",
-      "title": "Findings",
-      "surface_kind": "system_view",
-      "source_record_types": [
-        "artifact"
-      ],
-      "artifact_path": "contracts/view-schemas/cartulary.view.findings.v1.json"
-    },
-    {
-      "view_schema_id": "cartulary.view.forensic_keywords.v1",
-      "title": "Forensic Keywords",
-      "surface_kind": "system_view",
-      "source_record_types": [
-        "artifact"
-      ],
-      "artifact_path": "contracts/view-schemas/cartulary.view.forensic_keywords.v1.json"
-    },
-    {
-      "view_schema_id": "cartulary.view.handoff.v1",
-      "title": "Handoff",
-      "surface_kind": "system_view",
-      "source_record_types": [
-        "artifact"
-      ],
-      "artifact_path": "contracts/view-schemas/cartulary.view.handoff.v1.json"
+      "required_reference_pack_keys": [],
+      "artifact_path": "contracts/view-schemas/cartulary.view.timeline.v2.json"
     },
     {
       "view_schema_id": "cartulary.view.hosts.v1",
       "title": "Hosts",
       "surface_kind": "built_in_sheet",
+      "surface_status": "required_built_in_sheet",
       "source_record_types": [
         "host"
       ],
+      "required_reference_pack_keys": [],
       "artifact_path": "contracts/view-schemas/cartulary.view.hosts.v1.json"
     },
     {
       "view_schema_id": "cartulary.view.identities.v1",
       "title": "Identities",
       "surface_kind": "built_in_sheet",
+      "surface_status": "required_built_in_sheet",
       "source_record_types": [
         "identity"
       ],
+      "required_reference_pack_keys": [],
       "artifact_path": "contracts/view-schemas/cartulary.view.identities.v1.json"
     },
     {
-      "view_schema_id": "cartulary.view.indicators.v1",
-      "title": "Indicators",
-      "surface_kind": "system_view",
+      "view_schema_id": "cartulary.view.evidence.v1",
+      "title": "Evidence",
+      "surface_kind": "built_in_sheet",
+      "surface_status": "required_built_in_sheet",
       "source_record_types": [
-        "indicator"
+        "evidence"
       ],
-      "artifact_path": "contracts/view-schemas/cartulary.view.indicators.v1.json"
-    },
-    {
-      "view_schema_id": "cartulary.view.investigative_queries.v1",
-      "title": "Investigative Queries",
-      "surface_kind": "system_view",
-      "source_record_types": [
-        "artifact"
-      ],
-      "artifact_path": "contracts/view-schemas/cartulary.view.investigative_queries.v1.json"
-    },
-    {
-      "view_schema_id": "cartulary.view.lesson.v1",
-      "title": "Lesson",
-      "surface_kind": "system_view",
-      "source_record_types": [
-        "artifact"
-      ],
-      "artifact_path": "contracts/view-schemas/cartulary.view.lesson.v1.json"
+      "required_reference_pack_keys": [],
+      "artifact_path": "contracts/view-schemas/cartulary.view.evidence.v1.json"
     },
     {
       "view_schema_id": "cartulary.view.notes.v1",
       "title": "Notes",
       "surface_kind": "built_in_sheet",
+      "surface_status": "required_built_in_sheet",
       "source_record_types": [
         "artifact"
       ],
+      "required_reference_pack_keys": [],
       "artifact_path": "contracts/view-schemas/cartulary.view.notes.v1.json"
     },
     {
-      "view_schema_id": "cartulary.view.parties.v1",
-      "title": "Parties",
+      "view_schema_id": "cartulary.view.indicators.v1",
+      "title": "Indicators",
       "surface_kind": "system_view",
+      "surface_status": "required_system_view",
       "source_record_types": [
-        "party"
+        "indicator"
       ],
-      "artifact_path": "contracts/view-schemas/cartulary.view.parties.v1.json"
+      "required_reference_pack_keys": [],
+      "artifact_path": "contracts/view-schemas/cartulary.view.indicators.v1.json"
     },
     {
-      "view_schema_id": "cartulary.view.status_review.v1",
-      "title": "Status Review",
+      "view_schema_id": "cartulary.view.assessments.v1",
+      "title": "Assessments",
       "surface_kind": "system_view",
+      "surface_status": "required_system_view",
       "source_record_types": [
-        "artifact"
+        "assessment"
       ],
-      "artifact_path": "contracts/view-schemas/cartulary.view.status_review.v1.json"
+      "required_reference_pack_keys": [],
+      "artifact_path": "contracts/view-schemas/cartulary.view.assessments.v1.json"
     },
     {
       "view_schema_id": "cartulary.view.task_requests.v1",
       "title": "Task Requests",
       "surface_kind": "system_view",
+      "surface_status": "required_system_view",
       "source_record_types": [
         "task_request"
       ],
+      "required_reference_pack_keys": [],
       "artifact_path": "contracts/view-schemas/cartulary.view.task_requests.v1.json"
     },
     {
-      "view_schema_id": "cartulary.view.timeline.v2",
-      "title": "Timeline",
-      "surface_kind": "built_in_sheet",
+      "view_schema_id": "cartulary.view.decisions.v1",
+      "title": "Decisions",
+      "surface_kind": "system_view",
+      "surface_status": "required_system_view",
       "source_record_types": [
-        "timeline_event"
+        "decision"
       ],
-      "artifact_path": "contracts/view-schemas/cartulary.view.timeline.v2.json"
+      "required_reference_pack_keys": [],
+      "artifact_path": "contracts/view-schemas/cartulary.view.decisions.v1.json"
+    },
+    {
+      "view_schema_id": "cartulary.view.parties.v1",
+      "title": "Parties",
+      "surface_kind": "system_view",
+      "surface_status": "required_system_view",
+      "source_record_types": [
+        "party"
+      ],
+      "required_reference_pack_keys": [],
+      "artifact_path": "contracts/view-schemas/cartulary.view.parties.v1.json"
+    },
+    {
+      "view_schema_id": "cartulary.view.comm_log.v1",
+      "title": "Communications Log",
+      "surface_kind": "system_view",
+      "surface_status": "required_system_view",
+      "source_record_types": [
+        "artifact"
+      ],
+      "required_reference_pack_keys": [],
+      "artifact_path": "contracts/view-schemas/cartulary.view.comm_log.v1.json"
+    },
+    {
+      "view_schema_id": "cartulary.view.handoff.v1",
+      "title": "Handoff",
+      "surface_kind": "system_view",
+      "surface_status": "required_system_view",
+      "source_record_types": [
+        "artifact"
+      ],
+      "required_reference_pack_keys": [],
+      "artifact_path": "contracts/view-schemas/cartulary.view.handoff.v1.json"
+    },
+    {
+      "view_schema_id": "cartulary.view.status_review.v1",
+      "title": "Status Review",
+      "surface_kind": "system_view",
+      "surface_status": "required_system_view",
+      "source_record_types": [
+        "artifact"
+      ],
+      "required_reference_pack_keys": [],
+      "artifact_path": "contracts/view-schemas/cartulary.view.status_review.v1.json"
+    },
+    {
+      "view_schema_id": "cartulary.view.lesson.v1",
+      "title": "Lesson",
+      "surface_kind": "system_view",
+      "surface_status": "required_system_view",
+      "source_record_types": [
+        "artifact"
+      ],
+      "required_reference_pack_keys": [],
+      "artifact_path": "contracts/view-schemas/cartulary.view.lesson.v1.json"
+    },
+    {
+      "view_schema_id": "cartulary.view.findings.v1",
+      "title": "Findings",
+      "surface_kind": "system_view",
+      "surface_status": "standardized_optional_workbook_surface",
+      "source_record_types": [
+        "artifact"
+      ],
+      "required_reference_pack_keys": [],
+      "artifact_path": "contracts/view-schemas/cartulary.view.findings.v1.json"
+    },
+    {
+      "view_schema_id": "cartulary.view.investigative_queries.v1",
+      "title": "Investigative Queries",
+      "surface_kind": "system_view",
+      "surface_status": "standardized_optional_workbook_surface",
+      "source_record_types": [
+        "artifact"
+      ],
+      "required_reference_pack_keys": [],
+      "artifact_path": "contracts/view-schemas/cartulary.view.investigative_queries.v1.json"
+    },
+    {
+      "view_schema_id": "cartulary.view.forensic_keywords.v1",
+      "title": "Forensic Keywords",
+      "surface_kind": "system_view",
+      "surface_status": "standardized_optional_workbook_surface",
+      "source_record_types": [
+        "artifact"
+      ],
+      "required_reference_pack_keys": [],
+      "artifact_path": "contracts/view-schemas/cartulary.view.forensic_keywords.v1.json"
     }
   ]
 }

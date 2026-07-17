@@ -655,6 +655,7 @@ write_stack_metadata
 assert_file_contains "$STACK_ENV_FILE" "CARTULARY_WEB_E2E_API_ORIGIN=http://127.0.0.1:${dynamic_backend_port}" "stack env API origin"
 assert_file_contains "$STACK_ENV_FILE" "CARTULARY_WEB_E2E_PUBLIC_ORIGIN=http://127.0.0.1:${dynamic_frontend_port}" "stack env public origin"
 assert_file_contains "$STACK_ENV_FILE" "CARTULARY_WEB_E2E_FRONTEND_MODE=preview" "stack env frontend mode"
+assert_file_not_contains "$STACK_ENV_FILE" "CARTULARY_TEST_ROUTE_TOKEN_FILE" "retained stack env token-file reference"
 "${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}" - "$STACK_JSON_FILE" "$dynamic_backend_port" "$dynamic_frontend_port" "$SERVER_LOG" "$WEB_LOG" "$STARTUP_DIAGNOSTIC_FILE" <<'EOF'
 const fs = require("node:fs");
 
@@ -681,6 +682,9 @@ if (payload.frontend_mode !== "preview") {
 }
 if (payload.frontend_command_kind !== "vite-preview") {
   failures.push(`unexpected frontend_command_kind ${payload.frontend_command_kind}`);
+}
+if (Object.hasOwn(payload, "test_route_token_file")) {
+  failures.push("retained stack metadata must omit the test-route token-file reference");
 }
 if (payload.server_log !== serverLog) {
   failures.push(`unexpected server_log ${payload.server_log}`);
@@ -1195,9 +1199,55 @@ SERVER_PGID=""
 VITE_PGID=""
 CHILD_PGID=""
 KEEP_RUNTIME_ROOT=1
+RUNTIME_ROOT_BASE="$tmp_dir/retained-secret-runtime"
+PLAYWRIGHT_STATE_DIR="$RUNTIME_ROOT_BASE/playwright-state"
+TEST_ROUTE_TOKEN_FILE="$RUNTIME_ROOT_BASE/test-route-token"
+TEST_SERVICES_ENV_FILE="$RUNTIME_ROOT_BASE/test-services-web-e2e.env"
+mkdir -p "$PLAYWRIGHT_STATE_DIR"
+printf 'test-token\n' >"$TEST_ROUTE_TOKEN_FILE"
+printf 'CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY=credential\n' >"$TEST_SERVICES_ENV_FILE"
+printf 'totp-secret\n' >"$PLAYWRIGHT_STATE_DIR/cartulary-playwright-admin-totp.txt"
+printf '{"worker_admins":[{"email":"admin@example.test","password":"credential"}]}\n' >"$PLAYWRIGHT_STATE_DIR/cartulary-playwright-worker-admins.json"
 cleanup
 if ! tail -n 1 "$fake_test_services_log" | grep -Fq "cleanup-web-e2e --metadata-file $TEST_SERVICES_METADATA_FILE"; then
   fail "active test-service cleanup command must use browser metadata"
+fi
+if [[ -e "$TEST_ROUTE_TOKEN_FILE" || -e "$TEST_SERVICES_ENV_FILE" || -e "$PLAYWRIGHT_STATE_DIR/cartulary-playwright-admin-totp.txt" || -e "$PLAYWRIGHT_STATE_DIR/cartulary-playwright-worker-admins.json" ]]; then
+  fail "retained browser runtime must remove token and credential material"
+fi
+if [[ ! -d "$RUNTIME_ROOT_BASE" ]]; then
+  fail "retained browser runtime cleanup must preserve non-secret diagnostics"
+fi
+
+cleanup_done=0
+RUNTIME_ROOT_BASE="$tmp_dir/session-secret-runtime"
+PLAYWRIGHT_STATE_DIR="$RUNTIME_ROOT_BASE/playwright-state"
+TEST_ROUTE_TOKEN_FILE="$RUNTIME_ROOT_BASE/test-route-token"
+TEST_SERVICES_ENV_FILE="$RUNTIME_ROOT_BASE/test-services-web-e2e.env"
+SESSION_ENV_FILE="$tmp_dir/session-browser-env.json"
+SESSION_LEASE_FILE="$tmp_dir/session-browser-lease.json"
+mkdir -p "$PLAYWRIGHT_STATE_DIR"
+printf 'test-token\n' >"$TEST_ROUTE_TOKEN_FILE"
+printf 'CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY=credential\n' >"$TEST_SERVICES_ENV_FILE"
+printf 'totp-secret\n' >"$PLAYWRIGHT_STATE_DIR/cartulary-playwright-admin-totp.txt"
+printf '{"worker_admins":[{"email":"admin@example.test","password":"credential"}]}\n' >"$PLAYWRIGHT_STATE_DIR/cartulary-playwright-worker-admins.json"
+write_session_files
+if [[ ! -f "$SESSION_ENV_FILE" || ! -f "$SESSION_LEASE_FILE" ]]; then
+  fail "browser session start must write its ephemeral environment and lease files"
+fi
+PLAYWRIGHT_STATE_DIR=""
+TEST_ROUTE_TOKEN_FILE=""
+TEST_SERVICES_ENV_FILE=""
+SESSION_ENV_FILE=""
+stop_session
+if [[ -e "$RUNTIME_ROOT_BASE/test-route-token" || -e "$RUNTIME_ROOT_BASE/test-services-web-e2e.env" || -e "$RUNTIME_ROOT_BASE/playwright-state/cartulary-playwright-admin-totp.txt" || -e "$RUNTIME_ROOT_BASE/playwright-state/cartulary-playwright-worker-admins.json" ]]; then
+  fail "browser session stop must restore and remove owned token and credential paths"
+fi
+if [[ -e "$tmp_dir/session-browser-env.json" || -e "$tmp_dir/session-browser-lease.json" ]]; then
+  fail "browser session stop must remove ephemeral session files"
+fi
+if [[ ! -d "$RUNTIME_ROOT_BASE" ]]; then
+  fail "browser session stop must preserve non-secret owned-stack diagnostics"
 fi
 
 unset CARTULARY_TEST_SERVICES_ACTIVE

@@ -7,14 +7,14 @@ import {
 } from "@cartulary/ui-contracts";
 
 import { expect, test } from "./fixtures";
-import { Phase1Page } from "./phase1Page";
+import { DeploymentAdministration } from "./pages/deploymentAdministration";
+import { IncidentDirectory } from "./pages/incidentDirectory";
 
 const jobID = "phase11-reference-pack-browser-job";
 
 test("E-11-01 shows Reference Pack progress and cancel controls without blocking landing interaction", async ({
   page,
 }) => {
-  const phase1 = new Phase1Page(page);
   let jobReads = 0;
   let cancelRequests = 0;
 
@@ -56,7 +56,7 @@ test("E-11-01 shows Reference Pack progress and cancel controls without blocking
   );
 
   await page.goto("/");
-  await phase1.selectAdminPanel("reference-packs");
+  await new DeploymentAdministration(page).selectPanel("reference-packs");
   await expect(page.getByTestId(referencePackAdminPanelTestId())).toBeVisible();
 
   await page.getByTestId(referencePackRefreshAllButtonTestId()).click();
@@ -70,7 +70,7 @@ test("E-11-01 shows Reference Pack progress and cancel controls without blocking
     },
   );
 
-  await phase1.openIncidentDirectory();
+  await new IncidentDirectory(page).open();
   await page.getByTestId(phase1LandingTestId("create-open-button")).click();
   await expect(
     page.getByTestId(phase1LandingTestId("incident-key")),
@@ -83,7 +83,7 @@ test("E-11-01 shows Reference Pack progress and cancel controls without blocking
   ).toHaveValue("IR-E-11-01");
   await page.getByRole("button", { name: "Close new incident" }).click();
 
-  await phase1.selectAdminPanel("reference-packs");
+  await new DeploymentAdministration(page).selectPanel("reference-packs");
   await page.getByTestId(referencePackCancelButtonTestId()).click();
   await expect(page.getByTestId(referencePackJobStatusTestId())).toContainText(
     "cancel_requested",

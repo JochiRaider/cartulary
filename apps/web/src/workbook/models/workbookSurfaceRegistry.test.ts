@@ -201,11 +201,9 @@ describe("workbook surface registry", () => {
     expect(entries.map((entry) => entry.requiredReferencePackKeys)).toEqual(
       entries.map(() => []),
     );
-    expect(
-      buildWorkbookSurfaceRegistry(packBoundContracts).find(
-        (entry) => entry.viewSchemaId === findingsViewSchemaId,
-      )?.requiredReferencePackKeys,
-    ).toEqual(["mitre_attack_enterprise"]);
+    expect(() => buildWorkbookSurfaceRegistry(packBoundContracts)).toThrow(
+      /required_reference_pack_keys do not match its registry entry/,
+    );
   });
 
   it("FE-U-P10-01 Verify coordination and review system-view registrations, field mappings, and closed vocabulary options use stable IDs and contract metadata.", () => {

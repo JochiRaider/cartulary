@@ -7,7 +7,7 @@ import {
   pasteGridMatrix,
   scrollGridCellIntoView,
   scrollGridTargetIntoView,
-} from "@cartulary/test-utils";
+} from "@cartulary/test-utils/grid";
 import {
   autoResolutionNoticeTestId,
   autoResolutionUndoButtonTestId,
@@ -91,76 +91,83 @@ import {
   workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
 import type { APIRequestContext, Locator, Page, Route } from "@playwright/test";
-import {
-  indicatorsViewSchemaId,
-  requiredBuiltInWorkbookSurfaceIds,
-  timelineViewSchemaId,
-} from "../src/workbook/models/workbookSurfaceRegistry";
+import { expect, test } from "./fixtures";
+import { AccountSettings } from "./pages/accountSettings";
+import { AuthGateway } from "./pages/authGateway";
+import { openIncidentControls } from "./pages/deploymentAdministration";
+import { IncidentDirectory } from "./pages/incidentDirectory";
 import {
   p1AccessibilityScenarioTitles,
   scenarioTitlesForAccessibilityRow,
-} from "./a11yPhaseMap";
+} from "./support/accessibility/phaseMap";
+import { csrfHeaders } from "./support/auth/browserSession";
 import {
   createLocalUser as createAuthLocalUser,
   revokeAllSessions,
-} from "./authRuntime";
+} from "./support/auth/sessions";
+import { sessionCookieName } from "./support/auth/storageState";
 import {
-  createEvidenceFixtureRow,
-  createUploadedEvidenceFixture,
-  type EvidenceUploadOptions,
-} from "./evidenceFixtureHelpers";
-import { expect, test } from "./fixtures";
-import {
-  apiBase,
-  createIncident,
-  createIncidentMembership,
-  createIncidentMemberUser,
-  createViewRow,
-  csrfHeaders,
   enrollTotpViaBootstrap,
   generateTotpCode,
-  openIncidentControls,
-  patchRecord,
-  safeUnroute,
-  sessionCookieName,
-  testRouteHeaders,
-  uniqueEmail,
-  uniqueIncidentKey,
-  uniqueTxn,
-} from "./helpers";
-import { Phase1Page } from "./phase1Page";
-import {
-  addRelationshipTokenViaUI,
-  clickTimelineRowAction,
-  collectionActionsPayload,
-  collectionItems,
-  commLogViewSchemaId,
-  decisionsViewSchemaId,
-  evidenceViewSchemaId,
-  handoffViewSchemaId,
-  hostRefsFieldKey,
-  lessonViewSchemaId,
-  openTimelineInspector,
-  partiesViewSchemaId,
-  requireItemByRawText,
-  seedHostMentionStateFixture,
-  statusReviewViewSchemaId,
-  taskRequestsViewSchemaId,
-} from "./phase4Helpers";
+} from "./support/auth/suiteAdmin";
 import {
   driveRealTimelineSummaryConflict,
   focusRemoteTimelineCellAndWaitForPresence,
-  installIncidentSocketMonitor,
   installPatchController,
   installPatchTransportFailureController,
   openIncidentAsTrackedUserReady,
   requireRecordId,
   successfulPatchCalls,
-} from "./phase6Harness";
+} from "./support/collaboration/replay";
+import {
+  commLogViewSchemaId,
+  decisionsViewSchemaId,
+  evidenceViewSchemaId,
+  handoffViewSchemaId,
+  indicatorsViewSchemaId,
+  lessonViewSchemaId,
+  partiesViewSchemaId,
+  requiredBuiltInWorkbookSurfaceIds,
+  statusReviewViewSchemaId,
+  taskRequestsViewSchemaId,
+  timelineViewSchemaId,
+} from "./support/contracts/workbookSurfaces";
+import {
+  addRelationshipTokenViaUI,
+  collectionActionsPayload,
+  collectionItems,
+  hostRefsFieldKey,
+  requireItemByRawText,
+  seedHostMentionStateFixture,
+} from "./support/entities/mentions";
+import {
+  createEvidenceFixtureRow,
+  createUploadedEvidenceFixture,
+  type EvidenceUploadOptions,
+} from "./support/evidence/fixtures";
 import {
   importPhase12NetworkFlowCSV,
   openClaimedNetworkAnalysis,
-} from "./phase12NetworkFlowHarness";
+} from "./support/extensions/network_flow_activity/workspace";
+import { createIncident } from "./support/incidents/fixtures";
+import {
+  createIncidentMembership,
+  createIncidentMemberUser,
+} from "./support/incidents/memberships";
+import { apiBase } from "./support/runtime/configuration";
+import {
+  uniqueEmail,
+  uniqueIncidentKey,
+  uniqueTxn,
+} from "./support/runtime/fixtureIdentity";
+import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
+import { safelyRemoveRoute as safeUnroute } from "./support/transport/requestInterception";
+import { createEnvironmentTestControlClient } from "./support/transport/testControlEnvironment";
+import { createViewRow, patchRecord } from "./support/workbook/query";
+import {
+  clickTimelineRowAction,
+  openTimelineInspector,
+} from "./support/workbook/rowMutations";
 
 type IncidentMembershipRecord = {
   membership_version: number;
@@ -1240,25 +1247,25 @@ async function armA11yPublicErrorFault(
     reasonCode: "blob_failed" | "evidence_inconsistent";
   },
 ) {
-  const response = await page.request.post(
-    `${apiBase}/api/v1/test/runtime/public-error-faults`,
-    {
-      headers: testRouteHeaders(),
-      data: {
-        code: "evidence_access_unavailable",
-        consume_once: true,
-        details: {
-          reason_code: options.reasonCode,
-        },
-        message: "Evidence access failed for FE-P6 accessibility fixture.",
-        method: "POST",
-        path: options.path,
-        retryable: false,
-        status: 409,
+  const response = await createEnvironmentTestControlClient(page.request, {
+    endpointOrigin: apiBase,
+  }).request({
+    body: {
+      code: "evidence_access_unavailable",
+      consume_once: true,
+      details: {
+        reason_code: options.reasonCode,
       },
+      message: "Evidence access failed for FE-P6 accessibility fixture.",
+      method: "POST",
+      path: options.path,
+      retryable: false,
+      status: 409,
     },
-  );
-  expect(response.status()).toBe(201);
+    method: "POST",
+    path: "/api/v1/test/runtime/public-error-faults",
+  });
+  expect(response.status).toBe(201);
 }
 
 async function holdSinglePublicAPIResponse(
@@ -3445,13 +3452,12 @@ test.describe("FE-P11 accessibility readiness", () => {
 
 test.describe("FE-P1 accessibility readiness", () => {
   test(p1AccessibilityScenarioTitles[0], async ({ page }) => {
-    const phase1 = new Phase1Page(page);
     await clearBrowserSession(page);
     const heldSession = await holdSinglePublicAPIResponse(page, {
       method: "GET",
       path: "/api/v1/auth/session",
     });
-    await phase1.goto();
+    await new AuthGateway(page).goto();
     await heldSession.waitForHit;
 
     await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
@@ -3489,7 +3495,6 @@ test.describe("FE-P1 accessibility readiness", () => {
   test(
     p1AccessibilityScenarioTitles[1],
     async ({ page, sessionTracker, workerAdminRequest }) => {
-      const phase1 = new Phase1Page(page);
       const email = uniqueEmail("a11y-p1-login");
       const password = "A11yP1LoginPass!";
       const user = await createAuthLocalUser(workerAdminRequest, {
@@ -3500,7 +3505,7 @@ test.describe("FE-P1 accessibility readiness", () => {
       });
 
       await clearBrowserSession(page);
-      await phase1.goto();
+      await new AuthGateway(page).goto();
       await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
         "data-bootstrap-state",
         "anonymous",
@@ -3514,7 +3519,7 @@ test.describe("FE-P1 accessibility readiness", () => {
         ],
       });
 
-      await phase1.login(email, password);
+      await new AuthGateway(page).login(email, password);
       await expect(
         page.getByTestId(phase1LandingTestId("shell")),
       ).toBeVisible();
@@ -3543,7 +3548,6 @@ test.describe("FE-P1 accessibility readiness", () => {
   test(
     p1AccessibilityScenarioTitles[2],
     async ({ page, sessionTracker, workerAdminRequest }) => {
-      const phase1 = new Phase1Page(page);
       const email = uniqueEmail("a11y-p1-mfa");
       const password = "A11yP1MfaPass!";
       const user = await createAuthLocalUser(workerAdminRequest, {
@@ -3555,8 +3559,8 @@ test.describe("FE-P1 accessibility readiness", () => {
       const secretBase32 = await enrollTotpViaBootstrap(email, password);
 
       await clearBrowserSession(page);
-      await phase1.goto();
-      await phase1.login(email, password);
+      await new AuthGateway(page).goto();
+      await new AuthGateway(page).login(email, password);
       await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
         "data-bootstrap-state",
         "mfa_required",
@@ -3579,7 +3583,11 @@ test.describe("FE-P1 accessibility readiness", () => {
         ],
       });
 
-      await phase1.login(email, password, generateTotpCode(secretBase32));
+      await new AuthGateway(page).login(
+        email,
+        password,
+        generateTotpCode(secretBase32),
+      );
       await expect(
         page.getByTestId(phase1LandingTestId("current-user")),
       ).toContainText("A11Y P1 MFA");
@@ -3595,7 +3603,6 @@ test.describe("FE-P1 accessibility readiness", () => {
   test(
     p1AccessibilityScenarioTitles[3],
     async ({ page, workerAdminRequest }) => {
-      const phase1 = new Phase1Page(page);
       const email = uniqueEmail("a11y-p1-mfa-setup");
       const password = "A11yP1SetupPass!";
       await createAuthLocalUser(workerAdminRequest, {
@@ -3606,8 +3613,8 @@ test.describe("FE-P1 accessibility readiness", () => {
       });
 
       await clearBrowserSession(page);
-      await phase1.goto();
-      await phase1.login(email, password);
+      await new AuthGateway(page).goto();
+      await new AuthGateway(page).login(email, password);
       await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
         "data-bootstrap-state",
         "mfa_setup_required",
@@ -3629,9 +3636,9 @@ test.describe("FE-P1 accessibility readiness", () => {
         ],
       });
 
-      await phase1.beginBootstrapEnrollment();
+      await new AuthGateway(page).beginBootstrapEnrollment();
       await expectStatusRole(page.getByTestId(phase1AuthTestId("status")));
-      const secretBase32 = await phase1.requireText(
+      const secretBase32 = await new AuthGateway(page).requireText(
         phase1AuthTestId("bootstrap-secret-base32"),
       );
       await expectP1SurfaceA11y(page, {
@@ -3641,7 +3648,9 @@ test.describe("FE-P1 accessibility readiness", () => {
           phase1AuthTestId("bootstrap-complete"),
         ],
       });
-      await phase1.completeBootstrapEnrollment(generateTotpCode(secretBase32));
+      await new AuthGateway(page).completeBootstrapEnrollment(
+        generateTotpCode(secretBase32),
+      );
       await expect(
         page
           .getByText("Authenticator setup is complete. Sign in again.")
@@ -3652,14 +3661,13 @@ test.describe("FE-P1 accessibility readiness", () => {
   );
 
   test(p1AccessibilityScenarioTitles[4], async ({ page }) => {
-    const phase1 = new Phase1Page(page);
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("A11YLAND"),
       "A11Y authenticated landing",
     );
 
-    await phase1.gotoIncidentDirectory();
+    await new IncidentDirectory(page).goto();
     await expect(page.getByTestId(phase1LandingTestId("shell"))).toBeVisible();
     await expect(
       page.getByTestId(landingIncidentCardTestId(incidentId)),
@@ -3682,7 +3690,6 @@ test.describe("FE-P1 accessibility readiness", () => {
   test(
     p1AccessibilityScenarioTitles[5],
     async ({ page, sessionTracker, workerAdminRequest }) => {
-      const phase1 = new Phase1Page(page);
       const email = uniqueEmail("a11y-p1-incident");
       const password = "A11yP1IncidentPass!";
       const user = await createAuthLocalUser(workerAdminRequest, {
@@ -3693,8 +3700,8 @@ test.describe("FE-P1 accessibility readiness", () => {
       });
 
       await clearBrowserSession(page);
-      await phase1.goto();
-      await phase1.login(email, password);
+      await new AuthGateway(page).goto();
+      await new AuthGateway(page).login(email, password);
       await expect(
         page.getByTestId(phase1LandingTestId("empty-state")),
       ).toContainText("No incidents are visible");
@@ -3723,7 +3730,7 @@ test.describe("FE-P1 accessibility readiness", () => {
         "admin",
       );
 
-      await phase1.refreshLanding();
+      await new IncidentDirectory(page).refresh();
       await expect(
         page.getByTestId(landingIncidentCardTestId(selectedIncidentId)),
       ).toBeVisible();
@@ -3731,7 +3738,7 @@ test.describe("FE-P1 accessibility readiness", () => {
         page.getByTestId(landingIncidentCardTestId(alternateIncidentId)),
       ).toBeVisible();
 
-      await phase1.openIncident(selectedIncidentId);
+      await new IncidentDirectory(page).openIncident(selectedIncidentId);
       await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
       await expectCurrentIncidentRole(page, "admin");
       await openIncidentControls(page, "incident-fields");
@@ -3744,8 +3751,8 @@ test.describe("FE-P1 accessibility readiness", () => {
         tabStops: [phase1RouteTestId("workbook-current-user")],
       });
 
-      await phase1.returnToLanding();
-      await phase1.openIncident(selectedIncidentId);
+      await new IncidentDirectory(page).open();
+      await new IncidentDirectory(page).openIncident(selectedIncidentId);
 
       const selectedMembership = await loadIncidentMembership(
         workerAdminRequest,
@@ -3781,7 +3788,7 @@ test.describe("FE-P1 accessibility readiness", () => {
         role: "editor",
         userId: user.user_id,
       });
-      await phase1.patchIncidentFields({
+      await new IncidentDirectory(page).patchIncidentFields({
         currentPhase: "containment",
         externalCase: "CASE-A11Y",
         tlp: "TLP:AMBER",
@@ -3852,7 +3859,6 @@ test.describe("FE-P1 accessibility readiness", () => {
   test(
     p1AccessibilityScenarioTitles[7],
     async ({ page, sessionTracker, workerAdminRequest }) => {
-      const phase1 = new Phase1Page(page);
       const incidentId = await createIncident(
         page,
         uniqueIncidentKey("A11YREVOKE"),
@@ -3869,8 +3875,8 @@ test.describe("FE-P1 accessibility readiness", () => {
       await createIncidentMembership(page, incidentId, email, "viewer");
 
       await clearBrowserSession(page);
-      await phase1.goto();
-      await phase1.login(email, password);
+      await new AuthGateway(page).goto();
+      await new AuthGateway(page).login(email, password);
       await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
       await expect(
         page.getByTestId(phase1RouteTestId("workbook-current-user")),
@@ -3905,7 +3911,7 @@ test.describe("FE-P1 accessibility readiness", () => {
         ],
       });
 
-      await phase1.login(email, password);
+      await new AuthGateway(page).login(email, password);
       await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
       await expect(
         page.getByTestId(phase1RouteTestId("workbook-current-user")),
@@ -3933,10 +3939,9 @@ test.describe("FE-P1 accessibility readiness", () => {
       });
     };
 
-    const phase1 = new Phase1Page(page);
     await page.route(routePattern, routeHandler);
     await page.goto("/");
-    await phase1.openAccountSettings("account-security");
+    await new AccountSettings(page).open("account-security");
     await page.getByTestId(phase1AccountTestId("refresh-state")).focus();
     await expectVisibleFocus(
       page.getByTestId(phase1AccountTestId("refresh-state")),

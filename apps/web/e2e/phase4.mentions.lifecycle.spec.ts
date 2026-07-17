@@ -1,7 +1,7 @@
 import {
   scrollGridCellIntoView,
   scrollGridToBottom,
-} from "@cartulary/test-utils";
+} from "@cartulary/test-utils/grid";
 import {
   mentionDismissButtonTestId,
   mentionItemTestId,
@@ -14,27 +14,35 @@ import type { Page, Response } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
-  createIncident,
-  createViewRow,
-  patchRecord,
-  queryViewRows,
-  uniqueIncidentKey,
-  uniqueTxn,
-} from "./helpers";
+  hostsViewSchemaId,
+  timelineViewSchemaId,
+} from "./support/contracts/workbookSurfaces";
 import {
   collectionActionsPayload,
   collectionItems,
-  createTimelineFillers,
-  expectTimelineContinuity,
   findRow,
   hostRefsFieldKey,
-  hostsViewSchemaId,
-  openTimelineInspector,
   requireItemByRawText,
-  timelineFixtureOccurredAt,
-  timelineViewSchemaId,
   type ViewRow,
-} from "./phase4Helpers";
+} from "./support/entities/mentions";
+import { createIncident } from "./support/incidents/fixtures";
+import {
+  uniqueIncidentKey,
+  uniqueTxn,
+} from "./support/runtime/fixtureIdentity";
+import {
+  createTimelineFillers,
+  timelineFixtureOccurredAt,
+} from "./support/timeline/fixtures";
+import {
+  createViewRow,
+  patchRecord,
+  queryViewRows,
+} from "./support/workbook/query";
+import {
+  expectTimelineContinuity,
+  openTimelineInspector,
+} from "./support/workbook/rowMutations";
 
 test("E-4-02 dismisses and ordinarily restores a mention without relinking", async ({
   page,

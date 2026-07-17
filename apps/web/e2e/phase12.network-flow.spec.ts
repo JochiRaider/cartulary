@@ -2,14 +2,14 @@ import { networkAnalysisTestId } from "@cartulary/ui-contracts";
 import type { Request } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
-import { apiBase } from "./helpers";
 import {
   expectPhase12RuntimeProfile,
   importPhase12NetworkFlowCSV,
   openClaimedNetworkAnalysis,
   openPhase12Incident,
   phase12NetworkFlowMinimalCSV,
-} from "./phase12NetworkFlowHarness";
+} from "./support/extensions/network_flow_activity/workspace";
+import { apiBase } from "./support/runtime/configuration";
 
 test("E-12-NFAC001-01 Network Flow unclaimed workspace remains unavailable", async ({
   page,

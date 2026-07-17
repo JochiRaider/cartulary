@@ -1,4 +1,4 @@
-import { scrollGridToBottom } from "@cartulary/test-utils";
+import { scrollGridToBottom } from "@cartulary/test-utils/grid";
 import {
   mentionCreateEntityButtonTestId,
   mentionItemTestId,
@@ -13,31 +13,34 @@ import type { Page, Response } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
-  createIncident,
-  createViewRow,
-  queryViewRows,
-  uniqueIncidentKey,
-  uniqueTxn,
-} from "./helpers";
+  hostsViewSchemaId,
+  identitiesViewSchemaId,
+  timelineViewSchemaId,
+} from "./support/contracts/workbookSurfaces";
 import {
   addRelationshipTokenViaUI,
   collectionActionsPayload,
   collectionItems,
-  createTimelineFillers,
+  findRow,
+  hostRefsFieldKey,
+  identityRefsFieldKey,
+  requireItemByRawText,
+  type ViewRow,
+} from "./support/entities/mentions";
+import { createIncident } from "./support/incidents/fixtures";
+import {
+  uniqueIncidentKey,
+  uniqueTxn,
+} from "./support/runtime/fixtureIdentity";
+import { createTimelineFillers } from "./support/timeline/fixtures";
+import { createViewRow, queryViewRows } from "./support/workbook/query";
+import {
   ensureTimelineGridTargetVisible,
   expectNoPendingQueueAuthPause,
   expectTimelineContinuity,
-  findRow,
-  hostRefsFieldKey,
-  hostsViewSchemaId,
-  identitiesViewSchemaId,
-  identityRefsFieldKey,
   openTimelineInspector,
-  requireItemByRawText,
-  timelineViewSchemaId,
-  type ViewRow,
   waitForViewRow,
-} from "./phase4Helpers";
+} from "./support/workbook/rowMutations";
 
 test("E-4-01 resolves and creates entities from Timeline mentions in the inspector", async ({
   page,

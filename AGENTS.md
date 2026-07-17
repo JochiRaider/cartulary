@@ -45,7 +45,7 @@
 - Local setup and dev: `make doctor`, `make bootstrap`, `make db-up`, `make db-reset`, `make services-up`, `make object-store-init`, and `make dev`.
 - Generation and drift: `make generate`, `make generate-drift`, `make generated-artifact-policy-check`, `make json-shape-check`, `make toolchain-drift`, `make migration-drift`, `make phase-ledger-drift`, and `make phase-schedule-drift`.
 - Common verification: `make test-fast`, `make test`, `make check`, `make lint`, `make frontend-typecheck`, `make frontend-unit`, `make frontend-import-boundary-check`, `make lint-biome`, `make lint-scripts`, `make lint-markdown`, `make lint-shell`, `make go-vulncheck`, `make go-gosec-targeted`, and `make go-gosec-audit`.
-- Browser and frontend readiness targets include `make browser-e2e`, `make browser-e2e-webserver-backed`, `make browser-e2e-stateful`, `make browser-e2e-measurement`, `make browser-e2e-a11y`, `make browser-e2e-a11y-preflight`, and `make browser-e2e-visual`.
+- Browser and frontend readiness targets include `make browser-e2e`, `make browser-e2e-webserver-backed`, `make browser-e2e-stateful`, `make browser-e2e-measurement`, `make browser-e2e-a11y`, and `make browser-e2e-visual`.
 - Release/build targets include `make ci`, `make release-check`, `make harness-contract`, `make build`, `make build-server`, `make build-migrate`, `make build-operator`, and `make build-web`.
 - Cleanup targets are destructive within repo-local outputs: `make clean` removes reproducible build/report artifacts, and `make distclean` also removes repo-local tool/runtime caches and dependency installs.
 

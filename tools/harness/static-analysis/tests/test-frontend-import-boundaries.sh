@@ -247,6 +247,87 @@ write_config() {
       ]
     },
     {
+      "id": "web-e2e-workbook-contract-boundary",
+      "level": "error",
+      "message": "E2E workbook support must consume derived surface metadata through support/contracts/workbookSurfaces.",
+      "applies_to": {
+        "include": ["apps/web/e2e/**"],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/models/workbookSurfaceRegistry"
+        }
+      ]
+    },
+    {
+      "id": "web-e2e-test-utils-subpath-boundary",
+      "level": "error",
+      "message": "Import @cartulary/test-utils through its semantic grid, accessibility, or visual subpaths.",
+      "applies_to": {
+        "include": ["apps/web/e2e/**"],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "package",
+          "name": "@cartulary/test-utils",
+          "include_subpaths": false
+        }
+      ]
+    },
+    {
+      "id": "web-e2e-public-control-transport-boundary",
+      "level": "error",
+      "message": "Public JSON transport must not import privileged test-control transport.",
+      "applies_to": {
+        "include": ["apps/web/e2e/support/transport/publicJsonClient.ts"],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/e2e/support/transport/testControl"
+        }
+      ]
+    },
+    {
+      "id": "web-e2e-semantic-fixture-direction",
+      "level": "error",
+      "message": "Semantic fixtures must not depend on accessibility or visual evidence composition.",
+      "applies_to": {
+        "include": ["apps/web/e2e/support/evidence/**"],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/e2e/support/visual"
+        }
+      ]
+    },
+    {
+      "id": "web-e2e-core-support-direction",
+      "level": "error",
+      "message": "Core E2E support must not depend on higher semantic fixture or evidence owners.",
+      "applies_to": {
+        "include": ["apps/web/e2e/support/workbook/**"],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/e2e/support/evidence"
+        }
+      ]
+    },
+    {
       "id": "frontend-synthetic-warning-boundary",
       "level": "warning",
       "message": "Synthetic warning-only import boundary fixture.",
@@ -288,6 +369,10 @@ prepare_case_root() {
   mkdir -p \
     "$case_root/apps/web/src" \
     "$case_root/apps/web/e2e" \
+    "$case_root/apps/web/e2e/support/evidence" \
+    "$case_root/apps/web/e2e/support/transport" \
+    "$case_root/apps/web/e2e/support/visual" \
+    "$case_root/apps/web/e2e/support/workbook" \
     "$case_root/packages/grid-adapter/src" \
     "$case_root/packages/protocol-ts/src/generated" \
     "$case_root/packages/test-utils/src" \
@@ -317,7 +402,8 @@ JSON
 {
   "name": "@cartulary/test-utils",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./grid": "./src/grid.ts"
   }
 }
 JSON
@@ -560,9 +646,65 @@ export const allowed = { describe, helper, render };
 TS
 cat >"$test_helper_allowed_root/apps/web/e2e/runtimeHarness.ts" <<'TS'
 import { test } from "@playwright/test";
-import { helper } from "@cartulary/test-utils";
+import { helper } from "@cartulary/test-utils/grid";
 
 export const allowed = { helper, test };
 TS
 test_helper_allowed_output="$(assert_passes "test helper imports allowed in tests" run_checker "$test_helper_allowed_root")"
 assert_contains "$test_helper_allowed_output" "frontend import boundaries verified" "test helper allowed output"
+
+e2e_semantic_allowed_root="$(prepare_case_root e2e-semantic-allowed)"
+cat >"$e2e_semantic_allowed_root/apps/web/e2e/runtimeHarness.ts" <<'TS'
+import { helper } from "@cartulary/test-utils/grid";
+import { metadata } from "./support/workbook/query";
+
+export const allowed = { helper, metadata };
+TS
+e2e_semantic_allowed_output="$(assert_passes "semantic E2E imports allowed" run_checker "$e2e_semantic_allowed_root")"
+assert_contains "$e2e_semantic_allowed_output" "frontend import boundaries verified" "semantic E2E allowed output"
+
+e2e_root_test_utils_root="$(prepare_case_root e2e-root-test-utils)"
+cat >"$e2e_root_test_utils_root/apps/web/e2e/runtimeHarness.ts" <<'TS'
+import { helper } from "@cartulary/test-utils";
+
+export const leaked = helper;
+TS
+e2e_root_test_utils_output="$(assert_fails "root E2E test-utils import" run_checker "$e2e_root_test_utils_root")"
+assert_contains "$e2e_root_test_utils_output" "web-e2e-test-utils-subpath-boundary" "root E2E test-utils rule"
+
+e2e_app_registry_root="$(prepare_case_root e2e-app-registry)"
+mkdir -p "$e2e_app_registry_root/apps/web/src/workbook/models"
+cat >"$e2e_app_registry_root/apps/web/e2e/runtimeHarness.ts" <<'TS'
+import { registry } from "../src/workbook/models/workbookSurfaceRegistry";
+
+export const leaked = registry;
+TS
+e2e_app_registry_output="$(assert_fails "E2E app workbook registry import" run_checker "$e2e_app_registry_root")"
+assert_contains "$e2e_app_registry_output" "web-e2e-workbook-contract-boundary" "E2E app workbook registry rule"
+
+e2e_public_control_root="$(prepare_case_root e2e-public-control)"
+cat >"$e2e_public_control_root/apps/web/e2e/support/transport/publicJsonClient.ts" <<'TS'
+import { TestControlClient } from "./testControlClient";
+
+export const leaked = TestControlClient;
+TS
+e2e_public_control_output="$(assert_fails "public transport control import" run_checker "$e2e_public_control_root")"
+assert_contains "$e2e_public_control_output" "web-e2e-public-control-transport-boundary" "public transport control rule"
+
+e2e_semantic_visual_root="$(prepare_case_root e2e-semantic-visual)"
+cat >"$e2e_semantic_visual_root/apps/web/e2e/support/evidence/fixtures.ts" <<'TS'
+import { visualFixture } from "../visual/fixtures";
+
+export const leaked = visualFixture;
+TS
+e2e_semantic_visual_output="$(assert_fails "semantic fixture visual import" run_checker "$e2e_semantic_visual_root")"
+assert_contains "$e2e_semantic_visual_output" "web-e2e-semantic-fixture-direction" "semantic fixture visual rule"
+
+e2e_core_evidence_root="$(prepare_case_root e2e-core-evidence)"
+cat >"$e2e_core_evidence_root/apps/web/e2e/support/workbook/query.ts" <<'TS'
+import { evidenceFixture } from "../evidence/fixtures";
+
+export const leaked = evidenceFixture;
+TS
+e2e_core_evidence_output="$(assert_fails "core support evidence import" run_checker "$e2e_core_evidence_root")"
+assert_contains "$e2e_core_evidence_output" "web-e2e-core-support-direction" "core support direction rule"

@@ -59,7 +59,7 @@ var (
 		"create_writable",
 	)
 	viewSchemaIndexKeys       = stringSet("$schema", "registry_id", "note", "view_schemas")
-	viewSchemaIndexEntryKeys  = stringSet("view_schema_id", "title", "surface_kind", "source_record_types", "artifact_path")
+	viewSchemaIndexEntryKeys  = stringSet("view_schema_id", "title", "surface_kind", "surface_status", "source_record_types", "required_reference_pack_keys", "artifact_path")
 	syntheticPredicateKeys    = stringSet("field_key", "label", "filter_ops")
 	canonicalSourceFilterKeys = stringSet("kind", "field", "value")
 	inspectorConfigKeys       = stringSet("inspector_config_schema_id", "view_schema_id", "default_open", "subject_binding", "no_row_state", "unsupported_feature_behavior", "panels", "feature_groups")
@@ -239,6 +239,17 @@ func validateContractFamily(root, familyDir string) error {
 		if strings.Join(indexTypes, "\x00") != strings.Join(schemaTypes, "\x00") {
 			return fmt.Errorf("%s.source_record_types must match %s.source_record_types", label, artifactPath)
 		}
+		indexPackKeys, err := stringArray(entry["required_reference_pack_keys"], label+".required_reference_pack_keys", false)
+		if err != nil {
+			return err
+		}
+		schemaPackKeys, err := stringArray(schema["required_reference_pack_keys"], artifactPath+".required_reference_pack_keys", false)
+		if err != nil {
+			return err
+		}
+		if strings.Join(indexPackKeys, "\x00") != strings.Join(schemaPackKeys, "\x00") {
+			return fmt.Errorf("%s.required_reference_pack_keys must match %s.required_reference_pack_keys", label, artifactPath)
+		}
 	}
 	if len(indexed) != len(discovered) {
 		missing := make([]string, 0, len(discovered))
@@ -292,10 +303,32 @@ func validateViewSchemaIndexShape(value any, relativePath string) error {
 		if _, err := requiredString(entry, "title", label); err != nil {
 			return err
 		}
-		if _, err := requireEnumString(entry, "surface_kind", label, "built_in_sheet", "system_view"); err != nil {
+		surfaceKind, err := requireEnumString(entry, "surface_kind", label, "built_in_sheet", "system_view")
+		if err != nil {
 			return err
 		}
+		surfaceStatus, err := requireEnumString(
+			entry,
+			"surface_status",
+			label,
+			"required_built_in_sheet",
+			"required_system_view",
+			"standardized_optional_workbook_surface",
+		)
+		if err != nil {
+			return err
+		}
+		expectedKind := "system_view"
+		if surfaceStatus == "required_built_in_sheet" {
+			expectedKind = "built_in_sheet"
+		}
+		if surfaceKind != expectedKind {
+			return fmt.Errorf("%s.surface_kind must be %s for surface_status %s", label, expectedKind, surfaceStatus)
+		}
 		if _, err := stringArray(entry["source_record_types"], label+".source_record_types", true); err != nil {
+			return err
+		}
+		if _, err := stringArray(entry["required_reference_pack_keys"], label+".required_reference_pack_keys", false); err != nil {
 			return err
 		}
 		artifactPath, err := requiredString(entry, "artifact_path", label)

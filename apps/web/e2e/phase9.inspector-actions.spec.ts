@@ -1,7 +1,7 @@
 import {
   scrollGridCellIntoView,
   scrollGridTargetIntoView,
-} from "@cartulary/test-utils";
+} from "@cartulary/test-utils/grid";
 import {
   draftCellTestId,
   entityInspectButtonTestId,
@@ -33,32 +33,38 @@ import {
 import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
+import { waitForCommittedRowSummary } from "./measurement/timingSupport";
+import { csrfHeaders } from "./support/auth/browserSession";
 import {
-  apiBase,
-  createIncident,
-  createIncidentMemberUser,
-  createSavedView,
-  createViewRow,
-  csrfHeaders,
-  patchRecord,
-  queryViewRows,
+  evidenceViewSchemaId,
+  hostsViewSchemaId,
+  timelineViewSchemaId,
+} from "./support/contracts/workbookSurfaces";
+import {
+  collectionActionsPayload,
+  collectionItems,
+  hostRefsFieldKey,
+  requireItemByRawText,
+  type ViewRow,
+} from "./support/entities/mentions";
+import { createIncident } from "./support/incidents/fixtures";
+import { createIncidentMemberUser } from "./support/incidents/memberships";
+import { apiBase } from "./support/runtime/configuration";
+import {
   uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
-  waitForCommittedRowSummary,
-} from "./helpers";
+} from "./support/runtime/fixtureIdentity";
+import {
+  createViewRow,
+  patchRecord,
+  queryViewRows,
+} from "./support/workbook/query";
 import {
   clickTimelineRowAction,
-  collectionActionsPayload,
-  collectionItems,
-  evidenceViewSchemaId,
-  hostRefsFieldKey,
-  hostsViewSchemaId,
   openTimelineInspector,
-  requireItemByRawText,
-  timelineViewSchemaId,
-  type ViewRow,
-} from "./phase4Helpers";
+} from "./support/workbook/rowMutations";
+import { createSavedView } from "./support/workbook/savedViews";
 
 type HistoryItem = {
   actor_user_id: string;

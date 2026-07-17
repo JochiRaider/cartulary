@@ -1,18 +1,19 @@
 import { phase1AccountTestId, phase1AuthTestId } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
-
-import { createLocalUser } from "./authRuntime";
 import { expect, test } from "./fixtures";
-import { uniqueEmail } from "./helpers";
-import { Phase1Page } from "./phase1Page";
+import { AccountSettings } from "./pages/accountSettings";
+import { AuthGateway } from "./pages/authGateway";
+import { createLocalUser, readCurrentSession } from "./support/auth/sessions";
+import { uniqueEmail } from "./support/runtime/fixtureIdentity";
+import { TestClock } from "./support/runtime/testClock";
 
 // This isolated spec owns browser evidence that mutates process-global backend state.
 test.beforeEach(async ({ page }) => {
-  await new Phase1Page(page).resetClockOffset();
+  await new TestClock(page).reset();
 });
 
 test.afterEach(async ({ page }) => {
-  await new Phase1Page(page).resetClockOffset();
+  await new TestClock(page).reset();
 });
 
 test("E-1-04 advances the shared clock past idle expiry and requires a fresh login afterwards", async ({
@@ -20,7 +21,7 @@ test("E-1-04 advances the shared clock past idle expiry and requires a fresh log
   sessionTracker,
   workerAdminRequest,
 }) => {
-  const phase1 = new Phase1Page(page);
+  const testClock = new TestClock(page);
   const email = uniqueEmail("phase1-e104");
   const password = "Phase1E104Pass!";
   const user = await createLocalUser(workerAdminRequest, {
@@ -31,9 +32,9 @@ test("E-1-04 advances the shared clock past idle expiry and requires a fresh log
   });
 
   await clearBrowserSession(page);
-  await phase1.goto();
-  await phase1.login(email, password);
-  await phase1.openAccountSettings("account-security");
+  await new AuthGateway(page).goto();
+  await new AuthGateway(page).login(email, password);
+  await new AccountSettings(page).open("account-security");
   await expect(
     page.getByTestId(phase1AccountTestId("refresh-state")),
   ).toBeVisible();
@@ -44,9 +45,9 @@ test("E-1-04 advances the shared clock past idle expiry and requires a fresh log
     userId: user.user_id,
   });
 
-  const currentSession = await phase1.currentSession();
+  const currentSession = await readCurrentSession(page);
   try {
-    await phase1.setClockAfter(currentSession.session_expires_at);
+    await testClock.setAfter(currentSession.session_expires_at);
     const [sessionResponse] = await Promise.all([
       page.waitForResponse((candidate) => {
         const method = candidate.request().method().toUpperCase();
@@ -56,18 +57,18 @@ test("E-1-04 advances the shared clock past idle expiry and requires a fresh log
           candidate.status() === 401
         );
       }),
-      phase1.refreshAccount(),
+      new AccountSettings(page).refresh(),
     ]);
     expect(sessionResponse.status()).toBe(401);
     await expect(
       page.getByTestId(phase1AuthTestId("login-username")),
     ).toBeVisible();
   } finally {
-    await phase1.resetClockOffset();
+    await testClock.reset();
   }
 
-  await phase1.login(email, password);
-  await phase1.openAccountSettings("account-security");
+  await new AuthGateway(page).login(email, password);
+  await new AccountSettings(page).open("account-security");
   await expect(
     page.getByTestId(phase1AccountTestId("refresh-state")),
   ).toBeVisible();

@@ -5,14 +5,10 @@ import path from "node:path";
 import {
   applyFilterChip,
   assertActiveFilterChipVisible,
-  assertMarkerAnchoredToGridTarget,
   changeGrouping,
-  createSavedViewFromCurrentSurface,
   scrollGridTargetIntoView,
-  setCurrentSavedViewAsDefault,
-  setCurrentSavedViewAsHome,
-  setSavedViewDraftName,
-} from "@cartulary/test-utils";
+} from "@cartulary/test-utils/grid";
+import { assertMarkerAnchoredToGridTarget } from "@cartulary/test-utils/visual";
 import {
   cartularyDefaultThemeId,
   cellPresenceMarkerTestId,
@@ -84,62 +80,72 @@ import {
   workbookTopBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page, Route, TestInfo } from "@playwright/test";
-import {
-  createEvidenceFixtureRow,
-  createUploadedEvidenceFixture,
-  type EvidenceUploadOptions,
-} from "./evidenceFixtureHelpers";
 import { expect, test } from "./fixtures";
-import {
-  apiBase,
-  createIncident,
-  createIncidentMemberUser,
-  createViewRow,
-  csrfHeaders,
-  gridSavedRows,
-  holdBrowserApiRequest,
-  patchRecord,
-  queryViewRows,
-  testRouteHeaders,
-  uniqueEmail,
-  uniqueIncidentKey,
-  uniqueTxn,
-} from "./helpers";
-import {
-  addRelationshipTokenViaUI,
-  collectionActionsPayload,
-  collectionItems,
-  commLogViewSchemaId,
-  decisionsViewSchemaId,
-  evidenceViewSchemaId,
-  handoffViewSchemaId,
-  hostRefsFieldKey,
-  hostsViewSchemaId,
-  lessonViewSchemaId,
-  openTimelineInspector,
-  partiesViewSchemaId,
-  requireItemByRawText,
-  resolvedRefPayload,
-  seedHostMentionStateFixture,
-  statusReviewViewSchemaId,
-  taskRequestsViewSchemaId,
-  timelineViewSchemaId,
-} from "./phase4Helpers";
+import { gridSavedRows } from "./pages/workbookInspector";
+import { csrfHeaders } from "./support/auth/browserSession";
 import {
   driveRealTimelineSummaryConflict,
   focusRemoteTimelineCellAndWaitForPresence,
-  installIncidentSocketMonitor,
   installPatchController,
   installPatchTransportFailureController,
   openIncidentAsTrackedUserReady,
   successfulPatchCalls,
-} from "./phase6Harness";
+} from "./support/collaboration/replay";
+import {
+  commLogViewSchemaId,
+  decisionsViewSchemaId,
+  evidenceViewSchemaId,
+  handoffViewSchemaId,
+  hostsViewSchemaId,
+  lessonViewSchemaId,
+  partiesViewSchemaId,
+  statusReviewViewSchemaId,
+  taskRequestsViewSchemaId,
+  timelineViewSchemaId,
+} from "./support/contracts/workbookSurfaces";
+import {
+  addRelationshipTokenViaUI,
+  collectionActionsPayload,
+  collectionItems,
+  hostRefsFieldKey,
+  requireItemByRawText,
+  resolvedRefPayload,
+  seedHostMentionStateFixture,
+} from "./support/entities/mentions";
+import {
+  createEvidenceFixtureRow,
+  createUploadedEvidenceFixture,
+  type EvidenceUploadOptions,
+} from "./support/evidence/fixtures";
 import {
   importPhase12NetworkFlowCSV,
   openClaimedNetworkAnalysis,
   phase12NetworkFlowMinimalCSV,
-} from "./phase12NetworkFlowHarness";
-import { injectDesignFixture } from "./visualFixtureHelpers";
+} from "./support/extensions/network_flow_activity/workspace";
+import { createIncident } from "./support/incidents/fixtures";
+import { createIncidentMemberUser } from "./support/incidents/memberships";
+import { apiBase } from "./support/runtime/configuration";
+import {
+  uniqueEmail,
+  uniqueIncidentKey,
+  uniqueTxn,
+} from "./support/runtime/fixtureIdentity";
+import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
+import { holdBrowserRequest as holdBrowserApiRequest } from "./support/transport/requestInterception";
+import { createEnvironmentTestControlClient } from "./support/transport/testControlEnvironment";
+import { injectDesignFixture } from "./support/visual/fixtures";
+import {
+  createViewRow,
+  patchRecord,
+  queryViewRows,
+} from "./support/workbook/query";
+import { openTimelineInspector } from "./support/workbook/rowMutations";
+import {
+  createSavedViewFromCurrentSurface,
+  setCurrentSavedViewAsDefault,
+  setCurrentSavedViewAsHome,
+  setSavedViewDraftName,
+} from "./support/workbook/savedViews";
 
 type ViewRow = {
   record_id: string;
@@ -3629,25 +3635,25 @@ async function armVisualPublicErrorFault(
     reasonCode: "blob_failed" | "evidence_inconsistent";
   },
 ) {
-  const response = await page.request.post(
-    `${apiBase}/api/v1/test/runtime/public-error-faults`,
-    {
-      headers: testRouteHeaders(),
-      data: {
-        code: "evidence_access_unavailable",
-        consume_once: true,
-        details: {
-          reason_code: options.reasonCode,
-        },
-        message: "Evidence access failed for FE-P6 visual fixture.",
-        method: "POST",
-        path: options.path,
-        retryable: false,
-        status: 409,
+  const response = await createEnvironmentTestControlClient(page.request, {
+    endpointOrigin: apiBase,
+  }).request({
+    body: {
+      code: "evidence_access_unavailable",
+      consume_once: true,
+      details: {
+        reason_code: options.reasonCode,
       },
+      message: "Evidence access failed for FE-P6 visual fixture.",
+      method: "POST",
+      path: options.path,
+      retryable: false,
+      status: 409,
     },
-  );
-  expect(response.status()).toBe(201);
+    method: "POST",
+    path: "/api/v1/test/runtime/public-error-faults",
+  });
+  expect(response.status).toBe(201);
 }
 
 async function assertVisualRegression(

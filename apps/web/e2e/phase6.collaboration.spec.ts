@@ -9,7 +9,7 @@ import {
   scrollGridCellIntoView,
   scrollGridToOffset,
   sortByHeader,
-} from "@cartulary/test-utils";
+} from "@cartulary/test-utils/grid";
 import {
   cellPresenceMarkerTestId,
   currentIncidentRoleTestId,
@@ -23,20 +23,10 @@ import {
   timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page } from "@playwright/test";
-
-import { revokeAllSessions } from "./authRuntime";
 import { expect, test } from "./fixtures";
-import {
-  apiBase,
-  applyStorageState,
-  createIncident,
-  createIncidentMemberUser,
-  csrfHeaders,
-  openIncidentAsTrackedUser,
-  uniqueEmail,
-  uniqueIncidentKey,
-  uniqueTxn,
-} from "./helpers";
+import { openIncidentAsTrackedUser } from "./pages/incidentDirectory";
+import { applyStorageState, csrfHeaders } from "./support/auth/browserSession";
+import { revokeAllSessions } from "./support/auth/sessions";
 import {
   createTimelineRow,
   driveRealTimelineSummaryConflict,
@@ -46,7 +36,6 @@ import {
   expectServerSummaries,
   expectServerTimelineCells,
   focusRemoteTimelineCellAndWaitForPresence,
-  installIncidentSocketMonitor,
   installPatchController,
   installPatchTransportFailureController,
   openIncidentAsTrackedUserReady,
@@ -55,9 +44,18 @@ import {
   requireRecordId,
   successfulPatchCalls,
   summaryPatchValue,
-  timelineViewSchemaId,
-} from "./phase6Harness";
-import { assertRecordFieldMutationAnchor } from "./workbookRequestSupport";
+} from "./support/collaboration/replay";
+import { timelineViewSchemaId } from "./support/contracts/workbookSurfaces";
+import { createIncident } from "./support/incidents/fixtures";
+import { createIncidentMemberUser } from "./support/incidents/memberships";
+import { apiBase } from "./support/runtime/configuration";
+import {
+  uniqueEmail,
+  uniqueIncidentKey,
+  uniqueTxn,
+} from "./support/runtime/fixtureIdentity";
+import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
+import { assertRecordFieldMutationAnchor } from "./support/workbook/mutationAnchors";
 
 const presenceInteractionThresholdMs = 1000;
 

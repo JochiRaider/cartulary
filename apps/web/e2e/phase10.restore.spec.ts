@@ -4,12 +4,9 @@ import { fileURLToPath } from "node:url";
 import { workbookShellReadyTestId } from "@cartulary/ui-contracts";
 
 import { expect, test } from "./fixtures";
-import {
-  applyCookies,
-  requireCookie,
-  waitForCommittedRowSummary,
-} from "./helpers";
-import { timelineViewSchemaId } from "./phase4Helpers";
+import { waitForCommittedRowSummary } from "./measurement/timingSupport";
+import { applyCookies, requireCookie } from "./support/auth/browserSession";
+import { timelineViewSchemaId } from "./support/contracts/workbookSurfaces";
 
 type Phase10RestoreTarget = {
   backup_set_id: string;

@@ -1,4 +1,4 @@
-import { scrollGridToBottom } from "@cartulary/test-utils";
+import { scrollGridToBottom } from "@cartulary/test-utils/grid";
 import {
   autoResolutionNoticeFamilySelector,
   autoResolutionNoticeTestId,
@@ -14,29 +14,32 @@ import type { Page, Response } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
-  createIncident,
-  createViewRow,
-  queryViewRows,
-  uniqueIncidentKey,
-  uniqueTxn,
-} from "./helpers";
+  hostsViewSchemaId,
+  timelineViewSchemaId,
+} from "./support/contracts/workbookSurfaces";
 import {
   addRelationshipTokenViaUI,
   aliasCollectionActionsPayload,
   collectionItems,
-  createTimelineFillers,
-  ensureTimelineGridTargetVisible,
-  expectTimelineContinuity,
   findRow,
   hostRefsFieldKey,
-  hostsViewSchemaId,
+  requireItemByRawText,
+  type ViewRow,
+} from "./support/entities/mentions";
+import { createIncident } from "./support/incidents/fixtures";
+import {
+  uniqueIncidentKey,
+  uniqueTxn,
+} from "./support/runtime/fixtureIdentity";
+import { createTimelineFillers } from "./support/timeline/fixtures";
+import { createViewRow, queryViewRows } from "./support/workbook/query";
+import {
+  ensureTimelineGridTargetVisible,
+  expectTimelineContinuity,
   openTimelineInspector,
   readTimelineMutation,
-  requireItemByRawText,
-  timelineViewSchemaId,
-  type ViewRow,
   waitForTimelinePatch,
-} from "./phase4Helpers";
+} from "./support/workbook/rowMutations";
 
 test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
   page,

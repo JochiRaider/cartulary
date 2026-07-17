@@ -5,17 +5,10 @@ import {
   changeGrouping,
   collapseGridGroup,
   expandGridGroup,
-  readSavedViewSelectionState,
   removeFilterChip,
   scrollGridCellIntoView,
-  selectSavedView,
-  selectSavedViewScope,
-  setCurrentSavedViewAsDefaultAndWait,
-  setCurrentSavedViewAsHomeAndWait,
-  setSavedViewDraftName,
   sortByHeader,
-  updateSavedViewFromCurrentSurface,
-} from "@cartulary/test-utils";
+} from "@cartulary/test-utils/grid";
 import {
   gridGroupRowTestId,
   rowCellTestId,
@@ -25,15 +18,24 @@ import {
 import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
+import { csrfHeaders } from "./support/auth/browserSession";
+import { createIncident } from "./support/incidents/fixtures";
+import { apiBase } from "./support/runtime/configuration";
 import {
-  apiBase,
-  createIncident,
-  createViewRow,
-  csrfHeaders,
   uniqueIncidentKey,
   uniqueTxn,
-} from "./helpers";
-import { clickTimelineRowAction } from "./phase4Helpers";
+} from "./support/runtime/fixtureIdentity";
+import { createViewRow } from "./support/workbook/query";
+import { clickTimelineRowAction } from "./support/workbook/rowMutations";
+import {
+  readSavedViewSelectionState,
+  selectSavedView,
+  selectSavedViewScope,
+  setCurrentSavedViewAsDefaultAndWait,
+  setCurrentSavedViewAsHomeAndWait,
+  setSavedViewDraftName,
+  updateSavedViewFromCurrentSurface,
+} from "./support/workbook/savedViews";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v2";
 

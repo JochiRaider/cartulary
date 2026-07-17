@@ -4,7 +4,7 @@ import {
   scrollGridCellIntoView,
   scrollGridTargetIntoView,
   sortByHeader,
-} from "@cartulary/test-utils";
+} from "@cartulary/test-utils/grid";
 import {
   conflictMarkerTestId,
   dataTestIdSelector,
@@ -44,40 +44,48 @@ import type { Locator, Page, Request } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
-  apiBase,
-  createIncident,
-  createSavedView,
-  createViewRow,
   gridSavedRows,
   openSystemSurfaceBySwitcher,
-  patchRecord,
-  queryViewRows,
-  uniqueIncidentKey,
-  uniqueTxn,
-  type ViewApiRow,
-} from "./helpers";
+} from "./pages/workbookInspector";
+import {
+  createAssessmentViaUI,
+  expectAssessmentGridOrder,
+} from "./support/assessments/fixtures";
 import {
   assessmentsViewSchemaId,
-  collectionItems,
   commLogViewSchemaId,
-  createAssessmentViaUI,
   decisionsViewSchemaId,
-  editGenericCell,
   evidenceViewSchemaId,
-  expectAssessmentGridOrder,
   handoffViewSchemaId,
   hostsViewSchemaId,
   identitiesViewSchemaId,
   indicatorsViewSchemaId,
   lessonViewSchemaId,
   notesViewSchemaId,
-  openTimelineInspector,
   partiesViewSchemaId,
   statusReviewViewSchemaId,
-  submitGenericEditAndWait,
   taskRequestsViewSchemaId,
+} from "./support/contracts/workbookSurfaces";
+import { collectionItems } from "./support/entities/mentions";
+import { createIncident } from "./support/incidents/fixtures";
+import { apiBase } from "./support/runtime/configuration";
+import {
+  uniqueIncidentKey,
+  uniqueTxn,
+} from "./support/runtime/fixtureIdentity";
+import {
+  createViewRow,
+  patchRecord,
+  queryViewRows,
+  type ViewApiRow,
+} from "./support/workbook/query";
+import {
+  editGenericCell,
+  openTimelineInspector,
+  submitGenericEditAndWait,
   waitForViewRowByCell,
-} from "./phase4Helpers";
+} from "./support/workbook/rowMutations";
+import { createSavedView } from "./support/workbook/savedViews";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v2";
 

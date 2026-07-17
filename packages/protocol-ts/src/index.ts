@@ -107,8 +107,13 @@ export type ErrorRegistryContract = {
 export type ViewSchemaRegistryEntry = {
   readonly view_schema_id: string;
   readonly title: string;
-  readonly surface_kind: string;
+  readonly surface_kind: "built_in_sheet" | "system_view";
+  readonly surface_status:
+    | "required_built_in_sheet"
+    | "required_system_view"
+    | "standardized_optional_workbook_surface";
   readonly source_record_types: readonly string[];
+  readonly required_reference_pack_keys: readonly string[];
   readonly artifact_path: string;
 };
 

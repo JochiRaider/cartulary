@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-import { scrollGridTargetIntoView } from "@cartulary/test-utils";
+import { scrollGridTargetIntoView } from "@cartulary/test-utils/grid";
 import {
   dataTestIdSelector,
   evidenceAccessMessageTestId,
@@ -17,23 +17,24 @@ import {
 import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
+import { csrfHeaders } from "./support/auth/browserSession";
 import {
-  apiBase,
-  createIncident,
-  createViewRow,
-  csrfHeaders,
-  patchRecord,
-  queryViewRows,
+  evidenceViewSchemaId,
+  timelineViewSchemaId,
+} from "./support/contracts/workbookSurfaces";
+import { collectionItems, type ViewRow } from "./support/entities/mentions";
+import { createIncident } from "./support/incidents/fixtures";
+import { apiBase } from "./support/runtime/configuration";
+import {
   uniqueIncidentKey,
   uniqueTxn,
-} from "./helpers";
+} from "./support/runtime/fixtureIdentity";
 import {
-  collectionItems,
-  evidenceViewSchemaId,
-  openTimelineInspector,
-  timelineViewSchemaId,
-  type ViewRow,
-} from "./phase4Helpers";
+  createViewRow,
+  patchRecord,
+  queryViewRows,
+} from "./support/workbook/query";
+import { openTimelineInspector } from "./support/workbook/rowMutations";
 
 test.beforeEach(({ page }) => {
   failOnUnexpectedPageError(page);

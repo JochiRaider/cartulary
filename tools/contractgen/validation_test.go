@@ -82,11 +82,13 @@ func TestValidateViewSchemaIndexRejectsStaleArtifactPaths(t *testing.T) {
 		"note":        "test index",
 		"view_schemas": []any{
 			map[string]any{
-				"view_schema_id":      "cartulary.view.test.v1",
-				"title":               "Test View",
-				"surface_kind":        "built_in_sheet",
-				"source_record_types": []any{"note"},
-				"artifact_path":       "contracts/view-schemas/missing.json",
+				"view_schema_id":               "cartulary.view.test.v1",
+				"title":                        "Test View",
+				"surface_kind":                 "built_in_sheet",
+				"surface_status":               "required_built_in_sheet",
+				"source_record_types":          []any{"note"},
+				"required_reference_pack_keys": []any{},
+				"artifact_path":                "contracts/view-schemas/missing.json",
 			},
 		},
 	})

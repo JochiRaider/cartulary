@@ -1,15 +1,16 @@
-import { revokeAllSessions } from "./authRuntime";
 import { expect, test } from "./fixtures";
-import { apiBase, applyStorageState, csrfHeaders } from "./helpers";
-import { Phase1Page } from "./phase1Page";
-import { exerciseRevokedPendingReplay } from "./phase6Harness";
+import { applyStorageState, csrfHeaders } from "./support/auth/browserSession";
+import { readCurrentSession, revokeAllSessions } from "./support/auth/sessions";
+import { exerciseRevokedPendingReplay } from "./support/collaboration/replay";
+import { apiBase } from "./support/runtime/configuration";
+import { TestClock } from "./support/runtime/testClock";
 
 test.beforeEach(async ({ page }) => {
-  await new Phase1Page(page).resetClockOffset();
+  await new TestClock(page).reset();
 });
 
 test.afterEach(async ({ page }) => {
-  await new Phase1Page(page).resetClockOffset();
+  await new TestClock(page).reset();
 });
 
 test("E-6-03 preserves unsaved local work after socket revocation and re-authentication", async ({
@@ -58,7 +59,7 @@ test("E-6-03 preserves unsaved local work after socket revocation and re-authent
   });
 
   await test.step("idle expiry preserves and replays local work after re-authentication", async () => {
-    const phase1 = new Phase1Page(page);
+    const testClock = new TestClock(page);
     await exerciseRevokedPendingReplay({
       createdBy: "E-6-03",
       incidentKeyPrefix: "E603IDLE",
@@ -66,8 +67,8 @@ test("E-6-03 preserves unsaved local work after socket revocation and re-authent
       scenario: "idle-expiry",
       sessionTracker,
       triggerRevocation: async () => {
-        const currentSession = await phase1.currentSession();
-        await phase1.setClockAfter(currentSession.session_expires_at);
+        const currentSession = await readCurrentSession(page);
+        await testClock.setAfter(currentSession.session_expires_at);
       },
     });
     await applyStorageState(page, workerAdmin.storageState);

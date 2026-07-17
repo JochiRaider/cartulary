@@ -3,15 +3,15 @@ import { phase1LandingTestId } from "@cartulary/ui-contracts";
 import type { APIResponse } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
+import { csrfHeaders } from "./support/auth/browserSession";
+import { createIncident } from "./support/incidents/fixtures";
+import { createLocalUser } from "./support/incidents/memberships";
+import { apiBase } from "./support/runtime/configuration";
 import {
-  apiBase,
-  createIncident,
-  createLocalUser,
-  csrfHeaders,
   uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
-} from "./helpers";
+} from "./support/runtime/fixtureIdentity";
 
 type ErrorContract = {
   code: string;
