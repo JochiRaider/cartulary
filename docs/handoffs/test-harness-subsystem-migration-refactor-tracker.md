@@ -10,9 +10,9 @@
 | Baseline branch | `revision/grid-adapter` |
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
-| Tracker state | `READY` — WS-05 complete; WS-06 not started |
-| Active start | None; awaiting the WS-06 tracker activation checkpoint |
-| Active tasks | None |
+| Tracker state | `IN_PROGRESS` — WS-06 semantic source and fixture names |
+| Active start | Clean tree at `4cf06958b46649f76d79f1232379beb2738dc201` |
+| Active tasks | T-028 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -490,7 +490,7 @@ These follow-ups do not block harness completion unless the old production ident
 | WS-03 | Build unified test catalog | DONE | WS-01, WS-02 | Registry/manifests loader and catalog checks | Revert catalog stack; old catalog remains authoritative only before cutover. |
 | WS-04 | Migrate backend rows | DONE | WS-03 | 456 backend dispositions and focused tests | Revert complete owner slices, never individual aliases. |
 | WS-05 | Migrate frontend rows | DONE | WS-03 | 87 frontend dispositions and browser accounting tests | Revert complete owner slices with fixture metadata. |
-| WS-06 | Rename tests, symbols, fixtures, and goldens | TODO | WS-04, WS-05 | Semantic scan and visual digest report | Revert complete rename slices; no duplicate old/new tests. |
+| WS-06 | Rename tests, symbols, fixtures, and goldens | IN_PROGRESS | WS-04, WS-05 | Semantic scan and visual digest report | Revert complete rename slices; no duplicate old/new tests. |
 | WS-07 | Replace slice, audit, schema, and artifact APIs | TODO | WS-03–WS-06 | Successor CLI contract/smoke tests | Revert the whole interface checkpoint before atomic cutover. |
 | WS-08 | Migrate browser stages and scheduler topology | TODO | WS-05, WS-07 | Owner-based DAG, lifecycle, and browser tests | Revert authored topology and generated outputs together. |
 | WS-09 | Update task surface, generation, finalization, and baselines | TODO | WS-07, WS-08 | Generated surface/drift and fresh baseline plan | Revert owner inputs plus regenerated outputs together. |
@@ -711,7 +711,7 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-025 | Migrate FE-P9–FE-P12 rows | WS-05 | DONE | T-015 | 30 dispositions, 39 exact title atoms, catalog and frontend tests | Rows have terminal dispositions. |
 | T-026 | Remove frontend guide/cumulative accounting | WS-05 | DONE | T-023,T-024,T-025 | Catalog-native owner accounting projection and negative tests | One successor owner accounting model remains. |
 | T-027 | Reconcile all 87 frontend rows | WS-05 | DONE | T-026 | 87-row/216-atom reconciliation report | Count and selector coverage close. |
-| T-028 | Rename Go test identities | WS-06 | TODO | T-022 | Semantic scan and Go tests | No delivery-phase Go test identity remains. |
+| T-028 | Rename Go test identities | WS-06 | IN_PROGRESS | T-022 | Semantic scan and Go tests | No delivery-phase Go test identity remains. |
 | T-029 | Rename Vitest/Playwright identities | WS-06 | TODO | T-022,T-027 | Semantic scan and frontend tests | No delivery-phase frontend test identity remains. |
 | T-030 | Rename fixtures/scenarios/goldens | WS-06 | TODO | T-027 | Digest comparison and browser tests | Paths are semantic and bytes preserved. |
 | T-031 | Close production follow-up classifications | WS-06 | TODO | T-007,T-028,T-029 | Follow-up ledger | Every remaining match has owner/disposition. |
@@ -1043,6 +1043,14 @@ Each entry must include:
 - Skipped checks: owner-slice commands do not exist until WS-07; semantic filenames/titles/goldens are WS-06; browser-stage runtime execution and topology are WS-08; broad `make check`, finalization, and release checks are WS-11. Exact selector/profile reconciliation is not represented as final browser runtime evidence.
 - Next safe task: create a tracker-only checkpoint marking WS-06 and T-028 through T-031 `IN_PROGRESS`, then perform semantic renames in complete backend, frontend, and fixture/golden slices without starting WS-07 concurrently.
 - Rollback boundary: revert the complete WS-05 sequence from `013e7a54` through this completion checkpoint, including frontend owner manifests, verification-kind changes, title decoupling, accounting core, crosswalk dispositions/authorizations, migration/reconciliation tools, and focused tests. Never restore documentation-driven activation or a separate frontend ownership namespace.
+
+#### 2026-07-18 — WS-06 activation checkpoint
+
+- Branch/commit at start: `revision/grid-adapter` at clean WS-05 completion checkpoint `4cf06958b46649f76d79f1232379beb2738dc201`.
+- Workstream/task state: WS-06 is the only `IN_PROGRESS` workstream. T-028 is the sole active task; T-029 through T-031 remain `TODO`. WS-07 has not started.
+- Starting invariants: all 548 authoritative identities and 265 auxiliary candidates are terminally reconciled; the catalog has 46 owners, 169 families, 832 rows, and 1,376 selectors; all 56 frozen visual golden digests remain the WS-00 byte-identity baseline. Renames must update catalog selectors atomically and must not reopen ownership adjudication.
+- Next safe task: T-028 only. Classify the frozen Go delivery-identity population, rename complete package-owner slices, update exact catalog selectors, and run focused Go plus semantic scans before activating T-029.
+- Rollback boundary: revert a complete semantic owner slice, including source names, exact catalog selectors, semantic allow classifications, tests, and tracker evidence. Never leave duplicate old/new tests or a selector that resolves both identities.
 
 ## 17. First-resumer checklist
 
