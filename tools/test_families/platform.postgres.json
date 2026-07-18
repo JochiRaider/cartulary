@@ -1,0 +1,77 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "platform.postgres",
+  "rows": [
+    {
+      "row_id": "platform.postgres.integration.real_postgre_sql_bootstrap_creates_the_required_b4fa366b90",
+      "owner_id": "platform.postgres",
+      "family_id": "platform.postgres.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.postgres.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/postgres",
+        "tests": [
+          "TestPhase0_SchemaBootstrap_I_0_01"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_io_heavy",
+      "fixture_profile_id": "postgres_migration_scratch",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "platform.postgres.support_integration.entity_alias_migration31_empty_upgrade_c5951bf6f3",
+      "owner_id": "platform.postgres",
+      "family_id": "platform.postgres.support_integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.postgres.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/postgres",
+        "tests": [
+          "TestSupportPhase4_EntityAliasMigration31EmptyUpgrade",
+          "TestSupportPhase4_EntityAliasMigration31RejectsInvalidLegacyRowsWithCountAndSample",
+          "TestSupportPhase4_EntityAliasMigration31UpgradeTombstonesCaseEquivalentDuplicates"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_io_heavy",
+      "fixture_profile_id": "postgres_migration_scratch",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "platform.postgres.support_unit.schema_bootstrap_migration_guard_22ed444261",
+      "owner_id": "platform.postgres",
+      "family_id": "platform.postgres.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.postgres.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/postgres",
+        "tests": [
+          "TestSupportPhase0_SchemaBootstrapMigrationGuard"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

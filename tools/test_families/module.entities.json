@@ -1,0 +1,399 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "module.entities",
+  "rows": [
+    {
+      "row_id": "module.entities.browser.the_browser_inspector_dismisses_a_mention_and_re_6150fd43cd",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase4.mentions.lifecycle.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_77d448b3a470"
+        ],
+        "titles": [
+          "E-4-02 dismisses and ordinarily restores a mention without relinking"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.entities.browser.the_browser_inspector_merges_duplicate_entities_d0cb95b021",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase4.merge.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_24cc83be636c"
+        ],
+        "titles": [
+          "E-4-03 merges duplicate entities from the inspector and preserves survivor identity"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.entities.browser.the_browser_inspector_resolves_existing_entities_325548131d",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase4.mentions.resolve.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_5497d6dba304"
+        ],
+        "titles": [
+          "E-4-01 resolves and creates entities from Timeline mentions in the inspector"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.entities.browser.the_browser_workbook_shows_auto_resolution_only_758d41a16f",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase4.autoresolve.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_2ae41b62a854"
+        ],
+        "titles": [
+          "E-4-04 auto-resolves only eligible exact-match Timeline tokens"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.entities.integration.host_and_identity_create_routes_reuse_exact_matc_f443e2591f",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/entities",
+        "tests": [
+          "TestPhase4_EntityCreateAuthAndCSRFFailBeforeMalformedBody_I_4_02",
+          "TestPhase4_EntityOriginUpsert_I_4_02"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.entities.integration.the_explicit_merge_route_repoints_live_fan_out_p_0ec76e8044",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/entities",
+        "tests": [
+          "TestPhase4_ExplicitMergeRoute_I_4_03"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.entities.integration.the_mention_resolve_route_persists_durable_resol_d68c1befd6",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/entities",
+        "tests": [
+          "TestPhase4_ResolveRoute_I_4_01"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.entities.store.create_from_mention_store_paths_promote_unresolv_11902ddb10",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/entities",
+        "tests": [
+          "TestPhase4_CreateFromMention_U_4_03"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.entities.store.dismiss_and_restore_store_operations_preserve_ra_df842d8c6d",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/entities",
+        "tests": [
+          "TestPhase4_DismissRestoreMentionLifecycle_U_4_04"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.entities.store.exact_match_precedence_resolves_reuse_decisions_949743e789",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/entities",
+        "tests": [
+          "TestPhase4_ExactMatchPrecedence_U_4_05"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.entities.store.explicit_merge_store_behavior_repoints_live_ment_0560122310",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/entities",
+        "tests": [
+          "TestPhase4_ExplicitEntityMerge_U_4_06"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.entities.support_integration.integration_entity_create_idempotency_is_actor_s_3c8ed1fe5c",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.support_integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/entities",
+        "tests": [
+          "TestSupportPhase4Integration_EntityCreateIdempotencyIsActorScoped"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.entities.support_integration.integration_record_envelope_head_schema_3b559686a9",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.support_integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/entities",
+        "tests": [
+          "TestSupportPhase4Integration_RecordEnvelopeHeadSchema"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.entities.support_integration.integration_surface_envelope_1366b4ce6c",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.support_integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/entities",
+        "tests": [
+          "TestSupportPhase4Integration_AuthorizationReDerivation",
+          "TestSupportPhase4Integration_CSRFProtection",
+          "TestSupportPhase4Integration_DefaultQueryMetaAndFieldKeyConformance",
+          "TestSupportPhase4Integration_ProjectionAndWebsocketConsequences",
+          "TestSupportPhase4Integration_ReplayAndDivergentConflict",
+          "TestSupportPhase4Integration_SurfaceEnvelope"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.entities.visual.the_visual_harness_captures_unresolved_mention_a_4b882068c7",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_4447178c020a"
+        ],
+        "titles": [
+          "V-4-GRID-01 captures Timeline unresolved and resolved mention chips in the workbook grid"
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    }
+  ]
+}

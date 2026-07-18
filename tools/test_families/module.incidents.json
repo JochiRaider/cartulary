@@ -1,0 +1,924 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "module.incidents",
+  "rows": [
+    {
+      "row_id": "module.incidents.browser.a_selected_incident_whose_membership_is_removed_21054ae899",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase1.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_cb4fe9d1ef4c"
+        ],
+        "titles": [
+          "E-1-10 clears a stale selected incident after membership removal while preserving the account session"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.browser.incident_admins_manage_memberships_on_the_ordina_f26145a162",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase2.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_40fddb90fe45"
+        ],
+        "titles": [
+          "E-2-03 lets incident admins manage memberships and hides those controls from non-admin members on the ordinary shell"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.browser.real_browser_incident_create_bootstraps_the_crea_6b8248fece",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase2.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_e4bfa26e46dc"
+        ],
+        "titles": [
+          "E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.browser.the_ordinary_authenticated_landing_screen_create_fa80fbfef5",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase1.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_d218b2939740"
+        ],
+        "titles": [
+          "E-1-09 creates an incident from the landing screen, lists it, and opens the workbook as incident admin"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.browser.the_ordinary_shell_exposes_incident_discovery_ra_59c190a9b5",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase2.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_7caf936917c3"
+        ],
+        "titles": [
+          "E-2-02 shows incident discovery, raw querystring deep-link retrieval, and promoted-field-only patching on the ordinary incident shell"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.browser_support.supports_reserved_family_dispatch_precedence_pro_d831d613fa",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser_support",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase2.support.spec.ts",
+        "project_id": "chromium",
+        "stage": "support",
+        "scenario_ids": [
+          "scenario_7251631c8da8"
+        ],
+        "titles": [
+          "supports reserved-family dispatch precedence probes while ordinary base and outside paths keep their dispatch"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.browser_support.supports_route_owned_incident_validation_errors_c277ce45ee",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser_support",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase2.support.spec.ts",
+        "project_id": "chromium",
+        "stage": "support",
+        "scenario_ids": [
+          "scenario_b152f2eb3cc7"
+        ],
+        "titles": [
+          "supports route-owned incident validation errors through browser-authenticated request probes"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.browser_support.supports_zero_membership_extension_discovery_and_2d096f2dcd",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser_support",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase2.support.spec.ts",
+        "project_id": "chromium",
+        "stage": "support",
+        "scenario_ids": [
+          "scenario_92e9762b99a1"
+        ],
+        "titles": [
+          "supports zero-membership extension discovery and singleton pagination rejection through browser-authenticated request probes"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.frontend.the_ordinary_incident_shell_emits_the_expected_m_21d3fe076b",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.frontend",
+      "collaborator_ids": [
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
+        "titles": [
+          "Phase 2 U-2-13 ordinary incident shell issues membership create, patch, and delete requests with versioned payloads and refreshes session role after each mutation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.frontend.the_ordinary_incident_shell_exposes_patchable_me_9af2ae4573",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.frontend",
+      "collaborator_ids": [
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
+        "titles": [
+          "Phase 2 U-2-12 ordinary incident shell gates promoted-field controls by incident role, hides membership-admin controls from non-admin members, and returns to landing when incident access is lost"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.frontend.the_ordinary_landing_shell_creates_an_incident_r_b64ef5986b",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.frontend",
+      "collaborator_ids": [
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/App.landing.test.tsx",
+        "titles": [
+          "Phase 2 U-2-11 ordinary landing shell creates an incident, refreshes session-visible membership, routes to the workbook by incident_id, and falls back when a stale incident selection is no longer visible"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.integration.extension_discovery_succeeds_for_an_authenticate_39cd96b3b3",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestPhase2_I_2_05_ExtensionDiscoveryReturnsExactZeroMembershipShapeWithoutLeaks"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.integration.incident_create_persists_the_incident_row_bootst_0bd8d02f12",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestPhase2_I_2_01_IncidentCreatePersistsBootstrapStateAndRollsBackAtomically"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.integration.live_membership_patch_to_the_current_role_return_7a14cba87a",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestPhase2_I_2_07_MembershipPatchSameRoleReturnsOKWithoutVersionOrMutationArtifact"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.integration.one_same_session_role_progression_no_membership_6df5c1b9fb",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestPhase2_I_2_03_ControlBoundaryIncidentCoreReDerivesAuthorizationImmediately",
+          "TestPhase2_I_2_03_ControlBoundaryMembershipAdminReDerivesAuthorizationImmediately",
+          "TestPhase2_I_2_03_ControlBoundaryTimelineRecordAndLiveReDerivesAuthorizationImmediately",
+          "TestPhase2_I_2_03_ControlBoundaryWorkbookPreferencesReDerivesAuthorizationImmediately",
+          "TestPhase2_I_2_03_ControlBoundaryWorkbookQueriesReDerivesAuthorizationImmediately"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.integration.real_create_with_trimmed_decomposed_input_normal_f1c6efb6b6",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedState"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.integration.real_incident_patch_persists_only_patchable_meta_9fc8fc207f",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestPhase2_I_2_04_IncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMaterialChange"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.integration.reserved_but_unclaimed_family_roots_and_descenda_3cbf9bf6e6",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestPhase2_I_2_06_UnclaimedReservedFamiliesReturnCanonical404AndOutsidePathsDoNot"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.store.incident_create_idempotency_scopes_by_actor_plus_b2c23d5e25",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestPhase2_U_2_04_StoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.store.store_backed_membership_patch_and_delete_reject_17d0f4ff28",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestPhase2_U_2_07_StoreMembershipPatchAndDeleteRejectStaleBaseVersion"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.store.store_create_incident_commits_the_bootstrap_admi_01ff2d008d",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestPhase2_U_2_02_StoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.store.store_update_incident_returns_a_typed_incident_v_0669e48fa6",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestPhase2_U_2_14_StoreIncidentPatchReturnsTypedVersionConflictDetails"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.store.the_committed_create_result_returns_the_stable_a_5f64fd9d84",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestPhase2_U_2_03_StoreCreateIncidentReturnsStableLocationValue"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.support_integration.control_boundary_incident_core_deployment_admin_9ba3db3d5f",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.support_integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestSupportPhase2_ControlBoundaryIncidentCoreDeploymentAdminWithoutMembershipDenied",
+          "TestSupportPhase2_ControlBoundaryMembershipAdminDeploymentAdminWithoutMembershipDenied",
+          "TestSupportPhase2_ControlBoundaryTimelineRecordAndLiveDeploymentAdminWithoutMembershipDenied",
+          "TestSupportPhase2_ControlBoundaryWorkbookPreferencesDeploymentAdminWithoutMembershipDenied",
+          "TestSupportPhase2_ControlBoundaryWorkbookQueriesDeploymentAdminWithoutMembershipDenied"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.support_integration.incident_create_bootstraps_creator_and_workbook_e012cac972",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.support_integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestSupportPhase2_IncidentCreateBootstrapsCreatorAndWorkbookPreferencesHTTPConformance",
+          "TestSupportPhase2_IncidentCreateIdempotencyUsesActorAndNormalizedReplayHTTPConformance",
+          "TestSupportPhase2_IncidentCreateReturnsStableLocationHeaderHTTPConformance",
+          "TestSupportPhase2_MembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFieldsHTTPConformance",
+          "TestSupportPhase2_MembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConformance"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.support_integration.incident_list_uses_live_first_page_independently_f2ad5f1106",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.support_integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestSupportPhase2_IncidentListContinuationOmitsRevokedMembership",
+          "TestSupportPhase2_IncidentListContinuationUsesLiveMembershipQuery",
+          "TestSupportPhase2_IncidentListUsesLiveFirstPageIndependentlyOfTestClock",
+          "TestSupportPhase2_MembershipListContinuationUsesLiveRows"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.support_integration.membership_create_replay_returns_original_and_di_98e85ad975",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.support_integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestSupportPhase2_IncidentPatchWritesAuditBeforeAfter",
+          "TestSupportPhase2_MembershipCreateReplayReturnsOriginalAndDivergentConflict",
+          "TestSupportPhase2_MembershipMutationsWriteAuditBeforeAfter"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.support_integration.public_route_inventory_extension_discovery_envel_d792370039",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.support_integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestSupportPhase2_PublicRouteInventoryExtensionDiscoveryEnvelopes",
+          "TestSupportPhase2_PublicRouteInventoryIncidentCoreEnvelopes",
+          "TestSupportPhase2_PublicRouteInventoryMembershipAdminEnvelopes",
+          "TestSupportPhase2_PublicRouteInventoryWorkbookPreferencesEnvelopes"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.support_unit.open_apiworkbook_preferences_expose_get_and_put_67f5449133",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestSupportPhase2_OpenAPIWorkbookPreferencesExposeGetAndPutContracts"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.support_unit.unit_membership_patch_and_delete_decode_and_last_2eb9a74e0c",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestSupportPhase2Unit_MembershipPatchAndDeleteDecodeAndLastAdminGuardStayStable"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.unit.extension_discovery_keeps_the_singleton_route_sh_ae7e2bb619",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestPhase2_U_2_09_ExtensionDiscoveryReturnsExactSingletonProfileShape"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.unit.incident_create_decode_rejects_undeclared_member_6b93095d4c",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestPhase2_U_2_01_IncidentCreateAcceptsDeclaredMembersAndNormalizesIncidentKey"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.unit.incident_patch_decode_allows_only_description_se_e8dc75dbf4",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestPhase2_U_2_05_IncidentPatchAllowsPromotedFieldsAndKeepsNoOpVersionStable"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.unit.membership_create_requires_exactly_one_selector_0cc3c22ea2",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestPhase2_U_2_06_MembershipCreateUsesLookupOnlyForUserOrEmailTargets"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.unit.reserved_family_dispatch_preserves_base_route_pr_2645a84b6e",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestPhase2_U_2_10_ReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallback"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.unit.the_incident_access_decision_helper_returns_inci_0c366be0d2",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestPhase2_U_2_08_IncidentAccessDecisionUsesNotFoundForMissingMembershipAndDeniedForInsufficientRole"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

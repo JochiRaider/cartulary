@@ -1,30 +1,200 @@
 {
   "schema_id": "cartulary.verification_registry.v1",
   "owners": [
-    { "owner_id": "harness.browser", "contract_path": "contracts/verification/owners/harness.browser.json", "status": "active" },
-    { "owner_id": "harness.command_surface", "contract_path": "contracts/verification/owners/harness.command_surface.json", "status": "active" },
-    { "owner_id": "harness.evidence_accounting", "contract_path": "contracts/verification/owners/harness.evidence_accounting.json", "status": "active" },
-    { "owner_id": "harness.generated_artifacts", "contract_path": "contracts/verification/owners/harness.generated_artifacts.json", "status": "active" },
-    { "owner_id": "harness.release", "contract_path": "contracts/verification/owners/harness.release.json", "status": "active" },
-    { "owner_id": "harness.test_catalog", "contract_path": "contracts/verification/owners/harness.test_catalog.json", "status": "active" },
-    { "owner_id": "harness.visual", "contract_path": "contracts/verification/owners/harness.visual.json", "status": "active" },
-    { "owner_id": "module.graphprojection", "contract_path": "contracts/verification/owners/module.graphprojection.json", "status": "active" },
-    { "owner_id": "module.networkflow", "contract_path": "contracts/verification/owners/module.networkflow.json", "status": "active" },
-    { "owner_id": "module.reportcomposition", "contract_path": "contracts/verification/owners/module.reportcomposition.json", "status": "active" },
-    { "owner_id": "module.reporting", "contract_path": "contracts/verification/owners/module.reporting.json", "status": "active" },
-    { "owner_id": "package.grid_adapter", "contract_path": "contracts/verification/owners/package.grid_adapter.json", "status": "active" },
-    { "owner_id": "package.protocol_ts", "contract_path": "contracts/verification/owners/package.protocol_ts.json", "status": "active" },
-    { "owner_id": "package.test_utils", "contract_path": "contracts/verification/owners/package.test_utils.json", "status": "active" },
-    { "owner_id": "package.ui", "contract_path": "contracts/verification/owners/package.ui.json", "status": "active" },
-    { "owner_id": "package.view_contracts", "contract_path": "contracts/verification/owners/package.view_contracts.json", "status": "active" },
-    { "owner_id": "platform.objectstore", "contract_path": "contracts/verification/owners/platform.objectstore.json", "status": "active" },
-    { "owner_id": "platform.postgres", "contract_path": "contracts/verification/owners/platform.postgres.json", "status": "active" },
-    { "owner_id": "platform.telemetry", "contract_path": "contracts/verification/owners/platform.telemetry.json", "status": "active" },
-    { "owner_id": "web.application", "contract_path": "contracts/verification/owners/web.application.json", "status": "active" },
-    { "owner_id": "web.architecture", "contract_path": "contracts/verification/owners/web.architecture.json", "status": "active" },
-    { "owner_id": "web.collaboration", "contract_path": "contracts/verification/owners/web.collaboration.json", "status": "active" },
-    { "owner_id": "web.design", "contract_path": "contracts/verification/owners/web.design.json", "status": "active" },
-    { "owner_id": "web.networkflow", "contract_path": "contracts/verification/owners/web.networkflow.json", "status": "active" },
-    { "owner_id": "web.workbook", "contract_path": "contracts/verification/owners/web.workbook.json", "status": "active" }
+    {
+      "owner_id": "app.operator",
+      "contract_path": "contracts/verification/owners/app.operator.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "app.server",
+      "contract_path": "contracts/verification/owners/app.server.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "harness.browser",
+      "contract_path": "contracts/verification/owners/harness.browser.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "harness.command_surface",
+      "contract_path": "contracts/verification/owners/harness.command_surface.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "harness.evidence_accounting",
+      "contract_path": "contracts/verification/owners/harness.evidence_accounting.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "harness.generated_artifacts",
+      "contract_path": "contracts/verification/owners/harness.generated_artifacts.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "harness.release",
+      "contract_path": "contracts/verification/owners/harness.release.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "harness.test_catalog",
+      "contract_path": "contracts/verification/owners/harness.test_catalog.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "harness.visual",
+      "contract_path": "contracts/verification/owners/harness.visual.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.assessments",
+      "contract_path": "contracts/verification/owners/module.assessments.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.auth",
+      "contract_path": "contracts/verification/owners/module.auth.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.entities",
+      "contract_path": "contracts/verification/owners/module.entities.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.evidence",
+      "contract_path": "contracts/verification/owners/module.evidence.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.graphprojection",
+      "contract_path": "contracts/verification/owners/module.graphprojection.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.incidents",
+      "contract_path": "contracts/verification/owners/module.incidents.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.indicators",
+      "contract_path": "contracts/verification/owners/module.indicators.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.networkflow",
+      "contract_path": "contracts/verification/owners/module.networkflow.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.recovery",
+      "contract_path": "contracts/verification/owners/module.recovery.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.reportcomposition",
+      "contract_path": "contracts/verification/owners/module.reportcomposition.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.reporting",
+      "contract_path": "contracts/verification/owners/module.reporting.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.timeline",
+      "contract_path": "contracts/verification/owners/module.timeline.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.workbook",
+      "contract_path": "contracts/verification/owners/module.workbook.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "package.grid_adapter",
+      "contract_path": "contracts/verification/owners/package.grid_adapter.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "package.protocol_ts",
+      "contract_path": "contracts/verification/owners/package.protocol_ts.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "package.test_utils",
+      "contract_path": "contracts/verification/owners/package.test_utils.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "package.ui",
+      "contract_path": "contracts/verification/owners/package.ui.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "package.view_contracts",
+      "contract_path": "contracts/verification/owners/package.view_contracts.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.bootstrap",
+      "contract_path": "contracts/verification/owners/platform.bootstrap.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.config",
+      "contract_path": "contracts/verification/owners/platform.config.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.httpruntime",
+      "contract_path": "contracts/verification/owners/platform.httpruntime.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.objectstore",
+      "contract_path": "contracts/verification/owners/platform.objectstore.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.postgres",
+      "contract_path": "contracts/verification/owners/platform.postgres.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.telemetry",
+      "contract_path": "contracts/verification/owners/platform.telemetry.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "web.application",
+      "contract_path": "contracts/verification/owners/web.application.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "web.architecture",
+      "contract_path": "contracts/verification/owners/web.architecture.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "web.collaboration",
+      "contract_path": "contracts/verification/owners/web.collaboration.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "web.design",
+      "contract_path": "contracts/verification/owners/web.design.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "contract_path": "contracts/verification/owners/web.networkflow.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "web.workbook",
+      "contract_path": "contracts/verification/owners/web.workbook.json",
+      "status": "active"
+    }
   ]
 }

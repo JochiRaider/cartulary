@@ -2,13 +2,68 @@
   "schema_id": "cartulary.test_owner_registry.v1",
   "owners": [
     {
+      "owner_id": "app.operator",
+      "manifest_path": "tools/test_families/app.operator.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "app.server",
+      "manifest_path": "tools/test_families/app.server.json",
+      "status": "active"
+    },
+    {
       "owner_id": "harness.browser",
       "manifest_path": "tools/test_families/harness.browser.json",
       "status": "active"
     },
     {
+      "owner_id": "module.assessments",
+      "manifest_path": "tools/test_families/module.assessments.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.auth",
+      "manifest_path": "tools/test_families/module.auth.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.entities",
+      "manifest_path": "tools/test_families/module.entities.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.evidence",
+      "manifest_path": "tools/test_families/module.evidence.json",
+      "status": "active"
+    },
+    {
       "owner_id": "module.graphprojection",
       "manifest_path": "tools/test_families/module.graphprojection.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.incidents",
+      "manifest_path": "tools/test_families/module.incidents.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.indicators",
+      "manifest_path": "tools/test_families/module.indicators.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.recovery",
+      "manifest_path": "tools/test_families/module.recovery.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.timeline",
+      "manifest_path": "tools/test_families/module.timeline.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.workbook",
+      "manifest_path": "tools/test_families/module.workbook.json",
       "status": "active"
     },
     {
@@ -34,6 +89,31 @@
     {
       "owner_id": "package.view_contracts",
       "manifest_path": "tools/test_families/package.view_contracts.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.bootstrap",
+      "manifest_path": "tools/test_families/platform.bootstrap.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.config",
+      "manifest_path": "tools/test_families/platform.config.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.httpruntime",
+      "manifest_path": "tools/test_families/platform.httpruntime.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.objectstore",
+      "manifest_path": "tools/test_families/platform.objectstore.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.postgres",
+      "manifest_path": "tools/test_families/platform.postgres.json",
       "status": "active"
     },
     {

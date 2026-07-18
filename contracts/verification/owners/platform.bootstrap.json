@@ -1,0 +1,16 @@
+{
+  "schema_id": "cartulary.verification_contract.v1",
+  "owner_id": "platform.bootstrap",
+  "verifications": [
+    {
+      "verification_id": "platform.bootstrap.verification.behavior_contract",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "requirement": "bootstrap orchestration postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "status": "active"
+    }
+  ]
+}

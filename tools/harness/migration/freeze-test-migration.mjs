@@ -71,6 +71,12 @@ function backendSelector(row) {
       titles: [...new Set([...(row.titles ?? []), ...(row.title ? [row.title] : [])])].sort()
     };
   }
+  if (row.runner === "vitest") {
+    return {
+      file: row.file,
+      titles: [...new Set([...(row.titles ?? []), ...(row.title ? [row.title] : [])])].sort()
+    };
+  }
   return goSelector(row);
 }
 
@@ -104,7 +110,7 @@ for (const sourcePath of backendFiles) {
         legacy_row_id: row.id,
         source_path: sourcePath,
         source_group: group,
-        runner: row.runner === "playwright" ? "playwright" : "go",
+        runner: row.runner === "playwright" ? "playwright" : row.runner === "vitest" ? "vitest" : "go",
         selector,
         selector_digest: digest(selector)
       });
@@ -278,6 +284,17 @@ if (process.argv.includes("--check")) {
   }
   if (representedKeys.some((key) => !frozenKeys.has(key))) {
     fail("test migration crosswalk contains an unknown baseline identity");
+  }
+  const backendRunnerCounts = Object.fromEntries(
+    ["go", "playwright", "vitest"].map((runner) => [
+      runner,
+      storedBaseline.identities.filter(
+        (entry) => entry.source_registry_id === "backend_phase_maps" && entry.runner === runner,
+      ).length,
+    ]),
+  );
+  if (canonical(backendRunnerCounts) !== canonical({ go: 335, playwright: 92, vitest: 29 })) {
+    fail(`frozen backend runner population is inconsistent: ${canonical(backendRunnerCounts)}`);
   }
   const frozenAuxiliaryIDs = new Set(
     Object.values(storedBaseline.auxiliary_candidates)

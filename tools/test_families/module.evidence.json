@@ -1,0 +1,111 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "module.evidence",
+  "rows": [
+    {
+      "row_id": "module.evidence.frontend.the_ordinary_evidence_workbook_surface_issues_pr_6b6cd04008",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
+        "titles": [
+          "Phase 4 U-4-WB-03 issues opaque evidence preview and download handles from the evidence surface"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.evidence.integration.preview_and_download_handle_issuance_accepts_onl_84f55ae52b",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestPhase4_DownloadHandleBlobMissingDoesNotConsumeHandle_I_4_HANDLE_01",
+          "TestPhase4_EvidenceHandles_I_4_HANDLE_01"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.evidence.integration.the_object_blob_create_route_enforces_request_sh_17b6e1b674",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestPhase4_ObjectBlobCreate_I_4_BLOB_01"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.evidence.visual.the_visual_harness_captures_evidence_surface_acc_8c22a3c9bc",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_5c893193b257"
+        ],
+        "titles": [
+          "V-4-GRID-02 captures Evidence access affordances on the required Evidence surface"
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    }
+  ]
+}

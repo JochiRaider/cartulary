@@ -1,0 +1,87 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "module.assessments",
+  "rows": [
+    {
+      "row_id": "module.assessments.browser.the_browser_workbook_drives_the_assessments_surf_4f277414a9",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.assessments.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase4.workbook.assessments.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_b9a4639a67f6"
+        ],
+        "titles": [
+          "E-4-05 creates append-only assessment history through the workbook UI"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.assessments.frontend.the_ordinary_workbook_assessment_panel_submits_t_3f8efe2007",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.assessments.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.assessments.test.tsx",
+        "titles": [
+          "Phase 4 U-4-WB-02 submits assessment creates through the workbook UI"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.assessments.frontend.the_workbook_assessment_payload_builder_maps_ban_0e5d9eb77a",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.assessments.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.assessments.test.tsx",
+        "titles": [
+          "Phase 4 U-4-WB-01 maps band-first assessment create payloads without submitting the derived band"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

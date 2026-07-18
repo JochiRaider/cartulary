@@ -3,11 +3,23 @@
   "owner_id": "platform.postgres",
   "verifications": [
     {
+      "verification_id": "platform.postgres.verification.behavior_contract",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "requirement": "PostgreSQL bootstrap, migrations, and fixture boundaries postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "status": "active"
+    },
+    {
       "verification_id": "platform.postgres.verification.migration_mechanics",
       "behavior_class": "architecture",
       "profile": "support",
       "requirement": "PostgreSQL migration and fixture mechanics preserve safe transactional and scratch-database isolation for owning modules.",
-      "evidence_kinds": ["go_test"],
+      "evidence_kinds": [
+        "go_test"
+      ],
       "status": "active"
     }
   ]

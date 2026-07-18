@@ -1,0 +1,1226 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "module.timeline",
+  "rows": [
+    {
+      "row_id": "module.timeline.browser.a_reviewer_session_browser_flow_visibly_performs_c3aaf62d89",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase3.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_78d2b7279147"
+        ],
+        "titles": [
+          "E-3-03 drives review, demotion, and supersede through the visible workbook surface"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.browser.a_user_creates_a_timeline_row_on_the_real_workbo_62ae8a3a07",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase3.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_36acd54e3d8c"
+        ],
+        "titles": [
+          "E-3-01 creates a Timeline row in-grid and continues editing on the draft row"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.browser.real_browser_replay_preserves_the_original_commi_b246ca8c38",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase3.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_d844d91c9de8"
+        ],
+        "titles": [
+          "E-3-04 uses a disclosed hybrid replay harness to prove replay avoids duplicate history and visible invalidation"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.browser_support.keeps_a_pending_edit_anchored_to_its_record_unde_b5a6ab2768",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser_support",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase3.support.spec.ts",
+        "project_id": "chromium",
+        "stage": "support",
+        "scenario_ids": [
+          "scenario_e25a0fbe37ac"
+        ],
+        "titles": [
+          "support Phase 3 keeps a pending edit anchored to its record under sort, filter, group, and live invalidation"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.browser_support.keeps_repeated_scalar_grid_edits_out_of_the_rdg_3b2fc5f1f0",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser_support",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase3.support.spec.ts",
+        "project_id": "chromium",
+        "stage": "support",
+        "scenario_ids": [
+          "scenario_2b65ef8dfbae"
+        ],
+        "titles": [
+          "support Phase 3 keeps repeated scalar grid edits out of the RDG measured-width crash path"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.browser_support.verify_full_keyboard_clipboard_contract_one_clic_ec36b90e7b",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser_support",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase9.keyboard.spec.ts",
+        "project_id": "chromium",
+        "stage": "support",
+        "scenario_ids": [
+          "scenario_620d7dcfdda8"
+        ],
+        "titles": [
+          "FE-B-P10-02 Verify full keyboard/clipboard contract: one-click edit, copy, paste, exact-range fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.browser_support.verify_one_click_focused_editing_rejected_transi_0e2d9a8f10",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser_support",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase3.support.spec.ts",
+        "project_id": "chromium",
+        "stage": "support",
+        "scenario_ids": [
+          "scenario_43b01a263473"
+        ],
+        "titles": [
+          "FE-B-P3-01 Verify one-click focused editing, rejected-transition retention, sort, filter, group, paste, exact-range fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.frontend.the_rdg_backed_workbook_grid_binds_timeline_colu_539c620379",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+        "titles": [
+          "Phase 3 U-3-GRID-01 binds Timeline grid columns from the active view_schema and commits writable cells by field_key"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.frontend.the_rdg_backed_workbook_grid_keeps_saved_row_ide_9b0e823cea",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+        "titles": [
+          "Phase 3 U-3-GRID-02 binds saved rows by record_id and row_version instead of visible row index"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.frontend.the_rdg_backed_workbook_grid_keeps_sorted_and_fi_b16b9731e1",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+        "titles": [
+          "Phase 3 U-3-GRID-03 keeps sorted and filtered local edits bound to the original record_id, base_row_version, and field_key"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.frontend.the_workbook_blank_row_action_submits_exactly_on_ad8dcf13e4",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase3.payload.test.tsx",
+        "titles": [
+          "Phase 3 U-3-13 creates an explicit blank Timeline row with only client_txn_id and suppresses duplicate pending submits"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.frontend.the_workbook_component_proves_autosave_commits_o_8ef38ab5ed",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx",
+        "titles": [
+          "Phase 3 U-3-05 autosaves Enter without a Save button and keeps exact save-state labels",
+          "Phase 3 U-3-05 autosaves Tab without a Save button and keeps exact save-state labels",
+          "Phase 3 U-3-05 autosaves blur without a Save button and keeps exact save-state labels",
+          "Phase 3 U-3-05 autosaves paste completion without a Save button and keeps exact save-state labels",
+          "Phase 3 U-3-05 reports Conflict after autosave failure and preserves local editor value"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.frontend.the_workbook_create_payload_builder_omits_zero_f_deaef46bf2",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase3.payload.test.tsx",
+        "titles": [
+          "Phase 3 U-3-12 builds zero-field Timeline create payloads only for explicit blank-row creation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.integration.create_patch_mark_reviewed_supersede_query_and_w_90276912d7",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase3_RouteEnvelopeMatrix_I_3_06"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.integration.incident_role_authorization_review_and_supersede_62f3d384f6",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase3_I_3_03_AuthorizationLifecycleAndSupersedeTransitions"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.integration.real_http_create_patch_review_supersede_replay_m_37e5c78ca1",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase3_I_3_01_CreatePatchReplayAndRollback"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.integration.rough_and_uncertain_timeline_capture_preserves_n_a868f4aa14",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase3_RoughUncertainCapturePreservation_I_3_07"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.integration.same_field_timeline_patch_conflicts_are_transpor_808ccc2585",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase3_PatchSameFieldConflictEnvelope_I_3_04"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.integration.the_canonical_incident_web_socket_route_proves_h_aef38ee6e5",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase3_CanonicalIncidentWebSocket_I_3_05"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.integration.the_query_route_reads_projection_rows_instead_of_2edde6eb1c",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase3_I_3_02_ProjectionQueryUsesDeterministicRebuild"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.integration.timeline_create_and_patch_routes_persist_manual_ac8c9abb5b",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase4_ManualTimelineConfidenceNull_I_4_09"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.integration.timeline_patch_and_query_routes_auto_resolve_onl_8ab2448829",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase4_AutoResolutionEligibility_I_4_08"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.measurement.the_isolated_measurement_suite_proves_one_real_s_6a3649dbd5",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/phase3_measurement.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "scenario_c9749616e90f"
+        ],
+        "titles": [
+          "E-3-02 measures user-visible typing_ack and blank-row-create completion within the Phase 3 envelope"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.store.a_committed_timeline_create_initializes_capture_e04b19cb10",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase3_InitialCreateState_U_3_02"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.store.a_material_edit_demotes_reviewed_enriched_legal_29bb8697de",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase3_ReviewedDemotionAndSupersedeTerminality_U_3_04"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.store.a_one_value_timeline_create_commits_a_real_row_a_1964bc0936",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase3_CreateCommitsAndAssignsIdentity_U_3_01"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.store.closed_incidents_remain_readable_and_permit_exac_1af610054a",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase3_ClosedIncidentWriteBarrier_U_3_14"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.store.patch_replay_returns_the_original_committed_resu_b93ddcbc77",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase3_PatchReplayStability_U_3_07"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.store.repeated_identical_mention_tokens_persist_as_sep_d79faec8e6",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase4_DuplicateMentionProvenance_U_4_02"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.store.stale_timeline_patches_derive_committed_writable_b89a3c27fa",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase3_PatchFieldLevelConcurrency_U_3_11"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.store.successful_timeline_create_and_patch_each_write_686ca358f8",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase3_CreateAndPatchWriteHistory_U_3_09"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.store.supersede_with_replacement_rejects_illegal_targe_e4d81b8a06",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase3_SupersedeReplayAndRollbackCoupling_U_3_10"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.store.the_first_material_patch_transitions_rough_enric_c36dc39675",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase3_CaptureStateLifecycle_U_3_03"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.store.timeline_mention_fields_prove_mention_origin_bin_46b2abfeb9",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase4_BindingMode_U_4_01"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.store.timeline_query_accepts_timeline_evidence_count_a_22cc245694",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase3_QuerySortsByEvidenceCount_U_3_15"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.support_integration.integration_authorization_matrix_2699762a78",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.support_integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestSupportPhase3Integration_AuthorizationMatrix"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.support_integration.integration_route_idempotency_is_actor_scoped_ab7992bb7d",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.support_integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestSupportPhase3Integration_RouteIdempotencyIsActorScoped",
+          "TestSupportPhase3Integration_TimelineTimeConversionProfile"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.support_unit.unit_create_request_coverage_cf5fa23763",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestSupportPhase3Unit_CaptureStateHelpers",
+          "TestSupportPhase3Unit_CreateRequestCoverage",
+          "TestSupportPhase3Unit_InitialStateVocabulary",
+          "TestSupportPhase3Unit_PatchRequestHashNormalization",
+          "TestSupportPhase3Unit_PayloadBuildersExposeStableShapes",
+          "TestSupportPhase3Unit_SupersedeGuardAndHashHelpers"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.support_unit.unit_timeline_query_schema_mapping_guard_7a2c2a4857",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestSupportPhase3Unit_TimelineQuerySchemaMappingGuard"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.support_unit.unit_timeline_visible_text_contract_2adbc9d247",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestSupportPhase3Unit_TimelineVisibleTextContract"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.unit.patch_decode_fails_closed_on_missing_required_me_3052a6e921",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase3_PatchPayloadValidation_U_3_06"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.unit.timeline_create_and_patch_decoding_accepts_manua_d80720f76e",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase4_ManualTimelineConfidenceNull_U_4_09"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.unit.timeline_mutation_error_classification_emits_sta_76ce05e9bd",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase3_TimelineMutationAPIErrorClassifier_U_3_16"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.unit.timeline_projection_contract_shaping_exposes_the_0a2232ebe0",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase3_ProjectionContract_U_3_08"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.unit.timeline_request_decoding_preserves_authoritativ_aa7608a640",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestPhase4_AutoResolutionEligibility_U_4_08"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.visual.the_visual_harness_captures_a_deterministic_grou_ac01b2d810",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_b058629ebe04"
+        ],
+        "titles": [
+          "V-3-GRID-03 captures Timeline grouped rows and currently exposed grid chrome"
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.visual.the_visual_harness_captures_a_deterministic_time_a19d57e206",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_5f3469f1fe3b"
+        ],
+        "titles": [
+          "V-3-GRID-01 captures the Timeline default viewport with stable row version and save-state strip"
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.visual.the_visual_harness_drives_the_real_timeline_work_0977c1d4cf",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_65b64494c412"
+        ],
+        "titles": [
+          "V-3-GRID-02 captures Timeline edit save-state visuals for active cell syncing saved and conflict states"
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    }
+  ]
+}

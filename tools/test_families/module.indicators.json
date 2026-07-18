@@ -1,0 +1,52 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "module.indicators",
+  "rows": [
+    {
+      "row_id": "module.indicators.integration.indicator_create_and_query_routes_persist_canoni_e3a29b7aaf",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.indicators.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/indicators",
+        "tests": [
+          "TestPhase4_IndicatorsRoute_I_4_07"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.indicators.store.indicator_storage_keeps_source_bound_observation_07c064324e",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.indicators.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/indicators",
+        "tests": [
+          "TestPhase4_IndicatorObservationSeparation_U_4_07"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

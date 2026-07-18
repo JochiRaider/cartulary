@@ -1,0 +1,34 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "platform.httpruntime",
+  "rows": [
+    {
+      "row_id": "platform.httpruntime.support_unit.serve_inherited_listener_and_graceful_cancellati_97cc1e4ffc",
+      "owner_id": "platform.httpruntime",
+      "family_id": "platform.httpruntime.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.httpruntime.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/httpruntime",
+        "tests": [
+          "TestServeCancelledBeforeListenDoesNotBind",
+          "TestServeForcesCloseAfterShutdownTimeout",
+          "TestServeInheritedListenerAndGracefulCancellation",
+          "TestServeOrdinaryListenerReportsEffectiveAddress",
+          "TestServeRejectsInheritedNonListenerFD",
+          "TestServeRejectsMalformedAndClosedInheritedFD"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

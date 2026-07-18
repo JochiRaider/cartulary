@@ -4061,24 +4061,34 @@
       "legacy_row_id": "I-9-GRID-01",
       "source_path": "tools/phase9_test_map.json",
       "source_group": "integration",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 9 I-9-GRID-01 dispatches one versioned multi-row tag command from Timeline selection",
+          "Phase 9 I-9-GRID-01 maps filtered overflow to explicit create-row anchors",
+          "Phase 9 I-9-GRID-01 rejects group and presentation-only paste anchors",
+          "Phase 9 I-9-GRID-01 rendered paste dispatch uses stable anchors and quote-aware dimensions",
+          "Phase 9 I-9-GRID-01 requires a Cartulary anchor instead of vendor coordinates alone",
+          "Phase 9 I-9-GRID-01 targets sorted paste rows by stable visible record identities",
+          "Phase 9 I-9-GRID-01 treats single-line comma clipboard text as scalar paste input"
+        ]
       },
-      "selector_digest": "sha256:d23522cdb70c012933b74531977e3edec528695857bc933618faaf934ee90ad2"
+      "selector_digest": "sha256:c7a609b7a978f96977d36cbf9eb477c45b0543e2b1a1ab066c189e5c3effa018"
     },
     {
       "source_registry_id": "backend_phase_maps",
       "legacy_row_id": "I-9-SUPPORT-01",
       "source_path": "tools/phase9_test_map.json",
       "source_group": "integration",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 9 I-9-SUPPORT-01 registers grouped paste conflicts without losing selection continuity"
+        ]
       },
-      "selector_digest": "sha256:d23522cdb70c012933b74531977e3edec528695857bc933618faaf934ee90ad2"
+      "selector_digest": "sha256:51e436e979d76f0f7be7b617fd775d858ce7f7a087c98177ff3406ec23f57183"
     },
     {
       "source_registry_id": "backend_phase_maps",
@@ -4430,48 +4440,57 @@
       "legacy_row_id": "U-1-14",
       "source_path": "tools/phase1_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/app/App.phase1.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 1 U-1-14 ordinary shell blocks authenticated bootstrap until credential state loads and renders credential public errors without private details",
+          "Phase 1 U-1-14 ordinary shell keeps the anonymous login surface, sends the login request, refreshes session and credential state after success, and keeps deployment-user controls denied for non-admin sessions"
+        ]
       },
-      "selector_digest": "sha256:1c470f3707ddefdcfbb5bbb482de517f3dcfee501c89508287a01f591008c0eb"
+      "selector_digest": "sha256:66e747c99443376201f8bbcc488b10fdf69fb22099c7c3eeb79d2f43a94b508b"
     },
     {
       "source_registry_id": "backend_phase_maps",
       "legacy_row_id": "U-1-15",
       "source_path": "tools/phase1_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/app/App.phase1.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 1 U-1-15 ordinary shell follows mfa_setup_required through totp begin and complete, sends bootstrap-token requests, and proves completion alone does not issue a session"
+        ]
       },
-      "selector_digest": "sha256:1c470f3707ddefdcfbb5bbb482de517f3dcfee501c89508287a01f591008c0eb"
+      "selector_digest": "sha256:303ae3c9d1d02df7079ee8dec8662ce45592d9affc25e46d78c87be0a4aec96e"
     },
     {
       "source_registry_id": "backend_phase_maps",
       "legacy_row_id": "U-1-16",
       "source_path": "tools/phase1_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/app/App.phase1.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 1 U-1-16 ordinary account-security controls issue password-change and totp-enrollment requests, surface failures on the shell, and refresh back to anonymous state after success"
+        ]
       },
-      "selector_digest": "sha256:1c470f3707ddefdcfbb5bbb482de517f3dcfee501c89508287a01f591008c0eb"
+      "selector_digest": "sha256:30e8de5f6e430f8a1cd498a567d29ff41196df23981a65b9948bf13260204d20"
     },
     {
       "source_registry_id": "backend_phase_maps",
       "legacy_row_id": "U-1-17",
       "source_path": "tools/phase1_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/app/App.phase1.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 1 U-1-17 ordinary deployment-admin controls create and load users, send versioned patch requests, and surface user_version_conflict plus last_deployment_admin on the shell"
+        ]
       },
-      "selector_digest": "sha256:1c470f3707ddefdcfbb5bbb482de517f3dcfee501c89508287a01f591008c0eb"
+      "selector_digest": "sha256:aba0c8f01c88484d628ecf6c775d3aefb9d39180ee89d8916223ffa292ba0a33"
     },
     {
       "source_registry_id": "backend_phase_maps",
@@ -4559,12 +4578,14 @@
       "legacy_row_id": "U-11-ENTERPRISE-AUTH-01",
       "source_path": "tools/phase11_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/app/App.phase1.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 11 U-11-ENTERPRISE-AUTH-01 enterprise auth discovery renders provider sign-in and begins with a relative return_to"
+        ]
       },
-      "selector_digest": "sha256:1c470f3707ddefdcfbb5bbb482de517f3dcfee501c89508287a01f591008c0eb"
+      "selector_digest": "sha256:5b08668d120093777773a5bdca65222400ddcbe614621d175b1d4260ebf481e1"
     },
     {
       "source_registry_id": "backend_phase_maps",
@@ -4796,12 +4817,14 @@
       "legacy_row_id": "U-11-REFERENCE-PACK-04",
       "source_path": "tools/phase11_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/app/ReferencePackAdminPanel.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 11 U-11-REFERENCE-PACK-04 hides deployment Reference Pack controls from non-admin sessions"
+        ]
       },
-      "selector_digest": "sha256:b74410d6f67cc5b5048ffafe058db44b97dbb74ee92e38a4395e33e6cb325523"
+      "selector_digest": "sha256:45a107dee1f045a29f7f7ab8333e74f4908515748d1d5fcf7cfb8783bad52bbe"
     },
     {
       "source_registry_id": "backend_phase_maps",
@@ -4823,12 +4846,14 @@
       "legacy_row_id": "U-11-REFERENCE-PACK-06",
       "source_path": "tools/phase11_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/app/ReferencePackAdminPanel.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 11 U-11-REFERENCE-PACK-06 shows job progress and cancel controls for deployment-admin Reference Pack work"
+        ]
       },
-      "selector_digest": "sha256:b74410d6f67cc5b5048ffafe058db44b97dbb74ee92e38a4395e33e6cb325523"
+      "selector_digest": "sha256:c09508f4f4f9b66e8fa0113b7899971f64993f857642e7ff23d7a0e0fa8a8020"
     },
     {
       "source_registry_id": "backend_phase_maps",
@@ -5375,36 +5400,42 @@
       "legacy_row_id": "U-2-11",
       "source_path": "tools/phase2_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/app/App.landing.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 2 U-2-11 ordinary landing shell creates an incident, refreshes session-visible membership, routes to the workbook by incident_id, and falls back when a stale incident selection is no longer visible"
+        ]
       },
-      "selector_digest": "sha256:d288c09148ded006b2d7f6d0c824565ab8f2e74f875b1c7013c02eafc7b5a03f"
+      "selector_digest": "sha256:fa1c26c8c06c446aaed712e462c8c8b4f1a21cbff20844631e3510c133b3bb68"
     },
     {
       "source_registry_id": "backend_phase_maps",
       "legacy_row_id": "U-2-12",
       "source_path": "tools/phase2_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 2 U-2-12 ordinary incident shell gates promoted-field controls by incident role, hides membership-admin controls from non-admin members, and returns to landing when incident access is lost"
+        ]
       },
-      "selector_digest": "sha256:6a7b7255f4244878fc45f595d854c5c620373d9a5af4a4a2de8258418bcd9801"
+      "selector_digest": "sha256:2b306630c372e3784a9d043350cf63fd6723e64c3bc3a9dc91051b225a7c7ff4"
     },
     {
       "source_registry_id": "backend_phase_maps",
       "legacy_row_id": "U-2-13",
       "source_path": "tools/phase2_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 2 U-2-13 ordinary incident shell issues membership create, patch, and delete requests with versioned payloads and refreshes session role after each mutation"
+        ]
       },
-      "selector_digest": "sha256:6a7b7255f4244878fc45f595d854c5c620373d9a5af4a4a2de8258418bcd9801"
+      "selector_digest": "sha256:ed8ad28716e9d64fc2eaf72f3f7bb1368d6a89d1a991dafc1506673220eabdcc"
     },
     {
       "source_registry_id": "backend_phase_maps",
@@ -5486,12 +5517,18 @@
       "legacy_row_id": "U-3-05",
       "source_path": "tools/phase3_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 3 U-3-05 autosaves Enter without a Save button and keeps exact save-state labels",
+          "Phase 3 U-3-05 autosaves Tab without a Save button and keeps exact save-state labels",
+          "Phase 3 U-3-05 autosaves blur without a Save button and keeps exact save-state labels",
+          "Phase 3 U-3-05 autosaves paste completion without a Save button and keeps exact save-state labels",
+          "Phase 3 U-3-05 reports Conflict after autosave failure and preserves local editor value"
+        ]
       },
-      "selector_digest": "sha256:01c9a1d8b109889873862ea05826a9e7eaaad61c49282858930259ffe4e94090"
+      "selector_digest": "sha256:b95140a8df930905b4ca7aee56f93375a7a17b98241378d7ca1094f0736c0d9c"
     },
     {
       "source_registry_id": "backend_phase_maps",
@@ -5588,24 +5625,28 @@
       "legacy_row_id": "U-3-12",
       "source_path": "tools/phase3_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.phase3.payload.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 3 U-3-12 builds zero-field Timeline create payloads only for explicit blank-row creation"
+        ]
       },
-      "selector_digest": "sha256:6107614d4229abfb61783ebae336eceaf59965ee38a36c6adb78bd7dbfc300f6"
+      "selector_digest": "sha256:444e1eb22e3555c8d3145a27865a3628053e7bb1119a44ca9958f7522070776b"
     },
     {
       "source_registry_id": "backend_phase_maps",
       "legacy_row_id": "U-3-13",
       "source_path": "tools/phase3_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.phase3.payload.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 3 U-3-13 creates an explicit blank Timeline row with only client_txn_id and suppresses duplicate pending submits"
+        ]
       },
-      "selector_digest": "sha256:6107614d4229abfb61783ebae336eceaf59965ee38a36c6adb78bd7dbfc300f6"
+      "selector_digest": "sha256:a15cf3861cd9ca664cdfa03e55ab5c489523f063cbcdb7ed0969403e6409bff4"
     },
     {
       "source_registry_id": "backend_phase_maps",
@@ -5657,36 +5698,42 @@
       "legacy_row_id": "U-3-GRID-01",
       "source_path": "tools/phase3_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 3 U-3-GRID-01 binds Timeline grid columns from the active view_schema and commits writable cells by field_key"
+        ]
       },
-      "selector_digest": "sha256:ef31793e3152e1c0650f1889e2ae25b1f760c6906ed1f129f1e3aa731a6e9de0"
+      "selector_digest": "sha256:6bdbf423708778f6f63da4fc6391e34595cf83af82a9bb1448070c22d94e7e78"
     },
     {
       "source_registry_id": "backend_phase_maps",
       "legacy_row_id": "U-3-GRID-02",
       "source_path": "tools/phase3_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 3 U-3-GRID-02 binds saved rows by record_id and row_version instead of visible row index"
+        ]
       },
-      "selector_digest": "sha256:ef31793e3152e1c0650f1889e2ae25b1f760c6906ed1f129f1e3aa731a6e9de0"
+      "selector_digest": "sha256:b1eadcb761223cfab0218a71659393336af0552f67024d8553dd0ae3b73d0879"
     },
     {
       "source_registry_id": "backend_phase_maps",
       "legacy_row_id": "U-3-GRID-03",
       "source_path": "tools/phase3_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 3 U-3-GRID-03 keeps sorted and filtered local edits bound to the original record_id, base_row_version, and field_key"
+        ]
       },
-      "selector_digest": "sha256:ef31793e3152e1c0650f1889e2ae25b1f760c6906ed1f129f1e3aa731a6e9de0"
+      "selector_digest": "sha256:dadd748b8a8ce6c1b06cbe9725077242a1548336604fd4777104e812a2a4612c"
     },
     {
       "source_registry_id": "backend_phase_maps",
@@ -5828,60 +5875,70 @@
       "legacy_row_id": "U-4-WB-01",
       "source_path": "tools/phase4_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.assessments.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 4 U-4-WB-01 maps band-first assessment create payloads without submitting the derived band"
+        ]
       },
-      "selector_digest": "sha256:71e16da4c94089a494af620348fe0d702e82c9fc9842f063144b75e11d67eac5"
+      "selector_digest": "sha256:b9b52ccdc3e02dfb814a8cc7a1db382b142e73d4c18bb4deb8ec8dc3a7ebf038"
     },
     {
       "source_registry_id": "backend_phase_maps",
       "legacy_row_id": "U-4-WB-02",
       "source_path": "tools/phase4_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.assessments.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 4 U-4-WB-02 submits assessment creates through the workbook UI"
+        ]
       },
-      "selector_digest": "sha256:71e16da4c94089a494af620348fe0d702e82c9fc9842f063144b75e11d67eac5"
+      "selector_digest": "sha256:45f7726c3160cfb67950533164b504d64ee867f062c721f8703dc7b8935a2c28"
     },
     {
       "source_registry_id": "backend_phase_maps",
       "legacy_row_id": "U-4-WB-03",
       "source_path": "tools/phase4_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 4 U-4-WB-03 issues opaque evidence preview and download handles from the evidence surface"
+        ]
       },
-      "selector_digest": "sha256:e4bb3f6a3342cb0c3fd600652acf4efaf566dad50c8a80f532e4775fadf6faa7"
+      "selector_digest": "sha256:7adc2112e8369f0419923de2eb1c952dd40ee9f896ab4a11a0fb59cb1d97003b"
     },
     {
       "source_registry_id": "backend_phase_maps",
       "legacy_row_id": "U-4-WB-04",
       "source_path": "tools/phase4_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 4 U-4-WB-04 builds required creates with direct values, timestamps, and explicit clears"
+        ]
       },
-      "selector_digest": "sha256:e4bb3f6a3342cb0c3fd600652acf4efaf566dad50c8a80f532e4775fadf6faa7"
+      "selector_digest": "sha256:4154a63aa8ca0bec32af35e760e04f8e09436494b0d80f35d0ccabb6569a17fb"
     },
     {
       "source_registry_id": "backend_phase_maps",
       "legacy_row_id": "U-4-WB-05",
       "source_path": "tools/phase4_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 4 U-4-WB-05 builds direct clears and typed collection actions"
+        ]
       },
-      "selector_digest": "sha256:e4bb3f6a3342cb0c3fd600652acf4efaf566dad50c8a80f532e4775fadf6faa7"
+      "selector_digest": "sha256:603ddc1d26f4fbd231e8df76034ebd38759d8436c618885528c6b7c8091f7bb3"
     },
     {
       "source_registry_id": "backend_phase_maps",
@@ -5994,12 +6051,14 @@
       "legacy_row_id": "U-5-08",
       "source_path": "tools/phase5_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.phase5.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 5 U-5-08 reflects attached evidence counts on the workbook surface without forcing navigation"
+        ]
       },
-      "selector_digest": "sha256:92b61ea8f26a3575912bddf3aac9e6e19e433cbeb5fcaca54d1220ca347844e4"
+      "selector_digest": "sha256:b69607c092ef28e9ff5a2a6af30bcaa9cb9481f928d8c19ddd210d30cd1cd4fd"
     },
     {
       "source_registry_id": "backend_phase_maps",
@@ -6112,12 +6171,14 @@
       "legacy_row_id": "U-6-05",
       "source_path": "tools/phase6_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 6 U-6-05 keeps the grid visible, conflict unresolved, and focus bound to the same cell"
+        ]
       },
-      "selector_digest": "sha256:51349b75eab8075b41e6eb440cf3c95c07971fc76b9dee73d07fcf2e15b839cd"
+      "selector_digest": "sha256:3fe45f5591cacc219ea1df5f7c1b842b5ff486682837ed8262ff3dc7936a8109"
     },
     {
       "source_registry_id": "backend_phase_maps",
@@ -6170,12 +6231,18 @@
       "legacy_row_id": "U-6-09",
       "source_path": "tools/phase6_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 6 U-6-09 does not coalesce non-contiguous same-record pending patches",
+          "Phase 6 U-6-09 exposes the browser-runtime pending queue capacity as exactly 64 replay units",
+          "Phase 6 U-6-09 keeps save-state labels and pending queue replay bounded and explicit",
+          "Phase 6 U-6-09 moves a blocking same-field conflict out of the pending queue and retains its editor",
+          "Phase 6 U-6-09 preserves queued work through session revocation and resumes after re-authentication"
+        ]
       },
-      "selector_digest": "sha256:51349b75eab8075b41e6eb440cf3c95c07971fc76b9dee73d07fcf2e15b839cd"
+      "selector_digest": "sha256:08c692a5956a00d3c3e061f9e22a7a3900be80a7884999a6829cec56c027b9f4"
     },
     {
       "source_registry_id": "backend_phase_maps",
@@ -6444,24 +6511,31 @@
       "legacy_row_id": "U-8-GRID-01",
       "source_path": "tools/phase8_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.phase8.query.test.tsx",
-        "symbols": []
+        "titles": [
+          "Phase 8 U-8-GRID-01 drops non-discovery keys before building query request bodies",
+          "Phase 8 U-8-GRID-01 emits stable schema keys for sort, filter, and group query controls",
+          "Phase 8 U-8-GRID-01 renders group headers as presentation-only rows"
+        ]
       },
-      "selector_digest": "sha256:37ccf4519eadf23d7cc9418f6ac93a4c2dda2ac9f83cc2b2c044f4e90f3bf1cf"
+      "selector_digest": "sha256:1cfd7a8a57439361ae9d248f3fb630b5a7bc28088ecf933db2a7c0daca846f31"
     },
     {
       "source_registry_id": "backend_phase_maps",
       "legacy_row_id": "U-9-01",
       "source_path": "tools/phase9_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/workbook/utils/workbookKeyboard.test.ts",
-        "symbols": []
+        "titles": [
+          "Phase 9 U-9-01 fails closed when optional shortcut actions are unavailable",
+          "Phase 9 U-9-01 maps required workbook keys without hidden paste macro behavior"
+        ]
       },
-      "selector_digest": "sha256:8b17a6be035165d91a3a6cdac3466af460974309c55a721f015235ca6e205f8d"
+      "selector_digest": "sha256:78c6376f0f0d7529f2a16c3ab81b7a4fa4ee155230f0b72391cfbf69d6b60a06"
     },
     {
       "source_registry_id": "backend_phase_maps",
@@ -6664,12 +6738,17 @@
       "legacy_row_id": "U-9-GRID-01",
       "source_path": "tools/phase9_test_map.json",
       "source_group": "unit",
-      "runner": "go",
+      "runner": "vitest",
       "selector": {
         "file": "apps/web/src/workbook/utils/GridAdapter.phase9.anchor.test.ts",
-        "symbols": []
+        "titles": [
+          "Phase 9 U-9-GRID-01 clears invalid row, field, group row, and recordless draft targets",
+          "Phase 9 U-9-GRID-01 keeps vendor selection separate until translated by the adapter contract",
+          "Phase 9 U-9-GRID-01 resolves Arrow, Tab, Enter, and Shift+Enter navigation through adapter anchors",
+          "Phase 9 U-9-GRID-01 resolves vendor coordinates to stable record_id and field_key anchors"
+        ]
       },
-      "selector_digest": "sha256:cd75dd62d4e2325e383f754b47b1ef377b86609505c3ce8d35cfe88bec055010"
+      "selector_digest": "sha256:81967b853f5b759a600e431cfd7e7a2cea091b6bdad1866d7f8c90b3dad408fc"
     },
     {
       "source_registry_id": "backend_phase_maps",

@@ -1,0 +1,29 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "module.recovery",
+  "rows": [
+    {
+      "row_id": "module.recovery.process.the_standalone_operator_initializes_the_configur_03834eb65a",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.process",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery/operatortest",
+        "tests": [
+          "TestMVPObjectStoreInitOperatorCreatesConfiguredBucket"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

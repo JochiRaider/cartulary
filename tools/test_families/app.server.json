@@ -1,0 +1,371 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "app.server",
+  "rows": [
+    {
+      "row_id": "app.server.integration.config_failures_on_real_postgres_and_object_stor_c832f91897",
+      "owner_id": "app.server",
+      "family_id": "app.server.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/server",
+        "tests": [
+          "TestPhase0_InvalidConfigNeverReachesReady_I_0_03"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "app.server.integration.existing_active_admins_skip_stale_or_invalid_man_c8b4b869ec",
+      "owner_id": "app.server",
+      "family_id": "app.server.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/server",
+        "tests": [
+          "TestPhase0_BootstrapSkipAndRecovery_I_0_06"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "app.server.integration.required_bootstrap_failures_for_missing_unreadab_4ca79573fd",
+      "owner_id": "app.server",
+      "family_id": "app.server.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/server",
+        "tests": [
+          "TestPhase0_BootstrapFailures_I_0_05"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "app.server.integration.successful_bootstrap_commits_exactly_one_active_9859f7c12b",
+      "owner_id": "app.server",
+      "family_id": "app.server.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/server",
+        "tests": [
+          "TestPhase0_FirstAdminBootstrap_I_0_04"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "app.server.process.a_fresh_process_reaches_health_and_ready_only_af_c93818219a",
+      "owner_id": "app.server",
+      "family_id": "app.server.process",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/serverprocess",
+        "tests": [
+          "TestPhase0_ReadyState_E_0_01"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "app.server.process.a_real_process_requiring_bootstrap_becomes_ready_41afb1f3e5",
+      "owner_id": "app.server",
+      "family_id": "app.server.process",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/serverprocess",
+        "tests": [
+          "TestPhase0_FirstAdminBootstrap_E_0_03"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "app.server.process.invalid_config_exits_non_zero_emits_structured_s_6c0922ea28",
+      "owner_id": "app.server",
+      "family_id": "app.server.process",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/serverprocess",
+        "tests": [
+          "TestPhase0_InvalidConfigDiagnostics_E_0_02"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "app.server.process.process_smoke_exercises_incident_creation_valida_541e2263d1",
+      "owner_id": "app.server",
+      "family_id": "app.server.process",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/serverprocess",
+        "tests": [
+          "TestPhase2_DeploymentAdminBoundary_E_2_SMOKE_01_ProcessSmoke",
+          "TestPhase2_ExtensionDiscoveryAndReservedRoutes_E_2_SMOKE_01_ProcessSmoke",
+          "TestPhase2_IncidentCreateListAndWorkbookPrefs_E_2_SMOKE_01_ProcessSmoke",
+          "TestPhase2_IncidentValidationAndPatch_E_2_SMOKE_01_ProcessSmoke",
+          "TestPhase2_MembershipAdminFlow_E_2_SMOKE_01_ProcessSmoke",
+          "TestPhase2_MembershipPatchDeleteAndLastAdmin_E_2_SMOKE_01_ProcessSmoke"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "app.server.process.process_smoke_exercises_login_csrf_session_revoc_c6fd6eb90f",
+      "owner_id": "app.server",
+      "family_id": "app.server.process",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/serverprocess",
+        "tests": [
+          "TestPhase1_AdminPasswordReset_E_1_SMOKE_01_ProcessSmoke",
+          "TestPhase1_AdminTOTPResetAndBootstrapBoundaries_E_1_SMOKE_01_ProcessSmoke",
+          "TestPhase1_CSRFFailClosed_E_1_SMOKE_01_ProcessSmoke",
+          "TestPhase1_ConcurrencyCapRevokesSocket_E_1_SMOKE_01_ProcessSmoke",
+          "TestPhase1_FirstEnrollmentFlow_E_1_SMOKE_01_ProcessSmoke",
+          "TestPhase1_LoginSessionAndLogout_E_1_SMOKE_01_ProcessSmoke",
+          "TestPhase1_PasswordChangeFlow_E_1_SMOKE_01_ProcessSmoke",
+          "TestPhase1_UserAdminAndRevokeAll_E_1_SMOKE_01_ProcessSmoke"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "app.server.process.required_bootstrap_failures_on_the_real_process_9dbfe1d620",
+      "owner_id": "app.server",
+      "family_id": "app.server.process",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/serverprocess",
+        "tests": [
+          "TestPhase0_BootstrapFailures_E_0_04"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "app.server.process.stale_or_invalid_manifests_are_ignored_when_an_a_1d42fdeb31",
+      "owner_id": "app.server",
+      "family_id": "app.server.process",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/serverprocess",
+        "tests": [
+          "TestPhase0_BootstrapSkipAndRecovery_E_0_05"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "app.server.process.the_packaged_standalone_server_serves_its_embedd_9d0f816da3",
+      "owner_id": "app.server",
+      "family_id": "app.server.process",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/serverprocess",
+        "tests": [
+          "TestServerEmbeddedFrontendAssets_ProcessSmoke"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "app.server.process.the_standalone_server_keeps_harness_routes_disab_4dc8b1f7d9",
+      "owner_id": "app.server",
+      "family_id": "app.server.process",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/serverprocess",
+        "tests": [
+          "TestHarnessRuntimeRoutesDisabledByDefaultInServerProcess",
+          "TestHarnessRuntimeRoutesFailClosedDuringServerStartup",
+          "TestHarnessRuntimeRoutesPreserveServerProcessSecurityAndReset"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "app.server.support_unit.server_runner_writes_diagnostics_and_returns_fai_1f2addc1fd",
+      "owner_id": "app.server",
+      "family_id": "app.server.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/server",
+        "tests": [
+          "TestServerRunnerCancellationBeforeStartupReturnsSuccess",
+          "TestServerRunnerCancellationDuringRuntimeSetupReturnsSuccess",
+          "TestServerRunnerClosesRuntimeAndMapsServeFailure",
+          "TestServerRunnerFailingDiagnosticsWriterDoesNotPanicOrSucceed",
+          "TestServerRunnerMapsRuntimeSetupFailure",
+          "TestServerRunnerRejectsHarnessEnvironmentBeforeConfigLoad",
+          "TestServerRunnerWritesDiagnosticsAndReturnsFailure"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "app.server.unit.invalid_deployment_config_and_bootstrap_prefligh_a87fd921ec",
+      "owner_id": "app.server",
+      "family_id": "app.server.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/server",
+        "tests": [
+          "TestPhase0_FailClosedStartup_U_0_05"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

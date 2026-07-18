@@ -1,0 +1,144 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "platform.config",
+  "rows": [
+    {
+      "row_id": "platform.config.unit.configuration_discovery_enforces_canonical_selec_05a3b9ee90",
+      "owner_id": "platform.config",
+      "family_id": "platform.config.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.config.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/config",
+        "tests": [
+          "TestPhase0_ConfigDiscovery_U_0_01"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "platform.config.unit.disconnected_defaults_apply_only_where_allowed_a_36f2624db9",
+      "owner_id": "platform.config",
+      "family_id": "platform.config.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.config.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/config",
+        "tests": [
+          "TestPhase0_DisconnectedDefaults_U_0_04"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "platform.config.unit.enterprise_authentication_claim_configuration_de_22486919ad",
+      "owner_id": "platform.config",
+      "family_id": "platform.config.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.config.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/config",
+        "tests": [
+          "TestPhase0_EnterpriseAuthenticationConfig_U_0_06"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "platform.config.unit.every_supported_deployment_profile_requires_the_53e1336e64",
+      "owner_id": "platform.config",
+      "family_id": "platform.config.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.config.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/config",
+        "tests": [
+          "TestPhase0_RuntimeRoots_U_0_02"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "platform.config.unit.filesystem_root_validation_rejects_non_absolute_ed2c3e652c",
+      "owner_id": "platform.config",
+      "family_id": "platform.config.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.config.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/config",
+        "tests": [
+          "TestPhase0_FilesystemRootPaths_U_0_03"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "platform.config.unit.resource_limit_validation_resolves_defaults_dete_13cd1f63b3",
+      "owner_id": "platform.config",
+      "family_id": "platform.config.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.config.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/config",
+        "tests": [
+          "TestPhase0_ResourceLimits_U_0_09"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

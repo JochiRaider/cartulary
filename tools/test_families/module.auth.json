@@ -1,0 +1,953 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "module.auth",
+  "rows": [
+    {
+      "row_id": "module.auth.browser.a_reviewer_visible_incident_edit_control_fails_w_b6248bf4c8",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase1.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_5ef1cd3e0693"
+        ],
+        "titles": [
+          "E-1-11 observes current-role authorization on a stale reviewer edit through the public incident error envelope"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.browser.browser_sign_in_exposes_the_ordinary_session_sur_2ec8df6229",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase1.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_c7f14407afc1"
+        ],
+        "titles": [
+          "E-1-01 signs in as a local user and inspects the ordinary session surface"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.browser.deployment_admin_revoke_all_invalidates_a_target_a09ed5d06f",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase1.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_cc16b99b2c52"
+        ],
+        "titles": [
+          "E-1-12 returns a revoked target browser to login and allows re-authentication with unchanged incident membership"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.browser.invalid_credentials_leave_no_session_cookie_and_47a0f6a4d2",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase1.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_7e6b57505f04"
+        ],
+        "titles": [
+          "E-1-03 rejects invalid credentials without issuing a session cookie"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.browser.the_ordinary_account_security_ui_requires_exact_642c3c4437",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase1.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_cfbe8ddd183f"
+        ],
+        "titles": [
+          "E-1-07 requires the current password and current TOTP code, revokes the session immediately, and requires re-login with the new password"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.browser.the_ordinary_login_ui_proves_first_time_bootstra_4c727c12c3",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase1.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_596fa0c2ad25"
+        ],
+        "titles": [
+          "E-1-06 follows the bootstrap-token enrollment sequence on the ordinary login shell and proves completion alone issues no session"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.browser.the_ordinary_login_ui_rejects_missing_and_wrong_f6009192d8",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase1.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_f4f986e5e279"
+        ],
+        "titles": [
+          "E-1-02 requires MFA on the ordinary login surface, rejects wrong codes, and accepts a valid TOTP code"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.browser.the_ordinary_shell_keeps_deployment_user_adminis_8a57567508",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase1.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_55fc11b5a1fc"
+        ],
+        "titles": [
+          "E-1-08 keeps deployment-user administration on deployment-admin sessions and hides it from an incident admin on the ordinary shell"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.browser_stateful.browser_deployment_user_administration_works_on_d6d7ff0b86",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase1.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "scenario_e2a04c9d54c7"
+        ],
+        "titles": [
+          "E-1-05 lets deployment admins create and patch users, rejects stale versions, and shows the last-admin guard on the ordinary shell"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.browser_stateful.idle_expiry_fails_closed_after_the_shared_clock_6525f19d9d",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase1.clock.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "scenario_0098c4cf976a"
+        ],
+        "titles": [
+          "E-1-04 advances the shared clock past idle expiry and requires a fresh login afterwards"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.browser_support.supplemental_browser_verifies_ordinary_shell_sel_f8a9da1957",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.browser_support",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase1.support.spec.ts",
+        "project_id": "chromium",
+        "stage": "support",
+        "scenario_ids": [
+          "scenario_3925df4ef78d"
+        ],
+        "titles": [
+          "FE-S-P1-01 Verify bootstrap route selectors and error-state selectors use stable test-id builders."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.frontend.the_ordinary_account_security_panel_issues_totp_c01d03e02c",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.frontend",
+      "collaborator_ids": [
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/App.phase1.test.tsx",
+        "titles": [
+          "Phase 1 U-1-16 ordinary account-security controls issue password-change and totp-enrollment requests, surface failures on the shell, and refresh back to anonymous state after success"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.frontend.the_ordinary_deployment_admin_panel_sends_create_615ead62f4",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.frontend",
+      "collaborator_ids": [
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/App.phase1.test.tsx",
+        "titles": [
+          "Phase 1 U-1-17 ordinary deployment-admin controls create and load users, send versioned patch requests, and surface user_version_conflict plus last_deployment_admin on the shell"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.frontend.the_ordinary_login_shell_consumes_mfa_setup_requ_c161bc9e87",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.frontend",
+      "collaborator_ids": [
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/App.phase1.test.tsx",
+        "titles": [
+          "Phase 1 U-1-15 ordinary shell follows mfa_setup_required through totp begin and complete, sends bootstrap-token requests, and proves completion alone does not issue a session"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.frontend.the_ordinary_shell_starts_anonymous_sends_the_lo_4713643923",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.frontend",
+      "collaborator_ids": [
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/App.phase1.test.tsx",
+        "titles": [
+          "Phase 1 U-1-14 ordinary shell blocks authenticated bootstrap until credential state loads and renders credential public errors without private details",
+          "Phase 1 U-1-14 ordinary shell keeps the anonymous login surface, sends the login request, refreshes session and credential state after success, and keeps deployment-user controls denied for non-admin sessions"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.integration.admin_password_reset_totp_reset_and_revoke_all_r_eaa09b4d6c",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestPhase1_AdminCredentialActions_I_1_05",
+          "TestPhase1_AdminCredentialAuditAndScope_I_1_05",
+          "TestPhase1_AdminPasswordResetReplayReturnsOriginalCommittedResource_I_1_05",
+          "TestPhase1_AdminTOTPResetAndRevokeAllReplay_I_1_05"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.integration.bootstrap_tokens_work_only_on_totp_begin_and_tot_36751ad438",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestPhase1_BootstrapTokenRouteBoundaries_I_1_06"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.integration.credential_state_transitions_prove_first_enrollm_850d3dd9cb",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestPhase1_BootstrapEnrollmentConsumption_I_1_04",
+          "TestPhase1_CredentialStateAndBootstrapFlows_I_1_04",
+          "TestPhase1_CredentialStateTransitions_I_1_04",
+          "TestPhase1_PasswordChangeReplayAndStoredPayload_I_1_04"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.integration.real_login_creates_one_durable_session_row_sessi_fffac0a9af",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestPhase1_LoginSessionLifecycle_I_1_01"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.integration.real_sockets_on_canonical_ws_v1_incidents_incide_8e29eb6263",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.integration.user_create_applies_defaults_stores_argon2id_pas_8af88020c6",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestPhase1_UserAdminAudit_I_1_03",
+          "TestPhase1_UserAdminLifecycle_I_1_03",
+          "TestPhase1_UserCreateReplayReturnsOriginalCommittedResource_I_1_03"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.store.one_route_matrix_proves_logout_password_change_t_728b4fb4df",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestPhase1_RouteRevocationConsequences_U_1_06"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.store.the_real_login_handler_creates_the_sixth_session_b3a9603ee1",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.store.the_real_patch_route_rejects_missing_base_user_v_e16c180611",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestPhase1_UserPatchAndLastAdminGuard_U_1_08"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.support_integration.user_list_continuation_uses_live_rows_7ed03d0063",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.support_integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestSupportPhase1_Integration_AuditAttribution",
+          "TestSupportPhase1_Integration_AuthorizationReDerivation",
+          "TestSupportPhase1_Integration_BootstrapBoundaries",
+          "TestSupportPhase1_Integration_CSRFProtection",
+          "TestSupportPhase1_Integration_ReplayAndStoredPayloadSafety",
+          "TestSupportPhase1_Integration_RequestContracts",
+          "TestSupportPhase1_Integration_SessionRevocation",
+          "TestSupportPhase1_Integration_SurfaceEnvelope",
+          "TestSupportPhase1_UserListContinuationUsesLiveRows"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.support_unit.session_inspection_helpers_da94c8032f",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestSupportPhase1_AdminCredentialActionsRequireDeploymentAdmin",
+          "TestSupportPhase1_CSRFHelpers",
+          "TestSupportPhase1_CredentialStateBuilders",
+          "TestSupportPhase1_PasswordChangeDecode",
+          "TestSupportPhase1_SessionInspectionHelpers",
+          "TestSupportPhase1_TOTPBootstrapHelpers",
+          "TestSupportPhase1_UserCreateDefaultsAndSafeShape"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.unit.an_inventory_driven_loop_covers_every_cookie_aut_0b6e53ff68",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestPhase1_CSRFProtectionRoutes_U_1_09"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.unit.deployment_admin_only_credential_routes_fail_clo_5cfa2f8dce",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestPhase1_AdminCredentialActionGuards_U_1_13"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.unit.login_request_shape_validation_rejects_unknown_t_3a3eb47266",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestPhase1_LoginRequestShape_U_1_01"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.unit.the_password_change_route_proves_exact_current_p_338ff542a2",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestPhase1_PasswordChangeRouteContracts_U_1_11"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.unit.the_real_credential_state_route_returns_the_safe_db26b28985",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestPhase1_CredentialStateRoute_U_1_10"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.unit.the_real_get_auth_session_route_rejects_paginati_14b12305f4",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestPhase1_SessionInspectionRoute_U_1_04"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.unit.the_real_login_handler_creates_exactly_one_sessi_3b913a16a6",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestPhase1_LoginCreatesSessionAndResource_U_1_03"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.unit.the_real_login_handler_trims_and_case_folds_the_9ed31374cf",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestPhase1_LoginNormalizationAndPasswordExactness_U_1_02"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.unit.the_totp_begin_and_complete_handlers_enforce_exa_59570a1bac",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestPhase1_TOTPRouteContracts_U_1_12"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.unit.user_create_rejects_undeclared_is_active_rejects_839f6b57c5",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestPhase1_UserCreateRouteDefaults_U_1_07"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

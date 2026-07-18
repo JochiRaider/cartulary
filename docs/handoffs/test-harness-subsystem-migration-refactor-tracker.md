@@ -12,7 +12,7 @@
 | Baseline worktree | Clean |
 | Tracker state | `IN_PROGRESS` — WS-04 backend row migration |
 | Active start | Clean tree at `a4bfa828fa9173e6990d1c757d35fa928b0dfbb9` |
-| Active tasks | T-019, T-020, T-021, T-022 |
+| Active tasks | T-020 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -702,10 +702,10 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-016 | Absorb Graph Projection subsystem map | WS-03 | DONE | T-015 | Crosswalk/catalog evidence | No special subsystem path needed. |
 | T-017 | Eliminate `unowned_regression` | WS-03 | DONE | T-015 | Classification reconciliation | Every retained support row has an owner. |
 | T-018 | Add module-family import guardrails | WS-03 | DONE | T-015 | Boundary tests | Dependency direction is enforced. |
-| T-019 | Migrate phase0–phase4 backend rows | WS-04 | IN_PROGRESS | T-015 | Crosswalk/focused tests | Rows have terminal dispositions. |
+| T-019 | Migrate phase0–phase4 backend rows | WS-04 | DONE | T-015 | 163 dispositions, 24 support rows, catalog/migration checks, and focused tests | Rows have terminal dispositions. |
 | T-020 | Migrate phase5–phase8 backend rows | WS-04 | IN_PROGRESS | T-015 | Crosswalk/focused tests | Rows have terminal dispositions. |
-| T-021 | Migrate phase9–phase12 backend rows | WS-04 | IN_PROGRESS | T-015 | Crosswalk/focused tests | Rows have terminal dispositions. |
-| T-022 | Reconcile all 456 backend rows | WS-04 | IN_PROGRESS | T-019,T-020,T-021 | Reconciliation report | Count and selector coverage close. |
+| T-021 | Migrate phase9–phase12 backend rows | WS-04 | TODO | T-015 | Crosswalk/focused tests | Rows have terminal dispositions. |
+| T-022 | Reconcile all 456 backend rows | WS-04 | TODO | T-019,T-020,T-021 | Reconciliation report | Count and selector coverage close. |
 | T-023 | Migrate FE-P0–FE-P4 rows | WS-05 | TODO | T-015 | Crosswalk/browser tests | Rows have terminal dispositions. |
 | T-024 | Migrate FE-P5–FE-P8 rows | WS-05 | TODO | T-015 | Crosswalk/browser tests | Rows have terminal dispositions. |
 | T-025 | Migrate FE-P9–FE-P12 rows | WS-05 | TODO | T-015 | Crosswalk/browser tests | Rows have terminal dispositions. |
@@ -924,6 +924,19 @@ Each entry must include:
 - Skipped checks: backend owner slices, frontend authoritative-row slices, browser stages, semantic source renames, broad `make check`, finalization, and release check remain assigned to WS-04 through WS-11. The legacy Graph subsystem file and v1 catalogs remain only as isolated-branch rollback/reconciliation inputs until their atomic WS-10 deletion; no successor reader consumes them.
 - Next safe task: create a tracker-only checkpoint marking WS-04/T-019 through T-022 `IN_PROGRESS`, then migrate backend rows in complete owner slices. Start with phase0 through phase4 identities plus the implicated frozen backend support candidates, update the crosswalk after each owner slice, and never begin WS-05 concurrently.
 - Rollback boundary: revert the complete WS-03 catalog stack, owner contracts, auxiliary reconciliation, generated topology index, tests, and this tracker checkpoint together. Do not preserve a partial registry, runner, or manifest subset and do not restore `unowned_regression` as a fallback owner.
+
+#### 2026-07-18 — WS-04 phase0–phase4 backend owner-slice checkpoint
+
+- Branch/commit at start: `revision/grid-adapter`; WS-04 was activated by tracker checkpoint `212b88e15c95` from the clean completed-WS-03 tree `a4bfa828fa9173e6990d1c757d35fa928b0dfbb9`. This entry closes T-019 before any phase5–phase8 catalog change begins.
+- Workstream/task state: WS-04 remains the only `IN_PROGRESS` workstream. T-019 is `DONE`, T-020 is the sole active task, and T-021/T-022 remain `TODO`.
+- Ownership result: all 163 authoritative phase0–phase4 rows have reviewed `migrated` dispositions and all 24 implicated frozen backend-support candidates are retained as exact, explicit-only owner rows. The catalog now contains 28 owners, 77 families, 433 rows, and 794 exact selectors: the prior five Graph Projection rows and 241 Vitest auxiliary rows plus this slice's 163 authoritative and 24 support rows. No catalog row ID contains a delivery-phase segment.
+- Baseline metadata correction: selector reconciliation proved that the frozen baseline had mislabeled all 29 backend Vitest identities as Go rows with empty symbol lists. The source files, source digest, baseline commit/tree, immutable keys, and `456 + 87 + 5 = 548` population did not change. The baseline now records the correct backend runner split of 335 Go, 29 Vitest, and 92 Playwright identities with exact Vitest file/title selectors; its semantic digest and the crosswalk's `baseline_digest` were updated atomically. Because no source digest, key, selector meaning, or cardinality changed, completed work was revalidated rather than reset.
+- Crosswalk totals: before this slice, 543 authoritative identities were pending, five Graph Projection dispositions and 228 Vitest auxiliary dispositions were recorded, and 241 new rows were authorized. After this slice, 380 authoritative identities remain pending, 168 authoritative dispositions are recorded, 252 auxiliary dispositions are recorded, and 265 new rows are authorized. Every one of the 433 live catalog rows has exactly one disposition or new-row authorization.
+- Structural result: backend rows use primary owners selected by normative postcondition, owner-qualified semantic families, immutable semantic row IDs, exact Go/Vitest/Playwright selectors, owner-local verification IDs, explicit collaborators, preserved default-check posture, and explicit runtime/resource/fixture profiles. Playwright title resolution now treats `test.describe` as ancestry and accepts a leaf or full title only when it resolves to one executable test.
+- Passed validation: catalog and migration baseline/crosswalk schema, cardinality, runner-population, provenance, authorization, selector, and delivery-name checks; catalog semantic digest `sha256:9905e8a18eeb1c907b6952eea30da4f6d5f8c27216631135bf6a8c273c5a8069`; `make format` at `.cartulary/test-results/20260718T005307Z-p68672`; `make harness-contract` with 59 passing tests at `.cartulary/test-results/20260718T005316Z-p71071`; `make json-shape-check` at `.cartulary/test-results/20260718T005316Z-p71102`; `make test-fast` with 1,307 passing tests at `.cartulary/test-results/20260718T005316Z-p71094`; and `git diff --check`.
+- Skipped checks: phase5–phase12 owner rows, frontend authoritative rows, semantic source renames, owner commands, browser/scheduler cutover, broad `make check`, finalization, and release checks remain assigned to T-020 onward. Existing v1 phase maps remain frozen migration inputs and no successor execution command consumes the new rows yet.
+- Next safe task: T-020 only. Run the idempotent backend catalog builder for phase5 through phase8, validate exact selectors and crosswalk authorization, then update and commit this tracker before activating T-021.
+- Rollback boundary: revert the complete T-019 owner slice—verification contracts, owner manifests, baseline selector correction, crosswalk dispositions, selector resolver, tests, migration builder, and this tracker entry—together. Do not retain a partial phase0–phase4 owner set or reintroduce empty Vitest baseline selectors.
 
 ## 17. First-resumer checklist
 

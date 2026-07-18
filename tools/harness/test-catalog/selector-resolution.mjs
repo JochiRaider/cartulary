@@ -183,14 +183,21 @@ function testTitles(root, file, source) {
   const ts = requireFromWeb("typescript");
   const scriptKind = file.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
   const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, scriptKind);
-  const counts = new Map();
+  const matches = new Map();
+  let testIdentity = 0;
+
+  function record(candidate, identity) {
+    if (!matches.has(candidate)) matches.set(candidate, new Set());
+    matches.get(candidate).add(identity);
+  }
 
   function visit(node, ancestors) {
     if (ts.isCallExpression(node)) {
       const name = calleeName(node.expression, ts);
       const base = name.split(".")[0];
+      const segments = name.split(".");
       const title = node.arguments[0] ? staticString(node.arguments[0], ts) : null;
-      if (["describe", "suite"].includes(base) && title !== null) {
+      if (segments.some((segment) => ["describe", "suite"].includes(segment)) && title !== null) {
         const callback = [...node.arguments].reverse().find(
           (argument) => ts.isArrowFunction(argument) || ts.isFunctionExpression(argument),
         );
@@ -199,11 +206,18 @@ function testTitles(root, file, source) {
           return;
         }
       }
-      if (["it", "test"].includes(base) && title !== null) {
+      if (
+        ["it", "test"].includes(base) &&
+        !segments.some((segment) => ["describe", "suite"].includes(segment)) &&
+        title !== null
+      ) {
         const expanded = expandedEachTitles(node.expression, title, ts) ?? [title];
         for (const expandedTitle of expanded) {
           const fullTitle = [...ancestors, expandedTitle].join(" ");
-          counts.set(fullTitle, (counts.get(fullTitle) ?? 0) + 1);
+          const identity = testIdentity;
+          testIdentity += 1;
+          record(expandedTitle, identity);
+          record(fullTitle, identity);
         }
         return;
       }
@@ -212,6 +226,9 @@ function testTitles(root, file, source) {
   }
 
   visit(sourceFile, []);
+  const counts = new Map(
+    [...matches].map(([candidate, identities]) => [candidate, identities.size]),
+  );
   sourceTitleCache.set(cacheKey, counts);
   return counts;
 }

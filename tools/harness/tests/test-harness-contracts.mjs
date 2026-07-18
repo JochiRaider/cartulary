@@ -198,11 +198,17 @@ function writeOwnerCatalogFixture(root, mutate = () => {}) {
 
 test("owner catalog closes identities, selectors, profiles, and semantic digests", () => {
   const catalog = loadTestCatalog(repoRoot);
+  const crosswalk = readJSON("tools/test_migration_crosswalk.json");
+  const authorizedRowCount =
+    crosswalk.dispositions.filter((entry) => entry.disposition !== "deleted").length +
+    crosswalk.new_rows.length;
   assert.equal(catalog.summary.status, "pass");
-  assert.equal(catalog.summary.owner_count, 12);
-  assert.equal(catalog.summary.row_count, 246);
-  assert.equal(catalog.summary.runner_counts.go, 5);
-  assert.equal(catalog.summary.runner_counts.vitest, 241);
+  assert.equal(catalog.summary.owner_count, catalog.registry.owners.length);
+  assert.equal(catalog.summary.row_count, authorizedRowCount);
+  assert.equal(
+    Object.values(catalog.summary.runner_counts).reduce((sum, count) => sum + count, 0),
+    authorizedRowCount,
+  );
   assert.match(catalog.semantic_digest, /^sha256:[0-9a-f]{64}$/u);
   assert.match(catalog.verification.semantic_digest, /^sha256:[0-9a-f]{64}$/u);
   assert.ok(
@@ -247,14 +253,14 @@ test("runner selector resolvers preserve exact closed shapes across all runners"
         row_id: "web.fixture.behavior.playwright",
         runner: "playwright",
         selector: {
-          file: "apps/web/e2e/phase4.merge.spec.ts",
+          file: "apps/web/e2e/workbook.visual.spec.ts",
           project_id: "chromium",
-          stage: "stateful",
-          scenario_ids: ["merge_survivor_identity"],
-          titles: ["E-4-03 merges duplicate entities from the inspector and preserves survivor identity"],
+          stage: "visual",
+          scenario_ids: ["timeline_default_viewport"],
+          titles: ["V-3-GRID-01 captures the Timeline default viewport with stable row version and save-state strip"],
         },
       },
-      expected: ["playwright:chromium:stateful:merge_survivor_identity"],
+      expected: ["playwright:chromium:visual:timeline_default_viewport"],
     },
     {
       row: {

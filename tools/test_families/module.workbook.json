@@ -1,0 +1,282 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "module.workbook",
+  "rows": [
+    {
+      "row_id": "module.workbook.browser.the_browser_workbook_exercises_parties_notes_tas_8ca985fff2",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase4.workbook.generic.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_781fdfd60e45"
+        ],
+        "titles": [
+          "E-4-06 creates and edits required workbook mutation surfaces through typed generic controls"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.frontend.the_generic_workbook_mutation_builder_emits_crea_ae1bd25e13",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
+        "titles": [
+          "Phase 4 U-4-WB-04 builds required creates with direct values, timestamps, and explicit clears"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.frontend.the_generic_workbook_mutation_builder_maps_direc_d71c7bf2bf",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
+        "titles": [
+          "Phase 4 U-4-WB-05 builds direct clears and typed collection actions"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.integration.communications_log_handoff_status_review_and_les_94a6f7d0c2",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestPhase4_CoordinationDefaults_I_4_COORD_01"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.integration.coordination_collection_fields_round_trip_typed_9c30c3f538",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestPhase4_CoordinationCollections_I_4_COORD_02"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.integration.generic_record_patch_collection_fields_use_stabl_92304f55b9",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestPhase4_GenericCollectionPatch_I_4_COLLECTION_01"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.integration.parties_and_coordination_system_views_query_rout_e0808abf39",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestPhase4_CoordinationProjectionQueries_I_4_COORD_03"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.integration.the_parties_system_view_is_discoverable_as_a_bas_7c96f60552",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestPhase4_PartiesSurface_I_4_PARTIES_01"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.support_unit.workbook_preferences_put_decoders_canonicalize_s_d015eb1407",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook/startup",
+        "tests": [
+          "TestSupportPhase2_WorkbookPreferencesPutDecodersCanonicalizeSheetRefs",
+          "TestSupportPhase2_WorkbookPreferencesPutDecodersRejectInvalidPayloads"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.support_unit.workbook_startup_preferences_bootstrap_and_upser_6ac935eac8",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook/startup",
+        "tests": [
+          "TestSupportPhase2_WorkbookStartupPreferencesBootstrapAndUpsert"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.visual.the_visual_harness_captures_a_required_coordinat_a38d329f28",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_5d80d611a0a5"
+        ],
+        "titles": [
+          "V-4-GRID-03 captures Task Requests system view fields through the generic workbook grid"
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "platform.objectstore",
+  "rows": [
+    {
+      "row_id": "platform.objectstore.integration.disconnected_filesystem_root_object_store_setup_0f6ea3351e",
+      "owner_id": "platform.objectstore",
+      "family_id": "platform.objectstore.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.objectstore.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/objectstore",
+        "tests": [
+          "TestPhase0_ObjectStoreInitialization_I_0_02"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "platform.objectstore.support_integration.managed_service_object_store_binding_4d6aaf4bd9",
+      "owner_id": "platform.objectstore",
+      "family_id": "platform.objectstore.support_integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.objectstore.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/objectstore",
+        "tests": [
+          "TestSupportPhase0_ManagedServiceObjectStoreBinding"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}
