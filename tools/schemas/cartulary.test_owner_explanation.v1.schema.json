@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test_owner_explanation.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "owner_id", "manifest_path", "catalog_semantic_digest", "verification_semantic_digest", "row_count", "service_backed_row_count", "families", "runner_counts", "evidence_counts", "runtime_profile_counts", "resource_profile_counts", "fixture_profile_counts", "target_counts", "default_check", "commands"],
+  "properties": {
+    "schema_id": { "const": "cartulary.test_owner_explanation.v1" },
+    "owner_id": { "$ref": "cartulary.test_family_manifest.v1#/$defs/owner_id" },
+    "manifest_path": { "$ref": "cartulary.test_family_manifest.v1#/$defs/repo_path" },
+    "catalog_semantic_digest": { "$ref": "cartulary.test_slice_plan.v1#/$defs/digest" },
+    "verification_semantic_digest": { "$ref": "cartulary.test_slice_plan.v1#/$defs/digest" },
+    "row_count": { "type": "integer", "minimum": 1 },
+    "service_backed_row_count": { "type": "integer", "minimum": 0 },
+    "families": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["family_id", "row_count"],
+        "properties": {
+          "family_id": { "$ref": "cartulary.test_family_manifest.v1#/$defs/family_id" },
+          "row_count": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "runner_counts": { "$ref": "#/$defs/runner_counts" },
+    "evidence_counts": { "$ref": "#/$defs/evidence_counts" },
+    "runtime_profile_counts": { "$ref": "#/$defs/profile_counts" },
+    "resource_profile_counts": { "$ref": "#/$defs/profile_counts" },
+    "fixture_profile_counts": { "$ref": "#/$defs/profile_counts" },
+    "target_counts": { "$ref": "#/$defs/target_counts" },
+    "default_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["included", "excluded"],
+      "properties": {
+        "included": { "type": "integer", "minimum": 0 },
+        "excluded": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "commands": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["full_owner", "service_backed", "exact_row_template"],
+      "properties": {
+        "full_owner": { "type": "string", "pattern": "^make test-slice OWNER=" },
+        "service_backed": { "type": ["string", "null"], "pattern": "^make service-backed-test-slice OWNER=" },
+        "exact_row_template": { "type": "string", "pattern": "^make test-slice OWNER=.* ROWS=<row-id,\\.\\.\\.>$" }
+      }
+    }
+  },
+  "$defs": {
+    "count": { "type": "integer", "minimum": 0 },
+    "runner_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "go": { "$ref": "#/$defs/count" }, "playwright": { "$ref": "#/$defs/count" }, "shell": { "$ref": "#/$defs/count" }, "vitest": { "$ref": "#/$defs/count" } }
+    },
+    "evidence_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "unit": { "$ref": "#/$defs/count" }, "integration": { "$ref": "#/$defs/count" }, "browser": { "$ref": "#/$defs/count" }, "accessibility": { "$ref": "#/$defs/count" }, "visual": { "$ref": "#/$defs/count" }, "measurement": { "$ref": "#/$defs/count" }, "static": { "$ref": "#/$defs/count" }, "security": { "$ref": "#/$defs/count" }, "release": { "$ref": "#/$defs/count" }
+      }
+    },
+    "profile_counts": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+      "additionalProperties": { "$ref": "#/$defs/count" }
+    },
+    "target_counts": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
+      "additionalProperties": { "$ref": "#/$defs/count" }
+    }
+  }
+}

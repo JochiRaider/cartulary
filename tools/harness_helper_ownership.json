@@ -24,6 +24,7 @@
     { "key": "frontend_target_execution", "boundary_group": "frontend", "paths": ["tools/harness/execution/run-frontend-unit.sh"], "allowed_consumers": [] },
     { "key": "frontend_toolchain_readiness", "boundary_group": "readiness", "paths": ["tools/harness/readiness/cache-policy.sh", "tools/harness/readiness/frontend-install.sh", "tools/harness/readiness/frontend-toolchain.sh"], "allowed_consumers": [] },
     { "key": "generated_artifact_surface", "boundary_group": "generated_artifacts", "paths": ["tools/harness/generated-artifacts/index.mjs"], "allowed_consumers": [] },
+    { "key": "owner_diagnostics", "boundary_group": "scheduler_diagnostics", "paths": ["tools/harness/diagnostics/owner-diagnostics.mjs"], "allowed_consumers": [] },
     { "key": "phase_execution_runtime", "boundary_group": "execution_runtime", "paths": ["tools/harness/execution/phase-runtime.sh"], "allowed_consumers": [] },
     { "key": "phase_slice_planning", "boundary_group": "phase_accounting", "paths": ["tools/harness/phase-accounting/phase-slice-plan.mjs"], "allowed_consumers": [] },
     { "key": "scheduler_contract_helpers", "boundary_group": "scheduler", "paths": ["tools/harness/scheduler/scheduler-family-contract.mjs", "tools/harness/scheduler/scheduler-manifest.mjs", "tools/harness/scheduler/scheduler-reporting.mjs", "tools/harness/scheduler/scheduler-resource-policy.mjs", "tools/harness/scheduler/scheduler-resources.mjs"], "allowed_consumers": [] },

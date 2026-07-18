@@ -12,7 +12,7 @@
 | Baseline worktree | Clean |
 | Tracker state | `IN_PROGRESS` — WS-07 owner slice and evidence APIs |
 | Active start | Clean tree at `ddfd2afa` |
-| Active tasks | T-033 |
+| Active tasks | T-034 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -718,8 +718,8 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-030 | Rename fixtures/scenarios/goldens | WS-06 | DONE | T-027 | 56 visual and 15 diagnostic golden moves, digest report, and 29-scenario visual run | Paths are semantic and bytes preserved. |
 | T-031 | Close production follow-up classifications | WS-06 | DONE | T-007,T-028,T-029 | 16-path/2-symbol/4-protocol follow-up ledger and zero-match scan | Every remaining match has owner/disposition. |
 | T-032 | Implement owner-slice planning/execution | WS-07 | DONE | T-015,T-022,T-027 | Deterministic plan contracts, exact Go/Vitest execution, managed-service smoke, and fail-closed selection fixtures | Both successor slice targets work. |
-| T-033 | Implement owner diagnostics/task guide | WS-07 | IN_PROGRESS | T-032 | Text/JSON contract tests | Commands report exact owner topology. |
-| T-034 | Implement owner evidence accounting/audit | WS-07 | TODO | T-032 | Audit fixtures | Fresh compatible evidence reconciles. |
+| T-033 | Implement owner diagnostics/task guide | WS-07 | DONE | T-032 | Text/JSON contract tests and exact catalog-topology reconciliation | Commands report exact owner topology. |
+| T-034 | Implement owner evidence accounting/audit | WS-07 | IN_PROGRESS | T-032 | Audit fixtures | Fresh compatible evidence reconciles. |
 | T-035 | Replace schemas and artifact identities | WS-07 | TODO | T-032,T-034 | Schema attachment/drift checks | No successor artifact uses delivery phase identity. |
 | T-036 | Migrate browser stages/runtime profiles | WS-08 | TODO | T-027,T-032 | Browser plan tests | Selection derives from catalog resources. |
 | T-037 | Migrate scheduler DAG and lifecycle | WS-08 | TODO | T-036 | Scheduler/lifecycle tests | Phase ordering has no execution role. |
@@ -1124,6 +1124,19 @@ Each entry must include:
 - Skipped checks: Playwright owner execution is assigned to WS-08, full per-row terminal accounting and audit are T-034, complete artifact/schema replacement is T-035, generated public help/input ownership is WS-09, and broad `make check`, finalization, and release validation remain WS-11.
 - Next safe task: T-033 only. Implement read-only `explain-test-owner` and `task-guide ROLE=module-author OWNER=...` from the same catalog/plan topology with exact human/JSON contracts and no retained artifacts.
 - Rollback boundary: revert the complete T-032 checkpoint, including hidden pre-cutover Make entrypoints, command dispatch, selection/planning/execution facade, source snapshot, schemas/attachments, evidence-target routing, boundary ownership, tests, and tracker evidence. Never replace it with a translated phase plan or target-wide over-selection.
+
+#### 2026-07-18 — T-033 owner diagnostics and task-guidance checkpoint
+
+- Branch/commit at start: `revision/grid-adapter` at clean T-032 checkpoint `c242675f`. T-033 is `DONE`, T-034 becomes the sole active task, and WS-07 remains the only `IN_PROGRESS` workstream.
+- Explanation result: `explain-test-owner` reads the unified owner, family, runner/profile, verification, and task-surface facades and emits `cartulary.test_owner_explanation.v1`. The schema-valid projection reports the exact manifest, catalog and verification semantic digests, family and row counts, service-backed count, runner/evidence/profile/target distributions, default-check participation, and exact owner commands without reading documentation or retaining artifacts. The Network Flow fixture reconciled 118 rows across ten families, four runners/evidence stages, and exact current target routing.
+- Guidance result: the module-author projection emits `cartulary.task_guide_summary.v2` from the same catalog snapshot and derives full-owner, service-backed, generation, browser, security, release, and broader commands only from selected row semantics and registered targets. It accepts only exact `ROLE=module-author`; the retired `phase-author` role and unknown/malformed owners fail with usage exit `2`.
+- Output result: human output is bounded and deterministic. `JSON=1` emits exactly one schema object plus LF, accepts no alternate truthy value, and rejects global machine mode. Both diagnostics are read-only even when a result-root environment is present. `explain-test-owner` is live as a hidden pre-cutover Make target; task-guide v2 uses the temporary validation-only `owner-task-guide` name so it does not override the generated v1 recipe before T-039. T-039 must delete that validation name while publishing the canonical `task-guide ROLE=module-author OWNER=...` surface.
+- Boundary result: `owner_diagnostics` is a registered scheduler-diagnostics facade and consumes only the catalog and evidence-accounting owner facades plus the authored task-surface manifest. Both output schemas are attached in canonical order and old phase/guide-path metadata is absent from successor objects.
+- Passed validation: `make format` at `.cartulary/test-results/20260718T034404Z-p45880`; `make harness-contract` with 70 tests at `.cartulary/test-results/20260718T034407Z-p48158`; final `make json-shape-check` at `.cartulary/test-results/20260718T034424Z-p49115`; `make test-fast` with 1,295 tests at `.cartulary/test-results/20260718T034121Z-p2399`; `make generate-drift` at `.cartulary/test-results/20260718T034121Z-p2389`; `make generated-artifact-policy-check` at `.cartulary/test-results/20260718T034121Z-p2387`; `make lint-biome`; `make lint-scripts`; exact human and JSON Make invocations; invalid owner/role fixtures; and staged diff checks.
+- Resolved failures: the first two harness-contract runs exposed overbroad test regular expressions that treated the successor schema name as legacy guide metadata and supplied an owner outside the closed owner-ID grammar. Narrowing the forbidden metadata tokens and using a syntactically valid absent owner fixed the fixtures; no implementation behavior or product assertion failed.
+- Skipped checks: per-row terminal accounting, owner summaries, and retained-run audit are T-034; complete successor artifact identity and old-reader rejection are T-035; Playwright execution and generic scheduling remain WS-08; canonical generated public help/input ownership is T-039; broad `make check`, finalization, and release validation remain WS-11.
+- Next safe task: T-034 only. Emit exact per-row attempts and terminal evidence from slice execution, aggregate owner summaries, and implement caller-root-only `test-evidence-audit` with semantic identity compatibility and negative fixtures.
+- Rollback boundary: revert this complete T-033 checkpoint, including the diagnostics facade and CLI, hidden pre-cutover entrypoints, both schemas and attachments, command dispatch, contract tests, and tracker evidence. Do not retain the validation-only task-guide name after the T-039 public cutover or restore document/phase-derived guidance.
 
 ## 17. First-resumer checklist
 

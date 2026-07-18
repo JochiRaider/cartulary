@@ -7,6 +7,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -91,6 +92,7 @@ import {
   OwnerSliceUsageError,
   resolveOwnerSliceSelection,
 } from "../owner-slice/index.mjs";
+import { buildModuleAuthorTaskGuide, explainTestOwner } from "../diagnostics/owner-diagnostics.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");
@@ -351,6 +353,126 @@ test("owner slice plan is deterministic and schema-valid for semantic inputs", a
   await validateSchema(first.schema_id, first);
   assert.deepEqual(first.selection.resolved_row_ids, [row.row_id]);
   assert.match(first.source_snapshot_digest, /^sha256:[0-9a-f]{64}$/u);
+});
+
+test("owner diagnostics project exact catalog topology and evidence-derived guidance", async () => {
+  const catalog = loadTestCatalog(repoRoot);
+  const ownerRows = catalog.rows.filter((row) => row.owner_id === "module.networkflow");
+  const explanation = explainTestOwner(repoRoot, "module.networkflow");
+  assert.equal(explanation.owner_id, "module.networkflow");
+  assert.equal(explanation.row_count, ownerRows.length);
+  assert.equal(
+    explanation.service_backed_row_count,
+    ownerRows.filter((row) => {
+      const profile = catalog.profiles.semantic.runtime_profiles.find(
+        (entry) => entry.id === row.runtime_profile_id,
+      );
+      return profile.managed_service_ids.length > 0;
+    }).length,
+  );
+  assert.equal(
+    explanation.families.reduce((sum, family) => sum + family.row_count, 0),
+    ownerRows.length,
+  );
+  assert.equal(
+    Object.values(explanation.runner_counts).reduce((sum, count) => sum + count, 0),
+    ownerRows.length,
+  );
+  assert.equal(
+    explanation.default_check.included + explanation.default_check.excluded,
+    ownerRows.length,
+  );
+  assert.equal(explanation.commands.full_owner, "make test-slice OWNER=module.networkflow");
+  assert.equal(
+    explanation.commands.service_backed,
+    "make service-backed-test-slice OWNER=module.networkflow",
+  );
+  assert.doesNotMatch(JSON.stringify(explanation), /(?:phase_namespace|phase_id|guide_|base_phase)/u);
+  await validateSchema(explanation.schema_id, explanation);
+
+  const guide = buildModuleAuthorTaskGuide(repoRoot, "module.networkflow", "module-author");
+  assert.deepEqual(guide.focused_commands, [
+    "make test-slice OWNER=module.networkflow",
+    "make service-backed-test-slice OWNER=module.networkflow",
+  ]);
+  assert.ok(guide.broader_commands.includes("make test-fast"));
+  assert.ok(guide.broader_commands.includes("make browser-e2e-stateful"));
+  assert.doesNotMatch(
+    JSON.stringify(guide),
+    /(?:phase_namespace|phase_id|guide_path|guide_digest|base_phase)/u,
+  );
+  await validateSchema(guide.schema_id, guide);
+  assert.throws(
+    () => buildModuleAuthorTaskGuide(repoRoot, "module.networkflow", "phase-author"),
+    /module-author/u,
+  );
+  assert.throws(() => explainTestOwner(repoRoot, "module.unknown"), /unknown active test owner/u);
+});
+
+test("owner diagnostic CLI emits one JSON object and retains no artifacts", () => {
+  const resultRoot = mkdtempSync(path.join(repoRoot, "tmp", "owner-diagnostics."));
+  try {
+    const cli = path.join(repoRoot, "tools/harness/diagnostics/owner-diagnostics-cli.mjs");
+    const explanation = spawnSync(
+      process.execPath,
+      [cli, "--mode", "explain", "--owner", "platform.config", "--json"],
+      {
+        cwd: repoRoot,
+        encoding: "utf8",
+        env: { ...process.env, CARTULARY_TEST_RESULTS_DIR: resultRoot },
+      },
+    );
+    assert.equal(explanation.status, 0, explanation.stderr);
+    assert.equal(explanation.stdout.split("\n").filter(Boolean).length, 1);
+    assert.equal(JSON.parse(explanation.stdout).schema_id, "cartulary.test_owner_explanation.v1");
+
+    const guide = spawnSync(
+      process.execPath,
+      [
+        cli,
+        "--mode",
+        "task-guide",
+        "--role",
+        "module-author",
+        "--owner",
+        "platform.config",
+        "--json",
+      ],
+      {
+        cwd: repoRoot,
+        encoding: "utf8",
+        env: { ...process.env, CARTULARY_TEST_RESULTS_DIR: resultRoot },
+      },
+    );
+    assert.equal(guide.status, 0, guide.stderr);
+    assert.equal(guide.stdout.split("\n").filter(Boolean).length, 1);
+    assert.equal(JSON.parse(guide.stdout).schema_id, "cartulary.task_guide_summary.v2");
+
+    for (const fixture of [
+      {
+        args: ["--mode", "explain", "--owner", "platform.config", "--json-value", "true"],
+        env: process.env,
+        expected: /JSON accepts only exact 1/u,
+      },
+      {
+        args: ["--mode", "explain", "--owner", "platform.config", "--json"],
+        env: { ...process.env, CARTULARY_OUTPUT_MODE: "machine" },
+        expected: /cannot be combined/u,
+      },
+    ]) {
+      const invalid = spawnSync(process.execPath, [cli, ...fixture.args], {
+        cwd: repoRoot,
+        encoding: "utf8",
+        env: fixture.env,
+      });
+      assert.equal(invalid.status, 2);
+      assert.match(invalid.stderr, fixture.expected);
+      assert.equal(invalid.stdout, "");
+    }
+    assert.deepEqual(readdirSync(resultRoot), []);
+  } finally {
+    rmSync(resultRoot, { recursive: true, force: true });
+  }
 });
 
 test("owner evidence accounting rejects duplicate, foreign, and target-incompatible rows", () => {
@@ -3508,7 +3630,7 @@ test("harness import boundary consumes the authored helper ownership registry", 
   const helperOwnership = loadHarnessHelperOwnership(repoRoot);
   const authoredOwnerFacadePaths = ownerFacadePathLists(helperOwnership);
   const report = collectHarnessImportBoundaryViolations(repoRoot);
-  assert.equal(helperOwnership.facades.length, 37);
+  assert.equal(helperOwnership.facades.length, 38);
   assert.deepEqual(
     Object.keys(report.owner_facades).sort(),
     Object.keys(authoredOwnerFacadePaths).sort(),

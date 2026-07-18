@@ -153,9 +153,28 @@ function ownerSliceTool(target) {
   };
 }
 
+function ownerDiagnosticTool(mode, target) {
+  return {
+    inputs: mode === "task-guide" ? ["ROLE", "OWNER", "JSON"] : ["OWNER", "JSON"],
+    script: "./tools/harness/diagnostics/owner-diagnostics-cli.mjs",
+    usage: mode === "task-guide"
+      ? `usage: make ${target} ROLE=module-author OWNER=<owner-id> [JSON=1]`
+      : `usage: make ${target} OWNER=<owner-id> [JSON=1]`,
+    buildArgs(env) {
+      const args = ["--mode", mode, "--owner", value(env, "OWNER")];
+      if (mode === "task-guide") args.push("--role", value(env, "ROLE"));
+      if (value(env, "JSON") === "1") args.push("--json");
+      else if (value(env, "JSON") !== "") args.push("--json-value", value(env, "JSON"));
+      return args;
+    },
+  };
+}
+
 export const makeNodeTools = {
   "test-slice": ownerSliceTool("test-slice"),
   "service-backed-test-slice": ownerSliceTool("service-backed-test-slice"),
+  "explain-test-owner": ownerDiagnosticTool("explain", "explain-test-owner"),
+  "owner-task-guide": ownerDiagnosticTool("task-guide", "owner-task-guide"),
   "task-surface-report": {
     inputs: ["TASK_SURFACE_REPORT_ARGS"],
     script: "./tools/harness/generated-artifacts/task-surface-report-cli.mjs",
