@@ -17,6 +17,14 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const resolvedRepoRoot = path.resolve(scriptDir, "../..");
 const schemaID = "cartulary.release_readiness_evidence.v2";
 const frontendRowAccountingSchemaID = "cartulary.frontend_row_accounting.v5";
+const releaseVerificationID =
+  "harness.release.verification.current_owner_evidence_only";
+const accountingVerificationID =
+  "harness.evidence_accounting.verification.semantic_evidence_identity";
+const visualVerificationID =
+  "harness.visual.verification.stable_fixture_identity";
+const designVerificationID =
+  "web.design.verification.readiness_direction";
 
 const requiredTargetEvidence = Object.freeze([
   {
@@ -24,98 +32,98 @@ const requiredTargetEvidence = Object.freeze([
     evidenceClass: "product_conformance",
     conformanceEffect: "product_conformance",
     claimPublicationEffect: "not_claim_bearing",
-    ownerRefs: ["docs/testing-harness-nlspec.md#release-check"],
+    ownerRefs: [releaseVerificationID],
   },
   {
     target: "harness-contract",
     evidenceClass: "harness",
     conformanceEffect: "not_applicable",
     claimPublicationEffect: "not_claim_bearing",
-    ownerRefs: ["docs/testing-harness-nlspec.md#harness-contract"],
+    ownerRefs: [releaseVerificationID],
   },
   {
     target: "go-gosec-audit",
     evidenceClass: "release_readiness",
     conformanceEffect: "not_applicable",
     claimPublicationEffect: "not_claim_bearing",
-    ownerRefs: ["docs/testing-harness-nlspec.md#security-gates"],
+    ownerRefs: [releaseVerificationID],
   },
   {
     target: "license-report",
     evidenceClass: "release_readiness",
     conformanceEffect: "not_applicable",
     claimPublicationEffect: "not_claim_bearing",
-    ownerRefs: ["docs/testing-harness-nlspec.md#release-artifacts"],
+    ownerRefs: [releaseVerificationID],
   },
   {
     target: "sbom",
     evidenceClass: "release_readiness",
     conformanceEffect: "not_applicable",
     claimPublicationEffect: "not_claim_bearing",
-    ownerRefs: ["docs/testing-harness-nlspec.md#release-artifacts"],
+    ownerRefs: [releaseVerificationID],
   },
   {
     target: "seaweedfs-release-gate",
     evidenceClass: "release_readiness",
     conformanceEffect: "not_applicable",
     claimPublicationEffect: "not_claim_bearing",
-    ownerRefs: ["docs/testing-harness-nlspec.md#seaweedfs-release-gate"],
+    ownerRefs: [releaseVerificationID],
   },
   {
     target: "build-web",
     evidenceClass: "release_readiness",
     conformanceEffect: "not_applicable",
     claimPublicationEffect: "not_claim_bearing",
-    ownerRefs: ["docs/testing-harness-nlspec.md#build"],
+    ownerRefs: [releaseVerificationID],
   },
   {
     target: "build-server",
     evidenceClass: "release_readiness",
     conformanceEffect: "not_applicable",
     claimPublicationEffect: "not_claim_bearing",
-    ownerRefs: ["docs/testing-harness-nlspec.md#build"],
+    ownerRefs: [releaseVerificationID],
   },
   {
     target: "build-migrate",
     evidenceClass: "release_readiness",
     conformanceEffect: "not_applicable",
     claimPublicationEffect: "not_claim_bearing",
-    ownerRefs: ["docs/testing-harness-nlspec.md#build"],
+    ownerRefs: [releaseVerificationID],
   },
   {
     target: "build-operator",
     evidenceClass: "release_readiness",
     conformanceEffect: "not_applicable",
     claimPublicationEffect: "not_claim_bearing",
-    ownerRefs: ["docs/testing-harness-nlspec.md#build"],
+    ownerRefs: [releaseVerificationID],
   },
   {
     target: "deployable-shape",
     evidenceClass: "release_readiness",
     conformanceEffect: "not_applicable",
     claimPublicationEffect: "not_claim_bearing",
-    ownerRefs: ["docs/testing-harness-nlspec.md#deployable-shape"],
+    ownerRefs: [releaseVerificationID],
   },
   {
     target: "browser-e2e-support",
     evidenceClass: "implementation_support",
     conformanceEffect: "no_product_conformance",
     claimPublicationEffect: "not_claim_bearing",
-    ownerRefs: ["docs/guides/cartulary_frontend_implementation_testing_guide.md#support-evidence"],
+    ownerRefs: [accountingVerificationID],
   },
   {
     target: "browser-e2e-visual",
     evidenceClass: "design_direction",
     conformanceEffect: "no_product_conformance",
     claimPublicationEffect: "not_claim_bearing",
-    ownerRefs: ["docs/design.md#visual-direction"],
+    ownerRefs: [visualVerificationID],
   },
   {
     target: "browser-e2e-a11y",
     evidenceClass: "design_direction",
     conformanceEffect: "no_product_conformance",
     claimPublicationEffect: "not_claim_bearing",
-    ownerRefs: ["docs/guides/cartulary_frontend_implementation_testing_guide.md#accessibility-evidence"],
+    ownerRefs: [designVerificationID],
   },
 ]);
 
@@ -284,25 +292,10 @@ function frontendRowsByID() {
 }
 
 function ownerRefsForFrontendRow(rowResult, manifestRow, targetName) {
-  const refs = [];
-  for (const ownerRef of manifestRow?.owner_refs ?? []) {
-    const reqs = (ownerRef.req_ids ?? []).join(",");
-    const acs = (ownerRef.ac_ids ?? []).join(",");
-    refs.push(
-      [
-        ownerRef.path,
-        ownerRef.section_ref,
-        reqs ? `req:${reqs}` : "",
-        acs ? `ac:${acs}` : "",
-      ]
-        .filter(Boolean)
-        .join("#"),
-    );
-  }
-  if (refs.length > 0) {
-    return sortedUniqueStrings(refs);
-  }
-  return [`frontend:${rowResult.phase_id}:${rowResult.row_id}:${targetName}`];
+  void rowResult;
+  void manifestRow;
+  void targetName;
+  return [accountingVerificationID];
 }
 
 function conformanceEffectForRow(evidenceClass) {
@@ -384,7 +377,7 @@ function frontendRowEvidenceRecords(runRootAbs, runRootRel) {
         evidence_id: `frontend-row-accounting:${entry.name}:schema`,
         source_target: entry.name,
         schema_id: schema,
-        owner_refs: ["docs/testing-harness-nlspec.md#frontend-row-accounting"],
+        owner_refs: [accountingVerificationID],
         evidence_class: "diagnostic",
         conformance_effect: "not_applicable",
         claim_publication_effect: "not_applicable",
@@ -521,7 +514,7 @@ try {
         evidence_id: "release-readiness-evidence:fatal",
         source_target: "release-readiness-evidence",
         schema_id: schemaID,
-        owner_refs: ["docs/testing-harness-nlspec.md#release-readiness-evidence"],
+        owner_refs: [releaseVerificationID],
         evidence_class: "harness",
         conformance_effect: "not_applicable",
         claim_publication_effect: "not_applicable",

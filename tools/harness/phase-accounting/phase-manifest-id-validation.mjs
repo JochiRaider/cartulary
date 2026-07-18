@@ -1,12 +1,3 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
-const implementationTestingGuidePath = path.join(
-  "docs",
-  "guides",
-  "cartulary_implementation_testing_guide.md",
-);
-
 function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 }
@@ -48,21 +39,6 @@ export function validateExpectedIDs(expectedIDs, phaseNumber, manifestPath) {
     }
     seen.add(id);
   }
-}
-
-export function loadGuideExpectedIDs(root, phaseNumber) {
-  const source = readFileSync(path.join(root, implementationTestingGuidePath), "utf8");
-  const pattern = new RegExp(
-    String.raw`^\|\s*([UIEV]-${phaseNumber}(?:-[A-Z0-9]+)*-\d{2})\s*\|`,
-  );
-  const ids = new Set();
-  for (const line of source.split(/\r?\n/)) {
-    const match = pattern.exec(line);
-    if (match?.[1]) {
-      ids.add(match[1]);
-    }
-  }
-  return Array.from(ids).sort();
 }
 
 export function extractClaimedPhaseIDs(source, phaseNumber) {

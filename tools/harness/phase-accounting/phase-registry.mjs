@@ -251,17 +251,6 @@ function discoveredPhaseMaps(root) {
     .sort();
 }
 
-function discoveredPhaseLedgers(root) {
-  const ledgersDir = path.join(phaseManifestRoot(root), "docs", "testing");
-  if (!existsSync(ledgersDir)) {
-    return [];
-  }
-  return readdirSync(ledgersDir)
-    .filter((filename) => /^phase\d+_coverage_ledger\.md$/.test(filename))
-    .map((filename) => path.posix.join("docs", "testing", filename))
-    .sort();
-}
-
 export function validatePhaseRegistry(root = process.cwd()) {
   const registry = loadPhaseRegistry(root);
   const entries = registry.phases;
@@ -271,10 +260,7 @@ export function validatePhaseRegistry(root = process.cwd()) {
   }
 
   for (const entry of activeEntries) {
-    for (const [field, description] of [
-      ["manifest_path", "manifest"],
-      ["ledger_path", "ledger"],
-    ]) {
+    for (const [field, description] of [["manifest_path", "manifest"]]) {
       const absolutePath = repoPath(root, entry[field]);
       if (!existsSync(absolutePath)) {
         throw new Error(`active ${entry.phase} ${description} missing: ${entry[field]}`);
@@ -286,13 +272,6 @@ export function validatePhaseRegistry(root = process.cwd()) {
   for (const manifestPath of discoveredPhaseMaps(root)) {
     if (!manifestPaths.has(manifestPath)) {
       throw new Error(`unregistered phase test map: ${manifestPath}`);
-    }
-  }
-
-  const ledgerPaths = registeredPaths(entries, "ledger_path");
-  for (const ledgerPath of discoveredPhaseLedgers(root)) {
-    if (!ledgerPaths.has(ledgerPath)) {
-      throw new Error(`unregistered phase coverage ledger: ${ledgerPath}`);
     }
   }
 

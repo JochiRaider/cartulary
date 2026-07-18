@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.otel_config_hazard_fixture_matrix.v1",
   "status": "adopted_conformant",
-  "source_owner": "docs/opentelemetry-instrumentation-nlspec.md#6.4-6.5",
+  "source_owner": "platform.telemetry.verification.current_conformance",
   "materialization_kind": "repo_materialized_from_owner_tables",
   "default_error_code": "invalid_deployment_config",
   "default_reason_code": "invalid_telemetry_config",

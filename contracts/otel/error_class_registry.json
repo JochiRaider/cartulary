@@ -1,15 +1,15 @@
 {
   "schema_id": "cartulary.otel_error_class_registry.v1",
-  "owner": "docs/opentelemetry-instrumentation-nlspec.md#8.5.1",
-  "public_error_code_owner": "docs/spec/01_architecture_storage_and_view_contracts.md#3.3.6.1",
+  "owner": "platform.telemetry.verification.current_conformance",
+  "public_error_code_owner": "contracts/errors/index.json",
   "public_error_classes": [
     {
       "error_class": "request_invalid",
-      "error_codes": ["invalid_view_query", "invalid_pagination_request", "invalid_list_query", "invalid_mutation_payload", "invalid_evidence_handle_request", "invalid_blob_create_request", "invalid_incident_create", "invalid_incident_patch", "invalid_incident_lifecycle_request", "invalid_rollback_request", "invalid_auth_request", "invalid_enterprise_auth_request", "invalid_import_request", "invalid_snapshot_request", "invalid_release_request", "invalid_reference_pack_request", "invalid_incident_bundle_request"]
+      "error_codes": ["invalid_view_query", "invalid_pagination_request", "invalid_list_query", "invalid_mutation_payload", "invalid_evidence_handle_request", "invalid_blob_create_request", "invalid_incident_create", "invalid_incident_patch", "invalid_incident_lifecycle_request", "invalid_rollback_request", "invalid_auth_request", "invalid_enterprise_auth_request", "invalid_import_request", "invalid_snapshot_request", "invalid_release_request", "invalid_reference_pack_request", "invalid_incident_bundle_request", "invalid_startup_request"]
     },
     {
       "error_class": "authentication",
-      "error_codes": ["invalid_credentials", "mfa_required", "mfa_setup_required", "credential_bootstrap_rejected", "invalid_current_password", "invalid_second_factor", "totp_setup_not_pending", "enterprise_auth_transaction_rejected", "provider_response_rejected", "provider_identity_rejected"]
+      "error_codes": ["session_required", "invalid_credentials", "mfa_required", "mfa_setup_required", "credential_bootstrap_rejected", "invalid_current_password", "invalid_second_factor", "totp_setup_not_pending", "enterprise_auth_transaction_rejected", "provider_response_rejected", "provider_identity_rejected", "csrf_verification_failed"]
     },
     {
       "error_class": "authorization",
@@ -21,7 +21,7 @@
     },
     {
       "error_class": "concurrency_conflict",
-      "error_codes": ["client_txn_conflict", "row_version_conflict", "incident_key_conflict", "incident_version_conflict", "same_field_conflict", "user_version_conflict", "preferences_version_conflict", "membership_version_conflict", "auth_binding_conflict"]
+      "error_codes": ["client_txn_conflict", "row_version_conflict", "incident_key_conflict", "incident_version_conflict", "same_field_conflict", "user_version_conflict", "preferences_version_conflict", "membership_version_conflict", "auth_binding_conflict", "saved_view_version_conflict", "snapshot_source_boundary_conflict"]
     },
     {
       "error_class": "lifecycle_conflict",
@@ -29,7 +29,7 @@
     },
     {
       "error_class": "not_found",
-      "error_codes": ["incident_not_found", "entity_mention_not_found", "resolved_record_not_found", "rollback_target_not_found", "evidence_record_not_found", "handle_not_found_or_revoked", "job_not_found", "auth_binding_not_found", "user_not_found", "membership_not_found", "import_session_not_found", "import_unit_not_found", "snapshot_not_found", "release_not_found", "reference_pack_not_found", "incident_bundle_not_found"]
+      "error_codes": ["incident_not_found", "rollback_target_not_found", "evidence_record_not_found", "handle_not_found_or_revoked", "job_not_found", "auth_binding_not_found", "user_not_found", "membership_not_found", "saved_view_not_found", "import_session_not_found", "import_unit_not_found", "snapshot_not_found", "release_not_found", "reference_pack_not_found", "incident_bundle_not_found"]
     },
     {
       "error_class": "expired_or_consumed",
@@ -46,6 +46,10 @@
     {
       "error_class": "invariant_violation",
       "error_codes": ["object_store_invalid_request"]
+    },
+    {
+      "error_class": "internal_error",
+      "error_codes": ["internal_error"]
     }
   ],
   "additional_error_classes": [

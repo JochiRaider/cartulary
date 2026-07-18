@@ -4,61 +4,21 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"regexp"
-	"sort"
-	"strconv"
+	"reflect"
 	"strings"
 	"testing"
 )
 
 func TestReportCompositionTraceabilityAndFixtureCorpus(t *testing.T) {
 	root := reportCompositionRepoRoot(t)
-	specBytes, err := os.ReadFile(filepath.Join(root, "docs", "report-composition-nlspec.md"))
-	if err != nil {
-		t.Fatalf("read report composition NLSpec: %v", err)
-	}
-	spec := string(specBytes)
-
-	requirements := collectReportCompositionRequirements(spec)
-	fixtureRows := collectReportCompositionFixtureRows(spec)
-	acceptanceRows := collectReportCompositionAcceptanceRows(spec)
-	coverage := collectReportCompositionCoverageRows(t, spec, requirements)
-
-	for id := range requirements {
-		if len(coverage[id]) == 0 {
-			t.Fatalf("requirement %s has no Table 14-C coverage", id)
-		}
-	}
-	for id := range coverage {
-		if _, ok := requirements[id]; !ok {
-			t.Fatalf("Table 14-C maps unknown requirement %s", id)
-		}
-	}
-	for id, targets := range coverage {
-		for _, target := range targets {
-			switch {
-			case strings.HasPrefix(target, "RC-FIX-"):
-				if _, ok := fixtureRows[target]; !ok {
-					t.Fatalf("%s maps to undefined fixture %s", id, target)
-				}
-			case strings.HasPrefix(target, "RC-AC-"):
-				if _, ok := acceptanceRows[target]; !ok {
-					t.Fatalf("%s maps to undefined acceptance criterion %s", id, target)
-				}
-			default:
-				t.Fatalf("%s maps to unsupported target %s", id, target)
-			}
-		}
-	}
-
+	requireReportCompositionVerificationOwner(t, root)
 	corpus := readReportCompositionFixtureCorpus(t, root)
 	if _, ok := corpus["RC-FIX-023"]; !ok {
 		t.Fatal("fixture corpus omits RC-FIX-023 traceability fixture")
 	}
-	for id := range fixtureRows {
-		row, ok := corpus[id]
-		if !ok {
-			t.Fatalf("fixture corpus omits NLSpec fixture %s", id)
+	for id, row := range corpus {
+		if !strings.HasPrefix(id, "RC-FIX-") {
+			t.Fatalf("fixture corpus contains invalid fixture id %q", id)
 		}
 		if row.Status != "accepted" && row.Status != "future_only" {
 			t.Fatalf("fixture %s has unsupported status %q", id, row.Status)
@@ -67,12 +27,7 @@ func TestReportCompositionTraceabilityAndFixtureCorpus(t *testing.T) {
 			t.Fatalf("future-only fixture %s must record owner approval", id)
 		}
 		if len(row.Evidence) == 0 {
-			t.Fatalf("fixture %s must list evidence selectors", id)
-		}
-	}
-	for id := range corpus {
-		if _, ok := fixtureRows[id]; !ok {
-			t.Fatalf("fixture corpus includes unknown fixture %s", id)
+			t.Fatalf("fixture %s must list evidence selectors or inert traceability references", id)
 		}
 	}
 }
@@ -93,6 +48,7 @@ func readReportCompositionFixtureCorpus(t testing.TB, root string) map[string]re
 	var payload struct {
 		SchemaID    string                        `json:"schema_id"`
 		Owner       string                        `json:"owner"`
+		StatusVocab []string                      `json:"status_vocab"`
 		FixtureRows []reportCompositionFixtureRow `json:"fixture_rows"`
 	}
 	if err := json.Unmarshal(corpusBytes, &payload); err != nil {
@@ -103,6 +59,9 @@ func readReportCompositionFixtureCorpus(t testing.TB, root string) map[string]re
 	}
 	if payload.Owner != "reportcomposition" {
 		t.Fatalf("unexpected fixture corpus owner %q", payload.Owner)
+	}
+	if !reflect.DeepEqual(payload.StatusVocab, []string{"accepted", "future_only"}) {
+		t.Fatalf("unexpected fixture status vocabulary: %v", payload.StatusVocab)
 	}
 	rows := make(map[string]reportCompositionFixtureRow, len(payload.FixtureRows))
 	for _, row := range payload.FixtureRows {
@@ -117,91 +76,35 @@ func readReportCompositionFixtureCorpus(t testing.TB, root string) map[string]re
 	return rows
 }
 
-func collectReportCompositionRequirements(spec string) map[string]int {
-	re := regexp.MustCompile(`\*\*(REQ-RC-([0-9]{3})([a-z]?))\*\*`)
-	requirements := map[string]int{}
-	for _, match := range re.FindAllStringSubmatch(spec, -1) {
-		base, _ := strconv.Atoi(match[2])
-		requirements[match[1]] = base
-	}
-	return requirements
-}
-
-func collectReportCompositionFixtureRows(spec string) map[string]struct{} {
-	re := regexp.MustCompile("(?m)^\\| `(RC-FIX-[0-9]{3})` \\|")
-	return collectReportCompositionIDs(spec, re, 1)
-}
-
-func collectReportCompositionAcceptanceRows(spec string) map[string]struct{} {
-	re := regexp.MustCompile("(?m)^\\| `(RC-AC-[A-Z0-9-]+)` \\|")
-	return collectReportCompositionIDs(spec, re, 1)
-}
-
-func collectReportCompositionIDs(spec string, re *regexp.Regexp, group int) map[string]struct{} {
-	ids := map[string]struct{}{}
-	for _, match := range re.FindAllStringSubmatch(spec, -1) {
-		ids[match[group]] = struct{}{}
-	}
-	return ids
-}
-
-func collectReportCompositionCoverageRows(t testing.TB, spec string, requirements map[string]int) map[string][]string {
+func requireReportCompositionVerificationOwner(t testing.TB, root string) {
 	t.Helper()
-	coverage := map[string][]string{}
-	reqRef := regexp.MustCompile(`REQ-RC-[0-9]{3}[a-z]?`)
-	targetRef := regexp.MustCompile(`RC-(?:AC|FIX)-[A-Z0-9-]+`)
-	for _, line := range strings.Split(spec, "\n") {
-		if !strings.HasPrefix(line, "| `REQ-RC-") {
-			continue
-		}
-		cells := strings.Split(line, "|")
-		if len(cells) < 4 {
-			t.Fatalf("malformed Table 14-C row: %s", line)
-		}
-		rangeCell := cells[1]
-		coverageCell := cells[2]
-		targets := uniqueSorted(targetRef.FindAllString(coverageCell, -1))
-		if len(targets) == 0 {
-			t.Fatalf("Table 14-C row has no RC-AC or RC-FIX target: %s", line)
-		}
-		refs := reqRef.FindAllString(rangeCell, -1)
-		if len(refs) == 0 {
-			t.Fatalf("Table 14-C row has no requirement reference: %s", line)
-		}
-		if strings.Contains(rangeCell, "..") {
-			if len(refs) != 2 {
-				t.Fatalf("Table 14-C range row must contain exactly two requirement refs: %s", line)
-			}
-			start := requirements[refs[0]]
-			end := requirements[refs[1]]
-			for id, base := range requirements {
-				if base >= start && base <= end {
-					coverage[id] = append(coverage[id], targets...)
-				}
-			}
-			continue
-		}
-		for _, id := range refs {
-			coverage[id] = append(coverage[id], targets...)
+	data, err := os.ReadFile(filepath.Join(root, "contracts", "verification", "owners", "module.reportcomposition.json"))
+	if err != nil {
+		t.Fatalf("read report-composition verification contract: %v", err)
+	}
+	var contract struct {
+		SchemaID      string `json:"schema_id"`
+		OwnerID       string `json:"owner_id"`
+		Verifications []struct {
+			VerificationID string   `json:"verification_id"`
+			EvidenceKinds  []string `json:"evidence_kinds"`
+			Status         string   `json:"status"`
+		} `json:"verifications"`
+	}
+	if err := json.Unmarshal(data, &contract); err != nil {
+		t.Fatalf("decode report-composition verification contract: %v", err)
+	}
+	if contract.SchemaID != "cartulary.verification_contract.v1" || contract.OwnerID != "module.reportcomposition" {
+		t.Fatalf("unexpected report-composition verification identity: %s/%s", contract.SchemaID, contract.OwnerID)
+	}
+	for _, verification := range contract.Verifications {
+		if verification.VerificationID == "module.reportcomposition.verification.fixture_corpus" &&
+			verification.Status == "active" &&
+			reflect.DeepEqual(verification.EvidenceKinds, []string{"go_test", "static_check"}) {
+			return
 		}
 	}
-	for id, targets := range coverage {
-		coverage[id] = uniqueSorted(targets)
-	}
-	return coverage
-}
-
-func uniqueSorted(values []string) []string {
-	seen := map[string]struct{}{}
-	for _, value := range values {
-		seen[value] = struct{}{}
-	}
-	result := make([]string, 0, len(seen))
-	for value := range seen {
-		result = append(result, value)
-	}
-	sort.Strings(result)
-	return result
+	t.Fatal("report-composition fixture corpus verification is not active")
 }
 
 func reportCompositionRepoRoot(t testing.TB) string {
@@ -211,7 +114,7 @@ func reportCompositionRepoRoot(t testing.TB) string {
 		t.Fatalf("get working directory: %v", err)
 	}
 	for {
-		if _, err := os.Stat(filepath.Join(dir, "docs", "report-composition-nlspec.md")); err == nil {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
 			return dir
 		}
 		parent := filepath.Dir(dir)

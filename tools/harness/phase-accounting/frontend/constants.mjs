@@ -194,7 +194,8 @@ export const commandIDPattern =
 
 export const visualFixtureRegistryKeys = new Set([
   "schema_id",
-  "guide_path",
+  "owner_id",
+  "verification_id",
   "fixtures",
 ]);
 export const visualFixtureKeys = new Set([

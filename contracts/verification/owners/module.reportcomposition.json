@@ -1,0 +1,14 @@
+{
+  "schema_id": "cartulary.verification_contract.v1",
+  "owner_id": "module.reportcomposition",
+  "verifications": [
+    {
+      "verification_id": "module.reportcomposition.verification.fixture_corpus",
+      "behavior_class": "product",
+      "profile": "extension.snapshot_reporting",
+      "requirement": "The report-composition fixture corpus covers the active authoring, validation, immutable-version, preview, and release-binding contract.",
+      "evidence_kinds": ["go_test", "static_check"],
+      "status": "active"
+    }
+  ]
+}

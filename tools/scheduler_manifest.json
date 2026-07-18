@@ -5732,7 +5732,7 @@
           "label": "browser-functional-network-flow-claimed/stage-session",
           "aggregate_target": "browser-e2e-webserver-backed",
           "priority": 36000,
-          "weight_ms": 450773,
+          "weight_ms": 463120,
           "needs": [],
           "completion_keys": [
             "browser_stage_session:browser-functional-network-flow-claimed"
@@ -5772,7 +5772,7 @@
           "label": "browser-e2e-webserver-backed/stage-session",
           "aggregate_target": "browser-e2e-webserver-backed",
           "priority": 36000,
-          "weight_ms": 450773,
+          "weight_ms": 463120,
           "needs": [],
           "completion_keys": [
             "browser_stage_session:browser-e2e-webserver-backed"
@@ -6156,402 +6156,6 @@
           }
         },
         {
-          "id": "browser-e2e-webserver-backed:browser-functional-shard-01",
-          "kind": "browser_group",
-          "class": "browser",
-          "target": "browser-e2e-webserver-backed",
-          "label": "browser-e2e-webserver-backed/browser-functional-shard-01",
-          "aggregate_target": "browser-e2e-webserver-backed",
-          "priority": 36000,
-          "weight_ms": 72281,
-          "needs": [
-            "browser_stage_session:browser-e2e-webserver-backed"
-          ],
-          "completion_keys": [
-            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-01"
-          ],
-          "failure_keys": [
-            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-01"
-          ],
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 1
-          },
-          "browser_stage": "webserver-backed",
-          "browser_session_group": "browser-e2e-webserver-backed",
-          "browser_group": {
-            "id": "browser-e2e-webserver-backed:browser-functional-shard-01",
-            "name": "browser-functional-shard-01",
-            "kind": "functional_shard",
-            "target": "browser-e2e-webserver-backed",
-            "aggregate_target": "browser-e2e-webserver-backed",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_functional",
-            "shard_name": "browser-functional-shard-01",
-            "shard_index": 0,
-            "shard_count": 6,
-            "workers": "1",
-            "phases": [
-              "phase2",
-              "phase4",
-              "phase6",
-              "phase7",
-              "phase9",
-              "phase12"
-            ],
-            "entry_ids": [
-              "E-2-01",
-              "FE-B-P2-01",
-              "FE-B-P2-02",
-              "E-4-04",
-              "E-4-03",
-              "FE-I-P6-01",
-              "E-7-04",
-              "E-7-05",
-              "E-9-04",
-              "E-9-05",
-              "E-9-07",
-              "E-9-PASTE-02",
-              "E-12-NFAC001-01"
-            ],
-            "runtime_profile_id": "default",
-            "priority": 36000,
-            "weight_ms": 72281,
-            "resource_claims": {
-              "go_cpu": 1,
-              "go_io": 1
-            }
-          },
-          "env": {
-            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "23",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "0"
-          },
-          "command": {
-            "type": "browser_group",
-            "service_target": "test-service-backed",
-            "browser_stage": "webserver-backed",
-            "group_id": "browser-e2e-webserver-backed:browser-functional-shard-01"
-          }
-        },
-        {
-          "id": "browser-e2e-webserver-backed:browser-functional-shard-05",
-          "kind": "browser_group",
-          "class": "browser",
-          "target": "browser-e2e-webserver-backed",
-          "label": "browser-e2e-webserver-backed/browser-functional-shard-05",
-          "aggregate_target": "browser-e2e-webserver-backed",
-          "priority": 36000,
-          "weight_ms": 71397,
-          "needs": [
-            "browser_stage_session:browser-e2e-webserver-backed"
-          ],
-          "completion_keys": [
-            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-05"
-          ],
-          "failure_keys": [
-            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-05"
-          ],
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 1
-          },
-          "browser_stage": "webserver-backed",
-          "browser_session_group": "browser-e2e-webserver-backed",
-          "browser_group": {
-            "id": "browser-e2e-webserver-backed:browser-functional-shard-05",
-            "name": "browser-functional-shard-05",
-            "kind": "functional_shard",
-            "target": "browser-e2e-webserver-backed",
-            "aggregate_target": "browser-e2e-webserver-backed",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_functional",
-            "shard_name": "browser-functional-shard-05",
-            "shard_index": 4,
-            "shard_count": 6,
-            "workers": "1",
-            "phases": [
-              "phase2",
-              "phase3",
-              "phase4",
-              "phase5",
-              "phase8",
-              "phase9",
-              "phase10"
-            ],
-            "entry_ids": [
-              "E-2-02",
-              "E-3-04",
-              "FE-E-P4-01",
-              "E-4-05",
-              "E-5-01",
-              "E-5-02",
-              "E-5-03",
-              "E-5-04",
-              "E-5-05",
-              "E-8-03",
-              "E-9-08",
-              "E-9-COORDINATION-06",
-              "E-9-TASKDECISION-06",
-              "FE-B-P10-01"
-            ],
-            "runtime_profile_id": "default",
-            "priority": 36000,
-            "weight_ms": 71397,
-            "resource_claims": {
-              "go_cpu": 1,
-              "go_io": 1
-            }
-          },
-          "env": {
-            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "23",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "6"
-          },
-          "command": {
-            "type": "browser_group",
-            "service_target": "test-service-backed",
-            "browser_stage": "webserver-backed",
-            "group_id": "browser-e2e-webserver-backed:browser-functional-shard-05"
-          }
-        },
-        {
-          "id": "browser-e2e-webserver-backed:browser-functional-shard-03",
-          "kind": "browser_group",
-          "class": "browser",
-          "target": "browser-e2e-webserver-backed",
-          "label": "browser-e2e-webserver-backed/browser-functional-shard-03",
-          "aggregate_target": "browser-e2e-webserver-backed",
-          "priority": 36000,
-          "weight_ms": 70678,
-          "needs": [
-            "browser_stage_session:browser-e2e-webserver-backed"
-          ],
-          "completion_keys": [
-            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-03"
-          ],
-          "failure_keys": [
-            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-03"
-          ],
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 1
-          },
-          "browser_stage": "webserver-backed",
-          "browser_session_group": "browser-e2e-webserver-backed",
-          "browser_group": {
-            "id": "browser-e2e-webserver-backed:browser-functional-shard-03",
-            "name": "browser-functional-shard-03",
-            "kind": "functional_shard",
-            "target": "browser-e2e-webserver-backed",
-            "aggregate_target": "browser-e2e-webserver-backed",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_functional",
-            "shard_name": "browser-functional-shard-03",
-            "shard_index": 2,
-            "shard_count": 6,
-            "workers": "1",
-            "phases": [
-              "phase1",
-              "phase5",
-              "phase8",
-              "phase9",
-              "phase10",
-              "phase11"
-            ],
-            "entry_ids": [
-              "E-1-06",
-              "FE-I-P5-01",
-              "E-8-01",
-              "E-8-04",
-              "FE-B-P8-01",
-              "FE-I-P8-01",
-              "FE-E-P9-01",
-              "FE-E-P9-02",
-              "E-9-03",
-              "E-9-CONFLICT-02",
-              "E-10-02",
-              "FE-B-P10-02",
-              "E-11-02",
-              "E-11-03"
-            ],
-            "runtime_profile_id": "default",
-            "priority": 36000,
-            "weight_ms": 70678,
-            "resource_claims": {
-              "go_cpu": 1,
-              "go_io": 1
-            }
-          },
-          "env": {
-            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "23",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "4"
-          },
-          "command": {
-            "type": "browser_group",
-            "service_target": "test-service-backed",
-            "browser_stage": "webserver-backed",
-            "group_id": "browser-e2e-webserver-backed:browser-functional-shard-03"
-          }
-        },
-        {
-          "id": "browser-e2e-webserver-backed:browser-functional-shard-04",
-          "kind": "browser_group",
-          "class": "browser",
-          "target": "browser-e2e-webserver-backed",
-          "label": "browser-e2e-webserver-backed/browser-functional-shard-04",
-          "aggregate_target": "browser-e2e-webserver-backed",
-          "priority": 36000,
-          "weight_ms": 70355,
-          "needs": [
-            "browser_stage_session:browser-e2e-webserver-backed"
-          ],
-          "completion_keys": [
-            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-04"
-          ],
-          "failure_keys": [
-            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-04"
-          ],
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 1
-          },
-          "browser_stage": "webserver-backed",
-          "browser_session_group": "browser-e2e-webserver-backed",
-          "browser_group": {
-            "id": "browser-e2e-webserver-backed:browser-functional-shard-04",
-            "name": "browser-functional-shard-04",
-            "kind": "functional_shard",
-            "target": "browser-e2e-webserver-backed",
-            "aggregate_target": "browser-e2e-webserver-backed",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_functional",
-            "shard_name": "browser-functional-shard-04",
-            "shard_index": 3,
-            "shard_count": 6,
-            "workers": "1",
-            "phases": [
-              "phase3",
-              "phase6",
-              "phase7",
-              "phase8",
-              "phase9",
-              "phase10"
-            ],
-            "entry_ids": [
-              "E-3-01",
-              "E-3-03",
-              "E-6-01",
-              "E-6-05",
-              "FE-E-P6-01",
-              "FE-E-P7-01",
-              "FE-I-P7-01",
-              "E-8-02",
-              "FE-E-P8-01",
-              "E-9-01",
-              "FE-E-P9-03",
-              "FE-E-P10-01"
-            ],
-            "runtime_profile_id": "default",
-            "priority": 36000,
-            "weight_ms": 70355,
-            "resource_claims": {
-              "go_cpu": 1,
-              "go_io": 1
-            }
-          },
-          "env": {
-            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "23",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "5"
-          },
-          "command": {
-            "type": "browser_group",
-            "service_target": "test-service-backed",
-            "browser_stage": "webserver-backed",
-            "group_id": "browser-e2e-webserver-backed:browser-functional-shard-04"
-          }
-        },
-        {
-          "id": "browser-e2e-webserver-backed:browser-functional-shard-02",
-          "kind": "browser_group",
-          "class": "browser",
-          "target": "browser-e2e-webserver-backed",
-          "label": "browser-e2e-webserver-backed/browser-functional-shard-02",
-          "aggregate_target": "browser-e2e-webserver-backed",
-          "priority": 36000,
-          "weight_ms": 69912,
-          "needs": [
-            "browser_stage_session:browser-e2e-webserver-backed"
-          ],
-          "completion_keys": [
-            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-02"
-          ],
-          "failure_keys": [
-            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-02"
-          ],
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 1
-          },
-          "browser_stage": "webserver-backed",
-          "browser_session_group": "browser-e2e-webserver-backed",
-          "browser_group": {
-            "id": "browser-e2e-webserver-backed:browser-functional-shard-02",
-            "name": "browser-functional-shard-02",
-            "kind": "functional_shard",
-            "target": "browser-e2e-webserver-backed",
-            "aggregate_target": "browser-e2e-webserver-backed",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_functional",
-            "shard_name": "browser-functional-shard-02",
-            "shard_index": 1,
-            "shard_count": 6,
-            "workers": "1",
-            "phases": [
-              "phase1",
-              "phase2",
-              "phase4",
-              "phase7",
-              "phase9"
-            ],
-            "entry_ids": [
-              "E-1-07",
-              "E-1-08",
-              "E-1-10",
-              "E-1-12",
-              "FE-E-P1-01",
-              "E-2-03",
-              "FE-E-P2-01",
-              "E-4-02",
-              "E-4-06",
-              "E-7-01",
-              "E-7-02",
-              "E-7-03",
-              "FE-I-P9-01"
-            ],
-            "runtime_profile_id": "default",
-            "priority": 36000,
-            "weight_ms": 69912,
-            "resource_claims": {
-              "go_cpu": 1,
-              "go_io": 1
-            }
-          },
-          "env": {
-            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "23",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "2"
-          },
-          "command": {
-            "type": "browser_group",
-            "service_target": "test-service-backed",
-            "browser_stage": "webserver-backed",
-            "group_id": "browser-e2e-webserver-backed:browser-functional-shard-02"
-          }
-        },
-        {
           "id": "browser-e2e-webserver-backed:browser-functional-shard-06",
           "kind": "browser_group",
           "class": "browser",
@@ -6559,7 +6163,7 @@
           "label": "browser-e2e-webserver-backed/browser-functional-shard-06",
           "aggregate_target": "browser-e2e-webserver-backed",
           "priority": 36000,
-          "weight_ms": 69760,
+          "weight_ms": 74403,
           "needs": [
             "browser_stage_session:browser-e2e-webserver-backed"
           ],
@@ -6591,29 +6195,28 @@
               "phase1",
               "phase4",
               "phase5",
-              "phase6",
+              "phase7",
               "phase9",
-              "phase11"
+              "phase11",
+              "phase12"
             ],
             "entry_ids": [
-              "E-1-01",
-              "E-1-02",
-              "E-1-03",
-              "E-1-09",
               "E-1-11",
+              "FE-E-P4-01",
               "FE-I-P4-01",
               "E-4-01",
               "FE-E-P5-01",
-              "E-6-02",
-              "E-6-04",
-              "E-9-GRIDANCHORS-01",
-              "E-9-GRIDHOST-01",
-              "E-9-GRIDIDENTITY-01",
-              "E-11-01"
+              "E-7-01",
+              "E-7-04",
+              "E-9-04",
+              "E-9-05",
+              "E-9-COORDINATION-06",
+              "E-11-01",
+              "E-12-NFAC001-01"
             ],
             "runtime_profile_id": "default",
             "priority": 36000,
-            "weight_ms": 69760,
+            "weight_ms": 74403,
             "resource_claims": {
               "go_cpu": 1,
               "go_io": 1
@@ -6629,6 +6232,402 @@
             "service_target": "test-service-backed",
             "browser_stage": "webserver-backed",
             "group_id": "browser-e2e-webserver-backed:browser-functional-shard-06"
+          }
+        },
+        {
+          "id": "browser-e2e-webserver-backed:browser-functional-shard-03",
+          "kind": "browser_group",
+          "class": "browser",
+          "target": "browser-e2e-webserver-backed",
+          "label": "browser-e2e-webserver-backed/browser-functional-shard-03",
+          "aggregate_target": "browser-e2e-webserver-backed",
+          "priority": 36000,
+          "weight_ms": 73145,
+          "needs": [
+            "browser_stage_session:browser-e2e-webserver-backed"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-03"
+          ],
+          "failure_keys": [
+            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-03"
+          ],
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 1
+          },
+          "browser_stage": "webserver-backed",
+          "browser_session_group": "browser-e2e-webserver-backed",
+          "browser_group": {
+            "id": "browser-e2e-webserver-backed:browser-functional-shard-03",
+            "name": "browser-functional-shard-03",
+            "kind": "functional_shard",
+            "target": "browser-e2e-webserver-backed",
+            "aggregate_target": "browser-e2e-webserver-backed",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_functional",
+            "shard_name": "browser-functional-shard-03",
+            "shard_index": 2,
+            "shard_count": 6,
+            "workers": "1",
+            "phases": [
+              "phase1",
+              "phase7",
+              "phase8",
+              "phase9",
+              "phase10"
+            ],
+            "entry_ids": [
+              "E-1-06",
+              "E-1-07",
+              "E-1-09",
+              "FE-E-P7-01",
+              "E-7-03",
+              "E-8-03",
+              "FE-B-P8-01",
+              "FE-E-P8-01",
+              "FE-I-P8-01",
+              "FE-E-P9-02",
+              "FE-I-P9-01",
+              "FE-E-P10-01",
+              "E-10-02"
+            ],
+            "runtime_profile_id": "default",
+            "priority": 36000,
+            "weight_ms": 73145,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {
+            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "23",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "4"
+          },
+          "command": {
+            "type": "browser_group",
+            "service_target": "test-service-backed",
+            "browser_stage": "webserver-backed",
+            "group_id": "browser-e2e-webserver-backed:browser-functional-shard-03"
+          }
+        },
+        {
+          "id": "browser-e2e-webserver-backed:browser-functional-shard-01",
+          "kind": "browser_group",
+          "class": "browser",
+          "target": "browser-e2e-webserver-backed",
+          "label": "browser-e2e-webserver-backed/browser-functional-shard-01",
+          "aggregate_target": "browser-e2e-webserver-backed",
+          "priority": 36000,
+          "weight_ms": 72880,
+          "needs": [
+            "browser_stage_session:browser-e2e-webserver-backed"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-01"
+          ],
+          "failure_keys": [
+            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-01"
+          ],
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 1
+          },
+          "browser_stage": "webserver-backed",
+          "browser_session_group": "browser-e2e-webserver-backed",
+          "browser_group": {
+            "id": "browser-e2e-webserver-backed:browser-functional-shard-01",
+            "name": "browser-functional-shard-01",
+            "kind": "functional_shard",
+            "target": "browser-e2e-webserver-backed",
+            "aggregate_target": "browser-e2e-webserver-backed",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_functional",
+            "shard_name": "browser-functional-shard-01",
+            "shard_index": 0,
+            "shard_count": 6,
+            "workers": "1",
+            "phases": [
+              "phase1",
+              "phase3",
+              "phase4",
+              "phase5",
+              "phase8",
+              "phase9"
+            ],
+            "entry_ids": [
+              "E-1-02",
+              "E-1-08",
+              "E-3-01",
+              "E-3-03",
+              "E-3-04",
+              "E-4-04",
+              "FE-I-P5-01",
+              "E-5-03",
+              "E-5-04",
+              "E-8-01",
+              "E-8-02",
+              "E-8-04",
+              "FE-E-P9-01"
+            ],
+            "runtime_profile_id": "default",
+            "priority": 36000,
+            "weight_ms": 72880,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {
+            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "23",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "0"
+          },
+          "command": {
+            "type": "browser_group",
+            "service_target": "test-service-backed",
+            "browser_stage": "webserver-backed",
+            "group_id": "browser-e2e-webserver-backed:browser-functional-shard-01"
+          }
+        },
+        {
+          "id": "browser-e2e-webserver-backed:browser-functional-shard-04",
+          "kind": "browser_group",
+          "class": "browser",
+          "target": "browser-e2e-webserver-backed",
+          "label": "browser-e2e-webserver-backed/browser-functional-shard-04",
+          "aggregate_target": "browser-e2e-webserver-backed",
+          "priority": 36000,
+          "weight_ms": 72173,
+          "needs": [
+            "browser_stage_session:browser-e2e-webserver-backed"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-04"
+          ],
+          "failure_keys": [
+            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-04"
+          ],
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 1
+          },
+          "browser_stage": "webserver-backed",
+          "browser_session_group": "browser-e2e-webserver-backed",
+          "browser_group": {
+            "id": "browser-e2e-webserver-backed:browser-functional-shard-04",
+            "name": "browser-functional-shard-04",
+            "kind": "functional_shard",
+            "target": "browser-e2e-webserver-backed",
+            "aggregate_target": "browser-e2e-webserver-backed",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_functional",
+            "shard_name": "browser-functional-shard-04",
+            "shard_index": 3,
+            "shard_count": 6,
+            "workers": "1",
+            "phases": [
+              "phase2",
+              "phase4",
+              "phase5",
+              "phase6",
+              "phase9"
+            ],
+            "entry_ids": [
+              "E-2-02",
+              "FE-B-P2-01",
+              "E-4-02",
+              "E-4-03",
+              "E-5-01",
+              "E-5-02",
+              "E-5-05",
+              "E-6-01",
+              "E-6-02",
+              "E-6-04",
+              "E-6-05",
+              "E-9-07",
+              "E-9-PASTE-02"
+            ],
+            "runtime_profile_id": "default",
+            "priority": 36000,
+            "weight_ms": 72173,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {
+            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "23",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "5"
+          },
+          "command": {
+            "type": "browser_group",
+            "service_target": "test-service-backed",
+            "browser_stage": "webserver-backed",
+            "group_id": "browser-e2e-webserver-backed:browser-functional-shard-04"
+          }
+        },
+        {
+          "id": "browser-e2e-webserver-backed:browser-functional-shard-02",
+          "kind": "browser_group",
+          "class": "browser",
+          "target": "browser-e2e-webserver-backed",
+          "label": "browser-e2e-webserver-backed/browser-functional-shard-02",
+          "aggregate_target": "browser-e2e-webserver-backed",
+          "priority": 36000,
+          "weight_ms": 72086,
+          "needs": [
+            "browser_stage_session:browser-e2e-webserver-backed"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-02"
+          ],
+          "failure_keys": [
+            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-02"
+          ],
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 1
+          },
+          "browser_stage": "webserver-backed",
+          "browser_session_group": "browser-e2e-webserver-backed",
+          "browser_group": {
+            "id": "browser-e2e-webserver-backed:browser-functional-shard-02",
+            "name": "browser-functional-shard-02",
+            "kind": "functional_shard",
+            "target": "browser-e2e-webserver-backed",
+            "aggregate_target": "browser-e2e-webserver-backed",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_functional",
+            "shard_name": "browser-functional-shard-02",
+            "shard_index": 1,
+            "shard_count": 6,
+            "workers": "1",
+            "phases": [
+              "phase4",
+              "phase6",
+              "phase7",
+              "phase9",
+              "phase10",
+              "phase11"
+            ],
+            "entry_ids": [
+              "E-4-05",
+              "E-4-06",
+              "FE-E-P6-01",
+              "FE-I-P6-01",
+              "FE-I-P7-01",
+              "E-9-01",
+              "E-9-GRIDHOST-01",
+              "E-9-GRIDIDENTITY-01",
+              "E-9-08",
+              "E-9-CONFLICT-02",
+              "E-9-TASKDECISION-06",
+              "FE-B-P10-02",
+              "FE-B-P10-01",
+              "E-11-02",
+              "E-11-03"
+            ],
+            "runtime_profile_id": "default",
+            "priority": 36000,
+            "weight_ms": 72086,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {
+            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "23",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "2"
+          },
+          "command": {
+            "type": "browser_group",
+            "service_target": "test-service-backed",
+            "browser_stage": "webserver-backed",
+            "group_id": "browser-e2e-webserver-backed:browser-functional-shard-02"
+          }
+        },
+        {
+          "id": "browser-e2e-webserver-backed:browser-functional-shard-05",
+          "kind": "browser_group",
+          "class": "browser",
+          "target": "browser-e2e-webserver-backed",
+          "label": "browser-e2e-webserver-backed/browser-functional-shard-05",
+          "aggregate_target": "browser-e2e-webserver-backed",
+          "priority": 36000,
+          "weight_ms": 72043,
+          "needs": [
+            "browser_stage_session:browser-e2e-webserver-backed"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-05"
+          ],
+          "failure_keys": [
+            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-05"
+          ],
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 1
+          },
+          "browser_stage": "webserver-backed",
+          "browser_session_group": "browser-e2e-webserver-backed",
+          "browser_group": {
+            "id": "browser-e2e-webserver-backed:browser-functional-shard-05",
+            "name": "browser-functional-shard-05",
+            "kind": "functional_shard",
+            "target": "browser-e2e-webserver-backed",
+            "aggregate_target": "browser-e2e-webserver-backed",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_functional",
+            "shard_name": "browser-functional-shard-05",
+            "shard_index": 4,
+            "shard_count": 6,
+            "workers": "1",
+            "phases": [
+              "phase1",
+              "phase2",
+              "phase4",
+              "phase7",
+              "phase9"
+            ],
+            "entry_ids": [
+              "E-1-01",
+              "E-1-03",
+              "E-1-10",
+              "E-1-12",
+              "FE-E-P1-01",
+              "E-2-01",
+              "E-2-03",
+              "FE-B-P2-02",
+              "FE-E-P2-01",
+              "FE-E-P4-01",
+              "E-7-02",
+              "E-7-05",
+              "E-9-GRIDANCHORS-01",
+              "FE-E-P9-03",
+              "E-9-03"
+            ],
+            "runtime_profile_id": "default",
+            "priority": 36000,
+            "weight_ms": 72043,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {
+            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "23",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "6"
+          },
+          "command": {
+            "type": "browser_group",
+            "service_target": "test-service-backed",
+            "browser_stage": "webserver-backed",
+            "group_id": "browser-e2e-webserver-backed:browser-functional-shard-05"
           }
         },
         {

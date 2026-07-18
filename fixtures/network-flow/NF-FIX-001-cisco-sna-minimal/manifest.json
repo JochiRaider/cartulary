@@ -8,24 +8,6 @@
     "revision": 1,
     "change_policy": "new_fixture_revision_required"
   },
-  "owner_refs": [
-    {
-      "document": "docs/network-flow-activity-nlspec.md",
-      "requirement_ids": [
-        "NF-REQ-177",
-        "NF-REQ-178"
-      ],
-      "acceptance_ids": [
-        "NF-AC-006",
-        "NF-AC-007",
-        "NF-AC-008",
-        "NF-AC-017",
-        "NF-AC-052",
-        "NF-AC-075",
-        "NF-AC-090"
-      ]
-    }
-  ],
   "source_files": [
     {
       "logical_path": "source/cisco-sna-minimal.csv",
@@ -83,5 +65,8 @@
     "phase12/network-flow/NF-FIX-001-cisco-sna-minimal"
   ],
   "source_bundle_sha256": "b87f8eec4754ee852ef6d6ba6fcf26622b7eeb1f05c2a9e3771fe32191c4431c",
-  "expected_bundle_sha256": "2f667d278e42eda19e296e16b671b602301bda5e7fdcca94e2eea9ea4ba2f64a"
+  "expected_bundle_sha256": "2f667d278e42eda19e296e16b671b602301bda5e7fdcca94e2eea9ea4ba2f64a",
+  "verification_ids": [
+    "module.networkflow.verification.contract_accounting"
+  ]
 }

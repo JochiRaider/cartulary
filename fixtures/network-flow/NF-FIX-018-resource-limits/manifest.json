@@ -8,21 +8,6 @@
     "revision": 1,
     "change_policy": "new_fixture_revision_required"
   },
-  "owner_refs": [
-    {
-      "document": "docs/network-flow-activity-nlspec.md",
-      "requirement_ids": [
-        "NF-REQ-177",
-        "NF-REQ-178"
-      ],
-      "acceptance_ids": [
-        "NF-AC-038",
-        "NF-AC-048",
-        "NF-AC-064",
-        "NF-AC-076"
-      ]
-    }
-  ],
   "source_files": [
     {
       "logical_path": "source/resource-limits.csv",
@@ -77,5 +62,8 @@
     "phase12/network-flow/NF-FIX-018-resource-limits"
   ],
   "source_bundle_sha256": "1ed98e03e4a60afe97675cf68d59d75035ebdb06bef358d55827d5eb8e86dd63",
-  "expected_bundle_sha256": "c60e718c733d37e595dca2341e5a299020c66aa2a809e77388703bd775eaa1f8"
+  "expected_bundle_sha256": "c60e718c733d37e595dca2341e5a299020c66aa2a809e77388703bd775eaa1f8",
+  "verification_ids": [
+    "module.networkflow.verification.contract_accounting"
+  ]
 }

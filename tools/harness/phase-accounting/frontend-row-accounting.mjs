@@ -238,6 +238,7 @@ export function frontendRowAccountingForTarget(
   { scope: rawScope = null, root = repoRoot } = {},
 ) {
   const normalizedRoot = path.resolve(root);
+  let registry = null;
   const scopeOptions = rawScope ?? {};
   const scope = normalizeFrontendRowAccountingScope(scopeOptions);
   const accountingTarget = frontendRowAccountingBoundTarget(scopeOptions);
@@ -246,7 +247,7 @@ export function frontendRowAccountingForTarget(
     accountingTarget !== "" &&
     accountingTarget !== target
   ) {
-    const registry = loadFrontendPhaseRegistry(normalizedRoot);
+    registry = loadFrontendPhaseRegistry(normalizedRoot);
     if (
       frontendTargetHasClosureRows({
         root: normalizedRoot,
@@ -264,6 +265,7 @@ export function frontendRowAccountingForTarget(
   if (frontendRows.rows.length === 0 && !frontendRows.explicitScope) {
     return null;
   }
+  registry ??= loadFrontendPhaseRegistry(normalizedRoot);
 
   let titleObservations = new Map();
   if (target === "frontend-unit") {
@@ -324,11 +326,8 @@ export function frontendRowAccountingForTarget(
     accounting_scope: scope,
     registry_ref: "tools/frontend_phase_registry.json",
     registry_digest: sha256RepoFile(normalizedRoot, "tools/frontend_phase_registry.json"),
-    guide_ref: "docs/guides/cartulary_frontend_implementation_testing_guide.md",
-    guide_digest: sha256RepoFile(
-      normalizedRoot,
-      "docs/guides/cartulary_frontend_implementation_testing_guide.md",
-    ),
+    guide_ref: "harness.evidence_accounting.verification.semantic_evidence_identity",
+    guide_digest: registry.guide_digest,
     phase_map_refs: frontendRows.phaseMapRefs,
     phase_map_digests: frontendRows.phaseMapRefs.map((phaseMapRef) =>
       sha256RepoFile(normalizedRoot, phaseMapRef),

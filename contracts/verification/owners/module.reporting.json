@@ -1,0 +1,14 @@
+{
+  "schema_id": "cartulary.verification_contract.v1",
+  "owner_id": "module.reporting",
+  "verifications": [
+    {
+      "verification_id": "module.reporting.verification.fixture_corpus",
+      "behavior_class": "product",
+      "profile": "extension.snapshot_reporting",
+      "requirement": "The reporting fixture corpus covers current snapshot, render, redaction, deterministic output, and release-admission behavior.",
+      "evidence_kinds": ["go_test", "static_check"],
+      "status": "active"
+    }
+  ]
+}

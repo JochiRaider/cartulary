@@ -8,21 +8,6 @@
     "revision": 1,
     "change_policy": "new_fixture_revision_required"
   },
-  "owner_refs": [
-    {
-      "document": "docs/network-flow-activity-nlspec.md",
-      "requirement_ids": [
-        "NF-REQ-177",
-        "NF-REQ-178"
-      ],
-      "acceptance_ids": [
-        "NF-AC-065",
-        "NF-AC-083",
-        "NF-AC-084",
-        "NF-AC-088"
-      ]
-    }
-  ],
   "source_files": [
     {
       "logical_path": "source/preview-boundaries.csv",
@@ -77,5 +62,8 @@
     "phase12/network-flow/NF-FIX-021-preview-boundaries"
   ],
   "source_bundle_sha256": "65d0c177472782d735fb85338289439ed140d369f1869f6839e1db95fe343b43",
-  "expected_bundle_sha256": "279d8aacf673be3a949403a38049eca732a4d6fc007df1b771bfdc842497f5a1"
+  "expected_bundle_sha256": "279d8aacf673be3a949403a38049eca732a4d6fc007df1b771bfdc842497f5a1",
+  "verification_ids": [
+    "module.networkflow.verification.contract_accounting"
+  ]
 }

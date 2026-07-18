@@ -8,18 +8,6 @@
     "revision": 1,
     "change_policy": "new_fixture_revision_required"
   },
-  "owner_refs": [
-    {
-      "document": "docs/network-flow-activity-nlspec.md",
-      "requirement_ids": [
-        "NF-REQ-177",
-        "NF-REQ-178"
-      ],
-      "acceptance_ids": [
-        "NF-AC-050"
-      ]
-    }
-  ],
   "source_files": [
     {
       "logical_path": "source/large-limits.csv",
@@ -71,5 +59,8 @@
     "phase12/network-flow/NF-FIX-008-large-limits"
   ],
   "source_bundle_sha256": "796c5984554e79259acef7505699ee4f0588bac681ebacded5422e830eb53298",
-  "expected_bundle_sha256": "e91154e190c1078c12e9f4c62982f503dc36445d6e26b3383bb10702d9858f4d"
+  "expected_bundle_sha256": "e91154e190c1078c12e9f4c62982f503dc36445d6e26b3383bb10702d9858f4d",
+  "verification_ids": [
+    "module.networkflow.verification.contract_accounting"
+  ]
 }

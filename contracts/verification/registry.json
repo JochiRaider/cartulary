@@ -1,0 +1,19 @@
+{
+  "schema_id": "cartulary.verification_registry.v1",
+  "owners": [
+    { "owner_id": "harness.command_surface", "contract_path": "contracts/verification/owners/harness.command_surface.json", "status": "active" },
+    { "owner_id": "harness.evidence_accounting", "contract_path": "contracts/verification/owners/harness.evidence_accounting.json", "status": "active" },
+    { "owner_id": "harness.generated_artifacts", "contract_path": "contracts/verification/owners/harness.generated_artifacts.json", "status": "active" },
+    { "owner_id": "harness.release", "contract_path": "contracts/verification/owners/harness.release.json", "status": "active" },
+    { "owner_id": "harness.test_catalog", "contract_path": "contracts/verification/owners/harness.test_catalog.json", "status": "active" },
+    { "owner_id": "harness.visual", "contract_path": "contracts/verification/owners/harness.visual.json", "status": "active" },
+    { "owner_id": "module.networkflow", "contract_path": "contracts/verification/owners/module.networkflow.json", "status": "active" },
+    { "owner_id": "module.reportcomposition", "contract_path": "contracts/verification/owners/module.reportcomposition.json", "status": "active" },
+    { "owner_id": "module.reporting", "contract_path": "contracts/verification/owners/module.reporting.json", "status": "active" },
+    { "owner_id": "package.ui", "contract_path": "contracts/verification/owners/package.ui.json", "status": "active" },
+    { "owner_id": "platform.objectstore", "contract_path": "contracts/verification/owners/platform.objectstore.json", "status": "active" },
+    { "owner_id": "platform.telemetry", "contract_path": "contracts/verification/owners/platform.telemetry.json", "status": "active" },
+    { "owner_id": "web.architecture", "contract_path": "contracts/verification/owners/web.architecture.json", "status": "active" },
+    { "owner_id": "web.design", "contract_path": "contracts/verification/owners/web.design.json", "status": "active" }
+  ]
+}

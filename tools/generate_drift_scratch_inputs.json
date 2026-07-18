@@ -19,7 +19,6 @@
     "tools/otel/generate-otel-contracts.mjs",
     "tools/protocol-ts",
     "tools/harness",
-    "docs/design.md",
     "tools/execution_topology_manifest.json",
     "tools/task_surface_owner.json",
     "tools/scheduler_resource_registry.json",

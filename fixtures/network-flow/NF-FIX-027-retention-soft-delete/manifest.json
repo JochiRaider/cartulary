@@ -8,21 +8,6 @@
     "revision": 1,
     "change_policy": "new_fixture_revision_required"
   },
-  "owner_refs": [
-    {
-      "document": "docs/network-flow-activity-nlspec.md",
-      "requirement_ids": [
-        "NF-REQ-177",
-        "NF-REQ-178"
-      ],
-      "acceptance_ids": [
-        "NF-AC-023",
-        "NF-AC-028",
-        "NF-AC-104",
-        "NF-AC-106"
-      ]
-    }
-  ],
   "source_files": [
     {
       "logical_path": "source/retention-soft-delete.jsonl",
@@ -69,5 +54,8 @@
     "phase12/network-flow/NF-FIX-027-retention-soft-delete"
   ],
   "source_bundle_sha256": "3319cd131bcc817c9d0a9e295c29b4173c5130823786c1e5df9abcdd203e348b",
-  "expected_bundle_sha256": "4a1604a181b90be37996443da9014777af005f08a03baa0a3b683840230f73aa"
+  "expected_bundle_sha256": "4a1604a181b90be37996443da9014777af005f08a03baa0a3b683840230f73aa",
+  "verification_ids": [
+    "module.networkflow.verification.contract_accounting"
+  ]
 }

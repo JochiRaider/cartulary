@@ -9,14 +9,14 @@
     { "id": "OTEL-DQ-002", "closure_state": "repo_materialized", "evidence": "contracts/otel/generated_constants_manifest.json" },
     { "id": "OTEL-DQ-003", "closure_state": "repo_materialized", "evidence": "contracts/otel/otel_source_snapshot.v1.json" },
     { "id": "OTEL-DQ-004", "closure_state": "repo_materialized", "evidence": "contracts/otel/error_class_registry.json" },
-    { "id": "OTEL-DQ-005", "closure_state": "owner_closed", "evidence": "docs/opentelemetry-instrumentation-nlspec.md#14" },
-    { "id": "OTEL-DQ-006", "closure_state": "owner_closed", "evidence": "docs/opentelemetry-instrumentation-nlspec.md#12.4" },
-    { "id": "OTEL-DQ-007", "closure_state": "owner_closed", "evidence": "docs/opentelemetry-instrumentation-nlspec.md#10.4" },
-    { "id": "OTEL-DQ-008", "closure_state": "owner_closed", "evidence": "docs/opentelemetry-instrumentation-nlspec.md#14.2" },
-    { "id": "OTEL-DQ-009", "closure_state": "owner_closed", "evidence": "docs/opentelemetry-instrumentation-nlspec.md#12.2" },
-    { "id": "OTEL-DQ-010", "closure_state": "owner_closed", "evidence": "docs/opentelemetry-instrumentation-nlspec.md#7.1" },
-    { "id": "OTEL-DQ-011", "closure_state": "owner_closed", "evidence": "docs/opentelemetry-instrumentation-nlspec.md#7.1" },
-    { "id": "OTEL-DQ-012", "closure_state": "owner_closed", "evidence": "docs/opentelemetry-instrumentation-nlspec.md#6.2.1" }
+    { "id": "OTEL-DQ-005", "closure_state": "owner_closed", "evidence": "platform.telemetry.verification.current_conformance" },
+    { "id": "OTEL-DQ-006", "closure_state": "owner_closed", "evidence": "platform.telemetry.verification.current_conformance" },
+    { "id": "OTEL-DQ-007", "closure_state": "owner_closed", "evidence": "platform.telemetry.verification.current_conformance" },
+    { "id": "OTEL-DQ-008", "closure_state": "owner_closed", "evidence": "platform.telemetry.verification.current_conformance" },
+    { "id": "OTEL-DQ-009", "closure_state": "owner_closed", "evidence": "platform.telemetry.verification.current_conformance" },
+    { "id": "OTEL-DQ-010", "closure_state": "owner_closed", "evidence": "platform.telemetry.verification.current_conformance" },
+    { "id": "OTEL-DQ-011", "closure_state": "owner_closed", "evidence": "platform.telemetry.verification.current_conformance" },
+    { "id": "OTEL-DQ-012", "closure_state": "owner_closed", "evidence": "platform.telemetry.verification.current_conformance" }
   ],
   "acceptance_status": [
     { "id": "OIP-AC-001", "status": "pass", "evidence": "live repository inspected before materialization" },
@@ -43,7 +43,7 @@
     { "id": "OIP-AC-022", "status": "pass", "evidence": "contracts/otel/import_boundary.json records the browser runtime probe and the complete OTEL-AC-042 non-transfer absence registry; make otel-conformance enforces the registry, bundle/source/source-map absence checks, and the frontend-unit runtime probe evidence proving browser state cannot create telemetry globals or remote telemetry requests" },
     { "id": "OIP-AC-023", "status": "pass", "evidence": "dependency-update classification manifest defines registry_equivalent, additive_non_breaking, privacy_tightening, and breaking_shape_change gates; make otel-conformance now emits cartulary.otel_corpus_comparison.v1 and requires the latest in-tree comparison to classify as registry_equivalent before accepting dependency-update evidence" },
     { "id": "OIP-AC-024", "status": "pass", "evidence": "Core 04 §4.4 STRIDE threat model covers telemetry exporter endpoints, headers/secrets, source snapshots, generated constants, retained artifacts, redaction-before-recording, attribute governance, browser non-export/config boundaries, and runtime-failure invariance with explicit verification hooks; docs checker enforces the telemetry threat-model hook table" },
-    { "id": "OIP-AC-025", "status": "pass", "evidence": "docs/opentelemetry-implementation-plan.md phase gates map to OIP/OTEL criteria" },
+    { "id": "OIP-AC-025", "status": "pass", "evidence": "platform.telemetry.verification.current_conformance" },
     { "id": "OIP-AC-026", "status": "pass", "evidence": "internal/platform/telemetry retry-classification helpers and exporter-wrapper tests enumerate the pinned OTLP/HTTP and OTLP/gRPC transient/permanent status sets, enforce retry-envelope bounds including telemetry.exporter.retry.multiplier, disable upstream retry to prevent double loops, and map permanent classifications to exporter_permanent_discard; OTEL-CORPUS-016 records the retained retry-classification matrix" },
     { "id": "OIP-AC-027", "status": "pass", "evidence": "internal/platform/config and internal/platform/telemetry tests enforce configured and generated service.instance.id canonical lowercase non-nil UUID v4 structure; docs record the unenforced provenance invariant; OTEL-CORPUS-012 input fixture asserts default UUID-v4 generation and SERVICE_INSTANCE_ID_1 normalization" }
   ]

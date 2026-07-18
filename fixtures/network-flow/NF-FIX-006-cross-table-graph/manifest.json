@@ -8,25 +8,6 @@
     "revision": 1,
     "change_policy": "new_fixture_revision_required"
   },
-  "owner_refs": [
-    {
-      "document": "docs/network-flow-activity-nlspec.md",
-      "requirement_ids": [
-        "NF-REQ-177",
-        "NF-REQ-178"
-      ],
-      "acceptance_ids": [
-        "NF-AC-029",
-        "NF-AC-030",
-        "NF-AC-032",
-        "NF-AC-033",
-        "NF-AC-034",
-        "NF-AC-035",
-        "NF-AC-056",
-        "NF-AC-059"
-      ]
-    }
-  ],
   "source_files": [
     {
       "logical_path": "source/cross-table-graph-table-a.csv",
@@ -93,5 +74,8 @@
     "phase12/network-flow/NF-FIX-006-cross-table-graph"
   ],
   "source_bundle_sha256": "f75cfd9ec9d058fb0fa531da56c93c55ee289a3a200de764d031fa0fb36410c9",
-  "expected_bundle_sha256": "376d52d646bd2cfe7bc4a4c74c230f2db0da6ee5405b1be5b2e67a1fb378beb7"
+  "expected_bundle_sha256": "376d52d646bd2cfe7bc4a4c74c230f2db0da6ee5405b1be5b2e67a1fb378beb7",
+  "verification_ids": [
+    "module.networkflow.verification.contract_accounting"
+  ]
 }

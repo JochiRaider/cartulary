@@ -8,23 +8,6 @@
     "revision": 1,
     "change_policy": "new_fixture_revision_required"
   },
-  "owner_refs": [
-    {
-      "document": "docs/network-flow-activity-nlspec.md",
-      "requirement_ids": [
-        "NF-REQ-177",
-        "NF-REQ-178"
-      ],
-      "acceptance_ids": [
-        "NF-AC-022",
-        "NF-AC-023",
-        "NF-AC-028",
-        "NF-AC-061",
-        "NF-AC-072",
-        "NF-AC-104"
-      ]
-    }
-  ],
   "source_files": [
     {
       "logical_path": "source/soft-delete-stale-graph.csv",
@@ -81,5 +64,8 @@
     "phase12/network-flow/NF-FIX-009-soft-delete-stale-graph"
   ],
   "source_bundle_sha256": "a7e1c9db21c90b9e535d642d0b9ee1c52e882a873ca578b6c00a442c32877860",
-  "expected_bundle_sha256": "45b92c4f7d028be69449d7d8df7be9ea02108ab4d9423ed214a475799e4fe452"
+  "expected_bundle_sha256": "45b92c4f7d028be69449d7d8df7be9ea02108ab4d9423ed214a475799e4fe452",
+  "verification_ids": [
+    "module.networkflow.verification.contract_accounting"
+  ]
 }

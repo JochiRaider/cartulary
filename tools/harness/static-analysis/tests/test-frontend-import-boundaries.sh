@@ -349,8 +349,8 @@ write_config() {
     {
       "id": "frontend-runtime-raw-design-color-literals",
       "level": "error",
-      "message": "Runtime UI code must use generated Cartulary design token artifacts instead of raw docs/design.md color token literals.",
-      "design_document": "docs/design.md",
+      "message": "Runtime UI code must use generated Cartulary design token artifacts instead of raw machine-owned color token literals.",
+      "design_document": "contracts/design/tokens.v1.json",
       "token_namespaces": ["colors"],
       "applies_to": {
         "include": ["apps/web/src/**", "packages/grid-adapter/src/**"],
@@ -379,8 +379,8 @@ prepare_case_root() {
     "$case_root/packages/ui-contracts/src/generated" \
     "$case_root/packages/ui-contracts/src" \
     "$case_root/packages/view-contracts/src" \
-    "$case_root/docs"
-  cp "$ROOT_DIR/docs/design.md" "$case_root/docs/design.md"
+    "$case_root/contracts/design"
+  cp "$ROOT_DIR/contracts/design/tokens.v1.json" "$case_root/contracts/design/tokens.v1.json"
   cat >"$case_root/packages/grid-adapter/package.json" <<'JSON'
 {
   "name": "@cartulary/grid-adapter",

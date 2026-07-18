@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 
 import { targetEntryMap } from "../../generated-artifacts/task-surface/model.mjs";
@@ -9,30 +9,12 @@ import {
   repoPath,
 } from "./common.mjs";
 import { frontendEvidenceFreshnessDigest, sha256File } from "./freshness.mjs";
-import { collectFrontendGuideTargetRestatementErrors } from "./guide-restatements.mjs";
 import {
   loadFrontendPhaseRegistry,
 } from "./registry-loader.mjs";
 import { validateFrontendPhaseMap } from "./phase-map-validation.mjs";
 import { validateFrontendBrowserScenarioTitleOwnership } from "./row-validation.mjs";
 import { validateFrontendVisualFixtureRegistry } from "./visual-fixture-registry.mjs";
-
-function validateFrontendGuideTargetRestatements(root, registry, rowTargetNames) {
-  const absoluteGuidePath = repoPath(root, registry.guide_path);
-  if (!existsSync(absoluteGuidePath)) {
-    throw new Error(`frontend guide missing: ${registry.guide_path}`);
-  }
-  const errors = collectFrontendGuideTargetRestatementErrors(
-    readFileSync(absoluteGuidePath, "utf8"),
-    rowTargetNames,
-    registry.guide_path,
-  );
-  if (errors.length > 0) {
-    throw new Error(
-      `frontend guide target restatement drift:\n${errors.join("\n")}`,
-    );
-  }
-}
 
 function computeRowRollupState(entry, manifest, priorPhaseStates) {
   const implementedRows = manifest.rows.filter(
@@ -64,18 +46,7 @@ export function validateFrontendPhaseArtifacts(root = process.cwd(), options = {
     options.targetEntriesByName ??
     targetEntryMap(readJsonObject(taskSurfaceManifestPath, taskSurfaceManifestPath));
   const phaseStates = new Map();
-  const rowTargetNames = new Map();
   const frontendBrowserTitleOwners = new Map();
-  const expectedGuideDigest = sha256File(root, registry.guide_path);
-  if (
-    checkFreshness &&
-    expectedGuideDigest &&
-    registry.guide_digest !== expectedGuideDigest
-  ) {
-    throw new Error(
-      `${registry.path}.guide_digest must match ${registry.guide_path}`,
-    );
-  }
   for (const entry of registry.phases) {
     if (!existsSync(repoPath(root, entry.manifest_path))) {
       throw new Error(`frontend phase map missing: ${entry.manifest_path}`);
@@ -96,19 +67,6 @@ export function validateFrontendPhaseArtifacts(root = process.cwd(), options = {
         `${entry.manifest_path}.rows.${row.id}`,
         frontendBrowserTitleOwners,
       );
-      rowTargetNames.set(
-        row.id,
-        new Set(row.targets.map((target) => target.target_name)),
-      );
-    }
-    if (
-      checkFreshness &&
-      expectedGuideDigest &&
-      manifest.guide_digest !== expectedGuideDigest
-    ) {
-      throw new Error(
-        `${entry.manifest_path}.guide_digest must match ${registry.guide_path}`,
-      );
     }
     const expectedManifestDigest = sha256File(root, entry.manifest_path);
     if (
@@ -118,16 +76,6 @@ export function validateFrontendPhaseArtifacts(root = process.cwd(), options = {
     ) {
       throw new Error(
         `${entry.phase_id}.manifest_digest must match ${entry.manifest_path}`,
-      );
-    }
-    const expectedLedgerDigest = sha256File(root, entry.ledger_path);
-    if (
-      checkFreshness &&
-      expectedLedgerDigest &&
-      entry.ledger_digest !== expectedLedgerDigest
-    ) {
-      throw new Error(
-        `${entry.phase_id}.ledger_digest must match ${entry.ledger_path}`,
       );
     }
     const expectedFreshnessDigest = frontendEvidenceFreshnessDigest(
@@ -171,6 +119,5 @@ export function validateFrontendPhaseArtifacts(root = process.cwd(), options = {
       throw new Error(`unregistered frontend phase map: ${file}`);
     }
   }
-  validateFrontendGuideTargetRestatements(root, registry, rowTargetNames);
   validateFrontendVisualFixtureRegistry(root);
 }

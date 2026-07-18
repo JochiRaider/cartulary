@@ -1,6 +1,7 @@
 {
   "schema_id": "cartulary.frontend_visual_fixture_registry.v3",
-  "guide_path": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+  "owner_id": "harness.visual",
+  "verification_id": "harness.visual.verification.stable_fixture_identity",
   "fixtures": [
     {
       "fixture_id": "FE-VFIX-01",

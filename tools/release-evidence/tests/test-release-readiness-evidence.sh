@@ -135,7 +135,7 @@ write_valid_frontend_row_accounting() {
   },
   "registry_ref": "tools/frontend_phase_registry.json",
   "registry_digest": "0000000000000000000000000000000000000000000000000000000000000000",
-  "guide_ref": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+  "guide_ref": "harness.evidence_accounting.verification.semantic_evidence_identity",
   "guide_digest": "1111111111111111111111111111111111111111111111111111111111111111",
   "phase_map_refs": [
     "tools/frontend_phase_maps/fe_p8_test_map.json"

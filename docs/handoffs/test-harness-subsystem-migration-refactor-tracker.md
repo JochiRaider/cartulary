@@ -10,7 +10,7 @@
 | Baseline branch | `revision/grid-adapter` |
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
-| Tracker state | `READY` — WS-01 complete; WS-02 is the next safe workstream |
+| Tracker state | `READY` — WS-02 complete; WS-03 is the next safe workstream |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -326,22 +326,22 @@ The following known couplings are mandatory migration items. WS-00 must search f
 
 | Current consumer/input | Current coupling | Required disposition | Target machine owner | Status |
 | --- | --- | --- | --- | --- |
-| `tools/harness/tests/test-harness-contracts.mjs` | Parses the harness NLSpec command registry/input matrix and Network Flow source text. | Validate `tools/task_surface_owner.json`, catalog owners, and verification contracts directly. Delete prose-extraction assertions. | `harness.command_surface`, `harness.test_catalog` | TODO |
-| Harness schema-attachment validation | Parses owner-facade rows from the harness NLSpec for exact parity. | Validate `tools/harness_helper_ownership.json` and schema attachments against registered machine schemas. | `harness.generated_artifacts` | TODO |
-| Harness JSON-shape validation | Parses harness requirement IDs and Network Flow spec/locators. | Restrict JSON-shape checks to registered machine owners and references. | `harness.generated_artifacts` | TODO |
-| Frontend phase accounting | Reads guide paths, headings, digests, requirement IDs, acceptance IDs, and cumulative joins. | Replace with owner-family manifests and verification IDs; delete the frontend phase registry/accounting implementation. | `harness.test_catalog`, `harness.evidence_accounting` | TODO |
-| Network Flow Go unit test | Reads the Network Flow NLSpec, phase map, and document text. | Assert behavior and machine verification/accounting contracts; remove file-content assertions. | `module.networkflow` | TODO |
-| Network Flow activity accounting | Stores `source_spec` and Core/NLSpec locator fragments. | Retain only stable machine verification references and pure accounting fields. | `module.networkflow` | TODO |
-| Reporting traceability test | Parses reporting NLSpec and Core documents. | Validate reporting corpus and owner verification contracts without opening documentation. | `module.reporting` | TODO |
-| Report Composition traceability test | Parses report-composition NLSpec. | Validate a report-composition machine contract/corpus. | `module.reportcomposition` | TODO |
-| OpenTelemetry conformance tool | Parses OTEL NLSpec and Core documents for status, TODOs, hooks, and error codes. | Move executable telemetry requirements to an authored machine contract under the telemetry contract owner. | `platform.telemetry` | TODO |
-| SeaweedFS release-evidence tool | Reads Core documents for storage and threat-model references. | Validate an authored storage/release threat-policy contract. | `platform.objectstore`, `harness.release` | TODO |
-| Design-token generator/checks | Parse `docs/design.md` and depend on documentation paths. | Move executable tokens and frontend design policy to machine owners; keep `docs/design.md` descriptive. | `package.ui`, `web.design` | TODO |
-| Frontend import-boundary configuration/tests | Extract or validate design direction through documentation references. | Encode executable boundary rules in machine configuration; retain optional inert documentation references. | `web.architecture` | TODO |
-| Visual browser spec | Asserts a visual registry `guide_path`. | Assert owner IDs, fixture IDs, scenario IDs, and contract version; remove guide-path behavior. | `harness.visual` | TODO |
-| Visual fixture registry | Carries guide/document ownership. | Replace with stable fixture and owner IDs; preserve golden bytes during path-only moves. | `harness.visual` | TODO |
-| Release-readiness evidence | Emits documentation owner references. | Emit stable machine owner/verification IDs; optional docs references remain display-only. | `harness.release` | TODO |
-| `contracts/index.json` | Contains `owner_document` metadata. | Keep only as inert traceability or replace with stable owner IDs; no validator may open the document. | Contract registry | TODO |
+| `tools/harness/tests/test-harness-contracts.mjs` | Parses the harness NLSpec command registry/input matrix and Network Flow source text. | Validate `tools/task_surface_owner.json`, catalog owners, and verification contracts directly. Delete prose-extraction assertions. | `harness.command_surface`, `harness.test_catalog` | DONE |
+| Harness schema-attachment validation | Parses owner-facade rows from the harness NLSpec for exact parity. | Validate `tools/harness_helper_ownership.json` and schema attachments against registered machine schemas. | `harness.generated_artifacts` | DONE |
+| Harness JSON-shape validation | Parses harness requirement IDs and Network Flow spec/locators. | Restrict JSON-shape checks to registered machine owners and references. | `harness.generated_artifacts` | DONE |
+| Frontend phase accounting | Reads guide paths, headings, digests, requirement IDs, acceptance IDs, and cumulative joins. | Replace executable document inputs with verification IDs now; replace and delete the remaining v1 frontend accounting structure in T-026. | `harness.test_catalog`, `harness.evidence_accounting` | DONE |
+| Network Flow Go unit test | Reads the Network Flow NLSpec, phase map, and document text. | Assert behavior and machine verification/accounting contracts; remove file-content assertions. | `module.networkflow` | DONE |
+| Network Flow activity accounting | Stores `source_spec` and Core/NLSpec locator fragments. | Retain only stable machine verification references and pure accounting fields. | `module.networkflow` | DONE |
+| Reporting traceability test | Parses reporting NLSpec and Core documents. | Validate reporting corpus and owner verification contracts without opening documentation. | `module.reporting` | DONE |
+| Report Composition traceability test | Parses report-composition NLSpec. | Validate a report-composition machine contract/corpus. | `module.reportcomposition` | DONE |
+| OpenTelemetry conformance tool | Parses OTEL NLSpec and Core documents for status, TODOs, hooks, and error codes. | Move executable telemetry requirements to an authored machine contract under the telemetry contract owner. | `platform.telemetry` | DONE |
+| SeaweedFS release-evidence tool | Reads Core documents for storage and threat-model references. | Validate an authored storage/release threat-policy contract. | `platform.objectstore`, `harness.release` | DONE |
+| Design-token generator/checks | Parse `docs/design.md` and depend on documentation paths. | Move executable tokens and frontend design policy to machine owners; keep `docs/design.md` descriptive. | `package.ui`, `web.design` | DONE |
+| Frontend import-boundary configuration/tests | Extract or validate design direction through documentation references. | Encode executable boundary rules in machine configuration; retain optional inert documentation references. | `web.architecture` | DONE |
+| Visual browser spec | Asserts a visual registry `guide_path`. | Assert owner IDs, fixture IDs, scenario IDs, and contract version; remove guide-path behavior. | `harness.visual` | DONE |
+| Visual fixture registry | Carries guide/document ownership. | Replace with stable fixture and owner IDs; preserve golden bytes during path-only moves. | `harness.visual` | DONE |
+| Release-readiness evidence | Emits documentation owner references. | Emit stable machine owner/verification IDs; optional docs references remain display-only. | `harness.release` | DONE |
+| `contracts/index.json` | Contains `owner_document` metadata. | Keep only as inert traceability or replace with stable owner IDs; no validator may open the document. | Contract registry | DONE |
 
 ### Decoupling acceptance rule
 
@@ -484,7 +484,7 @@ These follow-ups do not block harness completion unless the old production ident
 | --- | --- | --- | --- | --- | --- |
 | WS-00 | Freeze baseline and build migration crosswalk | DONE | None | `tools/test_migration_baseline.json`; `tools/test_migration_crosswalk.json` | Revert inventory-only commit. |
 | WS-01 | Revise owner contracts and repository procedure | DONE | WS-00 | Adopted harness contract and command-policy review | Revert contract commit before implementation consumers land. |
-| WS-02 | Create machine verification owners and remove documentation parsing | TODO | WS-01 | Schema-valid contracts and decoupling ledger closure | Revert an owner contract and its consumers together. |
+| WS-02 | Create machine verification owners and remove documentation parsing | DONE | WS-01 | Schema-valid contracts and decoupling ledger closure | Revert an owner contract and its consumers together. |
 | WS-03 | Build unified test catalog | TODO | WS-01, WS-02 | Registry/manifests loader and catalog checks | Revert catalog stack; old catalog remains authoritative only before cutover. |
 | WS-04 | Migrate backend rows | TODO | WS-03 | 456 backend dispositions and focused tests | Revert complete owner slices, never individual aliases. |
 | WS-05 | Migrate frontend rows | TODO | WS-03 | 87 frontend dispositions and browser accounting tests | Revert complete owner slices with fixture metadata. |
@@ -691,10 +691,10 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-007 | Inventory production-source follow-ups | WS-00 | DONE | None | 13 classified follow-ups | Seven authored identities and six generated descendants have owners and dispositions. |
 | T-008 | Adopt owner-based harness NLSpec | WS-01 | DONE | T-004,T-006 | 216-requirement/72-acceptance editorial audit | Phase mechanics are retirement history only; owner mechanics are normative. |
 | T-009 | Update active command/procedure docs | WS-01 | DONE | T-008 | Markdown lint and active-doc command scan | No active procedure directs contributors to a phase command. |
-| T-010 | Register verification schemas | WS-02 | TODO | T-008 | JSON shape evidence | Registry and owner contracts validate. |
-| T-011 | Migrate harness executable requirements | WS-02 | TODO | T-010 | Focused harness tests | Harness tests consume machine owners only. |
-| T-012 | Migrate product/tool documentation readers | WS-02 | TODO | T-010 | Per-owner tests and scan | Section 6 is closed. |
-| T-013 | Add no-document-read guard | WS-02 | TODO | T-011,T-012 | Negative fixtures | Unauthorized doc reads fail deterministically. |
+| T-010 | Register verification schemas | WS-02 | DONE | T-008 | JSON shape evidence | Registry and owner contracts validate. |
+| T-011 | Migrate harness executable requirements | WS-02 | DONE | T-010 | Focused harness tests | Harness tests consume machine owners only. |
+| T-012 | Migrate product/tool documentation readers | WS-02 | DONE | T-010 | Per-owner tests and scan | Section 6 is closed. |
+| T-013 | Add no-document-read guard | WS-02 | DONE | T-011,T-012 | Negative fixtures | Unauthorized doc reads fail deterministically. |
 | T-014 | Add owner registry and family schemas | WS-03 | TODO | T-010 | JSON shape evidence | Owner/family files validate. |
 | T-015 | Implement unified catalog loader and validator | WS-03 | TODO | T-014 | Unit/smoke tests | Invalid references/selectors are rejected. |
 | T-016 | Absorb Graph Projection subsystem map | WS-03 | TODO | T-015 | Crosswalk/catalog evidence | No special subsystem path needed. |
@@ -891,6 +891,21 @@ Each entry must include:
 - Skipped checks: JSON shape, harness contract, generation, owner slices, broad verification, finalization, and release checks remain blocked on WS-02 through WS-10 implementation inputs.
 - Next safe task: WS-02/T-010 through T-013, creating reviewed verification owner contracts and replacing executable documentation parsing with machine-owner validation.
 - Rollback boundary: revert the WS-01 documentation checkpoint as one unit before any consumer relies on the new commands; do not restore phase-preservation language selectively.
+
+#### 2026-07-17 — WS-02 machine verification and documentation-decoupling checkpoint
+
+- Branch/commit at start: `revision/grid-adapter` at `9a4a6930a7e1`; the tree contains the completed WS-02 owner contracts, consumer migrations, generated projections, validation fixtures, and this tracker checkpoint. WS-03 has not started.
+- Workstream/task state: WS-02 and T-010 through T-013 are `DONE`. All 16 Section 6 coupling rows are closed. The remaining v1 frontend registry/accounting structure has no executable documentation dependency and remains an explicit T-026 deletion obligation, not a compatibility exception.
+- Authored machine owners: added the closed verification registry and 14 owner contracts under `contracts/verification/`, machine design-token and object-store release-threat contracts, registered schemas, empty closed documentation-read and delivery-phase semantic policy files, the verification loader, and the documentation-boundary policy/CLI. Documentation references are excluded from semantic verification digests.
+- Consumer migration: harness contract/schema/JSON validation, Network Flow accounting/fixtures/tests, reporting and report-composition traceability, OpenTelemetry conformance, SeaweedFS and release-readiness evidence, design-token generation/import policy, visual registry/spec, frontend accounting, and finalizer cache inputs now consume machine owners or inert metadata without opening documentation. `contracts/index.json.owner_document` remains inert and is not statted, resolved, hashed, or opened.
+- Policy enforcement: the no-document-read guard covers tracked and untracked executable sources, Makefiles, package scripts, direct and computed filesystem operations, local helper-mediated reads, lexical containment, realpath containment, and symlink escape. Exact schema-valid exceptions are limited to documentation lint, link-check, or generation purposes; the active exception registry is empty.
+- Generated outputs: refreshed `internal/gen/contracts/contracts_gen.go`, `packages/protocol-ts/src/generated/contracts.ts`, `tools/execution_topology_render_index.json`, and `tools/scheduler_manifest.json` only through Make-owned generation. The transitional v1 schedule refresh remains deletion inventory for T-040/T-045 and does not change the final owner-first contract.
+- Crosswalk totals: before and after this slice, 548 frozen authoritative identities remain represented as pending baseline keys, with zero terminal dispositions, 37 backend support candidates, and 228 Vitest classification candidates still awaiting WS-03 through WS-05 adjudication. WS-02 neither created nor deleted a test identity.
+- Passed validation: `make generate` at `.cartulary/test-results/20260717T234819Z-p51303`; transitional `make phase-schedules` at `.cartulary/test-results/20260718T000642Z-p62545`; `make json-shape-check` at `.cartulary/test-results/20260718T000647Z-p62819`; `make harness-contract` at `.cartulary/test-results/20260718T000647Z-p62856`; `make generate-drift` at `.cartulary/test-results/20260718T000647Z-p62815`; `make generated-artifact-policy-check` at `.cartulary/test-results/20260718T000647Z-p62842`; `make otel-conformance` at `.cartulary/test-results/20260717T235224Z-p66991`; `make frontend-import-boundary-check` at `.cartulary/test-results/20260717T235224Z-p66997`; `make seaweedfs-release-evidence` at `.cartulary/test-results/20260717T235237Z-p70495`; `make backend-unit` with 235 passing tests at `.cartulary/test-results/20260717T235632Z-p95206`; `make format` at `.cartulary/test-results/20260718T000553Z-p56691`; and `make test-fast` with 1,307 passing tests at `.cartulary/test-results/20260718T000159Z-p12196`. `make lint-scripts`, `make lint-shell`, and `make lint-markdown` also passed.
+- Resolved migration-related failures: frontend freshness digests were refreshed after the schema-owner change; array equality in Network Flow shape validation was corrected; stale guide-ref fixtures were migrated; the reporting traceability test was corrected to call the package-owned unexported selector; the telemetry error-class registry was reconciled to the machine public-error registry; and generate-drift scratch execution now uses its actual internal target identity and avoids a nested `contracts/contracts` copy caused by a redundant input path.
+- Skipped checks: owner-catalog negative fixtures, owner slices, browser stages, broad `make check`, finalization, and release check remain inapplicable until WS-03 through WS-10 complete the catalog, command, topology, and hard-cutover work. No historical phase run is accepted as v2 closure evidence.
+- Next safe task: WS-03/T-014 through T-018. Mark only WS-03 `IN_PROGRESS`, then add the owner/family/runner/profile registries and unified loader before adjudicating any backend or frontend row.
+- Rollback boundary: revert the WS-02 verification-owner contracts, migrated consumers, schemas, fixtures, and generated projections as one checkpoint. Do not restore individual documentation readers or retain a machine contract without its consumer validation.
 
 ## 17. First-resumer checklist
 

@@ -1,0 +1,15 @@
+{
+  "schema_id": "cartulary.verification_contract.v1",
+  "owner_id": "module.networkflow",
+  "verifications": [
+    {
+      "verification_id": "module.networkflow.verification.contract_accounting",
+      "behavior_class": "product",
+      "profile": "extension.network_flow_activity",
+      "requirement": "Network Flow generated contracts, fixtures, selectors, dependency closures, routes, and accounting remain consistent with the adopted extension behavior.",
+      "evidence_kinds": ["go_test", "playwright", "static_check"],
+      "status": "active",
+      "documentation_refs": ["docs/network-flow-activity-nlspec.md"]
+    }
+  ]
+}

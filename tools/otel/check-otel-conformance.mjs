@@ -22,9 +22,8 @@ const telemetryConfigSchemaPath = "contracts/otel/telemetry_config_schema.v1.jso
 const configHazardMatrixPath = "contracts/otel/config_hazard_fixture_matrix.v1.json";
 const corpusManifestPath = "internal/testutil/golden/otel/corpus_manifest.json";
 const dependencyClassificationPath = "internal/testutil/golden/otel/dependency_update_classification.json";
-const otelDocPath = "docs/opentelemetry-instrumentation-nlspec.md";
-const core01Path = "docs/spec/01_architecture_storage_and_view_contracts.md";
-const core04Path = "docs/spec/04_security_deployment_and_conformance.md";
+const verificationContractPath = "contracts/verification/owners/platform.telemetry.json";
+const publicErrorRegistryPath = "contracts/errors/index.json";
 const expectedDigest = "3f8f80a2ed04521dfe29e50fcddd7f7de70145a6aee01959f985a65fbb4c8632";
 const otelCommit = "d4a91bddb53b4c308df3e40171a60059183efd88";
 const semconvCommit = "e018fe6f91862f5ed63c082f87697cddac596784";
@@ -451,44 +450,10 @@ function assert(condition, message, checks, id) {
   return true;
 }
 
-function sectionBetween(text, start, end) {
-  const startIndex = text.indexOf(start);
-  if (startIndex < 0) {
-    return "";
-  }
-  const endIndex = text.indexOf(end, startIndex + start.length);
-  return endIndex < 0 ? text.slice(startIndex) : text.slice(startIndex, endIndex);
-}
-
-function publicErrorCodes(core01) {
-  const section = sectionBetween(
-    core01,
-    "##### 3.3.6.1 Canonical public error-code registry",
-    "##### 3.3.6.2",
-  );
+function publicErrorCodes() {
   return new Set(
-    [...section.matchAll(/^\| `([^`]+)` \|/gm)]
-      .map((match) => match[1])
-      .filter((code) => code !== "error.code"),
+    (readJSON(publicErrorRegistryPath).errors ?? []).map((entry) => entry.code),
   );
-}
-
-function mappedErrorCodes(otelDoc) {
-  const section = sectionBetween(otelDoc, "**OTEL-REQ-142**", "**OTEL-REQ-143**");
-  const counts = new Map();
-  for (const line of section.split("\n")) {
-    if (!line.startsWith("| `") || line.includes("---")) {
-      continue;
-    }
-    const cells = line.split("|").map((cell) => cell.trim());
-    if (cells.length < 4 || cells[1] === "`cartulary.error_class`") {
-      continue;
-    }
-    for (const match of cells[2].matchAll(/`([^`]+)`/g)) {
-      counts.set(match[1], (counts.get(match[1]) ?? 0) + 1);
-    }
-  }
-  return counts;
 }
 
 function validateSnapshot(snapshot, checks) {
@@ -580,8 +545,8 @@ function validateTelemetryConfigSchema(schema, checks) {
   );
   assert(schema.status === "adopted_conformant", "telemetry config schema is adopted_conformant with the subsystem", checks, "telemetry_config.status");
   assert(
-    schema.source_owner === "docs/opentelemetry-instrumentation-nlspec.md#6.1",
-    "telemetry config schema names the owner table",
+    schema.source_owner === "platform.telemetry.verification.current_conformance",
+    "telemetry config schema names its machine verification owner",
     checks,
     "telemetry_config.source_owner",
   );
@@ -665,8 +630,8 @@ function validateConfigHazardMatrix(matrix, checks) {
   );
   assert(matrix.status === "adopted_conformant", "config/hazard matrix is adopted_conformant with the subsystem", checks, "config_hazard.status");
   assert(
-    matrix.source_owner === "docs/opentelemetry-instrumentation-nlspec.md#6.4-6.5",
-    "config/hazard matrix names the owner sections",
+    matrix.source_owner === "platform.telemetry.verification.current_conformance",
+    "config/hazard matrix names its machine verification owner",
     checks,
     "config_hazard.source_owner",
   );
@@ -1021,33 +986,27 @@ function validateImportBoundary(boundary, checks) {
   );
 }
 
-function validateDocs(checks) {
-  const otelDoc = readText(otelDocPath);
-  const core04 = readText(core04Path);
-  assert(otelDoc.includes("status: adopted/current"), "OpenTelemetry NLSpec front matter is adopted", checks, "docs.otel_status_frontmatter");
-  assert(otelDoc.includes("Status: `adopted/current`."), "OpenTelemetry NLSpec status text is adopted", checks, "docs.otel_status_text");
-  assert(!otelDoc.includes("## 16. Open decisions"), "Open decision section is absent", checks, "docs.no_open_decisions");
-  const placeholderLines = otelDoc
-    .split("\n")
-    .filter((line) => /\bTODO\b|\bTBD\b/.test(line))
-    .filter((line) => !line.includes("placeholder") && !line.includes("No `TODO`"));
-  assert(placeholderLines.length === 0, "OpenTelemetry NLSpec contains no TODO/TBD placeholders", checks, "docs.no_todo_tbd");
-  assert(otelDoc.includes(expectedDigest), "OpenTelemetry NLSpec contains the adopted semantic-convention digest", checks, "docs.digest_present");
-  const telemetryThreatHooks = [
-    "Exporter endpoint configuration and no-default egress",
-    "Exporter headers and secret references",
-    "Source snapshots, generated constants, normalized goldens, and retained raw captures",
-    "Redaction-before-recording and attribute governance",
-    "Browser telemetry boundary",
-    "Runtime failure invariance",
-    "telemetry runtime-failure behavior or runtime-invariance evidence",
-  ];
-  const missingThreatHooks = telemetryThreatHooks.filter((text) => !core04.includes(text));
+function validateVerificationOwner(checks) {
+  const contract = readJSON(verificationContractPath);
   assert(
-    missingThreatHooks.length === 0,
-    `Core 04 telemetry threat-model verification hooks are present${missingThreatHooks.length ? `; missing ${missingThreatHooks.join(", ")}` : ""}`,
+    contract.schema_id === "cartulary.verification_contract.v1" &&
+      contract.owner_id === "platform.telemetry",
+    "telemetry verification contract has the current machine owner identity",
     checks,
-    "docs.core04_telemetry_threat_model",
+    "verification.owner_identity",
+  );
+  const verification = (contract.verifications ?? []).find(
+    (entry) =>
+      entry.verification_id ===
+      "platform.telemetry.verification.current_conformance",
+  );
+  assert(
+    verification?.status === "active" &&
+      verification?.profile === "support" &&
+      (verification?.evidence_kinds ?? []).includes("static_check"),
+    "telemetry conformance has an active support-profile machine verification",
+    checks,
+    "verification.current_conformance",
   );
 
   for (const dir of [
@@ -1915,19 +1874,24 @@ function validateNoRepoAdoptionTODOs(checks) {
 }
 
 function validateErrorMapping(checks) {
-  const publicCodes = publicErrorCodes(readText(core01Path));
-  const mappedCounts = mappedErrorCodes(readText(otelDocPath));
+  const publicCodes = publicErrorCodes();
+  const mappedCounts = new Map();
+  for (const row of readJSON(errorClassRegistryPath).public_error_classes ?? []) {
+    for (const code of row.error_codes ?? []) {
+      mappedCounts.set(code, (mappedCounts.get(code) ?? 0) + 1);
+    }
+  }
   const missing = [...publicCodes].filter((code) => !mappedCounts.has(code));
   const duplicated = [...mappedCounts.entries()].filter(([, count]) => count !== 1).map(([code]) => code);
   const unknown = [...mappedCounts.keys()].filter((code) => !publicCodes.has(code));
-  assert(missing.length === 0, `all Core 01 public error codes are mapped${missing.length ? `; missing ${missing.join(", ")}` : ""}`, checks, "errors.mapping_complete");
+  assert(missing.length === 0, `all machine-owned public error codes are mapped${missing.length ? `; missing ${missing.join(", ")}` : ""}`, checks, "errors.mapping_complete");
   assert(duplicated.length === 0, `no public error code is mapped more than once${duplicated.length ? `; duplicated ${duplicated.join(", ")}` : ""}`, checks, "errors.mapping_unique");
   assert(unknown.length === 0, `mapping contains no unknown public error code${unknown.length ? `; unknown ${unknown.join(", ")}` : ""}`, checks, "errors.mapping_known");
 }
 
 function validateErrorClassRegistry(registry, checks) {
   assert(registry.schema_id === "cartulary.otel_error_class_registry.v1", "error-class registry uses the adopted schema", checks, "errors.registry_schema_id");
-  const publicCodes = publicErrorCodes(readText(core01Path));
+  const publicCodes = publicErrorCodes();
   const mappedCounts = new Map();
   const classNames = new Set();
   for (const row of registry.public_error_classes ?? []) {
@@ -1977,7 +1941,7 @@ function main() {
     validateConfigHazardMatrix(readJSON(configHazardMatrixPath), checks);
     validateConformanceStatus(readJSON(conformanceStatusPath), checks);
     validateImportBoundary(readJSON(importBoundaryPath), checks);
-    validateDocs(checks);
+    validateVerificationOwner(checks);
     validateGoldenCorpus(readJSON(corpusManifestPath), readJSON(dependencyClassificationPath), checks);
     validateNoRepoAdoptionTODOs(checks);
     validateErrorMapping(checks);

@@ -47,7 +47,7 @@
       "pattern": "^[a-f0-9]{64}$"
     },
     "guide_ref": {
-      "const": "docs/guides/cartulary_frontend_implementation_testing_guide.md"
+      "const": "harness.evidence_accounting.verification.semantic_evidence_identity"
     },
     "guide_digest": {
       "type": "string",

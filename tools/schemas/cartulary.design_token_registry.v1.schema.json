@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.design_token_registry.v1",
+  "title": "Cartulary design token registry v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "owner_id", "verification_id", "default_theme_id", "token_vars"],
+  "properties": {
+    "schema_id": { "const": "cartulary.design_token_registry.v1" },
+    "owner_id": { "const": "package.ui" },
+    "verification_id": { "const": "package.ui.verification.machine_owned_tokens" },
+    "default_theme_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "token_vars": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "pattern": "^--ct-[A-Za-z0-9-]+$" },
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    }
+  }
+}

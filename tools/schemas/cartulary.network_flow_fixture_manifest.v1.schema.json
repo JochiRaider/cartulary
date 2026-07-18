@@ -9,7 +9,7 @@
     "fixture_id",
     "profile_id",
     "freeze",
-    "owner_refs",
+    "verification_ids",
     "source_files",
     "expected_artifacts",
     "transcript_files",
@@ -19,36 +19,51 @@
     "expected_bundle_sha256"
   ],
   "properties": {
-    "schema_id": { "const": "cartulary.network_flow_fixture_manifest.v1" },
-    "manifest_version": { "type": "integer", "minimum": 1 },
-    "fixture_id": { "$ref": "#/$defs/network_flow_fixture_id" },
-    "profile_id": { "const": "network_flow_activity" },
-    "freeze": { "$ref": "#/$defs/freeze" },
-    "owner_refs": {
-      "type": "array",
-      "minItems": 1,
-      "items": { "$ref": "#/$defs/owner_ref" }
+    "schema_id": {
+      "const": "cartulary.network_flow_fixture_manifest.v1"
+    },
+    "manifest_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "fixture_id": {
+      "$ref": "#/$defs/network_flow_fixture_id"
+    },
+    "profile_id": {
+      "const": "network_flow_activity"
+    },
+    "freeze": {
+      "$ref": "#/$defs/freeze"
     },
     "source_files": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/source_file" }
+      "items": {
+        "$ref": "#/$defs/source_file"
+      }
     },
     "expected_artifacts": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/expected_artifact" }
+      "items": {
+        "$ref": "#/$defs/expected_artifact"
+      }
     },
     "transcript_files": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/transcript_file" }
+      "items": {
+        "$ref": "#/$defs/transcript_file"
+      }
     },
     "acceptance_ids": {
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
-      "items": { "type": "string", "pattern": "^NF-AC-[0-9]{3}$" }
+      "items": {
+        "type": "string",
+        "pattern": "^NF-AC-[0-9]{3}$"
+      }
     },
     "execution_selectors": {
       "type": "array",
@@ -61,9 +76,24 @@
         "pattern": "^[A-Za-z0-9_.:/#-]+$"
       }
     },
-    "source_bundle_sha256": { "$ref": "#/$defs/sha256" },
-    "expected_bundle_sha256": { "$ref": "#/$defs/sha256" },
-    "extensions": { "$ref": "cartulary.harness.defs.v1#/$defs/extensions" }
+    "source_bundle_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "expected_bundle_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "extensions": {
+      "$ref": "cartulary.harness.defs.v1#/$defs/extensions"
+    },
+    "verification_ids": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "const": "module.networkflow.verification.contract_accounting"
+      }
+    }
   },
   "$defs": {
     "sha256": {
@@ -83,58 +113,80 @@
     "freeze": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["status", "revision", "change_policy"],
+      "required": [
+        "status",
+        "revision",
+        "change_policy"
+      ],
       "properties": {
-        "status": { "enum": ["draft", "frozen"] },
-        "revision": { "type": "integer", "minimum": 1 },
-        "change_policy": { "const": "new_fixture_revision_required" }
-      }
-    },
-    "owner_ref": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["document", "requirement_ids", "acceptance_ids"],
-      "properties": {
-        "document": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 240,
-          "pattern": "^[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*\\.md$"
+        "status": {
+          "enum": [
+            "draft",
+            "frozen"
+          ]
         },
-        "requirement_ids": {
-          "type": "array",
-          "uniqueItems": true,
-          "items": { "type": "string", "minLength": 1, "maxLength": 80 }
+        "revision": {
+          "type": "integer",
+          "minimum": 1
         },
-        "acceptance_ids": {
-          "type": "array",
-          "uniqueItems": true,
-          "items": { "type": "string", "minLength": 1, "maxLength": 80 }
+        "change_policy": {
+          "const": "new_fixture_revision_required"
         }
       }
     },
     "file_base": {
       "type": "object",
-      "required": ["logical_path", "media_type", "size_bytes", "sha256"],
+      "required": [
+        "logical_path",
+        "media_type",
+        "size_bytes",
+        "sha256"
+      ],
       "properties": {
-        "logical_path": { "$ref": "#/$defs/manifest_relative_path" },
-        "media_type": { "type": "string", "minLength": 1, "maxLength": 120 },
-        "size_bytes": { "type": "integer", "minimum": 0 },
-        "sha256": { "$ref": "#/$defs/sha256" }
+        "logical_path": {
+          "$ref": "#/$defs/manifest_relative_path"
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
       }
     },
     "source_file": {
       "allOf": [
-        { "$ref": "#/$defs/file_base" },
+        {
+          "$ref": "#/$defs/file_base"
+        },
         {
           "type": "object",
-          "required": ["role", "newline_policy"],
+          "required": [
+            "role",
+            "newline_policy"
+          ],
           "properties": {
             "role": {
-              "enum": ["input", "mapping", "seed", "config", "support"]
+              "enum": [
+                "input",
+                "mapping",
+                "seed",
+                "config",
+                "support"
+              ]
             },
             "newline_policy": {
-              "enum": ["byte_exact", "lf_required", "not_text"]
+              "enum": [
+                "byte_exact",
+                "lf_required",
+                "not_text"
+              ]
             }
           }
         }
@@ -143,10 +195,14 @@
     },
     "expected_artifact": {
       "allOf": [
-        { "$ref": "#/$defs/file_base" },
+        {
+          "$ref": "#/$defs/file_base"
+        },
         {
           "type": "object",
-          "required": ["role"],
+          "required": [
+            "role"
+          ],
           "properties": {
             "role": {
               "enum": [
@@ -169,10 +225,14 @@
     },
     "transcript_file": {
       "allOf": [
-        { "$ref": "#/$defs/file_base" },
+        {
+          "$ref": "#/$defs/file_base"
+        },
         {
           "type": "object",
-          "required": ["transcript_kind"],
+          "required": [
+            "transcript_kind"
+          ],
           "properties": {
             "transcript_kind": {
               "enum": [

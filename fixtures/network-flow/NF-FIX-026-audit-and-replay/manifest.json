@@ -8,22 +8,6 @@
     "revision": 1,
     "change_policy": "new_fixture_revision_required"
   },
-  "owner_refs": [
-    {
-      "document": "docs/network-flow-activity-nlspec.md",
-      "requirement_ids": [
-        "NF-REQ-177",
-        "NF-REQ-178"
-      ],
-      "acceptance_ids": [
-        "NF-AC-043",
-        "NF-AC-072",
-        "NF-AC-101",
-        "NF-AC-102",
-        "NF-AC-103"
-      ]
-    }
-  ],
   "source_files": [
     {
       "logical_path": "source/audit-and-replay.jsonl",
@@ -71,5 +55,8 @@
     "phase12/network-flow/NF-FIX-026-audit-and-replay"
   ],
   "source_bundle_sha256": "11e3a0066d1567564a9f2e316a5836f75d336571db49a7781cdbc537e356a252",
-  "expected_bundle_sha256": "13fbbbf6047232e572a4e57c206bbd8526ce6d14aa65af7173fa9104f4307aad"
+  "expected_bundle_sha256": "13fbbbf6047232e572a4e57c206bbd8526ce6d14aa65af7173fa9104f4307aad",
+  "verification_ids": [
+    "module.networkflow.verification.contract_accounting"
+  ]
 }

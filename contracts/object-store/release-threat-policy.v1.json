@@ -1,0 +1,48 @@
+{
+  "schema_id": "cartulary.object_store_release_threat_policy.v1",
+  "owner_id": "platform.objectstore",
+  "verification_id": "platform.objectstore.verification.release_threat_policy",
+  "threat_model": [
+    {
+      "stride": "denial_of_service",
+      "controls": ["Bound evidence bytes, prefix listing, repeated range reads, storage consumption, and startup-probe cleanup."],
+      "verification_hooks": ["occurrence-inventory.json", "release-manifest-exposure.json"]
+    },
+    {
+      "stride": "elevation_of_privilege",
+      "controls": ["Reject anonymous access, wildcard credentials, wildcard CORS, exposed administration APIs, and default-service confusion."],
+      "verification_hooks": ["dependency-boundary.json", "release-manifest-exposure.json"]
+    },
+    {
+      "stride": "information_disclosure",
+      "controls": ["Redact secrets, physical object keys, direct-upload targets, same-origin handles, and storage administration identities."],
+      "verification_hooks": ["redaction-leakage-scan.json"]
+    },
+    {
+      "stride": "repudiation",
+      "controls": ["Retain auditable migration inventories, compatibility outcomes, lifecycle transitions, and operator-attributed destructive actions."],
+      "verification_hooks": ["seaweedfs-migration-preservation.json"]
+    },
+    {
+      "stride": "spoofing",
+      "controls": ["Bind service identity, credentials, bucket ownership, upload targets, and migration endpoints to explicit configuration."],
+      "verification_hooks": ["dependency-boundary.json", "sbom-license-classification.json"]
+    },
+    {
+      "stride": "tampering",
+      "controls": ["Verify object digests, bucket/key identity, migration copy results, immutable compatibility cases, and retained artifact integrity."],
+      "verification_hooks": ["seaweedfs-migration-preservation.json", "storage-ref-owner-coverage.json"]
+    }
+  ],
+  "storage_ref_controls": [
+    { "check_id": "external-locator-preservation", "assertion": "User-authored external locators are preserved and never rewritten as server-managed object references.", "status": "active" },
+    { "check_id": "invalid-key-before-backend-call", "assertion": "Malformed physical keys fail as object_store_invalid_request before an object-store call.", "status": "active" },
+    { "check_id": "logical-server-ref-canonical-form", "assertion": "The canonical backend-neutral server reference is object://{object_blob_uuid}.", "status": "active" },
+    { "check_id": "migration-preserves-bucket-key-and-storage-ref", "assertion": "Object-store migration preserves bucket, physical key, and logical storage reference without mutating database identity.", "status": "active" },
+    { "check_id": "physical-key-canonicalization", "assertion": "Physical keys use lowercase RFC 4122 identities, slash-separated ASCII, no empty segments, and no NUL, CR, or LF.", "status": "active" },
+    { "check_id": "physical-key-grammar", "assertion": "object_blob_storage_key_v1 uses incidents/{incident_uuid}/object-blobs/{object_blob_uuid}.", "status": "active" },
+    { "check_id": "physical-key-maximum-length", "assertion": "Physical keys are at most 1024 UTF-8 bytes.", "status": "active" },
+    { "check_id": "private-physical-key-boundary", "assertion": "object_blobs.storage_key is a private physical bucket-relative object key.", "status": "active" },
+    { "check_id": "reserved-server-managed-ref-write-guard", "assertion": "Client writes of reserved_server_managed_ref fail as invalid_mutation_payload.", "status": "active" }
+  ]
+}

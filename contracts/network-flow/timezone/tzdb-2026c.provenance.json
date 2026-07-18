@@ -50,20 +50,14 @@
       "sha256": "b8b066b540bc2870e6f1f3cd76f1b0e6c3629b2e3a12f14ba9e47085a1abb781"
     }
   ],
-  "owner_refs": [
-    {
-      "document": "docs/network-flow-activity-nlspec.md",
-      "sections": ["22", "24", "9.7"],
-      "requirement_ids": ["NF-REQ-084a"],
-      "acceptance_ids": ["NF-AC-087"],
-      "blocker_ids": ["NF-BLOCK-017"]
-    }
-  ],
   "conformance_policy": {
     "host_timezone_database_authoritative": false,
     "host_locale_authoritative": false,
     "latest_url_allowed": false,
     "verification_required_before_use": true,
     "allowed_internal_ruleset_substitution": "later_ruleset_only_when_all_tzdb_2026c_fixture_transitions_are_byte_identical"
-  }
+  },
+  "verification_ids": [
+    "module.networkflow.verification.contract_accounting"
+  ]
 }

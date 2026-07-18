@@ -1,0 +1,15 @@
+{
+  "schema_id": "cartulary.verification_contract.v1",
+  "owner_id": "web.architecture",
+  "verifications": [
+    {
+      "verification_id": "web.architecture.verification.import_boundaries",
+      "behavior_class": "architecture",
+      "profile": "support",
+      "requirement": "Frontend imports follow registered application and package boundaries and runtime code consumes generated contracts instead of documentation.",
+      "evidence_kinds": ["static_check"],
+      "public_target": "frontend-import-boundary-check",
+      "status": "active"
+    }
+  ]
+}

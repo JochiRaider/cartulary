@@ -8,20 +8,6 @@
     "revision": 1,
     "change_policy": "new_fixture_revision_required"
   },
-  "owner_refs": [
-    {
-      "document": "docs/network-flow-activity-nlspec.md",
-      "requirement_ids": [
-        "NF-REQ-177",
-        "NF-REQ-178"
-      ],
-      "acceptance_ids": [
-        "NF-AC-040",
-        "NF-AC-069",
-        "NF-AC-097"
-      ]
-    }
-  ],
   "source_files": [
     {
       "logical_path": "source/graph-adapter-input.csv",
@@ -75,5 +61,8 @@
     "phase12/network-flow/NF-FIX-015-graph-adapter-input"
   ],
   "source_bundle_sha256": "39c9c5c1a10b5163ef269d84afaa8dc80b173e592793e0f3ac6cd8abd87dd9e7",
-  "expected_bundle_sha256": "0f698321fc41e6ed84c61ff658969e85d40713d787635e70788bcd89782b1883"
+  "expected_bundle_sha256": "0f698321fc41e6ed84c61ff658969e85d40713d787635e70788bcd89782b1883",
+  "verification_ids": [
+    "module.networkflow.verification.contract_accounting"
+  ]
 }

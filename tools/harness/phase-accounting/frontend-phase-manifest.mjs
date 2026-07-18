@@ -9,7 +9,6 @@ export {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
 } from "./frontend/registry-loader.mjs";
-export { collectFrontendGuideTargetRestatementErrors } from "./frontend/guide-restatements.mjs";
 export { validateFrontendPhaseArtifacts } from "./frontend/phase-artifacts.mjs";
 export { validateFrontendPhaseMap } from "./frontend/phase-map-validation.mjs";
 export { validateFrontendVisualFixtureRegistry } from "./frontend/visual-fixture-registry.mjs";

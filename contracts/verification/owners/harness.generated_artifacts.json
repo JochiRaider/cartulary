@@ -1,0 +1,15 @@
+{
+  "schema_id": "cartulary.verification_contract.v1",
+  "owner_id": "harness.generated_artifacts",
+  "verifications": [
+    {
+      "verification_id": "harness.generated_artifacts.verification.schema_attachment_closure",
+      "behavior_class": "harness",
+      "profile": "support",
+      "requirement": "Every current machine schema is registered once by the authored attachment owner and generated artifacts are reproduced only from authored inputs.",
+      "evidence_kinds": ["static_check"],
+      "public_target": "json-shape-check",
+      "status": "active"
+    }
+  ]
+}

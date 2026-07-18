@@ -1,0 +1,14 @@
+{
+  "schema_id": "cartulary.verification_contract.v1",
+  "owner_id": "harness.evidence_accounting",
+  "verifications": [
+    {
+      "verification_id": "harness.evidence_accounting.verification.semantic_evidence_identity",
+      "behavior_class": "harness",
+      "profile": "support",
+      "requirement": "Evidence accounting preserves exact owner, row, selector, source, catalog, verification, runtime, resource, and fixture identity and rejects mixed or incomplete evidence.",
+      "evidence_kinds": ["artifact_audit", "static_check"],
+      "status": "active"
+    }
+  ]
+}

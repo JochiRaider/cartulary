@@ -8,19 +8,6 @@
     "revision": 1,
     "change_policy": "new_fixture_revision_required"
   },
-  "owner_refs": [
-    {
-      "document": "docs/network-flow-activity-nlspec.md",
-      "requirement_ids": [
-        "NF-REQ-177",
-        "NF-REQ-178"
-      ],
-      "acceptance_ids": [
-        "NF-AC-038",
-        "NF-AC-096"
-      ]
-    }
-  ],
   "source_files": [
     {
       "logical_path": "source/graph-aggregate-bounds.csv",
@@ -73,5 +60,8 @@
     "phase12/network-flow/NF-FIX-028-graph-aggregate-bounds"
   ],
   "source_bundle_sha256": "5acf103d56b2e3e1db0711abdfb354b7e29f14f43dd220ccbebaa4a2070facc1",
-  "expected_bundle_sha256": "100dfb0d5a3ac7eb2d495fd711428fd77080039870170db1623b675da5ba5532"
+  "expected_bundle_sha256": "100dfb0d5a3ac7eb2d495fd711428fd77080039870170db1623b675da5ba5532",
+  "verification_ids": [
+    "module.networkflow.verification.contract_accounting"
+  ]
 }

@@ -6,8 +6,6 @@
   "document_version": "1.2.0",
   "route_root": "/api/v1/incidents/{incident_id}/network-flow",
   "family_id": "network-flow",
-  "owner_document": "docs/network-flow-activity-nlspec.md",
-  "owner_sections": ["7.3", "9.7", "10", "17", "18", "21", "24"],
   "contract_files": {
     "routes": "contracts/network-flow/routes.v1.json",
     "schemas": "contracts/network-flow/schemas.v1.json",
@@ -62,6 +60,13 @@
     "objects_closed_by_default": true,
     "dynamic_maps_must_name_key_pattern": true,
     "raw_source_values_forbidden_outside_diagnostics": true,
-    "generated_outputs_blocked_until": ["NFA-GEN-003", "NFA-GEN-004"]
-  }
+    "generated_outputs_blocked_until": [
+      "NFA-GEN-003",
+      "NFA-GEN-004"
+    ]
+  },
+  "owner_id": "module.networkflow",
+  "verification_ids": [
+    "module.networkflow.verification.contract_accounting"
+  ]
 }

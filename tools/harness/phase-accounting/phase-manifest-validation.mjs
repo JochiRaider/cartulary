@@ -43,7 +43,6 @@ import {
 } from "./phase-fixture-policy.mjs";
 import {
   extractClaimedPhaseIDs,
-  loadGuideExpectedIDs,
   phaseIDRegex,
   validateExpectedIDs,
 } from "./phase-manifest-id-validation.mjs";
@@ -325,19 +324,6 @@ export function validateManifest(root, phase, { allowPlanned = false } = {}) {
   }
   validateProfileClaims(manifest, entries, manifestPath);
   assertAuthoritativeEvidenceNames(manifest, { phase: phaseName });
-
-  const guideExpectedIDs = process.env.CARTULARY_PHASE_MANIFEST_ROOT
-    ? []
-    : loadGuideExpectedIDs(root, phaseNumber);
-  if (guideExpectedIDs.length > 0) {
-    const guideMissing = guideExpectedIDs.filter((id) => !expected.includes(id));
-    const guideUnexpected = expected.filter((id) => !guideExpectedIDs.includes(id));
-    if (guideMissing.length > 0 || guideUnexpected.length > 0) {
-      throw new Error(
-        `${phaseName} guide mismatch: missing=${guideMissing.join(",") || "none"} unexpected=${guideUnexpected.join(",") || "none"}`,
-      );
-    }
-  }
 
   for (const entry of entries) {
     if (!entryRequiresSourceEvidence(entry)) {

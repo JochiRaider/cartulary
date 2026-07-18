@@ -8,20 +8,6 @@
     "revision": 1,
     "change_policy": "new_fixture_revision_required"
   },
-  "owner_refs": [
-    {
-      "document": "docs/network-flow-activity-nlspec.md",
-      "requirement_ids": [
-        "NF-REQ-177",
-        "NF-REQ-178"
-      ],
-      "acceptance_ids": [
-        "NF-AC-018",
-        "NF-AC-060",
-        "NF-AC-087"
-      ]
-    }
-  ],
   "source_files": [
     {
       "logical_path": "source/timestamp-rulesets.csv",
@@ -75,5 +61,8 @@
     "phase12/network-flow/NF-FIX-022-timestamp-rulesets"
   ],
   "source_bundle_sha256": "6c05ce8005f057657e6c62ed0d9b4b0fbcf52c12fa3f986651e37b32f91b7c32",
-  "expected_bundle_sha256": "bf89b5c8d152653ff58620ff964e8f45cd419cf79f891381c0e39eb406c96bc6"
+  "expected_bundle_sha256": "bf89b5c8d152653ff58620ff964e8f45cd419cf79f891381c0e39eb406c96bc6",
+  "verification_ids": [
+    "module.networkflow.verification.contract_accounting"
+  ]
 }

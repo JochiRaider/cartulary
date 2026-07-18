@@ -150,8 +150,12 @@ export function validateFrontendVisualFixtureRegistry(root = process.cwd()) {
   const registry = readJsonObject(file, file);
   assertObjectKeys(registry, visualFixtureRegistryKeys, file);
   requireSchemaID(registry, frontendVisualFixtureRegistrySchemaID, file);
-  if (registry.guide_path !== "docs/guides/cartulary_frontend_implementation_testing_guide.md") {
-    throw new Error(`${file}.guide_path must point to the frontend guide`);
+  if (
+    registry.owner_id !== "harness.visual" ||
+    registry.verification_id !==
+      "harness.visual.verification.stable_fixture_identity"
+  ) {
+    throw new Error(`${file} must name the harness visual verification owner`);
   }
   const fixtures = requireObjectArray(registry.fixtures, `${file}.fixtures`, {
     nonEmpty: true,

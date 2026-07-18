@@ -11,7 +11,12 @@ import {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../../..");
-const defaultDesignPath = path.join(repoRoot, "docs", "design.md");
+const defaultRegistryPath = path.join(
+  repoRoot,
+  "contracts",
+  "design",
+  "tokens.v1.json",
+);
 const defaultOutputPath = path.join(
   repoRoot,
   "packages",
@@ -23,14 +28,14 @@ const defaultOutputPath = path.join(
 
 function usage() {
   throw new Error(
-    "usage: generate-design-tokens.mjs [--check] [--design <path>] [--output <path>]",
+    "usage: generate-design-tokens.mjs [--check] [--registry <path>] [--output <path>]",
   );
 }
 
 function parseArgs(argv) {
   const options = {
     check: false,
-    design: defaultDesignPath,
+    registry: defaultRegistryPath,
     output: defaultOutputPath,
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -39,8 +44,8 @@ function parseArgs(argv) {
       options.check = true;
       continue;
     }
-    if (arg === "--design") {
-      options.design = path.resolve(argv[index + 1] ?? "");
+    if (arg === "--registry") {
+      options.registry = path.resolve(argv[index + 1] ?? "");
       index += 1;
       continue;
     }
@@ -51,7 +56,7 @@ function parseArgs(argv) {
     }
     usage();
   }
-  if (!options.design || !options.output) {
+  if (!options.registry || !options.output) {
     usage();
   }
   return options;
@@ -59,7 +64,7 @@ function parseArgs(argv) {
 
 function main() {
   const options = parseArgs(process.argv.slice(2));
-  const document = loadDesignTokenDocument(options.design);
+  const document = loadDesignTokenDocument(options.registry);
   const output = renderDesignTokenTypeScript(document);
   if (options.check) {
     const current = readFileSync(options.output, "utf8");

@@ -218,7 +218,7 @@ export function buildFrontendEvidenceAuditSummary({
       const { manifest, registryEntry } = loadFrontendPhaseMap(repoRoot, phaseID);
       const digests = {
         registry: sha256File(repoRoot, "tools/frontend_phase_registry.json"),
-        guide: sha256File(repoRoot, registry.guide_path),
+        guide: registry.guide_digest,
         phaseMapRef: registryEntry.manifest_path,
         phaseMap: sha256File(repoRoot, registryEntry.manifest_path),
       };

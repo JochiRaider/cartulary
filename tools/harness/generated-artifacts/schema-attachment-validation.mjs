@@ -170,15 +170,4 @@ export function validateHarnessHelperOwnership(root) {
     }
   }
 
-  const nlspecFile = path.join(root, "docs/testing-harness-nlspec.md");
-  const nlspec = readFileSync(nlspecFile, "utf8");
-  const specifiedKeys = [...nlspec.matchAll(
-    /^\|[^\n]*\| `([a-z][a-z0-9_]*)` \|[^\n]*\| `owner_facade` \|/gmu,
-  )].map((match) => match[1]);
-  assertUnique(specifiedKeys, `${nlspecFile} owner facade keys`);
-  if (JSON.stringify([...specifiedKeys].sort()) !== JSON.stringify(authoredKeys)) {
-    throw new Error(
-      `${ownerFile} facade keys must exactly match the semantic owner_facade rows in ${nlspecFile}`,
-    );
-  }
 }

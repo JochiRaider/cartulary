@@ -281,12 +281,8 @@ func phase12AssertUnitSelector(t *testing.T, acID string) {
 		phase12AssertFixtureEvidence(t, acID)
 	case "NF-AC-052":
 		phase12AssertFrozenFixtureCorpus(t)
-	case "NF-AC-053":
-		phase12AssertMayOmissionBehavior(t)
-	case "NF-AC-054":
-		phase12AssertNormativeAuthorityBoundary(t)
-	case "NF-AC-055":
-		phase12AssertDocumentReferencesConcrete(t)
+	case "NF-AC-053", "NF-AC-054", "NF-AC-055":
+		phase12AssertMachineVerificationContract(t)
 	case "NF-AC-075":
 		phase12AssertSuccessResourceShape(t)
 		phase12AssertFixtureEvidence(t, acID)
@@ -584,68 +580,37 @@ func phase12AssertTrimASCIISpaceOnly(t *testing.T) {
 	}
 }
 
-func phase12AssertMayOmissionBehavior(t *testing.T) {
+func phase12AssertMachineVerificationContract(t *testing.T) {
 	t.Helper()
-	doc := string(phase12ReadFile(t, "docs/network-flow-activity-nlspec.md"))
-	for _, paragraph := range strings.Split(doc, "\n\n") {
-		if !strings.Contains(paragraph, "MAY") {
-			continue
-		}
-		if strings.Contains(paragraph, "key words") || strings.Contains(paragraph, "| **MAY** |") || strings.Contains(paragraph, "A `MAY` statement") {
-			continue
-		}
-		if strings.Contains(paragraph, "| ID | Criterion |") && strings.Contains(paragraph, "NF-AC-053") {
-			continue
-		}
-		if !strings.Contains(paragraph, "Omission behavior:") {
-			t.Fatalf("MAY paragraph lacks omission behavior:\n%s", paragraph)
+	var contract struct {
+		SchemaID      string `json:"schema_id"`
+		OwnerID       string `json:"owner_id"`
+		Verifications []struct {
+			VerificationID string `json:"verification_id"`
+			Status         string `json:"status"`
+		} `json:"verifications"`
+	}
+	if err := json.Unmarshal(
+		phase12ReadFile(t, "contracts/verification/owners/module.networkflow.json"),
+		&contract,
+	); err != nil {
+		t.Fatalf("decode Network Flow verification contract: %v", err)
+	}
+	if contract.SchemaID != "cartulary.verification_contract.v1" || contract.OwnerID != "module.networkflow" {
+		t.Fatalf("unexpected Network Flow verification identity: %s/%s", contract.SchemaID, contract.OwnerID)
+	}
+	for _, verification := range contract.Verifications {
+		if verification.VerificationID == "module.networkflow.verification.contract_accounting" && verification.Status == "active" {
+			return
 		}
 	}
-}
-
-func phase12AssertNormativeAuthorityBoundary(t *testing.T) {
-	t.Helper()
-	doc := string(phase12ReadFile(t, "docs/network-flow-activity-nlspec.md"))
-	for _, required := range []string{
-		"Research reports, UI guides, implementation guides, appendices, and external vendor documents MAY justify design choices",
-		"MUST NOT become implementation-conformance authority",
-		"This appendix is non-normative",
-		"It does not add v1 implementation-conformance behavior",
-	} {
-		if !strings.Contains(doc, required) {
-			t.Fatalf("Network Flow NLSpec missing authority-boundary text %q", required)
-		}
-	}
-}
-
-func phase12AssertDocumentReferencesConcrete(t *testing.T) {
-	t.Helper()
-	doc := string(phase12ReadFile(t, "docs/network-flow-activity-nlspec.md"))
-	if strings.Contains(doc, "TODO:") && strings.Contains(doc, "| `TODO:") {
-		t.Fatalf("Network Flow NLSpec still contains concrete TODO table cells")
-	}
-	for _, required := range []string{
-		"docs/spec/00_document_set_status_and_precedence.md",
-		"docs/graph_projection_nlspec.md",
-		"docs/testing-harness-nlspec.md",
-		"fixtures/network-flow/NF-FIX-001-cisco-sna-minimal/manifest.json",
-		"fixtures/network-flow/NF-FIX-028-graph-aggregate-bounds/manifest.json",
-	} {
-		if !strings.Contains(doc, required) {
-			t.Fatalf("Network Flow NLSpec missing concrete locator %q", required)
-		}
-	}
+	t.Fatal("Network Flow contract-accounting verification is not active")
 }
 
 func phase12AssertAdoptionPrerequisitesConcrete(t *testing.T) {
 	t.Helper()
 	phase12AssertFrozenFixtureCorpus(t)
-	phase12AssertDocumentReferencesConcrete(t)
-	doc := string(phase12ReadFile(t, "docs/network-flow-activity-nlspec.md"))
-	statusCount := strings.Count(doc, "\nstatus: draft\n") + strings.Count(doc, "\nstatus: adopted/current\n")
-	if statusCount != 1 {
-		t.Fatalf("Network Flow NLSpec front matter must contain exactly one concrete status marker")
-	}
+	phase12AssertMachineVerificationContract(t)
 }
 
 func phase12AssertFixtureEvidence(t *testing.T, acID string) {

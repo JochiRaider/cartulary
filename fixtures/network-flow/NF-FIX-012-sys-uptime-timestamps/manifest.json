@@ -8,20 +8,6 @@
     "revision": 1,
     "change_policy": "new_fixture_revision_required"
   },
-  "owner_refs": [
-    {
-      "document": "docs/network-flow-activity-nlspec.md",
-      "requirement_ids": [
-        "NF-REQ-177",
-        "NF-REQ-178"
-      ],
-      "acceptance_ids": [
-        "NF-AC-018",
-        "NF-AC-060",
-        "NF-AC-087"
-      ]
-    }
-  ],
   "source_files": [
     {
       "logical_path": "source/sys-uptime-timestamps.csv",
@@ -75,5 +61,8 @@
     "phase12/network-flow/NF-FIX-012-sys-uptime-timestamps"
   ],
   "source_bundle_sha256": "fc69425962a5c04156fc65693ba5cbc72afe0e8aeef141bb9cf5a6750b843389",
-  "expected_bundle_sha256": "877c564270bb2b208736ded40f31c6684548dc4fb668d7661f55d5295c104c76"
+  "expected_bundle_sha256": "877c564270bb2b208736ded40f31c6684548dc4fb668d7661f55d5295c104c76",
+  "verification_ids": [
+    "module.networkflow.verification.contract_accounting"
+  ]
 }

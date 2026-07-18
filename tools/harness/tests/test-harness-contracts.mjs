@@ -29,7 +29,6 @@ import {
   collectTaskSurfaceManifestErrors,
   renderTaskSurfaceMake,
 } from "../generated-artifacts/index.mjs";
-import { collectFrontendGuideTargetRestatementErrors } from "../phase-accounting/index.mjs";
 import {
   collectPlaywrightTitleObservationsForTarget,
   collectVitestTitleObservations,
@@ -72,6 +71,11 @@ import {
 import { schedulerSummaryLine } from "../scheduler/scheduler-reporting.mjs";
 import { validateSchedulerResourceRegistrySemantics } from "../scheduler/scheduler-resources.mjs";
 import { resolveRetainedLogArtifacts } from "../diagnostics/retained-artifact-resolver.mjs";
+import { loadVerificationContracts } from "../test-catalog/verification-contracts.mjs";
+import {
+  assertDocumentationAccessAllowed,
+  scanDocumentationReadSource,
+} from "../test-catalog/documentation-boundary.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");
@@ -90,6 +94,77 @@ function writeFixtureFile(root, relativePath, content) {
   mkdirSync(path.dirname(file), { recursive: true });
   writeFileSync(file, content);
 }
+
+test("documentation boundary rejects direct, computed, and symlinked reads", () => {
+  const documentationDir = ["do", "cs"].join("");
+  const direct = scanDocumentationReadSource(
+    "tools/fixture/direct.mjs",
+    `readFileSync(path.join(root, "${documentationDir}", "spec", "owner.md"), "utf8");`,
+  );
+  assert.equal(direct.length, 1);
+  assert.equal(direct[0].operation, "read_file");
+
+  const computed = scanDocumentationReadSource(
+    "tools/fixture/computed.mjs",
+    `const ownerPath = path.join(root, "${documentationDir}", "owner.md");\nstatSync(ownerPath);`,
+  );
+  assert.equal(computed.length, 1);
+  assert.equal(computed[0].operation, "stat_path");
+
+  const helperMediated = scanDocumentationReadSource(
+    "tools/fixture/helper.mjs",
+    `function loadOwner(file) { return readFileSync(file, "utf8"); }\nconst ownerPath = path.join(root, "${documentationDir}", "owner.md");\nloadOwner(ownerPath);`,
+  );
+  assert.equal(helperMediated.length, 1);
+  assert.equal(helperMediated[0].operation, "read_file");
+
+  const root = mkdtempSync(path.join(repoRoot, "tmp", "documentation-boundary."));
+  try {
+    writeFixtureFile(root, `${documentationDir}/spec/owner.md`, "# Owner\n");
+    symlinkSync(path.join(root, documentationDir), path.join(root, "machine-link"));
+    assert.throws(
+      () =>
+        assertDocumentationAccessAllowed({
+          root,
+          consumerPath: "tools/fixture/reader.mjs",
+          operation: "read_file",
+          candidatePath: `${documentationDir}/spec/owner.md`,
+          exceptions: { exceptions: [] },
+        }),
+      /boundary_policy_violation/u,
+    );
+    assert.throws(
+      () =>
+        assertDocumentationAccessAllowed({
+          root,
+          consumerPath: "tools/fixture/reader.mjs",
+          operation: "resolve_realpath",
+          candidatePath: "machine-link/spec/owner.md",
+          exceptions: { exceptions: [] },
+        }),
+      /boundary_policy_violation/u,
+    );
+    assert.doesNotThrow(() =>
+      assertDocumentationAccessAllowed({
+        root,
+        consumerPath: "tools/docs/lint.mjs",
+        operation: "read_file",
+        candidatePath: `${documentationDir}/spec/owner.md`,
+        exceptions: {
+          exceptions: [
+            {
+              consumer_path: "tools/docs/lint.mjs",
+              documentation_pattern: `^${documentationDir}/.*$`,
+              operations: ["read_file"],
+            },
+          ],
+        },
+      }),
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 const fixtureImportKeyword = ["im", "port"].join("");
 const fixtureExportKeyword = ["ex", "port"].join("");
@@ -167,12 +242,8 @@ test("network flow fixture manifest schema is closed and byte-addressed", async 
       revision: 1,
       change_policy: "new_fixture_revision_required",
     },
-    owner_refs: [
-      {
-        document: "docs/network-flow-activity-nlspec.md",
-        requirement_ids: ["NF-REQ-177"],
-        acceptance_ids: ["NF-AC-052"],
-      },
+    verification_ids: [
+      "module.networkflow.verification.contract_accounting",
     ],
     source_files: [sourceFile],
     expected_artifacts: [expectedFile],
@@ -373,42 +444,6 @@ test("network flow activity accounting is closed and fails drift gaps", async ()
     );
     assert.notEqual(unresolvedSelectorResult.status, 0);
     assert.match(unresolvedSelectorResult.stderr, /does not resolve/u);
-
-    const sourceWithTodo = readFileSync(
-      path.join(repoRoot, accounting.source_spec),
-      "utf8",
-    ).replace(
-      "Adopted current-profile Core 00 revision at owner artifact `155b5f64`",
-      "TODO: adopted Core 00 version",
-    );
-    const sourceWithTodoFile = path.join(root, "network-flow-with-todo.md");
-    writeFileSync(sourceWithTodoFile, sourceWithTodo);
-    const unresolvedLocator = structuredClone(accounting);
-    unresolvedLocator.source_spec = path
-      .relative(repoRoot, sourceWithTodoFile)
-      .split(path.sep)
-      .join(path.posix.sep);
-    const unresolvedLocatorFile = path.join(root, "unresolved-locator.json");
-    writeFileSync(
-      unresolvedLocatorFile,
-      `${JSON.stringify(unresolvedLocator, null, 2)}\n`,
-    );
-    const unresolvedLocatorResult = spawnSync(
-      process.execPath,
-      [
-        checker,
-        "--kind",
-        "network-flow-activity-accounting",
-        "--file",
-        unresolvedLocatorFile,
-      ],
-      { encoding: "utf8" },
-    );
-    assert.notEqual(unresolvedLocatorResult.status, 0);
-    assert.match(
-      unresolvedLocatorResult.stderr,
-      /locator for Core 00 must not contain TODO:/u,
-    );
 
     const missingCopyPath = structuredClone(accounting);
     missingCopyPath.drift_accounting.required_copy_paths = [
@@ -928,35 +963,6 @@ test("test clock-control schema is closed and mode-scoped", async () => {
   );
 });
 
-test("frontend guide target restatements reject stale explicit targets", () => {
-  const rowTargets = new Map([
-    ["FE-A11Y-P9-01", new Set(["browser-e2e-a11y"])],
-  ]);
-  const matchingGuideRow =
-    "| FE-A11Y-P9-01 | Accessibility | Verify inspector controls. | UI/UX guide Sections 9, 12, 14 | `N/A` | `D-AC-009` | `make browser-e2e-a11y` | `design_direction` |";
-  assert.deepEqual(
-    collectFrontendGuideTargetRestatementErrors(
-      matchingGuideRow,
-      rowTargets,
-      "guide.md",
-    ),
-    [],
-  );
-
-  const staleGuideRow =
-    "| FE-A11Y-P9-01 | Accessibility | Verify inspector controls. | UI/UX guide Sections 9, 12, 14 | `N/A` | `D-AC-009` | `make browser-e2e-a11y-preflight` | `design_direction` |";
-  const errors = collectFrontendGuideTargetRestatementErrors(
-    staleGuideRow,
-    rowTargets,
-    "guide.md",
-  );
-  assert.equal(errors.length, 1);
-  assert.match(errors[0], /guide\.md:1/);
-  assert.match(errors[0], /FE-A11Y-P9-01/);
-  assert.match(errors[0], /browser-e2e-a11y-preflight/);
-  assert.match(errors[0], /browser-e2e-a11y/);
-});
-
 test("frontend phase-accounting facade does not re-export test-output indexes", () => {
   const facade = readFileSync(
     path.join(repoRoot, "tools/harness/phase-accounting/frontend/index.mjs"),
@@ -1283,173 +1289,28 @@ function renderedArtifacts() {
   };
 }
 
-function splitMarkdownRow(line) {
-  return line
-    .slice(1, -1)
-    .split("|")
-    .map((cell) => cell.trim());
-}
-
-function parseHarnessPublicRegistry() {
-  const text = readFileSync(
-    path.join(repoRoot, "docs/testing-harness-nlspec.md"),
-    "utf8",
-  );
-  const lines = text.split("\n");
+function machineOwnedPublicRegistry() {
+  const owner = readJSON("tools/task_surface_owner.json");
   const rows = new Map();
-  let inTable = false;
-  for (const line of lines) {
-    if (line.startsWith("| Target | Command ID | Family ID |")) {
-      inTable = true;
+  for (const target of owner.targets) {
+    if (target.target_class !== "public") {
       continue;
     }
-    if (inTable && line.startsWith("**TH-HARNESS-REQ-059**")) {
-      break;
-    }
-    if (!inTable || !line.startsWith("| `")) {
-      continue;
-    }
-    const cells = splitMarkdownRow(line);
-    const target = cells[0].replaceAll("`", "");
-    rows.set(target, {
-      outputClass: cells[4].replaceAll("`", ""),
-      sideEffects: cells[7]
-        .split(",")
-        .map((entry) => entry.trim().replaceAll("`", ""))
-        .filter(Boolean)
+    rows.set(target.name, {
+      outputClass: target.output_policy.output_class,
+      sideEffects: target.side_effects
+        .map((entry) => entry.class)
         .sort((left, right) => left.localeCompare(right)),
     });
   }
   return rows;
 }
 
-function markdownCodeTokens(cell) {
-  return [...String(cell ?? "").matchAll(/`([^`]+)`/gu)].map((match) => match[1]);
-}
-
-function normalizeSpecAllowedSources(cell) {
-  const text = String(cell ?? "").toLowerCase();
-  const sources = [];
-  if (text.includes("make command line")) {
-    sources.push("make_command_line");
-  }
-  if (text.includes("environment")) {
-    sources.push("environment");
-  }
-  if (text.includes("makefile default")) {
-    sources.push("makefile_default");
-  }
-  if (text.includes("internal default")) {
-    sources.push("internal_default");
-  }
-  if (text.includes("manifest")) {
-    sources.push("manifest");
-  }
-  return sources;
-}
-
-function normalizeSpecDefault(cell) {
-  const text = String(cell ?? "").trim();
-  if (text === "none") {
-    return null;
-  }
-  const token = markdownCodeTokens(text)[0];
-  if (token === undefined) {
-    return null;
-  }
-  if (token === "false") {
-    return false;
-  }
-  if (/^(0|[1-9][0-9]*)$/u.test(token)) {
-    return Number.parseInt(token, 10);
-  }
-  if (/^(?:0|[1-9][0-9]*)\.[0-9]+$/u.test(token)) {
-    return Number(token);
-  }
-  return token;
-}
-
-function normalizeSpecEmptyString(cell) {
-  const text = String(cell ?? "").toLowerCase();
-  if (text.includes("false")) {
-    return "false";
-  }
-  if (text.includes("invalid")) {
-    return "invalid";
-  }
-  return "omitted";
-}
-
-function normalizeSpecInvalidReason(cell) {
-  return markdownCodeTokens(cell)[0] ?? "";
-}
-
-function normalizeSpecChildForwarding(cell) {
-  return String(cell ?? "").trim().toLowerCase().replaceAll(" ", "_");
-}
-
-function normalizeSpecValuesAndBounds(cell, type) {
-  const text = String(cell ?? "");
-  if (type === "enum") {
-    return { values: markdownCodeTokens(text) };
-  }
-  const range = text.match(/`?([0-9]+)\.\.([0-9]+)`?/u);
-  if (range) {
-    return {
-      min: Number.parseInt(range[1], 10),
-      max: Number.parseInt(range[2], 10),
-    };
-  }
-  const min = text.match(/`?>=\s*([0-9]+(?:\.[0-9]+)?)`?/u);
-  if (min) {
-    return { min: Number(min[1]) };
-  }
-  return {};
-}
-
-function parseHarnessInputMatrix() {
-  const text = readFileSync(
-    path.join(repoRoot, "docs/testing-harness-nlspec.md"),
-    "utf8",
-  );
-  const lines = text.split("\n");
+function machineOwnedInputMatrix() {
+  const owner = readJSON("tools/task_surface_owner.json");
   const byTarget = new Map();
-  let inMatrix = false;
-  for (const line of lines) {
-    if (line.startsWith("| Target(s) | Input | Type |")) {
-      inMatrix = true;
-      continue;
-    }
-    if (inMatrix && line.startsWith("`fixture-report` remains")) {
-      break;
-    }
-    if (!inMatrix || !line.startsWith("| `")) {
-      continue;
-    }
-    const cells = splitMarkdownRow(line);
-    const targets = markdownCodeTokens(cells[0]);
-    const name = markdownCodeTokens(cells[1])[0];
-    const type = markdownCodeTokens(cells[2])[0];
-    const entry = {
-      name,
-      binding: "make_variable",
-      allowed_sources: normalizeSpecAllowedSources(cells[4]),
-      required: cells[3] === "yes",
-      type,
-      default: normalizeSpecDefault(cells[5]),
-      empty_string: normalizeSpecEmptyString(cells[7]),
-      normalization: markdownCodeTokens(cells[8])[0] ?? "",
-      invalid_reason: normalizeSpecInvalidReason(cells[10]),
-      summary_emission: String(cells[11] ?? "").trim(),
-      child_forwarding: normalizeSpecChildForwarding(cells[12]),
-      ...normalizeSpecValuesAndBounds(cells[9], type),
-    };
-    for (const target of targets) {
-      if (!byTarget.has(target)) {
-        byTarget.set(target, []);
-      }
-      byTarget.get(target).push(entry);
-    }
+  for (const target of owner.targets) {
+    byTarget.set(target.name, target.input_contract?.inputs ?? []);
   }
   return byTarget;
 }
@@ -1831,16 +1692,23 @@ test("generated task surface and Make wrapper keep harness projection wiring", (
   }
 });
 
-test("harness NLSpec registry mirrors public target output classes and side effects", () => {
+test("machine task-surface owner defines public output classes and side effects", () => {
   const { taskSurface } = renderedArtifacts();
-  const specRows = parseHarnessPublicRegistry();
+  const ownerRows = machineOwnedPublicRegistry();
+  const verificationContracts = loadVerificationContracts(repoRoot);
+  assert.ok(
+    verificationContracts.verificationByID.has(
+      "harness.command_surface.verification.public_registry_parity",
+    ),
+    "public task-surface parity must have a machine verification owner",
+  );
   const publicTargets = taskSurface.targets.filter(
     (entry) => entry.target_class === "public",
   );
   assert.equal(
-    specRows.size,
+    ownerRows.size,
     publicTargets.length,
-    "NLSpec public target registry row count must match manifest public target count",
+    "authored owner public target count must match rendered manifest",
   );
   const publicIdentityBytes = `${publicTargets
     .map((target) => `${target.name}\t${target.command_id}`)
@@ -1848,22 +1716,22 @@ test("harness NLSpec registry mirrors public target output classes and side effe
   assert.equal(
     createHash("sha256").update(publicIdentityBytes).digest("hex"),
     "157dfee4eb4b394b4dc5b2bba30e6990449fb6556c799709a6a233f503b47370",
-    "public target and command ID inventory changed; revise the NLSpec and this explicit compatibility digest together",
+    "public target and command ID inventory changed; revise the authored owner and this explicit compatibility digest together",
   );
   for (const target of publicTargets) {
-    const spec = specRows.get(target.name);
-    assert.ok(spec, `${target.name} must appear in the NLSpec public registry`);
+    const spec = ownerRows.get(target.name);
+    assert.ok(spec, `${target.name} must appear in the authored task-surface owner`);
     assert.equal(
       spec.outputClass,
       target.output_policy.output_class,
-      `${target.name} output class must match NLSpec registry`,
+      `${target.name} output class must match the authored owner`,
     );
     assert.deepEqual(
       spec.sideEffects,
       target.side_effects
         .map((entry) => entry.class)
         .sort((left, right) => left.localeCompare(right)),
-      `${target.name} side effects must match NLSpec registry`,
+      `${target.name} side effects must match the authored owner`,
     );
   }
 });
@@ -1900,21 +1768,21 @@ test("retired task-surface compatibility cannot be reintroduced", () => {
   }
 });
 
-test("harness NLSpec input matrix mirrors public target input contracts", () => {
+test("machine task-surface owner defines public target input contracts", () => {
   const { taskSurface } = renderedArtifacts();
-  const specInputs = parseHarnessInputMatrix();
+  const ownerInputs = machineOwnedInputMatrix();
   const publicTargets = taskSurface.targets.filter(
     (entry) => entry.target_class === "public",
   );
   for (const target of publicTargets) {
-    const expected = normalizeInputList(specInputs.get(target.name) ?? []);
+    const expected = normalizeInputList(ownerInputs.get(target.name) ?? []);
     const actual = normalizeInputList(
       (target.input_contract?.inputs ?? []).map(normalizeManifestInput),
     );
     assert.deepEqual(
       actual,
       expected,
-      `${target.name} input_contract must match the NLSpec input matrix`,
+      `${target.name} input_contract must match the authored owner`,
     );
   }
 
@@ -1926,7 +1794,7 @@ test("harness NLSpec input matrix mirrors public target input contracts", () => 
     (input) => input.name === "SCHEDULER_WARM_CHECK_BUDGET_MS",
   ).default = null;
   const expected = normalizeInputList(
-    specInputs.get("scheduler-summary-timing-drift") ?? [],
+    ownerInputs.get("scheduler-summary-timing-drift") ?? [],
   );
   assert.notDeepEqual(
     normalizeInputList(drift.input_contract.inputs.map(normalizeManifestInput)),

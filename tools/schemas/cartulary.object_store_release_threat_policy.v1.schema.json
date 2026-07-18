@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.object_store_release_threat_policy.v1",
+  "title": "Cartulary object-store release threat policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "owner_id", "verification_id", "threat_model", "storage_ref_controls"],
+  "properties": {
+    "schema_id": { "const": "cartulary.object_store_release_threat_policy.v1" },
+    "owner_id": { "const": "platform.objectstore" },
+    "verification_id": { "const": "platform.objectstore.verification.release_threat_policy" },
+    "threat_model": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["stride", "controls", "verification_hooks"],
+        "properties": {
+          "stride": { "enum": ["spoofing", "tampering", "repudiation", "information_disclosure", "denial_of_service", "elevation_of_privilege"] },
+          "controls": { "$ref": "#/$defs/nonEmptyStrings" },
+          "verification_hooks": { "$ref": "#/$defs/nonEmptyStrings" }
+        }
+      }
+    },
+    "storage_ref_controls": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["check_id", "assertion", "status"],
+        "properties": {
+          "check_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "assertion": { "type": "string", "minLength": 1 },
+          "status": { "const": "active" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyStrings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

@@ -181,8 +181,9 @@ type FrontendVisualFixture = {
 
 type FrontendVisualFixtureRegistry = {
   fixtures: FrontendVisualFixture[];
-  guide_path: string;
+  owner_id: string;
   schema_id: string;
+  verification_id: string;
 };
 
 const expectedFrontendVisualFixtureIds = Array.from(
@@ -3427,8 +3428,9 @@ test.describe("FE-P11 visual readiness", () => {
     expect(registry.schema_id).toBe(
       "cartulary.frontend_visual_fixture_registry.v3",
     );
-    expect(registry.guide_path).toBe(
-      "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+    expect(registry.owner_id).toBe("harness.visual");
+    expect(registry.verification_id).toBe(
+      "harness.visual.verification.stable_fixture_identity",
     );
     expect(registry.fixtures.map((fixture) => fixture.fixture_id)).toEqual(
       expectedFrontendVisualFixtureIds,

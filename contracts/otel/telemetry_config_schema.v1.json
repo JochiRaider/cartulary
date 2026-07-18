@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.otel_telemetry_config_schema.v1",
   "status": "adopted_conformant",
-  "source_owner": "docs/opentelemetry-instrumentation-nlspec.md#6.1",
+  "source_owner": "platform.telemetry.verification.current_conformance",
   "materialization_kind": "repo_materialized_from_owner_table",
   "error_code": "invalid_deployment_config",
   "telemetry_reason_code": "invalid_telemetry_config",

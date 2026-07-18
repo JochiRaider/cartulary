@@ -12,6 +12,8 @@ import {
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { validateSchemaSync } from "../harness/contract/index.mjs";
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../..");
 
@@ -51,7 +53,8 @@ const migrationPassArtifactSubdir =
   "seaweedfs-migration-preservation/phase-f-object-store-migration/pass";
 const phaseEBackupRestoreSubdir = "phase-e-backup-restore";
 const phaseFMigrationSubdir = "phase-f-object-store-migration";
-const coreStorageRefOwnerPath = "docs/spec/01_architecture_storage_and_view_contracts.md";
+const objectStoreThreatPolicyPath =
+  "contracts/object-store/release-threat-policy.v1.json";
 const allowedClassifications = new Set([
   "sdk_only",
   "legacy_external_endpoint",
@@ -687,194 +690,45 @@ function collectStrings(value, trail, needle, out) {
   }
 }
 
-const threatRows = Object.freeze([
-  {
-    stride: "spoofing",
-    concepts: [
-      ["SeaweedFS S3 endpoint identity"],
-      ["reverse-proxy trust boundary"],
-      ["credential source", "configured object-store endpoints"],
-      ["direct-upload target scope"],
-    ],
-  },
-  {
-    stride: "tampering",
-    concepts: [
-      ["object overwrite"],
-      ["delete attempts"],
-      ["object metadata drift"],
-      ["migration copy mismatch"],
-      ["backup manifests"],
-    ],
-  },
-  {
-    stride: "repudiation",
-    concepts: [
-      ["application attach audit as authoritative"],
-      ["object-store logs as diagnostics only"],
-      ["direct-upload issuance and attach finalization"],
-    ],
-  },
-  {
-    stride: "information_disclosure",
-    concepts: [
-      ["secrets"],
-      ["raw object keys"],
-      ["direct-upload targets"],
-      ["same-origin evidence handles"],
-      ["SeaweedFS admin"],
-      ["filer"],
-      ["master"],
-      ["volume"],
-    ],
-  },
-  {
-    stride: "denial_of_service",
-    concepts: [
-      ["oversized evidence"],
-      ["object-store prefix listing abuse"],
-      ["storage exhaustion"],
-      ["repeated range reads"],
-      ["startup probe cleanup failures"],
-    ],
-  },
-  {
-    stride: "elevation_of_privilege",
-    concepts: [
-      ["wildcard object-store credentials"],
-      ["anonymous bucket access"],
-      ["exposed SeaweedFS admin APIs"],
-      ["wildcard CORS"],
-      ["default-service confusion"],
-    ],
-  },
-]);
-
 function buildThreatModelCoverage({ repoCommitValue, generatedAt }) {
-  const corePath = "docs/spec/04_security_deployment_and_conformance.md";
-  const text = readFileSync(repoPath(corePath), "utf8");
-  const lower = text.toLowerCase();
-  const lines = text.split(/\n/);
-  const rows = threatRows.map((row) => {
-    const conceptResults = row.concepts.map((alternatives) => {
-      const matched = alternatives.find((alt) => lower.includes(alt.toLowerCase()));
-      return {
-        alternatives,
-        matched: matched ?? null,
-        covered: Boolean(matched),
-      };
-    });
-    const citations = [];
-    for (let index = 0; index < lines.length; index += 1) {
-      if (lines[index].toLowerCase().includes(row.stride.replaceAll("_", " "))) {
-        citations.push({ path: corePath, line: index + 1 });
-      }
-    }
-    return {
-      stride: row.stride,
-      covered: conceptResults.every((concept) => concept.covered),
-      owner_citations: citations,
-      concept_coverage: conceptResults,
-      controls: ["Core 04 REQ-04-051 required control direction"],
-      verification_hooks: [
-        "occurrence-inventory.json",
-        "release-manifest-exposure.json",
-        "dependency-boundary.json",
-        "sbom-license-classification.json",
-        "redaction-leakage-scan.json",
-      ],
-    };
-  });
+  const policy = readJSON(objectStoreThreatPolicyPath);
+  validateSchemaSync("cartulary.object_store_release_threat_policy.v1", policy);
+  const rows = policy.threat_model.map((row) => ({
+    stride: row.stride,
+    covered: row.controls.length > 0 && row.verification_hooks.length > 0,
+    controls: row.controls,
+    verification_hooks: row.verification_hooks,
+    owner_verifications: [policy.verification_id],
+  }));
   return {
     schema_id: "cartulary.seaweedfs_threat_model_coverage.v1",
     generated_at: generatedAt,
     repo_commit: repoCommitValue,
-    owner_document: corePath,
+    owner_id: policy.owner_id,
+    owner_verification: policy.verification_id,
     rows,
-    result: rows.every((row) => row.covered && row.owner_citations.length > 0) ? "pass" : "fail",
+    result: rows.every((row) => row.covered) ? "pass" : "fail",
   };
-}
-
-function findTextCitations({ rel, text, needles }) {
-  const lines = text.split(/\n/);
-  const citations = [];
-  for (const needle of needles) {
-    const lowerNeedle = needle.toLowerCase();
-    const lineIndex = lines.findIndex((line) => line.toLowerCase().includes(lowerNeedle));
-    if (lineIndex !== -1) {
-      citations.push({ path: rel, line: lineIndex + 1, needle });
-    }
-  }
-  return citations;
 }
 
 function buildStorageRefOwnerCoverage({
   repoCommitValue = "test-commit",
   generatedAt = new Date().toISOString(),
-  ownerPath = coreStorageRefOwnerPath,
-  readFile = (rel) => readFileSync(repoPath(rel), "utf8"),
 } = {}) {
-  const text = readFile(ownerPath);
-  const lower = text.toLowerCase();
-  const requiredConcepts = [
-    {
-      check_id: "logical-server-ref-canonical-form",
-      needles: ["object://{object_blob_uuid}", "backend-neutral"],
-    },
-    {
-      check_id: "reserved-server-managed-ref-write-guard",
-      needles: ["reserved_server_managed_ref", "invalid_mutation_payload"],
-    },
-    {
-      check_id: "external-locator-preservation",
-      needles: ["User-authored external locators", "MUST NOT rewrite"],
-    },
-    {
-      check_id: "private-physical-key-boundary",
-      needles: ["object_blobs.storage_key", "private physical bucket-relative object key"],
-    },
-    {
-      check_id: "physical-key-grammar",
-      needles: ["object_blob_storage_key_v1", "incidents/{incident_uuid}/object-blobs/{object_blob_uuid}"],
-    },
-    {
-      check_id: "physical-key-canonicalization",
-      needles: ["lowercase RFC 4122", "slash-separated ASCII", "no empty segments", "no NUL, CR, or LF"],
-    },
-    {
-      check_id: "physical-key-maximum-length",
-      needles: ["1024 UTF-8 bytes"],
-    },
-    {
-      check_id: "invalid-key-before-backend-call",
-      needles: ["object_store_invalid_request", "before object-store calls"],
-    },
-    {
-      check_id: "migration-preserves-bucket-key-and-storage-ref",
-      needles: ["MinIO-to-SeaweedFS migration", "MUST NOT mutate database"],
-    },
-  ];
-  const checks = requiredConcepts.map((concept) => {
-    const missing = concept.needles.filter((needle) => !lower.includes(needle.toLowerCase()));
-    return {
-      check_id: concept.check_id,
-      result: missing.length === 0 ? "pass" : "fail",
-      missing_needles: missing,
-      owner_citations: findTextCitations({ rel: ownerPath, text, needles: concept.needles }),
-    };
-  });
-  const unresolvedTodo = /TODO:\s*`?SWFS-OWNER-STORAGEREF-001`?/i.test(text);
-  checks.push({
-    check_id: "owner-storage-ref-todo-removed",
-    result: unresolvedTodo ? "fail" : "pass",
-    missing_needles: [],
-    owner_citations: [],
-  });
+  const policy = readJSON(objectStoreThreatPolicyPath);
+  validateSchemaSync("cartulary.object_store_release_threat_policy.v1", policy);
+  const checks = policy.storage_ref_controls.map((control) => ({
+    check_id: control.check_id,
+    assertion: control.assertion,
+    result: control.status === "active" ? "pass" : "fail",
+    owner_verifications: [policy.verification_id],
+  }));
   return {
     schema_id: "cartulary.seaweedfs_storage_ref_owner_coverage.v1",
     generated_at: generatedAt,
     repo_commit: repoCommitValue,
-    owner_document: ownerPath,
+    owner_id: policy.owner_id,
+    owner_verification: policy.verification_id,
     checks,
     result: checks.every((check) => check.result === "pass") ? "pass" : "fail",
   };

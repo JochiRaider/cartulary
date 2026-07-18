@@ -38,7 +38,7 @@ import path from "node:path";
 
 const [repoRoot, outputDir, phaseID] = process.argv.slice(2);
 const registryRef = "tools/frontend_phase_registry.json";
-const guideRef = "docs/guides/cartulary_frontend_implementation_testing_guide.md";
+const guideRef = "harness.evidence_accounting.verification.semantic_evidence_identity";
 const mapRef = `tools/frontend_phase_maps/fe_p${phaseID.slice("FE-P".length)}_test_map.json`;
 
 function readJSON(relativePath) {

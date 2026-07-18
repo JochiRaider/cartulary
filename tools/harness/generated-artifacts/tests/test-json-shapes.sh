@@ -1124,7 +1124,7 @@ write_valid_frontend_row_accounting() {
   },
   "registry_ref": "tools/frontend_phase_registry.json",
   "registry_digest": "0000000000000000000000000000000000000000000000000000000000000000",
-  "guide_ref": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+  "guide_ref": "harness.evidence_accounting.verification.semantic_evidence_identity",
   "guide_digest": "1111111111111111111111111111111111111111111111111111111111111111",
   "phase_map_refs": [
     "tools/frontend_phase_maps/fe_p2_test_map.json"
@@ -1188,7 +1188,7 @@ write_valid_release_readiness_evidence() {
       "source_target": "check",
       "schema_id": "cartulary.test_target_summary.v4",
       "owner_refs": [
-        "docs/testing-harness-nlspec.md#release-check"
+        "harness.release.verification.current_owner_evidence_only"
       ],
       "evidence_class": "product_conformance",
       "conformance_effect": "product_conformance",
@@ -1211,7 +1211,7 @@ write_valid_release_readiness_evidence() {
       "source_target": "browser-e2e-visual",
       "schema_id": "cartulary.frontend_row_accounting.v5",
       "owner_refs": [
-        "docs/design.md#visual-fixture"
+        "harness.evidence_accounting.verification.semantic_evidence_identity"
       ],
       "evidence_class": "design_direction",
       "conformance_effect": "no_product_conformance",

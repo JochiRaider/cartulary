@@ -45,8 +45,7 @@ const implementationFiles = [
 const profileDefinitions = {
   "agent_finalize.structure_ledger_refresh.v1": {
     prefixes: [
-      "docs/spec/",
-      "docs/testing/",
+      "contracts/",
       "tools/",
       "packages/",
       "apps/web/",
@@ -54,8 +53,6 @@ const profileDefinitions = {
     suffixes: commonSuffixes,
     files: [
       "Makefile",
-      "docs/testing-harness-nlspec.md",
-      "docs/domain.md",
       "package.json",
       "pnpm-lock.yaml",
       "pnpm-workspace.yaml",
@@ -73,15 +70,14 @@ const profileDefinitions = {
       "tools/task_surface.generated.mk",
       "tools/task_surface_manifest.json",
     ],
-    outputPrefixes: ["docs/testing/"],
-    outputSuffixes: ["_coverage_ledger.md"],
+    outputPrefixes: [],
+    outputSuffixes: [],
   },
   "agent_finalize.schema_shape_validation.v1": {
-    prefixes: ["docs/spec/", "docs/testing/", "tools/"],
+    prefixes: ["contracts/", "tools/"],
     suffixes: commonSuffixes,
     files: [
       "Makefile",
-      "docs/testing-harness-nlspec.md",
       "package.json",
       "pnpm-lock.yaml",
       "pnpm-workspace.yaml",
@@ -95,11 +91,10 @@ const profileDefinitions = {
     outputPaths: [],
   },
   "agent_finalize.duration_baseline_refresh.v1": {
-    prefixes: ["docs/testing/", "tools/"],
+    prefixes: ["contracts/", "tools/"],
     suffixes: commonSuffixes,
     files: [
       "Makefile",
-      "docs/testing-harness-nlspec.md",
       "package.json",
       "pnpm-lock.yaml",
       "pnpm-workspace.yaml",
@@ -127,7 +122,7 @@ const profileDefinitions = {
   "agent_finalize.duration_baseline_coverage.v1": {
     prefixes: ["tools/"],
     suffixes: commonSuffixes,
-    files: ["Makefile", "docs/testing-harness-nlspec.md"],
+    files: ["Makefile", "contracts/verification/registry.json"],
     env: [
       "NODE_BIN",
       "MAKE",
@@ -140,7 +135,7 @@ const profileDefinitions = {
   "agent_finalize.duration_baseline_drift_validation.v1": {
     prefixes: ["tools/"],
     suffixes: commonSuffixes,
-    files: ["Makefile", "docs/testing-harness-nlspec.md"],
+    files: ["Makefile", "contracts/verification/registry.json"],
     env: [
       "NODE_BIN",
       "MAKE",
@@ -156,7 +151,7 @@ const profileDefinitions = {
   "agent_finalize.scheduler_drift_validation.v1": {
     prefixes: ["tools/"],
     suffixes: commonSuffixes,
-    files: ["Makefile", "docs/testing-harness-nlspec.md"],
+    files: ["Makefile", "contracts/verification/registry.json"],
     env: [
       "NODE_BIN",
       "MAKE",

@@ -1,0 +1,15 @@
+{
+  "schema_id": "cartulary.verification_contract.v1",
+  "owner_id": "package.ui",
+  "verifications": [
+    {
+      "verification_id": "package.ui.verification.machine_owned_tokens",
+      "behavior_class": "architecture",
+      "profile": "support",
+      "requirement": "Frontend design tokens are machine-owned, schema-validated, generated reproducibly, and consumed without runtime documentation parsing.",
+      "evidence_kinds": ["static_check"],
+      "public_target": "generate-drift",
+      "status": "active"
+    }
+  ]
+}

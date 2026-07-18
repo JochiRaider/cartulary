@@ -1,0 +1,15 @@
+{
+  "schema_id": "cartulary.verification_contract.v1",
+  "owner_id": "platform.telemetry",
+  "verifications": [
+    {
+      "verification_id": "platform.telemetry.verification.current_conformance",
+      "behavior_class": "architecture",
+      "profile": "support",
+      "requirement": "Telemetry hooks, privacy controls, resource identity, configuration, and exported error families satisfy the current telemetry contract.",
+      "evidence_kinds": ["static_check"],
+      "public_target": "otel-conformance",
+      "status": "active"
+    }
+  ]
+}

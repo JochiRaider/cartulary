@@ -3,10 +3,11 @@
   "$id": "cartulary.frontend_visual_fixture_registry.v3",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_id", "guide_path", "fixtures"],
+  "required": ["schema_id", "owner_id", "verification_id", "fixtures"],
   "properties": {
     "schema_id": { "const": "cartulary.frontend_visual_fixture_registry.v3" },
-    "guide_path": { "const": "docs/guides/cartulary_frontend_implementation_testing_guide.md" },
+    "owner_id": { "const": "harness.visual" },
+    "verification_id": { "const": "harness.visual.verification.stable_fixture_identity" },
     "fixtures": {
       "type": "array",
       "minItems": 1,

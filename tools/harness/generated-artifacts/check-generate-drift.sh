@@ -102,6 +102,7 @@ for placeholder_dir in "${scratch_placeholder_dirs[@]}"; do
 done
 
 make -C "$scratch" --no-print-directory generate-artifacts \
+	CARTULARY_TEST_TARGET=generate-artifacts \
 	SQLC_BIN="$sqlc_bin" \
 	GO="${GO:-go}" \
 	GO_CACHE_DIR="${GO_CACHE_DIR:-/tmp/cartulary-go-build}" \

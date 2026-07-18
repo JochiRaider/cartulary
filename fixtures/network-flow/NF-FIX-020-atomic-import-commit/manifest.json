@@ -8,20 +8,6 @@
     "revision": 1,
     "change_policy": "new_fixture_revision_required"
   },
-  "owner_refs": [
-    {
-      "document": "docs/network-flow-activity-nlspec.md",
-      "requirement_ids": [
-        "NF-REQ-177",
-        "NF-REQ-178"
-      ],
-      "acceptance_ids": [
-        "NF-AC-081",
-        "NF-AC-082",
-        "NF-AC-107"
-      ]
-    }
-  ],
   "source_files": [
     {
       "logical_path": "source/atomic-import-commit.csv",
@@ -75,5 +61,8 @@
     "phase12/network-flow/NF-FIX-020-atomic-import-commit"
   ],
   "source_bundle_sha256": "2d57eb1b14293c2a800af760f0918145ef7b9c919546c97b371081c49c795b59",
-  "expected_bundle_sha256": "726cc34422730a2c51eabde6410cc5793f32ff4f4a5657d7f5c2432efcb9c14e"
+  "expected_bundle_sha256": "726cc34422730a2c51eabde6410cc5793f32ff4f4a5657d7f5c2432efcb9c14e",
+  "verification_ids": [
+    "module.networkflow.verification.contract_accounting"
+  ]
 }

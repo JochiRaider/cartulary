@@ -65,6 +65,8 @@ import {
   loadTaskSurfaceManifest,
 } from "./task-surface/index.mjs";
 import { quickCheckRenderIndex } from "./render-execution-topology-artifacts.mjs";
+import { validateVerificationContracts } from "../test-catalog/verification-contracts.mjs";
+import { scanExecutableDocumentationReads } from "../test-catalog/documentation-boundary.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
@@ -160,9 +162,9 @@ const networkFlowAccountingKeys = new Set([
   "$schema",
   "schema_id",
   "profile_id",
-  "source_spec",
+  "owner_id",
+  "verification_ids",
   "contract_registry",
-  "dependency_locator_accounting",
   "fixture_accounting",
   "acceptance_accounting",
   "drift_accounting",
@@ -237,8 +239,8 @@ const networkFlowContractIndexKeys = new Set([
   "document_version",
   "route_root",
   "family_id",
-  "owner_document",
-  "owner_sections",
+  "owner_id",
+  "verification_ids",
   "contract_files",
   "public_schema_ids",
   "closure_policy",
@@ -454,7 +456,7 @@ const networkFlowFixtureManifestKeys = new Set([
   "fixture_id",
   "profile_id",
   "freeze",
-  "owner_refs",
+  "verification_ids",
   "source_files",
   "expected_artifacts",
   "transcript_files",
@@ -469,11 +471,6 @@ const networkFlowFixtureFreezeKeys = new Set([
   "revision",
   "change_policy",
 ]);
-const networkFlowFixtureOwnerRefKeys = new Set([
-  "document",
-  "requirement_ids",
-  "acceptance_ids",
-]);
 const networkFlowTimezoneProvenanceKeys = new Set([
   "schema_id",
   "ruleset_id",
@@ -484,7 +481,7 @@ const networkFlowTimezoneProvenanceKeys = new Set([
   "detached_signature",
   "license",
   "embedded_file_hashes",
-  "owner_refs",
+  "verification_ids",
   "conformance_policy",
 ]);
 const networkFlowTimezoneReleaseKeys = new Set([
@@ -521,13 +518,6 @@ const networkFlowTimezoneEmbeddedFileKeys = new Set([
   "path",
   "size_bytes",
   "sha256",
-]);
-const networkFlowTimezoneOwnerRefKeys = new Set([
-  "document",
-  "sections",
-  "requirement_ids",
-  "acceptance_ids",
-  "blocker_ids",
 ]);
 const networkFlowTimezoneConformancePolicyKeys = new Set([
   "host_timezone_database_authoritative",
@@ -1232,9 +1222,7 @@ function validateContractFamilyRegistryShape(file) {
         `${label}.owner_document`,
         { extension: ".md" },
       );
-      if (!existsSync(repoFile(repoRoot, ownerDocument))) {
-        throw new Error(`${label}.owner_document does not exist: ${ownerDocument}`);
-      }
+      void ownerDocument;
       requireStringArray(entry.owner_sections, `${label}.owner_sections`, {
         nonEmpty: true,
       });
@@ -1427,10 +1415,13 @@ function validateNetworkFlowActivityAccountingShape(file) {
   requireSchemaID(accounting, networkFlowActivityAccountingSchemaID, file);
   requireExact(accounting.profile_id, "network_flow_activity", `${file}.profile_id`);
 
-  const sourceSpec = requireRepoRelativePath(
-    accounting.source_spec,
-    `${file}.source_spec`,
-    { extension: ".md" },
+  requireExact(accounting.owner_id, "module.networkflow", `${file}.owner_id`);
+  requireExactArray(
+    requireStringArray(accounting.verification_ids, `${file}.verification_ids`, {
+      nonEmpty: true,
+    }),
+    ["module.networkflow.verification.contract_accounting"],
+    `${file}.verification_ids`,
   );
   const contractRegistry = requireObject(
     accounting.contract_registry,
@@ -1606,160 +1597,12 @@ function validateNetworkFlowActivityAccountingShape(file) {
     { nonEmpty: true },
   );
 
-  const source = readFileSync(repoFile(repoRoot, sourceSpec), "utf8");
-  const dependencyLocatorAccounting = requireObject(
-    accounting.dependency_locator_accounting,
-    `${file}.dependency_locator_accounting`,
-  );
-  assertObjectKeys(
-    dependencyLocatorAccounting,
-    networkFlowDependencyLocatorAccountingKeys,
-    `${file}.dependency_locator_accounting`,
-  );
-  assertRequiredKeys(
-    dependencyLocatorAccounting,
-    networkFlowDependencyLocatorAccountingKeys,
-    `${file}.dependency_locator_accounting`,
-  );
-  const dependencyTableCaption = requireString(
-    dependencyLocatorAccounting.table_caption,
-    `${file}.dependency_locator_accounting.table_caption`,
-  );
-  requireExact(
-    dependencyTableCaption,
-    "Table 1-B. Normative dependency registry",
-    `${file}.dependency_locator_accounting.table_caption`,
-  );
-  const expectedDependencyCount = requireInteger(
-    dependencyLocatorAccounting.expected_count,
-    `${file}.dependency_locator_accounting.expected_count`,
-    { min: 1 },
-  );
-  const blockedLocatorTokens = requireStringArray(
-    dependencyLocatorAccounting.blocked_tokens,
-    `${file}.dependency_locator_accounting.blocked_tokens`,
-    { nonEmpty: true },
-  );
-  const requiredDependencies = requireStringArray(
-    dependencyLocatorAccounting.required_dependencies,
-    `${file}.dependency_locator_accounting.required_dependencies`,
-    { nonEmpty: true },
-  );
-  const expectedDependencies = new Set([
-    "Core 00",
-    "Core 01",
-    "Core 02",
-    "Core 03",
-    "Core 04",
-    "Graph Projection NLSpec",
-    "Testing Harness NLSpec",
-  ]);
-  assertExactIDSet(
-    new Set(requiredDependencies),
-    expectedDependencies,
-    `${file}.dependency_locator_accounting.required_dependencies`,
-  );
-  if (expectedDependencyCount !== requiredDependencies.length) {
-    throw new Error(
-      `${file}.dependency_locator_accounting.expected_count must match required_dependencies length`,
-    );
-  }
-  const dependencyRows = extractMarkdownTableByCaption(source, dependencyTableCaption);
-  if (dependencyRows.length !== expectedDependencyCount) {
-    throw new Error(
-      `${sourceSpec} ${dependencyTableCaption} must have ${expectedDependencyCount} dependency rows`,
-    );
-  }
-  const dependencyLocatorByName = new Map();
-  for (const row of dependencyRows) {
-    if (row.length !== 3) {
-      throw new Error(`${sourceSpec} ${dependencyTableCaption} rows must have 3 cells`);
-    }
-    const [dependency, importedContract, locator] = row;
-    if (dependencyLocatorByName.has(dependency)) {
-      throw new Error(`${sourceSpec} ${dependencyTableCaption} duplicates ${dependency}`);
-    }
-    for (const blockedToken of blockedLocatorTokens) {
-      if (
-        dependency.includes(blockedToken) ||
-        importedContract.includes(blockedToken) ||
-        locator.includes(blockedToken)
-      ) {
-        throw new Error(
-          `${sourceSpec} ${dependencyTableCaption} locator for ${dependency} must not contain ${blockedToken}`,
-        );
-      }
-    }
-    dependencyLocatorByName.set(dependency, locator);
-  }
-  assertExactIDSet(
-    new Set(dependencyLocatorByName.keys()),
-    expectedDependencies,
-    `${sourceSpec} ${dependencyTableCaption} dependencies`,
-  );
-  const seenFragmentDependencies = new Set();
-  const dependencyFragmentRules = requireObjectArray(
-    dependencyLocatorAccounting.required_locator_fragments,
-    `${file}.dependency_locator_accounting.required_locator_fragments`,
-    { nonEmpty: true },
-  );
-  for (const [index, rule] of dependencyFragmentRules.entries()) {
-    const label = `${file}.dependency_locator_accounting.required_locator_fragments[${index}]`;
-    assertObjectKeys(rule, networkFlowDependencyLocatorFragmentKeys, label);
-    assertRequiredKeys(rule, networkFlowDependencyLocatorFragmentKeys, label);
-    const dependency = requireString(rule.dependency, `${label}.dependency`);
-    if (seenFragmentDependencies.has(dependency)) {
-      throw new Error(`${label}.dependency duplicates ${dependency}`);
-    }
-    seenFragmentDependencies.add(dependency);
-    const locator = dependencyLocatorByName.get(dependency);
-    if (!locator) {
-      throw new Error(`${sourceSpec} ${dependencyTableCaption} is missing ${dependency}`);
-    }
-    const fragments = requireStringArray(rule.fragments, `${label}.fragments`, {
-      nonEmpty: true,
-    });
-    for (const fragment of fragments) {
-      if (!locator.includes(fragment)) {
-        throw new Error(
-          `${sourceSpec} ${dependencyTableCaption} locator for ${dependency} must include ${fragment}`,
-        );
-      }
-    }
-  }
-  assertExactIDSet(
-    seenFragmentDependencies,
-    expectedDependencies,
-    `${file}.dependency_locator_accounting.required_locator_fragments dependencies`,
-  );
-
   const expectedFixtureIDs = new Set(
     expectedNetworkFlowIDs("NF-FIX-", expectedFixtureCount),
   );
-  const actualFixtureIDs = extractNetworkFlowFixtureBaseIDs(source);
-  assertExactIDSet(
-    actualFixtureIDs,
-    expectedFixtureIDs,
-    `${sourceSpec} Network Flow fixture IDs`,
-  );
-
   const expectedAcceptanceIDs = new Set(
     expectedNetworkFlowIDs("NF-AC-", expectedAcceptanceCount),
   );
-  const actualAcceptanceIDs = extractUniqueMatches(
-    source,
-    /NF-AC-\d{3}/gu,
-  );
-  assertExactIDSet(
-    actualAcceptanceIDs,
-    expectedAcceptanceIDs,
-    `${sourceSpec} Network Flow acceptance IDs`,
-  );
-
-  const criterionTextByID = new Map();
-  for (const match of source.matchAll(/^\| `(NF-AC-\d{3})` \| (.+) \|$/gmu)) {
-    criterionTextByID.set(match[1], match[2]);
-  }
   const matrix = readShapeFile(repoFile(repoRoot, matrixSource), matrixSource);
   const matrixSelectors = [];
   for (const collection of [matrix.unit, matrix.integration, matrix.e2e]) {
@@ -1777,15 +1620,11 @@ function validateNetworkFlowActivityAccountingShape(file) {
       throw new Error(`${label}.acceptance_id duplicates ${acceptanceID}`);
     }
     accountedAcceptanceIDs.add(acceptanceID);
-    const ownerRequirements = requireStringArray(
+    requireStringArray(
       row.owner_requirements,
       `${label}.owner_requirements`,
       { nonEmpty: true },
     );
-    const criterionText = criterionTextByID.get(acceptanceID);
-    if (!criterionText || !ownerRequirements.includes(criterionText)) {
-      throw new Error(`${label}.owner_requirements must include exact owner criterion text`);
-    }
     const behaviorClass = requireEnum(
       row.behavior_class,
       `${label}.behavior_class`,
@@ -1844,10 +1683,8 @@ function validateNetworkFlowActivityAccountingShape(file) {
         throw new Error(`${label} references missing supplemental fixture ${fixtureID}`);
       }
       const manifest = readShapeFile(repoFile(repoRoot, manifestPath), manifestPath);
-      const ownerAcceptanceIDs = new Set(
-        (manifest.owner_refs ?? []).flatMap((owner) => owner.acceptance_ids ?? []),
-      );
-      if (!ownerAcceptanceIDs.has(acceptanceID)) {
+      const fixtureAcceptanceIDs = new Set(manifest.acceptance_ids ?? []);
+      if (!fixtureAcceptanceIDs.has(acceptanceID)) {
         throw new Error(`${manifestPath} does not claim supplemental coverage for ${acceptanceID}`);
       }
     }
@@ -1972,15 +1809,15 @@ function validateNetworkFlowContractIndexShape(file) {
     `${file}.route_root`,
   );
   requireExact(contractIndex.family_id, "network-flow", `${file}.family_id`);
-  requireExact(
-    contractIndex.owner_document,
-    "docs/network-flow-activity-nlspec.md",
-    `${file}.owner_document`,
-  );
-  assertExactIDSet(
-    new Set(requireStringArray(contractIndex.owner_sections, `${file}.owner_sections`, { nonEmpty: true })),
-    new Set(["7.3", "9.7", "10", "17", "18", "21", "24"]),
-    `${file}.owner_sections`,
+  requireExact(contractIndex.owner_id, "module.networkflow", `${file}.owner_id`);
+  requireExactArray(
+    requireStringArray(
+      contractIndex.verification_ids,
+      `${file}.verification_ids`,
+      { nonEmpty: true },
+    ),
+    ["module.networkflow.verification.contract_accounting"],
+    `${file}.verification_ids`,
   );
 
   const contractFiles = requireObject(contractIndex.contract_files, `${file}.contract_files`);
@@ -4052,39 +3889,13 @@ function validateNetworkFlowFixtureManifestShape(file) {
     );
   }
 
-  const ownerKeys = [];
-  validateObjectArray(
-    manifest.owner_refs,
-    `${file}.owner_refs`,
-    {
+  requireExactArray(
+    requireStringArray(manifest.verification_ids, `${file}.verification_ids`, {
       nonEmpty: true,
-      keys: networkFlowFixtureOwnerRefKeys,
-      requiredKeys: networkFlowFixtureOwnerRefKeys,
-    },
-    (entry, label) => {
-      const document = requireRepoRelativePath(entry.document, `${label}.document`, {
-        extension: ".md",
-      });
-      const requirementIDs = requireStringArray(
-        entry.requirement_ids,
-        `${label}.requirement_ids`,
-      );
-      const acceptanceIDs = requireStringArray(
-        entry.acceptance_ids,
-        `${label}.acceptance_ids`,
-      );
-      if (requirementIDs.length === 0 && acceptanceIDs.length === 0) {
-        throw new Error(`${label} must cite at least one requirement or AC`);
-      }
-      requireSorted(requirementIDs, `${label}.requirement_ids`, (id) => id, "ID");
-      requireSorted(acceptanceIDs, `${label}.acceptance_ids`, (id) => id, "ID");
-      ownerKeys.push(
-        `${document}\0${requirementIDs.join(",")}\0${acceptanceIDs.join(",")}`,
-      );
-    },
+    }),
+    ["module.networkflow.verification.contract_accounting"],
+    `${file}.verification_ids`,
   );
-  assertUnique(ownerKeys, `${file}.owner_refs`);
-  requireSorted(ownerKeys, `${file}.owner_refs`, (entry) => entry, "owner ref");
 
   const manifestDir = path.dirname(file);
   const sourceFiles = requireObjectArray(manifest.source_files, `${file}.source_files`, {
@@ -4433,42 +4244,14 @@ function validateNetworkFlowTimezoneRulesetProvenanceShape(file) {
     }
   }
 
-  validateObjectArray(
-    provenance.owner_refs,
-    `${file}.owner_refs`,
-    {
-      nonEmpty: true,
-      keys: networkFlowTimezoneOwnerRefKeys,
-      requiredKeys: networkFlowTimezoneOwnerRefKeys,
-    },
-    (entry, label) => {
-      requireExact(
-        requireRepoRelativePath(entry.document, `${label}.document`, {
-          extension: ".md",
-        }),
-        "docs/network-flow-activity-nlspec.md",
-        `${label}.document`,
-      );
-      requireSorted(entry.sections, `${label}.sections`, (id) => id, "section");
-      requireSorted(
-        entry.requirement_ids,
-        `${label}.requirement_ids`,
-        (id) => id,
-        "requirement ID",
-      );
-      requireSorted(
-        entry.acceptance_ids,
-        `${label}.acceptance_ids`,
-        (id) => id,
-        "acceptance ID",
-      );
-      requireSorted(
-        entry.blocker_ids,
-        `${label}.blocker_ids`,
-        (id) => id,
-        "blocker ID",
-      );
-    },
+  requireExactArray(
+    requireStringArray(
+      provenance.verification_ids,
+      `${file}.verification_ids`,
+      { nonEmpty: true },
+    ),
+    ["module.networkflow.verification.contract_accounting"],
+    `${file}.verification_ids`,
   );
 
   const policy = requireObject(
@@ -4498,23 +4281,6 @@ function validateNetworkFlowTimezoneRulesetProvenanceShape(file) {
     "later_ruleset_only_when_all_tzdb_2026c_fixture_transitions_are_byte_identical",
     `${file}.conformance_policy.allowed_internal_ruleset_substitution`,
   );
-}
-
-function validateHarnessRequirementIDs(root) {
-  const file = repoFile(root, "docs/testing-harness-nlspec.md");
-  const source = readFileSync(file, "utf8");
-  const seen = new Set();
-  const duplicates = new Set();
-  for (const match of source.matchAll(/\*\*(TH-HARNESS-REQ-\d+)\*\*/g)) {
-    const id = match[1];
-    if (seen.has(id)) {
-      duplicates.add(id);
-    }
-    seen.add(id);
-  }
-  if (duplicates.size > 0) {
-    throw new Error(`${file} contains duplicate requirement IDs: ${[...duplicates].sort().join(", ")}`);
-  }
 }
 
 function validateFallowReachabilityOwnerShape(file) {
@@ -4624,7 +4390,8 @@ function validateKind(kind, file, root = repoRoot) {
 function validateAll(root) {
   validateSchemaAttachmentPolicy(root);
   validateHarnessHelperOwnership(root);
-  validateHarnessRequirementIDs(root);
+  validateVerificationContracts(root);
+  scanExecutableDocumentationReads(root);
   validatePhaseRegistryShape(repoFile(root, "tools/phase_registry.json"));
   validatePhaseRegistry(root);
   validateFrontendPhaseArtifacts(root);
