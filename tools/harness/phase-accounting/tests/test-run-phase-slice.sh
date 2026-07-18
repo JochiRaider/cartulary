@@ -955,7 +955,7 @@ try {
     testOutputScript: path.join(root, "tools/harness/output/test-output.sh"),
     schedule: {
       target,
-      kind: "phase_slice",
+      kind: "test_slice",
       prefix: "PHASE-SCHEDULER",
       eventSchemaID: "cartulary.scheduler_event.v6",
       summarySchemaID: "cartulary.phase_slice_scheduler_summary.v4",

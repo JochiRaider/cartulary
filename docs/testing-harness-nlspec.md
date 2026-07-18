@@ -1844,6 +1844,10 @@ Verified by: TH-HARNESS-AC-065
 **TH-HARNESS-REQ-367**
 Both owner-slice commands use `stop_on_first_failure=false`. Running independent work drains after a failure; work whose dependency failed does not start. Cancellation MUST propagate through the existing scheduler contract. Finalizers and cleanup MUST always run, subject to the existing destructive-safety guards.
 
+The owner-slice commands and direct browser-stage commands MUST use the shared scheduler family `test_slice`; `phase_slice` is not a current scheduler family or capacity-profile identity. Owner plans MUST retain `plan_semantic_digest` and `scheduler_semantic_digest`. These digests exclude invocation timestamps and run IDs, and identical semantic selections, profiles, work units, dependencies, resource claims, timeouts, and finalizers MUST produce identical digests. Browser scheduler units MUST preserve the catalog-derived browser session group, runtime profile, exact selected group set, stage serialization resource, and evidence target. A browser evidence finalizer MUST run after every session reaches a terminal state, and the parent target summary MUST run after every evidence finalizer reaches a terminal state.
+
+Resource admission is FIFO for conflicting claims: a later ready unit MUST NOT take capacity needed by an earlier ready resource-blocked unit when their claims overlap. Ready units with disjoint claims MAY proceed. Product work has one scheduler attempt. A dependency failure emits `skipped_dependency`; an interrupt emits `cancelled`; an ordinary scheduler watchdog emits `infrastructure_failed` with `timeout_failure`. Finalizers become ready when every declared dependency is terminal, whether successful, failed, or dependency-skipped. They run in deterministic manifest order after ordinary running work drains. Cleanup failure is primary only when no earlier higher-precedence failure exists.
+
 The normative command algorithm is:
 
 ```text
@@ -2159,8 +2163,8 @@ scratch database across tests or runs, leave state outside the owned stack, or
 treat a retained database as completed cleanup before service teardown passes.
 Verified by: TH-HARNESS-AC-061
 
-Current scheduler manifests MUST NOT declare `work_units[].timeout_seconds`; scheduler-owned work-unit watchdogs are deferred until a later adopted revision specifies schema support, runner cancellation semantics, finalizer interaction, event emission, failure mapping, and fixtures end to end. Service readiness, browser readiness, runtime reset, cleanup, Playwright, Vitest, and child Make target deadlines remain owned by their specific sections or tools.
-Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-030
+`work_units[].timeout_seconds` is optional and, when present, MUST be an integer from `1` through `3600`. It is a scheduler-owned watchdog around the whole child process group, not a product-performance assertion. Expiry MUST terminate the child group, retain the partial redacted log, record `failure_class=timing` and `failure_reason=timeout_failure`, return `13`, drain already-running independent work, mark dependency-blocked work `skipped_dependency`, and then run finalizers. A finalizer has its own timeout and MUST NOT inherit the aborted work signal. Omitting the field delegates deadlines to the narrower service, browser, runner, or child-target contract. Product assertions MUST have exactly one scheduler attempt; scheduler watchdog expiry MUST NOT create a retry.
+Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-030, TH-HARNESS-AC-065
 
 ### 10.3 Scheduling Algorithm
 

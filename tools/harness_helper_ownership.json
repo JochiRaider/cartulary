@@ -9,6 +9,7 @@
     { "key": "browser_batch_manifest", "boundary_group": "browser", "paths": ["tools/harness/browser/browser-batch-manifest.mjs"], "allowed_consumers": [] },
     { "key": "browser_duration_accounting", "boundary_group": "browser", "paths": ["tools/harness/browser/browser-duration-accounting.mjs"], "allowed_consumers": [] },
     { "key": "browser_lifecycle_adapter", "boundary_group": "browser", "paths": ["tools/harness/browser/browser-lifecycle-adapter.sh"], "allowed_consumers": [] },
+    { "key": "browser_owner_facade", "boundary_group": "browser", "paths": ["tools/harness/browser/index.mjs"], "allowed_consumers": [] },
     { "key": "browser_playwright_execution", "boundary_group": "browser", "paths": ["tools/harness/output/test-output/playwright-artifacts.mjs"], "allowed_consumers": [] },
     { "key": "browser_scheduler_adapter", "boundary_group": "browser", "paths": ["tools/harness/scheduler/adapters/browser.mjs"], "allowed_consumers": ["tools/harness/generated-artifacts/render-service-backed-schedule-manifest.mjs", "tools/harness/output/test-output/playwright-artifacts.mjs", "tools/harness/scheduler/adapters/browser.mjs"] },
     { "key": "browser_target_execution", "boundary_group": "browser", "paths": ["tools/harness/browser/run-browser-e2e-target.sh"], "allowed_consumers": [] },

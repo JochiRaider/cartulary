@@ -8,7 +8,7 @@ import {
 import { phaseManifestNames } from "./phase-manifest.mjs";
 import { browserStageResource } from "../scheduler/scheduler-resources.mjs";
 import {
-  phaseSliceDefaultCapacityProfile,
+  testSliceDefaultCapacityProfile,
   resolveSchedulerResourceLimits,
   schedulerCapacityProfileLimits,
 } from "../scheduler/scheduler-resource-policy.mjs";
@@ -50,8 +50,8 @@ function validPhaseName(value) {
 
 function phaseSliceProfileResourceLimits(label) {
   return schedulerCapacityProfileLimits(
-    "phase_slice",
-    phaseSliceDefaultCapacityProfile,
+    "test_slice",
+    testSliceDefaultCapacityProfile,
     label,
   );
 }
@@ -65,7 +65,7 @@ function addGeneratedResourceLimit(resourceLimits, resourceLimitSources, resourc
 
 function resolvePlanResourceLimits(plan) {
   const resolved = resolveSchedulerResourceLimits({
-    scheduler: "phase_slice",
+    scheduler: "test_slice",
     resourceLimits: plan.resourceLimits,
     resourceLimitSources: plan.resourceLimitSources,
     label: `${plan.target} ${plan.phase} resource_limits`,

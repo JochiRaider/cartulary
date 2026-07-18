@@ -39,7 +39,7 @@ function schedulerClaimsForShard(shard, resourceLimits) {
   return new Map(
     Object.entries(
       goShardSchedulerProfileClaims(shard.scheduler_profile, {
-        scheduler: "phase_slice",
+        scheduler: "test_slice",
         resourceLimits,
         shardName: shard.name,
       }),

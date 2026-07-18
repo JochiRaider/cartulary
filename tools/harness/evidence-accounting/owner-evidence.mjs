@@ -112,7 +112,7 @@ export function buildTestEvidenceAccounting(plan, execution, logs, startedAt, fi
       : {
           failure_class: result.terminal_state === "failed" ? "product" : "artifact",
           failure_reason: result.failure_reason ?? result.terminal_state,
-          exit_code: result.terminal_state === "failed" ? 10 : 11,
+          exit_code: result.exit_code || (result.terminal_state === "failed" ? 10 : 11),
         };
     return {
       row_id: result.row_id,
@@ -138,7 +138,10 @@ export function buildTestEvidenceAccounting(plan, execution, logs, startedAt, fi
     started_at: startedAt,
     finished_at: finishedAt,
     duration_ms: execution.duration_ms,
-    status: observedRows.every((row) => successfulStates.has(row.terminal_state)) ? "pass" : "fail",
+    status:
+      execution.status === "pass" && observedRows.every((row) => successfulStates.has(row.terminal_state))
+        ? "pass"
+        : "fail",
     expected_rows: expectedRows,
     observed_rows: observedRows,
   };

@@ -21,7 +21,7 @@ import {
   targetEntryMap,
 } from "../generated-artifacts/index.mjs";
 import {
-  phaseSliceDefaultCapacityProfile,
+  testSliceDefaultCapacityProfile,
   resolveSchedulerResourceLimits,
   schedulerCapacityProfileLimits,
 } from "../scheduler/scheduler-resource-policy.mjs";
@@ -287,12 +287,12 @@ function scheduleCompositeGatesAfterServiceCompletion(plan, compositeUnits) {
 
 function resourceLimitsForWorkUnits(workUnits, label) {
   const profileLimits = schedulerCapacityProfileLimits(
-    "phase_slice",
-    phaseSliceDefaultCapacityProfile,
+    "test_slice",
+    testSliceDefaultCapacityProfile,
     label,
   );
   const resolved = resolveSchedulerResourceLimits({
-    scheduler: "phase_slice",
+    scheduler: "test_slice",
     resourceLimits: profileLimits.limits,
     resourceLimitSources: profileLimits.sources,
     label,

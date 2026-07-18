@@ -70,7 +70,7 @@ function validateResourceMap(value, label, { limits = null, allowAuto = false } 
   const entries = Object.entries(requireObject(value, label));
   for (const [resource, amount] of entries) {
     assertKnownResource(resource, `${label}.${resource}`, {
-      scheduler: "phase_slice",
+      scheduler: "test_slice",
     });
     validateResourceAmount(amount, `${label}.${resource}`, { allowAuto });
     if (limits && !Object.hasOwn(limits, resource)) {

@@ -112,6 +112,9 @@ function finalizeOwner(targetID, selection, observations, snapshot, startedAt, f
     normalizedRowResult(rowID, observations.get(rowID) ?? []),
   );
   const execution = {
+    status: rowResults.every((row) => row.terminal_state === "passed" || row.terminal_state === "skipped_authorized")
+      ? "pass"
+      : "fail",
     row_results: rowResults,
     duration_ms: rowResults.reduce((total, row) => total + row.duration_ms, 0),
   };

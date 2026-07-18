@@ -68,6 +68,12 @@ function unitID(key, rowIDs) {
   return `unit.${slug}.${digest}`;
 }
 
+function runnerTimeoutSeconds(runner) {
+  if (runner === "playwright") return 900;
+  if (runner === "go" || runner === "vitest") return 600;
+  return 300;
+}
+
 function rowRecord(row, expectedRow, targetName) {
   return {
     ...expectedRow,
@@ -149,6 +155,7 @@ export function resolveOwnerSliceSelection(root, options) {
       resource_claims: resource.resource_claims,
       dependencies: [],
       expected_artifacts: ["cartulary.test_evidence_accounting.v1"],
+      timeout_seconds: runnerTimeoutSeconds(rows[0].runner),
     };
   }).sort((left, right) => asciiCompare(left.work_unit_id, right.work_unit_id));
 
@@ -189,6 +196,42 @@ export function buildOwnerSlicePlan(root, options) {
   const fixtureProfiles = [...new Set(resolved.rows.map((row) => row.fixture_profile_id))]
     .sort(asciiCompare)
     .map((id) => profileByID(resolved.catalog, "fixture_profiles", id));
+  const finalizers = [
+    {
+      finalizer_id: "finalizer.owner_slice_cleanup",
+      kind: "cleanup",
+      dependencies: resolved.workUnits.map((unit) => unit.work_unit_id).sort(asciiCompare),
+    },
+  ];
+  const expectedArtifacts = [
+    "cartulary.test_evidence_accounting.v1",
+    "cartulary.test_owner_summary.v1",
+    "cartulary.test_slice_scheduler_summary.v1",
+    "cartulary.tool_run_summary.v4",
+  ];
+  const planSemanticDigest = semanticJSONDigest({
+    command_id: options.commandID,
+    target: options.target,
+    owner_id: resolved.selection.owner_id,
+    selection: resolved.selection,
+    workers: resolved.workers,
+    rows: resolved.rows,
+    work_units: resolved.workUnits,
+    finalizers,
+    expected_artifacts: expectedArtifacts,
+  });
+  const schedulerSemanticDigest = semanticJSONDigest({
+    scheduler_kind: "test_slice",
+    capacity_profile: "test_slice_default",
+    stop_on_first_failure: false,
+    work_units: resolved.workUnits.map((unit) => ({
+      id: unit.work_unit_id,
+      needs: unit.dependencies,
+      resource_claims: unit.resource_claims,
+      timeout_seconds: unit.timeout_seconds,
+    })),
+    finalizers,
+  });
   return {
     schema_id: "cartulary.test_slice_plan.v1",
     command_id: options.commandID,
@@ -202,6 +245,8 @@ export function buildOwnerSlicePlan(root, options) {
     runtime_profile_digest: semanticJSONDigest(runtimeProfiles),
     resource_profile_digest: semanticJSONDigest(resourceProfiles),
     fixture_profile_digest: semanticJSONDigest(fixtureProfiles),
+    plan_semantic_digest: planSemanticDigest,
+    scheduler_semantic_digest: schedulerSemanticDigest,
     started_at: timestamp,
     finished_at: timestamp,
     duration_ms: 0,
@@ -211,18 +256,7 @@ export function buildOwnerSlicePlan(root, options) {
     unused_inputs: resolved.unusedInputs,
     rows: resolved.rows,
     work_units: resolved.workUnits,
-    finalizers: [
-      {
-        finalizer_id: "finalizer.owner_slice_cleanup",
-        kind: "cleanup",
-        dependencies: resolved.workUnits.map((unit) => unit.work_unit_id).sort(asciiCompare),
-      },
-    ],
-    expected_artifacts: [
-      "cartulary.test_evidence_accounting.v1",
-      "cartulary.test_owner_summary.v1",
-      "cartulary.test_slice_scheduler_summary.v1",
-      "cartulary.tool_run_summary.v4",
-    ],
+    finalizers,
+    expected_artifacts: expectedArtifacts,
   };
 }

@@ -214,8 +214,17 @@ async function readServiceSessionFailureRecord({
 
 function schedulerFallbackFailureRecord(record, scheduleTarget) {
   const label = record?.label ?? scheduleTarget;
+  const normalized = record?.status === 10
+    ? { failure_class: "product", failure_reason: "test_assertion_failure" }
+    : record?.status === 12 && record?.kind === "finalizer"
+      ? { failure_class: "harness", failure_reason: "cleanup_error" }
+      : record?.status === 13
+        ? { failure_class: "timing", failure_reason: "timeout_failure" }
+        : record?.status === 130 || record?.status === 143 || record?.termination_reason === "cancelled_or_interrupted"
+          ? { failure_class: "interrupted", failure_reason: "cancelled_or_interrupted" }
+          : { failure_class: classifyExecutionFailure(label, scheduleTarget), failure_reason: "unknown_failure" };
   return normalizeFailureRecord({
-    failure_class: classifyExecutionFailure(label, scheduleTarget),
+    ...normalized,
     kind: "scheduler",
     source: "scheduler",
     target: scheduleTarget,

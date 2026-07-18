@@ -44,7 +44,7 @@
       "additionalProperties": false,
       "properties": {
         "target": { "type": "string", "minLength": 1 },
-        "scheduler_kind": { "enum": ["check", "service_backed", "phase_slice"] },
+        "scheduler_kind": { "enum": ["check", "service_backed", "test_slice"] },
         "capacity_profile": { "type": "string", "minLength": 1 },
         "resource_limits": { "$ref": "#/$defs/claims" },
         "stop_on_first_failure": { "type": "boolean" },
@@ -110,6 +110,7 @@
         "counts_started": { "type": "boolean" },
         "complete_on_failure": { "type": "boolean" },
         "unblock_label": { "type": "string", "minLength": 1 },
+        "timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 3600 },
         "command": {
           "oneOf": [
             { "$ref": "#/$defs/command_make_target" },

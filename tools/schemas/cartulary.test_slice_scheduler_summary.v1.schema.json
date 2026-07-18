@@ -15,6 +15,8 @@
     "runtime_profile_digest",
     "resource_profile_digest",
     "fixture_profile_digest",
+    "plan_semantic_digest",
+    "scheduler_semantic_digest",
     "target",
     "status",
     "started_at",
@@ -38,6 +40,8 @@
     "runtime_profile_digest": { "$ref": "cartulary.test_slice_plan.v1#/$defs/digest" },
     "resource_profile_digest": { "$ref": "cartulary.test_slice_plan.v1#/$defs/digest" },
     "fixture_profile_digest": { "$ref": "cartulary.test_slice_plan.v1#/$defs/digest" },
+    "plan_semantic_digest": { "$ref": "cartulary.test_slice_plan.v1#/$defs/digest" },
+    "scheduler_semantic_digest": { "$ref": "cartulary.test_slice_plan.v1#/$defs/digest" },
     "target": { "enum": ["test-slice", "service-backed-test-slice"] },
     "status": { "enum": ["pass", "fail"] },
     "started_at": { "$ref": "cartulary.test_slice_plan.v1#/$defs/timestamp" },
@@ -92,13 +96,14 @@
     "artifacts": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["evidence_accounting", "owner_summary", "plan", "scheduler_summary", "tool_run_summary", "work_unit_logs"],
+      "required": ["evidence_accounting", "owner_summary", "plan", "scheduler_summary", "tool_run_summary", "lifecycle_summary", "work_unit_logs"],
       "properties": {
         "evidence_accounting": { "type": "string", "minLength": 1 },
         "owner_summary": { "type": "string", "minLength": 1 },
         "plan": { "type": "string", "minLength": 1 },
         "scheduler_summary": { "type": "string", "minLength": 1 },
         "tool_run_summary": { "type": "string", "minLength": 1 },
+        "lifecycle_summary": { "type": "string", "minLength": 1 },
         "work_unit_logs": { "type": "array", "items": { "$ref": "#/$defs/log_ref" } }
       }
     }

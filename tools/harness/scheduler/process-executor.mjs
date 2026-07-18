@@ -98,20 +98,81 @@ export function runLifecycle(repoRoot, testOutputScript, args, stream = process.
   });
 }
 
-export function runCommand(repoRoot, command, args, logFile, env = process.env) {
+function commandOptions(value) {
+  if (
+    value &&
+    typeof value === "object" &&
+    (Object.hasOwn(value, "env") || Object.hasOwn(value, "signal") || Object.hasOwn(value, "timeoutMs"))
+  ) {
+    return {
+      env: value.env ?? process.env,
+      signal: value.signal ?? null,
+      timeoutMs: value.timeoutMs ?? 0,
+    };
+  }
+  return { env: value ?? process.env, signal: null, timeoutMs: 0 };
+}
+
+function terminateChild(child, signal) {
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return;
+  }
+  try {
+    if (process.platform === "win32") {
+      child.kill(signal);
+    } else {
+      process.kill(-child.pid, signal);
+    }
+  } catch (error) {
+    if (error?.code !== "ESRCH") {
+      child.kill(signal);
+    }
+  }
+}
+
+export function runCommand(repoRoot, command, args, logFile, rawOptions = process.env) {
+  const options = commandOptions(rawOptions);
   return new Promise((resolve) => {
     const log = createWriteStream(logFile);
     let settled = false;
+    let terminationReason = null;
+    let terminationStatus = null;
+    let killTimer = null;
+    let timeout = null;
     const finish = (status) => {
       if (settled) {
         return;
       }
       settled = true;
-      log.end(() => resolve({ status }));
+      if (timeout) clearTimeout(timeout);
+      if (killTimer) clearTimeout(killTimer);
+      options.signal?.removeEventListener("abort", abort);
+      log.end(() => resolve({
+        status: terminationStatus ?? status,
+        terminationReason,
+      }));
+    };
+    const terminate = (status, reason, signal = "SIGTERM") => {
+      if (terminationStatus !== null) return;
+      terminationStatus = status;
+      terminationReason = reason;
+      log.write(`[scheduler] ${reason}; forwarding ${signal}\n`);
+      terminateChild(child, signal);
+      killTimer = setTimeout(() => terminateChild(child, "SIGKILL"), 5_000);
+      killTimer.unref?.();
+    };
+    const abort = () => {
+      const reason = options.signal?.reason;
+      terminate(
+        Number.isInteger(reason?.exitCode) ? reason.exitCode : 15,
+        reason?.reason ?? "cancelled_or_interrupted",
+        reason?.signal ?? "SIGTERM",
+      );
     };
     const child = spawn(command, args, {
       cwd: repoRoot,
-      env,
+      env: options.env,
+      detached: process.platform !== "win32",
       stdio: ["ignore", "pipe", "pipe"],
     });
     child.stdout.pipe(redactionTransform()).pipe(log, { end: false });
@@ -123,6 +184,17 @@ export function runCommand(repoRoot, command, args, logFile, env = process.env) 
     child.on("close", (status) => {
       finish(status ?? 1);
     });
+    if (options.signal) {
+      if (options.signal.aborted) abort();
+      else options.signal.addEventListener("abort", abort, { once: true });
+    }
+    if (Number.isFinite(options.timeoutMs) && options.timeoutMs > 0) {
+      timeout = setTimeout(
+        () => terminate(13, `scheduler watchdog exceeded ${options.timeoutMs}ms`),
+        options.timeoutMs,
+      );
+      timeout.unref?.();
+    }
   });
 }
 

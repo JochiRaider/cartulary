@@ -15,8 +15,9 @@ import {
   fileArtifactRef,
   normalizeOutputMode,
 } from "../output/index.mjs";
-import { executeOwnerSlicePlan, retainOwnerSliceUnitLogs } from "./execution.mjs";
+import { retainOwnerSliceUnitLogs } from "./execution.mjs";
 import { buildOwnerSlicePlan, OwnerSliceUsageError } from "./plan.mjs";
+import { executeOwnerSliceSchedule } from "./scheduler.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "../../..");
@@ -74,6 +75,8 @@ function identityFields(plan) {
     runtime_profile_digest: plan.runtime_profile_digest,
     resource_profile_digest: plan.resource_profile_digest,
     fixture_profile_digest: plan.fixture_profile_digest,
+    plan_semantic_digest: plan.plan_semantic_digest,
+    scheduler_semantic_digest: plan.scheduler_semantic_digest,
   };
 }
 
@@ -116,6 +119,7 @@ function schedulerSummary(plan, execution, logs, startedAt, finishedAt) {
       plan: `${plan.target}/test-slice-plan.json`,
       scheduler_summary: `${plan.target}/test-slice-scheduler-summary.json`,
       tool_run_summary: `${plan.target}/tool-run-summary.json`,
+      lifecycle_summary: `${plan.target}/scheduler-summary.json`,
       work_unit_logs: logs,
     },
   };
@@ -129,6 +133,7 @@ function ownerArtifactPaths(plan) {
     plan: `${plan.target}/test-slice-plan.json`,
     scheduler_summary: `${plan.target}/test-slice-scheduler-summary.json`,
     tool_run_summary: `${plan.target}/tool-run-summary.json`,
+    lifecycle_summary: `${plan.target}/scheduler-summary.json`,
   };
 }
 
@@ -144,7 +149,7 @@ function toolSummary(plan, execution, paths, startedAt, finishedAt, resultRoot, 
     target: plan.target,
     command: ["make", plan.target],
     status,
-    exitCode: status === "pass" ? 0 : failure?.terminal_state === "failed" ? 10 : 11,
+    exitCode: status === "pass" ? 0 : execution.exit_code || (failure?.terminal_state === "failed" ? 10 : 11),
     startedAt,
     completedAt: finishedAt,
     durationMs: execution.duration_ms,
@@ -157,6 +162,7 @@ function toolSummary(plan, execution, paths, startedAt, finishedAt, resultRoot, 
       fileArtifactRef("test_owner_summary", paths.owner_summary),
       fileArtifactRef("test_slice_plan", paths.plan),
       fileArtifactRef("test_slice_scheduler_summary", paths.scheduler_summary),
+      fileArtifactRef("scheduler_lifecycle_summary", paths.lifecycle_summary),
       fileArtifactRef("tool_run_summary", paths.tool_run_summary),
     ],
     workUnits: execution.unit_results.map((result) => ({
@@ -173,10 +179,16 @@ function toolSummary(plan, execution, paths, startedAt, finishedAt, resultRoot, 
     failureReason: status === "pass" ? null : failure?.terminal_state === "failed" ? "test_assertion_failure" : "scheduler_accounting_error",
     failures: status === "pass" ? [] : [{
       target: plan.target,
-      work_unit: plan.work_units.find((unit) => unit.row_ids.includes(failure.row_id))?.work_unit_id ?? "",
+      work_unit: failure
+        ? plan.work_units.find((unit) => unit.row_ids.includes(failure.row_id))?.work_unit_id ?? ""
+        : plan.finalizers[0].finalizer_id,
       failure_class: failure?.terminal_state === "failed" ? "product" : "artifact",
-      failure_reason: failure?.terminal_state === "failed" ? "test_assertion_failure" : "scheduler_accounting_error",
-      headline: failure?.failure_reason ?? "owner evidence accounting failed",
+      failure_reason: failure?.terminal_state === "failed"
+        ? "test_assertion_failure"
+        : execution.finalizer_failed
+          ? "cleanup_error"
+          : "scheduler_accounting_error",
+      headline: failure?.failure_reason ?? (execution.finalizer_failed ? "owner slice cleanup failed" : "owner evidence accounting failed"),
     }],
     rerunCommands: [`make ${plan.target} OWNER=${plan.owner_id}`],
   });
@@ -206,7 +218,12 @@ async function main() {
   const targetDir = path.join(resultsRoot(), id, options.target);
   mkdirSync(targetDir, { recursive: true });
   retainPlan(plan, targetDir);
-  const execution = executeOwnerSlicePlan(root, plan);
+  const execution = await executeOwnerSliceSchedule(
+    root,
+    plan,
+    path.join(targetDir, "test-slice-plan.json"),
+    targetDir,
+  );
   const logs = retainOwnerSliceUnitLogs(targetDir, execution);
   const finishedAt = new Date().toISOString();
   const ownerDir = path.join(targetDir, "owners", plan.owner_id);
@@ -240,10 +257,10 @@ async function main() {
     );
   } else {
     process.stderr.write(
-      `[FAIL] target=${summary.target} exit_code=10 failure_class=product reason=test_assertion_failure owner=${summary.owner_id} failed_rows=${summary.counts.failed}\n`,
+      `[FAIL] target=${summary.target} exit_code=${execution.exit_code || 11} failure_class=${summary.counts.failed > 0 ? "product" : "artifact"} reason=${execution.finalizer_failed ? "cleanup_error" : "test_execution_failure"} owner=${summary.owner_id} failed_rows=${summary.counts.failed}\n`,
     );
   }
-  return summary.status === "pass" ? 0 : 10;
+  return summary.status === "pass" ? 0 : execution.exit_code || 11;
 }
 
 main()

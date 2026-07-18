@@ -83,6 +83,7 @@ const schedulerWorkUnitKeys = new Set([
   "counts_started",
   "complete_on_failure",
   "unblock_label",
+  "timeout_seconds",
   "command",
 ]);
 const schedulerCommandTypeValues = Object.freeze([
@@ -512,6 +513,9 @@ export function validateSchedulerManifestShape(file) {
           `${unitLabel}.readiness_attribution.reason`,
         );
       }
+      if (unit.timeout_seconds !== undefined) {
+        requireInteger(unit.timeout_seconds, `${unitLabel}.timeout_seconds`, { min: 1, max: 3600 });
+      }
     });
     validateSchedulerBrowserWorkerSlots(schedule.work_units, label);
     if (schedule.finalizers !== undefined) {
@@ -804,6 +808,7 @@ function normalizeWorkUnit(unit, index, scheduleLabel, scheduler, resourceLimits
     unblockLabel: typeof unit.unblock_label === "string" && unit.unblock_label.trim() !== ""
       ? unit.unblock_label.trim()
       : undefined,
+    timeoutMs: unit.timeout_seconds === undefined ? 0 : unit.timeout_seconds * 1_000,
     startDetail: {},
     order: index,
   };

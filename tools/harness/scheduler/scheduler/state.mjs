@@ -51,22 +51,25 @@ export function unitFailureKeys(unit) {
 }
 
 function hasFailedDependency(unit, failedKeys) {
+  if (finalizer(unit)) return null;
   return (unit.needs ?? []).find((need) => failedKeys.has(need)) ?? null;
 }
 
-function dependenciesSatisfied(unit, completedKeys) {
-  return (unit.needs ?? []).every((need) => completedKeys.has(need));
+function dependenciesSatisfied(unit, completedKeys, failedKeys) {
+  return (unit.needs ?? []).every((need) =>
+    completedKeys.has(need) || (finalizer(unit) && failedKeys.has(need)),
+  );
 }
 
 function readyPendingUnits(pending, completedKeys, failedKeys) {
   return pending.filter(
-    (unit) => !hasFailedDependency(unit, failedKeys) && dependenciesSatisfied(unit, completedKeys),
+    (unit) => !hasFailedDependency(unit, failedKeys) && dependenciesSatisfied(unit, completedKeys, failedKeys),
   );
 }
 
 function dependencyBlockedPendingUnits(pending, completedKeys, failedKeys) {
   return pending.filter(
-    (unit) => counted(unit) && !hasFailedDependency(unit, failedKeys) && !dependenciesSatisfied(unit, completedKeys),
+    (unit) => counted(unit) && !hasFailedDependency(unit, failedKeys) && !dependenciesSatisfied(unit, completedKeys, failedKeys),
   );
 }
 
@@ -92,7 +95,7 @@ export function priorityAdmissiblePendingUnitIndex({
 }) {
   const reservedResources = new Set();
   for (const [index, candidate] of pending.entries()) {
-    if (hasFailedDependency(candidate, failedKeys) || !dependenciesSatisfied(candidate, completedKeys)) {
+    if (hasFailedDependency(candidate, failedKeys) || !dependenciesSatisfied(candidate, completedKeys, failedKeys)) {
       continue;
     }
     const blockedResources = blockedResourcesForUnit(candidate, resourceLimits, activeClaims);
@@ -188,6 +191,7 @@ export function skippedReasonForStoppedUnit(unit, completedKeys, failedKey, unit
 }
 
 function failedDependencyForSkip(unit, failedKeys) {
+  if (finalizer(unit)) return null;
   for (const need of unit.needs ?? []) {
     if (failedKeys.has(need)) {
       return need;

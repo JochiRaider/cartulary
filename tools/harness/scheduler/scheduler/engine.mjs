@@ -623,6 +623,7 @@ class SchedulerReporter {
       scheduler_profile: unit.schedulerProfile ?? "",
       readiness_attribution: unit.readinessAttribution ? { ...unit.readinessAttribution } : null,
       status: result.status,
+      termination_reason: result.terminationReason ?? null,
       duration_ms: durationMs,
       started_monotonic_ms: startedMonotonicMs,
       finished_monotonic_ms: now,
@@ -1188,7 +1189,26 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
   let firstFailureLabel = null;
   let firstFailureKey = null;
   let stopScheduling = false;
+  let finalizerOnly = false;
   let reporterClosed = false;
+  let interruption = null;
+  const workAbortController = new AbortController();
+  const interrupt = (signal) => {
+    if (interruption) return;
+    const exitCode = signal === "SIGINT" ? 130 : 143;
+    interruption = { signal, exitCode, reason: "cancelled_or_interrupted" };
+    if (firstFailure === 0) {
+      firstFailure = exitCode;
+      firstFailureLabel = `${schedule.target}:${signal.toLowerCase()}`;
+      firstFailureKey = `scheduler_signal:${signal.toLowerCase()}`;
+    }
+    stopScheduling = true;
+    workAbortController.abort(interruption);
+  };
+  const onSIGINT = () => interrupt("SIGINT");
+  const onSIGTERM = () => interrupt("SIGTERM");
+  process.on("SIGINT", onSIGINT);
+  process.on("SIGTERM", onSIGTERM);
 
   const stateSnapshot = (blockedCount = 0) => ({
     pending,
@@ -1216,12 +1236,17 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
       commandSpec.command,
       commandSpec.args,
       logFile,
-      commandSpec.env ?? process.env,
+      {
+        env: commandSpec.env ?? process.env,
+        signal: finalizer(unit) ? null : workAbortController.signal,
+        timeoutMs: unit.timeoutMs ?? 0,
+      },
     ).then(async (result) => ({
       id: unit.id,
       label: unit.label,
       status: result.status,
       logFile,
+      terminationReason: result.terminationReason,
     }));
     running.set(promise, unit);
     reporter.startUnit(unit, logFile, stateSnapshot());
@@ -1239,7 +1264,7 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
         skipFailedDependencyUnits({ pending, failedKeys, reporter, stateSnapshot });
       }
 
-      if (!stopScheduling) {
+      if (!stopScheduling || finalizerOnly) {
         while (true) {
           const nextIndex = priorityAdmissiblePendingUnitIndex({
             pending,
@@ -1252,6 +1277,9 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
             break;
           }
           const [unit] = pending.splice(nextIndex, 1);
+          if (finalizerOnly && !finalizer(unit)) {
+            throw new Error(`ordinary work unit ${unit.id} became admissible during finalization`);
+          }
           await startUnit(unit);
         }
       }
@@ -1274,22 +1302,28 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
 
       if (running.size === 0) {
         if (stopScheduling) {
-          const skipped = pending.splice(0);
+          const skipped = pending.filter((unit) => !finalizer(unit));
+          pending.splice(0, pending.length, ...pending.filter(finalizer));
           const skipMemo = new Map();
           for (const unit of skipped) {
-            const reason = skippedReasonForStoppedUnit(
-              unit,
-              completedKeys,
-              firstFailureKey,
-              unitsByCompletionKey,
-              skipMemo,
-            );
+            const reason = interruption
+              ? "cancelled_or_interrupted"
+              : skippedReasonForStoppedUnit(
+                  unit,
+                  completedKeys,
+                  firstFailureKey,
+                  unitsByCompletionKey,
+                  skipMemo,
+                );
             for (const key of unitFailureKeys(unit)) {
               failedKeys.set(key, firstFailureKey);
             }
             reporter.skipUnit(unit, stateSnapshot(skipped.length), reason, firstFailureKey);
           }
-          break;
+          stopScheduling = false;
+          finalizerOnly = true;
+          if (pending.length === 0) break;
+          continue;
         }
         if (pending.length === 0) {
           break;
@@ -1426,6 +1460,8 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
       failedKeys,
     };
   } finally {
+    process.removeListener("SIGINT", onSIGINT);
+    process.removeListener("SIGTERM", onSIGTERM);
     if (!reporterClosed) {
       await reporter.close();
     }

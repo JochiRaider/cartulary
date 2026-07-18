@@ -20,7 +20,7 @@ const hostCPUResource = "host_cpu";
 const hostIOResource = "host_io";
 const postgresResetResource = "postgres_reset";
 const postgresCloneResource = "postgres_clone";
-export const phaseSliceDefaultCapacityProfile = "phase_slice_default";
+export const testSliceDefaultCapacityProfile = "test_slice_default";
 
 function requireObject(value, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -199,7 +199,7 @@ export function schedulerAutoLimitResolvers(scheduler, provisionalUnits = []) {
         }),
     };
   }
-  if (schedulerKind !== "service_backed" && schedulerKind !== "phase_slice") {
+  if (schedulerKind !== "service_backed" && schedulerKind !== "test_slice") {
     throw new Error(`unsupported scheduler auto-limit family ${schedulerKind}`);
   }
   return {

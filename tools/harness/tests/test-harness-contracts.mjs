@@ -14,7 +14,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   loadExecutionTopology,
@@ -63,6 +63,9 @@ import {
 } from "../static-analysis/harness-helper-ownership.mjs";
 import { collectHarnessImportBoundaryViolations } from "../static-analysis/harness-import-boundary.mjs";
 import { validateSchedulerEventOrderFile } from "../scheduler/scheduler/event-order.mjs";
+import { runCommand as runScheduledCommand } from "../scheduler/process-executor.mjs";
+import { runNormalizedSchedule } from "../scheduler/scheduler-runner.mjs";
+import { priorityAdmissiblePendingUnitIndex } from "../scheduler/scheduler/state.mjs";
 import {
   schedulerCapacityProfilesByFamily,
   schedulerCapacityProfileValues,
@@ -91,6 +94,8 @@ import { adaptGoInvocation } from "../execution/runners/go.mjs";
 import { adaptPlaywrightReport } from "../execution/runners/playwright.mjs";
 import { adaptShellInvocation } from "../execution/runners/shell.mjs";
 import { adaptVitestInvocation } from "../execution/runners/vitest.mjs";
+import { buildBrowserStageSchedule } from "../browser/index.mjs";
+import { resolveBrowserBatchStage } from "../browser/browser-batch-manifest.mjs";
 import {
   assertDocumentationAccessAllowed,
   scanDocumentationReadSource,
@@ -358,7 +363,14 @@ test("owner slice plan is deterministic and schema-valid for semantic inputs", a
   };
   const first = buildOwnerSlicePlan(repoRoot, options);
   const second = buildOwnerSlicePlan(repoRoot, options);
+  const differentInvocation = buildOwnerSlicePlan(repoRoot, {
+    ...options,
+    runID: "fixture-run-2",
+    timestamp: "2026-07-18T01:00:00.000Z",
+  });
   assert.deepEqual(first, second);
+  assert.equal(first.plan_semantic_digest, differentInvocation.plan_semantic_digest);
+  assert.equal(first.scheduler_semantic_digest, differentInvocation.scheduler_semantic_digest);
   await validateSchema(first.schema_id, first);
   assert.deepEqual(first.selection.resolved_row_ids, [row.row_id]);
   assert.match(first.source_snapshot_digest, /^sha256:[0-9a-f]{64}$/u);
@@ -2921,6 +2933,233 @@ test("scheduler family facade matches schema registry and generated manifests", 
   }
 });
 
+function lifecycleFixtureUnit({ id, command, needs = [], kind = "test_work", timeoutMs = 0 }) {
+  return {
+    id,
+    label: id,
+    kind,
+    class: kind === "finalizer" ? "cleanup" : "fixture",
+    target: id,
+    aggregateTarget: "test-scheduler-lifecycle",
+    needs,
+    completionKeys: [id],
+    failureKeys: [id],
+    resourceClaims: new Map(kind === "finalizer" ? [] : [["process", 1]]),
+    priority: 0,
+    weightMs: 1,
+    order: 0,
+    timeoutMs,
+    countInTotal: kind === "finalizer" ? false : undefined,
+    command: { command: process.execPath, args: ["-e", command], env: process.env },
+  };
+}
+
+function lifecycleFixtureSchedule(target, workUnits) {
+  return {
+    target,
+    kind: "test_slice",
+    prefix: "TEST-SCHEDULER",
+    eventSchemaID: "cartulary.scheduler_event.v6",
+    summarySchemaID: "cartulary.service_backed_scheduler_summary.v10",
+    resourceScheduler: "test_slice",
+    stopOnFirstFailure: false,
+    showFinalizing: true,
+    validateSummaryTiming: false,
+    resourceLimits: new Map([["process", 1]]),
+    resourceLimitSources: new Map([["process", "fixture"]]),
+    workUnits,
+    finalizerCount: workUnits.filter((unit) => unit.kind === "finalizer").length,
+    shouldReplayLog: () => false,
+  };
+}
+
+test("generic scheduler drains independent work, skips failed dependencies, and always finalizes", async () => {
+  const fixture = mkdtempSync(path.join(repoRoot, "tmp", "scheduler-lifecycle."));
+  const independentMarker = path.join(fixture, "independent");
+  const finalizerMarker = path.join(fixture, "finalizer");
+  const target = `test-scheduler-lifecycle-${path.basename(fixture)}`;
+  const units = [
+    lifecycleFixtureUnit({ id: "product-failure", command: "process.exit(10)" }),
+    lifecycleFixtureUnit({
+      id: "independent",
+      command: `require('node:fs').writeFileSync(${JSON.stringify(independentMarker)}, 'done')`,
+    }),
+    lifecycleFixtureUnit({ id: "dependent", needs: ["product-failure"], command: "process.exit(99)" }),
+    lifecycleFixtureUnit({
+      id: "cleanup",
+      kind: "finalizer",
+      needs: ["product-failure", "independent", "dependent"],
+      command: `require('node:fs').writeFileSync(${JSON.stringify(finalizerMarker)}, 'done')`,
+    }),
+  ];
+  const result = await runNormalizedSchedule({
+    repoRoot,
+    schedule: lifecycleFixtureSchedule(target, units),
+    testOutputScript: "",
+  });
+  assert.equal(result.status, 10, "product failure must remain primary after cleanup");
+  assert.equal(existsSync(independentMarker), true, "independent work must drain");
+  assert.equal(existsSync(finalizerMarker), true, "finalizer must run after failed and skipped work");
+  assert.deepEqual(
+    result.reporter.skippedWork.map((entry) => [entry.id, entry.reason]),
+    [["dependent", "dependency_failure"]],
+  );
+  assert.equal(
+    result.reporter.completedWork.filter((entry) => entry.id === "product-failure").length,
+    1,
+    "product assertions must not retry",
+  );
+  rmSync(fixture, { recursive: true, force: true });
+});
+
+test("scheduler watchdog and cancellation terminate work while preserving finalization", async () => {
+  const fixture = mkdtempSync(path.join(repoRoot, "tmp", "scheduler-watchdog."));
+  const finalizerMarker = path.join(fixture, "finalizer");
+  const target = `test-scheduler-watchdog-${path.basename(fixture)}`;
+  const units = [
+    lifecycleFixtureUnit({
+      id: "timed-work",
+      command: "setTimeout(() => {}, 10000)",
+      timeoutMs: 50,
+    }),
+    lifecycleFixtureUnit({
+      id: "cleanup",
+      kind: "finalizer",
+      needs: ["timed-work"],
+      command: `require('node:fs').writeFileSync(${JSON.stringify(finalizerMarker)}, 'done')`,
+    }),
+  ];
+  const timed = await runNormalizedSchedule({
+    repoRoot,
+    schedule: lifecycleFixtureSchedule(target, units),
+    testOutputScript: "",
+  });
+  assert.equal(timed.status, 13);
+  assert.equal(existsSync(finalizerMarker), true, "timeout must not suppress cleanup");
+
+  const controller = new AbortController();
+  const cancelLog = path.join(fixture, "cancel.log");
+  const cancelled = runScheduledCommand(
+    repoRoot,
+    process.execPath,
+    ["-e", "setTimeout(() => {}, 10000)"],
+    cancelLog,
+    { env: process.env, signal: controller.signal },
+  );
+  controller.abort({ exitCode: 130, signal: "SIGINT", reason: "cancelled_or_interrupted" });
+  assert.deepEqual(await cancelled, { status: 130, terminationReason: "cancelled_or_interrupted" });
+  rmSync(fixture, { recursive: true, force: true });
+});
+
+test("scheduler interruption cancels ordinary work and still runs finalizers", () => {
+  const fixture = mkdtempSync(path.join(repoRoot, "tmp", "scheduler-interrupt."));
+  const finalizerMarker = path.join(fixture, "finalizer");
+  const runner = path.join(fixture, "interrupt-fixture.mjs");
+  const schedulerRunnerURL = pathToFileURL(
+    path.join(repoRoot, "tools", "harness", "scheduler", "scheduler-runner.mjs"),
+  ).href;
+  try {
+    writeFileSync(runner, `
+import process from "node:process";
+import { runNormalizedSchedule } from ${JSON.stringify(schedulerRunnerURL)};
+const unit = (id, command, kind = "test_work") => ({
+  id,
+  label: id,
+  kind,
+  class: kind === "finalizer" ? "cleanup" : "fixture",
+  target: id,
+  aggregateTarget: "test-scheduler-interrupt",
+  needs: kind === "finalizer" ? ["interrupted-work"] : [],
+  completionKeys: [id],
+  failureKeys: [id],
+  resourceClaims: new Map(kind === "finalizer" ? [] : [["process", 1]]),
+  priority: 0,
+  weightMs: 1,
+  order: kind === "finalizer" ? 1 : 0,
+  timeoutMs: 5_000,
+  countInTotal: kind === "finalizer" ? false : undefined,
+  command: { command: process.execPath, args: ["-e", command], env: process.env },
+});
+const schedule = {
+  target: "test-scheduler-interrupt",
+  kind: "test_slice",
+  prefix: "TEST-SCHEDULER",
+  eventSchemaID: "cartulary.scheduler_event.v6",
+  summarySchemaID: "cartulary.service_backed_scheduler_summary.v10",
+  resourceScheduler: "test_slice",
+  stopOnFirstFailure: false,
+  showFinalizing: true,
+  validateSummaryTiming: false,
+  resourceLimits: new Map([["process", 1]]),
+  resourceLimitSources: new Map([["process", "fixture"]]),
+  workUnits: [
+    unit("interrupted-work", "setTimeout(() => {}, 10000)"),
+    unit("cleanup", ${JSON.stringify(`require('node:fs').writeFileSync(${JSON.stringify(finalizerMarker)}, 'done')`)}, "finalizer"),
+  ],
+  finalizerCount: 1,
+  shouldReplayLog: () => false,
+};
+setTimeout(() => process.kill(process.pid, "SIGINT"), 50);
+const result = await runNormalizedSchedule({
+  repoRoot: ${JSON.stringify(repoRoot)},
+  schedule,
+  testOutputScript: "",
+});
+process.exitCode = result.status;
+`);
+    const result = spawnSync(process.execPath, [runner], {
+      cwd: repoRoot,
+      env: process.env,
+      encoding: "utf8",
+      timeout: 5_000,
+    });
+    assert.equal(result.error, undefined, result.error?.message);
+    assert.equal(result.status, 130, `${result.stdout}\n${result.stderr}`);
+    assert.equal(existsSync(finalizerMarker), true, "SIGINT must not suppress cleanup");
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test("scheduler FIFO reservations prevent resource leapfrogging", () => {
+  const unit = (id, claims) => ({ id, label: id, needs: [], resourceClaims: new Map(claims) });
+  const pending = [
+    unit("first-process", [["process", 1]]),
+    unit("second-process", [["process", 1]]),
+    unit("independent-browser", [["browser_stack", 1]]),
+  ];
+  const index = priorityAdmissiblePendingUnitIndex({
+    pending,
+    completedKeys: new Set(),
+    failedKeys: new Map(),
+    resourceLimits: new Map([["process", 1], ["browser_stack", 1]]),
+    activeClaims: new Map([["process", 1]]),
+  });
+  assert.equal(index, 2, "independent resources may proceed while FIFO reserves blocked process capacity");
+  assert.equal(
+    priorityAdmissiblePendingUnitIndex({
+      pending: pending.slice(0, 2),
+      completedKeys: new Set(),
+      failedKeys: new Map(),
+      resourceLimits: new Map([["process", 1]]),
+      activeClaims: new Map([["process", 1]]),
+    }),
+    -1,
+    "later work must not leapfrog an earlier unit claiming the same resource",
+  );
+});
+
+test("catalog browser scheduler digest is deterministic and phase-independent", () => {
+  const manifest = path.join(repoRoot, "tools", "browser_e2e_batch_manifest.json");
+  const stage = resolveBrowserBatchStage(manifest, "stateful");
+  const first = buildBrowserStageSchedule(stage, manifest);
+  const second = buildBrowserStageSchedule(stage, manifest);
+  const extension = (schedule) => schedule.summaryExtra().extensions["cartulary.test_slice.browser_scheduler.v1"];
+  assert.deepEqual(extension(first), extension(second));
+  assert.match(extension(first).scheduler_semantic_digest, /^sha256:[0-9a-f]{64}$/u);
+  assert.equal(JSON.stringify(extension(first)).includes("phase"), false);
+});
+
 test("service-backed Go shard units are executable by their declared targets", () => {
   const { serviceBacked } = renderedArtifacts();
   const shardNamesByTarget = new Map();
@@ -3922,7 +4161,7 @@ test("harness import boundary consumes the authored helper ownership registry", 
   const helperOwnership = loadHarnessHelperOwnership(repoRoot);
   const authoredOwnerFacadePaths = ownerFacadePathLists(helperOwnership);
   const report = collectHarnessImportBoundaryViolations(repoRoot);
-  assert.equal(helperOwnership.facades.length, 38);
+  assert.equal(helperOwnership.facades.length, 39);
   assert.deepEqual(
     Object.keys(report.owner_facades).sort(),
     Object.keys(authoredOwnerFacadePaths).sort(),

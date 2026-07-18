@@ -332,7 +332,7 @@ write_valid_scheduler_resource_registry() {
     {
       "name": "go_cpu",
       "display_name": "Go CPU",
-      "schedulers": ["service_backed", "phase_slice"],
+      "schedulers": ["service_backed", "test_slice"],
       "display_order": 110,
       "capacity": {
         "auto_policy": "service_backed_go_cpu",
@@ -343,7 +343,7 @@ write_valid_scheduler_resource_registry() {
     {
       "name": "go_io",
       "display_name": "Go IO",
-      "schedulers": ["service_backed", "phase_slice"],
+      "schedulers": ["service_backed", "test_slice"],
       "display_order": 120,
       "capacity": {
         "auto_policy": "service_backed_go_io",
@@ -354,7 +354,7 @@ write_valid_scheduler_resource_registry() {
     {
       "name": "browser_stack",
       "display_name": "browser stack",
-      "schedulers": ["check", "service_backed", "phase_slice"],
+      "schedulers": ["check", "service_backed", "test_slice"],
       "display_order": 130,
       "capacity": {
         "auto_policy": "service_backed_browser_stack",
@@ -365,7 +365,7 @@ write_valid_scheduler_resource_registry() {
     {
       "name": "object_store",
       "display_name": "object store",
-      "schedulers": ["check", "service_backed", "phase_slice"],
+      "schedulers": ["check", "service_backed", "test_slice"],
       "display_order": 140,
       "capacity": {
         "default_limit": 32,
@@ -375,7 +375,7 @@ write_valid_scheduler_resource_registry() {
     {
       "name": "postgres",
       "display_name": "Postgres",
-      "schedulers": ["check", "service_backed", "phase_slice"],
+      "schedulers": ["check", "service_backed", "test_slice"],
       "display_order": 150,
       "capacity": {
         "default_limit": 32,
@@ -385,7 +385,7 @@ write_valid_scheduler_resource_registry() {
     {
       "name": "process",
       "display_name": "process slots",
-      "schedulers": ["check", "service_backed", "phase_slice"],
+      "schedulers": ["check", "service_backed", "test_slice"],
       "display_order": 160,
       "capacity": {
         "default_limit": 6,
@@ -395,7 +395,7 @@ write_valid_scheduler_resource_registry() {
     {
       "name": "postgres_reset",
       "display_name": "Postgres reset",
-      "schedulers": ["check", "service_backed", "phase_slice"],
+      "schedulers": ["check", "service_backed", "test_slice"],
       "display_order": 170,
       "capacity": {
         "auto_policy": "service_backed_postgres_reset",
@@ -406,7 +406,7 @@ write_valid_scheduler_resource_registry() {
     {
       "name": "postgres_clone",
       "display_name": "Postgres clone",
-      "schedulers": ["check", "service_backed", "phase_slice"],
+      "schedulers": ["check", "service_backed", "test_slice"],
       "display_order": 175,
       "capacity": {
         "auto_policy": "service_backed_postgres_clone",
@@ -420,7 +420,7 @@ write_valid_scheduler_resource_registry() {
       "name": "browser_stage",
       "prefix": "browser_stage_",
       "display_name": "browser stage",
-      "schedulers": ["check", "service_backed", "phase_slice"],
+      "schedulers": ["check", "service_backed", "test_slice"],
       "display_order": 135,
       "max_limit": 8
     }
@@ -464,8 +464,8 @@ write_valid_scheduler_resource_registry() {
       ]
     },
     {
-      "name": "phase_slice_default",
-      "scheduler": "phase_slice",
+      "name": "test_slice_default",
+      "scheduler": "test_slice",
       "resources": [
         "postgres",
         "object_store",

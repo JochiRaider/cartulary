@@ -1,7 +1,7 @@
 export const schedulerFamilyValues = Object.freeze([
   "check",
   "service_backed",
-  "phase_slice",
+  "test_slice",
 ]);
 
 export const schedulerFamilySet = new Set(schedulerFamilyValues);
@@ -12,7 +12,7 @@ export const schedulerCapacityProfilesByFamily = Object.freeze({
     "service_backed_full",
     "service_backed_backend",
   ]),
-  phase_slice: Object.freeze(["phase_slice_default"]),
+  test_slice: Object.freeze(["test_slice_default"]),
 });
 
 export const schedulerCapacityProfileValues = Object.freeze(

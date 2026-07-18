@@ -139,13 +139,13 @@ function phaseSliceNeedsService(plan) {
 
 function resourceLimitsMap(plan) {
   return normalizeResourceLimits(plan.resource_limits, `${plan.target} phase slice`, {
-    scheduler: "phase_slice",
+    scheduler: "test_slice",
   }).limits;
 }
 
 function resourceLimitSources(plan) {
   return normalizeResourceLimits(plan.resource_limits, `${plan.target} phase slice`, {
-    scheduler: "phase_slice",
+    scheduler: "test_slice",
   }).sources;
 }
 
@@ -385,11 +385,11 @@ function attachRuntime(plan, context, metadataDir, serviceRuntime) {
 
   return {
     target: plan.target,
-    kind: "phase_slice",
+    kind: "test_slice",
     prefix: "PHASE-SCHEDULER",
     eventSchemaID: schedulerEventSchemaID,
     summarySchemaID: schedulerSummarySchemaID,
-    resourceScheduler: "phase_slice",
+    resourceScheduler: "test_slice",
     stopOnFirstFailure: false,
     showFinalizing: true,
     resourceLimits,

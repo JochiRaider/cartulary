@@ -1232,7 +1232,7 @@ import {
   estimateServiceBackedGoCPULimit,
   estimateServiceBackedGoIOLimit,
   goShardSchedulerProfileClaims,
-  phaseSliceDefaultCapacityProfile,
+  testSliceDefaultCapacityProfile,
   resolveSchedulerResourceLimits,
   schedulerCapacityProfileLimits,
 } from "./tools/harness/scheduler/scheduler-resource-policy.mjs";
@@ -1287,7 +1287,7 @@ const validSchedulerRegistry = () => ({
     {
       name: "go_cpu",
       display_name: "Go CPU",
-      schedulers: ["service_backed", "phase_slice"],
+      schedulers: ["service_backed", "test_slice"],
       display_order: 110,
       capacity: {
         auto_policy: "service_backed_go_cpu",
@@ -1297,7 +1297,7 @@ const validSchedulerRegistry = () => ({
     {
       name: "go_io",
       display_name: "Go IO",
-      schedulers: ["service_backed", "phase_slice"],
+      schedulers: ["service_backed", "test_slice"],
       display_order: 120,
       capacity: {
         auto_policy: "service_backed_go_io",
@@ -1307,7 +1307,7 @@ const validSchedulerRegistry = () => ({
     {
       name: "browser_stack",
       display_name: "browser stack",
-      schedulers: ["check", "service_backed", "phase_slice"],
+      schedulers: ["check", "service_backed", "test_slice"],
       display_order: 130,
       capacity: {
         auto_policy: "service_backed_browser_stack",
@@ -1317,7 +1317,7 @@ const validSchedulerRegistry = () => ({
     {
       name: "object_store",
       display_name: "object store",
-      schedulers: ["check", "service_backed", "phase_slice"],
+      schedulers: ["check", "service_backed", "test_slice"],
       display_order: 140,
       capacity: {
         default_limit: 32,
@@ -1327,7 +1327,7 @@ const validSchedulerRegistry = () => ({
     {
       name: "seaweedfs_fixture",
       display_name: "SeaweedFS fixture",
-      schedulers: ["check", "service_backed", "phase_slice"],
+      schedulers: ["check", "service_backed", "test_slice"],
       display_order: 145,
       capacity: {
         default_limit: 2,
@@ -1337,7 +1337,7 @@ const validSchedulerRegistry = () => ({
     {
       name: "postgres",
       display_name: "Postgres",
-      schedulers: ["check", "service_backed", "phase_slice"],
+      schedulers: ["check", "service_backed", "test_slice"],
       display_order: 150,
       capacity: {
         default_limit: 32,
@@ -1347,7 +1347,7 @@ const validSchedulerRegistry = () => ({
     {
       name: "process",
       display_name: "process slots",
-      schedulers: ["check", "service_backed", "phase_slice"],
+      schedulers: ["check", "service_backed", "test_slice"],
       display_order: 160,
       capacity: {
         default_limit: 6,
@@ -1357,7 +1357,7 @@ const validSchedulerRegistry = () => ({
     {
       name: "postgres_reset",
       display_name: "Postgres reset",
-      schedulers: ["check", "service_backed", "phase_slice"],
+      schedulers: ["check", "service_backed", "test_slice"],
       display_order: 170,
       capacity: {
         auto_policy: "service_backed_postgres_reset",
@@ -1367,7 +1367,7 @@ const validSchedulerRegistry = () => ({
     {
       name: "postgres_clone",
       display_name: "Postgres clone",
-      schedulers: ["check", "service_backed", "phase_slice"],
+      schedulers: ["check", "service_backed", "test_slice"],
       display_order: 175,
       capacity: {
         auto_policy: "service_backed_postgres_clone",
@@ -1380,7 +1380,7 @@ const validSchedulerRegistry = () => ({
       name: "browser_stage",
       prefix: "browser_stage_",
       display_name: "browser stage",
-      schedulers: ["check", "service_backed", "phase_slice"],
+      schedulers: ["check", "service_backed", "test_slice"],
       display_order: 135,
       max_limit: 8,
     },
@@ -1426,8 +1426,8 @@ const validSchedulerRegistry = () => ({
       ],
     },
     {
-      name: "phase_slice_default",
-      scheduler: "phase_slice",
+      name: "test_slice_default",
+      scheduler: "test_slice",
       resources: [
         "postgres",
         "object_store",
@@ -1450,8 +1450,8 @@ if (browserStageResource("webserver-backed") !== "browser_stage_webserver_backed
 if (preferredResourcesForScheduler("check").join(",") !== "host_cpu,host_io,suite_service_stack,migration_scratch_postgres,browser_stack,object_store,seaweedfs_fixture,postgres,process,postgres_reset,postgres_clone") {
   fail("check resource display order changed");
 }
-if (preferredResourcesForScheduler("phase_slice").join(",") !== "go_cpu,go_io,browser_stack,object_store,seaweedfs_fixture,postgres,process,postgres_reset,postgres_clone") {
-  fail("phase_slice resource display order changed");
+if (preferredResourcesForScheduler("test_slice").join(",") !== "go_cpu,go_io,browser_stack,object_store,seaweedfs_fixture,postgres,process,postgres_reset,postgres_clone") {
+  fail("test_slice resource display order changed");
 }
 if (resourceOverrideEnvVariablesForScheduler("check").join(",") !== "CHECK_HOST_CPU_JOBS,CHECK_HOST_IO_JOBS,CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT,CARTULARY_SERVICE_BACKED_POSTGRES_RESET_LIMIT,CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT") {
   fail("check override env names changed");
@@ -1513,12 +1513,12 @@ for (const [resource, expected] of [
     fail(`service_backed_full ${resource} source got ${serviceProfile.sources.get(resource)}`);
   }
 }
-const phaseSliceProfile = resourceLimitsForCapacityProfile("phase_slice_default", "registry test", {
-  scheduler: "phase_slice",
+const testSliceProfile = resourceLimitsForCapacityProfile("test_slice_default", "registry test", {
+  scheduler: "test_slice",
   allowAuto: true,
 });
-if (phaseSliceProfile.limits.get("go_cpu") !== "auto" || phaseSliceProfile.limits.get("go_io") !== "auto" || phaseSliceProfile.limits.get("browser_stack") !== "auto" || phaseSliceProfile.limits.get("postgres_reset") !== "auto" || phaseSliceProfile.limits.get("postgres_clone") !== "auto") {
-  fail("phase_slice_default auto limits changed");
+if (testSliceProfile.limits.get("go_cpu") !== "auto" || testSliceProfile.limits.get("go_io") !== "auto" || testSliceProfile.limits.get("browser_stack") !== "auto" || testSliceProfile.limits.get("postgres_reset") !== "auto" || testSliceProfile.limits.get("postgres_clone") !== "auto") {
+  fail("test_slice_default auto limits changed");
 }
 for (const [resource, expected] of [
   ["postgres", 32],
@@ -1526,20 +1526,20 @@ for (const [resource, expected] of [
   ["seaweedfs_fixture", 2],
   ["process", 6],
 ]) {
-  if (phaseSliceProfile.limits.get(resource) !== expected) {
-    fail(`phase_slice_default ${resource} default changed`);
+  if (testSliceProfile.limits.get(resource) !== expected) {
+    fail(`test_slice_default ${resource} default changed`);
   }
-  if (phaseSliceProfile.sources.get(resource) !== "registry:phase_slice_default") {
-    fail(`phase_slice_default ${resource} source got ${phaseSliceProfile.sources.get(resource)}`);
+  if (testSliceProfile.sources.get(resource) !== "registry:test_slice_default") {
+    fail(`test_slice_default ${resource} source got ${testSliceProfile.sources.get(resource)}`);
   }
 }
 const expectedProfileClaims = new Map([
-  ["balanced", { check: "{host_cpu:1,host_io:1}", service_backed: "{go_cpu:1,go_io:1}", phase_slice: "{go_cpu:1,go_io:1}" }],
-  ["cpu_heavy", { check: "{host_cpu:2,host_io:1}", service_backed: "{go_cpu:2,go_io:1}", phase_slice: "{go_cpu:2,go_io:1}" }],
-  ["io_heavy", { check: "{host_cpu:1,host_io:2}", service_backed: "{go_cpu:1,go_io:2}", phase_slice: "{go_cpu:1,go_io:2}" }],
-  ["reset_heavy", { check: "{host_cpu:1,host_io:2,postgres_reset:1}", service_backed: "{go_cpu:1,go_io:2,postgres_reset:1}", phase_slice: "{go_cpu:1,go_io:2,postgres_reset:1}" }],
-  ["clone_heavy", { check: "{host_cpu:1,host_io:2,postgres_clone:1}", service_backed: "{go_cpu:1,go_io:2,postgres_clone:1}", phase_slice: "{go_cpu:1,go_io:2,postgres_clone:1}" }],
-  ["transaction_heavy", { check: "{host_cpu:1,host_io:1}", service_backed: "{go_cpu:1,go_io:1}", phase_slice: "{go_cpu:1,go_io:1}" }],
+  ["balanced", { check: "{host_cpu:1,host_io:1}", service_backed: "{go_cpu:1,go_io:1}", test_slice: "{go_cpu:1,go_io:1}" }],
+  ["cpu_heavy", { check: "{host_cpu:2,host_io:1}", service_backed: "{go_cpu:2,go_io:1}", test_slice: "{go_cpu:2,go_io:1}" }],
+  ["io_heavy", { check: "{host_cpu:1,host_io:2}", service_backed: "{go_cpu:1,go_io:2}", test_slice: "{go_cpu:1,go_io:2}" }],
+  ["reset_heavy", { check: "{host_cpu:1,host_io:2,postgres_reset:1}", service_backed: "{go_cpu:1,go_io:2,postgres_reset:1}", test_slice: "{go_cpu:1,go_io:2,postgres_reset:1}" }],
+  ["clone_heavy", { check: "{host_cpu:1,host_io:2,postgres_clone:1}", service_backed: "{go_cpu:1,go_io:2,postgres_clone:1}", test_slice: "{go_cpu:1,go_io:2,postgres_clone:1}" }],
+  ["transaction_heavy", { check: "{host_cpu:1,host_io:1}", service_backed: "{go_cpu:1,go_io:1}", test_slice: "{go_cpu:1,go_io:1}" }],
 ]);
 for (const [profile, byScheduler] of expectedProfileClaims.entries()) {
   for (const [scheduler, expected] of Object.entries(byScheduler)) {
@@ -1574,15 +1574,15 @@ const policyUnits = [
   },
 ];
 const policyProfile = schedulerCapacityProfileLimits(
-  "phase_slice",
-  phaseSliceDefaultCapacityProfile,
+  "test_slice",
+  testSliceDefaultCapacityProfile,
   "phase slice policy profile",
   { env: {} },
 );
 policyProfile.limits.set("browser_stage_visual", 1);
 policyProfile.sources.set("browser_stage_visual", "generated");
 const resolvedPolicy = resolveSchedulerResourceLimits({
-  scheduler: "phase_slice",
+  scheduler: "test_slice",
   resourceLimits: policyProfile.limits,
   resourceLimitSources: policyProfile.sources,
   label: "phase slice policy resolver",
@@ -1598,7 +1598,7 @@ if (
   resolvedPolicy.resourceLimits.has("postgres_clone") ||
   resolvedPolicy.resourceLimits.has("postgres_reset")
 ) {
-  fail("phase_slice policy resolver did not use registry-backed auto/default limits");
+  fail("test_slice policy resolver did not use registry-backed auto/default limits");
 }
 if (
   estimateServiceBackedGoCPULimit(policyUnits) !== resolvedPolicy.resourceLimits.get("go_cpu") ||

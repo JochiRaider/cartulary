@@ -54,6 +54,7 @@
         "owner_summary": { "type": "string", "minLength": 1 },
         "plan": { "type": "string", "minLength": 1 },
         "scheduler_summary": { "type": "string", "minLength": 1 },
+        "lifecycle_summary": { "type": "string", "minLength": 1 },
         "tool_run_summary": { "type": "string", "minLength": 1 }
       }
     }
