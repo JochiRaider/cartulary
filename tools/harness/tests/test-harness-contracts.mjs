@@ -220,16 +220,15 @@ function writeOwnerCatalogFixture(root, mutate = () => {}) {
 
 test("owner catalog closes identities, selectors, profiles, and semantic digests", () => {
   const catalog = loadTestCatalog(repoRoot);
-  const crosswalk = readJSON("tools/test_migration_crosswalk.json");
-  const authorizedRowCount =
-    crosswalk.dispositions.filter((entry) => entry.disposition === "migrated").length +
-    crosswalk.new_rows.length;
   assert.equal(catalog.summary.status, "pass");
   assert.equal(catalog.summary.owner_count, catalog.registry.owners.length);
-  assert.equal(catalog.summary.row_count, authorizedRowCount);
+  assert.equal(catalog.summary.owner_count, 46);
+  assert.equal(catalog.summary.family_count, 169);
+  assert.equal(catalog.summary.row_count, 833);
+  assert.equal(catalog.summary.selector_count, 1377);
   assert.equal(
     Object.values(catalog.summary.runner_counts).reduce((sum, count) => sum + count, 0),
-    authorizedRowCount,
+    catalog.summary.row_count,
   );
   assert.match(catalog.semantic_digest, /^sha256:[0-9a-f]{64}$/u);
   assert.match(catalog.verification.semantic_digest, /^sha256:[0-9a-f]{64}$/u);

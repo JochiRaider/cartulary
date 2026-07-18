@@ -9,7 +9,6 @@ export const targetTimingSchemaID = "cartulary.test_target_timing.v1";
 export const targetSummarySchemaID = "cartulary.test_target_summary.v4";
 export const runSummarySchemaID = "cartulary.test_run_summary.v6";
 export const sharedExecutionGroupSchemaID = "cartulary.test_shared_execution_group.v1";
-export const testAccountingClassificationSchemaID = "cartulary.test_accounting_classification.v2";
 export const vitestFailureDetailsSchemaID =
   "cartulary.vitest_failure_details.v1";
 

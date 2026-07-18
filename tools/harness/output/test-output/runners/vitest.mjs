@@ -22,7 +22,6 @@ import {
 import { selectedPlaywrightEntriesFromReport as selectedPlaywrightEntriesFromReportAdapter } from "../playwright-artifacts.mjs";
 import { verboseOutput } from "../../tool-output.mjs";
 import {
-  testAccountingClassificationSchemaID,
   testCoverageBucketSet,
   testCoverageBuckets,
   vitestFailureDetailsSchemaID,
@@ -34,7 +33,6 @@ import {
 
 let cachedGoModulePath;
 
-let cachedTestAccountingClassification;
 
 function resolveGoModulePath() {
   if (cachedGoModulePath !== undefined) {
@@ -159,181 +157,7 @@ function loadManifestIndex() {
   return loadManifestIndexAdapter(repoRoot, { normalizePath, toGoImportPath });
 }
 
-function globToRegExp(pattern) {
-  const escaped = String(pattern)
-    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-    .replaceAll("**", "\u0000")
-    .replaceAll("*", "[^/]*")
-    .replaceAll("\u0000", ".*");
-  return new RegExp(`^${escaped}$`);
-}
-
-function normalizeAccountingRule(rule, label, scope) {
-  if (!rule || typeof rule !== "object") {
-    throw new Error(`${label} must be an object`);
-  }
-  const requiresFile = scope === "vitest" || scope === "playwright";
-  const requiresPackage = scope === "go_packages" || scope === "go_tests";
-  if (
-    requiresFile &&
-    typeof rule.file !== "string" &&
-    typeof rule.file_pattern !== "string"
-  ) {
-    throw new Error(`${label} must declare file or file_pattern`);
-  }
-  if (
-    requiresPackage &&
-    typeof rule.package !== "string" &&
-    typeof rule.package_pattern !== "string"
-  ) {
-    throw new Error(`${label} must declare package or package_pattern`);
-  }
-  const coverage = normalizeTestCoverage(rule.coverage, "");
-  if (coverage === "unmapped") {
-    throw new Error(
-      `${label}.coverage must be raw|tooling_support|unowned_regression|support|authoritative`,
-    );
-  }
-  if (typeof rule.target !== "string" || rule.target.trim() === "") {
-    throw new Error(`${label}.target must declare the owning Make target`);
-  }
-  if (typeof rule.reason !== "string" || rule.reason.trim().length < 20) {
-    throw new Error(`${label}.reason must explain the ownership decision`);
-  }
-  if (typeof rule.title === "string" && typeof rule.title_pattern === "string") {
-    throw new Error(`${label} must not declare both title and title_pattern`);
-  }
-  return {
-    ...rule,
-    coverage,
-    step: typeof rule.step === "string" ? rule.step : "",
-    reason: rule.reason.trim(),
-  };
-}
-
-function loadTestAccountingClassification() {
-  if (cachedTestAccountingClassification) {
-    return cachedTestAccountingClassification;
-  }
-  const file = path.join(
-    "tools",
-    "test_accounting_classification.json",
-  );
-  const empty = {
-    vitest: [],
-    go_packages: [],
-    go_tests: [],
-    playwright: [],
-  };
-  if (!existsSync(file)) {
-    cachedTestAccountingClassification = empty;
-    return cachedTestAccountingClassification;
-  }
-  const manifest = JSON.parse(readFileSync(file, "utf8"));
-  if (manifest.schema_id !== testAccountingClassificationSchemaID) {
-    throw new Error(
-      `${file} must declare schema_id ${testAccountingClassificationSchemaID}`,
-    );
-  }
-  validateSchemaSync(testAccountingClassificationSchemaID, manifest);
-  cachedTestAccountingClassification = {
-    vitest: (manifest.vitest ?? []).map((rule, index) =>
-      normalizeAccountingRule(rule, `${file}.vitest[${index}]`, "vitest"),
-    ),
-    go_packages: (manifest.go_packages ?? []).map((rule, index) =>
-      normalizeAccountingRule(
-        rule,
-        `${file}.go_packages[${index}]`,
-        "go_packages",
-      ),
-    ),
-    go_tests: (manifest.go_tests ?? []).map((rule, index) =>
-      normalizeAccountingRule(rule, `${file}.go_tests[${index}]`, "go_tests"),
-    ),
-    playwright: (manifest.playwright ?? []).map((rule, index) =>
-      normalizeAccountingRule(
-        rule,
-        `${file}.playwright[${index}]`,
-        "playwright",
-      ),
-    ),
-  };
-  return cachedTestAccountingClassification;
-}
-
-function ruleStringMatches(rule, exactKey, patternKey, value) {
-  const normalized = normalizePath(value ?? "");
-  if (
-    typeof rule[exactKey] === "string" &&
-    normalizePath(rule[exactKey]) !== normalized
-  ) {
-    return false;
-  }
-  if (
-    typeof rule[patternKey] === "string" &&
-    !globToRegExp(normalizePath(rule[patternKey])).test(normalized)
-  ) {
-    return false;
-  }
-  return true;
-}
-
-function ruleTitleMatches(rule, title) {
-  if (typeof rule.title === "string" && rule.title !== title) {
-    return false;
-  }
-  if (
-    typeof rule.title_pattern === "string" &&
-    !globToRegExp(rule.title_pattern).test(title)
-  ) {
-    return false;
-  }
-  return true;
-}
-
-function ruleTargetMatches(rule) {
-  const target = optionalEnv("CARTULARY_TEST_TARGET");
-  return typeof rule.target !== "string" || rule.target === target;
-}
-
-function accountingManifestClassification(
-  runner,
-  owner,
-  title = "",
-  fallbackStep = "",
-) {
-  const manifest = loadTestAccountingClassification();
-  const rules = manifest[runner] ?? [];
-  for (const rule of rules) {
-    if (!ruleTargetMatches(rule)) {
-      continue;
-    }
-    if (runner === "vitest" || runner === "playwright") {
-      if (!ruleStringMatches(rule, "file", "file_pattern", owner)) {
-        continue;
-      }
-      if (!ruleTitleMatches(rule, title)) {
-        continue;
-      }
-    } else if (runner === "go_packages") {
-      if (!ruleStringMatches(rule, "package", "package_pattern", owner)) {
-        continue;
-      }
-    } else if (runner === "go_tests") {
-      if (!ruleStringMatches(rule, "package", "package_pattern", owner)) {
-        continue;
-      }
-      if (!ruleTitleMatches(rule, title)) {
-        continue;
-      }
-    }
-    return {
-      coverage: rule.coverage,
-      step: rule.step || fallbackStep,
-      id: "",
-      owner,
-    };
-  }
+function catalogFallbackClassification() {
   return null;
 }
 
@@ -458,7 +282,7 @@ function classifyVitestCase(ownerPath, title, stepLabel) {
     };
   }
   return (
-    accountingManifestClassification(
+    catalogFallbackClassification(
       "vitest",
       ownerPath,
       title,
@@ -911,7 +735,7 @@ function classifyVitestFileFailure(ownerPath, stepLabel, selection = null) {
     };
   }
   return (
-    accountingManifestClassification(
+    catalogFallbackClassification(
       "vitest",
       ownerPath,
       "",

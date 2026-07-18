@@ -373,13 +373,6 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.test_accounting_classification.v2",
-      "path": "tools/schemas/cartulary.test_accounting_classification.v2.schema.json",
-      "classification": "owner_input",
-      "producer": "test accounting owner",
-      "validation": "json-shape-check"
-    },
-    {
       "schema_id": "cartulary.test_catalog_check_summary.v1",
       "path": "tools/schemas/cartulary.test_catalog_check_summary.v1.schema.json",
       "classification": "public_contract",

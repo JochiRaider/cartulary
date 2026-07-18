@@ -11,8 +11,8 @@
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
 | Tracker state | `IN_PROGRESS` — WS-10 atomic retirement |
-| Active start | T-043 closure checkpoint based on clean T-042 commit `e81adf0b` |
-| Active tasks | T-050 |
+| Active start | T-045 closure checkpoint based on clean T-045 commit `e9342902` |
+| Active tasks | T-045A |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -486,7 +486,7 @@ WS-06 closure is recorded in `tools/delivery_identity_followup_ledger.json`. It 
 
 | ID | Workstream | Status | Depends on | Primary evidence | Rollback boundary |
 | --- | --- | --- | --- | --- | --- |
-| WS-00 | Freeze baseline and build migration crosswalk | DONE | None | `tools/test_migration_baseline.json`; `tools/test_migration_crosswalk.json` | Revert inventory-only commit. |
+| WS-00 | Freeze baseline and build migration crosswalk | DONE | None | Immutable final reconciliation report preserving the deleted baseline/crosswalk provenance | Revert inventory-only commit. |
 | WS-01 | Revise owner contracts and repository procedure | DONE | WS-00 | Adopted harness contract and command-policy review | Revert contract commit before implementation consumers land. |
 | WS-02 | Create machine verification owners and remove documentation parsing | DONE | WS-01 | Schema-valid contracts and decoupling ledger closure | Revert an owner contract and its consumers together. |
 | WS-03 | Build unified test catalog | DONE | WS-01, WS-02 | Registry/manifests loader and catalog checks | Revert catalog stack; old catalog remains authoritative only before cutover. |
@@ -731,12 +731,12 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-043 | Delete phase/subsystem registries and maps | WS-10 | DONE | T-016,T-022,T-027,T-039 | 31-input deletion manifest, active-consumer cutover, public broad-runner checks, and zero-reference classification | Unified catalog is sole owner. |
 | T-044 | Delete phase-accounting and compatibility code | WS-10 | DONE | T-035,T-037,T-043 | Boundary and zero-reference scans | No old reader or shim remains. |
 | T-045 | Regenerate all permitted outputs | WS-10 | DONE | T-042,T-043,T-044 | Generated drift checks | Clean owner-first generated tree. |
-| T-045A | Prove atomic v2 parity and retirement | WS-10 | TODO | T-050 | NLSpec/schema/task-surface/topology parity and zero-reference report | v2 is complete and no v1 alias, reader, writer, catalog, or artifact identity is active. |
+| T-045A | Prove atomic v2 parity and retirement | WS-10 | IN_PROGRESS | T-050 | NLSpec/schema/task-surface/topology parity and zero-reference report | v2 is complete and no v1 alias, reader, writer, catalog, or artifact identity is active. |
 | T-046 | Run focused verification matrix | WS-11 | TODO | T-045A | Command results/run roots | All focused gates pass. |
 | T-047 | Run agent finalization and first warm check | WS-11 | TODO | T-046 | Successful warm run root | Fresh broad evidence exists. |
 | T-048 | Refresh retained baselines and repeat broad checks | WS-11 | TODO | T-047 | Finalized root and second results | No phase baseline is reused. |
 | T-049 | Run release check | WS-11 | TODO | T-048 | Release-check result | Public/release harness changes pass. |
-| T-050 | Capture reconciliation and remove crosswalk | WS-10 | IN_PROGRESS | T-045 | Final reconciliation report | Temporary compatibility-free migration input removed before authoritative source snapshots. |
+| T-050 | Capture reconciliation and remove crosswalk | WS-10 | DONE | T-045 | Final reconciliation report | Temporary compatibility-free migration input removed before authoritative source snapshots. |
 | T-051 | Complete handoff and closure audit | WS-12 | TODO | T-049 | Handoff log and clean status | Section 15 is fully satisfied. |
 
 ## 13. Verification matrix
@@ -1316,6 +1316,18 @@ Each entry must include:
 - Resolved validation history: the initial canonical generator exposed eager loading of the stale topology and then the authored topology's retired validation target. Subsequent JSON checks exposed unsorted successor schema/facade entries, and harness-contract exposed seven stale compatibility expectations plus one generic input-contract fixture. Each defect was corrected and replayed to green; none is an accepted failure or compatibility exception.
 - Next safe task: T-050 only. Materialize the immutable 833-row final reconciliation report from the frozen migration inputs and live catalog, record its SHA-256, then delete every temporary baseline, crosswalk, migration schema, and migration helper before running T-045A parity on the stabilized source tree.
 - Rollback boundary: revert the complete T-045 checkpoint to `96259620`, including authored topology/bootstrap fixes, generated outputs, successor schema/count repairs, executable modes, tests, and this tracker record. Never restore the stale generated surface or add a retired bootstrap alias.
+
+#### 2026-07-18 — T-050 immutable reconciliation and migration-input retirement checkpoint
+
+- Branch/commit at start: `revision/grid-adapter` at clean T-045 checkpoint `e9342902`. T-050 is `DONE`; T-045A is now the sole active task and WS-10 remains the only active workstream.
+- Immutable reconciliation result: `docs/handoffs/test-harness-subsystem-migration-final-reconciliation.json` records all 833 sorted, unique live catalog rows with their complete final semantic identity, authoritative or auxiliary disposition, frozen provenance, input digests, and aggregate totals. The report captures 46 owners, 169 families, 1,377 exact selectors, 539 authoritative rows, 294 auxiliary rows, all 548 frozen authoritative dispositions (`538` migrated, `6` consolidated, `4` deleted), all 265 auxiliary dispositions, 295 reviewed new rows, and zero pending baseline keys. It was captured from clean commit `e9342902` before deleting the migration inputs and is historical evidence only, never a runtime input.
+- Immutable checksum: `sha256:e795b9df4ad867c1dbc16427b816af5c1e371729631d64e038dd6108bafe4d70`. A direct JSON parse, row-count/uniqueness/sort assertion, and SHA-256 replay passed after staging the exact checkpoint bytes.
+- Deletion result: deleted `tools/test_migration_baseline.json`, `tools/test_migration_crosswalk.json`, `tools/delivery_identity_followup_ledger.json`, their three migration-only schemas, and the complete ten-script `tools/harness/migration/` helper set. The transitional `tools/test_accounting_classification.json` and its v2 schema were also deleted: generic Go, Vitest, and Playwright accounting now resolves exact catalog selectors and otherwise reports `unmapped`, so no second ownership registry or filename-pattern fallback remains. Current developer guidance and contract tests point only to the catalog owner and family manifests.
+- Generated/source-snapshot result: ordinary generation refreshed `tools/execution_topology_render_index.json` after the runtime and validator inputs changed. Because deleted tracked files remain in Git's cached path set until staged, the first contract replay correctly failed closed while the deletion was unstaged; after staging the exact deletion set, source-snapshot construction and all accounting/audit fixtures passed. This was a worktree checkpoint condition, not a retained runtime dependency.
+- Passed validation: all 74 `make harness-contract` tests passed at `.cartulary/test-results/20260718T113500Z-p35642`; `make generate` passed at `.cartulary/test-results/20260718T113527Z-p37160`; `make json-shape-check` passed at `.cartulary/test-results/20260718T113536Z-p38647`; `make generate-drift` passed at `.cartulary/test-results/20260718T113551Z-p39236`; `make generated-artifact-policy-check` passed at `.cartulary/test-results/20260718T113559Z-p44001`; and `make lint-scripts` passed at `.cartulary/test-results/20260718T113559Z-p44147`. `git diff --check` and direct reconciliation structure/checksum assertions passed.
+- Skipped/remaining checks: atomic zero-reference/parity scans, NLSpec/schema/task/topology parity, complete focused product/browser matrices, broad checks, finalization, release rehearsal, owner audits, and timing windows remain assigned to T-045A and WS-11/WS-12. No pre-deletion source snapshot is accepted as final evidence.
+- Next safe task: T-045A only. Prove atomic v2 parity across the NLSpec, schemas, generated task surface/topology, executable runtime, fixtures, environment identities, baselines, and zero-reference scans; remove or convert any remaining live delivery-shaped identity without restoring a migration reader, then close WS-10 before the separate WS-11 activation checkpoint.
+- Rollback boundary: revert the complete T-050 checkpoint to `e9342902`, including the immutable report, every migration-input/helper/schema deletion, the classification-reader removal, regenerated render index, guide/contract changes, and this tracker record. Never restore an individual crosswalk, classification registry, migration schema, or fallback reader beside the v2 catalog.
 
 ## 17. First-resumer checklist
 

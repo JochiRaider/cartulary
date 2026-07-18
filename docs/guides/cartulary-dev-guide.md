@@ -903,7 +903,7 @@ Repo-local `tmp/` is reserved for reproducible tool caches, retained run artifac
 
 Shell-backed verification wrappers such as frontend lint, migration drift, and similar helper phases SHOULD report as non-test failures rather than as unmapped test inventory when they exit non-zero.
 
-Test accounting reserves `unmapped` for unexpected executed tests with no ownership decision. Intentional non-authoritative coverage must use an explicit bucket instead: `raw` for declared raw aggregates, `tooling_support` for helper or harness coverage, and `unowned_regression` for deliberate product regression coverage that is not yet phase-owned. Non-phase ownership rules are declared in `tools/test_accounting_classification.json`.
+Test accounting reserves `unmapped` for unexpected executed tests with no catalog identity. Intentional non-authoritative coverage must use an explicit catalog row and owner instead: `raw` for declared raw aggregates, `tooling_support` for helper or harness coverage, and `unowned_regression` for deliberate product regression coverage that is not normative conformance evidence. Ownership and selection are declared only by `tools/test_catalog_owner.json` and the owner family manifests under `tools/test_families/`.
 
 When one check-scheduler work unit fails, already-started siblings may continue until they drain. That drain behavior is expected orchestration output and is not, by itself, a second verification failure.
 

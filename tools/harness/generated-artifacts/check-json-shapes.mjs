@@ -76,8 +76,6 @@ const fallowReachabilityOwnerSchemaID =
   "cartulary.fallow_reachability_owner.v1";
 const fallowStaticSummarySchemaID = "cartulary.fallow_static_summary.v1";
 const agentFinalizeSummarySchemaID = "cartulary.agent_finalize_summary.v3";
-const testAccountingClassificationSchemaID =
-  "cartulary.test_accounting_classification.v2";
 const testSupportInventorySchemaID = "cartulary.test_support_inventory.v1";
 const projectionProviderManifestSchemaID =
   "cartulary.projection_provider_manifest.v4";
@@ -320,13 +318,6 @@ const frontendBoundaryKeys = new Set([
   "singleton_imports",
   "rules",
   "raw_design_token_literal_checks",
-]);
-const testAccountingClassificationKeys = new Set([
-  "schema_id",
-  "vitest",
-  "go_packages",
-  "go_tests",
-  "playwright",
 ]);
 const projectionProviderManifestKeys = new Set([
   "schema_id",
@@ -2908,13 +2899,6 @@ function validateToolRunSummaryShape(file) {
   validateSchemaSync(toolRunSummarySchemaID, summary);
 }
 
-function validateTestAccountingClassificationShape(file) {
-  const manifest = readShapeFile(file, file);
-  assertObjectKeys(manifest, testAccountingClassificationKeys, file);
-  assertRequiredKeys(manifest, testAccountingClassificationKeys, file);
-  validateSchemaSync(testAccountingClassificationSchemaID, manifest);
-}
-
 function validateTestSupportInventoryShape(file, root = repoRoot) {
   const inventory = readShapeFile(file, file);
   assertObjectKeys(inventory, testSupportInventoryKeys, file);
@@ -4235,9 +4219,6 @@ function validateKind(kind, file, root = repoRoot) {
         readShapeFile(file, file),
       );
       return;
-    case "test-accounting-classification":
-      validateTestAccountingClassificationShape(file);
-      return;
     case "test-support-inventory":
       validateTestSupportInventoryShape(file, root);
       return;
@@ -4327,9 +4308,6 @@ function validateAll(root) {
   );
   validateBootstrapAdminShape(
     repoFile(root, "configs/dev/bootstrap-admin.json"),
-  );
-  validateTestAccountingClassificationShape(
-    repoFile(root, "tools/test_accounting_classification.json"),
   );
   validateTestSupportInventoryShape(
     repoFile(root, "tools/test_support_inventory.json"),
