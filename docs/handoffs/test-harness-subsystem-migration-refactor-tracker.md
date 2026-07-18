@@ -12,7 +12,7 @@
 | Baseline worktree | Clean |
 | Tracker state | `IN_PROGRESS` — WS-05 frontend row migration |
 | Active start | Clean tree at `5eb409a19104134552341f2b2fdee318ef5e39f6` |
-| Active tasks | T-026 |
+| Active tasks | T-027 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -709,8 +709,8 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-023 | Migrate FE-P0–FE-P4 rows | WS-05 | DONE | T-015 | 35 dispositions, exact selector reconciliation, catalog and frontend tests | Rows have terminal dispositions. |
 | T-024 | Migrate FE-P5–FE-P8 rows | WS-05 | DONE | T-015 | 22 dispositions, 47 exact title selectors, catalog and frontend tests | Rows have terminal dispositions. |
 | T-025 | Migrate FE-P9–FE-P12 rows | WS-05 | DONE | T-015 | 30 dispositions, 39 exact title atoms, catalog and frontend tests | Rows have terminal dispositions. |
-| T-026 | Remove frontend guide/cumulative accounting | WS-05 | IN_PROGRESS | T-023,T-024,T-025 | Accounting tests | One owner accounting model remains. |
-| T-027 | Reconcile all 87 frontend rows | WS-05 | TODO | T-026 | Reconciliation report | Count and selector coverage close. |
+| T-026 | Remove frontend guide/cumulative accounting | WS-05 | DONE | T-023,T-024,T-025 | Catalog-native owner accounting projection and negative tests | One successor owner accounting model remains. |
+| T-027 | Reconcile all 87 frontend rows | WS-05 | IN_PROGRESS | T-026 | Reconciliation report | Count and selector coverage close. |
 | T-028 | Rename Go test identities | WS-06 | TODO | T-022 | Semantic scan and Go tests | No delivery-phase Go test identity remains. |
 | T-029 | Rename Vitest/Playwright identities | WS-06 | TODO | T-022,T-027 | Semantic scan and frontend tests | No delivery-phase frontend test identity remains. |
 | T-030 | Rename fixtures/scenarios/goldens | WS-06 | TODO | T-027 | Digest comparison and browser tests | Paths are semantic and bytes preserved. |
@@ -1015,6 +1015,20 @@ Each entry must include:
 - Skipped checks: generic owner accounting/audit replacement, independent 87-row frontend reconciliation, semantic source renames, owner commands, browser-stage runtime execution, broad `make check`, finalization, and release checks remain assigned to T-026 onward. Structural selector/profile closure is not final browser runtime evidence.
 - Next safe task: T-026 only. Replace frontend row accounting and audit internals with runner-neutral owner accounting, remove registry/guide/cumulative/base-phase joins from executable paths, and preserve current public v1 wiring only until the later atomic interface cutover.
 - Rollback boundary: revert the complete T-025 slice—owner manifests/registry, Network Flow and design verification references, accessibility constants and helper deletion, crosswalk dispositions/authorizations, migration-builder verification routing, stored-baseline checker behavior, and this tracker entry—together. Do not restore document-driven title discovery.
+
+#### 2026-07-18 — WS-05 catalog-native owner accounting checkpoint
+
+- Branch/commit at start: `revision/grid-adapter` at clean T-025 checkpoint `b40742ede50876a7692cfeb74edee51cd8c1d760`. This entry closes T-026 before final frontend reconciliation begins.
+- Workstream/task state: WS-05 is the only `IN_PROGRESS` workstream. T-023 through T-026 are `DONE`, and T-027 is the sole active task.
+- Successor accounting result: `tools/harness/evidence-accounting` is a registered harness owner boundary with one catalog-native facade. It resolves an active owner and optional exact row set from the unified catalog, rejects blank, duplicate, unknown, foreign-owner, zero-row, and target-incompatible selections, orders rows by immutable owner-qualified ID, and projects exact family, verification, runner, selector-digest, evidence-class, profile, default-check, claim-posture, and target identities.
+- Target and profile semantics: Vitest rows route to `frontend-unit`; Playwright rows route only through the closed stage-to-target map; shell rows resolve through registered command IDs; Go rows deliberately retain no guessed target because WS-07 owner-slice planning will supply their exact work units. Target-specific projections recompute semantic profile digests from only the selected rows. Catalog, verification, runtime-profile, resource-profile, fixture-profile, and selector digests all use the existing strict semantic-JSON implementation.
+- Coupling removal: the successor accounting core contains no frontend namespace, phase ID, cumulative dependency, base-phase join, guide path/digest, documentation reference, or legacy registry/map read. Pre-cutover v1 accounting/audit files remain comparison-only inputs on the isolated branch and are a mandatory WS-10 deletion; they are not imported by the successor core and do not define its ownership or selection. Public artifacts, final schemas, and audit CLI integration remain assigned to T-034/T-035 as planned rather than introducing a temporary schema or translated artifact.
+- Ownership guardrail: helper ownership gained the `evidence_accounting` boundary and facade, and the import-boundary scanner recognizes that top-level owner root. Catalog code still has no dependency on execution or accounting; dependency direction is accounting-to-catalog only.
+- Passed validation: `make format` at `.cartulary/test-results/20260718T013843Z-p87994`; final `make harness-contract` with 62 passing tests at `.cartulary/test-results/20260718T013850Z-p90389`; `make json-shape-check` at `.cartulary/test-results/20260718T013850Z-p90369`; `make lint-scripts` at `.cartulary/test-results/20260718T013850Z-p90349`; and `git diff --check`.
+- Resolved validation failure: the first harness-contract run at `.cartulary/test-results/20260718T013753Z-p86568` passed all new accounting behaviors but correctly rejected the stale exact helper-facade population of 35. Registering the new facade changes that closed population to 36; the final rerun passed all 62 tests.
+- Skipped checks: final evidence-accounting/audit schemas and retained artifact integration are owned by T-034/T-035; public command cutover by T-039; v1 reader deletion by T-043/T-046; final browser-stage runtime, broad `make check`, finalization, and release checks remain later workstream gates. No v1 artifact is represented as successor evidence.
+- Next safe task: T-027 only. Independently reconcile all 87 frontend baseline identities, terminal dispositions, exact source selectors, catalog rows, owners, verifications, profiles, and the 548-row crosswalk closure before closing WS-05.
+- Rollback boundary: revert the evidence-accounting owner root, helper ownership/schema enum, import-boundary registration, focused tests, and this tracker entry together. Do not move accounting into the catalog owner or restore documentation-derived selection in the successor path.
 
 ## 17. First-resumer checklist
 

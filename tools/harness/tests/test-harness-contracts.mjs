@@ -77,6 +77,11 @@ import { parseStrictJSON, semanticJSONDigest } from "../test-catalog/semantic-js
 import { collectTestCatalogImportViolations } from "../test-catalog/import-boundary.mjs";
 import { resolveRowSelector } from "../test-catalog/selector-resolution.mjs";
 import {
+  accountingRowsForTarget,
+  evidenceTargetForCatalogRow,
+  loadOwnerAccountingSelection,
+} from "../evidence-accounting/index.mjs";
+import {
   assertDocumentationAccessAllowed,
   scanDocumentationReadSource,
 } from "../test-catalog/documentation-boundary.mjs";
@@ -214,6 +219,70 @@ test("owner catalog closes identities, selectors, profiles, and semantic digests
   assert.ok(
     catalog.rowByID.has("module.graphprojection.engine.canonical_behavior"),
     "Graph Projection must be absorbed by the unified catalog",
+  );
+});
+
+test("owner evidence accounting projects exact catalog rows without delivery metadata", () => {
+  const selection = loadOwnerAccountingSelection(repoRoot, {
+    ownerID: "module.networkflow",
+  });
+  assert.ok(selection.selected_rows.length > 0);
+  assert.deepEqual(selection.selected_rows, [...selection.selected_rows].sort());
+  assert.ok(selection.expected_rows.every((row) => row.owner_id === "module.networkflow"));
+  assert.ok(selection.expected_rows.every((row) => row.selector_digest.startsWith("sha256:")));
+  assert.ok(selection.expected_rows.some((row) => row.runner === "go"));
+  assert.ok(selection.expected_rows.some((row) => row.runner === "playwright"));
+  assert.ok(selection.expected_rows.some((row) => row.runner === "vitest"));
+  assert.doesNotMatch(JSON.stringify(selection), /(?:phase_namespace|phase_id|guide_|base_phase)/u);
+
+  const accessibility = accountingRowsForTarget(repoRoot, {
+    ownerID: "module.networkflow",
+    targetName: "browser-e2e-a11y",
+  });
+  assert.ok(accessibility);
+  assert.ok(accessibility.expected_rows.length > 0);
+  assert.ok(accessibility.expected_rows.every((row) => row.target_name === "browser-e2e-a11y"));
+  assert.ok(accessibility.expected_rows.every((row) => row.runtime_profile_id === "network_flow_claimed"));
+
+  const catalog = loadTestCatalog(repoRoot);
+  const shellRow = catalog.rows.find((row) => row.runner === "shell");
+  const goRow = catalog.rows.find((row) => row.runner === "go");
+  assert.ok(shellRow);
+  assert.ok(goRow);
+  const commandTargets = new Map(
+    readJSON("tools/task_surface_manifest.json").targets.map((entry) => [entry.command_id, entry.name]),
+  );
+  assert.notEqual(evidenceTargetForCatalogRow(shellRow, { commandTargetByID: commandTargets }), "");
+  assert.equal(evidenceTargetForCatalogRow(goRow, { commandTargetByID: commandTargets }), "");
+});
+
+test("owner evidence accounting rejects duplicate, foreign, and target-incompatible rows", () => {
+  const catalog = loadTestCatalog(repoRoot);
+  const owned = catalog.rows.find((row) => row.owner_id === "module.networkflow" && row.runner === "vitest");
+  const foreign = catalog.rows.find((row) => row.owner_id !== "module.networkflow");
+  assert.ok(owned);
+  assert.ok(foreign);
+  assert.throws(
+    () => loadOwnerAccountingSelection(repoRoot, {
+      ownerID: "module.networkflow",
+      rowIDs: [owned.row_id, owned.row_id],
+    }),
+    /duplicate/u,
+  );
+  assert.throws(
+    () => loadOwnerAccountingSelection(repoRoot, {
+      ownerID: "module.networkflow",
+      rowIDs: [foreign.row_id],
+    }),
+    /does not belong/u,
+  );
+  assert.throws(
+    () => loadOwnerAccountingSelection(repoRoot, {
+      ownerID: "module.networkflow",
+      rowIDs: [owned.row_id],
+      targetName: "browser-e2e-a11y",
+    }),
+    /is not selected by evidence target/u,
   );
 });
 
@@ -3235,7 +3304,7 @@ test("harness import boundary consumes the authored helper ownership registry", 
   const helperOwnership = loadHarnessHelperOwnership(repoRoot);
   const authoredOwnerFacadePaths = ownerFacadePathLists(helperOwnership);
   const report = collectHarnessImportBoundaryViolations(repoRoot);
-  assert.equal(helperOwnership.facades.length, 35);
+  assert.equal(helperOwnership.facades.length, 36);
   assert.deepEqual(
     Object.keys(report.owner_facades).sort(),
     Object.keys(authoredOwnerFacadePaths).sort(),

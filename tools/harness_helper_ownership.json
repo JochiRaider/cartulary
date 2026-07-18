@@ -16,6 +16,7 @@
     { "key": "command_surface_node_tool_dispatch", "boundary_group": "command_surface", "paths": ["tools/harness/command-surface/make-node-tools.mjs"], "allowed_consumers": [] },
     { "key": "database_contract_drift", "boundary_group": "generated_artifacts", "paths": ["tools/harness/generated-artifacts/database-contract-drift/index.mjs"], "allowed_consumers": [] },
     { "key": "design_token_generation", "boundary_group": "generated_artifacts", "paths": ["tools/harness/generated-artifacts/design-tokens/index.mjs"], "allowed_consumers": [] },
+    { "key": "evidence_accounting", "boundary_group": "evidence_accounting", "paths": ["tools/harness/evidence-accounting/index.mjs"], "allowed_consumers": [] },
     { "key": "font_asset_validation", "boundary_group": "static_analysis", "paths": ["tools/harness/static-analysis/font-bundle-check-cli.mjs"], "allowed_consumers": [] },
     { "key": "frontend_evidence_audit", "boundary_group": "phase_accounting", "paths": ["tools/harness/phase-accounting/frontend-evidence-audit-cli.mjs"], "allowed_consumers": [] },
     { "key": "frontend_phase_accounting", "boundary_group": "phase_accounting", "paths": ["tools/harness/phase-accounting/frontend/index.mjs", "tools/harness/phase-accounting/frontend-phase-manifest.mjs", "tools/harness/phase-accounting/frontend-readiness.mjs", "tools/harness/phase-accounting/index.mjs", "tools/harness/phase-accounting/phase-manifest.mjs", "tools/harness/phase-accounting/phase-registry.mjs"], "allowed_consumers": [] },
