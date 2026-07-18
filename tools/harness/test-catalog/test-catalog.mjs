@@ -293,6 +293,27 @@ function validateRowSemantics({ row, manifest, verification, runners, profiles, 
   if (!profiles.fixtureIDs.has(row.fixture_profile_id)) {
     throw new Error(`${label}.fixture_profile_id is unresolved`);
   }
+  const runtimeProfile = profiles.semantic.runtime_profiles.find(
+    (entry) => entry.id === row.runtime_profile_id,
+  );
+  const fixtureProfile = profiles.semantic.fixture_profiles.find(
+    (entry) => entry.id === row.fixture_profile_id,
+  );
+  const resourceProfile = profiles.semantic.resource_profiles.find(
+    (entry) => entry.id === row.resource_profile_id,
+  );
+  if (
+    fixtureProfile.fixture_kind === "postgres" &&
+    !runtimeProfile.managed_service_ids.includes("postgres")
+  ) {
+    throw new Error(`${label}.fixture_profile_id requires a postgres runtime profile`);
+  }
+  if (
+    Object.keys(resourceProfile.resource_claims).some((claim) => claim.startsWith("postgres")) &&
+    !runtimeProfile.managed_service_ids.includes("postgres")
+  ) {
+    throw new Error(`${label}.resource_profile_id requires a postgres runtime profile`);
+  }
 }
 
 export function loadTestCatalog(root) {

@@ -1,25 +1,8 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { loadTestCatalog } from "../test-catalog/test-catalog.mjs";
+import { loadTestCatalog, targetForCatalogRow } from "../test-catalog/index.mjs";
 import { parseStrictJSON, semanticJSONDigest } from "../test-catalog/semantic-json.mjs";
-
-const playwrightTargets = Object.freeze({
-  accessibility: "browser-e2e-a11y",
-  measurement: "browser-e2e-measurement",
-  stateful: "browser-e2e-stateful",
-  support: "browser-e2e-support",
-  visual: "browser-e2e-visual",
-  webserver_backed: "browser-e2e-webserver-backed",
-});
-
-function goTargetForFamily(familyID) {
-  const family = String(familyID).split(".").at(-1);
-  if (["engine", "fixtures", "support_unit", "unit"].includes(family)) return "backend-unit";
-  if (family === "store") return "backend-store";
-  if (family === "process") return "backend-process";
-  return "backend-integration";
-}
 
 function asciiCompare(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -55,21 +38,7 @@ function profileByID(profiles, key, id) {
   return profile;
 }
 
-export function evidenceTargetForCatalogRow(row, { commandTargetByID = new Map() } = {}) {
-  if (row.runner === "go") return goTargetForFamily(row.family_id);
-  if (row.runner === "vitest") return "frontend-unit";
-  if (row.runner === "playwright") {
-    const target = playwrightTargets[row.selector.stage];
-    if (!target) throw new Error(`catalog row ${row.row_id} has unsupported Playwright stage ${row.selector.stage}`);
-    return target;
-  }
-  if (row.runner === "shell") {
-    const target = commandTargetByID.get(row.selector.command_id);
-    if (!target) throw new Error(`catalog row ${row.row_id} has unresolved command ${row.selector.command_id}`);
-    return target;
-  }
-  return "";
-}
+export { targetForCatalogRow as evidenceTargetForCatalogRow };
 
 export function loadOwnerAccountingSelection(
   root,
@@ -101,7 +70,7 @@ export function loadOwnerAccountingSelection(
   const targetByCommand = commandTargets(normalizedRoot);
   const rowsWithTargets = rows.map((row) => ({
     row,
-    target_name: evidenceTargetForCatalogRow(row, { commandTargetByID: targetByCommand }),
+    target_name: targetForCatalogRow(row, { commandTargetByID: targetByCommand }),
   }));
   if (targetName !== "") {
     const unsupported = rowsWithTargets.find((entry) => entry.target_name !== targetName);

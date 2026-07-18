@@ -956,19 +956,29 @@ const renderArtifacts = [
 for (const artifact of renderArtifacts) {
   writeFileSync(path.join(root, artifact.file), artifact.content);
 }
-const phaseRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-render-phase-root-"));
-mkdirSync(path.join(phaseRoot, "tools"), { recursive: true });
-copyFileSync(path.join(root, "tools/phase_registry.json"), path.join(phaseRoot, "tools/phase_registry.json"));
-for (const entry of JSON.parse(readFileSync(path.join(root, "tools/phase_registry.json"), "utf8")).phases) {
-  if (entry.status === "active") {
-    copyFileSync(path.join(root, entry.manifest_path), path.join(phaseRoot, entry.manifest_path));
-  }
-}
-const oldPhaseRoot = process.env.CARTULARY_PHASE_MANIFEST_ROOT;
-process.env.CARTULARY_PHASE_MANIFEST_ROOT = phaseRoot;
-try {
+const catalogRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-render-catalog-root-"));
+const copyCatalogFile = (relativeFile) => {
+  const destination = path.join(catalogRoot, relativeFile);
+  mkdirSync(path.dirname(destination), { recursive: true });
+  copyFileSync(path.join(root, relativeFile), destination);
+};
+copyCatalogFile("tools/test_catalog_owner.json");
+copyCatalogFile("tools/test_runner_registry.json");
+const catalogOwnerRegistry = JSON.parse(
+  readFileSync(path.join(root, "tools/test_catalog_owner.json"), "utf8"),
+);
+for (const owner of catalogOwnerRegistry.owners) copyCatalogFile(owner.manifest_path);
+copyCatalogFile("contracts/verification/registry.json");
+const verificationRegistry = JSON.parse(
+  readFileSync(path.join(root, "contracts/verification/registry.json"), "utf8"),
+);
+for (const owner of verificationRegistry.owners) copyCatalogFile(owner.contract_path);
+{
   const writeRenderIndex = () => {
-    const inputInfo = topologyRendererModule.collectRenderInputs({ topology: renderIndexTopologyPath });
+    const inputInfo = topologyRendererModule.collectRenderInputs({
+      topology: renderIndexTopologyPath,
+      catalogRoot,
+    });
     writeFileSync(
       path.join(root, renderIndexTopology.generated_outputs.execution_topology_render_index),
       `${JSON.stringify(topologyRendererModule.buildRenderIndex({ inputInfo, artifacts: renderArtifacts }), null, 2)}\n`,
@@ -976,12 +986,12 @@ try {
   };
   writeRenderIndex();
   assert.doesNotThrow(
-    () => topologyRendererModule.quickCheckRenderIndex({ topology: renderIndexTopologyPath }),
-    "quick phase-schedule drift must accept a fresh index without rendering output content",
+    () => topologyRendererModule.quickCheckRenderIndex({ topology: renderIndexTopologyPath, catalogRoot }),
+    "quick topology drift must accept a fresh owner-catalog index without rendering output content",
   );
   writeFileSync(path.join(root, renderArtifacts[0].file), "changed\n");
   assert.throws(
-    () => topologyRendererModule.quickCheckRenderIndex({ topology: renderIndexTopologyPath }),
+    () => topologyRendererModule.quickCheckRenderIndex({ topology: renderIndexTopologyPath, catalogRoot }),
     /stale; run make phase-schedules/,
     "quick phase-schedule drift must reject changed generated outputs by hash",
   );
@@ -1002,7 +1012,7 @@ try {
   };
   writeFileSync(renderIndexTopologyPath, `${JSON.stringify(changedTopology, null, 2)}\n`);
   assert.throws(
-    () => topologyRendererModule.quickCheckRenderIndex({ topology: renderIndexTopologyPath }),
+    () => topologyRendererModule.quickCheckRenderIndex({ topology: renderIndexTopologyPath, catalogRoot }),
     /phase schedule inputs are stale.*execution_topology_manifest\.json changed.*run make phase-schedules/,
     "quick phase-schedule drift must reject changed topology input by digest",
   );
@@ -1011,26 +1021,20 @@ try {
   baselineFixture.default_work_unit_weight_ms += 1;
   writeFileSync(renderIndexBaselinePath, `${JSON.stringify(baselineFixture, null, 2)}\n`);
   assert.throws(
-    () => topologyRendererModule.quickCheckRenderIndex({ topology: renderIndexTopologyPath }),
+    () => topologyRendererModule.quickCheckRenderIndex({ topology: renderIndexTopologyPath, catalogRoot }),
     /phase schedule inputs are stale.*service_backed_make_target_duration_baselines\.json changed.*run make phase-schedules/,
     "quick phase-schedule drift must reject changed duration baselines by digest",
   );
   copyFileSync(path.join(root, "tools/service_backed_make_target_duration_baselines.json"), renderIndexBaselinePath);
-  const phase1FixturePath = path.join(phaseRoot, "tools/phase1_test_map.json");
-  const phase1Fixture = JSON.parse(readFileSync(phase1FixturePath, "utf8"));
-  phase1Fixture.notes = [...(phase1Fixture.notes ?? []), "render index drift fixture"];
-  writeFileSync(phase1FixturePath, `${JSON.stringify(phase1Fixture, null, 2)}\n`);
+  const familyFixturePath = path.join(catalogRoot, catalogOwnerRegistry.owners[0].manifest_path);
+  const familyFixture = JSON.parse(readFileSync(familyFixturePath, "utf8"));
+  familyFixture.rows[0].documentation_refs = ["render index drift fixture"];
+  writeFileSync(familyFixturePath, `${JSON.stringify(familyFixture, null, 2)}\n`);
   assert.throws(
-    () => topologyRendererModule.quickCheckRenderIndex({ topology: renderIndexTopologyPath }),
-    /phase schedule inputs are stale.*phase1_test_map\.json changed.*run make phase-schedules/,
-    "quick phase-schedule drift must reject changed active phase maps by digest",
+    () => topologyRendererModule.quickCheckRenderIndex({ topology: renderIndexTopologyPath, catalogRoot }),
+    /phase schedule inputs are stale.*app\.operator\.json changed.*run make phase-schedules/,
+    "quick topology drift must reject changed owner family manifests by digest",
   );
-} finally {
-  if (oldPhaseRoot === undefined) {
-    delete process.env.CARTULARY_PHASE_MANIFEST_ROOT;
-  } else {
-    process.env.CARTULARY_PHASE_MANIFEST_ROOT = oldPhaseRoot;
-  }
 }
 
 const invalidTopology = topologyFixture();
@@ -1039,6 +1043,40 @@ assert.throws(
   () => loadExecutionTopology({ manifestPath: writeTopologyFixture("invalid-topology.json", invalidTopology) }),
   /duplicate execution dependency/,
   "topology validation must reject duplicate execution dependency IDs",
+);
+
+const unknownFamilyRuntimeBinaryTopology = topologyFixture();
+unknownFamilyRuntimeBinaryTopology.go_targets.family_runtime_binaries[0].runtime_binary_ids = [
+  "missing-binary",
+];
+assert.throws(
+  () =>
+    loadExecutionTopology({
+      manifestPath: writeTopologyFixture(
+        "unknown-family-runtime-binary-topology.json",
+        unknownFamilyRuntimeBinaryTopology,
+      ),
+    }),
+  /family_runtime_binaries\[1\]\.runtime_binary_ids references unknown missing-binary/,
+  "topology validation must reject unknown family-scoped runtime binaries",
+);
+
+const duplicateFamilyRuntimeBinaryTopology = topologyFixture();
+duplicateFamilyRuntimeBinaryTopology.go_targets.family_runtime_binaries.splice(
+  1,
+  0,
+  structuredClone(duplicateFamilyRuntimeBinaryTopology.go_targets.family_runtime_binaries[0]),
+);
+assert.throws(
+  () =>
+    loadExecutionTopology({
+      manifestPath: writeTopologyFixture(
+        "duplicate-family-runtime-binary-topology.json",
+        duplicateFamilyRuntimeBinaryTopology,
+      ),
+    }),
+  /family_runtime_binaries must be sorted by unique family_id/,
+  "topology validation must reject duplicate family-scoped runtime binary mappings",
 );
 
 const legacyFlatTopology = topologyFixture();

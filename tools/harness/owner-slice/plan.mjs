@@ -48,16 +48,7 @@ function profileByID(catalog, kind, profileID) {
   return profile;
 }
 
-function targetForGoFamily(familyID) {
-  const family = familyID.split(".").at(-1);
-  if (["engine", "fixtures", "support_unit", "unit"].includes(family)) return "backend-unit";
-  if (family === "store") return "backend-store";
-  if (family === "process") return "backend-process";
-  return "backend-integration";
-}
-
 function targetForRow(row, expectedRow) {
-  if (row.runner === "go") return targetForGoFamily(row.family_id);
   if (expectedRow.target_name) return expectedRow.target_name;
   throw new Error(`catalog row ${row.row_id} has no execution target`);
 }

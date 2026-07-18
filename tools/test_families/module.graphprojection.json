@@ -100,7 +100,7 @@
         ]
       },
       "evidence_class": "integration",
-      "runtime_profile_id": "none",
+      "runtime_profile_id": "default",
       "resource_profile_id": "go_transaction_heavy",
       "fixture_profile_id": "postgres_transaction",
       "default_check": true,
@@ -126,7 +126,7 @@
         ]
       },
       "evidence_class": "integration",
-      "runtime_profile_id": "none",
+      "runtime_profile_id": "default",
       "resource_profile_id": "go_io_heavy",
       "fixture_profile_id": "postgres_migration_scratch",
       "default_check": true,
@@ -149,7 +149,7 @@
         ]
       },
       "evidence_class": "integration",
-      "runtime_profile_id": "none",
+      "runtime_profile_id": "default",
       "resource_profile_id": "go_transaction_heavy",
       "fixture_profile_id": "postgres_transaction",
       "default_check": true,

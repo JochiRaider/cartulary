@@ -18,7 +18,6 @@ import {
   renderCheckScheduleManifest,
   renderTaskSurfaceManifest,
 } from "./execution-topology.mjs";
-import { validateAllPhaseSlicePlans } from "../phase-accounting/phase-slice-plan.mjs";
 import {
   collectTaskSurfaceManifestErrors,
   renderTaskSurfaceMake,
@@ -35,7 +34,7 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
 export const renderIndexSchemaID = "cartulary.execution_topology_render_index.v1";
 const renderCacheSchemaID = "cartulary.execution_topology_render_cache.v1";
-const generatorVersion = 1;
+const generatorVersion = 2;
 const cacheDir = process.env.CARTULARY_EXECUTION_TOPOLOGY_RENDER_CACHE_DIR
   ? path.resolve(process.env.CARTULARY_EXECUTION_TOPOLOGY_RENDER_CACHE_DIR)
   : path.join(repoRoot, ".cache", "cartulary", "execution-topology-render");
@@ -145,12 +144,6 @@ function collectFiles(root, predicate) {
   return files.sort((left, right) => repoDisplayPath(left).localeCompare(repoDisplayPath(right)));
 }
 
-function phaseManifestRoot() {
-  return process.env.CARTULARY_PHASE_MANIFEST_ROOT
-    ? path.resolve(process.env.CARTULARY_PHASE_MANIFEST_ROOT)
-    : repoRoot;
-}
-
 function addFileInput(inputs, seen, role, file) {
   const resolved = path.resolve(file);
   if (seen.has(resolved)) {
@@ -172,19 +165,39 @@ function addRequiredRepoInput(inputs, seen, role, file) {
   addFileInput(inputs, seen, role, path.join(repoRoot, file));
 }
 
-function collectActivePhaseManifestInputs(inputs, seen) {
-  const manifestRoot = phaseManifestRoot();
-  const registryPath = path.join(manifestRoot, "tools", "phase_registry.json");
-  addFileInput(inputs, seen, "phase_registry", registryPath);
-  const registry = readJSON(registryPath);
-  for (const entry of registry.phases ?? []) {
-    if (entry?.status !== "active") {
-      continue;
-    }
-    if (typeof entry.manifest_path !== "string" || entry.manifest_path.trim() === "") {
-      throw new Error(`active phase ${entry?.phase ?? "<unknown>"} must declare manifest_path`);
-    }
-    addFileInput(inputs, seen, "active_phase_manifest", path.join(manifestRoot, entry.manifest_path));
+function collectCatalogInputs(inputs, seen, catalogRoot) {
+  const ownerRegistryPath = path.join(catalogRoot, "tools", "test_catalog_owner.json");
+  addFileInput(inputs, seen, "test_owner_registry", ownerRegistryPath);
+  const ownerRegistry = readJSON(ownerRegistryPath);
+  for (const owner of ownerRegistry.owners ?? []) {
+    addFileInput(
+      inputs,
+      seen,
+      "test_family_manifest",
+      path.join(catalogRoot, owner.manifest_path),
+    );
+  }
+  addFileInput(
+    inputs,
+    seen,
+    "test_runner_registry",
+    path.join(catalogRoot, "tools", "test_runner_registry.json"),
+  );
+  const verificationRegistryPath = path.join(
+    catalogRoot,
+    "contracts",
+    "verification",
+    "registry.json",
+  );
+  addFileInput(inputs, seen, "verification_registry", verificationRegistryPath);
+  const verificationRegistry = readJSON(verificationRegistryPath);
+  for (const owner of verificationRegistry.owners ?? []) {
+    addFileInput(
+      inputs,
+      seen,
+      "verification_owner_contract",
+      path.join(catalogRoot, owner.contract_path),
+    );
   }
 }
 
@@ -199,11 +212,22 @@ function collectRendererSourceInputs(inputs, seen) {
     "tools/harness/scheduler",
     "tools/harness/browser",
     "tools/harness/backend",
-    "tools/harness/phase-accounting",
+    "tools/harness/contract",
+    "tools/harness/test-catalog",
     "scripts/lib",
   ];
+  const legacySourceNames = new Set([
+    "browser-duration-accounting.mjs",
+    "check-phase-ledger-drift.mjs",
+    "phase-slice-execution.mjs",
+    "render-phase-ledger.mjs",
+    "render-phase-ledgers.mjs",
+    "task-surface-report-cli.mjs",
+  ]);
   const isProductionModule = (candidate) =>
-    candidate.endsWith(".mjs") && !candidate.split(path.sep).includes("tests");
+    candidate.endsWith(".mjs") &&
+    !candidate.split(path.sep).includes("tests") &&
+    !legacySourceNames.has(path.basename(candidate));
   for (const root of rendererSourceRoots) {
     for (const file of collectFiles(path.join(repoRoot, root), isProductionModule)) {
       addFileInput(inputs, seen, "renderer_source", file);
@@ -247,7 +271,7 @@ export function collectRenderInputs(options = {}) {
   }
   addRequiredRepoInput(inputs, seen, "task_surface_owner", taskSurfaceOwner);
   addRequiredRepoInput(inputs, seen, "scheduler_resource_registry", "tools/scheduler_resource_registry.json");
-  collectActivePhaseManifestInputs(inputs, seen);
+  collectCatalogInputs(inputs, seen, path.resolve(options.catalogRoot ?? repoRoot));
   collectDurationBaselineInputs(inputs, seen, topologyRaw, topologyPath);
   collectRendererSourceInputs(inputs, seen);
   inputs.sort((left, right) => left.path.localeCompare(right.path) || left.role.localeCompare(right.role));
@@ -374,7 +398,6 @@ export function quickCheckRenderIndex(options = {}) {
 function renderArtifacts(options) {
   const topology = loadExecutionTopology({ manifestPath: options.topology });
   const taskSurfaceManifest = renderTaskSurfaceManifest(topology);
-  validateAllPhaseSlicePlans({ root: repoRoot, taskSurfaceManifest });
   const browserBatchManifest = renderBrowserBatchManifest(topology);
   const serviceBackedScheduleManifest = renderServiceBackedScheduleManifest({
     topology: options.topology,

@@ -276,6 +276,22 @@ test("owner evidence accounting projects exact catalog rows without delivery met
   );
   assert.notEqual(evidenceTargetForCatalogRow(shellRow, { commandTargetByID: commandTargets }), "");
   assert.notEqual(evidenceTargetForCatalogRow(goRow, { commandTargetByID: commandTargets }), "");
+  for (const [familyID, targetName] of [
+    ["module.graphprojection.engine", "backend-unit"],
+    ["module.graphprojection.fixtures", "backend-unit"],
+    ["module.graphprojection.storage", "backend-store"],
+    ["harness.runtime.support_integration", "backend-integration-support"],
+    ["app.server.process", "backend-process"],
+  ]) {
+    assert.equal(
+      evidenceTargetForCatalogRow(
+        { row_id: `${familyID}.fixture`, runner: "go", family_id: familyID },
+        { commandTargetByID: commandTargets },
+      ),
+      targetName,
+      `${familyID} must have one shared catalog target route`,
+    );
+  }
 });
 
 test("owner slice selection is exact, owner-qualified, and independent of default-check filtering", () => {
@@ -946,6 +962,13 @@ test("owner catalog rejects structural, reference, selector, and path ambiguity"
       name: "unknown profile",
       mutate: ({ familyManifest }) => { familyManifest.rows[0].runtime_profile_id = "unknown"; },
       pattern: /must be equal to one of the allowed values|runtime_profile_id/iu,
+    },
+    {
+      name: "postgres fixture without postgres runtime",
+      mutate: ({ familyManifest }) => {
+        familyManifest.rows[0].fixture_profile_id = "postgres_group_clone";
+      },
+      pattern: /fixture_profile_id requires a postgres runtime profile/iu,
     },
     {
       name: "mutated profile definition",

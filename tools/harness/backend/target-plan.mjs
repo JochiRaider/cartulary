@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { loadExecutionTopology } from "../generated-artifacts/execution-topology.mjs";
+import { loadTestCatalog, targetForCatalogRow } from "../test-catalog/index.mjs";
 import {
   aggregatePackages,
   aggregateRegex,
@@ -9,29 +10,21 @@ import {
   fixturePolicyAssignments,
   resetTableAssignments,
 } from "./go-target-aggregate.mjs";
-import {
-  collectEntries,
-  collectSupportGoEntries,
-  entryIsExecutable,
-  goEntryScenarioSymbols,
-  goEntryPostgresFixtureBudget,
-  goEntryPostgresFixturePolicy,
-  goEntrySymbolFixtureDetails,
-  goEntrySymbols,
-  loadManifest,
-  loadSubsystemManifests,
-  phaseManifestNames,
-  subsystemManifestOwner,
-  supportGoEntryPostgresFixtureBudget,
-  supportGoEntryPostgresFixturePolicy,
-  supportGoEntrySymbolFixtureDetails,
-  supportGoEntrySymbols,
-} from "../phase-accounting/index.mjs";
 
 const validShardModes = new Set(["none", "go_shards"]);
 const validParallelismModes = new Set(["none", "package", "process"]);
 const executionTargetsCache = new Map();
 const targetPlanRowsCache = new Map();
+const fixturePolicyByProfile = Object.freeze({
+  none: "",
+  object_store_isolated: "",
+  postgres_group_clone: "group_clone",
+  postgres_migration_scratch: "migration_scratch",
+  postgres_package_reset: "package_reset",
+  postgres_template_clone: "template_clone",
+  postgres_transaction: "transaction",
+  service_stack: "",
+});
 
 function compareStrings(left, right) {
   return String(left).localeCompare(String(right));
@@ -41,25 +34,14 @@ function compareRows(left, right) {
   return (
     compareStrings(left.target, right.target) ||
     compareStrings(left.execution_family, right.execution_family) ||
-    compareStrings(left.manifest_phase, right.manifest_phase) ||
-    compareStrings(left.section, right.section) ||
     compareStrings(left.id, right.id)
   );
-}
-
-function requireString(value, label) {
-  if (typeof value !== "string" || value.trim() === "") {
-    throw new Error(`${label} must be a non-empty string`);
-  }
-  return value.trim();
 }
 
 function loadExecutionTargets(root) {
   const cacheKey = path.resolve(root);
   const cached = executionTargetsCache.get(cacheKey);
-  if (cached) {
-    return cached;
-  }
+  if (cached) return cached;
   const topology = loadExecutionTopology({ root });
   for (const descriptor of topology.goTargets.targets) {
     const label = `execution topology go target ${descriptor.name}`;
@@ -73,8 +55,7 @@ function loadExecutionTargets(root) {
   const result = {
     descriptors: topology.goTargets.targets,
     byName: topology.goTargets.byName,
-    dependencyTargets: topology.goTargets.dependencyTargets,
-    supportTargets: topology.goTargets.supportTargets,
+    runtimeBinariesByFamily: topology.goTargets.runtimeBinariesByFamily,
     rawAggregates: topology.goTargets.rawAggregates,
   };
   executionTargetsCache.set(cacheKey, result);
@@ -95,106 +76,86 @@ function rowBase(descriptor) {
   };
 }
 
-function requireExecutionFamily(entry, label) {
-  return {
-    family: requireString(entry.execution_family, `${label}.execution_family`),
-    label: requireString(entry.execution_label, `${label}.execution_label`),
-  };
+function profileByID(catalog, kind, profileID) {
+  const profile = catalog.profiles.semantic[kind].find((entry) => entry.id === profileID);
+  if (!profile) throw new Error(`unresolved ${kind} profile ${profileID}`);
+  return profile;
 }
 
-function defaultCheckMetadata(entry) {
-  return {
-    default_check_required: entry.default_check_required,
-    default_check_kind: entry.default_check_kind,
-    default_check_reason_code: entry.default_check_reason_code,
-    primary_evidence_owner: entry.primary_evidence_owner,
-    duplicate_of: entry.duplicate_of ?? null,
-    evidence_delta: entry.evidence_delta ?? "",
-    warm_local_cost_class: entry.warm_local_cost_class,
-    ...(entry.default_check_reason ? { default_check_reason: entry.default_check_reason } : {}),
-  };
-}
-
-function manifestRows(phase, descriptor, entry) {
-  const family = requireExecutionFamily(entry, `manifest entry ${entry.id}`);
-  const scenarioSymbols = goEntryScenarioSymbols(entry);
+function catalogRow(config, catalog, row) {
+  const target = targetForCatalogRow(row);
+  const descriptor = config.byName.get(target);
+  if (!descriptor) {
+    throw new Error(`catalog Go row ${row.row_id} resolves to unknown target ${target}`);
+  }
+  const runtimeProfile = profileByID(catalog, "runtime_profiles", row.runtime_profile_id);
+  if (descriptor.serviceBacked !== (runtimeProfile.managed_service_ids.length > 0)) {
+    throw new Error(
+      `catalog Go row ${row.row_id} runtime profile ${row.runtime_profile_id} is incompatible with ${target}`,
+    );
+  }
+  const fixtureProfile = profileByID(catalog, "fixture_profiles", row.fixture_profile_id);
+  const resourceProfile = profileByID(catalog, "resource_profiles", row.resource_profile_id);
+  const supportOnly = target === "backend-integration-support";
+  const fixturePolicy = fixturePolicyByProfile[row.fixture_profile_id];
+  if (fixturePolicy === undefined) {
+    throw new Error(`catalog Go row ${row.row_id} has unsupported fixture profile ${row.fixture_profile_id}`);
+  }
   return {
     ...rowBase(descriptor),
-    id: entry.id,
-    manifest_phase: phase,
-    section: entry.section,
-    coverage: entry.coverage,
-    execution_dependency: entry.execution_dependency,
-    evidence_class: entry.evidence_class,
-    layer: entry.layer,
-    ...defaultCheckMetadata(entry),
-    execution_family: family.family,
-    execution_label: family.label,
-    packages: [entry.package],
-    support_only: false,
+    id: row.row_id,
+    owner_id: row.owner_id,
+    family_id: row.family_id,
+    manifest_phase: "",
+    section: row.family_id.split(".").at(-1),
+    coverage: supportOnly ? "support" : "authoritative",
+    execution_dependency: target.replaceAll("-", "_"),
+    evidence_class: row.evidence_class,
+    layer: target,
+    default_check_required: row.default_check,
+    default_check_kind: row.default_check ? "catalog_default" : "explicit_only",
+    default_check_reason_code: row.default_check ? "catalog_selected" : "catalog_explicit_only",
+    primary_evidence_owner: row.row_id,
+    duplicate_of: null,
+    evidence_delta: "Catalog-owned exact selector evidence.",
+    warm_local_cost_class: descriptor.serviceBacked ? "service_backed" : "low",
+    execution_family: row.family_id,
+    execution_label: row.family_id,
+    packages: [row.selector.package],
+    support_only: supportOnly,
     support_selector: null,
     raw_selector: null,
-    file: entry.file,
-    package: entry.package,
-    symbols: goEntrySymbols(entry),
-    ...(Object.keys(scenarioSymbols).length > 0 ? { scenario_symbols: scenarioSymbols } : {}),
-    runtime_binaries: [...(entry.runtime_binaries ?? [])],
-    shard_isolation: entry.shard_isolation === true,
-    evidence_layer: entry.evidence_layer,
-    fixture_policy: {
-      postgres: goEntryPostgresFixturePolicy(entry),
-    },
+    file: "",
+    package: row.selector.package,
+    symbols: [...row.selector.tests],
+    runtime_profile_id: row.runtime_profile_id,
+    resource_profile_id: row.resource_profile_id,
+    resource_claims: { ...resourceProfile.resource_claims },
+    fixture_profile_id: row.fixture_profile_id,
+    runtime_binaries: [...(config.runtimeBinariesByFamily.get(row.family_id) ?? [])],
+    shard_isolation: false,
+    evidence_layer: target,
+    fixture_policy: { postgres: fixturePolicy },
     fixture_budget: {
-      postgres: goEntryPostgresFixtureBudget(entry),
+      postgres: fixtureProfile.fixture_kind === "postgres" ? { ...fixtureProfile.budget } : {},
     },
-    symbol_fixture_details: goEntrySymbolFixtureDetails(entry),
   };
 }
 
-function supportID(phase, target, file, symbol) {
-  const normalized = `${phase}-${target}-${file}-${symbol}`.replace(/[^A-Za-z0-9]+/g, "-");
-  return `SUPPORT-${normalized.replace(/^-|-$/g, "")}`;
-}
-
-function supportRows(phase, descriptor, entry) {
-  const family = requireExecutionFamily(entry, `support_go_target ${entry.target} ${entry.file}`);
-  return supportGoEntrySymbols(entry).map((symbol) => ({
-    ...rowBase(descriptor),
-    id: supportID(phase, entry.target, entry.file, symbol),
-    manifest_phase: phase,
-    section: entry.section,
-    coverage: "support",
-    execution_dependency: entry.target,
-    evidence_class: entry.evidence_class,
-    layer: entry.layer,
-    ...defaultCheckMetadata(entry),
-    execution_family: family.family,
-    execution_label: family.label,
-    packages: [entry.package],
-    support_only: true,
-    support_selector: entry.selection_pattern,
-    raw_selector: null,
-    file: entry.file,
-    package: entry.package,
-    symbols: [symbol],
-    runtime_binaries: [...(entry.runtime_binaries ?? [])],
-    shard_isolation: entry.shard_isolation === true,
-    evidence_layer: "support",
-    fixture_policy: {
-      postgres: supportGoEntryPostgresFixturePolicy(entry),
-    },
-    fixture_budget: {
-      postgres: supportGoEntryPostgresFixtureBudget(entry),
-    },
-    symbol_fixture_details: supportGoEntrySymbolFixtureDetails(entry),
-  }));
-}
-
-function rawRows(config, aggregate) {
+function rawRow(config, catalog, aggregate) {
   const descriptor = config.byName.get(aggregate.target);
+  const fixtureProfileID = aggregate.fixturePolicy?.postgres === "template_clone"
+    ? "postgres_template_clone"
+    : "none";
+  const resourceProfileID = fixtureProfileID === "postgres_template_clone"
+    ? "go_clone_heavy"
+    : "go_balanced";
+  const resourceProfile = profileByID(catalog, "resource_profiles", resourceProfileID);
   return {
     ...rowBase(descriptor),
     id: `RAW-${aggregate.id}`,
+    owner_id: "harness.backend",
+    family_id: aggregate.executionFamily,
     manifest_phase: "",
     section: aggregate.section,
     coverage: "raw",
@@ -206,7 +167,7 @@ function rawRows(config, aggregate) {
     default_check_reason_code: "explicit_measurement",
     primary_evidence_owner: "raw_diagnostic",
     duplicate_of: null,
-    evidence_delta: "Raw aggregate diagnostic coverage is never default local check evidence.",
+    evidence_delta: "Raw aggregate diagnostic coverage is never catalog row evidence.",
     warm_local_cost_class: "explicit_heavy",
     execution_family: aggregate.executionFamily,
     execution_label: aggregate.executionLabel,
@@ -217,6 +178,10 @@ function rawRows(config, aggregate) {
     file: "",
     package: "",
     symbols: [],
+    runtime_profile_id: descriptor.serviceBacked ? "default" : "none",
+    resource_profile_id: resourceProfileID,
+    resource_claims: { ...resourceProfile.resource_claims },
+    fixture_profile_id: fixtureProfileID,
     runtime_binaries: [],
     shard_isolation: false,
     evidence_layer: "raw",
@@ -229,50 +194,13 @@ function rawRows(config, aggregate) {
 export function collectTargetPlanRows(root = process.cwd()) {
   const cacheKey = path.resolve(root);
   const cached = targetPlanRowsCache.get(cacheKey);
-  if (cached) {
-    return cached;
-  }
+  if (cached) return cached;
   const config = loadExecutionTargets(root);
-  const rows = [];
-  for (const phase of phaseManifestNames(root)) {
-    const { manifest } = loadManifest(root, phase);
-    for (const entry of collectEntries(manifest)) {
-      if (entry.runner !== "go_test") {
-        continue;
-      }
-      if (!entryIsExecutable(entry)) {
-        continue;
-      }
-      const descriptor = config.dependencyTargets.get(entry.execution_dependency);
-      if (!descriptor) {
-        continue;
-      }
-      rows.push(manifestRows(phase, descriptor, entry));
-    }
-    for (const entry of collectSupportGoEntries(manifest)) {
-      const descriptor = config.supportTargets.get(entry.target);
-      if (!descriptor) {
-        continue;
-      }
-      rows.push(...supportRows(phase, descriptor, entry));
-    }
-  }
-  for (const { owner, manifest } of loadSubsystemManifests(root)) {
-    const manifestOwner = subsystemManifestOwner(owner);
-    for (const entry of collectEntries(manifest)) {
-      if (entry.runner !== "go_test" || !entryIsExecutable(entry)) {
-        continue;
-      }
-      const descriptor = config.dependencyTargets.get(entry.execution_dependency);
-      if (!descriptor) {
-        continue;
-      }
-      rows.push(manifestRows(manifestOwner, descriptor, entry));
-    }
-  }
-  for (const aggregate of config.rawAggregates) {
-    rows.push(rawRows(config, aggregate));
-  }
+  const catalog = loadTestCatalog(root);
+  const rows = catalog.rows
+    .filter((row) => row.runner === "go")
+    .map((row) => catalogRow(config, catalog, row));
+  rows.push(...config.rawAggregates.map((aggregate) => rawRow(config, catalog, aggregate)));
   const result = rows.sort(compareRows);
   targetPlanRowsCache.set(cacheKey, result);
   return result;
@@ -286,10 +214,6 @@ export function findTargetDescriptor(target, root = process.cwd()) {
   return loadExecutionTargets(root).byName.get(target) ?? null;
 }
 
-function knownManifestPhases(root = process.cwd()) {
-  return phaseManifestNames(root);
-}
-
 function rowsForAggregate(root, target, executionFamily) {
   const rows = collectTargetPlanRows(root).filter(
     (row) => row.target === target && row.execution_family === executionFamily,
@@ -301,12 +225,11 @@ function rowsForAggregate(root, target, executionFamily) {
 }
 
 function aggregateNames(root, target) {
-  const names = new Set(
+  return [...new Set(
     collectTargetPlanRows(root)
       .filter((row) => row.target === target)
       .map((row) => row.execution_family),
-  );
-  return Array.from(names).sort(compareStrings);
+  )].sort(compareStrings);
 }
 
 function printLines(lines) {
@@ -322,12 +245,8 @@ function main(argv) {
       return;
     case "target-field": {
       const descriptor = findTargetDescriptor(target, root);
-      if (!descriptor) {
-        throw new Error(`unknown target ${target}`);
-      }
-      const field = family;
-      const value = descriptor[field] ?? "";
-      process.stdout.write(`${String(value)}\n`);
+      if (!descriptor) throw new Error(`unknown target ${target}`);
+      process.stdout.write(`${String(descriptor[family] ?? "")}\n`);
       return;
     }
     case "list-aggregates":
@@ -354,22 +273,14 @@ function main(argv) {
       printLines([String(collectAggregateEmissions(rowsForAggregate(root, target, family)).length)]);
       return;
     case "aggregate-emission-field": {
-      const index = Number.parseInt(extra, 10);
-      const field = argv[4];
-      const emission = collectAggregateEmissions(rowsForAggregate(root, target, family))[index];
-      if (!emission) {
-        throw new Error(`unknown emission index ${extra} for ${target} ${family}`);
-      }
-      const value = emission[field] ?? "";
-      process.stdout.write(`${String(value)}\n`);
+      const emission = collectAggregateEmissions(rowsForAggregate(root, target, family))[Number.parseInt(extra, 10)];
+      if (!emission) throw new Error(`unknown emission index ${extra} for ${target} ${family}`);
+      process.stdout.write(`${String(emission[argv[4]] ?? "")}\n`);
       return;
     }
     case "aggregate-emission-packages": {
-      const index = Number.parseInt(extra, 10);
-      const emission = collectAggregateEmissions(rowsForAggregate(root, target, family))[index];
-      if (!emission) {
-        throw new Error(`unknown emission index ${extra} for ${target} ${family}`);
-      }
+      const emission = collectAggregateEmissions(rowsForAggregate(root, target, family))[Number.parseInt(extra, 10)];
+      if (!emission) throw new Error(`unknown emission index ${extra} for ${target} ${family}`);
       printLines(emission.packages);
       return;
     }
@@ -384,8 +295,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   try {
     main(process.argv.slice(2));
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`${message}\n`);
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
 }

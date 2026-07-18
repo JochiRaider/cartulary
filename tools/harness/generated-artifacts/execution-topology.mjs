@@ -294,7 +294,7 @@ function normalizeRuntimeBinaries(topology, taskTargets) {
   });
 }
 
-function normalizeGoTargets(topology, dependencyByID) {
+function normalizeGoTargets(topology, dependencyByID, runtimeBinaries) {
   const raw = requireObject(topology.go_targets, "go_targets");
   const targets = [];
   const byName = new Map();
@@ -362,6 +362,31 @@ function normalizeGoTargets(topology, dependencyByID) {
     }
   }
 
+  const runtimeBinaryIDs = new Set(runtimeBinaries.map((entry) => entry.id));
+  const runtimeBinariesByFamily = new Map();
+  let previousFamilyID = "";
+  for (const [index, entry] of (raw.family_runtime_binaries ?? []).entries()) {
+    const label = `go_targets.family_runtime_binaries[${index + 1}]`;
+    const familyID = requireString(entry?.family_id, `${label}.family_id`);
+    if (!/^(?:module|platform|app|web|package|harness)\.[a-z][a-z0-9_]{0,62}\.[a-z][a-z0-9_]{0,62}$/u.test(familyID)) {
+      throw new Error(`${label}.family_id must be an owner-qualified family ID`);
+    }
+    if (previousFamilyID && previousFamilyID.localeCompare(familyID) >= 0) {
+      throw new Error("go_targets.family_runtime_binaries must be sorted by unique family_id");
+    }
+    previousFamilyID = familyID;
+    const binaryIDs = requireStringArray(
+      entry.runtime_binary_ids,
+      `${label}.runtime_binary_ids`,
+    );
+    for (const binaryID of binaryIDs) {
+      if (!runtimeBinaryIDs.has(binaryID)) {
+        throw new Error(`${label}.runtime_binary_ids references unknown ${binaryID}`);
+      }
+    }
+    runtimeBinariesByFamily.set(familyID, binaryIDs);
+  }
+
   const rawAggregates = [];
   for (const [index, aggregate] of (raw.raw_go_aggregates ?? []).entries()) {
     const label = `go_targets.raw_go_aggregates[${index + 1}]`;
@@ -384,7 +409,14 @@ function normalizeGoTargets(topology, dependencyByID) {
     });
   }
 
-  return { targets, byName, dependencyTargets, supportTargets, rawAggregates };
+  return {
+    targets,
+    byName,
+    dependencyTargets,
+    supportTargets,
+    runtimeBinariesByFamily,
+    rawAggregates,
+  };
 }
 
 function targetNamesFromTaskSurface(taskSurface) {
@@ -878,7 +910,7 @@ function normalizeTopology(raw, taskSurfaceOwner, root, manifestPath, taskSurfac
   const { dependencies, byID: dependencyByID } = normalizeExecutionDependencies(raw);
   validateExecutionDependencyTargets(dependencies, taskTargets);
   const runtimeBinaries = normalizeRuntimeBinaries(raw, taskTargets);
-  const goTargets = normalizeGoTargets(raw, dependencyByID);
+  const goTargets = normalizeGoTargets(raw, dependencyByID, runtimeBinaries);
   validateBrowserBatch(raw, dependencyByID, taskTargets);
   const checkSchedules = renderCheckSchedulesFromTopology(raw, taskTargets, taskTargetEntries);
   validateServiceBackedSchedules(manifestPath, raw, taskTargets);

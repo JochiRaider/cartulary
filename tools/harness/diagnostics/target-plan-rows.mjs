@@ -6,21 +6,11 @@ import {
   collectTargetNames as collectBackendTargetNames,
   collectTargetPlanRows as collectBackendTargetPlanRows,
 } from "../backend/backend-target-plan.mjs";
-import { targetForExecutionDependency } from "../execution/execution-dependencies.mjs";
 import {
   loadTaskSurfaceManifest,
   targetEntryMap,
 } from "../generated-artifacts/index.mjs";
-import {
-  collectEntries,
-  entryIsExecutable,
-  frontendPhaseBaseJoin,
-  loadFrontendPhaseMap,
-  loadFrontendPhaseRegistry,
-  loadManifest,
-  phaseManifestNames,
-  playwrightEntryTitles,
-} from "../phase-accounting/index.mjs";
+import { loadTestCatalog, targetForCatalogRow } from "../test-catalog/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
@@ -30,9 +20,7 @@ function readJSON(file) {
 }
 
 function compareStrings(left, right) {
-  return String(left ?? "").localeCompare(String(right ?? ""), undefined, {
-    numeric: true,
-  });
+  return String(left ?? "").localeCompare(String(right ?? ""));
 }
 
 function uniqueSorted(values) {
@@ -54,12 +42,8 @@ function loadTaskSurfaceTargets(root) {
   return targetEntryMap(manifest);
 }
 
-function checkProjectionForTarget(taskTargets, target) {
-  return taskTargets.get(target)?.check_projection ?? null;
-}
-
 function projectionFields(taskTargets, target) {
-  const projection = checkProjectionForTarget(taskTargets, target);
+  const projection = taskTargets.get(target)?.check_projection ?? null;
   return {
     check_projection_mode: projection?.mode ?? "",
     check_projection_full_target: projection?.full_target ?? "",
@@ -68,43 +52,14 @@ function projectionFields(taskTargets, target) {
   };
 }
 
-function defaultCheckMetadata(row) {
-  return {
-    default_check_required: row.default_check_required === true,
-    default_check_kind: row.default_check_kind ?? "",
-    default_check_reason_code: row.default_check_reason_code ?? "",
-    ...(row.default_check_reason
-      ? { default_check_reason: row.default_check_reason }
-      : {}),
-    primary_evidence_owner: row.primary_evidence_owner ?? "",
-    duplicate_of: row.duplicate_of ?? null,
-    evidence_delta: row.evidence_delta ?? "",
-    warm_local_cost_class: row.warm_local_cost_class ?? "",
-  };
-}
-
-function coverageForFrontendEvidenceClass(evidenceClass) {
-  return evidenceClass === "product_conformance" ? "authoritative" : "support";
-}
-
 function defaultCheckWorkTargets(root) {
   const manifestPath = path.join(root, "tools", "scheduler_manifest.json");
-  if (!existsSync(manifestPath)) {
-    return new Set();
-  }
-  const manifest = readJSON(manifestPath);
+  if (!existsSync(manifestPath)) return new Set();
   const targets = new Set();
-  for (const schedule of manifest.schedules ?? []) {
-    if (schedule.target !== "check") {
-      continue;
-    }
+  for (const schedule of readJSON(manifestPath).schedules ?? []) {
+    if (schedule.target !== "check") continue;
     for (const unit of schedule.work_units ?? []) {
-      if (unit.command?.type !== "make_target") {
-        continue;
-      }
-      if (unit.target) {
-        targets.add(unit.target);
-      }
+      if (unit.command?.type === "make_target" && unit.target) targets.add(unit.target);
     }
   }
   return targets;
@@ -113,39 +68,20 @@ function defaultCheckWorkTargets(root) {
 function defaultBrowserSelectionIndex(root) {
   const manifestPath = path.join(root, "tools", "scheduler_manifest.json");
   const byRowID = new Map();
-  if (!existsSync(manifestPath)) {
-    return byRowID;
-  }
-
-  const add = (rowID, selection) => {
-    if (!rowID) {
-      return;
-    }
-    const current = byRowID.get(rowID) ?? [];
-    current.push(selection);
-    byRowID.set(rowID, current);
-  };
-
-  const manifest = readJSON(manifestPath);
-  for (const schedule of manifest.schedules ?? []) {
+  if (!existsSync(manifestPath)) return byRowID;
+  for (const schedule of readJSON(manifestPath).schedules ?? []) {
     if (
       schedule.target !== "check-service-backed" ||
       schedule.scheduler_kind !== "service_backed"
-    ) {
-      continue;
-    }
+    ) continue;
     for (const unit of schedule.work_units ?? []) {
-      if (unit.command?.type !== "browser_group") {
-        continue;
-      }
+      if (unit.command?.type !== "browser_group") continue;
       const groupID = unit.command.group_id ?? "";
-      const group = groupID.includes(":")
-        ? groupID.slice(groupID.indexOf(":") + 1)
-        : groupID;
+      const group = groupID.includes(":") ? groupID.slice(groupID.indexOf(":") + 1) : groupID;
       const browserGroup = unit.browser_group ?? {};
       const selectedRowIDs = uniqueSorted([
         ...parseCSV(unit.env?.CARTULARY_BROWSER_SELECTED_ROW_IDS ?? ""),
-        ...(Array.isArray(browserGroup.entry_ids) ? browserGroup.entry_ids : []),
+        ...(browserGroup.entry_ids ?? []),
       ]);
       const selection = {
         schedule: schedule.target,
@@ -155,25 +91,14 @@ function defaultBrowserSelectionIndex(root) {
         browser_group_kind: browserGroup.kind ?? unit.kind ?? "browser_group",
         selected_row_ids: selectedRowIDs,
       };
-      for (const rowID of selection.selected_row_ids) {
-        add(rowID, selection);
+      for (const rowID of selectedRowIDs) {
+        const entries = byRowID.get(rowID) ?? [];
+        entries.push(selection);
+        byRowID.set(rowID, entries);
       }
     }
   }
-
   return byRowID;
-}
-
-function firstSelection(selectionIndex, rowID) {
-  return selectionIndex.get(rowID)?.[0] ?? null;
-}
-
-function firstSelectionForTarget(selectionIndex, rowID, target) {
-  return (
-    (selectionIndex.get(rowID) ?? []).find(
-      (selection) => selection.target === target,
-    ) ?? null
-  );
 }
 
 function selectionFields(selection) {
@@ -187,147 +112,89 @@ function selectionFields(selection) {
   };
 }
 
-function collectBrowserRows(root, taskTargets, selectionIndex) {
-  const rows = [];
-  for (const phase of phaseManifestNames(root)) {
-    const { manifest } = loadManifest(root, phase);
-    for (const entry of collectEntries(manifest)) {
-      if (
-        entry.runner !== "playwright" ||
-        !entryIsExecutable(entry) ||
-        !entry.execution_dependency
-      ) {
-        continue;
-      }
-      const target = targetForExecutionDependency(
-        entry.execution_dependency,
-        `manifest entry ${entry.id} execution_dependency`,
-      );
-      const selection = firstSelection(selectionIndex, entry.id);
-      rows.push({
-        source_family: "browser",
-        target,
-        service_backed: true,
-        runner_family: "playwright",
-        id: entry.id,
-        manifest_phase: phase,
-        section: entry.section ?? "",
-        coverage: entry.coverage ?? "",
-        execution_dependency: entry.execution_dependency,
-        evidence_class: entry.evidence_class ?? "",
-        layer: entry.layer ?? "",
-        ...defaultCheckMetadata(entry),
-        execution_family: entry.execution_family ?? "",
-        execution_label: entry.execution_label ?? "",
-        packages: [],
-        support_only: false,
-        support_selector: null,
-        raw_selector: null,
-        file: entry.file ?? "",
-        package: "",
-        symbols: [],
-        titles: playwrightEntryTitles(entry),
-        shard_isolation: entry.shard_isolation === true,
-        evidence_layer: entry.evidence_layer ?? "",
-        ...projectionFields(taskTargets, target),
-        ...selectionFields(selection),
-      });
-    }
-  }
-  return rows;
+function commandTargetIndex(taskTargets) {
+  return new Map(
+    [...taskTargets.values()].map((entry) => [entry.command_id, entry.name]),
+  );
 }
 
-function collectFrontendRows(root, taskTargets, selectionIndex, directCheckTargets) {
-  let registry;
-  try {
-    registry = loadFrontendPhaseRegistry(root);
-  } catch {
-    return [];
-  }
+function profileByID(catalog, kind, profileID) {
+  const profile = catalog.profiles.semantic[kind].find((entry) => entry.id === profileID);
+  if (!profile) throw new Error(`unresolved ${kind} profile ${profileID}`);
+  return profile;
+}
 
-  const rows = [];
-  for (const phase of registry.phases ?? []) {
-    if (phase.status !== "active") {
-      continue;
-    }
-    const basePhase = frontendPhaseBaseJoin(phase);
-    const { manifest } = loadFrontendPhaseMap(root, phase.phase_id);
-    for (const row of manifest.rows ?? []) {
-      if (row.claim_status !== "implemented") {
-        continue;
-      }
-      for (const targetRef of row.targets ?? []) {
-        const target = targetRef.target_name ?? "";
-        const browserSelection = target.startsWith("browser-e2e")
-          ? firstSelectionForTarget(selectionIndex, row.id, target)
-          : null;
-        const directSelection =
-          !browserSelection && directCheckTargets.has(target)
-            ? {
-                schedule: "check",
-                target,
-                browser_stage: "",
-                browser_group: "",
-                browser_group_kind: "",
-                selected_row_ids: [row.id],
-              }
-            : null;
-        const selection = browserSelection ?? directSelection;
-        rows.push({
-          source_family: "frontend",
+function supportRow(row) {
+  const family = row.family_id.split(".").at(-1);
+  return family.startsWith("support_") ||
+    (row.runner === "playwright" && row.selector.stage === "support");
+}
+
+function catalogPlanRow({ row, target, taskTargets, catalog, selection, directCheckTargets }) {
+  const runtime = profileByID(catalog, "runtime_profiles", row.runtime_profile_id);
+  const supportOnly = supportRow(row);
+  const directSelection =
+    !selection && row.default_check && directCheckTargets.has(target)
+      ? {
+          schedule: "check",
           target,
-          service_backed: target.startsWith("browser-e2e"),
-          runner_family: target.startsWith("browser-e2e")
-            ? "playwright"
-            : target === "frontend-unit"
-              ? "vitest"
-              : "frontend",
-          id: row.id,
-          manifest_phase: basePhase,
-          phase_id: phase.phase_id,
-          phase_namespace: "frontend",
-          base_phase_join: basePhase,
-          section: row.layer ?? "",
-          coverage: coverageForFrontendEvidenceClass(row.evidence_class),
-          execution_dependency: target.startsWith("browser-e2e")
-            ? `frontend:${target}`
-            : "",
-          evidence_class: row.evidence_class ?? "",
-          layer: row.layer ?? "",
-          claim_status: row.claim_status,
-          target_evidence_role: targetRef.evidence_role ?? "",
-          target_required_for_closure:
-            targetRef.required_for_closure === true,
-          frontend_row_accounting_required:
-            targetRef.frontend_row_accounting_required === true,
-          ...defaultCheckMetadata(row),
-          execution_family: "frontend_phase_map",
-          execution_label: row.claim?.statement ?? row.id,
-          packages: [],
-          support_only: row.evidence_class !== "product_conformance",
-          support_selector: null,
-          raw_selector: null,
-          file: "",
-          package: "",
-          symbols: [],
-          scenario_titles: [...(row.scenario_titles ?? [])],
-          evidence_layer: row.layer ?? "",
-          ...projectionFields(taskTargets, target),
-          ...selectionFields(selection),
-        });
-      }
-    }
-  }
-  return rows;
+          browser_stage: "",
+          browser_group: "",
+          browser_group_kind: "",
+          selected_row_ids: [row.row_id],
+        }
+      : null;
+  const selected = selection ?? directSelection;
+  const file = row.selector.file ?? "";
+  const titles = [...(row.selector.titles ?? [])];
+  return {
+    source_family:
+      row.runner === "playwright" ? "browser" : row.runner === "vitest" ? "frontend" : "command",
+    target,
+    service_backed: runtime.managed_service_ids.length > 0,
+    runner_family: row.runner,
+    id: row.row_id,
+    owner_id: row.owner_id,
+    family_id: row.family_id,
+    section: row.family_id.split(".").at(-1),
+    coverage: supportOnly ? "support" : "authoritative",
+    execution_dependency: target.replaceAll("-", "_"),
+    evidence_class: row.evidence_class,
+    layer: target,
+    default_check_required: row.default_check,
+    default_check_kind: row.default_check ? "catalog_default" : "explicit_only",
+    default_check_reason_code: row.default_check ? "catalog_selected" : "catalog_explicit_only",
+    primary_evidence_owner: row.row_id,
+    duplicate_of: null,
+    evidence_delta: "Catalog-owned exact selector evidence.",
+    warm_local_cost_class: runtime.managed_service_ids.length > 0 ? "service_backed" : "low",
+    execution_family: row.family_id,
+    execution_label: row.family_id,
+    packages: [],
+    support_only: supportOnly,
+    support_selector: null,
+    raw_selector: null,
+    file,
+    package: "",
+    symbols: [],
+    titles,
+    scenario_titles: titles,
+    command_id: row.selector.command_id ?? "",
+    runtime_profile_id: row.runtime_profile_id,
+    resource_profile_id: row.resource_profile_id,
+    fixture_profile_id: row.fixture_profile_id,
+    evidence_layer: target,
+    ...projectionFields(taskTargets, target),
+    ...selectionFields(selected),
+  };
 }
 
 function compareRows(left, right) {
   return (
     compareStrings(left.source_family, right.source_family) ||
     compareStrings(left.target, right.target) ||
-    compareStrings(left.manifest_phase ?? left.phase_id, right.manifest_phase ?? right.phase_id) ||
-    compareStrings(left.browser_stage, right.browser_stage) ||
-    compareStrings(left.browser_group, right.browser_group) ||
+    compareStrings(left.owner_id, right.owner_id) ||
+    compareStrings(left.family_id, right.family_id) ||
     compareStrings(left.id, right.id)
   );
 }
@@ -335,25 +202,42 @@ function compareRows(left, right) {
 export function collectTargetNames(root = repoRoot) {
   const names = new Set(collectBackendTargetNames(root));
   try {
-    for (const target of loadTaskSurfaceTargets(root).keys()) {
-      names.add(target);
-    }
+    for (const target of loadTaskSurfaceTargets(root).keys()) names.add(target);
   } catch {
-    // Keep backend names available for synthetic test roots without task surface data.
+    // Synthetic backend-only roots may intentionally omit the task surface.
   }
   return [...names].sort(compareStrings);
 }
 
 export function collectHarnessTargetPlanRows(root = repoRoot) {
   const taskTargets = loadTaskSurfaceTargets(root);
+  const catalog = loadTestCatalog(root);
+  const commandTargets = commandTargetIndex(taskTargets);
   const selectionIndex = defaultBrowserSelectionIndex(root);
   const directCheckTargets = defaultCheckWorkTargets(root);
+  const nonGoRows = catalog.rows
+    .filter((row) => row.runner !== "go")
+    .map((row) => {
+      const target = targetForCatalogRow(row, { commandTargetByID: commandTargets });
+      const selection = row.runner === "playwright"
+        ? (selectionIndex.get(row.row_id) ?? []).find((entry) => entry.target === target) ?? null
+        : null;
+      return catalogPlanRow({
+        row,
+        target,
+        taskTargets,
+        catalog,
+        selection,
+        directCheckTargets,
+      });
+    });
   return [
-    ...collectBackendTargetPlanRows(root).map((row) => ({
+    ...collectBackendTargetPlanRows(root).map(({ manifest_phase: _retiredPhase, ...row }) => ({
       source_family: "backend",
       ...row,
+      ...projectionFields(taskTargets, row.target),
+      ...selectionFields(null),
     })),
-    ...collectBrowserRows(root, taskTargets, selectionIndex),
-    ...collectFrontendRows(root, taskTargets, selectionIndex, directCheckTargets),
+    ...nonGoRows,
   ].sort(compareRows);
 }

@@ -10,3 +10,7 @@ export {
   collectTestCatalogImportViolations,
   validateTestCatalogImportBoundary,
 } from "./import-boundary.mjs";
+export {
+  goTargetForFamily,
+  targetForCatalogRow,
+} from "./target-routing.mjs";

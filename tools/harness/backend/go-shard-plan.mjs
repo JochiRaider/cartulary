@@ -16,6 +16,14 @@ const shardTargets = new Set(["backend-store", "backend-integration", "backend-i
 const serviceExactShardTargetMs = 12_000;
 const serviceExactShardMaxItems = 8;
 const executionTargets = new Set(["backend-store", "backend-integration", "backend-integration-support", "backend-process"]);
+const schedulerProfileByResourceProfile = Object.freeze({
+  go_balanced: "balanced",
+  go_clone_heavy: "clone_heavy",
+  go_cpu_heavy: "cpu_heavy",
+  go_io_heavy: "io_heavy",
+  go_reset_heavy: "reset_heavy",
+  go_transaction_heavy: "transaction_heavy",
+});
 
 function compareStrings(left, right) {
   return String(left).localeCompare(String(right));
@@ -183,6 +191,7 @@ function buildExecutionItems(root, rows, { phase = "", defaultCheckOnly = false 
           weight_ms: weightMs,
           weight_source: weightSource,
           baseline_key: key,
+          resource_profile_id: row.resource_profile_id,
           shard_isolation: row.shard_isolation === true || isPgtestRawPackage,
           postgres_fixture_policy: normalizePostgresFixturePolicy(row.fixture_policy?.postgres),
           postgres_fixture_budget: {
@@ -226,6 +235,7 @@ function buildExecutionItems(root, rows, { phase = "", defaultCheckOnly = false 
           weight_source: baselines.tests.has(key) ? "baseline" : "default",
           baseline_key: key,
           runtime_binaries: row.runtime_binaries ?? [],
+          resource_profile_id: row.resource_profile_id,
           shard_isolation: row.shard_isolation === true,
           postgres_fixture_policy: fixture.policy,
           postgres_fixture_budget: fixture.budget,
@@ -264,6 +274,7 @@ function buildExecutionItems(root, rows, { phase = "", defaultCheckOnly = false 
           weight_source: baselines.tests.has(key) ? "baseline" : "default",
           baseline_key: key,
           runtime_binaries: row.runtime_binaries ?? [],
+          resource_profile_id: row.resource_profile_id,
           shard_isolation: row.shard_isolation === true,
           postgres_fixture_policy: fixture.policy,
           postgres_fixture_budget: fixture.budget,
@@ -323,6 +334,7 @@ function exactItemCompatibilityKey(item, baselines) {
     kind: item.kind,
     package_import_paths: [...item.package_import_paths].sort(compareStrings),
     runtime_binaries: [...(item.runtime_binaries ?? [])].sort(compareStrings),
+    resource_profile_id: item.resource_profile_id,
     postgres_fixture_policy: item.postgres_fixture_policy,
     postgres_fixture_budget: item.postgres_fixture_budget,
     shard_isolation: item.shard_isolation === true,
@@ -512,13 +524,32 @@ function scenarioShardSuffix(scenarioID) {
 
 function shardName(aggregateName, index, phase = "", bin = {}) {
   const phasePrefix = phase ? `${phase}-` : "";
+  const semanticName = aggregateName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gu, "-")
+    .replace(/^-|-$/gu, "");
   if (bin.scenario_id) {
-    return `${phasePrefix}${aggregateName}-${scenarioShardSuffix(bin.scenario_id)}`;
+    return `${phasePrefix}${semanticName}-${scenarioShardSuffix(bin.scenario_id)}`;
   }
-  return `${phasePrefix}${aggregateName}-shard-${String(index + 1).padStart(2, "0")}`;
+  return `${phasePrefix}${semanticName}-shard-${String(index + 1).padStart(2, "0")}`;
 }
 
 function schedulerProfileForShard(items, weightMs) {
+  const resourceProfiles = [
+    ...new Set(items.map((item) => item.resource_profile_id).filter(Boolean)),
+  ];
+  if (resourceProfiles.length === 1) {
+    const profile = schedulerProfileByResourceProfile[resourceProfiles[0]];
+    if (!profile) {
+      throw new Error(`unsupported Go shard resource profile ${resourceProfiles[0]}`);
+    }
+    return profile;
+  }
+  if (resourceProfiles.length > 1) {
+    throw new Error(
+      `Go shard combines incompatible resource profiles ${resourceProfiles.sort().join(", ")}`,
+    );
+  }
   const hasResetHeavyFixture = items.some(
     (item) =>
       item.postgres_fixture_budget?.reset_conformance === true ||
@@ -627,6 +658,7 @@ export function collectGoShardPlanFromRows(root = process.cwd(), rows = [], opti
             weight_source: item.weight_source,
             baseline_key: item.baseline_key,
             runtime_binaries: item.runtime_binaries ?? [],
+            resource_profile_id: item.resource_profile_id ?? "",
             shard_isolation: item.shard_isolation,
             postgres_fixture_policy: item.postgres_fixture_policy,
             postgres_fixture_budget: item.postgres_fixture_budget,

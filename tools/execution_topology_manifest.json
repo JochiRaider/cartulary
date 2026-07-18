@@ -308,6 +308,16 @@
         ]
       }
     ],
+    "family_runtime_binaries": [
+      {
+        "family_id": "app.server.process",
+        "runtime_binary_ids": ["server-harness"]
+      },
+      {
+        "family_id": "module.recovery.process",
+        "runtime_binary_ids": ["operator"]
+      }
+    ],
     "raw_go_aggregates": [
       {
         "id": "backend-unit-configtest",

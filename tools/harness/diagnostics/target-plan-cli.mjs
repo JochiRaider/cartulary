@@ -61,8 +61,8 @@ function describeSafety(row) {
 }
 
 function describeRow(row) {
-  const phase = row.manifest_phase === "" ? "raw" : row.manifest_phase;
-  const base = `${phase} ${row.section} ${row.coverage}`;
+  const owner = row.owner_id || "raw_diagnostic";
+  const base = `${owner} ${row.section} ${row.coverage}`;
   const dependency =
     row.execution_dependency === "" ? "no manifest dependency" : row.execution_dependency;
   const selector = row.support_only
@@ -107,7 +107,7 @@ function aggregateTargetRows(rows) {
         authoritative: 0,
         support: 0,
         raw: 0,
-        phases: new Set(),
+        owners: new Set(),
         execution_families: new Set(),
         safety: new Set(),
       });
@@ -122,8 +122,8 @@ function aggregateTargetRows(rows) {
     } else if (row.coverage === "raw") {
       aggregate.raw += 1;
     }
-    if (row.manifest_phase) {
-      aggregate.phases.add(row.manifest_phase);
+    if (row.owner_id) {
+      aggregate.owners.add(row.owner_id);
     }
     if (row.execution_family) {
       aggregate.execution_families.add(row.execution_family);
@@ -153,7 +153,7 @@ function renderCompact(rows, target) {
     }
     const safety = aggregate.safety.size === 0 ? "direct-only" : Array.from(aggregate.safety).sort().join(",");
     lines.push(
-      `${aggregate.target} service_backed=${aggregate.service_backed ? 1 : 0} phases=${aggregate.phases.size} rows=${aggregate.rows} authoritative=${aggregate.authoritative} support=${aggregate.support} raw=${aggregate.raw} safety=${safety} execution_families=${aggregate.execution_families.size}`,
+      `${aggregate.target} service_backed=${aggregate.service_backed ? 1 : 0} owners=${aggregate.owners.size} rows=${aggregate.rows} authoritative=${aggregate.authoritative} support=${aggregate.support} raw=${aggregate.raw} safety=${safety} execution_families=${aggregate.execution_families.size}`,
     );
   }
   return lines.join("\n");
