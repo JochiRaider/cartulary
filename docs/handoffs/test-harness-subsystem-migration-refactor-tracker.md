@@ -10,9 +10,9 @@
 | Baseline branch | `revision/grid-adapter` |
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
-| Tracker state | `CHECKPOINT` — WS-07 complete; WS-08 not activated |
+| Tracker state | `IN_PROGRESS` — WS-08 browser and scheduler topology |
 | Active start | Clean tree at `ddfd2afa` |
-| Active tasks | None |
+| Active tasks | T-036 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -494,7 +494,7 @@ WS-06 closure is recorded in `tools/delivery_identity_followup_ledger.json`. It 
 | WS-05 | Migrate frontend rows | DONE | WS-03 | 87 frontend dispositions and browser accounting tests | Revert complete owner slices with fixture metadata. |
 | WS-06 | Rename tests, symbols, fixtures, and goldens | DONE | WS-04, WS-05 | Semantic scan, visual digest report, and production follow-up closure ledger | Revert complete rename slices; no duplicate old/new tests. |
 | WS-07 | Replace slice, audit, schema, and artifact APIs | DONE | WS-03–WS-06 | Successor CLI contract/smoke tests | Revert the whole interface checkpoint before atomic cutover. |
-| WS-08 | Migrate browser stages and scheduler topology | TODO | WS-05, WS-07 | Owner-based DAG, lifecycle, and browser tests | Revert authored topology and generated outputs together. |
+| WS-08 | Migrate browser stages and scheduler topology | IN_PROGRESS | WS-05, WS-07 | Owner-based DAG, lifecycle, and browser tests | Revert authored topology and generated outputs together. |
 | WS-09 | Update task surface, generation, finalization, and baselines | TODO | WS-07, WS-08 | Generated surface/drift and fresh baseline plan | Revert owner inputs plus regenerated outputs together. |
 | WS-10 | Atomic deletion and hard cutover | TODO | WS-02–WS-09 | Deletion manifest and zero-reference scans | Revert the entire cutover commit; never add shims. |
 | WS-11 | Focused and broad verification | TODO | WS-10 | Successful fresh run roots and audit summaries | Forward-fix or revert the full cutover; old evidence is invalid. |
@@ -721,7 +721,7 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-033 | Implement owner diagnostics/task guide | WS-07 | DONE | T-032 | Text/JSON contract tests and exact catalog-topology reconciliation | Commands report exact owner topology. |
 | T-034 | Implement owner evidence accounting/audit | WS-07 | DONE | T-032 | Exact runner/accounting and retained-root audit fixtures; focused real-row execution | Fresh compatible target partitions reconcile and incomplete or incompatible evidence fails closed. |
 | T-035 | Replace schemas and artifact identities | WS-07 | DONE | T-032,T-034 | Four attached successor schemas, retained artifact smoke, old-ID rejection, and drift checks | No successor artifact uses delivery phase identity. |
-| T-036 | Migrate browser stages/runtime profiles | WS-08 | TODO | T-027,T-032 | Browser plan tests | Selection derives from catalog resources. |
+| T-036 | Migrate browser stages/runtime profiles | WS-08 | IN_PROGRESS | T-027,T-032 | Browser plan tests | Selection derives from catalog resources. |
 | T-037 | Migrate scheduler DAG and lifecycle | WS-08 | TODO | T-036 | Scheduler/lifecycle tests | Phase ordering has no execution role. |
 | T-038 | Regenerate owner-first topology | WS-08 | TODO | T-037 | Generation/drift evidence | Authored and generated topology agree. |
 | T-039 | Cut task surface to successor targets | WS-09 | TODO | T-032,T-033,T-034 | Help/contract/smoke tests | Removed inputs fail and new targets work. |
@@ -1164,6 +1164,14 @@ Each entry must include:
 - Skipped checks: Playwright exact accounting, browser stage/runtime-profile migration, generic scheduler lifecycle, and owner-first topology are WS-08. Public generated task-surface cutover is WS-09. Broad `make check`, finalization, evidence audits for all owners, and release validation remain WS-11.
 - Next safe task: create a tracker-only WS-08 activation checkpoint with T-036 as the sole active task, then replace browser phase batches and legacy IDs with catalog-derived semantic stage/runtime-profile groups. Do not begin scheduler or generated-topology work concurrently.
 - Rollback boundary: revert the complete T-035 checkpoint, including all four schemas, attachments, artifact writers, audit CLI dispatch, verification skip policy, generated phase-schedule index refresh, fixtures, and tracker evidence. Never preserve a partial artifact family or restore flat owner paths or legacy schema acceptance.
+
+#### 2026-07-18 — WS-08 activation checkpoint
+
+- Branch/commit at start: `revision/grid-adapter` at clean WS-07 closure checkpoint `692750b1`. WS-08 is the only `IN_PROGRESS` workstream and T-036 is the sole active task; T-037 and T-038 remain `TODO`.
+- Active scope: replace browser phase batches, phase environment selection, and legacy row/fixture identities with catalog-derived semantic stages, runtime profiles, fixture/isolation policy, exact Playwright scenario selection, and per-owner evidence shards. This checkpoint does not activate the generic scheduler lifecycle migration or topology regeneration assigned to T-037/T-038.
+- Prerequisites: the unified 833-row catalog, exact selector resolution, semantic frontend identities, owner slice plan, and schema-complete evidence accounting from WS-03 through WS-07 are clean and committed. Browser generation must consume those owners rather than reading a phase registry or crosswalk.
+- Next safe task: T-036 only. Implement semantic browser planning and Playwright result adaptation, preserve explicit isolated startup configuration for `network_flow_claimed`, and validate webserver-backed/stateful/accessibility/visual/measurement selection without starting T-037.
+- Rollback boundary: revert this tracker-only activation checkpoint to return to the clean WS-07 closure. Do not make WS-08 and WS-09 active together or introduce a translated phase batch.
 
 ## 17. First-resumer checklist
 
