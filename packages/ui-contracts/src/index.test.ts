@@ -1306,10 +1306,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
   });
 
   it("does not export delivery-phase selector aliases", () => {
-    const ordinalPrefixes = [
-      ["pha", "se1"].join(""),
-      ["pha", "se2"].join(""),
-    ];
+    const ordinalPrefixes = [["pha", "se1"].join(""), ["pha", "se2"].join("")];
     const aliases = [
       ...[
         "AccountTestId",
