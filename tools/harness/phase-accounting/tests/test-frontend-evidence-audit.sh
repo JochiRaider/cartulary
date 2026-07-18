@@ -66,7 +66,6 @@ function targetRootName(targetName) {
     case "frontend-import-boundary-check":
     case "generated-artifact-policy-check":
     case "generate-drift":
-    case "phase-ledger-drift":
     case "browser-e2e-webserver-backed":
     case "browser-e2e-stateful":
       return "check";

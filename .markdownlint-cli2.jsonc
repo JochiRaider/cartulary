@@ -12,8 +12,6 @@
     "apps/web/public/assets/fonts/*.md"
   ],
   "ignores": [
-    "docs/testing/phase*_coverage_ledger.md",
-    "docs/testing/frontend_phase_coverage_ledgers/*_coverage_ledger.md",
     "docs/archive/**",
     "docs/testing-harness-spec-recovery-docs/**",
     "internal/gen/**",

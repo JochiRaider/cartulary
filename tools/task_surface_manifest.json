@@ -342,14 +342,6 @@
           "description": "verify migrations against a scratch database"
         },
         {
-          "target": "phase-ledgers",
-          "description": "regenerate committed phase coverage ledgers"
-        },
-        {
-          "target": "phase-ledger-drift",
-          "description": "fail on phase coverage ledger drift"
-        },
-        {
           "target": "agent-finalize",
           "description": "refresh and validate harness-maintenance artifacts before verification"
         },
@@ -1342,44 +1334,6 @@
       "command": [
         "$(NODE_BIN)",
         "./tools/harness/test-catalog/catalog-check.mjs"
-      ],
-      "test_target": "self"
-    },
-    "phase-ledgers": {
-      "prerequisites": [
-        "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)"
-      ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "phase-ledgers",
-      "env": {
-        "PATH": "$(NODE_RUNTIME_DIR)/bin:$$PATH",
-        "COREPACK_HOME": "$(NODE_RUNTIME_DIR)/corepack",
-        "NODE_BIN": "$(NODE_BIN)"
-      },
-      "command": [
-        "$(NODE_BIN)",
-        "./tools/harness/generated-artifacts/render-phase-ledgers.mjs"
-      ],
-      "test_target": "self"
-    },
-    "phase-ledger-drift": {
-      "prerequisites": [
-        "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)"
-      ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "phase-ledger-drift",
-      "env": {
-        "PATH": "$(NODE_RUNTIME_DIR)/bin:$$PATH",
-        "COREPACK_HOME": "$(NODE_RUNTIME_DIR)/corepack",
-        "NODE_BIN": "$(NODE_BIN)"
-      },
-      "command": [
-        "$(NODE_BIN)",
-        "./tools/harness/generated-artifacts/check-phase-ledger-drift.mjs"
       ],
       "test_target": "self"
     },
@@ -4408,119 +4362,6 @@
         "check"
       ],
       "lifecycle_state": "candidate_child"
-    },
-    {
-      "name": "phase-ledgers",
-      "backing_scripts": [
-        "tools/harness/generated-artifacts/render-phase-ledgers.mjs"
-      ],
-      "output_policy": {
-        "output_class": "summary_with_artifacts",
-        "artifact_policy": "tool_run_summary",
-        "success_budget": {
-          "stdout_lines": 2,
-          "stdout_bytes": 600,
-          "stderr_lines": 0,
-          "stderr_bytes": 0
-        },
-        "failure_budget": {
-          "stderr_lines": 35,
-          "stderr_bytes": 6000,
-          "excerpt_lines": 25,
-          "excerpt_bytes": 4096
-        },
-        "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
-      },
-      "command_id": "cartulary.harness.command.phase_ledgers.v1",
-      "semantic_behaviors": [
-        {
-          "behavior": "evidence_normalization",
-          "owner_section": "Section 8"
-        },
-        {
-          "behavior": "failure_normalization",
-          "owner_section": "Section 9"
-        }
-      ],
-      "target_class": "public",
-      "default_inclusion_sets": [
-        "helper_only"
-      ],
-      "lifecycle_state": "public_active",
-      "family_id": "generated_drift",
-      "side_effects": [
-        {
-          "class": "retained_artifacts",
-          "owner_section": "Section 8",
-          "artifact_policy": "tool_run_summary"
-        },
-        {
-          "class": "generated_artifacts",
-          "owner_section": "Section 4",
-          "file_families": [
-            "phase coverage ledgers"
-          ]
-        }
-      ],
-      "input_contract": {
-        "undeclared_make_command_line": "usage_error",
-        "undeclared_inherited_env": "ignore",
-        "inputs": []
-      }
-    },
-    {
-      "name": "phase-ledger-drift",
-      "backing_scripts": [
-        "tools/harness/generated-artifacts/check-phase-ledger-drift.mjs"
-      ],
-      "output_policy": {
-        "output_class": "summary_with_artifacts",
-        "artifact_policy": "tool_run_summary",
-        "success_budget": {
-          "stdout_lines": 2,
-          "stdout_bytes": 600,
-          "stderr_lines": 0,
-          "stderr_bytes": 0
-        },
-        "failure_budget": {
-          "stderr_lines": 35,
-          "stderr_bytes": 6000,
-          "excerpt_lines": 25,
-          "excerpt_bytes": 4096
-        },
-        "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
-      },
-      "command_id": "cartulary.harness.command.phase_ledger_drift.v1",
-      "semantic_behaviors": [
-        {
-          "behavior": "evidence_normalization",
-          "owner_section": "Section 8"
-        },
-        {
-          "behavior": "failure_normalization",
-          "owner_section": "Section 9"
-        }
-      ],
-      "target_class": "public",
-      "default_inclusion_sets": [
-        "check"
-      ],
-      "lifecycle_state": "public_active",
-      "family_id": "generated_drift",
-      "side_effects": [
-        {
-          "class": "retained_artifacts",
-          "owner_section": "Section 8",
-          "artifact_policy": "tool_run_summary"
-        }
-      ],
-      "input_contract": {
-        "undeclared_make_command_line": "usage_error",
-        "undeclared_inherited_env": "ignore",
-        "inputs": []
-      }
     },
     {
       "name": "agent-finalize",

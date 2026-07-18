@@ -108,10 +108,13 @@ function expectedStageForFile(row, file) {
   return "webserver_backed";
 }
 
-function sourceRow(frozen) {
+function sourceRow(frozen, { allowMissing = false } = {}) {
   const source = readJSON(frozen.source_path);
   const row = source.rows.find((entry) => entry.id === frozen.legacy_row_id);
-  if (!row) fail(`${frozen.legacy_row_id} is absent from ${frozen.source_path}`);
+  if (!row) {
+    if (allowMissing) return null;
+    fail(`${frozen.legacy_row_id} is absent from ${frozen.source_path}`);
+  }
   return {
     ...row,
     runner: frozen.runner,
@@ -157,11 +160,9 @@ let resolvedCommandSelectors = 0;
 for (const frozen of frontendBaseline) {
   const disposition = dispositionByID.get(frozen.legacy_row_id);
   if (!disposition) fail(`${frozen.legacy_row_id} has no terminal disposition`);
-  const legacy = sourceRow(frozen);
-  const phaseMatch = /^FE-P(\d+)$/u.exec(legacy.phase_id);
-  if (!phaseMatch) fail(`${legacy.id} has invalid source phase identity`);
-  const phase = Number(phaseMatch[1]);
-  const ownerID = expectedOwner(phase, legacy);
+  const legacy = sourceRow(frozen, {
+    allowMissing: disposition.disposition === "deleted",
+  });
   increment(dispositionCounts, disposition.disposition);
   increment(runnerCounts, frozen.runner);
   const titles = (frozen.selector.scenario_titles ?? []).map(semanticFrontendTitle);
@@ -170,15 +171,20 @@ for (const frozen of frontendBaseline) {
   legacyCommandAtoms += commands.length;
 
   const splitAuthorizations = frontendNewRows.filter((entry) =>
-    entry.provenance.startsWith(`frontend:${legacy.id} `),
+    entry.provenance.startsWith(`frontend:${frozen.legacy_row_id} `),
   );
   if (disposition.disposition === "deleted") {
-    if (!["FE-S-P0-03", "FE-S-P11-01", "FE-S-P11-02", "FE-S-P11-03"].includes(legacy.id)) {
-      fail(`${legacy.id} has an unauthorized deletion`);
+    if (!["FE-S-P0-03", "FE-S-P11-01", "FE-S-P11-02", "FE-S-P11-03"].includes(frozen.legacy_row_id)) {
+      fail(`${frozen.legacy_row_id} has an unauthorized deletion`);
     }
-    if (splitAuthorizations.length !== 0) fail(`${legacy.id} deletion retains split row authorizations`);
+    if (splitAuthorizations.length !== 0) fail(`${frozen.legacy_row_id} deletion retains split row authorizations`);
     continue;
   }
+
+  const phaseMatch = /^FE-P(\d+)$/u.exec(legacy.phase_id);
+  if (!phaseMatch) fail(`${legacy.id} has invalid source phase identity`);
+  const phase = Number(phaseMatch[1]);
+  const ownerID = expectedOwner(phase, legacy);
 
   if (disposition.owner_id !== ownerID || disposition.review.governing_owner !== ownerID) {
     fail(`${legacy.id} disposition owner drift`);

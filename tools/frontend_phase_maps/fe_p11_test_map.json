@@ -352,14 +352,6 @@
           "scenario_title_required": false
         },
         {
-          "target_name": "phase-ledger-drift",
-          "command_id": "cartulary.harness.command.phase_ledger_drift.v1",
-          "evidence_role": "drift",
-          "required_for_closure": false,
-          "frontend_row_accounting_required": false,
-          "scenario_title_required": false
-        },
-        {
           "target_name": "check",
           "command_id": "cartulary.harness.command.check.v1",
           "evidence_role": "primary",
@@ -371,7 +363,7 @@
       "scenario_titles": [],
       "claim_status": "implemented",
       "claim": {
-        "statement": "Verify frontend type check, unit tests, import-boundary check, Biome lint, generated drift, generated-artifact policy, and phase ledger drift are composed into readiness expectations.",
+        "statement": "Verify frontend type check, unit tests, import-boundary check, Biome lint, generated drift, generated-artifact policy, and the aggregate check are composed into readiness expectations.",
         "claim_publication_intent": "none",
         "closure_scope": "target_level"
       },

@@ -23,8 +23,8 @@
       "depends_on": [],
       "row_rollup_state": "active_green",
       "activation_blockers": [],
-      "evidence_freshness_digest": "a6a171f8c5104f64938bad01b2d0fea99da3aa833202539def8611ab72560a82",
-      "manifest_digest": "424d537dbf3194f5443e5178235a69dc81e6f28007f913b161bf7fce1910d6a9",
+      "evidence_freshness_digest": "10a1b965221b7e0003b4fec75d5facb50f04bc2962972960f8aa99ec2028dca6",
+      "manifest_digest": "3322840022e225f5119b8ce5d73338b4f7c7c8f130006cce53144322ccba01a2",
       "ledger_digest": "b3127602740de879ddce57098cf80e5434f50f854a5e87e34d0c5d44dd76d88f",
       "base_phase_join": "phase0"
     },
@@ -375,8 +375,8 @@
       ],
       "row_rollup_state": "active_green",
       "activation_blockers": [],
-      "evidence_freshness_digest": "b4da223bf806e604d6827061452bffeee87dd41a2b5f80c5e7b2ba6e23826f37",
-      "manifest_digest": "6eec53d3f3f28ec8a6a823a0c5e585cb7c736584a5eebc99c09cdfd543510c37",
+      "evidence_freshness_digest": "f1993ac7b22952d0811fdf9e5d9bab0348727d29fc5d484dbd1f71391190b092",
+      "manifest_digest": "54878f81e2643a995349907da97ff55a6a995822e823ca3b6437a86440dba7a8",
       "ledger_digest": "26394b7d58775b0ac8b5540fe457d0e1f7fb9a92f02bfa4efd273de109cc18dc",
       "base_phase_join": "phase11"
     },

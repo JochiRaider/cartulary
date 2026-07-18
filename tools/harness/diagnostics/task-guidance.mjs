@@ -54,7 +54,7 @@ const roleDefinitions = [
   {
     role: "phase-author",
     summary: "inspect and maintain phase-owned evidence",
-    targets: ["explain-phase", "phase-ledger-drift", "phase-schedule-drift", "test-fast"],
+    targets: ["explain-phase", "generate-drift", "test-fast"],
   },
   {
     role: "ci-investigator",

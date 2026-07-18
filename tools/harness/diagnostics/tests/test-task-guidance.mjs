@@ -455,7 +455,7 @@ function scenarioExplainPhase() {
   assertContains(phaseOutput, "make backend-store", "explain-phase backend-store target");
   assertNotContains(phaseOutput, "make backend-integration-support", "explain-phase does not recommend internal support target");
   assertContains(phaseOutput, "internal target backend-integration-support target_class=check_internal", "explain-phase shows internal support coverage");
-  assertContains(phaseOutput, "ledger: docs/testing/phase1_coverage_ledger.md", "explain-phase ledger");
+  assertNotContains(phaseOutput, "ledger:", "explain-phase omits retired ledger paths");
   assertNotContains(phaseOutput, "scheduler=", "explain-phase must not print flat scheduler owner fields");
 
   const phaseJSON = parseJSON(nodeScript(explainPhase, ["--phase", "phase1", "--json"]), "explain-phase JSON");

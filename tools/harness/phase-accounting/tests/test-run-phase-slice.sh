@@ -566,7 +566,6 @@ for (const target of [
   "frontend-unit",
   "generate-drift",
   "generated-artifact-policy-check",
-  "phase-ledger-drift",
   "browser-e2e-support",
   "browser-e2e-webserver-backed",
   "browser-e2e-visual",

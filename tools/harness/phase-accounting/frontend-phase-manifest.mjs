@@ -12,7 +12,6 @@ export {
 export { validateFrontendPhaseArtifacts } from "./frontend/phase-artifacts.mjs";
 export { validateFrontendPhaseMap } from "./frontend/phase-map-validation.mjs";
 export { validateFrontendVisualFixtureRegistry } from "./frontend/visual-fixture-registry.mjs";
-export * from "./frontend/ledger.mjs";
 export * from "./frontend/scenario-grep.mjs";
 export * from "./frontend/phase-ids.mjs";
 

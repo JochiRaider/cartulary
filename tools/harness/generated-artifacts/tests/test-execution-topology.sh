@@ -592,7 +592,6 @@ const expectedCheckWorkUnitPriorities = [
   ["phase-test-name-check", 12000],
   ["test-catalog-check", 11500],
   ["go-test-duration-baseline-coverage", 11400],
-  ["phase-ledger-drift", 11300],
   ["service-backed-unit-check", 11100],
   ["generated-artifact-policy-check", 11050],
   ["generate-drift", 11000],
@@ -1137,13 +1136,13 @@ assert.throws(
 
 const duplicateOrderTopology = topologyFixture();
 duplicateOrderTopology.check_schedules.target_profiles["service-backed-unit-check"].order =
-  0;
+  250;
 assert.throws(
   () =>
     loadExecutionTopology({
       manifestPath: writeTopologyFixture("duplicate-check-order-topology.json", duplicateOrderTopology),
     }),
-  /duplicate priority order drift_validation:0/,
+  /duplicate priority order drift_validation:250/,
   "topology validation must reject duplicate check schedule priority orders within a band",
 );
 

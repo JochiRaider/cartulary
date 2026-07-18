@@ -5198,24 +5198,6 @@
           }
         },
         {
-          "target": "phase-ledger-drift",
-          "priority": 11300,
-          "weight_ms": 10000,
-          "needs": [
-            "check-frontend-install"
-          ],
-          "make_prerequisite_policy": "skip",
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 1
-          },
-          "make_jobs": "host_cpu",
-          "command": {
-            "type": "make_target",
-            "target": "phase-ledger-drift"
-          }
-        },
-        {
           "target": "service-backed-unit-check",
           "priority": 11100,
           "weight_ms": 10000,

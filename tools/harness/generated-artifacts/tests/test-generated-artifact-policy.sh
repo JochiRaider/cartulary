@@ -131,8 +131,6 @@ write_policy() {
         "docs/*.md"
       ],
       "required_ignores": [
-        "docs/testing/phase*_coverage_ledger.md",
-        "docs/testing/frontend_phase_coverage_ledgers/*_coverage_ledger.md",
         "internal/gen/**",
         "packages/protocol-ts/src/generated/**",
         "packages/ui-contracts/src/generated/**"
@@ -258,8 +256,6 @@ JSON
     "docs/*.md"
   ],
   "ignores": [
-    "docs/testing/phase*_coverage_ledger.md",
-    "docs/testing/frontend_phase_coverage_ledgers/*_coverage_ledger.md",
     "internal/gen/**",
     "packages/protocol-ts/src/generated/**",
     "packages/ui-contracts/src/generated/**"
@@ -365,16 +361,6 @@ source tools/harness/generated-artifacts/generated-artifacts.sh
 go list ./internal/...
 EOF
 expect_policy_failure "$go_scope_repo" "tools/harness/static-analysis/go-vet.sh: missing lint scope guard \"cartulary_filter_authored_go_packages\"" "go vet generated package filter"
-
-markdown_generated_repo="$(make_policy_repo)"
-node - "$markdown_generated_repo/.markdownlint-cli2.jsonc" <<'NODE'
-const fs = require("node:fs");
-const file = process.argv[2];
-const config = JSON.parse(fs.readFileSync(file, "utf8"));
-config.ignores = config.ignores.filter((entry) => entry !== "docs/testing/phase*_coverage_ledger.md");
-fs.writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`);
-NODE
-expect_policy_failure "$markdown_generated_repo" ".markdownlint-cli2.jsonc: ignores must exclude docs/testing/phase*_coverage_ledger.md" "Markdown generated ledger exclusion"
 
 markdown_fix_repo="$(make_policy_repo)"
 node - "$markdown_fix_repo/.markdownlint-cli2.jsonc" <<'NODE'

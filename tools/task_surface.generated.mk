@@ -39,8 +39,6 @@
   standup-package-smoke \
   standup-operational-recovery-smoke \
   test-catalog-check \
-  phase-ledgers \
-  phase-ledger-drift \
   agent-finalize \
   test-evidence-audit \
   benchmark-claim-check \
@@ -256,8 +254,6 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make json-shape-check               fail on contract, manifest, and JSON bootstrap shape drift' \
 	'  make toolchain-drift                fail on repo-control toolchain pin drift' \
 	'  make migration-drift                verify migrations against a scratch database' \
-	'  make phase-ledgers                  regenerate committed phase coverage ledgers' \
-	'  make phase-ledger-drift             fail on phase coverage ledger drift' \
 	'  make agent-finalize                 refresh and validate harness-maintenance artifacts before verification' \
 	'  make test-evidence-audit' \
 	'                                      OWNER=<owner-id> EVIDENCE_ROOTS_FILE=<path> audit exact compatible evidence roots for one owner' \
@@ -497,20 +493,6 @@ test-catalog-check: export CARTULARY_TEST_TARGET ?= test-catalog-check
 test-catalog-check: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 test-catalog-check: $(NODE_BIN)
 	$(Q)$(RUN_PHASE_SCRIPT) "test-catalog-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) ./tools/harness/test-catalog/catalog-check.mjs
-
-phase-ledgers: export CARTULARY_TEST_TARGET ?= phase-ledgers
-phase-ledgers:
-	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,phase-ledgers)
-	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP); fi
-	$(Q)$(RUN_PHASE_SCRIPT) "phase-ledgers" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" NODE_BIN="$(NODE_BIN)" $(NODE_BIN) ./tools/harness/generated-artifacts/render-phase-ledgers.mjs
-
-phase-ledger-drift: export CARTULARY_TEST_TARGET ?= phase-ledger-drift
-phase-ledger-drift:
-	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,phase-ledger-drift)
-	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP); fi
-	$(Q)$(RUN_PHASE_SCRIPT) "phase-ledger-drift" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" NODE_BIN="$(NODE_BIN)" $(NODE_BIN) ./tools/harness/generated-artifacts/check-phase-ledger-drift.mjs
 
 agent-finalize: export CARTULARY_TEST_TARGET ?= agent-finalize
 agent-finalize:

@@ -218,10 +218,7 @@ function collectRendererSourceInputs(inputs, seen) {
   ];
   const legacySourceNames = new Set([
     "browser-duration-accounting.mjs",
-    "check-phase-ledger-drift.mjs",
     "phase-slice-execution.mjs",
-    "render-phase-ledger.mjs",
-    "render-phase-ledgers.mjs",
     "task-surface-report-cli.mjs",
   ]);
   const isProductionModule = (candidate) =>

@@ -188,7 +188,6 @@ function main() {
               `make phase-slice PHASE_NAMESPACE=frontend PHASE=${phase.phase_id}`,
               `make service-backed-slice PHASE_NAMESPACE=frontend PHASE=${phase.phase_id}`,
               `make explain-phase PHASE_NAMESPACE=frontend PHASE=${phase.phase_id}`,
-              "make phase-ledger-drift",
             ]
           : [
               `make explain-phase PHASE_NAMESPACE=frontend PHASE=${phase.phase_id}`,
@@ -198,7 +197,6 @@ function main() {
               ...(sampleBrowserRows
                 ? [`make service-backed-slice PHASE_NAMESPACE=frontend PHASE=${phase.phase_id} ROWS=${sampleBrowserRows}`]
                 : []),
-              "make phase-ledger-drift",
             ],
     };
     if (options.json) {
@@ -227,7 +225,6 @@ function main() {
     }
     lines.push(
       `  make explain-phase PHASE_NAMESPACE=frontend PHASE=${phase.phase_id} | inspect frontend phase rows`,
-      "  make phase-ledger-drift | verify frontend ledgers and base ledgers",
     );
     process.stdout.write(`${lines.join("\n")}\n`);
     return;

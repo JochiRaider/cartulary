@@ -3,7 +3,6 @@ const checkRootTargets = new Set([
   "frontend-import-boundary-check",
   "generated-artifact-policy-check",
   "generate-drift",
-  "phase-ledger-drift",
   "browser-e2e-webserver-backed",
   "browser-e2e-stateful",
 ]);

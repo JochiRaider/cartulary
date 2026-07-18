@@ -533,58 +533,6 @@
       "blockers": []
     },
     {
-      "id": "FE-S-P0-03",
-      "layer": "support",
-      "evidence_class": "implementation_support",
-      "owner_refs": [
-        {
-          "source_key": "guide_local",
-          "path": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
-          "section_ref": "Implementation guide Sections 15 and 16",
-          "heading_text": "Implementation guide Sections 15 and 16",
-          "req_ids": [],
-          "ac_ids": [],
-          "role": "support_owner",
-          "resolution_status": "resolved"
-        }
-      ],
-      "core_req_ids": [],
-      "core_ac_ids": [],
-      "support_or_design_ac_ids": [
-        "FE-SUPPORT-AC-004",
-        "FE-GUIDE-AC-018"
-      ],
-      "targets": [
-        {
-          "target_name": "phase-ledger-drift",
-          "command_id": "cartulary.harness.command.phase_ledger_drift.v1",
-          "evidence_role": "drift",
-          "required_for_closure": true,
-          "frontend_row_accounting_required": false,
-          "scenario_title_required": false
-        }
-      ],
-      "scenario_titles": [],
-      "claim_status": "implemented",
-      "claim": {
-        "statement": "Record frontend phase rows in a scheduler-enforced manifest or ledger before claiming phase-enforced completion.",
-        "claim_publication_intent": "none",
-        "closure_scope": "target_level"
-      },
-      "out_of_scope": [
-        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
-      ],
-      "default_check_required": false,
-      "default_check_kind": "explicit_only",
-      "default_check_reason_code": "implementation_support_explicit_only",
-      "primary_evidence_owner": "FE-S-P0-03",
-      "duplicate_of": "none",
-      "evidence_delta": "support evidence is explicit-only",
-      "warm_local_cost_class": "medium",
-      "phase_id": "FE-P0",
-      "blockers": []
-    },
-    {
       "id": "FE-S-P0-04",
       "layer": "support",
       "evidence_class": "implementation_support",

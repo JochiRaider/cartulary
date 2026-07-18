@@ -656,18 +656,6 @@
         ],
         "make_prerequisite_policy": "skip"
       },
-      "phase-ledger-drift": {
-        "schedules": [
-          "check"
-        ],
-        "profile": "after_setup_cpu_io",
-        "priority_band": "drift_validation",
-        "order": 0,
-        "needs": [
-          "check-frontend-install"
-        ],
-        "make_prerequisite_policy": "skip"
-      },
       "backend-unit": {
         "schedules": [
           "check"
