@@ -1,17 +1,17 @@
 {
   "schema_id": "cartulary.test_family_manifest.v1",
-  "owner_id": "module.links",
+  "owner_id": "module.parties",
   "rows": [
     {
-      "row_id": "module.links.browser.the_notes_tab_supports_browser_visible_creation_ae6bdcc2da",
-      "owner_id": "module.links",
-      "family_id": "module.links.browser",
+      "row_id": "module.parties.browser.the_browser_workbook_surface_keeps_ordinary_evid_687c58e86e",
+      "owner_id": "module.parties",
+      "family_id": "module.parties.browser",
       "collaborator_ids": [
         "harness.browser",
         "web.application"
       ],
       "verification_ids": [
-        "module.links.verification.behavior_contract"
+        "module.parties.verification.behavior_contract"
       ],
       "runner": "playwright",
       "selector": {
@@ -19,10 +19,10 @@
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
-          "scenario_f62103626873"
+          "scenario_a6b7a1ab6d8c"
         ],
         "titles": [
-          "Phase 9 E-9-03 Notes tab creates artifact-backed linked notes"
+          "Phase 9 E-9-04 Party create and link preserve raw text on the workbook surface"
         ]
       },
       "evidence_class": "browser",
@@ -34,41 +34,43 @@
       "status": "active"
     },
     {
-      "row_id": "module.links.integration.link_and_tag_mutations_atomically_update_project_03f8283906",
-      "owner_id": "module.links",
-      "family_id": "module.links.integration",
+      "row_id": "module.parties.store.direct_party_and_decision_reference_writes_accep_27ac8d297b",
+      "owner_id": "module.parties",
+      "family_id": "module.parties.store",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.links.verification.behavior_contract"
+        "module.parties.verification.behavior_contract"
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/links",
+        "package": "./internal/modules/parties",
         "tests": [
-          "TestPhase8_LinkTagProjectionHistoryQuery_I_8_03"
+          "TestPhase9_U_9_11_DirectDecisionReferenceDecoderAcceptsOnlyExactStableIDs",
+          "TestPhase9_U_9_11_DirectPartyReferencesAcceptOnlyExactStableIDs",
+          "TestPhase9_U_9_11_DirectPartyReferencesRequireSameIncidentActiveParties"
         ]
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_template_clone",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active"
     },
     {
-      "row_id": "module.links.store.typed_links_and_tags_persist_as_structured_rows_8daeea1ad1",
-      "owner_id": "module.links",
-      "family_id": "module.links.store",
+      "row_id": "module.parties.store.party_create_reuses_exactly_one_active_same_inci_f7f18f1c5c",
+      "owner_id": "module.parties",
+      "family_id": "module.parties.store",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.links.verification.behavior_contract"
+        "module.parties.verification.behavior_contract"
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/links",
+        "package": "./internal/modules/parties",
         "tests": [
-          "TestPhase8_TypedLinksAndTags_U_8_01"
+          "TestPhase9_PartyExactMatchReuseAndRawTextPreservation_U_9_05"
         ]
       },
       "evidence_class": "integration",

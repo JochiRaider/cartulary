@@ -1,0 +1,64 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "module.tasksdecisions",
+  "rows": [
+    {
+      "row_id": "module.tasksdecisions.browser.the_browser_workbook_opens_task_requests_and_dec_8048a75ceb",
+      "owner_id": "module.tasksdecisions",
+      "family_id": "module.tasksdecisions.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.tasksdecisions.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase9.sentinel.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_dcc404e895e3"
+        ],
+        "titles": [
+          "Phase 9 E-9-TASKDECISION-06 Task Request and Decision workbook workflows stay native"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.tasksdecisions.store.task_requests_and_decisions_persist_as_workbook_a08a0c4c47",
+      "owner_id": "module.tasksdecisions",
+      "family_id": "module.tasksdecisions.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.tasksdecisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/tasksdecisions",
+        "tests": [
+          "TestPhase9Sprint6_DecisionLifecycleSupersessionAndConsistency_U_9_07",
+          "TestPhase9Sprint6_DecisionTerminalTransitionMatrix_U_9_07",
+          "TestPhase9Sprint6_SupersedeDecisionRejectsInconsistentSourceOrTarget_U_9_07",
+          "TestPhase9Sprint6_TaskLifecycleGuardFailures_U_9_07",
+          "TestPhase9Sprint6_TaskRequestLifecycleDecisionLinksAndProjection_U_9_07"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

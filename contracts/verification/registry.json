@@ -77,6 +77,16 @@
       "status": "active"
     },
     {
+      "owner_id": "module.imports",
+      "contract_path": "contracts/verification/owners/module.imports.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.incidentbundles",
+      "contract_path": "contracts/verification/owners/module.incidentbundles.json",
+      "status": "active"
+    },
+    {
       "owner_id": "module.incidents",
       "contract_path": "contracts/verification/owners/module.incidents.json",
       "status": "active"
@@ -84,6 +94,11 @@
     {
       "owner_id": "module.indicators",
       "contract_path": "contracts/verification/owners/module.indicators.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.jobapi",
+      "contract_path": "contracts/verification/owners/module.jobapi.json",
       "status": "active"
     },
     {
@@ -97,8 +112,18 @@
       "status": "active"
     },
     {
+      "owner_id": "module.parties",
+      "contract_path": "contracts/verification/owners/module.parties.json",
+      "status": "active"
+    },
+    {
       "owner_id": "module.recovery",
       "contract_path": "contracts/verification/owners/module.recovery.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.reference_data",
+      "contract_path": "contracts/verification/owners/module.reference_data.json",
       "status": "active"
     },
     {
@@ -119,6 +144,16 @@
     {
       "owner_id": "module.savedviews",
       "contract_path": "contracts/verification/owners/module.savedviews.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.tabularingest",
+      "contract_path": "contracts/verification/owners/module.tabularingest.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.tasksdecisions",
+      "contract_path": "contracts/verification/owners/module.tasksdecisions.json",
       "status": "active"
     },
     {

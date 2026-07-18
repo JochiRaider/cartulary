@@ -1,0 +1,75 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "module.jobapi",
+  "rows": [
+    {
+      "row_id": "module.jobapi.integration.deployment_scoped_common_job_reads_and_cancel_re_85147de44e",
+      "owner_id": "module.jobapi",
+      "family_id": "module.jobapi.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.jobapi.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/jobapi",
+        "tests": [
+          "TestPhase11_U_11_JOBS_02_DeploymentJobAuthorizationReDerivedAtRequestTime"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.jobapi.integration.incident_scoped_common_job_read_and_cancel_autho_821120b13c",
+      "owner_id": "module.jobapi",
+      "family_id": "module.jobapi.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.jobapi.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/jobapi",
+        "tests": [
+          "TestPhase11_U_11_JOBS_01_IncidentJobAuthorizationReDerivedAtRequestTime"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.jobapi.integration.the_reusable_deployment_admin_incident_membershi_b1cbd96a5a",
+      "owner_id": "module.jobapi",
+      "family_id": "module.jobapi.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.jobapi.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/jobapi",
+        "tests": [
+          "TestPhase11_U_11_JOBS_03_DeploymentAdminIncidentMembershipPolicy"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

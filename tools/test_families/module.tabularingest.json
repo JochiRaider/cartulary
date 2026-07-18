@@ -1,0 +1,29 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "module.tabularingest",
+  "rows": [
+    {
+      "row_id": "module.tabularingest.support_unit.shared_tabular_ingest_parses_maps_and_groups_bat_de89e370ba",
+      "owner_id": "module.tabularingest",
+      "family_id": "module.tabularingest.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.tabularingest.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/tabularingest",
+        "tests": [
+          "TestSupportPhase9_SharedTabularIngestParsesMapsAndGroupsBatch"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

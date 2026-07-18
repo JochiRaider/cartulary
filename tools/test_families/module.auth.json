@@ -34,6 +34,37 @@
       "status": "active"
     },
     {
+      "row_id": "module.auth.browser.an_enterprise_authenticated_browser_landing_on_s_fed22b45ad",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase11.enterprise-auth.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_02fe0e4bde6a"
+        ],
+        "titles": [
+          "E-11-03 handles enterprise session root landing for zero, one, multiple, and disappearing incidents"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.auth.browser.browser_sign_in_exposes_the_ordinary_session_sur_2ec8df6229",
       "owner_id": "module.auth",
       "family_id": "module.auth.browser",
@@ -116,6 +147,37 @@
         ],
         "titles": [
           "E-1-03 rejects invalid credentials without issuing a session cookie"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.browser.the_browser_anonymous_shell_renders_discovered_e_9c637d5924",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase11.enterprise-auth.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_e98566e9f12d"
+        ],
+        "titles": [
+          "E-11-02 shows enterprise providers and begins provider sign-in from the anonymous shell"
         ]
       },
       "evidence_class": "browser",
@@ -344,6 +406,31 @@
       "status": "active"
     },
     {
+      "row_id": "module.auth.frontend.the_anonymous_login_surface_renders_enabled_ente_c6ef40ae5a",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.frontend",
+      "collaborator_ids": [
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/App.phase1.test.tsx",
+        "titles": [
+          "Phase 11 U-11-ENTERPRISE-AUTH-01 enterprise auth discovery renders provider sign-in and begins with a relative return_to"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.auth.frontend.the_ordinary_account_security_panel_issues_totp_c01d03e02c",
       "owner_id": "module.auth",
       "family_id": "module.auth.frontend",
@@ -520,6 +607,52 @@
       "status": "active"
     },
     {
+      "row_id": "module.auth.integration.deployment_admin_binding_create_replay_divergent_85cb20830a",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestPhase11EnterpriseAuthBindingLifecycle_I_11_ENTERPRISE_AUTH_03"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.integration.enterprise_provider_discovery_proves_sorted_exac_059973abc3",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestPhase11EnterpriseAuthProviderOIDC_I_11_ENTERPRISE_AUTH_01"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.auth.integration.real_login_creates_one_durable_session_row_sessi_fffac0a9af",
       "owner_id": "module.auth",
       "family_id": "module.auth.integration",
@@ -555,6 +688,29 @@
         "package": "./internal/modules/auth",
         "tests": [
           "TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.integration.saml_sp_initiated_begin_acs_verifies_determinist_3b5547023b",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestPhase11EnterpriseSAMLACS_I_11_ENTERPRISE_AUTH_02"
         ]
       },
       "evidence_class": "integration",

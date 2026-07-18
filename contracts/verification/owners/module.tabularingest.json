@@ -1,0 +1,16 @@
+{
+  "schema_id": "cartulary.verification_contract.v1",
+  "owner_id": "module.tabularingest",
+  "verifications": [
+    {
+      "verification_id": "module.tabularingest.verification.behavior_contract",
+      "behavior_class": "product",
+      "profile": "base",
+      "requirement": "tabular ingest validation and execution postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "status": "active"
+    }
+  ]
+}

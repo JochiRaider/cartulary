@@ -1,0 +1,16 @@
+{
+  "schema_id": "cartulary.verification_contract.v1",
+  "owner_id": "module.incidentbundles",
+  "verifications": [
+    {
+      "verification_id": "module.incidentbundles.verification.behavior_contract",
+      "behavior_class": "product",
+      "profile": "base",
+      "requirement": "incident bundle export and import postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "status": "active"
+    }
+  ]
+}

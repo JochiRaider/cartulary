@@ -47,6 +47,29 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active"
+    },
+    {
+      "row_id": "module.indicators.store.indicators_persist_as_canonical_indicator_record_3998750e91",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.indicators.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/indicators",
+        "tests": [
+          "TestPhase9_IndicatorsCanonicalObservationLifecycle_U_9_04"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
     }
   ]
 }

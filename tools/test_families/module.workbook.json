@@ -34,6 +34,223 @@
       "status": "active"
     },
     {
+      "row_id": "module.workbook.browser.host_entity_origin_clipboard_paste_uses_the_shar_f22824bf59",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase9.keyboard.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_d0d28ac7c1b0"
+        ],
+        "titles": [
+          "Phase 9 E-9-GRIDHOST-01 Host entity-origin clipboard paste reuses exact matches and creates stubs"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.browser.identity_entity_origin_clipboard_paste_uses_the_1a3110fc8d",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase9.keyboard.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_40ecc28a4bd1"
+        ],
+        "titles": [
+          "Phase 9 E-9-GRIDIDENTITY-01 Identity entity-origin clipboard paste reuses exact matches and creates stubs"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.browser.live_workbook_timeline_grid_accepts_a_representa_20a3b81a1a",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase9.sentinel.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_ae2c87691cbc"
+        ],
+        "titles": [
+          "Phase 9 E-9-PASTE-02 pastes a representative 20x5 Timeline clipboard range"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.browser.live_workbook_timeline_grid_presents_grouped_sam_bf278fe67c",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase9.sentinel.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_0f02accb760d"
+        ],
+        "titles": [
+          "Phase 9 E-9-CONFLICT-02 groups paste conflicts and preserves selection continuity"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.browser.public_registry_discovery_exposes_exactly_the_fo_e62f2b8ba8",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase9.sentinel.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_2571753f57ba"
+        ],
+        "titles": [
+          "Phase 9 E-9-08 required registry identities stay canonical with optional additions"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.browser.required_keyboard_shortcuts_operate_on_the_live_3ff4a5c6a9",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase9.keyboard.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_5064a4a72805"
+        ],
+        "titles": [
+          "Phase 9 E-9-01 keyboard shortcuts keep workbook grid anchors without module switching"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.browser.the_browser_visible_view_schema_registry_and_wor_f9e3b8c070",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase9.sentinel.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_232a6cc1e0a2"
+        ],
+        "titles": [
+          "Phase 9 E-9-07 optional standardized surfaces are workbook-native when exposed"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.workbook.browser.the_browser_workbook_exercises_parties_notes_tas_8ca985fff2",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.browser",
@@ -54,6 +271,68 @@
         ],
         "titles": [
           "E-4-06 creates and edits required workbook mutation surfaces through typed generic controls"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.browser.the_browser_workbook_opens_communications_log_ha_e14517982d",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase9.sentinel.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_c004d0cd59e0"
+        ],
+        "titles": [
+          "Phase 9 E-9-COORDINATION-06 coordination workbook workflows stay native"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.browser.the_explicitly_visited_shared_grid_keyboard_anch_2b5da548a2",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase9.keyboard.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_c8a0a1a1c058"
+        ],
+        "titles": [
+          "Phase 9 E-9-GRIDANCHORS-01 shared grid keyboard anchors stay stable across workbook cells"
         ]
       },
       "evidence_class": "browser",
@@ -91,6 +370,88 @@
       "runtime_profile_id": "default",
       "resource_profile_id": "browser_exclusive",
       "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.frontend.keyboard_command_mapping_covers_arrow_keys_enter_936238eee1",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/utils/workbookKeyboard.test.ts",
+        "titles": [
+          "Phase 9 U-9-01 fails closed when optional shortcut actions are unavailable",
+          "Phase 9 U-9-01 maps required workbook keys without hidden paste macro behavior"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.frontend.sorted_and_filtered_paste_translation_uses_stabl_d4950d24ba",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+        "titles": [
+          "Phase 9 I-9-GRID-01 dispatches one versioned multi-row tag command from Timeline selection",
+          "Phase 9 I-9-GRID-01 maps filtered overflow to explicit create-row anchors",
+          "Phase 9 I-9-GRID-01 rejects group and presentation-only paste anchors",
+          "Phase 9 I-9-GRID-01 rendered paste dispatch uses stable anchors and quote-aware dimensions",
+          "Phase 9 I-9-GRID-01 requires a Cartulary anchor instead of vendor coordinates alone",
+          "Phase 9 I-9-GRID-01 targets sorted paste rows by stable visible record identities",
+          "Phase 9 I-9-GRID-01 treats single-line comma clipboard text as scalar paste input"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.frontend.supplemental_jsdom_coverage_keeps_grouped_paste_a9ba2dc938",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+        "titles": [
+          "Phase 9 I-9-SUPPORT-01 registers grouped paste conflicts without losing selection continuity"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
       "default_check": false,
       "claim_posture": "implementation",
       "status": "active"
@@ -135,6 +496,34 @@
         "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
         "titles": [
           "Phase 4 U-4-WB-05 builds direct clears and typed collection actions"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.frontend.the_grid_adapter_translates_vendor_row_column_se_6371e0be4e",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/utils/GridAdapter.phase9.anchor.test.ts",
+        "titles": [
+          "Phase 9 U-9-GRID-01 clears invalid row, field, group row, and recordless draft targets",
+          "Phase 9 U-9-GRID-01 keeps vendor selection separate until translated by the adapter contract",
+          "Phase 9 U-9-GRID-01 resolves Arrow, Tab, Enter, and Shift+Enter navigation through adapter anchors",
+          "Phase 9 U-9-GRID-01 resolves vendor coordinates to stable record_id and field_key anchors"
         ]
       },
       "evidence_class": "unit",
@@ -310,6 +699,81 @@
       "status": "active"
     },
     {
+      "row_id": "module.workbook.integration.party_link_helper_field_writes_update_hidden_sam_014303b350",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestPhase9_PartyLinkHelperFieldsPreserveTextIndependently_I_9_03"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.integration.required_surface_persistence_queries_through_wor_fc52555181",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestPhase9_AssessmentsQueryThroughWorkbookProjections_I_9_02",
+          "TestPhase9_CoordinationSurfacesQueryThroughWorkbookProjections_I_9_02",
+          "TestPhase9_NotesAndIndicatorsQueryThroughWorkbookProjections_I_9_02",
+          "TestPhase9_TaskRequestsAndDecisionsQueryThroughWorkbookProjections_I_9_02",
+          "TestPhase9_WorkbookHotProjectionTablesRebuild_I_9_02"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.integration.shared_ingest_workbook_clipboard_paste_persists_5ae6dc0770",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestPhase9_I_9_01_BulkMutationsPersistOneVisibleBatch",
+          "TestPhase9_I_9_01_EntityOriginClipboardPasteUsesSharedIngest",
+          "TestPhase9_I_9_01_TimelineClipboardPastePersistsOrderedMutationsAndConflicts"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.workbook.integration.startup_selection_fallback_behaves_correctly_acr_081544c048",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.integration",
@@ -380,6 +844,37 @@
       "status": "active"
     },
     {
+      "row_id": "module.workbook.store.communications_log_handoff_status_review_and_les_63b0f44db8",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestPhase9Sprint7_CoordinationCollectionItemShapes_U_9_08",
+          "TestPhase9Sprint7_CoordinationCollectionsAndValidation_U_9_08",
+          "TestPhase9Sprint7_CoordinationDeclaredQueryFieldsAreMapped_U_9_08",
+          "TestPhase9Sprint7_CoordinationDuplicateCoalescing_U_9_08",
+          "TestPhase9Sprint7_CoordinationMinimumDefaultsAndRejection_U_9_08",
+          "TestPhase9Sprint7_CoordinationProjectionSortFilterGroup_U_9_08",
+          "TestPhase9Sprint7_CoordinationSavedViewsRemainAdditive_U_9_08",
+          "TestPhase9Sprint7_CoordinationSemanticFilters_U_9_08",
+          "TestPhase9Sprint7_RejectedCoordinationCreateEmitsNoRecordChanged_U_9_08"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.workbook.store.every_grid_write_is_anchored_to_the_route_bound_3926ec3df4",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.store",
@@ -403,6 +898,31 @@
       "status": "active"
     },
     {
+      "row_id": "module.workbook.store.findings_investigative_queries_and_forensic_keyw_1ca6136d7c",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestPhase9_U_9_09_FindingsConfidenceBandBoundaries",
+          "TestPhase9_U_9_09_OptionalStandardizedSurfacesProjectionQueryBehavior",
+          "TestPhase9_U_9_09_OptionalStandardizedSurfacesStoreBehavior"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.workbook.store.keep_saved_clears_the_conflict_without_creating_c65a9c3099",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.store",
@@ -421,6 +941,29 @@
       "runtime_profile_id": "default",
       "resource_profile_id": "go_clone_heavy",
       "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.store.notes_create_as_shared_artifact_records_with_art_9a09b2f951",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestPhase9_NotesAreArtifactBackedRows_U_9_03"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active"
@@ -590,6 +1133,29 @@
       "status": "active"
     },
     {
+      "row_id": "module.workbook.unit.shared_paste_and_bulk_planning_parses_quoted_csv_5659d1fb01",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestPhase9_U_9_02_SharedPasteAndBulkPlanningGroupsOneVisibleAction"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.workbook.unit.timeline_grouping_permits_only_the_declared_whit_6db1021961",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.unit",
@@ -602,6 +1168,29 @@
         "package": "./internal/modules/workbook",
         "tests": [
           "TestPhase8_TimelineGroupingAndWorkbookPresentationOnly_U_8_07"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.unit.timestamp_instant_v1_accepts_rfc_3339_json_strin_ba11c9c407",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestPhase9_TimestampInstantPatchDecoder_U_9_10"
         ]
       },
       "evidence_class": "unit",

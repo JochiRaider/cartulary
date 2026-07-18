@@ -188,8 +188,11 @@ function fixtureProfile(row, support = false) {
   }[row.fixture_policy?.postgres] ?? "none";
 }
 
-function runtimeProfile(row, fixtureID) {
+function runtimeProfile(row, fixtureID, ownerID) {
   if (row.runner === "playwright") {
+    if (ownerID === "module.networkflow" && row.id !== "E-12-NFAC001-01") {
+      return "network_flow_claimed";
+    }
     return row.runtime_profile_id ?? row.runtime_profile ?? "default";
   }
   if (row.execution_dependency === "backend_process" || fixtureID !== "none") return "default";
@@ -264,7 +267,7 @@ function catalogRow(phase, row, sourceKey, support = false) {
     runner: row.runner === "go_test" || row.runner === undefined ? "go" : row.runner,
     selector: selectorFor(row),
     evidence_class: evidence,
-    runtime_profile_id: runtimeProfile(row, fixtureID),
+    runtime_profile_id: runtimeProfile(row, fixtureID, ownerID),
     resource_profile_id: resourceProfile(row, fixtureID),
     fixture_profile_id: fixtureID,
     default_check: support ? false : evidence === "visual" || evidence === "measurement" ? false : row.default_check_required,

@@ -1,0 +1,18 @@
+{
+  "schema_id": "cartulary.verification_contract.v1",
+  "owner_id": "module.reference_data",
+  "verifications": [
+    {
+      "verification_id": "module.reference_data.verification.behavior_contract",
+      "behavior_class": "product",
+      "profile": "extension.reference_pack",
+      "requirement": "Reference Pack lifecycle and administration postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
+      "evidence_kinds": [
+        "go_test",
+        "playwright",
+        "vitest"
+      ],
+      "status": "active"
+    }
+  ]
+}

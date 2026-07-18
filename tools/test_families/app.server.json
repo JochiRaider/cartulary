@@ -141,6 +141,52 @@
       "status": "active"
     },
     {
+      "row_id": "app.server.process.a_running_server_exposes_no_public_http_or_web_s_2934cde8e0",
+      "owner_id": "app.server",
+      "family_id": "app.server.process",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/serverprocess",
+        "tests": [
+          "TestPhase10_E_10_03_PublicRouteInventoryAbsence"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "app.server.process.effective_deployment_configuration_fails_the_rea_c17cbafdfc",
+      "owner_id": "app.server",
+      "family_id": "app.server.process",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/serverprocess",
+        "tests": [
+          "TestPhase10_EffectiveConfigBackupRoot_E_10_04"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "app.server.process.invalid_config_exits_non_zero_emits_structured_s_6c0922ea28",
       "owner_id": "app.server",
       "family_id": "app.server.process",
@@ -245,6 +291,29 @@
       "status": "active"
     },
     {
+      "row_id": "app.server.process.restoring_the_latest_successful_retained_backup_6456371896",
+      "owner_id": "app.server",
+      "family_id": "app.server.process",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/serverprocess",
+        "tests": [
+          "TestPhase10_I_10_02_FreshEnvironmentRestoreWorkbookConsistency"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "app.server.process.stale_or_invalid_manifests_are_ignored_when_an_a_1d42fdeb31",
       "owner_id": "app.server",
       "family_id": "app.server.process",
@@ -280,6 +349,29 @@
         "package": "./internal/app/serverprocess",
         "tests": [
           "TestServerEmbeddedFrontendAssets_ProcessSmoke"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "app.server.process.the_standalone_server_composes_the_network_flow_3d2a5564ba",
+      "owner_id": "app.server",
+      "family_id": "app.server.process",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/serverprocess",
+        "tests": [
+          "TestNetworkFlowHarnessRuntimeRouteServerProcessContribution"
         ]
       },
       "evidence_class": "integration",

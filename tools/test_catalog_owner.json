@@ -47,6 +47,16 @@
       "status": "active"
     },
     {
+      "owner_id": "module.imports",
+      "manifest_path": "tools/test_families/module.imports.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.incidentbundles",
+      "manifest_path": "tools/test_families/module.incidentbundles.json",
+      "status": "active"
+    },
+    {
       "owner_id": "module.incidents",
       "manifest_path": "tools/test_families/module.incidents.json",
       "status": "active"
@@ -57,13 +67,38 @@
       "status": "active"
     },
     {
+      "owner_id": "module.jobapi",
+      "manifest_path": "tools/test_families/module.jobapi.json",
+      "status": "active"
+    },
+    {
       "owner_id": "module.links",
       "manifest_path": "tools/test_families/module.links.json",
       "status": "active"
     },
     {
+      "owner_id": "module.networkflow",
+      "manifest_path": "tools/test_families/module.networkflow.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.parties",
+      "manifest_path": "tools/test_families/module.parties.json",
+      "status": "active"
+    },
+    {
       "owner_id": "module.recovery",
       "manifest_path": "tools/test_families/module.recovery.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.reference_data",
+      "manifest_path": "tools/test_families/module.reference_data.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.reporting",
+      "manifest_path": "tools/test_families/module.reporting.json",
       "status": "active"
     },
     {
@@ -74,6 +109,16 @@
     {
       "owner_id": "module.savedviews",
       "manifest_path": "tools/test_families/module.savedviews.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.tabularingest",
+      "manifest_path": "tools/test_families/module.tabularingest.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.tasksdecisions",
+      "manifest_path": "tools/test_families/module.tasksdecisions.json",
       "status": "active"
     },
     {

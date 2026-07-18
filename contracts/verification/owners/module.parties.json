@@ -1,0 +1,17 @@
+{
+  "schema_id": "cartulary.verification_contract.v1",
+  "owner_id": "module.parties",
+  "verifications": [
+    {
+      "verification_id": "module.parties.verification.behavior_contract",
+      "behavior_class": "product",
+      "profile": "base",
+      "requirement": "party identity, references, and workbook behavior postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
+      "evidence_kinds": [
+        "go_test",
+        "playwright"
+      ],
+      "status": "active"
+    }
+  ]
+}

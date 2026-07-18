@@ -8,7 +8,8 @@
       "profile": "base",
       "requirement": "backup, restore, recovery, and integrity postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
       "evidence_kinds": [
-        "go_test"
+        "go_test",
+        "playwright"
       ],
       "status": "active"
     }

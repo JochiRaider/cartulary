@@ -3,6 +3,156 @@
   "owner_id": "module.recovery",
   "rows": [
     {
+      "row_id": "module.recovery.browser.a_harness_owned_browser_fixture_captures_a_retai_d8973973b0",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase10.restore.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_90b26af20a25"
+        ],
+        "titles": [
+          "Phase 10 E-10-02 restore recovers workbook surface and executes a built-in workbook query"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.recovery.integration.real_postgres_backed_runtime_metadata_persistenc_d652f0998b",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery",
+        "tests": [
+          "TestPhase10_I_10_01_RealBackingStorageMetadataPersistsAndLatestLookup"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.recovery.integration.restore_readiness_selects_the_latest_retained_su_e71d710085",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery",
+        "tests": [
+          "TestPhase10_U_10_02_RestoreReadinessAndCoherentStoreOrder"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_group_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.recovery.integration.selected_backup_restore_fails_before_readiness_w_3a6ccb7d7a",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery",
+        "tests": [
+          "TestPhase10_U_10_03_FailClosedRestoreVerificationBlocked"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_group_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.recovery.integration.selecting_a_retained_backup_set_missing_a_requir_d6af667fba",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery",
+        "tests": [
+          "TestPhase10_I_10_03_MissingArtifactFailsBeforeReadinessBlocked"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_group_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.recovery.process.canonical_operator_process_evidence_maps_the_imp_9808fdd4e9",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.process",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery/operatortest",
+        "tests": [
+          "TestPhase10_E_10_01_CanonicalOperatorBackupCreate",
+          "TestPhase10_E_10_01_CanonicalOperatorBackupInspectLatest",
+          "TestPhase10_E_10_01_CanonicalOperatorRestoreLatest",
+          "TestPhase10_E_10_01_CanonicalOperatorRestoreVerifyDue",
+          "TestPhase10_E_10_01_CanonicalOperatorRestoreVerifyLatest"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.recovery.process.the_standalone_operator_initializes_the_configur_03834eb65a",
       "owner_id": "module.recovery",
       "family_id": "module.recovery.process",
@@ -22,6 +172,81 @@
       "resource_profile_id": "go_clone_heavy",
       "fixture_profile_id": "postgres_template_clone",
       "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.recovery.store.durable_backup_set_creation_requires_artifact_ba_d68130215e",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery",
+        "tests": [
+          "TestPhase10_U_10_01_BackupMetadataShapeAndRetentionFloors",
+          "TestPhase10_U_10_01_CaptureRequiresArtifactProofs",
+          "TestPhase10_U_10_01_DurableCatalogSkipsMetadataWithMissingArtifacts",
+          "TestPhase10_U_10_01_LatestSuccessfulRetainedBackupRequiresTwentyFourHourFloor",
+          "TestPhase10_U_10_01_RetentionFloorRejectsShortMetadataAndArtifacts",
+          "TestPhase10_U_10_01_VerificationVocabularyAndTimestampRules"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.recovery.store.incident_bearing_backup_capture_requires_an_encr_4c5363373e",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery",
+        "tests": [
+          "TestPhase10_U_10_05_CaptureRequiresEncryptedBackupStorage",
+          "TestPhase10_U_10_05_EncryptedBackupStorageFailsClosedWithWrongKey"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.recovery.unit.authored_public_route_inventory_exposes_no_api_v_bb82dec1de",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery",
+        "tests": [
+          "TestPhase10_U_10_04_PublicRouteAbsenceStaticInventory"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
       "claim_posture": "implementation",
       "status": "active"
     }

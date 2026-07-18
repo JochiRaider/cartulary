@@ -3,13 +3,30 @@
   "owner_id": "module.networkflow",
   "verifications": [
     {
+      "verification_id": "module.networkflow.verification.behavior_contract",
+      "behavior_class": "product",
+      "profile": "extension.network_flow_activity",
+      "requirement": "Network Flow extension postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
+      "evidence_kinds": [
+        "go_test",
+        "playwright"
+      ],
+      "status": "active"
+    },
+    {
       "verification_id": "module.networkflow.verification.contract_accounting",
       "behavior_class": "product",
       "profile": "extension.network_flow_activity",
       "requirement": "Network Flow generated contracts, fixtures, selectors, dependency closures, routes, and accounting remain consistent with the adopted extension behavior.",
-      "evidence_kinds": ["go_test", "playwright", "static_check"],
+      "evidence_kinds": [
+        "go_test",
+        "playwright",
+        "static_check"
+      ],
       "status": "active",
-      "documentation_refs": ["docs/network-flow-activity-nlspec.md"]
+      "documentation_refs": [
+        "docs/network-flow-activity-nlspec.md"
+      ]
     }
   ]
 }

@@ -3,6 +3,29 @@
   "owner_id": "platform.config",
   "rows": [
     {
+      "row_id": "platform.config.support_unit.backup_storage_root_binding_config_919e97d176",
+      "owner_id": "platform.config",
+      "family_id": "platform.config.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.config.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/config",
+        "tests": [
+          "TestSupportPhase10_BackupStorageRootBindingConfig"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "platform.config.unit.configuration_discovery_enforces_canonical_selec_05a3b9ee90",
       "owner_id": "platform.config",
       "family_id": "platform.config.unit",

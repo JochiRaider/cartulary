@@ -3,6 +3,37 @@
   "owner_id": "module.assessments",
   "rows": [
     {
+      "row_id": "module.assessments.browser.the_browser_workbook_assessment_workflow_appends_aefa86174b",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.assessments.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase9.sentinel.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_d0318fd0a1b5"
+        ],
+        "titles": [
+          "Phase 9 E-9-05 assessment workflow keeps invalid timestamp drafts local"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.assessments.browser.the_browser_workbook_drives_the_assessments_surf_4f277414a9",
       "owner_id": "module.assessments",
       "family_id": "module.assessments.browser",
@@ -79,6 +110,52 @@
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
       "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.assessments.store.assessment_support_refs_task_linked_record_ids_d_9c08a8f2f2",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.assessments.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/assessments",
+        "tests": [
+          "TestPhase9_U_9_12_RelationshipConfidenceRejectedAndManualLinksRemainNull"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.assessments.store.compromise_assessments_append_incident_scoped_ho_f6cf5d55c6",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.assessments.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/assessments",
+        "tests": [
+          "TestPhase9_AssessmentsAppendOnlyStatesAndBands_U_9_06"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active"
