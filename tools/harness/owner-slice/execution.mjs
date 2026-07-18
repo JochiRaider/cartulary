@@ -122,7 +122,7 @@ export function executeOwnerSlicePlan(root, plan, options = {}) {
             // Exact adapters consume the child runner stream. The enclosing
             // scheduler already retains/redacts the unit result and logs.
             CARTULARY_SUPPRESS_CHILD_SUCCESS: "0",
-            CARTULARY_TEST_TARGET: plan.target,
+            CARTULARY_TEST_TARGET: unit.target_name,
             CARTULARY_BROWSER_SESSION_GROUP: `owner-${unit.work_unit_id}`,
             CARTULARY_BROWSER_RUNTIME_PROFILE_ID: unit.runtime_profile_id,
             CARTULARY_PLAYWRIGHT_EXTERNAL_SERVER: unit.runner === "playwright" ? "1" : "",
