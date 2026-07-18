@@ -10,9 +10,9 @@
 | Baseline branch | `revision/grid-adapter` |
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
-| Tracker state | `READY` — WS-03 complete; WS-04 not started |
-| Active start | None; the next workstream requires a separate tracker checkpoint |
-| Active tasks | None |
+| Tracker state | `IN_PROGRESS` — WS-04 backend row migration |
+| Active start | Clean tree at `a4bfa828fa9173e6990d1c757d35fa928b0dfbb9` |
+| Active tasks | T-019, T-020, T-021, T-022 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -488,7 +488,7 @@ These follow-ups do not block harness completion unless the old production ident
 | WS-01 | Revise owner contracts and repository procedure | DONE | WS-00 | Adopted harness contract and command-policy review | Revert contract commit before implementation consumers land. |
 | WS-02 | Create machine verification owners and remove documentation parsing | DONE | WS-01 | Schema-valid contracts and decoupling ledger closure | Revert an owner contract and its consumers together. |
 | WS-03 | Build unified test catalog | DONE | WS-01, WS-02 | Registry/manifests loader and catalog checks | Revert catalog stack; old catalog remains authoritative only before cutover. |
-| WS-04 | Migrate backend rows | TODO | WS-03 | 456 backend dispositions and focused tests | Revert complete owner slices, never individual aliases. |
+| WS-04 | Migrate backend rows | IN_PROGRESS | WS-03 | 456 backend dispositions and focused tests | Revert complete owner slices, never individual aliases. |
 | WS-05 | Migrate frontend rows | TODO | WS-03 | 87 frontend dispositions and browser accounting tests | Revert complete owner slices with fixture metadata. |
 | WS-06 | Rename tests, symbols, fixtures, and goldens | TODO | WS-04, WS-05 | Semantic scan and visual digest report | Revert complete rename slices; no duplicate old/new tests. |
 | WS-07 | Replace slice, audit, schema, and artifact APIs | TODO | WS-03–WS-06 | Successor CLI contract/smoke tests | Revert the whole interface checkpoint before atomic cutover. |
@@ -702,10 +702,10 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-016 | Absorb Graph Projection subsystem map | WS-03 | DONE | T-015 | Crosswalk/catalog evidence | No special subsystem path needed. |
 | T-017 | Eliminate `unowned_regression` | WS-03 | DONE | T-015 | Classification reconciliation | Every retained support row has an owner. |
 | T-018 | Add module-family import guardrails | WS-03 | DONE | T-015 | Boundary tests | Dependency direction is enforced. |
-| T-019 | Migrate phase0–phase4 backend rows | WS-04 | TODO | T-015 | Crosswalk/focused tests | Rows have terminal dispositions. |
-| T-020 | Migrate phase5–phase8 backend rows | WS-04 | TODO | T-015 | Crosswalk/focused tests | Rows have terminal dispositions. |
-| T-021 | Migrate phase9–phase12 backend rows | WS-04 | TODO | T-015 | Crosswalk/focused tests | Rows have terminal dispositions. |
-| T-022 | Reconcile all 456 backend rows | WS-04 | TODO | T-019,T-020,T-021 | Reconciliation report | Count and selector coverage close. |
+| T-019 | Migrate phase0–phase4 backend rows | WS-04 | IN_PROGRESS | T-015 | Crosswalk/focused tests | Rows have terminal dispositions. |
+| T-020 | Migrate phase5–phase8 backend rows | WS-04 | IN_PROGRESS | T-015 | Crosswalk/focused tests | Rows have terminal dispositions. |
+| T-021 | Migrate phase9–phase12 backend rows | WS-04 | IN_PROGRESS | T-015 | Crosswalk/focused tests | Rows have terminal dispositions. |
+| T-022 | Reconcile all 456 backend rows | WS-04 | IN_PROGRESS | T-019,T-020,T-021 | Reconciliation report | Count and selector coverage close. |
 | T-023 | Migrate FE-P0–FE-P4 rows | WS-05 | TODO | T-015 | Crosswalk/browser tests | Rows have terminal dispositions. |
 | T-024 | Migrate FE-P5–FE-P8 rows | WS-05 | TODO | T-015 | Crosswalk/browser tests | Rows have terminal dispositions. |
 | T-025 | Migrate FE-P9–FE-P12 rows | WS-05 | TODO | T-015 | Crosswalk/browser tests | Rows have terminal dispositions. |
