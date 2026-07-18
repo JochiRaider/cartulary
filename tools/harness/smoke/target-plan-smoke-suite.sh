@@ -282,7 +282,8 @@ assert_contains "$backend_store_detail" "packages:" "backend-store detail packag
 
 results_dir="$tmp_dir/results"
 make_output="$(
-  CARTULARY_TEST_RESULTS_DIR="$results_dir" \
+  env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_RUN_ID -u CARTULARY_TEST_TARGET \
+    CARTULARY_TEST_RESULTS_DIR="$results_dir" \
     "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" explain-target TARGET=backend-store
 )"
 assert_contains "$make_output" "Cartulary target guidance: backend-store" "make explain-target"
@@ -291,11 +292,12 @@ if [[ -d "$results_dir" ]] && [[ -n "$(find "$results_dir" -mindepth 1 -print -q
   fail "make explain-target must not create test report artifacts"
 fi
 
-make_rows_output="$("$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" explain-target TARGET=backend-store DETAIL=rows)"
+make_rows_output="$(env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_RESULTS_DIR -u CARTULARY_TEST_RUN_ID -u CARTULARY_TEST_TARGET "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" explain-target TARGET=backend-store DETAIL=rows)"
 assert_contains "$make_rows_output" "module.graphprojection.storage.lifecycle:" "make explain-target row mode"
 
 make_target_plan_json="$tmp_dir/make-target-plan.json"
-"$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" target-plan-json >"$make_target_plan_json"
+env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_RESULTS_DIR -u CARTULARY_TEST_RUN_ID -u CARTULARY_TEST_TARGET \
+  "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" target-plan-json >"$make_target_plan_json"
 "$NODE_HELPER" -e 'const plan = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")); if (!Array.isArray(plan) || plan.length === 0) process.exit(1);' "$make_target_plan_json"
 fi
 

@@ -1362,6 +1362,10 @@ main() {
     return $?
   fi
 
+  # Establish the complete artifact identity in this shell before helper
+  # functions are invoked through command substitutions. Exports performed
+  # inside those substitutions cannot update the parent shell.
+  ensure_harness_artifact_identity
   prepare_runtime_root
 
   trap on_exit EXIT
@@ -1369,7 +1373,7 @@ main() {
   lifecycle_install_signal_traps
 
   run_timing_span "setup" "browser-e2e frontend toolchain" \
-    env -u CARTULARY_TEST_RUN_ID -u CARTULARY_TEST_TARGET MAKEFLAGS= CARTULARY_FRONTEND_TOOLCHAIN_QUIET=1 CARTULARY_SUPPRESS_CHILD_SUCCESS=1 make -s -C "${ROOT_DIR}" --no-print-directory frontend-toolchain
+    env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_RUN_ID -u CARTULARY_TEST_TARGET MAKEFLAGS= CARTULARY_FRONTEND_TOOLCHAIN_QUIET=1 CARTULARY_SUPPRESS_CHILD_SUCCESS=1 make -s -C "${ROOT_DIR}" --no-print-directory frontend-toolchain
   local pnpm_bin="${PNPM:-${NODE_RUNTIME_DIR}/bin/pnpm}"
   if [[ ! -x "${pnpm_bin}" ]]; then
     echo "repo-local pnpm was not found at ${pnpm_bin}; run make frontend-toolchain" >&2

@@ -353,9 +353,10 @@ mkdir -p "$identity_reuse_results/results/run-a"
 printf 'prepared\n' >"$identity_reuse_results/results/run-a/preflight.txt"
 identity_reuse_rejected="$(
   set +e
-  CARTULARY_TEST_RESULTS_DIR="$identity_reuse_results/results" \
-  CARTULARY_TEST_RUN_ID="run-a" \
-  CARTULARY_TEST_TARGET="backend-integration" \
+  env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_SUPPRESS_CHILD_SUCCESS \
+    CARTULARY_TEST_RESULTS_DIR="$identity_reuse_results/results" \
+    CARTULARY_TEST_RUN_ID="run-a" \
+    CARTULARY_TEST_TARGET="backend-integration" \
     "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration module.revisions.integration 2>&1
   printf 'status=%s\n' "$?"
 )"
@@ -831,6 +832,8 @@ assert_contains "$backend_integration_support_shards" "$first_backend_integratio
 
 support_zero_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-support-zero.XXXXXX")"
 cleanup_paths+=("$support_zero_dir")
+support_zero_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-support-zero-results.XXXXXX")"
+cleanup_paths+=("$support_zero_results")
 cat >"$support_zero_dir/support_zero_test.go" <<'EOF'
 package rungotargetsupportzero
 
@@ -841,19 +844,23 @@ EOF
 
 support_zero_rel="./${support_zero_dir#"$ROOT_DIR"/}"
 set +e
-support_zero_output="$(
+env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_SUPPRESS_CHILD_SUCCESS \
   CARTULARY_OUTPUT_MODE=quiet \
-    "$GO_STEP_HELPER" "backend-integration support unknown-owner" '^(TestSupportUnknownOwnerIntegration_)' -- "$go_bin" test "$support_zero_rel" \
-    2>&1
-)"
+  CARTULARY_TEST_RESULTS_DIR="$support_zero_results" \
+  CARTULARY_TEST_RUN_ID="support-zero" \
+  CARTULARY_TEST_TARGET="backend-integration-support" \
+  CARTULARY_ACCOUNTING_COVERAGE=support \
+  "$GO_STEP_HELPER" "backend-integration support unknown-owner" '^(TestSupportUnknownOwnerIntegration_)' -- "$go_bin" test "$support_zero_rel" \
+  >/dev/null 2>&1
 support_zero_status=$?
 set -e
 if [[ "$support_zero_status" -eq 0 ]]; then
   fail "support zero-match: expected non-zero exit status"
 fi
-assert_contains "$support_zero_output" "failure: backend-integration support unknown-owner" "support zero-match label"
-assert_contains "$support_zero_output" "coverage=support" "support zero-match coverage"
-assert_contains "$support_zero_output" "message=support step matched zero tests" "support zero-match message"
+support_zero_summary="$support_zero_results/support-zero/backend-integration-support/backend-integration-support-unknown-owner/step-summary.json"
+assert_equals "$(json_field "$support_zero_summary" "label")" "backend-integration support unknown-owner" "support zero-match label"
+assert_equals "$(json_field "$support_zero_summary" "counts.support_failed")" "1" "support zero-match coverage"
+assert_contains "$(json_field "$support_zero_summary" "failures.0.message")" "support step matched zero tests" "support zero-match message"
 
 
 printf "run-go-target smoke passed\n"

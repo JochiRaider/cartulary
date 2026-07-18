@@ -436,6 +436,47 @@ export function validateResultRoot(value, { root = repoRoot, create = false } = 
   return resolved;
 }
 
+export function validatePreparedArtifactIdentity(target, env = process.env, options = {}) {
+  const marker = env.CARTULARY_HARNESS_IDENTITY_PREPARED;
+  if (marker === undefined || marker === null || marker === "") {
+    return false;
+  }
+  if (marker !== "1") {
+    throw new HarnessConfigError(
+      "CARTULARY_HARNESS_IDENTITY_PREPARED must be exactly 1 when set",
+    );
+  }
+  if (target === "adhoc") {
+    throw new HarnessConfigError(
+      "prepared harness artifact identity requires a declared target",
+    );
+  }
+  const required = [
+    "CARTULARY_TEST_RESULTS_DIR",
+    "CARTULARY_TEST_RUN_ID",
+    "CARTULARY_TEST_TARGET",
+  ];
+  const missing = required.filter(
+    (name) => !Object.hasOwn(env, name) || String(env[name] ?? "").trim() === "",
+  );
+  if (missing.length > 0) {
+    throw new HarnessConfigError(
+      `prepared harness artifact identity is incomplete; missing ${missing.join(", ")}`,
+    );
+  }
+  if (env.CARTULARY_TEST_TARGET !== target) {
+    throw new HarnessConfigError(
+      `prepared harness artifact target ${JSON.stringify(env.CARTULARY_TEST_TARGET)} does not match ${JSON.stringify(target)}`,
+    );
+  }
+  validateResultRoot(env.CARTULARY_TEST_RESULTS_DIR, {
+    root: options.root ?? repoRoot,
+    create: false,
+  });
+  validateRunId(env.CARTULARY_TEST_RUN_ID);
+  return true;
+}
+
 function isWorldWritableWithoutSticky(stat) {
   return (stat.mode & 0o002) !== 0 && (stat.mode & 0o1000) === 0;
 }
@@ -1003,6 +1044,7 @@ export function resolveHarnessConfig(target, env = process.env, options = {}) {
   if (!entry || entry.target_class !== "public") {
     throw new HarnessConfigError(`unknown public target ${JSON.stringify(target)}`);
   }
+  const preparedArtifactIdentity = validatePreparedArtifactIdentity(target, env, options);
   rejectUndeclaredPublicInputs(target, entry, manifest, env);
   const targetInputs = resolveDeclaredTargetInputs(target, entry, manifest, env);
   const outputMode = resolveOutputModeRecord(env, target);
@@ -1069,6 +1111,7 @@ export function resolveHarnessConfig(target, env = process.env, options = {}) {
   return prepareRetainedArtifactRunRoot(resolved, {
     allowExistingRunRoot:
       options.allowExistingRunRoot === true ||
+      preparedArtifactIdentity ||
       env.CARTULARY_SUPPRESS_CHILD_SUCCESS === "1" ||
       env.CARTULARY_ALLOW_EXISTING_RUN_ROOT === "1",
     materializeGeneratedRunId: options.materializeGeneratedRunId === true,
@@ -1096,6 +1139,7 @@ export function resolveArtifactIdentityForTarget(target, env = process.env, opti
   if (entry?.target_class === "public") {
     return resolveRetainedArtifactIdentity(target, env, { ...options, manifest });
   }
+  validatePreparedArtifactIdentity(target, env, options);
   const resultRoot = validateResultRoot(env.CARTULARY_TEST_RESULTS_DIR, {
     root: options.root ?? repoRoot,
     create: true,

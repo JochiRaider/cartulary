@@ -131,7 +131,7 @@ run_isolated_make_probe() {
 
   local run_id
   run_id="$(probe_run_id "$label")"
-  env -u CARTULARY_TEST_TARGET \
+  env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_TARGET \
     CARTULARY_TEST_RESULTS_DIR="$probe_results_root" \
     CARTULARY_TEST_RUN_ID="$run_id" \
     make --no-print-directory "$@"
@@ -172,9 +172,9 @@ release_check_block="$(extract_target_definition release-check)"
 release_readiness_block="$(extract_target_definition release-readiness-evidence)"
 license_report_block="$(extract_target_definition license-report)"
 sbom_block="$(extract_target_definition sbom)"
-help_output="$(make --no-print-directory help)"
-help_all_output="$(make --no-print-directory help-all)"
-release_check_explain="$(make --no-print-directory explain-target TARGET=release-check DETAIL=summary)"
+help_output="$(env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_RESULTS_DIR -u CARTULARY_TEST_RUN_ID -u CARTULARY_TEST_TARGET make --no-print-directory help)"
+help_all_output="$(env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_RESULTS_DIR -u CARTULARY_TEST_RUN_ID -u CARTULARY_TEST_TARGET make --no-print-directory help-all)"
+release_check_explain="$(env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_RESULTS_DIR -u CARTULARY_TEST_RUN_ID -u CARTULARY_TEST_TARGET make --no-print-directory explain-target TARGET=release-check DETAIL=summary)"
 
 for public_target in test-fast release-check release-readiness-evidence license-report sbom; do
   assert_contains "$makefile_content" "$public_target:" "release task surface target $public_target"

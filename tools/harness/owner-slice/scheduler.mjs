@@ -25,12 +25,24 @@ const ownerSliceOnlyInputs = Object.freeze([
   "MFLAGS",
   "GNUMAKEFLAGS",
   "MAKEOVERRIDES",
+  "CARTULARY_MAKE_INPUT_SOURCES",
+  "CARTULARY_TEST_CATALOG_ROW_IDS",
+  "CARTULARY_TEST_OWNER",
+  "CARTULARY_TEST_RESULTS_DIR",
   "CARTULARY_TEST_RUN_ID",
+  "CARTULARY_TEST_TARGET",
+  "CARTULARY_HARNESS_IDENTITY_PREPARED",
 ]);
 
-export function ownerSliceChildEnvironment(environment = process.env) {
+export function ownerSliceChildEnvironment(
+  environment = process.env,
+  { childResultsRoot = "" } = {},
+) {
   const child = { ...environment };
   for (const name of ownerSliceOnlyInputs) delete child[name];
+  if (childResultsRoot !== "") {
+    child.CARTULARY_TEST_RESULTS_DIR = childResultsRoot;
+  }
   return child;
 }
 
@@ -100,7 +112,9 @@ function genericWorkUnits(root, plan, planPath, targetDir) {
   mkdirSync(artifactRoot, { recursive: true });
   const browserReadinessID = "readiness.owner_browser_runtime";
   const needsBrowserReadiness = plan.work_units.some((unit) => unit.runner === "playwright");
-  const childEnv = ownerSliceChildEnvironment();
+  const childEnv = ownerSliceChildEnvironment(process.env, {
+    childResultsRoot: path.join(targetDir, "child-results"),
+  });
   const readinessEnv = { ...childEnv, CARTULARY_SUPPRESS_CHILD_SUCCESS: "1" };
   const units = [];
   const topology = loadExecutionTopology({ root });

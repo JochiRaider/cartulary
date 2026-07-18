@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 2,
-  "input_digest": "sha256:6c76fbe1a3b7cf0f31885856c926296fdead1784751ecb0255cded435dbe5b6d",
+  "input_digest": "sha256:8c068e12c9f2c83ffccf88afa77da212bee5425dca329d39c7bb8fce1ff2b990",
   "inputs": [
     {
       "path": "contracts/verification/owners/app.operator.json",
@@ -502,12 +502,12 @@
     {
       "path": "tools/harness/contract/harness-contract.mjs",
       "role": "renderer_source",
-      "hash": "sha256:41e99d78c4c835b2fb3fc5f1b40a569afc7f03d4f34f327daec0f2ed2ee0ce1e"
+      "hash": "sha256:b71cd920ec45341a0a1feed31daea2651f828aa5f01968b51c1c689916a4dcd2"
     },
     {
       "path": "tools/harness/contract/index.mjs",
       "role": "renderer_source",
-      "hash": "sha256:2d2dc8a1051ac1452842718c5e65fa0dff9b114441e5eaa4f6d05c45d2d5a921"
+      "hash": "sha256:8418e1b32b6fee941338b5a6eae5870823c0638754af81a8a1d0f02505de5c4c"
     },
     {
       "path": "tools/harness/contract/json-shape.mjs",

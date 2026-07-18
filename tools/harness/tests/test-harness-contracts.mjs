@@ -48,6 +48,7 @@ import {
   redactValue,
   runCleanup,
   testRouteTokenValid,
+  validatePreparedArtifactIdentity,
   validateSchema,
 } from "../contract/index.mjs";
 import { collectGoShardsForTarget } from "../backend/backend-shard-plan.mjs";
@@ -100,7 +101,10 @@ import {
   OwnerSliceUsageError,
   resolveOwnerSliceSelection,
 } from "../owner-slice/index.mjs";
-import { buildPlaywrightInvocations } from "../owner-slice/execution.mjs";
+import {
+  buildPlaywrightInvocations,
+  ownerChildRunID,
+} from "../owner-slice/execution.mjs";
 import { buildSourceSnapshot } from "../owner-slice/source-snapshot.mjs";
 import { ownerSliceChildEnvironment } from "../owner-slice/scheduler.mjs";
 import { buildModuleAuthorTaskGuide, explainTestOwner } from "../diagnostics/owner-diagnostics.mjs";
@@ -477,7 +481,64 @@ test("runner adapters require one exact terminal observation per selected row", 
   );
 });
 
-test("owner slice children cannot inherit selector inputs or Make command-line overrides", () => {
+test("prepared artifact identity is atomic and validates before artifact creation", () => {
+  const resultsRoot = mkdtempSync(path.join(repoRoot, "tmp", "prepared-identity-test."));
+  try {
+    const complete = {
+      CARTULARY_HARNESS_IDENTITY_PREPARED: "1",
+      CARTULARY_TEST_RESULTS_DIR: resultsRoot,
+      CARTULARY_TEST_RUN_ID: "prepared-run",
+      CARTULARY_TEST_TARGET: "backend-unit",
+    };
+    assert.equal(validatePreparedArtifactIdentity("backend-unit", complete), true);
+    assert.equal(validatePreparedArtifactIdentity("backend-unit", {}), false);
+    assert.throws(
+      () => validatePreparedArtifactIdentity("backend-unit", {
+        ...complete,
+        CARTULARY_HARNESS_IDENTITY_PREPARED: "true",
+      }),
+      /must be exactly 1/u,
+    );
+    assert.throws(
+      () => validatePreparedArtifactIdentity("backend-unit", {
+        ...complete,
+        CARTULARY_TEST_TARGET: "frontend-unit",
+      }),
+      /does not match/u,
+    );
+    assert.throws(
+      () => preflightPublicTarget("backend-unit", {
+        ...complete,
+        CARTULARY_TEST_RUN_ID: "",
+      }),
+      /prepared harness artifact identity is incomplete/u,
+    );
+    assert.equal(
+      existsSync(path.join(resultsRoot, "prepared-run")),
+      false,
+      "partial identity must fail before creating its run root",
+    );
+    const prepared = preflightPublicTarget("backend-unit", complete);
+    writeFileSync(path.join(prepared.run_root, "retained.txt"), "retained\n", "utf8");
+    assert.equal(
+      preflightPublicTarget("backend-unit", complete).run_root,
+      prepared.run_root,
+      "complete prepared identity may reuse its run root",
+    );
+    assert.throws(
+      () => preflightPublicTarget("backend-unit", {
+        ...complete,
+        CARTULARY_HARNESS_IDENTITY_PREPARED: "",
+      }),
+      /non-empty run root/u,
+      "an unprepared caller cannot collide with retained artifacts",
+    );
+  } finally {
+    rmSync(resultsRoot, { recursive: true, force: true });
+  }
+});
+
+test("owner slice children cannot inherit parent identity, selectors, or Make overrides", () => {
   const child = ownerSliceChildEnvironment({
     PATH: "/bin",
     OWNER: "harness.generated_artifacts",
@@ -489,9 +550,31 @@ test("owner slice children cannot inherit selector inputs or Make command-line o
     MFLAGS: "--no-print-directory",
     GNUMAKEFLAGS: "--warn-undefined-variables",
     MAKEOVERRIDES: "${-*-command-variables-*-}",
+    CARTULARY_MAKE_INPUT_SOURCES: "OWNER=cli ROWS=cli",
+    CARTULARY_TEST_CATALOG_ROW_IDS: "row.one",
+    CARTULARY_TEST_OWNER: "harness.generated_artifacts",
+    CARTULARY_TEST_RESULTS_DIR: "/tmp/parent-results",
     CARTULARY_TEST_RUN_ID: "parent-run",
+    CARTULARY_TEST_TARGET: "test-slice",
+    CARTULARY_HARNESS_IDENTITY_PREPARED: "1",
+  }, {
+    childResultsRoot: "/tmp/parent-results/parent-run/test-slice/child-results",
   });
-  assert.deepEqual(child, { PATH: "/bin" });
+  assert.deepEqual(child, {
+    PATH: "/bin",
+    CARTULARY_TEST_RESULTS_DIR: "/tmp/parent-results/parent-run/test-slice/child-results",
+  });
+  assert.match(ownerChildRunID("unit.playwright.browser", 0), /^owner-[a-f0-9]{16}-001$/u);
+  assert.notEqual(
+    ownerChildRunID("unit.playwright.browser", 0),
+    ownerChildRunID("unit.playwright.browser", 1),
+    "each child invocation receives a distinct run ID",
+  );
+  assert.notEqual(
+    ownerChildRunID("unit.playwright.browser", 0),
+    ownerChildRunID("unit.go.backend", 0),
+    "work units cannot collide on child run ID",
+  );
 });
 
 test("stateful owner browser rows execute as isolated single-worker partitions", () => {

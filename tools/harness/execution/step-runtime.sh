@@ -489,15 +489,20 @@ step_redact_file() {
 }
 
 ensure_harness_artifact_identity() {
+  local target
+  target="$(resolve_test_target)"
   if [[ -n "${CARTULARY_HARNESS_IDENTITY_PREPARED:-}" ]]; then
+    local node_bin
+    local output
+    node_bin="$(resolve_harness_node)"
+    output="$(CARTULARY_SUPPRESS_CHILD_SUCCESS=1 "${node_bin}" "${RUN_STEP_REPO_ROOT}/tools/harness/contract/harness-contract-cli.mjs" retained-artifact-env "${target}")" || return "$?"
+    CARTULARY_TEST_RESULTS_DIR="$(printf '%s\n' "${output}" | sed -n '1p')"
+    CARTULARY_TEST_RUN_ID="$(printf '%s\n' "${output}" | sed -n '2p')"
+    export CARTULARY_TEST_RESULTS_DIR CARTULARY_TEST_RUN_ID
     return 0
   fi
 
-  local target
-  target="$(resolve_test_target)"
   if [[ "${target}" == "adhoc" ]]; then
-    CARTULARY_HARNESS_IDENTITY_PREPARED=1
-    export CARTULARY_HARNESS_IDENTITY_PREPARED
     return 0
   fi
 
@@ -663,6 +668,7 @@ run_step_command() {
   local status
   local helper_status
 
+  ensure_harness_artifact_identity
   output_mode="$(resolve_output_mode)"
   step_dir="$(prepare_step_artifact_dir "$step")"
   stdout_log="${step_dir}/stdout.log"

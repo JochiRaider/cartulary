@@ -1187,8 +1187,9 @@ mkdir -p "${collision_preflight_dir}/results/stale-run"
 printf 'stale\n' >"${collision_preflight_dir}/results/stale-run/stale.txt"
 collision_preflight_output="$(
   set +e
-  CARTULARY_TEST_RESULTS_DIR="${collision_preflight_dir}/results" \
-  CARTULARY_TEST_RUN_ID="stale-run" \
+  env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_TARGET \
+    CARTULARY_TEST_RESULTS_DIR="${collision_preflight_dir}/results" \
+    CARTULARY_TEST_RUN_ID="stale-run" \
     make --no-print-directory doctor \
     2>&1
   printf 'status=%s\n' "$?"

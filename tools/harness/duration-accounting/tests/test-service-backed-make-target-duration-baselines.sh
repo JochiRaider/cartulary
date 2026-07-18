@@ -212,7 +212,7 @@ cat >"$tmp_dir/make-baseline.json" <<'JSON'
 }
 JSON
 make_update_output="$(
-  env -u CARTULARY_TEST_RESULTS_DIR -u CARTULARY_TEST_RUN_ID \
+  env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_RESULTS_DIR -u CARTULARY_TEST_RUN_ID -u CARTULARY_TEST_TARGET \
     RESULTS_DIR="$results_dir" \
     SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE="$tmp_dir/make-baseline.json" \
     SCHEDULER_MANIFEST="$tmp_dir/schedule.json" \

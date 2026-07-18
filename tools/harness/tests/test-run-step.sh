@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 HELPER="$ROOT_DIR/tools/harness/execution/run-step.sh"
 GO_HELPER="$ROOT_DIR/tools/harness/backend/run-go-step.sh"
+STEP_RUNTIME="$ROOT_DIR/tools/harness/execution/step-runtime.sh"
 ARTIFACT_ERROR_EXIT=11
 cleanup_paths=()
 
@@ -284,6 +285,53 @@ quiet_success_output="$(
 assert_empty "$quiet_success_output" "quiet success"
 
 mkdir -p "$ROOT_DIR/tmp"
+
+partial_identity_results="$(mktemp -d "$ROOT_DIR/tmp/run-step-partial-identity.XXXXXX")"
+cleanup_paths+=("$partial_identity_results")
+set +e
+partial_identity_output="$(
+  env -u CARTULARY_TEST_RUN_ID \
+    CARTULARY_OUTPUT_MODE=quiet \
+    CARTULARY_TEST_RESULTS_DIR="$partial_identity_results" \
+    CARTULARY_TEST_TARGET="backend-unit" \
+    CARTULARY_HARNESS_IDENTITY_PREPARED=1 \
+    "$HELPER" "partial prepared identity" -- true \
+    2>&1
+)"
+partial_identity_status=$?
+set -e
+assert_equals "$partial_identity_status" "2" "partial prepared identity status"
+assert_contains "$partial_identity_output" "prepared harness artifact identity is incomplete" "partial prepared identity failure"
+if find "$partial_identity_results" -mindepth 1 -print -quit | grep -q .; then
+  fail "partial prepared identity: expected failure before artifact creation"
+fi
+
+nested_parent_results="$(mktemp -d "$ROOT_DIR/tmp/run-step-nested-parent.XXXXXX")"
+cleanup_paths+=("$nested_parent_results")
+nested_parent_target="$nested_parent_results/parent-run/test-slice"
+nested_child_results="$nested_parent_target/child-results"
+mkdir -p "$nested_parent_target/scheduler-logs"
+printf 'parent plan\n' >"$nested_parent_target/test-slice-plan.json"
+printf 'parent scheduler log\n' >"$nested_parent_target/scheduler-logs/unit.log"
+set +e
+# The positional parameter expands in the child shell, not this test process.
+# shellcheck disable=SC2016
+env -u CARTULARY_HARNESS_IDENTITY_PREPARED \
+  CARTULARY_TEST_RESULTS_DIR="$nested_child_results" \
+  CARTULARY_TEST_RUN_ID="child-failure" \
+  CARTULARY_TEST_TARGET="backend-unit" \
+  bash -c 'source "$1"; ensure_harness_artifact_identity; exit 7' bash "$STEP_RUNTIME"
+nested_child_status=$?
+set -e
+assert_equals "$nested_child_status" "7" "nested child failure status"
+assert_file_present "$nested_parent_target/test-slice-plan.json" "nested child preserves parent plan"
+assert_file_present "$nested_parent_target/scheduler-logs/unit.log" "nested child preserves parent scheduler log"
+if [[ ! -d "$nested_child_results/child-failure" ]]; then
+  fail "nested child failure: expected contained child run root"
+fi
+if [[ -e "$nested_child_results/adhoc" ]]; then
+  fail "nested child failure: unexpected adhoc artifact identity"
+fi
 
 success_log_output="$(
   CARTULARY_OUTPUT_MODE=quiet \

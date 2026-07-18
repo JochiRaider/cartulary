@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
@@ -103,6 +104,11 @@ function commandWithManagedServices(root, unit, command) {
   };
 }
 
+export function ownerChildRunID(workUnitID, invocationIndex) {
+  const digest = createHash("sha256").update(workUnitID).digest("hex").slice(0, 16);
+  return `owner-${digest}-${String(invocationIndex + 1).padStart(3, "0")}`;
+}
+
 export function executeOwnerSlicePlan(root, plan, options = {}) {
   const rowByID = new Map(plan.rows.map((row) => [row.row_id, row]));
   const unitResults = [];
@@ -119,7 +125,7 @@ export function executeOwnerSlicePlan(root, plan, options = {}) {
         unit.work_unit_id,
       );
       const invocations = invocationsForUnit(root, unit, rows, plan.workers, artifactRoot);
-      for (const rawInvocation of invocations) {
+      for (const [invocationIndex, rawInvocation] of invocations.entries()) {
         const invocationStarted = process.hrtime.bigint();
         const command = commandWithManagedServices(root, unit, rawInvocation);
         const result = (options.runCommand ?? run)(command.command, command.args, {
@@ -128,6 +134,7 @@ export function executeOwnerSlicePlan(root, plan, options = {}) {
             ...process.env,
             CARTULARY_TEST_OWNER: plan.owner_id,
             CARTULARY_TEST_CATALOG_ROW_IDS: unit.row_ids.join(","),
+            CARTULARY_TEST_RUN_ID: ownerChildRunID(unit.work_unit_id, invocationIndex),
             // Exact adapters consume the child runner stream. The enclosing
             // scheduler already retains/redacts the unit result and logs.
             CARTULARY_SUPPRESS_CHILD_SUCCESS: "0",

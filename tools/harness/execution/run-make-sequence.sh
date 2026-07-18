@@ -235,7 +235,8 @@ run_step() {
   case "${kind}" in
     step)
       target="${rest}"
-      env -u CARTULARY_TEST_TARGET \
+      env -u CARTULARY_HARNESS_IDENTITY_PREPARED \
+        -u CARTULARY_TEST_TARGET \
         -u CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES \
         -u CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED \
         CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
@@ -243,7 +244,7 @@ run_step() {
       ;;
     step-skip)
       target="${rest}"
-      env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES=1 CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED=1 "${MAKE_BIN}" --no-print-directory "${target}"
+      env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES=1 CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED=1 "${MAKE_BIN}" --no-print-directory "${target}"
       ;;
     parallel)
       target="${rest%%:*}"
@@ -252,7 +253,8 @@ run_step() {
         echo "invalid parallel step ${rest}; expected <target>:<jobs>" >&2
         return 2
       fi
-      env -u CARTULARY_TEST_TARGET \
+      env -u CARTULARY_HARNESS_IDENTITY_PREPARED \
+        -u CARTULARY_TEST_TARGET \
         -u CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES \
         -u CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED \
         CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \

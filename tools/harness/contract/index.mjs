@@ -37,6 +37,7 @@ export {
   runCleanup,
   targetPolicy,
   testRouteTokenValid,
+  validatePreparedArtifactIdentity,
   validateSchema,
   validateSchemaSync,
 } from "./harness-contract.mjs";
