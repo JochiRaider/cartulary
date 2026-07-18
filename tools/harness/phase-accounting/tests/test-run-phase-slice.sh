@@ -431,7 +431,7 @@ assert.ok(phase5Service.resource_limits.browser_stage_visual >= 1, "service-back
 assert.ok(!("browser_stage_visual_smoke" in phase5Service.resource_limits), "service-backed phase5 must not declare visual-smoke capacity");
 
 const phase12Map = readJSON(path.join(root, "tools/phase12_test_map.json"));
-const phase12ContractFile = "internal/modules/networkflow/phase12_network_flow_contract_test.go";
+const phase12ContractFile = "internal/modules/networkflow/network_flow_contract_test.go";
 const phase12ContractRows = [...phase12Map.unit, ...phase12Map.integration].filter(
   (row) => row.file === phase12ContractFile,
 );

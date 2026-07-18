@@ -10,7 +10,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
-func TestSupportPhase2_WorkbookPreferencesPutDecodersCanonicalizeSheetRefs(t *testing.T) {
+func TestWorkbookPreferencesPutDecodersCanonicalizeSheetRefs(t *testing.T) {
 	userRequest, apiErr := workbookstartup.DecodeUserPreferencesPutRequest(strings.NewReader(`{
 		"home_sheet_ref":{"id":"cartulary.view.timeline.v2","kind":"view_schema"}
 	}`))
@@ -52,7 +52,7 @@ func TestSupportPhase2_WorkbookPreferencesPutDecodersCanonicalizeSheetRefs(t *te
 	}
 }
 
-func TestSupportPhase2_WorkbookPreferencesPutDecodersRejectInvalidPayloads(t *testing.T) {
+func TestWorkbookPreferencesPutDecodersRejectInvalidPayloads(t *testing.T) {
 	cases := []struct {
 		name       string
 		body       string
@@ -124,7 +124,7 @@ func TestSupportPhase2_WorkbookPreferencesPutDecodersRejectInvalidPayloads(t *te
 	}
 }
 
-func TestSupportPhase8_WorkbookStartupExplicitSheetRefParser(t *testing.T) {
+func TestWorkbookStartupExplicitSheetRefParser(t *testing.T) {
 	viewSchemaRef, apiErr := workbookstartup.ParseExplicitSheetRef(url.Values{"view_schema_id": []string{" cartulary.view.timeline.v2 "}})
 	if apiErr != nil {
 		t.Fatalf("parse view_schema_id selector: %v", apiErr)
@@ -178,7 +178,7 @@ func TestSupportPhase8_WorkbookStartupExplicitSheetRefParser(t *testing.T) {
 	requireStartupAPIError(t, apiErr, http.StatusBadRequest, "invalid_startup_request", "workspace_key", "unknown_field")
 }
 
-func TestSupportPhase12_ExtensionWorkspaceRegistrySeparatesClaimDeclarationAndVisibility(t *testing.T) {
+func TestExtensionWorkspaceRegistrySeparatesClaimDeclarationAndVisibility(t *testing.T) {
 	profiles := []httpapi.ExtensionProfile{
 		{
 			ProfileID: "network_flow_activity",

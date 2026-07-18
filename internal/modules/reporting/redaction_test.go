@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestPhase11_U_11_REPORTING_01_RedactionProfilePrecedenceActionsAndManifest(t *testing.T) {
+func TestRedactionProfilePrecedenceActionsAndManifest_Unit(t *testing.T) {
 	descriptionPath := "/incident/description"
 	sourceClass := ContentClassSourceEvidence
 	maxChars := 4
@@ -245,7 +245,7 @@ func assertRedactionUsesStructuredExportModelBlocks(t *testing.T) {
 	}
 }
 
-func TestPhase11_U_11_REPORTING_02_RedactionProfileRejectsConflictsHashAndUnsafeBounds(t *testing.T) {
+func TestRedactionProfileRejectsConflictsHashAndUnsafeBounds_Unit(t *testing.T) {
 	path := "/incident/title"
 	class := ContentClassCuratedNarrative
 	maxZero := 0
@@ -307,7 +307,7 @@ func TestPhase11_U_11_REPORTING_02_RedactionProfileRejectsConflictsHashAndUnsafe
 	}
 }
 
-func TestPhase11_U_11_REPORTING_03_ExternalValidationRejectsOpaqueBytesAndWorkingMaterial(t *testing.T) {
+func TestExternalValidationRejectsOpaqueBytesAndWorkingMaterial_Unit(t *testing.T) {
 	profile := internalRedactionProfile()
 	profileSHA, err := ValidateRedactionProfile(profile)
 	if err != nil {
@@ -343,7 +343,7 @@ func TestPhase11_U_11_REPORTING_03_ExternalValidationRejectsOpaqueBytesAndWorkin
 	}
 }
 
-func TestPhase11_U_11_REPORTING_04_DisclosurePartitionsAndCuratedSupportRefsFailClosed(t *testing.T) {
+func TestDisclosurePartitionsAndCuratedSupportRefsFailClosed_Unit(t *testing.T) {
 	allowedPath := "/incident/summary"
 	restrictedPath := "/incident/restricted"
 	profile := RedactionProfile{
@@ -410,7 +410,7 @@ func TestPhase11_U_11_REPORTING_04_DisclosurePartitionsAndCuratedSupportRefsFail
 	}
 }
 
-func TestSupportPhase11_BuildExportModelUsesReportingOwnedMetadataSnapshotStableHash(t *testing.T) {
+func TestBuildExportModelUsesReportingOwnedMetadataSnapshotStableHash(t *testing.T) {
 	description := "Stable public summary"
 	severity := "high"
 	tlp := "TLP:AMBER"
@@ -518,7 +518,7 @@ func assertCanonicalExportModelGoldenHash(t *testing.T) {
 	}
 }
 
-func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *testing.T) {
+func TestDecoderNormalizationAndRegisteredReasons_Unit(t *testing.T) {
 	_, unknownAliasErr := DecodeCreateSnapshotRequest(strings.NewReader(`{"incident_id":"00000000-0000-0000-0000-000000000001","client_txn_id":"txn","source_change_set_high_watermark_id":"legacy"}`))
 	if unknownAliasErr == nil || unknownAliasErr.Details["reason_code"] != "unknown_field" {
 		t.Fatalf("legacy source boundary alias must be rejected as unknown field, got %#v", unknownAliasErr)

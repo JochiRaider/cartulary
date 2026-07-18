@@ -82,7 +82,7 @@ func TestMVPObjectStoreInitOperatorCreatesConfiguredBucket(t *testing.T) {
 	_ = store.Close()
 }
 
-func TestPhase10_E_10_01_CanonicalOperatorBackupInspectLatest(t *testing.T) {
+func TestCanonicalOperatorBackupInspectLatest_Process(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
 	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase10-e-10-01-canonical-inspect")
@@ -128,7 +128,7 @@ func TestPhase10_E_10_01_CanonicalOperatorBackupInspectLatest(t *testing.T) {
 	requireOperatorRecoveryFailure(t, invalidStdout, invalidStderr, invalidExit, "backup_inspect_latest", 2, "invalid_operator_request", "invalid_flag_value")
 }
 
-func TestPhase10_E_10_01_CanonicalOperatorBackupCreate(t *testing.T) {
+func TestCanonicalOperatorBackupCreate_Process(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
 	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase10-e-10-01-canonical-create")
@@ -203,7 +203,7 @@ func TestPhase10_E_10_01_CanonicalOperatorBackupCreate(t *testing.T) {
 	}
 }
 
-func TestPhase10_E_10_01_CanonicalOperatorRestoreLatest(t *testing.T) {
+func TestCanonicalOperatorRestoreLatest_Process(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
 	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase10-e-10-01-canonical-restore-source")
@@ -267,7 +267,7 @@ func TestPhase10_E_10_01_CanonicalOperatorRestoreLatest(t *testing.T) {
 	}
 }
 
-func TestPhase10_E_10_01_CanonicalOperatorRestoreVerifyLatest(t *testing.T) {
+func TestCanonicalOperatorRestoreVerifyLatest_Process(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
 	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase10-e-10-01-canonical-verify-latest-source")
@@ -317,7 +317,7 @@ func TestPhase10_E_10_01_CanonicalOperatorRestoreVerifyLatest(t *testing.T) {
 	requireOperatorBackupVerificationState(t, sourceDB.DSN, backupSetID, recovery.VerificationVerified)
 }
 
-func TestPhase10_E_10_01_CanonicalOperatorRestoreVerifyDue(t *testing.T) {
+func TestCanonicalOperatorRestoreVerifyDue_Process(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
 	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase10-e-10-01-canonical-verify-due-source")

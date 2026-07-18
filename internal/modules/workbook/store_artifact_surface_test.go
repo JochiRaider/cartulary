@@ -6,7 +6,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
-func TestSupportPhase9CoordinationArtifactSurfacesUseContractFilters(t *testing.T) {
+func TestCoordinationArtifactSurfacesUseContractFilters(t *testing.T) {
 	tests := []struct {
 		viewSchemaID string
 		artifactType string

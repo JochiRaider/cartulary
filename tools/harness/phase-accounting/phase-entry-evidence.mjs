@@ -143,6 +143,20 @@ export function authoritativeEvidenceNameViolations(manifest, { phase = manifest
     }
     const fragments = rowIDFragments(entry.id);
     for (const name of entryEvidenceNames(entry)) {
+      if (entry.runner === "go_test") {
+        if (
+          /(?:phase|sprint)[ _.-]?\d+/iu.test(name)
+          || fragments.some((fragment) => name.includes(fragment))
+        ) {
+          invalid.push({
+            file: entry.file,
+            phase,
+            symbol: name,
+            reason: "Go evidence names must be semantic and must not include delivery or legacy row identities",
+          });
+        }
+        continue;
+      }
       if (!fragments.some((fragment) => name.includes(fragment))) {
         invalid.push({
           file: entry.file,
@@ -163,7 +177,7 @@ export function assertAuthoritativeEvidenceNames(manifest, options = {}) {
     return;
   }
   throw new Error(
-    `authoritative phase evidence names must include manifest-owned row IDs: ${invalid
+    `authoritative evidence names violate the active semantic naming policy: ${invalid
       .map((entry) => `${entry.file}::${entry.symbol} (${entry.reason})`)
       .join("; ")}`,
   );

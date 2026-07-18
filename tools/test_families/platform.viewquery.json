@@ -132,7 +132,7 @@
       "selector": {
         "package": "./internal/platform/viewquery",
         "tests": [
-          "TestPhase8_QueryNormalizationMeta_U_8_08"
+          "TestQueryNormalizationMeta_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -155,7 +155,7 @@
       "selector": {
         "package": "./internal/platform/viewquery",
         "tests": [
-          "TestPhase8_StableFieldKeysOnly_U_8_06"
+          "TestStableFieldKeysOnly_Unit"
         ]
       },
       "evidence_class": "unit",

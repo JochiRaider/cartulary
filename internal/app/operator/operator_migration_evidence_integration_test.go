@@ -17,7 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
-func TestPhase0_MigrationEvidenceCommand_I_0_07(t *testing.T) {
+func TestMigrationEvidenceCommand_Integration(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
 	testDB := postgresHarness.NewMigrationDatabaseT(t, "operator-migration-evidence")

@@ -45,11 +45,11 @@
       "selector": {
         "package": "./internal/modules/tasksdecisions",
         "tests": [
-          "TestPhase9Sprint6_DecisionLifecycleSupersessionAndConsistency_U_9_07",
-          "TestPhase9Sprint6_DecisionTerminalTransitionMatrix_U_9_07",
-          "TestPhase9Sprint6_SupersedeDecisionRejectsInconsistentSourceOrTarget_U_9_07",
-          "TestPhase9Sprint6_TaskLifecycleGuardFailures_U_9_07",
-          "TestPhase9Sprint6_TaskRequestLifecycleDecisionLinksAndProjection_U_9_07"
+          "TestDecisionLifecycleSupersessionAndConsistency_Unit",
+          "TestDecisionTerminalTransitionMatrix_Unit",
+          "TestSupersedeDecisionRejectsInconsistentSourceOrTarget_Unit",
+          "TestTaskLifecycleGuardFailures_Unit",
+          "TestTaskRequestLifecycleDecisionLinksAndProjection_Unit"
         ]
       },
       "evidence_class": "integration",

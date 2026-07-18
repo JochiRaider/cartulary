@@ -8,7 +8,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 )
 
-func TestPhase11_U_11_REPORTING_06_OpenAPIReleaseEnumsAndExactResources(t *testing.T) {
+func TestOpenAPIReleaseEnumsAndExactResources_Unit(t *testing.T) {
 	document := contracttest.OpenAPIDocument(t)
 	schemas := reportingOpenAPIObjectAt(t, document, "components", "schemas")
 

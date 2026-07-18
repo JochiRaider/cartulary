@@ -235,7 +235,7 @@ func TestWorkbookMutationDecoderCollectionRemovalRequiresItemRef(t *testing.T) {
 	}
 }
 
-func TestSupportPhase9TaskDecisionRelationshipConfidenceRejected(t *testing.T) {
+func TestTaskDecisionRelationshipConfidenceRejected(t *testing.T) {
 	recordID := "11111111-2222-3333-4444-555555555555"
 	tests := []struct {
 		name         string
@@ -316,7 +316,7 @@ func TestSupportPhase9TaskDecisionRelationshipConfidenceRejected(t *testing.T) {
 	}
 }
 
-func TestSupportPhase9_DirectPartyReferenceDecoderAcceptsOnlyExactStableIDs(t *testing.T) {
+func TestDirectPartyReferenceDecoderAcceptsOnlyExactStableIDs(t *testing.T) {
 	stablePartyID := "11111111-2222-3333-4444-555555555555"
 	valid := `{"view_schema_id":"cartulary.view.evidence.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"evidence.collector_party_id","value":"` + stablePartyID + `"}]}`
 	request, apiErr := DecodePatchRequest(strings.NewReader(valid))
@@ -361,7 +361,7 @@ func TestSupportPhase9_DirectPartyReferenceDecoderAcceptsOnlyExactStableIDs(t *t
 	}
 }
 
-func TestSupportPhase9_DirectDecisionReferenceDecoderAcceptsOnlyExactStableIDs(t *testing.T) {
+func TestDirectDecisionReferenceDecoderAcceptsOnlyExactStableIDs(t *testing.T) {
 	stableDecisionID := "11111111-2222-3333-4444-555555555555"
 	valid := `{"view_schema_id":"cartulary.view.task_requests.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"task.decision_record_id","value":"` + stableDecisionID + `"}]}`
 	request, apiErr := DecodePatchRequest(strings.NewReader(valid))
@@ -406,7 +406,7 @@ func TestSupportPhase9_DirectDecisionReferenceDecoderAcceptsOnlyExactStableIDs(t
 	}
 }
 
-func TestSupportPhase9_TaskOwnerNullClearRejectedAtDecoder(t *testing.T) {
+func TestTaskOwnerNullClearRejectedAtDecoder(t *testing.T) {
 	clear := `{"view_schema_id":"cartulary.view.task_requests.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"task.owner_user_id","value":null}]}`
 	if _, apiErr := DecodePatchRequest(strings.NewReader(clear)); apiErr == nil {
 		t.Fatalf("expected task owner null clear to fail")

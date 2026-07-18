@@ -35,7 +35,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
-func TestPhase11_I_11_INCIDENT_BUNDLES_01_ExportJobIdempotencyAndDescriptor(t *testing.T) {
+func TestExportJobIdempotencyAndDescriptor_Integration(t *testing.T) {
 	withIncidentPortabilityClaimed(t)
 	harness := scenariotest.StartRuntime(t).StartServer(t, "phase11-incident-bundle-export")
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
@@ -102,7 +102,7 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_01_ExportJobIdempotencyAndDescriptor(t *t
 	}
 }
 
-func TestPhase11_I_11_INCIDENT_BUNDLES_03_ExportJobAuthorizationReDerivesIncidentMembership(t *testing.T) {
+func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testing.T) {
 	withIncidentPortabilityClaimed(t)
 	started := make(chan struct{})
 	release := make(chan struct{})
@@ -204,7 +204,7 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_03_ExportJobAuthorizationReDerivesInciden
 	}
 }
 
-func TestPhase11_I_11_INCIDENT_BUNDLES_02_ImportEnvelopeIdempotencyAndImportedIncidentOpen(t *testing.T) {
+func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing.T) {
 	withIncidentPortabilityClaimed(t)
 	runtime := scenariotest.StartRuntime(t)
 	sourceHarness := runtime.StartServer(t, "phase11-incident-bundle-source")
@@ -490,7 +490,7 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_02_ImportEnvelopeIdempotencyAndImportedIn
 	}
 }
 
-func TestPhase11_I_11_INCIDENT_BUNDLES_08_ImportFinalPublicationRechecksSubmitterAvailability(t *testing.T) {
+func TestImportFinalPublicationRechecksSubmitterAvailability_Integration(t *testing.T) {
 	withIncidentPortabilityClaimed(t)
 	runtime := scenariotest.StartRuntime(t)
 	sourceHarness := runtime.StartServer(t, "phase11-incident-bundle-finalize-source")
@@ -575,7 +575,7 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_08_ImportFinalPublicationRechecksSubmitte
 	}
 }
 
-func TestPhase11_I_11_INCIDENT_BUNDLES_04_SupersededTimelineReplacementSurvivesImport(t *testing.T) {
+func TestSupersededTimelineReplacementSurvivesImport_Integration(t *testing.T) {
 	withIncidentPortabilityClaimed(t)
 	runtime := scenariotest.StartRuntime(t)
 	sourceHarness := runtime.StartServer(t, "phase11-incident-bundle-supersede-source")
@@ -629,7 +629,7 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_04_SupersededTimelineReplacementSurvivesI
 	}
 }
 
-func TestPhase11_I_11_INCIDENT_BUNDLES_05_FailureFamiliesLeaveNoVisibleIncident(t *testing.T) {
+func TestFailureFamiliesLeaveNoVisibleIncident_Integration(t *testing.T) {
 	withIncidentPortabilityClaimed(t)
 	runtime := scenariotest.StartRuntime(t)
 	sourceHarness := runtime.StartServer(t, "phase11-incident-bundle-failure-source")
@@ -798,7 +798,7 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_05_FailureFamiliesLeaveNoVisibleIncident(
 	assertImportFailureLeavesState(t, targetHarness, targetAdmin, incidentID, "txn-import-duplicate-incident", bundleBytes, "duplicate_incident_id")
 }
 
-func TestPhase11_I_11_INCIDENT_BUNDLES_06_DescriptorPaginationAndCanonicalManifest(t *testing.T) {
+func TestDescriptorPaginationAndCanonicalManifest_Integration(t *testing.T) {
 	withIncidentPortabilityClaimed(t)
 	harness := scenariotest.StartRuntime(t).StartServer(t, "phase11-incident-bundle-descriptor-canonical")
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
@@ -862,7 +862,7 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_06_DescriptorPaginationAndCanonicalManife
 	}
 }
 
-func TestPhase11_I_11_INCIDENT_BUNDLES_07_ImportEnvelopeFailuresCreateNoDurableState(t *testing.T) {
+func TestImportEnvelopeFailuresCreateNoDurableState_Integration(t *testing.T) {
 	withIncidentPortabilityClaimed(t)
 	harness := scenariotest.StartRuntime(t).StartServer(t, "phase11-incident-bundle-envelope-failures")
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)

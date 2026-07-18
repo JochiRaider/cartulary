@@ -14,7 +14,7 @@
       "selector": {
         "package": "./internal/modules/jobapi",
         "tests": [
-          "TestPhase11_U_11_JOBS_02_DeploymentJobAuthorizationReDerivedAtRequestTime"
+          "TestDeploymentJobAuthorizationReDerivedAtRequestTime_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -37,7 +37,7 @@
       "selector": {
         "package": "./internal/modules/jobapi",
         "tests": [
-          "TestPhase11_U_11_JOBS_01_IncidentJobAuthorizationReDerivedAtRequestTime"
+          "TestIncidentJobAuthorizationReDerivedAtRequestTime_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -60,7 +60,7 @@
       "selector": {
         "package": "./internal/modules/jobapi",
         "tests": [
-          "TestPhase11_U_11_JOBS_03_DeploymentAdminIncidentMembershipPolicy"
+          "TestDeploymentAdminIncidentMembershipPolicy_Unit"
         ]
       },
       "evidence_class": "integration",

@@ -14,7 +14,7 @@
       "selector": {
         "package": "./internal/modules/reporting",
         "tests": [
-          "TestPhase11_I_11_REPORTING_02_ExternalReleaseApprovalPublishAndStateConflicts"
+          "TestExternalReleaseApprovalPublishAndStateConflicts_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -37,7 +37,7 @@
       "selector": {
         "package": "./internal/modules/reporting",
         "tests": [
-          "TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable"
+          "TestSnapshotReplayAndReleaseProvenanceAreStable_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -60,7 +60,7 @@
       "selector": {
         "package": "./internal/modules/reporting",
         "tests": [
-          "TestPhase11_I_11_REPORTING_03_BoundaryReplayDefaultsAndActionIdempotency"
+          "TestBoundaryReplayDefaultsAndActionIdempotency_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -83,7 +83,7 @@
       "selector": {
         "package": "./internal/modules/reporting",
         "tests": [
-          "TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility"
+          "TestExactShapesAndRouteScopedVisibility_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -106,7 +106,7 @@
       "selector": {
         "package": "./internal/modules/reporting",
         "tests": [
-          "TestPhase11_U_11_REPORTING_06_OpenAPIReleaseEnumsAndExactResources"
+          "TestOpenAPIReleaseEnumsAndExactResources_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -129,7 +129,7 @@
       "selector": {
         "package": "./internal/modules/reporting",
         "tests": [
-          "TestPhase11_U_11_REPORTING_03_ExternalValidationRejectsOpaqueBytesAndWorkingMaterial"
+          "TestExternalValidationRejectsOpaqueBytesAndWorkingMaterial_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -152,7 +152,7 @@
       "selector": {
         "package": "./internal/modules/reporting",
         "tests": [
-          "TestPhase11_U_11_REPORTING_04_DisclosurePartitionsAndCuratedSupportRefsFailClosed"
+          "TestDisclosurePartitionsAndCuratedSupportRefsFailClosed_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -175,7 +175,7 @@
       "selector": {
         "package": "./internal/modules/reporting",
         "tests": [
-          "TestPhase11_U_11_REPORTING_01_RedactionProfilePrecedenceActionsAndManifest"
+          "TestRedactionProfilePrecedenceActionsAndManifest_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -198,7 +198,7 @@
       "selector": {
         "package": "./internal/modules/reporting",
         "tests": [
-          "TestPhase11_U_11_REPORTING_02_RedactionProfileRejectsConflictsHashAndUnsafeBounds"
+          "TestRedactionProfileRejectsConflictsHashAndUnsafeBounds_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -221,7 +221,7 @@
       "selector": {
         "package": "./internal/modules/reporting",
         "tests": [
-          "TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons"
+          "TestDecoderNormalizationAndRegisteredReasons_Unit"
         ]
       },
       "evidence_class": "unit",

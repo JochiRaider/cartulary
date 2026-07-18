@@ -14,7 +14,7 @@ func TestTimestampProfileExactGrammarPrecisionAndZoneTransitions(t *testing.T) {
 
 func TestTimestampProfileClosedJSONVariantsRejectNullMissingAndCrossVariantMembers(t *testing.T) {
 	t.Parallel()
-	approved := MarshalApprovedMapping(phase12ApprovedMapping(SourceProfileCiscoSNANetFlowCSV))
+	approved := MarshalApprovedMapping(approvedMappingFixture(SourceProfileCiscoSNANetFlowCSV))
 	for name, raw := range map[string]string{
 		"explicit null precision": strings.Replace(string(approved), `"precision":"microseconds"`, `"precision":null`, 1),
 		"missing rfc policy":      strings.Replace(string(approved), `,"local_time_gap_policy":"reject"`, ``, 1),
@@ -103,7 +103,7 @@ func assertNetFlowSystemUptimeTimestampAndMappingOrdinals(t *testing.T) {
 		t.Fatalf("uint32 reason = %q, %v", timestampReason(err), err)
 	}
 
-	mapping := phase12ApprovedMapping(SourceProfileCiscoSNANetFlowCSV)
+	mapping := approvedMappingFixture(SourceProfileCiscoSNANetFlowCSV)
 	mapping.TimestampProfile = profile
 	for len(mapping.SourceColumns) < 4 {
 		ordinal := len(mapping.SourceColumns) + 1

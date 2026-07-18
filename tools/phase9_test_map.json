@@ -97,19 +97,19 @@
     "apps/web/src/workbook/WorkbookShell.phase8.query.test.tsx",
     "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
     "internal/modules/assessments/assessments_integration_test.go",
-    "internal/modules/collaboration/phase6_integration_test.go",
-    "internal/modules/collaboration/phase6_shared_harness_test.go",
-    "internal/modules/collaboration/phase6_socket_test.go",
-    "internal/modules/entities/phase4_integration_test.go",
-    "internal/modules/entities/phase4_support_integration_test.go",
-    "internal/modules/entities/phase4_unit_test.go",
-    "internal/modules/workbook/phase6_conflict_route_test.go",
-    "internal/modules/workbook/phase6_integration_test.go",
-    "internal/modules/workbook/phase6_shared_harness_test.go",
-    "internal/modules/workbook/phase8_grouping_contract_test.go",
-    "internal/modules/workbook/phase8_row_wire_test.go",
-    "internal/platform/viewquery/phase8_query_contract_test.go",
-    "internal/platform/viewschema/phase8_viewschema_test.go",
+    "internal/modules/collaboration/integration_test.go",
+    "internal/modules/collaboration/shared_harness_test.go",
+    "internal/modules/collaboration/socket_test.go",
+    "internal/modules/entities/resolution_integration_test.go",
+    "internal/modules/entities/support_integration_test.go",
+    "internal/modules/entities/unit_test.go",
+    "internal/modules/workbook/conflict_route_test.go",
+    "internal/modules/workbook/integration_test.go",
+    "internal/modules/workbook/shared_harness_test.go",
+    "internal/modules/workbook/grouping_contract_test.go",
+    "internal/modules/workbook/row_wire_test.go",
+    "internal/platform/viewquery/query_contract_test.go",
+    "internal/platform/viewschema/viewschema_test.go",
     "packages/grid-adapter/src/core.test.ts",
     "packages/grid-adapter/src/index.test.tsx"
   ],
@@ -118,9 +118,9 @@
       "target": "backend_unit",
       "section": "unit",
       "package": "./internal/modules/timeline",
-      "file": "internal/modules/timeline/phase9_clipboard_paste_test.go",
-      "symbol": "TestSupportPhase9_ClipboardPasteParsingMappingRawCaptureAndBinding",
-      "selection_pattern": "TestSupportPhase9_ClipboardPasteParsingMappingRawCaptureAndBinding",
+      "file": "internal/modules/timeline/clipboard_paste_test.go",
+      "symbol": "TestClipboardPasteParsingMappingRawCaptureAndBinding",
+      "selection_pattern": "TestClipboardPasteParsingMappingRawCaptureAndBinding",
       "execution_family": "backend-unit-phase9-clipboard",
       "execution_label": "backend-unit support phase9 timeline clipboard",
       "evidence_class": "implementation_support",
@@ -128,7 +128,7 @@
       "default_check_required": false,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "implementation_support_explicit_only",
-      "primary_evidence_owner": "backend_unit::internal/modules/timeline/phase9_clipboard_paste_test.go::TestSupportPhase9_ClipboardPasteParsingMappingRawCaptureAndBinding",
+      "primary_evidence_owner": "backend_unit::internal/modules/timeline/clipboard_paste_test.go::TestClipboardPasteParsingMappingRawCaptureAndBinding",
       "duplicate_of": null,
       "evidence_delta": "support evidence is explicit-only",
       "warm_local_cost_class": "low"
@@ -138,8 +138,8 @@
       "section": "unit",
       "package": "./internal/modules/tabularingest",
       "file": "internal/modules/tabularingest/tabularingest_test.go",
-      "symbol": "TestSupportPhase9_SharedTabularIngestParsesMapsAndGroupsBatch",
-      "selection_pattern": "TestSupportPhase9_SharedTabularIngestParsesMapsAndGroupsBatch",
+      "symbol": "TestSharedTabularIngestParsesMapsAndGroupsBatch",
+      "selection_pattern": "TestSharedTabularIngestParsesMapsAndGroupsBatch",
       "execution_family": "backend-unit-phase9-clipboard",
       "execution_label": "backend-unit support phase9 tabular ingest",
       "evidence_class": "implementation_support",
@@ -147,7 +147,7 @@
       "default_check_required": false,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "implementation_support_explicit_only",
-      "primary_evidence_owner": "backend_unit::internal/modules/tabularingest/tabularingest_test.go::TestSupportPhase9_SharedTabularIngestParsesMapsAndGroupsBatch",
+      "primary_evidence_owner": "backend_unit::internal/modules/tabularingest/tabularingest_test.go::TestSharedTabularIngestParsesMapsAndGroupsBatch",
       "duplicate_of": null,
       "evidence_delta": "support evidence is explicit-only",
       "warm_local_cost_class": "low"
@@ -183,8 +183,8 @@
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/workbook",
-      "file": "internal/modules/workbook/phase9_clipboard_paste_unit_test.go",
-      "symbol": "TestPhase9_U_9_02_SharedPasteAndBulkPlanningGroupsOneVisibleAction",
+      "file": "internal/modules/workbook/clipboard_paste_unit_test.go",
+      "symbol": "TestSharedPasteAndBulkPlanningGroupsOneVisibleAction_Unit",
       "execution_dependency": "backend_unit",
       "evidence_layer": "backend_unit",
       "claim": "Shared paste and bulk planning parses quoted CSV and TSV input, maps source columns to stable field_key values, preserves unknown source-column descriptors, carries entity_binding_mode, dimensions the clipboard payload, and maps fill-down plus multi-row tag assignment into one visible bulk action identity with stable row targets.",
@@ -207,8 +207,8 @@
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/workbook",
-      "file": "internal/modules/workbook/phase9_notes_indicators_test.go",
-      "symbol": "TestPhase9_NotesAreArtifactBackedRows_U_9_03",
+      "file": "internal/modules/workbook/notes_indicators_test.go",
+      "symbol": "TestNotesAreArtifactBackedRows_Unit",
       "execution_dependency": "backend_store",
       "evidence_layer": "backend_store",
       "claim": "Notes create as shared artifact records with artifacts.artifact_type='note', keep tags and revision history in shared stores, avoid a Notes-only persistence table, and linked-note creation uses record_links with references_artifact while Notes queries expose the row through cartulary.view.notes.v1.",
@@ -239,8 +239,8 @@
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/indicators",
-      "file": "internal/modules/indicators/phase9_indicators_test.go",
-      "symbol": "TestPhase9_IndicatorsCanonicalObservationLifecycle_U_9_04",
+      "file": "internal/modules/indicators/indicators_test.go",
+      "symbol": "TestIndicatorsCanonicalObservationLifecycle_Unit",
       "execution_dependency": "backend_store",
       "evidence_layer": "backend_store",
       "claim": "Indicators persist as canonical indicator records, duplicate canonical creates reuse identity, create does not create observation rows, repeated source-bound observations remain distinct occurrences, and lifecycle intervals remain separate while projection rollups expose observation and lifecycle summaries.",
@@ -271,8 +271,8 @@
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/parties",
-      "file": "internal/modules/parties/phase9_parties_test.go",
-      "symbol": "TestPhase9_PartyExactMatchReuseAndRawTextPreservation_U_9_05",
+      "file": "internal/modules/parties/parties_test.go",
+      "symbol": "TestPartyExactMatchReuseAndRawTextPreservation_Unit",
       "execution_dependency": "backend_store",
       "evidence_layer": "backend_store",
       "claim": "Party create reuses exactly one active same-incident Party by normalized primary_email or, failing that, external_ref, never reuses deleted exact-match Parties, while display/org/role and phone-like text do not drive reuse and ordinary party text remains source-preserving without auto-creating or auto-linking Party records.",
@@ -303,8 +303,8 @@
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/assessments",
-      "file": "internal/modules/assessments/phase9_assessment_contract_test.go",
-      "symbol": "TestPhase9_AssessmentsAppendOnlyStatesAndBands_U_9_06",
+      "file": "internal/modules/assessments/assessment_contract_test.go",
+      "symbol": "TestAssessmentsAppendOnlyStatesAndBands_Unit",
       "execution_dependency": "backend_store",
       "evidence_layer": "backend_store",
       "claim": "Compromise Assessments append incident-scoped host and identity judgment records, use only the closed assessment_state vocabulary with disproven and cleared distinct, reject operational-response state values and in-place semantic assessment PATCH attempts, require the minimum create-time semantic set after normalization, default omitted assessed_at/assessor/confidence_score to commit timestamp/authenticated actor/NULL, derive deterministic confidence bands including unset for NULL confidence, expose separate assessment_state and confidence_band filters, and sort confidence_band in canonical unset, low, medium, high order.",
@@ -335,13 +335,13 @@
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/tasksdecisions",
-      "file": "internal/modules/tasksdecisions/phase9_task_decisions_store_test.go",
+      "file": "internal/modules/tasksdecisions/task_decisions_store_test.go",
       "symbols": [
-        "TestPhase9Sprint6_TaskRequestLifecycleDecisionLinksAndProjection_U_9_07",
-        "TestPhase9Sprint6_TaskLifecycleGuardFailures_U_9_07",
-        "TestPhase9Sprint6_DecisionLifecycleSupersessionAndConsistency_U_9_07",
-        "TestPhase9Sprint6_SupersedeDecisionRejectsInconsistentSourceOrTarget_U_9_07",
-        "TestPhase9Sprint6_DecisionTerminalTransitionMatrix_U_9_07"
+        "TestTaskRequestLifecycleDecisionLinksAndProjection_Unit",
+        "TestTaskLifecycleGuardFailures_Unit",
+        "TestDecisionLifecycleSupersessionAndConsistency_Unit",
+        "TestSupersedeDecisionRejectsInconsistentSourceOrTarget_Unit",
+        "TestDecisionTerminalTransitionMatrix_Unit"
       ],
       "execution_dependency": "backend_store",
       "evidence_layer": "backend_store",
@@ -373,17 +373,17 @@
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/workbook",
-      "file": "internal/modules/workbook/phase9_coordination_surfaces_test.go",
+      "file": "internal/modules/workbook/coordination_surfaces_test.go",
       "symbols": [
-        "TestPhase9Sprint7_CoordinationMinimumDefaultsAndRejection_U_9_08",
-        "TestPhase9Sprint7_RejectedCoordinationCreateEmitsNoRecordChanged_U_9_08",
-        "TestPhase9Sprint7_CoordinationSavedViewsRemainAdditive_U_9_08",
-        "TestPhase9Sprint7_CoordinationProjectionSortFilterGroup_U_9_08",
-        "TestPhase9Sprint7_CoordinationSemanticFilters_U_9_08",
-        "TestPhase9Sprint7_CoordinationCollectionItemShapes_U_9_08",
-        "TestPhase9Sprint7_CoordinationDuplicateCoalescing_U_9_08",
-        "TestPhase9Sprint7_CoordinationCollectionsAndValidation_U_9_08",
-        "TestPhase9Sprint7_CoordinationDeclaredQueryFieldsAreMapped_U_9_08"
+        "TestCoordinationMinimumDefaultsAndRejection_Unit",
+        "TestRejectedCoordinationCreateEmitsNoRecordChanged_Unit",
+        "TestCoordinationSavedViewsRemainAdditive_Unit",
+        "TestCoordinationProjectionSortFilterGroup_Unit",
+        "TestCoordinationSemanticFilters_Unit",
+        "TestCoordinationCollectionItemShapes_Unit",
+        "TestCoordinationDuplicateCoalescing_Unit",
+        "TestCoordinationCollectionsAndValidation_Unit",
+        "TestCoordinationDeclaredQueryFieldsAreMapped_Unit"
       ],
       "execution_dependency": "backend_store",
       "evidence_layer": "backend_store",
@@ -400,7 +400,7 @@
         }
       },
       "symbol_fixture_overrides": {
-        "TestPhase9Sprint7_CoordinationMinimumDefaultsAndRejection_U_9_08": {
+        "TestCoordinationMinimumDefaultsAndRejection_Unit": {
           "fixture_policy": {
             "postgres": "transaction"
           },
@@ -412,11 +412,11 @@
           "fixture_proof": {
             "proof_kind": "transaction",
             "proof_status": "accepted",
-            "proof_ref": "internal/modules/workbook/phase9_coordination_surfaces_test.go:StartStore",
+            "proof_ref": "internal/modules/workbook/coordination_surfaces_test.go:StartStore",
             "reason": "Symbol uses the rollback-scoped StartStore store fixture and does not require cross-connection committed runtime state."
           }
         },
-        "TestPhase9Sprint7_CoordinationSavedViewsRemainAdditive_U_9_08": {
+        "TestCoordinationSavedViewsRemainAdditive_Unit": {
           "fixture_policy": {
             "postgres": "transaction"
           },
@@ -428,11 +428,11 @@
           "fixture_proof": {
             "proof_kind": "transaction",
             "proof_status": "accepted",
-            "proof_ref": "internal/modules/workbook/phase9_coordination_surfaces_test.go:StartStore",
+            "proof_ref": "internal/modules/workbook/coordination_surfaces_test.go:StartStore",
             "reason": "Symbol uses the rollback-scoped StartStore store fixture for saved-view creation, startup resolution, and canonical query identity without cross-connection committed runtime state."
           }
         },
-        "TestPhase9Sprint7_CoordinationProjectionSortFilterGroup_U_9_08": {
+        "TestCoordinationProjectionSortFilterGroup_Unit": {
           "fixture_policy": {
             "postgres": "transaction"
           },
@@ -444,11 +444,11 @@
           "fixture_proof": {
             "proof_kind": "transaction",
             "proof_status": "accepted",
-            "proof_ref": "internal/modules/workbook/phase9_coordination_surfaces_test.go:StartStore",
+            "proof_ref": "internal/modules/workbook/coordination_surfaces_test.go:StartStore",
             "reason": "Symbol uses the rollback-scoped StartStore store fixture and does not require cross-connection committed runtime state."
           }
         },
-        "TestPhase9Sprint7_CoordinationSemanticFilters_U_9_08": {
+        "TestCoordinationSemanticFilters_Unit": {
           "fixture_policy": {
             "postgres": "transaction"
           },
@@ -460,11 +460,11 @@
           "fixture_proof": {
             "proof_kind": "transaction",
             "proof_status": "accepted",
-            "proof_ref": "internal/modules/workbook/phase9_coordination_surfaces_test.go:StartStore",
+            "proof_ref": "internal/modules/workbook/coordination_surfaces_test.go:StartStore",
             "reason": "Symbol uses the rollback-scoped StartStore store fixture and does not require cross-connection committed runtime state."
           }
         },
-        "TestPhase9Sprint7_CoordinationCollectionItemShapes_U_9_08": {
+        "TestCoordinationCollectionItemShapes_Unit": {
           "fixture_policy": {
             "postgres": "transaction"
           },
@@ -476,11 +476,11 @@
           "fixture_proof": {
             "proof_kind": "transaction",
             "proof_status": "accepted",
-            "proof_ref": "internal/modules/workbook/phase9_coordination_surfaces_test.go:StartStore",
+            "proof_ref": "internal/modules/workbook/coordination_surfaces_test.go:StartStore",
             "reason": "Symbol uses the rollback-scoped StartStore store fixture and does not require cross-connection committed runtime state."
           }
         },
-        "TestPhase9Sprint7_CoordinationDuplicateCoalescing_U_9_08": {
+        "TestCoordinationDuplicateCoalescing_Unit": {
           "fixture_policy": {
             "postgres": "transaction"
           },
@@ -492,11 +492,11 @@
           "fixture_proof": {
             "proof_kind": "transaction",
             "proof_status": "accepted",
-            "proof_ref": "internal/modules/workbook/phase9_coordination_surfaces_test.go:StartStore",
+            "proof_ref": "internal/modules/workbook/coordination_surfaces_test.go:StartStore",
             "reason": "Symbol uses the rollback-scoped StartStore store fixture and does not require cross-connection committed runtime state."
           }
         },
-        "TestPhase9Sprint7_CoordinationCollectionsAndValidation_U_9_08": {
+        "TestCoordinationCollectionsAndValidation_Unit": {
           "fixture_policy": {
             "postgres": "transaction"
           },
@@ -508,11 +508,11 @@
           "fixture_proof": {
             "proof_kind": "transaction",
             "proof_status": "accepted",
-            "proof_ref": "internal/modules/workbook/phase9_coordination_surfaces_test.go:StartStore",
+            "proof_ref": "internal/modules/workbook/coordination_surfaces_test.go:StartStore",
             "reason": "Symbol uses the rollback-scoped StartStore store fixture and does not require cross-connection committed runtime state."
           }
         },
-        "TestPhase9Sprint7_CoordinationDeclaredQueryFieldsAreMapped_U_9_08": {
+        "TestCoordinationDeclaredQueryFieldsAreMapped_Unit": {
           "fixture_policy": {
             "postgres": "transaction"
           },
@@ -524,7 +524,7 @@
           "fixture_proof": {
             "proof_kind": "transaction",
             "proof_status": "accepted",
-            "proof_ref": "internal/modules/workbook/phase9_coordination_surfaces_test.go:StartStore",
+            "proof_ref": "internal/modules/workbook/coordination_surfaces_test.go:StartStore",
             "reason": "Symbol uses the rollback-scoped StartStore store fixture and does not require cross-connection committed runtime state."
           }
         }
@@ -549,9 +549,9 @@
       "package": "./internal/modules/workbook",
       "file": "internal/modules/workbook/optional_surfaces_store_test.go",
       "symbols": [
-        "TestPhase9_U_9_09_OptionalStandardizedSurfacesStoreBehavior",
-        "TestPhase9_U_9_09_OptionalStandardizedSurfacesProjectionQueryBehavior",
-        "TestPhase9_U_9_09_FindingsConfidenceBandBoundaries"
+        "TestOptionalStandardizedSurfacesStoreBehavior_Unit",
+        "TestOptionalStandardizedSurfacesProjectionQueryBehavior_Unit",
+        "TestFindingsConfidenceBandBoundaries_Unit"
       ],
       "execution_dependency": "backend_store",
       "evidence_layer": "backend_store",
@@ -583,8 +583,8 @@
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/workbook",
-      "file": "internal/modules/workbook/phase9_timestamp_contract_test.go",
-      "symbol": "TestPhase9_TimestampInstantPatchDecoder_U_9_10",
+      "file": "internal/modules/workbook/timestamp_contract_test.go",
+      "symbol": "TestTimestampInstantPatchDecoder_Unit",
       "execution_dependency": "backend_unit",
       "evidence_layer": "backend_unit",
       "claim": "timestamp_instant_v1 accepts RFC 3339 JSON strings with Z or numeric offsets, normalizes offset-equivalent values to one UTC instant for equality and idempotency hashing, clears only timestamp fields declared clearable=true including coordination next-report and acknowledged-at fields, rejects explicit null for non-clearable coordination timestamp_utc fields, and fails closed for empty strings, whitespace-padded strings, timezone-less strings, date-only strings, numbers, booleans, arrays, and objects in workbook mutation and timestamp query operand decoding.",
@@ -607,11 +607,11 @@
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/parties",
-      "file": "internal/modules/parties/phase9_party_refs_test.go",
+      "file": "internal/modules/parties/party_refs_test.go",
       "symbols": [
-        "TestPhase9_U_9_11_DirectDecisionReferenceDecoderAcceptsOnlyExactStableIDs",
-        "TestPhase9_U_9_11_DirectPartyReferencesAcceptOnlyExactStableIDs",
-        "TestPhase9_U_9_11_DirectPartyReferencesRequireSameIncidentActiveParties"
+        "TestDirectDecisionReferenceDecoderAcceptsOnlyExactStableIDs_Unit",
+        "TestDirectPartyReferencesAcceptOnlyExactStableIDs_Unit",
+        "TestDirectPartyReferencesRequireSameIncidentActiveParties_Unit"
       ],
       "execution_dependency": "backend_store",
       "evidence_layer": "backend_store",
@@ -643,8 +643,8 @@
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/assessments",
-      "file": "internal/modules/assessments/phase9_assessment_contract_test.go",
-      "symbol": "TestPhase9_U_9_12_RelationshipConfidenceRejectedAndManualLinksRemainNull",
+      "file": "internal/modules/assessments/assessment_contract_test.go",
+      "symbol": "TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit",
       "execution_dependency": "backend_store",
       "evidence_layer": "backend_store",
       "claim": "Assessment support_refs, Task linked_record_ids, Decision support_refs, Decision affected_record_ids, and all coordination record_ref, party_ref, and risk_ref collection fields reject client-supplied confidence in collection-action payloads; manual record and party links created or preserved through those fields persist provenance='manual' with authoritative confidence=NULL, while handoff risk refs remain child rows without generic record-link confidence.",
@@ -676,7 +676,7 @@
       "runner": "go_test",
       "package": "./internal/platform/viewschema",
       "file": "internal/platform/viewschema/registry_test.go",
-      "symbol": "TestPhase9_U_9_13_ArtifactVariantRegistryClosure",
+      "symbol": "TestArtifactVariantRegistryClosure_Unit",
       "execution_dependency": "backend_unit",
       "evidence_layer": "backend_unit",
       "claim": "The artifact-backed variant registry is closed to note, comm_log, handoff, status_review, lesson, and finding in canonical order; Notes remains the required built-in sheet, required coordination variants keep canonical workbook-native view_schema identities and artifact_type filters, finding remains optional/additive, and no hypothesis variant, artifact_type, or view_schema is exposed.",
@@ -727,11 +727,11 @@
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/workbook",
-      "file": "internal/modules/workbook/phase9_clipboard_paste_integration_test.go",
+      "file": "internal/modules/workbook/clipboard_paste_integration_test.go",
       "symbols": [
-        "TestPhase9_I_9_01_TimelineClipboardPastePersistsOrderedMutationsAndConflicts",
-        "TestPhase9_I_9_01_EntityOriginClipboardPasteUsesSharedIngest",
-        "TestPhase9_I_9_01_BulkMutationsPersistOneVisibleBatch"
+        "TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration",
+        "TestEntityOriginClipboardPasteUsesSharedIngest_Integration",
+        "TestBulkMutationsPersistOneVisibleBatch_Integration"
       ],
       "execution_dependency": "backend_integration",
       "evidence_layer": "backend_integration",
@@ -765,13 +765,13 @@
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/workbook",
-      "file": "internal/modules/workbook/phase9_notes_indicators_test.go",
+      "file": "internal/modules/workbook/notes_indicators_test.go",
       "symbols": [
-        "TestPhase9_NotesAndIndicatorsQueryThroughWorkbookProjections_I_9_02",
-        "TestPhase9_AssessmentsQueryThroughWorkbookProjections_I_9_02",
-        "TestPhase9_TaskRequestsAndDecisionsQueryThroughWorkbookProjections_I_9_02",
-        "TestPhase9_CoordinationSurfacesQueryThroughWorkbookProjections_I_9_02",
-        "TestPhase9_WorkbookHotProjectionTablesRebuild_I_9_02"
+        "TestNotesAndIndicatorsQueryThroughWorkbookProjections_Integration",
+        "TestAssessmentsQueryThroughWorkbookProjections_Integration",
+        "TestTaskRequestsAndDecisionsQueryThroughWorkbookProjections_Integration",
+        "TestCoordinationSurfacesQueryThroughWorkbookProjections_Integration",
+        "TestWorkbookHotProjectionTablesRebuild_Integration"
       ],
       "execution_dependency": "backend_integration",
       "evidence_layer": "backend_integration",
@@ -803,8 +803,8 @@
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/workbook",
-      "file": "internal/modules/workbook/phase9_parties_integration_test.go",
-      "symbol": "TestPhase9_PartyLinkHelperFieldsPreserveTextIndependently_I_9_03",
+      "file": "internal/modules/workbook/parties_integration_test.go",
+      "symbol": "TestPartyLinkHelperFieldsPreserveTextIndependently_Integration",
       "execution_dependency": "backend_integration",
       "evidence_layer": "backend_integration",
       "claim": "Party-link helper field writes update hidden same-incident Party references without overwriting preserved requester, collector, or source text; clear-link, clear-text, and clear-both semantics round-trip through full row refresh state; foreign, deleted, wrong-type, or deployment-user UUID targets fail closed for requester, collector, source, audience, and attendee party references; comm-log audience text is preserved when audience or attendee party refs are added or removed; and deleting a Party with active direct or collection incoming references fails closed.",

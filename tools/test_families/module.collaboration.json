@@ -477,7 +477,7 @@
       "selector": {
         "package": "./internal/modules/collaboration",
         "tests": [
-          "TestPhase6_CookieSocketRejectsUntrustedOrigin_I_6_04"
+          "TestCookieSocketRejectsUntrustedOrigin_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -500,7 +500,7 @@
       "selector": {
         "package": "./internal/modules/collaboration",
         "tests": [
-          "TestPhase6_ResumeReplaysReplayableMessagesOnly_I_6_02"
+          "TestResumeReplaysReplayableMessagesOnly_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -523,7 +523,7 @@
       "selector": {
         "package": "./internal/modules/collaboration",
         "tests": [
-          "TestPhase6_TwoClientsPresenceReplay_I_6_01"
+          "TestTwoClientsPresenceReplay_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -546,8 +546,8 @@
       "selector": {
         "package": "./internal/modules/collaboration",
         "tests": [
-          "TestPhase6_IncidentSocketHeartbeatIdleExpiry_U_6_08",
-          "TestPhase6_IncidentSocketPresenceScopeEphemeral_U_6_08"
+          "TestIncidentSocketHeartbeatIdleExpiry_Unit",
+          "TestIncidentSocketPresenceScopeEphemeral_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -570,7 +570,7 @@
       "selector": {
         "package": "./internal/modules/collaboration",
         "tests": [
-          "TestPhase6_IncidentSocketHandshakeResume_U_6_07"
+          "TestIncidentSocketHandshakeResume_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -593,7 +593,7 @@
       "selector": {
         "package": "./internal/modules/collaboration",
         "tests": [
-          "TestSupportPhase6_IncidentSocketRevocationSources"
+          "TestIncidentSocketRevocationSources"
         ]
       },
       "evidence_class": "integration",
@@ -616,8 +616,8 @@
       "selector": {
         "package": "./internal/modules/collaboration",
         "tests": [
-          "TestSupportPhase6SharedHarness_SocketEventInventoryCoverage",
-          "TestSupportPhase6SharedHarness_SocketLifecycleEvidenceIndex"
+          "TestSocketEventInventoryCoverage",
+          "TestSocketLifecycleEvidenceIndex"
         ]
       },
       "evidence_class": "unit",

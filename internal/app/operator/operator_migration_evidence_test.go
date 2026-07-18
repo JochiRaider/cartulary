@@ -19,7 +19,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/migrationevidence"
 )
 
-func TestPhase0_MigrationEvidenceCommand_U_0_10(t *testing.T) {
+func TestMigrationEvidenceCommand_Unit(t *testing.T) {
 	t.Run("parse and validate CLI flags", runMigrationEvidenceCaptureArgsParseAndValidate)
 	t.Run("reject invalid CLI inputs", runMigrationEvidenceCaptureArgsRejectsInvalidInputs)
 	t.Run("emit redacted evidence-only JSON", runMigrationEvidenceCaptureCommandOutputsRedactedEvidenceOnlyJSON)

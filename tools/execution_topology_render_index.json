@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:dfc90d00cb6204b91b7c80bf3e0650233bf8ad20cd0b3b3dff993973288fa8bc",
+  "input_digest": "sha256:354e93b4374cd53ae41f7f9e183041623626473b06c88e8b03a4b68c2ae12a6d",
   "inputs": [
     {
       "path": "tools/browser_e2e_duration_baselines.json",
@@ -17,7 +17,7 @@
     {
       "path": "tools/go_test_duration_baselines.json",
       "role": "duration_baseline",
-      "hash": "sha256:7dd9f108a55f7b65295a1abb1c76aed1131603a0caf6ca5db3db9333403f328e"
+      "hash": "sha256:55a884a776bbf3bf2834e716ef45969039b72d1c75c3e89ed145a5164d3ab66c"
     },
     {
       "path": "tools/harness_smoke_duration_baselines.json",
@@ -537,7 +537,7 @@
     {
       "path": "tools/harness/phase-accounting/phase-entry-evidence.mjs",
       "role": "renderer_source",
-      "hash": "sha256:db82c47f14dbe11dbd3114bd13efe286d2746539394fbc7c931f34ec5c7c00a8"
+      "hash": "sha256:81a274a8d45fb3b35b78b351adaa6e9634f62d265957656423bc1854de12af22"
     },
     {
       "path": "tools/harness/phase-accounting/phase-fixture-policy.mjs",
@@ -667,7 +667,7 @@
     {
       "path": "tools/harness/phase-accounting/phase-test-name-check-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:64782f566d737d2b78de2321526f9da036e15b34069cee352fbe3246893e6581"
+      "hash": "sha256:d30c05381fab195b0511815d1f2406247accdc56856351aefbfc2051b64fd059"
     },
     {
       "path": "tools/harness/phase-accounting/subsystem-manifest.mjs",
@@ -827,67 +827,67 @@
     {
       "path": "tools/phase0_test_map.json",
       "role": "active_phase_manifest",
-      "hash": "sha256:b17dd8126312fcbe768fe7168f9a7c3b9cee52a5756b322ddc76921808c06eb8"
+      "hash": "sha256:27eda71a33fac45a7f9abeebb85eeb3ffe434ba9a2ff7e0dbed2187aa656df5e"
     },
     {
       "path": "tools/phase1_test_map.json",
       "role": "active_phase_manifest",
-      "hash": "sha256:07a917a1940ab31df92596db8dab83d723805e5abb23d059f7414bc53da3d1fb"
+      "hash": "sha256:20914a9fa1c1adf6f6090941e4063ef8693da37120d82cf8fd00bd613cb6c3fe"
     },
     {
       "path": "tools/phase10_test_map.json",
       "role": "active_phase_manifest",
-      "hash": "sha256:c71a87eab7b3d1fa400404565639ab5bf2dd541cc6d8c776e847edcdc4be5daa"
+      "hash": "sha256:1b723d91a764cf22521931d24e8603b3dff2ddefc863b4e8eccc78e54a569594"
     },
     {
       "path": "tools/phase11_test_map.json",
       "role": "active_phase_manifest",
-      "hash": "sha256:58a3660ecd20b2811d48cce215add66553685c5fe6d63388063367693d4ae6a5"
+      "hash": "sha256:30bdadb226ecbad96c6cf205656c204de8bf829cde30bf942779166a28232159"
     },
     {
       "path": "tools/phase12_test_map.json",
       "role": "active_phase_manifest",
-      "hash": "sha256:a1eaa33a28be7aa449ac3b0b0bd51fcdfb23a3b386fcc35f8c941acc2f4dde56"
+      "hash": "sha256:11765ac68a384ebdeab58e142ef02d31bd2b53584a4e1392186ec07030a866cf"
     },
     {
       "path": "tools/phase2_test_map.json",
       "role": "active_phase_manifest",
-      "hash": "sha256:aee4e9a78279c8b3d01abb7500be9b937cb570bfdc8cd91e2ebb4b9d00ed1d77"
+      "hash": "sha256:b7d24ae26002fa2da53d3f806735e8a41538703308cdb8d2994c9c69ddc7af1d"
     },
     {
       "path": "tools/phase3_test_map.json",
       "role": "active_phase_manifest",
-      "hash": "sha256:41cadeeac6ad8b66de25f3fbd0262b1a5d4bc236f66d3d7d66bf9a170d937c58"
+      "hash": "sha256:33053ab375cfa1a678fa7471d6d4243882aaa10e933f9a8179141aa84d4d1b6c"
     },
     {
       "path": "tools/phase4_test_map.json",
       "role": "active_phase_manifest",
-      "hash": "sha256:10941d18ab939ada0e17cfde92d7757918b3d5014d0f78bf108fe2f685985317"
+      "hash": "sha256:1f6c53340dc2ffe89a453aeed8a027fdf79c10585207e079ad846751b0d3325a"
     },
     {
       "path": "tools/phase5_test_map.json",
       "role": "active_phase_manifest",
-      "hash": "sha256:26888651102ba43f11229b603d03feface120ea5c8cd45b9d4117c05c717583b"
+      "hash": "sha256:55e16e0c80d223aaa8f123c3adbf9770db005939f516b9b2d3f88fbe2fdcc802"
     },
     {
       "path": "tools/phase6_test_map.json",
       "role": "active_phase_manifest",
-      "hash": "sha256:51a97d8bdfe6a663b8b918be8a208dd8e2c5f6655b28d8c541b18add0bb3a2ea"
+      "hash": "sha256:d7812d126acd5f3e333c6873e015d77263348deed663d46d68b22d64d66d9739"
     },
     {
       "path": "tools/phase7_test_map.json",
       "role": "active_phase_manifest",
-      "hash": "sha256:04fdd85757468c7863345ad9c9f56c4ef7cde3dab022ac62c4a1fad01f46ba58"
+      "hash": "sha256:2eac4950560d4b9bf15fbd8418ac121083e281bf7fc66b33acddc97dbf669bfc"
     },
     {
       "path": "tools/phase8_test_map.json",
       "role": "active_phase_manifest",
-      "hash": "sha256:283a2ad6f1904f3d299378013b3458c33c1cd6ce45fd247aa313a82f284bcee3"
+      "hash": "sha256:0addae8f86512043291d85af5866df07a9388b553d187c39bb3dd9b54e96b21e"
     },
     {
       "path": "tools/phase9_test_map.json",
       "role": "active_phase_manifest",
-      "hash": "sha256:f93450b420da2b02dcb438a13b9f787e9110a1dff5ab25e7449eaab5de65d79a"
+      "hash": "sha256:552572ab68a9865ed2d32945d5f1a0ee7b1d6c052c0cf07888954d88c4650dd8"
     },
     {
       "path": "tools/scheduler_resource_registry.json",

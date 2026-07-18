@@ -13,7 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
-func TestSupportPhase2_WorkbookStartupPreferencesBootstrapAndUpsert(t *testing.T) {
+func TestWorkbookStartupPreferencesBootstrapAndUpsert(t *testing.T) {
 	harness := storetest.StartStore(t, "workbook-startup-prefs")
 	store := workbookstartup.NewStore(harness.DB)
 	actor := authstoretest.SeedLocalUserRecord(
@@ -137,7 +137,7 @@ DELETE FROM incident_workbook_preferences
 	}
 }
 
-func TestSupportPhase12_ExtensionWorkspaceStartupRoundTripAndClaimLossFallback(t *testing.T) {
+func TestExtensionWorkspaceStartupRoundTripAndClaimLossFallback(t *testing.T) {
 	harness := storetest.StartStore(t, "workbook-startup-extension-workspace")
 	actor := authstoretest.SeedLocalUserRecord(
 		t,

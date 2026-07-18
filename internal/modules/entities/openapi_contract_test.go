@@ -7,7 +7,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 )
 
-func TestOpenAPIPhase4MutationContractShape(t *testing.T) {
+func TestOpenAPIMutationContractShape(t *testing.T) {
 	document := loadOpenAPIContract(t)
 	schemas := objectAt(t, document, "components", "schemas")
 

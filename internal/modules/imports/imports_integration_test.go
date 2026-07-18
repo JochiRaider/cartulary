@@ -46,7 +46,7 @@ func TestExtensionImportUploadEarlyFailCreatesNoDurableRows(t *testing.T) {
 	requireImportCounts(t, harness.DB, importCounts{})
 }
 
-func TestPhase11_I_11_IMPORT_01_UploadMetadataNonObjectCreatesNoDurableRows(t *testing.T) {
+func TestUploadMetadataNonObjectCreatesNoDurableRows_Integration(t *testing.T) {
 	restore := claimImportProfileForTest()
 	t.Cleanup(restore)
 
@@ -157,7 +157,7 @@ SELECT source_stream_ref, source_content_sha256, source_bytes
 	}
 }
 
-func TestPhase11_I_11_IMPORT_03_XLSXDiscoveryUsesBoundedUsedRange(t *testing.T) {
+func TestXLSXDiscoveryUsesBoundedUsedRange_Integration(t *testing.T) {
 	restore := claimImportProfileForTest()
 	t.Cleanup(restore)
 
@@ -206,7 +206,7 @@ func TestPhase11_I_11_IMPORT_03_XLSXDiscoveryUsesBoundedUsedRange(t *testing.T) 
 	}
 }
 
-func TestPhase11_I_11_IMPORT_02_MappingSelectApplyCreatesTimelineRows(t *testing.T) {
+func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 	restore := claimImportProfileForTest()
 	t.Cleanup(restore)
 
@@ -339,7 +339,7 @@ func TestPhase11_I_11_IMPORT_02_MappingSelectApplyCreatesTimelineRows(t *testing
 	}
 }
 
-func TestPhase11_I_11_IMPORT_02_TargetRegistryAndEntityOwnerFacade(t *testing.T) {
+func TestTargetRegistryAndEntityOwnerFacade_Integration(t *testing.T) {
 	restore := claimImportProfileForTest()
 	t.Cleanup(restore)
 
@@ -547,7 +547,7 @@ UPDATE incident_memberships
 	}
 }
 
-func TestPhase11_I_11_IMPORT_02_EvidenceImportUsesOwnerFacadeAndJournal(t *testing.T) {
+func TestEvidenceImportUsesOwnerFacadeAndJournal_Integration(t *testing.T) {
 	restore := claimImportProfileForTest()
 	t.Cleanup(restore)
 

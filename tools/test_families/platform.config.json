@@ -14,7 +14,7 @@
       "selector": {
         "package": "./internal/platform/config",
         "tests": [
-          "TestSupportPhase10_BackupStorageRootBindingConfig"
+          "TestBackupStorageRootBindingConfig"
         ]
       },
       "evidence_class": "unit",
@@ -37,7 +37,7 @@
       "selector": {
         "package": "./internal/platform/config",
         "tests": [
-          "TestPhase0_ConfigDiscovery_U_0_01"
+          "TestConfigDiscovery_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -60,7 +60,7 @@
       "selector": {
         "package": "./internal/platform/config",
         "tests": [
-          "TestPhase0_DisconnectedDefaults_U_0_04"
+          "TestDisconnectedDefaults_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -83,7 +83,7 @@
       "selector": {
         "package": "./internal/platform/config",
         "tests": [
-          "TestPhase0_EnterpriseAuthenticationConfig_U_0_06"
+          "TestEnterpriseAuthenticationConfig_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -106,7 +106,7 @@
       "selector": {
         "package": "./internal/platform/config",
         "tests": [
-          "TestPhase0_RuntimeRoots_U_0_02"
+          "TestRuntimeRoots_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -129,7 +129,7 @@
       "selector": {
         "package": "./internal/platform/config",
         "tests": [
-          "TestPhase0_FilesystemRootPaths_U_0_03"
+          "TestFilesystemRootPaths_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -152,7 +152,7 @@
       "selector": {
         "package": "./internal/platform/config",
         "tests": [
-          "TestPhase0_ResourceLimits_U_0_09"
+          "TestResourceLimits_Unit"
         ]
       },
       "evidence_class": "unit",

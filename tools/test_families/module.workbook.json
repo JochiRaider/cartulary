@@ -1477,7 +1477,7 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestPhase4_CoordinationDefaults_I_4_COORD_01"
+          "TestCoordinationDefaults_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1500,7 +1500,7 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestPhase6_ConcurrentEditsResolverPath_I_6_03"
+          "TestConcurrentEditsResolverPath_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1523,7 +1523,7 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestPhase4_CoordinationCollections_I_4_COORD_02"
+          "TestCoordinationCollections_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1546,9 +1546,9 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestPhase8_CursorContinuationRechecksAuthorization_I_8_04",
-          "TestPhase8_CursorContinuationRechecksMembership_I_8_04",
-          "TestPhase8_LiveAuthorizedCursorPagination_I_8_04"
+          "TestCursorContinuationRechecksAuthorization_Integration",
+          "TestCursorContinuationRechecksMembership_Integration",
+          "TestLiveAuthorizedCursorPagination_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1571,8 +1571,8 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestPhase8_RecordChangedSparsePatchPayloads_U_8_10_AC368",
-          "TestPhase8_RowWireFamilies_U_8_10"
+          "TestRecordChangedSparsePatchPayloads_Unit",
+          "TestRowWireFamilies_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -1595,7 +1595,7 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestPhase4_GenericCollectionPatch_I_4_COLLECTION_01"
+          "TestGenericCollectionPatch_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1618,7 +1618,7 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestPhase4_CoordinationProjectionQueries_I_4_COORD_03"
+          "TestCoordinationProjectionQueries_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1641,7 +1641,7 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestPhase9_PartyLinkHelperFieldsPreserveTextIndependently_I_9_03"
+          "TestPartyLinkHelperFieldsPreserveTextIndependently_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1664,11 +1664,11 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestPhase9_AssessmentsQueryThroughWorkbookProjections_I_9_02",
-          "TestPhase9_CoordinationSurfacesQueryThroughWorkbookProjections_I_9_02",
-          "TestPhase9_NotesAndIndicatorsQueryThroughWorkbookProjections_I_9_02",
-          "TestPhase9_TaskRequestsAndDecisionsQueryThroughWorkbookProjections_I_9_02",
-          "TestPhase9_WorkbookHotProjectionTablesRebuild_I_9_02"
+          "TestAssessmentsQueryThroughWorkbookProjections_Integration",
+          "TestCoordinationSurfacesQueryThroughWorkbookProjections_Integration",
+          "TestNotesAndIndicatorsQueryThroughWorkbookProjections_Integration",
+          "TestTaskRequestsAndDecisionsQueryThroughWorkbookProjections_Integration",
+          "TestWorkbookHotProjectionTablesRebuild_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1691,9 +1691,9 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestPhase9_I_9_01_BulkMutationsPersistOneVisibleBatch",
-          "TestPhase9_I_9_01_EntityOriginClipboardPasteUsesSharedIngest",
-          "TestPhase9_I_9_01_TimelineClipboardPastePersistsOrderedMutationsAndConflicts"
+          "TestBulkMutationsPersistOneVisibleBatch_Integration",
+          "TestEntityOriginClipboardPasteUsesSharedIngest_Integration",
+          "TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1716,8 +1716,8 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestPhase8_WorkbookStartupBaseSurfaceDoesNotRequireSavedView_I_8_02",
-          "TestPhase8_WorkbookStartupFallback_I_8_02"
+          "TestWorkbookStartupBaseSurfaceDoesNotRequireSavedView_Integration",
+          "TestWorkbookStartupFallback_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1740,7 +1740,7 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestPhase4_PartiesSurface_I_4_PARTIES_01"
+          "TestPartiesSurface_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1763,7 +1763,7 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestPhase6_CollectionReviewRouteResolve_U_6_04"
+          "TestCollectionReviewRouteResolve_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -1786,15 +1786,15 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestPhase9Sprint7_CoordinationCollectionItemShapes_U_9_08",
-          "TestPhase9Sprint7_CoordinationCollectionsAndValidation_U_9_08",
-          "TestPhase9Sprint7_CoordinationDeclaredQueryFieldsAreMapped_U_9_08",
-          "TestPhase9Sprint7_CoordinationDuplicateCoalescing_U_9_08",
-          "TestPhase9Sprint7_CoordinationMinimumDefaultsAndRejection_U_9_08",
-          "TestPhase9Sprint7_CoordinationProjectionSortFilterGroup_U_9_08",
-          "TestPhase9Sprint7_CoordinationSavedViewsRemainAdditive_U_9_08",
-          "TestPhase9Sprint7_CoordinationSemanticFilters_U_9_08",
-          "TestPhase9Sprint7_RejectedCoordinationCreateEmitsNoRecordChanged_U_9_08"
+          "TestCoordinationCollectionItemShapes_Unit",
+          "TestCoordinationCollectionsAndValidation_Unit",
+          "TestCoordinationDeclaredQueryFieldsAreMapped_Unit",
+          "TestCoordinationDuplicateCoalescing_Unit",
+          "TestCoordinationMinimumDefaultsAndRejection_Unit",
+          "TestCoordinationProjectionSortFilterGroup_Unit",
+          "TestCoordinationSavedViewsRemainAdditive_Unit",
+          "TestCoordinationSemanticFilters_Unit",
+          "TestRejectedCoordinationCreateEmitsNoRecordChanged_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -1817,7 +1817,7 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestPhase6_GridWriteConcurrencyRoute_U_6_01"
+          "TestGridWriteConcurrencyRoute_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -1840,9 +1840,9 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestPhase9_U_9_09_FindingsConfidenceBandBoundaries",
-          "TestPhase9_U_9_09_OptionalStandardizedSurfacesProjectionQueryBehavior",
-          "TestPhase9_U_9_09_OptionalStandardizedSurfacesStoreBehavior"
+          "TestFindingsConfidenceBandBoundaries_Unit",
+          "TestOptionalStandardizedSurfacesProjectionQueryBehavior_Unit",
+          "TestOptionalStandardizedSurfacesStoreBehavior_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -1865,7 +1865,7 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestPhase6_ConflictResolveDurability_U_6_06"
+          "TestConflictResolveDurability_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -1888,7 +1888,7 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestPhase9_NotesAreArtifactBackedRows_U_9_03"
+          "TestNotesAreArtifactBackedRows_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -1911,7 +1911,7 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestPhase6_SameFieldConflictHTTP_U_6_02"
+          "TestSameFieldConflictHTTP_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -1934,7 +1934,7 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestPhase6_TextCompareMergeDurability_U_6_03"
+          "TestTextCompareMergeDurability_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -1957,7 +1957,7 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestPhase8_WorkbookPreferencePointers_U_8_05"
+          "TestWorkbookPreferencePointers_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -1980,8 +1980,8 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestSupportPhase8Integration_NotesFullTextExactSearch_AC185",
-          "TestSupportPhase8Integration_PrefixAndNullLastOrdering"
+          "TestNotesFullTextExactSearch",
+          "TestPrefixAndNullLastOrdering"
         ]
       },
       "evidence_class": "integration",
@@ -2004,8 +2004,8 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestSupportPhase6SharedHarness_WorkbookRouteConformance",
-          "TestSupportPhase6SharedHarness_WorkbookRouteInventoryCoverage"
+          "TestWorkbookRouteConformance",
+          "TestWorkbookRouteInventoryCoverage"
         ]
       },
       "evidence_class": "integration",
@@ -2028,8 +2028,8 @@
       "selector": {
         "package": "./internal/modules/workbook/startup",
         "tests": [
-          "TestSupportPhase2_WorkbookPreferencesPutDecodersCanonicalizeSheetRefs",
-          "TestSupportPhase2_WorkbookPreferencesPutDecodersRejectInvalidPayloads"
+          "TestWorkbookPreferencesPutDecodersCanonicalizeSheetRefs",
+          "TestWorkbookPreferencesPutDecodersRejectInvalidPayloads"
         ]
       },
       "evidence_class": "unit",
@@ -2052,7 +2052,7 @@
       "selector": {
         "package": "./internal/modules/workbook/startup",
         "tests": [
-          "TestSupportPhase2_WorkbookStartupPreferencesBootstrapAndUpsert"
+          "TestWorkbookStartupPreferencesBootstrapAndUpsert"
         ]
       },
       "evidence_class": "unit",
@@ -2075,7 +2075,7 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestPhase9_U_9_02_SharedPasteAndBulkPlanningGroupsOneVisibleAction"
+          "TestSharedPasteAndBulkPlanningGroupsOneVisibleAction_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -2098,7 +2098,7 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestPhase8_TimelineGroupingAndWorkbookPresentationOnly_U_8_07"
+          "TestTimelineGroupingAndWorkbookPresentationOnly_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -2121,7 +2121,7 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestPhase9_TimestampInstantPatchDecoder_U_9_10"
+          "TestTimestampInstantPatchDecoder_Unit"
         ]
       },
       "evidence_class": "unit",

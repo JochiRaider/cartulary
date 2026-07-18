@@ -337,7 +337,7 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestPhase2_I_2_05_ExtensionDiscoveryReturnsExactZeroMembershipShapeWithoutLeaks"
+          "TestExtensionDiscoveryReturnsExactZeroMembershipShapeWithoutLeaks_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -360,7 +360,7 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestPhase2_I_2_01_IncidentCreatePersistsBootstrapStateAndRollsBackAtomically"
+          "TestIncidentCreatePersistsBootstrapStateAndRollsBackAtomically_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -383,7 +383,7 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestPhase2_I_2_07_MembershipPatchSameRoleReturnsOKWithoutVersionOrMutationArtifact"
+          "TestMembershipPatchSameRoleReturnsOKWithoutVersionOrMutationArtifact_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -406,11 +406,11 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestPhase2_I_2_03_ControlBoundaryIncidentCoreReDerivesAuthorizationImmediately",
-          "TestPhase2_I_2_03_ControlBoundaryMembershipAdminReDerivesAuthorizationImmediately",
-          "TestPhase2_I_2_03_ControlBoundaryTimelineRecordAndLiveReDerivesAuthorizationImmediately",
-          "TestPhase2_I_2_03_ControlBoundaryWorkbookPreferencesReDerivesAuthorizationImmediately",
-          "TestPhase2_I_2_03_ControlBoundaryWorkbookQueriesReDerivesAuthorizationImmediately"
+          "TestControlBoundaryIncidentCoreReDerivesAuthorizationImmediately_Integration",
+          "TestControlBoundaryMembershipAdminReDerivesAuthorizationImmediately_Integration",
+          "TestControlBoundaryTimelineRecordAndLiveReDerivesAuthorizationImmediately_Integration",
+          "TestControlBoundaryWorkbookPreferencesReDerivesAuthorizationImmediately_Integration",
+          "TestControlBoundaryWorkbookQueriesReDerivesAuthorizationImmediately_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -433,7 +433,7 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedState"
+          "TestIncidentCreateReplayAndDuplicateKeyConflictUseNormalizedState_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -456,7 +456,7 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestPhase2_I_2_04_IncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMaterialChange"
+          "TestIncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMaterialChange_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -479,7 +479,7 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestPhase2_I_2_06_UnclaimedReservedFamiliesReturnCanonical404AndOutsidePathsDoNot"
+          "TestUnclaimedReservedFamiliesReturnCanonical404AndOutsidePathsDoNot_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -502,7 +502,7 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestPhase2_U_2_04_StoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor"
+          "TestStoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -525,7 +525,7 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestPhase2_U_2_07_StoreMembershipPatchAndDeleteRejectStaleBaseVersion"
+          "TestStoreMembershipPatchAndDeleteRejectStaleBaseVersion_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -548,7 +548,7 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestPhase2_U_2_02_StoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences"
+          "TestStoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -571,7 +571,7 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestPhase2_U_2_14_StoreIncidentPatchReturnsTypedVersionConflictDetails"
+          "TestStoreIncidentPatchReturnsTypedVersionConflictDetails_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -594,7 +594,7 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestPhase2_U_2_03_StoreCreateIncidentReturnsStableLocationValue"
+          "TestStoreCreateIncidentReturnsStableLocationValue_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -617,11 +617,11 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestSupportPhase2_ControlBoundaryIncidentCoreDeploymentAdminWithoutMembershipDenied",
-          "TestSupportPhase2_ControlBoundaryMembershipAdminDeploymentAdminWithoutMembershipDenied",
-          "TestSupportPhase2_ControlBoundaryTimelineRecordAndLiveDeploymentAdminWithoutMembershipDenied",
-          "TestSupportPhase2_ControlBoundaryWorkbookPreferencesDeploymentAdminWithoutMembershipDenied",
-          "TestSupportPhase2_ControlBoundaryWorkbookQueriesDeploymentAdminWithoutMembershipDenied"
+          "TestControlBoundaryIncidentCoreDeploymentAdminWithoutMembershipDenied",
+          "TestControlBoundaryMembershipAdminDeploymentAdminWithoutMembershipDenied",
+          "TestControlBoundaryTimelineRecordAndLiveDeploymentAdminWithoutMembershipDenied",
+          "TestControlBoundaryWorkbookPreferencesDeploymentAdminWithoutMembershipDenied",
+          "TestControlBoundaryWorkbookQueriesDeploymentAdminWithoutMembershipDenied"
         ]
       },
       "evidence_class": "integration",
@@ -644,11 +644,11 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestSupportPhase2_IncidentCreateBootstrapsCreatorAndWorkbookPreferencesHTTPConformance",
-          "TestSupportPhase2_IncidentCreateIdempotencyUsesActorAndNormalizedReplayHTTPConformance",
-          "TestSupportPhase2_IncidentCreateReturnsStableLocationHeaderHTTPConformance",
-          "TestSupportPhase2_MembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFieldsHTTPConformance",
-          "TestSupportPhase2_MembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConformance"
+          "TestIncidentCreateBootstrapsCreatorAndWorkbookPreferencesHTTPConformance",
+          "TestIncidentCreateIdempotencyUsesActorAndNormalizedReplayHTTPConformance",
+          "TestIncidentCreateReturnsStableLocationHeaderHTTPConformance",
+          "TestMembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFieldsHTTPConformance",
+          "TestMembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConformance"
         ]
       },
       "evidence_class": "integration",
@@ -671,10 +671,10 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestSupportPhase2_IncidentListContinuationOmitsRevokedMembership",
-          "TestSupportPhase2_IncidentListContinuationUsesLiveMembershipQuery",
-          "TestSupportPhase2_IncidentListUsesLiveFirstPageIndependentlyOfTestClock",
-          "TestSupportPhase2_MembershipListContinuationUsesLiveRows"
+          "TestIncidentListContinuationOmitsRevokedMembership",
+          "TestIncidentListContinuationUsesLiveMembershipQuery",
+          "TestIncidentListUsesLiveFirstPageIndependentlyOfTestClock",
+          "TestMembershipListContinuationUsesLiveRows"
         ]
       },
       "evidence_class": "integration",
@@ -697,9 +697,9 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestSupportPhase2_IncidentPatchWritesAuditBeforeAfter",
-          "TestSupportPhase2_MembershipCreateReplayReturnsOriginalAndDivergentConflict",
-          "TestSupportPhase2_MembershipMutationsWriteAuditBeforeAfter"
+          "TestIncidentPatchWritesAuditBeforeAfter",
+          "TestMembershipCreateReplayReturnsOriginalAndDivergentConflict",
+          "TestMembershipMutationsWriteAuditBeforeAfter"
         ]
       },
       "evidence_class": "integration",
@@ -722,10 +722,10 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestSupportPhase2_PublicRouteInventoryExtensionDiscoveryEnvelopes",
-          "TestSupportPhase2_PublicRouteInventoryIncidentCoreEnvelopes",
-          "TestSupportPhase2_PublicRouteInventoryMembershipAdminEnvelopes",
-          "TestSupportPhase2_PublicRouteInventoryWorkbookPreferencesEnvelopes"
+          "TestPublicRouteInventoryExtensionDiscoveryEnvelopes",
+          "TestPublicRouteInventoryIncidentCoreEnvelopes",
+          "TestPublicRouteInventoryMembershipAdminEnvelopes",
+          "TestPublicRouteInventoryWorkbookPreferencesEnvelopes"
         ]
       },
       "evidence_class": "integration",
@@ -748,7 +748,7 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestSupportPhase2_OpenAPIWorkbookPreferencesExposeGetAndPutContracts"
+          "TestOpenAPIWorkbookPreferencesExposeGetAndPutContracts"
         ]
       },
       "evidence_class": "unit",
@@ -771,7 +771,7 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestSupportPhase2Unit_MembershipPatchAndDeleteDecodeAndLastAdminGuardStayStable"
+          "TestUnit_MembershipPatchAndDeleteDecodeAndLastAdminGuardStayStable"
         ]
       },
       "evidence_class": "unit",
@@ -794,7 +794,7 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestPhase2_U_2_09_ExtensionDiscoveryReturnsExactSingletonProfileShape"
+          "TestExtensionDiscoveryReturnsExactSingletonProfileShape_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -817,7 +817,7 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestPhase2_U_2_01_IncidentCreateAcceptsDeclaredMembersAndNormalizesIncidentKey"
+          "TestIncidentCreateAcceptsDeclaredMembersAndNormalizesIncidentKey_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -840,7 +840,7 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestPhase2_U_2_05_IncidentPatchAllowsPromotedFieldsAndKeepsNoOpVersionStable"
+          "TestIncidentPatchAllowsPromotedFieldsAndKeepsNoOpVersionStable_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -863,7 +863,7 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestPhase2_U_2_06_MembershipCreateUsesLookupOnlyForUserOrEmailTargets"
+          "TestMembershipCreateUsesLookupOnlyForUserOrEmailTargets_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -886,7 +886,7 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestPhase2_U_2_10_ReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallback"
+          "TestReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallback_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -909,7 +909,7 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestPhase2_U_2_08_IncidentAccessDecisionUsesNotFoundForMissingMembershipAndDeniedForInsufficientRole"
+          "TestIncidentAccessDecisionUsesNotFoundForMissingMembershipAndDeniedForInsufficientRole_Unit"
         ]
       },
       "evidence_class": "unit",

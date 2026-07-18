@@ -14,7 +14,7 @@
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestPhase11_I_11_INCIDENT_BUNDLES_06_DescriptorPaginationAndCanonicalManifest"
+          "TestDescriptorPaginationAndCanonicalManifest_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -37,7 +37,7 @@
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestPhase11_I_11_INCIDENT_BUNDLES_04_SupersededTimelineReplacementSurvivesImport"
+          "TestSupersededTimelineReplacementSurvivesImport_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -60,7 +60,7 @@
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestPhase11_I_11_INCIDENT_BUNDLES_03_ExportJobAuthorizationReDerivesIncidentMembership"
+          "TestExportJobAuthorizationReDerivesIncidentMembership_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -83,7 +83,7 @@
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestPhase11_I_11_INCIDENT_BUNDLES_01_ExportJobIdempotencyAndDescriptor"
+          "TestExportJobIdempotencyAndDescriptor_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -106,7 +106,7 @@
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestPhase11_I_11_INCIDENT_BUNDLES_08_ImportFinalPublicationRechecksSubmitterAvailability"
+          "TestImportFinalPublicationRechecksSubmitterAvailability_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -129,7 +129,7 @@
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestPhase11_I_11_INCIDENT_BUNDLES_02_ImportEnvelopeIdempotencyAndImportedIncidentOpen"
+          "TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -152,7 +152,7 @@
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestPhase11_I_11_INCIDENT_BUNDLES_07_ImportEnvelopeFailuresCreateNoDurableState"
+          "TestImportEnvelopeFailuresCreateNoDurableState_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -175,7 +175,7 @@
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestPhase11_I_11_INCIDENT_BUNDLES_05_FailureFamiliesLeaveNoVisibleIncident"
+          "TestFailureFamiliesLeaveNoVisibleIncident_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -198,7 +198,7 @@
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestPhase11_U_11_INCIDENT_BUNDLES_02_BundleManifestChecksumDeterministic"
+          "TestBundleManifestChecksumDeterministic_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -221,7 +221,7 @@
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestPhase11_U_11_INCIDENT_BUNDLES_05_ErrorRegistryUsesExactClosedIncidentBundleSets"
+          "TestErrorRegistryUsesExactClosedIncidentBundleSets_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -244,7 +244,7 @@
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestPhase11_U_11_INCIDENT_BUNDLES_01_DecodeExportRequestCanonicalizesAndRejectsModes"
+          "TestDecodeExportRequestCanonicalizesAndRejectsModes_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -267,7 +267,7 @@
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestPhase11_U_11_INCIDENT_BUNDLES_08_BundleFileStoreRootsPermissionsAndCleanup"
+          "TestBundleFileStoreRootsPermissionsAndCleanup_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -290,7 +290,7 @@
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestPhase11_U_11_INCIDENT_BUNDLES_06_RouteSetupRequiresImportFinalizerWhenClaimed"
+          "TestRouteSetupRequiresImportFinalizerWhenClaimed_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -313,7 +313,7 @@
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestPhase11_U_11_INCIDENT_BUNDLES_03_VerifyBundleRejectsUnsafeAndCapabilityFailures"
+          "TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -336,7 +336,7 @@
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestPhase11_U_11_INCIDENT_BUNDLES_09_WorkerStartHookOverrideRequiresTestRuntime"
+          "TestWorkerStartHookOverrideRequiresTestRuntime_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -359,7 +359,7 @@
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestPhase11_U_11_INCIDENT_BUNDLES_07_WorkerResultTransitionsPreservePublicSummaries"
+          "TestWorkerResultTransitionsPreservePublicSummaries_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -382,7 +382,7 @@
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestPhase11_U_11_INCIDENT_BUNDLES_04_OpenAPIAndErrorRegistryContainIncidentBundleContracts"
+          "TestOpenAPIAndErrorRegistryContainIncidentBundleContracts_Unit"
         ]
       },
       "evidence_class": "unit",

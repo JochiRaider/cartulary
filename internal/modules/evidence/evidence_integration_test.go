@@ -24,7 +24,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
-func TestPhase4_ObjectBlobCreate_I_4_BLOB_01(t *testing.T) {
+func TestObjectBlobCreate_Integration(t *testing.T) {
 	harness := workbookscenariotest.StartServer(t, "evidence-blob-routes")
 	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
@@ -185,7 +185,7 @@ UPDATE incident_memberships
 	httptestx.RequireErrorEnvelope(t, second, http.StatusGone, "handle_consumed")
 }
 
-func TestPhase4_EvidenceHandles_I_4_HANDLE_01(t *testing.T) {
+func TestEvidenceHandles_Integration(t *testing.T) {
 	harness := workbookscenariotest.StartServer(t, "phase4-evidence-handles")
 	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
@@ -411,7 +411,7 @@ func TestEvidenceHandleRedemptionReportsRegisteredUnavailableReasons(t *testing.
 	}
 }
 
-func TestPhase4_DownloadHandleBlobMissingDoesNotConsumeHandle_I_4_HANDLE_01(t *testing.T) {
+func TestDownloadHandleBlobMissingDoesNotConsumeHandle_Integration(t *testing.T) {
 	harness := workbookscenariotest.StartServer(t, "phase4-download-handle-no-byte-failure")
 	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{

@@ -21,7 +21,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func TestPhase11_U_11_INCIDENT_BUNDLES_01_DecodeExportRequestCanonicalizesAndRejectsModes(t *testing.T) {
+func TestDecodeExportRequestCanonicalizesAndRejectsModes_Unit(t *testing.T) {
 	request, apiErr := DecodeExportRequest(bytes.NewBufferString(`{
 		"incident_id":"11111111-1111-1111-1111-111111111111",
 		"client_txn_id":"txn-export",
@@ -72,7 +72,7 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_01_DecodeExportRequestCanonicalizesAndRej
 	}
 }
 
-func TestPhase11_U_11_INCIDENT_BUNDLES_02_BundleManifestChecksumDeterministic(t *testing.T) {
+func TestBundleManifestChecksumDeterministic_Unit(t *testing.T) {
 	requireClosedRequiredSourceFileRegistry(t)
 
 	files := minimalRequiredBundleFiles()
@@ -190,7 +190,7 @@ func requireClosedRequiredSourceFileRegistry(t testing.TB) {
 	}
 }
 
-func TestPhase11_U_11_INCIDENT_BUNDLES_03_VerifyBundleRejectsUnsafeAndCapabilityFailures(t *testing.T) {
+func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	unsafe := newZip(t, map[string][]byte{"../manifest.json": []byte("{}")})
 	_, err := VerifyBundle(VerificationInput{
 		Bundle: unsafe,
@@ -370,7 +370,7 @@ func withAdditionalBundleFiles(files map[string][]byte, additional map[string][]
 	return files
 }
 
-func TestPhase11_U_11_INCIDENT_BUNDLES_03_CompressionRatioBoundaryUsesThresholdComparison(t *testing.T) {
+func TestCompressionRatioBoundaryUsesThresholdComparison_Unit(t *testing.T) {
 	limits := config.LimitConfig{Archives: config.ArchiveLimits{MaxCompressionRatio: 3}}
 	if err := checkCompressionRatio(300, 100, limits); err != nil {
 		t.Fatalf("exact compression ratio limit must pass: %v", err)
@@ -381,7 +381,7 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_03_CompressionRatioBoundaryUsesThresholdC
 	}
 }
 
-func TestPhase11_U_11_INCIDENT_BUNDLES_04_OpenAPIAndErrorRegistryContainIncidentBundleContracts(t *testing.T) {
+func TestOpenAPIAndErrorRegistryContainIncidentBundleContracts_Unit(t *testing.T) {
 	openAPI, err := os.ReadFile("../../../contracts/openapi/cartulary.openapi.yaml")
 	if err != nil {
 		t.Fatalf("read openapi: %v", err)
@@ -440,7 +440,7 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_04_OpenAPIAndErrorRegistryContainIncident
 	}
 }
 
-func TestPhase11_U_11_INCIDENT_BUNDLES_05_ErrorRegistryUsesExactClosedIncidentBundleSets(t *testing.T) {
+func TestErrorRegistryUsesExactClosedIncidentBundleSets_Unit(t *testing.T) {
 	errorsDoc, err := os.ReadFile("../../../contracts/errors/index.json")
 	if err != nil {
 		t.Fatalf("read errors: %v", err)
@@ -535,7 +535,7 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_05_ErrorRegistryUsesExactClosedIncidentBu
 	}
 }
 
-func TestPhase11_U_11_INCIDENT_BUNDLES_06_RouteSetupRequiresImportFinalizerWhenClaimed(t *testing.T) {
+func TestRouteSetupRequiresImportFinalizerWhenClaimed_Unit(t *testing.T) {
 	registrar := RegisterRoutes()
 	err := registrar(http.NewServeMux(), httpapi.DependencySet{
 		ExtensionProfiles: []httpapi.ExtensionProfile{{ProfileID: ProfileID, Claimed: true}},
@@ -552,7 +552,7 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_06_RouteSetupRequiresImportFinalizerWhenC
 	}
 }
 
-func TestPhase11_U_11_INCIDENT_BUNDLES_07_WorkerResultTransitionsPreservePublicSummaries(t *testing.T) {
+func TestWorkerResultTransitionsPreservePublicSummaries_Unit(t *testing.T) {
 	jobID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
 	bundleID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
 	incidentID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
@@ -582,7 +582,7 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_07_WorkerResultTransitionsPreservePublicS
 	}
 }
 
-func TestPhase11_U_11_INCIDENT_BUNDLES_08_BundleFileStoreRootsPermissionsAndCleanup(t *testing.T) {
+func TestBundleFileStoreRootsPermissionsAndCleanup_Unit(t *testing.T) {
 	temporaryRoot := t.TempDir()
 	exportRoot := t.TempDir()
 	store := newBundleFileStore(temporaryRoot, exportRoot)
@@ -613,7 +613,7 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_08_BundleFileStoreRootsPermissionsAndClea
 	assertFileMode(t, persistedPath, 0o600)
 }
 
-func TestPhase11_U_11_INCIDENT_BUNDLES_09_WorkerStartHookOverrideRequiresTestRuntime(t *testing.T) {
+func TestWorkerStartHookOverrideRequiresTestRuntime_Unit(t *testing.T) {
 	deps := DependencySetForTesting(WithWorkerStartHookForTesting(func(string) {}))
 	_, err := workerStartHookFromDependencies(httpapi.DependencySet{ModuleOverrides: deps.ModuleOverrides})
 	if err == nil || !strings.Contains(err.Error(), "requires test runtime") {
@@ -906,7 +906,7 @@ func isVerificationReason(err error, reason string) bool {
 	return ok && verificationErr.ReasonCode == reason
 }
 
-func TestPhase11_U_11_INCIDENT_BUNDLES_01_DecodeImportMetadataUsesUploadHash(t *testing.T) {
+func TestDecodeImportMetadataUsesUploadHash_Unit(t *testing.T) {
 	request, apiErr := DecodeImportMetadata(httpapi.UploadEnvelope{
 		Metadata: map[string]json.RawMessage{
 			"client_txn_id": json.RawMessage(`"txn-import"`),

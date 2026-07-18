@@ -14,7 +14,7 @@
       "selector": {
         "package": "./internal/platform/viewschema",
         "tests": [
-          "TestPhase9_U_9_13_ArtifactVariantRegistryClosure"
+          "TestArtifactVariantRegistryClosure_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -37,7 +37,7 @@
       "selector": {
         "package": "./internal/platform/viewschema",
         "tests": [
-          "TestPhase8_ViewSchemaDiscovery_U_8_09"
+          "TestViewSchemaDiscovery_Unit"
         ]
       },
       "evidence_class": "unit",

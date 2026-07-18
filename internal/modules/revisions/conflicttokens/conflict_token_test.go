@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestSupportPhase6_ConflictTokenCodecRoundTripsAndRejectsTampering(t *testing.T) {
+func TestConflictTokenCodecRoundTripsAndRejectsTampering(t *testing.T) {
 	codec := NewConflictTokenCodecForTesting("revisions-owner")
 	recordID := uuid.New()
 	claims := ConflictTokenClaims{
@@ -45,7 +45,7 @@ func TestSupportPhase6_ConflictTokenCodecRoundTripsAndRejectsTampering(t *testin
 	}
 }
 
-func TestSupportPhase6_ConflictTokenCodecRejectsInvalidClaims(t *testing.T) {
+func TestConflictTokenCodecRejectsInvalidClaims(t *testing.T) {
 	codec := NewConflictTokenCodecForTesting("revisions-owner-invalid")
 	valid := ConflictTokenClaims{
 		RouteKey:                "timeline.records.conflicts.resolve",

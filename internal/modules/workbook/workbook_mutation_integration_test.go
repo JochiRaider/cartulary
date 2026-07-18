@@ -13,7 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
-func TestPhase4_PartiesSurface_I_4_PARTIES_01(t *testing.T) {
+func TestPartiesSurface_Integration(t *testing.T) {
 	harness := workbookscenariotest.StartServer(t, "phase4-parties-surface")
 	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -221,7 +221,7 @@ VALUES ($1, $2, 'Deleted Party', 'person')
 	httptestx.RequireErrorEnvelope(t, invalidForeignPatch, http.StatusBadRequest, "invalid_mutation_payload")
 }
 
-func TestPhase4_CoordinationDefaults_I_4_COORD_01(t *testing.T) {
+func TestCoordinationDefaults_Integration(t *testing.T) {
 	harness := workbookscenariotest.StartServer(t, "phase4-coordination-defaults")
 	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -352,15 +352,15 @@ func TestPhase4_CoordinationDefaults_I_4_COORD_01(t *testing.T) {
 	requireCollectionItemCount(t, lessonRow, "lesson.evidence_refs", 0)
 }
 
-func TestPhase4_GenericCollectionPatch_I_4_COLLECTION_01(t *testing.T) {
-	testPhase4CoordinationCollections(t)
+func TestGenericCollectionPatch_Integration(t *testing.T) {
+	testCoordinationCollections(t)
 }
 
-func TestPhase4_CoordinationCollections_I_4_COORD_02(t *testing.T) {
-	testPhase4CoordinationCollections(t)
+func TestCoordinationCollections_Integration(t *testing.T) {
+	testCoordinationCollections(t)
 }
 
-func testPhase4CoordinationCollections(t *testing.T) {
+func testCoordinationCollections(t *testing.T) {
 	harness := workbookscenariotest.StartServer(t, "workbook-coordination-mutations")
 	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{

@@ -15,8 +15,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
-func TestPhase9_U_9_09_OptionalStandardizedSurfacesStoreBehavior(t *testing.T) {
-	requirePhase9U909OptionalSurfaceResources(t)
+func TestOptionalStandardizedSurfacesStoreBehavior_Unit(t *testing.T) {
+	requireOptionalSurfaceResources(t)
 
 	ctx := context.Background()
 	harness := recordstoretest.StartStore(t, "phase9-optional-surfaces-store")
@@ -29,152 +29,152 @@ func TestPhase9_U_9_09_OptionalStandardizedSurfacesStoreBehavior(t *testing.T) {
 		ViewSchemaID: workbook.FindingsViewSchemaID,
 		ClientTxnID:  "txn-phase9-optional-finding-reject",
 		Values: map[string]workbook.ValueChange{
-			"finding.kind": sprint7Text("finding"),
+			"finding.kind": Text("finding"),
 		},
-	}, []byte("txn-phase9-optional-finding-reject"), "req-phase9-optional-finding-reject", sprint7Time(0))
-	requireSprint7MutationValidation(t, err, "finding.statement", "missing_required_field")
+	}, []byte("txn-phase9-optional-finding-reject"), "req-phase9-optional-finding-reject", Time(0))
+	requireMutationValidation(t, err, "finding.statement", "missing_required_field")
 	requireOptionalSurfaceDurableState(t, harness.DB, incident.ID, before, "rejected finding create")
 
-	support := mustCreateSprint7Row(t, store, actor, incident.ID, workbook.NotesViewSchemaID, "txn-phase9-optional-support-note", map[string]workbook.ValueChange{
-		"note.title": sprint7Text("Supporting note"),
-	}, nil, sprint7Time(0))
-	contradiction := mustCreateSprint7Row(t, store, actor, incident.ID, workbook.NotesViewSchemaID, "txn-phase9-optional-contradiction-note", map[string]workbook.ValueChange{
-		"note.title": sprint7Text("Contradictory note"),
-	}, nil, sprint7Time(0))
+	support := mustCreateRow(t, store, actor, incident.ID, workbook.NotesViewSchemaID, "txn-phase9-optional-support-note", map[string]workbook.ValueChange{
+		"note.title": Text("Supporting note"),
+	}, nil, Time(0))
+	contradiction := mustCreateRow(t, store, actor, incident.ID, workbook.NotesViewSchemaID, "txn-phase9-optional-contradiction-note", map[string]workbook.ValueChange{
+		"note.title": Text("Contradictory note"),
+	}, nil, Time(0))
 
-	finding := mustCreateSprint7Row(t, store, actor, incident.ID, workbook.FindingsViewSchemaID, "txn-phase9-optional-finding", map[string]workbook.ValueChange{
-		"finding.statement":        sprint7Text("EDR shows suspicious process execution"),
-		"finding.kind":             sprint7Text("hypothesis"),
+	finding := mustCreateRow(t, store, actor, incident.ID, workbook.FindingsViewSchemaID, "txn-phase9-optional-finding", map[string]workbook.ValueChange{
+		"finding.statement":        Text("EDR shows suspicious process execution"),
+		"finding.kind":             Text("hypothesis"),
 		"finding.confidence_score": optionalNumber(72),
-	}, nil, sprint7Time(0))
+	}, nil, Time(0))
 	findingRow := finding.Payload["row"].(map[string]any)
-	requireSprint7ArtifactType(t, harness, finding.RecordID, "finding")
-	requireSprint7CellValue(t, findingRow, "finding.statement", "EDR shows suspicious process execution")
-	requireSprint7CellValue(t, findingRow, "finding.kind", "hypothesis")
-	requireSprint7CellValue(t, findingRow, "finding.state", "open")
-	requireSprint7CellValue(t, findingRow, "finding.owner_user_id", actor.ID.String())
-	requireSprint6CellNumericValue(t, findingRow, "finding.confidence_score", 72)
-	requireSprint7CellValue(t, findingRow, "finding.confidence_band", "high")
-	requireSprint7CellValue(t, findingRow, "finding.closed_at", nil)
-	requireSprint7CollectionItemCount(t, findingRow, "finding.supporting_refs", 0)
-	requireSprint7CollectionItemCount(t, findingRow, "finding.contradictory_refs", 0)
+	requireArtifactType(t, harness, finding.RecordID, "finding")
+	requireCoordinationCellValue(t, findingRow, "finding.statement", "EDR shows suspicious process execution")
+	requireCoordinationCellValue(t, findingRow, "finding.kind", "hypothesis")
+	requireCoordinationCellValue(t, findingRow, "finding.state", "open")
+	requireCoordinationCellValue(t, findingRow, "finding.owner_user_id", actor.ID.String())
+	requireCellNumericValue(t, findingRow, "finding.confidence_score", 72)
+	requireCoordinationCellValue(t, findingRow, "finding.confidence_band", "high")
+	requireCoordinationCellValue(t, findingRow, "finding.closed_at", nil)
+	requireCoordinationCollectionItemCount(t, findingRow, "finding.supporting_refs", 0)
+	requireCoordinationCollectionItemCount(t, findingRow, "finding.contradictory_refs", 0)
 
-	closed := mustSprint6Patch(t, store, actor, finding.RecordID, workbook.FindingsViewSchemaID, 1, "txn-phase9-optional-finding-close",
-		sprint6ValueChange("finding.state", sprint7Text("closed")),
-		sprint6CollectionChange("finding.supporting_refs", sprint6Collection(addSprint6RecordRef(support.RecordID))),
-		sprint6CollectionChange("finding.contradictory_refs", sprint6Collection(addSprint6RecordRef(contradiction.RecordID))),
+	closed := mustPatch(t, store, actor, finding.RecordID, workbook.FindingsViewSchemaID, 1, "txn-phase9-optional-finding-close",
+		ValueChange("finding.state", Text("closed")),
+		CollectionChange("finding.supporting_refs", Collection(addOptionalSurfaceRecordRef(support.RecordID))),
+		CollectionChange("finding.contradictory_refs", Collection(addOptionalSurfaceRecordRef(contradiction.RecordID))),
 	)
 	closedRow := closed.Payload["row"].(map[string]any)
-	requireSprint7CellValue(t, closedRow, "finding.state", "closed")
-	requireSprint7CellNonEmpty(t, closedRow, "finding.closed_at")
-	requireSprint7CollectionItemCount(t, closedRow, "finding.supporting_refs", 1)
-	requireSprint7CollectionItemCount(t, closedRow, "finding.contradictory_refs", 1)
-	requireSprint7ManualReferenceLink(t, harness, finding.RecordID, support.RecordID, "finding.supporting_refs", "supported_by")
-	requireSprint7ManualReferenceLink(t, harness, finding.RecordID, contradiction.RecordID, "finding.contradictory_refs", "references_record")
+	requireCoordinationCellValue(t, closedRow, "finding.state", "closed")
+	requireCellNonEmpty(t, closedRow, "finding.closed_at")
+	requireCoordinationCollectionItemCount(t, closedRow, "finding.supporting_refs", 1)
+	requireCoordinationCollectionItemCount(t, closedRow, "finding.contradictory_refs", 1)
+	requireManualReferenceLink(t, harness, finding.RecordID, support.RecordID, "finding.supporting_refs", "supported_by")
+	requireManualReferenceLink(t, harness, finding.RecordID, contradiction.RecordID, "finding.contradictory_refs", "references_record")
 
-	reopened := mustSprint6Patch(t, store, actor, finding.RecordID, workbook.FindingsViewSchemaID, 2, "txn-phase9-optional-finding-reopen",
-		sprint6ValueChange("finding.state", sprint7Text("open")),
+	reopened := mustPatch(t, store, actor, finding.RecordID, workbook.FindingsViewSchemaID, 2, "txn-phase9-optional-finding-reopen",
+		ValueChange("finding.state", Text("open")),
 	)
-	requireSprint7CellValue(t, reopened.Payload["row"].(map[string]any), "finding.closed_at", nil)
+	requireCoordinationCellValue(t, reopened.Payload["row"].(map[string]any), "finding.closed_at", nil)
 
-	_, err = sprint6Patch(store, actor, finding.RecordID, workbook.FindingsViewSchemaID, 3, "txn-phase9-optional-finding-invalid-confidence",
-		sprint6ValueChange("finding.confidence_score", optionalNumber(101)),
+	_, err = Patch(store, actor, finding.RecordID, workbook.FindingsViewSchemaID, 3, "txn-phase9-optional-finding-invalid-confidence",
+		ValueChange("finding.confidence_score", optionalNumber(101)),
 	)
-	requireSprint7MutationValidation(t, err, "finding.confidence_score", "invalid_value")
+	requireMutationValidation(t, err, "finding.confidence_score", "invalid_value")
 
-	investigativeQuery := mustCreateSprint7Row(t, store, actor, incident.ID, workbook.InvestigativeQueriesViewSchemaID, "txn-phase9-optional-query", map[string]workbook.ValueChange{
-		"investigative_query.platform":   sprint7Text("Kusto"),
-		"investigative_query.purpose":    sprint7Text("Find suspicious PowerShell"),
-		"investigative_query.query_text": sprint7Text("SecurityEvent | take 10"),
-	}, nil, sprint7Time(0))
+	investigativeQuery := mustCreateRow(t, store, actor, incident.ID, workbook.InvestigativeQueriesViewSchemaID, "txn-phase9-optional-query", map[string]workbook.ValueChange{
+		"investigative_query.platform":   Text("Kusto"),
+		"investigative_query.purpose":    Text("Find suspicious PowerShell"),
+		"investigative_query.query_text": Text("SecurityEvent | take 10"),
+	}, nil, Time(0))
 	queryRow := investigativeQuery.Payload["row"].(map[string]any)
-	requireSprint7ArtifactType(t, harness, investigativeQuery.RecordID, "investigative_query")
-	requireSprint7CellNonEmpty(t, queryRow, "investigative_query.query_id")
-	requireSprint7CellValue(t, queryRow, "investigative_query.platform", "Kusto")
-	requireSprint7CellValue(t, queryRow, "investigative_query.created_by_user_id", actor.ID.String())
-	requireSprint7CellNonEmpty(t, queryRow, "investigative_query.created_at")
-	requireSprint7CellNonEmpty(t, queryRow, "investigative_query.created_day")
+	requireArtifactType(t, harness, investigativeQuery.RecordID, "investigative_query")
+	requireCellNonEmpty(t, queryRow, "investigative_query.query_id")
+	requireCoordinationCellValue(t, queryRow, "investigative_query.platform", "Kusto")
+	requireCoordinationCellValue(t, queryRow, "investigative_query.created_by_user_id", actor.ID.String())
+	requireCellNonEmpty(t, queryRow, "investigative_query.created_at")
+	requireCellNonEmpty(t, queryRow, "investigative_query.created_day")
 
-	forensicKeyword := mustCreateSprint7Row(t, store, actor, incident.ID, workbook.ForensicKeywordsViewSchemaID, "txn-phase9-optional-keyword", map[string]workbook.ValueChange{
-		"forensic_keyword.pattern": sprint7Text("powershell.exe"),
-		"forensic_keyword.reason":  sprint7Text("Interactive shell execution"),
-	}, nil, sprint7Time(0))
+	forensicKeyword := mustCreateRow(t, store, actor, incident.ID, workbook.ForensicKeywordsViewSchemaID, "txn-phase9-optional-keyword", map[string]workbook.ValueChange{
+		"forensic_keyword.pattern": Text("powershell.exe"),
+		"forensic_keyword.reason":  Text("Interactive shell execution"),
+	}, nil, Time(0))
 	keywordRow := forensicKeyword.Payload["row"].(map[string]any)
-	requireSprint7ArtifactType(t, harness, forensicKeyword.RecordID, "forensic_keyword")
-	requireSprint7CellNonEmpty(t, keywordRow, "forensic_keyword.keyword_id")
-	requireSprint7CellValue(t, keywordRow, "forensic_keyword.match_mode", "literal")
-	requireSprint7CellValue(t, keywordRow, "forensic_keyword.case_sensitive", false)
+	requireArtifactType(t, harness, forensicKeyword.RecordID, "forensic_keyword")
+	requireCellNonEmpty(t, keywordRow, "forensic_keyword.keyword_id")
+	requireCoordinationCellValue(t, keywordRow, "forensic_keyword.match_mode", "literal")
+	requireCoordinationCellValue(t, keywordRow, "forensic_keyword.case_sensitive", false)
 
-	keywordPatched := mustSprint6Patch(t, store, actor, forensicKeyword.RecordID, workbook.ForensicKeywordsViewSchemaID, 1, "txn-phase9-optional-keyword-patch",
-		sprint6ValueChange("forensic_keyword.match_mode", sprint7Text("regex")),
-		sprint6ValueChange("forensic_keyword.case_sensitive", optionalBool(true)),
+	keywordPatched := mustPatch(t, store, actor, forensicKeyword.RecordID, workbook.ForensicKeywordsViewSchemaID, 1, "txn-phase9-optional-keyword-patch",
+		ValueChange("forensic_keyword.match_mode", Text("regex")),
+		ValueChange("forensic_keyword.case_sensitive", optionalBool(true)),
 	)
 	keywordPatchedRow := keywordPatched.Payload["row"].(map[string]any)
-	requireSprint7CellValue(t, keywordPatchedRow, "forensic_keyword.match_mode", "regex")
-	requireSprint7CellValue(t, keywordPatchedRow, "forensic_keyword.case_sensitive", true)
+	requireCoordinationCellValue(t, keywordPatchedRow, "forensic_keyword.match_mode", "regex")
+	requireCoordinationCellValue(t, keywordPatchedRow, "forensic_keyword.case_sensitive", true)
 
-	_, err = sprint6Patch(store, actor, forensicKeyword.RecordID, workbook.ForensicKeywordsViewSchemaID, 2, "txn-phase9-optional-keyword-invalid-mode",
-		sprint6ValueChange("forensic_keyword.match_mode", sprint7Text("glob")),
+	_, err = Patch(store, actor, forensicKeyword.RecordID, workbook.ForensicKeywordsViewSchemaID, 2, "txn-phase9-optional-keyword-invalid-mode",
+		ValueChange("forensic_keyword.match_mode", Text("glob")),
 	)
-	requireSprint7MutationValidation(t, err, "forensic_keyword.match_mode", "invalid_value")
+	requireMutationValidation(t, err, "forensic_keyword.match_mode", "invalid_value")
 }
 
-func TestPhase9_U_9_09_OptionalStandardizedSurfacesProjectionQueryBehavior(t *testing.T) {
+func TestOptionalStandardizedSurfacesProjectionQueryBehavior_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "phase9-optional-surfaces-query")
 	store := workbook.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "optional-query@example.test", "Optional Query", "OptionalQuery1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-optional-query-incident", "IR-OPTIONAL-QUERY", "Phase 9 optional query behavior")
 
-	finding := mustCreateSprint7Row(t, store, actor, incident.ID, workbook.FindingsViewSchemaID, "txn-phase9-optional-query-finding-high", map[string]workbook.ValueChange{
-		"finding.statement":        sprint7Text("Confirmed malware execution"),
-		"finding.kind":             sprint7Text("hypothesis"),
+	finding := mustCreateRow(t, store, actor, incident.ID, workbook.FindingsViewSchemaID, "txn-phase9-optional-query-finding-high", map[string]workbook.ValueChange{
+		"finding.statement":        Text("Confirmed malware execution"),
+		"finding.kind":             Text("hypothesis"),
 		"finding.confidence_score": optionalNumber(91),
-	}, nil, sprint7Time(0))
-	mustCreateSprint7Row(t, store, actor, incident.ID, workbook.FindingsViewSchemaID, "txn-phase9-optional-query-finding-low", map[string]workbook.ValueChange{
-		"finding.statement":        sprint7Text("Possible benign admin action"),
-		"finding.kind":             sprint7Text("finding"),
+	}, nil, Time(0))
+	mustCreateRow(t, store, actor, incident.ID, workbook.FindingsViewSchemaID, "txn-phase9-optional-query-finding-low", map[string]workbook.ValueChange{
+		"finding.statement":        Text("Possible benign admin action"),
+		"finding.kind":             Text("finding"),
 		"finding.confidence_score": optionalNumber(12),
-	}, nil, sprint7Time(0))
-	requireSprint7ProjectedRow(t, store, incident.ID, workbook.FindingsViewSchemaID, viewschema.QueryMeta{
+	}, nil, Time(0))
+	requireProjectedRow(t, store, incident.ID, workbook.FindingsViewSchemaID, viewschema.QueryMeta{
 		Filters: []viewschema.Filter{{FieldKey: "finding.confidence_band", Op: "eq", Arg: map[string]any{"value": "high"}}},
 		Sort:    []viewschema.SortEntry{{FieldKey: "finding.confidence_score", Direction: "desc"}},
-		GroupBy: sprint7StringPtr("finding.kind"),
+		GroupBy: StringPtr("finding.kind"),
 	}, finding.RecordID, "finding.kind", "hypothesis")
 
-	query := mustCreateSprint7Row(t, store, actor, incident.ID, workbook.InvestigativeQueriesViewSchemaID, "txn-phase9-optional-query-kusto", map[string]workbook.ValueChange{
-		"investigative_query.platform":   sprint7Text("Kusto"),
-		"investigative_query.purpose":    sprint7Text("Endpoint triage"),
-		"investigative_query.query_text": sprint7Text("DeviceProcessEvents | take 20"),
-	}, nil, sprint7Time(0))
-	mustCreateSprint7Row(t, store, actor, incident.ID, workbook.InvestigativeQueriesViewSchemaID, "txn-phase9-optional-query-splunk", map[string]workbook.ValueChange{
-		"investigative_query.platform":   sprint7Text("Splunk"),
-		"investigative_query.purpose":    sprint7Text("Network triage"),
-		"investigative_query.query_text": sprint7Text("index=proxy | head 20"),
-	}, nil, sprint7Time(0))
-	requireSprint7ProjectedRow(t, store, incident.ID, workbook.InvestigativeQueriesViewSchemaID, viewschema.QueryMeta{
+	query := mustCreateRow(t, store, actor, incident.ID, workbook.InvestigativeQueriesViewSchemaID, "txn-phase9-optional-query-kusto", map[string]workbook.ValueChange{
+		"investigative_query.platform":   Text("Kusto"),
+		"investigative_query.purpose":    Text("Endpoint triage"),
+		"investigative_query.query_text": Text("DeviceProcessEvents | take 20"),
+	}, nil, Time(0))
+	mustCreateRow(t, store, actor, incident.ID, workbook.InvestigativeQueriesViewSchemaID, "txn-phase9-optional-query-splunk", map[string]workbook.ValueChange{
+		"investigative_query.platform":   Text("Splunk"),
+		"investigative_query.purpose":    Text("Network triage"),
+		"investigative_query.query_text": Text("index=proxy | head 20"),
+	}, nil, Time(0))
+	requireProjectedRow(t, store, incident.ID, workbook.InvestigativeQueriesViewSchemaID, viewschema.QueryMeta{
 		Filters: []viewschema.Filter{{FieldKey: "investigative_query.platform", Op: "eq", Arg: map[string]any{"value": "KUSTO"}}},
 		Sort:    []viewschema.SortEntry{{FieldKey: "investigative_query.created_day", Direction: "asc"}},
-		GroupBy: sprint7StringPtr("investigative_query.platform"),
+		GroupBy: StringPtr("investigative_query.platform"),
 	}, query.RecordID, "investigative_query.platform", "Kusto")
 
-	keyword := mustCreateSprint7Row(t, store, actor, incident.ID, workbook.ForensicKeywordsViewSchemaID, "txn-phase9-optional-query-keyword-regex", map[string]workbook.ValueChange{
-		"forensic_keyword.pattern":        sprint7Text("(?i)powershell"),
-		"forensic_keyword.reason":         sprint7Text("Shell execution"),
-		"forensic_keyword.match_mode":     sprint7Text("regex"),
+	keyword := mustCreateRow(t, store, actor, incident.ID, workbook.ForensicKeywordsViewSchemaID, "txn-phase9-optional-query-keyword-regex", map[string]workbook.ValueChange{
+		"forensic_keyword.pattern":        Text("(?i)powershell"),
+		"forensic_keyword.reason":         Text("Shell execution"),
+		"forensic_keyword.match_mode":     Text("regex"),
 		"forensic_keyword.case_sensitive": optionalBool(true),
-	}, nil, sprint7Time(0))
-	mustCreateSprint7Row(t, store, actor, incident.ID, workbook.ForensicKeywordsViewSchemaID, "txn-phase9-optional-query-keyword-literal", map[string]workbook.ValueChange{
-		"forensic_keyword.pattern": sprint7Text("cmd.exe"),
-		"forensic_keyword.reason":  sprint7Text("Command shell"),
-	}, nil, sprint7Time(0))
-	requireSprint7ProjectedRow(t, store, incident.ID, workbook.ForensicKeywordsViewSchemaID, viewschema.QueryMeta{
+	}, nil, Time(0))
+	mustCreateRow(t, store, actor, incident.ID, workbook.ForensicKeywordsViewSchemaID, "txn-phase9-optional-query-keyword-literal", map[string]workbook.ValueChange{
+		"forensic_keyword.pattern": Text("cmd.exe"),
+		"forensic_keyword.reason":  Text("Command shell"),
+	}, nil, Time(0))
+	requireProjectedRow(t, store, incident.ID, workbook.ForensicKeywordsViewSchemaID, viewschema.QueryMeta{
 		Filters: []viewschema.Filter{{FieldKey: "forensic_keyword.case_sensitive", Op: "eq", Arg: map[string]any{"value": true}}},
 		Sort:    []viewschema.SortEntry{{FieldKey: "forensic_keyword.match_mode", Direction: "desc"}},
-		GroupBy: sprint7StringPtr("forensic_keyword.match_mode"),
+		GroupBy: StringPtr("forensic_keyword.match_mode"),
 	}, keyword.RecordID, "forensic_keyword.match_mode", "regex")
 }
 
-func TestPhase9_U_9_09_FindingsConfidenceBandBoundaries(t *testing.T) {
+func TestFindingsConfidenceBandBoundaries_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "phase9-optional-findings-confidence-boundaries")
 	store := workbook.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "optional-boundaries@example.test", "Optional Boundaries", "OptionalBoundaries1!", false, false, true)
@@ -195,29 +195,29 @@ func TestPhase9_U_9_09_FindingsConfidenceBandBoundaries(t *testing.T) {
 		{key: "high-upper", score: optionalScorePtr(100), wantBand: "high"},
 	} {
 		values := map[string]workbook.ValueChange{
-			"finding.statement": sprint7Text("Confidence boundary " + tc.key),
+			"finding.statement": Text("Confidence boundary " + tc.key),
 		}
 		if tc.score != nil {
 			values["finding.confidence_score"] = optionalNumber(*tc.score)
 		}
-		result := mustCreateSprint7Row(t, store, actor, incident.ID, workbook.FindingsViewSchemaID, "txn-phase9-optional-boundary-"+tc.key, values, nil, sprint7Time(time.Duration(index)*time.Minute))
+		result := mustCreateRow(t, store, actor, incident.ID, workbook.FindingsViewSchemaID, "txn-phase9-optional-boundary-"+tc.key, values, nil, Time(time.Duration(index)*time.Minute))
 		row := result.Payload["row"].(map[string]any)
 		if tc.score == nil {
-			requireSprint7CellValue(t, row, "finding.confidence_score", nil)
+			requireCoordinationCellValue(t, row, "finding.confidence_score", nil)
 		} else {
-			requireSprint6CellNumericValue(t, row, "finding.confidence_score", *tc.score)
+			requireCellNumericValue(t, row, "finding.confidence_score", *tc.score)
 		}
-		requireSprint7CellValue(t, row, "finding.confidence_band", tc.wantBand)
+		requireCoordinationCellValue(t, row, "finding.confidence_band", tc.wantBand)
 		createdByBand[tc.wantBand] = append(createdByBand[tc.wantBand], result.RecordID)
 	}
 
-	requirePhase9U909BandQuery(t, store, incident.ID, "unset", createdByBand["unset"])
-	requirePhase9U909BandQuery(t, store, incident.ID, "low", createdByBand["low"])
-	requirePhase9U909BandQuery(t, store, incident.ID, "medium", createdByBand["medium"])
-	requirePhase9U909BandQuery(t, store, incident.ID, "high", createdByBand["high"])
+	requireOptionalSurfaceBandQuery(t, store, incident.ID, "unset", createdByBand["unset"])
+	requireOptionalSurfaceBandQuery(t, store, incident.ID, "low", createdByBand["low"])
+	requireOptionalSurfaceBandQuery(t, store, incident.ID, "medium", createdByBand["medium"])
+	requireOptionalSurfaceBandQuery(t, store, incident.ID, "high", createdByBand["high"])
 }
 
-func requirePhase9U909OptionalSurfaceResources(t testing.TB) {
+func requireOptionalSurfaceResources(t testing.TB) {
 	t.Helper()
 	resources := viewschema.ListPublicResources()
 	if len(resources) != 17 {
@@ -301,7 +301,7 @@ func requirePhase9U909OptionalSurfaceResources(t testing.TB) {
 	}
 }
 
-func requirePhase9U909BandQuery(t testing.TB, store *workbook.Store, incidentID uuid.UUID, band string, want []uuid.UUID) {
+func requireOptionalSurfaceBandQuery(t testing.TB, store *workbook.Store, incidentID uuid.UUID, band string, want []uuid.UUID) {
 	t.Helper()
 	rows, err := store.QueryRows(context.Background(), incidentID, workbook.FindingsViewSchemaID, viewschema.QueryMeta{
 		Filters: []viewschema.Filter{{FieldKey: "finding.confidence_band", Op: "eq", Arg: map[string]any{"value": band}}},
@@ -309,12 +309,12 @@ func requirePhase9U909BandQuery(t testing.TB, store *workbook.Store, incidentID 
 			{FieldKey: "finding.confidence_score", Direction: "asc"},
 			{FieldKey: "record_id", Direction: "asc"},
 		},
-		GroupBy: sprint7StringPtr("finding.confidence_band"),
+		GroupBy: StringPtr("finding.confidence_band"),
 	})
 	if err != nil {
 		t.Fatalf("query finding confidence band %s: %v", band, err)
 	}
-	requireSprint7RecordOrder(t, rows, want)
+	requireRecordOrder(t, rows, want)
 	for _, row := range rows {
 		groupValues := row["group_values"].(map[string]any)
 		if groupValues["finding.confidence_band"] != band {
@@ -327,41 +327,41 @@ func optionalScorePtr(value int64) *int64 {
 	return &value
 }
 
-func mustSprint6Patch(t testing.TB, store *workbook.Store, actor authn.UserRecord, recordID uuid.UUID, viewSchemaID string, baseRowVersion int64, clientTxnID string, changes ...workbook.PatchChange) workbook.MutationResult {
+func mustPatch(t testing.TB, store *workbook.Store, actor authn.UserRecord, recordID uuid.UUID, viewSchemaID string, baseRowVersion int64, clientTxnID string, changes ...workbook.PatchChange) workbook.MutationResult {
 	t.Helper()
-	result, err := sprint6Patch(store, actor, recordID, viewSchemaID, baseRowVersion, clientTxnID, changes...)
+	result, err := Patch(store, actor, recordID, viewSchemaID, baseRowVersion, clientTxnID, changes...)
 	if err != nil {
 		t.Fatalf("patch %s: %v", clientTxnID, err)
 	}
 	return result
 }
 
-func sprint6Patch(store *workbook.Store, actor authn.UserRecord, recordID uuid.UUID, viewSchemaID string, baseRowVersion int64, clientTxnID string, changes ...workbook.PatchChange) (workbook.MutationResult, error) {
+func Patch(store *workbook.Store, actor authn.UserRecord, recordID uuid.UUID, viewSchemaID string, baseRowVersion int64, clientTxnID string, changes ...workbook.PatchChange) (workbook.MutationResult, error) {
 	return store.PatchWorkbookRow(context.Background(), actor, recordID, workbook.PatchRequest{
 		ViewSchemaID:   viewSchemaID,
 		BaseRowVersion: baseRowVersion,
 		ClientTxnID:    clientTxnID,
 		Changes:        changes,
-	}, []byte(clientTxnID), "req-"+clientTxnID, sprint7Time(0))
+	}, []byte(clientTxnID), "req-"+clientTxnID, Time(0))
 }
 
-func sprint6ValueChange(fieldKey string, value workbook.ValueChange) workbook.PatchChange {
+func ValueChange(fieldKey string, value workbook.ValueChange) workbook.PatchChange {
 	return workbook.PatchChange{FieldKey: fieldKey, Value: &value}
 }
 
-func sprint6CollectionChange(fieldKey string, value workbook.CollectionActionPayload) workbook.PatchChange {
+func CollectionChange(fieldKey string, value workbook.CollectionActionPayload) workbook.PatchChange {
 	return workbook.PatchChange{FieldKey: fieldKey, Collection: &value}
 }
 
-func sprint6Collection(actions ...workbook.CollectionAction) workbook.CollectionActionPayload {
+func Collection(actions ...workbook.CollectionAction) workbook.CollectionActionPayload {
 	return workbook.CollectionActionPayload{Actions: actions}
 }
 
-func addSprint6RecordRef(recordID uuid.UUID) workbook.CollectionAction {
+func addOptionalSurfaceRecordRef(recordID uuid.UUID) workbook.CollectionAction {
 	return workbook.CollectionAction{Op: "add_record_ref", LinkedRecordID: &recordID}
 }
 
-func requireSprint6CellNumericValue(t testing.TB, row map[string]any, fieldKey string, want int64) {
+func requireCellNumericValue(t testing.TB, row map[string]any, fieldKey string, want int64) {
 	t.Helper()
 	got := row["cells"].(map[string]any)[fieldKey].(map[string]any)["value"]
 	switch value := got.(type) {

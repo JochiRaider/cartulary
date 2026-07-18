@@ -14,7 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
-func TestPhase11_U_11_JOBS_01_IncidentJobAuthorizationReDerivedAtRequestTime(t *testing.T) {
+func TestIncidentJobAuthorizationReDerivedAtRequestTime_Unit(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-jobapi-incident-auth")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
@@ -74,7 +74,7 @@ func TestPhase11_U_11_JOBS_01_IncidentJobAuthorizationReDerivedAtRequestTime(t *
 	httptestx.RequireErrorEnvelope(t, afterDeleteCancel, http.StatusNotFound, "job_not_found")
 }
 
-func TestPhase11_U_11_JOBS_02_DeploymentJobAuthorizationReDerivedAtRequestTime(t *testing.T) {
+func TestDeploymentJobAuthorizationReDerivedAtRequestTime_Unit(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-jobapi-deployment-auth")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
@@ -112,7 +112,7 @@ func TestPhase11_U_11_JOBS_02_DeploymentJobAuthorizationReDerivedAtRequestTime(t
 	httptestx.RequireSuccessEnvelope(t, submitterCancel, http.StatusOK)
 }
 
-func TestPhase11_U_11_JOBS_03_DeploymentAdminIncidentMembershipPolicy(t *testing.T) {
+func TestDeploymentAdminIncidentMembershipPolicy_Unit(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-jobapi-incident-admin-member-auth")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)

@@ -201,7 +201,7 @@
       "selector": {
         "package": "./internal/modules/savedviews",
         "tests": [
-          "TestPhase8_SavedViewLifecyclePersistence_I_8_01"
+          "TestSavedViewLifecyclePersistence_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -224,11 +224,11 @@
       "selector": {
         "package": "./internal/modules/savedviews",
         "tests": [
-          "TestPhase8_SavedViewCreateDefaults_U_8_02",
-          "TestPhase8_SavedViewCreateEvolvesAdditiveHiddenFields_U_8_02",
-          "TestPhase8_SavedViewOpenAPICreateInputIsLenient_U_8_02",
-          "TestPhase8_SavedViewSystemFixtureRouteUnavailableByDefault_U_8_02",
-          "TestPhase8_SavedViewSystemFixtureRoute_U_8_02"
+          "TestSavedViewCreateDefaults_Unit",
+          "TestSavedViewCreateEvolvesAdditiveHiddenFields_Unit",
+          "TestSavedViewOpenAPICreateInputIsLenient_Unit",
+          "TestSavedViewSystemFixtureRouteUnavailableByDefault_Unit",
+          "TestSavedViewSystemFixtureRoute_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -251,7 +251,7 @@
       "selector": {
         "package": "./internal/modules/savedviews",
         "tests": [
-          "TestPhase8_SavedViewPatchContract_U_8_04"
+          "TestSavedViewPatchContract_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -274,7 +274,7 @@
       "selector": {
         "package": "./internal/modules/savedviews",
         "tests": [
-          "TestPhase8_SavedViewScopeVocabulary_U_8_03"
+          "TestSavedViewScopeVocabulary_Unit"
         ]
       },
       "evidence_class": "unit",

@@ -341,7 +341,7 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestPhase5_ObjectUploadAttachWorkbookProjection_I_5_01"
+          "TestObjectUploadAttachWorkbookProjection_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -364,7 +364,7 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestPhase5_HandleRedeemInvalidatesOnCurrentStateLoss_I_5_03"
+          "TestHandleRedeemInvalidatesOnCurrentStateLoss_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -387,7 +387,7 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestPhase5_AttachPublishesWorkbookWebSocketRefresh_I_5_07"
+          "TestAttachPublishesWorkbookWebSocketRefresh_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -410,7 +410,7 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestPhase5_AttachRouteContract_I_5_05"
+          "TestAttachRouteContract_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -433,7 +433,7 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestPhase5_AttachedEvidenceProjectionRebuild_I_5_06"
+          "TestAttachedEvidenceProjectionRebuild_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -456,7 +456,7 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestPhase5_ExpiredSlotReplay_I_5_02"
+          "TestExpiredSlotReplay_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -479,8 +479,8 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestPhase4_DownloadHandleBlobMissingDoesNotConsumeHandle_I_4_HANDLE_01",
-          "TestPhase4_EvidenceHandles_I_4_HANDLE_01"
+          "TestDownloadHandleBlobMissingDoesNotConsumeHandle_Integration",
+          "TestEvidenceHandles_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -503,7 +503,7 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestPhase4_ObjectBlobCreate_I_4_BLOB_01"
+          "TestObjectBlobCreate_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -526,7 +526,7 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestPhase5_QuarantineBoundaryPreservesTwoStepAttach_I_5_04"
+          "TestQuarantineBoundaryPreservesTwoStepAttach_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -549,7 +549,7 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestPhase5_BlobCreateIdempotency_U_5_02"
+          "TestBlobCreateIdempotency_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -572,8 +572,8 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestPhase5_BlobCreateSizeCeiling_U_5_09",
-          "TestPhase5_PreviewPayloadCeiling_U_5_09"
+          "TestBlobCreateSizeCeiling_Unit",
+          "TestPreviewPayloadCeiling_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -596,8 +596,8 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestPhase5_DownloadDispositionFallback_U_5_07",
-          "TestPhase5_SanitizeFilenameRemovesNUL_U_5_07"
+          "TestDownloadDispositionFallback_Unit",
+          "TestSanitizeFilenameRemovesNUL_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -620,7 +620,7 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestPhase5_EvidenceLifecycleSeparateFromBlob_U_5_04"
+          "TestEvidenceLifecycleSeparateFromBlob_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -643,7 +643,7 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestPhase5_HandleRedemptionRechecksCurrentState_U_5_06"
+          "TestHandleRedemptionRechecksCurrentState_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -666,7 +666,7 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestPhase5_AttachBlobValidation_U_5_03"
+          "TestAttachBlobValidation_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -689,7 +689,7 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestPhase5_ObjectBlobCreate_U_5_01"
+          "TestObjectBlobCreate_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -712,7 +712,7 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestPhase5_HandleIssueEmptyBodyNonIdempotent_U_5_05"
+          "TestHandleIssueEmptyBodyNonIdempotent_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -735,7 +735,7 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestPhase5_EvidenceFieldKeyRegistryClosure_U_5_11"
+          "TestEvidenceFieldKeyRegistryClosure_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -758,7 +758,7 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestPhase5_ReasonCodeRegistryConformance_U_5_10"
+          "TestReasonCodeRegistryConformance_Unit"
         ]
       },
       "evidence_class": "unit",

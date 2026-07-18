@@ -309,7 +309,7 @@ func TestNetworkFlowDisplayNameAlgorithmsAndLifecycleVocabulary(t *testing.T) {
 	}
 }
 
-func TestPhase12NetworkFlow_U_12_NFAC021_21_TableLifecycleVocabularyHasNoRenamedState(t *testing.T) {
+func TestNetworkFlow_TableLifecycleVocabularyHasNoRenamedState_Unit(t *testing.T) {
 	states := LifecycleStates()
 	if len(states) != 2 || states[0] != TableStatusActive || states[1] != TableStatusSoftDeleted {
 		t.Fatalf("unexpected lifecycle states: %#v", states)
@@ -321,7 +321,7 @@ func TestPhase12NetworkFlow_U_12_NFAC021_21_TableLifecycleVocabularyHasNoRenamed
 	}
 }
 
-func TestPhase12NetworkFlow_I_12_NFAC062_62_StoreLifecycleAndLimitAccounting(t *testing.T) {
+func TestNetworkFlow_StoreLifecycleAndLimitAccounting_Integration(t *testing.T) {
 	t.Run("create_rows_counts", TestNetworkFlowStoreCreateTableDerivesNamePersistsRowsAndCounts)
 	t.Run("rename_soft_delete_reuse", TestNetworkFlowStoreRenameSoftDeleteAndRetainedNameReuse)
 	t.Run("limits", TestNetworkFlowStoreLimitsUseActiveAndRetainedCounts)

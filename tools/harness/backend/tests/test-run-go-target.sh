@@ -453,25 +453,25 @@ phase2_incidents_authoritative_command="$(
 )"
 assert_contains "$phase2_incidents_authoritative_command" "TestPhase2_I_2_01" "backend-integration phase2 incidents authoritative selector"
 
-phase2_incidents_shard="$(find_planned_shard_for_symbol backend-integration TestPhase2_I_2_01_IncidentCreatePersistsBootstrapStateAndRollsBackAtomically)"
+phase2_incidents_shard="$(find_planned_shard_for_symbol backend-integration TestIncidentCreatePersistsBootstrapStateAndRollsBackAtomically_Integration)"
 phase2_incidents_shard_command="$(
   NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration "$phase2_incidents_shard"
 )"
 assert_contains "$phase2_incidents_shard_command" "TestPhase2_I_2_01" "backend-integration phase2 incidents planned shard selector"
 
-phase2_incidents_support_shard="$(find_planned_shard_for_symbol backend-integration-support TestSupportPhase2_ControlBoundaryIncidentCoreDeploymentAdminWithoutMembershipDenied)"
+phase2_incidents_support_shard="$(find_planned_shard_for_symbol backend-integration-support TestControlBoundaryIncidentCoreDeploymentAdminWithoutMembershipDenied)"
 phase2_incidents_support_shard_command="$(
   NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support "$phase2_incidents_support_shard"
 )"
 assert_contains "$phase2_incidents_support_shard_command" "TestSupportPhase2_" "backend-integration support phase2 planned shard selector"
 
-phase10_operator_scn4_shard="$(find_planned_shard_for_symbol backend-process TestPhase10_E_10_01_CanonicalOperatorRestoreVerifyLatest phase10)"
+phase10_operator_scn4_shard="$(find_planned_shard_for_symbol backend-process TestCanonicalOperatorRestoreVerifyLatest_Process phase10)"
 phase10_operator_scn4_shard_command="$(
   CARTULARY_GO_TARGET_PHASE=phase10 NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-process "$phase10_operator_scn4_shard"
 )"
-assert_contains "$phase10_operator_scn4_shard_command" "TestPhase10_E_10_01_CanonicalOperatorRestoreVerifyLatest" "backend-process phase10 operator scenario shard selector"
-assert_contains "$phase10_operator_scn4_shard_command" "TestPhase10_E_10_01_CanonicalOperatorRestoreVerifyDue" "backend-process phase10 operator compatible peer scenario batch"
-assert_not_contains "$phase10_operator_scn4_shard_command" "TestPhase10_E_10_01_CanonicalOperatorBackupCreate" "backend-process phase10 operator batch excludes other deterministic bin"
+assert_contains "$phase10_operator_scn4_shard_command" "TestCanonicalOperatorRestoreVerifyLatest_Process" "backend-process phase10 operator scenario shard selector"
+assert_contains "$phase10_operator_scn4_shard_command" "TestCanonicalOperatorRestoreVerifyDue_Process" "backend-process phase10 operator compatible peer scenario batch"
+assert_not_contains "$phase10_operator_scn4_shard_command" "TestCanonicalOperatorBackupCreate_Process" "backend-process phase10 operator batch excludes other deterministic bin"
 
 runtime_binary_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-runtime-binary.XXXXXX")"
 cleanup_paths+=("$runtime_binary_results")

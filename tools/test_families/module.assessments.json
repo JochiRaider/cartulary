@@ -126,7 +126,7 @@
       "selector": {
         "package": "./internal/modules/assessments",
         "tests": [
-          "TestPhase9_U_9_12_RelationshipConfidenceRejectedAndManualLinksRemainNull"
+          "TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -149,7 +149,7 @@
       "selector": {
         "package": "./internal/modules/assessments",
         "tests": [
-          "TestPhase9_AssessmentsAppendOnlyStatesAndBands_U_9_06"
+          "TestAssessmentsAppendOnlyStatesAndBands_Unit"
         ]
       },
       "evidence_class": "integration",

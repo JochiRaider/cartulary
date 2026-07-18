@@ -49,7 +49,7 @@ func TestBaseRegistryPublicResources(t *testing.T) {
 	}
 }
 
-func TestSupportPhase9TaskDecisionInternalProjectionBindings(t *testing.T) {
+func TestTaskDecisionInternalProjectionBindings(t *testing.T) {
 	tests := []struct {
 		viewSchemaID   string
 		baseProjection string
@@ -76,7 +76,7 @@ func TestSupportPhase9TaskDecisionInternalProjectionBindings(t *testing.T) {
 	}
 }
 
-func TestSupportPhase9CoordinationInternalProjectionAndFilterBindings(t *testing.T) {
+func TestCoordinationInternalProjectionAndFilterBindings(t *testing.T) {
 	tests := []struct {
 		viewSchemaID   string
 		artifactType   string
@@ -114,7 +114,7 @@ func TestSupportPhase9CoordinationInternalProjectionAndFilterBindings(t *testing
 	}
 }
 
-func TestSupportPhase9HandoffAckStateExposesDeclaredEnumOrder(t *testing.T) {
+func TestHandoffAckStateExposesDeclaredEnumOrder(t *testing.T) {
 	resource, ok := LookupPublicResource("cartulary.view.handoff.v1")
 	if !ok {
 		t.Fatal("missing handoff public resource")
@@ -135,7 +135,7 @@ func TestSupportPhase9HandoffAckStateExposesDeclaredEnumOrder(t *testing.T) {
 	t.Fatal("handoff.ack_state field not exposed")
 }
 
-func TestSupportPhase9OptionalStandardizedSurfacesExposedAsAdditiveResources(t *testing.T) {
+func TestOptionalStandardizedSurfacesExposedAsAdditiveResources(t *testing.T) {
 	tests := []struct {
 		viewSchemaID string
 		artifactType string
@@ -226,7 +226,7 @@ func TestSupportPhase9OptionalStandardizedSurfacesExposedAsAdditiveResources(t *
 	}
 }
 
-func TestPhase9_U_9_13_ArtifactVariantRegistryClosure(t *testing.T) {
+func TestArtifactVariantRegistryClosure_Unit(t *testing.T) {
 	want := []ArtifactVariant{
 		{
 			ArtifactVariantID:         "note",

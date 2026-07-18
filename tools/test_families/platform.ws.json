@@ -14,7 +14,7 @@
       "selector": {
         "package": "./internal/platform/ws",
         "tests": [
-          "TestSupportPhase6_PresenceReplayRevocationTransport"
+          "TestPresenceReplayRevocationTransport"
         ]
       },
       "evidence_class": "unit",

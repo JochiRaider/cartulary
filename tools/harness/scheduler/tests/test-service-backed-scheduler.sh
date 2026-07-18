@@ -2078,7 +2078,7 @@ for index in $(seq 1 20); do
     "fixture_policy": "group_clone",
     "reuse_scope": "group-reused",
     "caller_package": "internal/modules/evidence",
-    "caller_file": "internal/modules/evidence/phase5_objectstore_dependency_test.go",
+    "caller_file": "internal/modules/evidence/objectstore_dependency_test.go",
     "test_name": "SyntheticGroupCloneBudgetMiss/subcase_${event_id}",
     "reuse_group": "internal/modules/evidence:SyntheticGroupCloneBudgetMiss:subcase_${event_id}"
   }
@@ -2098,7 +2098,7 @@ assert_contains "$group_clone_shape_output" "backend-integration exceeded postgr
 assert_contains "$group_clone_shape_output" "actual_sources=" "group clone fixture shape actual sources"
 assert_contains "$group_clone_shape_output" "SyntheticGroupCloneBudgetMiss" "group clone fixture shape names actual test"
 assert_contains "$group_clone_shape_output" "planned_manifest_symbols=" "group clone fixture shape planned symbols"
-assert_contains "$group_clone_shape_output" "TestPhase5_AttachRouteContract_I_5_05" "group clone fixture shape names planned manifest symbol"
+assert_contains "$group_clone_shape_output" "TestAttachRouteContract_Integration" "group clone fixture shape names planned manifest symbol"
 
 fi
 

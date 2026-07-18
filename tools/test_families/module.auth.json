@@ -705,10 +705,10 @@
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestPhase1_AdminCredentialActions_I_1_05",
-          "TestPhase1_AdminCredentialAuditAndScope_I_1_05",
-          "TestPhase1_AdminPasswordResetReplayReturnsOriginalCommittedResource_I_1_05",
-          "TestPhase1_AdminTOTPResetAndRevokeAllReplay_I_1_05"
+          "TestAdminCredentialActions_Integration",
+          "TestAdminCredentialAuditAndScope_Integration",
+          "TestAdminPasswordResetReplayReturnsOriginalCommittedResource_Integration",
+          "TestAdminTOTPResetAndRevokeAllReplay_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -731,7 +731,7 @@
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestPhase1_BootstrapTokenRouteBoundaries_I_1_06"
+          "TestBootstrapTokenRouteBoundaries_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -754,10 +754,10 @@
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestPhase1_BootstrapEnrollmentConsumption_I_1_04",
-          "TestPhase1_CredentialStateAndBootstrapFlows_I_1_04",
-          "TestPhase1_CredentialStateTransitions_I_1_04",
-          "TestPhase1_PasswordChangeReplayAndStoredPayload_I_1_04"
+          "TestBootstrapEnrollmentConsumption_Integration",
+          "TestCredentialStateAndBootstrapFlows_Integration",
+          "TestCredentialStateTransitions_Integration",
+          "TestPasswordChangeReplayAndStoredPayload_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -780,7 +780,7 @@
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestPhase11EnterpriseAuthBindingLifecycle_I_11_ENTERPRISE_AUTH_03"
+          "TestEnterpriseAuthBindingLifecycle_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -803,7 +803,7 @@
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestPhase11EnterpriseAuthProviderOIDC_I_11_ENTERPRISE_AUTH_01"
+          "TestEnterpriseAuthProviderOIDC_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -826,7 +826,7 @@
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestPhase1_LoginSessionLifecycle_I_1_01"
+          "TestLoginSessionLifecycle_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -849,7 +849,7 @@
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02"
+          "TestSessionRevocationClosesAttachedSocket_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -872,7 +872,7 @@
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestPhase11EnterpriseSAMLACS_I_11_ENTERPRISE_AUTH_02"
+          "TestEnterpriseSAMLACS_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -895,9 +895,9 @@
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestPhase1_UserAdminAudit_I_1_03",
-          "TestPhase1_UserAdminLifecycle_I_1_03",
-          "TestPhase1_UserCreateReplayReturnsOriginalCommittedResource_I_1_03"
+          "TestUserAdminAudit_Integration",
+          "TestUserAdminLifecycle_Integration",
+          "TestUserCreateReplayReturnsOriginalCommittedResource_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -920,7 +920,7 @@
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestPhase1_RouteRevocationConsequences_U_1_06"
+          "TestRouteRevocationConsequences_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -943,7 +943,7 @@
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05"
+          "TestConcurrencyLimitRevokesLRUNonCurrent_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -966,7 +966,7 @@
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestPhase1_UserPatchAndLastAdminGuard_U_1_08"
+          "TestUserPatchAndLastAdminGuard_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -989,15 +989,15 @@
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestSupportPhase1_Integration_AuditAttribution",
-          "TestSupportPhase1_Integration_AuthorizationReDerivation",
-          "TestSupportPhase1_Integration_BootstrapBoundaries",
-          "TestSupportPhase1_Integration_CSRFProtection",
-          "TestSupportPhase1_Integration_ReplayAndStoredPayloadSafety",
-          "TestSupportPhase1_Integration_RequestContracts",
-          "TestSupportPhase1_Integration_SessionRevocation",
-          "TestSupportPhase1_Integration_SurfaceEnvelope",
-          "TestSupportPhase1_UserListContinuationUsesLiveRows"
+          "TestAuditAttribution",
+          "TestAuthorizationReDerivation",
+          "TestBootstrapBoundaries",
+          "TestCSRFProtection",
+          "TestReplayAndStoredPayloadSafety",
+          "TestRequestContracts",
+          "TestSessionRevocation",
+          "TestSurfaceEnvelope",
+          "TestUserListContinuationUsesLiveRows"
         ]
       },
       "evidence_class": "integration",
@@ -1020,13 +1020,13 @@
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestSupportPhase1_AdminCredentialActionsRequireDeploymentAdmin",
-          "TestSupportPhase1_CSRFHelpers",
-          "TestSupportPhase1_CredentialStateBuilders",
-          "TestSupportPhase1_PasswordChangeDecode",
-          "TestSupportPhase1_SessionInspectionHelpers",
-          "TestSupportPhase1_TOTPBootstrapHelpers",
-          "TestSupportPhase1_UserCreateDefaultsAndSafeShape"
+          "TestAdminCredentialActionsRequireDeploymentAdmin",
+          "TestCSRFHelpers",
+          "TestCredentialStateBuilders",
+          "TestPasswordChangeDecode",
+          "TestSessionInspectionHelpers",
+          "TestTOTPBootstrapHelpers",
+          "TestUserCreateDefaultsAndSafeShape"
         ]
       },
       "evidence_class": "unit",
@@ -1049,7 +1049,7 @@
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestPhase1_CSRFProtectionRoutes_U_1_09"
+          "TestCSRFProtectionRoutes_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -1072,7 +1072,7 @@
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestPhase1_AdminCredentialActionGuards_U_1_13"
+          "TestAdminCredentialActionGuards_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -1095,7 +1095,7 @@
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestPhase1_LoginRequestShape_U_1_01"
+          "TestLoginRequestShape_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -1118,7 +1118,7 @@
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestPhase1_PasswordChangeRouteContracts_U_1_11"
+          "TestPasswordChangeRouteContracts_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -1141,7 +1141,7 @@
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestPhase1_CredentialStateRoute_U_1_10"
+          "TestCredentialStateRoute_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -1164,7 +1164,7 @@
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestPhase1_SessionInspectionRoute_U_1_04"
+          "TestSessionInspectionRoute_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -1187,7 +1187,7 @@
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestPhase1_LoginCreatesSessionAndResource_U_1_03"
+          "TestLoginCreatesSessionAndResource_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -1210,7 +1210,7 @@
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestPhase1_LoginNormalizationAndPasswordExactness_U_1_02"
+          "TestLoginNormalizationAndPasswordExactness_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -1233,7 +1233,7 @@
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestPhase1_TOTPRouteContracts_U_1_12"
+          "TestTOTPRouteContracts_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -1256,7 +1256,7 @@
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestPhase1_UserCreateRouteDefaults_U_1_07"
+          "TestUserCreateRouteDefaults_Unit"
         ]
       },
       "evidence_class": "unit",

@@ -14,7 +14,7 @@
       "selector": {
         "package": "./internal/modules/tabularingest",
         "tests": [
-          "TestSupportPhase9_SharedTabularIngestParsesMapsAndGroupsBatch"
+          "TestSharedTabularIngestParsesMapsAndGroupsBatch"
         ]
       },
       "evidence_class": "unit",

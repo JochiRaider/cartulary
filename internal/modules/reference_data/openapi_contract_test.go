@@ -7,7 +7,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 )
 
-func TestPhase11_U_11_REFERENCE_PACK_05_OpenAPIAndErrorRegistriesExposeClosedReferencePackContract(t *testing.T) {
+func TestOpenAPIAndErrorRegistriesExposeClosedReferencePackContract_Unit(t *testing.T) {
 	document := contracttest.OpenAPIDocument(t)
 	schemas := openAPIObjectAt(t, document, "components", "schemas")
 	requireEnum(t, openAPIObjectAt(t, schemas, "ReferencePackVersionState"), []string{"staged", "verified_available", "disabled", "failed", "missing"})

@@ -12,7 +12,7 @@
 | Baseline worktree | Clean |
 | Tracker state | `IN_PROGRESS` — WS-06 semantic source and fixture names |
 | Active start | Clean tree at `4cf06958b46649f76d79f1232379beb2738dc201` |
-| Active tasks | T-028 |
+| Active tasks | T-029 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -711,8 +711,8 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-025 | Migrate FE-P9–FE-P12 rows | WS-05 | DONE | T-015 | 30 dispositions, 39 exact title atoms, catalog and frontend tests | Rows have terminal dispositions. |
 | T-026 | Remove frontend guide/cumulative accounting | WS-05 | DONE | T-023,T-024,T-025 | Catalog-native owner accounting projection and negative tests | One successor owner accounting model remains. |
 | T-027 | Reconcile all 87 frontend rows | WS-05 | DONE | T-026 | 87-row/216-atom reconciliation report | Count and selector coverage close. |
-| T-028 | Rename Go test identities | WS-06 | IN_PROGRESS | T-022 | Semantic scan and Go tests | No delivery-phase Go test identity remains. |
-| T-029 | Rename Vitest/Playwright identities | WS-06 | TODO | T-022,T-027 | Semantic scan and frontend tests | No delivery-phase frontend test identity remains. |
+| T-028 | Rename Go test identities | WS-06 | DONE | T-022 | 102 path, 632 test-entry, and 333 helper-declaration renames; catalog reconciliation; semantic scan; 1,295-test fast suite | No delivery-phase Go test identity remains. |
+| T-029 | Rename Vitest/Playwright identities | WS-06 | IN_PROGRESS | T-022,T-027 | Semantic scan and frontend tests | No delivery-phase frontend test identity remains. |
 | T-030 | Rename fixtures/scenarios/goldens | WS-06 | TODO | T-027 | Digest comparison and browser tests | Paths are semantic and bytes preserved. |
 | T-031 | Close production follow-up classifications | WS-06 | TODO | T-007,T-028,T-029 | Follow-up ledger | Every remaining match has owner/disposition. |
 | T-032 | Implement owner-slice planning/execution | WS-07 | TODO | T-015,T-022,T-027 | CLI/smoke tests | Both successor slice targets work. |
@@ -1051,6 +1051,18 @@ Each entry must include:
 - Starting invariants: all 548 authoritative identities and 265 auxiliary candidates are terminally reconciled; the catalog has 46 owners, 169 families, 832 rows, and 1,376 selectors; all 56 frozen visual golden digests remain the WS-00 byte-identity baseline. Renames must update catalog selectors atomically and must not reopen ownership adjudication.
 - Next safe task: T-028 only. Classify the frozen Go delivery-identity population, rename complete package-owner slices, update exact catalog selectors, and run focused Go plus semantic scans before activating T-029.
 - Rollback boundary: revert a complete semantic owner slice, including source names, exact catalog selectors, semantic allow classifications, tests, and tracker evidence. Never leave duplicate old/new tests or a selector that resolves both identities.
+
+#### 2026-07-18 — T-028 semantic Go identity checkpoint
+
+- Branch/commit at start: `revision/grid-adapter` at clean WS-06 activation checkpoint `001f67f8`. This entry closes T-028; T-029 becomes the sole active task while WS-06 remains the only active workstream.
+- Rename result: 102 delivery-shaped Go test paths were moved to semantic paths; 632 `Test`/`Benchmark`/`Fuzz` entry points and 333 test helper/type/fixture declarations had delivery-phase, sprint, or legacy phase-row identity removed. Collision checks ran before each mechanical pass. The two names that would otherwise overlap production `ApprovedMapping` and `FlowRow` types were resolved as the explicit `approvedMappingFixture` and `flowRowFixture` helpers.
+- Selector and policy result: all 456 authoritative backend dispositions and 37 retained support candidates still reconcile to 550 authoritative plus 118 support selector atoms. Phase-map and owner-family selectors changed atomically, support regex selectors became closed exact/alternation selectors, and the catalog remains 46 owners, 169 families, 832 rows, and 1,376 exact selectors. The catalog semantic digest is now `sha256:2dcbd9b4380fe1479e768ff25e049d5ed3696ef077dba80e40f73a8d6a3f0ef4`; the verification digest remains `sha256:6c4b33052cf1c0646066c9420dcb4c137807f7ffc5d7fafe3f49f8d0d58e8e57`.
+- Structural result: `tools/harness/test-catalog/semantic-identity-check-cli.mjs` now rejects delivery-shaped Go filenames, declarations, and catalog selectors, including legacy phase-row fragments. The pre-cutover `phase-test-name-check` entry point delegates to that inverse policy until WS-09/WS-10 replace and delete the old target/path. Transitional phase schedules were regenerated through `make phase-schedules`; this does not authorize retaining the generator or generated phase topology after WS-10.
+- Passed validation: idempotent migration dry run; direct semantic identity scan; exact zero counts for delivery-shaped Go test paths, entry points, and declarations; backend reconciliation; `make format` at `.cartulary/test-results/20260718T015935Z-p47439`; `make test-fast` with 1,295 tests and zero failures at `.cartulary/test-results/20260718T015938Z-p49713`; `make json-shape-check` at `.cartulary/test-results/20260718T020150Z-p93139`; `make phase-schedule-drift` at `.cartulary/test-results/20260718T020150Z-p93133`; `make generated-artifact-policy-check` at `.cartulary/test-results/20260718T020150Z-p93194`; `make harness-contract`; `make phase-test-name-check`; `make lint-scripts`; and `git diff --check`.
+- Resolved failures: the first JSON-shape runs exposed unstaged rename discovery, stale support selection prefixes, legacy manifest row-ID naming enforcement, and expected generated schedule drift; staging the atomic moves, closing support selectors, replacing the naming policy, and regenerating from owners resolved them. The first `make test-fast` root `.cartulary/test-results/20260718T015819Z-p37028` exposed the two production-type collisions described above; the full rerun passed.
+- Skipped checks: frontend unit/typecheck and browser stages are reserved for T-029/T-030; the full semantic repository scan and production classifications are T-031; owner commands do not exist until WS-07; broad `make check`, finalization, and release checks remain WS-11.
+- Next safe task: T-029 only. Rename Vitest and Playwright files, suites, titles, helpers, and exact catalog/transition selectors in closed frontend-owner slices, then run frontend and semantic validation before activating T-030.
+- Rollback boundary: revert this complete T-028 checkpoint, including source moves, Go declarations, catalog and transitional selectors, semantic policy, generated schedule outputs, and ledger references. Never restore duplicate old/new files or the former requirement that executable names carry delivery-row IDs.
 
 ## 17. First-resumer checklist
 

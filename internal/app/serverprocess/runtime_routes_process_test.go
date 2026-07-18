@@ -123,13 +123,13 @@ func harnessRuntimeServerProcessEnv(t testing.TB, prefix string) map[string]stri
 
 	postgresHarness, s3Harness := sharedProcessHarnesses(t)
 	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, prefix)
-	bucket := phase0BucketName(prefix)
+	bucket := BucketName(prefix)
 	t.Cleanup(func() {
-		cleanupPhase0Bucket(t, s3Harness, bucket)
+		cleanupBucket(t, s3Harness, bucket)
 	})
 
-	configPath := writePhase0Config(t, string(fixtures.MustRead("config", "valid.toml")))
-	return phase0ServerEnv(t, testDB.Env(), s3Harness.Env(bucket), configPath, fixtures.Path("bootstrap-admin", "canonical.json"))
+	configPath := writeConfig(t, string(fixtures.MustRead("config", "valid.toml")))
+	return ServerEnv(t, testDB.Env(), s3Harness.Env(bucket), configPath, fixtures.Path("bootstrap-admin", "canonical.json"))
 }
 
 func reserveHarnessRuntimeProcessAddress(t testing.TB) string {

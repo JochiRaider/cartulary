@@ -15,7 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
-func TestPhase11_U_11_REFERENCE_PACK_01_RequestValidationNormalizationAndClosedRegistries(t *testing.T) {
+func TestRequestValidationNormalizationAndClosedRegistries_Unit(t *testing.T) {
 	envelope := httpapi.UploadEnvelope{
 		Metadata: map[string]json.RawMessage{
 			"client_txn_id": json.RawMessage(`"txn-import"`),
@@ -196,7 +196,7 @@ func TestSupportReferencePackListFilterAppliesSearchAndExactFilters(t *testing.T
 	}
 }
 
-func TestPhase11_U_11_REFERENCE_PACK_03_VerifierRejectsArchiveLimits(t *testing.T) {
+func TestVerifierRejectsArchiveLimits_Unit(t *testing.T) {
 	valid := referencePackBundle(t, bundleOptions{
 		PackKey:     "type_registry.host",
 		PackKind:    "type_registry",
@@ -362,7 +362,7 @@ func asVerificationError(err error, target **VerificationError) bool {
 	return errors.As(err, target)
 }
 
-func TestPhase11_U_11_REFERENCE_PACK_02_VerifierAcceptsLocalBundleAndRejectsFailures(t *testing.T) {
+func TestVerifierAcceptsLocalBundleAndRejectsFailures_Unit(t *testing.T) {
 	valid := referencePackBundle(t, bundleOptions{
 		PackKey:     "type_registry.host",
 		PackKind:    "type_registry",

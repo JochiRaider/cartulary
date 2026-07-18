@@ -398,7 +398,7 @@ cat >"$phase_root/tools/phase99_test_map.json" <<'JSON'
       "target": "backend_unit",
       "section": "unit",
       "package": "./internal/modules/auth",
-      "file": "internal/modules/auth/phase1_support_test.go",
+      "file": "internal/modules/auth/support_test.go",
       "selection_pattern": "TestSupportPhase5_",
       "execution_family": "backend-unit-auth",
       "execution_label": "Backend unit auth",
@@ -407,7 +407,7 @@ cat >"$phase_root/tools/phase99_test_map.json" <<'JSON'
       "default_check_required": false,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "implementation_support_explicit_only",
-      "primary_evidence_owner": "backend_unit::internal/modules/auth/phase1_support_test.go::TestSupportPhase5_",
+      "primary_evidence_owner": "backend_unit::internal/modules/auth/support_test.go::TestSupportPhase5_",
       "duplicate_of": null,
       "evidence_delta": "support evidence is explicit-only",
       "warm_local_cost_class": "low",
@@ -424,7 +424,7 @@ phase_map_discovery_root="$tmp_dir/phase-map-discovery-root"
 mkdir -p "$phase_map_discovery_root/tools"
 write_phase_registry "$phase_map_discovery_root" phase99
 write_phase_ledger_stub "$phase_map_discovery_root" phase99
-write_go_source_symbol "$phase_map_discovery_root" "internal/modules/auth/phase1_store_test.go" "auth" "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01"
+write_go_source_symbol "$phase_map_discovery_root" "internal/modules/auth/store_test.go" "auth" "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01"
 cat >"$phase_map_discovery_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v2",
@@ -447,7 +447,7 @@ cat >"$phase_map_discovery_root/tools/phase99_test_map.json" <<'JSON'
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/auth",
-      "file": "internal/modules/auth/phase1_store_test.go",
+      "file": "internal/modules/auth/store_test.go",
       "symbol": "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01",
       "execution_dependency": "backend_store",
       "execution_family": "backend-store",
@@ -457,7 +457,7 @@ cat >"$phase_map_discovery_root/tools/phase99_test_map.json" <<'JSON'
       "default_check_required": true,
       "default_check_kind": "primary_local_evidence",
       "default_check_reason_code": "cheapest_authoritative_layer",
-      "primary_evidence_owner": "backend_store::internal/modules/auth/phase1_store_test.go::TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01",
+      "primary_evidence_owner": "backend_store::internal/modules/auth/store_test.go::TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01",
       "duplicate_of": null,
       "evidence_delta": "Synthetic phase-map discovery fixture coverage.",
       "warm_local_cost_class": "service_backed",
@@ -940,7 +940,7 @@ assert_contains "$phase99_shared_command" "TestSupportPhase5_Discovered" "run-go
 invalid_phase_root="$tmp_dir/invalid-phase-root"
 mkdir -p "$invalid_phase_root/tools"
 write_phase_registry "$invalid_phase_root" phase99
-write_go_source_symbol "$invalid_phase_root" "internal/modules/auth/phase1_store_test.go" "auth" "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01"
+write_go_source_symbol "$invalid_phase_root" "internal/modules/auth/store_test.go" "auth" "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01"
 cat >"$invalid_phase_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v2",
@@ -963,7 +963,7 @@ cat >"$invalid_phase_root/tools/phase99_test_map.json" <<'JSON'
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/auth",
-      "file": "internal/modules/auth/phase1_store_test.go",
+      "file": "internal/modules/auth/store_test.go",
       "symbol": "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01",
       "execution_dependency": "backend_store",
       "execution_family": "backend-store",
@@ -973,7 +973,7 @@ cat >"$invalid_phase_root/tools/phase99_test_map.json" <<'JSON'
       "default_check_required": true,
       "default_check_kind": "primary_local_evidence",
       "default_check_reason_code": "cheapest_authoritative_layer",
-      "primary_evidence_owner": "backend_store::internal/modules/auth/phase1_store_test.go::TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01",
+      "primary_evidence_owner": "backend_store::internal/modules/auth/store_test.go::TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01",
       "duplicate_of": null,
       "evidence_delta": "Synthetic invalid fixture policy coverage.",
       "warm_local_cost_class": "service_backed",
@@ -996,7 +996,7 @@ fi
 missing_policy_root="$tmp_dir/missing-policy-root"
 mkdir -p "$missing_policy_root/tools"
 write_phase_registry "$missing_policy_root" phase99
-write_go_source_symbol "$missing_policy_root" "internal/modules/auth/phase1_store_test.go" "auth" "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01"
+write_go_source_symbol "$missing_policy_root" "internal/modules/auth/store_test.go" "auth" "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01"
 cat >"$missing_policy_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v2",
@@ -1019,7 +1019,7 @@ cat >"$missing_policy_root/tools/phase99_test_map.json" <<'JSON'
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/auth",
-      "file": "internal/modules/auth/phase1_store_test.go",
+      "file": "internal/modules/auth/store_test.go",
       "symbol": "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01",
       "execution_dependency": "backend_store",
       "execution_family": "backend-store",
@@ -1029,7 +1029,7 @@ cat >"$missing_policy_root/tools/phase99_test_map.json" <<'JSON'
       "default_check_required": true,
       "default_check_kind": "primary_local_evidence",
       "default_check_reason_code": "cheapest_authoritative_layer",
-      "primary_evidence_owner": "backend_store::internal/modules/auth/phase1_store_test.go::TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01",
+      "primary_evidence_owner": "backend_store::internal/modules/auth/store_test.go::TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01",
       "duplicate_of": null,
       "evidence_delta": "Synthetic missing fixture policy coverage.",
       "warm_local_cost_class": "service_backed",
@@ -1059,7 +1059,7 @@ assert_contains "$missing_policy_output" "must declare fixture_policy.postgres" 
 missing_claim_root="$tmp_dir/missing-claim-root"
 mkdir -p "$missing_claim_root/tools"
 write_phase_registry "$missing_claim_root" phase99
-write_go_source_symbol "$missing_claim_root" "internal/modules/auth/phase1_store_test.go" "auth" "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01"
+write_go_source_symbol "$missing_claim_root" "internal/modules/auth/store_test.go" "auth" "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01"
 cat >"$missing_claim_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v2",
@@ -1082,7 +1082,7 @@ cat >"$missing_claim_root/tools/phase99_test_map.json" <<'JSON'
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/auth",
-      "file": "internal/modules/auth/phase1_store_test.go",
+      "file": "internal/modules/auth/store_test.go",
       "symbol": "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01",
       "execution_dependency": "backend_store",
       "execution_family": "backend-store",
@@ -1092,7 +1092,7 @@ cat >"$missing_claim_root/tools/phase99_test_map.json" <<'JSON'
       "default_check_required": true,
       "default_check_kind": "primary_local_evidence",
       "default_check_reason_code": "cheapest_authoritative_layer",
-      "primary_evidence_owner": "backend_store::internal/modules/auth/phase1_store_test.go::TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01",
+      "primary_evidence_owner": "backend_store::internal/modules/auth/store_test.go::TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01",
       "duplicate_of": null,
       "evidence_delta": "Synthetic missing claim coverage.",
       "warm_local_cost_class": "service_backed",
@@ -1127,7 +1127,7 @@ assert_contains "$missing_claim_output" "must declare a non-empty claim" "missin
 blocked_profile_claim_root="$tmp_dir/blocked-profile-claim-root"
 mkdir -p "$blocked_profile_claim_root/tools"
 write_phase_registry "$blocked_profile_claim_root" phase99
-write_go_source_symbol "$blocked_profile_claim_root" "internal/modules/auth/phase1_store_test.go" "auth" "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01"
+write_go_source_symbol "$blocked_profile_claim_root" "internal/modules/auth/store_test.go" "auth" "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01"
 cat >"$blocked_profile_claim_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v2",
@@ -1160,7 +1160,7 @@ cat >"$blocked_profile_claim_root/tools/phase99_test_map.json" <<'JSON'
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/auth",
-      "file": "internal/modules/auth/phase1_store_test.go",
+      "file": "internal/modules/auth/store_test.go",
       "symbol": "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01",
       "execution_dependency": "backend_store",
       "execution_family": "backend-store",
@@ -1170,7 +1170,7 @@ cat >"$blocked_profile_claim_root/tools/phase99_test_map.json" <<'JSON'
       "default_check_required": true,
       "default_check_kind": "primary_local_evidence",
       "default_check_reason_code": "cheapest_authoritative_layer",
-      "primary_evidence_owner": "backend_store::internal/modules/auth/phase1_store_test.go::TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01",
+      "primary_evidence_owner": "backend_store::internal/modules/auth/store_test.go::TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01",
       "duplicate_of": null,
       "evidence_delta": "Synthetic blocked profile evidence coverage.",
       "warm_local_cost_class": "service_backed",
@@ -1206,7 +1206,7 @@ assert_contains "$blocked_profile_claim_output" "direct_evidence_id U-99-01 must
 missing_budget_root="$tmp_dir/missing-budget-root"
 mkdir -p "$missing_budget_root/tools"
 write_phase_registry "$missing_budget_root" phase99
-write_go_source_symbol "$missing_budget_root" "internal/modules/auth/phase1_integration_test.go" "auth" "TestPhase1_LoginSessionLifecycle_I_99_01"
+write_go_source_symbol "$missing_budget_root" "internal/modules/auth/integration_test.go" "auth" "TestPhase1_LoginSessionLifecycle_I_99_01"
 cat >"$missing_budget_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v2",
@@ -1230,7 +1230,7 @@ cat >"$missing_budget_root/tools/phase99_test_map.json" <<'JSON'
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/auth",
-      "file": "internal/modules/auth/phase1_integration_test.go",
+      "file": "internal/modules/auth/integration_test.go",
       "symbol": "TestPhase1_LoginSessionLifecycle_I_99_01",
       "execution_dependency": "backend_integration",
       "execution_family": "backend-integration-auth",
@@ -1240,7 +1240,7 @@ cat >"$missing_budget_root/tools/phase99_test_map.json" <<'JSON'
       "default_check_required": true,
       "default_check_kind": "primary_local_evidence",
       "default_check_reason_code": "cheapest_authoritative_layer",
-      "primary_evidence_owner": "backend_integration::internal/modules/auth/phase1_integration_test.go::TestPhase1_LoginSessionLifecycle_I_99_01",
+      "primary_evidence_owner": "backend_integration::internal/modules/auth/integration_test.go::TestPhase1_LoginSessionLifecycle_I_99_01",
       "duplicate_of": null,
       "evidence_delta": "Synthetic missing fixture budget coverage.",
       "warm_local_cost_class": "service_backed",
@@ -1262,7 +1262,7 @@ fi
 invalid_budget_root="$tmp_dir/invalid-budget-root"
 mkdir -p "$invalid_budget_root/tools"
 write_phase_registry "$invalid_budget_root" phase99
-write_go_source_symbol "$invalid_budget_root" "internal/modules/auth/phase1_integration_test.go" "auth" "TestPhase1_LoginSessionLifecycle_I_99_01"
+write_go_source_symbol "$invalid_budget_root" "internal/modules/auth/integration_test.go" "auth" "TestPhase1_LoginSessionLifecycle_I_99_01"
 cat >"$invalid_budget_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v2",
@@ -1286,7 +1286,7 @@ cat >"$invalid_budget_root/tools/phase99_test_map.json" <<'JSON'
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/auth",
-      "file": "internal/modules/auth/phase1_integration_test.go",
+      "file": "internal/modules/auth/integration_test.go",
       "symbol": "TestPhase1_LoginSessionLifecycle_I_99_01",
       "execution_dependency": "backend_integration",
       "execution_family": "backend-integration-auth",
@@ -1296,7 +1296,7 @@ cat >"$invalid_budget_root/tools/phase99_test_map.json" <<'JSON'
       "default_check_required": true,
       "default_check_kind": "primary_local_evidence",
       "default_check_reason_code": "cheapest_authoritative_layer",
-      "primary_evidence_owner": "backend_integration::internal/modules/auth/phase1_integration_test.go::TestPhase1_LoginSessionLifecycle_I_99_01",
+      "primary_evidence_owner": "backend_integration::internal/modules/auth/integration_test.go::TestPhase1_LoginSessionLifecycle_I_99_01",
       "duplicate_of": null,
       "evidence_delta": "Synthetic invalid fixture budget coverage.",
       "warm_local_cost_class": "service_backed",
@@ -1324,7 +1324,7 @@ fi
 invalid_template_reason_root="$tmp_dir/invalid-template-reason-root"
 mkdir -p "$invalid_template_reason_root/tools"
 write_phase_registry "$invalid_template_reason_root" phase99
-write_go_source_symbol "$invalid_template_reason_root" "internal/modules/auth/phase1_integration_test.go" "auth" "TestPhase1_LoginSessionLifecycle_I_99_01"
+write_go_source_symbol "$invalid_template_reason_root" "internal/modules/auth/integration_test.go" "auth" "TestPhase1_LoginSessionLifecycle_I_99_01"
 cat >"$invalid_template_reason_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v2",
@@ -1348,7 +1348,7 @@ cat >"$invalid_template_reason_root/tools/phase99_test_map.json" <<'JSON'
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/auth",
-      "file": "internal/modules/auth/phase1_integration_test.go",
+      "file": "internal/modules/auth/integration_test.go",
       "symbol": "TestPhase1_LoginSessionLifecycle_I_99_01",
       "execution_dependency": "backend_integration",
       "execution_family": "backend-integration-auth",
@@ -1358,7 +1358,7 @@ cat >"$invalid_template_reason_root/tools/phase99_test_map.json" <<'JSON'
       "default_check_required": true,
       "default_check_kind": "primary_local_evidence",
       "default_check_reason_code": "cheapest_authoritative_layer",
-      "primary_evidence_owner": "backend_integration::internal/modules/auth/phase1_integration_test.go::TestPhase1_LoginSessionLifecycle_I_99_01",
+      "primary_evidence_owner": "backend_integration::internal/modules/auth/integration_test.go::TestPhase1_LoginSessionLifecycle_I_99_01",
       "duplicate_of": null,
       "evidence_delta": "Synthetic invalid fixture reason coverage.",
       "warm_local_cost_class": "service_backed",
@@ -1384,7 +1384,7 @@ assert_phase_map_check_fails \
 invalid_package_reset_reason_root="$tmp_dir/invalid-package-reset-reason-root"
 mkdir -p "$invalid_package_reset_reason_root/tools"
 write_phase_registry "$invalid_package_reset_reason_root" phase99
-write_go_source_symbol "$invalid_package_reset_reason_root" "internal/modules/auth/phase1_integration_test.go" "auth" "TestPhase1_LoginSessionLifecycle_I_99_01"
+write_go_source_symbol "$invalid_package_reset_reason_root" "internal/modules/auth/integration_test.go" "auth" "TestPhase1_LoginSessionLifecycle_I_99_01"
 cat >"$invalid_package_reset_reason_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v2",
@@ -1408,7 +1408,7 @@ cat >"$invalid_package_reset_reason_root/tools/phase99_test_map.json" <<'JSON'
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/auth",
-      "file": "internal/modules/auth/phase1_integration_test.go",
+      "file": "internal/modules/auth/integration_test.go",
       "symbol": "TestPhase1_LoginSessionLifecycle_I_99_01",
       "execution_dependency": "backend_integration",
       "execution_family": "backend-integration-auth",
@@ -1418,7 +1418,7 @@ cat >"$invalid_package_reset_reason_root/tools/phase99_test_map.json" <<'JSON'
       "default_check_required": true,
       "default_check_kind": "primary_local_evidence",
       "default_check_reason_code": "cheapest_authoritative_layer",
-      "primary_evidence_owner": "backend_integration::internal/modules/auth/phase1_integration_test.go::TestPhase1_LoginSessionLifecycle_I_99_01",
+      "primary_evidence_owner": "backend_integration::internal/modules/auth/integration_test.go::TestPhase1_LoginSessionLifecycle_I_99_01",
       "duplicate_of": null,
       "evidence_delta": "Synthetic invalid package reset reason coverage.",
       "warm_local_cost_class": "service_backed",
@@ -1449,7 +1449,7 @@ assert_phase_map_check_fails \
 invalid_group_clone_reason_root="$tmp_dir/invalid-group-clone-reason-root"
 mkdir -p "$invalid_group_clone_reason_root/tools"
 write_phase_registry "$invalid_group_clone_reason_root" phase99
-write_go_source_symbol "$invalid_group_clone_reason_root" "internal/modules/auth/phase1_integration_test.go" "auth" "TestPhase1_LoginSessionLifecycle_I_99_01"
+write_go_source_symbol "$invalid_group_clone_reason_root" "internal/modules/auth/integration_test.go" "auth" "TestPhase1_LoginSessionLifecycle_I_99_01"
 cat >"$invalid_group_clone_reason_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v2",
@@ -1473,7 +1473,7 @@ cat >"$invalid_group_clone_reason_root/tools/phase99_test_map.json" <<'JSON'
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/auth",
-      "file": "internal/modules/auth/phase1_integration_test.go",
+      "file": "internal/modules/auth/integration_test.go",
       "symbol": "TestPhase1_LoginSessionLifecycle_I_99_01",
       "execution_dependency": "backend_integration",
       "execution_family": "backend-integration-auth",
@@ -1483,7 +1483,7 @@ cat >"$invalid_group_clone_reason_root/tools/phase99_test_map.json" <<'JSON'
       "default_check_required": true,
       "default_check_kind": "primary_local_evidence",
       "default_check_reason_code": "cheapest_authoritative_layer",
-      "primary_evidence_owner": "backend_integration::internal/modules/auth/phase1_integration_test.go::TestPhase1_LoginSessionLifecycle_I_99_01",
+      "primary_evidence_owner": "backend_integration::internal/modules/auth/integration_test.go::TestPhase1_LoginSessionLifecycle_I_99_01",
       "duplicate_of": null,
       "evidence_delta": "Synthetic invalid group clone reason coverage.",
       "warm_local_cost_class": "service_backed",
@@ -1509,7 +1509,7 @@ assert_phase_map_check_fails \
 transaction_reason_scope_root="$tmp_dir/transaction-reason-scope-root"
 mkdir -p "$transaction_reason_scope_root/tools"
 write_phase_registry "$transaction_reason_scope_root" phase99
-write_go_source_symbol "$transaction_reason_scope_root" "internal/modules/auth/phase1_integration_test.go" "auth" "TestPhase1_LoginSessionLifecycle_I_99_01"
+write_go_source_symbol "$transaction_reason_scope_root" "internal/modules/auth/integration_test.go" "auth" "TestPhase1_LoginSessionLifecycle_I_99_01"
 cat >"$transaction_reason_scope_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v2",
@@ -1533,7 +1533,7 @@ cat >"$transaction_reason_scope_root/tools/phase99_test_map.json" <<'JSON'
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/auth",
-      "file": "internal/modules/auth/phase1_integration_test.go",
+      "file": "internal/modules/auth/integration_test.go",
       "symbol": "TestPhase1_LoginSessionLifecycle_I_99_01",
       "execution_dependency": "backend_integration",
       "execution_family": "backend-integration-auth",
@@ -1543,7 +1543,7 @@ cat >"$transaction_reason_scope_root/tools/phase99_test_map.json" <<'JSON'
       "default_check_required": true,
       "default_check_kind": "primary_local_evidence",
       "default_check_reason_code": "cheapest_authoritative_layer",
-      "primary_evidence_owner": "backend_integration::internal/modules/auth/phase1_integration_test.go::TestPhase1_LoginSessionLifecycle_I_99_01",
+      "primary_evidence_owner": "backend_integration::internal/modules/auth/integration_test.go::TestPhase1_LoginSessionLifecycle_I_99_01",
       "duplicate_of": null,
       "evidence_delta": "Synthetic transaction reason-scope coverage.",
       "warm_local_cost_class": "service_backed",
@@ -1627,7 +1627,7 @@ assert_phase_map_check_fails \
 missing_migration_reason_root="$tmp_dir/missing-migration-reason-root"
 mkdir -p "$missing_migration_reason_root/tools"
 write_phase_registry "$missing_migration_reason_root" phase99
-write_go_source_symbol "$missing_migration_reason_root" "internal/platform/bootstrap/bootstrap_phase0_test.go" "bootstrap" "TestPhase0_BootstrapManifestValidation_U_99_01"
+write_go_source_symbol "$missing_migration_reason_root" "internal/platform/bootstrap/bootstrap_test.go" "bootstrap" "TestPhase0_BootstrapManifestValidation_U_99_01"
 cat >"$missing_migration_reason_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v2",
@@ -1648,8 +1648,8 @@ cat >"$missing_migration_reason_root/tools/phase99_test_map.json" <<'JSON'
       "target": "backend_integration_support",
       "section": "integration",
       "package": "./internal/platform/objectstore",
-      "file": "internal/platform/objectstore/objectstore_phase0_support_test.go",
-      "symbol": "TestSupportPhase0_ManagedServiceObjectStoreBinding",
+      "file": "internal/platform/objectstore/objectstore_support_test.go",
+      "symbol": "TestManagedServiceObjectStoreBinding",
       "selection_pattern": "TestSupportPhase0_",
       "execution_family": "backend-integration-platform",
       "execution_label": "Backend integration platform",
@@ -1658,7 +1658,7 @@ cat >"$missing_migration_reason_root/tools/phase99_test_map.json" <<'JSON'
       "default_check_required": false,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "implementation_support_explicit_only",
-      "primary_evidence_owner": "backend_integration_support::internal/platform/objectstore/objectstore_phase0_support_test.go::TestSupportPhase0_",
+      "primary_evidence_owner": "backend_integration_support::internal/platform/objectstore/objectstore_support_test.go::TestSupportPhase0_",
       "duplicate_of": null,
       "evidence_delta": "support evidence is explicit-only",
       "warm_local_cost_class": "service_backed",
@@ -1676,7 +1676,7 @@ cat >"$missing_migration_reason_root/tools/phase99_test_map.json" <<'JSON'
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/platform/bootstrap",
-      "file": "internal/platform/bootstrap/bootstrap_phase0_test.go",
+      "file": "internal/platform/bootstrap/bootstrap_test.go",
       "symbol": "TestPhase0_BootstrapManifestValidation_U_99_01",
       "execution_dependency": "backend_unit",
       "execution_family": "backend-unit-core",
@@ -1686,7 +1686,7 @@ cat >"$missing_migration_reason_root/tools/phase99_test_map.json" <<'JSON'
       "default_check_required": true,
       "default_check_kind": "primary_local_evidence",
       "default_check_reason_code": "cheapest_authoritative_layer",
-      "primary_evidence_owner": "backend_unit::internal/platform/bootstrap/bootstrap_phase0_test.go::TestPhase0_BootstrapManifestValidation_U_99_01",
+      "primary_evidence_owner": "backend_unit::internal/platform/bootstrap/bootstrap_test.go::TestPhase0_BootstrapManifestValidation_U_99_01",
       "duplicate_of": null,
       "evidence_delta": "Synthetic migration scratch validation coverage.",
       "warm_local_cost_class": "low",

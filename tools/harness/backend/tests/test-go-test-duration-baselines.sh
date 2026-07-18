@@ -112,16 +112,16 @@ cat >"$results_dir/backend-unit/scheduler-events.jsonl" <<'JSONL'
 JSONL
 
 cat >"$shared_dir/backend-integration-auth-shard-01/runner.jsonl" <<'JSONL'
-{"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Test":"TestPhase1_LoginSessionLifecycle_I_1_01","Elapsed":1}
-{"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Test":"TestPhase1_UserAdminAudit_I_1_03","Elapsed":1}
+{"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Test":"TestLoginSessionLifecycle_Integration","Elapsed":1}
+{"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Test":"TestUserAdminAudit_Integration","Elapsed":1}
 {"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Elapsed":30}
 JSONL
 printf '50000\n' >"$shared_dir/backend-integration-auth-shard-01/duration_ms.txt"
 printf '0\n' >"$shared_dir/backend-integration-auth-shard-01/exit_status.txt"
 
 cat >"$shared_dir/backend-integration-auth-shard-02/runner.jsonl" <<'JSONL'
-{"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Test":"TestPhase1_LoginSessionLifecycle_I_1_01","Elapsed":1}
-{"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Test":"TestPhase1_UserAdminAudit_I_1_03","Elapsed":1}
+{"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Test":"TestLoginSessionLifecycle_Integration","Elapsed":1}
+{"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Test":"TestUserAdminAudit_Integration","Elapsed":1}
 {"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Elapsed":30}
 JSONL
 cat >"$shared_dir/backend-integration-auth-shard-02/stderr.log" <<'LOG'
@@ -141,7 +141,7 @@ printf '6000\n' >"$shared_dir/backend-integration-testutil-shard-01/duration_ms.
 printf '0\n' >"$shared_dir/backend-integration-testutil-shard-01/exit_status.txt"
 
 cat >"$shared_dir/backend-store-shard-01/runner.jsonl" <<'JSONL'
-{"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Test":"TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05","Elapsed":20}
+{"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Test":"TestConcurrencyLimitRevokesLRUNonCurrent_Unit","Elapsed":20}
 {"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Elapsed":21}
 JSONL
 printf '22000\n' >"$shared_dir/backend-store-shard-01/duration_ms.txt"
@@ -264,9 +264,9 @@ env -u CARTULARY_TEST_RESULTS_DIR -u CARTULARY_TEST_RUN_ID \
 const fs = require("node:fs");
 const [baselineFile] = process.argv.slice(2);
 const baseline = JSON.parse(fs.readFileSync(baselineFile, "utf8"));
-const login = baseline.tests["github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_LoginSessionLifecycle_I_1_01"];
-const audit = baseline.tests["github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_UserAdminAudit_I_1_03"];
-const store = baseline.tests["github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05"];
+const login = baseline.tests["github.com/JochiRaider/cartulary/internal/modules/auth::TestLoginSessionLifecycle_Integration"];
+const audit = baseline.tests["github.com/JochiRaider/cartulary/internal/modules/auth::TestUserAdminAudit_Integration"];
+const store = baseline.tests["github.com/JochiRaider/cartulary/internal/modules/auth::TestConcurrencyLimitRevokesLRUNonCurrent_Unit"];
 const integrationAuthOverhead = baseline.package_overheads["backend-integration::github.com/JochiRaider/cartulary/internal/modules/auth"];
 const storeAuthOverhead = baseline.package_overheads["backend-store::github.com/JochiRaider/cartulary/internal/modules/auth"];
 const integrationCommand = baseline.command_overheads_by_target["backend-integration"];
@@ -375,9 +375,9 @@ cat >"$tmp_dir/contaminated-underplanned.json" <<'JSON'
     "backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/pgtest": 5000
   },
   "tests": {
-    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05": 20000,
-    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_LoginSessionLifecycle_I_1_01": 1000,
-    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_UserAdminAudit_I_1_03": 1000
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestConcurrencyLimitRevokesLRUNonCurrent_Unit": 20000,
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestLoginSessionLifecycle_Integration": 1000,
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestUserAdminAudit_Integration": 1000
   }
 }
 JSON
@@ -401,9 +401,9 @@ cat >"$tmp_dir/tolerated-underplanned.json" <<'JSON'
     "backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/pgtest": 5000
   },
   "tests": {
-    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05": 20000,
-    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_LoginSessionLifecycle_I_1_01": 1000,
-    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_UserAdminAudit_I_1_03": 1000
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestConcurrencyLimitRevokesLRUNonCurrent_Unit": 20000,
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestLoginSessionLifecycle_Integration": 1000,
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestUserAdminAudit_Integration": 1000
   }
 }
 JSON
@@ -429,9 +429,9 @@ cat >"$tmp_dir/underplanned-raw.json" <<'JSON'
     "backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/pgtest": 100
   },
   "tests": {
-    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05": 20000,
-    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_LoginSessionLifecycle_I_1_01": 1000,
-    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_UserAdminAudit_I_1_03": 1000
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestConcurrencyLimitRevokesLRUNonCurrent_Unit": 20000,
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestLoginSessionLifecycle_Integration": 1000,
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestUserAdminAudit_Integration": 1000
   }
 }
 JSON
@@ -463,9 +463,9 @@ cat >"$tmp_dir/underplanned-components.json" <<'JSON'
     "backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/pgtest": 5000
   },
   "tests": {
-    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05": 100,
-    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_LoginSessionLifecycle_I_1_01": 1000,
-    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_UserAdminAudit_I_1_03": 1000
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestConcurrencyLimitRevokesLRUNonCurrent_Unit": 100,
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestLoginSessionLifecycle_Integration": 1000,
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestUserAdminAudit_Integration": 1000
   }
 }
 JSON
@@ -533,9 +533,9 @@ cat >"$tmp_dir/overplanned.json" <<'JSON'
     "backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/pgtest": 5000
   },
   "tests": {
-    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05": 80000,
-    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_LoginSessionLifecycle_I_1_01": 80000,
-    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_UserAdminAudit_I_1_03": 80000
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestConcurrencyLimitRevokesLRUNonCurrent_Unit": 80000,
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestLoginSessionLifecycle_Integration": 80000,
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestUserAdminAudit_Integration": 80000
   }
 }
 JSON
@@ -570,7 +570,7 @@ cp "$ROOT_DIR/tools/go_test_duration_baselines.json" "$tmp_dir/coverage-complete
 const fs = require("node:fs");
 const [source, target] = process.argv.slice(2);
 const baseline = JSON.parse(fs.readFileSync(source, "utf8"));
-delete baseline.tests["github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_LoginSessionLifecycle_I_1_01"];
+delete baseline.tests["github.com/JochiRaider/cartulary/internal/modules/auth::TestLoginSessionLifecycle_Integration"];
 fs.writeFileSync(target, `${JSON.stringify(baseline, null, 2)}\n`);
 EOF
 
@@ -581,7 +581,7 @@ set -e
 if [[ "$missing_test_coverage_status" -eq 0 ]]; then
   fail "missing test baseline coverage should fail"
 fi
-assert_contains "$missing_test_coverage_output" "missing test baseline key=github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_LoginSessionLifecycle_I_1_01" "missing test baseline coverage"
+assert_contains "$missing_test_coverage_output" "missing test baseline key=github.com/JochiRaider/cartulary/internal/modules/auth::TestLoginSessionLifecycle_Integration" "missing test baseline coverage"
 
 "$NODE_BIN" - "$tmp_dir/coverage-complete.json" "$tmp_dir/coverage-missing-raw.json" <<'EOF'
 const fs = require("node:fs");

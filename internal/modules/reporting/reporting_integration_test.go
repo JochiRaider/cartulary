@@ -19,7 +19,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
-func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t *testing.T) {
+func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-reporting-provenance")
 
@@ -281,7 +281,7 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 	}
 }
 
-func TestPhase11_I_11_REPORTING_02_ExternalReleaseApprovalPublishAndStateConflicts(t *testing.T) {
+func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-reporting-lifecycle")
 
@@ -425,7 +425,7 @@ func TestPhase11_I_11_REPORTING_02_ExternalReleaseApprovalPublishAndStateConflic
 	}
 }
 
-func TestPhase11_I_11_REPORTING_03_BoundaryReplayDefaultsAndActionIdempotency(t *testing.T) {
+func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-reporting-idempotency")
 
@@ -610,7 +610,7 @@ func TestPhase11_I_11_REPORTING_03_BoundaryReplayDefaultsAndActionIdempotency(t 
 	}
 }
 
-func TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility(t *testing.T) {
+func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-reporting-shape-auth")
 

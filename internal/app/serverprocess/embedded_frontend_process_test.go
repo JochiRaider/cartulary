@@ -14,7 +14,7 @@ var processEmbeddedAssetPathPattern = regexp.MustCompile(`(?:src|href)="(/assets
 func TestServerEmbeddedFrontendAssets_ProcessSmoke(t *testing.T) {
 	t.Parallel()
 
-	server := startPhase1ServerProcess(t, "phase1-e-1-09")
+	server := startServerProcess(t, "phase1-e-1-09")
 	client := &http.Client{Timeout: 2 * time.Second}
 
 	rootResp, err := client.Get(server.BaseURL + "/")

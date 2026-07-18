@@ -385,7 +385,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase3_RouteEnvelopeMatrix_I_3_06"
+          "TestRouteEnvelopeMatrix_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -408,7 +408,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase3_I_3_03_AuthorizationLifecycleAndSupersedeTransitions"
+          "TestAuthorizationLifecycleAndSupersedeTransitions_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -431,7 +431,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase3_I_3_01_CreatePatchReplayAndRollback"
+          "TestCreatePatchReplayAndRollback_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -454,7 +454,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase3_RoughUncertainCapturePreservation_I_3_07"
+          "TestRoughUncertainCapturePreservation_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -477,7 +477,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase3_PatchSameFieldConflictEnvelope_I_3_04"
+          "TestPatchSameFieldConflictEnvelope_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -500,7 +500,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase3_CanonicalIncidentWebSocket_I_3_05"
+          "TestCanonicalIncidentWebSocket_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -523,7 +523,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase3_I_3_02_ProjectionQueryUsesDeterministicRebuild"
+          "TestProjectionQueryUsesDeterministicRebuild_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -546,7 +546,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase4_ManualTimelineConfidenceNull_I_4_09"
+          "TestManualTimelineConfidenceNull_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -569,7 +569,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase4_AutoResolutionEligibility_I_4_08"
+          "TestAutoResolutionEligibility_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -623,7 +623,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase3_InitialCreateState_U_3_02"
+          "TestInitialCreateState_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -646,7 +646,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase3_ReviewedDemotionAndSupersedeTerminality_U_3_04"
+          "TestReviewedDemotionAndSupersedeTerminality_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -669,7 +669,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase3_CreateCommitsAndAssignsIdentity_U_3_01"
+          "TestCreateCommitsAndAssignsIdentity_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -692,7 +692,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase3_ClosedIncidentWriteBarrier_U_3_14"
+          "TestClosedIncidentWriteBarrier_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -715,7 +715,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase3_PatchReplayStability_U_3_07"
+          "TestPatchReplayStability_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -738,7 +738,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase4_DuplicateMentionProvenance_U_4_02"
+          "TestDuplicateMentionProvenance_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -761,7 +761,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase3_PatchFieldLevelConcurrency_U_3_11"
+          "TestPatchFieldLevelConcurrency_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -784,7 +784,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase3_CreateAndPatchWriteHistory_U_3_09"
+          "TestCreateAndPatchWriteHistory_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -807,7 +807,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase3_SupersedeReplayAndRollbackCoupling_U_3_10"
+          "TestSupersedeReplayAndRollbackCoupling_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -830,7 +830,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase3_CaptureStateLifecycle_U_3_03"
+          "TestCaptureStateLifecycle_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -853,7 +853,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase4_BindingMode_U_4_01"
+          "TestBindingMode_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -876,7 +876,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase3_QuerySortsByEvidenceCount_U_3_15"
+          "TestQuerySortsByEvidenceCount_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -899,7 +899,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestSupportPhase3Integration_AuthorizationMatrix"
+          "TestAuthorizationMatrix"
         ]
       },
       "evidence_class": "integration",
@@ -922,8 +922,8 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestSupportPhase3Integration_RouteIdempotencyIsActorScoped",
-          "TestSupportPhase3Integration_TimelineTimeConversionProfile"
+          "TestRouteIdempotencyIsActorScoped",
+          "TestTimelineTimeConversionProfile"
         ]
       },
       "evidence_class": "integration",
@@ -946,7 +946,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestSupportPhase9_ClipboardPasteParsingMappingRawCaptureAndBinding"
+          "TestClipboardPasteParsingMappingRawCaptureAndBinding"
         ]
       },
       "evidence_class": "unit",
@@ -969,12 +969,12 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestSupportPhase3Unit_CaptureStateHelpers",
-          "TestSupportPhase3Unit_CreateRequestCoverage",
-          "TestSupportPhase3Unit_InitialStateVocabulary",
-          "TestSupportPhase3Unit_PatchRequestHashNormalization",
-          "TestSupportPhase3Unit_PayloadBuildersExposeStableShapes",
-          "TestSupportPhase3Unit_SupersedeGuardAndHashHelpers"
+          "TestUnit_CaptureStateHelpers",
+          "TestUnit_CreateRequestCoverage",
+          "TestUnit_InitialStateVocabulary",
+          "TestUnit_PatchRequestHashNormalization",
+          "TestUnit_PayloadBuildersExposeStableShapes",
+          "TestUnit_SupersedeGuardAndHashHelpers"
         ]
       },
       "evidence_class": "unit",
@@ -997,7 +997,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestSupportPhase3Unit_TimelineQuerySchemaMappingGuard"
+          "TestUnit_TimelineQuerySchemaMappingGuard"
         ]
       },
       "evidence_class": "unit",
@@ -1020,7 +1020,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestSupportPhase3Unit_TimelineVisibleTextContract"
+          "TestUnit_TimelineVisibleTextContract"
         ]
       },
       "evidence_class": "unit",
@@ -1043,7 +1043,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase3_PatchPayloadValidation_U_3_06"
+          "TestPatchPayloadValidation_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -1066,7 +1066,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase4_ManualTimelineConfidenceNull_U_4_09"
+          "TestManualTimelineConfidenceNull_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -1089,7 +1089,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase3_TimelineMutationAPIErrorClassifier_U_3_16"
+          "TestTimelineMutationAPIErrorClassifier_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -1112,7 +1112,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase3_ProjectionContract_U_3_08"
+          "TestProjectionContract_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -1135,7 +1135,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestPhase4_AutoResolutionEligibility_U_4_08"
+          "TestAutoResolutionEligibility_Unit"
         ]
       },
       "evidence_class": "unit",

@@ -95,7 +95,7 @@
       "selector": {
         "package": "./internal/modules/reference_data",
         "tests": [
-          "TestPhase11_I_11_REFERENCE_PACK_05_MinimumDisconnectedBundleSeededExactly"
+          "TestMinimumDisconnectedBundleSeededExactly_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -118,7 +118,7 @@
       "selector": {
         "package": "./internal/modules/reference_data",
         "tests": [
-          "TestPhase11_I_11_REFERENCE_PACK_08_OptionalPackStatesDegradeOnlyOptionalSurfacesAndPreserveCoreWorkflows"
+          "TestOptionalPackStatesDegradeOnlyOptionalSurfacesAndPreserveCoreWorkflows_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -141,7 +141,7 @@
       "selector": {
         "package": "./internal/modules/reference_data",
         "tests": [
-          "TestPhase11_I_11_REFERENCE_PACK_03_FailuresRemainInactiveAndNoNetworkIsNeeded"
+          "TestFailuresRemainInactiveAndNoNetworkIsNeeded_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -164,7 +164,7 @@
       "selector": {
         "package": "./internal/modules/reference_data",
         "tests": [
-          "TestPhase11_I_11_REFERENCE_PACK_06_RefreshOmittedSelectorReplayUsesAdmittedSet"
+          "TestRefreshOmittedSelectorReplayUsesAdmittedSet_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -187,7 +187,7 @@
       "selector": {
         "package": "./internal/modules/reference_data",
         "tests": [
-          "TestPhase11_I_11_REFERENCE_PACK_02_ActivationDisableReverifyAndRefreshLifecycle"
+          "TestActivationDisableReverifyAndRefreshLifecycle_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -210,7 +210,7 @@
       "selector": {
         "package": "./internal/modules/reference_data",
         "tests": [
-          "TestPhase11_I_11_REFERENCE_PACK_04_AdmissionQueuesBeforeVerificationAndCancelPreventsCommit"
+          "TestAdmissionQueuesBeforeVerificationAndCancelPreventsCommit_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -233,7 +233,7 @@
       "selector": {
         "package": "./internal/modules/reference_data",
         "tests": [
-          "TestPhase11_I_11_REFERENCE_PACK_09_JobsRequireDeploymentAdminAtPollAndCancelTime"
+          "TestJobsRequireDeploymentAdminAtPollAndCancelTime_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -256,7 +256,7 @@
       "selector": {
         "package": "./internal/modules/reference_data",
         "tests": [
-          "TestPhase11_I_11_REFERENCE_PACK_01_ImportListReadReplayAndJobSummary"
+          "TestImportListReadReplayAndJobSummary_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -279,7 +279,7 @@
       "selector": {
         "package": "./internal/modules/reference_data",
         "tests": [
-          "TestPhase11_I_11_REFERENCE_PACK_07_UploadEnvelopeFailureCreatesNoDurableStateAndAdminIsRequired"
+          "TestUploadEnvelopeFailureCreatesNoDurableStateAndAdminIsRequired_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -302,7 +302,7 @@
       "selector": {
         "package": "./internal/modules/reference_data",
         "tests": [
-          "TestPhase11_U_11_REFERENCE_PACK_05_OpenAPIAndErrorRegistriesExposeClosedReferencePackContract"
+          "TestOpenAPIAndErrorRegistriesExposeClosedReferencePackContract_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -325,7 +325,7 @@
       "selector": {
         "package": "./internal/modules/reference_data",
         "tests": [
-          "TestPhase11_U_11_REFERENCE_PACK_01_RequestValidationNormalizationAndClosedRegistries"
+          "TestRequestValidationNormalizationAndClosedRegistries_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -348,7 +348,7 @@
       "selector": {
         "package": "./internal/modules/reference_data",
         "tests": [
-          "TestPhase11_U_11_REFERENCE_PACK_02_VerifierAcceptsLocalBundleAndRejectsFailures"
+          "TestVerifierAcceptsLocalBundleAndRejectsFailures_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -371,7 +371,7 @@
       "selector": {
         "package": "./internal/modules/reference_data",
         "tests": [
-          "TestPhase11_U_11_REFERENCE_PACK_03_VerifierRejectsArchiveLimits"
+          "TestVerifierRejectsArchiveLimits_Unit"
         ]
       },
       "evidence_class": "unit",

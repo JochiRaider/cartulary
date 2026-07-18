@@ -14,7 +14,7 @@
       "selector": {
         "package": "./internal/platform/postgres",
         "tests": [
-          "TestPhase0_SchemaBootstrap_I_0_01"
+          "TestSchemaBootstrap_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -37,9 +37,9 @@
       "selector": {
         "package": "./internal/platform/postgres",
         "tests": [
-          "TestSupportPhase4_EntityAliasMigration31EmptyUpgrade",
-          "TestSupportPhase4_EntityAliasMigration31RejectsInvalidLegacyRowsWithCountAndSample",
-          "TestSupportPhase4_EntityAliasMigration31UpgradeTombstonesCaseEquivalentDuplicates"
+          "TestEntityAliasMigration31EmptyUpgrade",
+          "TestEntityAliasMigration31RejectsInvalidLegacyRowsWithCountAndSample",
+          "TestEntityAliasMigration31UpgradeTombstonesCaseEquivalentDuplicates"
         ]
       },
       "evidence_class": "integration",
@@ -62,7 +62,7 @@
       "selector": {
         "package": "./internal/platform/postgres",
         "tests": [
-          "TestSupportPhase0_SchemaBootstrapMigrationGuard"
+          "TestSchemaBootstrapMigrationGuard"
         ]
       },
       "evidence_class": "unit",

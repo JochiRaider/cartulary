@@ -14,7 +14,7 @@
       "selector": {
         "package": "./internal/app/server",
         "tests": [
-          "TestPhase0_InvalidConfigNeverReachesReady_I_0_03"
+          "TestInvalidConfigNeverReachesReady_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -37,7 +37,7 @@
       "selector": {
         "package": "./internal/app/server",
         "tests": [
-          "TestPhase0_BootstrapSkipAndRecovery_I_0_06"
+          "TestBootstrapSkipAndRecovery_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -60,7 +60,7 @@
       "selector": {
         "package": "./internal/app/server",
         "tests": [
-          "TestPhase0_BootstrapFailures_I_0_05"
+          "TestBootstrapFailures_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -83,7 +83,7 @@
       "selector": {
         "package": "./internal/app/server",
         "tests": [
-          "TestPhase0_FirstAdminBootstrap_I_0_04"
+          "TestFirstAdminBootstrap_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -106,7 +106,7 @@
       "selector": {
         "package": "./internal/app/serverprocess",
         "tests": [
-          "TestPhase0_ReadyState_E_0_01"
+          "TestReadyState_Process"
         ]
       },
       "evidence_class": "integration",
@@ -129,7 +129,7 @@
       "selector": {
         "package": "./internal/app/serverprocess",
         "tests": [
-          "TestPhase0_FirstAdminBootstrap_E_0_03"
+          "TestFirstAdminBootstrap_Process"
         ]
       },
       "evidence_class": "integration",
@@ -152,7 +152,7 @@
       "selector": {
         "package": "./internal/app/serverprocess",
         "tests": [
-          "TestPhase10_E_10_03_PublicRouteInventoryAbsence"
+          "TestPublicRouteInventoryAbsence_Process"
         ]
       },
       "evidence_class": "integration",
@@ -175,7 +175,7 @@
       "selector": {
         "package": "./internal/app/serverprocess",
         "tests": [
-          "TestPhase10_EffectiveConfigBackupRoot_E_10_04"
+          "TestEffectiveConfigBackupRoot_Process"
         ]
       },
       "evidence_class": "integration",
@@ -198,7 +198,7 @@
       "selector": {
         "package": "./internal/app/serverprocess",
         "tests": [
-          "TestPhase0_InvalidConfigDiagnostics_E_0_02"
+          "TestInvalidConfigDiagnostics_Process"
         ]
       },
       "evidence_class": "integration",
@@ -221,12 +221,12 @@
       "selector": {
         "package": "./internal/app/serverprocess",
         "tests": [
-          "TestPhase2_DeploymentAdminBoundary_E_2_SMOKE_01_ProcessSmoke",
-          "TestPhase2_ExtensionDiscoveryAndReservedRoutes_E_2_SMOKE_01_ProcessSmoke",
-          "TestPhase2_IncidentCreateListAndWorkbookPrefs_E_2_SMOKE_01_ProcessSmoke",
-          "TestPhase2_IncidentValidationAndPatch_E_2_SMOKE_01_ProcessSmoke",
-          "TestPhase2_MembershipAdminFlow_E_2_SMOKE_01_ProcessSmoke",
-          "TestPhase2_MembershipPatchDeleteAndLastAdmin_E_2_SMOKE_01_ProcessSmoke"
+          "TestDeploymentAdminBoundary_Process",
+          "TestExtensionDiscoveryAndReservedRoutes_Process",
+          "TestIncidentCreateListAndWorkbookPrefs_Process",
+          "TestIncidentValidationAndPatch_Process",
+          "TestMembershipAdminFlow_Process",
+          "TestMembershipPatchDeleteAndLastAdmin_Process"
         ]
       },
       "evidence_class": "integration",
@@ -249,14 +249,14 @@
       "selector": {
         "package": "./internal/app/serverprocess",
         "tests": [
-          "TestPhase1_AdminPasswordReset_E_1_SMOKE_01_ProcessSmoke",
-          "TestPhase1_AdminTOTPResetAndBootstrapBoundaries_E_1_SMOKE_01_ProcessSmoke",
-          "TestPhase1_CSRFFailClosed_E_1_SMOKE_01_ProcessSmoke",
-          "TestPhase1_ConcurrencyCapRevokesSocket_E_1_SMOKE_01_ProcessSmoke",
-          "TestPhase1_FirstEnrollmentFlow_E_1_SMOKE_01_ProcessSmoke",
-          "TestPhase1_LoginSessionAndLogout_E_1_SMOKE_01_ProcessSmoke",
-          "TestPhase1_PasswordChangeFlow_E_1_SMOKE_01_ProcessSmoke",
-          "TestPhase1_UserAdminAndRevokeAll_E_1_SMOKE_01_ProcessSmoke"
+          "TestAdminPasswordReset_Process",
+          "TestAdminTOTPResetAndBootstrapBoundaries_Process",
+          "TestCSRFFailClosed_Process",
+          "TestConcurrencyCapRevokesSocket_Process",
+          "TestFirstEnrollmentFlow_Process",
+          "TestLoginSessionAndLogout_Process",
+          "TestPasswordChangeFlow_Process",
+          "TestUserAdminAndRevokeAll_Process"
         ]
       },
       "evidence_class": "integration",
@@ -279,7 +279,7 @@
       "selector": {
         "package": "./internal/app/serverprocess",
         "tests": [
-          "TestPhase0_BootstrapFailures_E_0_04"
+          "TestBootstrapFailures_Process"
         ]
       },
       "evidence_class": "integration",
@@ -302,7 +302,7 @@
       "selector": {
         "package": "./internal/app/serverprocess",
         "tests": [
-          "TestPhase10_I_10_02_FreshEnvironmentRestoreWorkbookConsistency"
+          "TestFreshEnvironmentRestoreWorkbookConsistency_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -325,7 +325,7 @@
       "selector": {
         "package": "./internal/app/serverprocess",
         "tests": [
-          "TestPhase0_BootstrapSkipAndRecovery_E_0_05"
+          "TestBootstrapSkipAndRecovery_Process"
         ]
       },
       "evidence_class": "integration",
@@ -419,7 +419,7 @@
       "selector": {
         "package": "./internal/app/serverprocess",
         "tests": [
-          "TestPhase5_EvidenceUploadAttachProjection_E_5_SMOKE_01_ProcessSmoke"
+          "TestEvidenceUploadAttachProjection_Process"
         ]
       },
       "evidence_class": "integration",
@@ -471,7 +471,7 @@
       "selector": {
         "package": "./internal/app/server",
         "tests": [
-          "TestPhase0_FailClosedStartup_U_0_05"
+          "TestFailClosedStartup_Unit"
         ]
       },
       "evidence_class": "unit",

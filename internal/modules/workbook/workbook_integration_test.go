@@ -487,7 +487,7 @@ func TestWorkbook_QueryCursorRejectsTampering(t *testing.T) {
 	}
 }
 
-func TestPhase4_CoordinationProjectionQueries_I_4_COORD_03(t *testing.T) {
+func TestCoordinationProjectionQueries_Integration(t *testing.T) {
 	harness := workbookscenariotest.StartServer(t, "workbook-seeded-surfaces")
 	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{

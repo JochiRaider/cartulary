@@ -45,7 +45,7 @@
       "selector": {
         "package": "./internal/modules/links",
         "tests": [
-          "TestPhase8_LinkTagProjectionHistoryQuery_I_8_03"
+          "TestLinkTagProjectionHistoryQuery_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -68,7 +68,7 @@
       "selector": {
         "package": "./internal/modules/links",
         "tests": [
-          "TestPhase8_TypedLinksAndTags_U_8_01"
+          "TestTypedLinksAndTags_Unit"
         ]
       },
       "evidence_class": "integration",

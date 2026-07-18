@@ -14,7 +14,7 @@
       "selector": {
         "package": "./internal/platform/objectstore",
         "tests": [
-          "TestPhase0_ObjectStoreInitialization_I_0_02"
+          "TestObjectStoreInitialization_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -37,7 +37,7 @@
       "selector": {
         "package": "./internal/platform/objectstore",
         "tests": [
-          "TestSupportPhase0_ManagedServiceObjectStoreBinding"
+          "TestManagedServiceObjectStoreBinding"
         ]
       },
       "evidence_class": "integration",

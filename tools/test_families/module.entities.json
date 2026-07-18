@@ -257,8 +257,8 @@
       "selector": {
         "package": "./internal/modules/entities",
         "tests": [
-          "TestPhase4_EntityCreateAuthAndCSRFFailBeforeMalformedBody_I_4_02",
-          "TestPhase4_EntityOriginUpsert_I_4_02"
+          "TestEntityCreateAuthAndCSRFFailBeforeMalformedBody_Integration",
+          "TestEntityOriginUpsert_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -281,7 +281,7 @@
       "selector": {
         "package": "./internal/modules/entities",
         "tests": [
-          "TestPhase4_ExplicitMergeRoute_I_4_03"
+          "TestExplicitMergeRoute_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -304,7 +304,7 @@
       "selector": {
         "package": "./internal/modules/entities",
         "tests": [
-          "TestPhase4_ResolveRoute_I_4_01"
+          "TestResolveRoute_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -327,7 +327,7 @@
       "selector": {
         "package": "./internal/modules/entities",
         "tests": [
-          "TestPhase4_CreateFromMention_U_4_03"
+          "TestCreateFromMention_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -350,7 +350,7 @@
       "selector": {
         "package": "./internal/modules/entities",
         "tests": [
-          "TestPhase4_DismissRestoreMentionLifecycle_U_4_04"
+          "TestDismissRestoreMentionLifecycle_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -373,7 +373,7 @@
       "selector": {
         "package": "./internal/modules/entities",
         "tests": [
-          "TestPhase4_ExactMatchPrecedence_U_4_05"
+          "TestExactMatchPrecedence_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -396,7 +396,7 @@
       "selector": {
         "package": "./internal/modules/entities",
         "tests": [
-          "TestPhase4_ExplicitEntityMerge_U_4_06"
+          "TestExplicitEntityMerge_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -419,7 +419,7 @@
       "selector": {
         "package": "./internal/modules/entities",
         "tests": [
-          "TestSupportPhase4Integration_EntityCreateIdempotencyIsActorScoped"
+          "TestEntityCreateIdempotencyIsActorScoped"
         ]
       },
       "evidence_class": "integration",
@@ -442,7 +442,7 @@
       "selector": {
         "package": "./internal/modules/entities",
         "tests": [
-          "TestSupportPhase4Integration_RecordEnvelopeHeadSchema"
+          "TestRecordEnvelopeHeadSchema"
         ]
       },
       "evidence_class": "integration",
@@ -465,12 +465,12 @@
       "selector": {
         "package": "./internal/modules/entities",
         "tests": [
-          "TestSupportPhase4Integration_AuthorizationReDerivation",
-          "TestSupportPhase4Integration_CSRFProtection",
-          "TestSupportPhase4Integration_DefaultQueryMetaAndFieldKeyConformance",
-          "TestSupportPhase4Integration_ProjectionAndWebsocketConsequences",
-          "TestSupportPhase4Integration_ReplayAndDivergentConflict",
-          "TestSupportPhase4Integration_SurfaceEnvelope"
+          "TestAuthorizationReDerivation",
+          "TestCSRFProtection",
+          "TestDefaultQueryMetaAndFieldKeyConformance",
+          "TestProjectionAndWebsocketConsequences",
+          "TestReplayAndDivergentConflict",
+          "TestSurfaceEnvelope"
         ]
       },
       "evidence_class": "integration",

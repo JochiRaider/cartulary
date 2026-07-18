@@ -24,7 +24,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
-func TestPhase11_I_11_REFERENCE_PACK_01_ImportListReadReplayAndJobSummary(t *testing.T) {
+func TestImportListReadReplayAndJobSummary_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-reference-pack-import")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
@@ -87,7 +87,7 @@ func TestPhase11_I_11_REFERENCE_PACK_01_ImportListReadReplayAndJobSummary(t *tes
 	}
 }
 
-func TestPhase11_I_11_REFERENCE_PACK_02_ActivationDisableReverifyAndRefreshLifecycle(t *testing.T) {
+func TestActivationDisableReverifyAndRefreshLifecycle_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-reference-pack-lifecycle")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
@@ -145,7 +145,7 @@ func TestPhase11_I_11_REFERENCE_PACK_02_ActivationDisableReverifyAndRefreshLifec
 	}
 }
 
-func TestPhase11_I_11_REFERENCE_PACK_03_FailuresRemainInactiveAndNoNetworkIsNeeded(t *testing.T) {
+func TestFailuresRemainInactiveAndNoNetworkIsNeeded_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-reference-pack-failures")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
@@ -183,7 +183,7 @@ func TestPhase11_I_11_REFERENCE_PACK_03_FailuresRemainInactiveAndNoNetworkIsNeed
 	}
 }
 
-func TestPhase11_I_11_REFERENCE_PACK_04_AdmissionQueuesBeforeVerificationAndCancelPreventsCommit(t *testing.T) {
+func TestAdmissionQueuesBeforeVerificationAndCancelPreventsCommit_Integration(t *testing.T) {
 	releaseWorker := make(chan struct{})
 	released := false
 	defer func() {
@@ -233,7 +233,7 @@ func TestPhase11_I_11_REFERENCE_PACK_04_AdmissionQueuesBeforeVerificationAndCanc
 	requirePackRowCount(t, harness.DB, "type_registry.queued", "1", 0)
 }
 
-func TestPhase11_I_11_REFERENCE_PACK_05_MinimumDisconnectedBundleSeededExactly(t *testing.T) {
+func TestMinimumDisconnectedBundleSeededExactly_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-reference-pack-minimum-disconnected")
 
@@ -272,7 +272,7 @@ SELECT rp.pack_key, rp.version, rp.pack_kind, rp.pack_contract_version, rp.verif
 	}
 }
 
-func TestPhase11_I_11_REFERENCE_PACK_06_RefreshOmittedSelectorReplayUsesAdmittedSet(t *testing.T) {
+func TestRefreshOmittedSelectorReplayUsesAdmittedSet_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-reference-pack-refresh-replay")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
@@ -295,7 +295,7 @@ func TestPhase11_I_11_REFERENCE_PACK_06_RefreshOmittedSelectorReplayUsesAdmitted
 	}
 }
 
-func TestPhase11_I_11_REFERENCE_PACK_07_UploadEnvelopeFailureCreatesNoDurableStateAndAdminIsRequired(t *testing.T) {
+func TestUploadEnvelopeFailureCreatesNoDurableStateAndAdminIsRequired_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-reference-pack-envelope-and-authz")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
@@ -335,7 +335,7 @@ func TestPhase11_I_11_REFERENCE_PACK_07_UploadEnvelopeFailureCreatesNoDurableSta
 	requirePackRowCount(t, harness.DB, "type_registry.denied", "1", 0)
 }
 
-func TestPhase11_I_11_REFERENCE_PACK_08_OptionalPackStatesDegradeOnlyOptionalSurfacesAndPreserveCoreWorkflows(t *testing.T) {
+func TestOptionalPackStatesDegradeOnlyOptionalSurfacesAndPreserveCoreWorkflows_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-reference-pack-optional-degradation")
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
@@ -405,7 +405,7 @@ func TestPhase11_I_11_REFERENCE_PACK_08_OptionalPackStatesDegradeOnlyOptionalSur
 	}
 }
 
-func TestPhase11_I_11_REFERENCE_PACK_09_JobsRequireDeploymentAdminAtPollAndCancelTime(t *testing.T) {
+func TestJobsRequireDeploymentAdminAtPollAndCancelTime_Integration(t *testing.T) {
 	releaseWorker := make(chan struct{})
 	released := false
 	defer func() {

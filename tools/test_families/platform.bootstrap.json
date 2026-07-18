@@ -14,7 +14,7 @@
       "selector": {
         "package": "./internal/platform/bootstrap",
         "tests": [
-          "TestPhase0_BootstrapManifestValidation_U_0_07"
+          "TestBootstrapManifestValidation_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -37,7 +37,7 @@
       "selector": {
         "package": "./internal/platform/bootstrap",
         "tests": [
-          "TestPhase0_BootstrapPreflight_U_0_08"
+          "TestBootstrapPreflight_Unit"
         ]
       },
       "evidence_class": "unit",

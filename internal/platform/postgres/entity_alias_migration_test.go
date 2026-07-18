@@ -15,7 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
-func TestSupportPhase4_EntityAliasMigration31EmptyUpgrade(t *testing.T) {
+func TestEntityAliasMigration31EmptyUpgrade(t *testing.T) {
 	harness := pgtest.Start(t)
 	db := harness.MigrationDatabaseT(t, "entity-alias-31-empty", "up-to", "31")
 
@@ -34,7 +34,7 @@ SELECT udt_name
 	}
 }
 
-func TestSupportPhase4_EntityAliasMigration31UpgradeTombstonesCaseEquivalentDuplicates(t *testing.T) {
+func TestEntityAliasMigration31UpgradeTombstonesCaseEquivalentDuplicates(t *testing.T) {
 	harness := pgtest.Start(t)
 	db := harness.MigrationDatabaseT(t, "entity-alias-31-dedupe", "up-to", "30")
 	actorID, incidentID, recordID := seedAliasMigrationHost(t, db, "dedupe")
@@ -58,7 +58,7 @@ func TestSupportPhase4_EntityAliasMigration31UpgradeTombstonesCaseEquivalentDupl
 	}
 }
 
-func TestSupportPhase4_EntityAliasMigration31RejectsInvalidLegacyRowsWithCountAndSample(t *testing.T) {
+func TestEntityAliasMigration31RejectsInvalidLegacyRowsWithCountAndSample(t *testing.T) {
 	harness := pgtest.Start(t)
 	db := harness.MigrationDatabaseT(t, "entity-alias-31-invalid", "up-to", "30")
 	actorID, incidentID, recordID := seedAliasMigrationHost(t, db, "invalid")

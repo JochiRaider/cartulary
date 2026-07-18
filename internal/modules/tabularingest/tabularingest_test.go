@@ -6,7 +6,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
 )
 
-func TestSupportPhase9_SharedTabularIngestParsesMapsAndGroupsBatch(t *testing.T) {
+func TestSharedTabularIngestParsesMapsAndGroupsBatch(t *testing.T) {
 	rows, err := tabularingest.ParseTable("\"alpha, one\",bravo\ncharlie,delta", "csv")
 	if err != nil {
 		t.Fatalf("parse quoted csv: %v", err)

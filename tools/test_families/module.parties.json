@@ -45,9 +45,9 @@
       "selector": {
         "package": "./internal/modules/parties",
         "tests": [
-          "TestPhase9_U_9_11_DirectDecisionReferenceDecoderAcceptsOnlyExactStableIDs",
-          "TestPhase9_U_9_11_DirectPartyReferencesAcceptOnlyExactStableIDs",
-          "TestPhase9_U_9_11_DirectPartyReferencesRequireSameIncidentActiveParties"
+          "TestDirectDecisionReferenceDecoderAcceptsOnlyExactStableIDs_Unit",
+          "TestDirectPartyReferencesAcceptOnlyExactStableIDs_Unit",
+          "TestDirectPartyReferencesRequireSameIncidentActiveParties_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -70,7 +70,7 @@
       "selector": {
         "package": "./internal/modules/parties",
         "tests": [
-          "TestPhase9_PartyExactMatchReuseAndRawTextPreservation_U_9_05"
+          "TestPartyExactMatchReuseAndRawTextPreservation_Unit"
         ]
       },
       "evidence_class": "integration",
