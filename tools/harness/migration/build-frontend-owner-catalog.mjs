@@ -183,6 +183,12 @@ function rowSegment(sourceKey, statement, file) {
   return `${stem || "behavior"}_${digest}`;
 }
 
+function verificationIDForOwner(ownerID) {
+  return ownerID === "web.design"
+    ? "web.design.verification.readiness_direction"
+    : `${ownerID}.verification.behavior_contract`;
+}
+
 function stageFor(row, file) {
   const targets = new Set(row.targets.map((target) => target.target_name));
   if (targets.has("browser-e2e-measurement")) return "measurement";
@@ -239,7 +245,7 @@ function catalogTitleRow({ phase, legacy, ownerID, runner, file, titles, sourceK
     owner_id: ownerID,
     family_id: familyID,
     collaborator_ids: collaborators(ownerID, runner, file, evidence),
-    verification_ids: [`${ownerID}.verification.behavior_contract`],
+    verification_ids: [verificationIDForOwner(ownerID)],
     runner,
     selector,
     evidence_class: evidence,
@@ -278,7 +284,7 @@ function catalogShellRow({ legacy, ownerID, target, sourceKey }) {
     owner_id: ownerID,
     family_id: familyID,
     collaborator_ids: target === "generate-drift" ? ["web.design"] : [],
-    verification_ids: [`${ownerID}.verification.behavior_contract`],
+    verification_ids: [verificationIDForOwner(ownerID)],
     runner: "shell",
     selector: { command_id: commandIDs[target] },
     evidence_class: "static",
@@ -302,7 +308,7 @@ function verificationDefinition(ownerID, evidenceKinds) {
           ? "base"
           : "support";
   return {
-    verification_id: `${ownerID}.verification.behavior_contract`,
+    verification_id: verificationIDForOwner(ownerID),
     behavior_class: ownerID === "module.auth"
       ? "security"
       : ownerID.startsWith("module.")
@@ -529,12 +535,13 @@ const verificationOwners = new Map(verificationRegistry.owners.map((entry) => [e
 for (const [ownerID, evidenceKinds] of evidenceByOwner) {
   const contractPath = `contracts/verification/owners/${ownerID}.json`;
   const contract = readJSON(contractPath);
+  const verificationID = verificationIDForOwner(ownerID);
   const previous = contract.verifications.find(
-    (entry) => entry.verification_id === `${ownerID}.verification.behavior_contract`,
+    (entry) => entry.verification_id === verificationID,
   );
   for (const kind of previous?.evidence_kinds ?? []) evidenceKinds.add(kind);
   contract.verifications = contract.verifications.filter(
-    (entry) => entry.verification_id !== `${ownerID}.verification.behavior_contract`,
+    (entry) => entry.verification_id !== verificationID,
   );
   contract.verifications.push(previous
     ? { ...previous, evidence_kinds: [...evidenceKinds].sort(asciiCompare) }

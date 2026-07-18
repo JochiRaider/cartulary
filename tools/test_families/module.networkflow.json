@@ -3,6 +3,38 @@
   "owner_id": "module.networkflow",
   "rows": [
     {
+      "row_id": "module.networkflow.accessibility.verify_claimed_network_analysis_keyboard_focus_a_c81856fdc1",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_68d87f2255be"
+        ],
+        "titles": [
+          "FE-A11Y-P12-01 Verify claimed Network Analysis tabs, query controls, semantic grids, inspector, graph, contributor drawer, mapping modal, focus return, names, and ARIA evidence."
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    },
+    {
       "row_id": "module.networkflow.browser.network_flow_selector_covers_alias_suggestions_u_891ee3e619",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.browser",
@@ -279,6 +311,149 @@
       "fixture_profile_id": "service_stack",
       "default_check": true,
       "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.networkflow.browser.verify_claimed_network_analysis_discovery_import_f977242343",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.networkflow"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase12.network-flow.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_9c96df451116"
+        ],
+        "titles": [
+          "FE-B-P12-01 Verify claimed Network Analysis discovery, import, mapping approval, semantic grids, graph, contributors, and lifecycle controls through the real application."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.networkflow.browser_stateful.verify_protected_network_analysis_state_is_disca_21a5de1ebf",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.networkflow"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase12.network-flow.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "scenario_e792040be39e"
+        ],
+        "titles": [
+          "FE-E-P12-01 Verify Network Analysis clears protected grid, inspector, graph, contributor, and selection state after lifecycle loss and refetches after recovery."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.networkflow.frontend_integration.verify_production_network_flow_grids_read_only_b_f662be335e",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.frontend_integration",
+      "collaborator_ids": [
+        "web.networkflow"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
+        "titles": [
+          "FE-I-P12-01 Verify production Network Flow grids, read-only behavior, stable references, virtualization, and adapter boundaries compose through semantic identities."
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.networkflow.frontend_unit.verify_network_analysis_presentation_query_layou_11c071dbd2",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.frontend_unit",
+      "collaborator_ids": [
+        "web.networkflow"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/networkFlowPresentation.test.tsx",
+        "titles": [
+          "FE-U-P12-01 Verify Network Analysis presentation, query, layout, lifecycle, and reconciliation units use extension-owned semantic contracts."
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.networkflow.measurement.measure_bounded_dom_growth_and_semantic_reachabi_297b6a7322",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/phase12_network_flow_grid.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "scenario_4111b955f263"
+        ],
+        "titles": [
+          "FE-B-P12-02 Measure the 1000-resource all-column production Network Flow grid envelope as informative implementation evidence."
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
       "status": "active"
     },
     {
@@ -2655,6 +2830,39 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.networkflow.visual.capture_deterministic_claimed_network_analysis_a_47b1c2cce6",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_252dd2b0ff55"
+        ],
+        "titles": [
+          "FE-V-P12-01 Capture claimed Network Analysis accepted inspector, rejected diagnostics, and graph contributor drawer at the deterministic desktop viewport."
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
       "status": "active"
     }
   ]

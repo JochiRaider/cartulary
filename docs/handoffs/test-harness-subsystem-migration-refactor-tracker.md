@@ -12,7 +12,7 @@
 | Baseline worktree | Clean |
 | Tracker state | `IN_PROGRESS` — WS-05 frontend row migration |
 | Active start | Clean tree at `5eb409a19104134552341f2b2fdee318ef5e39f6` |
-| Active tasks | T-025 |
+| Active tasks | T-026 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -708,8 +708,8 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-022 | Reconcile all 456 backend rows | WS-04 | DONE | T-019,T-020,T-021 | 456-row/550-selector reconciliation report and 37-row/118-selector support report | Count and selector coverage close. |
 | T-023 | Migrate FE-P0–FE-P4 rows | WS-05 | DONE | T-015 | 35 dispositions, exact selector reconciliation, catalog and frontend tests | Rows have terminal dispositions. |
 | T-024 | Migrate FE-P5–FE-P8 rows | WS-05 | DONE | T-015 | 22 dispositions, 47 exact title selectors, catalog and frontend tests | Rows have terminal dispositions. |
-| T-025 | Migrate FE-P9–FE-P12 rows | WS-05 | IN_PROGRESS | T-015 | Crosswalk/browser tests | Rows have terminal dispositions. |
-| T-026 | Remove frontend guide/cumulative accounting | WS-05 | TODO | T-023,T-024,T-025 | Accounting tests | One owner accounting model remains. |
+| T-025 | Migrate FE-P9–FE-P12 rows | WS-05 | DONE | T-015 | 30 dispositions, 39 exact title atoms, catalog and frontend tests | Rows have terminal dispositions. |
+| T-026 | Remove frontend guide/cumulative accounting | WS-05 | IN_PROGRESS | T-023,T-024,T-025 | Accounting tests | One owner accounting model remains. |
 | T-027 | Reconcile all 87 frontend rows | WS-05 | TODO | T-026 | Reconciliation report | Count and selector coverage close. |
 | T-028 | Rename Go test identities | WS-06 | TODO | T-022 | Semantic scan and Go tests | No delivery-phase Go test identity remains. |
 | T-029 | Rename Vitest/Playwright identities | WS-06 | TODO | T-022,T-027 | Semantic scan and frontend tests | No delivery-phase frontend test identity remains. |
@@ -1000,6 +1000,21 @@ Each entry must include:
 - Skipped checks: FE-P9–FE-P12 rows, generic evidence accounting/audit replacement, final frontend reconciliation, semantic source renames, owner commands, browser-stage runtime execution, broad `make check`, finalization, and release checks remain assigned to T-025 onward. Exact Playwright resolution is structural evidence, not final browser runtime evidence.
 - Next safe task: T-025 only. Decouple the remaining FE-P9 through FE-P11 accessibility titles, migrate the final 30 frontend identities, preserve FE-P12 Network Flow runtime/fixture posture, and checkpoint before T-026.
 - Rollback boundary: revert the complete T-024 slice—owner manifests, the `module.entities` Vitest verification-kind addition, accessibility title decoupling, crosswalk dispositions/authorizations, multi-file and file-sensitive-stage builder behavior, and this tracker entry—together. Do not collapse the webserver-backed and support Playwright executions into one selector.
+
+#### 2026-07-18 — WS-05 FE-P9–FE-P12 owner-slice checkpoint
+
+- Branch/commit at start: `revision/grid-adapter` at clean T-024 checkpoint `5dd2033ce5eeb665fac43c932c71d6fa0b88c96c`. This entry closes T-025 before generic accounting changes begin.
+- Workstream/task state: WS-05 is the only `IN_PROGRESS` workstream. T-023 through T-025 are `DONE`, T-026 is the sole active task, and T-027 remains `TODO`.
+- Reconciliation result: all final 30 frontend baseline rows have terminal dispositions: 26 `migrated`, one `consolidated`, and three `deleted`. Their 39 legacy title atoms reconcile as 38 selectors in 29 newly authorized owner rows plus the existing exact Timeline browser-support survivor for `FE-B-P10-02`; three additional rows are explicit multi-file Vitest splits. The three FE-P11 support rows are deleted as duplicate command-composition accounting: their supported generic gates remain independently owned, while phase-ledger/schedule completion and frontend-phase release joins are not retained behavior.
+- Structural decisions: revision/history behavior is owned by `module.revisions`; inspector, coordination, keyboard, clipboard, and visual behavior by `module.workbook`; claimed extension behavior by `module.networkflow`; and global visual/accessibility readiness by `web.design`. The four `web.design` rows use the existing `web.design.verification.readiness_direction` contract rather than creating a generic parallel verification. All newly retained Network Flow Playwright rows use `network_flow_claimed`, `browser_exclusive`, and `service_stack`; accessibility, visual, and measurement rows remain explicit-only informative evidence.
+- Documentation decoupling: FE-P9 through FE-P11 accessibility titles are local exact constants, FE-P12 was already literal, and the now-unused `apps/web/e2e/support/accessibility/phaseMap.ts` documentation/map reader is deleted. No Playwright test loads frontend phase maps for title discovery or activation.
+- Migration-check durability: the temporary baseline validator now validates the immutable stored baseline and crosswalk directly once migration dispositions exist. It no longer reconstructs or opens retired baseline paths, while preserving schema, digest, 548-key cardinality, auxiliary-candidate, authorization, and live-catalog parity checks.
+- Crosswalk/catalog totals: before this slice, 30 frontend identities were pending, 518 authoritative dispositions and 291 new rows were recorded. After this slice, no authoritative key is pending, all 548 identities have terminal dispositions, and 294 new rows are authorized. Frontend dispositions total 77 migrated, six consolidated, and four deleted. The catalog contains 46 owners, 169 families, 832 rows, and 1,376 exact selectors; runner counts are 377 Go, 143 Playwright, three shell, and 309 Vitest rows. Catalog digest is `sha256:a96f2dc00d868302e0c208958b14ed6d38a5b50ade29abd17148a946ebf7e733`; verification digest is `sha256:6c4b33052cf1c0646066c9420dcb4c137807f7ffc5d7fafe3f49f8d0d58e8e57`.
+- Passed validation: exact catalog and migration-crosswalk checks; `make format` at `.cartulary/test-results/20260718T012857Z-p68773`; `make harness-contract` with 60 passing tests at `.cartulary/test-results/20260718T012904Z-p71275`; `make frontend-typecheck` at `.cartulary/test-results/20260718T012904Z-p71300`; `make frontend-unit` at `.cartulary/test-results/20260718T012904Z-p71213`; `make frontend-import-boundary-check` at `.cartulary/test-results/20260718T012904Z-p71162`; `make lint-biome` at `.cartulary/test-results/20260718T012904Z-p71203`; `make lint-scripts` at `.cartulary/test-results/20260718T012904Z-p71241`; corrected `make json-shape-check` at `.cartulary/test-results/20260718T013035Z-p77214`; and `git diff --check`.
+- Resolved validation failure: the first `make json-shape-check` run at `.cartulary/test-results/20260718T012904Z-p71153` saw the intended helper deletion as an unstaged tracked path and attempted to open it. Staging that deletion removed it from the authored tracked-file inventory; the unchanged check then passed. This was an index/worktree transition during the cohesive slice, not a retained reader or compatibility restoration.
+- Skipped checks: generic owner accounting/audit replacement, independent 87-row frontend reconciliation, semantic source renames, owner commands, browser-stage runtime execution, broad `make check`, finalization, and release checks remain assigned to T-026 onward. Structural selector/profile closure is not final browser runtime evidence.
+- Next safe task: T-026 only. Replace frontend row accounting and audit internals with runner-neutral owner accounting, remove registry/guide/cumulative/base-phase joins from executable paths, and preserve current public v1 wiring only until the later atomic interface cutover.
+- Rollback boundary: revert the complete T-025 slice—owner manifests/registry, Network Flow and design verification references, accessibility constants and helper deletion, crosswalk dispositions/authorizations, migration-builder verification routing, stored-baseline checker behavior, and this tracker entry—together. Do not restore document-driven title discovery.
 
 ## 17. First-resumer checklist
 

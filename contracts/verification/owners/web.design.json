@@ -7,7 +7,10 @@
       "behavior_class": "architecture",
       "profile": "support",
       "requirement": "Visual and accessibility readiness uses machine fixture and scenario identity while remaining design-direction evidence outside product conformance.",
-      "evidence_kinds": ["playwright", "static_check"],
+      "evidence_kinds": [
+        "playwright",
+        "static_check"
+      ],
       "status": "active"
     }
   ]

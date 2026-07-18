@@ -217,6 +217,11 @@
       "status": "active"
     },
     {
+      "owner_id": "web.design",
+      "manifest_path": "tools/test_families/web.design.json",
+      "status": "active"
+    },
+    {
       "owner_id": "web.networkflow",
       "manifest_path": "tools/test_families/web.networkflow.json",
       "status": "active"

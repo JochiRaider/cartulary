@@ -158,6 +158,68 @@
       "status": "active"
     },
     {
+      "row_id": "module.revisions.browser.verify_history_and_rollback_preview_action_use_p_4201ff80a8",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase9.inspector-actions.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_1afda9077225"
+        ],
+        "titles": [
+          "FE-I-P9-01 Verify history and rollback preview/action use public route contracts, preserve retained history, and render public error envelopes."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.revisions.browser_stateful.verify_inspector_details_relationships_evidence_e32cd188c5",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase9.inspector-actions.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "scenario_f6ab1b570c93"
+        ],
+        "titles": [
+          "FE-E-P9-01 Verify inspector Details, Relationships, Evidence, History, rollback, and destructive-action authorization through public browser routes."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.revisions.integration.covers_delete_restore_single_entry_rollback_dire_b348439e6d",
       "owner_id": "module.revisions",
       "family_id": "module.revisions.integration",

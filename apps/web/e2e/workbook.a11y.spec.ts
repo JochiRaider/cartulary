@@ -96,7 +96,6 @@ import { AccountSettings } from "./pages/accountSettings";
 import { AuthGateway } from "./pages/authGateway";
 import { openIncidentControls } from "./pages/deploymentAdministration";
 import { IncidentDirectory } from "./pages/incidentDirectory";
-import { scenarioTitlesForAccessibilityRow } from "./support/accessibility/phaseMap";
 import { csrfHeaders } from "./support/auth/browserSession";
 import {
   createLocalUser as createAuthLocalUser,
@@ -228,18 +227,18 @@ const p7AccessibilityScenarioTitles = [
 const p8AccessibilityScenarioTitles = [
   "FE-A11Y-P8-01 Verify sort, filter, group, saved-view menu, active chips, group expand-collapse, and default/startup controls are keyboard reachable and announced.",
 ] as const;
-const p9AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
-  "FE-A11Y-P9-01",
-) as [string];
-const p9ConfigAccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
-  "FE-A11Y-P9-02",
-) as [string];
-const p10AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
-  "FE-A11Y-P10-01",
-) as [string];
-const p11AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
-  "FE-A11Y-P11-01",
-) as [string];
+const p9AccessibilityScenarioTitles = [
+  "FE-A11Y-P9-01 Verify inspector tabs, relationship links, evidence controls, history controls, rollback, destructive actions, and errors are keyboard reachable and announced.",
+] as const;
+const p9ConfigAccessibilityScenarioTitles = [
+  "FE-A11Y-P9-02 Verify keyboard open/close, panel navigation, Esc, focus restoration, disabled/blocked states, no-row empty state, and destructive confirmation focus for config-driven inspector behavior.",
+] as const;
+const p10AccessibilityScenarioTitles = [
+  "FE-A11Y-P10-01 Verify coordination surfaces and full keyboard/clipboard controls meet keyboard reachability, focus visibility, accessible-name, ARIA, and non-color-only state expectations.",
+] as const;
+const p11AccessibilityScenarioTitles = [
+  "FE-A11Y-P11-01 Verify global accessibility matrix for keyboard access, visible focus, System views, grid navigation/edit entry/exit, Esc, ARIA states, icon-only labels, contrast, and non-color-only empty/loading/error/blocked states.",
+] as const;
 
 if (p2AccessibilityScenarioTitles.length !== 1) {
   throw new Error(

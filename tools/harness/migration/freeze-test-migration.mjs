@@ -58,6 +58,115 @@ function validateMigrationArtifact(schemaName, value) {
   }
 }
 
+async function checkMigrationArtifacts({ currentCrosswalk, liveBaseline, storedBaseline }) {
+  validateMigrationArtifact("cartulary.test_migration_baseline.v1", storedBaseline);
+  validateMigrationArtifact("cartulary.test_migration_crosswalk.v1", currentCrosswalk);
+  const storedBaselineDigest = digest(storedBaseline);
+  const migrationStarted =
+    currentCrosswalk.dispositions.length > 0 ||
+    currentCrosswalk.auxiliary_dispositions.length > 0 ||
+    currentCrosswalk.new_rows.length > 0;
+  if (!migrationStarted && canonical(storedBaseline) !== canonical(liveBaseline)) {
+    fail("test migration baseline drift");
+  }
+  if (currentCrosswalk.baseline_digest !== storedBaselineDigest) {
+    fail("test migration crosswalk baseline digest drift");
+  }
+  const represented = currentCrosswalk.pending_baseline_keys.length + currentCrosswalk.dispositions.length;
+  if (represented !== 548) fail(`crosswalk represents ${represented}/548 baseline identities`);
+  const frozenKeys = new Set(
+    storedBaseline.identities.map((entry) => `${entry.source_registry_id}\0${entry.legacy_row_id}`),
+  );
+  const representedKeys = [
+    ...currentCrosswalk.pending_baseline_keys,
+    ...currentCrosswalk.dispositions,
+  ].map((entry) => `${entry.source_registry_id}\0${entry.legacy_row_id}`);
+  if (new Set(representedKeys).size !== representedKeys.length) {
+    fail("test migration crosswalk represents a baseline identity more than once");
+  }
+  if (representedKeys.some((key) => !frozenKeys.has(key))) {
+    fail("test migration crosswalk contains an unknown baseline identity");
+  }
+  const backendRunnerCounts = Object.fromEntries(
+    ["go", "playwright", "vitest"].map((runner) => [
+      runner,
+      storedBaseline.identities.filter(
+        (entry) => entry.source_registry_id === "backend_phase_maps" && entry.runner === runner,
+      ).length,
+    ]),
+  );
+  if (canonical(backendRunnerCounts) !== canonical({ go: 335, playwright: 92, vitest: 29 })) {
+    fail(`frozen backend runner population is inconsistent: ${canonical(backendRunnerCounts)}`);
+  }
+  const frozenAuxiliaryIDs = new Set(
+    Object.values(storedBaseline.auxiliary_candidates)
+      .flat()
+      .map((entry) => entry.candidate_id),
+  );
+  const auxiliaryIDs = currentCrosswalk.auxiliary_dispositions.map((entry) => entry.candidate_id);
+  if (new Set(auxiliaryIDs).size !== auxiliaryIDs.length) {
+    fail("test migration crosswalk contains a duplicate auxiliary disposition");
+  }
+  if (auxiliaryIDs.some((candidateID) => !frozenAuxiliaryIDs.has(candidateID))) {
+    fail("test migration crosswalk contains an unknown auxiliary candidate");
+  }
+  if (migrationStarted && existsSync(path.join(root, "tools/test_catalog_owner.json"))) {
+    const { loadTestCatalog } = await import("../test-catalog/test-catalog.mjs");
+    const catalog = loadTestCatalog(root);
+    const authorizedRows = new Map();
+    for (const entry of [
+      ...currentCrosswalk.dispositions.filter((item) => item.disposition === "migrated"),
+      ...currentCrosswalk.new_rows,
+    ]) {
+      if (authorizedRows.has(entry.row_id)) {
+        fail(`test migration crosswalk authorizes duplicate row ${entry.row_id}`);
+      }
+      authorizedRows.set(entry.row_id, entry);
+    }
+    for (const entry of currentCrosswalk.dispositions.filter((item) => item.disposition === "consolidated")) {
+      if (entry.row_id !== entry.surviving_row_id) {
+        fail(`consolidated row ${entry.legacy_row_id} must identify its surviving row consistently`);
+      }
+      const survivor = authorizedRows.get(entry.surviving_row_id);
+      if (!survivor) {
+        fail(`consolidated row ${entry.legacy_row_id} references unauthorized survivor ${entry.surviving_row_id}`);
+      }
+      if (survivor.owner_id !== entry.owner_id || canonical(survivor.verification_ids) !== canonical(entry.verification_ids)) {
+        fail(`consolidated row ${entry.legacy_row_id} differs from survivor authorization`);
+      }
+    }
+    for (const row of catalog.rows) {
+      const authorization = authorizedRows.get(row.row_id);
+      if (!authorization) fail(`catalog row ${row.row_id} has no migration authorization`);
+      if (authorization.owner_id !== row.owner_id) {
+        fail(`catalog row ${row.row_id} owner differs from migration authorization`);
+      }
+      if (canonical(authorization.verification_ids) !== canonical(row.verification_ids)) {
+        fail(`catalog row ${row.row_id} verifications differ from migration authorization`);
+      }
+      authorizedRows.delete(row.row_id);
+    }
+    if (authorizedRows.size > 0) {
+      fail(`migration authorization has no catalog row: ${[...authorizedRows.keys()][0]}`);
+    }
+  }
+  process.stdout.write(`${JSON.stringify({ schema_id: "cartulary.test_migration_baseline_check.v1", status: "passed", authoritative_population: 548, pending: currentCrosswalk.pending_baseline_keys.length, dispositions: currentCrosswalk.dispositions.length, backend_support: storedBaseline.auxiliary_candidates.backend_support.length, vitest_classifications: storedBaseline.auxiliary_candidates.vitest_classifications.length, auxiliary_dispositions: auxiliaryIDs.length })}\n`);
+}
+
+const checkMode = process.argv.includes("--check");
+if (checkMode && existsSync(baselinePath) && existsSync(crosswalkPath)) {
+  const storedBaseline = json("tools/test_migration_baseline.json");
+  const currentCrosswalk = json("tools/test_migration_crosswalk.json");
+  const migrationStarted =
+    currentCrosswalk.dispositions.length > 0 ||
+    currentCrosswalk.auxiliary_dispositions.length > 0 ||
+    currentCrosswalk.new_rows.length > 0;
+  if (migrationStarted) {
+    await checkMigrationArtifacts({ currentCrosswalk, liveBaseline: null, storedBaseline });
+    process.exit(0);
+  }
+}
+
 function goSelector(row) {
   const symbols = [...new Set([...(row.symbols ?? []), ...(row.symbol ? [row.symbol] : [])])].sort();
   return { package: row.package, file: row.file, symbols };
@@ -253,102 +362,11 @@ const crosswalk = jsonValue({
   new_rows: []
 });
 
-if (process.argv.includes("--check")) {
+if (checkMode) {
   if (!existsSync(baselinePath) || !existsSync(crosswalkPath)) fail("migration baseline or crosswalk is missing");
   const storedBaseline = json("tools/test_migration_baseline.json");
   const currentCrosswalk = json("tools/test_migration_crosswalk.json");
-  validateMigrationArtifact("cartulary.test_migration_baseline.v1", storedBaseline);
-  validateMigrationArtifact("cartulary.test_migration_crosswalk.v1", currentCrosswalk);
-  const storedBaselineDigest = digest(storedBaseline);
-  const migrationStarted =
-    currentCrosswalk.dispositions.length > 0 ||
-    currentCrosswalk.auxiliary_dispositions.length > 0 ||
-    currentCrosswalk.new_rows.length > 0;
-  if (!migrationStarted && canonical(storedBaseline) !== canonical(baseline)) {
-    fail("test migration baseline drift");
-  }
-  if (currentCrosswalk.baseline_digest !== storedBaselineDigest) {
-    fail("test migration crosswalk baseline digest drift");
-  }
-  const represented = currentCrosswalk.pending_baseline_keys.length + currentCrosswalk.dispositions.length;
-  if (represented !== 548) fail(`crosswalk represents ${represented}/548 baseline identities`);
-  const frozenKeys = new Set(
-    storedBaseline.identities.map((entry) => `${entry.source_registry_id}\0${entry.legacy_row_id}`),
-  );
-  const representedKeys = [
-    ...currentCrosswalk.pending_baseline_keys,
-    ...currentCrosswalk.dispositions,
-  ].map((entry) => `${entry.source_registry_id}\0${entry.legacy_row_id}`);
-  if (new Set(representedKeys).size !== representedKeys.length) {
-    fail("test migration crosswalk represents a baseline identity more than once");
-  }
-  if (representedKeys.some((key) => !frozenKeys.has(key))) {
-    fail("test migration crosswalk contains an unknown baseline identity");
-  }
-  const backendRunnerCounts = Object.fromEntries(
-    ["go", "playwright", "vitest"].map((runner) => [
-      runner,
-      storedBaseline.identities.filter(
-        (entry) => entry.source_registry_id === "backend_phase_maps" && entry.runner === runner,
-      ).length,
-    ]),
-  );
-  if (canonical(backendRunnerCounts) !== canonical({ go: 335, playwright: 92, vitest: 29 })) {
-    fail(`frozen backend runner population is inconsistent: ${canonical(backendRunnerCounts)}`);
-  }
-  const frozenAuxiliaryIDs = new Set(
-    Object.values(storedBaseline.auxiliary_candidates)
-      .flat()
-      .map((entry) => entry.candidate_id),
-  );
-  const auxiliaryIDs = currentCrosswalk.auxiliary_dispositions.map((entry) => entry.candidate_id);
-  if (new Set(auxiliaryIDs).size !== auxiliaryIDs.length) {
-    fail("test migration crosswalk contains a duplicate auxiliary disposition");
-  }
-  if (auxiliaryIDs.some((candidateID) => !frozenAuxiliaryIDs.has(candidateID))) {
-    fail("test migration crosswalk contains an unknown auxiliary candidate");
-  }
-  if (migrationStarted && existsSync(path.join(root, "tools/test_catalog_owner.json"))) {
-    const { loadTestCatalog } = await import("../test-catalog/test-catalog.mjs");
-    const catalog = loadTestCatalog(root);
-    const authorizedRows = new Map();
-    for (const entry of [
-      ...currentCrosswalk.dispositions.filter((item) => item.disposition === "migrated"),
-      ...currentCrosswalk.new_rows,
-    ]) {
-      if (authorizedRows.has(entry.row_id)) {
-        fail(`test migration crosswalk authorizes duplicate row ${entry.row_id}`);
-      }
-      authorizedRows.set(entry.row_id, entry);
-    }
-    for (const entry of currentCrosswalk.dispositions.filter((item) => item.disposition === "consolidated")) {
-      if (entry.row_id !== entry.surviving_row_id) {
-        fail(`consolidated row ${entry.legacy_row_id} must identify its surviving row consistently`);
-      }
-      const survivor = authorizedRows.get(entry.surviving_row_id);
-      if (!survivor) {
-        fail(`consolidated row ${entry.legacy_row_id} references unauthorized survivor ${entry.surviving_row_id}`);
-      }
-      if (survivor.owner_id !== entry.owner_id || canonical(survivor.verification_ids) !== canonical(entry.verification_ids)) {
-        fail(`consolidated row ${entry.legacy_row_id} differs from survivor authorization`);
-      }
-    }
-    for (const row of catalog.rows) {
-      const authorization = authorizedRows.get(row.row_id);
-      if (!authorization) fail(`catalog row ${row.row_id} has no migration authorization`);
-      if (authorization.owner_id !== row.owner_id) {
-        fail(`catalog row ${row.row_id} owner differs from migration authorization`);
-      }
-      if (canonical(authorization.verification_ids) !== canonical(row.verification_ids)) {
-        fail(`catalog row ${row.row_id} verifications differ from migration authorization`);
-      }
-      authorizedRows.delete(row.row_id);
-    }
-    if (authorizedRows.size > 0) {
-      fail(`migration authorization has no catalog row: ${[...authorizedRows.keys()][0]}`);
-    }
-  }
-  process.stdout.write(`${JSON.stringify({ schema_id: "cartulary.test_migration_baseline_check.v1", status: "passed", authoritative_population: 548, pending: currentCrosswalk.pending_baseline_keys.length, dispositions: currentCrosswalk.dispositions.length, backend_support: storedBaseline.auxiliary_candidates.backend_support.length, vitest_classifications: storedBaseline.auxiliary_candidates.vitest_classifications.length, auxiliary_dispositions: auxiliaryIDs.length })}\n`);
+  await checkMigrationArtifacts({ currentCrosswalk, liveBaseline: baseline, storedBaseline });
 } else {
   writeJson(baselinePath, baseline);
   writeJson(crosswalkPath, crosswalk);

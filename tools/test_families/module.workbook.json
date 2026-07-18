@@ -3,6 +3,38 @@
   "owner_id": "module.workbook",
   "rows": [
     {
+      "row_id": "module.workbook.accessibility.verify_coordination_surfaces_and_full_keyboard_c_83c0845d3e",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_4970f1b5320f"
+        ],
+        "titles": [
+          "FE-A11Y-P10-01 Verify coordination surfaces and full keyboard/clipboard controls meet keyboard reachability, focus visibility, accessible-name, ARIA, and non-color-only state expectations."
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    },
+    {
       "row_id": "module.workbook.accessibility.verify_grid_navigation_edit_entry_exit_paste_fee_3de2b0afac",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.accessibility",
@@ -24,6 +56,70 @@
         ],
         "titles": [
           "FE-A11Y-P4-01 Verify grid navigation, edit entry/exit, paste feedback, validation feedback, save-state communication, and Esc priority are keyboard and screen-reader safe."
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.accessibility.verify_inspector_tabs_relationship_links_evidenc_9ee9fd9ea2",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_60213d2463bf"
+        ],
+        "titles": [
+          "FE-A11Y-P9-01 Verify inspector tabs, relationship links, evidence controls, history controls, rollback, destructive actions, and errors are keyboard reachable and announced."
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.accessibility.verify_keyboard_open_close_panel_navigation_esc_42b98cf08e",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_594d53561642"
+        ],
+        "titles": [
+          "FE-A11Y-P9-02 Verify keyboard open/close, panel navigation, Esc, focus restoration, disabled/blocked states, no-row empty state, and destructive confirmation focus for config-driven inspector behavior."
         ]
       },
       "evidence_class": "accessibility",
@@ -501,6 +597,37 @@
       "status": "active"
     },
     {
+      "row_id": "module.workbook.browser.verify_task_requests_decisions_parties_communica_ea39a44f80",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase9.sentinel.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_1970643f92da"
+        ],
+        "titles": [
+          "FE-B-P10-01 Verify Task Requests, Decisions, Parties, Communications Log, Handoff, Status Review, and Lesson open inside the same workbook shell and retain view controls."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.workbook.browser.verify_timeline_query_response_rows_render_full_bffd82f340",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.browser",
@@ -521,6 +648,99 @@
         ],
         "titles": [
           "FE-I-P4-01 Verify Timeline query response rows render full view_row_v1 cells and preserve row identity through create, patch, validation error, and refresh."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.browser_stateful.verify_coordination_rows_can_be_queried_and_edit_77783541c2",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/frontend.phase10.public-route.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "scenario_3ce32677f203"
+        ],
+        "titles": [
+          "FE-E-P10-01 Verify coordination rows can be queried and edited through public view/row mutation contracts with current-role authorization."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.browser_stateful.verify_default_closed_inspector_state_no_row_sta_897d604d9e",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase9.inspector-actions.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "scenario_4a5b3aa5b794"
+        ],
+        "titles": [
+          "FE-E-P9-02 Verify default-closed inspector state, no-row state, surface switch config changes, saved-view switch over the same view_schema_id keeps the same config, closed incident read-only behavior, server-denied action behavior, and Timeline create/edit/paste without opening the inspector."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.browser_stateful.verify_timeline_inspector_workflow_create_relate_7fc4833af4",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase9.sentinel.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "scenario_0ba7e464f395"
+        ],
+        "titles": [
+          "FE-E-P9-03 Verify Timeline inspector Workflow create-related actions stay in the workbook shell."
         ]
       },
       "evidence_class": "browser",
@@ -781,6 +1001,89 @@
       "status": "active"
     },
     {
+      "row_id": "module.workbook.frontend_unit.verify_active_view_schema_id_selects_inspector_c_82f9499272",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend_unit",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/components/TimelineEvidencePanel.test.tsx",
+        "titles": [
+          "FE-U-P9-02 does not render draft rows as row-bound inspector evidence",
+          "FE-U-P9-02 uses row-specific file inputs for committed row evidence"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.frontend_unit.verify_active_view_schema_id_selects_inspector_c_9c4dd5ce7c",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend_unit",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/workbookInspectorModel.test.ts",
+        "titles": [
+          "FE-U-P9-02 Verify active view_schema_id selects inspector_config_v1, saved views inherit immutable view_schema_id config, no-row state is no_row_selected, and stale row-bound inspector state invalidates across row, row-version, authorization, incident-lifecycle, delete, merge, hard refresh, and surface changes.",
+          "FE-U-P9-02 clears stale row-bound state before retargeting to a new row",
+          "FE-U-P9-02 defaults closed and clears stale state on hard refresh and active surface switch",
+          "FE-U-P9-02 filters panels and feature groups by declared semantic config",
+          "FE-U-P9-02 invalidates destructive, preview, merge, and workflow state on lifecycle triggers",
+          "FE-U-P9-02 keeps saved-view inheritance tied to the base view_schema_id",
+          "FE-U-P9-02 selects config from immutable view_schema_id and starts closed"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.frontend_unit.verify_active_view_schema_id_selects_inspector_c_fed994e037",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend_unit",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase9.inspector.test.tsx",
+        "titles": [
+          "FE-U-P9-02 closes the Timeline inspector when the active sheet identity changes",
+          "FE-U-P9-02 renders the configured no-row state when no saved row is selected"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.workbook.frontend_unit.verify_built_in_tabs_and_required_system_view_gr_62b3572a99",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.frontend_unit",
@@ -832,6 +1135,107 @@
       "resource_profile_id": "none",
       "fixture_profile_id": "none",
       "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.frontend_unit.verify_coordination_and_review_system_view_regis_7d8ea6d2af",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend_unit",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/workbookSurfaceRegistry.test.ts",
+        "titles": [
+          "FE-U-P10-01 Verify coordination and review system-view registrations, field mappings, and closed vocabulary options use stable IDs and contract metadata."
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.frontend_unit.verify_inspector_panels_and_feature_groups_rende_6ca9a85a43",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend_unit",
+      "collaborator_ids": [
+        "package.view_contracts"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/view-contracts/src/index.test.ts",
+        "titles": [
+          "FE-U-P9-03 Verify inspector panels and feature groups render from active config keys and reject unknown panel IDs, route owners, result behaviors, disabled tokens, duplicate keys, missing required keys, and extra current-profile keys before rendering."
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.frontend_unit.verify_inspector_panels_and_feature_groups_rende_b947f0007c",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend_unit",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase9.inspector.test.tsx",
+        "titles": [
+          "creates a related Task Request from the Timeline inspector using emitted seed bindings",
+          "creates related Evidence from the Timeline inspector and links it back through the Timeline patch route"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.frontend_unit.verify_inspector_selection_tab_state_details_rel_d2dc82a4bb",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend_unit",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase9.inspector.test.tsx",
+        "titles": [
+          "FE-U-P9-01 Verify inspector selection, tab state, details, relationships, evidence, and history anchors are record_id based and survive row refresh."
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": false,
       "claim_posture": "implementation",
       "status": "active"
     },
@@ -1762,6 +2166,39 @@
       "status": "active"
     },
     {
+      "row_id": "module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_cb54783764e3"
+        ],
+        "titles": [
+          "FE-V-P9-01 Capture inspector Details, Relationships, Evidence, History, rollback preview, destructive confirmation, and public error fixtures."
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    },
+    {
       "row_id": "module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.visual",
@@ -1784,6 +2221,39 @@
         ],
         "titles": [
           "FE-V-P4-01 Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures."
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_2ad2818dac42"
+        ],
+        "titles": [
+          "FE-V-P10-01 Capture Task Requests or Decisions, Parties link state, Communications Log, Handoff, Status Review, Lesson, keyboard focus, frozen column, resize handle, and fill-down fixtures."
         ]
       },
       "evidence_class": "visual",

@@ -1,0 +1,133 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "web.design",
+  "rows": [
+    {
+      "row_id": "web.design.accessibility.verify_global_accessibility_matrix_for_keyboard_90088a3666",
+      "owner_id": "web.design",
+      "family_id": "web.design.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "web.design.verification.readiness_direction"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_ed377773c298"
+        ],
+        "titles": [
+          "FE-A11Y-P11-01 Verify global accessibility matrix for keyboard access, visible focus, System views, grid navigation/edit entry/exit, Esc, ARIA states, icon-only labels, contrast, and non-color-only empty/loading/error/blocked states."
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    },
+    {
+      "row_id": "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
+      "owner_id": "web.design",
+      "family_id": "web.design.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "web.design.verification.readiness_direction"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_ddd90978bbf5"
+        ],
+        "titles": [
+          "FE-V-P11-03 Capture exposed dark_graphite token and theme states with deterministic density, color, component, focus, and semantic-state samples."
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    },
+    {
+      "row_id": "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
+      "owner_id": "web.design",
+      "family_id": "web.design.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "web.design.verification.readiness_direction"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_5fea7ee59303"
+        ],
+        "titles": [
+          "FE-V-P11-02 Ensure the visual fixture matrix includes default Timeline workbook shell, unresolved/resolved entity state, same-field conflict, row-gutter presence, evidence affordance, grouped result, Task Requests or Decisions, save-state strip, frozen column, resize handle, fill-down handle, edit cell, group outline row, exposed theme states, and empty successful query."
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    },
+    {
+      "row_id": "web.design.visual.run_the_owned_stack_playwright_visual_suite_with_9b08711878",
+      "owner_id": "web.design",
+      "family_id": "web.design.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "web.design.verification.readiness_direction"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_1a05ce26b939"
+        ],
+        "titles": [
+          "FE-V-P11-01 Run the owned-stack Playwright visual suite with deterministic seed data, viewport, zoom, fixture ordering, dynamic masks, scroll anchors, focus/editor state, inspector state, and post-scroll settle behavior."
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    }
+  ]
+}
