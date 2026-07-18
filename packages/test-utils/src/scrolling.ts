@@ -1,4 +1,5 @@
 import {
+  dataTestIdSelector,
   gridSavedRowsSelector,
   gridScrollportSelector,
   gridShellTestId,
@@ -122,7 +123,14 @@ export async function scrollGridTargetIntoView(options: {
     timeoutMs = 3_000,
   } = options;
   const target = page.getByTestId(targetTestId);
-  if (await alignVisibleGridTarget(target)) {
+  if (
+    await alignVisibleGridTarget({
+      page,
+      surface,
+      target,
+      targetTestId,
+    })
+  ) {
     return readGridScroll(page, surface);
   }
 
@@ -131,7 +139,14 @@ export async function scrollGridTargetIntoView(options: {
   const observation = createGridTargetScanObservation();
 
   for (;;) {
-    if (await alignVisibleGridTarget(target)) {
+    if (
+      await alignVisibleGridTarget({
+        page,
+        surface,
+        target,
+        targetTestId,
+      })
+    ) {
       return readGridScroll(page, surface);
     }
 
@@ -154,7 +169,14 @@ export async function scrollGridTargetIntoView(options: {
         await scrollGridToPosition(page, surface, top, left);
         observation.scrollAttempts += 1;
         await waitForGridTargetRetry(retryIntervalMs);
-        if (await alignVisibleGridTarget(target)) {
+        if (
+          await alignVisibleGridTarget({
+            page,
+            surface,
+            target,
+            targetTestId,
+          })
+        ) {
           return readGridScroll(page, surface);
         }
         state = await readGridScrollDiagnostics(page, surface);
@@ -219,18 +241,40 @@ export async function scrollGridTargetIntoView(options: {
   );
 }
 
-async function alignVisibleGridTarget(target: BrowserLocator) {
+async function alignVisibleGridTarget(options: {
+  page: BrowserPageLike;
+  surface: WorkbookSurface;
+  target: BrowserLocator;
+  targetTestId: string;
+}) {
+  const { page, surface, target, targetTestId } = options;
   if (!(await isLocatorVisible(target))) {
     return false;
   }
-  try {
-    await target.scrollIntoViewIfNeeded?.();
-  } catch {
-    // RDG may remount a virtualized cell while Playwright is waiting for that
-    // element to settle. Treat the detached node as a scan retry; the stable
-    // semantic locator will resolve the replacement on the next attempt.
+
+  const grid = page.getByTestId(gridShellTestId(surface));
+  const evaluateGrid = requireEvaluate(
+    grid,
+    `scrollGridTargetIntoView(${surface}, ${targetTestId}) requires locator.evaluate() support`,
+  );
+  const aligned = (await evaluateGrid((element, rawTargetSelector) => {
+    const targetSelector =
+      typeof rawTargetSelector === "string" ? rawTargetSelector : "";
+    const mountedTarget = element.querySelector<HTMLElement>(targetSelector);
+    if (mountedTarget === null || !mountedTarget.isConnected) {
+      return false;
+    }
+    mountedTarget.scrollIntoView({ block: "nearest", inline: "nearest" });
+    return true;
+  }, dataTestIdSelector(targetTestId))) as boolean;
+  if (!aligned) {
     return false;
   }
+
+  // Rows and wide cells may intentionally span beyond the horizontal
+  // viewport. Alignment only needs the stable semantic target to remain
+  // mounted and CSS-visible after the synchronous scroll; callers that need
+  // full viewport containment use isTestIdVisibleWithinGridViewport.
   return isLocatorVisible(target);
 }
 
@@ -294,20 +338,20 @@ export async function readTestIdGridViewportState(
   testId: string,
 ) {
   const grid = page.getByTestId(gridShellTestId(surface));
-  const target = page.getByTestId(testId);
   const evaluateGrid = requireEvaluate(
     grid,
     `isTestIdVisibleWithinGridViewport(${surface}, ${testId}) requires locator.evaluate() support`,
   );
-  const evaluateTarget = requireEvaluate(
-    target,
-    `isTestIdVisibleWithinGridViewport(${surface}, ${testId}) requires locator.evaluate() support`,
-  );
-  const containerRect = (await evaluateGrid(
+  return (await evaluateGrid(
     (element, options) => {
-      const { scrollportSelector, surface } =
+      const { scrollportSelector, surface, targetSelector, testId } =
         typeof options === "object" && options !== null
-          ? (options as { scrollportSelector?: unknown; surface?: unknown })
+          ? (options as {
+              scrollportSelector?: unknown;
+              surface?: unknown;
+              targetSelector?: unknown;
+              testId?: unknown;
+            })
           : {};
       const selector =
         typeof scrollportSelector === "string" ? scrollportSelector : "";
@@ -325,55 +369,44 @@ export async function readTestIdGridViewportState(
           `Expected ${typeof surface === "string" ? surface : "workbook"} grid shell to contain exactly one ${selector} scrollport, received 0`,
         );
       }
-      const rect = gridScrollport.getBoundingClientRect();
+      const normalizedTargetSelector =
+        typeof targetSelector === "string" ? targetSelector : "";
+      const target = element.querySelector<HTMLElement>(
+        normalizedTargetSelector,
+      );
+      if (target === null) {
+        throw new Error(
+          `Expected ${typeof surface === "string" ? surface : "workbook"} grid shell to contain target ${typeof testId === "string" ? testId : normalizedTargetSelector}`,
+        );
+      }
+      const containerRect = gridScrollport.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const top = targetRect.top - containerRect.top;
+      const left = targetRect.left - containerRect.left;
+      const bottom = targetRect.bottom - containerRect.top;
+      const right = targetRect.right - containerRect.left;
       return {
-        bottom: rect.bottom,
-        height: rect.height,
-        left: rect.left,
-        right: rect.right,
-        top: rect.top,
-        width: rect.width,
+        bottom,
+        containerHeight: containerRect.height,
+        containerWidth: containerRect.width,
+        left,
+        right,
+        top,
       };
     },
-    { scrollportSelector: gridScrollportSelector(), surface },
+    {
+      scrollportSelector: gridScrollportSelector(),
+      surface,
+      targetSelector: dataTestIdSelector(testId),
+      testId,
+    },
   )) as {
     bottom: number;
-    height: number;
+    containerHeight: number;
+    containerWidth: number;
     left: number;
     right: number;
     top: number;
-    width: number;
-  };
-  const elementRect = (await evaluateTarget((element) => {
-    const rect = element.getBoundingClientRect();
-    return {
-      bottom: rect.bottom,
-      height: rect.height,
-      left: rect.left,
-      right: rect.right,
-      top: rect.top,
-      width: rect.width,
-    };
-  })) as {
-    bottom: number;
-    height: number;
-    left: number;
-    right: number;
-    top: number;
-    width: number;
-  };
-
-  const top = elementRect.top - containerRect.top;
-  const left = elementRect.left - containerRect.left;
-  const bottom = elementRect.bottom - containerRect.top;
-  const right = elementRect.right - containerRect.left;
-  return {
-    bottom,
-    containerHeight: containerRect.height,
-    containerWidth: containerRect.width,
-    left,
-    right,
-    top,
   };
 }
 

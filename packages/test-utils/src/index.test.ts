@@ -57,13 +57,23 @@ describe("@cartulary/test-utils selector choreography", () => {
     const gridScrollport = document.createElement("div");
     gridScrollport.className = gridScrollportClassName();
     gridShell.append(gridScrollport);
+    document.body.append(gridShell);
+    const gridTestId = gridShellTestId(testTimelineViewSchemaId);
+    const elements = new Map<string, HTMLElement>([[gridTestId, gridShell]]);
     const page = {
       getByTestId(value: string) {
         observed.push(value);
-        const element =
-          value === gridShellTestId(testTimelineViewSchemaId)
-            ? gridShell
-            : document.createElement("button");
+        let element = elements.get(value);
+        if (element === undefined) {
+          element = document.createElement("button");
+          element.dataset.testid = value;
+          Object.defineProperty(element, "scrollIntoView", {
+            configurable: true,
+            value: () => undefined,
+          });
+          gridScrollport.append(element);
+          elements.set(value, element);
+        }
         return {
           click: async () => undefined,
           evaluate: async (
@@ -94,6 +104,7 @@ describe("@cartulary/test-utils selector choreography", () => {
 
     expect(observed).toEqual([
       gridSortHeaderTestId(surface, "timeline.activity_synopsis_text"),
+      gridShellTestId(surface),
       gridShellTestId(surface),
       gridSortHeaderTestId(surface, "timeline.activity_synopsis_text"),
       workbookFilterPopoverTriggerTestId(surface),
@@ -370,6 +381,59 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
         targetTestId,
       ),
     ).resolves.toBe(false);
+  });
+
+  it("treats a target unmounted between visibility and geometry reads as outside the viewport", async () => {
+    let visibilityChecks = 0;
+    let targetToUnmount: HTMLInputElement | null = null;
+    const { page, target, targetTestId } = installGridTargetFixture({
+      isTargetVisible: () => {
+        visibilityChecks += 1;
+        if (visibilityChecks === 1) {
+          targetToUnmount?.remove();
+          return true;
+        }
+        return false;
+      },
+    });
+    targetToUnmount = target;
+
+    await expect(
+      isTestIdVisibleWithinGridViewport(
+        page,
+        testTimelineViewSchemaId,
+        targetTestId,
+      ),
+    ).resolves.toBe(false);
+    expect(visibilityChecks).toBe(2);
+  });
+
+  it("retries through the stable grid shell when a target unmounts before alignment", async () => {
+    let visibilityChecks = 0;
+    let targetToUnmount: HTMLInputElement | null = null;
+    const { page, scrollIntoViewCalls, target, targetTestId } =
+      installGridTargetFixture({
+        isTargetVisible: () => {
+          visibilityChecks += 1;
+          if (visibilityChecks === 1) {
+            targetToUnmount?.remove();
+            return true;
+          }
+          return false;
+        },
+      });
+    targetToUnmount = target;
+
+    await expect(
+      scrollGridTargetIntoView({
+        intervalMs: 0,
+        page,
+        surface: testTimelineViewSchemaId,
+        targetTestId,
+        timeoutMs: 0,
+      }),
+    ).rejects.toThrow(/Expected target-control to become visible/);
+    expect(scrollIntoViewCalls).toEqual([]);
   });
 
   it("aligns an already-visible target before returning the existing scroll position", async () => {
@@ -923,6 +987,15 @@ function installGridTargetFixture(
   grid.scrollTop = options.currentScroll?.top ?? 0;
 
   const scrollIntoViewCalls: string[] = [];
+  if (target instanceof HTMLInputElement) {
+    Object.defineProperty(target, "scrollIntoView", {
+      configurable: true,
+      value: () => {
+        scrollIntoViewCalls.push(targetTestId);
+        options.onTargetScrollIntoView?.(grid);
+      },
+    });
+  }
   let gridEvaluateCount = 0;
   return {
     grid,
@@ -959,6 +1032,7 @@ function installGridTargetFixture(
     ),
     scrollIntoViewCalls,
     shell,
+    target: target instanceof HTMLInputElement ? target : null,
     targetTestId,
   };
 }
