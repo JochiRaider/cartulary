@@ -18,13 +18,13 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 	incidentData := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase9-i-9-03-incident",
 		"incident_key":  "IR-I903",
-		"title":         "Phase 9 I-9-03 party links",
+		"title":         "Workbook inspector I-9-03 party links",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incidentData["incident_id"].(string))
 	otherIncidentData := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase9-i-9-03-other-incident",
 		"incident_key":  "IR-I903B",
-		"title":         "Phase 9 I-9-03 other incident",
+		"title":         "Workbook inspector I-9-03 other incident",
 	})
 	otherIncidentID := workbookscenariotest.MustUUID(t, otherIncidentData["incident_id"].(string))
 
@@ -54,7 +54,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 
 	evidenceData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.evidence.v1", map[string]any{
 		"client_txn_id":                 "txn-phase9-i-9-03-evidence",
-		"evidence.title":                "Phase 9 party text",
+		"evidence.title":                "Workbook inspector party text",
 		"evidence.collector_party_text": "Raw collector label",
 		"evidence.source_party_text":    "Raw source label",
 	})

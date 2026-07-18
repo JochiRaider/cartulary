@@ -33,7 +33,7 @@ func TestResolveRoute_Integration(t *testing.T) {
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-i-4-01-resolve-conf-incident",
 			"incident_key":  "IR-I401-RC",
-			"title":         "Phase 4 I-4-01 resolve conformance",
+			"title":         "Record relationships I-4-01 resolve conformance",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 		workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
@@ -70,7 +70,7 @@ func TestResolveRoute_Integration(t *testing.T) {
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-i-4-01-resolve-incident",
 			"incident_key":  "IR-I401-R",
-			"title":         "Phase 4 I-4-01 resolve route",
+			"title":         "Record relationships I-4-01 resolve route",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 		workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
@@ -185,7 +185,7 @@ SELECT COUNT(*)
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-i-4-01-dismiss-incident",
 			"incident_key":  "IR-I401-D",
-			"title":         "Phase 4 I-4-01 dismiss route",
+			"title":         "Record relationships I-4-01 dismiss route",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 		workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
@@ -272,7 +272,7 @@ SELECT COUNT(*)
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-i-4-01-revert-incident",
 			"incident_key":  "IR-I401-U",
-			"title":         "Phase 4 I-4-01 revert route",
+			"title":         "Record relationships I-4-01 revert route",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 		workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
@@ -321,7 +321,7 @@ SELECT COUNT(*)
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-i-4-01-access-incident",
 			"incident_key":  "IR-I401-A",
-			"title":         "Phase 4 I-4-01 access checks",
+			"title":         "Record relationships I-4-01 access checks",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 		workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
@@ -361,7 +361,7 @@ UPDATE incident_memberships
 		}
 
 		otherActor := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "phase4-i401-other@example.test", "Phase4 I401 Other", "Phase4I401OtherPass1!", false, false, true)
-		otherIncident := workbookscenariotest.CreateIncidentInStore(t, harness.Server.Runtime.Postgres, otherActor, "txn-phase4-i-4-01-hidden-incident", "IR-I401-H", "Phase 4 I-4-01 hidden")
+		otherIncident := workbookscenariotest.CreateIncidentInStore(t, harness.Server.Runtime.Postgres, otherActor, "txn-phase4-i-4-01-hidden-incident", "IR-I401-H", "Record relationships I-4-01 hidden")
 		workbookscenariotest.SeedHostRecord(t, harness.DB, otherIncident.ID, otherActor.ID, golden.RecordDuplicateHostRecordID, "Hidden WS-023", "HIDDEN-WS-023", "", "")
 
 		hiddenResp := workbookscenariotest.DoJSON(
@@ -377,7 +377,7 @@ UPDATE incident_memberships
 		otherVisibleIncident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-i-4-01-visible-incident",
 			"incident_key":  "IR-I401-V",
-			"title":         "Phase 4 I-4-01 visible other incident",
+			"title":         "Record relationships I-4-01 visible other incident",
 		})
 		otherVisibleIncidentID := workbookscenariotest.MustUUID(t, otherVisibleIncident["incident_id"].(string))
 		workbookscenariotest.SeedHostRecord(t, harness.DB, otherVisibleIncidentID, adminUserID, golden.RecordStubHostRecordID, "Visible WS-023", "VISIBLE-WS-023", "", "")
@@ -425,7 +425,7 @@ func TestEntityOriginUpsert_Integration(t *testing.T) {
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-i-4-02-host-incident",
 			"incident_key":  "IR-I402-H",
-			"title":         "Phase 4 I-4-02 host create",
+			"title":         "Record relationships I-4-02 host create",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
@@ -587,7 +587,7 @@ SELECT
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-i-4-02-identity-incident",
 			"incident_key":  "IR-I402-I",
-			"title":         "Phase 4 I-4-02 identity create",
+			"title":         "Record relationships I-4-02 identity create",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
@@ -754,7 +754,7 @@ SELECT COUNT(*)
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-i-4-02-query-auth-incident",
 			"incident_key":  "IR-I402-Q",
-			"title":         "Phase 4 I-4-02 query and auth",
+			"title":         "Record relationships I-4-02 query and auth",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 		viewLogin := workbookscenariotest.LoginResult{SessionCookie: adminLogin.SessionCookie, CSRFCookie: adminLogin.CSRFCookie}

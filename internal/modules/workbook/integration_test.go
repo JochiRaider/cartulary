@@ -19,28 +19,28 @@ import (
 const TimelineViewSchemaID = "cartulary.view.timeline.v2"
 
 func TestConcurrentEditsResolverPath_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase6-i-6-03-concurrent-resolver")
+	harness := workbookscenariotest.StartServer(t, "collaboration-i-6-03-concurrent-resolver")
 	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase6-i-6-03-incident",
+		"client_txn_id": "txn-collaboration-i-6-03-incident",
 		"incident_key":  "IR-PHASE6-I-6-03",
-		"title":         "Phase 6 I-6-03 concurrent resolver path",
+		"title":         "Collaboration I-6-03 concurrent resolver path",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
-	firstUser := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "phase6-i-6-03-first@example.test", "Phase 6 First", "Phase6FirstPass1!", false, false, true)
-	secondUser := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "phase6-i-6-03-second@example.test", "Phase 6 Second", "Phase6SecondPass1!", false, false, true)
+	firstUser := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "collaboration-i-6-03-first@example.test", "Collaboration First", "CollaborationFirstPass1!", false, false, true)
+	secondUser := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "collaboration-i-6-03-second@example.test", "Collaboration Second", "CollaborationSecondPass1!", false, false, true)
 	workbookscenariotest.SeedIncidentMembership(t, harness.DB, incidentID, firstUser.ID, firstUser.DisplayName, "editor", adminUserID)
 	workbookscenariotest.SeedIncidentMembership(t, harness.DB, incidentID, secondUser.ID, secondUser.DisplayName, "editor", adminUserID)
-	firstLogin := LoginLocalUserNoMFA(t, harness, firstUser.Email, "Phase6FirstPass1!")
-	secondLogin := LoginLocalUserNoMFA(t, harness, secondUser.Email, "Phase6SecondPass1!")
+	firstLogin := LoginLocalUserNoMFA(t, harness, firstUser.Email, "CollaborationFirstPass1!")
+	secondLogin := LoginLocalUserNoMFA(t, harness, secondUser.Email, "CollaborationSecondPass1!")
 
-	differentRow := CreateTimelineRow(t, harness, firstLogin, incidentID, "txn-phase6-i-6-03-different-create", "Different base")
+	differentRow := CreateTimelineRow(t, harness, firstLogin, incidentID, "txn-collaboration-i-6-03-different-create", "Different base")
 	differentID := workbookscenariotest.MustUUID(t, differentRow["record_id"].(string))
 	summaryPatch := requireWorkbookPatch(t, harness, firstLogin, differentID, map[string]any{
 		"view_schema_id":   TimelineViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase6-i-6-03-different-summary",
+		"client_txn_id":    "txn-collaboration-i-6-03-different-summary",
 		"changes": []map[string]any{{
 			"field_key": "timeline.activity_synopsis_text",
 			"value":     "Different summary",
@@ -50,7 +50,7 @@ func TestConcurrentEditsResolverPath_Integration(t *testing.T) {
 	detailsPatch := requireWorkbookPatch(t, harness, secondLogin, differentID, map[string]any{
 		"view_schema_id":   TimelineViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase6-i-6-03-different-details",
+		"client_txn_id":    "txn-collaboration-i-6-03-different-details",
 		"changes": []map[string]any{{
 			"field_key": "timeline.raw_activity_text",
 			"value":     "Different details",
@@ -63,7 +63,7 @@ func TestConcurrentEditsResolverPath_Integration(t *testing.T) {
 		t.Fatalf("different-field stale edit row_version = %d want 3", got)
 	}
 
-	keepRow := CreateTimelineRow(t, harness, firstLogin, incidentID, "txn-phase6-i-6-03-keep-create", "Keep base")
+	keepRow := CreateTimelineRow(t, harness, firstLogin, incidentID, "txn-collaboration-i-6-03-keep-create", "Keep base")
 	keepID := workbookscenariotest.MustUUID(t, keepRow["record_id"].(string))
 	keepConflict := CreateTimelineSameFieldConflict(t, harness, firstLogin, secondLogin, keepID, "keep", "Keep saved", "Keep local")
 	if token, ok := keepConflict["conflict_token"].(string); !ok || token == "" {
@@ -75,19 +75,19 @@ func TestConcurrentEditsResolverPath_Integration(t *testing.T) {
 	keepData := ResolveConflict(t, harness, secondLogin, keepID, keepConflict["conflict_token"].(string), map[string]any{
 		"conflict_token":  keepConflict["conflict_token"].(string),
 		"resolution_kind": "keep_saved",
-		"client_txn_id":   "txn-phase6-i-6-03-keep-resolve",
+		"client_txn_id":   "txn-collaboration-i-6-03-keep-resolve",
 	})
 	RequireNoChangeSet(t, keepData)
 	requireCellValue(t, keepData["row"].(map[string]any), "timeline.activity_synopsis_text", "Keep saved")
 	RequireCount(t, "keep_saved change_sets", workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID), beforeClearChanges)
 	RequireCount(t, "keep_saved revisions", workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM record_revisions WHERE record_id = $1`, keepID), beforeClearRevisions)
 
-	useRow := CreateTimelineRow(t, harness, firstLogin, incidentID, "txn-phase6-i-6-03-use-create", "Use base")
+	useRow := CreateTimelineRow(t, harness, firstLogin, incidentID, "txn-collaboration-i-6-03-use-create", "Use base")
 	useID := workbookscenariotest.MustUUID(t, useRow["record_id"].(string))
 	useConflict := CreateTimelineSameFieldConflict(t, harness, firstLogin, secondLogin, useID, "use", "Use saved", "Use local")
 	socket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID.String(), incidentwstest.ConnectOptions{
 		SessionToken:     adminLogin.SessionCookie.Value,
-		ClientInstanceID: "phase6-i-6-03-record-change-listener",
+		ClientInstanceID: "collaboration-i-6-03-record-change-listener",
 		Presence: platformws.PresenceInput{
 			SheetRef: map[string]string{"kind": "view_schema", "id": TimelineViewSchemaID},
 			Mode:     "viewing",
@@ -99,24 +99,24 @@ func TestConcurrentEditsResolverPath_Integration(t *testing.T) {
 	useData := ResolveConflict(t, harness, secondLogin, useID, useConflict["conflict_token"].(string), map[string]any{
 		"conflict_token":  useConflict["conflict_token"].(string),
 		"resolution_kind": "use_unsaved",
-		"client_txn_id":   "txn-phase6-i-6-03-use-resolve",
+		"client_txn_id":   "txn-collaboration-i-6-03-use-resolve",
 		"resolved_value":  "Use local",
 	})
 	requireCellValue(t, useData["row"].(map[string]any), "timeline.activity_synopsis_text", "Use local")
 	RequireCount(t, "use_unsaved change_sets", workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID), beforeUseChanges+1)
 	RequireCount(t, "use_unsaved revisions", workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM record_revisions WHERE record_id = $1`, useID), beforeUseRevisions+1)
-	workbookscenariotest.RequireChangeSetAttribution(t, harness.DB, useData["change_set_id"].(string), secondUser.ID.String(), "timeline.records.conflicts.resolve", "txn-phase6-i-6-03-use-resolve")
+	workbookscenariotest.RequireChangeSetAttribution(t, harness.DB, useData["change_set_id"].(string), secondUser.ID.String(), "timeline.records.conflicts.resolve", "txn-collaboration-i-6-03-use-resolve")
 	RequireRecordChanged(t, socket, useID, int64(useData["row"].(map[string]any)["row_version"].(float64)))
 	ResolveConflict(t, harness, secondLogin, useID, useConflict["conflict_token"].(string), map[string]any{
 		"conflict_token":  useConflict["conflict_token"].(string),
 		"resolution_kind": "use_unsaved",
-		"client_txn_id":   "txn-phase6-i-6-03-use-resolve",
+		"client_txn_id":   "txn-collaboration-i-6-03-use-resolve",
 		"resolved_value":  "Use local",
 	})
 	RequireCount(t, "use_unsaved replay change_sets", workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID), beforeUseChanges+1)
 	RequireCount(t, "use_unsaved replay revisions", workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM record_revisions WHERE record_id = $1`, useID), beforeUseRevisions+1)
 
-	mergedRow := CreateTimelineRow(t, harness, firstLogin, incidentID, "txn-phase6-i-6-03-merged-create", "Merged base")
+	mergedRow := CreateTimelineRow(t, harness, firstLogin, incidentID, "txn-collaboration-i-6-03-merged-create", "Merged base")
 	mergedID := workbookscenariotest.MustUUID(t, mergedRow["record_id"].(string))
 	mergedConflict := CreateTimelineSameFieldConflict(t, harness, firstLogin, secondLogin, mergedID, "merged", "Merged saved", "Merged local")
 	beforeMergedChanges := workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID)
@@ -124,13 +124,13 @@ func TestConcurrentEditsResolverPath_Integration(t *testing.T) {
 	mergedData := ResolveConflict(t, harness, secondLogin, mergedID, mergedConflict["conflict_token"].(string), map[string]any{
 		"conflict_token":  mergedConflict["conflict_token"].(string),
 		"resolution_kind": "merged_value",
-		"client_txn_id":   "txn-phase6-i-6-03-merged-resolve",
+		"client_txn_id":   "txn-collaboration-i-6-03-merged-resolve",
 		"resolved_value":  "Merged final",
 	})
 	requireCellValue(t, mergedData["row"].(map[string]any), "timeline.activity_synopsis_text", "Merged final")
 	RequireCount(t, "merged_value change_sets", workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID), beforeMergedChanges+1)
 	RequireCount(t, "merged_value revisions", workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM record_revisions WHERE record_id = $1`, mergedID), beforeMergedRevisions+1)
-	workbookscenariotest.RequireChangeSetAttribution(t, harness.DB, mergedData["change_set_id"].(string), secondUser.ID.String(), "timeline.records.conflicts.resolve", "txn-phase6-i-6-03-merged-resolve")
+	workbookscenariotest.RequireChangeSetAttribution(t, harness.DB, mergedData["change_set_id"].(string), secondUser.ID.String(), "timeline.records.conflicts.resolve", "txn-collaboration-i-6-03-merged-resolve")
 	RequireRecordChanged(t, socket, mergedID, int64(mergedData["row"].(map[string]any)["row_version"].(float64)))
 }
 
@@ -148,7 +148,7 @@ func CreateTimelineSameFieldConflict(t testing.TB, harness *workbookscenariotest
 	requireWorkbookPatch(t, harness, firstLogin, recordID, map[string]any{
 		"view_schema_id":   TimelineViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase6-i-6-03-" + prefix + "-server",
+		"client_txn_id":    "txn-collaboration-i-6-03-" + prefix + "-server",
 		"changes": []map[string]any{{
 			"field_key": "timeline.activity_synopsis_text",
 			"value":     savedValue,
@@ -157,7 +157,7 @@ func CreateTimelineSameFieldConflict(t testing.TB, harness *workbookscenariotest
 	resp := doWorkbookJSON(t, harness, secondLogin, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
 		"view_schema_id":   TimelineViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase6-i-6-03-" + prefix + "-client",
+		"client_txn_id":    "txn-collaboration-i-6-03-" + prefix + "-client",
 		"changes": []map[string]any{{
 			"field_key": "timeline.activity_synopsis_text",
 			"value":     localValue,

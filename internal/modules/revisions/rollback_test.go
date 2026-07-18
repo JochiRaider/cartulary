@@ -86,7 +86,7 @@ func TestRollbackSelectorUnion_Unit(t *testing.T) {
 		setMembershipRole(t, harness.DB, incidentID, actorID, "editor")
 		forbidden := rollbackRecord(t, harness, login, recordID, map[string]any{"base_row_version": 2, "client_txn_id": "txn-forbidden", "target": map[string]any{"kind": "history_entry", "history_entry_ref": historyEntryRef}})
 		httptestx.RequireErrorEnvelope(t, forbidden, http.StatusForbidden, "authorization_denied")
-		hiddenUser := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "phase7-hidden@example.test", "Phase 7 Hidden", "HiddenPass1!", false, false, true)
+		hiddenUser := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "phase7-hidden@example.test", "History Hidden", "HiddenPass1!", false, false, true)
 		hiddenLogin := loginLocalUser(t, harness, hiddenUser.Email, "HiddenPass1!")
 		hiddenExisting := rollbackRecord(t, harness, hiddenLogin, recordID, map[string]any{"base_row_version": 2, "client_txn_id": "txn-hidden-existing", "target": map[string]any{"kind": "history_entry", "history_entry_ref": historyEntryRef}})
 		httptestx.RequireErrorEnvelope(t, hiddenExisting, http.StatusNotFound, "incident_not_found")

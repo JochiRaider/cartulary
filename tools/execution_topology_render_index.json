@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:8995f19a8acba881338f8f9c59351d8b2b95e8581667dad252db24f594b64d1f",
+  "input_digest": "sha256:d69439bf9f59a97461257a5534b1f518e8f7083a08d17781ba886cd9b632292e",
   "inputs": [
     {
       "path": "tools/browser_e2e_duration_baselines.json",
@@ -492,7 +492,7 @@
     {
       "path": "tools/harness/phase-accounting/frontend/phase-ids.mjs",
       "role": "renderer_source",
-      "hash": "sha256:512d0e20ee1888e18b1511a0c27c21d3a95a03510b247c55ed25f06b77026908"
+      "hash": "sha256:dee469e51a48ddbca30c4365da1dd62385fd94462dedd2c862e885761a7ae926"
     },
     {
       "path": "tools/harness/phase-accounting/frontend/phase-map-validation.mjs",
@@ -527,7 +527,7 @@
     {
       "path": "tools/harness/phase-accounting/frontend/visual-fixture-registry.mjs",
       "role": "renderer_source",
-      "hash": "sha256:9e3452d162024b88b829e28435b945016f30db1a7f8a942970b32d6a5808d7f6"
+      "hash": "sha256:a2250a7829c42d7309b8a1162c477c5ed73ff8187cf0615491b71878accb02c3"
     },
     {
       "path": "tools/harness/phase-accounting/index.mjs",
@@ -547,7 +547,7 @@
     {
       "path": "tools/harness/phase-accounting/phase-frontend-fixtures.mjs",
       "role": "renderer_source",
-      "hash": "sha256:4cb3a03cdb73b998ec3c35a21980626ff56530b2ed2347aece52151776430b2d"
+      "hash": "sha256:09aa2625268a7d1357c04f012a0df44417f6cdd33db3712e900f1b66285fc63a"
     },
     {
       "path": "tools/harness/phase-accounting/phase-manifest-cli.mjs",
@@ -857,22 +857,22 @@
     {
       "path": "tools/phase3_test_map.json",
       "role": "active_phase_manifest",
-      "hash": "sha256:767fc77289917ffc7ae28add933f79c942bb4749158c235c0ad66719b5c712cf"
+      "hash": "sha256:3bbe5ed67bac0b6503de4ae8cdd11d4b534edf1f84dec0f6aa4cf4a52c9a2ca7"
     },
     {
       "path": "tools/phase4_test_map.json",
       "role": "active_phase_manifest",
-      "hash": "sha256:b98de20ce3be305b6d909c478aa48bb41a1d3f00f1001b7fea03e4ddc78ac4d8"
+      "hash": "sha256:56fda285a729a5a6b168650fc1d1a7b6dd360c62e5bfb6386a802d39376f2067"
     },
     {
       "path": "tools/phase5_test_map.json",
       "role": "active_phase_manifest",
-      "hash": "sha256:9f136747e6a6533481972842740297f31ad8c1291585c4041518ca00eccd6b77"
+      "hash": "sha256:c86993febecf1b21ba643140de285ebabfbff792be9e6dac95c6319f6aa3cb29"
     },
     {
       "path": "tools/phase6_test_map.json",
       "role": "active_phase_manifest",
-      "hash": "sha256:904f822daa520b21121d1fa9e26598565de459b879e8bca730f15f2eeb8a6ca5"
+      "hash": "sha256:652fd877e298b21160bea5862bd707a9a0e2b285eeb0e5067f3e3deba3342e83"
     },
     {
       "path": "tools/phase7_test_map.json",

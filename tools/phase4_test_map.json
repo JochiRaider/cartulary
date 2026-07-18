@@ -1196,7 +1196,7 @@
         "VFIX-GRID-07"
       ],
       "frontend_fixture_refs": [
-        "FE-VFIX-07"
+        "visual.fixture.task_requests_or_decisions"
       ],
       "claim": "The visual harness captures a required coordination system view rendered through the same generic workbook grid surface.",
       "out_of_scope": "Detailed generic mutation behavior remains functional browser and component evidence.",

@@ -967,7 +967,7 @@ func TestAdminCredentialAuditAndScope_Integration(t *testing.T) {
 		incident := createIncidentResource(t, server, adminSession, adminCSRF, map[string]any{
 			"client_txn_id": "txn-phase1-scope-incident",
 			"incident_key":  "IR-PHASE1-SCOPE",
-			"title":         "Phase 1 Scope",
+			"title":         "Authentication Scope",
 		})
 		incidentID := incident["incident_id"].(string)
 		createIncidentMembership(t, server, incidentID, adminSession, adminCSRF, map[string]any{

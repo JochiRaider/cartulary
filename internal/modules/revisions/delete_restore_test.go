@@ -225,7 +225,7 @@ func seedNoteRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID 
 	workbookscenariotest.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "artifact")
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO artifacts (record_id, incident_id, artifact_type, title, body, created_by_user_id)
-VALUES ($1, $2, 'note', 'Phase 7 Note', 'Patch-after-delete note body', $3)
+VALUES ($1, $2, 'note', 'History Note', 'Patch-after-delete note body', $3)
 `, recordID, incidentID, actorUserID); err != nil {
 		t.Fatalf("seed note record: %v", err)
 	}
@@ -259,7 +259,7 @@ func seedRecordTag(t testing.TB, db *sql.DB, incidentID uuid.UUID, recordID uuid
 	tagID := uuid.New()
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO record_tags (record_tag_id, incident_id, record_id, tag_name, normalized_tag_name, created_by_user_id)
-VALUES ($1, $2, $3, 'Phase 7 tag', 'phase 7 tag', $4)
+VALUES ($1, $2, $3, 'History tag', 'phase 7 tag', $4)
 `, tagID, incidentID, recordID, actorUserID); err != nil {
 		t.Fatalf("seed record tag: %v", err)
 	}

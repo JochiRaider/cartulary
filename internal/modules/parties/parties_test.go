@@ -25,8 +25,8 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "phase9-u-9-05-parties")
 	store := workbook.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u905@example.test", "U905 Parties", "U905PartiesPass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-05-incident", "IR-U905", "Phase 9 U-9-05")
-	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-05-other-incident", "IR-U905B", "Phase 9 U-9-05 Other")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-05-incident", "IR-U905", "Workbook inspector U-9-05")
+	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-05-other-incident", "IR-U905B", "Workbook inspector U-9-05 Other")
 
 	createdByEmail, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.PartiesViewSchemaID,

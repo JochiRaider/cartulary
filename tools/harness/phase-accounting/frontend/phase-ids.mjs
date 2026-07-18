@@ -2,7 +2,7 @@ export const frontendPhaseIDPattern = /^FE-P(?:0|[1-9][0-9]*)$/;
 export const frontendRowIDPattern =
   /^FE-(?:U|I|B|E|V|A11Y|S)-P(?:0|[1-9][0-9]*)-[0-9]{2}$/;
 export const frontendVisualFixtureIDPattern =
-  /^FE-VFIX-(?:0[1-9]|[1-9][0-9]+)$/;
+  /^visual\.fixture\.[a-z][a-z0-9_]*$/;
 export const basePhaseIDPattern = /^phase(?:0|[1-9][0-9]*)$/;
 
 function compareStrings(left, right) {

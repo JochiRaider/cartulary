@@ -38,10 +38,10 @@ func TestWorkbookRouteInventoryCoverage(t *testing.T) {
 }
 
 func TestWorkbookRouteConformance(t *testing.T) {
-	harness, login, actorID, incidentID := ConflictFixture(t, "phase6-support-shared-workbook-routes", "IR-PHASE6-SUPPORT-WORKBOOK")
-	allowedNoteFields := workbookscenariotest.AllowedFieldKeys(t, "phase6-support-shared-workbook-routes", NotesViewSchemaID)
+	harness, login, actorID, incidentID := ConflictFixture(t, "collaboration-support-shared-workbook-routes", "IR-PHASE6-SUPPORT-WORKBOOK")
+	allowedNoteFields := workbookscenariotest.AllowedFieldKeys(t, "collaboration-support-shared-workbook-routes", NotesViewSchemaID)
 
-	createTxnID := "txn-phase6-support-create"
+	createTxnID := "txn-collaboration-support-create"
 	createResp := doWorkbookJSON(t, harness, login, http.MethodPost, incidentID, NotesViewSchemaID, uuid.Nil, map[string]any{
 		"client_txn_id": createTxnID,
 		"note.title":    "  Shared harness note  ",
@@ -77,7 +77,7 @@ func TestWorkbookRouteConformance(t *testing.T) {
 	createDivergentBody := httptestx.RequireErrorEnvelope(t, createDivergentResp, http.StatusConflict, "client_txn_conflict")
 	contractassert.RequireDivergentReplayRejected(t, createDivergentResp.StatusCode, createDivergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
 
-	patchTxnID := "txn-phase6-support-patch"
+	patchTxnID := "txn-collaboration-support-patch"
 	patchResp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
 		"view_schema_id":   NotesViewSchemaID,
 		"base_row_version": 1,
@@ -127,16 +127,16 @@ func TestWorkbookRouteConformance(t *testing.T) {
 func RequireWorkbookAuthorizationRederived(t testing.TB, harness *workbookscenariotest.ServerHarness, adminLogin workbookscenariotest.LoginResult, adminUserID uuid.UUID, incidentID uuid.UUID) {
 	t.Helper()
 
-	editor := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "phase6-shared-editor@example.test", "Phase 6 Shared Editor", "Phase6SharedEditor1!", false, false, true)
+	editor := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "collaboration-shared-editor@example.test", "Collaboration Shared Editor", "CollaborationSharedEditor1!", false, false, true)
 	workbookscenariotest.SeedIncidentMembership(t, harness.DB, incidentID, editor.ID, editor.DisplayName, "editor", adminUserID)
-	editorLogin := LoginLocalUserNoMFA(t, harness, editor.Email, "Phase6SharedEditor1!")
-	authRow := CreateNote(t, harness, adminLogin, incidentID, "txn-phase6-support-auth-create", "Authorization row", "Authorization body")
+	editorLogin := LoginLocalUserNoMFA(t, harness, editor.Email, "CollaborationSharedEditor1!")
+	authRow := CreateNote(t, harness, adminLogin, incidentID, "txn-collaboration-support-auth-create", "Authorization row", "Authorization body")
 	authRecordID := workbookscenariotest.MustUUID(t, authRow["record_id"].(string))
 
 	beforeResp := doWorkbookJSON(t, harness, editorLogin, http.MethodPatch, uuid.Nil, "", authRecordID, map[string]any{
 		"view_schema_id":   NotesViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase6-support-auth-before",
+		"client_txn_id":    "txn-collaboration-support-auth-before",
 		"changes": []map[string]any{{
 			"field_key": "note.body",
 			"value":     "Editor write before demotion",
@@ -156,12 +156,12 @@ UPDATE incident_memberships
 		t.Fatalf("demote shared harness editor: %v", err)
 	}
 
-	afterRow := CreateNote(t, harness, adminLogin, incidentID, "txn-phase6-support-auth-after-create", "Authorization after row", "Authorization body")
+	afterRow := CreateNote(t, harness, adminLogin, incidentID, "txn-collaboration-support-auth-after-create", "Authorization after row", "Authorization body")
 	afterRecordID := workbookscenariotest.MustUUID(t, afterRow["record_id"].(string))
 	afterResp := doWorkbookJSON(t, harness, editorLogin, http.MethodPatch, uuid.Nil, "", afterRecordID, map[string]any{
 		"view_schema_id":   NotesViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase6-support-auth-after",
+		"client_txn_id":    "txn-collaboration-support-auth-after",
 		"changes": []map[string]any{{
 			"field_key": "note.body",
 			"value":     "Viewer write after demotion",
@@ -177,12 +177,12 @@ UPDATE incident_memberships
 func RequireConflictResolveSharedHarness(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, allowedFieldKeys []string) {
 	t.Helper()
 
-	note := CreateNote(t, harness, login, incidentID, "txn-phase6-support-resolve-create", "Resolve base", "Resolve body")
+	note := CreateNote(t, harness, login, incidentID, "txn-collaboration-support-resolve-create", "Resolve base", "Resolve body")
 	recordID := workbookscenariotest.MustUUID(t, note["record_id"].(string))
 	requireWorkbookPatch(t, harness, login, recordID, map[string]any{
 		"view_schema_id":   NotesViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase6-support-resolve-server",
+		"client_txn_id":    "txn-collaboration-support-resolve-server",
 		"changes": []map[string]any{{
 			"field_key": "note.title",
 			"value":     "Resolve server",
@@ -191,7 +191,7 @@ func RequireConflictResolveSharedHarness(t testing.TB, harness *workbookscenario
 	conflictResp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
 		"view_schema_id":   NotesViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase6-support-resolve-client",
+		"client_txn_id":    "txn-collaboration-support-resolve-client",
 		"changes": []map[string]any{{
 			"field_key": "note.title",
 			"value":     "Resolve client",
@@ -205,12 +205,12 @@ func RequireConflictResolveSharedHarness(t testing.TB, harness *workbookscenario
 	invalidResp := ResolveConflictRaw(t, harness, login, recordID, conflictToken, map[string]any{
 		"conflict_token":  conflictToken,
 		"resolution_kind": "unsupported_resolution",
-		"client_txn_id":   "txn-phase6-support-resolve-invalid-kind",
+		"client_txn_id":   "txn-collaboration-support-resolve-invalid-kind",
 	})
 	invalidBody := httptestx.RequireErrorEnvelope(t, invalidResp, http.StatusBadRequest, "invalid_mutation_payload")
 	contractassert.RequireClosedVocabularyRejected(t, invalidBody["error"].(map[string]any)["code"].(string), httptestx.RequireErrorDetails(t, invalidBody), "resolution_kind", "")
 
-	resolveTxnID := "txn-phase6-support-resolve"
+	resolveTxnID := "txn-collaboration-support-resolve"
 	resolveResp := ResolveConflictRaw(t, harness, login, recordID, conflictToken, map[string]any{
 		"conflict_token":  conflictToken,
 		"resolution_kind": "merged_value",

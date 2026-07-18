@@ -19,7 +19,7 @@ func TestWorkbookRouteGuardsFailBeforeMutation(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase9-workbook-route-guards-incident",
 		"incident_key":  "IR-PHASE9-ROUTE-GUARDS",
-		"title":         "Phase 9 workbook route guards",
+		"title":         "Workbook inspector workbook route guards",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
@@ -137,10 +137,10 @@ func requireConflictResolveSecurityPrecedence(t testing.TB, harness *workbooksce
 	resolveURL := harness.Server.HTTP.URL + "/api/v1/records/" + recordID.String() + "/conflicts/" + conflictToken + "/resolve"
 	invalidTokenURL := harness.Server.HTTP.URL + "/api/v1/records/" + recordID.String() + "/conflicts/not-a-token/resolve"
 
-	viewer := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "phase9-conflict-viewer@example.test", "Phase 9 Conflict Viewer", "Phase9ConflictViewer1!", false, false, true)
+	viewer := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "phase9-conflict-viewer@example.test", "Workbook inspector Conflict Viewer", "Phase9ConflictViewer1!", false, false, true)
 	workbookscenariotest.SeedIncidentMembership(t, harness.DB, incidentID, viewer.ID, viewer.DisplayName, "viewer", adminUserID)
 	viewerLogin := LoginLocalUserNoMFA(t, harness, viewer.Email, "Phase9ConflictViewer1!")
-	nonMember := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "phase9-conflict-nonmember@example.test", "Phase 9 Conflict Nonmember", "Phase9ConflictNonmember1!", false, false, true)
+	nonMember := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "phase9-conflict-nonmember@example.test", "Workbook inspector Conflict Nonmember", "Phase9ConflictNonmember1!", false, false, true)
 	nonMemberLogin := LoginLocalUserNoMFA(t, harness, nonMember.Email, "Phase9ConflictNonmember1!")
 
 	otherNote := CreateNote(t, harness, adminLogin, incidentID, "txn-phase9-conflict-guard-other-record", "Other record", "Other body")
@@ -149,7 +149,7 @@ func requireConflictResolveSecurityPrecedence(t testing.TB, harness *workbooksce
 	otherIncident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase9-conflict-guard-other-incident",
 		"incident_key":  "IR-PHASE9-CONFLICT-OTHER",
-		"title":         "Phase 9 conflict other incident",
+		"title":         "Workbook inspector conflict other incident",
 	})
 	otherIncidentID := workbookscenariotest.MustUUID(t, otherIncident["incident_id"].(string))
 	otherIncidentNote := CreateNote(t, harness, adminLogin, otherIncidentID, "txn-phase9-conflict-guard-cross-incident-record", "Cross incident record", "Cross incident body")

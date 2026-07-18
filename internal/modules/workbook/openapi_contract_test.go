@@ -14,12 +14,12 @@ func TestWorkbookOpenAPIRecordMutationContracts(t *testing.T) {
 
 	info := workbookObjectAt(t, document, "info")
 	title := workbookStringAt(t, info, "title")
-	if strings.Contains(title, "Phase 3") || strings.Contains(title, "Timeline Mutation") {
-		t.Fatalf("OpenAPI title still advertises stale Phase 3 Timeline-only scope: %q", title)
+	if strings.Contains(title, "Timeline") || strings.Contains(title, "Timeline Mutation") {
+		t.Fatalf("OpenAPI title still advertises stale Timeline Timeline-only scope: %q", title)
 	}
 	version := workbookStringAt(t, info, "version")
 	if strings.Contains(version, "phase3") {
-		t.Fatalf("OpenAPI version still advertises Phase 3 scope: %q", version)
+		t.Fatalf("OpenAPI version still advertises Timeline scope: %q", version)
 	}
 
 	assertWorkbookQueryContract(t, document, schemas)

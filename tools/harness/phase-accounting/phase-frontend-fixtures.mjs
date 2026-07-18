@@ -38,7 +38,7 @@ export function validateFrontendFixtureRefs(root, entry, label) {
   for (const [index, ref] of entry.frontend_fixture_refs.entries()) {
     if (typeof ref !== "string" || !frontendVisualFixtureIDPattern.test(ref)) {
       throw new Error(
-        `${label} frontend_fixture_refs[${index + 1}] must be an FE-VFIX-* fixture identifier`,
+        `${label} frontend_fixture_refs[${index + 1}] must be a semantic visual.fixture.* identifier`,
       );
     }
     if (!validRefs.has(ref)) {
@@ -68,7 +68,7 @@ function frontendVisualFixtureRefIDs(root) {
   for (const [index, fixture] of registry.fixtures.entries()) {
     const ref = fixture?.fixture_id;
     if (typeof ref !== "string" || !frontendVisualFixtureIDPattern.test(ref)) {
-      throw new Error(`${file}.fixtures[${index + 1}].fixture_id must be an FE-VFIX-* fixture identifier`);
+      throw new Error(`${file}.fixtures[${index + 1}].fixture_id must be a semantic visual.fixture.* identifier`);
     }
     refs.add(ref);
   }

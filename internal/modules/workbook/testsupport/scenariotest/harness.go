@@ -184,13 +184,13 @@ func RequireMigrationTables(t testing.TB, testID string, tables ...string) {
 	missing := make([]string, 0)
 	migrationFiles, err := filepath.Glob(filepath.Join(repoRoot(), "db", "migrations", "*.sql"))
 	if err != nil {
-		t.Fatalf("Phase 4 %s failed to enumerate migrations: %v", testID, err)
+		t.Fatalf("Record relationships %s failed to enumerate migrations: %v", testID, err)
 	}
 	contents := make([]string, 0, len(migrationFiles))
 	for _, path := range migrationFiles {
 		data, readErr := os.ReadFile(path) // #nosec G304 -- migration paths come from a repo-local db/migrations glob.
 		if readErr != nil {
-			t.Fatalf("Phase 4 %s failed to read migration %s: %v", testID, path, readErr)
+			t.Fatalf("Record relationships %s failed to read migration %s: %v", testID, path, readErr)
 		}
 		contents = append(contents, string(data))
 	}
@@ -201,14 +201,14 @@ func RequireMigrationTables(t testing.TB, testID string, tables ...string) {
 		}
 	}
 	if len(missing) > 0 {
-		t.Fatalf("Phase 4 %s missing migration-backed tables: %s", testID, strings.Join(missing, ", "))
+		t.Fatalf("Record relationships %s missing migration-backed tables: %s", testID, strings.Join(missing, ", "))
 	}
 }
 
 func RequireSchemaTables(t testing.TB, db *sql.DB, testID string, tables ...string) {
 	t.Helper()
 	if db == nil {
-		t.Fatalf("Phase 4 %s requires a live sql.DB for schema table assertions", testID)
+		t.Fatalf("Record relationships %s requires a live sql.DB for schema table assertions", testID)
 	}
 
 	missing := make([]string, 0)
@@ -220,31 +220,31 @@ SELECT EXISTS (
     FROM information_schema.tables
     WHERE table_schema = 'public' AND table_name = $1
 )`, table).Scan(&exists); err != nil {
-			t.Fatalf("Phase 4 %s failed schema lookup for table %s: %v", testID, table, err)
+			t.Fatalf("Record relationships %s failed schema lookup for table %s: %v", testID, table, err)
 		}
 		if !exists {
 			missing = append(missing, table)
 		}
 	}
 	if len(missing) > 0 {
-		t.Fatalf("Phase 4 %s missing runtime schema tables: %s", testID, strings.Join(missing, ", "))
+		t.Fatalf("Record relationships %s missing runtime schema tables: %s", testID, strings.Join(missing, ", "))
 	}
 }
 
 func RequireViewContract(t testing.TB, testID string, viewSchemaIDs ...string) {
 	t.Helper()
-	viewschematest.RequireViewSchema(t, "Phase 4 "+testID, viewSchemaIDs...)
+	viewschematest.RequireViewSchema(t, "Record relationships "+testID, viewSchemaIDs...)
 }
 
 func RequireViewFieldBindingMode(t testing.TB, testID string, viewSchemaID string, fieldKey string, wantBindingMode string) {
 	t.Helper()
-	viewschematest.RequireFieldBindingMode(t, "Phase 4 "+testID, viewSchemaID, fieldKey, wantBindingMode)
+	viewschematest.RequireFieldBindingMode(t, "Record relationships "+testID, viewSchemaID, fieldKey, wantBindingMode)
 }
 
 func RequireRouteSurface(t testing.TB, testID string, server *httptestx.Server, method string, path string, body any, options ...func(*http.Request)) *http.Response {
 	t.Helper()
 	if server == nil || server.HTTP == nil {
-		t.Fatalf("Phase 4 %s requires a running HTTP server harness", testID)
+		t.Fatalf("Record relationships %s requires a running HTTP server harness", testID)
 	}
 
 	requestBody := body
@@ -259,7 +259,7 @@ func RequireRouteSurface(t testing.TB, testID string, server *httptestx.Server, 
 	resp := httptestx.Do(t, http.DefaultClient, req)
 	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusMethodNotAllowed {
 		defer resp.Body.Close()
-		t.Fatalf("Phase 4 %s missing route surface %s %s: got HTTP %d", testID, method, path, resp.StatusCode)
+		t.Fatalf("Record relationships %s missing route surface %s %s: got HTTP %d", testID, method, path, resp.StatusCode)
 	}
 	return resp
 }

@@ -90,7 +90,7 @@ func TestManagerTerminalSuccessRetainsJobResource(t *testing.T) {
 		Progress: jobs.Progress{Completed: 1, Total: &total},
 		ResultSummary: &jobs.ResultSummary{
 			Code:    "phase11_test_completed",
-			Message: "Phase 11 test completed.",
+			Message: "Enterprise integration test completed.",
 		},
 	})
 	if err != nil {

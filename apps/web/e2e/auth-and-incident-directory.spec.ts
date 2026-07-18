@@ -78,7 +78,7 @@ test("signs in as a local user and inspects the ordinary session surface", async
   const password = "Phase1E101Pass!";
   const user = await createLocalUser(workerAdminRequest, {
     email,
-    display_name: "Phase 1 E101",
+    display_name: "Authentication E101",
     initial_password: password,
     mfa_required: false,
   });
@@ -134,7 +134,7 @@ test("requires MFA on the ordinary login surface, rejects wrong codes, and accep
   const password = "Phase1E102Pass!";
   const user = await createLocalUser(workerAdminRequest, {
     email,
-    display_name: "Phase 1 E102",
+    display_name: "Authentication E102",
     initial_password: password,
     mfa_required: true,
   });
@@ -199,7 +199,7 @@ test("rejects invalid credentials without issuing a session cookie", async ({
   const email = uniqueEmail("phase1-e103");
   await createLocalUser(workerAdminRequest, {
     email,
-    display_name: "Phase 1 E103",
+    display_name: "Authentication E103",
     initial_password: "Phase1E103Pass!",
     mfa_required: false,
   });
@@ -228,7 +228,7 @@ test("lets deployment admins create and patch users, rejects stale versions, and
 
   await new DeploymentAdministration(page).createUser({
     email: createEmail,
-    displayName: "Phase 1 E105 User",
+    displayName: "Authentication E105 User",
     password: "Phase1E105Pass!",
     mfaRequired: false,
   });
@@ -248,7 +248,7 @@ test("lets deployment admins create and patch users, rejects stale versions, and
 
   await page
     .getByTestId(phase1AdminTestId("patch-display-name"))
-    .fill("Phase 1 E105 Patched");
+    .fill("Authentication E105 Patched");
   await new DeploymentAdministration(page).patchTargetUser();
   await expect(
     page.getByTestId(phase1AdminTestId("target-user-version")),
@@ -256,7 +256,7 @@ test("lets deployment admins create and patch users, rejects stale versions, and
 
   await patchUser(workerAdminRequest, createdUserID, {
     base_user_version: 2,
-    display_name: "Phase 1 E105 Concurrent",
+    display_name: "Authentication E105 Concurrent",
   });
   await new DeploymentAdministration(page).patchTargetUser();
   await expect(page.getByTestId(phase1ErrorCodeTestId("admin"))).toHaveText(
@@ -313,7 +313,7 @@ test("follows the bootstrap-token enrollment sequence on the ordinary login shel
   const password = "Phase1E106Pass!";
   const user = await createLocalUser(workerAdminRequest, {
     email,
-    display_name: "Phase 1 E106",
+    display_name: "Authentication E106",
     initial_password: password,
     mfa_required: true,
   });
@@ -424,7 +424,7 @@ test("requires the current password and current TOTP code, revokes the session i
   const password = "Phase1E107Pass!";
   const user = await createLocalUser(workerAdminRequest, {
     email,
-    display_name: "Phase 1 E107",
+    display_name: "Authentication E107",
     initial_password: password,
     mfa_required: true,
   });
@@ -501,7 +501,7 @@ test("keeps deployment-user administration on deployment-admin sessions and hide
   const targetPassword = "Phase1E108Pass!";
   const targetUser = await createLocalUser(workerAdminRequest, {
     email: targetEmail,
-    display_name: "Phase 1 E108 Target",
+    display_name: "Authentication E108 Target",
     initial_password: targetPassword,
     mfa_required: true,
   });
@@ -511,14 +511,14 @@ test("keeps deployment-user administration on deployment-admin sessions and hide
   const incidentAdminPassword = "Phase1E108Incident!";
   const incidentAdminUser = await createLocalUser(workerAdminRequest, {
     email: incidentAdminEmail,
-    display_name: "Phase 1 E108 Incident Admin",
+    display_name: "Authentication E108 Incident Admin",
     initial_password: incidentAdminPassword,
     mfa_required: false,
   });
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E108"),
-    "Phase 1 E-1-08",
+    "Authentication E-1-08",
   );
   await createIncidentMembership(page, incidentId, incidentAdminEmail, "admin");
 
@@ -643,9 +643,9 @@ test("creates an incident from the landing screen, lists it, and opens the workb
   page,
 }) => {
   const incidentKey = uniqueIncidentKey("E109");
-  const incidentTitle = "Phase 1 E-1-09";
+  const incidentTitle = "Authentication E-1-09";
   const secondIncidentKey = uniqueIncidentKey("E109B");
-  const secondIncidentTitle = "Phase 1 E-1-09 companion";
+  const secondIncidentTitle = "Authentication E-1-09 companion";
 
   await new IncidentDirectory(page).goto();
   await expect(page.getByTestId(phase1LandingTestId("shell"))).toBeVisible();
@@ -702,18 +702,18 @@ test("clears a stale selected incident after membership removal while preserving
   const selectedIncidentId = await createIncident(
     page,
     uniqueIncidentKey("E110A"),
-    "Phase 1 E-1-10 selected",
+    "Authentication E-1-10 selected",
   );
   const alternateIncidentId = await createIncident(
     page,
     uniqueIncidentKey("E110B"),
-    "Phase 1 E-1-10 alternate",
+    "Authentication E-1-10 alternate",
   );
   const targetEmail = uniqueEmail("phase1-e110-target");
   const targetPassword = "Phase1E110Pass!";
   const targetUser = await createLocalUser(workerAdminRequest, {
     email: targetEmail,
-    display_name: "Phase 1 E110 Target",
+    display_name: "Authentication E110 Target",
     initial_password: targetPassword,
     mfa_required: false,
   });
@@ -794,13 +794,13 @@ test("observes current-role authorization on a stale reviewer edit through the p
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E111"),
-    "Phase 1 E-1-11",
+    "Authentication E-1-11",
   );
   const targetEmail = uniqueEmail("phase1-e111-reviewer");
   const targetPassword = "Phase1E111Pass!";
   const targetUser = await createLocalUser(workerAdminRequest, {
     email: targetEmail,
-    display_name: "Phase 1 E111 Reviewer",
+    display_name: "Authentication E111 Reviewer",
     initial_password: targetPassword,
     mfa_required: false,
   });
@@ -874,18 +874,18 @@ test("returns a revoked target browser to login and allows re-authentication wit
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E112"),
-    "Phase 1 E-1-12",
+    "Authentication E-1-12",
   );
   const alternateIncidentId = await createIncident(
     page,
     uniqueIncidentKey("E112B"),
-    "Phase 1 E-1-12 alternate",
+    "Authentication E-1-12 alternate",
   );
   const targetEmail = uniqueEmail("phase1-e112-target");
   const targetPassword = "Phase1E112Pass!";
   const targetUser = await createLocalUser(workerAdminRequest, {
     email: targetEmail,
-    display_name: "Phase 1 E112 Target",
+    display_name: "Authentication E112 Target",
     initial_password: targetPassword,
     mfa_required: false,
   });
@@ -962,7 +962,7 @@ test("Verify ordinary login, incident entry, and current-role refresh stay on pu
   const password = "Phase1FEEP101Pass!";
   const user = await createLocalUser(workerAdminRequest, {
     email,
-    display_name: "Phase 1 FE-E-P1-01",
+    display_name: "Authentication FE-E-P1-01",
     initial_password: password,
     mfa_required: false,
   });

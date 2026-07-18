@@ -27,7 +27,7 @@ func TestClipboardPasteParsingMappingRawCaptureAndBinding(t *testing.T) {
 	request := ClipboardPasteRequest{
 		ViewSchemaID:  TimelineViewSchemaID,
 		ClientTxnID:   "txn-u-9-02-clipboard",
-		ClipboardText: "Gateway host\tanalyst@example.test\tPhase 9 summary\tunmapped value",
+		ClipboardText: "Gateway host\tanalyst@example.test\tWorkbook inspector summary\tunmapped value",
 		Format:        "tsv",
 		StartFieldKey: "timeline.host_refs",
 		Columns: []string{
@@ -58,7 +58,7 @@ func TestClipboardPasteParsingMappingRawCaptureAndBinding(t *testing.T) {
 	if row.Cells[1].FieldKey != "timeline.identity_refs" || row.Cells[1].Change.ActionPayload.Actions[0].Op != "add_token" {
 		t.Fatalf("identity paste did not use declared entity binding mode: %#v", row.Cells[1])
 	}
-	if row.Cells[2].FieldKey != "timeline.activity_synopsis_text" || row.Cells[2].Change.TextValue == nil || *row.Cells[2].Change.TextValue != "Phase 9 summary" {
+	if row.Cells[2].FieldKey != "timeline.activity_synopsis_text" || row.Cells[2].Change.TextValue == nil || *row.Cells[2].Change.TextValue != "Workbook inspector summary" {
 		t.Fatalf("summary did not normalize as stable field-key value: %#v", row.Cells[2])
 	}
 	if len(row.Unknown) != 1 {

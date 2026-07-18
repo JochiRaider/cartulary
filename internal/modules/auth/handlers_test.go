@@ -398,7 +398,7 @@ func TestUserCreateRouteDefaults_Unit(t *testing.T) {
 			"client_txn_id":"txn-user-create-invalid-field",
 			"auth_kind":"local",
 			"email":"phase1-invalid@example.test",
-			"display_name":"Phase 1 Invalid",
+			"display_name":"Authentication Invalid",
 			"initial_password":"Phase1InvalidPass!",
 			"is_active":false
 		}`)
@@ -436,7 +436,7 @@ func TestUserCreateRouteDefaults_Unit(t *testing.T) {
 			"client_txn_id":"txn-user-create-invalid-auth-kind",
 			"auth_kind":"ldap",
 			"email":"phase1-invalid-auth-kind@example.test",
-			"display_name":"Phase 1 Invalid Auth Kind",
+			"display_name":"Authentication Invalid Auth Kind",
 			"initial_password":"Phase1InvalidAuthKindPass!"
 		}`)
 		addSessionAuth(request, keys, token, true)
@@ -475,7 +475,7 @@ func TestUserCreateRouteDefaults_Unit(t *testing.T) {
 				if email != "phase1-create@example.test" {
 					t.Fatalf("unexpected create email: got %q", email)
 				}
-				if displayName != "Phase 1 Create" {
+				if displayName != "Authentication Create" {
 					t.Fatalf("unexpected create display_name: got %q", displayName)
 				}
 				if !mfaRequired {
@@ -526,7 +526,7 @@ func TestUserCreateRouteDefaults_Unit(t *testing.T) {
 			"client_txn_id":"txn-user-create-defaults",
 			"auth_kind":"local",
 			"email":" phase1-create@example.test ",
-			"display_name":" Phase 1 Create ",
+			"display_name":" Authentication Create ",
 			"initial_password":"Phase1DefaultsPass!"
 		}`)
 		addSessionAuth(request, keys, token, true)
@@ -541,7 +541,7 @@ func TestUserCreateRouteDefaults_Unit(t *testing.T) {
 		expectedHash := hashRequestPayload(map[string]any{
 			"auth_kind":           "local",
 			"email":               "phase1-create@example.test",
-			"display_name":        "Phase 1 Create",
+			"display_name":        "Authentication Create",
 			"initial_password":    requestSecretFingerprint(keys, initialPassword),
 			"mfa_required":        true,
 			"is_deployment_admin": false,
@@ -554,8 +554,8 @@ func TestUserCreateRouteDefaults_Unit(t *testing.T) {
 		if got := data["email"]; got != "phase1-create@example.test" {
 			t.Fatalf("unexpected normalized create response email: got %v want phase1-create@example.test", got)
 		}
-		if got := data["display_name"]; got != "Phase 1 Create" {
-			t.Fatalf("unexpected normalized create response display_name: got %v want Phase 1 Create", got)
+		if got := data["display_name"]; got != "Authentication Create" {
+			t.Fatalf("unexpected normalized create response display_name: got %v want Authentication Create", got)
 		}
 		if data["is_active"] != true || data["mfa_required"] != true || data["is_deployment_admin"] != false {
 			t.Fatalf("unexpected create response defaults: %#v", data)

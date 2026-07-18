@@ -19,7 +19,7 @@ func TestNotesAreArtifactBackedRows_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "phase9-u-9-03-notes")
 	store := workbook.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u903@example.test", "U903 Notes", "U903NotesPass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-03-incident", "IR-U903", "Phase 9 U-9-03")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-03-incident", "IR-U903", "Workbook inspector U-9-03")
 	sourceRecordID := uuid.New()
 	recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, sourceRecordID)
 
@@ -27,7 +27,7 @@ func TestNotesAreArtifactBackedRows_Unit(t *testing.T) {
 		ViewSchemaID: workbook.NotesViewSchemaID,
 		ClientTxnID:  "txn-phase9-u-9-03-note",
 		Values: map[string]workbook.ValueChange{
-			"note.title": textChange("Phase 9 artifact note"),
+			"note.title": textChange("Workbook inspector artifact note"),
 			"note.body":  textChange("Artifact-backed note body"),
 		},
 		Collections: map[string]workbook.CollectionActionPayload{
@@ -55,13 +55,13 @@ SELECT count(*)
 	linked, err := store.CreateLinkedNote(context.Background(), actor, sourceRecordID, workbook.LinkedNoteCreateRequest{
 		ClientTxnID: "txn-phase9-u-9-03-linked-note",
 		Values: map[string]workbook.ValueChange{
-			"note.title": textChange("Phase 9 linked note"),
+			"note.title": textChange("Workbook inspector linked note"),
 			"note.body":  textChange("Linked through references_artifact"),
 		},
 	}, workbook.LinkedNoteCreateRequestHash(sourceRecordID, workbook.LinkedNoteCreateRequest{
 		ClientTxnID: "txn-phase9-u-9-03-linked-note",
 		Values: map[string]workbook.ValueChange{
-			"note.title": textChange("Phase 9 linked note"),
+			"note.title": textChange("Workbook inspector linked note"),
 			"note.body":  textChange("Linked through references_artifact"),
 		},
 	}), "req-phase9-u-9-03-linked-note", time.Date(2026, 5, 17, 15, 5, 0, 0, time.UTC))
@@ -127,7 +127,7 @@ func TestNotesAndIndicatorsQueryThroughWorkbookProjections_Integration(t *testin
 	workbookStore := workbook.NewStore(harness.DB)
 	indicatorStore := indicators.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "i902@example.test", "I902 Projection", "I902ProjectionPass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-incident", "IR-I902", "Phase 9 I-9-02")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-incident", "IR-I902", "Workbook inspector I-9-02")
 
 	note, err := workbookStore.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.NotesViewSchemaID,
@@ -169,11 +169,11 @@ func TestAssessmentsQueryThroughWorkbookProjections_Integration(t *testing.T) {
 	workbookStore := workbook.NewStore(harness.DB)
 	assessmentStore := assessments.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "i902-assessments@example.test", "I902 Assessments", "I902AssessmentsPass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-assessment-incident", "IR-I902-ASSESS", "Phase 9 I-9-02 assessments")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-assessment-incident", "IR-I902-ASSESS", "Workbook inspector I-9-02 assessments")
 
 	hostID := uuid.New()
 	supportID := uuid.New()
-	recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, hostID, "Phase 9 projection assessment host", "phase9-projection-assessment", "", "")
+	recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, hostID, "Workbook inspector projection assessment host", "phase9-projection-assessment", "", "")
 	recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, supportID)
 
 	confidenceScore := 85
@@ -221,7 +221,7 @@ func TestTaskRequestsAndDecisionsQueryThroughWorkbookProjections_Integration(t *
 	harness := recordstoretest.StartStore(t, "phase9-i-9-02-tasks-decisions")
 	workbookStore := workbook.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "i902-tasks-decisions@example.test", "I902 Tasks Decisions", "I902TasksDecisions1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-task-decision-incident", "IR-I902-TD", "Phase 9 I-9-02 tasks decisions")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-task-decision-incident", "IR-I902-TD", "Workbook inspector I-9-02 tasks decisions")
 
 	supportID := mustCreateEvidenceFor(t, workbookStore, actor, incident.ID, "txn-phase9-i-9-02-decision-support", "I-9-02 decision support")
 	affectedID := mustCreateEvidenceFor(t, workbookStore, actor, incident.ID, "txn-phase9-i-9-02-decision-affected", "I-9-02 affected record")
@@ -297,7 +297,7 @@ func TestWorkbookHotProjectionTablesRebuild_Integration(t *testing.T) {
 	workbookStore := workbook.NewStore(harness.DB)
 	projectionStore := projections.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "i902-hot-projections@example.test", "I902 Hot Projections", "I902HotProjection1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-hot-incident", "IR-I902-HOT", "Phase 9 I-9-02 hot projections")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-hot-incident", "IR-I902-HOT", "Workbook inspector I-9-02 hot projections")
 
 	requireScalarCount(t, harness, `
 SELECT count(*)
@@ -392,7 +392,7 @@ func TestCoordinationSurfacesQueryThroughWorkbookProjections_Integration(t *test
 	harness := recordstoretest.StartStore(t, "phase9-i-9-02-coordination")
 	workbookStore := workbook.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "i902-coordination@example.test", "I902 Coordination", "I902Coordination1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-coordination-incident", "IR-I902-COORD", "Phase 9 I-9-02 coordination")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-coordination-incident", "IR-I902-COORD", "Workbook inspector I-9-02 coordination")
 
 	partyID := mustCreatePartyFor(t, workbookStore, actor, incident.ID, "txn-phase9-i-9-02-coordination-party", "Projection coordination party")
 	taskID := mustCreateTaskFor(t, workbookStore, actor, incident.ID, "txn-phase9-i-9-02-coordination-task", "Projection coordination task")

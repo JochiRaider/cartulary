@@ -149,7 +149,7 @@ func captureRestoreSource(t testing.TB, prefix string) SourceBackupFixture {
 	incident := CreateIncident(t, server, adminLogin.sessionCookie, adminLogin.csrfCookie, map[string]any{
 		"client_txn_id": "txn-" + prefix + "-incident",
 		"incident_key":  "IR-PHASE10-RESTORE",
-		"title":         "Phase 10 restore source",
+		"title":         "Recovery and coordination restore source",
 	})
 	incidentID := incident["incident_id"].(string)
 	timeline := CreateViewRow(t, server, adminLogin, incidentID, "cartulary.view.timeline.v2", map[string]any{

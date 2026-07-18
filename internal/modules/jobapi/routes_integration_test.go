@@ -21,7 +21,7 @@ func TestIncidentJobAuthorizationReDerivedAtRequestTime_Unit(t *testing.T) {
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase11-jobapi-incident",
 		"incident_key":  "IR-PHASE11-JOBAPI",
-		"title":         "Phase 11 job API auth",
+		"title":         "Enterprise integration job API auth",
 	})
 	incidentID := uuid.MustParse(incident["incident_id"].(string))
 
@@ -119,7 +119,7 @@ func TestDeploymentAdminIncidentMembershipPolicy_Unit(t *testing.T) {
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase11-jobapi-admin-member-incident",
 		"incident_key":  "IR-PHASE11-JOBAPI-ADMIN-MEMBER",
-		"title":         "Phase 11 admin-member job API auth",
+		"title":         "Enterprise integration admin-member job API auth",
 	})
 	incidentID := uuid.MustParse(incident["incident_id"].(string))
 

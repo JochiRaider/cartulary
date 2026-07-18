@@ -31,7 +31,7 @@ func TestObjectUploadAttachWorkbookProjection_Integration(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-i-01-incident",
 		"incident_key":  "phase5-i-01",
-		"title":         "Phase 5 upload attach projection",
+		"title":         "Evidence upload attach projection",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
@@ -120,7 +120,7 @@ func TestObjectUploadCapabilityRoute_Integration(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-upload-capability-incident",
 		"incident_key":  "phase5-upload-capability",
-		"title":         "Phase 5 upload capability",
+		"title":         "Evidence upload capability",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
@@ -189,13 +189,13 @@ func TestAttachRouteContract_Integration(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-attach-route-incident",
 		"incident_key":  "phase5-attach-route",
-		"title":         "Phase 5 attach route contract",
+		"title":         "Evidence attach route contract",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 	otherIncident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-attach-route-other",
 		"incident_key":  "phase5-attach-route-other",
-		"title":         "Phase 5 attach route other",
+		"title":         "Evidence attach route other",
 	})
 	otherIncidentID := workbookscenariotest.MustUUID(t, otherIncident["incident_id"].(string))
 
@@ -315,7 +315,7 @@ func TestAttachedEvidenceProjectionRebuild_Integration(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-projection-incident",
 		"incident_key":  "phase5-projection",
-		"title":         "Phase 5 projection rebuild",
+		"title":         "Evidence projection rebuild",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
@@ -382,7 +382,7 @@ func TestAttachPublishesWorkbookWebSocketRefresh_Integration(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-i-07-incident",
 		"incident_key":  "phase5-i-07",
-		"title":         "Phase 5 attach websocket refresh",
+		"title":         "Evidence attach websocket refresh",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
@@ -597,7 +597,7 @@ func TestExpiredSlotReplay_Integration(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-expired-slot-incident",
 		"incident_key":  "phase5-expired-slot",
-		"title":         "Phase 5 expired slot replay",
+		"title":         "Evidence expired slot replay",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
@@ -664,7 +664,7 @@ func TestHandleRedeemInvalidatesOnCurrentStateLoss_Integration(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-i-03-incident",
 		"incident_key":  "phase5-i-03",
-		"title":         "Phase 5 handle invalidation",
+		"title":         "Evidence handle invalidation",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
@@ -776,7 +776,7 @@ func TestQuarantineBoundaryPreservesTwoStepAttach_Integration(t *testing.T) {
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 			"client_txn_id": "txn-phase5-i-04-boundary-incident",
 			"incident_key":  "phase5-i-04-boundary",
-			"title":         "Phase 5 object boundary",
+			"title":         "Evidence object boundary",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 		recordID := uuid.New()
@@ -826,7 +826,7 @@ func TestQuarantineBoundaryPreservesTwoStepAttach_Integration(t *testing.T) {
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 			"client_txn_id": "txn-phase5-i-04-cleanup-incident",
 			"incident_key":  "phase5-i-04-cleanup",
-			"title":         "Phase 5 cleanup",
+			"title":         "Evidence cleanup",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 		now := time.Now().UTC().Truncate(time.Second)
@@ -865,7 +865,7 @@ func TestQuarantineBoundaryPreservesTwoStepAttach_Integration(t *testing.T) {
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 			"client_txn_id": "txn-phase5-i-04-quarantine-incident",
 			"incident_key":  "phase5-i-04-quarantine",
-			"title":         "Phase 5 quarantine",
+			"title":         "Evidence quarantine",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 		recordID := uuid.New()
@@ -943,7 +943,7 @@ func TestQuarantineBoundaryPreservesTwoStepAttach_Integration(t *testing.T) {
 				incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 					"client_txn_id": "txn-phase5-i-04-active-" + active.name + "-incident",
 					"incident_key":  "phase5-i-04-active-" + active.name,
-					"title":         "Phase 5 active content " + active.name,
+					"title":         "Evidence active content " + active.name,
 				})
 				incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 				recordID := uuid.New()

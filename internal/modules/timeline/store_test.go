@@ -577,7 +577,7 @@ func TestSupersedeReplayAndRollbackCoupling_Unit(t *testing.T) {
 	t.Run("illegal targets and replay stay fail-closed and single-write", func(t *testing.T) {
 		harness := storetest.StartStore(t, "phase3-u-3-10")
 		store, actor, incidentID := newStoreFixture(t, harness, "U310", "txn-phase3-u-3-10-incident")
-		otherIncident := createIncidentInStore(t, harness, actor, "txn-phase3-u-3-10-other-incident", "IR-U310X", "Phase 3 U-3-10 other")
+		otherIncident := createIncidentInStore(t, harness, actor, "txn-phase3-u-3-10-other-incident", "IR-U310X", "Timeline U-3-10 other")
 
 		row := createReviewedTimelineRow(t, store, actor, incidentID, "txn-phase3-u-3-10-row", "row", BaseTime())
 		replacement := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-10-replacement", "replacement", BaseTime().Add(time.Minute))
@@ -684,7 +684,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 	t.Run("rollback removes lifecycle and replacement link together", func(t *testing.T) {
 		harness := storetest.StartStore(t, "phase3-u-3-10-rollback")
 		actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "phase3-U310R@example.test", "Phase3 U310R", "Phase3Pass1!", false, false, true)
-		incident := createIncidentInStore(t, harness, actor, "txn-phase3-u-3-10-rollback-incident", "IR-U310R", "Phase 3 U310R")
+		incident := createIncidentInStore(t, harness, actor, "txn-phase3-u-3-10-rollback-incident", "IR-U310R", "Timeline U310R")
 
 		store := newEventTimelineCommandsWithOptions(harness.DB, timeline.WithBeforeCommitHookForTesting(
 			func(routeKey string, recordID uuid.UUID) error {
@@ -843,7 +843,7 @@ func newStoreFixture(t testing.TB, harness *storetest.StoreHarness, suffix strin
 	t.Helper()
 
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "phase3-"+suffix+"@example.test", "Phase3 "+suffix, "Phase3Pass1!", false, false, true)
-	incident := createIncidentInStore(t, harness, actor, incidentTxn, "IR-"+suffix, "Phase 3 "+suffix)
+	incident := createIncidentInStore(t, harness, actor, incidentTxn, "IR-"+suffix, "Timeline "+suffix)
 	return newEventTimelineCommands(harness.DB), actor, incident.ID
 }
 

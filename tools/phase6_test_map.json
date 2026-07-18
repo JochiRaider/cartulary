@@ -799,7 +799,7 @@
       "execution_dependency": "browser_visual",
       "evidence_layer": "browser_visual",
       "frontend_fixture_refs": [
-        "FE-VFIX-04"
+        "visual.fixture.row_gutter_presence"
       ],
       "claim": "The visual harness asserts deterministic Timeline row-gutter and same-cell presence marker presentation keyed by `record_id` and `field_key` from real browser presence state against a stable screenshot baseline.",
       "out_of_scope": "Socket payload canonicalization and timing remain backend and functional browser evidence.",
@@ -822,8 +822,8 @@
       "execution_dependency": "browser_visual",
       "evidence_layer": "browser_visual",
       "frontend_fixture_refs": [
-        "FE-VFIX-03",
-        "FE-VFIX-08"
+        "visual.fixture.same_field_conflict",
+        "visual.fixture.save_state_strip"
       ],
       "claim": "The visual harness asserts same-field conflict marker, same-surface resolver, and `Conflict` save-state strip presentation after a real backend `same_field_conflict` against a stable screenshot baseline.",
       "out_of_scope": "Same-field conflict transport and resolver mutation semantics remain owned by `E-6-02`, route/component rows, and frontend-unit evidence.",
@@ -846,8 +846,8 @@
       "execution_dependency": "browser_visual",
       "evidence_layer": "browser_visual",
       "frontend_fixture_refs": [
-        "FE-VFIX-03",
-        "FE-VFIX-08"
+        "visual.fixture.same_field_conflict",
+        "visual.fixture.save_state_strip"
       ],
       "claim": "The visual harness asserts `Syncing`, same-field-conflict `Conflict`, and resolver-recovered `Saved` save-state presentations against stable screenshot baselines.",
       "out_of_scope": "Pending-queue FIFO, boundedness, halt/replay behavior, and queue recovery semantics remain owned by `E-6-05`, `U-6-09`, and supporting frontend-unit evidence.",

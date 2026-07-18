@@ -25,7 +25,7 @@ func TestWorkbookPreferencePointers_Unit(t *testing.T) {
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-u-8-05-incident",
 		"incident_key":  "IR-U805",
-		"title":         "Phase 8 workbook preferences",
+		"title":         "Workbook query workbook preferences",
 	})
 	incidentID := incident["incident_id"].(string)
 
@@ -120,7 +120,7 @@ func TestWorkbookStartupFallback_Integration(t *testing.T) {
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-i-8-02-incident",
 		"incident_key":  "IR-I802",
-		"title":         "Phase 8 workbook startup",
+		"title":         "Workbook query workbook startup",
 	})
 	incidentID := incident["incident_id"].(string)
 
@@ -252,7 +252,7 @@ func NetworkFlowHarnessKeyRings(t testing.TB) *networkflow.KeyRings {
 		"CARTULARY_SECRET_PHASE8_HARNESS_SAFE":   "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
 	}, time.Date(2026, 7, 13, 12, 0, 0, 0, time.UTC))
 	if err != nil {
-		t.Fatalf("parse Phase 8 Network Flow harness key rings: %v", err)
+		t.Fatalf("parse Workbook query Network Flow harness key rings: %v", err)
 	}
 	return rings
 }
@@ -264,7 +264,7 @@ func TestWorkbookStartupBaseSurfaceDoesNotRequireSavedView_Integration(t *testin
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-i-8-02-base-incident",
 		"incident_key":  "IR-I802-BASE",
-		"title":         "Phase 8 base startup",
+		"title":         "Workbook query base startup",
 	})
 	incidentID := incident["incident_id"].(string)
 

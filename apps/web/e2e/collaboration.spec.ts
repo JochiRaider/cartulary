@@ -495,12 +495,12 @@ test("shows two analysts each other's workbook presence within the expected inte
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E601"),
-    "Phase 6 E-6-01 browser presence",
+    "Collaboration E-6-01 browser presence",
   );
   const remote = await createIncidentMemberUser(page, incidentId, {
     display_name: "Remote Analyst",
-    email: uniqueEmail("phase6-e601-remote"),
-    initial_password: "Phase6E601Remote!",
+    email: uniqueEmail("collaboration-e601-remote"),
+    initial_password: "CollaborationE601Remote!",
     role: "editor",
   });
   const row = await createTimelineRow(page, incidentId, "E-6-01 presence base");
@@ -531,7 +531,7 @@ test("shows two analysts each other's workbook presence within the expected inte
         email: remote.email,
         incidentId,
         password: remote.initial_password,
-        purpose: "Phase 6 E-6-01 remote analyst",
+        purpose: "Collaboration E-6-01 remote analyst",
         readyRecordId: recordId,
         userId: remote.user_id,
       },
@@ -585,7 +585,7 @@ test("shows two analysts each other's workbook presence within the expected inte
       socket_delta_duration_ms: socketDeltaDurationMs,
       ui_render_duration_ms: markerTiming.renderDurationMs,
     };
-    await testInfo.attach("phase6-e-6-01-presence-timing.json", {
+    await testInfo.attach("collaboration-e-6-01-presence-timing.json", {
       body: JSON.stringify(timingArtifact, null, 2),
       contentType: "application/json",
     });
@@ -609,12 +609,12 @@ test("auto-merges different-field concurrent edits and requires explicit same-fi
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E602"),
-    "Phase 6 E-6-02 concurrent resolver UX",
+    "Collaboration E-6-02 concurrent resolver UX",
   );
   const remote = await createIncidentMemberUser(page, incidentId, {
-    display_name: "Phase 6 E-6-02 Remote",
-    email: uniqueEmail("phase6-e602-remote"),
-    initial_password: "Phase6E602Remote!",
+    display_name: "Collaboration E-6-02 Remote",
+    email: uniqueEmail("collaboration-e602-remote"),
+    initial_password: "CollaborationE602Remote!",
     role: "editor",
   });
   const differentId = requireRecordId(
@@ -653,7 +653,7 @@ test("auto-merges different-field concurrent edits and requires explicit same-fi
       email: remote.email,
       incidentId,
       password: remote.initial_password,
-      purpose: "Phase 6 E-6-02 remote analyst",
+      purpose: "Collaboration E-6-02 remote analyst",
       userId: remote.user_id,
     });
     await scrollGridCellIntoView({
@@ -750,12 +750,12 @@ test("keeps live updates conflict markers and presence markers anchored to recor
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E604"),
-    "Phase 6 E-6-04 live-cell anchoring",
+    "Collaboration E-6-04 live-cell anchoring",
   );
   const remote = await createIncidentMemberUser(page, incidentId, {
     display_name: "Anchor Analyst",
-    email: uniqueEmail("phase6-e604-anchor"),
-    initial_password: "Phase6E604Anchor!",
+    email: uniqueEmail("collaboration-e604-anchor"),
+    initial_password: "CollaborationE604Anchor!",
     role: "editor",
   });
   for (let index = 0; index < 24; index += 1) {
@@ -883,7 +883,7 @@ test("keeps live updates conflict markers and presence markers anchored to recor
       email: remote.email,
       incidentId,
       password: remote.initial_password,
-      purpose: "Phase 6 E-6-04 remote anchor analyst",
+      purpose: "Collaboration E-6-04 remote anchor analyst",
       userId: remote.user_id,
     });
     await sortByHeader(
@@ -961,7 +961,7 @@ test("replays queued unsent writes after re-authentication without silent reload
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("E605FIFO"),
-      "Phase 6 E-6-05 FIFO recovery",
+      "Collaboration E-6-05 FIFO recovery",
     );
     const firstId = requireRecordId(
       await createTimelineRow(page, incidentId, "E-6-05 FIFO A base"),
@@ -1030,12 +1030,12 @@ test("replays queued unsent writes after re-authentication without silent reload
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("E605HTTPAUTH"),
-      "Phase 6 E-6-05 HTTP auth recovery",
+      "Collaboration E-6-05 HTTP auth recovery",
     );
     const member = await createIncidentMemberUser(page, incidentId, {
-      display_name: "Phase 6 E-6-05 HTTP Auth Analyst",
-      email: uniqueEmail("phase6-e605-http-auth"),
-      initial_password: "Phase6E605HttpAuth!",
+      display_name: "Collaboration E-6-05 HTTP Auth Analyst",
+      email: uniqueEmail("collaboration-e605-http-auth"),
+      initial_password: "CollaborationE605HttpAuth!",
       role: "editor",
     });
     const firstId = requireRecordId(
@@ -1051,7 +1051,7 @@ test("replays queued unsent writes after re-authentication without silent reload
         createdBy: "E-6-05",
         email: member.email,
         password: member.initial_password,
-        purpose: "Phase 6 E-6-05 HTTP auth analyst runtime",
+        purpose: "Collaboration E-6-05 HTTP auth analyst runtime",
         userId: member.user_id,
       });
       await page.goto(`/?incident_id=${incidentId}`);
@@ -1083,7 +1083,7 @@ test("replays queued unsent writes after re-authentication without silent reload
         createdBy: "E-6-05",
         email: member.email,
         password: member.initial_password,
-        purpose: "Phase 6 E-6-05 HTTP auth analyst re-authentication",
+        purpose: "Collaboration E-6-05 HTTP auth analyst re-authentication",
         userId: member.user_id,
       });
       await expect
@@ -1113,7 +1113,7 @@ test("replays queued unsent writes after re-authentication without silent reload
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("E605HALT"),
-      "Phase 6 E-6-05 same-field conflict halt",
+      "Collaboration E-6-05 same-field conflict halt",
     );
     const firstId = requireRecordId(
       await createTimelineRow(page, incidentId, "E-6-05 halt A base"),
@@ -1198,7 +1198,7 @@ test("replays queued unsent writes after re-authentication without silent reload
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("E605RELOAD"),
-      "Phase 6 E-6-05 reload boundary",
+      "Collaboration E-6-05 reload boundary",
     );
     const recordId = requireRecordId(
       await createTimelineRow(page, incidentId, "E-6-05 reload base"),
@@ -1275,7 +1275,7 @@ test("replays queued unsent writes after re-authentication without silent reload
         await revokeAllSessions(
           workerAdminRequest,
           member.user_id,
-          "Phase 6 E-6-05 browser revoke-all",
+          "Collaboration E-6-05 browser revoke-all",
         );
       },
     });

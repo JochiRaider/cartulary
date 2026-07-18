@@ -75,7 +75,7 @@ describe("ordinary app shell", () => {
           });
         }
         return sessionResource({
-          display_name: "Phase 1 Operator",
+          display_name: "Authentication Operator",
         });
       },
       extraRoutes: [
@@ -86,7 +86,7 @@ describe("ordinary app shell", () => {
             authenticated = true;
             return jsonResponse({
               data: sessionResource({
-                display_name: "Phase 1 Operator",
+                display_name: "Authentication Operator",
               }),
             });
           },
@@ -135,7 +135,7 @@ describe("ordinary app shell", () => {
     await waitFor(() => {
       expect(
         screen.getByTestId(phase1LandingTestId("current-user")).textContent,
-      ).toContain("Phase 1 Operator");
+      ).toContain("Authentication Operator");
     });
     expect(
       screen
@@ -225,7 +225,7 @@ describe("ordinary app shell", () => {
   it("ordinary shell blocks authenticated bootstrap until credential state loads and renders credential public errors without private details", async () => {
     installLandingShellFetch(fetchMock, {
       session: sessionResource({
-        display_name: "Phase 1 Operator",
+        display_name: "Authentication Operator",
       }),
       credentialState: () =>
         errorResponse("credential_bootstrap_rejected", 409, {
@@ -246,7 +246,7 @@ describe("ordinary app shell", () => {
     ).toBe("public_error_envelope");
     expect(
       screen.getByTestId(phase1LandingTestId("current-user")).textContent,
-    ).toContain("Phase 1 Operator");
+    ).toContain("Authentication Operator");
     expect(
       screen.getByTestId(phase1ErrorCodeTestId("landing")).textContent,
     ).toBe("credential_bootstrap_rejected");
@@ -320,7 +320,7 @@ describe("ordinary app shell", () => {
   it("route-boundary credential-state errors render public envelopes on landing and account surfaces without private details", async () => {
     installLandingShellFetch(fetchMock, {
       session: sessionResource({
-        display_name: "Phase 1 Operator",
+        display_name: "Authentication Operator",
       }),
       credentialState: () =>
         publicErrorResponse("credential_bootstrap_rejected", 409, {
@@ -557,7 +557,7 @@ describe("ordinary app shell", () => {
           return errorResponse("session_required", 401);
         }
         return sessionResource({
-          display_name: "Phase 1 Operator",
+          display_name: "Authentication Operator",
           mfa_state: "satisfied",
         });
       },
@@ -605,7 +605,7 @@ describe("ordinary app shell", () => {
     fireEvent.change(
       screen.getByTestId(phase1AccountTestId("totp-current-password")),
       {
-        target: { value: "Current Phase 1 Password!" },
+        target: { value: "Current Authentication Password!" },
       },
     );
     fireEvent.change(
@@ -643,11 +643,11 @@ describe("ordinary app shell", () => {
     fireEvent.change(
       screen.getByTestId(phase1AccountTestId("password-current")),
       {
-        target: { value: "Current Phase 1 Password!" },
+        target: { value: "Current Authentication Password!" },
       },
     );
     fireEvent.change(screen.getByTestId(phase1AccountTestId("password-next")), {
-      target: { value: "Replacement Phase 1 Password!" },
+      target: { value: "Replacement Authentication Password!" },
     });
     fireEvent.change(
       screen.getByTestId(phase1AccountTestId("password-factor-code")),
@@ -689,7 +689,9 @@ describe("ordinary app shell", () => {
     expect(totpBeginRequests).toHaveLength(2);
     for (const request of totpBeginRequests) {
       expect(typeof request.body.client_txn_id).toBe("string");
-      expect(request.body.current_password).toBe("Current Phase 1 Password!");
+      expect(request.body.current_password).toBe(
+        "Current Authentication Password!",
+      );
       expect(request.body.second_factor).toEqual({
         kind: "totp",
         assertion: {
@@ -720,8 +722,8 @@ describe("ordinary app shell", () => {
     expect(typeof passwordChangeRequest.body.client_txn_id).toBe("string");
     expect(passwordChangeRequest.body).toEqual({
       client_txn_id: expect.any(String),
-      current_password: "Current Phase 1 Password!",
-      new_password: "Replacement Phase 1 Password!",
+      current_password: "Current Authentication Password!",
+      new_password: "Replacement Authentication Password!",
       second_factor: {
         kind: "totp",
         assertion: {
@@ -735,7 +737,7 @@ describe("ordinary app shell", () => {
   it("route-boundary account password and TOTP errors render public envelopes without private details", async () => {
     installLandingShellFetch(fetchMock, {
       session: sessionResource({
-        display_name: "Phase 1 Operator",
+        display_name: "Authentication Operator",
         mfa_state: "satisfied",
       }),
       credentialState: credentialStateResource({
@@ -780,7 +782,7 @@ describe("ordinary app shell", () => {
     fireEvent.change(
       screen.getByTestId(phase1AccountTestId("totp-current-password")),
       {
-        target: { value: "Current Phase 1 Password!" },
+        target: { value: "Current Authentication Password!" },
       },
     );
     fireEvent.change(
@@ -813,11 +815,11 @@ describe("ordinary app shell", () => {
     fireEvent.change(
       screen.getByTestId(phase1AccountTestId("password-current")),
       {
-        target: { value: "Wrong Current Phase 1 Password!" },
+        target: { value: "Wrong Current Authentication Password!" },
       },
     );
     fireEvent.change(screen.getByTestId(phase1AccountTestId("password-next")), {
-      target: { value: "Replacement Phase 1 Password!" },
+      target: { value: "Replacement Authentication Password!" },
     });
     fireEvent.change(
       screen.getByTestId(phase1AccountTestId("password-factor-code")),
@@ -851,7 +853,7 @@ describe("ordinary app shell", () => {
   it("route-boundary logout failures render public envelopes without ending the visible session", async () => {
     installLandingShellFetch(fetchMock, {
       session: sessionResource({
-        display_name: "Phase 1 Operator",
+        display_name: "Authentication Operator",
       }),
       extraRoutes: [
         {
@@ -1018,7 +1020,7 @@ describe("ordinary app shell", () => {
   it("route-boundary session TOTP complete errors render public envelopes without private details", async () => {
     installLandingShellFetch(fetchMock, {
       session: sessionResource({
-        display_name: "Phase 1 Operator",
+        display_name: "Authentication Operator",
         mfa_state: "satisfied",
       }),
       credentialState: credentialStateResource({
@@ -1063,7 +1065,7 @@ describe("ordinary app shell", () => {
     fireEvent.change(
       screen.getByTestId(phase1AccountTestId("totp-current-password")),
       {
-        target: { value: "Current Phase 1 Password!" },
+        target: { value: "Current Authentication Password!" },
       },
     );
     fireEvent.change(
@@ -1116,7 +1118,7 @@ describe("ordinary app shell", () => {
     const createdUser = userResource({
       user_id: "user-2",
       email: "phase1-admin@example.test",
-      display_name: "Phase 1 Admin Target",
+      display_name: "Authentication Admin Target",
       user_version: 1,
     });
     const adminTarget = userResource({
@@ -1281,7 +1283,7 @@ describe("ordinary app shell", () => {
       client_txn_id: expect.any(String),
       auth_kind: "local",
       email: "phase1-admin@example.test",
-      display_name: "Phase 1 Admin Target",
+      display_name: "Authentication Admin Target",
       initial_password: "CreatedPass1!",
       mfa_required: true,
       is_deployment_admin: false,
@@ -1301,7 +1303,7 @@ describe("ordinary app shell", () => {
     );
     expect(patchConflictRequest.body).toEqual({
       base_user_version: 1,
-      display_name: "Phase 1 Admin Target",
+      display_name: "Authentication Admin Target",
       email: "phase1-admin@example.test",
       mfa_required: true,
       is_active: true,
@@ -1820,7 +1822,7 @@ describe("ordinary app shell", () => {
     );
     installLandingShellFetch(fetchMock, {
       session: sessionResource({
-        display_name: "Phase 1 Operator",
+        display_name: "Authentication Operator",
       }),
       onCreateIncident: () =>
         jsonResponse(
@@ -1884,7 +1886,7 @@ describe("ordinary app shell", () => {
     fireEvent.change(
       screen.getByTestId(phase1LandingTestId("incident-title")),
       {
-        target: { value: "Phase 1 boundary incident" },
+        target: { value: "Authentication boundary incident" },
       },
     );
     fireEvent.click(
@@ -1910,7 +1912,7 @@ describe("ordinary app shell", () => {
     expect(createRequest.body).toEqual({
       client_txn_id: expect.any(String),
       incident_key: "IR-2026-003",
-      title: "Phase 1 boundary incident",
+      title: "Authentication boundary incident",
     });
     expect(createRequest.init?.credentials).toBe("include");
     expect(readHeader(createRequest.init, "Authorization")).toBe("");

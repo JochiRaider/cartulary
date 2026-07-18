@@ -13,7 +13,7 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 		hub := NewHub()
 		incidentID := uuid.New()
 		sessionID := uuid.New()
-		clientInstanceID := "phase6-u-6-08-client"
+		clientInstanceID := "collaboration-u-6-08-client"
 		now := time.Date(2026, 5, 5, 12, 0, 0, 0, time.UTC)
 
 		token, _, err := hub.IssueResumeToken(sessionID, incidentID, clientInstanceID, now.Add(time.Hour), now)
@@ -55,7 +55,7 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 		hub := NewHub()
 		incidentID := uuid.New()
 		sessionID := uuid.New()
-		clientInstanceID := "phase6-u-6-08-reset"
+		clientInstanceID := "collaboration-u-6-08-reset"
 		now := time.Date(2026, 5, 5, 12, 30, 0, 0, time.UTC)
 
 		expired, _, err := hub.IssueResumeToken(sessionID, incidentID, clientInstanceID, now.Add(time.Hour), now)
@@ -186,7 +186,7 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 			RecordID:         recordID,
 			RowVersion:       7,
 			ChangeSetID:      changeSetID,
-			ClientTxnID:      "txn-phase6-patch",
+			ClientTxnID:      "txn-collaboration-patch",
 			ActorUserID:      actorUserID,
 			ChangedFieldKeys: []string{"timeline.activity_synopsis_text", "timeline.capture_state"},
 			ViewSchemaID:     "cartulary.view.timeline.v2",
@@ -219,7 +219,7 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 			RecordID:         recordID,
 			RowVersion:       8,
 			ChangeSetID:      changeSetID,
-			ClientTxnID:      "txn-phase6-invalidate",
+			ClientTxnID:      "txn-collaboration-invalidate",
 			ActorUserID:      actorUserID,
 			ChangedFieldKeys: []string{"timeline.activity_synopsis_text"},
 			ViewSchemaID:     "cartulary.view.timeline.v2",

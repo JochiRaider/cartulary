@@ -16,7 +16,7 @@ func TestIndicatorsCanonicalObservationLifecycle_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "phase9-u-9-04-indicators")
 	store := NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u904@example.test", "U904 Indicators", "U904IndicatorsPass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-04-incident", "IR-U904", "Phase 9 U-9-04")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-04-incident", "IR-U904", "Workbook inspector U-9-04")
 
 	created, err := store.CreateIndicatorRow(context.Background(), actor, incident.ID, CreateRequest{
 		ClientTxnID: "txn-phase9-u-9-04-indicator-create",

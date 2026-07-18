@@ -223,7 +223,7 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	})
 	recordID := row["row"].(map[string]any)["record_id"].(string)
 	seededState := seedIncidentBundlePortableState(t, sourceHarness, incidentID, recordID, sourceAdminID)
-	sourceViewerID := flowtest.SeedLocalUserFlags(t, sourceHarness.DB, "phase11-import-source-viewer@example.test", "Phase 11 Import Source Viewer", "Phase11ImportViewer1!", false, false, true)
+	sourceViewerID := flowtest.SeedLocalUserFlags(t, sourceHarness.DB, "phase11-import-source-viewer@example.test", "Enterprise integration Import Source Viewer", "Phase11ImportViewer1!", false, false, true)
 	scenariotest.CreateMembership(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
 		"client_txn_id": "txn-incident-bundle-source-viewer",
 		"user_id":       sourceViewerID,
@@ -547,7 +547,7 @@ func TestImportFinalPublicationRechecksSubmitterAvailability_Integration(t *test
 			targetHarness := startIsolatedIncidentBundleServerWithDependencies(t, runtime, "phase11-incident-bundle-finalize-"+strings.ReplaceAll(tc.name, " ", "-"), deps)
 			targetAdmin, targetAdminID := flowtest.ProvisionBootstrapAdmin(t, targetHarness.Server.HTTP.URL)
 			observerPassword := "Phase11ImportObserverPass!"
-			observerUser := flowtest.SeedLocalUserRecord(t, targetHarness.DB, "phase11-import-observer-"+strings.ReplaceAll(tc.name, " ", "-")+"@example.test", "Phase 11 Import Observer", observerPassword, false, true, true)
+			observerUser := flowtest.SeedLocalUserRecord(t, targetHarness.DB, "phase11-import-observer-"+strings.ReplaceAll(tc.name, " ", "-")+"@example.test", "Enterprise integration Import Observer", observerPassword, false, true, true)
 			observerCookies, observerCSRF := flowtest.LoginLocalUser(t, targetHarness.Server.HTTP.URL, observerUser.Email, observerPassword, nil)
 			observerLogin := flowtest.LoginResult{SessionCookie: observerCookies, CSRFCookie: observerCSRF}
 
@@ -2012,7 +2012,7 @@ func objectKeysWithPrefix(t testing.TB, store objectstore.Store, prefix string) 
 
 func seedMissingIncidentBundleBlob(t testing.TB, harness *scenariotest.ServerHarness, incidentID string, actorUserID string) {
 	t.Helper()
-	missingBytes := []byte("phase11 missing blob fixture")
+	missingBytes := []byte("incident-bundle missing blob fixture")
 	sha := hashHexBytes(missingBytes)
 	if _, err := harness.DB.Exec(`
 INSERT INTO object_blobs (

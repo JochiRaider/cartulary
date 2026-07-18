@@ -38,7 +38,7 @@ func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testin
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase10-i-10-01-incident",
 		"incident_key":  "phase10-i-10-01",
-		"title":         "Phase 10 I-10-01 Backup Metadata",
+		"title":         "Recovery and coordination I-10-01 Backup Metadata",
 	})
 	incidentID := uuid.MustParse(incident["incident_id"].(string))
 	objectKey := "phase10/i-10-01/" + incident["incident_id"].(string) + "/proof.txt"

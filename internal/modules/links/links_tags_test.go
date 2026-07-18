@@ -28,8 +28,8 @@ const TimelineView = "cartulary.view.timeline.v2"
 
 func TestActiveLinksAndTagsViewsV1Contract(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "phase8-active-links-tags-v1")
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase8-views@example.test", "Phase 8 Views", "Phase8ViewsPass1!", false, true, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase8-active-views-incident", "IR-P8-VIEWS", "Phase 8 active view contracts")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase8-views@example.test", "Workbook query Views", "Phase8ViewsPass1!", false, true, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase8-active-views-incident", "IR-P8-VIEWS", "Workbook query active view contracts")
 	incidentID := incident.ID
 
 	wantLinkColumns := []string{
@@ -144,8 +144,8 @@ VALUES
 
 func TestRecordLinkOwnerValidation(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "phase8-link-owner-validation")
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase8-validation@example.test", "Phase 8 Validation", "Phase8ValidationPass1!", false, true, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase8-link-validation-incident", "IR-P8-VALIDATE", "Phase 8 link validation")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase8-validation@example.test", "Workbook query Validation", "Phase8ValidationPass1!", false, true, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase8-link-validation-incident", "IR-P8-VALIDATE", "Workbook query link validation")
 	src := uuid.New()
 	dst := uuid.New()
 	replacement := uuid.New()
@@ -247,8 +247,8 @@ func TestRecordLinkOwnerValidation(t *testing.T) {
 
 func TestTypedLinksAndTags_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "phase8-u-8-01-links-tags")
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase8-u801@example.test", "Phase 8 U801", "Phase8U801Pass1!", false, true, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase8-u-8-01-incident", "IR-P8-U801", "Phase 8 typed links and tags")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase8-u801@example.test", "Workbook query U801", "Phase8U801Pass1!", false, true, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase8-u-8-01-incident", "IR-P8-U801", "Workbook query typed links and tags")
 	incidentID := incident.ID
 	timelineFacade := timeline.NewFacade(harness.DB)
 
@@ -446,7 +446,7 @@ func TestLinkTagProjectionHistoryQuery_Integration(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase8-i-8-03-incident",
 		"incident_key":  "IR-P8-I803",
-		"title":         "Phase 8 link tag atomicity",
+		"title":         "Workbook query link tag atomicity",
 	})
 	incidentID := mustUUID(t, incident["incident_id"].(string))
 

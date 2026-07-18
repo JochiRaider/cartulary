@@ -363,7 +363,7 @@ func AssertIntegrationSelector(t *testing.T, acID string) {
 	case "NF-AC-091":
 		AssertDiagnosticKeysetRuntime(t)
 	default:
-		t.Fatalf("unmapped Phase 12 Network Flow integration selector %s", acID)
+		t.Fatalf("unmapped Network Flow Network Flow integration selector %s", acID)
 	}
 	AssertFixtureRuntimeEvidenceIfPresent(t, acID)
 	AssertFixtureEvidenceIfPresent(t, acID)
@@ -515,12 +515,12 @@ func AssertCursorCryptoRuntime(t *testing.T, position rowCursorPosition) {
 		"CARTULARY_SECRET_PHASE12_SAFE":   "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
 	}, now)
 	if err != nil {
-		t.Fatalf("parse Phase 12 key rings: %v", err)
+		t.Fatalf("parse Network Flow key rings: %v", err)
 	}
 	clock := now
 	codec, err := newCursorCodec(rings, func() time.Time { return clock })
 	if err != nil {
-		t.Fatalf("construct Phase 12 cursor protector: %v", err)
+		t.Fatalf("construct Network Flow cursor protector: %v", err)
 	}
 	binding := CursorBinding{Route: "nf.rows.query", ActorUserID: "actor", SessionID: "session", IncidentID: "incident", Scope: map[string]string{"table_ids": "nft_a"}, QueryHash: "query-hash", QueryEcho: json.RawMessage(`{"sort":[]}`), Limit: 1}
 	token, err := codec.Encode(binding, "row_keyset_v1", position)
@@ -545,7 +545,7 @@ func AssertCursorCryptoRuntime(t *testing.T, position rowCursorPosition) {
 	}
 	digester, err := newSafeDigester(rings, func() time.Time { return now })
 	if err != nil {
-		t.Fatalf("construct Phase 12 safe digester: %v", err)
+		t.Fatalf("construct Network Flow safe digester: %v", err)
 	}
 	digest, keyID, err := digester.Digest("source_filename", "flows.csv")
 	if err != nil || keyID != "phase12-safe" || !hex64(digest) {

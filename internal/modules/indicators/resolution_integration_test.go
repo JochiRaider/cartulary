@@ -22,7 +22,7 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase4-i-4-07-incident",
 		"incident_key":  "IR-I407",
-		"title":         "Phase 4 indicator route",
+		"title":         "Record relationships indicator route",
 	})
 	incidentID := scenariotest.MustUUID(t, incident["incident_id"].(string))
 	payload := map[string]any{

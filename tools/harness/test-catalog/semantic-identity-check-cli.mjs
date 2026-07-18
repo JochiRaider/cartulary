@@ -177,6 +177,68 @@ function collectCatalogFrontendViolations(root) {
   return violations;
 }
 
+function collectFixtureViolations(root) {
+  const violations = [];
+  for (const relativePath of walk(root, "apps/web/e2e/workbook.visual.spec.ts-snapshots")) {
+    if (!/\/(?:fe-v-p\d+|v-\d+-grid-\d+)-/iu.test(relativePath)) continue;
+    violations.push({
+      location: relativePath,
+      locator_kind: "fixture_path",
+      locator: path.basename(relativePath),
+      reason: "visual golden path encodes a delivery phase or legacy row",
+    });
+  }
+  for (const relativePath of walk(root, "internal/testutil/golden")) {
+    if (!deliveryIdentityPattern.test(relativePath)) continue;
+    violations.push({
+      location: relativePath,
+      locator_kind: "fixture_path",
+      locator: relativePath,
+      reason: "diagnostic golden path encodes a delivery phase or sprint",
+    });
+  }
+  const registryPath = path.join(root, "tools/frontend_visual_fixture_registry.json");
+  if (existsSync(registryPath)) {
+    const registry = readJSON(registryPath);
+    for (const fixture of registry.fixtures ?? []) {
+      if (!/^visual\.fixture\.[a-z][a-z0-9_]*$/u.test(fixture.fixture_id ?? "")) {
+        violations.push({
+          location: "tools/frontend_visual_fixture_registry.json",
+          locator_kind: "fixture_id",
+          locator: fixture.fixture_id ?? "",
+          reason: "visual fixture ID is not semantic and owner-neutral",
+        });
+      }
+      if (!/^visual\.seed\.[a-z][a-z0-9_]*$/u.test(fixture.seed_id ?? "")) {
+        violations.push({
+          location: "tools/frontend_visual_fixture_registry.json",
+          locator_kind: "fixture_id",
+          locator: fixture.seed_id ?? "",
+          reason: "visual seed ID is not semantic and owner-neutral",
+        });
+      }
+      if (fixture.status !== "current") {
+        violations.push({
+          location: "tools/frontend_visual_fixture_registry.json",
+          locator_kind: "fixture_id",
+          locator: fixture.fixture_id ?? "",
+          reason: "missing, retired, and placeholder fixtures must not remain active migration inputs",
+        });
+      }
+      for (const golden of [fixture.golden_filename, ...(fixture.golden_artifacts ?? [])]) {
+        if (!/(?:fe-v-p\d+|v-\d+-grid-\d+)-/iu.test(golden ?? "")) continue;
+        violations.push({
+          location: "tools/frontend_visual_fixture_registry.json",
+          locator_kind: "fixture_path",
+          locator: golden,
+          reason: "visual fixture metadata references a delivery-shaped golden path",
+        });
+      }
+    }
+  }
+  return violations;
+}
+
 export function validateSemanticGoIdentities(root) {
   const entries = allowlistEntries(root);
   const violations = [...collectGoViolations(root), ...collectCatalogGoViolations(root)]
@@ -195,6 +257,7 @@ export function validateSemanticIdentities(root) {
     ...collectCatalogGoViolations(root),
     ...collectFrontendViolations(root),
     ...collectCatalogFrontendViolations(root),
+    ...collectFixtureViolations(root),
   ]
     .filter((violation) => !allowed(entries, violation))
     .sort((left, right) => asciiCompare(

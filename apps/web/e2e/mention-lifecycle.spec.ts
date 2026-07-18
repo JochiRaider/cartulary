@@ -44,7 +44,7 @@ test(exactScenarioTitle, async ({ page }) => {
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("FEEP501"),
-    "Phase 5 FE-E-P5-01",
+    "Evidence FE-E-P5-01",
   );
   const manualTarget = (await createViewRow(
     page,

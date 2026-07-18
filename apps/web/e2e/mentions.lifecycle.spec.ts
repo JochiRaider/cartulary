@@ -50,7 +50,7 @@ test("dismisses and ordinarily restores a mention without relinking", async ({
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E402"),
-    "Phase 4 E-4-02",
+    "Record relationships E-4-02",
   );
   const existingHost = (await createViewRow(
     page,

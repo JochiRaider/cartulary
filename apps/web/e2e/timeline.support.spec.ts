@@ -42,7 +42,7 @@ test("Verify one-click focused editing, rejected-transition retention, sort, fil
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("S301"),
-    "Phase 3 support query controls",
+    "Timeline support query controls",
   );
   const alphaRow = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("s301-alpha"),
@@ -346,7 +346,7 @@ test("support keeps a pending edit anchored to its record under sort, filter, gr
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("S302"),
-    "Phase 3 support anchor stability",
+    "Timeline support anchor stability",
   );
   const alphaRow = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("s302-alpha"),
@@ -472,7 +472,7 @@ test("support keeps repeated scalar grid edits out of the RDG measured-width cra
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("S303"),
-    "Phase 3 support RDG edit stability",
+    "Timeline support RDG edit stability",
   );
   const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("s303-row"),

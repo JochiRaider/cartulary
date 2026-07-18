@@ -121,7 +121,7 @@ func TestInvalidConfigDiagnostics_Process(t *testing.T) {
 			server.RequireConnectionRefused(t, "/healthz")
 			server.RequireConnectionRefused(t, "/readyz")
 			server.RequireWebsocketConnectionRefused(t, "/ws/v1/incidents/00000000-0000-0000-0000-000000000000/views/cartulary.view.timeline.v2/changes")
-			server.RequireDiagnosticsMatchGolden(t, []string{"phase0", "diagnostics", tc.goldenFile})
+			server.RequireDiagnosticsMatchGolden(t, []string{"bootstrap", "diagnostics", tc.goldenFile})
 		})
 	}
 }
@@ -255,7 +255,7 @@ func TestBootstrapFailures_Process(t *testing.T) {
 			server.RequireConnectionRefused(t, "/healthz")
 			server.RequireConnectionRefused(t, "/readyz")
 			server.RequireWebsocketConnectionRefused(t, "/ws/v1/incidents/00000000-0000-0000-0000-000000000000/views/cartulary.view.timeline.v2/changes")
-			server.RequireDiagnosticsMatchGolden(t, []string{"phase0", "diagnostics", tc.goldenFile})
+			server.RequireDiagnosticsMatchGolden(t, []string{"bootstrap", "diagnostics", tc.goldenFile})
 			requireCountSQL(t, db, `SELECT COUNT(*) FROM users`, tc.wantUserCount)
 			requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 0)
 			requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 0)
@@ -339,7 +339,7 @@ func TestBootstrapSkipAndRecovery_Process(t *testing.T) {
 		server.RequireConnectionRefused(t, "/healthz")
 		server.RequireConnectionRefused(t, "/readyz")
 		server.RequireWebsocketConnectionRefused(t, "/ws/v1/incidents/00000000-0000-0000-0000-000000000000/views/cartulary.view.timeline.v2/changes")
-		server.RequireDiagnosticsMatchGolden(t, []string{"phase0", "diagnostics", "bootstrap_recovery_not_supported.json"})
+		server.RequireDiagnosticsMatchGolden(t, []string{"bootstrap", "diagnostics", "bootstrap_recovery_not_supported.json"})
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM users WHERE is_active = true AND is_deployment_admin = true`, 0)
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 1)
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 0)

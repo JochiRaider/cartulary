@@ -191,7 +191,7 @@ func TestEvidenceHandles_Integration(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase4-handles-incident",
 		"incident_key":  "phase4-handles",
-		"title":         "Phase 4 evidence handles",
+		"title":         "Record relationships evidence handles",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 	recordID := uuid.New()
@@ -264,7 +264,7 @@ func TestEvidenceHandleIssuanceReportsRegisteredUnavailableReasons(t *testing.T)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase4-handle-issue-reasons-incident",
 		"incident_key":  "phase4-handle-issue-reasons",
-		"title":         "Phase 4 handle issue reasons",
+		"title":         "Record relationships handle issue reasons",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
@@ -339,7 +339,7 @@ func TestEvidenceHandleRedemptionReportsRegisteredUnavailableReasons(t *testing.
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase4-handle-redeem-reasons-incident",
 		"incident_key":  "phase4-handle-redeem-reasons",
-		"title":         "Phase 4 handle redeem reasons",
+		"title":         "Record relationships handle redeem reasons",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
@@ -417,7 +417,7 @@ func TestDownloadHandleBlobMissingDoesNotConsumeHandle_Integration(t *testing.T)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase4-download-no-byte-incident",
 		"incident_key":  "phase4-download-no-byte",
-		"title":         "Phase 4 download no-byte failure",
+		"title":         "Record relationships download no-byte failure",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 	recordID := uuid.New()

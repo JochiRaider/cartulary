@@ -23,7 +23,7 @@ func TestBindingMode_Unit(t *testing.T) {
 	timelineStore := newResolutionTimelineCommands(harness.DB)
 	entityStore := hostidentity.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u401@example.test", "U401", "U401Phase4Pass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-01-incident", "IR-U401", "Phase 4 U-4-01")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-01-incident", "IR-U401", "Record relationships U-4-01")
 
 	recordstoretest.RequireViewFieldBindingMode(t, "U-4-01", golden.RecordTimelineViewSchemaID, golden.RecordFieldTimelineHostRefs, "mention_origin")
 	recordstoretest.RequireViewFieldBindingMode(t, "U-4-01", golden.RecordTimelineViewSchemaID, golden.RecordFieldTimelineIdentityRefs, "mention_origin")
@@ -165,7 +165,7 @@ func TestDuplicateMentionProvenance_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "phase4-u-4-02")
 	store := newResolutionTimelineCommands(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u402@example.test", "U402", "U402Phase4Pass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-02-incident", "IR-U402", "Phase 4 U-4-02")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-02-incident", "IR-U402", "Record relationships U-4-02")
 
 	normalizedToken, ok := fieldnorm.NormalizeMentionToken("WS-023")
 	if !ok {
@@ -238,7 +238,7 @@ func TestAttachedEvidenceCreateAndPatch(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "phase5-attached-evidence")
 	store := newResolutionTimelineCommands(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u5attach@example.test", "U5ATTACH", "U5AttachPass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase5-attached-incident", "IR-U5ATTACH", "Phase 5 attached evidence")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase5-attached-incident", "IR-U5ATTACH", "Evidence attached evidence")
 
 	evidenceID := seedTimelineEvidence(t, harness, incident.ID, actor.ID, "Screenshot one", "available")
 	create := CreateRequest{

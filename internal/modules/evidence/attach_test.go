@@ -42,8 +42,8 @@ func TestAttachBlobValidation_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "phase5-attach-validation")
 	store := evidence.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase5-attach@example.test", "Phase5 Attach", "Phase5Attach1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase5-attach-incident", "IR-P5-ATTACH", "Phase 5 attach")
-	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase5-attach-other", "IR-P5-ATTACH-OTHER", "Phase 5 attach other")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase5-attach-incident", "IR-P5-ATTACH", "Evidence attach")
+	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase5-attach-other", "IR-P5-ATTACH-OTHER", "Evidence attach other")
 
 	t.Run("success and replay are stable", func(t *testing.T) {
 		recordID := seedEvidenceAttachmentRecord(t, harness.DB, incident.ID, actor.ID, "received")
@@ -209,7 +209,7 @@ VALUES ($1, $2, 'evidence', $3, $4, $3, $4, 1)
 	}
 	if _, err := db.Exec(context.Background(), `
 INSERT INTO evidence (record_id, incident_id, title, lifecycle_state, upload_state, requested_at, created_at, updated_at)
-VALUES ($1, $2, 'Phase 5 evidence', $3, 'pending', $4, $4, $4)
+VALUES ($1, $2, 'Evidence evidence', $3, 'pending', $4, $4, $4)
 `, recordID, incidentID, lifecycleState, now); err != nil {
 		t.Fatalf("insert evidence row: %v", err)
 	}

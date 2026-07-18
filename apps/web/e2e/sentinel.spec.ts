@@ -202,11 +202,11 @@ test("pastes a representative 20x5 Timeline clipboard range", async ({
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E902"),
-    "Phase 9 E-9-PASTE-02 clipboard paste",
+    "Workbook inspector E-9-PASTE-02 clipboard paste",
   );
   const seed = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e902-seed"),
-    "timeline.activity_synopsis_text": "Phase 9 paste seed",
+    "timeline.activity_synopsis_text": "Workbook inspector paste seed",
   });
 
   await page.goto(`/?incident_id=${incidentId}`);
@@ -231,7 +231,7 @@ test("pastes a representative 20x5 Timeline clipboard range", async ({
   const pasteRows = Array.from({ length: 20 }, (_, index) => {
     const ordinal = index + 1;
     return [
-      `Phase 9 paste summary ${ordinal}`,
+      `Workbook inspector paste summary ${ordinal}`,
       `phase9-source-${ordinal}.example.test`,
     ].join("\t");
   });
@@ -269,7 +269,7 @@ test("pastes a representative 20x5 Timeline clipboard range", async ({
         "timeline.activity_synopsis_text",
       ),
     ),
-  ).toHaveText("Phase 9 paste summary 1");
+  ).toHaveText("Workbook inspector paste summary 1");
   await expect(
     page.getByTestId(gridShellTestId(timelineViewSchemaId)),
   ).toBeVisible();
@@ -279,13 +279,13 @@ test("pastes a representative 20x5 Timeline clipboard range", async ({
     const cells = row.cells as Record<string, { value: unknown }>;
     return String(
       cells["timeline.activity_synopsis_text"]?.value ?? "",
-    ).startsWith("Phase 9 paste summary ");
+    ).startsWith("Workbook inspector paste summary ");
   });
   expect(matchingRows).toHaveLength(20);
   const first = matchingRows.find((row) => row.record_id === seed.record_id);
   expect(first).toBeTruthy();
   expect(first?.cells["timeline.activity_synopsis_text"]?.value).toBe(
-    "Phase 9 paste summary 1",
+    "Workbook inspector paste summary 1",
   );
   expect(first?.cells["timeline.data_source_text"]?.value).toBe(
     "phase9-source-1.example.test",
@@ -295,7 +295,7 @@ test("pastes a representative 20x5 Timeline clipboard range", async ({
     const cells = row.cells as Record<string, { value: unknown }>;
     return (
       cells["timeline.activity_synopsis_text"]?.value ===
-      "Phase 9 paste summary 20"
+      "Workbook inspector paste summary 20"
     );
   });
   expect(twentieth).toBeTruthy();
@@ -311,15 +311,16 @@ test("groups paste conflicts and preserves selection continuity", async ({
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E902-CONFLICT"),
-    "Phase 9 E-9-CONFLICT-02 grouped paste conflicts",
+    "Workbook inspector E-9-CONFLICT-02 grouped paste conflicts",
   );
   const first = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e902-conflict-first"),
-    "timeline.activity_synopsis_text": "Phase 9 conflict first base",
+    "timeline.activity_synopsis_text": "Workbook inspector conflict first base",
   });
   const second = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e902-conflict-second"),
-    "timeline.activity_synopsis_text": "Phase 9 conflict second base",
+    "timeline.activity_synopsis_text":
+      "Workbook inspector conflict second base",
   });
 
   await disableWorkbookSockets(page);
@@ -342,8 +343,8 @@ test("groups paste conflicts and preserves selection continuity", async ({
     throw new Error("expected two visible Timeline records for grouped paste");
   }
   const pasteTextByRecordId = new Map([
-    [first.record_id as string, "Phase 9 client first"],
-    [second.record_id as string, "Phase 9 client second"],
+    [first.record_id as string, "Workbook inspector client first"],
+    [second.record_id as string, "Workbook inspector client second"],
   ]);
   const pasteStartText = pasteTextByRecordId.get(pasteStartRecordId);
   const pasteNextText = pasteTextByRecordId.get(pasteNextRecordId);
@@ -379,7 +380,7 @@ test("groups paste conflicts and preserves selection continuity", async ({
     changes: [
       {
         field_key: "timeline.activity_synopsis_text",
-        value: "Phase 9 server first",
+        value: "Workbook inspector server first",
       },
     ],
   });
@@ -390,7 +391,7 @@ test("groups paste conflicts and preserves selection continuity", async ({
     changes: [
       {
         field_key: "timeline.activity_synopsis_text",
-        value: "Phase 9 server second",
+        value: "Workbook inspector server second",
       },
     ],
   });
@@ -416,7 +417,7 @@ test("groups paste conflicts and preserves selection continuity", async ({
         }),
       );
     },
-    [pasteStartText, pasteNextText, "Phase 9 conflict create"],
+    [pasteStartText, pasteNextText, "Workbook inspector conflict create"],
   );
   await expect((await pasteResponse).ok()).toBeTruthy();
 
@@ -482,11 +483,11 @@ test("Notes tab creates artifact-backed linked notes", async ({ page }) => {
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E903"),
-    "Phase 9 E-9-03 Notes linked create",
+    "Workbook inspector E-9-03 Notes linked create",
   );
   const source = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e903-source"),
-    "timeline.activity_synopsis_text": "Phase 9 linked note source",
+    "timeline.activity_synopsis_text": "Workbook inspector linked note source",
   });
 
   await page.goto(
@@ -507,7 +508,7 @@ test("Notes tab creates artifact-backed linked notes", async ({ page }) => {
   ).toHaveCount(1, { timeout: 15_000 });
   await page
     .getByTestId("generic-create-field-note.title")
-    .fill("Phase 9 E-9-03 linked note");
+    .fill("Workbook inspector E-9-03 linked note");
   await page
     .getByTestId("generic-create-field-note.body")
     .fill("Created from the Notes tab with a source record link.");
@@ -531,7 +532,7 @@ test("Notes tab creates artifact-backed linked notes", async ({ page }) => {
   const noteRecordId = envelope.data.row.record_id;
   await expect(
     page.getByTestId(rowCellTestId(noteRecordId, "note.title")),
-  ).toHaveText("Phase 9 E-9-03 linked note");
+  ).toHaveText("Workbook inspector E-9-03 linked note");
 
   const rows = await queryViewRows(page, incidentId, notesViewSchemaId);
   const noteRow = rows.find((row) => row.record_id === noteRecordId);
@@ -546,27 +547,27 @@ test("Workbook inspector fills the shell work area across row counts", async ({
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E9LAYOUT"),
-    "Phase 9 inspector shell layout",
+    "Workbook inspector inspector shell layout",
   );
   const timelineRows: ViewApiRow[] = [];
   for (let index = 0; index < 16; index += 1) {
     timelineRows.push(
       await createViewRow(page, incidentId, timelineViewSchemaId, {
         client_txn_id: uniqueTxn(`e9layout-timeline-${index}`),
-        "timeline.activity_synopsis_text": `Phase 9 layout timeline row ${index + 1}`,
+        "timeline.activity_synopsis_text": `Workbook inspector layout timeline row ${index + 1}`,
       }),
     );
   }
   for (let index = 0; index < 3; index += 1) {
     await createViewRow(page, incidentId, hostsViewSchemaId, {
       client_txn_id: uniqueTxn(`e9layout-host-${index}`),
-      "host.display_name": `Phase 9 layout host ${index + 1}`,
+      "host.display_name": `Workbook inspector layout host ${index + 1}`,
       "host.hostname": `phase9-layout-host-${index + 1}.example.test`,
     });
   }
   await createViewRow(page, incidentId, evidenceViewSchemaId, {
     client_txn_id: uniqueTxn("e9layout-evidence"),
-    "evidence.title": "Phase 9 layout evidence",
+    "evidence.title": "Workbook inspector layout evidence",
   });
 
   await page.goto(`/?incident_id=${incidentId}`);
@@ -608,11 +609,11 @@ test("Party create and link preserve raw text on the workbook surface", async ({
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E904"),
-    "Phase 9 E-9-04 party create link",
+    "Workbook inspector E-9-04 party create link",
   );
   const evidence = await createViewRow(page, incidentId, evidenceViewSchemaId, {
     client_txn_id: uniqueTxn("e904-evidence"),
-    "evidence.title": "Phase 9 party evidence",
+    "evidence.title": "Workbook inspector party evidence",
     "evidence.collector_party_text": "Browser Collector Raw",
     "evidence.source_party_text": "Browser Source Raw",
   });
@@ -821,7 +822,7 @@ test("Party create and link preserve raw text on the workbook surface", async ({
 
   const task = await createViewRow(page, incidentId, taskRequestsViewSchemaId, {
     client_txn_id: uniqueTxn("e904-task"),
-    "task.title": "Phase 9 party task",
+    "task.title": "Workbook inspector party task",
     "task.task_kind": "request",
     "task.requester_party_text": "Browser Requester Raw",
   });
@@ -1006,7 +1007,7 @@ test("Party create and link preserve raw text on the workbook surface", async ({
     "comm_log.comm_type": "briefing",
     "comm_log.audience": "Browser Leadership Audience",
     "comm_log.channel_or_meeting": "Bridge",
-    "comm_log.summary": "Phase 9 party comm log",
+    "comm_log.summary": "Workbook inspector party comm log",
   });
   await openGenericSurface(
     page,
@@ -1103,21 +1104,22 @@ test("assessment workflow keeps invalid timestamp drafts local", async ({
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E905"),
-    "Phase 9 E-9-05 assessment workflow",
+    "Workbook inspector E-9-05 assessment workflow",
   );
   const subjectA = await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e905-host-a"),
-    "host.display_name": "Phase 9 Assessment Host A",
+    "host.display_name": "Workbook inspector Assessment Host A",
     "host.hostname": "phase9-assessment-a.example.test",
   });
   const subjectB = await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e905-host-b"),
-    "host.display_name": "Phase 9 Assessment Host B",
+    "host.display_name": "Workbook inspector Assessment Host B",
     "host.hostname": "phase9-assessment-b.example.test",
   });
   const support = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e905-support"),
-    "timeline.activity_synopsis_text": "Phase 9 assessment support event",
+    "timeline.activity_synopsis_text":
+      "Workbook inspector assessment support event",
   });
 
   await page.goto(
@@ -1165,21 +1167,21 @@ test("assessment workflow keeps invalid timestamp drafts local", async ({
   const createdUnknown = await createAssessmentViaUI(page, {
     assessedAt: "2026-04-24T10:00:00Z",
     confidenceBand: "unset",
-    rationale: "Phase 9 unknown rationale.",
+    rationale: "Workbook inspector unknown rationale.",
     state: "unknown",
     supportRecordIds: [],
   });
   const createdSuspected = await createAssessmentViaUI(page, {
     assessedAt: "2026-04-24T11:00:00Z",
     confidenceBand: "low",
-    rationale: "Phase 9 suspected rationale.",
+    rationale: "Workbook inspector suspected rationale.",
     state: "suspected",
     supportRecordIds: [],
   });
   const createdConfirmed = await createAssessmentViaUI(page, {
     assessedAt: "2026-04-24T12:00:00Z",
     confidenceBand: "medium",
-    rationale: "Phase 9 confirmed rationale.",
+    rationale: "Workbook inspector confirmed rationale.",
     state: "confirmed",
     supportRecordIds: [support.record_id as string],
   });
@@ -1190,14 +1192,14 @@ test("assessment workflow keeps invalid timestamp drafts local", async ({
   const createdDisproven = await createAssessmentViaUI(page, {
     assessedAt: "2026-04-24T13:00:00Z",
     confidenceBand: "medium",
-    rationale: "Phase 9 disproven rationale.",
+    rationale: "Workbook inspector disproven rationale.",
     state: "disproven",
     supportRecordIds: [],
   });
   const createdCleared = await createAssessmentViaUI(page, {
     assessedAt: "2026-04-24T14:00:00Z",
     confidenceBand: "high",
-    rationale: "Phase 9 cleared rationale.",
+    rationale: "Workbook inspector cleared rationale.",
     state: "cleared",
     supportRecordIds: [],
   });
@@ -1463,7 +1465,7 @@ test("Task Request and Decision workbook workflows stay native", async ({
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E906"),
-    "Phase 9 E-9-TASKDECISION-06 Task and Decision workflows",
+    "Workbook inspector E-9-TASKDECISION-06 Task and Decision workflows",
   );
   const support = await createViewRow(page, incidentId, evidenceViewSchemaId, {
     client_txn_id: uniqueTxn("e906-support"),
@@ -1876,7 +1878,7 @@ test("coordination workbook workflows stay native", async ({
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E906COORD"),
-    "Phase 9 E-9-COORDINATION-06 coordination workflows",
+    "Workbook inspector E-9-COORDINATION-06 coordination workflows",
   );
   const party = await createViewRow(page, incidentId, partiesViewSchemaId, {
     client_txn_id: uniqueTxn("e906coord-party"),
@@ -2229,7 +2231,7 @@ test("optional standardized surfaces are workbook-native when exposed", async ({
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E907"),
-    "Phase 9 E-9-07 optional surfaces",
+    "Workbook inspector E-9-07 optional surfaces",
   );
   const supportingNote = await createViewRow(
     page,
@@ -2427,7 +2429,7 @@ test("required registry identities stay canonical with optional additions", asyn
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E908"),
-    "Phase 9 E-9-08 registry identities",
+    "Workbook inspector E-9-08 registry identities",
   );
   await expectRequiredAndOptionalRegistryExposed(page);
 

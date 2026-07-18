@@ -19,7 +19,7 @@ func TestPartiesSurface_Integration(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase4-parties-surface-incident",
 		"incident_key":  "IR-PHASE4-PARTIES",
-		"title":         "Phase 4 parties surface",
+		"title":         "Record relationships parties surface",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
@@ -227,7 +227,7 @@ func TestCoordinationDefaults_Integration(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase4-coordination-defaults-incident",
 		"incident_key":  "IR-PHASE4-COORD-DEFAULTS",
-		"title":         "Phase 4 coordination defaults",
+		"title":         "Record relationships coordination defaults",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 

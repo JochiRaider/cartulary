@@ -32,11 +32,11 @@ func seedRecord(t testing.TB, db *sql.DB, server *httptestx.Server, login workbo
 	incident := workbookscenariotest.CreateIncident(t, server, login, map[string]any{
 		"client_txn_id": "txn-" + strings.ToLower(strings.ReplaceAll(incidentKey, "-", "")),
 		"incident_key":  incidentKey,
-		"title":         "Phase 7 " + incidentKey,
+		"title":         "History " + incidentKey,
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 	recordID := uuid.New()
-	workbookscenariotest.SeedHostRecord(t, db, incidentID, actorID, recordID, "Phase 7 Host", "phase7-host", "", "")
+	workbookscenariotest.SeedHostRecord(t, db, incidentID, actorID, recordID, "History Host", "phase7-host", "", "")
 	return incidentID, recordID
 }
 

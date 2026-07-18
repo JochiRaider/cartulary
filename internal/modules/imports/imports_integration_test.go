@@ -32,7 +32,7 @@ func TestExtensionImportUploadEarlyFailCreatesNoDurableRows(t *testing.T) {
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase11-import-early-fail-incident",
 		"incident_key":  "IR-PHASE11-EARLY",
-		"title":         "Phase 11 import early fail",
+		"title":         "Enterprise integration import early fail",
 	})
 
 	metadata := `{"incident_id":"` + incident["incident_id"].(string) + `","client_txn_id":"txn-phase11-import-early-fail","extra":true}`
@@ -74,7 +74,7 @@ func TestExtensionImportUploadExactReplayAndReadResources(t *testing.T) {
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase11-import-replay-incident",
 		"incident_key":  "IR-PHASE11-REPLAY",
-		"title":         "Phase 11 import replay",
+		"title":         "Enterprise integration import replay",
 	})
 	incidentID := incident["incident_id"].(string)
 	metadata := `{"client_txn_id":"txn-phase11-import-replay","incident_id":"` + incidentID + `"}`
@@ -167,7 +167,7 @@ func TestXLSXDiscoveryUsesBoundedUsedRange_Integration(t *testing.T) {
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase11-import-xlsx-incident",
 		"incident_key":  "IR-PHASE11-XLSX",
-		"title":         "Phase 11 XLSX import",
+		"title":         "Enterprise integration XLSX import",
 	})
 	incidentID := incident["incident_id"].(string)
 	metadata := `{"client_txn_id":"txn-phase11-import-xlsx-upload","incident_id":"` + incidentID + `"}`
@@ -216,7 +216,7 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase11-import-apply-incident",
 		"incident_key":  "IR-PHASE11-APPLY",
-		"title":         "Phase 11 import apply",
+		"title":         "Enterprise integration import apply",
 	})
 	incidentID := incident["incident_id"].(string)
 	hostRecordID := createImportAutoResolutionCandidateHost(t, harness.Server.HTTP.URL, adminLogin, incidentID)
@@ -349,7 +349,7 @@ func TestTargetRegistryAndEntityOwnerFacade_Integration(t *testing.T) {
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase11-import-target-host-incident",
 		"incident_key":  "IR-PHASE11-HOST",
-		"title":         "Phase 11 host import",
+		"title":         "Enterprise integration host import",
 	})
 	incidentID := incident["incident_id"].(string)
 
@@ -557,7 +557,7 @@ func TestEvidenceImportUsesOwnerFacadeAndJournal_Integration(t *testing.T) {
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase11-import-evidence-owner-incident",
 		"incident_key":  "IR-PHASE11-EVIDENCE",
-		"title":         "Phase 11 evidence owner facade",
+		"title":         "Enterprise integration evidence owner facade",
 	})
 	incidentID := incident["incident_id"].(string)
 

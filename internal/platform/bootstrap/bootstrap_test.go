@@ -235,7 +235,7 @@ func TestBootstrapPreflight_Unit(t *testing.T) {
 				FirstAdminManifestPath: "/tmp/bootstrap.json",
 			},
 		}, store, manifestFS, deriveBootstrapPasswordHash)
-		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"phase0", "diagnostics", "bootstrap_recovery_not_supported.json"})
+		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", "bootstrap_recovery_not_supported.json"})
 		if store.readCalls != 1 {
 			t.Fatalf("expected exactly one bootstrap-state query, got %d", store.readCalls)
 		}
@@ -251,7 +251,7 @@ func TestBootstrapPreflight_Unit(t *testing.T) {
 		store := &bootstrapStoreStub{}
 		manifestFS := &bootstrapManifestFSStub{}
 		err := bootstrapPreflight(context.Background(), config.Config{}, store, manifestFS, deriveBootstrapPasswordHash)
-		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"phase0", "diagnostics", "bootstrap_manifest_path_missing.json"})
+		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", "bootstrap_manifest_path_missing.json"})
 		if store.readCalls != 1 {
 			t.Fatalf("expected exactly one bootstrap-state query, got %d", store.readCalls)
 		}
@@ -274,7 +274,7 @@ func TestBootstrapPreflight_Unit(t *testing.T) {
 				FirstAdminManifestPath: "/tmp/bootstrap-admin.json",
 			},
 		}, store, manifestFS, deriveBootstrapPasswordHash)
-		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"phase0", "diagnostics", "bootstrap_manifest_not_readable_permission_denied.json"})
+		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", "bootstrap_manifest_not_readable_permission_denied.json"})
 		if manifestFS.statCalls != 1 || manifestFS.readCalls != 1 {
 			t.Fatalf("expected one manifest stat and one read, got stat=%d read=%d", manifestFS.statCalls, manifestFS.readCalls)
 		}
@@ -290,7 +290,7 @@ func TestBootstrapPreflight_Unit(t *testing.T) {
 				FirstAdminManifestPath: "/tmp/bootstrap-admin.json",
 			},
 		}, store, manifestFS, deriveBootstrapPasswordHash)
-		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"phase0", "diagnostics", "bootstrap_manifest_not_regular_file.json"})
+		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", "bootstrap_manifest_not_regular_file.json"})
 		if manifestFS.statCalls != 1 || manifestFS.readCalls != 0 {
 			t.Fatalf("expected one manifest stat and zero reads, got stat=%d read=%d", manifestFS.statCalls, manifestFS.readCalls)
 		}
@@ -307,7 +307,7 @@ func TestBootstrapPreflight_Unit(t *testing.T) {
 				FirstAdminManifestPath: "/tmp/bootstrap-admin.json",
 			},
 		}, store, manifestFS, deriveBootstrapPasswordHash)
-		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"phase0", "diagnostics", "bootstrap_manifest_parse_error.json"})
+		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", "bootstrap_manifest_parse_error.json"})
 	})
 
 	t.Run("returns canonically ordered schema-invalid diagnostics", func(t *testing.T) {
@@ -321,7 +321,7 @@ func TestBootstrapPreflight_Unit(t *testing.T) {
 				FirstAdminManifestPath: "/tmp/bootstrap-admin.json",
 			},
 		}, store, manifestFS, deriveBootstrapPasswordHash)
-		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"phase0", "diagnostics", "bootstrap_manifest_schema_invalid_multiple.json"})
+		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", "bootstrap_manifest_schema_invalid_multiple.json"})
 	})
 
 	t.Run("consumes the configured manifest when bootstrap is required", func(t *testing.T) {

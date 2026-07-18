@@ -463,7 +463,7 @@ func (storage tamperedBackupStorage) ReadArtifact(ctx context.Context, key strin
 }
 
 func TestCaptureRequiresArtifactProofs_Unit(t *testing.T) {
-	db := pgtest.Start(t).BeginRollbackDBT(t, "phase10-u-10-01-artifacts")
+	db := pgtest.Start(t).BeginRollbackDBT(t, "recovery-metadata-artifacts")
 	store := recovery.NewStore(db)
 	capture := newCaptureService(t, store)
 

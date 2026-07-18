@@ -22,7 +22,7 @@ func TestOptionalStandardizedSurfacesStoreBehavior_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "phase9-optional-surfaces-store")
 	store := workbook.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "optional-surfaces@example.test", "Optional Surfaces", "OptionalSurfaces1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-optional-incident", "IR-OPTIONAL", "Phase 9 optional surfaces")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-optional-incident", "IR-OPTIONAL", "Workbook inspector optional surfaces")
 
 	before := countOptionalSurfaceDurableState(t, harness.DB, incident.ID)
 	_, err := store.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
@@ -123,7 +123,7 @@ func TestOptionalStandardizedSurfacesProjectionQueryBehavior_Unit(t *testing.T) 
 	harness := recordstoretest.StartStore(t, "phase9-optional-surfaces-query")
 	store := workbook.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "optional-query@example.test", "Optional Query", "OptionalQuery1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-optional-query-incident", "IR-OPTIONAL-QUERY", "Phase 9 optional query behavior")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-optional-query-incident", "IR-OPTIONAL-QUERY", "Workbook inspector optional query behavior")
 
 	finding := mustCreateRow(t, store, actor, incident.ID, workbook.FindingsViewSchemaID, "txn-phase9-optional-query-finding-high", map[string]workbook.ValueChange{
 		"finding.statement":        Text("Confirmed malware execution"),
@@ -178,7 +178,7 @@ func TestFindingsConfidenceBandBoundaries_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "phase9-optional-findings-confidence-boundaries")
 	store := workbook.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "optional-boundaries@example.test", "Optional Boundaries", "OptionalBoundaries1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-optional-boundaries-incident", "IR-OPTIONAL-BAND", "Phase 9 optional finding confidence bands")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-optional-boundaries-incident", "IR-OPTIONAL-BAND", "Workbook inspector optional finding confidence bands")
 
 	createdByBand := map[string][]uuid.UUID{}
 	for index, tc := range []struct {

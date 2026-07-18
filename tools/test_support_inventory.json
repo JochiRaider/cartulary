@@ -179,6 +179,16 @@
       "rationale": "WebSocket handshake and session-revocation protocol fixtures."
     },
     {
+      "path": "internal/testutil/golden/bootstrap/diagnostics",
+      "owner": "platform_bootstrap_auth",
+      "posture": "shared",
+      "data_kind": "platform_diagnostics",
+      "file_roles": ["golden"],
+      "owner_semantic_data_policy": "reject_unclassified",
+      "retained_path_policy": "move_only_with_owner_accounting",
+      "rationale": "Bootstrap and startup diagnostic goldens owned by platform bootstrap/auth support."
+    },
+    {
       "path": "internal/testutil/golden/config",
       "owner": "platform_config",
       "posture": "shared",
@@ -207,16 +217,6 @@
       "owner_semantic_data_policy": "adopted_external_evidence",
       "retained_path_policy": "stable",
       "rationale": "Adopted OTel corpus, normalized signal goldens, dependency classification, and retained empty evidence roots."
-    },
-    {
-      "path": "internal/testutil/golden/phase0/diagnostics",
-      "owner": "platform_bootstrap_auth",
-      "posture": "shared",
-      "data_kind": "platform_diagnostics",
-      "file_roles": ["golden"],
-      "owner_semantic_data_policy": "reject_unclassified",
-      "retained_path_policy": "move_only_with_owner_accounting",
-      "rationale": "Bootstrap and startup diagnostic goldens retained for Phase 0 evidence while owned by platform bootstrap/auth support."
     }
   ]
 }

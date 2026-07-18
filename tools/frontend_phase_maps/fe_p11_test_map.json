@@ -192,7 +192,7 @@
         "closure_scope": "scenario"
       },
       "out_of_scope": [
-        "This frontend readiness row does not change Core product behavior, satisfy FE-VFIX-01 default shell evidence, expose a theme switcher, claim light or high-contrast themes, or activate Core 05 publication authority."
+        "This frontend readiness row does not change Core product behavior, satisfy visual.fixture.default_timeline_workbook_shell default shell evidence, expose a theme switcher, claim light or high-contrast themes, or activate Core 05 publication authority."
       ],
       "default_check_required": false,
       "default_check_kind": "explicit_only",

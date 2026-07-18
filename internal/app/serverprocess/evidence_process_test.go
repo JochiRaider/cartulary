@@ -18,7 +18,7 @@ func TestEvidenceUploadAttachProjection_Process(t *testing.T) {
 	incident := CreateIncident(t, server, adminLogin.sessionCookie, adminLogin.csrfCookie, map[string]any{
 		"client_txn_id": "txn-e-5-smoke-incident",
 		"incident_key":  "IR-E5SMOKE",
-		"title":         "Phase 5 process smoke",
+		"title":         "Evidence process smoke",
 	})
 	incidentID := incident["incident_id"].(string)
 

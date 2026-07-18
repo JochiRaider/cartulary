@@ -144,7 +144,7 @@ export async function createTimelineRow(
   summary: string,
 ) {
   return createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("phase6-timeline-row"),
+    client_txn_id: uniqueTxn("collaboration-timeline-row"),
     "timeline.activity_synopsis_text": summary,
   });
 }
@@ -367,8 +367,8 @@ export async function exerciseRevokedPendingReplay({
   triggerRevocation,
 }: SessionRecoveryScenario) {
   const replayValues = localValues ?? [
-    `Phase 6 ${createdBy} ${scenario} first local`,
-    `Phase 6 ${createdBy} ${scenario} second local`,
+    `Collaboration ${createdBy} ${scenario} first local`,
+    `Collaboration ${createdBy} ${scenario} second local`,
   ];
   if (replayValues.length < 2) {
     throw new Error(
@@ -378,12 +378,12 @@ export async function exerciseRevokedPendingReplay({
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey(incidentKeyPrefix),
-    `Phase 6 ${createdBy} ${scenario} revocation recovery`,
+    `Collaboration ${createdBy} ${scenario} revocation recovery`,
   );
   const member = await createIncidentMemberUser(page, incidentId, {
-    display_name: `Phase 6 ${createdBy} ${scenario} Analyst`,
-    email: uniqueEmail(`phase6-${createdBy.toLowerCase()}-${scenario}`),
-    initial_password: `Phase6${createdBy.replaceAll("-", "")}${scenario}Pass!`,
+    display_name: `Collaboration ${createdBy} ${scenario} Analyst`,
+    email: uniqueEmail(`collaboration-${createdBy.toLowerCase()}-${scenario}`),
+    initial_password: `Collaboration${createdBy.replaceAll("-", "")}${scenario}Pass!`,
     role: "editor",
   });
   const recordIds: string[] = [];
@@ -393,7 +393,7 @@ export async function exerciseRevokedPendingReplay({
         await createTimelineRow(
           page,
           incidentId,
-          `Phase 6 ${createdBy} ${scenario} ${index + 1} base`,
+          `Collaboration ${createdBy} ${scenario} ${index + 1} base`,
         ),
       ),
     );
@@ -410,7 +410,7 @@ export async function exerciseRevokedPendingReplay({
       createdBy,
       email: member.email,
       password: member.initial_password,
-      purpose: `Phase 6 ${createdBy} ${scenario} analyst runtime`,
+      purpose: `Collaboration ${createdBy} ${scenario} analyst runtime`,
       userId: member.user_id,
     });
 
@@ -430,7 +430,7 @@ export async function exerciseRevokedPendingReplay({
           "timeline.activity_synopsis_text",
         ),
       ),
-    ).toHaveText(`Phase 6 ${createdBy} ${scenario} 1 base`);
+    ).toHaveText(`Collaboration ${createdBy} ${scenario} 1 base`);
     await expectCurrentIncidentRole(page, "Current incident role: editor");
 
     const heldPatch = patchController.holdNextPatch();
@@ -480,7 +480,7 @@ export async function exerciseRevokedPendingReplay({
       createdBy,
       email: member.email,
       password: member.initial_password,
-      purpose: `Phase 6 ${createdBy} ${scenario} analyst re-authentication`,
+      purpose: `Collaboration ${createdBy} ${scenario} analyst re-authentication`,
       userId: member.user_id,
     });
     await socketMonitor.waitForAcceptedSocket({
@@ -889,7 +889,7 @@ async function fulfillJSONError(route: Route, status: number, code: string) {
         code,
         details: {},
         message: code,
-        request_id: `phase6-e2e-${code}`,
+        request_id: `collaboration-e2e-${code}`,
         retryable: false,
         status,
       },

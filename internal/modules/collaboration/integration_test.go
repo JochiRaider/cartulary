@@ -25,11 +25,11 @@ func TestTwoClientsPresenceReplay_Integration(t *testing.T) {
 	runtime := collabscenariotest.StartRuntime(t)
 
 	t.Run("two clients exchange canonical presence and replay in order", func(t *testing.T) {
-		harness, admin, incidentID := setupSocketIncident(t, runtime, "phase6-i-6-01-presence-replay")
+		harness, admin, incidentID := setupSocketIncident(t, runtime, "collaboration-i-6-01-presence-replay")
 
 		first := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 			SessionToken:     admin.SessionCookie.Value,
-			ClientInstanceID: "phase6-i-6-01-first",
+			ClientInstanceID: "collaboration-i-6-01-first",
 			Presence:         timelinePresence(),
 		})
 		if got := len(first.PresenceSnapshot); got != 1 {
@@ -39,7 +39,7 @@ func TestTwoClientsPresenceReplay_Integration(t *testing.T) {
 
 		second := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 			SessionToken:     admin.SessionCookie.Value,
-			ClientInstanceID: "phase6-i-6-01-second",
+			ClientInstanceID: "collaboration-i-6-01-second",
 			Presence:         timelinePresence(),
 		})
 		defer second.Close(websocket.StatusNormalClosure, "test_complete")
@@ -53,12 +53,12 @@ func TestTwoClientsPresenceReplay_Integration(t *testing.T) {
 		}
 
 		first.Close(websocket.StatusNormalClosure, "test_complete")
-		publishJobProgress(t, harness, incidentID, "phase6-i-6-01-job-a", platformws.JobStatusQueued)
-		publishJobProgress(t, harness, incidentID, "phase6-i-6-01-job-b", platformws.JobStatusRunning)
+		publishJobProgress(t, harness, incidentID, "collaboration-i-6-01-job-a", platformws.JobStatusQueued)
+		publishJobProgress(t, harness, incidentID, "collaboration-i-6-01-job-b", platformws.JobStatusRunning)
 
 		resumed := incidentwstest.ConnectAndResume(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 			SessionToken:     admin.SessionCookie.Value,
-			ClientInstanceID: "phase6-i-6-01-first",
+			ClientInstanceID: "collaboration-i-6-01-first",
 			Presence:         timelinePresence(),
 		}, firstResumeToken, 0)
 		defer resumed.Close(websocket.StatusNormalClosure, "test_complete")
@@ -74,26 +74,26 @@ func TestTwoClientsPresenceReplay_Integration(t *testing.T) {
 
 func TestIncidentSocketRevocationSources(t *testing.T) {
 	runtime := collabscenariotest.StartRuntime(t)
-	harness, admin, _, incidentID := setupSocketIncidentWithAdminID(t, runtime, "phase6-support-socket-revocations")
+	harness, admin, _, incidentID := setupSocketIncidentWithAdminID(t, runtime, "collaboration-support-socket-revocations")
 
-	logoutUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase6-support-socket-logout@example.test", "Phase 6 Logout", "Phase6LogoutPass1!", false, false, true)
-	expiryUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase6-support-socket-expiry@example.test", "Phase 6 Expiry", "Phase6ExpiryPass1!", false, false, true)
-	concurrencyUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase6-support-socket-concurrency@example.test", "Phase 6 Concurrency", "Phase6ConcurrencyPass1!", false, false, true)
-	member := flowtest.SeedLocalUserRecord(t, harness.DB, "phase6-support-socket-member@example.test", "Phase 6 Member", "Phase6MemberPass1!", false, false, true)
+	logoutUser := flowtest.SeedLocalUserRecord(t, harness.DB, "collaboration-support-socket-logout@example.test", "Collaboration Logout", "CollaborationLogoutPass1!", false, false, true)
+	expiryUser := flowtest.SeedLocalUserRecord(t, harness.DB, "collaboration-support-socket-expiry@example.test", "Collaboration Expiry", "CollaborationExpiryPass1!", false, false, true)
+	concurrencyUser := flowtest.SeedLocalUserRecord(t, harness.DB, "collaboration-support-socket-concurrency@example.test", "Collaboration Concurrency", "CollaborationConcurrencyPass1!", false, false, true)
+	member := flowtest.SeedLocalUserRecord(t, harness.DB, "collaboration-support-socket-member@example.test", "Collaboration Member", "CollaborationMemberPass1!", false, false, true)
 	incidentscenariotest.CreateMembershipForUser(t, harness.Server, admin, incidentID, logoutUser.ID.String(), logoutUser.Email, "editor")
 	incidentscenariotest.CreateMembershipForUser(t, harness.Server, admin, incidentID, expiryUser.ID.String(), expiryUser.Email, "editor")
 	incidentscenariotest.CreateMembershipForUser(t, harness.Server, admin, incidentID, concurrencyUser.ID.String(), concurrencyUser.Email, "editor")
 	incidentscenariotest.CreateMembershipForUser(t, harness.Server, admin, incidentID, member.ID.String(), member.Email, "editor")
 
-	logoutSession, logoutCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, logoutUser.Email, "Phase6LogoutPass1!", nil)
-	expirySession, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, expiryUser.Email, "Phase6ExpiryPass1!", nil)
-	concurrencySession, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, concurrencyUser.Email, "Phase6ConcurrencyPass1!", nil)
-	memberSession, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, member.Email, "Phase6MemberPass1!", nil)
+	logoutSession, logoutCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, logoutUser.Email, "CollaborationLogoutPass1!", nil)
+	expirySession, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, expiryUser.Email, "CollaborationExpiryPass1!", nil)
+	concurrencySession, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, concurrencyUser.Email, "CollaborationConcurrencyPass1!", nil)
+	memberSession, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, member.Email, "CollaborationMemberPass1!", nil)
 
 	t.Run("current session logout", func(t *testing.T) {
 		logoutSocket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 			SessionToken:     logoutSession.Value,
-			ClientInstanceID: "phase6-support-socket-logout",
+			ClientInstanceID: "collaboration-support-socket-logout",
 			Presence:         timelinePresence(),
 		})
 		logoutResp := httptestx.DoJSON(
@@ -111,7 +111,7 @@ func TestIncidentSocketRevocationSources(t *testing.T) {
 	t.Run("concurrency limit eviction", func(t *testing.T) {
 		concurrencySocket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 			SessionToken:     concurrencySession.Value,
-			ClientInstanceID: "phase6-support-socket-concurrency",
+			ClientInstanceID: "collaboration-support-socket-concurrency",
 			Presence:         timelinePresence(),
 		})
 		sessionID := uuid.MustParse(sessionIDForCookie(t, harness, concurrencyUser.ID.String()))
@@ -122,7 +122,7 @@ func TestIncidentSocketRevocationSources(t *testing.T) {
 	t.Run("incident membership removal", func(t *testing.T) {
 		memberSocket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 			SessionToken:     memberSession.Value,
-			ClientInstanceID: "phase6-support-socket-membership",
+			ClientInstanceID: "collaboration-support-socket-membership",
 			Presence:         timelinePresence(),
 		})
 		incidentscenariotest.DeleteMembershipVersion(t, harness.Server, admin, incidentID, member.ID.String(), queryMembershipVersion(t, harness, incidentID, member.ID.String()))
@@ -131,14 +131,14 @@ func TestIncidentSocketRevocationSources(t *testing.T) {
 
 	t.Run("incident close", func(t *testing.T) {
 		closeIncident := incidentscenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
-			"client_txn_id": "txn-phase6-support-socket-incident-close-incident",
+			"client_txn_id": "txn-collaboration-support-socket-incident-close-incident",
 			"incident_key":  "IR-PHASE6SUPPORTSOCKETCLOSE",
-			"title":         "Phase 6 support socket close",
+			"title":         "Collaboration support socket close",
 		})
 		closeIncidentID := closeIncident["incident_id"].(string)
 		closeSocket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, closeIncidentID, incidentwstest.ConnectOptions{
 			SessionToken:     admin.SessionCookie.Value,
-			ClientInstanceID: "phase6-support-socket-incident-close",
+			ClientInstanceID: "collaboration-support-socket-incident-close",
 			Presence:         timelinePresence(),
 		})
 		closeResp := httptestx.DoJSON(
@@ -147,7 +147,7 @@ func TestIncidentSocketRevocationSources(t *testing.T) {
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+closeIncidentID+"/close",
 			map[string]any{
 				"base_incident_version": 1,
-				"client_txn_id":         "txn-phase6-support-socket-incident-close",
+				"client_txn_id":         "txn-collaboration-support-socket-incident-close",
 				"reason":                "Close incident to terminate writable collaboration.",
 			},
 			httptestx.WithCookies(admin.SessionCookie, admin.CSRFCookie),
@@ -160,7 +160,7 @@ func TestIncidentSocketRevocationSources(t *testing.T) {
 	t.Run("idle expiry", func(t *testing.T) {
 		expirySocket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 			SessionToken:     expirySession.Value,
-			ClientInstanceID: "phase6-support-socket-expiry",
+			ClientInstanceID: "collaboration-support-socket-expiry",
 			Presence:         timelinePresence(),
 		})
 		if err := expirySocket.Send(context.Background(), platformws.Message{
@@ -176,11 +176,11 @@ func TestIncidentSocketRevocationSources(t *testing.T) {
 
 func TestClosedIncidentSocketTerminatesBeforeWritableAck(t *testing.T) {
 	runtime := collabscenariotest.StartRuntime(t)
-	harness, admin, incidentID := setupSocketIncident(t, runtime, "phase6-support-closed-socket")
+	harness, admin, incidentID := setupSocketIncident(t, runtime, "collaboration-support-closed-socket")
 
 	initial := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 		SessionToken:     admin.SessionCookie.Value,
-		ClientInstanceID: "phase6-support-closed-socket-source",
+		ClientInstanceID: "collaboration-support-closed-socket-source",
 		Presence:         timelinePresence(),
 	})
 	resumeToken := initial.HelloAck.ResumeToken
@@ -192,7 +192,7 @@ func TestClosedIncidentSocketTerminatesBeforeWritableAck(t *testing.T) {
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/close",
 		map[string]any{
 			"base_incident_version": 1,
-			"client_txn_id":         "txn-phase6-support-closed-socket-close",
+			"client_txn_id":         "txn-collaboration-support-closed-socket-close",
 			"reason":                "Close incident before new writable socket attempts.",
 		},
 		httptestx.WithCookies(admin.SessionCookie, admin.CSRFCookie),
@@ -214,7 +214,7 @@ func TestClosedIncidentSocketTerminatesBeforeWritableAck(t *testing.T) {
 		if err := platformws.WriteJSON(ctx, conn, platformws.Message{
 			Type: "hello",
 			Payload: platformws.RawPayload(map[string]any{
-				"client_instance_id": "phase6-support-closed-socket-hello",
+				"client_instance_id": "collaboration-support-closed-socket-hello",
 				"presence":           timelinePresence(),
 			}),
 		}); err != nil {
@@ -237,7 +237,7 @@ func TestClosedIncidentSocketTerminatesBeforeWritableAck(t *testing.T) {
 		if err := platformws.WriteJSON(ctx, conn, platformws.Message{
 			Type: "resume",
 			Payload: platformws.RawPayload(map[string]any{
-				"client_instance_id":   "phase6-support-closed-socket-source",
+				"client_instance_id":   "collaboration-support-closed-socket-source",
 				"resume_token":         resumeToken,
 				"last_seen_stream_seq": 0,
 				"presence":             timelinePresence(),
@@ -274,11 +274,11 @@ func requireClosedIncidentTerminal(t testing.TB, ctx context.Context, conn *webs
 
 func TestResumeReplaysReplayableMessagesOnly_Integration(t *testing.T) {
 	runtime := collabscenariotest.StartRuntime(t)
-	harness, admin, incidentID := setupSocketIncident(t, runtime, "phase6-i-6-02-replayable-only")
+	harness, admin, incidentID := setupSocketIncident(t, runtime, "collaboration-i-6-02-replayable-only")
 
 	source := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 		SessionToken:     admin.SessionCookie.Value,
-		ClientInstanceID: "phase6-i-6-02-source",
+		ClientInstanceID: "collaboration-i-6-02-source",
 		Presence:         timelinePresence(),
 	})
 	resumeToken := source.HelloAck.ResumeToken
@@ -286,21 +286,21 @@ func TestResumeReplaysReplayableMessagesOnly_Integration(t *testing.T) {
 
 	other := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 		SessionToken:     admin.SessionCookie.Value,
-		ClientInstanceID: "phase6-i-6-02-other",
+		ClientInstanceID: "collaboration-i-6-02-other",
 		Presence:         timelinePresence(),
 	})
 	defer other.Close(websocket.StatusNormalClosure, "test_complete")
 
 	timelineroutetest.CreateRow(t, harness.Server, admin, incidentID, map[string]any{
-		"client_txn_id":                   "txn-phase6-i-6-02-record",
-		"timeline.activity_synopsis_text": "Phase 6 replayable record change",
+		"client_txn_id":                   "txn-collaboration-i-6-02-record",
+		"timeline.activity_synopsis_text": "Collaboration replayable record change",
 	})
 
-	publishJobProgress(t, harness, incidentID, "phase6-i-6-02-job", platformws.JobStatusRunning)
+	publishJobProgress(t, harness, incidentID, "collaboration-i-6-02-job", platformws.JobStatusRunning)
 
 	resumed := incidentwstest.ConnectAndResume(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 		SessionToken:     admin.SessionCookie.Value,
-		ClientInstanceID: "phase6-i-6-02-source",
+		ClientInstanceID: "collaboration-i-6-02-source",
 		Presence:         timelinePresence(),
 	}, resumeToken, 0)
 	defer resumed.Close(websocket.StatusNormalClosure, "test_complete")
@@ -321,7 +321,7 @@ func TestResumeReplaysReplayableMessagesOnly_Integration(t *testing.T) {
 
 func TestCookieSocketRejectsUntrustedOrigin_Integration(t *testing.T) {
 	runtime := collabscenariotest.StartRuntime(t)
-	harness, admin, incidentID := setupSocketIncident(t, runtime, "phase6-i-6-04-origin")
+	harness, admin, incidentID := setupSocketIncident(t, runtime, "collaboration-i-6-04-origin")
 
 	incidentwstest.RequireDialRejectedStatus(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 		Cookies: []*http.Cookie{admin.SessionCookie},
@@ -330,7 +330,7 @@ func TestCookieSocketRejectsUntrustedOrigin_Integration(t *testing.T) {
 
 	client := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 		SessionToken:     admin.SessionCookie.Value,
-		ClientInstanceID: "phase6-i-6-04-authorized",
+		ClientInstanceID: "collaboration-i-6-04-authorized",
 		Presence:         timelinePresence(),
 	})
 	defer client.Close(websocket.StatusNormalClosure, "test_complete")

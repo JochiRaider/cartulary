@@ -209,7 +209,7 @@ function writeRootScopedCacheFixture(label, modulePath, specFile, specTitle) {
   }
 }
 
-assert.equal(frontendVisualFixtureIDPattern.test("FE-VFIX-22"), true);
+assert.equal(frontendVisualFixtureIDPattern.test("visual.fixture.claimed_network_analysis_workspace_states"), true);
 assert.equal(frontendVisualFixtureIDPattern.test("FE-VFIX-00"), false);
 assert.equal(frontendPhaseBaseJoin({ phase_id: "FE-P12", base_phase_join: "phase4" }), "phase4");
 assert.equal(frontendPhaseBaseJoin({ phase_id: "FE-P12", base_phase_join: null }), "");

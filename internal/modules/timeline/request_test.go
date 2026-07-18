@@ -24,12 +24,12 @@ func TestAutoResolutionEligibility_Unit(t *testing.T) {
 		)
 		data, err := json.Marshal(payload)
 		if err != nil {
-			t.Fatalf("marshal Phase 4 collection patch payload: %v", err)
+			t.Fatalf("marshal Record relationships collection patch payload: %v", err)
 		}
 
 		request, apiErr := timeline.DecodeTimelinePatchRequest(bytes.NewReader(data))
 		if apiErr != nil {
-			t.Fatalf("expected Phase 4 Timeline relationship collection patch to decode for auto-resolution eligibility assertions, got %#v", apiErr)
+			t.Fatalf("expected Record relationships Timeline relationship collection patch to decode for auto-resolution eligibility assertions, got %#v", apiErr)
 		}
 		if request.CanonicalChange[0].FieldKey != golden.RecordFieldTimelineHostRefs {
 			t.Fatalf("unexpected decoded field_key: %#v", request.CanonicalChange)
@@ -55,7 +55,7 @@ func TestAutoResolutionEligibility_Unit(t *testing.T) {
 				)
 				data, err := json.Marshal(payload)
 				if err != nil {
-					t.Fatalf("marshal Phase 4 collection patch payload: %v", err)
+					t.Fatalf("marshal Record relationships collection patch payload: %v", err)
 				}
 
 				request, apiErr := timeline.DecodeTimelinePatchRequest(bytes.NewReader(data))

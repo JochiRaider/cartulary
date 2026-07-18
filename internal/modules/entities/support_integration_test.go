@@ -278,7 +278,7 @@ func (s *SupportSuite) newScenario(t *testing.T, route workbookscenariotest.Rout
 	incident := workbookscenariotest.CreateIncident(t, s.harness.Server, s.bootstrapLogin, map[string]any{
 		"client_txn_id": supportTxn(s.label+"-incident", route.Key),
 		"incident_key":  "IR-P4-" + strings.ToUpper(strings.ReplaceAll(string(route.Key), "_", "-")),
-		"title":         "Phase 4 support matrix " + s.label + " " + string(route.Key),
+		"title":         "Record relationships support matrix " + s.label + " " + string(route.Key),
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
@@ -287,7 +287,7 @@ func (s *SupportSuite) newScenario(t *testing.T, route workbookscenariotest.Rout
 		t,
 		s.harness.DB,
 		"phase4-support-"+s.label+"-"+string(route.Key)+"@example.test",
-		"Phase 4 Support Admin",
+		"Record relationships Support Admin",
 		actorPassword,
 		false,
 		false,

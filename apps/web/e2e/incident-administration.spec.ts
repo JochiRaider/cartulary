@@ -301,7 +301,7 @@ test("creates an incident, bootstraps the creator as admin, and lands on the wor
   const incidentKey = uniqueIncidentKey("E201");
   await new IncidentDirectory(page).createAndOpenIncident(
     incidentKey,
-    "Phase 2 E-2-01",
+    "Incident administration E-2-01",
   );
 
   await expect(page).toHaveURL(/incident_id=/);
@@ -324,7 +324,7 @@ test("creates an incident, bootstraps the creator as admin, and lands on the wor
     expectIncidentPreferences: true,
     incidentId: openedIncidentId,
     incidentKey,
-    incidentTitle: "Phase 2 E-2-01",
+    incidentTitle: "Incident administration E-2-01",
   });
   expect(pageErrors).toEqual([]);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
@@ -680,7 +680,11 @@ test("shows incident discovery, raw querystring deep-link retrieval, and promote
   page,
 }) => {
   const incidentKey = uniqueIncidentKey("E202");
-  const incidentId = await createIncident(page, incidentKey, "Phase 2 E-2-02");
+  const incidentId = await createIncident(
+    page,
+    incidentKey,
+    "Incident administration E-2-02",
+  );
 
   await new IncidentDirectory(page).goto();
   await expect(
@@ -699,7 +703,7 @@ test("shows incident discovery, raw querystring deep-link retrieval, and promote
     incidentKey,
   );
   await expect(page.getByTestId("incident-summary-title")).toHaveText(
-    "Phase 2 E-2-02",
+    "Incident administration E-2-02",
   );
   await expect(page.getByTestId("incident-summary-version")).toHaveText(
     "Version 1",
@@ -753,13 +757,13 @@ test("lets incident admins manage memberships and hides those controls from non-
   const memberPassword = "Phase2E203Pass!";
   const memberUser = await createLocalUser(page, {
     email: memberEmail,
-    display_name: "Phase 2 E203 Member",
+    display_name: "Incident administration E203 Member",
     initial_password: memberPassword,
   });
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E203"),
-    "Phase 2 E-2-03",
+    "Incident administration E-2-03",
   );
 
   await openIncidentFromLanding(page, incidentId);

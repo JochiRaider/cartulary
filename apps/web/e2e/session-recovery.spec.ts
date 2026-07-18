@@ -30,7 +30,7 @@ test("preserves unsaved local work after socket revocation and re-authentication
         await revokeAllSessions(
           workerAdminRequest,
           member.user_id,
-          "Phase 6 E-6-03 browser revoke-all",
+          "Collaboration E-6-03 browser revoke-all",
         );
       },
     });

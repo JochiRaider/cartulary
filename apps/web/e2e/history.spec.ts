@@ -81,7 +81,7 @@ test("opens row history from the workbook surface with legal rollback actions", 
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E701"),
-    "Phase 7 E-7-01 row history",
+    "History E-7-01 row history",
   );
   const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e701-row"),
@@ -134,7 +134,7 @@ test("retargets open inspector history when row focus changes", async ({
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E701B"),
-    "Phase 7 E-7-01b row history retarget",
+    "History E-7-01b row history retarget",
   );
   const firstRow = (await createViewRow(
     page,
@@ -214,7 +214,7 @@ test("rolls back one attached-evidence mutation without reverting later unrelate
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E702"),
-    "Phase 7 E-7-02 rollback evidence link",
+    "History E-7-02 rollback evidence link",
   );
   const evidence = (await createViewRow(
     page,
@@ -352,7 +352,7 @@ test("soft-deletes and restores a row with tombstone concurrency", async ({
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E703"),
-    "Phase 7 E-7-03 delete restore",
+    "History E-7-03 delete restore",
   );
   const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e703-row"),
@@ -443,7 +443,7 @@ test("whole-row restore appends a new attributed revision", async ({
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E704"),
-    "Phase 7 E-7-04 whole row restore",
+    "History E-7-04 whole row restore",
   );
   const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e704-row"),
@@ -555,7 +555,7 @@ test("rolls back a merge change set from row history", async ({ page }) => {
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E705"),
-    "Phase 7 E-7-05 merge rollback",
+    "History E-7-05 merge rollback",
   );
   const survivor = (await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e705-survivor"),
@@ -613,7 +613,7 @@ test("rolls back a merge change set from row history", async ({ page }) => {
         survivor_base_row_version: survivor.row_version,
         loser_base_row_version: loser.row_version,
         client_txn_id: uniqueTxn("e705-merge"),
-        reason: "Phase 7 E-7-05 browser merge",
+        reason: "History E-7-05 browser merge",
       },
     },
   );

@@ -26,7 +26,7 @@ func TestObjectBlobCreate_Unit(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-blob-create-incident",
 		"incident_key":  "phase5-blob-create",
-		"title":         "Phase 5 blob create",
+		"title":         "Evidence blob create",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 	issuedAt := time.Now().UTC().Add(time.Minute).Truncate(time.Second)
@@ -204,8 +204,8 @@ func TestBlobCreateIdempotency_Unit(t *testing.T) {
 	store := evidence.NewStore(harness.DB)
 	actorA := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase5-blob-actor-a@example.test", "Phase5 Blob Actor A", "Phase5BlobActorA1!", false, false, true)
 	actorB := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase5-blob-actor-b@example.test", "Phase5 Blob Actor B", "Phase5BlobActorB1!", false, false, true)
-	incidentA := recordstoretest.CreateIncidentInStore(t, harness.DB, actorA, "txn-phase5-blob-incident-a", "IR-P5-BLOB-A", "Phase 5 blob incident A")
-	incidentB := recordstoretest.CreateIncidentInStore(t, harness.DB, actorA, "txn-phase5-blob-incident-b", "IR-P5-BLOB-B", "Phase 5 blob incident B")
+	incidentA := recordstoretest.CreateIncidentInStore(t, harness.DB, actorA, "txn-phase5-blob-incident-a", "IR-P5-BLOB-A", "Evidence blob incident A")
+	incidentB := recordstoretest.CreateIncidentInStore(t, harness.DB, actorA, "txn-phase5-blob-incident-b", "IR-P5-BLOB-B", "Evidence blob incident B")
 
 	baseRequest := mustBlobCreateRequest(t, incidentA.ID, "txn-shared-blob", 12, " proof.bin ", " application/octet-stream ", nil)
 	first := createBlobSlot(t, store, baseRequest, actorA.ID, incidentA.ID, uuid.New(), "slot-a-first")
@@ -258,7 +258,7 @@ func TestBlobCreateSizeCeiling_Unit(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-size-incident",
 		"incident_key":  "phase5-size",
-		"title":         "Phase 5 size ceiling",
+		"title":         "Evidence size ceiling",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
@@ -310,7 +310,7 @@ func TestPreviewPayloadCeiling_Unit(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-preview-size-incident",
 		"incident_key":  "phase5-preview-size",
-		"title":         "Phase 5 preview size",
+		"title":         "Evidence preview size",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 

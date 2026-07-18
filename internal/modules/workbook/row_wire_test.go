@@ -22,7 +22,7 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-u-8-10-incident",
 		"incident_key":  "IR-PHASE8-U-8-10",
-		"title":         "Phase 8 row wire",
+		"title":         "Workbook query row wire",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 	recordID := seedNoteArtifact(t, harness, incidentID, actorID, "Visible title", nil)
@@ -79,7 +79,7 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 
 	timelineCreated := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.timeline.v2", map[string]any{
 		"client_txn_id":                   "txn-phase8-u-8-10-timeline-create",
-		"timeline.activity_synopsis_text": "Phase 8 operational row",
+		"timeline.activity_synopsis_text": "Workbook query operational row",
 		"timeline.raw_activity_text":      "Hidden source",
 		"timeline.activity_utc_text":      "2026-05-16T12:00:00Z",
 	})
@@ -110,7 +110,7 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 
 	patchEvidenceCreated := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.evidence.v1", map[string]any{
 		"client_txn_id":               "txn-phase8-u-8-10-evidence-create",
-		"evidence.title":              "Phase 8 sparse evidence",
+		"evidence.title":              "Workbook query sparse evidence",
 		"evidence.lifecycle_state":    "received",
 		"evidence.received_at":        "2026-05-16T12:05:00Z",
 		"evidence.collector_party_id": nil,
@@ -162,7 +162,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-ac368-incident",
 		"incident_key":  "IR-PHASE8-AC368",
-		"title":         "Phase 8 sparse patch coverage",
+		"title":         "Workbook query sparse patch coverage",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
@@ -397,7 +397,7 @@ func TestLiveAuthorizedCursorPagination_Integration(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-i-8-04-incident",
 		"incident_key":  "IR-PHASE8-I-8-04",
-		"title":         "Phase 8 cursor",
+		"title":         "Workbook query cursor",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 	hostA := uuid.New()
@@ -449,7 +449,7 @@ func TestLiveAuthorizedCursorPagination_Integration(t *testing.T) {
 	otherIncident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-i-8-04-other-incident",
 		"incident_key":  "IR-PHASE8-I-8-04-OTHER",
-		"title":         "Phase 8 cursor other",
+		"title":         "Workbook query cursor other",
 	})
 	otherIncidentID := workbookscenariotest.MustUUID(t, otherIncident["incident_id"].(string))
 	otherRoute := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+otherIncidentID.String()+"/views/"+hostidentity.HostsViewSchemaID+"/query", map[string]any{
@@ -468,7 +468,7 @@ func TestCursorContinuationRechecksAuthorization_Integration(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-i-8-04-auth-incident",
 		"incident_key":  "IR-PHASE8-I-8-04-AUTH",
-		"title":         "Phase 8 cursor auth",
+		"title":         "Workbook query cursor auth",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 	seedHostForPaging(t, harness, incidentID, adminUserID, uuid.New(), "Alpha")
@@ -500,7 +500,7 @@ func TestCursorContinuationRechecksMembership_Integration(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-i-8-04-membership-incident",
 		"incident_key":  "IR-PHASE8-I-8-04-MEMBER",
-		"title":         "Phase 8 cursor membership",
+		"title":         "Workbook query cursor membership",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 	seedHostForPaging(t, harness, incidentID, adminUserID, uuid.New(), "Alpha")
@@ -525,7 +525,7 @@ func TestNotesFullTextExactSearch(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-ac185-incident",
 		"incident_key":  "IR-PHASE8-AC185",
-		"title":         "Phase 8 AC185",
+		"title":         "Workbook query AC185",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
@@ -592,7 +592,7 @@ func TestPrefixAndNullLastOrdering(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-e-8-04-prefix-incident",
 		"incident_key":  "IR-PHASE8-E-8-04-PREFIX",
-		"title":         "Phase 8 prefix",
+		"title":         "Workbook query prefix",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 

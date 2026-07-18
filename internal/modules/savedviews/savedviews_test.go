@@ -38,7 +38,7 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-u-8-02-incident",
 		"incident_key":  "IR-U802",
-		"title":         "Phase 8 saved views",
+		"title":         "Workbook query saved views",
 	})
 	incidentID := incident["incident_id"].(string)
 
@@ -339,7 +339,7 @@ func TestSavedViewCreateEvolvesAdditiveHiddenFields_Unit(t *testing.T) {
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-layout-evolution-incident",
 		"incident_key":  "IR-U802-LAYOUT-EVOLUTION",
-		"title":         "Phase 8 saved-view layout evolution",
+		"title":         "Workbook query saved-view layout evolution",
 	})
 	incidentID := incident["incident_id"].(string)
 
@@ -401,7 +401,7 @@ func TestSavedViewSystemFixtureRouteUnavailableByDefault_Unit(t *testing.T) {
 		"layout_json":    map[string]any{},
 	}
 
-	harness := runtime.StartServer(t, "phase8-savedviews-system-fixture-unregistered")
+	harness := runtime.StartServer(t, "savedviews-system-fixture-unregistered")
 	unregisteredResp := httptestx.DoJSON(
 		t,
 		http.MethodPost,
@@ -415,12 +415,12 @@ func TestSavedViewSystemFixtureRouteUnavailableByDefault_Unit(t *testing.T) {
 
 func TestSavedViewSystemFixtureRoute_Unit(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServerWithRoutes(t, "phase8-savedviews-system-fixture", savedviews.RegisterTestRoutes())
+	harness := runtime.StartServerWithRoutes(t, "savedviews-system-fixture", savedviews.RegisterTestRoutes())
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase8-system-fixture-incident",
+		"client_txn_id": "txn-savedviews-system-fixture-incident",
 		"incident_key":  "IR-U802-SYSTEM",
-		"title":         "Phase 8 system saved-view fixture",
+		"title":         "Workbook query system saved-view fixture",
 	})
 	incidentID := incident["incident_id"].(string)
 	route := harness.Server.HTTP.URL + "/api/v1/test/incidents/" + incidentID + "/saved-views/system"
@@ -541,7 +541,7 @@ func TestSavedViewPatchContract_Unit(t *testing.T) {
 	incident := storetest.CreateIncidentInStore(t, harness.Incidents, admin, incidents.CreateIncidentRequest{
 		ClientTxnID: "txn-phase8-u-8-04-incident",
 		IncidentKey: "IR-U804",
-		Title:       "Phase 8 saved-view patch",
+		Title:       "Workbook query saved-view patch",
 	})
 
 	incidentID := incident.Incident.ID
@@ -654,7 +654,7 @@ func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-i-8-01-incident",
 		"incident_key":  "IR-I801",
-		"title":         "Phase 8 saved-view lifecycle",
+		"title":         "Workbook query saved-view lifecycle",
 	})
 	incidentID := incident["incident_id"].(string)
 	incidentUUID := workbookscenariotest.MustUUID(t, incidentID)

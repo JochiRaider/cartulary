@@ -9,7 +9,7 @@ import (
 
 func AllowedFieldKeys(t testing.TB, testID string, viewSchemaID string) []string {
 	t.Helper()
-	return viewschematest.AllowedFieldKeys(t, "Phase 4 "+testID, viewSchemaID)
+	return viewschematest.AllowedFieldKeys(t, "Record relationships "+testID, viewSchemaID)
 }
 
 func SortedRowFieldKeys(t testing.TB, row map[string]any) []string {

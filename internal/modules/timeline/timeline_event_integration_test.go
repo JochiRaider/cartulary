@@ -1685,7 +1685,7 @@ func TestCanonicalIncidentWebSocket_Integration(t *testing.T) {
 			t.Fatalf("presence_snapshot must be sorted by connection_id: %#v", second.PresenceSnapshot)
 		}
 
-		outsiderID := seedLocalUserFlags(t, db, "phase3-i-3-05-outsider@example.test", "Phase 3 WS Outsider", "Phase3OutsiderPass1!", false, false, true)
+		outsiderID := seedLocalUserFlags(t, db, "phase3-i-3-05-outsider@example.test", "Timeline WS Outsider", "Phase3OutsiderPass1!", false, false, true)
 		if outsiderID == "" {
 			t.Fatal("expected outsider user")
 		}
@@ -1718,7 +1718,7 @@ func TestCanonicalIncidentWebSocket_Integration(t *testing.T) {
 		incidentAID := incidentA["incident_id"].(string)
 		incidentBID := incidentB["incident_id"].(string)
 
-		userID := seedLocalUserFlags(t, db, "phase3-i-3-05-member@example.test", "Phase 3 WS Member", "Phase3MemberPass1!", false, false, true)
+		userID := seedLocalUserFlags(t, db, "phase3-i-3-05-member@example.test", "Timeline WS Member", "Phase3MemberPass1!", false, false, true)
 		createMembership(t, server, incidentAID, userID, "phase3-i-3-05-member@example.test", "editor", adminLogin)
 		createMembership(t, server, incidentBID, userID, "phase3-i-3-05-member@example.test", "editor", adminLogin)
 		membershipVersion := queryMembershipVersion(t, db, incidentAID, userID)
@@ -1775,7 +1775,7 @@ func TestTimelineTimeConversionProfile(t *testing.T) {
 		t.Fatalf("unexpected default time conversion profile: %#v", defaultProfile)
 	}
 
-	editorID := seedLocalUserFlags(t, db, "phase3-i-3-08-editor@example.test", "Phase 3 Time Editor", "Phase3TimeEditor1!", false, false, true)
+	editorID := seedLocalUserFlags(t, db, "phase3-i-3-08-editor@example.test", "Timeline Time Editor", "Phase3TimeEditor1!", false, false, true)
 	createMembership(t, server, incidentID, editorID, "phase3-i-3-08-editor@example.test", "editor", adminLogin)
 	editorSession, editorCSRF := loginLocalUser(t, server, "phase3-i-3-08-editor@example.test", "Phase3TimeEditor1!")
 	editorPut := doJSON(

@@ -29,7 +29,7 @@ test("measures user-visible typing_ack and blank-row-create completion within th
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E302"),
-    "Phase 3 E-3-02",
+    "Timeline E-3-02",
   );
 
   await page.goto(`/?incident_id=${incidentId}`);

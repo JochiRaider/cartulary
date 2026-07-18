@@ -112,7 +112,7 @@ func RequireNoMutationArtifacts(t testing.TB, db Database, selector MutationSele
 	t.Helper()
 
 	if got := CountMutationArtifacts(t, db, selector, owners...); got != 0 {
-		t.Fatalf("expected no surviving phase2 mutation artifacts for %+v, got %d", selector, got)
+		t.Fatalf("expected no surviving incident mutation artifacts for %+v, got %d", selector, got)
 	}
 }
 
@@ -168,7 +168,7 @@ SELECT event_kind,
 
 	rows, err := db.query(context.Background(), query, args...)
 	if err != nil {
-		t.Fatalf("query phase2 mutation artifacts: %v", err)
+		t.Fatalf("query incident mutation artifacts: %v", err)
 	}
 	defer db.close(rows)
 
@@ -180,14 +180,14 @@ SELECT event_kind,
 			afterPayload  []byte
 		)
 		if err := rows.Scan(&record.EventKind, &record.ActorUserID, &record.EventSource, &record.ClientTxnID, &record.RequestID, &record.CreatedAt, &beforePayload, &afterPayload); err != nil {
-			t.Fatalf("scan phase2 mutation artifact: %v", err)
+			t.Fatalf("scan incident mutation artifact: %v", err)
 		}
 		record.Before = decodeJSONMap(t, beforePayload)
 		record.After = decodeJSONMap(t, afterPayload)
 		events = append(events, record)
 	}
 	if err := rows.Err(); err != nil {
-		t.Fatalf("iterate phase2 mutation artifacts: %v", err)
+		t.Fatalf("iterate incident mutation artifacts: %v", err)
 	}
 	return events
 }

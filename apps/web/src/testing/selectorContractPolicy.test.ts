@@ -82,7 +82,7 @@ const appLocalSelectorOwnership = [
       /^(?:row-record-1-(?:mark-reviewed|replacement-id|supersede)|phase8-row-record-[12])$/u,
     reason:
       "These fixed row selector literals target a unit-test fixture; variable row selector construction remains builder-owned.",
-    scope: "apps/web phase 3 autosave unit fixture",
+    scope: "apps/web Timeline autosave unit fixture",
   },
   {
     owner: "apps/web presence and sync surfaces",

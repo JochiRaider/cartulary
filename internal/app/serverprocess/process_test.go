@@ -21,7 +21,7 @@ const (
 )
 
 // These are process-level smoke tests for the standalone server binary.
-// They are intentionally not the authoritative Phase 1 browser E2E ledger.
+// They are intentionally not the authoritative Authentication browser E2E ledger.
 func TestLoginSessionAndLogout_Process(t *testing.T) {
 	t.Parallel()
 

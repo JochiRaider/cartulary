@@ -65,8 +65,8 @@ describe("App-shell API route boundaries", () => {
     });
     await createLocalUser({
       clientTxnId: "txn-user-create",
-      displayName: "Phase 1 User",
-      email: "phase1-user@example.test",
+      displayName: "Authentication User",
+      email: "deployment-user@example.test",
       initialPassword: "InitialPass1!",
       isDeploymentAdmin: false,
       mfaRequired: true,
@@ -189,8 +189,8 @@ describe("App-shell API route boundaries", () => {
         body: {
           client_txn_id: "txn-user-create",
           auth_kind: "local",
-          email: "phase1-user@example.test",
-          display_name: "Phase 1 User",
+          email: "deployment-user@example.test",
+          display_name: "Authentication User",
           initial_password: "InitialPass1!",
           mfa_required: true,
           is_deployment_admin: false,

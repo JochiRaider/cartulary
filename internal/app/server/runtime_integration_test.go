@@ -74,7 +74,7 @@ func TestInvalidConfigNeverReachesReady_Integration(t *testing.T) {
 			cfg := BindPostgres(t, tc.mutate(RuntimeConfig(t)), env)
 
 			_, err := NewRuntime(context.Background(), cfg, Options{Env: env})
-			configtest.RequireDiagnosticsMatchGolden(t, err, []string{"phase0", "diagnostics", tc.goldenFile})
+			configtest.RequireDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", tc.goldenFile})
 			counters.RequireNotStarted(t)
 		})
 	}
@@ -317,7 +317,7 @@ func TestBootstrapFailures_Integration(t *testing.T) {
 
 			counters := installStartupCounters(t)
 			_, err := NewRuntime(context.Background(), cfg, Options{Env: env})
-			configtest.RequireDiagnosticsMatchGolden(t, err, []string{"phase0", "diagnostics", tc.goldenFile})
+			configtest.RequireDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", tc.goldenFile})
 			counters.RequireNotStarted(t)
 
 			requireCountSQL(t, db, `SELECT COUNT(*) FROM users`, tc.wantUserCount)
@@ -434,7 +434,7 @@ func TestBootstrapSkipAndRecovery_Integration(t *testing.T) {
 
 		counters := installStartupCounters(t)
 		_, err := NewRuntime(context.Background(), cfg, Options{Env: env})
-		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"phase0", "diagnostics", "bootstrap_recovery_not_supported.json"})
+		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", "bootstrap_recovery_not_supported.json"})
 		counters.RequireNotStarted(t)
 
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM users`, 1)

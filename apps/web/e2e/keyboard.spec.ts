@@ -375,11 +375,11 @@ test("keyboard shortcuts keep workbook grid anchors without module switching", a
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E901"),
-    "Phase 9 E-9-01 keyboard contract",
+    "Workbook inspector E-9-01 keyboard contract",
   );
   const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e901-alpha"),
-    "timeline.date_entered_text": "Phase 9 alpha",
+    "timeline.date_entered_text": "Workbook inspector alpha",
     [hostRefsFieldKey]: collectionActionsPayload(["Phase9Host?"]),
   });
   await page.goto(`/?incident_id=${incidentId}`);
@@ -390,7 +390,7 @@ test("keyboard shortcuts keep workbook grid anchors without module switching", a
     page.getByTestId(
       rowCellTestId(alpha.record_id as string, "timeline.date_entered_text"),
     ),
-  ).toHaveText("Phase 9 alpha");
+  ).toHaveText("Workbook inspector alpha");
   const initialURL = page.url();
 
   const alphaSummary = page.getByTestId(
@@ -454,9 +454,14 @@ test("keeps the incident workbook inside the browser viewport and delegates over
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E9LAYOUT"),
-    "Phase 9 bounded workbook layout",
+    "Workbook inspector bounded workbook layout",
   );
-  await createTimelineFillers(page, incidentId, "Phase 9 layout row", 72);
+  await createTimelineFillers(
+    page,
+    incidentId,
+    "Workbook inspector layout row",
+    72,
+  );
 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(
@@ -913,7 +918,7 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E9GRID01"),
-    "Phase 9 E-9-GRIDANCHORS-01 keyboard anchor semantics",
+    "Workbook inspector E-9-GRIDANCHORS-01 keyboard anchor semantics",
   );
 
   let host: ViewApiRow | undefined;
@@ -921,7 +926,7 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
   await test.step("Timeline anchor", async () => {
     const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
       client_txn_id: uniqueTxn("e9grid01"),
-      "timeline.activity_synopsis_text": "Phase 9 grid anchor",
+      "timeline.activity_synopsis_text": "Workbook inspector grid anchor",
     });
     const summary = await expectSharedGridAnchorSurface({
       page,
@@ -929,7 +934,7 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
       viewSchemaId: timelineViewSchemaId,
       row,
       fieldKey: "timeline.activity_synopsis_text",
-      expectedText: "Phase 9 grid anchor",
+      expectedText: "Workbook inspector grid anchor",
       rightFieldKey: "timeline.data_source_text",
       rightFocusTestId: rowCellTestId(
         row.record_id,
@@ -946,7 +951,7 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
   await test.step("Hosts anchor", async () => {
     host = await createViewRow(page, incidentId, hostsViewSchemaId, {
       client_txn_id: uniqueTxn("e9grid01-host"),
-      "host.display_name": "Phase 9 host anchor",
+      "host.display_name": "Workbook inspector host anchor",
       "host.hostname": "phase9-host.example.test",
     });
     await expectSharedGridAnchorSurface({
@@ -955,7 +960,7 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
       viewSchemaId: hostsViewSchemaId,
       row: host,
       fieldKey: "host.display_name",
-      expectedText: "Phase 9 host anchor",
+      expectedText: "Workbook inspector host anchor",
       rightFieldKey: "host.hostname",
     });
   });
@@ -967,7 +972,7 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
       identitiesViewSchemaId,
       {
         client_txn_id: uniqueTxn("e9grid01-identity"),
-        "identity.display_name": "Phase 9 identity anchor",
+        "identity.display_name": "Workbook inspector identity anchor",
         "identity.upn": "phase9.identity@example.test",
       },
     );
@@ -977,7 +982,7 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
       viewSchemaId: identitiesViewSchemaId,
       row: identity,
       fieldKey: "identity.display_name",
-      expectedText: "Phase 9 identity anchor",
+      expectedText: "Workbook inspector identity anchor",
     });
   });
 
@@ -997,7 +1002,7 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
         "assessment.subject_type": "host",
         "assessment.assessment_state": "confirmed",
         "assessment.confidence_score": 55,
-        "assessment.rationale": "Phase 9 assessment anchor",
+        "assessment.rationale": "Workbook inspector assessment anchor",
       },
     );
     await expectSharedGridAnchorSurface({
@@ -1017,7 +1022,7 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
       taskRequestsViewSchemaId,
       {
         client_txn_id: uniqueTxn("e9grid01-task"),
-        "task.title": "Phase 9 task request anchor",
+        "task.title": "Workbook inspector task request anchor",
         "task.task_kind": "collection",
       },
     );
@@ -1027,7 +1032,7 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
       viewSchemaId: taskRequestsViewSchemaId,
       row: task,
       fieldKey: "task.title",
-      expectedText: "Phase 9 task request anchor",
+      expectedText: "Workbook inspector task request anchor",
       rightFieldKey: "task.status",
     });
   });
@@ -1039,9 +1044,10 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
       decisionsViewSchemaId,
       {
         client_txn_id: uniqueTxn("e9grid01-decision"),
-        "decision.summary": "Phase 9 decision anchor",
+        "decision.summary": "Workbook inspector decision anchor",
         "decision.decision_type": "containment",
-        "decision.rationale": "Phase 9 decision grid anchor rationale",
+        "decision.rationale":
+          "Workbook inspector decision grid anchor rationale",
       },
     );
     await expectSharedGridAnchorSurface({
@@ -1050,7 +1056,7 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
       viewSchemaId: decisionsViewSchemaId,
       row: decision,
       fieldKey: "decision.summary",
-      expectedText: "Phase 9 decision anchor",
+      expectedText: "Workbook inspector decision anchor",
       rightFieldKey: "decision.status",
     });
   });
@@ -1058,8 +1064,8 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
   await test.step("Notes anchor", async () => {
     const note = await createViewRow(page, incidentId, notesViewSchemaId, {
       client_txn_id: uniqueTxn("e9grid01-note"),
-      "note.title": "Phase 9 note anchor",
-      "note.body": "Phase 9 generic surface anchor body",
+      "note.title": "Workbook inspector note anchor",
+      "note.body": "Workbook inspector generic surface anchor body",
     });
     await expectSharedGridAnchorSurface({
       page,
@@ -1067,7 +1073,7 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
       viewSchemaId: notesViewSchemaId,
       row: note,
       fieldKey: "note.title",
-      expectedText: "Phase 9 note anchor",
+      expectedText: "Workbook inspector note anchor",
     });
   });
 
@@ -1075,9 +1081,9 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
     const comm = await createViewRow(page, incidentId, commLogViewSchemaId, {
       client_txn_id: uniqueTxn("e9grid01-comm"),
       "comm_log.comm_type": "briefing",
-      "comm_log.audience": "Phase 9 grid audience",
+      "comm_log.audience": "Workbook inspector grid audience",
       "comm_log.channel_or_meeting": "Grid bridge",
-      "comm_log.summary": "Phase 9 comm log anchor",
+      "comm_log.summary": "Workbook inspector comm log anchor",
     });
     await expectSharedGridAnchorSurface({
       page,
@@ -1085,7 +1091,7 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
       viewSchemaId: commLogViewSchemaId,
       row: comm,
       fieldKey: "comm_log.summary",
-      expectedText: "Phase 9 comm log anchor",
+      expectedText: "Workbook inspector comm log anchor",
     });
   });
 
@@ -1093,7 +1099,7 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
     const handoff = await createViewRow(page, incidentId, handoffViewSchemaId, {
       client_txn_id: uniqueTxn("e9grid01-handoff"),
       "handoff.incoming_owner_user_id": workerAdmin.user_id,
-      "handoff.current_state_summary": "Phase 9 handoff anchor",
+      "handoff.current_state_summary": "Workbook inspector handoff anchor",
     });
     await expectSharedGridAnchorSurface({
       page,
@@ -1101,7 +1107,7 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
       viewSchemaId: handoffViewSchemaId,
       row: handoff,
       fieldKey: "handoff.current_state_summary",
-      expectedText: "Phase 9 handoff anchor",
+      expectedText: "Workbook inspector handoff anchor",
     });
   });
 
@@ -1112,7 +1118,8 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
       statusReviewViewSchemaId,
       {
         client_txn_id: uniqueTxn("e9grid01-status"),
-        "status_review.current_state_summary": "Phase 9 status review anchor",
+        "status_review.current_state_summary":
+          "Workbook inspector status review anchor",
       },
     );
     await expectSharedGridAnchorSurface({
@@ -1121,14 +1128,14 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
       viewSchemaId: statusReviewViewSchemaId,
       row: statusReview,
       fieldKey: "status_review.current_state_summary",
-      expectedText: "Phase 9 status review anchor",
+      expectedText: "Workbook inspector status review anchor",
     });
   });
 
   await test.step("Lesson anchor", async () => {
     const lesson = await createViewRow(page, incidentId, lessonViewSchemaId, {
       client_txn_id: uniqueTxn("e9grid01-lesson"),
-      "lesson.summary": "Phase 9 lesson anchor",
+      "lesson.summary": "Workbook inspector lesson anchor",
     });
     await expectSharedGridAnchorSurface({
       page,
@@ -1136,7 +1143,7 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
       viewSchemaId: lessonViewSchemaId,
       row: lesson,
       fieldKey: "lesson.summary",
-      expectedText: "Phase 9 lesson anchor",
+      expectedText: "Workbook inspector lesson anchor",
     });
   });
 
@@ -1170,11 +1177,11 @@ test("Host entity-origin clipboard paste reuses exact matches and creates stubs"
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E9GRIDHOSTPASTE"),
-    "Phase 9 E-9-GRIDHOST-01 host paste",
+    "Workbook inspector E-9-GRIDHOST-01 host paste",
   );
   const existing = await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e9grid-host-existing"),
-    "host.display_name": "Phase 9 reusable host",
+    "host.display_name": "Workbook inspector reusable host",
     "host.hostname": "phase9-host-reuse.example.test",
   });
   const postURLs: string[] = [];
@@ -1192,7 +1199,7 @@ test("Host entity-origin clipboard paste reuses exact matches and creates stubs"
   const displayName = page.getByTestId(
     rowCellTestId(existing.record_id as string, "host.display_name"),
   );
-  await expect(displayName).toHaveText("Phase 9 reusable host");
+  await expect(displayName).toHaveText("Workbook inspector reusable host");
   await activateSemanticGridCell(displayName);
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
     `${hostsViewSchemaId}:${existing.record_id}:host.display_name`,
@@ -1212,8 +1219,8 @@ test("Host entity-origin clipboard paste reuses exact matches and creates stubs"
     data.setData(
       "text/plain",
       [
-        "Phase 9 pasted host reuse\tphase9-host-reuse.example.test",
-        "Phase 9 pasted host create\tphase9-host-create.example.test",
+        "Workbook inspector pasted host reuse\tphase9-host-reuse.example.test",
+        "Workbook inspector pasted host create\tphase9-host-create.example.test",
       ].join("\n"),
     );
     element.dispatchEvent(
@@ -1232,12 +1239,12 @@ test("Host entity-origin clipboard paste reuses exact matches and creates stubs"
     page.getByTestId(
       rowCellTestId(existing.record_id as string, "host.display_name"),
     ),
-  ).toHaveText("Phase 9 pasted host reuse");
+  ).toHaveText("Workbook inspector pasted host reuse");
 
   const rows = await queryViewRows(page, incidentId, hostsViewSchemaId);
   const reused = rows.find((row) => row.record_id === existing.record_id);
   expect(stringCell(reused ?? {}, "host.display_name")).toBe(
-    "Phase 9 pasted host reuse",
+    "Workbook inspector pasted host reuse",
   );
   const created = rows.find(
     (row) =>
@@ -1248,7 +1255,7 @@ test("Host entity-origin clipboard paste reuses exact matches and creates stubs"
   if (created) {
     await expect(
       page.getByTestId(rowCellTestId(created.record_id, "host.display_name")),
-    ).toHaveText("Phase 9 pasted host create");
+    ).toHaveText("Workbook inspector pasted host create");
   }
   expect(postURLs.some((url) => url.includes("/imports"))).toBeFalsy();
 });
@@ -1259,7 +1266,7 @@ test("Identity entity-origin clipboard paste reuses exact matches and creates st
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E9GRIDIDENTITYPASTE"),
-    "Phase 9 E-9-GRIDIDENTITY-01 identity paste",
+    "Workbook inspector E-9-GRIDIDENTITY-01 identity paste",
   );
   const existing = await createViewRow(
     page,
@@ -1267,7 +1274,7 @@ test("Identity entity-origin clipboard paste reuses exact matches and creates st
     identitiesViewSchemaId,
     {
       client_txn_id: uniqueTxn("e9grid-identity-existing"),
-      "identity.display_name": "Phase 9 reusable identity",
+      "identity.display_name": "Workbook inspector reusable identity",
       "identity.upn": "phase9.identity.reuse@example.test",
     },
   );
@@ -1286,7 +1293,7 @@ test("Identity entity-origin clipboard paste reuses exact matches and creates st
   const displayName = page.getByTestId(
     rowCellTestId(existing.record_id as string, "identity.display_name"),
   );
-  await expect(displayName).toHaveText("Phase 9 reusable identity");
+  await expect(displayName).toHaveText("Workbook inspector reusable identity");
   await activateSemanticGridCell(displayName);
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
     `${identitiesViewSchemaId}:${existing.record_id}:identity.display_name`,
@@ -1306,8 +1313,8 @@ test("Identity entity-origin clipboard paste reuses exact matches and creates st
     data.setData(
       "text/plain",
       [
-        "Phase 9 pasted identity reuse\tphase9.identity.reuse@example.test",
-        "Phase 9 pasted identity create\tphase9.identity.create@example.test",
+        "Workbook inspector pasted identity reuse\tphase9.identity.reuse@example.test",
+        "Workbook inspector pasted identity create\tphase9.identity.create@example.test",
       ].join("\n"),
     );
     element.dispatchEvent(
@@ -1326,12 +1333,12 @@ test("Identity entity-origin clipboard paste reuses exact matches and creates st
     page.getByTestId(
       rowCellTestId(existing.record_id as string, "identity.display_name"),
     ),
-  ).toHaveText("Phase 9 pasted identity reuse");
+  ).toHaveText("Workbook inspector pasted identity reuse");
 
   const rows = await queryViewRows(page, incidentId, identitiesViewSchemaId);
   const reused = rows.find((row) => row.record_id === existing.record_id);
   expect(stringCell(reused ?? {}, "identity.display_name")).toBe(
-    "Phase 9 pasted identity reuse",
+    "Workbook inspector pasted identity reuse",
   );
   const created = rows.find(
     (row) =>
@@ -1344,7 +1351,7 @@ test("Identity entity-origin clipboard paste reuses exact matches and creates st
       page.getByTestId(
         rowCellTestId(created.record_id, "identity.display_name"),
       ),
-    ).toHaveText("Phase 9 pasted identity create");
+    ).toHaveText("Workbook inspector pasted identity create");
   }
   expect(postURLs.some((url) => url.includes("/imports"))).toBeFalsy();
 });

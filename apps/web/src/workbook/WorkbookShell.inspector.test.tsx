@@ -362,7 +362,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     const stableRelationship = {
       item_kind: "unresolved_ref",
       item_ref: "rel_ref_phase9_stable",
-      raw_text: "Phase 9 visible host label",
+      raw_text: "Workbook inspector visible host label",
       entity_type: "host",
       resolution_status: "unresolved",
     };
@@ -382,7 +382,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
           timelineRow({
             recordId: "record-2",
             rowVersion: 3,
-            summary: "Phase 9 selected row",
+            summary: "Workbook inspector selected row",
             details: "Selected row details",
             captureState: "rough",
             evidenceCount: 2,
@@ -402,7 +402,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
           timelineRow({
             recordId: "record-2",
             rowVersion: 4,
-            summary: "Phase 9 selected row refreshed",
+            summary: "Workbook inspector selected row refreshed",
             details: "Selected row details refreshed",
             captureState: "rough",
             evidenceCount: 2,
@@ -447,7 +447,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     fireEvent.click(screen.getByTestId(rowInspectButtonTestId("record-2")));
 
     expect(screen.getByTestId(timelineInspectorTestId()).textContent).toContain(
-      "Phase 9 selected row",
+      "Workbook inspector selected row",
     );
     expect(
       (
@@ -510,7 +510,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
       "record-1",
     ]);
     expect(screen.getByTestId(timelineInspectorTestId()).textContent).toContain(
-      "Phase 9 selected row",
+      "Workbook inspector selected row",
     );
     await waitFor(() => {
       expect(
@@ -542,7 +542,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     await waitFor(() => {
       expect(
         screen.getByTestId(timelineInspectorTestId()).textContent,
-      ).not.toContain("Phase 9 selected row");
+      ).not.toContain("Workbook inspector selected row");
       expect(
         screen.getByTestId(
           rowCellTestId("record-3", "timeline.activity_synopsis_text"),
@@ -778,7 +778,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
             timelineRow({
               recordId: "record-1",
               rowVersion: 4,
-              summary: `Phase 9 rollback ${errorCode}`,
+              summary: `Workbook inspector rollback ${errorCode}`,
               captureState: "rough",
             }),
           ]),

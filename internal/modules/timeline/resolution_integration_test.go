@@ -32,7 +32,7 @@ func TestAutoResolutionEligibility_Integration(t *testing.T) {
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-u-4-08-host-incident",
 			"incident_key":  "IR-PHASE4-U408-A",
-			"title":         "Phase 4 I-4-08 host auto match",
+			"title":         "Record relationships I-4-08 host auto match",
 		})
 		incidentID := incident["incident_id"].(string)
 		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "Gateway record", "gateway-record-01")
@@ -143,7 +143,7 @@ SELECT COUNT(*)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-u-4-08-identity-incident",
 			"incident_key":  "IR-PHASE4-U408-B",
-			"title":         "Phase 4 I-4-08 identity auto match",
+			"title":         "Record relationships I-4-08 identity auto match",
 		})
 		incidentID := incident["incident_id"].(string)
 		seedIdentityRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalIdentityID, "Identity record", "identity-record@example.test", "identity-record@example.test", "IDENTITYREC")
@@ -198,7 +198,7 @@ SELECT COUNT(*)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-u-4-08-create-incident",
 			"incident_key":  "IR-PHASE4-U408-CREATE",
-			"title":         "Phase 4 I-4-08 create auto match",
+			"title":         "Record relationships I-4-08 create auto match",
 		})
 		incidentID := incident["incident_id"].(string)
 		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "Create Host", "create-host")
@@ -282,7 +282,7 @@ SELECT COUNT(*)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-u-4-08-unresolved-incident",
 			"incident_key":  "IR-PHASE4-U408-C",
-			"title":         "Phase 4 I-4-08 unresolved eligibility",
+			"title":         "Record relationships I-4-08 unresolved eligibility",
 		})
 		incidentID := incident["incident_id"].(string)
 		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "Host record", "host-record-23")
@@ -363,7 +363,7 @@ SELECT COUNT(*)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-u-4-08-competing-incident",
 			"incident_key":  "IR-PHASE4-U408-D",
-			"title":         "Phase 4 I-4-08 competing aliases",
+			"title":         "Record relationships I-4-08 competing aliases",
 		})
 		incidentID := incident["incident_id"].(string)
 		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "Host A", "host-a")
@@ -416,7 +416,7 @@ SELECT COUNT(*)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-u-4-08-mixed-incident",
 			"incident_key":  "IR-PHASE4-U408-E",
-			"title":         "Phase 4 I-4-08 mixed eligibility",
+			"title":         "Record relationships I-4-08 mixed eligibility",
 		})
 		incidentID := incident["incident_id"].(string)
 		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "Gateway record", "gateway-record-02")
@@ -490,7 +490,7 @@ SELECT COUNT(*)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-u-4-08-rollback-incident",
 			"incident_key":  "IR-PHASE4-U408-F",
-			"title":         "Phase 4 I-4-08 rollback",
+			"title":         "Record relationships I-4-08 rollback",
 		})
 		incidentID := incident["incident_id"].(string)
 		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "Gateway record", "gateway-record-03")
@@ -572,7 +572,7 @@ SELECT COUNT(*)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-i-4-08-rebuild-incident",
 			"incident_key":  "IR-PHASE4-I408-G",
-			"title":         "Phase 4 I-4-08 projection rebuild",
+			"title":         "Record relationships I-4-08 projection rebuild",
 		})
 		incidentID := incident["incident_id"].(string)
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
@@ -649,7 +649,7 @@ func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-i-4-09-create-incident",
 			"incident_key":  "IR-PHASE4-I409-D",
-			"title":         "Phase 4 I-4-09 create add_resolved_ref",
+			"title":         "Record relationships I-4-09 create add_resolved_ref",
 		})
 		incidentID := incident["incident_id"].(string)
 		workbookscenariotest.SeedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "WS-023.corp.example", "WS-023.corp.example", "", "")
@@ -786,7 +786,7 @@ UPDATE incident_memberships
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-u-4-09-add-incident",
 			"incident_key":  "IR-PHASE4-U409-A",
-			"title":         "Phase 4 I-4-09 add_resolved_ref",
+			"title":         "Record relationships I-4-09 add_resolved_ref",
 		})
 		incidentID := incident["incident_id"].(string)
 		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "WS-023.corp.example", "WS-023.corp.example")
@@ -947,7 +947,7 @@ UPDATE incident_memberships
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-u-4-09-resolve-incident",
 			"incident_key":  "IR-PHASE4-U409-B",
-			"title":         "Phase 4 I-4-09 resolve_item",
+			"title":         "Record relationships I-4-09 resolve_item",
 		})
 		incidentID := incident["incident_id"].(string)
 		seedIdentityRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalIdentityID, "Alex Analyst", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
@@ -1019,7 +1019,7 @@ UPDATE incident_memberships
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-u-4-09-resolve-create-incident",
 			"incident_key":  "IR-PHASE4-U409-D",
-			"title":         "Phase 4 I-4-09 resolve_item create",
+			"title":         "Record relationships I-4-09 resolve_item create",
 		})
 		incidentID := incident["incident_id"].(string)
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
@@ -1078,7 +1078,7 @@ UPDATE incident_memberships
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-u-4-09-reject-incident",
 			"incident_key":  "IR-PHASE4-U409-C",
-			"title":         "Phase 4 I-4-09 rejection",
+			"title":         "Record relationships I-4-09 rejection",
 		})
 		incidentID := incident["incident_id"].(string)
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{

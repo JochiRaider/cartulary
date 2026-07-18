@@ -47,7 +47,7 @@ test("auto-resolves only eligible exact-match Timeline tokens", async ({
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E404"),
-    "Phase 4 E-4-04",
+    "Record relationships E-4-04",
   );
   const autoTarget = (await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e404-auto"),

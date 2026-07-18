@@ -77,9 +77,9 @@
         "replacement_fixture_id"
       ],
       "properties": {
-        "fixture_id": { "pattern": "^FE-VFIX-(?:0[1-9]|[1-9][0-9]+)$", "type": "string" },
+        "fixture_id": { "pattern": "^visual\\.fixture\\.[a-z][a-z0-9_]*$", "type": "string" },
         "fixture_title": { "type": "string", "minLength": 1 },
-        "status": { "enum": ["current", "missing", "retired"] },
+        "status": { "const": "current" },
         "owner_phase_ids": {
           "type": "array",
           "items": { "pattern": "^FE-P(?:0|[1-9][0-9]*)$", "type": "string" },

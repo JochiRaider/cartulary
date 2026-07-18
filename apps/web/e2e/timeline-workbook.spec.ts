@@ -61,7 +61,7 @@ test("creates a Timeline row in-grid and continues editing on the draft row", as
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E301"),
-    "Phase 3 E-3-01",
+    "Timeline E-3-01",
   );
 
   await page.goto(`/?incident_id=${incidentId}`);
@@ -103,7 +103,7 @@ test("supports explicit blank Timeline row creation with only client_txn_id", as
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E301BLANK"),
-    "Phase 3 E-3-01 blank create",
+    "Timeline E-3-01 blank create",
   );
 
   const createBodies: Record<string, unknown>[] = [];
@@ -159,11 +159,11 @@ test("drives review, demotion, and supersede through the visible workbook surfac
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E303"),
-    "Phase 3 E-3-03",
+    "Timeline E-3-03",
   );
   const reviewerUser = await createIncidentMemberUser(page, incidentId, {
     email: reviewerEmail,
-    display_name: "Phase 3 E303 Reviewer",
+    display_name: "Timeline E303 Reviewer",
     initial_password: reviewerPassword,
     role: "reviewer",
   });
@@ -270,7 +270,7 @@ test("uses a disclosed hybrid replay harness to prove replay avoids duplicate hi
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E304"),
-    "Phase 3 E-3-04",
+    "Timeline E-3-04",
   );
   const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("seed"),

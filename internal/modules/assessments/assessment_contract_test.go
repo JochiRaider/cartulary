@@ -20,13 +20,13 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "phase9-assessments-u-9-06")
 	assessmentStore := assessments.NewStore(harness.DB)
 	workbookStore := workbook.NewStore(harness.DB)
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase9-u906@example.test", "Phase 9 U906", "Phase9U906Pass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-06-incident", "IR-PHASE9-U-9-06", "Phase 9 U-9-06 assessments")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase9-u906@example.test", "Workbook inspector U906", "Phase9U906Pass1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-06-incident", "IR-PHASE9-U-9-06", "Workbook inspector U-9-06 assessments")
 
 	hostID := uuid.New()
 	identityID := uuid.New()
-	recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, hostID, "Phase 9 assessment host", "phase9-assessment-host", "", "")
-	recordstoretest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, identityID, "Phase 9 assessment identity", "phase9@example.test", "phase9@example.test", "phase9")
+	recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, hostID, "Workbook inspector assessment host", "phase9-assessment-host", "", "")
+	recordstoretest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, identityID, "Workbook inspector assessment identity", "phase9@example.test", "phase9@example.test", "phase9")
 
 	created := map[string]uuid.UUID{}
 	for index, tc := range []struct {
@@ -50,7 +50,7 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 			SubjectType:     tc.subjectType,
 			AssessmentState: tc.state,
 			ConfidenceScore: tc.score,
-			Rationale:       "Phase 9 " + tc.state + " assessment rationale.",
+			Rationale:       "Workbook inspector " + tc.state + " assessment rationale.",
 			AssessedAt:      tc.assessedAt,
 		}
 		result, err := assessmentStore.CreateAssessmentRow(
@@ -205,11 +205,11 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 	harness := recordstoretest.StartStore(t, "phase9-assessments-u-9-12")
 	assessmentStore := assessments.NewStore(harness.DB)
 	workbookStore := workbook.NewStore(harness.DB)
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase9-u912@example.test", "Phase 9 U912", "Phase9U912Pass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-12-incident", "IR-PHASE9-U-9-12", "Phase 9 U-9-12 assessment links")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase9-u912@example.test", "Workbook inspector U912", "Phase9U912Pass1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-12-incident", "IR-PHASE9-U-9-12", "Workbook inspector U-9-12 assessment links")
 	hostID := uuid.New()
 	supportID := uuid.New()
-	recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, hostID, "Phase 9 assessment support host", "phase9-assessment-support", "", "")
+	recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, hostID, "Workbook inspector assessment support host", "phase9-assessment-support", "", "")
 	recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, supportID)
 
 	request := validCreateRequest(hostID, "host", "confirmed")

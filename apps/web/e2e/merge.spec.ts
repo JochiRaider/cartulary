@@ -27,7 +27,7 @@ test("merges duplicate entities from the inspector and preserves survivor identi
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E403"),
-    "Phase 4 E-4-03",
+    "Record relationships E-4-03",
   );
   const survivor = (await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e403-survivor"),
@@ -140,7 +140,7 @@ test("merges duplicate entities from the inspector and preserves survivor identi
     incidentId,
     loser,
     loserLabel: "WS-023 duplicate",
-    mergeReason: "Phase 4 E-4-03 duplicate merge",
+    mergeReason: "Record relationships E-4-03 duplicate merge",
     rawText: "Workstation 23",
     recordType: "host",
     resolvedLabel: "WS-023",
@@ -156,7 +156,7 @@ test("merges duplicate entities from the inspector and preserves survivor identi
     incidentId,
     loser: identityLoser,
     loserLabel: "Alex Analyst duplicate",
-    mergeReason: "Phase 4 E-4-03 identity duplicate merge",
+    mergeReason: "Record relationships E-4-03 identity duplicate merge",
     rawText: "Case Owner",
     recordType: "identity",
     resolvedLabel: "Alex Analyst",

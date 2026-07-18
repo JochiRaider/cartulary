@@ -53,8 +53,8 @@ import {
 } from "./timeline/models/workbookMentionChips";
 import { buildMentionActionPayload } from "./timeline/services/workbookCollaborationMessages";
 
-// Support-only mocked component coverage for Phase 4 workbook helpers.
-// This file is not authoritative Phase 4 evidence.
+// Support-only mocked component coverage for Record relationships workbook helpers.
+// This file is not authoritative Record relationships evidence.
 type TimelineWorkbookProps = ComponentProps<typeof TimelineWorkbook>;
 type EntityIndex = NonNullable<TimelineWorkbookProps["entityIndex"]>;
 type EntityRowFixture = EntityIndex[string];

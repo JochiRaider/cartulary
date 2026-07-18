@@ -304,7 +304,7 @@ export async function createLocalUser(
 ) {
   const response = await authRequests.post(`${apiBase}/api/v1/users`, {
     data: {
-      client_txn_id: uniqueTxn("phase1-user"),
+      client_txn_id: uniqueTxn("deployment-user"),
       auth_kind: "local",
       email: options.email,
       display_name: options.display_name,

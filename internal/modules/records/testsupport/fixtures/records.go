@@ -159,7 +159,7 @@ func RecordIncident() IncidentFixture {
 	return IncidentFixture{
 		IncidentID:  golden.RecordIncidentID,
 		IncidentKey: "IR-PHASE4-001",
-		Title:       "Phase 4 readiness incident",
+		Title:       "Record relationships readiness incident",
 	}
 }
 

@@ -79,7 +79,7 @@ func TestCreateFromMention_Unit(t *testing.T) {
 		harness := recordstoretest.StartStore(t, "phase4-u-4-03-host-reuse")
 		mentionStore := mentions.NewStore(harness.DB)
 		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u403-host@example.test", "U403 Host", "U403HostPhase4Pass1!", false, false, true)
-		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-03-host-incident", "IR-U403-H", "Phase 4 U-4-03 host")
+		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-03-host-incident", "IR-U403-H", "Record relationships U-4-03 host")
 
 		recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
 		recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordTimelineRecordID)
@@ -143,7 +143,7 @@ SELECT display_name, hostname, host_state
 		harness := recordstoretest.StartStore(t, "phase4-u-4-03-identity-create")
 		mentionStore := mentions.NewStore(harness.DB)
 		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u403-identity@example.test", "U403 Identity", "U403IdentityPhase4Pass1!", false, false, true)
-		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-03-identity-incident", "IR-U403-I", "Phase 4 U-4-03 identity")
+		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-03-identity-incident", "IR-U403-I", "Record relationships U-4-03 identity")
 
 		recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordTimelineMixedRecordID)
 		recordstoretest.SeedMention(t, harness.DB, actor.ID, golden.RecordIdentityMentionID, golden.RecordTimelineMixedRecordID, golden.RecordFieldTimelineIdentityRefs, "identity", "alex.analyst@example.test", "unresolved", nil, nil)
@@ -176,7 +176,7 @@ func TestDismissRestoreMentionLifecycle_Unit(t *testing.T) {
 	mentionStore := mentions.NewStore(harness.DB)
 	timelineFacade := timeline.NewFacade(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u404@example.test", "U404", "U404Phase4Pass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-04-incident", "IR-U404", "Phase 4 U-4-04")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-04-incident", "IR-U404", "Record relationships U-4-04")
 
 	recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
 	normalizedHostToken, ok := fieldnorm.NormalizeMentionToken("WS-023")
@@ -298,7 +298,7 @@ func TestExactMatchPrecedence_Unit(t *testing.T) {
 		harness := recordstoretest.StartStore(t, "phase4-u-4-05-"+suffix)
 		store := hostidentity.NewStore(harness.DB)
 		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u405-"+suffix+"@example.test", "U405 "+suffix, "U405Phase4Pass1!", false, false, true)
-		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-05-"+suffix, "IR-U405-"+suffix, "Phase 4 U-4-05 "+suffix)
+		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-05-"+suffix, "IR-U405-"+suffix, "Record relationships U-4-05 "+suffix)
 		return harness, store, actor, incident.ID
 	}
 	seedHost := func(t *testing.T, harness *recordstoretest.StoreHarness, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, displayName string, aadDeviceID string, fqdn string, hostname string) {
@@ -558,7 +558,7 @@ func TestExplicitEntityMerge_Unit(t *testing.T) {
 		harness := recordstoretest.StartStore(t, "phase4-u-4-06-host")
 		store := hostidentity.NewStore(harness.DB)
 		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u406@example.test", "U406", "U406Phase4Pass1!", false, false, true)
-		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-06-incident", "IR-U406", "Phase 4 U-4-06")
+		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-06-incident", "IR-U406", "Record relationships U-4-06")
 
 		recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
 		recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordDuplicateHostRecordID, "WS-023 duplicate", "WS-023-DUP", "ws-023.corp.example.test", "")
@@ -653,7 +653,7 @@ SELECT COUNT(*)
 		harness := recordstoretest.StartStore(t, "phase4-u-4-06-identity")
 		store := hostidentity.NewStore(harness.DB)
 		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u406-identity@example.test", "U406 Identity", "U406IdentityPhase4Pass1!", false, false, true)
-		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-06-identity-incident", "IR-U406-I", "Phase 4 U-4-06 identity")
+		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-06-identity-incident", "IR-U406-I", "Record relationships U-4-06 identity")
 
 		recordstoretest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordCanonicalIdentityID, "Alex Analyst", "alex.survivor@example.test", "alex.survivor@example.test", "ALEXSURV")
 		recordstoretest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordDuplicateIdentityID, "Alex Duplicate", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
@@ -723,7 +723,7 @@ SELECT identity_state, merged_into_record_id::text, row_version
 		harness := recordstoretest.StartStore(t, "phase4-u-4-06-host-reusable-row")
 		store := hostidentity.NewStore(harness.DB)
 		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u406-host-reusable@example.test", "U406 Host Reusable", "U406HostReusablePhase4Pass1!", false, false, true)
-		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-06-host-reusable-incident", "IR-U406-HR", "Phase 4 U-4-06 host reusable rows")
+		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-06-host-reusable-incident", "IR-U406-HR", "Record relationships U-4-06 host reusable rows")
 		survivorID := uuid.New()
 		loserID := uuid.New()
 
@@ -767,7 +767,7 @@ SELECT identity_state, merged_into_record_id::text, row_version
 		harness := recordstoretest.StartStore(t, "phase4-u-4-06-identity-reusable-row")
 		store := hostidentity.NewStore(harness.DB)
 		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u406-identity-reusable@example.test", "U406 Identity Reusable", "U406IdentityReusablePhase4Pass1!", false, false, true)
-		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-06-identity-reusable-incident", "IR-U406-IR", "Phase 4 U-4-06 identity reusable rows")
+		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-06-identity-reusable-incident", "IR-U406-IR", "Record relationships U-4-06 identity reusable rows")
 		survivorID := uuid.New()
 		loserID := uuid.New()
 

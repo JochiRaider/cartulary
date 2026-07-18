@@ -29,7 +29,7 @@ func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "phase9-sprint7-coordination-defaults")
 	store := workbook.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "sprint7-coordination@example.test", "Sprint7 Coordination", "Sprint7Coordination1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint7-coordination-incident", "IR-S7-COORD", "Phase 9 Sprint 7 coordination defaults")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint7-coordination-incident", "IR-S7-COORD", "Workbook inspector Sprint 7 coordination defaults")
 
 	for _, tc := range []struct {
 		name         string
@@ -170,7 +170,7 @@ func TestRejectedCoordinationCreateEmitsNoRecordChanged_Unit(t *testing.T) {
 	incident := recordstoretest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase9-sprint7-rejected-ws-incident",
 		"incident_key":  "IR-S7-REJECTED-WS",
-		"title":         "Phase 9 Sprint 7 rejected create websocket",
+		"title":         "Workbook inspector Sprint 7 rejected create websocket",
 	})
 	incidentID := incident["incident_id"].(string)
 	socket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
@@ -219,7 +219,7 @@ func TestCoordinationSavedViewsRemainAdditive_Unit(t *testing.T) {
 	ctx := context.Background()
 	harness := recordstoretest.StartStore(t, "phase9-sprint7-coordination-saved-views")
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "sprint7-saved-views@example.test", "Sprint7 Saved Views", "Sprint7SavedViews1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint7-saved-views-incident", "IR-S7-SAVED-VIEWS", "Phase 9 Sprint 7 coordination saved views")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint7-saved-views-incident", "IR-S7-SAVED-VIEWS", "Workbook inspector Sprint 7 coordination saved views")
 	savedViewStore := savedviews.NewStore(harness.DB)
 	startupStore := workbookstartup.NewStore(harness.DB)
 	workbookStore := workbook.NewStore(harness.DB)
@@ -313,7 +313,7 @@ func TestCoordinationProjectionSortFilterGroup_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "phase9-sprint7-coordination-projections")
 	store := workbook.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "sprint7-projection@example.test", "Sprint7 Projection", "Sprint7Projection1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint7-projection-incident", "IR-S7-PROJECTION", "Phase 9 Sprint 7 coordination projections")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint7-projection-incident", "IR-S7-PROJECTION", "Workbook inspector Sprint 7 coordination projections")
 
 	commOneNextReport := time.Date(2026, 5, 20, 9, 0, 0, 0, time.UTC)
 	_ = mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-phase9-sprint7-comm-projection-one", map[string]workbook.ValueChange{
@@ -426,7 +426,7 @@ func TestCoordinationDeclaredQueryFieldsAreMapped_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "phase9-sprint7-coordination-query-fields")
 	store := workbook.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "sprint7-query-fields@example.test", "Sprint7 Query Fields", "Sprint7QueryFields1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint7-query-fields-incident", "IR-S7-QUERY-FIELDS", "Phase 9 Sprint 7 declared query fields")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint7-query-fields-incident", "IR-S7-QUERY-FIELDS", "Workbook inspector Sprint 7 declared query fields")
 
 	mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-phase9-sprint7-query-fields-comm", map[string]workbook.ValueChange{
 		"comm_log.comm_type":          Text("briefing"),
@@ -497,7 +497,7 @@ func TestCoordinationSemanticFilters_Unit(t *testing.T) {
 	store := workbook.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "sprint7-filters@example.test", "Sprint7 Filters", "Sprint7Filters1!", false, false, true)
 	alternate := recordstoretest.SeedLocalUserFlags(t, harness.DB, "sprint7-filters-alt@example.test", "Sprint7 Filters Alt", "Sprint7FiltersAlt1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint7-filters-incident", "IR-S7-FILTERS", "Phase 9 Sprint 7 semantic filters")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint7-filters-incident", "IR-S7-FILTERS", "Workbook inspector Sprint 7 semantic filters")
 	_, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.HandoffViewSchemaID,
 		ClientTxnID:  "txn-phase9-sprint7-filter-nonmember-owner",
@@ -617,7 +617,7 @@ func TestCoordinationCollectionItemShapes_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "phase9-sprint7-coordination-collection-shapes")
 	store := workbook.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "sprint7-shapes@example.test", "Sprint7 Shapes", "Sprint7Shapes1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint7-shapes-incident", "IR-S7-SHAPES", "Phase 9 Sprint 7 collection item shapes")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint7-shapes-incident", "IR-S7-SHAPES", "Workbook inspector Sprint 7 collection item shapes")
 
 	partyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-phase9-sprint7-shapes-party", "Coordination Shape Party")
 	attendeePartyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-phase9-sprint7-shapes-attendee", "Coordination Shape Attendee")
@@ -670,7 +670,7 @@ func TestCoordinationDuplicateCoalescing_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "phase9-sprint7-coordination-duplicate-coalescing")
 	store := workbook.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "sprint7-duplicates@example.test", "Sprint7 Duplicates", "Sprint7Duplicates1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint7-duplicates-incident", "IR-S7-DUPLICATES", "Phase 9 Sprint 7 duplicate coalescing")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint7-duplicates-incident", "IR-S7-DUPLICATES", "Workbook inspector Sprint 7 duplicate coalescing")
 
 	partyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-phase9-sprint7-duplicates-party", "Duplicate Party")
 	decisionID := mustCreateDecision(t, store, actor, incident.ID, "txn-phase9-sprint7-duplicates-decision", "approved", "Duplicate decision")
@@ -751,7 +751,7 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "phase9-sprint7-coordination-collections")
 	store := workbook.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "sprint7-collections@example.test", "Sprint7 Collections", "Sprint7Collections1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint7-collections-incident", "IR-S7-COLLECTIONS", "Phase 9 Sprint 7 coordination collections")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint7-collections-incident", "IR-S7-COLLECTIONS", "Workbook inspector Sprint 7 coordination collections")
 
 	partyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-phase9-sprint7-party", "Coordination Legal")
 	otherPartyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-phase9-sprint7-party-other", "Coordination Legal Alternate")
@@ -759,7 +759,7 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 	taskID := mustCreateTaskFor(t, store, actor, incident.ID, "txn-phase9-sprint7-task", "Coordinate endpoint logs")
 	evidenceID := mustCreateEvidenceFor(t, store, actor, incident.ID, "txn-phase9-sprint7-evidence", "Coordination evidence")
 
-	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint7-foreign-incident", "IR-S7-COLLECTIONS-FOREIGN", "Phase 9 Sprint 7 foreign incident")
+	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint7-foreign-incident", "IR-S7-COLLECTIONS-FOREIGN", "Workbook inspector Sprint 7 foreign incident")
 	foreignEvidenceID := mustCreateEvidenceFor(t, store, actor, otherIncident.ID, "txn-phase9-sprint7-foreign-evidence", "Foreign evidence")
 	foreignTaskID := mustCreateTaskFor(t, store, actor, otherIncident.ID, "txn-phase9-sprint7-foreign-task", "Foreign task")
 	foreignDecisionID := mustCreateDecision(t, store, actor, otherIncident.ID, "txn-phase9-sprint7-foreign-decision", "approved", "Foreign decision")

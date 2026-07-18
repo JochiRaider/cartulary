@@ -17,7 +17,7 @@ func TestIndicatorObservationSeparation_Unit(t *testing.T) {
 	harness := storetest.StartStore(t, "phase4-u-4-07-indicators")
 	store := indicators.NewStore(harness.DB)
 	actor := storetest.SeedLocalUserFlags(t, harness.DB, "u407@example.test", "U407", "U407Phase4Pass1!", false, false, true)
-	incident := storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-07-incident", "IR-U407", "Phase 4 indicators")
+	incident := storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-07-incident", "IR-U407", "Record relationships indicators")
 
 	create := func(clientTxnID string) indicators.MutationResult {
 		t.Helper()

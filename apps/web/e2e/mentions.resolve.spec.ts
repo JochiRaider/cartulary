@@ -48,7 +48,7 @@ test("resolves and creates entities from Timeline mentions in the inspector", as
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E401"),
-    "Phase 4 E-4-01",
+    "Record relationships E-4-01",
   );
   const existingHost = (await createViewRow(
     page,

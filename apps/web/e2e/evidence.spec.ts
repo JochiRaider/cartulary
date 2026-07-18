@@ -46,7 +46,7 @@ test("attaches a screenshot to a selected Timeline row without leaving the workb
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E5SELECTED"),
-    "Phase 5 selected screenshot attach",
+    "Evidence selected screenshot attach",
   );
   const timelineRow = (await createViewRow(
     page,
@@ -95,7 +95,7 @@ test("persists a screenshot-only Timeline row through the two-step evidence path
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E5DRAFT"),
-    "Phase 5 draft screenshot attach",
+    "Evidence draft screenshot attach",
   );
   const objectUploadRoutes = collectObjectUploadRoutes(page);
 
@@ -153,7 +153,7 @@ test("redeems inline-safe previews and shows explicit blocked-preview outcomes",
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E5PREVIEW"),
-    "Phase 5 evidence preview",
+    "Evidence evidence preview",
   );
   const safe = await createUploadedEvidence(page, incidentId, {
     title: "Safe text preview",
@@ -210,7 +210,7 @@ test("tracks requested evidence before a blob exists and later advances it", asy
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E5EVIDENCE"),
-    "Phase 5 requested evidence",
+    "Evidence requested evidence",
   );
   const timelineRow = (await createViewRow(
     page,
@@ -402,7 +402,7 @@ test("refreshes a second live workbook from the real evidence attach stream", as
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E5SOCKET"),
-    "Phase 5 socket evidence refresh",
+    "Evidence socket evidence refresh",
   );
   const timelineRow = (await createViewRow(
     page,

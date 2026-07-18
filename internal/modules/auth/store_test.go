@@ -654,7 +654,7 @@ func TestUserPatchAndLastAdminGuard_Unit(t *testing.T) {
 		request := newJSONRequest(t, http.MethodPatch, "/api/v1/users/"+target.ID.String(), `{
 			"base_user_version":7,
 			"email":" Phase1Stale@Example.Test ",
-			"display_name":" Phase 1 Stale "
+			"display_name":" Authentication Stale "
 		}`)
 		addSessionAuth(request, fixture.keys, "phase1-u-1-08-stale-admin", true)
 		fixture.service.handleUsersMember(recorder, request)

@@ -21,7 +21,7 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 	workbookStore := workbook.NewStore(harness.DB)
 	evidenceStore := evidence.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase5-lifecycle@example.test", "Phase5 Lifecycle", "Phase5Lifecycle1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase5-lifecycle-incident", "IR-P5-LIFECYCLE", "Phase 5 lifecycle")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase5-lifecycle-incident", "IR-P5-LIFECYCLE", "Evidence lifecycle")
 
 	requested := createEvidenceViaWorkbook(t, workbookStore, actor, incident.ID, `{
 		"client_txn_id":"txn-phase5-lifecycle-requested",

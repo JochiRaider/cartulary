@@ -186,10 +186,24 @@ type FrontendVisualFixtureRegistry = {
   verification_id: string;
 };
 
-const expectedFrontendVisualFixtureIds = Array.from(
-  { length: 22 },
-  (_, index) => `FE-VFIX-${String(index + 1).padStart(2, "0")}`,
-);
+const expectedFrontendVisualFixtureIds = [
+  "visual.fixture.claimed_network_analysis_workspace_states",
+  "visual.fixture.default_timeline_workbook_shell",
+  "visual.fixture.drag_fill_handle",
+  "visual.fixture.edit_cell",
+  "visual.fixture.empty_successful_query",
+  "visual.fixture.evidence_affordance",
+  "visual.fixture.exposed_theme_states",
+  "visual.fixture.frozen_column",
+  "visual.fixture.mention_chip_state_matrix",
+  "visual.fixture.resize_handle",
+  "visual.fixture.row_gutter_presence",
+  "visual.fixture.same_field_conflict",
+  "visual.fixture.save_state_strip",
+  "visual.fixture.saved_view_query_controls_and_grouped_result",
+  "visual.fixture.task_requests_or_decisions",
+  "visual.fixture.tree_group_row",
+] as const;
 
 function findRepoRoot(): string {
   let candidate = process.cwd();
@@ -526,7 +540,7 @@ test.describe("FE-P1 auth gateway visual readiness", () => {
       "data-bootstrap-state",
       "loading",
     );
-    await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-loading");
+    await assertAuthGatewayVisual(page, "auth-loading");
     sessionPending = false;
     releaseAuthVisualStep(releaseSession);
 
@@ -537,10 +551,10 @@ test.describe("FE-P1 auth gateway visual readiness", () => {
     await expect(
       page.getByTestId(phase1AuthTestId("login-totp-code")),
     ).toHaveCount(0);
-    await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-initial");
+    await assertAuthGatewayVisual(page, "auth-initial");
 
     await page.getByTestId(phase1AuthTestId("login-username")).focus();
-    await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-focused");
+    await assertAuthGatewayVisual(page, "auth-focused");
 
     await fillAuthVisualCredentials(page);
     loginMode = "pending";
@@ -549,12 +563,12 @@ test.describe("FE-P1 auth gateway visual readiness", () => {
     await expect(page.getByTestId(phase1AuthTestId("login-submit"))).toHaveText(
       "Signing in...",
     );
-    await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-submitting");
+    await assertAuthGatewayVisual(page, "auth-submitting");
     releaseAuthVisualStep(releaseLogin);
     await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
       "Email or password is incorrect.",
     );
-    await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-invalid-credentials");
+    await assertAuthGatewayVisual(page, "auth-invalid-credentials");
 
     loginMode = "mfa_required";
     await page.getByTestId(phase1AuthTestId("login-submit")).click();
@@ -562,7 +576,7 @@ test.describe("FE-P1 auth gateway visual readiness", () => {
       "data-bootstrap-state",
       "mfa_required",
     );
-    await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-mfa-required");
+    await assertAuthGatewayVisual(page, "auth-mfa-required");
 
     loginMode = "invalid_mfa";
     await page.getByTestId(phase1AuthTestId("login-totp-code")).fill("000000");
@@ -570,7 +584,7 @@ test.describe("FE-P1 auth gateway visual readiness", () => {
     await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
       "The verification code is incorrect or expired.",
     );
-    await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-invalid-mfa");
+    await assertAuthGatewayVisual(page, "auth-invalid-mfa");
 
     loginMode = "mfa_setup_required";
     await page.reload();
@@ -580,7 +594,7 @@ test.describe("FE-P1 auth gateway visual readiness", () => {
       "data-bootstrap-state",
       "mfa_setup_required",
     );
-    await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-mfa-setup-required");
+    await assertAuthGatewayVisual(page, "auth-mfa-setup-required");
 
     loginMode = "service_unavailable";
     await page.reload();
@@ -589,7 +603,7 @@ test.describe("FE-P1 auth gateway visual readiness", () => {
     await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
       "Authentication is temporarily unavailable. Try again.",
     );
-    await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-service-unavailable");
+    await assertAuthGatewayVisual(page, "auth-service-unavailable");
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload();
@@ -597,18 +611,18 @@ test.describe("FE-P1 auth gateway visual readiness", () => {
       "data-bootstrap-state",
       "anonymous",
     );
-    await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-mobile");
+    await assertAuthGatewayVisual(page, "auth-mobile");
 
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.reload();
-    await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-reduced-motion");
+    await assertAuthGatewayVisual(page, "auth-reduced-motion");
     await page.emulateMedia({ reducedMotion: "no-preference" });
 
     await page.evaluate(() => {
       document.documentElement.style.zoom = "200%";
     });
-    await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-200-zoom");
+    await assertAuthGatewayVisual(page, "auth-200-zoom");
     await page.evaluate(() => {
       document.documentElement.style.zoom = "100%";
     });
@@ -995,7 +1009,7 @@ test.describe("FE-P2 workbook visual readiness", () => {
 
     await assertViewportVisualRegression(
       page,
-      "fe-v-p2-01-default-timeline-workbook-shell",
+      "incident-directory-default-timeline-workbook-shell",
     );
   });
 });
@@ -1039,9 +1053,13 @@ test.describe("workbook visual evidence", () => {
       scroll: { top: 0, left: "left" },
     });
 
-    await assertViewportVisualRegression(page, "v-3-grid-01-timeline-default", {
-      renderSurface: timelineViewSchemaId,
-    });
+    await assertViewportVisualRegression(
+      page,
+      "timeline-grid-timeline-default",
+      {
+        renderSurface: timelineViewSchemaId,
+      },
+    );
   });
 
   test("captures Timeline edit save-state visuals for active cell syncing saved and conflict states", async ({
@@ -1088,7 +1106,7 @@ test.describe("workbook visual evidence", () => {
     await summaryEditor.fill("Active visual edit");
     await assertWorkbookGridVisualRegression(
       page,
-      "v-3-grid-02-active-edit-cell",
+      "timeline-grid-active-edit-cell",
       timelineViewSchemaId,
       { scroll: { top: 0, left: "left" } },
     );
@@ -1105,11 +1123,14 @@ test.describe("workbook visual evidence", () => {
       await expect(saveState).toHaveText("Syncing");
       await assertStatusStripVisualRegression(
         page,
-        "v-3-grid-02-syncing-strip",
+        "timeline-grid-syncing-strip",
       );
       await hold.release();
       await expect(saveState).toHaveText("Saved");
-      await assertStatusStripVisualRegression(page, "v-3-grid-02-saved-strip");
+      await assertStatusStripVisualRegression(
+        page,
+        "timeline-grid-saved-strip",
+      );
     } finally {
       await hold.dispose();
     }
@@ -1170,7 +1191,7 @@ test.describe("workbook visual evidence", () => {
       await expect(saveState).toHaveText("Conflict");
       await assertStatusStripVisualRegression(
         page,
-        "v-3-grid-02-conflict-strip",
+        "timeline-grid-conflict-strip",
       );
     } finally {
       await page.unroute(patchUrl, conflictHandler);
@@ -1245,7 +1266,7 @@ test.describe("workbook visual evidence", () => {
 
     await assertWorkbookGridVisualRegression(
       page,
-      "v-3-grid-03-grouped-grid",
+      "timeline-grid-grouped-grid",
       timelineViewSchemaId,
       { scroll: { top: 0, left: "left" } },
     );
@@ -1276,12 +1297,12 @@ test.describe("FE-P3 visual readiness", () => {
     const fixture = page.locator("[data-design-fixture='fe-p3-grid-adapter']");
     await expect(fixture).toBeVisible();
     for (const fixtureId of [
-      "FE-VFIX-09",
-      "FE-VFIX-10",
-      "FE-VFIX-11",
-      "FE-VFIX-12",
-      "FE-VFIX-13",
-      "FE-VFIX-15",
+      "visual.fixture.frozen_column",
+      "visual.fixture.resize_handle",
+      "visual.fixture.drag_fill_handle",
+      "visual.fixture.edit_cell",
+      "visual.fixture.tree_group_row",
+      "visual.fixture.empty_successful_query",
     ]) {
       await expect(
         fixture.locator(`[data-fixture-id='${fixtureId}']`),
@@ -1289,7 +1310,7 @@ test.describe("FE-P3 visual readiness", () => {
     }
     await assertVisualRegression(
       page,
-      "fe-v-p3-01-grid-adapter-fixtures",
+      "timeline-grid-adapter-fixtures",
       fixture,
     );
   });
@@ -1340,7 +1361,7 @@ test.describe("FE-P4 visual readiness", () => {
     await summaryEditor.fill("FE-P4 active visual edit");
     await assertWorkbookGridVisualRegression(
       page,
-      "fe-v-p4-01-active-edit-cell",
+      "timeline-mutation-active-edit-cell",
       timelineViewSchemaId,
       { scroll: { top: 0, left: "left" } },
     );
@@ -1357,7 +1378,10 @@ test.describe("FE-P4 visual readiness", () => {
       await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
         scroll: { top: 0, left: "left" },
       });
-      await assertVisualRegression(page, "fe-v-p4-01-pending-replay-status");
+      await assertVisualRegression(
+        page,
+        "timeline-mutation-pending-replay-status",
+      );
 
       patchController.connect();
       await expect
@@ -1401,7 +1425,7 @@ test.describe("FE-P4 visual readiness", () => {
       });
       await assertVisualRegression(
         page,
-        "fe-v-p4-01-transaction-recovery-panel",
+        "timeline-mutation-transaction-recovery-panel",
       );
 
       await page.getByTestId(pendingQueueDiscardButtonTestId()).click();
@@ -1441,7 +1465,7 @@ test.describe("FE-P4 visual readiness", () => {
     ).toBeVisible();
     await assertWorkbookGridVisualRegression(
       page,
-      "fe-v-p4-01-empty-timeline-query",
+      "timeline-mutation-empty-timeline-query",
       timelineViewSchemaId,
       { scroll: { top: 0, left: "left" } },
     );
@@ -1566,10 +1590,7 @@ test.describe("FE-P5 workbook visual readiness", () => {
       scroll: { top: 0, left: "left" },
     });
     await blurActiveElement(page);
-    await assertViewportVisualRegression(
-      page,
-      "fe-v-p5-01-mention-chip-states",
-    );
+    await assertViewportVisualRegression(page, "entity-mention-chip-states");
   });
 });
 
@@ -1633,7 +1654,7 @@ test.describe("workbook visual evidence", () => {
     await blurActiveElement(page);
     await assertWorkbookGridVisualRegression(
       page,
-      "v-4-grid-01-mention-chips",
+      "record-relationships-mention-chips",
       timelineViewSchemaId,
       { scroll: { top: 0, left: "left" } },
     );
@@ -1686,7 +1707,7 @@ test.describe("workbook visual evidence", () => {
 
     await assertWorkbookGridVisualRegression(
       page,
-      "v-4-grid-02-evidence-access",
+      "record-relationships-evidence-access",
       evidenceViewSchemaId,
       { scroll: { top: 0, left: "left" } },
     );
@@ -1737,7 +1758,7 @@ test.describe("workbook visual evidence", () => {
 
     await assertWorkbookGridVisualRegression(
       page,
-      "v-4-grid-03-task-requests",
+      "record-relationships-task-requests",
       taskRequestsViewSchemaId,
       { scroll: { top: 0, left: "left" } },
     );
@@ -1781,7 +1802,7 @@ test.describe("workbook visual evidence", () => {
     ).toHaveText("requested");
     await assertWorkbookGridVisualRegression(
       page,
-      "v-5-grid-01-requested-evidence",
+      "evidence-grid-requested-evidence",
       evidenceViewSchemaId,
       { scroll: { top: 0, left: "left" } },
     );
@@ -1815,7 +1836,7 @@ test.describe("workbook visual evidence", () => {
     ).toHaveText("available");
     await assertWorkbookGridVisualRegression(
       page,
-      "v-5-grid-01-available-evidence",
+      "evidence-grid-available-evidence",
       evidenceViewSchemaId,
       { scroll: { top: 0, left: "left" } },
     );
@@ -1865,7 +1886,7 @@ test.describe("workbook visual evidence", () => {
     ).toContainText("Requested");
     await assertWorkbookGridVisualRegression(
       page,
-      "v-5-grid-02-blocked-preview",
+      "evidence-grid-blocked-preview",
       evidenceViewSchemaId,
       { scroll: { top: 0, left: "left" } },
     );
@@ -1896,7 +1917,7 @@ test.describe("workbook visual evidence", () => {
     });
     await assertWorkbookGridVisualRegression(
       page,
-      "v-5-grid-02-timeline-evidence-badge",
+      "evidence-grid-timeline-evidence-badge",
       timelineViewSchemaId,
       {
         anchor: {
@@ -1948,7 +1969,7 @@ test.describe("FE-P6 visual readiness", () => {
       {
         body: Buffer.from("FE-V-P6 preview visual evidence\n", "utf8"),
         contentType: "text/plain",
-        filename: "fe-v-p6-preview.txt",
+        filename: "evidence-preview.txt",
         requestedAt: "2026-05-01T10:15:00Z",
         title: "04 available preview evidence",
         txnPrefix: "FEVP601-PREVIEW",
@@ -1960,7 +1981,7 @@ test.describe("FE-P6 visual readiness", () => {
       {
         body: Buffer.from("FE-V-P6 download handle visual evidence\n", "utf8"),
         contentType: "text/plain",
-        filename: "fe-v-p6-download-handle.txt",
+        filename: "evidence-download-handle.txt",
         requestedAt: "2026-05-01T10:20:00Z",
         title: "05 download handle evidence",
         txnPrefix: "FEVP601-DOWNLOAD",
@@ -1975,7 +1996,7 @@ test.describe("FE-P6 visual readiness", () => {
           "utf8",
         ),
         contentType: "text/html",
-        filename: "fe-v-p6-preview-blocked.html",
+        filename: "evidence-preview-blocked.html",
         requestedAt: "2026-05-01T10:25:00Z",
         title: "06 preview blocked evidence",
         txnPrefix: "FEVP601-PREVIEW-BLOCKED",
@@ -1984,7 +2005,7 @@ test.describe("FE-P6 visual readiness", () => {
     const failedHandle = await createUploadedVisualEvidence(page, incidentId, {
       body: Buffer.from("FE-V-P6 failed handle visual evidence\n", "utf8"),
       contentType: "text/plain",
-      filename: "fe-v-p6-failed-handle.txt",
+      filename: "evidence-failed-handle.txt",
       requestedAt: "2026-05-01T10:30:00Z",
       title: "07 failed handle evidence",
       txnPrefix: "FEVP601-FAILED",
@@ -1998,7 +2019,7 @@ test.describe("FE-P6 visual readiness", () => {
           "utf8",
         ),
         contentType: "text/plain",
-        filename: "fe-v-p6-inconsistent-handle.txt",
+        filename: "evidence-inconsistent-handle.txt",
         requestedAt: "2026-05-01T10:35:00Z",
         title: "08 inconsistent handle evidence",
         txnPrefix: "FEVP601-INCONSISTENT",
@@ -2076,7 +2097,7 @@ test.describe("FE-P6 visual readiness", () => {
       )
     ).click();
     const download = await downloadPromise;
-    expect(download.suggestedFilename()).toBe("fe-v-p6-download-handle.txt");
+    expect(download.suggestedFilename()).toBe("evidence-download-handle.txt");
     await expect(
       page.getByTestId(evidenceAccessMessageTestId(downloadHandle.record_id)),
     ).toHaveText("Download handle issued.");
@@ -2126,7 +2147,7 @@ test.describe("FE-P6 visual readiness", () => {
 
     await assertEvidenceAccessVisualRegression(
       page,
-      "fe-v-p6-01-evidence-affordance-states",
+      "evidence-affordance-states",
       availablePreview.record_id,
     );
 
@@ -2148,7 +2169,7 @@ test.describe("FE-P6 visual readiness", () => {
       .setInputFiles({
         buffer: tinyPNG(),
         mimeType: "image/png",
-        name: "fe-v-p6-timeline-evidence.png",
+        name: "timeline-evidence.png",
       });
     await expect(
       page.getByTestId(timelineInspectorSectionTestId("evidence")),
@@ -2160,7 +2181,7 @@ test.describe("FE-P6 visual readiness", () => {
     });
     await assertWorkbookGridVisualRegression(
       page,
-      "fe-v-p6-01-timeline-evidence-count",
+      "evidence-timeline-evidence-count",
       timelineViewSchemaId,
       {
         anchor: {
@@ -2189,7 +2210,7 @@ test.describe("FE-P7 workbook visual readiness", () => {
     );
     const remote = await createIncidentMemberUser(page, incidentId, {
       display_name: "Visual Analyst",
-      email: uniqueEmail("fe-v-p7-remote"),
+      email: uniqueEmail("collaboration-remote"),
       initial_password: "FeVP7RemotePass!",
       role: "editor",
     });
@@ -2265,7 +2286,7 @@ test.describe("FE-P7 workbook visual readiness", () => {
       });
       await assertWorkbookGridVisualRegression(
         page,
-        "fe-v-p7-01-presence-markers",
+        "collaboration-presence-markers",
         timelineViewSchemaId,
         { scroll: { top: 0, left: "left" } },
       );
@@ -2303,7 +2324,7 @@ test.describe("FE-P7 workbook visual readiness", () => {
       await stabilizeConflictResolverVisual(page);
       await assertViewportVisualRegression(
         page,
-        "fe-v-p7-01-conflict-resolver",
+        "collaboration-conflict-resolver",
       );
     } finally {
       await fixture.patchController.dispose();
@@ -2322,7 +2343,10 @@ test.describe("FE-P7 workbook visual readiness", () => {
       await expect(
         page.getByTestId(workbookShellSlotTestId("status-strip")),
       ).toContainText("Conflict");
-      await assertStatusStripVisualFixture(page, "fe-v-p7-01-conflict-strip");
+      await assertStatusStripVisualFixture(
+        page,
+        "collaboration-conflict-strip",
+      );
     } finally {
       await fixture.patchController.dispose();
     }
@@ -2339,7 +2363,7 @@ test.describe("FE-P7 workbook visual readiness", () => {
       await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
       await assertStatusStripVisualFixture(
         page,
-        "fe-v-p7-01-recovered-saved-strip",
+        "collaboration-recovered-saved-strip",
       );
     } finally {
       await fixture.patchController.dispose();
@@ -2471,7 +2495,7 @@ test.describe("FE-P8 workbook visual readiness", () => {
     });
     await assertViewportVisualRegression(
       page,
-      "fe-v-p8-01-saved-view-query-controls",
+      "workbook-query-saved-view-query-controls",
     );
 
     const emptyIncidentId = await createIncident(
@@ -2501,7 +2525,7 @@ test.describe("FE-P8 workbook visual readiness", () => {
     });
     await assertWorkbookGridVisualRegression(
       page,
-      "fe-v-p8-01-empty-successful-query",
+      "workbook-query-empty-successful-query",
       timelineViewSchemaId,
       { scroll: { top: 0, left: "left" } },
     );
@@ -2608,7 +2632,7 @@ test.describe("FE-P9 workbook visual readiness", () => {
       .scrollIntoViewIfNeeded();
     await assertViewportVisualRegression(
       page,
-      "fe-v-p9-01-inspector-relationships",
+      "workbook-inspector-relationships",
     );
 
     await page
@@ -2626,7 +2650,7 @@ test.describe("FE-P9 workbook visual readiness", () => {
       ),
     ).toBeVisible();
     await page.getByTestId(rowHistoryPanelTestId()).scrollIntoViewIfNeeded();
-    await assertViewportVisualRegression(page, "fe-v-p9-01-inspector-history");
+    await assertViewportVisualRegression(page, "workbook-inspector-history");
 
     await page
       .getByTestId(feP9VisualHistoryActionTestId(rollbackItem, "history_entry"))
@@ -2642,7 +2666,10 @@ test.describe("FE-P9 workbook visual readiness", () => {
     await page
       .getByTestId(rowHistoryRollbackPreviewTestId(rollbackAnchor))
       .scrollIntoViewIfNeeded();
-    await assertViewportVisualRegression(page, "fe-v-p9-01-rollback-preview");
+    await assertViewportVisualRegression(
+      page,
+      "workbook-inspector-rollback-preview",
+    );
 
     await page
       .getByTestId(rowHistoryRollbackCancelButtonTestId(rollbackAnchor))
@@ -2660,7 +2687,7 @@ test.describe("FE-P9 workbook visual readiness", () => {
       .scrollIntoViewIfNeeded();
     await assertViewportVisualRegression(
       page,
-      "fe-v-p9-01-destructive-confirmation",
+      "workbook-inspector-destructive-confirmation",
     );
 
     await page
@@ -2696,7 +2723,10 @@ test.describe("FE-P9 workbook visual readiness", () => {
       page,
       page.getByTestId(rowHistoryMessageTestId()),
     );
-    await assertViewportVisualRegression(page, "fe-v-p9-01-public-error");
+    await assertViewportVisualRegression(
+      page,
+      "workbook-inspector-public-error",
+    );
   });
 });
 
@@ -2874,7 +2904,7 @@ async function driveFeP7InvalidateRefreshVisual({
     ).toContainText("Queued edits are waiting for workbook refresh.");
     await assertStatusStripVisualFixture(
       page,
-      "fe-v-p7-01-reset-invalidate-notice",
+      "collaboration-reset-invalidate-notice",
     );
     const queryRefreshResponse = page.waitForResponse(
       (response) =>
@@ -2918,8 +2948,8 @@ test.describe("workbook visual evidence", () => {
     );
     const remote = await createIncidentMemberUser(page, incidentId, {
       display_name: "Visual Analyst",
-      email: uniqueEmail("phase6-v6grid01-remote"),
-      initial_password: "Phase6V6Grid01!",
+      email: uniqueEmail("collaboration-v6grid01-remote"),
+      initial_password: "CollaborationV6Grid01!",
       role: "editor",
     });
     const timelineRow = (await createViewRow(
@@ -3003,7 +3033,7 @@ test.describe("workbook visual evidence", () => {
 
       await assertWorkbookGridVisualRegression(
         page,
-        "v-6-grid-01-presence-markers",
+        "collaboration-grid-presence-markers",
         timelineViewSchemaId,
         { scroll: { top: 0, left: "left" } },
       );
@@ -3042,7 +3072,7 @@ test.describe("workbook visual evidence", () => {
         patchController,
         recordId: timelineRow.record_id,
         remoteValue: "Conflict visual server",
-        txnPrefix: "visual-phase6-conflict",
+        txnPrefix: "visual-collaboration-conflict",
       });
       await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
         scroll: { top: 0, left: "right" },
@@ -3051,7 +3081,7 @@ test.describe("workbook visual evidence", () => {
 
       await assertViewportVisualRegression(
         page,
-        "v-6-grid-02-conflict-resolver",
+        "collaboration-grid-conflict-resolver",
       );
     } finally {
       await patchController.dispose();
@@ -3115,12 +3145,15 @@ test.describe("workbook visual evidence", () => {
       await expect(saveState).toHaveText("Syncing");
       await assertStatusStripVisualRegression(
         page,
-        "v-6-grid-03-syncing-strip",
+        "collaboration-grid-syncing-strip",
       );
       await hold.release();
       await hold.waitForCompletion;
       await expect(saveState).toHaveText("Saved");
-      await assertStatusStripVisualRegression(page, "v-6-grid-03-saved-strip");
+      await assertStatusStripVisualRegression(
+        page,
+        "collaboration-grid-saved-strip",
+      );
 
       await driveRealTimelineSummaryConflict({
         baseRowVersion: conflictRow.row_version,
@@ -3129,7 +3162,7 @@ test.describe("workbook visual evidence", () => {
         patchController,
         recordId: conflictRow.record_id,
         remoteValue: "Pending visual server",
-        txnPrefix: "visual-phase6-pending-conflict",
+        txnPrefix: "visual-collaboration-pending-conflict",
       });
       await page.getByTestId("conflict-resolver").scrollIntoViewIfNeeded();
       await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
@@ -3138,7 +3171,7 @@ test.describe("workbook visual evidence", () => {
       await stabilizeConflictResolverVisual(page);
       await assertViewportVisualRegression(
         page,
-        "v-6-grid-03-blocked-conflict",
+        "collaboration-grid-blocked-conflict",
       );
 
       await page.getByTestId("conflict-keep-saved").click();
@@ -3151,7 +3184,7 @@ test.describe("workbook visual evidence", () => {
     await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
     await assertStatusStripVisualRegression(
       page,
-      "v-6-grid-03-recovered-saved-strip",
+      "collaboration-grid-recovered-saved-strip",
     );
   });
 });
@@ -3266,7 +3299,7 @@ test.describe("FE-P10 workbook visual readiness", () => {
     });
     await assertWorkbookGridVisualRegression(
       page,
-      "v-4-grid-03-task-requests",
+      "record-relationships-task-requests",
       taskRequestsViewSchemaId,
       { scroll: { top: 0, left: "left" } },
     );
@@ -3275,11 +3308,11 @@ test.describe("FE-P10 workbook visual readiness", () => {
     const fixture = page.locator("[data-design-fixture='fe-p3-grid-adapter']");
     await expect(fixture).toBeVisible();
     for (const fixtureId of [
-      "FE-VFIX-09",
-      "FE-VFIX-10",
-      "FE-VFIX-11",
-      "FE-VFIX-12",
-      "FE-VFIX-13",
+      "visual.fixture.frozen_column",
+      "visual.fixture.resize_handle",
+      "visual.fixture.drag_fill_handle",
+      "visual.fixture.edit_cell",
+      "visual.fixture.tree_group_row",
     ]) {
       await expect(
         fixture.locator(`[data-fixture-id='${fixtureId}']`),
@@ -3287,7 +3320,7 @@ test.describe("FE-P10 workbook visual readiness", () => {
     }
     await assertVisualRegression(
       page,
-      "fe-v-p3-01-grid-adapter-fixtures",
+      "timeline-grid-adapter-fixtures",
       fixture,
     );
 
@@ -3377,7 +3410,7 @@ test.describe("FE-P10 workbook visual readiness", () => {
       | { value?: unknown }
       | undefined;
     expect(requesterPartyCell?.value).toBe(party.record_id);
-    await test.info().attach("fe-v-p10-01-fixture-matrix.json", {
+    await test.info().attach("coordination-visual-fixture-matrix.json", {
       body: Buffer.from(
         JSON.stringify(
           {
@@ -3389,14 +3422,14 @@ test.describe("FE-P10 workbook visual readiness", () => {
               "clock-derived labels when visible",
             ],
             editor_state:
-              "FE-VFIX-12 readonly editor fixture captured in the grid-adapter fixture.",
+              "visual.fixture.edit_cell readonly editor fixture captured in the grid-adapter fixture.",
             fixture_ids: [
-              "FE-VFIX-07",
-              "FE-VFIX-09",
-              "FE-VFIX-10",
-              "FE-VFIX-11",
-              "FE-VFIX-12",
-              "FE-VFIX-13",
+              "visual.fixture.task_requests_or_decisions",
+              "visual.fixture.frozen_column",
+              "visual.fixture.resize_handle",
+              "visual.fixture.drag_fill_handle",
+              "visual.fixture.edit_cell",
+              "visual.fixture.tree_group_row",
             ],
             focus_state:
               "Each FE-P10 coordination/review surface focuses its row cell after deterministic query state is visible.",
@@ -3404,7 +3437,7 @@ test.describe("FE-P10 workbook visual readiness", () => {
               "task requests workbook grid",
               "grid-adapter design fixture",
             ],
-            seed_id: "fe-v-p10-01-deterministic-seed",
+            seed_id: "coordination-visual-deterministic-seed",
             surfaces: surfaceExpectations.map((entry) => entry.surface),
             viewport_css_px: "1440x900",
           },
@@ -3434,16 +3467,11 @@ test.describe("FE-P11 visual readiness", () => {
       expectedFrontendVisualFixtureIds,
     );
     for (const fixture of registry.fixtures) {
-      if (fixture.status === "current") {
-        expectCurrentFrontendVisualFixtureMetadata(fixture);
-        continue;
-      }
-      expect(fixture.status).toBe("missing");
-      expect(fixture.blocked_reason.length).toBeGreaterThan(0);
-      expect(fixture.golden_artifacts).toEqual([]);
+      expect(fixture.status).toBe("current");
+      expectCurrentFrontendVisualFixtureMetadata(fixture);
     }
 
-    await testInfo.attach("fe-v-p11-01-owned-stack-visual-suite.json", {
+    await testInfo.attach("owned-stack-visual-suite.json", {
       body: Buffer.from(
         JSON.stringify(
           {
@@ -3478,12 +3506,16 @@ test.describe("FE-P11 visual readiness", () => {
     );
     expect([...fixturesById.keys()]).toEqual(expectedFrontendVisualFixtureIds);
 
-    const defaultShell = fixturesById.get("FE-VFIX-01");
+    const defaultShell = fixturesById.get(
+      "visual.fixture.default_timeline_workbook_shell",
+    );
     expect(defaultShell?.fixture_title).toBe("Default Timeline workbook shell");
     expect(defaultShell?.capture_scope.kind).toBe("full_viewport");
     expect(defaultShell?.owner_row_ids).not.toContain("FE-V-P11-03");
 
-    const exposedTheme = fixturesById.get("FE-VFIX-14");
+    const exposedTheme = fixturesById.get(
+      "visual.fixture.exposed_theme_states",
+    );
     expect(exposedTheme?.fixture_title).toBe("Exposed theme states");
     expect(exposedTheme?.owner_phase_ids).toEqual(["FE-P11"]);
     expect(exposedTheme?.owner_row_ids).toEqual(["FE-V-P11-03"]);
@@ -3496,7 +3528,7 @@ test.describe("FE-P11 visual readiness", () => {
     expect(exposedTheme?.dynamic_masks).toEqual([]);
     expect(exposedTheme?.no_dynamic_regions).toBe(true);
 
-    await testInfo.attach("fe-v-p11-02-visual-fixture-matrix.json", {
+    await testInfo.attach("visual-fixture-matrix.json", {
       body: Buffer.from(
         JSON.stringify(
           {
@@ -3505,7 +3537,7 @@ test.describe("FE-P11 visual readiness", () => {
               (fixtureId) => fixturesById.get(fixtureId)?.fixture_title,
             ),
             non_claim_boundaries: [
-              "FE-VFIX-14 does not satisfy FE-VFIX-01",
+              "the exposed-theme fixture does not satisfy the default-shell fixture",
               "current fixture metadata does not close FE-P11 without row accounting",
               "visual evidence remains non-publication evidence",
             ],
@@ -3546,11 +3578,7 @@ test.describe("FE-P11 visual readiness", () => {
 
     const fixture = page.locator("[data-design-fixture='exposed-theme']");
     await expect(fixture).toBeVisible();
-    await assertVisualRegression(
-      page,
-      "fe-v-p11-03-exposed-theme-states",
-      fixture,
-    );
+    await assertVisualRegression(page, "design-exposed-theme-states", fixture);
   });
 });
 
@@ -4100,18 +4128,18 @@ async function injectFeP3GridAdapterVisualFixture(page: Page) {
     html: `
       <div class="fe-p3-grid-fixture-table" role="grid" aria-label="Adapter fixture grid">
         <div class="fe-p3-grid-fixture-row" role="row">
-          <div class="fe-p3-grid-fixture-head fe-p3-grid-fixture-frozen" role="columnheader" data-fixture-id="FE-VFIX-09">Record</div>
-          <div class="fe-p3-grid-fixture-head" role="columnheader" data-fixture-id="FE-VFIX-10">Summary<span class="fe-p3-grid-fixture-resize-handle" aria-hidden="true"></span></div>
+          <div class="fe-p3-grid-fixture-head fe-p3-grid-fixture-frozen" role="columnheader" data-fixture-id="visual.fixture.frozen_column">Record</div>
+          <div class="fe-p3-grid-fixture-head" role="columnheader" data-fixture-id="visual.fixture.resize_handle">Summary<span class="fe-p3-grid-fixture-resize-handle" aria-hidden="true"></span></div>
           <div class="fe-p3-grid-fixture-head" role="columnheader">State</div>
           <div class="fe-p3-grid-fixture-head" role="columnheader">Assignee</div>
           <div class="fe-p3-grid-fixture-head" role="columnheader">Last edit</div>
         </div>
         <div class="fe-p3-grid-fixture-row" role="row">
-          <div class="fe-p3-grid-fixture-cell fe-p3-grid-fixture-group" role="rowheader" data-fixture-id="FE-VFIX-13"><span class="fe-p3-grid-fixture-tree-toggle" aria-hidden="true">v</span> reviewed group, 2 rows</div>
+          <div class="fe-p3-grid-fixture-cell fe-p3-grid-fixture-group" role="rowheader" data-fixture-id="visual.fixture.tree_group_row"><span class="fe-p3-grid-fixture-tree-toggle" aria-hidden="true">v</span> reviewed group, 2 rows</div>
         </div>
         <div class="fe-p3-grid-fixture-row" role="row">
           <div class="fe-p3-grid-fixture-cell fe-p3-grid-fixture-frozen" role="rowheader">record-1</div>
-          <div class="fe-p3-grid-fixture-cell fe-p3-grid-fixture-active" role="gridcell" data-fixture-id="FE-VFIX-12"><input class="fe-p3-grid-fixture-editor" value="Edit cell adapter" aria-label="Summary editor" readonly><span class="fe-p3-grid-fixture-fill" data-fixture-id="FE-VFIX-11" aria-hidden="true"></span></div>
+          <div class="fe-p3-grid-fixture-cell fe-p3-grid-fixture-active" role="gridcell" data-fixture-id="visual.fixture.edit_cell"><input class="fe-p3-grid-fixture-editor" value="Edit cell adapter" aria-label="Summary editor" readonly><span class="fe-p3-grid-fixture-fill" data-fixture-id="visual.fixture.drag_fill_handle" aria-hidden="true"></span></div>
           <div class="fe-p3-grid-fixture-cell" role="gridcell">reviewed</div>
           <div class="fe-p3-grid-fixture-cell" role="gridcell">Analyst</div>
           <div class="fe-p3-grid-fixture-cell" role="gridcell">saved</div>
@@ -4126,7 +4154,7 @@ async function injectFeP3GridAdapterVisualFixture(page: Page) {
       </div>
       <aside class="fe-p3-grid-fixture-side" aria-label="Empty successful query fixture">
         <p class="fe-p3-grid-fixture-caption">Adapter-owned visual states only. Row-gutter presence remains FE-P7 and grouped-result query ownership remains FE-P8.</p>
-        <div class="fe-p3-grid-fixture-empty" data-fixture-id="FE-VFIX-15">
+        <div class="fe-p3-grid-fixture-empty" data-fixture-id="visual.fixture.empty_successful_query">
           <span><strong>No rows match this query</strong>Successful empty result</span>
         </div>
       </aside>
@@ -5618,12 +5646,12 @@ if (
 
     await assertViewportVisualRegression(
       page,
-      "fe-v-p12-01-network-analysis-accepted-inspector",
+      "network-flow-analysis-accepted-inspector",
     );
     await page.getByTestId(networkAnalysisTestId("mode-rejected")).click();
     await assertViewportVisualRegression(
       page,
-      "fe-v-p12-01-network-analysis-rejected-diagnostics",
+      "network-flow-analysis-rejected-diagnostics",
     );
     await page.getByTestId(networkAnalysisTestId("mode-graph")).click();
     const edge = page.getByTestId(/^network-flow-edge-/).first();
@@ -5634,7 +5662,7 @@ if (
     ).toBeVisible();
     await assertViewportVisualRegression(
       page,
-      "fe-v-p12-01-network-analysis-graph-contributors",
+      "network-flow-analysis-graph-contributors",
     );
   });
 }

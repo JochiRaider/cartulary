@@ -98,7 +98,7 @@ describe("ordinary shell support", () => {
       credentialState: credentialStateResource(),
       incidents: [],
       session: sessionResource({
-        display_name: "Phase 1 Support Operator",
+        display_name: "Authentication Support Operator",
       }),
     });
 

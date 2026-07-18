@@ -21,13 +21,13 @@ func TestAuthorizationMatrix(t *testing.T) {
 	incident := incidentscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-support-phase3-auth-incident",
 		"incident_key":  "IR-SUPPORT-AUTH",
-		"title":         "Phase 3 support auth matrix",
+		"title":         "Timeline support auth matrix",
 	})
 	incidentID := incident["incident_id"].(string)
 
-	editorUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase3-editor@example.test", "Phase 3 Editor", "Phase3EditorPass1!", false, false, true)
-	reviewerUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase3-reviewer@example.test", "Phase 3 Reviewer", "Phase3ReviewerPass1!", false, false, true)
-	outsiderUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase3-outsider@example.test", "Phase 3 Outsider", "Phase3OutsiderPass1!", false, false, true)
+	editorUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase3-editor@example.test", "Timeline Editor", "Phase3EditorPass1!", false, false, true)
+	reviewerUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase3-reviewer@example.test", "Timeline Reviewer", "Phase3ReviewerPass1!", false, false, true)
+	outsiderUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase3-outsider@example.test", "Timeline Outsider", "Phase3OutsiderPass1!", false, false, true)
 	_ = outsiderUser
 
 	incidentscenariotest.CreateMembershipForUser(t, harness.Server, adminLogin, incidentID, editorUser.ID.String(), editorUser.Email, "editor")

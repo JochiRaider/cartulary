@@ -62,7 +62,7 @@ test("saved-view route foundation persists canonical state while browser lifecyc
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E801"),
-    "Phase 8 E-8-01 saved-view route foundation",
+    "Workbook query E-8-01 saved-view route foundation",
   );
 
   await page.goto(`/?incident_id=${incidentId}`);
@@ -83,7 +83,7 @@ test("saved-view route foundation persists canonical state while browser lifecyc
       headers: await csrfHeaders(page),
       data: {
         view_schema_id: timelineViewSchemaId,
-        display_name: "  Phase 8 saved view  ",
+        display_name: "  Workbook query saved view  ",
         query_json: {},
         layout_json: {},
       },
@@ -106,7 +106,7 @@ test("saved-view route foundation persists canonical state while browser lifecyc
     };
   };
   expect(createBody.data.scope).toBe("private");
-  expect(createBody.data.display_name).toBe("Phase 8 saved view");
+  expect(createBody.data.display_name).toBe("Workbook query saved view");
   expect(createBody.data.view_schema_id).toBe(timelineViewSchemaId);
   expect(createBody.data.query_json.sort).toEqual([]);
   expect(createBody.data.query_json.filters).toEqual([]);
@@ -123,7 +123,7 @@ test("saved-view route foundation persists canonical state while browser lifecyc
     data: { saved_views: Array<{ display_name: string }> };
   };
   expect(afterBody.data.saved_views.map((view) => view.display_name)).toEqual([
-    "Phase 8 saved view",
+    "Workbook query saved view",
   ]);
 
   await expect(
@@ -139,7 +139,7 @@ test("Verify saved-view create/update/select/default UI uses active surface scop
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("FEIP801"),
-    "Phase 8 FE-I-P8-01 saved-view UI integration",
+    "Workbook query FE-I-P8-01 saved-view UI integration",
   );
   const timelineRow = await createViewRow(
     page,
@@ -405,7 +405,7 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("FEBP801"),
-    "Phase 8 FE-B-P8-01 browser helper coverage",
+    "Workbook query FE-B-P8-01 browser helper coverage",
   );
   const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("febp801-alpha"),
@@ -665,7 +665,7 @@ test("Verify saved-view persistence, default/startup surface persistence, and qu
   await verifySavedViewPersistenceReplay(
     page,
     "FEEP801",
-    "Phase 8 FE-E-P8-01 persisted query replay",
+    "Workbook query FE-E-P8-01 persisted query replay",
   );
 });
 
@@ -675,7 +675,7 @@ test("verifies saved-view persistence, default/startup surface persistence, and 
   await verifySavedViewPersistenceReplay(
     page,
     "E805",
-    "Phase 8 E-8-05 persisted query replay",
+    "Workbook query E-8-05 persisted query replay",
   );
 });
 
@@ -978,7 +978,7 @@ test("workbook startup falls back to Timeline for an unsupported explicit sheet"
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E802"),
-    "Phase 8 E-8-02 startup fallback",
+    "Workbook query E-8-02 startup fallback",
   );
 
   await page.goto(
@@ -994,7 +994,7 @@ test("workbook startup falls back to Timeline for an unsupported explicit sheet"
   );
 
   const homeSavedView = await createSavedView(page, incidentId, {
-    display_name: "Phase 8 home hosts",
+    display_name: "Workbook query home hosts",
     scope: "shared",
     view_schema_id: hostsViewSchemaId,
   });
@@ -1047,7 +1047,7 @@ test("workbook startup falls back to Timeline for an unsupported explicit sheet"
   );
 
   const deletedDefault = await createSavedView(page, incidentId, {
-    display_name: "Phase 8 deleted default",
+    display_name: "Workbook query deleted default",
     view_schema_id: evidenceViewSchemaId,
   });
   await putDefaultSheetRef(page, incidentId, {
@@ -1072,13 +1072,13 @@ test("workbook startup falls back to Timeline for an unsupported explicit sheet"
   ).toBeNull();
 
   const hiddenSavedView = await createSavedView(page, incidentId, {
-    display_name: "Phase 8 hidden home",
+    display_name: "Workbook query hidden home",
     view_schema_id: hostsViewSchemaId,
   });
   const viewerPassword = "Phase8E802Viewer!";
   const viewer = await createIncidentMemberUser(page, incidentId, {
     email: uniqueEmail("phase8-e802-viewer"),
-    display_name: "Phase 8 E-8-02 Viewer",
+    display_name: "Workbook query E-8-02 Viewer",
     initial_password: viewerPassword,
     role: "viewer",
   });
@@ -1107,19 +1107,19 @@ test("browser Timeline sort, filter, and group controls submit stable query keys
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E803"),
-    "Phase 8 E-8-03 Timeline query controls",
+    "Workbook query E-8-03 Timeline query controls",
   );
   const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e803-alpha"),
-    "timeline.activity_synopsis_text": "Alpha Phase 8",
+    "timeline.activity_synopsis_text": "Alpha Workbook query",
   });
   const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e803-beta"),
-    "timeline.activity_synopsis_text": "Beta Phase 8",
+    "timeline.activity_synopsis_text": "Beta Workbook query",
   });
   const gamma = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e803-gamma"),
-    "timeline.activity_synopsis_text": "Gamma Phase 8",
+    "timeline.activity_synopsis_text": "Gamma Workbook query",
   });
 
   await page.goto(`/?incident_id=${incidentId}`);
@@ -1136,7 +1136,7 @@ test("browser Timeline sort, filter, and group controls submit stable query keys
         "timeline.activity_synopsis_text",
       ),
     ),
-  ).toHaveText("Alpha Phase 8");
+  ).toHaveText("Alpha Workbook query");
 
   await clickTimelineRowAction(
     page,
@@ -1273,7 +1273,7 @@ test("browser Notes full_text and prefix queries remain exact", async ({
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E804"),
-    "Phase 8 E-8-04 exact search",
+    "Workbook query E-8-04 exact search",
   );
   const alpha = await createViewRow(page, incidentId, notesViewSchemaId, {
     client_txn_id: uniqueTxn("e804-alpha"),

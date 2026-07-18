@@ -4,7 +4,58 @@
   "verification_id": "harness.visual.verification.stable_fixture_identity",
   "fixtures": [
     {
-      "fixture_id": "FE-VFIX-01",
+      "fixture_id": "visual.fixture.claimed_network_analysis_workspace_states",
+      "fixture_title": "Claimed Network Analysis workspace states",
+      "status": "current",
+      "owner_phase_ids": [
+        "FE-P12"
+      ],
+      "owner_row_ids": [
+        "FE-V-P12-01"
+      ],
+      "playwright_scenario_title": "Capture claimed Network Analysis accepted inspector, rejected diagnostics, and graph contributor drawer at the deterministic desktop viewport.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-accepted-inspector-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-accepted-inspector-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-rejected-diagnostics-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-graph-contributors-linux.png"
+      ],
+      "seed_id": "visual.seed.claimed_network_analysis_workspace_states",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "network-analysis-workspace"
+      },
+      "capture_scope": {
+        "kind": "full_viewport"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Accepted and rejected captures retain the active surface control; the graph capture retains semantic edge selection."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "All three captures are read-only and contain no draft, paste, fill, or mutation editor."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Accepted state shows the semantic cell inspector; graph state shows the contributor drawer for a semantic edge identity."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated table, row, vertex, edge, cursor, and digest identifiers",
+        "timestamps"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "visual.fixture.default_timeline_workbook_shell",
       "fixture_title": "Default Timeline workbook shell",
       "status": "current",
       "owner_phase_ids": [
@@ -16,16 +67,16 @@
         "FE-V-P9-01"
       ],
       "playwright_scenario_title": "Capture Default Timeline workbook shell with view-bar query controls, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip.",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p2-01-default-timeline-workbook-shell-linux.png",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-default-timeline-workbook-shell-linux.png",
       "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p2-01-default-timeline-workbook-shell-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p9-01-inspector-relationships-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p9-01-inspector-history-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p9-01-rollback-preview-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p9-01-destructive-confirmation-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p9-01-public-error-linux.png"
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-default-timeline-workbook-shell-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-relationships-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-history-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-rollback-preview-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-destructive-confirmation-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-public-error-linux.png"
       ],
-      "seed_id": "fe-vfix-01-deterministic-seed",
+      "seed_id": "visual.seed.default_timeline_workbook_shell",
       "viewport_css_px": "1440x900",
       "device_scale_factor": 1,
       "browser_zoom_percent": 100,
@@ -60,73 +111,23 @@
       "replacement_fixture_id": ""
     },
     {
-      "fixture_id": "FE-VFIX-02",
-      "fixture_title": "Mention chip state matrix",
+      "fixture_id": "visual.fixture.drag_fill_handle",
+      "fixture_title": "Drag-fill handle",
       "status": "current",
       "owner_phase_ids": [
-        "FE-P5"
+        "FE-P3",
+        "FE-P10"
       ],
       "owner_row_ids": [
-        "FE-V-P5-01"
+        "FE-V-P3-01",
+        "FE-V-P10-01"
       ],
-      "playwright_scenario_title": "Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution metadata fixtures.",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p5-01-mention-chip-states-linux.png",
+      "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png",
       "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p5-01-mention-chip-states-linux.png"
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png"
       ],
-      "seed_id": "fe-vfix-02-deterministic-seed",
-      "viewport_css_px": "1440x900",
-      "device_scale_factor": 1,
-      "browser_zoom_percent": 100,
-      "theme_id": "dark_graphite",
-      "density_id": "default",
-      "scroll_normalization": {
-        "kind": "top_left",
-        "anchor": "workbook-grid"
-      },
-      "capture_scope": {
-        "kind": "full_viewport"
-      },
-      "focus_state": {
-        "kind": "fixture_specific",
-        "description": "Dismissed mention item is selected in the inspector; grid chip states remain visible in the viewport."
-      },
-      "editor_state": {
-        "kind": "fixture_specific",
-        "description": "No active cell editor; relationship token inputs remain visible but unfocused before capture."
-      },
-      "inspector_state": {
-        "kind": "fixture_specific",
-        "description": "Timeline inspector shows the dismissed mention state and restore control for the dismissed row."
-      },
-      "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
-      ],
-      "no_dynamic_regions": false,
-      "blocked_reason": "",
-      "replacement_fixture_id": ""
-    },
-    {
-      "fixture_id": "FE-VFIX-03",
-      "fixture_title": "Same-field conflict",
-      "status": "current",
-      "owner_phase_ids": [
-        "FE-P7"
-      ],
-      "owner_row_ids": [
-        "FE-V-P7-01"
-      ],
-      "playwright_scenario_title": "Capture same-field conflict resolver.",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-conflict-resolver-linux.png",
-      "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-conflict-resolver-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-conflict-strip-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-6-grid-02-conflict-resolver-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-6-grid-03-blocked-conflict-linux.png"
-      ],
-      "seed_id": "fe-vfix-03-deterministic-seed",
+      "seed_id": "visual.seed.drag_fill_handle",
       "viewport_css_px": "1440x900",
       "device_scale_factor": 1,
       "browser_zoom_percent": 100,
@@ -161,22 +162,27 @@
       "replacement_fixture_id": ""
     },
     {
-      "fixture_id": "FE-VFIX-04",
-      "fixture_title": "Row-gutter presence",
+      "fixture_id": "visual.fixture.edit_cell",
+      "fixture_title": "Edit cell",
       "status": "current",
       "owner_phase_ids": [
-        "FE-P7"
+        "FE-P3",
+        "FE-P4",
+        "FE-P10"
       ],
       "owner_row_ids": [
-        "FE-V-P7-01"
+        "FE-V-P3-01",
+        "FE-V-P4-01",
+        "FE-V-P10-01"
       ],
-      "playwright_scenario_title": "Capture row-gutter and cell presence markers.",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-presence-markers-linux.png",
+      "playwright_scenario_title": "Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-active-edit-cell-linux.png",
       "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-presence-markers-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-6-grid-01-presence-markers-linux.png"
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-active-edit-cell-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-active-edit-cell-linux.png"
       ],
-      "seed_id": "fe-vfix-04-deterministic-seed",
+      "seed_id": "visual.seed.edit_cell",
       "viewport_css_px": "1440x900",
       "device_scale_factor": 1,
       "browser_zoom_percent": 100,
@@ -211,7 +217,62 @@
       "replacement_fixture_id": ""
     },
     {
-      "fixture_id": "FE-VFIX-05",
+      "fixture_id": "visual.fixture.empty_successful_query",
+      "fixture_title": "Empty successful query",
+      "status": "current",
+      "owner_phase_ids": [
+        "FE-P3",
+        "FE-P4",
+        "FE-P8"
+      ],
+      "owner_row_ids": [
+        "FE-V-P3-01",
+        "FE-V-P4-01",
+        "FE-V-P8-01"
+      ],
+      "playwright_scenario_title": "Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-empty-timeline-query-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-empty-timeline-query-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-successful-query-linux.png"
+      ],
+      "seed_id": "visual.seed.empty_successful_query",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "workbook-grid"
+      },
+      "capture_scope": {
+        "kind": "full_viewport"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "visual.fixture.evidence_affordance",
       "fixture_title": "Evidence affordance",
       "status": "current",
       "owner_phase_ids": [
@@ -221,12 +282,12 @@
         "FE-V-P6-01"
       ],
       "playwright_scenario_title": "Capture evidence count, affordance, available, requested, pending, blocked, failed, inconsistent, preview, and download-handle state fixtures.",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p6-01-evidence-affordance-states-linux.png",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-affordance-states-linux.png",
       "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p6-01-evidence-affordance-states-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p6-01-timeline-evidence-count-linux.png"
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-affordance-states-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-timeline-evidence-count-linux.png"
       ],
-      "seed_id": "fe-vfix-05-fe-v-p6-01-deterministic-seed",
+      "seed_id": "visual.seed.evidence_affordance",
       "viewport_css_px": "1440x900",
       "device_scale_factor": 1,
       "browser_zoom_percent": 100,
@@ -261,7 +322,368 @@
       "replacement_fixture_id": ""
     },
     {
-      "fixture_id": "FE-VFIX-06",
+      "fixture_id": "visual.fixture.exposed_theme_states",
+      "fixture_title": "Exposed theme states",
+      "status": "current",
+      "owner_phase_ids": [
+        "FE-P11"
+      ],
+      "owner_row_ids": [
+        "FE-V-P11-03"
+      ],
+      "playwright_scenario_title": "Capture exposed dark_graphite token and theme states with deterministic density, color, component, focus, and semantic-state samples.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-exposed-theme-states-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-exposed-theme-states-linux.png"
+      ],
+      "seed_id": "visual.seed.exposed_theme_states",
+      "viewport_css_px": "1280x720",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "not_applicable",
+        "reason": "selector-only exposed-theme specimen; no workbook-grid scroll state"
+      },
+      "capture_scope": {
+        "kind": "selector",
+        "selector": "[data-design-fixture='exposed-theme']"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "dynamic_masks": [],
+      "no_dynamic_regions": true,
+      "blocked_reason": "",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "visual.fixture.frozen_column",
+      "fixture_title": "Frozen column",
+      "status": "current",
+      "owner_phase_ids": [
+        "FE-P3",
+        "FE-P10"
+      ],
+      "owner_row_ids": [
+        "FE-V-P3-01",
+        "FE-V-P10-01"
+      ],
+      "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png"
+      ],
+      "seed_id": "visual.seed.frozen_column",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "workbook-grid"
+      },
+      "capture_scope": {
+        "kind": "full_viewport"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "visual.fixture.mention_chip_state_matrix",
+      "fixture_title": "Mention chip state matrix",
+      "status": "current",
+      "owner_phase_ids": [
+        "FE-P5"
+      ],
+      "owner_row_ids": [
+        "FE-V-P5-01"
+      ],
+      "playwright_scenario_title": "Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution metadata fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/entity-mention-chip-states-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/entity-mention-chip-states-linux.png"
+      ],
+      "seed_id": "visual.seed.mention_chip_state_matrix",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "workbook-grid"
+      },
+      "capture_scope": {
+        "kind": "full_viewport"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Dismissed mention item is selected in the inspector; grid chip states remain visible in the viewport."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "No active cell editor; relationship token inputs remain visible but unfocused before capture."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Timeline inspector shows the dismissed mention state and restore control for the dismissed row."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "visual.fixture.resize_handle",
+      "fixture_title": "Resize handle",
+      "status": "current",
+      "owner_phase_ids": [
+        "FE-P3",
+        "FE-P10"
+      ],
+      "owner_row_ids": [
+        "FE-V-P3-01",
+        "FE-V-P10-01"
+      ],
+      "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png"
+      ],
+      "seed_id": "visual.seed.resize_handle",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "workbook-grid"
+      },
+      "capture_scope": {
+        "kind": "full_viewport"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "visual.fixture.row_gutter_presence",
+      "fixture_title": "Row-gutter presence",
+      "status": "current",
+      "owner_phase_ids": [
+        "FE-P7"
+      ],
+      "owner_row_ids": [
+        "FE-V-P7-01"
+      ],
+      "playwright_scenario_title": "Capture row-gutter and cell presence markers.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-presence-markers-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-presence-markers-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-presence-markers-linux.png"
+      ],
+      "seed_id": "visual.seed.row_gutter_presence",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "workbook-grid"
+      },
+      "capture_scope": {
+        "kind": "full_viewport"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "visual.fixture.same_field_conflict",
+      "fixture_title": "Same-field conflict",
+      "status": "current",
+      "owner_phase_ids": [
+        "FE-P7"
+      ],
+      "owner_row_ids": [
+        "FE-V-P7-01"
+      ],
+      "playwright_scenario_title": "Capture same-field conflict resolver.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-resolver-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-resolver-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-strip-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-conflict-resolver-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-blocked-conflict-linux.png"
+      ],
+      "seed_id": "visual.seed.same_field_conflict",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "workbook-grid"
+      },
+      "capture_scope": {
+        "kind": "full_viewport"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "visual.fixture.save_state_strip",
+      "fixture_title": "Save-state strip",
+      "status": "current",
+      "owner_phase_ids": [
+        "FE-P4",
+        "FE-P7"
+      ],
+      "owner_row_ids": [
+        "FE-V-P4-01",
+        "FE-V-P7-01"
+      ],
+      "playwright_scenario_title": "Capture conflict save-state strip.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-strip-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-strip-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-recovered-saved-strip-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-reset-invalidate-notice-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-pending-replay-status-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-transaction-recovery-panel-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-saved-strip-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-syncing-strip-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-conflict-strip-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-syncing-strip-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-saved-strip-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-blocked-conflict-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-recovered-saved-strip-linux.png"
+      ],
+      "seed_id": "visual.seed.save_state_strip",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "workbook-grid"
+      },
+      "capture_scope": {
+        "kind": "full_viewport"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "visual.fixture.saved_view_query_controls_and_grouped_result",
       "fixture_title": "Saved-view query controls and grouped result",
       "status": "current",
       "owner_phase_ids": [
@@ -271,11 +693,11 @@
         "FE-V-P8-01"
       ],
       "playwright_scenario_title": "Capture saved-view selector, active chips, grouped result, group row, default/startup state indicator, and empty successful query fixtures.",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p8-01-saved-view-query-controls-linux.png",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-saved-view-query-controls-linux.png",
       "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p8-01-saved-view-query-controls-linux.png"
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-saved-view-query-controls-linux.png"
       ],
-      "seed_id": "fe-vfix-06-deterministic-seed",
+      "seed_id": "visual.seed.saved_view_query_controls_and_grouped_result",
       "viewport_css_px": "1440x900",
       "device_scale_factor": 1,
       "browser_zoom_percent": 100,
@@ -310,7 +732,7 @@
       "replacement_fixture_id": ""
     },
     {
-      "fixture_id": "FE-VFIX-07",
+      "fixture_id": "visual.fixture.task_requests_or_decisions",
       "fixture_title": "Task Requests or Decisions",
       "status": "current",
       "owner_phase_ids": [
@@ -319,12 +741,12 @@
       "owner_row_ids": [
         "FE-V-P10-01"
       ],
-      "playwright_scenario_title": "V-4-GRID-03 captures Task Requests and Decisions workbook surface visuals",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-4-grid-03-task-requests-linux.png",
+      "playwright_scenario_title": "Capture Task Requests or Decisions, Parties link state, Communications Log, Handoff, Status Review, Lesson, keyboard focus, frozen column, resize handle, and fill-down fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/record-relationships-task-requests-linux.png",
       "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-4-grid-03-task-requests-linux.png"
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/record-relationships-task-requests-linux.png"
       ],
-      "seed_id": "fe-vfix-07-deterministic-seed",
+      "seed_id": "visual.seed.task_requests_or_decisions",
       "viewport_css_px": "1440x900",
       "device_scale_factor": 1,
       "browser_zoom_percent": 100,
@@ -359,277 +781,7 @@
       "replacement_fixture_id": ""
     },
     {
-      "fixture_id": "FE-VFIX-08",
-      "fixture_title": "Save-state strip",
-      "status": "current",
-      "owner_phase_ids": [
-        "FE-P4",
-        "FE-P7"
-      ],
-      "owner_row_ids": [
-        "FE-V-P4-01",
-        "FE-V-P7-01"
-      ],
-      "playwright_scenario_title": "Capture conflict save-state strip.",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-conflict-strip-linux.png",
-      "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-conflict-strip-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-recovered-saved-strip-linux.png",
-      "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-reset-invalidate-notice-linux.png",
-      "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-pending-replay-status-linux.png",
-      "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-transaction-recovery-panel-linux.png",
-      "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-02-saved-strip-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-02-syncing-strip-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-02-conflict-strip-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-6-grid-03-syncing-strip-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-6-grid-03-saved-strip-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-6-grid-03-blocked-conflict-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-6-grid-03-recovered-saved-strip-linux.png"
-      ],
-      "seed_id": "fe-vfix-08-deterministic-seed",
-      "viewport_css_px": "1440x900",
-      "device_scale_factor": 1,
-      "browser_zoom_percent": 100,
-      "theme_id": "dark_graphite",
-      "density_id": "default",
-      "scroll_normalization": {
-        "kind": "top_left",
-        "anchor": "workbook-grid"
-      },
-      "capture_scope": {
-        "kind": "full_viewport"
-      },
-      "focus_state": {
-        "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
-      },
-      "editor_state": {
-        "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
-      },
-      "inspector_state": {
-        "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
-      },
-      "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
-      ],
-      "no_dynamic_regions": false,
-      "blocked_reason": "",
-      "replacement_fixture_id": ""
-    },
-    {
-      "fixture_id": "FE-VFIX-09",
-      "fixture_title": "Frozen column",
-      "status": "current",
-      "owner_phase_ids": [
-        "FE-P3",
-        "FE-P10"
-      ],
-      "owner_row_ids": [
-        "FE-V-P3-01",
-        "FE-V-P10-01"
-      ],
-      "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
-      "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png"
-      ],
-      "seed_id": "fe-vfix-09-deterministic-seed",
-      "viewport_css_px": "1440x900",
-      "device_scale_factor": 1,
-      "browser_zoom_percent": 100,
-      "theme_id": "dark_graphite",
-      "density_id": "default",
-      "scroll_normalization": {
-        "kind": "top_left",
-        "anchor": "workbook-grid"
-      },
-      "capture_scope": {
-        "kind": "full_viewport"
-      },
-      "focus_state": {
-        "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
-      },
-      "editor_state": {
-        "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
-      },
-      "inspector_state": {
-        "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
-      },
-      "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
-      ],
-      "no_dynamic_regions": false,
-      "blocked_reason": "",
-      "replacement_fixture_id": ""
-    },
-    {
-      "fixture_id": "FE-VFIX-10",
-      "fixture_title": "Resize handle",
-      "status": "current",
-      "owner_phase_ids": [
-        "FE-P3",
-        "FE-P10"
-      ],
-      "owner_row_ids": [
-        "FE-V-P3-01",
-        "FE-V-P10-01"
-      ],
-      "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
-      "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png"
-      ],
-      "seed_id": "fe-vfix-10-deterministic-seed",
-      "viewport_css_px": "1440x900",
-      "device_scale_factor": 1,
-      "browser_zoom_percent": 100,
-      "theme_id": "dark_graphite",
-      "density_id": "default",
-      "scroll_normalization": {
-        "kind": "top_left",
-        "anchor": "workbook-grid"
-      },
-      "capture_scope": {
-        "kind": "full_viewport"
-      },
-      "focus_state": {
-        "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
-      },
-      "editor_state": {
-        "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
-      },
-      "inspector_state": {
-        "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
-      },
-      "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
-      ],
-      "no_dynamic_regions": false,
-      "blocked_reason": "",
-      "replacement_fixture_id": ""
-    },
-    {
-      "fixture_id": "FE-VFIX-11",
-      "fixture_title": "Drag-fill handle",
-      "status": "current",
-      "owner_phase_ids": [
-        "FE-P3",
-        "FE-P10"
-      ],
-      "owner_row_ids": [
-        "FE-V-P3-01",
-        "FE-V-P10-01"
-      ],
-      "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
-      "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png"
-      ],
-      "seed_id": "fe-vfix-11-deterministic-seed",
-      "viewport_css_px": "1440x900",
-      "device_scale_factor": 1,
-      "browser_zoom_percent": 100,
-      "theme_id": "dark_graphite",
-      "density_id": "default",
-      "scroll_normalization": {
-        "kind": "top_left",
-        "anchor": "workbook-grid"
-      },
-      "capture_scope": {
-        "kind": "full_viewport"
-      },
-      "focus_state": {
-        "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
-      },
-      "editor_state": {
-        "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
-      },
-      "inspector_state": {
-        "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
-      },
-      "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
-      ],
-      "no_dynamic_regions": false,
-      "blocked_reason": "",
-      "replacement_fixture_id": ""
-    },
-    {
-      "fixture_id": "FE-VFIX-12",
-      "fixture_title": "Edit cell",
-      "status": "current",
-      "owner_phase_ids": [
-        "FE-P3",
-        "FE-P4",
-        "FE-P10"
-      ],
-      "owner_row_ids": [
-        "FE-V-P3-01",
-        "FE-V-P4-01",
-        "FE-V-P10-01"
-      ],
-      "playwright_scenario_title": "Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures.",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-active-edit-cell-linux.png",
-      "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-active-edit-cell-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-02-active-edit-cell-linux.png"
-      ],
-      "seed_id": "fe-vfix-12-deterministic-seed",
-      "viewport_css_px": "1440x900",
-      "device_scale_factor": 1,
-      "browser_zoom_percent": 100,
-      "theme_id": "dark_graphite",
-      "density_id": "default",
-      "scroll_normalization": {
-        "kind": "top_left",
-        "anchor": "workbook-grid"
-      },
-      "capture_scope": {
-        "kind": "full_viewport"
-      },
-      "focus_state": {
-        "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
-      },
-      "editor_state": {
-        "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
-      },
-      "inspector_state": {
-        "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
-      },
-      "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
-      ],
-      "no_dynamic_regions": false,
-      "blocked_reason": "",
-      "replacement_fixture_id": ""
-    },
-    {
-      "fixture_id": "FE-VFIX-13",
+      "fixture_id": "visual.fixture.tree_group_row",
       "fixture_title": "Tree/group row",
       "status": "current",
       "owner_phase_ids": [
@@ -643,11 +795,11 @@
         "FE-V-P10-01"
       ],
       "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png",
       "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png"
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png"
       ],
-      "seed_id": "fe-vfix-13-deterministic-seed",
+      "seed_id": "visual.seed.tree_group_row",
       "viewport_css_px": "1440x900",
       "device_scale_factor": 1,
       "browser_zoom_percent": 100,
@@ -677,424 +829,6 @@
         "generated record identifiers",
         "clock-derived labels when visible"
       ],
-      "no_dynamic_regions": false,
-      "blocked_reason": "",
-      "replacement_fixture_id": ""
-    },
-    {
-      "fixture_id": "FE-VFIX-14",
-      "fixture_title": "Exposed theme states",
-      "status": "current",
-      "owner_phase_ids": [
-        "FE-P11"
-      ],
-      "owner_row_ids": [
-        "FE-V-P11-03"
-      ],
-      "playwright_scenario_title": "Capture exposed dark_graphite token and theme states with deterministic density, color, component, focus, and semantic-state samples.",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p11-03-exposed-theme-states-linux.png",
-      "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p11-03-exposed-theme-states-linux.png"
-      ],
-      "seed_id": "fe-vfix-14-deterministic-seed",
-      "viewport_css_px": "1280x720",
-      "device_scale_factor": 1,
-      "browser_zoom_percent": 100,
-      "theme_id": "dark_graphite",
-      "density_id": "default",
-      "scroll_normalization": {
-        "kind": "not_applicable",
-        "reason": "selector-only exposed-theme specimen; no workbook-grid scroll state"
-      },
-      "capture_scope": {
-        "kind": "selector",
-        "selector": "[data-design-fixture='exposed-theme']"
-      },
-      "focus_state": {
-        "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
-      },
-      "editor_state": {
-        "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
-      },
-      "inspector_state": {
-        "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
-      },
-      "dynamic_masks": [],
-      "no_dynamic_regions": true,
-      "blocked_reason": "",
-      "replacement_fixture_id": ""
-    },
-    {
-      "fixture_id": "FE-VFIX-15",
-      "fixture_title": "Empty successful query",
-      "status": "current",
-      "owner_phase_ids": [
-        "FE-P3",
-        "FE-P4",
-        "FE-P8"
-      ],
-      "owner_row_ids": [
-        "FE-V-P3-01",
-        "FE-V-P4-01",
-        "FE-V-P8-01"
-      ],
-      "playwright_scenario_title": "Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures.",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-empty-timeline-query-linux.png",
-      "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-empty-timeline-query-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p8-01-empty-successful-query-linux.png"
-      ],
-      "seed_id": "fe-vfix-15-deterministic-seed",
-      "viewport_css_px": "1440x900",
-      "device_scale_factor": 1,
-      "browser_zoom_percent": 100,
-      "theme_id": "dark_graphite",
-      "density_id": "default",
-      "scroll_normalization": {
-        "kind": "top_left",
-        "anchor": "workbook-grid"
-      },
-      "capture_scope": {
-        "kind": "full_viewport"
-      },
-      "focus_state": {
-        "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
-      },
-      "editor_state": {
-        "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
-      },
-      "inspector_state": {
-        "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
-      },
-      "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
-      ],
-      "no_dynamic_regions": false,
-      "blocked_reason": "",
-      "replacement_fixture_id": ""
-    },
-    {
-      "fixture_id": "FE-VFIX-16",
-      "fixture_title": "Host or Identity merge inspector",
-      "status": "missing",
-      "owner_phase_ids": [
-        "FE-P9"
-      ],
-      "owner_row_ids": [
-        "FE-V-P9-01"
-      ],
-      "playwright_scenario_title": "Blocked: Host or Identity merge inspector visual scenario is not implemented",
-      "golden_filename": "",
-      "golden_artifacts": [],
-      "seed_id": "fe-vfix-16-missing-seed",
-      "viewport_css_px": "1440x900",
-      "device_scale_factor": 1,
-      "browser_zoom_percent": 100,
-      "theme_id": "dark_graphite",
-      "density_id": "compact",
-      "scroll_normalization": {
-        "kind": "not_applicable",
-        "reason": "selector-only missing inspector fixture; no workbook-grid scroll state until a row-owned visual scenario exists"
-      },
-      "capture_scope": {
-        "kind": "selector",
-        "selector": "[data-testid='host-inspector']"
-      },
-      "focus_state": {
-        "kind": "fixture_specific",
-        "description": "Blocked until a row-owned Playwright scenario defines focus on the merge confirmation or invoking feature control."
-      },
-      "editor_state": {
-        "kind": "fixture_specific",
-        "description": "Blocked until a row-owned Playwright scenario defines merge candidate and confirmation state."
-      },
-      "inspector_state": {
-        "kind": "fixture_specific",
-        "description": "Blocked until a row-owned Playwright scenario captures selected-row merge plan and confirmation state."
-      },
-      "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers"
-      ],
-      "no_dynamic_regions": false,
-      "blocked_reason": "Blocked on row-owned Playwright visual scenario and golden for Host or Identity merge inspector covering AC-454, AC-457, and AC-459.",
-      "replacement_fixture_id": ""
-    },
-    {
-      "fixture_id": "FE-VFIX-17",
-      "fixture_title": "Evidence blocked preview inspector",
-      "status": "missing",
-      "owner_phase_ids": [
-        "FE-P9"
-      ],
-      "owner_row_ids": [
-        "FE-V-P9-01"
-      ],
-      "playwright_scenario_title": "Blocked: Evidence blocked preview inspector visual scenario is not implemented",
-      "golden_filename": "",
-      "golden_artifacts": [],
-      "seed_id": "fe-vfix-17-missing-seed",
-      "viewport_css_px": "1440x900",
-      "device_scale_factor": 1,
-      "browser_zoom_percent": 100,
-      "theme_id": "dark_graphite",
-      "density_id": "compact",
-      "scroll_normalization": {
-        "kind": "not_applicable",
-        "reason": "selector-only missing inspector fixture; no workbook-grid scroll state until a row-owned visual scenario exists"
-      },
-      "capture_scope": {
-        "kind": "selector",
-        "selector": "[data-testid='timeline-inspector']"
-      },
-      "focus_state": {
-        "kind": "fixture_specific",
-        "description": "Blocked until a row-owned Playwright scenario defines focus for the blocked preview state."
-      },
-      "editor_state": {
-        "kind": "fixture_specific",
-        "description": "Blocked until a row-owned Playwright scenario defines blocked preview state without active editing."
-      },
-      "inspector_state": {
-        "kind": "fixture_specific",
-        "description": "Blocked until a row-owned Playwright scenario captures evidence_preview_unavailable or blocked preview state."
-      },
-      "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
-      ],
-      "no_dynamic_regions": false,
-      "blocked_reason": "Blocked on row-owned Playwright visual scenario and golden for Evidence blocked preview inspector covering AC-460.",
-      "replacement_fixture_id": ""
-    },
-    {
-      "fixture_id": "FE-VFIX-18",
-      "fixture_title": "History rollback destructive confirmation",
-      "status": "missing",
-      "owner_phase_ids": [
-        "FE-P9"
-      ],
-      "owner_row_ids": [
-        "FE-V-P9-01"
-      ],
-      "playwright_scenario_title": "Blocked: History rollback destructive confirmation visual scenario is not implemented",
-      "golden_filename": "",
-      "golden_artifacts": [],
-      "seed_id": "fe-vfix-18-missing-seed",
-      "viewport_css_px": "1440x900",
-      "device_scale_factor": 1,
-      "browser_zoom_percent": 100,
-      "theme_id": "dark_graphite",
-      "density_id": "compact",
-      "scroll_normalization": {
-        "kind": "not_applicable",
-        "reason": "selector-only missing inspector fixture; no workbook-grid scroll state until a row-owned visual scenario exists"
-      },
-      "capture_scope": {
-        "kind": "selector",
-        "selector": "[data-testid='timeline-inspector']"
-      },
-      "focus_state": {
-        "kind": "fixture_specific",
-        "description": "Blocked until a row-owned Playwright scenario defines destructive confirmation focus state."
-      },
-      "editor_state": {
-        "kind": "fixture_specific",
-        "description": "Blocked until a row-owned Playwright scenario defines rollback preview state without unrelated editors."
-      },
-      "inspector_state": {
-        "kind": "fixture_specific",
-        "description": "Blocked until a row-owned Playwright scenario captures rollback preview and destructive confirmation in History."
-      },
-      "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
-      ],
-      "no_dynamic_regions": false,
-      "blocked_reason": "Blocked on row-owned Playwright visual scenario and golden for rollback/destructive confirmation invalidation covering AC-457 and AC-458.",
-      "replacement_fixture_id": ""
-    },
-    {
-      "fixture_id": "FE-VFIX-19",
-      "fixture_title": "Handoff acknowledgement inspector",
-      "status": "missing",
-      "owner_phase_ids": [
-        "FE-P10"
-      ],
-      "owner_row_ids": [
-        "FE-V-P10-01"
-      ],
-      "playwright_scenario_title": "Blocked: Handoff acknowledgement inspector visual scenario is not implemented",
-      "golden_filename": "",
-      "golden_artifacts": [],
-      "seed_id": "fe-vfix-19-missing-seed",
-      "viewport_css_px": "1440x900",
-      "device_scale_factor": 1,
-      "browser_zoom_percent": 100,
-      "theme_id": "dark_graphite",
-      "density_id": "compact",
-      "scroll_normalization": {
-        "kind": "not_applicable",
-        "reason": "selector-only missing inspector fixture; no workbook-grid scroll state until a row-owned visual scenario exists"
-      },
-      "capture_scope": {
-        "kind": "selector",
-        "selector": "[data-workbook-slot='inspector']"
-      },
-      "focus_state": {
-        "kind": "fixture_specific",
-        "description": "Blocked until a row-owned Playwright scenario defines focus for the acknowledgement action or resulting state."
-      },
-      "editor_state": {
-        "kind": "fixture_specific",
-        "description": "Blocked until a row-owned Playwright scenario defines acknowledgement state without unrelated editors."
-      },
-      "inspector_state": {
-        "kind": "fixture_specific",
-        "description": "Blocked until a row-owned Playwright scenario captures Handoff workflow acknowledgement affordance."
-      },
-      "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
-      ],
-      "no_dynamic_regions": false,
-      "blocked_reason": "Blocked on row-owned Playwright visual scenario and golden for Handoff acknowledgement inspector covering AC-458 and AC-459.",
-      "replacement_fixture_id": ""
-    },
-    {
-      "fixture_id": "FE-VFIX-20",
-      "fixture_title": "Status Review blocked work inspector",
-      "status": "missing",
-      "owner_phase_ids": [
-        "FE-P10"
-      ],
-      "owner_row_ids": [
-        "FE-V-P10-01"
-      ],
-      "playwright_scenario_title": "Blocked: Status Review blocked-work inspector visual scenario is not implemented",
-      "golden_filename": "",
-      "golden_artifacts": [],
-      "seed_id": "fe-vfix-20-missing-seed",
-      "viewport_css_px": "1440x900",
-      "device_scale_factor": 1,
-      "browser_zoom_percent": 100,
-      "theme_id": "dark_graphite",
-      "density_id": "compact",
-      "scroll_normalization": {
-        "kind": "not_applicable",
-        "reason": "selector-only missing inspector fixture; no workbook-grid scroll state until a row-owned visual scenario exists"
-      },
-      "capture_scope": {
-        "kind": "selector",
-        "selector": "[data-workbook-slot='inspector']"
-      },
-      "focus_state": {
-        "kind": "fixture_specific",
-        "description": "Blocked until a row-owned Playwright scenario defines focus for blocked-work review controls."
-      },
-      "editor_state": {
-        "kind": "fixture_specific",
-        "description": "Blocked until a row-owned Playwright scenario defines blocked-work review state without unrelated editors."
-      },
-      "inspector_state": {
-        "kind": "fixture_specific",
-        "description": "Blocked until a row-owned Playwright scenario captures Status Review blocked-work workflow state."
-      },
-      "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
-      ],
-      "no_dynamic_regions": false,
-      "blocked_reason": "Blocked on row-owned Playwright visual scenario and golden for Status Review blocked-work inspector covering AC-458 and AC-459.",
-      "replacement_fixture_id": ""
-    },
-    {
-      "fixture_id": "FE-VFIX-21",
-      "fixture_title": "Timeline create-related workflow inspector",
-      "status": "missing",
-      "owner_phase_ids": [
-        "FE-P9",
-        "FE-P10"
-      ],
-      "owner_row_ids": [
-        "FE-V-P9-01"
-      ],
-      "playwright_scenario_title": "Blocked: Timeline create-related workflow inspector visual scenario is not implemented",
-      "golden_filename": "",
-      "golden_artifacts": [],
-      "seed_id": "fe-vfix-21-missing-seed",
-      "viewport_css_px": "1440x900",
-      "device_scale_factor": 1,
-      "browser_zoom_percent": 100,
-      "theme_id": "dark_graphite",
-      "density_id": "compact",
-      "scroll_normalization": {
-        "kind": "not_applicable",
-        "reason": "selector-only missing inspector fixture; grid and inspector scroll anchors must be declared when a row-owned visual scenario exists"
-      },
-      "capture_scope": {
-        "kind": "selector",
-        "selector": "[data-testid='timeline-inspector']"
-      },
-      "focus_state": {
-        "kind": "fixture_specific",
-        "description": "Blocked until a row-owned Playwright scenario defines focus for a create-related workflow action or same-shell create form."
-      },
-      "editor_state": {
-        "kind": "fixture_specific",
-        "description": "Blocked until a row-owned Playwright scenario defines same-shell create-related form state while preserving ordinary Timeline grid editability when the inspector is closed."
-      },
-      "inspector_state": {
-        "kind": "fixture_specific",
-        "description": "Blocked until a row-owned Playwright scenario captures Workflow panel create-related actions for Task Request, Decision, Evidence, Communications Log, Handoff, Status Review, and Lesson."
-      },
-      "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
-      ],
-      "no_dynamic_regions": false,
-      "blocked_reason": "Blocked on row-owned Playwright visual scenario and golden for Timeline create-related workflow inspector covering same-shell coordination workflows.",
-      "replacement_fixture_id": ""
-    },
-    {
-      "fixture_id": "FE-VFIX-22",
-      "fixture_title": "Claimed Network Analysis workspace states",
-      "status": "current",
-      "owner_phase_ids": ["FE-P12"],
-      "owner_row_ids": ["FE-V-P12-01"],
-      "playwright_scenario_title": "Capture claimed Network Analysis accepted inspector, rejected diagnostics, and graph contributor drawer at the deterministic desktop viewport.",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p12-01-network-analysis-accepted-inspector-linux.png",
-      "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p12-01-network-analysis-accepted-inspector-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p12-01-network-analysis-rejected-diagnostics-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p12-01-network-analysis-graph-contributors-linux.png"
-      ],
-      "seed_id": "fe-vfix-22-network-flow-canonical-seed",
-      "viewport_css_px": "1440x900",
-      "device_scale_factor": 1,
-      "browser_zoom_percent": 100,
-      "theme_id": "dark_graphite",
-      "density_id": "default",
-      "scroll_normalization": {"kind":"top_left","anchor":"network-analysis-workspace"},
-      "capture_scope": {"kind":"full_viewport"},
-      "focus_state": {"kind":"fixture_specific","description":"Accepted and rejected captures retain the active surface control; the graph capture retains semantic edge selection."},
-      "editor_state": {"kind":"fixture_specific","description":"All three captures are read-only and contain no draft, paste, fill, or mutation editor."},
-      "inspector_state": {"kind":"fixture_specific","description":"Accepted state shows the semantic cell inspector; graph state shows the contributor drawer for a semantic edge identity."},
-      "dynamic_masks": ["incident identifiers", "generated table, row, vertex, edge, cursor, and digest identifiers", "timestamps"],
       "no_dynamic_regions": false,
       "blocked_reason": "",
       "replacement_fixture_id": ""

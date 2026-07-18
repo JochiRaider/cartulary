@@ -19,18 +19,18 @@ import (
 const NotesViewSchemaID = "cartulary.view.notes.v1"
 
 func TestGridWriteConcurrencyRoute_Unit(t *testing.T) {
-	harness, login, _, incidentID := ConflictFixture(t, "phase6-u-6-01-grid-write-concurrency", "IR-PHASE6-U-6-01")
-	note := CreateNote(t, harness, login, incidentID, "txn-phase6-u-6-01-create", "Base title", "Base body")
+	harness, login, _, incidentID := ConflictFixture(t, "collaboration-u-6-01-grid-write-concurrency", "IR-PHASE6-U-6-01")
+	note := CreateNote(t, harness, login, incidentID, "txn-collaboration-u-6-01-create", "Base title", "Base body")
 	recordID := workbookscenariotest.MustUUID(t, note["record_id"].(string))
 
-	routeLeft := CreateNote(t, harness, login, incidentID, "txn-phase6-u-6-01-route-left-create", "Route left", "Left base body")
+	routeLeft := CreateNote(t, harness, login, incidentID, "txn-collaboration-u-6-01-route-left-create", "Route left", "Left base body")
 	routeLeftID := workbookscenariotest.MustUUID(t, routeLeft["record_id"].(string))
-	routeRight := CreateNote(t, harness, login, incidentID, "txn-phase6-u-6-01-route-right-create", "Route right", "Right base body")
+	routeRight := CreateNote(t, harness, login, incidentID, "txn-collaboration-u-6-01-route-right-create", "Route right", "Right base body")
 	routeRightID := workbookscenariotest.MustUUID(t, routeRight["record_id"].(string))
 	routeBoundPatchBody := map[string]any{
 		"view_schema_id":   NotesViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase6-u-6-01-route-bound-body",
+		"client_txn_id":    "txn-collaboration-u-6-01-route-bound-body",
 		"changes":          []map[string]any{{"field_key": "note.body", "value": "Path-selected body"}},
 	}
 	routeLeftPatch := requireWorkbookPatch(t, harness, login, routeLeftID, routeBoundPatchBody)
@@ -44,7 +44,7 @@ func TestGridWriteConcurrencyRoute_Unit(t *testing.T) {
 
 	missingBase := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
 		"view_schema_id": NotesViewSchemaID,
-		"client_txn_id":  "txn-phase6-u-6-01-missing-base",
+		"client_txn_id":  "txn-collaboration-u-6-01-missing-base",
 		"changes":        []map[string]any{{"field_key": "note.body", "value": "Client body"}},
 	})
 	httptestx.RequireErrorEnvelope(t, missingBase, http.StatusBadRequest, "invalid_mutation_payload")
@@ -52,7 +52,7 @@ func TestGridWriteConcurrencyRoute_Unit(t *testing.T) {
 		"record_id":        recordID.String(),
 		"view_schema_id":   NotesViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase6-u-6-01-record-id-in-body",
+		"client_txn_id":    "txn-collaboration-u-6-01-record-id-in-body",
 		"note.body":        "Client body",
 	})
 	httptestx.RequireErrorEnvelope(t, fullRowPatch, http.StatusBadRequest, "invalid_mutation_payload")
@@ -60,7 +60,7 @@ func TestGridWriteConcurrencyRoute_Unit(t *testing.T) {
 	titlePatch := requireWorkbookPatch(t, harness, login, recordID, map[string]any{
 		"view_schema_id":   NotesViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase6-u-6-01-server-title",
+		"client_txn_id":    "txn-collaboration-u-6-01-server-title",
 		"changes":          []map[string]any{{"field_key": "note.title", "value": "Server title"}},
 	})
 	requireCellValue(t, titlePatch["row"].(map[string]any), "note.title", "Server title")
@@ -68,7 +68,7 @@ func TestGridWriteConcurrencyRoute_Unit(t *testing.T) {
 	bodyPatch := requireWorkbookPatch(t, harness, login, recordID, map[string]any{
 		"view_schema_id":   NotesViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase6-u-6-01-client-body",
+		"client_txn_id":    "txn-collaboration-u-6-01-client-body",
 		"changes":          []map[string]any{{"field_key": "note.body", "value": "Client body"}},
 	})
 	bodyRow := bodyPatch["row"].(map[string]any)
@@ -83,7 +83,7 @@ func TestGridWriteConcurrencyRoute_Unit(t *testing.T) {
 	sameField := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
 		"view_schema_id":   NotesViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase6-u-6-01-client-title",
+		"client_txn_id":    "txn-collaboration-u-6-01-client-title",
 		"changes":          []map[string]any{{"field_key": "note.title", "value": "Client title"}},
 	})
 	body := httptestx.RequireErrorEnvelope(t, sameField, http.StatusConflict, "same_field_conflict")
@@ -98,20 +98,20 @@ func TestGridWriteConcurrencyRoute_Unit(t *testing.T) {
 }
 
 func TestSameFieldConflictHTTP_Unit(t *testing.T) {
-	harness, login, actorID, incidentID := ConflictFixture(t, "phase6-u-6-02-same-field-http", "IR-PHASE6-U-6-02")
-	note := CreateNote(t, harness, login, incidentID, "txn-phase6-u-6-02-create", "Base title", "Base body")
+	harness, login, actorID, incidentID := ConflictFixture(t, "collaboration-u-6-02-same-field-http", "IR-PHASE6-U-6-02")
+	note := CreateNote(t, harness, login, incidentID, "txn-collaboration-u-6-02-create", "Base title", "Base body")
 	recordID := workbookscenariotest.MustUUID(t, note["record_id"].(string))
 	requireWorkbookPatch(t, harness, login, recordID, map[string]any{
 		"view_schema_id":   NotesViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase6-u-6-02-server",
+		"client_txn_id":    "txn-collaboration-u-6-02-server",
 		"changes":          []map[string]any{{"field_key": "note.title", "value": "Server title"}},
 	})
 
 	resp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
 		"view_schema_id":   NotesViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase6-u-6-02-client",
+		"client_txn_id":    "txn-collaboration-u-6-02-client",
 		"changes":          []map[string]any{{"field_key": "note.title", "value": "Client title"}},
 	})
 	body := httptestx.RequireErrorEnvelope(t, resp, http.StatusConflict, "same_field_conflict")
@@ -139,13 +139,13 @@ func TestSameFieldConflictHTTP_Unit(t *testing.T) {
 }
 
 func TestTextCompareMergeDurability_Unit(t *testing.T) {
-	harness, login, _, incidentID := ConflictFixture(t, "phase6-u-6-03-text-merge-durability", "IR-PHASE6-U-6-03")
-	note := CreateNote(t, harness, login, incidentID, "txn-phase6-u-6-03-clean-create", "Merge note", "one\ntwo\nthree")
+	harness, login, _, incidentID := ConflictFixture(t, "collaboration-u-6-03-text-merge-durability", "IR-PHASE6-U-6-03")
+	note := CreateNote(t, harness, login, incidentID, "txn-collaboration-u-6-03-clean-create", "Merge note", "one\ntwo\nthree")
 	recordID := workbookscenariotest.MustUUID(t, note["record_id"].(string))
 	requireWorkbookPatch(t, harness, login, recordID, map[string]any{
 		"view_schema_id":   NotesViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase6-u-6-03-clean-server",
+		"client_txn_id":    "txn-collaboration-u-6-03-clean-server",
 		"changes":          []map[string]any{{"field_key": "note.body", "value": "one\nTWO\nthree"}},
 	})
 
@@ -153,7 +153,7 @@ func TestTextCompareMergeDurability_Unit(t *testing.T) {
 	resp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
 		"view_schema_id":   NotesViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase6-u-6-03-clean-client",
+		"client_txn_id":    "txn-collaboration-u-6-03-clean-client",
 		"changes":          []map[string]any{{"field_key": "note.body", "value": "one\ntwo\nTHREE"}},
 	})
 	body := httptestx.RequireErrorEnvelope(t, resp, http.StatusConflict, "same_field_conflict")
@@ -174,7 +174,7 @@ func TestTextCompareMergeDurability_Unit(t *testing.T) {
 	resolved := ResolveConflict(t, harness, login, recordID, conflict["conflict_token"].(string), map[string]any{
 		"conflict_token":  conflict["conflict_token"].(string),
 		"resolution_kind": "merged_value",
-		"client_txn_id":   "txn-phase6-u-6-03-clean-resolve",
+		"client_txn_id":   "txn-collaboration-u-6-03-clean-resolve",
 		"resolved_value":  "one\nTWO\nTHREE",
 	})
 	requireCellValue(t, resolved["row"].(map[string]any), "note.body", "one\nTWO\nTHREE")
@@ -183,18 +183,18 @@ func TestTextCompareMergeDurability_Unit(t *testing.T) {
 		t.Fatalf("explicit text resolution should be the next durable revision: before=%+v after=%+v", beforeConflict, afterResolve)
 	}
 
-	overlap := CreateNote(t, harness, login, incidentID, "txn-phase6-u-6-03-overlap-create", "Overlap note", "one\ntwo")
+	overlap := CreateNote(t, harness, login, incidentID, "txn-collaboration-u-6-03-overlap-create", "Overlap note", "one\ntwo")
 	overlapID := workbookscenariotest.MustUUID(t, overlap["record_id"].(string))
 	requireWorkbookPatch(t, harness, login, overlapID, map[string]any{
 		"view_schema_id":   NotesViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase6-u-6-03-overlap-server",
+		"client_txn_id":    "txn-collaboration-u-6-03-overlap-server",
 		"changes":          []map[string]any{{"field_key": "note.body", "value": "one\nserver"}},
 	})
 	overlapResp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", overlapID, map[string]any{
 		"view_schema_id":   NotesViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase6-u-6-03-overlap-client",
+		"client_txn_id":    "txn-collaboration-u-6-03-overlap-client",
 		"changes":          []map[string]any{{"field_key": "note.body", "value": "one\nclient"}},
 	})
 	overlapBody := httptestx.RequireErrorEnvelope(t, overlapResp, http.StatusConflict, "same_field_conflict")
@@ -207,19 +207,19 @@ func TestTextCompareMergeDurability_Unit(t *testing.T) {
 	renderedLookingServer := "# Title\n<div data-x=\"server\">safe</div>\n&amp; entity stays text\n<entity-chip record_id=\"host-1\">HOST</entity-chip>"
 	renderedLookingClient := "# Title\n<div data-x=\"base\">safe</div>\n&amp; entity stays text\n<entity-chip record_id=\"host-2\">HOST</entity-chip>"
 	renderedLookingSuggestion := "# Title\n<div data-x=\"server\">safe</div>\n&amp; entity stays text\n<entity-chip record_id=\"host-2\">HOST</entity-chip>"
-	rendered := CreateNote(t, harness, login, incidentID, "txn-phase6-u-6-03-rendered-create", "Rendered-looking note", renderedLookingBase)
+	rendered := CreateNote(t, harness, login, incidentID, "txn-collaboration-u-6-03-rendered-create", "Rendered-looking note", renderedLookingBase)
 	renderedID := workbookscenariotest.MustUUID(t, rendered["record_id"].(string))
 	requireWorkbookPatch(t, harness, login, renderedID, map[string]any{
 		"view_schema_id":   NotesViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase6-u-6-03-rendered-server",
+		"client_txn_id":    "txn-collaboration-u-6-03-rendered-server",
 		"changes":          []map[string]any{{"field_key": "note.body", "value": renderedLookingServer}},
 	})
 	beforeRenderedConflict := snapshotWorkbookConflictSideEffects(t, harness, incidentID, renderedID)
 	renderedResp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", renderedID, map[string]any{
 		"view_schema_id":   NotesViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase6-u-6-03-rendered-client",
+		"client_txn_id":    "txn-collaboration-u-6-03-rendered-client",
 		"changes":          []map[string]any{{"field_key": "note.body", "value": renderedLookingClient}},
 	})
 	renderedBody := httptestx.RequireErrorEnvelope(t, renderedResp, http.StatusConflict, "same_field_conflict")
@@ -239,23 +239,23 @@ func TestTextCompareMergeDurability_Unit(t *testing.T) {
 }
 
 func TestCollectionReviewRouteResolve_Unit(t *testing.T) {
-	harness, login, actorID, incidentID := ConflictFixture(t, "phase6-u-6-04-collection-review-route", "IR-PHASE6-U-6-04")
+	harness, login, actorID, incidentID := ConflictFixture(t, "collaboration-u-6-04-collection-review-route", "IR-PHASE6-U-6-04")
 	RequireCollectionReviewCaseInventory(t, CollectionReviewCases())
 
 	partyData := requireWorkbookCreate(t, harness, login, incidentID, "cartulary.view.parties.v1", map[string]any{
-		"client_txn_id":      "txn-phase6-u-6-04-party-create",
+		"client_txn_id":      "txn-collaboration-u-6-04-party-create",
 		"party.display_name": "Incident Commander",
 		"party.party_kind":   "person",
 	})
 	partyID := workbookscenariotest.MustUUID(t, partyData["row"].(map[string]any)["record_id"].(string))
 	secondPartyData := requireWorkbookCreate(t, harness, login, incidentID, "cartulary.view.parties.v1", map[string]any{
-		"client_txn_id":      "txn-phase6-u-6-04-party-second-create",
+		"client_txn_id":      "txn-collaboration-u-6-04-party-second-create",
 		"party.display_name": "Security Lead",
 		"party.party_kind":   "person",
 	})
 	secondPartyID := workbookscenariotest.MustUUID(t, secondPartyData["row"].(map[string]any)["record_id"].(string))
 	thirdPartyData := requireWorkbookCreate(t, harness, login, incidentID, "cartulary.view.parties.v1", map[string]any{
-		"client_txn_id":      "txn-phase6-u-6-04-party-third-create",
+		"client_txn_id":      "txn-collaboration-u-6-04-party-third-create",
 		"party.display_name": "Legal Observer",
 		"party.party_kind":   "person",
 	})
@@ -272,7 +272,7 @@ func TestCollectionReviewRouteResolve_Unit(t *testing.T) {
 	thirdEvidenceID := seedEvidenceRecord(t, harness, incidentID, actorID, "Firewall log bundle")
 
 	noteData := requireWorkbookCreate(t, harness, login, incidentID, NotesViewSchemaID, map[string]any{
-		"client_txn_id": "txn-phase6-u-6-04-create",
+		"client_txn_id": "txn-collaboration-u-6-04-create",
 		"note.title":    "Collection note",
 		"note.tags":     collectionActions(addToken("base-tag")),
 	})
@@ -283,7 +283,7 @@ func TestCollectionReviewRouteResolve_Unit(t *testing.T) {
 	requireCollectionValueHasItemKind(t, cellMapValue(t, queried, "note.tags"), "tag")
 
 	commData := requireWorkbookCreate(t, harness, login, incidentID, "cartulary.view.comm_log.v1", map[string]any{
-		"client_txn_id":               "txn-phase6-u-6-04-comm-create",
+		"client_txn_id":               "txn-collaboration-u-6-04-comm-create",
 		"comm_log.comm_type":          "briefing",
 		"comm_log.audience":           "leadership",
 		"comm_log.channel_or_meeting": "Bridge",
@@ -295,7 +295,7 @@ func TestCollectionReviewRouteResolve_Unit(t *testing.T) {
 	})
 	commID := workbookscenariotest.MustUUID(t, commData["row"].(map[string]any)["record_id"].(string))
 	handoffData := requireWorkbookCreate(t, harness, login, incidentID, "cartulary.view.handoff.v1", map[string]any{
-		"client_txn_id":                  "txn-phase6-u-6-04-handoff-create",
+		"client_txn_id":                  "txn-collaboration-u-6-04-handoff-create",
 		"handoff.incoming_owner_user_id": actorID.String(),
 		"handoff.current_state_summary":  "Night shift owns containment",
 		"handoff.open_task_ids":          collectionActions(addRecordRef(taskID)),
@@ -304,7 +304,7 @@ func TestCollectionReviewRouteResolve_Unit(t *testing.T) {
 	})
 	handoffID := workbookscenariotest.MustUUID(t, handoffData["row"].(map[string]any)["record_id"].(string))
 	statusData := requireWorkbookCreate(t, harness, login, incidentID, "cartulary.view.status_review.v1", map[string]any{
-		"client_txn_id":                       "txn-phase6-u-6-04-status-create",
+		"client_txn_id":                       "txn-collaboration-u-6-04-status-create",
 		"status_review.current_state_summary": "Containment is stable",
 		"status_review.blocked_task_ids":      collectionActions(addRecordRef(taskID)),
 		"status_review.pending_evidence_ids":  collectionActions(addRecordRef(evidenceID)),
@@ -312,14 +312,14 @@ func TestCollectionReviewRouteResolve_Unit(t *testing.T) {
 	})
 	statusID := workbookscenariotest.MustUUID(t, statusData["row"].(map[string]any)["record_id"].(string))
 	lessonData := requireWorkbookCreate(t, harness, login, incidentID, "cartulary.view.lesson.v1", map[string]any{
-		"client_txn_id":             "txn-phase6-u-6-04-lesson-create",
+		"client_txn_id":             "txn-collaboration-u-6-04-lesson-create",
 		"lesson.summary":            "Preserve VPN logs earlier",
 		"lesson.follow_up_task_ids": collectionActions(addRecordRef(taskID)),
 		"lesson.evidence_refs":      collectionActions(addRecordRef(evidenceID)),
 	})
 	lessonID := workbookscenariotest.MustUUID(t, lessonData["row"].(map[string]any)["record_id"].(string))
 	decisionData := requireWorkbookCreate(t, harness, login, incidentID, "cartulary.view.decisions.v1", map[string]any{
-		"client_txn_id":                "txn-phase6-u-6-04-decision-create",
+		"client_txn_id":                "txn-collaboration-u-6-04-decision-create",
 		"decision.summary":             "Contain endpoint",
 		"decision.decision_type":       "containment",
 		"decision.rationale":           "Containment is required.",
@@ -328,7 +328,7 @@ func TestCollectionReviewRouteResolve_Unit(t *testing.T) {
 	})
 	decisionRowID := workbookscenariotest.MustUUID(t, decisionData["row"].(map[string]any)["record_id"].(string))
 	taskData := requireWorkbookCreate(t, harness, login, incidentID, "cartulary.view.task_requests.v1", map[string]any{
-		"client_txn_id":          "txn-phase6-u-6-04-task-create",
+		"client_txn_id":          "txn-collaboration-u-6-04-task-create",
 		"task.title":             "Collect endpoint logs",
 		"task.task_kind":         "collection",
 		"task.linked_record_ids": collectionActions(addRecordRef(evidenceID)),
@@ -399,7 +399,7 @@ func TestCollectionReviewRouteResolve_Unit(t *testing.T) {
 			invalidResp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
 				"view_schema_id":   NotesViewSchemaID,
 				"base_row_version": 3,
-				"client_txn_id":    "txn-phase6-u-6-04-invalid-" + invalid.name,
+				"client_txn_id":    "txn-collaboration-u-6-04-invalid-" + invalid.name,
 				"changes": []map[string]any{{
 					"field_key":      "note.tags",
 					"action_payload": invalid.payload,
@@ -411,14 +411,14 @@ func TestCollectionReviewRouteResolve_Unit(t *testing.T) {
 }
 
 func TestConflictResolveDurability_Unit(t *testing.T) {
-	harness, login, actorID, incidentID := ConflictFixture(t, "phase6-u-6-06-conflict-resolve-durability", "IR-PHASE6-U-6-06")
+	harness, login, actorID, incidentID := ConflictFixture(t, "collaboration-u-6-06-conflict-resolve-durability", "IR-PHASE6-U-6-06")
 
 	keepRecordID, keepConflict := CreateNoteTitleConflict(t, harness, login, incidentID, "keep", "Keep saved", "Keep local")
 	beforeKeep := snapshotWorkbookConflictSideEffects(t, harness, incidentID, keepRecordID)
 	keepBody := map[string]any{
 		"conflict_token":  keepConflict["conflict_token"].(string),
 		"resolution_kind": "keep_saved",
-		"client_txn_id":   "txn-phase6-u-6-06-keep-resolve",
+		"client_txn_id":   "txn-collaboration-u-6-06-keep-resolve",
 	}
 	keepData := ResolveConflict(t, harness, login, keepRecordID, keepConflict["conflict_token"].(string), keepBody)
 	RequireNoChangeSetID(t, keepData)
@@ -437,12 +437,12 @@ func TestConflictResolveDurability_Unit(t *testing.T) {
 	useBody := map[string]any{
 		"conflict_token":  useConflict["conflict_token"].(string),
 		"resolution_kind": "use_unsaved",
-		"client_txn_id":   "txn-phase6-u-6-06-use-resolve",
+		"client_txn_id":   "txn-collaboration-u-6-06-use-resolve",
 		"resolved_value":  "Use local",
 	}
 	useData := ResolveConflict(t, harness, login, useRecordID, useConflict["conflict_token"].(string), useBody)
 	requireCellValue(t, useData["row"].(map[string]any), "note.title", "Use local")
-	workbookscenariotest.RequireChangeSetAttribution(t, harness.DB, useData["change_set_id"].(string), actorID.String(), "workbook.records.conflicts.resolve", "txn-phase6-u-6-06-use-resolve")
+	workbookscenariotest.RequireChangeSetAttribution(t, harness.DB, useData["change_set_id"].(string), actorID.String(), "workbook.records.conflicts.resolve", "txn-collaboration-u-6-06-use-resolve")
 	afterUse := snapshotWorkbookConflictSideEffects(t, harness, incidentID, useRecordID)
 	RequireSideEffectDelta(t, "use_unsaved", beforeUse, afterUse, workbookConflictSideEffects{
 		ChangeSets:       1,
@@ -463,12 +463,12 @@ func TestConflictResolveDurability_Unit(t *testing.T) {
 	mergedBody := map[string]any{
 		"conflict_token":  mergedConflict["conflict_token"].(string),
 		"resolution_kind": "merged_value",
-		"client_txn_id":   "txn-phase6-u-6-06-merged-resolve",
+		"client_txn_id":   "txn-collaboration-u-6-06-merged-resolve",
 		"resolved_value":  "Merged final",
 	}
 	mergedData := ResolveConflict(t, harness, login, mergedRecordID, mergedConflict["conflict_token"].(string), mergedBody)
 	requireCellValue(t, mergedData["row"].(map[string]any), "note.title", "Merged final")
-	workbookscenariotest.RequireChangeSetAttribution(t, harness.DB, mergedData["change_set_id"].(string), actorID.String(), "workbook.records.conflicts.resolve", "txn-phase6-u-6-06-merged-resolve")
+	workbookscenariotest.RequireChangeSetAttribution(t, harness.DB, mergedData["change_set_id"].(string), actorID.String(), "workbook.records.conflicts.resolve", "txn-collaboration-u-6-06-merged-resolve")
 	afterMerged := snapshotWorkbookConflictSideEffects(t, harness, incidentID, mergedRecordID)
 	RequireSideEffectDelta(t, "merged_value", beforeMerged, afterMerged, workbookConflictSideEffects{
 		ChangeSets:       1,
@@ -595,7 +595,7 @@ func ExerciseCollectionReviewField(t testing.TB, harness *workbookscenariotest.S
 	serverData := requireWorkbookPatch(t, harness, login, recordID, map[string]any{
 		"view_schema_id":   tc.viewSchemaID,
 		"base_row_version": baseVersion,
-		"client_txn_id":    "txn-phase6-u-6-04-" + TxnFieldSuffix(tc.fieldKey) + "-server",
+		"client_txn_id":    "txn-collaboration-u-6-04-" + TxnFieldSuffix(tc.fieldKey) + "-server",
 		"changes": []map[string]any{{
 			"field_key":      tc.fieldKey,
 			"action_payload": tc.serverPayload,
@@ -609,7 +609,7 @@ func ExerciseCollectionReviewField(t testing.TB, harness *workbookscenariotest.S
 	resp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
 		"view_schema_id":   tc.viewSchemaID,
 		"base_row_version": baseVersion,
-		"client_txn_id":    "txn-phase6-u-6-04-" + TxnFieldSuffix(tc.fieldKey) + "-client",
+		"client_txn_id":    "txn-collaboration-u-6-04-" + TxnFieldSuffix(tc.fieldKey) + "-client",
 		"changes": []map[string]any{{
 			"field_key":      tc.fieldKey,
 			"action_payload": tc.clientPayload,
@@ -642,7 +642,7 @@ func ExerciseCollectionReviewField(t testing.TB, harness *workbookscenariotest.S
 	resolved := ResolveConflict(t, harness, login, recordID, conflict["conflict_token"].(string), map[string]any{
 		"conflict_token":  conflict["conflict_token"].(string),
 		"resolution_kind": "merged_value",
-		"client_txn_id":   "txn-phase6-u-6-04-" + TxnFieldSuffix(tc.fieldKey) + "-resolve",
+		"client_txn_id":   "txn-collaboration-u-6-04-" + TxnFieldSuffix(tc.fieldKey) + "-resolve",
 		"resolved_value":  tc.resolvePayload,
 	})
 	resolvedRow := resolved["row"].(map[string]any)
@@ -679,18 +679,18 @@ func CreateNote(t testing.TB, harness *workbookscenariotest.ServerHarness, login
 
 func CreateNoteTitleConflict(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, suffix string, savedValue string, localValue string) (uuid.UUID, map[string]any) {
 	t.Helper()
-	note := CreateNote(t, harness, login, incidentID, "txn-phase6-u-6-06-"+suffix+"-create", suffix+" base", suffix+" body")
+	note := CreateNote(t, harness, login, incidentID, "txn-collaboration-u-6-06-"+suffix+"-create", suffix+" base", suffix+" body")
 	recordID := workbookscenariotest.MustUUID(t, note["record_id"].(string))
 	requireWorkbookPatch(t, harness, login, recordID, map[string]any{
 		"view_schema_id":   NotesViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase6-u-6-06-" + suffix + "-server",
+		"client_txn_id":    "txn-collaboration-u-6-06-" + suffix + "-server",
 		"changes":          []map[string]any{{"field_key": "note.title", "value": savedValue}},
 	})
 	resp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
 		"view_schema_id":   NotesViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase6-u-6-06-" + suffix + "-client",
+		"client_txn_id":    "txn-collaboration-u-6-06-" + suffix + "-client",
 		"changes":          []map[string]any{{"field_key": "note.title", "value": localValue}},
 	})
 	body := httptestx.RequireErrorEnvelope(t, resp, http.StatusConflict, "same_field_conflict")

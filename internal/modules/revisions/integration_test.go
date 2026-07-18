@@ -356,7 +356,7 @@ func TestMergeChangeSetRollback_Integration(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase7-i-7-05-incident",
 		"incident_key":  "IR-P7-I705",
-		"title":         "Phase 7 Merge Rollback",
+		"title":         "History Merge Rollback",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 

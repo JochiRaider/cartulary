@@ -22,7 +22,7 @@ func TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration(
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase9-i-9-01-incident",
 		"incident_key":  "IR-PHASE9-I901",
-		"title":         "Phase 9 clipboard paste",
+		"title":         "Workbook inspector clipboard paste",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
@@ -161,7 +161,7 @@ func TestEntityOriginClipboardPasteUsesSharedIngest_Integration(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase9-i-9-01-entity-incident",
 		"incident_key":  "IR-PHASE9-I901-ENTITY",
-		"title":         "Phase 9 entity-origin paste",
+		"title":         "Workbook inspector entity-origin paste",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
@@ -213,7 +213,7 @@ func TestBulkMutationsPersistOneVisibleBatch_Integration(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase9-i-9-01-bulk-incident",
 		"incident_key":  "IR-PHASE9-I901-BULK",
-		"title":         "Phase 9 bulk mutations",
+		"title":         "Workbook inspector bulk mutations",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 	first := requireWorkbookCreate(t, harness, adminLogin, incidentID, timeline.TimelineViewSchemaID, map[string]any{
@@ -262,13 +262,13 @@ func TestClipboardPasteAndBulkRejectCrossIncidentTargets_Integration(t *testing.
 	incidentA := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase9-i-9-01-cross-incident-a",
 		"incident_key":  "IR-PHASE9-I901-XA",
-		"title":         "Phase 9 cross incident A",
+		"title":         "Workbook inspector cross incident A",
 	})
 	incidentAID := workbookscenariotest.MustUUID(t, incidentA["incident_id"].(string))
 	incidentB := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase9-i-9-01-cross-incident-b",
 		"incident_key":  "IR-PHASE9-I901-XB",
-		"title":         "Phase 9 cross incident B",
+		"title":         "Workbook inspector cross incident B",
 	})
 	incidentBID := workbookscenariotest.MustUUID(t, incidentB["incident_id"].(string))
 

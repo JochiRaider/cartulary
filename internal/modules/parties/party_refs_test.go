@@ -112,8 +112,8 @@ func TestDirectPartyReferencesRequireSameIncidentActiveParties_Unit(t *testing.T
 	harness := recordstoretest.StartStore(t, "phase9-u-9-11-party-refs")
 	store := workbook.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u911@example.test", "U911 Party Refs", "U911PartyRefs1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-11-incident", "IR-U911", "Phase 9 U-9-11")
-	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-11-other-incident", "IR-U911B", "Phase 9 U-9-11 Other")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-11-incident", "IR-U911", "Workbook inspector U-9-11")
+	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-11-other-incident", "IR-U911B", "Workbook inspector U-9-11 Other")
 
 	activeParty := mustCreatePartyFor(t, store, actor, incident.ID, "txn-phase9-u-9-11-active-party", "Active Party")
 	foreignParty := mustCreatePartyFor(t, store, actor, otherIncident.ID, "txn-phase9-u-9-11-foreign-party", "Foreign Party")

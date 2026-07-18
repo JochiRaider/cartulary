@@ -26,7 +26,7 @@ test("advances the shared clock past idle expiry and requires a fresh login afte
   const password = "Phase1E104Pass!";
   const user = await createLocalUser(workerAdminRequest, {
     email,
-    display_name: "Phase 1 E104",
+    display_name: "Authentication E104",
     initial_password: password,
     mfa_required: false,
   });

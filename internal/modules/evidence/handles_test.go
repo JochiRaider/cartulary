@@ -24,7 +24,7 @@ func TestHandleIssueEmptyBodyNonIdempotent_Unit(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-handle-issue-incident",
 		"incident_key":  "phase5-handle-issue",
-		"title":         "Phase 5 handle issue",
+		"title":         "Evidence handle issue",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 	recordID := uuid.New()
@@ -88,7 +88,7 @@ func TestHandleRedemptionRechecksCurrentState_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "phase5-handle-current-state")
 	store := evidence.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase5-handle-current@example.test", "Phase5 Handle Current", "Phase5HandleCurrent1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase5-handle-current-incident", "IR-P5-HANDLE-CURRENT", "Phase 5 handle current state")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase5-handle-current-incident", "IR-P5-HANDLE-CURRENT", "Evidence handle current state")
 
 	unsupportedRecordID := seedEvidenceAttachmentRecord(t, harness.DB, incident.ID, actor.ID, "available")
 	unsupportedBlobID := seedBlob(t, harness.DB, incident.ID, actor.ID, "available", BlobOptions{
@@ -174,7 +174,7 @@ func TestDownloadDispositionFallback_Unit(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-disposition-incident",
 		"incident_key":  "phase5-disposition",
-		"title":         "Phase 5 disposition",
+		"title":         "Evidence disposition",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
@@ -216,7 +216,7 @@ func TestSanitizeFilenameRemovesNUL_Unit(t *testing.T) {
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-disposition-nul-incident",
 		"incident_key":  "phase5-disposition-nul",
-		"title":         "Phase 5 disposition NUL",
+		"title":         "Evidence disposition NUL",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 

@@ -98,15 +98,15 @@ function validateVisualScrollNormalization(scroll, captureScope, label) {
 
 function validateExposedThemeFixtureContract(fixture, label, captureScope) {
   if (fixture.status !== "current") {
-    throw new Error(`${label}.status must be current for FE-VFIX-14`);
+    throw new Error(`${label}.status must be current for visual.fixture.exposed_theme_states`);
   }
   requireExactStringArray(fixture.owner_phase_ids, ["FE-P11"], `${label}.owner_phase_ids`);
   requireExactStringArray(fixture.owner_row_ids, ["FE-V-P11-03"], `${label}.owner_row_ids`);
   if (fixture.viewport_css_px !== "1280x720") {
-    throw new Error(`${label}.viewport_css_px must be 1280x720 for FE-VFIX-14`);
+    throw new Error(`${label}.viewport_css_px must be 1280x720 for visual.fixture.exposed_theme_states`);
   }
-  if (fixture.golden_filename !== "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p11-03-exposed-theme-states-linux.png") {
-    throw new Error(`${label}.golden_filename must match FE-V-P11-03 exposed-theme golden`);
+  if (fixture.golden_filename !== "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-exposed-theme-states-linux.png") {
+    throw new Error(`${label}.golden_filename must match the exposed-theme golden`);
   }
   if (
     captureScope.kind !== "selector" ||
@@ -123,7 +123,7 @@ function validateExposedThemeFixtureContract(fixture, label, captureScope) {
   );
   if (fixture.scroll_normalization.kind !== "not_applicable") {
     throw new Error(
-      `${label}.scroll_normalization.kind must be not_applicable for FE-VFIX-14`,
+      `${label}.scroll_normalization.kind must be not_applicable for visual.fixture.exposed_theme_states`,
     );
   }
   if (
@@ -135,10 +135,10 @@ function validateExposedThemeFixtureContract(fixture, label, captureScope) {
     );
   }
   if (fixture.dynamic_masks.length !== 0) {
-    throw new Error(`${label}.dynamic_masks must be empty for FE-VFIX-14`);
+    throw new Error(`${label}.dynamic_masks must be empty for visual.fixture.exposed_theme_states`);
   }
   if (fixture.no_dynamic_regions !== true) {
-    throw new Error(`${label}.no_dynamic_regions must be true for FE-VFIX-14`);
+    throw new Error(`${label}.no_dynamic_regions must be true for visual.fixture.exposed_theme_states`);
   }
 }
 
@@ -176,10 +176,10 @@ export function validateFrontendVisualFixtureRegistry(root = process.cwd()) {
     });
     fixtureIDs.push(fixtureID);
     requireString(fixture.fixture_title, `${label}.fixture_title`);
-    const status = requireEnum(
+    requireEnum(
       fixture.status,
       `${label}.status`,
-      new Set(["current", "missing", "retired"]),
+      new Set(["current"]),
     );
     requireStringArray(fixture.owner_phase_ids, `${label}.owner_phase_ids`, {
       nonEmpty: true,
@@ -195,37 +195,33 @@ export function validateFrontendVisualFixtureRegistry(root = process.cwd()) {
         throw new Error(`${label}.owner_row_ids references unknown ${rowID}`);
       }
     }
-    if (status === "current") {
-      requireString(fixture.playwright_scenario_title, `${label}.playwright_scenario_title`);
-      const golden = requireRepoRelativePath(
-        fixture.golden_filename,
-        `${label}.golden_filename`,
-        { extension: ".png" },
-      );
-      if (!existsSync(repoPath(root, golden))) {
-        throw new Error(`${label}.golden_filename does not exist: ${golden}`);
-      }
-      const goldenArtifacts = requireStringArray(
-        fixture.golden_artifacts,
-        `${label}.golden_artifacts`,
-        { nonEmpty: true },
-      );
-      if (!goldenArtifacts.includes(fixture.golden_filename)) {
-        throw new Error(`${label}.golden_artifacts must include golden_filename`);
-      }
-      for (const [artifactIndex, artifact] of goldenArtifacts.entries()) {
-        const artifactLabel = `${label}.golden_artifacts[${artifactIndex + 1}]`;
-        const artifactPath = requireRepoRelativePath(artifact, artifactLabel, {
-          extension: ".png",
-        });
-        if (!existsSync(repoPath(root, artifactPath))) {
-          throw new Error(`${artifactLabel} does not exist: ${artifactPath}`);
-        }
-      }
-      requireString(fixture.seed_id, `${label}.seed_id`);
-    } else {
-      requireString(fixture.blocked_reason, `${label}.blocked_reason`);
+    requireString(fixture.playwright_scenario_title, `${label}.playwright_scenario_title`);
+    const golden = requireRepoRelativePath(
+      fixture.golden_filename,
+      `${label}.golden_filename`,
+      { extension: ".png" },
+    );
+    if (!existsSync(repoPath(root, golden))) {
+      throw new Error(`${label}.golden_filename does not exist: ${golden}`);
     }
+    const goldenArtifacts = requireStringArray(
+      fixture.golden_artifacts,
+      `${label}.golden_artifacts`,
+      { nonEmpty: true },
+    );
+    if (!goldenArtifacts.includes(fixture.golden_filename)) {
+      throw new Error(`${label}.golden_artifacts must include golden_filename`);
+    }
+    for (const [artifactIndex, artifact] of goldenArtifacts.entries()) {
+      const artifactLabel = `${label}.golden_artifacts[${artifactIndex + 1}]`;
+      const artifactPath = requireRepoRelativePath(artifact, artifactLabel, {
+        extension: ".png",
+      });
+      if (!existsSync(repoPath(root, artifactPath))) {
+        throw new Error(`${artifactLabel} does not exist: ${artifactPath}`);
+      }
+    }
+    requireString(fixture.seed_id, `${label}.seed_id`);
     requireString(fixture.viewport_css_px, `${label}.viewport_css_px`);
     requireInteger(fixture.device_scale_factor, `${label}.device_scale_factor`, { min: 1 });
     requireInteger(fixture.browser_zoom_percent, `${label}.browser_zoom_percent`, { min: 1 });
@@ -260,16 +256,14 @@ export function validateFrontendVisualFixtureRegistry(root = process.cwd()) {
         `${label}.no_dynamic_regions=true requires empty dynamic_masks`,
       );
     }
-    if (fixtureID === "FE-VFIX-14") {
+    if (fixtureID === "visual.fixture.exposed_theme_states") {
       validateExposedThemeFixtureContract(fixture, label, captureScope);
     }
     requireString(fixture.replacement_fixture_id || "none", `${label}.replacement_fixture_id`);
   }
   assertUnique(fixtureIDs, `${file}.fixtures.fixture_id`);
-  const expected = Array.from({ length: fixtures.length }, (_, index) =>
-    `FE-VFIX-${String(index + 1).padStart(2, "0")}`,
-  );
-  if (fixtureIDs.sort().join(",") !== expected.join(",")) {
-    throw new Error(`${file}.fixtures must contain contiguous visual fixture IDs ${expected.join(", ")}`);
+  const expected = [...fixtureIDs].sort();
+  if (fixtureIDs.join(",") !== expected.join(",")) {
+    throw new Error(`${file}.fixtures must be ASCII-sorted by immutable semantic fixture ID`);
   }
 }

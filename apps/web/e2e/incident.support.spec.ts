@@ -29,7 +29,7 @@ test("supports route-owned incident validation errors through browser-authentica
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("S204"),
-    "Phase 2 Support Incident Validation",
+    "Incident administration Support Incident Validation",
   );
 
   await expectAPIError(
@@ -105,7 +105,7 @@ test("supports zero-membership extension discovery and singleton pagination reje
   const zeroMemberPassword = "Phase2SupportE205Pass!";
   const zeroMemberUser = await createLocalUser(page, {
     email: zeroMemberEmail,
-    display_name: "Phase 2 Support Zero Member",
+    display_name: "Incident administration Support Zero Member",
     initial_password: zeroMemberPassword,
   });
 
@@ -163,7 +163,7 @@ test("supports reserved-family dispatch precedence probes while ordinary base an
   const zeroMemberPassword = "Phase2SupportE206Pass!";
   const zeroMemberUser = await createLocalUser(page, {
     email: zeroMemberEmail,
-    display_name: "Phase 2 Support Reserved Family User",
+    display_name: "Incident administration Support Reserved Family User",
     initial_password: zeroMemberPassword,
   });
 

@@ -298,7 +298,7 @@ func AssertUnitSelector(t *testing.T, acID string) {
 	case "NF-AC-106":
 		AssertAdoptionPrerequisitesConcrete(t)
 	default:
-		t.Fatalf("unmapped Phase 12 Network Flow unit selector %s", acID)
+		t.Fatalf("unmapped Network Flow Network Flow unit selector %s", acID)
 	}
 	AssertFixtureRuntimeEvidenceIfPresent(t, acID)
 }
@@ -491,7 +491,7 @@ func AssertLargeTimingClassification(t *testing.T) {
 	t.Helper()
 	manifest := ReadFile(t, "tools/phase12_test_map.json")
 	if !bytes.Contains(manifest, []byte("Large-fixture timing evidence remains engineering-only unless Core 05")) {
-		t.Fatalf("Phase 12 manifest must keep large-fixture timing evidence outside product conformance publication")
+		t.Fatalf("Network Flow manifest must keep large-fixture timing evidence outside product conformance publication")
 	}
 }
 
