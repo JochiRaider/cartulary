@@ -1785,7 +1785,8 @@
           "priority": 36000,
           "weight_ms": 10000,
           "needs": [
-            "browser_stage_session:default-check-stateful-isolated"
+            "browser_stage_session:default-check-stateful-isolated",
+            "browser_group:browser-e2e-stateful:stateful-default-auth-and-incident-directory"
           ],
           "completion_keys": [
             "browser_group:browser-e2e-stateful:stateful-default-clock"
@@ -1847,7 +1848,8 @@
           "priority": 36000,
           "weight_ms": 10000,
           "needs": [
-            "browser_stage_session:default-check-stateful-isolated"
+            "browser_stage_session:default-check-stateful-isolated",
+            "browser_group:browser-e2e-stateful:stateful-default-clock"
           ],
           "completion_keys": [
             "browser_group:browser-e2e-stateful:stateful-default-session-recovery"
@@ -1909,7 +1911,8 @@
           "priority": 36000,
           "weight_ms": 10000,
           "needs": [
-            "browser_stage_session:default-check-stateful-isolated"
+            "browser_stage_session:default-check-stateful-isolated",
+            "browser_group:browser-e2e-stateful:stateful-default-session-recovery"
           ],
           "completion_keys": [
             "browser_group:browser-e2e-stateful:stateful-default-workbook"
@@ -7296,7 +7299,8 @@
           "priority": 36000,
           "weight_ms": 10000,
           "needs": [
-            "browser_stage_session:browser-stateful-default"
+            "browser_stage_session:browser-stateful-default",
+            "browser_group:browser-e2e-stateful:stateful-default-auth-and-incident-directory"
           ],
           "completion_keys": [
             "browser_group:browser-e2e-stateful:stateful-default-clock"
@@ -7355,7 +7359,8 @@
           "priority": 36000,
           "weight_ms": 10000,
           "needs": [
-            "browser_stage_session:browser-stateful-default"
+            "browser_stage_session:browser-stateful-default",
+            "browser_group:browser-e2e-stateful:stateful-default-clock"
           ],
           "completion_keys": [
             "browser_group:browser-e2e-stateful:stateful-default-collaboration"
@@ -7414,7 +7419,8 @@
           "priority": 36000,
           "weight_ms": 10000,
           "needs": [
-            "browser_stage_session:browser-stateful-default"
+            "browser_stage_session:browser-stateful-default",
+            "browser_group:browser-e2e-stateful:stateful-default-collaboration"
           ],
           "completion_keys": [
             "browser_group:browser-e2e-stateful:stateful-default-coordination-public-route"
@@ -7473,7 +7479,8 @@
           "priority": 36000,
           "weight_ms": 10000,
           "needs": [
-            "browser_stage_session:browser-stateful-default"
+            "browser_stage_session:browser-stateful-default",
+            "browser_group:browser-e2e-stateful:stateful-default-coordination-public-route"
           ],
           "completion_keys": [
             "browser_group:browser-e2e-stateful:stateful-default-evidence-integration"
@@ -7532,7 +7539,8 @@
           "priority": 36000,
           "weight_ms": 10000,
           "needs": [
-            "browser_stage_session:browser-stateful-default"
+            "browser_stage_session:browser-stateful-default",
+            "browser_group:browser-e2e-stateful:stateful-default-evidence-integration"
           ],
           "completion_keys": [
             "browser_group:browser-e2e-stateful:stateful-default-inspector-actions"
@@ -7592,7 +7600,8 @@
           "priority": 36000,
           "weight_ms": 10000,
           "needs": [
-            "browser_stage_session:browser-stateful-default"
+            "browser_stage_session:browser-stateful-default",
+            "browser_group:browser-e2e-stateful:stateful-default-inspector-actions"
           ],
           "completion_keys": [
             "browser_group:browser-e2e-stateful:stateful-default-mention-lifecycle"
@@ -7651,7 +7660,8 @@
           "priority": 36000,
           "weight_ms": 10000,
           "needs": [
-            "browser_stage_session:browser-stateful-default"
+            "browser_stage_session:browser-stateful-default",
+            "browser_group:browser-e2e-stateful:stateful-default-mention-lifecycle"
           ],
           "completion_keys": [
             "browser_group:browser-e2e-stateful:stateful-default-sentinel"
@@ -7710,7 +7720,8 @@
           "priority": 36000,
           "weight_ms": 10000,
           "needs": [
-            "browser_stage_session:browser-stateful-default"
+            "browser_stage_session:browser-stateful-default",
+            "browser_group:browser-e2e-stateful:stateful-default-sentinel"
           ],
           "completion_keys": [
             "browser_group:browser-e2e-stateful:stateful-default-session-recovery"
@@ -7769,7 +7780,8 @@
           "priority": 36000,
           "weight_ms": 10000,
           "needs": [
-            "browser_stage_session:browser-stateful-default"
+            "browser_stage_session:browser-stateful-default",
+            "browser_group:browser-e2e-stateful:stateful-default-session-recovery"
           ],
           "completion_keys": [
             "browser_group:browser-e2e-stateful:stateful-default-timeline-public-route"
@@ -7828,7 +7840,8 @@
           "priority": 36000,
           "weight_ms": 10000,
           "needs": [
-            "browser_stage_session:browser-stateful-default"
+            "browser_stage_session:browser-stateful-default",
+            "browser_group:browser-e2e-stateful:stateful-default-timeline-public-route"
           ],
           "completion_keys": [
             "browser_group:browser-e2e-stateful:stateful-default-workbook"
@@ -17318,7 +17331,8 @@
           "priority": 36000,
           "weight_ms": 10000,
           "needs": [
-            "browser_stage_session:default-check-stateful-isolated"
+            "browser_stage_session:default-check-stateful-isolated",
+            "browser_group:browser-e2e-stateful:stateful-default-auth-and-incident-directory"
           ],
           "completion_keys": [
             "browser_group:browser-e2e-stateful:stateful-default-clock"
@@ -17378,7 +17392,8 @@
           "priority": 36000,
           "weight_ms": 10000,
           "needs": [
-            "browser_stage_session:default-check-stateful-isolated"
+            "browser_stage_session:default-check-stateful-isolated",
+            "browser_group:browser-e2e-stateful:stateful-default-clock"
           ],
           "completion_keys": [
             "browser_group:browser-e2e-stateful:stateful-default-session-recovery"
@@ -17438,7 +17453,8 @@
           "priority": 36000,
           "weight_ms": 10000,
           "needs": [
-            "browser_stage_session:default-check-stateful-isolated"
+            "browser_stage_session:default-check-stateful-isolated",
+            "browser_group:browser-e2e-stateful:stateful-default-session-recovery"
           ],
           "completion_keys": [
             "browser_group:browser-e2e-stateful:stateful-default-workbook"

@@ -3855,6 +3855,28 @@ test("default check service-backed browser work uses declared session groups", (
   for (const unit of statefulBrowserGroups) {
     assert.ok(unit.browser_group.selected_row_ids.every((rowID) => catalogByID.get(rowID)?.default_check));
   }
+  const assertStatefulSessionChains = (units, label) => {
+    const previousBySession = new Map();
+    for (const group of statefulSource.groups) {
+      const sessionGroup = group.browser_session_group ?? statefulSource.browser_session_group;
+      const unit = units.find(
+        (candidate) =>
+          candidate.kind === "browser_group" && candidate.browser_group?.id === group.id,
+      );
+      assert.ok(unit, `${label} missing ${group.id}`);
+      const previous = previousBySession.get(sessionGroup);
+      assert.deepEqual(
+        unit.needs,
+        [
+          `browser_stage_session:${sessionGroup}`,
+          ...(previous ? [`browser_group:${previous}`] : []),
+        ],
+        `${label} must serialize ${group.id} only behind its own prior session partition`,
+      );
+      previousBySession.set(sessionGroup, group.id);
+    }
+  };
+  assertStatefulSessionChains(check.work_units, "expanded check stateful schedule");
   assertBrowserWorkerSlots(
     check.work_units.filter(
       (unit) =>
@@ -3877,6 +3899,10 @@ test("default check service-backed browser work uses declared session groups", (
   assertBrowserWorkerSlots(
     serviceBackedCheckUnits.filter((unit) => unit.kind === "browser_group"),
     "direct check-service-backed browser groups",
+  );
+  assertStatefulSessionChains(
+    serviceBackedCheckUnits,
+    "direct check-service-backed stateful schedule",
   );
 });
 

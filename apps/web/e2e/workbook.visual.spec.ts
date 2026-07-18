@@ -35,6 +35,7 @@ import {
   mentionItemTestId,
   mentionResolveExistingButtonTestId,
   mentionResolveTargetSelectTestId,
+  mentionRestoreUnresolvedButtonTestId,
   networkAnalysisTestId,
   pendingQueueCountTestId,
   pendingQueueDiscardButtonTestId,
@@ -1596,6 +1597,16 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
 
     await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
       scroll: { top: 0, left: "left" },
+    });
+    const dismissedMentionItem = page.getByTestId(
+      mentionItemTestId(String(dismissedMention.item_ref)),
+    );
+    await dismissedMentionItem.click();
+    await expect(
+      page.getByTestId(mentionRestoreUnresolvedButtonTestId()),
+    ).toBeVisible();
+    await scrollVisualAnchorToScrollContainerTop(page, dismissedMentionItem, {
+      clipTopPixels: 7,
     });
     await blurActiveElement(page);
     await assertViewportVisualRegression(page, "entity-mention-chip-states");
@@ -3755,30 +3766,39 @@ async function assertViewportVisualRegression(
 async function scrollVisualAnchorToScrollContainerTop(
   page: Page,
   locator: Locator,
+  { clipTopPixels = 0 }: { clipTopPixels?: number } = {},
 ) {
-  await locator.evaluate((element) => {
-    const scrollableOverflow = new Set(["auto", "scroll", "overlay"]);
-    let container = element.parentElement;
-    while (container !== null) {
-      const style = window.getComputedStyle(container);
-      if (
-        container.scrollHeight > container.clientHeight &&
-        scrollableOverflow.has(style.overflowY)
-      ) {
-        break;
+  await locator.evaluate(
+    (element, visualAnchorOptions) => {
+      const scrollableOverflow = new Set(["auto", "scroll", "overlay"]);
+      let container = element.parentElement;
+      while (container !== null) {
+        const style = window.getComputedStyle(container);
+        if (
+          container.scrollHeight > container.clientHeight &&
+          scrollableOverflow.has(style.overflowY)
+        ) {
+          break;
+        }
+        container = container.parentElement;
       }
-      container = container.parentElement;
-    }
 
-    const elementRect = element.getBoundingClientRect();
-    if (container === null) {
-      window.scrollBy({ top: elementRect.top, left: 0, behavior: "instant" });
-      return;
-    }
+      const elementRect = element.getBoundingClientRect();
+      if (container === null) {
+        window.scrollBy({
+          top: elementRect.top + visualAnchorOptions.clipTopPixels,
+          left: 0,
+          behavior: "instant",
+        });
+        return;
+      }
 
-    const containerRect = container.getBoundingClientRect();
-    container.scrollTop += elementRect.top - containerRect.top;
-  });
+      const containerRect = container.getBoundingClientRect();
+      container.scrollTop +=
+        elementRect.top - containerRect.top + visualAnchorOptions.clipTopPixels;
+    },
+    { clipTopPixels },
+  );
   await waitForVisualLayoutFrame(page);
 }
 

@@ -23,7 +23,12 @@ export function counted(unit) {
 }
 
 export function finalizer(unit) {
-  return unit.kind === "finalizer" || unit.kind === "aggregate_finalize";
+  return (
+    unit.kind === "finalizer" ||
+    unit.kind === "aggregate_finalize" ||
+    unit.kind === "browser_session_finalizer" ||
+    unit.browser_session_finalizer === true
+  );
 }
 
 export function visibleRunningCount(running) {

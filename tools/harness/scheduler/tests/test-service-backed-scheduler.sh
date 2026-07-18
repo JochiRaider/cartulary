@@ -710,9 +710,11 @@ change_active 1
 sleep "$sleep_duration"
 change_active -1
 
-if [[ "${FAKE_FAIL_TARGET:-}" == "$target" ]]; then
+if [[ "${FAKE_FAIL_TARGET:-}" == "$target" && \
+      ( -z "${FAKE_FAIL_BROWSER_GROUP_NAME:-}" || \
+        "${FAKE_FAIL_BROWSER_GROUP_NAME}" == "${CARTULARY_BROWSER_GROUP_NAME:-}" ) ]]; then
   echo "fake browser group failure for $target" >&2
-  exit 7
+  exit "${FAKE_FAIL_STATUS:-7}"
 fi
 
 write_summary
@@ -1105,6 +1107,8 @@ run_scheduler() {
   FAKE_SCHEDULER_MAX="${dir}/max" \
   FAKE_SCHEDULER_LOG="${dir}/make.log" \
   FAKE_FAIL_TARGET="${FAKE_FAIL_TARGET:-}" \
+  FAKE_FAIL_BROWSER_GROUP_NAME="${FAKE_FAIL_BROWSER_GROUP_NAME:-}" \
+  FAKE_FAIL_STATUS="${FAKE_FAIL_STATUS:-}" \
   FAKE_FAIL_WRITES_SUMMARY="${FAKE_FAIL_WRITES_SUMMARY:-}" \
   FAKE_FAIL_FAILURE_CLASS="${FAKE_FAIL_FAILURE_CLASS:-}" \
   FAKE_FAIL_FAILURE_REASON="${FAKE_FAIL_FAILURE_REASON:-}" \
@@ -1356,7 +1360,7 @@ write_manifest "$browser_manifest" test-service-backed \
 browser_output="$(run_scheduler "$browser_dir" "$browser_manifest" test-service-backed browser 2>&1)"
 assert_not_contains "$browser_output" "[STEP] test-service-backed" "browser schedule hides default scheduler steps"
 assert_contains "$browser_output" "[RESULT] target=test-service-backed status=pass" "browser schedule aggregate child tests"
-assert_contains "$browser_output" "[SCHEDULER] test-service-backed start work_units=3 finalizers=0" "browser quiet scheduler shows aggregate start"
+assert_contains "$browser_output" "[SCHEDULER] test-service-backed start work_units=3 finalizers=1" "browser quiet scheduler shows aggregate start"
 assert_contains "$browser_output" "[SUMMARY] target=test-service-backed status=pass" "browser quiet scheduler shows success summary"
 assert_not_contains "$browser_output" "claims={browser_stack:1" "browser default output hides resource claims"
 assert_scheduler_artifacts "$browser_dir" browser test-service-backed pass - start
@@ -1633,6 +1637,152 @@ if (
   functionalTwoStart > supportEnd
 ) {
   throw new Error(`webserver-backed groups must overlap after the stage session, got\n${lines.join("\n")}`);
+}
+EOF
+
+browser_failure_cleanup_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-browser-failure-cleanup.XXXXXX")"
+cleanup_paths+=("$browser_failure_cleanup_dir")
+write_fake_make "$browser_failure_cleanup_dir"
+browser_failure_cleanup_manifest="${browser_failure_cleanup_dir}/manifest.json"
+cat >"${browser_failure_cleanup_manifest}.sources" <<'JSON'
+{
+  "schema_id": "cartulary.service_backed_schedule_sources.v1",
+  "schedules": [
+    {
+      "target": "test-service-backed",
+      "resource_limits": {
+        "postgres": 32,
+        "object_store": 32,
+        "go_cpu": 4,
+        "go_io": 4,
+        "process": 2,
+        "browser_stack": 2,
+        "browser_stage_stateful": 2
+      },
+      "work_unit_sources": [
+        {
+          "type": "browser_stage",
+          "class": "browser",
+          "target": "browser-e2e-stateful",
+          "browser_stage": "stateful",
+          "weight_ms": 30,
+          "resource_claims": {
+            "postgres": 1,
+            "object_store": 1,
+            "process": 1,
+            "browser_stack": 1,
+            "browser_stage_stateful": 1
+          },
+          "groups": [
+            {
+              "id": "browser-e2e-stateful:stateful-default-first",
+              "name": "stateful-default-first",
+              "kind": "stateful_partition",
+              "target": "browser-e2e-stateful",
+              "aggregate_target": "browser-e2e-stateful",
+              "coverage": "authoritative",
+              "execution_dependency": "browser_stateful",
+              "browser_session_group": "browser-stateful-default",
+              "weight_ms": 30,
+              "resource_claims": { "go_cpu": 1, "go_io": 1 }
+            },
+            {
+              "id": "browser-e2e-stateful:stateful-default-second",
+              "name": "stateful-default-second",
+              "kind": "stateful_partition",
+              "target": "browser-e2e-stateful",
+              "aggregate_target": "browser-e2e-stateful",
+              "coverage": "authoritative",
+              "execution_dependency": "browser_stateful",
+              "browser_session_group": "browser-stateful-default",
+              "weight_ms": 29,
+              "resource_claims": { "go_cpu": 1, "go_io": 1 }
+            },
+            {
+              "id": "browser-e2e-stateful:stateful-claimed",
+              "name": "stateful-claimed",
+              "kind": "stateful_partition",
+              "target": "browser-e2e-stateful",
+              "aggregate_target": "browser-e2e-stateful",
+              "coverage": "authoritative",
+              "execution_dependency": "browser_stateful",
+              "browser_session_group": "browser-stateful-network-flow-claimed",
+              "browser_session_isolation_reason": "network flow claimed profile owns an isolated session",
+              "weight_ms": 28,
+              "resource_claims": { "go_cpu": 1, "go_io": 1 }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+JSON
+expand_source_manifest "${browser_failure_cleanup_manifest}.sources" "$browser_failure_cleanup_manifest"
+"$NODE_BIN" - "$browser_failure_cleanup_manifest" <<'EOF'
+const fs = require("node:fs");
+const [manifestFile] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+const units = manifest.schedules[0].work_units;
+const byGroup = new Map(
+  units
+    .filter((unit) => unit.kind === "browser_group")
+    .map((unit) => [unit.browser_group.name, unit]),
+);
+const first = byGroup.get("stateful-default-first");
+const second = byGroup.get("stateful-default-second");
+const claimed = byGroup.get("stateful-claimed");
+if (!first || !second || !claimed) {
+  throw new Error("missing synthetic stateful groups");
+}
+if (!second.needs.includes(`browser_group:${first.browser_group.id}`)) {
+  throw new Error(`same-session successor is not serialized: ${JSON.stringify(second.needs)}`);
+}
+if (claimed.needs.some((need) => need === `browser_group:${first.browser_group.id}`)) {
+  throw new Error(`isolated session must not inherit the default chain: ${JSON.stringify(claimed.needs)}`);
+}
+const finalizers = units.filter((unit) => unit.kind === "browser_session_finalizer");
+if (finalizers.length !== 2) {
+  throw new Error(`expected two browser session finalizers, got ${finalizers.length}`);
+}
+EOF
+set +e
+browser_failure_cleanup_output="$(
+  FAKE_FAIL_TARGET=browser-e2e-stateful \
+  FAKE_FAIL_BROWSER_GROUP_NAME=stateful-default-first \
+  FAKE_FAIL_STATUS=10 \
+  FAKE_SCHEDULER_SLEEP=0.01 \
+    run_scheduler "$browser_failure_cleanup_dir" "$browser_failure_cleanup_manifest" test-service-backed browser-failure-cleanup 2>&1
+)"
+browser_failure_cleanup_status=$?
+set -e
+assert_equals "$browser_failure_cleanup_status" "10" "browser failure cleanup scheduler status"
+assert_contains "$browser_failure_cleanup_output" "failure_class=product reason=test_assertion_failure" "browser failure retains product classification"
+assert_not_contains "$browser_failure_cleanup_output" "scheduler deadlock" "browser failure cleanup avoids scheduler deadlock"
+assert_not_contains "$browser_failure_cleanup_output" "unknown_failure" "browser failure cleanup avoids unknown classification"
+assert_scheduler_artifacts "$browser_failure_cleanup_dir" browser-failure-cleanup test-service-backed fail - finalize-finish product test_assertion_failure
+browser_failure_cleanup_log="$(cat "${browser_failure_cleanup_dir}/make.log")"
+assert_contains "$browser_failure_cleanup_log" "start browser-e2e-stateful group=stateful-default-first" "failed default stateful partition starts"
+assert_not_contains "$browser_failure_cleanup_log" "start browser-e2e-stateful group=stateful-default-second" "dependent default stateful partition is skipped"
+assert_contains "$browser_failure_cleanup_log" "start browser-e2e-stateful group=stateful-claimed" "isolated stateful partition remains runnable"
+assert_occurrences "$browser_failure_cleanup_log" "stop browser-session browser-e2e-stateful stage=stateful" "2" "every browser session is finalized"
+"$NODE_BIN" - "${browser_failure_cleanup_dir}/results/browser-failure-cleanup/test-service-backed/scheduler-events.jsonl" "${browser_failure_cleanup_dir}/results/browser-failure-cleanup/test-service-backed/scheduler-summary.json" <<'EOF'
+const fs = require("node:fs");
+const [eventsFile, summaryFile] = process.argv.slice(2);
+const events = fs.readFileSync(eventsFile, "utf8").trim().split(/\n/).map((line) => JSON.parse(line));
+const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+const finish = events.at(-1);
+if (finish.event !== "scheduler-finish") {
+  throw new Error(`final event got ${finish.event}`);
+}
+if (Object.keys(finish.active_resource_claims ?? {}).length !== 0) {
+  throw new Error(`retained claims survived cleanup: ${JSON.stringify(finish.active_resource_claims)}`);
+}
+if (summary.finalizer_count !== 2 || summary.finalizer_failures !== 0) {
+  throw new Error(`unexpected browser finalizer summary ${summary.finalizer_count}/${summary.finalizer_failures}`);
+}
+if (!summary.skipped_work_units.some((entry) => entry.id?.includes("stateful-default-second"))) {
+  throw new Error("same-session successor was not recorded as dependency-skipped");
 }
 EOF
 
@@ -2198,7 +2348,7 @@ dry_run_output="$(
 assert_contains "$dry_run_output" "[DRY-RUN] test-service-backed manifest=" "dry-run output"
 assert_contains "$dry_run_output" "resource_limits={go_cpu:6,go_io:6,browser_stack:2,object_store:32,postgres:32,process:2" "dry-run includes compact resolved resources"
 assert_contains "$dry_run_output" "work_units=2" "dry-run includes compact browser stage work summary"
-assert_contains "$dry_run_output" "finalizers=0" "dry-run excludes browser stage completion from finalizers"
+assert_contains "$dry_run_output" "finalizers=1" "dry-run counts browser stage cleanup as a finalizer"
 assert_not_contains "$dry_run_output" "claims={" "default dry-run hides per-unit claims"
 assert_file_absent "${dry_run_dir}/make.log" "dry-run child make log"
 

@@ -48,8 +48,8 @@ export function browserGroupCommand({
   };
 }
 
-export function browserGroupNeeds(stageSessionKey) {
-  return [stageSessionKey];
+export function browserGroupNeeds(stageSessionKey, previousGroupCompletionKey = null) {
+  return [stageSessionKey, previousGroupCompletionKey].filter(Boolean);
 }
 
 export function browserStageCompletionNeeds(groups) {

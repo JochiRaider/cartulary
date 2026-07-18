@@ -103,6 +103,17 @@ function browserGroupEnvFromPlan(browserWorkerSlotPlan, group) {
   );
 }
 
+function scheduledBrowserGroupNeeds(previousStatefulGroupBySession, group, sessionInfo) {
+  const sessionKey = sessionInfo.sessionKey ?? browserStageSessionKey(group.target);
+  if (group.kind !== "stateful_partition") {
+    return browserGroupNeeds(sessionKey);
+  }
+  const previousGroupCompletionKey = previousStatefulGroupBySession.get(sessionInfo.group) ?? null;
+  const needs = browserGroupNeeds(sessionKey, previousGroupCompletionKey);
+  previousStatefulGroupBySession.set(sessionInfo.group, browserGroupCompletionKey(group.id));
+  return needs;
+}
+
 function mapServiceBackedClaimsToCheckClaims(rawClaims, { ensureHost = false } = {}) {
   return mapServiceBackedClaimsToCheckClaimsFromPolicy(rawClaims, { ensureHost });
 }
@@ -141,6 +152,7 @@ export function expandServiceBackedScheduleForCheck({
     priority,
   });
   const browserWorkerSlotPlan = browserGroupWorkerSlotPlan(serviceSchedule.work_unit_sources ?? []);
+  const previousStatefulGroupBySession = new Map();
   const expanded = [
     {
       id: `${scheduleTarget}:service-session`,
@@ -256,7 +268,11 @@ export function expandServiceBackedScheduleForCheck({
           aggregate_target: source.target,
           priority: priority(group.priority ?? source.priority),
           weight_ms: group.weight_ms,
-          needs: browserGroupNeeds(groupSessionInfo.sessionKey ?? browserStageSessionKey(source.target)),
+          needs: scheduledBrowserGroupNeeds(
+            previousStatefulGroupBySession,
+            group,
+            groupSessionInfo,
+          ),
           completion_keys: [browserGroupCompletionKey(group.id)],
           failure_keys: [browserGroupCompletionKey(group.id)],
           resource_claims: browserGroupClaims(group.resource_claims),
@@ -470,6 +486,7 @@ export function expandServiceBackedSchedule({
     priority,
   });
   const browserWorkerSlotPlan = browserGroupWorkerSlotPlan(serviceSchedule.work_unit_sources ?? []);
+  const previousStatefulGroupBySession = new Map();
 
   for (const [sourceIndex, source] of (serviceSchedule.work_unit_sources ?? []).entries()) {
     if (source.type === "browser_stage") {
@@ -560,7 +577,11 @@ export function expandServiceBackedSchedule({
           aggregate_target: source.target,
           priority: priority(group.priority ?? source.priority),
           weight_ms: group.weight_ms,
-          needs: browserGroupNeeds(groupSessionInfo.sessionKey ?? browserStageSessionKey(source.target)),
+          needs: scheduledBrowserGroupNeeds(
+            previousStatefulGroupBySession,
+            group,
+            groupSessionInfo,
+          ),
           completion_keys: [browserGroupCompletionKey(group.id)],
           failure_keys: [browserGroupCompletionKey(group.id)],
           resource_claims: resourceClaimsObject(group.resource_claims ?? {}),
