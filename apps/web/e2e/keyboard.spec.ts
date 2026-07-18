@@ -568,7 +568,7 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
     page,
     incidentId,
     "browser.coordination-review.row-02 filler",
-    24,
+    64,
   );
   const virtualTarget = await createViewRow(
     page,
