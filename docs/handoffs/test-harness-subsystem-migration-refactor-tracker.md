@@ -12,7 +12,7 @@
 | Baseline worktree | Clean |
 | Tracker state | `IN_PROGRESS` — WS-07 owner slice and evidence APIs |
 | Active start | Clean tree at `ddfd2afa` |
-| Active tasks | T-034 |
+| Active tasks | T-035 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -719,8 +719,8 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-031 | Close production follow-up classifications | WS-06 | DONE | T-007,T-028,T-029 | 16-path/2-symbol/4-protocol follow-up ledger and zero-match scan | Every remaining match has owner/disposition. |
 | T-032 | Implement owner-slice planning/execution | WS-07 | DONE | T-015,T-022,T-027 | Deterministic plan contracts, exact Go/Vitest execution, managed-service smoke, and fail-closed selection fixtures | Both successor slice targets work. |
 | T-033 | Implement owner diagnostics/task guide | WS-07 | DONE | T-032 | Text/JSON contract tests and exact catalog-topology reconciliation | Commands report exact owner topology. |
-| T-034 | Implement owner evidence accounting/audit | WS-07 | IN_PROGRESS | T-032 | Audit fixtures | Fresh compatible evidence reconciles. |
-| T-035 | Replace schemas and artifact identities | WS-07 | TODO | T-032,T-034 | Schema attachment/drift checks | No successor artifact uses delivery phase identity. |
+| T-034 | Implement owner evidence accounting/audit | WS-07 | DONE | T-032 | Exact runner/accounting and retained-root audit fixtures; focused real-row execution | Fresh compatible target partitions reconcile and incomplete or incompatible evidence fails closed. |
+| T-035 | Replace schemas and artifact identities | WS-07 | IN_PROGRESS | T-032,T-034 | Schema attachment/drift checks | No successor artifact uses delivery phase identity. |
 | T-036 | Migrate browser stages/runtime profiles | WS-08 | TODO | T-027,T-032 | Browser plan tests | Selection derives from catalog resources. |
 | T-037 | Migrate scheduler DAG and lifecycle | WS-08 | TODO | T-036 | Scheduler/lifecycle tests | Phase ordering has no execution role. |
 | T-038 | Regenerate owner-first topology | WS-08 | TODO | T-037 | Generation/drift evidence | Authored and generated topology agree. |
@@ -731,13 +731,13 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-043 | Delete phase/subsystem registries and maps | WS-10 | TODO | T-016,T-022,T-027,T-039 | Deletion manifest/zero scan | Unified catalog is sole owner. |
 | T-044 | Delete phase-accounting and compatibility code | WS-10 | TODO | T-035,T-037,T-043 | Boundary and zero-reference scans | No old reader or shim remains. |
 | T-045 | Regenerate all permitted outputs | WS-10 | TODO | T-042,T-043,T-044 | Generated drift checks | Clean owner-first generated tree. |
-| T-045A | Prove atomic v2 parity and retirement | WS-10 | TODO | T-045 | NLSpec/schema/task-surface/topology parity and zero-reference report | v2 is complete and no v1 alias, reader, writer, catalog, or artifact identity is active. |
+| T-045A | Prove atomic v2 parity and retirement | WS-10 | TODO | T-050 | NLSpec/schema/task-surface/topology parity and zero-reference report | v2 is complete and no v1 alias, reader, writer, catalog, or artifact identity is active. |
 | T-046 | Run focused verification matrix | WS-11 | TODO | T-045A | Command results/run roots | All focused gates pass. |
 | T-047 | Run agent finalization and first warm check | WS-11 | TODO | T-046 | Successful warm run root | Fresh broad evidence exists. |
 | T-048 | Refresh retained baselines and repeat broad checks | WS-11 | TODO | T-047 | Finalized root and second results | No phase baseline is reused. |
 | T-049 | Run release check | WS-11 | TODO | T-048 | Release-check result | Public/release harness changes pass. |
-| T-050 | Capture reconciliation and remove crosswalk | WS-12 | TODO | T-049 | Final reconciliation report | Temporary compatibility-free migration input removed. |
-| T-051 | Complete handoff and closure audit | WS-12 | TODO | T-050 | Handoff log and clean status | Section 15 is fully satisfied. |
+| T-050 | Capture reconciliation and remove crosswalk | WS-10 | TODO | T-045 | Final reconciliation report | Temporary compatibility-free migration input removed before authoritative source snapshots. |
+| T-051 | Complete handoff and closure audit | WS-12 | TODO | T-049 | Handoff log and clean status | Section 15 is fully satisfied. |
 
 ## 13. Verification matrix
 
@@ -1137,6 +1137,19 @@ Each entry must include:
 - Skipped checks: per-row terminal accounting, owner summaries, and retained-run audit are T-034; complete successor artifact identity and old-reader rejection are T-035; Playwright execution and generic scheduling remain WS-08; canonical generated public help/input ownership is T-039; broad `make check`, finalization, and release validation remain WS-11.
 - Next safe task: T-034 only. Emit exact per-row attempts and terminal evidence from slice execution, aggregate owner summaries, and implement caller-root-only `test-evidence-audit` with semantic identity compatibility and negative fixtures.
 - Rollback boundary: revert this complete T-033 checkpoint, including the diagnostics facade and CLI, hidden pre-cutover entrypoints, both schemas and attachments, command dispatch, contract tests, and tracker evidence. Do not retain the validation-only task-guide name after the T-039 public cutover or restore document/phase-derived guidance.
+
+#### 2026-07-18 — T-034 owner evidence accounting and audit checkpoint
+
+- Branch/commit at start: `revision/grid-adapter` at clean T-033 checkpoint `90242ed0`. T-034 is `DONE`, T-035 becomes the sole active task, and WS-07 remains the only `IN_PROGRESS` workstream.
+- Contract decision: `test-evidence-audit` now accepts one caller-owned `EVIDENCE_ROOTS_FILE` manifest rather than a closed family of broad/browser result variables. Compatibility shares owner, source-snapshot, catalog, and verification digests globally while selected rows and execution-profile digests close independently for each catalog-derived target partition. Every active owner row requires the full-owner slice partition plus its evidence-class gate. T-050 moved into WS-10 before T-045A so final snapshots contain neither the crosswalk nor other temporary migration inputs.
+- Accounting result: Go and Vitest adapters consume structured exact-selector output, shell rows execute one registered command per row, missing selector output fails as infrastructure evidence, and ordinary product failures do not stop independent invocations. The successor accounting builder requires one expected and exactly one observed terminal record per selected row, records one explicit attempt and redacted log references, preserves subset/full-owner closure, and applies product-versus-artifact failure precedence without inferring row success from a process exit alone.
+- Audit result: the audit derives required target partitions from the unified catalog, reads only ASCII-sorted caller-listed roots, permits one physical root to serve several explicit targets, reports known non-applicable inputs as unused, and rejects unknown/duplicate/missing targets, unsafe roots, mixed semantic identities, wrong profile partitions, duplicate/missing/unexpected rows, or unsuccessful terminal records. Uniform owner artifact paths are `<target>/owners/<owner-id>/...`; no newest-run discovery or v1 reader was added.
+- Reconciliation: the owner catalog remains 46 owners, 169 families, 833 rows, and 1,377 exact selectors. The 548 authoritative migration dispositions and 265 auxiliary dispositions remain terminal and unchanged.
+- Passed validation: `make format` at `.cartulary/test-results/20260718T042224Z-p89344`; `make harness-contract` with 73 tests at `.cartulary/test-results/20260718T042236Z-p91797`; exact `platform.config` Go execution through `make test-slice ... JSON=1` at `.cartulary/test-results/20260718T042207Z-p88938`; `make lint-scripts` at `.cartulary/test-results/20260718T042255Z-p92709`; `make lint-markdown` at `.cartulary/test-results/20260718T042255Z-p93040`; and `git diff --check`.
+- Resolved failures: no product assertion failed. The initial audit-contract pass exposed the normative fixed-root/identical-inventory contradiction; adopting the manifest and partition contract resolved it before artifact integration. Structured runner fixtures cover missing Go/Vitest observations and shell product failure.
+- Skipped checks: schema attachment and retained CLI artifact validation are T-035; Playwright accounting and browser topology are WS-08; generated public command ownership is T-039; broad `make check`, finalization, and release validation remain WS-11.
+- Next safe task: T-035 only. Attach the evidence-root, accounting, owner-summary, and audit-summary schemas; emit uniform owner shards and tool/scheduler references; add the audit CLI fixtures; and hard-reject retired artifact IDs.
+- Rollback boundary: revert the complete T-034 checkpoint, including the NLSpec/root-manifest decision, tracker dependency correction, runner adapters, accounting/audit core, fixtures, and execution integration. Do not restore fixed evidence-root variables, target-wide pass inference, identical cross-gate row inventories, or newest-root discovery.
 
 ## 17. First-resumer checklist
 

@@ -79,10 +79,17 @@ import { collectTestCatalogImportViolations } from "../test-catalog/import-bound
 import { resolveRowSelector } from "../test-catalog/selector-resolution.mjs";
 import { validateSemanticIdentities } from "../test-catalog/semantic-identity-check-cli.mjs";
 import {
+  auditOwnerEvidence,
   accountingRowsForTarget,
+  buildTestEvidenceAccounting,
+  buildTestOwnerSummary,
+  deriveRequiredEvidencePartitions,
   evidenceTargetForCatalogRow,
   loadOwnerAccountingSelection,
 } from "../evidence-accounting/index.mjs";
+import { adaptGoInvocation } from "../execution/runners/go.mjs";
+import { adaptShellInvocation } from "../execution/runners/shell.mjs";
+import { adaptVitestInvocation } from "../execution/runners/vitest.mjs";
 import {
   assertDocumentationAccessAllowed,
   scanDocumentationReadSource,
@@ -92,6 +99,7 @@ import {
   OwnerSliceUsageError,
   resolveOwnerSliceSelection,
 } from "../owner-slice/index.mjs";
+import { buildSourceSnapshot } from "../owner-slice/source-snapshot.mjs";
 import { buildModuleAuthorTaskGuide, explainTestOwner } from "../diagnostics/owner-diagnostics.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -353,6 +361,161 @@ test("owner slice plan is deterministic and schema-valid for semantic inputs", a
   await validateSchema(first.schema_id, first);
   assert.deepEqual(first.selection.resolved_row_ids, [row.row_id]);
   assert.match(first.source_snapshot_digest, /^sha256:[0-9a-f]{64}$/u);
+});
+
+test("runner adapters require one exact terminal observation per selected row", () => {
+  const goInvocation = {
+    rows: [
+      { row_id: "row.go.pass", selectors: ["TestPass"] },
+      { row_id: "row.go.missing", selectors: ["TestMissing"] },
+    ],
+  };
+  const goRows = adaptGoInvocation(goInvocation, {
+    status: 1,
+    stdout: `${JSON.stringify({ Action: "pass", Test: "TestPass", Elapsed: 0.01 })}\n`,
+  });
+  assert.deepEqual(goRows.map((row) => row.terminal_state), ["passed", "infrastructure_failed"]);
+
+  const vitestRows = adaptVitestInvocation(
+    { rows: [{ row_id: "row.vitest", selectors: ["exact title"] }] },
+    {
+      status: 0,
+      stdout: JSON.stringify({
+        testResults: [{ assertionResults: [{ fullName: "exact title", status: "passed" }] }],
+      }),
+    },
+  );
+  assert.equal(vitestRows[0].terminal_state, "passed");
+  assert.equal(
+    adaptVitestInvocation(
+      { rows: [{ row_id: "row.vitest", selectors: ["other title"] }] },
+      { status: 0, stdout: JSON.stringify({ testResults: [] }) },
+    )[0].terminal_state,
+    "infrastructure_failed",
+  );
+
+  assert.equal(
+    adaptShellInvocation(
+      { rows: [{ row_id: "row.shell", selectors: ["command"] }] },
+      { status: 7 },
+    )[0].terminal_state,
+    "failed",
+  );
+});
+
+test("owner accounting closes exact rows and preserves subset completion scope", () => {
+  const catalog = loadTestCatalog(repoRoot);
+  const row = catalog.rows.find((entry) => entry.owner_id === "platform.config" && entry.runner === "go");
+  assert.ok(row);
+  const plan = buildOwnerSlicePlan(repoRoot, {
+    ownerID: row.owner_id,
+    dependencyScope: "all",
+    rows: row.row_id,
+    rowsProvided: true,
+    target: "test-slice",
+    commandID: "cartulary.harness.command.test_slice.v1",
+    runID: "accounting-fixture",
+    timestamp: "2026-07-18T00:00:00.000Z",
+  });
+  const execution = {
+    status: "pass",
+    duration_ms: 4,
+    row_results: [{
+      row_id: row.row_id,
+      terminal_state: "passed",
+      duration_ms: 4,
+      exit_code: 0,
+      failure_reason: null,
+      attempt: 1,
+    }],
+  };
+  const logs = [{
+    work_unit_id: plan.work_units[0].work_unit_id,
+    stdout_path: "test-slice/work-units/fixture.stdout.log",
+    stderr_path: "test-slice/work-units/fixture.stderr.log",
+  }];
+  const accounting = buildTestEvidenceAccounting(
+    plan,
+    execution,
+    logs,
+    "2026-07-18T00:00:00.000Z",
+    "2026-07-18T00:00:00.004Z",
+  );
+  assert.equal(accounting.status, "pass");
+  assert.deepEqual(accounting.expected_rows.map((entry) => entry.row_id), [row.row_id]);
+  assert.deepEqual(accounting.observed_rows.map((entry) => entry.row_id), [row.row_id]);
+  const summary = buildTestOwnerSummary(plan, accounting, {
+    evidence_accounting: "test-slice/owners/platform.config/test-evidence-accounting.json",
+  });
+  assert.equal(summary.completion_scope, "selected_subset");
+  assert.equal(summary.counts.passed, 1);
+  assert.equal(summary.primary_failure, null);
+  assert.throws(
+    () => buildTestEvidenceAccounting(plan, { ...execution, row_results: [] }, logs, accounting.started_at, accounting.finished_at),
+    /do not exactly match/u,
+  );
+});
+
+test("owner evidence audit accepts exact target partitions and rejects duplicate row evidence", () => {
+  const resultRoot = mkdtempSync(path.join(repoRoot, "tmp", "owner-audit."));
+  try {
+    const ownerID = "platform.config";
+    const partitions = deriveRequiredEvidencePartitions(repoRoot, ownerID);
+    const catalog = loadTestCatalog(repoRoot);
+    const source = buildSourceSnapshot(repoRoot);
+    const entries = [];
+    for (const [targetID, rowIDs] of partitions) {
+      const runRoot = path.join(resultRoot, `run-${targetID}`);
+      const ownerDir = path.join(runRoot, targetID, "owners", ownerID);
+      mkdirSync(ownerDir, { recursive: true });
+      const identity = loadOwnerAccountingSelection(repoRoot, { ownerID, rowIDs });
+      writeJSONFile(path.join(ownerDir, "test-evidence-accounting.json"), {
+        schema_id: "cartulary.test_evidence_accounting.v1",
+        target_id: targetID,
+        owner_id: ownerID,
+        selected_rows: rowIDs,
+        source_snapshot_digest: source.digest,
+        catalog_semantic_digest: catalog.summary.catalog_semantic_digest,
+        verification_semantic_digest: catalog.summary.verification_semantic_digest,
+        runtime_profile_digest: identity.runtime_profile_digest,
+        resource_profile_digest: identity.resource_profile_digest,
+        fixture_profile_digest: identity.fixture_profile_digest,
+        status: "pass",
+        expected_rows: rowIDs.map((rowID) => ({ row_id: rowID })),
+        observed_rows: rowIDs.map((rowID) => ({ row_id: rowID, terminal_state: "passed" })),
+      });
+      entries.push({ target_id: targetID, run_root: path.relative(repoRoot, runRoot) });
+    }
+    entries.sort((left, right) => left.target_id < right.target_id ? -1 : left.target_id > right.target_id ? 1 : 0);
+    const manifestFile = path.join(resultRoot, "evidence-roots.json");
+    writeJSONFile(manifestFile, {
+      schema_id: "cartulary.test_evidence_root_manifest.v1",
+      owner_id: ownerID,
+      entries,
+    });
+    const summary = auditOwnerEvidence(repoRoot, {
+      ownerID,
+      manifestPath: path.relative(repoRoot, manifestFile),
+      timestamp: "2026-07-18T00:00:00.000Z",
+    });
+    assert.equal(summary.status, "pass");
+    assert.equal(summary.accepted_artifacts.length, partitions.size);
+
+    const first = entries[0];
+    const artifactFile = path.join(repoRoot, first.run_root, first.target_id, "owners", ownerID, "test-evidence-accounting.json");
+    const artifact = JSON.parse(readFileSync(artifactFile, "utf8"));
+    artifact.observed_rows.push(artifact.observed_rows[0]);
+    writeJSONFile(artifactFile, artifact);
+    const rejected = auditOwnerEvidence(repoRoot, {
+      ownerID,
+      manifestPath: path.relative(repoRoot, manifestFile),
+      timestamp: "2026-07-18T00:00:00.000Z",
+    });
+    assert.equal(rejected.status, "fail");
+    assert.ok(rejected.rejected_artifacts[0].reasons.includes("observed_row_inventory_mismatch"));
+  } finally {
+    rmSync(resultRoot, { recursive: true, force: true });
+  }
 });
 
 test("owner diagnostics project exact catalog topology and evidence-derived guidance", async () => {

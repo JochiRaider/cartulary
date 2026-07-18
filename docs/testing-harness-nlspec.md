@@ -590,7 +590,7 @@ The current owner-first public commands are closed by this table:
 | `service-backed-test-slice` | `cartulary.harness.command.service_backed_test_slice.v1` | `OWNER` | `ROWS`, `VITEST_MAX_WORKERS`, `PLAYWRIGHT_WORKERS`, `JSON` |
 | `explain-test-owner` | `cartulary.harness.command.explain_test_owner.v1` | `OWNER` | `JSON` |
 | `task-guide` | `cartulary.harness.command.task_guide.v2` | `ROLE=module-author`, `OWNER` | `JSON` |
-| `test-evidence-audit` | `cartulary.harness.command.test_evidence_audit.v1` | `OWNER`, `CHECK_RESULTS_DIR` | `BROWSER_SUPPORT_RESULTS_DIR`, `BROWSER_VISUAL_RESULTS_DIR`, `BROWSER_A11Y_RESULTS_DIR`, `BROWSER_MEASUREMENT_RESULTS_DIR` |
+| `test-evidence-audit` | `cartulary.harness.command.test_evidence_audit.v1` | `OWNER`, `EVIDENCE_ROOTS_FILE` | none |
 
 `test-catalog-check` is private check-level work, accepts no target-local public input, has no stable public command ID, and MUST be selected by `make check`. A public or private v1 delivery-phase command, alias, reader, or dual writer is unsupported.
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-064, TH-HARNESS-AC-070
@@ -883,7 +883,16 @@ Target-local `JSON` accepts only exact `1`; omitted or empty means human output.
 Verified by: TH-HARNESS-AC-004, TH-HARNESS-AC-064
 
 **TH-HARNESS-REQ-121**
-`test-evidence-audit` requires `CHECK_RESULTS_DIR`. It conditionally requires `BROWSER_SUPPORT_RESULTS_DIR` for selected Playwright `support` rows, `BROWSER_VISUAL_RESULTS_DIR` for visual rows, `BROWSER_A11Y_RESULTS_DIR` for accessibility rows, and `BROWSER_MEASUREMENT_RESULTS_DIR` for measurement rows. A supplied valid root that is not required MUST be reported in `unused_inputs`. Missing required roots are `usage_error`; incompatible contents are `artifact_error`.
+`test-evidence-audit` requires `EVIDENCE_ROOTS_FILE`, a caller-owned
+`cartulary.test_evidence_root_manifest.v1` file containing the exact owner ID and
+ASCII-sorted unique `{target_id, run_root}` entries to audit. The auditor MUST derive
+the required target partitions from the current catalog and verification contracts;
+it MUST NOT widen the manifest, search sibling roots, or select a newest run. One
+physical run root MAY be named by multiple explicit target entries. A known supplied
+target that is not applicable to the selected owner MUST be reported in
+`unused_inputs`; an unknown or duplicate target is `usage_error`. Missing required
+target entries are `usage_error`; unsafe roots or incompatible contents are
+`artifact_error`.
 Verified by: TH-HARNESS-AC-064, TH-HARNESS-AC-066
 
 **TH-HARNESS-REQ-122**
@@ -994,11 +1003,7 @@ Verified by: TH-HARNESS-AC-002, TH-HARNESS-AC-029
 | `agent-finalize` | `ALLOW_OLDER_RESULTS_DIR` | `exact_1_bool` | no | Make command line, environment, Makefile default | none | older retained root rejected | false | `trim` | exact `1` means true | `usage_error`, exit `2` | value | runtime env |
 | `agent-finalize` | `RESULTS_DIR` | `result_selector` | no | Make command line, environment, Makefile default | none | actions that require retained evidence are not selected | omitted | `path_token` | existing retained full warm `check` run root when supplied | `usage_error`, exit `2` | value | runtime env |
 | `test-evidence-audit` | `OWNER` | `owner_id` | yes | Make command line, environment, Makefile default | none | missing required input | invalid | `trim` | active Section 3 owner ID | `usage_error`, exit `2` | value | runtime env |
-| `test-evidence-audit` | `CHECK_RESULTS_DIR` | `result_selector` | yes | Make command line, environment, Makefile default | none | missing required broad-check root | invalid | `path_token` | existing retained successful `check` run root | `usage_error`, exit `2` when missing | value | runtime env |
-| `test-evidence-audit` | `BROWSER_SUPPORT_RESULTS_DIR` | `result_selector` | no | Make command line, environment, Makefile default | none | omitted unless selected owner has Playwright `support` rows | omitted | `path_token` | existing retained `browser-e2e-support` run root | `usage_error`, exit `2` when required and missing | value | runtime env |
-| `test-evidence-audit` | `BROWSER_VISUAL_RESULTS_DIR` | `result_selector` | no | Make command line, environment, Makefile default | none | omitted unless selected owner has visual rows | omitted | `path_token` | existing retained `browser-e2e-visual` run root | `usage_error`, exit `2` when required and missing | value | runtime env |
-| `test-evidence-audit` | `BROWSER_A11Y_RESULTS_DIR` | `result_selector` | no | Make command line, environment, Makefile default | none | omitted unless selected owner has accessibility rows | omitted | `path_token` | existing retained `browser-e2e-a11y` run root | `usage_error`, exit `2` when required and missing | value | runtime env |
-| `test-evidence-audit` | `BROWSER_MEASUREMENT_RESULTS_DIR` | `result_selector` | no | Make command line, environment, Makefile default | none | omitted unless selected owner has measurement rows | omitted | `path_token` | existing retained `browser-e2e-measurement` run root | `usage_error`, exit `2` when required and missing | value | runtime env |
+| `test-evidence-audit` | `EVIDENCE_ROOTS_FILE` | `evidence_root_manifest` | yes | Make command line, environment, Makefile default | none | missing manifest | invalid | `path_token` | existing non-symlink regular file containing `cartulary.test_evidence_root_manifest.v1` for exact `OWNER` | `usage_error`, exit `2` when missing or malformed | value | argv |
 | `task-surface-report` | `TASK_SURFACE_REPORT_ARGS` | `task_surface_report_args` | no | Make command line, environment, Makefile default | none | compact default report | omitted | `trim` | empty, `--all`, `--check`, `--check --all`, `--all --check` | `usage_error`, exit `2` | value | argv |
 | `task-guide` | `ROLE` | `enum` | yes | Make command line, environment, Makefile default | none | missing required input | invalid | `trim` | exact `module-author` | `usage_error`, exit `2` | value | argv |
 | `task-guide`, `test-slice`, `service-backed-test-slice`, `explain-test-owner` | `OWNER` | `owner_id` | yes | Make command line, environment, Makefile default | none | missing required input | invalid | `trim` | active Section 3 owner ID | `usage_error`, exit `2` | value | argv |
@@ -1195,7 +1200,15 @@ Verified by: TH-HARNESS-AC-066
 Verified by: TH-HARNESS-AC-066, TH-HARNESS-AC-067
 
 **TH-HARNESS-REQ-154**
-Evidence from different retained roots is compatible only when `owner_id`, selected-row inventory, source snapshot digest, catalog semantic digest, and verification semantic digest are identical. Runtime, resource, and fixture profile digests for every referenced row MUST also match. Two candidate artifacts for the same required target and row are ambiguous and MUST fail. An auditor MUST NOT search unlisted roots or select a newest candidate.
+Evidence from different retained roots is compatible only when `owner_id`, source
+snapshot digest, catalog semantic digest, and verification semantic digest are
+identical. Selected-row inventories are target partitions and therefore MAY differ
+between gates. Each artifact's selected rows and runtime, resource, and fixture
+profile digests MUST exactly equal the current catalog-derived partition for that
+target. The union of accepted `(owner_id, target_id, row_id)` records MUST equal the
+full applicability set derived by TH-HARNESS-REQ-668. Two candidate artifacts for the
+same required target and row are ambiguous and MUST fail. An auditor MUST NOT search
+unlisted roots or select a newest candidate.
 Verified by: TH-HARNESS-AC-066
 
 **TH-HARNESS-REQ-155**
@@ -1303,6 +1316,7 @@ The following schema IDs are public contracts. Schema file paths are repository 
 | `cartulary.scheduler_pressure_summary.v4`       | `tools/schemas/cartulary.scheduler_pressure_summary.v4.schema.json`       | present           | Scheduler reporter       | Before scheduler target success.          |
 | `cartulary.fixture_tier_proof.v1`               | `tools/schemas/cartulary.fixture_tier_proof.v1.schema.json`               | present           | Scheduler reporter and fixture-proof validators | Before a retained fixture-tier proof artifact is accepted. |
 | `cartulary.test_slice_plan.v1`                  | `tools/schemas/cartulary.test_slice_plan.v1.schema.json`                  | present           | Owner-slice planner      | Before setup, retained plan emission, or owner-slice JSON output is accepted. |
+| `cartulary.test_evidence_root_manifest.v1`      | `tools/schemas/cartulary.test_evidence_root_manifest.v1.schema.json`      | required successor | Evidence-audit caller    | Before any retained root is opened. |
 | `cartulary.verification_registry.v1`            | `tools/schemas/cartulary.verification_registry.v1.schema.json`            | present           | Verification registry    | Before catalog compilation or evidence routing. |
 | `cartulary.verification_contract.v1`            | `tools/schemas/cartulary.verification_contract.v1.schema.json`            | present           | Verification owner       | Before catalog compilation or evidence routing. |
 | `cartulary.test_owner_registry.v1`              | `tools/schemas/cartulary.test_owner_registry.v1.schema.json`              | present           | Test catalog owner       | Before owner manifest loading. |
@@ -1447,7 +1461,7 @@ Operator runtime-binary consumers MUST retain a bounded provenance artifact for 
 Verified by: TH-HARNESS-AC-037
 
 **TH-HARNESS-REQ-268**
-The owner-first schema families are `cartulary.verification_registry.v1`, `cartulary.verification_contract.v1`, `cartulary.test_owner_registry.v1`, `cartulary.test_family_manifest.v1`, `cartulary.test_runner_registry.v1`, `cartulary.test_slice_plan.v1`, `cartulary.test_slice_scheduler_summary.v1`, `cartulary.test_evidence_accounting.v1`, `cartulary.test_evidence_audit_summary.v1`, `cartulary.test_owner_summary.v1`, `cartulary.test_owner_explanation.v1`, `cartulary.task_guide_summary.v2`, and `cartulary.test_catalog_check_summary.v1`. Each is a required current attachment and MUST reject old-family schema IDs.
+The owner-first schema families are `cartulary.verification_registry.v1`, `cartulary.verification_contract.v1`, `cartulary.test_owner_registry.v1`, `cartulary.test_family_manifest.v1`, `cartulary.test_runner_registry.v1`, `cartulary.test_slice_plan.v1`, `cartulary.test_slice_scheduler_summary.v1`, `cartulary.test_evidence_root_manifest.v1`, `cartulary.test_evidence_accounting.v1`, `cartulary.test_evidence_audit_summary.v1`, `cartulary.test_owner_summary.v1`, `cartulary.test_owner_explanation.v1`, `cartulary.task_guide_summary.v2`, and `cartulary.test_catalog_check_summary.v1`. Each is a required current attachment and MUST reject old-family schema IDs.
 Verified by: TH-HARNESS-AC-062, TH-HARNESS-AC-071
 
 **TH-HARNESS-REQ-269**
@@ -1467,7 +1481,12 @@ Verified by: TH-HARNESS-AC-065
 Verified by: TH-HARNESS-AC-065
 
 **TH-HARNESS-REQ-273**
-`cartulary.test_evidence_audit_summary.v1` MUST identify every required root, every supplied unused root, the exact compatibility tuple, required rows by evidence target, accepted artifacts, rejected artifacts with reasons, and the final owner closure result. The audit MUST fail when any required row lacks one compatible terminal record.
+`cartulary.test_evidence_audit_summary.v1` MUST identify every required target/root,
+every supplied unused target/root, the exact common compatibility tuple, required
+rows by target partition, accepted artifacts, rejected artifacts with reasons, and
+the final owner closure result. The audit MUST fail when any required
+`(owner_id, target_id, row_id)` obligation lacks exactly one compatible successful
+terminal record.
 Verified by: TH-HARNESS-AC-066
 
 **TH-HARNESS-REQ-274**
@@ -1484,7 +1503,7 @@ Verified by: TH-HARNESS-AC-067, TH-HARNESS-AC-071
 | ---------------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | Tool-run summary                                     | Centralized wrappers                            | `<target>/tool-run-summary.json` or the summary directory closed by the target's Section 8.1 row | `cartulary.tool_run_summary.v4`                               | Required non-null timestamps, target, exit code, output mode, artifact refs, failures | Retained; removed by cleanup only under default result root. |
 | Fallow static reports                                | `frontend-fallow-static`                        | `frontend-fallow-static/fallow/*` and `frontend-fallow-static/fallow-static-summary.json` | `cartulary.fallow_static_summary.v1` for the normalized summary; raw JSON, SARIF, Markdown, stdout, stderr, and `resolved-fallowrc.json` files are diagnostic-only | Report names, statuses, issue counts, artifact refs, resolved-config refs, baseline state, and enforcement state in schema-defined order | Retained as run-root artifacts; generated/source roots and Fallow config or baseline inputs are not cleanup candidates. |
-| Owner summary                                        | Owner accounting handlers                       | `<target>/test-owner-summary.json`                              | `cartulary.test_owner_summary.v1`                             | Stable owner/row/runner/status/count fields                                             | Retained.                                                    |
+| Owner summary                                        | Owner accounting handlers                       | `<target>/owners/<owner-id>/test-owner-summary.json`            | `cartulary.test_owner_summary.v1`                             | Stable owner/row/runner/status/count fields                                             | Retained.                                                    |
 | Vitest failure details                               | Vitest wrappers                                 | `<target>/raw/<row-id>/vitest-failure-details.json`             | `cartulary.vitest_failure_details.v1`                         | Runner JSON reference, stdout/stderr refs, failed owner path, title, message, source, raw messages, diagnostic tags, and first app frame | Retained when a Vitest runner report exists; absent sidecar uses owner-summary fallback. |
 | Target summary                                       | Target summary generator                        | `<target>/target-summary.json`                                  | `cartulary.test_target_summary.v4`                            | Child/totals rollups ordered by registry order                                        | Retained.                                                    |
 | Run summary                                          | Run summary generator                           | `run-summary.json` or aggregate dir                             | `cartulary.test_run_summary.v6`                               | Work units and artifact dirs ordered deterministically                                | Retained.                                                    |
@@ -1508,7 +1527,7 @@ Verified by: TH-HARNESS-AC-067, TH-HARNESS-AC-071
 | Network Flow auth-transition-control response        | Network Flow auth-transition-control route      | Network Flow fixture transcript or target-owned auth-transition-control dir | `cartulary.test.network_flow_auth_transition_control.v1`      | Control ID, exact boundary token, transition kind, actor ref, incident ref, resource kind/ref, hidden response kind, optional correlation key, `must_not_disclose_resource=true`, and `consume_once=true` | Retained only by the target or fixture transcript that arms route-time authorization or hidden-resource assertions; never production API evidence. |
 | Network Flow audit-assertion-control response        | Network Flow audit-assertion-control route      | Network Flow fixture transcript or target-owned audit-assertion-control dir | `cartulary.test.network_flow_audit_assertion_control.v1`     | Assertion ID, assertion kind, event code, operation ref, actor ref, incident ref, resource kind/ref, baseline count, expected final count, expected replay increment, optional correlation key, and `consume_once=true` | Retained only by the target or fixture transcript that arms exact-count or replay-silence assertions; never product audit evidence by itself. |
 | Frontend accessibility summary                       | Browser accessibility target                    | `browser-e2e-a11y/accessibility/frontend-accessibility-summary.json` | `cartulary.frontend_accessibility_summary.v4`                  | Active `rows[]`, `scenarios[]`, `keyboard_matrix[]`, `state_communication_checks[]`, `contrast_checks[]`, `violations[]`, and `artifact_refs[]` in schema-defined order | Retained for browser target.                                 |
-| Test evidence accounting                            | Owner-aware target summaries                    | `<target>/test-evidence-accounting.json`                             | `cartulary.test_evidence_accounting.v1`                        | Selection identity, semantic digests, exact expected and terminal row records, attempts, and required-target closure | Retained for target; target/tool-run summaries reference this artifact instead of duplicating row details. |
+| Test evidence accounting                            | Owner-aware target summaries                    | `<target>/owners/<owner-id>/test-evidence-accounting.json`           | `cartulary.test_evidence_accounting.v1`                        | Selection identity, semantic digests, exact expected and terminal row records, attempts, and required-target closure | Retained for target; target/tool-run summaries reference every owner shard instead of duplicating row details. |
 | Release-readiness evidence                           | Release-readiness aggregation                   | `release-readiness-evidence/release-readiness-evidence.json`        | `cartulary.release_readiness_evidence.v2`                      | Evidence records with explicit owner refs, evidence class, product conformance effect, Core 05 publication effect, release-gate effect, run root, artifact refs, and status | Retained for release-readiness target; target/tool-run summaries reference the artifact. |
 | Network Flow fixture manifest                        | Network Flow fixture manifest validator         | `fixtures/network-flow/<fixture_id>/manifest.json`                  | `cartulary.network_flow_fixture_manifest.v1`                   | Fixture IDs, owner refs, source files, expected artifacts, transcript files, selectors, per-file SHA-256 values, and aggregate bundle hashes in canonical sorted order | Source fixture roots are committed and immutable after freeze; run-local materializations are retained under the selected target's run root. |
 | Generated manifest summaries                         | Generation/drift scripts                        | tool-specific target dirs                                       | JSON schemas declared by generated artifacts                  | Unknown fields rejected where shape tools enforce closure                             | Generated files remain checked in; summaries retained.       |
@@ -3232,6 +3251,10 @@ Verified by: TH-HARNESS-AC-062, TH-HARNESS-AC-068
 
 **TH-HARNESS-REQ-668**
 Evidence-class gate applicability is closed:
+
+Every active row requires one full-owner `test-slice` partition in addition to the
+evidence-class gate below. An explicit selected-subset slice remains valid execution
+evidence but cannot close a full-owner audit.
 
 | Evidence class | Required gate family |
 | --- | --- |
