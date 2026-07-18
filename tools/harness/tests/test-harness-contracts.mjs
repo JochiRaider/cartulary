@@ -418,7 +418,11 @@ test("runner adapters require one exact terminal observation per selected row", 
     {
       status: 0,
       stdout: JSON.stringify({
-        testResults: [{ assertionResults: [{ fullName: "exact title", status: "passed" }] }],
+        testResults: [{ assertionResults: [{
+          title: "exact title",
+          fullName: "suite exact title",
+          status: "passed",
+        }] }],
       }),
     },
   );

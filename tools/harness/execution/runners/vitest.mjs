@@ -14,7 +14,7 @@ function regexEscape(value) {
 }
 
 function exactAlternation(values) {
-  return `^(?:${values.map(regexEscape).join("|")})$`;
+  return `(?:^| )(?:${values.map(regexEscape).join("|")})$`;
 }
 
 export function buildVitestInvocations(root, rows, workers, command) {
@@ -59,8 +59,9 @@ function parseAssertions(stdout) {
   const assertions = new Map();
   for (const suite of report.testResults ?? []) {
     for (const assertion of suite.assertionResults ?? []) {
-      const title = assertion.fullName ?? assertion.title;
-      if (typeof title === "string") assertions.set(title, assertion.status);
+      for (const title of [assertion.title, assertion.fullName]) {
+        if (typeof title === "string") assertions.set(title, assertion.status);
+      }
     }
   }
   return assertions;
