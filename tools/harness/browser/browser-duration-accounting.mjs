@@ -12,6 +12,7 @@ import {
   phaseManifestNames,
   playwrightEntryTitles,
 } from "../phase-accounting/index.mjs";
+import { loadTestCatalog } from "../test-catalog/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
@@ -251,7 +252,7 @@ function frontendBrowserReadinessEntries(
   return entries.sort(compareEntries);
 }
 
-export function browserDurationBaselineEntries(
+function legacyBrowserDurationPlanEntries(
   root = repoRoot,
   { phase = "", frontendRowIDs = new Set(), defaultCheckOnly = false } = {},
 ) {
@@ -269,6 +270,27 @@ export function browserDurationBaselineEntries(
   return [...baseEntries, ...frontendEntries].sort(compareEntries);
 }
 
+export function browserDurationBaselineEntries(root = repoRoot) {
+  return loadTestCatalog(root).rows
+    .filter(
+      (row) =>
+        row.runner === "playwright" &&
+        row.selector.stage === "webserver_backed" &&
+        row.status === "active",
+    )
+    .map((row) => ({
+      id: row.row_id,
+      phase: row.selector.stage,
+      file: normalizeManifestFile(row.selector.file),
+      title: row.selector.titles[0],
+      titles: [...row.selector.titles],
+      execution_dependency: "browser_functional",
+      default_check_required: row.default_check,
+      runtime_profile_id: row.runtime_profile_id,
+    }))
+    .sort(compareEntries);
+}
+
 export function selectedEntriesForPlan(
   root = repoRoot,
   { phase = "", frontendRowIDs = new Set(), defaultCheckOnly = false } = {},
@@ -281,7 +303,9 @@ export function selectedEntriesForPlan(
     defaultCheckOnly,
   });
   return [
-    ...browserFunctionalEntries(root, { phase, defaultCheckOnly }),
+    ...legacyBrowserDurationPlanEntries(root, { phase, defaultCheckOnly }).filter(
+      (entry) => !entry.frontend_phase,
+    ),
     ...frontendEntries.filter((entry) => !phase || entry.phase === phase),
   ].sort(compareEntries);
 }

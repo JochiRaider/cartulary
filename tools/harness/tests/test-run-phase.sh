@@ -1096,7 +1096,7 @@ cat >"$tool_only_results/tool-run/agent-finalize/finalize-summary.json" <<JSON
   },
   "actions": [
     {
-      "action_id": "structure_ledger_refresh",
+      "action_id": "generated_structure_refresh",
       "status": "pass",
       "execution_state": "executed",
       "duration_ms": 1200,
@@ -1106,8 +1106,8 @@ cat >"$tool_only_results/tool-run/agent-finalize/finalize-summary.json" <<JSON
       },
       "substeps": [
         {
-          "id": "phase-ledgers",
-          "target": "phase-ledgers",
+          "id": "generate",
+          "target": "generate",
           "status": "pass",
           "summary_json": "none",
           "stdout_log": "$tool_only_results/tool-run/agent-finalize/agent-finalize/stdout.log",
@@ -1126,12 +1126,12 @@ explain_tool_only_summary="$(
 )"
 assert_contains "$explain_tool_only_summary" "[RUN] tool-summary-only target=agent-finalize" "explain-run tool-only run line"
 assert_contains "$explain_tool_only_summary" "[FINALIZE] agent-finalize status=pass results_dir_status=valid" "explain-run finalizer summary line"
-assert_contains "$explain_tool_only_summary" "[FINALIZE-ACTION] structure_ledger_refresh status=pass execution_state=executed cache_state=miss" "explain-run finalizer action line"
+assert_contains "$explain_tool_only_summary" "[FINALIZE-ACTION] generated_structure_refresh status=pass execution_state=executed cache_state=miss" "explain-run finalizer action line"
 explain_tool_only_children="$(
   "$ROOT_DIR/tools/harness/diagnostics/explain-run-cli.mjs" --results-dir "$tool_only_results/tool-run" --target agent-finalize --detail children \
     2>&1
 )"
-assert_contains "$explain_tool_only_children" "[FINALIZE-SUBSTEP] action=structure_ledger_refresh id=phase-ledgers" "explain-run finalizer child line"
+assert_contains "$explain_tool_only_children" "[FINALIZE-SUBSTEP] action=generated_structure_refresh id=generate" "explain-run finalizer child line"
 explain_tool_only_logs="$(
   "$ROOT_DIR/tools/harness/diagnostics/explain-run-cli.mjs" --results-dir "$tool_only_results/tool-run" --target agent-finalize --detail logs \
     2>&1

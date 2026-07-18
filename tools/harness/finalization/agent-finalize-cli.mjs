@@ -44,8 +44,6 @@ const warmBalanceRatio =
 
 const deniedTargets = new Set([
   "format",
-  "generate",
-  "generate-drift",
   "migration-drift",
   "test-fast",
   "test",
@@ -75,41 +73,27 @@ const deniedTargets = new Set([
 
 const actionRegistry = [
   {
-    actionID: "structure_ledger_refresh",
+    actionID: "generated_structure_refresh",
     description:
-      "Refresh phase-ledger and phase-schedule generated artifacts, then verify no unsupported drift remains.",
+      "Refresh catalog-derived task-surface, scheduler, browser, and topology artifacts, then verify no unsupported drift remains.",
     requiresResultsDir: false,
     mutating: true,
     cache: {
       eligible: true,
-      inputProfileID: "agent_finalize.structure_ledger_refresh.v1",
-      actionContractVersion: "v1",
+      inputProfileID: "agent_finalize.generated_structure_refresh.v2",
+      actionContractVersion: "v2",
     },
     substeps: [
       {
-        id: "phase-ledgers",
-        target: "phase-ledgers",
+        id: "generate",
+        target: "generate",
         commandKind: "make_target",
         requiresResultsDir: false,
         mutatesRepo: true,
       },
       {
-        id: "phase-ledger-drift",
-        target: "phase-ledger-drift",
-        commandKind: "make_target",
-        requiresResultsDir: false,
-        mutatesRepo: false,
-      },
-      {
-        id: "phase-schedules",
-        target: "phase-schedules",
-        commandKind: "make_target",
-        requiresResultsDir: false,
-        mutatesRepo: true,
-      },
-      {
-        id: "phase-schedule-drift",
-        target: "phase-schedule-drift",
+        id: "generate-drift",
+        target: "generate-drift",
         commandKind: "make_target",
         requiresResultsDir: false,
         mutatesRepo: false,
@@ -140,7 +124,7 @@ const actionRegistry = [
   {
     actionID: "duration_baseline_refresh",
     description:
-      "Refresh advisory harness duration-baseline artifacts from a successful, uncontaminated retained run, then refresh schedule artifacts that consume those baselines.",
+      "Refresh advisory harness duration-baseline artifacts from compatible successful owner evidence, then refresh generated scheduling artifacts that consume those baselines.",
     requiresResultsDir: true,
     mutating: true,
     cache: {
@@ -178,15 +162,15 @@ const actionRegistry = [
         mutatesRepo: true,
       },
       {
-        id: "phase-schedules-after-duration-baselines",
-        target: "phase-schedules",
+        id: "generate-after-duration-baselines",
+        target: "generate",
         commandKind: "make_target",
         requiresResultsDir: false,
         mutatesRepo: true,
       },
       {
-        id: "phase-schedule-drift-after-duration-baselines",
-        target: "phase-schedule-drift",
+        id: "generate-drift-after-duration-baselines",
+        target: "generate-drift",
         commandKind: "make_target",
         requiresResultsDir: false,
         mutatesRepo: false,
@@ -530,7 +514,7 @@ function generatedStatusFor(actions, updatedFiles) {
   }
   return actions.some(
     (action) =>
-      action.action_id === "structure_ledger_refresh" &&
+      action.action_id === "generated_structure_refresh" &&
       action.status === "pass",
   )
     ? "unchanged"

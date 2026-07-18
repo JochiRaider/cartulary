@@ -10,9 +10,9 @@
 | Baseline branch | `revision/grid-adapter` |
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
-| Tracker state | `IN_PROGRESS` — WS-09 public surface and finalizer |
-| Active start | Clean tree at `4f210ed4` |
-| Active tasks | T-041 |
+| Tracker state | `CHECKPOINT` — WS-09 complete; WS-10 not activated |
+| Active start | None; clean WS-09 closure candidate from `942842ed` |
+| Active tasks | None |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -495,7 +495,7 @@ WS-06 closure is recorded in `tools/delivery_identity_followup_ledger.json`. It 
 | WS-06 | Rename tests, symbols, fixtures, and goldens | DONE | WS-04, WS-05 | Semantic scan, visual digest report, and production follow-up closure ledger | Revert complete rename slices; no duplicate old/new tests. |
 | WS-07 | Replace slice, audit, schema, and artifact APIs | DONE | WS-03–WS-06 | Successor CLI contract/smoke tests | Revert the whole interface checkpoint before atomic cutover. |
 | WS-08 | Migrate browser stages and scheduler topology | DONE | WS-05, WS-07 | Owner-based DAG, lifecycle, and browser tests | Revert authored topology and generated outputs together. |
-| WS-09 | Update task surface, generation, finalization, and baselines | IN_PROGRESS | WS-07, WS-08 | Generated surface/drift and fresh baseline plan | Revert owner inputs plus regenerated outputs together. |
+| WS-09 | Update task surface, generation, finalization, and baselines | DONE | WS-07, WS-08 | Generated surface/drift and fresh baseline plan | Revert owner inputs plus regenerated outputs together. |
 | WS-10 | Atomic deletion and hard cutover | TODO | WS-02–WS-09 | Deletion manifest and zero-reference scans | Revert the entire cutover commit; never add shims. |
 | WS-11 | Focused and broad verification | TODO | WS-10 | Successful fresh run roots and audit summaries | Forward-fix or revert the full cutover; old evidence is invalid. |
 | WS-12 | Validate and finalize the stable post-cutover handoff | TODO | WS-11 | Authoritative retained-run evidence and handoff log | Reopen tracker if any closure invariant fails. |
@@ -726,7 +726,7 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-038 | Regenerate owner-first topology | WS-08 | DONE | T-037 | Catalog-first target plan, owner-input render index, generation/drift gates, and complete browser matrix | Authored and generated topology agree. |
 | T-039 | Cut task surface to successor targets | WS-09 | DONE | T-032,T-033,T-034 | Help/contract/smoke tests | Removed inputs fail and new targets work. |
 | T-040 | Fold schedule generation into standard targets | WS-09 | DONE | T-038 | Generate/generate-drift | No public schedule target remains. |
-| T-041 | Replace finalizer and duration baseline flow | WS-09 | IN_PROGRESS | T-034,T-038 | Finalizer tests and refresh plan | Owner summaries drive finalization. |
+| T-041 | Replace finalizer and duration baseline flow | WS-09 | DONE | T-034,T-038 | Finalizer tests and refresh plan | Owner summaries drive finalization. |
 | T-042 | Delete ledgers and ledger machinery | WS-10 | TODO | T-039,T-041 | Deletion manifest/zero scan | All 26 and every consumer are gone. |
 | T-043 | Delete phase/subsystem registries and maps | WS-10 | TODO | T-016,T-022,T-027,T-039 | Deletion manifest/zero scan | Unified catalog is sole owner. |
 | T-044 | Delete phase-accounting and compatibility code | WS-10 | TODO | T-035,T-037,T-043 | Boundary and zero-reference scans | No old reader or shim remains. |
@@ -1243,6 +1243,20 @@ Each entry must include:
 - Skipped checks: `make agent-finalize`, retained-run baseline refresh, and release-readiness consumer validation are T-041 scope. Broad `make check`, release rehearsal, all-owner audit closure, and performance windows remain WS-11/WS-12.
 - Next safe task: T-041 only. Replace finalizer and release-readiness consumption of phase summaries with owner accounting/summary shards, rename the finalizer action to exactly `generated_structure_refresh`, migrate duration identities away from phase and `FE-*` keys, and close WS-09 before activating WS-10.
 - Rollback boundary: revert the complete T-040 checkpoint to `f3a7c5f8`, including ordinary generator ownership, scratch drift closure, task-surface/topology retirement, semantic smoke corrections, frontend readiness freshness, generated outputs, and this tracker record. Never restore either public phase-schedule target independently or retain standard generation with its authored inputs reverted.
+
+#### 2026-07-18 — T-041 finalizer, release consumer, and semantic baseline checkpoint; WS-09 closure
+
+- Branch/commit at start: `revision/grid-adapter` at clean T-040 checkpoint `942842ed`. T-041 and WS-09 are `DONE`; no task or workstream remains active until a separate tracker-only WS-10 activation checkpoint.
+- Finalizer result: the closed action ID is exactly `generated_structure_refresh` with input profile `agent_finalize.generated_structure_refresh.v2` and contract version `v2`. Its structural children are ordinary `generate` and `generate-drift`; retained-run baseline refresh regenerates through the same owners. Finalizer schemas, action-cache identities, JSON fixtures, diagnostics, rollback tests, and help concepts use the successor identity. `agent-finalize` no longer invokes a phase-ledger or phase-schedule target and never requires `phase-summary.json`.
+- Retained evidence result: finalizer preflight requires paired, schema-valid `test-evidence-accounting.json` and `test-owner-summary.json` shards. Every consumed partition must close successfully, match within its owner/target partition, and match the current source-snapshot, catalog, and verification-contract digests before any mutation. Missing pairs, stale source identity, failed rows, partial service-backed roots, failed warm checks, scheduler-family omissions, contamination, and unapproved older roots fail before refresh.
+- Release result: `release-readiness-evidence` loads the catalog once, derives exact owners for the support, visual, and accessibility release targets, and requires the uniform `<target>/owners/<owner-id>/` accounting and owner-summary pair for every partition. Missing and invalid partitions are explicit required failures. Retired frontend-row-accounting artifacts are ignored rather than translated or ingested, and design/support records retain their non-product-conformance and non-claim-bearing effects.
+- Duration result: the browser and scheduler baseline stores were intentionally reset to their conservative default weights because all retained entries used retired `E-*`, `FE-*`, phase, or obsolete scheduler work-unit identities. Browser refresh now emits semantic catalog row keys only from compatible successful owner accounting. Scheduler refresh retains only exact observations present in the current generated scheduler manifest and reports obsolete or unscheduled observations as ignored. No compatibility translation or inferred timing was added; T-048 owns the first compatible post-cutover refresh.
+- Public/help result: generated help describes evidence as `target -> owner partition -> semantic row -> artifact`. `make task-guide ROLE=module-author OWNER=module.networkflow` reports the exact successor owner slices and broader browser gates. Ordinary Make generation owns the resulting generated surface and topology fingerprint.
+- Focused validation: final `make generate` passed at `.cartulary/test-results/20260718T091816Z-p72846`; real `make agent-finalize` passed with `generated=unchanged` at `.cartulary/test-results/20260718T091843Z-p74637`; `make generate-drift` passed at `.cartulary/test-results/20260718T091907Z-p81740`; the complete final-byte `make run-harness-smoke-extended` tier passed with zero failures at `.cartulary/test-results/20260718T092020Z-p89951`; `make harness-contract` passed at `.cartulary/test-results/20260718T091907Z-p81745`; `make generated-artifact-policy-check` and `make json-shape-check` passed at `.cartulary/test-results/20260718T092213Z-p39496` and `.cartulary/test-results/20260718T092213Z-p39487`. Finalizer, release-readiness, release task-surface, browser semantic baseline, scheduler baseline, action-cache, rollback, missing/stale owner-evidence, and help hierarchy smokes all passed in the extended root. `make lint-scripts`, `make lint-shell`, `make lint-markdown`, help/help-all inspection, task guidance, schema syntax checks, baseline zero-reference scans, and `git diff --check` passed.
+- Resolved validation history: the first release fixture expected one aggregate missing-target failure but the successor contract correctly emitted that failure plus every missing owner partition; the fixture now asserts explicit partition visibility. The first scheduler-baseline fixture attempted to preserve observations absent from its generated schedule; the refresh and fixture now prove exact schedule membership and report ignored obsolete observations. No product assertion failed.
+- Skipped checks: a real `agent-finalize RESULTS_DIR=<root>` refresh was not run because no post-T-041 full warm `make check` root exists on identical source bytes; synthetic retained-run fixtures prove the fail-closed compatibility boundary, and T-047/T-048 own the first authoritative warm root and compatible baseline refresh. Broad `make check`, per-owner execution/audit closure, release rehearsal, and performance windows remain WS-11/WS-12.
+- Next safe task: create a tracker-only WS-10 activation checkpoint with T-042 as the sole active task. Then delete phase ledgers and their renderers/checks/policies/finalizer references without activating T-043 concurrently or restoring any compatibility surface.
+- Rollback boundary: revert the complete T-041/WS-09 closure checkpoint to `942842ed`, including finalizer action/profile/schema changes, retained owner-evidence preflight, release owner-partition consumption, semantic baseline policy and stores, generated help/index outputs, focused tests, and this tracker record. Never restore phase-summary consumption or repopulate a retired timing key independently.
 
 ## 17. First-resumer checklist
 

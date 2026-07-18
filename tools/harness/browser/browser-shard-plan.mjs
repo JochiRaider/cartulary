@@ -11,6 +11,9 @@ import {
   browserDurationBaselineEntries,
   selectedEntriesForPlan,
 } from "./browser-duration-accounting.mjs";
+import { validateSchemaSync } from "../contract/index.mjs";
+import { buildSourceSnapshot } from "../owner-slice/source-snapshot.mjs";
+import { loadTestCatalog } from "../test-catalog/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
@@ -26,8 +29,10 @@ const baselineNote =
 const defaultEntryWeightMs = 10000;
 const defaultFileOverheadMs = 2500;
 const defaultShardTargetMs = 12000;
-const browserBaselineRowIDPattern =
+const legacyBrowserSelectionIDPattern =
   /^(?:E-[0-9]+-[A-Z0-9]+(?:-[A-Z0-9]+)*|FE-(?:U|I|B|E|V|A11Y|S)-P(?:0|[1-9][0-9]*)-[0-9]{2})$/u;
+const semanticBrowserRowIDPattern =
+  /^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*){2,}$/u;
 
 function usage() {
   process.stderr.write(
@@ -66,17 +71,6 @@ function normalizeManifestFile(file) {
     return `apps/web/${normalized}`;
   }
   return normalized;
-}
-
-function normalizePlaywrightReportFile(file) {
-  const normalized = String(file ?? "").replaceAll("\\", "/");
-  if (normalized.startsWith("apps/web/e2e/")) {
-    return normalized;
-  }
-  if (normalized.startsWith("e2e/")) {
-    return `apps/web/${normalized}`;
-  }
-  return `apps/web/e2e/${normalized.replace(/^\/+/, "")}`;
 }
 
 function defaultBaselineDocument() {
@@ -122,9 +116,9 @@ function readBaselineDocument(file, { allowMissing = true } = {}) {
     );
   }
   for (const [id, entry] of Object.entries(rawEntries)) {
-    if (!browserBaselineRowIDPattern.test(id)) {
+    if (!semanticBrowserRowIDPattern.test(id)) {
       throw new Error(
-        `${path.relative(repoRoot, file)} entries key ${id} must be an E-* manifest ID or FE-* frontend browser row ID`,
+        `${path.relative(repoRoot, file)} entries key ${id} must be a semantic catalog row ID`,
       );
     }
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
@@ -563,7 +557,10 @@ function parsePlanArgs(argv) {
         usage();
       }
       for (const id of options.selectedEntryIDs) {
-        if (!browserBaselineRowIDPattern.test(id)) {
+        if (
+          !legacyBrowserSelectionIDPattern.test(id) &&
+          !semanticBrowserRowIDPattern.test(id)
+        ) {
           usage();
         }
       }
@@ -621,30 +618,18 @@ function mergeReports(outputFile, inputFiles) {
   );
 }
 
-function passingPlaywrightPhaseSummary(timingFile) {
-  const summaryFile = path.join(path.dirname(timingFile), "phase-summary.json");
-  if (!existsSync(summaryFile)) {
-    return false;
-  }
-  try {
-    const summary = readJSON(summaryFile);
-    return summary.status === "pass" && summary.runner === "playwright";
-  } catch {
-    return false;
-  }
-}
-
-function observedDurationMs(entryTiming) {
-  return positiveIntegerOrDefault(
-    entryTiming.wall_duration_ms || entryTiming.executed_duration_ms,
-    0,
-  );
-}
-
 function collectObservedBrowserEntryDurations(
   resultsDir,
-  { requirePassingPhaseSummary = true } = {},
 ) {
+  const catalog = loadTestCatalog(repoRoot);
+  const currentIdentity = {
+    source_snapshot_digest: buildSourceSnapshot(repoRoot).digest,
+    catalog_semantic_digest: catalog.summary.catalog_semantic_digest,
+    verification_semantic_digest: catalog.summary.verification_semantic_digest,
+  };
+  const authoritative = new Map(
+    browserDurationBaselineEntries(repoRoot).map((entry) => [entry.id, entry]),
+  );
   const observed = new Map();
   const stack = [resultsDir];
   while (stack.length > 0) {
@@ -661,28 +646,50 @@ function collectObservedBrowserEntryDurations(
         stack.push(next);
         continue;
       }
-      if (!entry.isFile() || entry.name !== "playwright-timing.json") {
+      if (!entry.isFile() || entry.name !== "test-evidence-accounting.json") {
         continue;
       }
-      if (requirePassingPhaseSummary && !passingPlaywrightPhaseSummary(next)) {
+      let accounting;
+      try {
+        accounting = readJSON(next);
+        validateSchemaSync("cartulary.test_evidence_accounting.v1", accounting);
+      } catch {
         continue;
       }
-      const timing = readJSON(next);
-      for (const entryTiming of timing.entries ?? []) {
-        const id = String(entryTiming.id ?? "");
-        const durationMs = observedDurationMs(entryTiming);
-        if (browserBaselineRowIDPattern.test(id) && durationMs > 0) {
-          const currentObserved = observed.get(id);
-          const normalized = {
-            id,
-            phase: String(entryTiming.phase ?? ""),
-            file: normalizePlaywrightReportFile(entryTiming.file),
-            title: String(entryTiming.title ?? ""),
-            duration_ms: durationMs,
-          };
-          if (!currentObserved || durationMs > currentObserved.duration_ms) {
-            observed.set(id, normalized);
-          }
+      if (
+        accounting.status !== "pass" ||
+        accounting.target_id !== "browser-e2e-webserver-backed" ||
+        Object.entries(currentIdentity).some(
+          ([field, expected]) => accounting[field] !== expected,
+        )
+      ) {
+        continue;
+      }
+      const expectedByID = new Map(
+        accounting.expected_rows.map((row) => [row.row_id, row]),
+      );
+      for (const row of accounting.observed_rows) {
+        const active = authoritative.get(row.row_id);
+        const expected = expectedByID.get(row.row_id);
+        const durationMs = positiveIntegerOrDefault(row.executed_duration_ms, 0);
+        if (
+          !active ||
+          expected?.evidence_target_id !== "browser-e2e-webserver-backed" ||
+          !["passed", "skipped_authorized"].includes(row.terminal_state) ||
+          durationMs <= 0
+        ) {
+          continue;
+        }
+        const currentObserved = observed.get(row.row_id);
+        const normalized = {
+          id: row.row_id,
+          phase: active.phase,
+          file: active.file,
+          title: active.title,
+          duration_ms: durationMs,
+        };
+        if (!currentObserved || durationMs > currentObserved.duration_ms) {
+          observed.set(row.row_id, normalized);
         }
       }
     }
@@ -761,16 +768,19 @@ function assertBrowserRetainedRunSafe(resultsDir) {
 }
 
 function retainedRunIsDefaultCheck(resultsDir) {
-  const summaryFile = path.join(resultsDir, "tool-run-summary.json");
-  if (!existsSync(summaryFile)) {
-    return false;
+  for (const summaryFile of [
+    path.join(resultsDir, "tool-run-summary.json"),
+    path.join(resultsDir, "check", "tool-run-summary.json"),
+  ]) {
+    if (!existsSync(summaryFile)) continue;
+    try {
+      const summary = readJSON(summaryFile);
+      if (summary.target === "check" && summary.status === "pass") return true;
+    } catch {
+      continue;
+    }
   }
-  try {
-    const summary = readJSON(summaryFile);
-    return summary.target === "check" && summary.status === "pass";
-  } catch {
-    return false;
-  }
+  return false;
 }
 
 function parseBaselineResultsArgs(argv) {

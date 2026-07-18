@@ -168,7 +168,7 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'Cartulary public task surface' \
 	'' \
 	'How to read task evidence:' \
-	'  phase -> target -> scheduler work unit -> artifact' \
+	'  target -> owner partition -> semantic row -> artifact' \
 	'  public evidence is runnable from this surface; support/internal evidence is shown by task-guide and explain-*.' \
 	'' \
 	'local dev:' \

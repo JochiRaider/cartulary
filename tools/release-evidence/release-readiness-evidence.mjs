@@ -1,22 +1,23 @@
 #!/usr/bin/env node
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import {
-  loadFrontendPhaseMap,
-  loadFrontendPhaseRegistry,
-} from "../harness/phase-accounting/index.mjs";
 import { repoRoot, validateSchemaSync } from "../harness/contract/index.mjs";
 import {
   resolveResultsRoot,
   resolveRunId,
 } from "../harness/contract/test-output-context.mjs";
+import {
+  loadTestCatalog,
+  targetForCatalogRow,
+} from "../harness/test-catalog/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const resolvedRepoRoot = path.resolve(scriptDir, "../..");
 const schemaID = "cartulary.release_readiness_evidence.v2";
-const frontendRowAccountingSchemaID = "cartulary.frontend_row_accounting.v5";
+const evidenceAccountingSchemaID = "cartulary.test_evidence_accounting.v1";
+const ownerSummarySchemaID = "cartulary.test_owner_summary.v1";
 const releaseVerificationID =
   "harness.release.verification.current_owner_evidence_only";
 const accountingVerificationID =
@@ -25,6 +26,7 @@ const visualVerificationID =
   "harness.visual.verification.stable_fixture_identity";
 const designVerificationID =
   "web.design.verification.readiness_direction";
+let catalogContext;
 
 const requiredTargetEvidence = Object.freeze([
   {
@@ -197,31 +199,6 @@ function dedupeArtifactRefs(refs) {
   );
 }
 
-function sourceRefsForScenario(accounting, rowResult) {
-  return dedupeSourceRefs(
-    (accounting.scenario_results ?? [])
-      .filter((scenario) => (scenario.row_ids ?? []).includes(rowResult.row_id))
-      .flatMap((scenario) => scenario.source_files ?? [])
-      .map((file, index) => ({
-        role: `scenario_source_${index + 1}`,
-        path: normalizePath(file),
-      })),
-  );
-}
-
-function dedupeSourceRefs(refs) {
-  const seen = new Set();
-  return refs
-    .filter((ref) => ref.path && !path.isAbsolute(ref.path) && !ref.path.split("/").includes(".."))
-    .filter((ref) => {
-      const key = `${ref.role}\0${ref.path}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .sort((left, right) => left.role.localeCompare(right.role) || left.path.localeCompare(right.path));
-}
-
 function targetSummaryPath(runRootAbs, target) {
   return path.join(runRootAbs, target, "target-summary.json");
 }
@@ -272,150 +249,97 @@ function targetEvidenceRecord(runRootAbs, runRootRel, definition) {
   };
 }
 
-function frontendRowsByID() {
-  const rows = new Map();
-  try {
-    const registry = loadFrontendPhaseRegistry(repoRoot);
-    for (const phase of registry.phases ?? []) {
-      if (!phase?.phase_id) {
-        continue;
-      }
-      const { manifest } = loadFrontendPhaseMap(repoRoot, phase.phase_id);
-      for (const row of manifest.rows ?? []) {
-        rows.set(row.id, row);
-      }
-    }
-  } catch {
-    return rows;
-  }
-  return rows;
+function sameArray(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
-function ownerRefsForFrontendRow(rowResult, manifestRow, targetName) {
-  void rowResult;
-  void manifestRow;
-  void targetName;
-  return [accountingVerificationID];
+function catalogRowsForTarget(targetName) {
+  if (!catalogContext) {
+    const catalog = loadTestCatalog(repoRoot);
+    const taskSurface = readJSON(
+      path.join(repoRoot, "tools/task_surface_manifest.json"),
+    );
+    catalogContext = {
+      catalog,
+      commandTargetByID: new Map(
+        taskSurface.targets.map((entry) => [entry.command_id, entry.name]),
+      ),
+    };
+  }
+  const { catalog, commandTargetByID } = catalogContext;
+  return catalog.rows
+    .filter(
+      (row) =>
+        targetForCatalogRow(row, { commandTargetByID }) === targetName,
+    )
+    .sort((left, right) => left.row_id.localeCompare(right.row_id));
 }
 
-function conformanceEffectForRow(evidenceClass) {
-  if (evidenceClass === "product_conformance") {
-    return "product_conformance";
+function ownerPartitionEvidenceRecords(runRootAbs, runRootRel, definition) {
+  const rows = catalogRowsForTarget(definition.target);
+  if (rows.length === 0) {
+    return [];
   }
-  if (evidenceClass === "TODO_owner_lookup") {
-    return "owner_unresolved";
+  const byOwner = new Map();
+  for (const row of rows) {
+    const ownerRows = byOwner.get(row.owner_id) ?? [];
+    ownerRows.push(row);
+    byOwner.set(row.owner_id, ownerRows);
   }
-  return "no_product_conformance";
-}
-
-function claimPublicationEffectForRow(rowResult, manifestRow) {
-  const intent =
-    manifestRow?.claim?.claim_publication_intent ??
-    "";
-  if (intent === "claim_bearing_publication") {
-    return "requires_core05_review";
-  }
-  if (rowResult.evidence_class === "claim_publication_boundary") {
-    return "claim_boundary_only";
-  }
-  return "not_claim_bearing";
-}
-
-function rowReleaseGateEffect(rowResult, manifestRow, targetName) {
-  if (rowResult.closure_status === "not_applicable") {
-    return "diagnostic_only";
-  }
-  if (rowResult.claim_status_at_run === "blocked") {
-    return "blocked";
-  }
-  const targetRef = (manifestRow?.targets ?? []).find(
-    (target) => target.target_name === targetName,
-  );
-  if (targetRef?.required_for_closure === false) {
-    return "supporting";
-  }
-  return "required";
-}
-
-function rowStatus(rowResult) {
-  if (rowResult.closure_status === "closed") {
-    return "passed";
-  }
-  if (rowResult.closure_status === "blocked") {
-    return "blocked";
-  }
-  if (rowResult.closure_status === "stale") {
-    return "stale";
-  }
-  if (rowResult.closure_status === "not_applicable") {
-    return "diagnostic_only";
-  }
-  return "failed";
-}
-
-function frontendRowEvidenceRecords(runRootAbs, runRootRel) {
-  const records = [];
-  const rowsByID = frontendRowsByID();
-  if (!existsSync(runRootAbs)) {
-    return records;
-  }
-  for (const entry of readdirSync(runRootAbs, { withFileTypes: true })) {
-    if (!entry.isDirectory()) {
-      continue;
-    }
-    const accountingFile = path.join(runRootAbs, entry.name, "frontend-row-accounting.json");
-    if (!existsSync(accountingFile)) {
-      continue;
-    }
-    let accounting;
-    try {
-      accounting = readJSON(accountingFile);
-      validateSchemaSync(frontendRowAccountingSchemaID, accounting);
-    } catch {
-      const schema = accounting?.schema_id ?? "unknown";
-      records.push({
-        evidence_id: `frontend-row-accounting:${entry.name}:schema`,
-        source_target: entry.name,
-        schema_id: schema,
-        owner_refs: [accountingVerificationID],
-        evidence_class: "diagnostic",
-        conformance_effect: "not_applicable",
-        claim_publication_effect: "not_applicable",
+  return [...byOwner.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([ownerID, ownerRows]) => {
+      const ownerDir = path.join(runRootAbs, definition.target, "owners", ownerID);
+      const accountingFile = path.join(ownerDir, "test-evidence-accounting.json");
+      const ownerSummaryFile = path.join(ownerDir, "test-owner-summary.json");
+      const artifactRefs = [
+        artifactRef(runRootAbs, "test_evidence_accounting", accountingFile),
+        artifactRef(runRootAbs, "test_owner_summary", ownerSummaryFile),
+      ];
+      const expectedRows = ownerRows.map((row) => row.row_id);
+      const ownerRefs = sortedUniqueStrings(
+        ownerRows.flatMap((row) => row.verification_ids),
+      );
+      const base = {
+        evidence_id: `owner-partition:${definition.target}:${ownerID}`,
+        source_target: definition.target,
+        schema_id: evidenceAccountingSchemaID,
+        owner_refs: ownerRefs,
+        evidence_class: definition.evidenceClass,
+        conformance_effect: definition.conformanceEffect,
+        claim_publication_effect: definition.claimPublicationEffect,
         release_gate_effect: "required",
         run_root: runRootRel,
-        artifact_refs: [artifactRef(runRootAbs, "frontend_row_accounting", accountingFile)],
+        artifact_refs: artifactRefs,
         source_refs: [],
-        status: "failed",
-      });
-      continue;
-    }
-
-    for (const rowResult of accounting.row_results ?? []) {
-      const manifestRow = rowsByID.get(rowResult.row_id);
-      records.push({
-        evidence_id: `frontend-row:${rowResult.row_id}:${accounting.target_name}`,
-        source_target: accounting.target_name,
-        schema_id: accounting.schema_id,
-        owner_refs: ownerRefsForFrontendRow(rowResult, manifestRow, accounting.target_name),
-        evidence_class: rowResult.evidence_class,
-        conformance_effect: conformanceEffectForRow(rowResult.evidence_class),
-        claim_publication_effect: claimPublicationEffectForRow(
-          rowResult,
-          manifestRow,
-        ),
-        release_gate_effect: rowReleaseGateEffect(
-          rowResult,
-          manifestRow,
-          accounting.target_name,
-        ),
-        run_root: accounting.run_root || runRootRel,
-        artifact_refs: [artifactRef(runRootAbs, "frontend_row_accounting", accountingFile)],
-        source_refs: sourceRefsForScenario(accounting, rowResult),
-        status: rowStatus(rowResult),
-      });
-    }
-  }
-  return records;
+      };
+      if (!existsSync(accountingFile) || !existsSync(ownerSummaryFile)) {
+        return { ...base, status: "missing" };
+      }
+      try {
+        const accounting = readJSON(accountingFile);
+        const ownerSummary = readJSON(ownerSummaryFile);
+        validateSchemaSync(evidenceAccountingSchemaID, accounting);
+        validateSchemaSync(ownerSummarySchemaID, ownerSummary);
+        const observedRows = accounting.observed_rows.map((row) => row.row_id).sort();
+        const consistent =
+          accounting.owner_id === ownerID &&
+          ownerSummary.owner_id === ownerID &&
+          accounting.target_id === definition.target &&
+          ownerSummary.target_id === definition.target &&
+          sameArray(accounting.selected_rows, expectedRows) &&
+          sameArray(ownerSummary.selected_rows, expectedRows) &&
+          sameArray(observedRows, expectedRows) &&
+          accounting.status === "pass" &&
+          ownerSummary.status === "pass" &&
+          accounting.observed_rows.every((row) =>
+            ["passed", "skipped_authorized"].includes(row.terminal_state),
+          );
+        return { ...base, status: consistent ? "passed" : "failed" };
+      } catch {
+        return { ...base, status: "failed" };
+      }
+    });
 }
 
 function rollup(records) {
@@ -455,10 +379,10 @@ function main() {
   const runRootAbs = path.join(resultsRoot, runId);
   const runRootRel = relToRepo(runRootAbs);
   const records = [
-    ...requiredTargetEvidence.map((definition) =>
+    ...requiredTargetEvidence.flatMap((definition) => [
       targetEvidenceRecord(runRootAbs, runRootRel, definition),
-    ),
-    ...frontendRowEvidenceRecords(runRootAbs, runRootRel),
+      ...ownerPartitionEvidenceRecords(runRootAbs, runRootRel, definition),
+    ]),
   ].sort((left, right) => left.evidence_id.localeCompare(right.evidence_id));
   const summaryRollup = rollup(records);
   const failures = records

@@ -33,7 +33,9 @@ const defaultBaselineFile = path.join(
   "service_backed_make_target_duration_baselines.json",
 );
 const defaultTopologyFile = defaultExecutionTopologyManifestPath;
-const defaultScheduleManifestFile = path.join(repoRoot, "tools", "scheduler_manifest.json");
+const defaultScheduleManifestFile = process.env.SCHEDULER_MANIFEST
+  ? path.resolve(repoRoot, process.env.SCHEDULER_MANIFEST)
+  : path.join(repoRoot, "tools", "scheduler_manifest.json");
 const baselineNote =
   "Scheduler work-unit duration weights generated from successful scheduler artifacts. Refresh with make service-backed-make-target-duration-baselines RESULTS_DIR=<dir>.";
 const defaultWorkUnitWeightMs = 10000;
@@ -184,6 +186,9 @@ function validateBaselineDocument(baseline, label) {
     throw new Error(`${label} work_units must be an object`);
   }
   for (const [key, entry] of Object.entries(baseline.work_units)) {
+    if (/(?:^|[-_:|])phase(?:[-_:|0-9]|$)|FE-/iu.test(key)) {
+      throw new Error(`${label} work_units.${key} uses a retired phase or FE identity`);
+    }
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
       throw new Error(`${label} work_units.${key} must be an object`);
     }
@@ -338,23 +343,35 @@ function update(argv) {
   }
   const baseline = readBaseline(options.baselineFile, { allowMissing: true });
   const { observed, passedSchedulerCount } = collectObservedWorkUnitDurations(options.resultsDir);
+  const scheduledWorkUnits = readScheduledWorkUnits(
+    defaultTopologyFile,
+    defaultScheduleManifestFile,
+  );
   baseline.schema_id = baselineSchemaID;
   baseline.note = baselineNote;
   baseline.default_work_unit_weight_ms = positiveInteger(
     baseline.default_work_unit_weight_ms,
     defaultWorkUnitWeightMs,
   );
-  baseline.work_units ??= {};
+  const nextWorkUnits = Object.fromEntries(
+    Object.entries(baseline.work_units ?? {}).filter(([key]) =>
+      scheduledWorkUnits.has(key),
+    ),
+  );
   delete baseline.default_make_target_weight_ms;
   delete baseline.targets;
+  let acceptedObservationCount = 0;
   for (const [key, entry] of observed.entries()) {
-    baseline.work_units[key] = entry;
+    if (scheduledWorkUnits.has(key)) {
+      nextWorkUnits[key] = entry;
+      acceptedObservationCount += 1;
+    }
   }
   baseline.updated_at = new Date().toISOString();
-  baseline.work_units = sortedObjectByKey(Object.entries(baseline.work_units));
+  baseline.work_units = sortedObjectByKey(Object.entries(nextWorkUnits));
   writeFileSync(options.baselineFile, `${JSON.stringify(baseline, null, 2)}\n`);
   process.stdout.write(
-    `updated ${observed.size} scheduler work-unit duration baselines from ${passedSchedulerCount} successful scheduler artifact(s)\n`,
+    `updated ${acceptedObservationCount} scheduler work-unit duration baselines from ${passedSchedulerCount} successful scheduler artifact(s); ignored ${observed.size - acceptedObservationCount} obsolete or unscheduled observations\n`,
   );
 }
 

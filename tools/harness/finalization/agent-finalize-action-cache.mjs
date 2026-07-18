@@ -43,7 +43,7 @@ const implementationFiles = [
 ];
 
 const profileDefinitions = {
-  "agent_finalize.structure_ledger_refresh.v1": {
+  "agent_finalize.generated_structure_refresh.v2": {
     prefixes: [
       "contracts/",
       "tools/",

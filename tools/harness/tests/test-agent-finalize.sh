@@ -86,7 +86,7 @@ if [[ -n "${FAKE_MAKE_ENV_LOG:-}" ]]; then
 fi
 if [[ "${FAKE_REJECT_RESULTS_DIR_LEAK:-}" == "1" ]]; then
   case "$target" in
-    phase-ledgers | phase-ledger-drift | phase-schedules | phase-schedule-drift | json-shape-check | go-test-duration-baseline-coverage)
+    generate | generate-drift | json-shape-check | go-test-duration-baseline-coverage)
       if [[ -n "${RESULTS_DIR:-}" || " ${CARTULARY_MAKE_INPUT_SOURCES:-} " == *" RESULTS_DIR="* || " ${MAKEFLAGS:-} " == *" RESULTS_DIR="* ]]; then
         printf 'RESULTS_DIR leaked into non-retained substep %s\n' "$target" >&2
         exit 2
@@ -128,7 +128,7 @@ SH
 
 write_retained_run() {
   local dir="$1"
-  mkdir -p "$dir/check" "$dir/backend-unit/backend-unit" "$dir/check/check"
+  mkdir -p "$dir/check" "$dir/backend-unit" "$dir/check/check"
   cat >"$dir/check/tool-run-summary.json" <<'JSON'
 {
   "schema_id": "cartulary.tool_run_summary.v4",
@@ -154,13 +154,76 @@ JSONL
   "status": "pass"
 }
 JSON
-  cat >"$dir/backend-unit/backend-unit/phase-summary.json" <<'JSON'
-{
-  "schema_id": "cartulary.test_phase_summary.v3",
-  "target": "backend-unit",
-  "status": "pass"
-}
-JSON
+  RETAINED_FIXTURE_ROOT="$dir" "$NODE_BIN" --input-type=module - <<'JS'
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import {
+  accountingRowsForTarget,
+  buildTestEvidenceAccounting,
+  buildTestOwnerSummary,
+} from "./tools/harness/evidence-accounting/index.mjs";
+import { buildSourceSnapshot } from "./tools/harness/owner-slice/source-snapshot.mjs";
+import { loadTestCatalog, targetForCatalogRow } from "./tools/harness/test-catalog/index.mjs";
+
+const root = process.cwd();
+const runRoot = path.resolve(process.env.RETAINED_FIXTURE_ROOT);
+const catalog = loadTestCatalog(root);
+const taskSurface = JSON.parse(readFileSync("tools/task_surface_manifest.json", "utf8"));
+const commandTargetByID = new Map(taskSurface.targets.map((entry) => [entry.command_id, entry.name]));
+const fixtureRow = catalog.rows.find(
+  (row) => targetForCatalogRow(row, { commandTargetByID }) === "backend-unit",
+);
+if (!fixtureRow) throw new Error("backend-unit owner fixture row is unavailable");
+const selection = accountingRowsForTarget(root, {
+  ownerID: fixtureRow.owner_id,
+  targetName: "backend-unit",
+});
+const snapshot = buildSourceSnapshot(root);
+const plan = {
+  command_id: "cartulary.harness.command.agent_finalize_fixture.v1",
+  run_id: path.basename(runRoot),
+  owner_id: selection.owner_id,
+  selected_rows: selection.selected_rows,
+  source_snapshot_digest: snapshot.digest,
+  catalog_semantic_digest: selection.catalog_semantic_digest,
+  verification_semantic_digest: selection.verification_semantic_digest,
+  runtime_profile_digest: selection.runtime_profile_digest,
+  resource_profile_digest: selection.resource_profile_digest,
+  fixture_profile_digest: selection.fixture_profile_digest,
+  target: "backend-unit",
+  rows: selection.expected_rows,
+  work_units: selection.selected_rows.map((rowID) => ({
+    work_unit_id: `fixture:${rowID}`,
+    row_ids: [rowID],
+  })),
+  selection: { completion_scope: "target_partition" },
+  unused_inputs: [],
+};
+const execution = {
+  status: "pass",
+  duration_ms: selection.selected_rows.length,
+  row_results: selection.selected_rows.map((rowID) => ({
+    row_id: rowID,
+    terminal_state: "passed",
+    duration_ms: 1,
+    exit_code: 0,
+    attempt: 1,
+  })),
+};
+const timestamp = "2026-01-01T00:00:00.000Z";
+const accounting = buildTestEvidenceAccounting(plan, execution, [], timestamp, timestamp);
+const prefix = `backend-unit/owners/${selection.owner_id}`;
+const artifacts = {
+  evidence_accounting: `${prefix}/test-evidence-accounting.json`,
+  owner_summary: `${prefix}/test-owner-summary.json`,
+  tool_run_summary: "backend-unit/tool-run-summary.json",
+};
+const summary = buildTestOwnerSummary(plan, accounting, artifacts);
+const directory = path.join(runRoot, "backend-unit", "owners", selection.owner_id);
+mkdirSync(directory, { recursive: true });
+writeFileSync(path.join(directory, "test-evidence-accounting.json"), `${JSON.stringify(accounting, null, 2)}\n`);
+writeFileSync(path.join(directory, "test-owner-summary.json"), `${JSON.stringify(summary, null, 2)}\n`);
+JS
 }
 
 write_service_backed_only_run() {
@@ -249,7 +312,7 @@ RESULTS_DIR="" \
   "$NODE_BIN" "$SCRIPT"
 summary="$success_dir/results/success/agent-finalize/finalize-summary.json"
 assert_equals "$(json_field "$summary" 'value.schema_id')" "cartulary.agent_finalize_summary.v3" "no RESULTS_DIR schema"
-assert_equals "$(json_field "$summary" 'value.actions.map((action) => action.action_id)')" $'structure_ledger_refresh\nschema_shape_validation\nduration_baseline_refresh\nduration_baseline_coverage\nduration_baseline_drift_validation\nscheduler_drift_validation' "no RESULTS_DIR action registry"
+assert_equals "$(json_field "$summary" 'value.actions.map((action) => action.action_id)')" $'generated_structure_refresh\nschema_shape_validation\nduration_baseline_refresh\nduration_baseline_coverage\nduration_baseline_drift_validation\nscheduler_drift_validation' "no RESULTS_DIR action registry"
 assert_equals "$(json_field "$summary" 'value.actions.filter((action) => action.execution_state === "not_selected").length')" "3" "no RESULTS_DIR retained actions not selected"
 assert_equals "$(json_field "$summary" 'value.status')" "pass" "no RESULTS_DIR status"
 assert_equals "$(json_field "$summary" 'value.duration.status')" "skipped" "no RESULTS_DIR duration status"
@@ -317,7 +380,7 @@ RESULTS_DIR="" \
   "$NODE_BIN" "$SCRIPT"
 cache_disabled_summary="$cache_disabled/results/cache-disabled/agent-finalize/finalize-summary.json"
 assert_equals "$(json_field "$cache_disabled_summary" 'value.actions.filter((action) => action.cache.state === "disabled").length')" "3" "cache disabled reports disabled selected actions"
-assert_contains "$(cat "$cache_disabled_log")" "phase-ledgers" "cache disabled executes fake make"
+assert_contains "$(cat "$cache_disabled_log")" "generate" "cache disabled executes fake make"
 
 cache_changed="$TMP_DIR/cache-input-changed"
 mkdir -p "$cache_changed"
@@ -336,7 +399,7 @@ RESULTS_DIR="" \
   "$NODE_BIN" "$SCRIPT"
 cache_changed_summary="$cache_changed/results/cache-input-changed/agent-finalize/finalize-summary.json"
 assert_equals "$(json_field "$cache_changed_summary" 'value.actions.filter((action) => action.cache.state === "miss").length')" "3" "cache input change reports misses"
-assert_contains "$(cat "$cache_changed_log")" "phase-ledgers" "cache input change executes fake make"
+assert_contains "$(cat "$cache_changed_log")" "generate" "cache input change executes fake make"
 
 rm "$cache_output"
 cache_output_missing="$TMP_DIR/cache-output-missing"
@@ -356,7 +419,7 @@ RESULTS_DIR="" \
   "$NODE_BIN" "$SCRIPT"
 cache_output_missing_summary="$cache_output_missing/results/cache-output-missing/agent-finalize/finalize-summary.json"
 assert_equals "$(json_field "$cache_output_missing_summary" 'value.actions.filter((action) => action.cache.reason_code === "output_missing").length')" "3" "cache output missing reason"
-assert_contains "$(cat "$cache_output_missing_log")" "phase-ledgers" "cache output missing executes fake make"
+assert_contains "$(cat "$cache_output_missing_log")" "generate" "cache output missing executes fake make"
 
 printf 'cache output v1\n' >"$cache_output"
 cache_corrupt_seed="$TMP_DIR/cache-corrupt-seed"
@@ -391,7 +454,7 @@ RESULTS_DIR="" \
   "$NODE_BIN" "$SCRIPT"
 cache_corrupt_summary="$cache_corrupt/results/cache-corrupt/agent-finalize/finalize-summary.json"
 assert_equals "$(json_field "$cache_corrupt_summary" 'value.actions[0].cache.state')" "corrupt" "cache corrupt state"
-assert_contains "$(cat "$cache_corrupt_log")" "phase-ledgers" "cache corrupt executes fake make"
+assert_contains "$(cat "$cache_corrupt_log")" "generate" "cache corrupt executes fake make"
 
 retained_dir="$TMP_DIR/retained-run"
 write_retained_run "$retained_dir"
@@ -414,19 +477,19 @@ MAKEFLAGS="--no-print-directory -- RESULTS_DIR=$retained_dir" \
 RESULTS_DIR="$retained_dir" \
   "$NODE_BIN" "$SCRIPT"
 results_summary="$results_dir/results/with-results/agent-finalize/finalize-summary.json"
-assert_equals "$(json_field "$results_summary" 'value.actions.map((action) => action.action_id)')" $'scheduler_drift_validation\nstructure_ledger_refresh\nschema_shape_validation\nduration_baseline_refresh\nduration_baseline_coverage\nduration_baseline_drift_validation' "RESULTS_DIR action selection"
+assert_equals "$(json_field "$results_summary" 'value.actions.map((action) => action.action_id)')" $'scheduler_drift_validation\ngenerated_structure_refresh\nschema_shape_validation\nduration_baseline_refresh\nduration_baseline_coverage\nduration_baseline_drift_validation' "RESULTS_DIR action selection"
 assert_equals "$(json_field "$results_summary" 'value.actions[0].substeps[0].id')" "retained-run-preflight" "RESULTS_DIR preflight is private substep"
 assert_equals "$(json_field "$results_summary" 'value.results_dir_status')" "valid" "RESULTS_DIR valid"
 assert_equals "$(json_field "$results_summary" 'value.retained_run_selection.status')" "latest" "RESULTS_DIR selected latest root"
 assert_equals "$(json_field "$results_summary" 'value.retained_run_selection.supplied_is_latest')" "true" "RESULTS_DIR latest flag"
 assert_equals "$(json_field "$results_summary" 'value.duration.status')" "refreshed" "RESULTS_DIR duration refreshed"
 assert_equals "$(json_field "$results_summary" 'value.run_checks.status')" "pass" "RESULTS_DIR run checks pass"
-assert_equals "$(json_field "$results_summary" 'value.actions.find((action) => action.action_id === "duration_baseline_refresh").substeps.map((substep) => substep.id).slice(-2)')" $'phase-schedules-after-duration-baselines\nphase-schedule-drift-after-duration-baselines' "RESULTS_DIR refreshes schedules after duration baselines"
+assert_equals "$(json_field "$results_summary" 'value.actions.find((action) => action.action_id === "duration_baseline_refresh").substeps.map((substep) => substep.id).slice(-2)')" $'generate-after-duration-baselines\ngenerate-drift-after-duration-baselines' "RESULTS_DIR refreshes generated structure after duration baselines"
 assert_contains "$(cat "$results_env_log")" $'scheduler-event-order-drift\tRESULTS_DIR='"$retained_dir" "scheduler health substep receives retained run first"
 assert_contains "$(cat "$results_env_log")" $'scheduler-summary-timing-drift\tRESULTS_DIR='"$retained_dir"$'\tARGS=--no-print-directory scheduler-summary-timing-drift TARGET=check ' "scheduler timing substep selects retained check target"
 assert_contains "$(cat "$results_env_log")" $'go-test-duration-baselines\tRESULTS_DIR='"$retained_dir" "RESULTS_DIR substep receives retained run"
-assert_contains "$(cat "$results_env_log")" $'phase-schedules\tRESULTS_DIR=' "RESULTS_DIR is stripped from non-retained substeps"
-assert_not_contains "$(cat "$results_env_log")" $'phase-schedules\tRESULTS_DIR='"$retained_dir" "RESULTS_DIR must not leak into non-retained phase-schedules substep"
+assert_contains "$(cat "$results_env_log")" $'generate\tRESULTS_DIR=' "RESULTS_DIR is stripped from non-retained substeps"
+assert_not_contains "$(cat "$results_env_log")" $'generate\tRESULTS_DIR='"$retained_dir" "RESULTS_DIR must not leak into non-retained generate substep"
 
 older_parent="$TMP_DIR/retained-selection"
 older_retained_dir="$older_parent/20260101T000000Z-old"
@@ -497,7 +560,34 @@ assert_invalid_results_dir \
   "$incomplete_retained_dir" \
   "artifact" \
   "artifact_error" \
-  "scheduler, target, and phase summary artifact families"
+  "scheduler and target summary artifact families"
+
+missing_owner_retained_dir="$TMP_DIR/missing-owner-retained"
+write_retained_run "$missing_owner_retained_dir"
+rm -rf "$missing_owner_retained_dir/backend-unit/owners"
+assert_invalid_results_dir \
+  "missing-owner-retained" \
+  "$missing_owner_retained_dir" \
+  "artifact" \
+  "artifact_error" \
+  "test-evidence-accounting.json and test-owner-summary.json"
+
+stale_owner_retained_dir="$TMP_DIR/stale-owner-retained"
+write_retained_run "$stale_owner_retained_dir"
+stale_owner_accounting="$(find "$stale_owner_retained_dir" -name test-evidence-accounting.json -type f | head -n 1)"
+"$NODE_BIN" - "$stale_owner_accounting" <<'JS'
+const fs = require("node:fs");
+const file = process.argv[2];
+const value = JSON.parse(fs.readFileSync(file, "utf8"));
+value.source_snapshot_digest = `sha256:${"f".repeat(64)}`;
+fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
+JS
+assert_invalid_results_dir \
+  "stale-owner-retained" \
+  "$stale_owner_retained_dir" \
+  "artifact" \
+  "artifact_error" \
+  "incompatible with current source_snapshot_digest"
 
 non_warm_retained_dir="$TMP_DIR/non-warm-retained"
 write_retained_run "$non_warm_retained_dir"
@@ -541,7 +631,7 @@ CARTULARY_PHASE_ARTIFACT_DIR="$failure_dir/results/child-fail/agent-finalize/age
 CARTULARY_AGENT_FINALIZE_DISABLE_ACTION_CACHE=1 \
 MAKE="$failure_make" \
 FAKE_MAKE_LOG="$failure_log" \
-FAKE_FAIL_TARGET="phase-schedules" \
+FAKE_FAIL_TARGET="generate-drift" \
 RESULTS_DIR="" \
   "$NODE_BIN" "$SCRIPT" >"$failure_dir/stdout.log" 2>"$failure_dir/stderr.log"
 failure_status=$?
@@ -549,14 +639,14 @@ set -e
 if [[ "$failure_status" -eq 0 ]]; then
   fail "child failure unexpectedly passed"
 fi
-assert_equals "$(cat "$failure_log")" $'phase-ledgers\nphase-ledger-drift\nphase-schedules' "child failure fail-fast order"
+assert_equals "$(cat "$failure_log")" $'generate\ngenerate-drift' "child failure fail-fast order"
 failure_summary="$failure_dir/results/child-fail/agent-finalize/finalize-summary.json"
-assert_equals "$(json_field "$failure_summary" 'value.failures[0].action_id')" "structure_ledger_refresh" "child failure action propagation"
-assert_equals "$(json_field "$failure_summary" 'value.failures[0].substep_id')" "phase-schedules" "child failure substep propagation"
+assert_equals "$(json_field "$failure_summary" 'value.failures[0].action_id')" "generated_structure_refresh" "child failure action propagation"
+assert_equals "$(json_field "$failure_summary" 'value.failures[0].substep_id')" "generate-drift" "child failure substep propagation"
 assert_equals "$(json_field "$failure_summary" 'value.failures[0].failure_class')" "product" "child failure class propagation"
 assert_equals "$(json_field "$failure_summary" 'value.actions.filter((action) => action.execution_state === "skipped_after_failure").length')" "2" "child failure skipped-after-failure actions"
 assert_equals "$(json_field "$failure_summary" 'value.actions.filter((action) => action.execution_state === "not_selected").length')" "3" "child failure retained actions not selected"
-assert_equals "$(json_field "$failure_summary" 'value.actions.flatMap((action) => action.substeps).filter((step) => step.status === "skipped").length')" "12" "child failure skipped substeps"
+assert_equals "$(json_field "$failure_summary" 'value.actions.flatMap((action) => action.substeps).filter((step) => step.status === "skipped").length')" "11" "child failure skipped substeps"
 
 rollback_dir="$TMP_DIR/rollback"
 mkdir -p "$rollback_dir"
@@ -573,9 +663,9 @@ CARTULARY_AGENT_FINALIZE_DISABLE_ACTION_CACHE=1 \
 MAKE="$rollback_make" \
 FAKE_MAKE_LOG="$rollback_log" \
 FAKE_MUTATE_ROOT="$ROOT_DIR" \
-FAKE_MUTATE_TARGET="phase-schedules" \
+FAKE_MUTATE_TARGET="generate" \
 FAKE_MUTATE_TRACKED_FILE="tools/browser_e2e_duration_baselines.json" \
-FAKE_FAIL_TARGET="phase-schedules" \
+FAKE_FAIL_TARGET="generate" \
 RESULTS_DIR="" \
   "$NODE_BIN" "$SCRIPT" >"$rollback_dir/stdout.log" 2>"$rollback_dir/stderr.log"
 rollback_status=$?

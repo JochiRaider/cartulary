@@ -188,7 +188,7 @@ assert_contains "$license_report_block" './tools/release-evidence/check-release-
 assert_contains "$sbom_block" 'sbom: $(SBOM_ARTIFACT)' "sbom generation prerequisite"
 assert_contains "$sbom_block" './tools/release-evidence/check-release-artifact.sh "SBOM" "$(SBOM_ARTIFACT)"' "sbom validation command"
 assert_not_contains "$help_output" "make release-check" "compact help omits release-check documentation"
-assert_contains "$help_all_output" "phase -> target -> scheduler work unit -> artifact" "help-all concept hierarchy"
+assert_contains "$help_all_output" "target -> owner partition -> semantic row -> artifact" "help-all concept hierarchy"
 assert_contains "$help_all_output" "make release-check" "help-all release-check documentation"
 assert_contains "$help_all_output" "make release-readiness-evidence" "help-all release readiness documentation"
 assert_contains "$help_all_output" "extended harness" "help-all release-check extended harness documentation"

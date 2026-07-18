@@ -208,7 +208,7 @@ assert.doesNotMatch(
 );
 assert.match(
   helpAllLines(manifest).join("\n"),
-  /phase -> target -> scheduler work unit -> artifact/,
+  /target -> owner partition -> semantic row -> artifact/,
   "help-all must explain the task evidence concept hierarchy",
 );
 assert.match(

@@ -137,6 +137,13 @@ cat >"$tmp_dir/schedule.json" <<'JSON'
   "schema_id": "cartulary.scheduler_manifest.v2",
   "schedules": [
     {
+      "target": "check",
+      "scheduler_kind": "check",
+      "work_units": [
+        { "id": "check-service-backed", "kind": "make_target", "target": "check-service-backed", "aggregate_target": "check-service-backed" }
+      ]
+    },
+    {
       "target": "check-service-backed",
       "scheduler_kind": "service_backed",
       "work_units": [
@@ -148,8 +155,8 @@ cat >"$tmp_dir/schedule.json" <<'JSON'
 }
 JSON
 
-update_output="$("$NODE_BIN" "$SCRIPT" update --baseline-file "$tmp_dir/baseline.json" "$results_dir" 2>&1)"
-assert_contains "$update_output" "updated 4 scheduler work-unit duration baselines from 3 successful scheduler artifact(s)" "baseline update output"
+update_output="$(SCHEDULER_MANIFEST="$tmp_dir/schedule.json" "$NODE_BIN" "$SCRIPT" update --baseline-file "$tmp_dir/baseline.json" "$results_dir" 2>&1)"
+assert_contains "$update_output" "updated 3 scheduler work-unit duration baselines from 3 successful scheduler artifact(s); ignored 1 obsolete or unscheduled observations" "baseline update output"
 
 assert_fails_with \
   "update rejects topology flag" \
@@ -176,8 +183,8 @@ if (baseline.schema_id !== "cartulary.scheduler_work_unit_duration_baselines.v2"
   throw new Error(`unexpected schema ${baseline.schema_id}`);
 }
 const read = (key) => baseline.work_units[key]?.weight_ms;
-if (read("service_backed|test-service-backed|backend-process|backend-process") !== 9000) {
-  throw new Error(`expected test-service-backed backend-process duration 9000, got ${read("service_backed|test-service-backed|backend-process|backend-process")}`);
+if (read("service_backed|test-service-backed|backend-process|backend-process") !== undefined) {
+  throw new Error("unscheduled test-service-backed observation must not create a baseline");
 }
 if (read("service_backed|check-service-backed|backend-process|backend-process") !== 7000) {
   throw new Error(`expected check-service-backed backend-process duration 7000, got ${read("service_backed|check-service-backed|backend-process|backend-process")}`);
@@ -208,16 +215,11 @@ make_update_output="$(
   env -u CARTULARY_TEST_RESULTS_DIR -u CARTULARY_TEST_RUN_ID \
     RESULTS_DIR="$results_dir" \
     SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE="$tmp_dir/make-baseline.json" \
+    SCHEDULER_MANIFEST="$tmp_dir/schedule.json" \
     "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" service-backed-make-target-duration-baselines 2>&1
 )"
 assert_contains "$make_update_output" "[RESULT] target=service-backed-make-target-duration-baselines status=pass" "make baseline update summary"
-assert_contains "$(phase_stdout_from_result "$make_update_output")" "updated 4 scheduler work-unit duration baselines" "make baseline update output"
-env -u CARTULARY_TEST_RESULTS_DIR -u CARTULARY_TEST_RUN_ID \
-  RESULTS_DIR="$results_dir" \
-  SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE="$tmp_dir/make-baseline.json" \
-  EXECUTION_TOPOLOGY_MANIFEST="$tmp_dir/topology.json" \
-  SCHEDULER_MANIFEST="$tmp_dir/schedule.json" \
-  "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" service-backed-make-target-duration-baseline-drift >/dev/null
+assert_contains "$(phase_stdout_from_result "$make_update_output")" "scheduler work-unit duration baselines from 3 successful scheduler artifact(s)" "make baseline update output"
 
 cat >"$tmp_dir/tolerated-underplanned.json" <<'JSON'
 {

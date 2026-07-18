@@ -147,7 +147,7 @@
       "properties": {
         "action_id": {
           "enum": [
-            "structure_ledger_refresh",
+            "generated_structure_refresh",
             "schema_shape_validation",
             "duration_baseline_refresh",
             "duration_baseline_coverage",
@@ -279,7 +279,7 @@
       "properties": {
         "action_id": {
           "enum": [
-            "structure_ledger_refresh",
+            "generated_structure_refresh",
             "schema_shape_validation",
             "duration_baseline_refresh",
             "duration_baseline_coverage",

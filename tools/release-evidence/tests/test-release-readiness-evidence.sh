@@ -115,73 +115,82 @@ write_required_target_summaries() {
   done
 }
 
-write_valid_frontend_row_accounting() {
-  local file="$1"
+write_required_owner_shards() {
+  local run_root="$1"
+  RELEASE_FIXTURE_ROOT="$run_root" "$NODE_BIN" --input-type=module - <<'JS'
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import {
+  accountingRowsForTarget,
+  buildTestEvidenceAccounting,
+  buildTestOwnerSummary,
+} from "./tools/harness/evidence-accounting/index.mjs";
+import { loadTestCatalog } from "./tools/harness/test-catalog/index.mjs";
 
-  mkdir -p "$(dirname "$file")"
-  cat >"$file" <<'JSON'
-{
-  "schema_id": "cartulary.frontend_row_accounting.v5",
-  "target_name": "browser-e2e-visual",
-  "command_id": "cartulary.harness.command.browser_e2e_visual.v1",
-  "phase_namespace": "frontend",
-  "accounting_scope": {
-    "mode": "active_target",
-    "invocation_kind": "standalone_target",
-    "phase_namespace": "",
-    "phase": "",
-    "selection_policy": "all_active_rows_for_target",
-    "selected_row_ids": []
-  },
-  "registry_ref": "tools/frontend_phase_registry.json",
-  "registry_digest": "0000000000000000000000000000000000000000000000000000000000000000",
-  "guide_ref": "harness.evidence_accounting.verification.semantic_evidence_identity",
-  "guide_digest": "1111111111111111111111111111111111111111111111111111111111111111",
-  "phase_map_refs": [
-    "tools/frontend_phase_maps/fe_p8_test_map.json"
-  ],
-  "phase_map_digests": [
-    "2222222222222222222222222222222222222222222222222222222222222222"
-  ],
-  "run_root": ".cartulary/test-results/run",
-  "target_status": "pass",
-  "scenario_results": [
-    {
-      "scenario_title": "FE-V-P8-01 captures schema-driven Timeline workbook shell controls",
-      "status": "passed",
-      "row_ids": [
-        "FE-V-P8-01"
-      ],
-      "source_files": [
-        "apps/web/e2e/visual.spec.ts"
-      ]
-    }
-  ],
-  "row_results": [
-    {
-      "row_id": "FE-V-P8-01",
-      "phase_id": "FE-P8",
-      "evidence_class": "design_direction",
-      "claim_status_at_run": "implemented",
-      "target_mapping_status": "mapped",
-      "closure_status": "closed",
-      "closing_scenario_titles": [
-        "FE-V-P8-01 captures schema-driven Timeline workbook shell controls"
-      ],
-      "failure_reason": ""
-    }
-  ],
-  "rollup": {
-    "implemented": 1,
-    "blocked": 0,
-    "missing": 0,
-    "stale": 0,
-    "not_applicable": 0,
-    "closed": 1,
-    "failed": 0
-  }
+const root = process.cwd();
+const runRoot = path.resolve(process.env.RELEASE_FIXTURE_ROOT);
+const targets = new Set(["browser-e2e-a11y", "browser-e2e-support", "browser-e2e-visual"]);
+const catalog = loadTestCatalog(root);
+const ownerTargets = new Map();
+for (const row of catalog.rows.filter((entry) => entry.runner === "playwright")) {
+  const stageTarget = {
+    accessibility: "browser-e2e-a11y",
+    support: "browser-e2e-support",
+    visual: "browser-e2e-visual",
+  }[row.selector.stage];
+  if (!targets.has(stageTarget)) continue;
+  ownerTargets.set(`${stageTarget}\0${row.owner_id}`, { target: stageTarget, owner: row.owner_id });
 }
-JSON
+for (const { target, owner } of [...ownerTargets.values()].sort((left, right) =>
+  `${left.target}\0${left.owner}`.localeCompare(`${right.target}\0${right.owner}`),
+)) {
+  const selection = accountingRowsForTarget(root, { ownerID: owner, targetName: target });
+  const plan = {
+    command_id: "cartulary.harness.command.release_readiness_fixture.v1",
+    run_id: path.basename(runRoot),
+    owner_id: owner,
+    selected_rows: selection.selected_rows,
+    source_snapshot_digest: `sha256:${"0".repeat(64)}`,
+    catalog_semantic_digest: selection.catalog_semantic_digest,
+    verification_semantic_digest: selection.verification_semantic_digest,
+    runtime_profile_digest: selection.runtime_profile_digest,
+    resource_profile_digest: selection.resource_profile_digest,
+    fixture_profile_digest: selection.fixture_profile_digest,
+    target,
+    rows: selection.expected_rows,
+    work_units: selection.selected_rows.map((rowID) => ({
+      work_unit_id: `fixture:${rowID}`,
+      row_ids: [rowID],
+    })),
+    selection: { completion_scope: "target_partition" },
+    unused_inputs: [],
+  };
+  const execution = {
+    status: "pass",
+    duration_ms: selection.selected_rows.length,
+    row_results: selection.selected_rows.map((rowID) => ({
+      row_id: rowID,
+      terminal_state: "passed",
+      duration_ms: 1,
+      exit_code: 0,
+      attempt: 1,
+    })),
+  };
+  const timestamp = "2026-01-01T00:00:00.000Z";
+  const accounting = buildTestEvidenceAccounting(plan, execution, [], timestamp, timestamp);
+  const prefix = `${target}/owners/${owner}`;
+  const artifacts = {
+    evidence_accounting: `${prefix}/test-evidence-accounting.json`,
+    owner_summary: `${prefix}/test-owner-summary.json`,
+    tool_run_summary: `${target}/tool-run-summary.json`,
+  };
+  const summary = buildTestOwnerSummary(plan, accounting, artifacts);
+  const directory = path.join(runRoot, target, "owners", owner);
+  mkdirSync(directory, { recursive: true });
+  writeFileSync(path.join(directory, "test-evidence-accounting.json"), `${JSON.stringify(accounting, null, 2)}\n`);
+  writeFileSync(path.join(directory, "test-owner-summary.json"), `${JSON.stringify(summary, null, 2)}\n`);
+}
+JS
 }
 
 run_release_readiness() {
@@ -200,42 +209,46 @@ pass_results="$tmp_dir/pass-results"
 pass_run_id="pass-run"
 pass_run_root="$pass_results/$pass_run_id"
 write_required_target_summaries "$pass_run_root"
-write_valid_frontend_row_accounting "$pass_run_root/browser-e2e-visual/frontend-row-accounting.json"
+write_required_owner_shards "$pass_run_root"
 run_release_readiness "$pass_results" "$pass_run_id" >/dev/null
 pass_artifact="$pass_run_root/release-readiness-evidence/release-readiness-evidence.json"
 "$NODE_BIN" "$ROOT_DIR/tools/harness/contract/harness-contract-cli.mjs" validate-schema cartulary.release_readiness_evidence.v2 "$pass_artifact" >/dev/null
 assert_equals "$(json_field "$pass_artifact" 'value.status')" "pass" "passing release readiness status"
-assert_equals "$(json_field "$pass_artifact" 'value.evidence_records.find((record) => record.evidence_id === "frontend-row:FE-V-P8-01:browser-e2e-visual").conformance_effect')" "no_product_conformance" "visual row conformance effect"
+assert_equals "$(json_field "$pass_artifact" 'value.evidence_records.some((record) => record.evidence_id.startsWith("owner-partition:browser-e2e-visual:") && record.status === "passed")')" "true" "visual owner partitions close from accounting"
 assert_equals "$(json_field "$pass_artifact" 'value.evidence_records.some((record) => record.claim_publication_effect === "claim_publication_evidence")')" "false" "no release record is claim publication evidence"
 
-for legacy_schema_id in \
-  "cartulary.frontend_row_accounting.v2" \
-  "cartulary.frontend_row_accounting.v3"; do
-  legacy_version="${legacy_schema_id##*.}"
-  legacy_results="$tmp_dir/legacy-${legacy_version}-results"
-  legacy_run_id="legacy-${legacy_version}-run"
-  legacy_run_root="$legacy_results/$legacy_run_id"
-  write_required_target_summaries "$legacy_run_root"
-  mkdir -p "$legacy_run_root/browser-e2e-visual"
-  printf '{"schema_id":"%s"}\n' "$legacy_schema_id" >"$legacy_run_root/browser-e2e-visual/frontend-row-accounting.json"
-  set +e
-  legacy_output="$(run_release_readiness "$legacy_results" "$legacy_run_id" 2>&1)"
-  legacy_status=$?
-  set -e
-  if [[ "$legacy_status" -eq 0 ]]; then
-    fail "legacy $legacy_version row-accounting run must fail"
-  fi
-  legacy_artifact="$legacy_run_root/release-readiness-evidence/release-readiness-evidence.json"
-  "$NODE_BIN" "$ROOT_DIR/tools/harness/contract/harness-contract-cli.mjs" validate-schema cartulary.release_readiness_evidence.v2 "$legacy_artifact" >/dev/null
-  assert_contains "$legacy_output" "frontend-row-accounting:browser-e2e-visual:schema" "legacy $legacy_version row accounting failure output"
-  assert_equals "$(json_field "$legacy_artifact" 'value.evidence_records.find((record) => record.evidence_id === "frontend-row-accounting:browser-e2e-visual:schema").schema_id')" "$legacy_schema_id" "legacy $legacy_version row accounting schema captured"
-  assert_equals "$(json_field "$legacy_artifact" 'value.status')" "fail" "legacy $legacy_version row accounting fails release readiness"
-done
+legacy_results="$tmp_dir/legacy-results"
+legacy_run_id="legacy-run"
+legacy_run_root="$legacy_results/$legacy_run_id"
+write_required_target_summaries "$legacy_run_root"
+write_required_owner_shards "$legacy_run_root"
+mkdir -p "$legacy_run_root/browser-e2e-visual"
+printf '{"schema_id":"cartulary.frontend_row_accounting.v5"}\n' >"$legacy_run_root/browser-e2e-visual/frontend-row-accounting.json"
+run_release_readiness "$legacy_results" "$legacy_run_id" >/dev/null
+legacy_artifact="$legacy_run_root/release-readiness-evidence/release-readiness-evidence.json"
+assert_equals "$(json_field "$legacy_artifact" 'value.evidence_records.some((record) => record.schema_id.startsWith("cartulary.frontend_row_accounting"))')" "false" "legacy frontend accounting is not ingested"
+
+missing_owner_results="$tmp_dir/missing-owner-results"
+missing_owner_run_id="missing-owner-run"
+missing_owner_run_root="$missing_owner_results/$missing_owner_run_id"
+write_required_target_summaries "$missing_owner_run_root"
+write_required_owner_shards "$missing_owner_run_root"
+missing_owner_dir="$(find "$missing_owner_run_root/browser-e2e-visual/owners" -mindepth 1 -maxdepth 1 -type d | sort | head -n 1)"
+rm -rf "$missing_owner_dir"
+set +e
+missing_owner_output="$(run_release_readiness "$missing_owner_results" "$missing_owner_run_id" 2>&1)"
+missing_owner_status=$?
+set -e
+if [[ "$missing_owner_status" -eq 0 ]]; then
+  fail "missing owner accounting partition must fail"
+fi
+assert_contains "$missing_owner_output" "owner-partition:browser-e2e-visual:" "missing owner partition failure output"
 
 missing_results="$tmp_dir/missing-results"
 missing_run_id="missing-run"
 missing_run_root="$missing_results/$missing_run_id"
 write_required_target_summaries "$missing_run_root"
+write_required_owner_shards "$missing_run_root"
 rm -rf "$missing_run_root/browser-e2e-a11y"
 set +e
 missing_output="$(run_release_readiness "$missing_results" "$missing_run_id" 2>&1)"
@@ -246,6 +259,7 @@ if [[ "$missing_status" -eq 0 ]]; then
 fi
 missing_artifact="$missing_run_root/release-readiness-evidence/release-readiness-evidence.json"
 assert_contains "$missing_output" "target:browser-e2e-a11y status=missing" "missing target failure output"
-assert_equals "$(json_field "$missing_artifact" 'value.rollup.required_failed')" "1" "missing target required failure count"
+assert_equals "$(json_field "$missing_artifact" 'value.evidence_records.find((record) => record.evidence_id === "target:browser-e2e-a11y").status')" "missing" "missing target summary status"
+assert_equals "$(json_field "$missing_artifact" 'value.evidence_records.some((record) => record.evidence_id.startsWith("owner-partition:browser-e2e-a11y:") && record.status === "missing")')" "true" "missing target owner partitions are explicit"
 
 echo "release readiness evidence tests passed"

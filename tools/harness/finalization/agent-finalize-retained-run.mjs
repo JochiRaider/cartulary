@@ -1,10 +1,28 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
+import { validateSchemaSync } from "../contract/index.mjs";
 import {
   collectServiceTimingContamination,
   formatContaminationReasons,
 } from "../duration-accounting/duration-drift.mjs";
+import { buildSourceSnapshot } from "../owner-slice/source-snapshot.mjs";
+import { loadTestCatalog } from "../test-catalog/index.mjs";
+
+const successfulTerminalStates = new Set(["passed", "skipped_authorized"]);
+const partitionIdentityFields = [
+  "command_id",
+  "run_id",
+  "owner_id",
+  "selected_rows",
+  "source_snapshot_digest",
+  "catalog_semantic_digest",
+  "verification_semantic_digest",
+  "runtime_profile_digest",
+  "resource_profile_digest",
+  "fixture_profile_digest",
+  "target_id",
+];
 
 function preflightFailure(actionID, reason, failureClass = "artifact") {
   return {
@@ -27,6 +45,111 @@ export function createRetainedRunPreflight({
   repoRoot,
   resultsDirInput,
 }) {
+  const catalog = loadTestCatalog(repoRoot);
+  const currentIdentity = {
+    source_snapshot_digest: buildSourceSnapshot(repoRoot).digest,
+    catalog_semantic_digest: catalog.summary.catalog_semantic_digest,
+    verification_semantic_digest: catalog.summary.verification_semantic_digest,
+  };
+
+  function sameValue(left, right) {
+    return JSON.stringify(left) === JSON.stringify(right);
+  }
+
+  function validateOwnerEvidence(resolved, actionID) {
+    const accountingFiles = filesNamed(resolved, "test-evidence-accounting.json");
+    const ownerSummaryFiles = filesNamed(resolved, "test-owner-summary.json");
+    if (accountingFiles.length === 0 || ownerSummaryFiles.length === 0) {
+      return {
+        ok: false,
+        failure: preflightFailure(
+          actionID,
+          "RESULTS_DIR must contain test-evidence-accounting.json and test-owner-summary.json owner artifact families",
+        ),
+      };
+    }
+    const summaryByDirectory = new Map(
+      ownerSummaryFiles.map((file) => [path.dirname(file), file]),
+    );
+    const accountingDirectories = new Set(accountingFiles.map(path.dirname));
+    const unmatchedSummary = ownerSummaryFiles.find(
+      (file) => !accountingDirectories.has(path.dirname(file)),
+    );
+    if (unmatchedSummary) {
+      return {
+        ok: false,
+        failure: preflightFailure(
+          actionID,
+          `${relToRepo(unmatchedSummary)} has no matching test-evidence-accounting.json`,
+        ),
+      };
+    }
+    for (const accountingFile of accountingFiles) {
+      const ownerSummaryFile = summaryByDirectory.get(path.dirname(accountingFile));
+      if (!ownerSummaryFile) {
+        return {
+          ok: false,
+          failure: preflightFailure(
+            actionID,
+            `${relToRepo(accountingFile)} has no matching test-owner-summary.json`,
+          ),
+        };
+      }
+      const accounting = readJSON(accountingFile);
+      const ownerSummary = readJSON(ownerSummaryFile);
+      try {
+        validateSchemaSync("cartulary.test_evidence_accounting.v1", accounting);
+        validateSchemaSync("cartulary.test_owner_summary.v1", ownerSummary);
+      } catch (error) {
+        return {
+          ok: false,
+          failure: preflightFailure(
+            actionID,
+            `owner evidence is schema-invalid at ${relToRepo(path.dirname(accountingFile))}: ${error.message}`,
+          ),
+        };
+      }
+      for (const [field, expected] of Object.entries(currentIdentity)) {
+        if (accounting[field] !== expected) {
+          return {
+            ok: false,
+            failure: preflightFailure(
+              actionID,
+              `${relToRepo(accountingFile)} is incompatible with current ${field}`,
+            ),
+          };
+        }
+      }
+      for (const field of partitionIdentityFields) {
+        if (!sameValue(accounting[field], ownerSummary[field])) {
+          return {
+            ok: false,
+            failure: preflightFailure(
+              actionID,
+              `${relToRepo(ownerSummaryFile)} disagrees with its accounting partition on ${field}`,
+            ),
+          };
+        }
+      }
+      if (
+        accounting.status !== "pass" ||
+        ownerSummary.status !== "pass" ||
+        accounting.observed_rows.some(
+          (row) => !successfulTerminalStates.has(row.terminal_state),
+        )
+      ) {
+        return {
+          ok: false,
+          failure: preflightFailure(
+            actionID,
+            `${relToRepo(accountingFile)} does not record successful owner-row closure`,
+          ),
+        };
+      }
+    }
+    return { ok: true };
+  }
+
   function validateRetainedRunArtifacts(resolved, resultsDir, actionID) {
     if (!existsSync(resolved)) {
       return {
@@ -109,19 +232,22 @@ export function createRetainedRunPreflight({
 
     const schedulerSummaries = filesNamed(resolved, "scheduler-summary.json");
     const targetSummaries = filesNamed(resolved, "target-summary.json");
-    const phaseSummaries = filesNamed(resolved, "phase-summary.json");
     if (
       schedulerSummaries.length === 0 ||
-      targetSummaries.length === 0 ||
-      phaseSummaries.length === 0
+      targetSummaries.length === 0
     ) {
       return {
         ok: false,
         failure: preflightFailure(
           actionID,
-          "RESULTS_DIR must contain scheduler, target, and phase summary artifact families",
+          "RESULTS_DIR must contain scheduler and target summary artifact families",
         ),
       };
+    }
+
+    const ownerEvidence = validateOwnerEvidence(resolved, actionID);
+    if (!ownerEvidence.ok) {
+      return ownerEvidence;
     }
 
     const failedSummary = filesNamed(resolved, "tool-run-summary.json")
