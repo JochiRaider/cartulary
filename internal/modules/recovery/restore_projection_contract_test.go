@@ -17,7 +17,7 @@ import (
 
 func TestRestoreProjectionRebuildReceivesStructuredRequest(t *testing.T) {
 	ctx := context.Background()
-	fixture := newRestoreProjectionContractFixture(t, ctx, "phase10-restore-projection-request", uuid.MustParse("00000000-0000-0000-0000-000000104101"))
+	fixture := newRestoreProjectionContractFixture(t, ctx, "backup_restore-restore-projection-request", uuid.MustParse("00000000-0000-0000-0000-000000104101"))
 	rebuilder := &recordingProjectionRebuilder{
 		respond: func(request restorecontract.ProjectionRebuildRequest) restorecontract.ProjectionRebuildResult {
 			return readyProjectionRebuildResult(request)
@@ -59,7 +59,7 @@ func TestRestoreProjectionRebuildReceivesStructuredRequest(t *testing.T) {
 
 func TestRestoreProjectionRebuildReadinessFailsClosed(t *testing.T) {
 	ctx := context.Background()
-	fixture := newRestoreProjectionContractFixture(t, ctx, "phase10-restore-projection-fail-closed", uuid.MustParse("00000000-0000-0000-0000-000000104102"))
+	fixture := newRestoreProjectionContractFixture(t, ctx, "backup_restore-restore-projection-fail-closed", uuid.MustParse("00000000-0000-0000-0000-000000104102"))
 	rebuilder := &recordingProjectionRebuilder{
 		respond: func(request restorecontract.ProjectionRebuildRequest) restorecontract.ProjectionRebuildResult {
 			return restorecontract.ProjectionRebuildResult{

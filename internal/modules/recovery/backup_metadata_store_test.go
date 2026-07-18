@@ -16,7 +16,7 @@ import (
 )
 
 func TestBackupMetadataShapeAndRetentionFloors_Unit(t *testing.T) {
-	db := pgtest.Start(t).BeginRollbackDBT(t, "phase10-u-10-01-shape")
+	db := pgtest.Start(t).BeginRollbackDBT(t, "backup_restore-u-10-01-shape")
 	store := recovery.NewStore(db)
 	capture := newCaptureService(t, store)
 	ctx := context.Background()
@@ -84,7 +84,7 @@ func TestBackupMetadataShapeAndRetentionFloors_Unit(t *testing.T) {
 }
 
 func TestVerificationVocabularyAndTimestampRules_Unit(t *testing.T) {
-	db := pgtest.Start(t).BeginRollbackDBT(t, "phase10-u-10-01-state")
+	db := pgtest.Start(t).BeginRollbackDBT(t, "backup_restore-u-10-01-state")
 	store := recovery.NewStore(db)
 	ctx := context.Background()
 
@@ -171,7 +171,7 @@ UPDATE backup_sets
 }
 
 func TestRestoreVerificationDueSelectionAndAtomicCompletion(t *testing.T) {
-	db := pgtest.Start(t).BeginRollbackDBT(t, "phase10-u-10-04-verification")
+	db := pgtest.Start(t).BeginRollbackDBT(t, "backup_restore-u-10-04-verification")
 	store := recovery.NewStore(db)
 	capture := newCaptureService(t, store)
 	ctx := context.Background()
@@ -272,7 +272,7 @@ func TestRestoreVerificationDueSelectionAndAtomicCompletion(t *testing.T) {
 }
 
 func TestLatestSuccessfulRetainedBackupRequiresTwentyFourHourFloor_Unit(t *testing.T) {
-	db := pgtest.Start(t).BeginRollbackDBT(t, "phase10-u-10-01-latest")
+	db := pgtest.Start(t).BeginRollbackDBT(t, "backup_restore-u-10-01-latest")
 	store := recovery.NewStore(db)
 	capture := newCaptureService(t, store)
 	ctx := context.Background()
@@ -332,7 +332,7 @@ func TestLatestSuccessfulRetainedBackupRequiresTwentyFourHourFloor_Unit(t *testi
 }
 
 func TestDurableCatalogSkipsMetadataWithMissingArtifacts_Unit(t *testing.T) {
-	db := pgtest.Start(t).BeginRollbackDBT(t, "phase10-u-10-01-durable-catalog")
+	db := pgtest.Start(t).BeginRollbackDBT(t, "backup_restore-u-10-01-durable-catalog")
 	store := recovery.NewStore(db)
 	backupStorage := newEncryptedBackupStorage(t, t.TempDir())
 	capture := recovery.NewCaptureService(store, backupStorage)
@@ -380,7 +380,7 @@ func TestDurableCatalogSkipsMetadataWithMissingArtifacts_Unit(t *testing.T) {
 }
 
 func TestRetentionFloorRejectsShortMetadataAndArtifacts_Unit(t *testing.T) {
-	db := pgtest.Start(t).BeginRollbackDBT(t, "phase10-u-10-01-retention")
+	db := pgtest.Start(t).BeginRollbackDBT(t, "backup_restore-u-10-01-retention")
 	store := recovery.NewStore(db)
 	capture := newCaptureService(t, store)
 	ctx := context.Background()
@@ -481,7 +481,7 @@ func TestCaptureRequiresArtifactProofs_Unit(t *testing.T) {
 }
 
 func TestCaptureRequiresEncryptedBackupStorage_Unit(t *testing.T) {
-	db := pgtest.Start(t).BeginRollbackDBT(t, "phase10-u-10-05-encrypted-storage")
+	db := pgtest.Start(t).BeginRollbackDBT(t, "backup_restore-u-10-05-encrypted-storage")
 	store := recovery.NewStore(db)
 	rawStorage, err := recovery.NewFilesystemBackupStorage(t.TempDir())
 	if err != nil {
@@ -552,7 +552,7 @@ func newEncryptedBackupStorage(t testing.TB, root string) recovery.BackupStorage
 func captureParams(params recovery.CaptureBackupSetParams) recovery.CaptureBackupSetParams {
 	if params.PostgresArtifact.Body == nil {
 		params.PostgresArtifact = recovery.BackupArtifact{
-			Body:        []byte(`{"schema_id":"phase10.test.postgres_artifact.v1","restore":"postgres"}`),
+			Body:        []byte(`{"schema_id":"backup_restore.test.postgres_artifact.v1","restore":"postgres"}`),
 			ContentType: "application/json",
 		}
 	}
@@ -570,7 +570,7 @@ func captureParams(params recovery.CaptureBackupSetParams) recovery.CaptureBacku
 		manifest, manifestBody, err := recovery.BuildSeaweedFSS3ObjectStoreBackupManifest(snapshot, recovery.ObjectStoreBackupManifestParams{
 			BackupSetID:        params.BackupSetID,
 			ConsistencyPointAt: params.ConsistencyPointAt,
-			Bucket:             "phase10-test-bucket",
+			Bucket:             "backup_restore-test-bucket",
 		})
 		if err != nil {
 			panic(err)
@@ -610,15 +610,15 @@ func validBackupSetInsertArgs(backupSetID uuid.UUID, createdAt time.Time, retain
 	return []any{
 		backupSetID,
 		createdAt.Add(-time.Hour),
-		"backup-storage://phase10/postgres/" + backupSetID.String(),
-		"backup-storage://phase10/object-store/" + backupSetID.String(),
-		"phase10/postgres/" + backupSetID.String() + ".json",
+		"backup-storage://backup_restore/postgres/" + backupSetID.String(),
+		"backup-storage://backup_restore/object-store/" + backupSetID.String(),
+		"backup_restore/postgres/" + backupSetID.String() + ".json",
 		postgresSHA,
 		postgresSize,
-		"phase10/object-store/" + backupSetID.String() + ".json",
+		"backup_restore/object-store/" + backupSetID.String() + ".json",
 		objectSHA,
 		objectSize,
-		"phase10/manifests/" + backupSetID.String() + ".json",
+		"backup_restore/manifests/" + backupSetID.String() + ".json",
 		manifestSHA,
 		manifestSize,
 		createdAt,
@@ -657,15 +657,15 @@ type rollbackExecer interface {
 func requireCheckViolationExec(t *testing.T, db rollbackExecer, constraintName string, sql string, args ...any) {
 	t.Helper()
 	ctx := context.Background()
-	if _, err := db.Exec(ctx, "SAVEPOINT phase10_expected_check_violation"); err != nil {
+	if _, err := db.Exec(ctx, "SAVEPOINT backup_restore_expected_check_violation"); err != nil {
 		t.Fatalf("create check-violation savepoint: %v", err)
 	}
 	_, err := db.Exec(ctx, sql, args...)
 	requireCheckViolation(t, err, constraintName)
-	if _, rollbackErr := db.Exec(ctx, "ROLLBACK TO SAVEPOINT phase10_expected_check_violation"); rollbackErr != nil {
+	if _, rollbackErr := db.Exec(ctx, "ROLLBACK TO SAVEPOINT backup_restore_expected_check_violation"); rollbackErr != nil {
 		t.Fatalf("rollback check-violation savepoint: %v", rollbackErr)
 	}
-	if _, releaseErr := db.Exec(ctx, "RELEASE SAVEPOINT phase10_expected_check_violation"); releaseErr != nil {
+	if _, releaseErr := db.Exec(ctx, "RELEASE SAVEPOINT backup_restore_expected_check_violation"); releaseErr != nil {
 		t.Fatalf("release check-violation savepoint: %v", releaseErr)
 	}
 }

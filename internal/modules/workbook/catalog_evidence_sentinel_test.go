@@ -11,7 +11,7 @@ func TestTaskDecisionBlockerReplaced(t *testing.T) {
 }
 
 func TestCoordinationBlockerReplaced(t *testing.T) {
-	t.Log("Workbook inspector Sprint 7 coordination rows are covered by direct store evidence in phase9_coordination_surfaces_test.go.")
+	t.Log("Workbook inspector Sprint 7 coordination rows are covered by direct store evidence in workbook_interaction_coordination_surfaces_test.go.")
 }
 
 func TestClipboardPasteIntegrationRowHasDirectEvidence_Integration(t *testing.T) {

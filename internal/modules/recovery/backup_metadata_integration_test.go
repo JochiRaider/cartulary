@@ -23,7 +23,7 @@ import (
 
 func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testing.T) {
 	runtimeHarness := workbookscenariotest.StartRuntime(t)
-	harness := runtimeHarness.StartServer(t, "phase10-i-10-01-metadata")
+	harness := runtimeHarness.StartServer(t, "backup_restore-i-10-01-metadata")
 	store := recovery.NewStore(harness.Server.Runtime.Postgres)
 	ctx := context.Background()
 	backupStorage, err := recovery.NewBackupStorageFromConfig(harness.Server.Runtime.Config, map[string]string{
@@ -36,14 +36,14 @@ func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testin
 
 	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase10-i-10-01-incident",
-		"incident_key":  "phase10-i-10-01",
+		"client_txn_id": "txn-backup_restore-i-10-01-incident",
+		"incident_key":  "backup_restore-i-10-01",
 		"title":         "Recovery and coordination I-10-01 Backup Metadata",
 	})
 	incidentID := uuid.MustParse(incident["incident_id"].(string))
-	objectKey := "phase10/i-10-01/" + incident["incident_id"].(string) + "/proof.txt"
-	objectPayload := []byte("phase10 backup proof")
-	sourceBucket := "phase10-i-10-01-source-" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	objectKey := "backup_restore/i-10-01/" + incident["incident_id"].(string) + "/proof.txt"
+	objectPayload := []byte("backup_restore backup proof")
+	sourceBucket := "backup_restore-i-10-01-source-" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	if err := runtimeHarness.S3.CreateBucket(ctx, sourceBucket); err != nil {
 		t.Fatalf("create source SeaweedFS bucket: %v", err)
 	}
@@ -70,7 +70,7 @@ INSERT INTO object_blobs (
 	if err != nil {
 		t.Fatalf("capture postgres snapshot artifact: %v", err)
 	}
-	if !bytes.Contains(postgresArtifact, []byte("phase10-i-10-01")) {
+	if !bytes.Contains(postgresArtifact, []byte("backup_restore-i-10-01")) {
 		t.Fatalf("postgres snapshot artifact does not contain seeded incident data: %s", postgresArtifact)
 	}
 	blobIndex, err := recovery.AvailableBlobObjectIDsByStorageRef(ctx, harness.Server.Runtime.Postgres)
@@ -86,7 +86,7 @@ INSERT INTO object_blobs (
 		BackupSetID:               olderID,
 		ConsistencyPointAt:        olderPoint,
 		Bucket:                    sourceBucket,
-		Prefix:                    "phase10/i-10-01/",
+		Prefix:                    "backup_restore/i-10-01/",
 		BlobObjectIDsByStorageRef: blobIndex,
 	})
 	if err != nil {
@@ -118,7 +118,7 @@ INSERT INTO object_blobs (
 		BackupSetID:               latestID,
 		ConsistencyPointAt:        latestPoint,
 		Bucket:                    sourceBucket,
-		Prefix:                    "phase10/i-10-01/",
+		Prefix:                    "backup_restore/i-10-01/",
 		BlobObjectIDsByStorageRef: blobIndex,
 	})
 	if err != nil {
@@ -156,13 +156,13 @@ INSERT INTO object_blobs (
 	}
 
 	reopenedStore := recovery.NewStore(harness.Server.Runtime.Postgres)
-	targetDB := runtimeHarness.Postgres.PrepareIsolatedDatabaseT(t, "phase10-i-10-01-service-backed-target")
+	targetDB := runtimeHarness.Postgres.PrepareIsolatedDatabaseT(t, "backup_restore-i-10-01-service-backed-target")
 	targetPool, err := pgxpool.New(ctx, targetDB.DSN)
 	if err != nil {
 		t.Fatalf("open fresh target Postgres: %v", err)
 	}
 	t.Cleanup(targetPool.Close)
-	targetBucket := "phase10-i-10-01-target-" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	targetBucket := "backup_restore-i-10-01-target-" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	if err := runtimeHarness.S3.CreateBucket(ctx, targetBucket); err != nil {
 		t.Fatalf("create target SeaweedFS bucket: %v", err)
 	}
@@ -229,7 +229,7 @@ SELECT count(*)
 	if err != nil {
 		t.Fatalf("read raw encrypted postgres artifact: %v", err)
 	}
-	if bytes.Contains(rawBody, []byte("phase10-i-10-01")) {
+	if bytes.Contains(rawBody, []byte("backup_restore-i-10-01")) {
 		t.Fatalf("raw backup storage artifact contains incident marker plaintext: %s", rawBody)
 	}
 	requireArtifactProof(t, reloaded)

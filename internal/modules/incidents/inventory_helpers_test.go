@@ -54,8 +54,8 @@ func newRouteFixture(t testing.TB, prefix string) *RouteFixture {
 		t,
 		harness.DB,
 		slug+"-candidate@example.test",
-		"Phase2 Candidate "+slug,
-		"Phase2Candidate1!",
+		"IncidentMembership Candidate "+slug,
+		"IncidentMembershipCandidate1!",
 		false,
 		false,
 		true,
@@ -64,8 +64,8 @@ func newRouteFixture(t testing.TB, prefix string) *RouteFixture {
 		t,
 		harness.DB,
 		slug+"-member@example.test",
-		"Phase2 Member "+slug,
-		"Phase2Member1!",
+		"IncidentMembership Member "+slug,
+		"IncidentMembershipMember1!",
 		false,
 		false,
 		true,
@@ -74,7 +74,7 @@ func newRouteFixture(t testing.TB, prefix string) *RouteFixture {
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-" + slug + "-incident",
 		"incident_key":  "IR-" + strings.ToUpper(slug),
-		"title":         "Phase2 " + slug,
+		"title":         "IncidentMembership " + slug,
 	})
 	incidentID := incident["incident_id"].(string)
 	member := scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
@@ -188,7 +188,7 @@ func requireControlRouteOutcome(
 	if route.Transport == routeinventory.TransportWebSocket {
 		if expectation.success {
 			client := incidentwstest.ConnectAndHello(t, serverURL, fixture.IncidentID, incidentwstest.ConnectOptions{SessionToken: sessionCookie.Value})
-			client.Close(websocket.StatusNormalClosure, "phase2_control_boundary_cleanup")
+			client.Close(websocket.StatusNormalClosure, "incident_membership_control_boundary_cleanup")
 			return nil
 		}
 		incidentwstest.RequireDialErrorEnvelope(
@@ -308,7 +308,7 @@ func FixtureSlug(value string) string {
 	}
 	slug = strings.Trim(slug, "-")
 	if slug == "" {
-		return "phase2"
+		return "incident_membership"
 	}
 	return slug
 }

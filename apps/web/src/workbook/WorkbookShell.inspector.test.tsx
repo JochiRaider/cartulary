@@ -59,7 +59,7 @@ vi.mock(
 const historyItem: RecordHistoryItem = {
   actor_user_id: "user-history",
   committed_at: "2026-05-11T12:00:00Z",
-  history_item_ref: "hitem_phase9_stable",
+  history_item_ref: "hitem_workbook_interaction_stable",
   operation: "field_update",
   diff_summary: {
     summary: "field_update timeline_record",
@@ -68,7 +68,7 @@ const historyItem: RecordHistoryItem = {
   change_set_id: "22222222-2222-4222-8222-222222222222",
   reversible: true,
   available_rollback_actions: ["history_entry"],
-  history_entry_ref: "href_phase9_stable",
+  history_entry_ref: "href_workbook_interaction_stable",
 };
 
 function historyEnvelope(options: {
@@ -85,7 +85,7 @@ function historyEnvelope(options: {
   });
 }
 
-describe("FE-P9 inspector and row-local action coverage", () => {
+describe("browser.inspector-history inspector and row-local action coverage", () => {
   let fetchMock: TimelineWorkbookFetchMock;
 
   beforeEach(() => {
@@ -361,7 +361,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
   it("Verify inspector selection, tab state, details, relationships, evidence, and history anchors are record_id based and survive row refresh.", async () => {
     const stableRelationship = {
       item_kind: "unresolved_ref",
-      item_ref: "rel_ref_phase9_stable",
+      item_ref: "rel_ref_workbook_interaction_stable",
       raw_text: "Workbook inspector visible host label",
       entity_type: "host",
       resolution_status: "unresolved",
@@ -499,8 +499,9 @@ describe("FE-P9 inspector and row-local action coverage", () => {
       ),
     ).toBeTruthy();
     expect(
-      screen.getAllByTestId(relationshipChipTestId("rel_ref_phase9_stable"))
-        .length,
+      screen.getAllByTestId(
+        relationshipChipTestId("rel_ref_workbook_interaction_stable"),
+      ).length,
     ).toBeGreaterThan(0);
 
     rerender(<TimelineWorkbook incidentId="incident-1" reloadToken={1} />);
@@ -526,8 +527,9 @@ describe("FE-P9 inspector and row-local action coverage", () => {
       ).toBe("Selected row details refreshed");
     });
     expect(
-      screen.getAllByTestId(relationshipChipTestId("rel_ref_phase9_stable"))
-        .length,
+      screen.getAllByTestId(
+        relationshipChipTestId("rel_ref_workbook_interaction_stable"),
+      ).length,
     ).toBeGreaterThan(0);
 
     const selectedCell = await findWorkbookCell(

@@ -21,7 +21,7 @@ import (
 func TestEnterpriseAuthProviderOIDC_Integration(t *testing.T) {
 	claimEnterpriseAuthenticationForTest(t)
 	runtime := flowtest.StartRuntime(t)
-	server, db := startServer(t, runtime, "phase11-enterprise-oidc")
+	server, db := startServer(t, runtime, "extension_profile-enterprise-oidc")
 	defer db.Close()
 
 	userID := seedLocalUser(t, db, "oidc.enterprise@example.test", "OIDC Enterprise", "EnterpriseOIDC1!", false)
@@ -266,7 +266,7 @@ func TestEnterpriseAuthProviderOIDC_Integration(t *testing.T) {
 func TestEnterpriseSAMLACS_Integration(t *testing.T) {
 	claimEnterpriseAuthenticationForTest(t)
 	runtime := flowtest.StartRuntime(t)
-	server, db := startServer(t, runtime, "phase11-enterprise-saml")
+	server, db := startServer(t, runtime, "extension_profile-enterprise-saml")
 	defer db.Close()
 
 	userID := seedLocalUser(t, db, "saml.enterprise@example.test", "SAML Enterprise", "EnterpriseSAML1!", false)
@@ -471,7 +471,7 @@ func TestEnterpriseSAMLACS_Integration(t *testing.T) {
 func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 	claimEnterpriseAuthenticationForTest(t)
 	runtime := flowtest.StartRuntime(t)
-	server, db := startServer(t, runtime, "phase11-enterprise-bindings")
+	server, db := startServer(t, runtime, "extension_profile-enterprise-bindings")
 	defer db.Close()
 
 	adminID := seedLocalUserFlags(t, db, "enterprise.admin@example.test", "Enterprise Admin", "EnterpriseAdmin1!", false, true, true)

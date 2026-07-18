@@ -171,7 +171,7 @@ For exploratory headed review, use Playwright directly as a developer
 convenience. This is not canonical retained evidence:
 
 ```bash
-tmp/node-runtime/bin/pnpm --dir apps/web exec playwright test apps/web/e2e/workbook.visual.spec.ts -g "FE-V-P2-01" --headed --debug --workers=1
+tmp/node-runtime/bin/pnpm --dir apps/web exec playwright test apps/web/e2e/workbook.visual.spec.ts -g "visual.workbook-shell.row-01" --headed --debug --workers=1
 ```
 
 Use Playwright UI mode when browsing scenarios interactively:
@@ -184,12 +184,12 @@ Useful scenario greps:
 
 | Grep | Review target |
 | --- | --- |
-| `FE-V-P2-01` | Default Timeline shell. |
-| `FE-V-P6-01` | Evidence state and affordance matrix. |
-| `FE-V-P7-01` | Presence, conflict, and save-state fixtures. |
-| `FE-V-P9-01` | Inspector, relationships, history, rollback, and errors. |
-| `FE-V-P10-01` | Coordination surfaces and grid affordances. |
-| `FE-V-P11-03` | Exposed `dark_graphite` token and theme states. |
+| `visual.workbook-shell.row-01` | Default Timeline shell. |
+| `visual.evidence-workflow.row-01` | Evidence state and affordance matrix. |
+| `visual.collaboration.row-01` | Presence, conflict, and save-state fixtures. |
+| `visual.inspector-history.row-01` | Inspector, relationships, history, rollback, and errors. |
+| `visual.coordination-review.row-01` | Coordination surfaces and grid affordances. |
+| `visual.design-readiness.row-03` | Exposed `dark_graphite` token and theme states. |
 
 When an exploratory run exposes a mismatch, classify it before changing
 anything:

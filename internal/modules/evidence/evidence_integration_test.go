@@ -186,18 +186,18 @@ UPDATE incident_memberships
 }
 
 func TestEvidenceHandles_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase4-evidence-handles")
+	harness := workbookscenariotest.StartServer(t, "entity_linking-evidence-handles")
 	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-		"client_txn_id": "txn-phase4-handles-incident",
-		"incident_key":  "phase4-handles",
+		"client_txn_id": "txn-entity_linking-handles-incident",
+		"incident_key":  "entity_linking-handles",
 		"title":         "Record relationships evidence handles",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 	recordID := uuid.New()
 	seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
 	payload := []byte("handle body")
-	attachUploadedBlob(t, harness, login, incidentID, recordID, payload, "txn-phase4-handles-blob", "txn-phase4-handles-attach")
+	attachUploadedBlob(t, harness, login, incidentID, recordID, payload, "txn-entity_linking-handles-blob", "txn-entity_linking-handles-attach")
 
 	beforeInvalidHandles := countAccessHandles(t, harness, incidentID)
 	for _, endpoint := range []struct {
@@ -259,11 +259,11 @@ DELETE FROM incident_memberships
 }
 
 func TestEvidenceHandleIssuanceReportsRegisteredUnavailableReasons(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase4-evidence-handle-issue-reasons")
+	harness := workbookscenariotest.StartServer(t, "entity_linking-evidence-handle-issue-reasons")
 	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-		"client_txn_id": "txn-phase4-handle-issue-reasons-incident",
-		"incident_key":  "phase4-handle-issue-reasons",
+		"client_txn_id": "txn-entity_linking-handle-issue-reasons-incident",
+		"incident_key":  "entity_linking-handle-issue-reasons",
 		"title":         "Record relationships handle issue reasons",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
@@ -334,11 +334,11 @@ func TestEvidenceHandleIssuanceReportsRegisteredUnavailableReasons(t *testing.T)
 }
 
 func TestEvidenceHandleRedemptionReportsRegisteredUnavailableReasons(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase4-evidence-handle-redeem-reasons")
+	harness := workbookscenariotest.StartServer(t, "entity_linking-evidence-handle-redeem-reasons")
 	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-		"client_txn_id": "txn-phase4-handle-redeem-reasons-incident",
-		"incident_key":  "phase4-handle-redeem-reasons",
+		"client_txn_id": "txn-entity_linking-handle-redeem-reasons-incident",
+		"incident_key":  "entity_linking-handle-redeem-reasons",
 		"title":         "Record relationships handle redeem reasons",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
@@ -412,18 +412,18 @@ func TestEvidenceHandleRedemptionReportsRegisteredUnavailableReasons(t *testing.
 }
 
 func TestDownloadHandleBlobMissingDoesNotConsumeHandle_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase4-download-handle-no-byte-failure")
+	harness := workbookscenariotest.StartServer(t, "entity_linking-download-handle-no-byte-failure")
 	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-		"client_txn_id": "txn-phase4-download-no-byte-incident",
-		"incident_key":  "phase4-download-no-byte",
+		"client_txn_id": "txn-entity_linking-download-no-byte-incident",
+		"incident_key":  "entity_linking-download-no-byte",
 		"title":         "Record relationships download no-byte failure",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 	recordID := uuid.New()
 	seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
 	payload := []byte("download retry body")
-	attachData := attachUploadedBlob(t, harness, login, incidentID, recordID, payload, "txn-phase4-download-no-byte-blob", "txn-phase4-download-no-byte-attach")
+	attachData := attachUploadedBlob(t, harness, login, incidentID, recordID, payload, "txn-entity_linking-download-no-byte-blob", "txn-entity_linking-download-no-byte-attach")
 	objectBlobID := workbookscenariotest.MustUUID(t, attachData["object_blob_id"].(string))
 	originalStorageKey := blobStorageKey(t, harness, objectBlobID)
 

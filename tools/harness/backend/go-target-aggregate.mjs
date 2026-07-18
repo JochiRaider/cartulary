@@ -162,7 +162,7 @@ export function collectAggregateEmissions(rows) {
               ? "support"
               : "manifest",
         label: row.execution_label,
-        owner: row.owner_id,
+        owner_id: row.owner_id,
         section: row.section,
         coverage: row.coverage,
         execution_dependency: row.execution_dependency,

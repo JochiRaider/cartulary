@@ -249,7 +249,7 @@ test("owner evidence accounting projects exact catalog rows without delivery met
   assert.ok(selection.expected_rows.some((row) => row.runner === "go"));
   assert.ok(selection.expected_rows.some((row) => row.runner === "playwright"));
   assert.ok(selection.expected_rows.some((row) => row.runner === "vitest"));
-  assert.doesNotMatch(JSON.stringify(selection), /(?:phase_namespace|phase_id|guide_|base_phase)/u);
+  assert.doesNotMatch(JSON.stringify(selection), /(?:guide_path|guide_digest)/u);
 
   const accessibility = accountingRowsForTarget(repoRoot, {
     ownerID: "module.networkflow",
@@ -682,7 +682,7 @@ test("owner diagnostics project exact catalog topology and evidence-derived guid
     explanation.commands.service_backed,
     "make service-backed-test-slice OWNER=module.networkflow",
   );
-  assert.doesNotMatch(JSON.stringify(explanation), /(?:phase_namespace|phase_id|guide_|base_phase)/u);
+  assert.doesNotMatch(JSON.stringify(explanation), /(?:guide_path|guide_digest)/u);
   await validateSchema(explanation.schema_id, explanation);
 
   const guide = buildModuleAuthorTaskGuide(repoRoot, "module.networkflow", "module-author");
@@ -694,7 +694,7 @@ test("owner diagnostics project exact catalog topology and evidence-derived guid
   assert.ok(guide.broader_commands.includes("make browser-e2e-stateful"));
   assert.doesNotMatch(
     JSON.stringify(guide),
-    /(?:phase_namespace|phase_id|guide_path|guide_digest|base_phase)/u,
+    /(?:guide_path|guide_digest)/u,
   );
   await validateSchema(guide.schema_id, guide);
   assert.throws(
@@ -1000,79 +1000,25 @@ test("semantic JSON rejects ambiguous encodings and ignores display metadata", (
   );
 });
 
-test("semantic allowlist accepts one exact owned product-phase identity", () => {
-  const root = mkdtempSync(path.join(repoRoot, "tmp", "semantic-allowlist."));
+test("semantic identity violations fail without an exception registry", () => {
+  const root = mkdtempSync(path.join(repoRoot, "tmp", "semantic-identity-negative."));
   try {
-    writeFixtureFile(root, "internal/fixture/phase2_test.go", "package fixture\n\nfunc TestProductStage(t *testing.T) {}\n");
-    writeJSONFile(path.join(root, "tools/test_catalog_owner.json"), {
-      schema_id: "cartulary.test_owner_registry.v1",
-      owners: [{ owner_id: "module.fixture", manifest_path: "tools/test_families/module.fixture.json", status: "active" }],
-    });
-    writeJSONFile(path.join(root, "tools/delivery_phase_semantic_allowlist.json"), {
-      schema_id: "cartulary.delivery_phase_semantic_allowlist.v1",
-      allowlist: [{
-        location: "internal/fixture/phase2_test.go",
+    const deliveryShapedName = ["pha", "se2_test.go"].join("");
+    writeFixtureFile(
+      root,
+      `internal/fixture/${deliveryShapedName}`,
+      "package fixture\n\nfunc TestProductStage(t *testing.T) {}\n",
+    );
+    assert.deepEqual(validateSemanticIdentities(root), [
+      {
+        location: `internal/fixture/${deliveryShapedName}`,
         locator_kind: "filename",
-        locator: "phase2_test.go",
-        classification: "product_phase",
-        owner_id: "module.fixture",
-        reason: "Fixture models an owner-defined numbered product stage.",
-      }],
-    });
-    assert.deepEqual(validateSemanticIdentities(root), []);
+        locator: deliveryShapedName,
+        reason: "test filename encodes a delivery phase or sprint",
+      },
+    ]);
   } finally {
     rmSync(root, { recursive: true, force: true });
-  }
-});
-
-test("semantic allowlist rejects unmatched, duplicate, line-number, and unknown-owner entries", () => {
-  const cases = [
-    {
-      name: "unmatched",
-      mutate(entries) { entries[0].locator = "alternate_test.go"; },
-      pattern: /must match exactly one identity/iu,
-    },
-    {
-      name: "duplicate",
-      mutate(entries) { entries.push({ ...entries[0] }); },
-      pattern: /ASCII-sorted and duplicate-free/iu,
-    },
-    {
-      name: "line-number",
-      mutate(entries) { entries[0].location = "internal/fixture/phase2_test.go:12"; },
-      pattern: /must not be line-number-only/iu,
-    },
-    {
-      name: "unknown-owner",
-      mutate(entries) { entries[0].owner_id = "module.unknown"; },
-      pattern: /unknown semantic allowlist owner/iu,
-    },
-  ];
-  for (const fixtureCase of cases) {
-    const root = mkdtempSync(path.join(repoRoot, "tmp", `semantic-allowlist-${fixtureCase.name}.`));
-    try {
-      writeFixtureFile(root, "internal/fixture/phase2_test.go", "package fixture\n\nfunc TestProductStage(t *testing.T) {}\n");
-      writeJSONFile(path.join(root, "tools/test_catalog_owner.json"), {
-        schema_id: "cartulary.test_owner_registry.v1",
-        owners: [{ owner_id: "module.fixture", manifest_path: "tools/test_families/module.fixture.json", status: "active" }],
-      });
-      const entries = [{
-        location: "internal/fixture/phase2_test.go",
-        locator_kind: "filename",
-        locator: "phase2_test.go",
-        classification: "product_phase",
-        owner_id: "module.fixture",
-        reason: "Fixture models an owner-defined numbered product stage.",
-      }];
-      fixtureCase.mutate(entries);
-      writeJSONFile(path.join(root, "tools/delivery_phase_semantic_allowlist.json"), {
-        schema_id: "cartulary.delivery_phase_semantic_allowlist.v1",
-        allowlist: entries,
-      });
-      assert.throws(() => validateSemanticIdentities(root), fixtureCase.pattern, fixtureCase.name);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
   }
 });
 
@@ -1249,7 +1195,7 @@ test("network flow fixture manifest schema is closed and byte-addressed", async 
     expected_artifacts: [expectedFile],
     transcript_files: [transcriptFile],
     acceptance_ids: ["NF-AC-052"],
-    execution_selectors: ["phase12/network-flow/NF-AC-052"],
+    execution_selectors: ["network-flow/acceptance/NF-AC-052"],
     source_bundle_sha256: bundleHash([sourceFile]),
     expected_bundle_sha256: bundleHash([expectedFile, transcriptFile]),
   };

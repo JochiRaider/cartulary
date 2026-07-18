@@ -39,11 +39,11 @@ func TestAttachBlobValidation_Unit(t *testing.T) {
 		}
 	})
 
-	harness := recordstoretest.StartStore(t, "phase5-attach-validation")
+	harness := recordstoretest.StartStore(t, "evidence_lifecycle-attach-validation")
 	store := evidence.NewStore(harness.DB)
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase5-attach@example.test", "Phase5 Attach", "Phase5Attach1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase5-attach-incident", "IR-P5-ATTACH", "Evidence attach")
-	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase5-attach-other", "IR-P5-ATTACH-OTHER", "Evidence attach other")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "evidence_lifecycle-attach@example.test", "EvidenceLifecycle Attach", "EvidenceLifecycleAttach1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-attach-incident", "IR-P5-ATTACH", "Evidence attach")
+	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-attach-other", "IR-P5-ATTACH-OTHER", "Evidence attach other")
 
 	t.Run("success and replay are stable", func(t *testing.T) {
 		recordID := seedEvidenceAttachmentRecord(t, harness.DB, incident.ID, actor.ID, "received")
@@ -252,7 +252,7 @@ INSERT INTO object_blobs (
     $11, $12, $13,
     $14, $15, $16, $17, $17
 )
-`, blobID, incidentID, actorID, "phase5/attach/"+blobID.String(), uploadState,
+`, blobID, incidentID, actorID, "evidence_lifecycle/attach/"+blobID.String(), uploadState,
 		byteSize, options.ExpectedSHA, options.ObservedSize, options.ObservedContentType, options.ObservedSHA,
 		now.Add(time.Hour), pendingExpiresAt, finalizedAt, terminalReason, failedAt, cleanupDueAt, now); err != nil {
 		t.Fatalf("insert object blob: %v", err)

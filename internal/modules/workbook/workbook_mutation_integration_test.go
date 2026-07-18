@@ -14,11 +14,11 @@ import (
 )
 
 func TestPartiesSurface_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase4-parties-surface")
+	harness := workbookscenariotest.StartServer(t, "entity_linking-parties-surface")
 	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase4-parties-surface-incident",
-		"incident_key":  "IR-PHASE4-PARTIES",
+		"client_txn_id": "txn-entity_linking-parties-surface-incident",
+		"incident_key":  "IR-ENTITY-LINKING-PARTIES",
 		"title":         "Record relationships parties surface",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
@@ -37,7 +37,7 @@ func TestPartiesSurface_Integration(t *testing.T) {
 	beforeRecords := countIncidentRecords(t, harness, incidentID)
 	beforeProjection := countViewRows(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1")
 	invalidParty := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.parties.v1", uuid.Nil, map[string]any{
-		"client_txn_id":    "txn-phase4-party-invalid",
+		"client_txn_id":    "txn-entity_linking-party-invalid",
 		"party.party_kind": "organization",
 	})
 	httptestx.RequireErrorEnvelope(t, invalidParty, http.StatusBadRequest, "invalid_mutation_payload")
@@ -56,7 +56,7 @@ func TestPartiesSurface_Integration(t *testing.T) {
 	partyConformanceData := workbookscenariotest.RequireRouteReplayHistoryConformance(t, harness.DB, harness.Server.HTTP.URL, workbookscenariotest.RouteConformanceCase{
 		Route:                  partyCreateRoute,
 		Context:                routeCtx,
-		ClientTxnID:            "txn-phase4-party-create-conformance",
+		ClientTxnID:            "txn-entity_linking-party-create-conformance",
 		Login:                  adminLogin,
 		ActorUserID:            adminUserID.String(),
 		ExpectedMutationSource: "workbook.rows.create",
@@ -66,7 +66,7 @@ func TestPartiesSurface_Integration(t *testing.T) {
 	}
 
 	partyData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1", map[string]any{
-		"client_txn_id":       "txn-phase4-party-create",
+		"client_txn_id":       "txn-entity_linking-party-create",
 		"party.display_name":  "  Acme Legal  ",
 		"party.party_kind":    "organization",
 		"party.primary_email": " legal@example.test ",
@@ -222,11 +222,11 @@ VALUES ($1, $2, 'Deleted Party', 'person')
 }
 
 func TestCoordinationDefaults_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase4-coordination-defaults")
+	harness := workbookscenariotest.StartServer(t, "entity_linking-coordination-defaults")
 	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase4-coordination-defaults-incident",
-		"incident_key":  "IR-PHASE4-COORD-DEFAULTS",
+		"client_txn_id": "txn-entity_linking-coordination-defaults-incident",
+		"incident_key":  "IR-ENTITY-LINKING-COORD-DEFAULTS",
 		"title":         "Record relationships coordination defaults",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
@@ -239,7 +239,7 @@ func TestCoordinationDefaults_Integration(t *testing.T) {
 	commConformanceData := workbookscenariotest.RequireRouteReplayHistoryConformance(t, harness.DB, harness.Server.HTTP.URL, workbookscenariotest.RouteConformanceCase{
 		Route:                  commCreateRoute,
 		Context:                routeCtx,
-		ClientTxnID:            "txn-phase4-comm-defaults-conformance",
+		ClientTxnID:            "txn-entity_linking-comm-defaults-conformance",
 		Login:                  adminLogin,
 		ActorUserID:            adminUserID.String(),
 		ExpectedMutationSource: "workbook.rows.create",
@@ -253,10 +253,10 @@ func TestCoordinationDefaults_Integration(t *testing.T) {
 		viewSchemaID string
 		body         map[string]any
 	}{
-		{"cartulary.view.comm_log.v1", map[string]any{"client_txn_id": "txn-phase4-comm-invalid", "comm_log.comm_type": "briefing"}},
-		{"cartulary.view.handoff.v1", map[string]any{"client_txn_id": "txn-phase4-handoff-invalid", "handoff.incoming_owner_user_id": adminUserID.String()}},
-		{"cartulary.view.status_review.v1", map[string]any{"client_txn_id": "txn-phase4-status-invalid"}},
-		{"cartulary.view.lesson.v1", map[string]any{"client_txn_id": "txn-phase4-lesson-invalid"}},
+		{"cartulary.view.comm_log.v1", map[string]any{"client_txn_id": "txn-entity_linking-comm-invalid", "comm_log.comm_type": "briefing"}},
+		{"cartulary.view.handoff.v1", map[string]any{"client_txn_id": "txn-entity_linking-handoff-invalid", "handoff.incoming_owner_user_id": adminUserID.String()}},
+		{"cartulary.view.status_review.v1", map[string]any{"client_txn_id": "txn-entity_linking-status-invalid"}},
+		{"cartulary.view.lesson.v1", map[string]any{"client_txn_id": "txn-entity_linking-lesson-invalid"}},
 	} {
 		resp := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, invalid.viewSchemaID, uuid.Nil, invalid.body)
 		httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
@@ -266,7 +266,7 @@ func TestCoordinationDefaults_Integration(t *testing.T) {
 	}
 
 	commData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1", map[string]any{
-		"client_txn_id":               "txn-phase4-comm-defaults-create",
+		"client_txn_id":               "txn-entity_linking-comm-defaults-create",
 		"comm_log.comm_type":          "briefing",
 		"comm_log.audience":           "leadership",
 		"comm_log.channel_or_meeting": "Bridge",
@@ -285,34 +285,34 @@ func TestCoordinationDefaults_Integration(t *testing.T) {
 	immutableCommID := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", commID, map[string]any{
 		"view_schema_id":   "cartulary.view.comm_log.v1",
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase4-comm-immutable-id",
+		"client_txn_id":    "txn-entity_linking-comm-immutable-id",
 		"changes":          []map[string]any{{"field_key": "comm_log.comm_id", "value": "client-supplied"}},
 	})
 	httptestx.RequireErrorEnvelope(t, immutableCommID, http.StatusBadRequest, "invalid_mutation_payload")
 	commSetNextReport := requireWorkbookPatch(t, harness, adminLogin, commID, map[string]any{
 		"view_schema_id":   "cartulary.view.comm_log.v1",
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase4-comm-set-next-report",
+		"client_txn_id":    "txn-entity_linking-comm-set-next-report",
 		"changes":          []map[string]any{{"field_key": "comm_log.next_report_at", "value": "2026-04-24T18:00:00Z"}},
 	})
 	requireNonEmptyCellValue(t, commSetNextReport["row"].(map[string]any), "comm_log.next_report_at")
 	commClear := requireWorkbookPatch(t, harness, adminLogin, commID, map[string]any{
 		"view_schema_id":   "cartulary.view.comm_log.v1",
 		"base_row_version": 2,
-		"client_txn_id":    "txn-phase4-comm-clear-next-report",
+		"client_txn_id":    "txn-entity_linking-comm-clear-next-report",
 		"changes":          []map[string]any{{"field_key": "comm_log.next_report_at", "value": nil}},
 	})
 	requireCellValue(t, commClear["row"].(map[string]any), "comm_log.next_report_at", nil)
 	commNullTimestamp := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", commID, map[string]any{
 		"view_schema_id":   "cartulary.view.comm_log.v1",
 		"base_row_version": 3,
-		"client_txn_id":    "txn-phase4-comm-null-timestamp",
+		"client_txn_id":    "txn-entity_linking-comm-null-timestamp",
 		"changes":          []map[string]any{{"field_key": "comm_log.timestamp_utc", "value": nil}},
 	})
 	httptestx.RequireErrorEnvelope(t, commNullTimestamp, http.StatusBadRequest, "invalid_mutation_payload")
 
 	handoffData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.handoff.v1", map[string]any{
-		"client_txn_id":                  "txn-phase4-handoff-defaults-create",
+		"client_txn_id":                  "txn-entity_linking-handoff-defaults-create",
 		"handoff.incoming_owner_user_id": adminUserID.String(),
 		"handoff.current_state_summary":  "Night shift owns containment",
 	})
@@ -326,7 +326,7 @@ func TestCoordinationDefaults_Integration(t *testing.T) {
 	requireCellValue(t, handoffRow, "handoff.acknowledged_at", nil)
 
 	statusData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.status_review.v1", map[string]any{
-		"client_txn_id":                       "txn-phase4-status-defaults-create",
+		"client_txn_id":                       "txn-entity_linking-status-defaults-create",
 		"status_review.current_state_summary": "Containment is stable",
 	})
 	statusRow := statusData["row"].(map[string]any)
@@ -340,7 +340,7 @@ func TestCoordinationDefaults_Integration(t *testing.T) {
 	requireCellValue(t, statusRow, "status_review.next_report_at", nil)
 
 	lessonData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.lesson.v1", map[string]any{
-		"client_txn_id":  "txn-phase4-lesson-defaults-create",
+		"client_txn_id":  "txn-entity_linking-lesson-defaults-create",
 		"lesson.summary": "Preserve VPN logs earlier",
 	})
 	lessonRow := lessonData["row"].(map[string]any)

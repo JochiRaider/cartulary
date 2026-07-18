@@ -97,7 +97,7 @@ const appLocalSelectorOwnership = [
     owner: "apps/web conflict resolver",
     pattern: /^(?:conflict-|paste-conflict-)/u,
     reason:
-      "Conflict resolver selectors are retained app-local controls until the FE-P7 conflict surface is promoted.",
+      "Conflict resolver selectors are retained app-local controls until the browser.collaboration conflict surface is promoted.",
     scope:
       "apps/web WorkbookShell conflict resolver and collaboration and inspector coverage",
   },
@@ -518,7 +518,7 @@ function collectSelectorPolicyViolations(
 }
 
 describe("selector contract policy", () => {
-  it("keeps phase-named selector helpers out of production modules", () => {
+  it("keeps delivery-shaped selector helpers out of production modules", () => {
     const violations = listSourceFiles("apps/web/src").flatMap((file) => {
       if (
         /(?:^|\/)debug\//u.test(file) ||

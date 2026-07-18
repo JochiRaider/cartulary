@@ -507,12 +507,12 @@ func AssertCursorCryptoRuntime(t *testing.T, position rowCursorPosition) {
 	now := time.Date(2026, 7, 13, 12, 0, 0, 0, time.UTC)
 	manifest := `{
   "schema_id":"cartulary.network_flow_key_rings.v1",
-  "cursor_key_ring":{"algorithm":"aes_256_gcm_v1","keys":[{"cursor_key_id":"phase12-cursor","state":"active","secret_ref":{"kind":"env","name":"phase12-cursor"}}]},
-  "safe_digest_key_ring":{"algorithm":"hmac_sha256_v1","keys":[{"safe_digest_key_id":"phase12-safe","state":"active","secret_ref":{"kind":"env","name":"phase12-safe"}}]}
+  "cursor_key_ring":{"algorithm":"aes_256_gcm_v1","keys":[{"cursor_key_id":"network_flow-cursor","state":"active","secret_ref":{"kind":"env","name":"network_flow-cursor"}}]},
+  "safe_digest_key_ring":{"algorithm":"hmac_sha256_v1","keys":[{"safe_digest_key_id":"network_flow-safe","state":"active","secret_ref":{"kind":"env","name":"network_flow-safe"}}]}
 }`
 	rings, err := ParseKeyRings([]byte(manifest), map[string]string{
-		"CARTULARY_SECRET_PHASE12_CURSOR": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
-		"CARTULARY_SECRET_PHASE12_SAFE":   "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+		"CARTULARY_SECRET_NETWORK_FLOW_CURSOR": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+		"CARTULARY_SECRET_NETWORK_FLOW_SAFE":   "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
 	}, now)
 	if err != nil {
 		t.Fatalf("parse Network Flow key rings: %v", err)
@@ -524,7 +524,7 @@ func AssertCursorCryptoRuntime(t *testing.T, position rowCursorPosition) {
 	}
 	binding := CursorBinding{Route: "nf.rows.query", ActorUserID: "actor", SessionID: "session", IncidentID: "incident", Scope: map[string]string{"table_ids": "nft_a"}, QueryHash: "query-hash", QueryEcho: json.RawMessage(`{"sort":[]}`), Limit: 1}
 	token, err := codec.Encode(binding, "row_keyset_v1", position)
-	if err != nil || !strings.HasPrefix(token, "nfc2.phase12-cursor.") {
+	if err != nil || !strings.HasPrefix(token, "nfc2.network_flow-cursor.") {
 		t.Fatalf("encode nfc2 cursor token=%q err=%v", token, err)
 	}
 	payload, reason := codec.Decode(token)
@@ -548,7 +548,7 @@ func AssertCursorCryptoRuntime(t *testing.T, position rowCursorPosition) {
 		t.Fatalf("construct Network Flow safe digester: %v", err)
 	}
 	digest, keyID, err := digester.Digest("source_filename", "flows.csv")
-	if err != nil || keyID != "phase12-safe" || !hex64(digest) {
+	if err != nil || keyID != "network_flow-safe" || !hex64(digest) {
 		t.Fatalf("configured safe digest=%q key_id=%q err=%v", digest, keyID, err)
 	}
 }
@@ -756,15 +756,15 @@ func AssertRedactionAuditAndSafeDigestBoundary(t *testing.T) {
 	if numericSample.SafeSample == nil || *numericSample.SafeSample != "12345" || numericSample.RawValueSHA256 == nil {
 		t.Fatalf("bounded numeric sample should expose safe sample plus digest: %#v", numericSample)
 	}
-	digest, keyID := SafeDigest("phase12-key", []byte("phase12-secret"), "candidate", "192.0.2.10")
-	if keyID != "phase12-key" || !hex64(digest) {
+	digest, keyID := SafeDigest("network_flow-key", []byte("network_flow-secret"), "candidate", "192.0.2.10")
+	if keyID != "network_flow-key" || !hex64(digest) {
 		t.Fatalf("safe digest got digest=%q key_id=%q", digest, keyID)
 	}
 	AssertCursorCryptoRuntime(t, rowCursorPosition{
 		EffectiveSort:      effectiveSort(nil),
-		Values:             []any{"2026-07-13T12:00:00Z", "2026-07-13T12:01:00Z", int64(2), "nfr_phase12"},
-		NetworkFlowTableID: "nft_phase12",
-		NetworkFlowRowID:   "nfr_phase12",
+		Values:             []any{"2026-07-13T12:00:00Z", "2026-07-13T12:01:00Z", int64(2), "nfr_network_flow"},
+		NetworkFlowTableID: "nft_network_flow",
+		NetworkFlowRowID:   "nfr_network_flow",
 	})
 }
 

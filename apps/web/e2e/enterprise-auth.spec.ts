@@ -107,7 +107,7 @@ test("handles enterprise session root landing for zero, one, multiple, and disap
   sessionTracker,
 }) => {
   const zeroPassword = "EnterpriseZero1!";
-  const zeroEmail = uniqueEmail("phase11-e1103-zero");
+  const zeroEmail = uniqueEmail("extension_profile-e1103-zero");
   const zeroMember = await createLocalUser(page, {
     email: zeroEmail,
     display_name: "Enterprise Zero Member",
@@ -121,7 +121,7 @@ test("handles enterprise session root landing for zero, one, multiple, and disap
   );
   const singlePassword = "EnterpriseRoot1!";
   const singleMember = await createIncidentMemberUser(page, incidentId, {
-    email: uniqueEmail("phase11-e1103-member"),
+    email: uniqueEmail("extension_profile-e1103-member"),
     display_name: "Enterprise Root Member",
     initial_password: singlePassword,
     role: "admin",
@@ -142,7 +142,7 @@ test("handles enterprise session root landing for zero, one, multiple, and disap
     page,
     multipleIncidentA,
     {
-      email: uniqueEmail("phase11-e1103-multiple"),
+      email: uniqueEmail("extension_profile-e1103-multiple"),
       display_name: "Enterprise Multiple Member",
       initial_password: multiplePassword,
       role: "admin",
@@ -156,7 +156,7 @@ test("handles enterprise session root landing for zero, one, multiple, and disap
   );
 
   await sessionTracker.loginTrackedUser(page, {
-    createdBy: "phase11.enterprise-auth",
+    createdBy: "extension_profile.enterprise-auth",
     email: zeroEmail,
     password: zeroPassword,
     purpose: "enterprise root zero incidents",
@@ -186,7 +186,7 @@ test("handles enterprise session root landing for zero, one, multiple, and disap
   await expect(page).not.toHaveURL(/incident_id=/);
 
   await sessionTracker.loginTrackedUser(page, {
-    createdBy: "phase11.enterprise-auth",
+    createdBy: "extension_profile.enterprise-auth",
     email: multipleMember.email,
     password: multiplePassword,
     purpose: "enterprise root multiple incidents",
@@ -205,7 +205,7 @@ test("handles enterprise session root landing for zero, one, multiple, and disap
   await expect(page).not.toHaveURL(/incident_id=/);
 
   await sessionTracker.loginTrackedUser(page, {
-    createdBy: "phase11.enterprise-auth",
+    createdBy: "extension_profile.enterprise-auth",
     email: singleMember.email,
     password: singlePassword,
     purpose: "enterprise root convergence",

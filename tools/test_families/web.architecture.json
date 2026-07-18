@@ -49,7 +49,7 @@
       "status": "active"
     },
     {
-      "row_id": "web.architecture.boundary_support.selectorcontractpolicy_keeps_phase_named_selecto_a659d356ed",
+      "row_id": "web.architecture.boundary_support.selectorcontractpolicy_keeps_delivery_shaped_selecto_a659d356ed",
       "owner_id": "web.architecture",
       "family_id": "web.architecture.boundary_support",
       "collaborator_ids": [],
@@ -60,7 +60,7 @@
       "selector": {
         "file": "apps/web/src/testing/selectorContractPolicy.test.ts",
         "titles": [
-          "selector contract policy keeps phase-named selector helpers out of production modules"
+          "selector contract policy keeps delivery-shaped selector helpers out of production modules"
         ]
       },
       "evidence_class": "static",

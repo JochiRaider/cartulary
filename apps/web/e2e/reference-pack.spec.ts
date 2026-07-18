@@ -10,7 +10,7 @@ import { expect, test } from "./fixtures";
 import { DeploymentAdministration } from "./pages/deploymentAdministration";
 import { IncidentDirectory } from "./pages/incidentDirectory";
 
-const jobID = "phase11-reference-pack-browser-job";
+const jobID = "extension_profile-reference-pack-browser-job";
 
 test("shows Reference Pack progress and cancel controls without blocking landing interaction", async ({
   page,

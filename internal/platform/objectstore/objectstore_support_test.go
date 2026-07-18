@@ -16,7 +16,7 @@ func TestManagedServiceObjectStoreBinding(t *testing.T) {
 	s3Harness := s3test.Start(t)
 
 	t.Run("derives managed-service settings from roots.object_storage.service_ref", func(t *testing.T) {
-		bucket := fmt.Sprintf("phase0-support-managed-object-%d", time.Now().UnixNano())
+		bucket := fmt.Sprintf("bootstrap-support-managed-object-%d", time.Now().UnixNano())
 		defer func() {
 			if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
 				t.Logf("cleanup bucket: %v", err)
@@ -40,7 +40,7 @@ func TestManagedServiceObjectStoreBinding(t *testing.T) {
 	})
 
 	t.Run("fails closed when the configured managed-service binding cannot resolve service-ref settings", func(t *testing.T) {
-		bucket := fmt.Sprintf("phase0-support-managed-object-fail-%d", time.Now().UnixNano())
+		bucket := fmt.Sprintf("bootstrap-support-managed-object-fail-%d", time.Now().UnixNano())
 
 		_, err := objectstore.SetupWithEnv(context.Background(), managedObjectStoreConfig(t), s3Harness.Env(bucket))
 		if err == nil {
@@ -52,7 +52,7 @@ func TestManagedServiceObjectStoreBinding(t *testing.T) {
 	})
 
 	t.Run("fails closed when the configured managed-service bucket is missing", func(t *testing.T) {
-		bucket := fmt.Sprintf("phase0-support-managed-object-missing-%d", time.Now().UnixNano())
+		bucket := fmt.Sprintf("bootstrap-support-managed-object-missing-%d", time.Now().UnixNano())
 
 		_, err := objectstore.SetupWithEnv(context.Background(), managedObjectStoreConfig(t), s3Harness.EnvForServiceRef("object_primary", bucket))
 		if err == nil {
@@ -65,7 +65,7 @@ func TestManagedServiceObjectStoreBinding(t *testing.T) {
 	})
 
 	t.Run("deployment-local init creates the configured managed-service bucket", func(t *testing.T) {
-		bucket := fmt.Sprintf("phase0-support-managed-object-init-%d", time.Now().UnixNano())
+		bucket := fmt.Sprintf("bootstrap-support-managed-object-init-%d", time.Now().UnixNano())
 		defer func() {
 			if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
 				t.Logf("cleanup bucket: %v", err)
@@ -118,7 +118,7 @@ func TestManagedServiceObjectStoreBinding(t *testing.T) {
 		}
 	})
 
-	t.Run("phase_d_adapter_contract_hardening", requirePhaseDAdapterContractHardening)
+	t.Run("object_store_adapter_contract_hardening", requireObjectStoreAdapterContractHardening)
 }
 
 func managedObjectStoreConfig(t testing.TB) config.Config {

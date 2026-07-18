@@ -232,7 +232,7 @@ test("pastes a representative 20x5 Timeline clipboard range", async ({
     const ordinal = index + 1;
     return [
       `Workbook inspector paste summary ${ordinal}`,
-      `phase9-source-${ordinal}.example.test`,
+      `workbook_interaction-source-${ordinal}.example.test`,
     ].join("\t");
   });
   const pastePayload = pasteRows.join("\n");
@@ -288,7 +288,7 @@ test("pastes a representative 20x5 Timeline clipboard range", async ({
     "Workbook inspector paste summary 1",
   );
   expect(first?.cells["timeline.data_source_text"]?.value).toBe(
-    "phase9-source-1.example.test",
+    "workbook_interaction-source-1.example.test",
   );
   expect(first?.cells["timeline.evidence_count"]?.value).toBe(0);
   const twentieth = matchingRows.find((row) => {
@@ -300,7 +300,7 @@ test("pastes a representative 20x5 Timeline clipboard range", async ({
   });
   expect(twentieth).toBeTruthy();
   expect(twentieth?.cells["timeline.data_source_text"]?.value).toBe(
-    "phase9-source-20.example.test",
+    "workbook_interaction-source-20.example.test",
   );
   expect(twentieth?.cells["timeline.evidence_count"]?.value).toBe(0);
 });
@@ -562,7 +562,7 @@ test("Workbook inspector fills the shell work area across row counts", async ({
     await createViewRow(page, incidentId, hostsViewSchemaId, {
       client_txn_id: uniqueTxn(`e9layout-host-${index}`),
       "host.display_name": `Workbook inspector layout host ${index + 1}`,
-      "host.hostname": `phase9-layout-host-${index + 1}.example.test`,
+      "host.hostname": `workbook_interaction-layout-host-${index + 1}.example.test`,
     });
   }
   await createViewRow(page, incidentId, evidenceViewSchemaId, {
@@ -1109,12 +1109,12 @@ test("assessment workflow keeps invalid timestamp drafts local", async ({
   const subjectA = await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e905-host-a"),
     "host.display_name": "Workbook inspector Assessment Host A",
-    "host.hostname": "phase9-assessment-a.example.test",
+    "host.hostname": "workbook_interaction-assessment-a.example.test",
   });
   const subjectB = await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e905-host-b"),
     "host.display_name": "Workbook inspector Assessment Host B",
-    "host.hostname": "phase9-assessment-b.example.test",
+    "host.hostname": "workbook_interaction-assessment-b.example.test",
   });
   const support = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e905-support"),
@@ -1303,11 +1303,12 @@ test("Verify Timeline inspector Workflow create-related actions stay in the work
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("FEEP903"),
-    "FE-E-P9-03 Timeline inspector create-related workflows",
+    "end-to-end.inspector-history.row-03 Timeline inspector create-related workflows",
   );
   const source = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("feep903-source"),
-    "timeline.activity_synopsis_text": "FE-E-P9-03 create-related source",
+    "timeline.activity_synopsis_text":
+      "end-to-end.inspector-history.row-03 create-related source",
     "timeline.raw_activity_text": "Inspector Workflow create-related source.",
   });
 
@@ -1327,11 +1328,11 @@ test("Verify Timeline inspector Workflow create-related actions stay in the work
     actionKey: "create_related.task_request",
     targetViewSchemaId: taskRequestsViewSchemaId,
     fields: [
-      ["task.title", "FE-E-P9-03 workflow task"],
+      ["task.title", "end-to-end.inspector-history.row-03 workflow task"],
       ["task.task_kind", "follow_up"],
     ],
     waitFieldKey: "task.title",
-    waitValue: "FE-E-P9-03 workflow task",
+    waitValue: "end-to-end.inspector-history.row-03 workflow task",
   });
   expectCollectionReferencesRecord(
     task,
@@ -1343,12 +1344,15 @@ test("Verify Timeline inspector Workflow create-related actions stay in the work
     actionKey: "create_related.decision",
     targetViewSchemaId: decisionsViewSchemaId,
     fields: [
-      ["decision.summary", "FE-E-P9-03 workflow decision"],
+      [
+        "decision.summary",
+        "end-to-end.inspector-history.row-03 workflow decision",
+      ],
       ["decision.decision_type", "containment"],
       ["decision.rationale", "Decision created from the Timeline inspector."],
     ],
     waitFieldKey: "decision.summary",
-    waitValue: "FE-E-P9-03 workflow decision",
+    waitValue: "end-to-end.inspector-history.row-03 workflow decision",
   });
   expectCollectionReferencesRecord(
     decision,
@@ -1376,9 +1380,14 @@ test("Verify Timeline inspector Workflow create-related actions stay in the work
   const evidence = await createFromTimelineWorkflow(page, incidentId, {
     actionKey: "create_related.evidence",
     targetViewSchemaId: evidenceViewSchemaId,
-    fields: [["evidence.title", "FE-E-P9-03 workflow evidence"]],
+    fields: [
+      [
+        "evidence.title",
+        "end-to-end.inspector-history.row-03 workflow evidence",
+      ],
+    ],
     waitFieldKey: "evidence.title",
-    waitValue: "FE-E-P9-03 workflow evidence",
+    waitValue: "end-to-end.inspector-history.row-03 workflow evidence",
   });
   const evidenceLink = await evidenceLinkResponse;
   expect(evidenceLink.ok()).toBeTruthy();
@@ -1408,12 +1417,15 @@ test("Verify Timeline inspector Workflow create-related actions stay in the work
     targetViewSchemaId: commLogViewSchemaId,
     fields: [
       ["comm_log.comm_type", "briefing"],
-      ["comm_log.audience", "FE-E-P9-03 responders"],
+      ["comm_log.audience", "end-to-end.inspector-history.row-03 responders"],
       ["comm_log.channel_or_meeting", "Timeline inspector"],
-      ["comm_log.summary", "FE-E-P9-03 workflow communication"],
+      [
+        "comm_log.summary",
+        "end-to-end.inspector-history.row-03 workflow communication",
+      ],
     ],
     waitFieldKey: "comm_log.summary",
-    waitValue: "FE-E-P9-03 workflow communication",
+    waitValue: "end-to-end.inspector-history.row-03 workflow communication",
   });
   expect(comm.cells["comm_log.comm_type"]?.value).toBe("briefing");
 
@@ -1422,10 +1434,13 @@ test("Verify Timeline inspector Workflow create-related actions stay in the work
     targetViewSchemaId: handoffViewSchemaId,
     fields: [
       ["handoff.incoming_owner_user_id", workerAdmin.user_id],
-      ["handoff.current_state_summary", "FE-E-P9-03 workflow handoff"],
+      [
+        "handoff.current_state_summary",
+        "end-to-end.inspector-history.row-03 workflow handoff",
+      ],
     ],
     waitFieldKey: "handoff.current_state_summary",
-    waitValue: "FE-E-P9-03 workflow handoff",
+    waitValue: "end-to-end.inspector-history.row-03 workflow handoff",
   });
   expect(handoff.cells["handoff.incoming_owner_user_id"]?.value).toBe(
     workerAdmin.user_id,
@@ -1437,25 +1452,27 @@ test("Verify Timeline inspector Workflow create-related actions stay in the work
     fields: [
       [
         "status_review.current_state_summary",
-        "FE-E-P9-03 workflow status review",
+        "end-to-end.inspector-history.row-03 workflow status review",
       ],
     ],
     waitFieldKey: "status_review.current_state_summary",
-    waitValue: "FE-E-P9-03 workflow status review",
+    waitValue: "end-to-end.inspector-history.row-03 workflow status review",
   });
   expect(statusReview.cells["status_review.current_state_summary"]?.value).toBe(
-    "FE-E-P9-03 workflow status review",
+    "end-to-end.inspector-history.row-03 workflow status review",
   );
 
   const lesson = await createFromTimelineWorkflow(page, incidentId, {
     actionKey: "create_related.lesson",
     targetViewSchemaId: lessonViewSchemaId,
-    fields: [["lesson.summary", "FE-E-P9-03 workflow lesson"]],
+    fields: [
+      ["lesson.summary", "end-to-end.inspector-history.row-03 workflow lesson"],
+    ],
     waitFieldKey: "lesson.summary",
-    waitValue: "FE-E-P9-03 workflow lesson",
+    waitValue: "end-to-end.inspector-history.row-03 workflow lesson",
   });
   expect(lesson.cells["lesson.summary"]?.value).toBe(
-    "FE-E-P9-03 workflow lesson",
+    "end-to-end.inspector-history.row-03 workflow lesson",
   );
 });
 
@@ -2479,12 +2496,12 @@ test("Verify Task Requests, Decisions, Parties, Communications Log, Handoff, Sta
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("FEBP1001"),
-    "FE-B-P10-01 workbook shell coordination surfaces",
+    "browser.coordination-review.row-01 workbook shell coordination surfaces",
   );
   const savedViewIdsBySurface = new Map<string, string>();
   for (const surface of feP10WorkbookShellSurfaces) {
     const savedView = await createSavedView(page, incidentId, {
-      display_name: `FE-B-P10-01 ${surface.label} saved view`,
+      display_name: `browser.coordination-review.row-01 ${surface.label} saved view`,
       scope: "shared",
       view_schema_id: surface.viewSchemaId,
     });
@@ -2493,7 +2510,9 @@ test("Verify Task Requests, Decisions, Parties, Communications Log, Handoff, Sta
 
   const firstSurface = feP10WorkbookShellSurfaces[0];
   if (firstSurface === undefined) {
-    throw new Error("FE-P10 workbook shell surface list must not be empty");
+    throw new Error(
+      "browser.coordination-review workbook shell surface list must not be empty",
+    );
   }
   await page.goto(
     `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(

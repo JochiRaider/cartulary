@@ -17,11 +17,11 @@ import (
 )
 
 func TestRowWireFamilies_Unit(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase8-u-8-10-row-wire")
+	harness := workbookscenariotest.StartServer(t, "saved_view_query-u-8-10-row-wire")
 	adminLogin, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase8-u-8-10-incident",
-		"incident_key":  "IR-PHASE8-U-8-10",
+		"client_txn_id": "txn-saved_view_query-u-8-10-incident",
+		"incident_key":  "IR-SAVED-VIEW-QUERY-U-8-10",
 		"title":         "Workbook query row wire",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
@@ -63,7 +63,7 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 		RecordID:         recordID,
 		RowVersion:       2,
 		ChangeSetID:      uuid.New(),
-		ClientTxnID:      "txn-phase8-u-8-10-patch",
+		ClientTxnID:      "txn-saved_view_query-u-8-10-patch",
 		ActorUserID:      actorID,
 		ChangedFieldKeys: []string{"note.title", "note.body", "note.title"},
 		ViewSchemaID:     "cartulary.view.notes.v1",
@@ -78,7 +78,7 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 	}
 
 	timelineCreated := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.timeline.v2", map[string]any{
-		"client_txn_id":                   "txn-phase8-u-8-10-timeline-create",
+		"client_txn_id":                   "txn-saved_view_query-u-8-10-timeline-create",
 		"timeline.activity_synopsis_text": "Workbook query operational row",
 		"timeline.raw_activity_text":      "Hidden source",
 		"timeline.activity_utc_text":      "2026-05-16T12:00:00Z",
@@ -109,7 +109,7 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 	}
 
 	patchEvidenceCreated := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.evidence.v1", map[string]any{
-		"client_txn_id":               "txn-phase8-u-8-10-evidence-create",
+		"client_txn_id":               "txn-saved_view_query-u-8-10-evidence-create",
 		"evidence.title":              "Workbook query sparse evidence",
 		"evidence.lifecycle_state":    "received",
 		"evidence.received_at":        "2026-05-16T12:05:00Z",
@@ -122,7 +122,7 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 	patched := requireWorkbookPatch(t, harness, adminLogin, patchEvidenceRecordID, map[string]any{
 		"view_schema_id":   "cartulary.view.evidence.v1",
 		"base_row_version": patchEvidenceRow["row_version"],
-		"client_txn_id":    "txn-phase8-u-8-10-evidence-null-patch",
+		"client_txn_id":    "txn-saved_view_query-u-8-10-evidence-null-patch",
 		"changes": []map[string]any{
 			{"field_key": "evidence.received_at", "value": nil},
 		},
@@ -157,17 +157,17 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 }
 
 func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase8-ac368-sparse-patches")
+	harness := workbookscenariotest.StartServer(t, "saved_view_query-ac368-sparse-patches")
 	adminLogin, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase8-ac368-incident",
-		"incident_key":  "IR-PHASE8-AC368",
+		"client_txn_id": "txn-saved_view_query-ac368-incident",
+		"incident_key":  "IR-SAVED-VIEW-QUERY-AC368",
 		"title":         "Workbook query sparse patch coverage",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
 	partyData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1", map[string]any{
-		"client_txn_id":      "txn-phase8-ac368-party",
+		"client_txn_id":      "txn-saved_view_query-ac368-party",
 		"party.display_name": "Sparse Patch Party",
 		"party.party_kind":   "team",
 	})
@@ -177,7 +177,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 	defer unsubscribe()
 
 	evidenceData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.evidence.v1", map[string]any{
-		"client_txn_id":                 "txn-phase8-ac368-evidence",
+		"client_txn_id":                 "txn-saved_view_query-ac368-evidence",
 		"evidence.title":                "Sparse reference evidence",
 		"evidence.lifecycle_state":      "received",
 		"evidence.collector_party_text": "Collector text stays",
@@ -190,7 +190,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 	clearedCollector := requireWorkbookPatch(t, harness, adminLogin, evidenceID, map[string]any{
 		"view_schema_id":   "cartulary.view.evidence.v1",
 		"base_row_version": evidenceRow["row_version"],
-		"client_txn_id":    "txn-phase8-ac368-clear-collector",
+		"client_txn_id":    "txn-saved_view_query-ac368-clear-collector",
 		"changes": []map[string]any{
 			{"field_key": "evidence.collector_party_id", "value": nil},
 		},
@@ -200,7 +200,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 	requireSparsePatchOmitsCells(t, collectorPatch, "evidence.title", "evidence.source_party_id")
 
 	taskData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.task_requests.v1", map[string]any{
-		"client_txn_id":             "txn-phase8-ac368-task",
+		"client_txn_id":             "txn-saved_view_query-ac368-task",
 		"task.title":                "Sparse requester task",
 		"task.task_kind":            "request",
 		"task.requester_party_text": "Requester text stays",
@@ -211,7 +211,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 	clearedRequester := requireWorkbookPatch(t, harness, adminLogin, taskID, map[string]any{
 		"view_schema_id":   "cartulary.view.task_requests.v1",
 		"base_row_version": taskRow["row_version"],
-		"client_txn_id":    "txn-phase8-ac368-clear-requester",
+		"client_txn_id":    "txn-saved_view_query-ac368-clear-requester",
 		"changes": []map[string]any{
 			{"field_key": "task.requester_party_id", "value": nil},
 		},
@@ -221,7 +221,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 	requireSparsePatchOmitsCells(t, requesterPatch, "task.title", "task.requester_party_text")
 
 	noteData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.notes.v1", map[string]any{
-		"client_txn_id": "txn-phase8-ac368-note",
+		"client_txn_id": "txn-saved_view_query-ac368-note",
 		"note.title":    "Sparse collection note",
 		"note.body":     "Collection patch body remains unchanged",
 	})
@@ -230,7 +230,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 	patchedNote := requireWorkbookPatch(t, harness, adminLogin, noteID, map[string]any{
 		"view_schema_id":   "cartulary.view.notes.v1",
 		"base_row_version": noteRow["row_version"],
-		"client_txn_id":    "txn-phase8-ac368-note-tags",
+		"client_txn_id":    "txn-saved_view_query-ac368-note-tags",
 		"changes": []map[string]any{
 			{"field_key": "note.tags", "action_payload": collectionActions(addToken("triage"))},
 		},
@@ -246,7 +246,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 	requireSparsePatchOmitsCells(t, notePatch, "note.title", "note.body")
 
 	commData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1", map[string]any{
-		"client_txn_id":               "txn-phase8-ac368-comm",
+		"client_txn_id":               "txn-saved_view_query-ac368-comm",
 		"comm_log.comm_type":          "briefing",
 		"comm_log.audience":           "IR leadership",
 		"comm_log.channel_or_meeting": "Bridge",
@@ -273,7 +273,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 		RecordID:         uuid.New(),
 		RowVersion:       3,
 		ChangeSetID:      uuid.New(),
-		ClientTxnID:      "txn-phase8-ac368-invalidate",
+		ClientTxnID:      "txn-saved_view_query-ac368-invalidate",
 		ActorUserID:      actorID,
 		ChangedFieldKeys: []string{"note.title"},
 		ViewSchemaID:     "cartulary.view.notes.v1",
@@ -392,11 +392,11 @@ func requireHubRecordChange(t testing.TB, changes <-chan platformws.RecordChange
 }
 
 func TestLiveAuthorizedCursorPagination_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase8-i-8-04-cursor")
+	harness := workbookscenariotest.StartServer(t, "saved_view_query-i-8-04-cursor")
 	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase8-i-8-04-incident",
-		"incident_key":  "IR-PHASE8-I-8-04",
+		"client_txn_id": "txn-saved_view_query-i-8-04-incident",
+		"incident_key":  "IR-SAVED-VIEW-QUERY-I-8-04",
 		"title":         "Workbook query cursor",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
@@ -447,8 +447,8 @@ func TestLiveAuthorizedCursorPagination_Integration(t *testing.T) {
 	}
 
 	otherIncident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase8-i-8-04-other-incident",
-		"incident_key":  "IR-PHASE8-I-8-04-OTHER",
+		"client_txn_id": "txn-saved_view_query-i-8-04-other-incident",
+		"incident_key":  "IR-SAVED-VIEW-QUERY-I-8-04-OTHER",
 		"title":         "Workbook query cursor other",
 	})
 	otherIncidentID := workbookscenariotest.MustUUID(t, otherIncident["incident_id"].(string))
@@ -463,11 +463,11 @@ func TestLiveAuthorizedCursorPagination_Integration(t *testing.T) {
 }
 
 func TestCursorContinuationRechecksAuthorization_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase8-i-8-04-cursor-auth")
+	harness := workbookscenariotest.StartServer(t, "saved_view_query-i-8-04-cursor-auth")
 	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase8-i-8-04-auth-incident",
-		"incident_key":  "IR-PHASE8-I-8-04-AUTH",
+		"client_txn_id": "txn-saved_view_query-i-8-04-auth-incident",
+		"incident_key":  "IR-SAVED-VIEW-QUERY-I-8-04-AUTH",
 		"title":         "Workbook query cursor auth",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
@@ -482,7 +482,7 @@ func TestCursorContinuationRechecksAuthorization_Integration(t *testing.T) {
 	execSeed(t, harness, `
 UPDATE user_sessions
    SET revoked_at = now(),
-       revoke_reason_code = 'phase8_test_revoked',
+       revoke_reason_code = 'saved_view_query_test_revoked',
        updated_at = now()
  WHERE user_id = $1
    AND revoked_at IS NULL
@@ -495,11 +495,11 @@ UPDATE user_sessions
 }
 
 func TestCursorContinuationRechecksMembership_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase8-i-8-04-cursor-membership")
+	harness := workbookscenariotest.StartServer(t, "saved_view_query-i-8-04-cursor-membership")
 	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase8-i-8-04-membership-incident",
-		"incident_key":  "IR-PHASE8-I-8-04-MEMBER",
+		"client_txn_id": "txn-saved_view_query-i-8-04-membership-incident",
+		"incident_key":  "IR-SAVED-VIEW-QUERY-I-8-04-MEMBER",
 		"title":         "Workbook query cursor membership",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
@@ -520,11 +520,11 @@ func TestCursorContinuationRechecksMembership_Integration(t *testing.T) {
 }
 
 func TestNotesFullTextExactSearch(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase8-ac185-notes")
+	harness := workbookscenariotest.StartServer(t, "saved_view_query-ac185-notes")
 	adminLogin, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase8-ac185-incident",
-		"incident_key":  "IR-PHASE8-AC185",
+		"client_txn_id": "txn-saved_view_query-ac185-incident",
+		"incident_key":  "IR-SAVED-VIEW-QUERY-AC185",
 		"title":         "Workbook query AC185",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
@@ -587,11 +587,11 @@ func TestNotesFullTextExactSearch(t *testing.T) {
 }
 
 func TestPrefixAndNullLastOrdering(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase8-e-8-04-prefix-null-last")
+	harness := workbookscenariotest.StartServer(t, "saved_view_query-e-8-04-prefix-null-last")
 	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase8-e-8-04-prefix-incident",
-		"incident_key":  "IR-PHASE8-E-8-04-PREFIX",
+		"client_txn_id": "txn-saved_view_query-e-8-04-prefix-incident",
+		"incident_key":  "IR-SAVED-VIEW-QUERY-E-8-04-PREFIX",
 		"title":         "Workbook query prefix",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))

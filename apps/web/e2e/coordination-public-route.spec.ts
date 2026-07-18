@@ -52,7 +52,7 @@ const coordinationCases: CoordinationCase[] = [
   {
     createValues: {
       "task.task_kind": "follow_up",
-      "task.title": "FE-E-P10 public task",
+      "task.title": "end-to-end.coordination-review public task",
     },
     label: "task",
     patchFieldKey: "task.priority",
@@ -62,8 +62,9 @@ const coordinationCases: CoordinationCase[] = [
   {
     createValues: {
       "decision.decision_type": "containment",
-      "decision.rationale": "FE-E-P10 public decision rationale",
-      "decision.summary": "FE-E-P10 public decision",
+      "decision.rationale":
+        "end-to-end.coordination-review public decision rationale",
+      "decision.summary": "end-to-end.coordination-review public decision",
     },
     label: "decision",
     patchFieldKey: "decision.status",
@@ -72,47 +73,49 @@ const coordinationCases: CoordinationCase[] = [
   },
   {
     createValues: {
-      "party.display_name": "FE-E-P10 Public Party",
+      "party.display_name": "end-to-end.coordination-review Public Party",
       "party.party_kind": "team",
     },
     label: "party",
     patchFieldKey: "party.notes",
-    patchValue: "FE-E-P10 party route edit",
+    patchValue: "end-to-end.coordination-review party route edit",
     viewSchemaId: partiesViewSchemaId,
   },
   {
     createValues: {
-      "comm_log.audience": "FE-E-P10 response leadership",
-      "comm_log.channel_or_meeting": "FE-E-P10 bridge",
+      "comm_log.audience": "end-to-end.coordination-review response leadership",
+      "comm_log.channel_or_meeting": "end-to-end.coordination-review bridge",
       "comm_log.comm_type": "briefing",
-      "comm_log.summary": "FE-E-P10 public communication",
+      "comm_log.summary": "end-to-end.coordination-review public communication",
     },
     label: "comm-log",
     patchFieldKey: "comm_log.summary",
-    patchValue: "FE-E-P10 edited communication",
+    patchValue: "end-to-end.coordination-review edited communication",
     viewSchemaId: commLogViewSchemaId,
   },
   {
     createValues: {
-      "handoff.current_state_summary": "FE-E-P10 handoff state",
+      "handoff.current_state_summary":
+        "end-to-end.coordination-review handoff state",
     },
     label: "handoff",
     patchFieldKey: "handoff.next_checks",
-    patchValue: "FE-E-P10 verify owner handoff",
+    patchValue: "end-to-end.coordination-review verify owner handoff",
     viewSchemaId: handoffViewSchemaId,
   },
   {
     createValues: {
-      "status_review.current_state_summary": "FE-E-P10 status review state",
+      "status_review.current_state_summary":
+        "end-to-end.coordination-review status review state",
     },
     label: "status-review",
     patchFieldKey: "status_review.active_risks_summary",
-    patchValue: "FE-E-P10 risk review",
+    patchValue: "end-to-end.coordination-review risk review",
     viewSchemaId: statusReviewViewSchemaId,
   },
   {
     createValues: {
-      "lesson.summary": "FE-E-P10 public lesson",
+      "lesson.summary": "end-to-end.coordination-review public lesson",
     },
     label: "lesson",
     patchFieldKey: "lesson.closure_state",
@@ -129,12 +132,12 @@ test("Verify coordination rows can be queried and edited through public view/row
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("FEEP1001"),
-    "FE-E-P10-01 public coordination route contracts",
+    "end-to-end.coordination-review.row-01 public coordination route contracts",
   );
-  const memberPassword = "Phase10Editor1!";
+  const memberPassword = "BackupRestoreEditor1!";
   const member = await createIncidentMemberUser(page, incidentId, {
-    display_name: "FE-E-P10 editor",
-    email: uniqueEmail("fe-e-p10-editor"),
+    display_name: "end-to-end.coordination-review editor",
+    email: uniqueEmail("end-to-end.coordination-review-editor"),
     initial_password: memberPassword,
     role: "editor",
   });
@@ -161,7 +164,7 @@ test("Verify coordination rows can be queried and edited through public view/row
   const memberPage = await memberContext.newPage();
   try {
     await sessionTracker.loginTrackedUser(memberPage, {
-      createdBy: "FE-E-P10-01",
+      createdBy: "end-to-end.coordination-review.row-01",
       email: member.email,
       password: memberPassword,
       purpose: "coordination public-route query and edit",

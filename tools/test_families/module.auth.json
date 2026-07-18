@@ -31,15 +31,15 @@
           "scenario_fcec515eb61b"
         ],
         "titles": [
-          "FE-A11Y-P1-01 anonymous login after initial session_required reaches login controls and authenticated landing",
-          "FE-A11Y-P1-01 authenticated landing exposes account, admin, incident, retry, and visible incident controls",
-          "FE-A11Y-P1-01 deferred session loading exposes progress and keeps recovery controls keyboard reachable",
-          "FE-A11Y-P1-01 forbidden access-denied public envelope is announced and exposes recovery without private diagnostics",
-          "FE-A11Y-P1-01 generic public error envelope renders safe diagnostics and keyboard error recovery",
-          "FE-A11Y-P1-01 incident empty, list, selected, stale-selection, and incident-error states expose keyboard recovery",
-          "FE-A11Y-P1-01 mfa_required challenge is keyboard reachable, visibly focused, named, and safely announced",
-          "FE-A11Y-P1-01 mfa_setup_required enrollment is keyboard reachable and public errors hide private setup diagnostics",
-          "FE-A11Y-P1-01 revoked session after prior authentication announces session end and supports re-authentication"
+          "a11y.incident-selection.row-01 anonymous login after initial session_required reaches login controls and authenticated landing",
+          "a11y.incident-selection.row-01 authenticated landing exposes account, admin, incident, retry, and visible incident controls",
+          "a11y.incident-selection.row-01 deferred session loading exposes progress and keeps recovery controls keyboard reachable",
+          "a11y.incident-selection.row-01 forbidden access-denied public envelope is announced and exposes recovery without private diagnostics",
+          "a11y.incident-selection.row-01 generic public error envelope renders safe diagnostics and keyboard error recovery",
+          "a11y.incident-selection.row-01 incident empty, list, selected, stale-selection, and incident-error states expose keyboard recovery",
+          "a11y.incident-selection.row-01 mfa_required challenge is keyboard reachable, visibly focused, named, and safely announced",
+          "a11y.incident-selection.row-01 mfa_setup_required enrollment is keyboard reachable and public errors hide private setup diagnostics",
+          "a11y.incident-selection.row-01 revoked session after prior authentication announces session end and supports re-authentication"
         ]
       },
       "evidence_class": "accessibility",

@@ -15,7 +15,7 @@ func ControlMutations() []routeinventory.Entry {
 			Body: func(fixture routeinventory.Fixture) map[string]any {
 				return map[string]any{
 					"view_schema_id": timeline.TimelineViewSchemaID, "base_row_version": fixture.BaseRecordVersion,
-					"client_txn_id": "txn-phase2-control-record-patch-" + fixture.ClientTxnSuffix,
+					"client_txn_id": "txn-incident-membership-control-record-patch-" + fixture.ClientTxnSuffix,
 					"changes":       []map[string]any{{"field_key": "timeline.activity_synopsis_text", "value": "Control boundary patch " + fixture.ClientTxnSuffix}},
 				}
 			},
@@ -24,7 +24,7 @@ func ControlMutations() []routeinventory.Entry {
 			Name: "mark reviewed", Transport: routeinventory.TransportHTTP, Method: http.MethodPost, Template: "/api/v1/records/{record_id}/mark-reviewed",
 			SuccessStatus: http.StatusOK, SuccessEnvelope: true, RequiresCSRF: true, AllowedRole: routeinventory.ControlRoleReviewerOrHigher,
 			Body: func(fixture routeinventory.Fixture) map[string]any {
-				return map[string]any{"base_row_version": fixture.BaseRecordVersion, "client_txn_id": "txn-phase2-control-mark-reviewed-" + fixture.ClientTxnSuffix}
+				return map[string]any{"base_row_version": fixture.BaseRecordVersion, "client_txn_id": "txn-incident-membership-control-mark-reviewed-" + fixture.ClientTxnSuffix}
 			},
 		},
 		{
@@ -32,7 +32,7 @@ func ControlMutations() []routeinventory.Entry {
 			SuccessStatus: http.StatusOK, SuccessEnvelope: true, RequiresCSRF: true, AllowedRole: routeinventory.ControlRoleReviewerOrHigher,
 			Body: func(fixture routeinventory.Fixture) map[string]any {
 				return map[string]any{
-					"base_row_version": fixture.BaseRecordVersion, "client_txn_id": "txn-phase2-control-supersede-" + fixture.ClientTxnSuffix,
+					"base_row_version": fixture.BaseRecordVersion, "client_txn_id": "txn-incident-membership-control-supersede-" + fixture.ClientTxnSuffix,
 					"reason": "Control boundary supersede " + fixture.ClientTxnSuffix, "replacement_record_id": fixture.ReplacementRecordID,
 				}
 			},

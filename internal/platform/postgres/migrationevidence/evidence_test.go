@@ -13,9 +13,9 @@ func TestMigrationEvidenceSourceAuditReportsManifestAndSourceFindings(t *testing
 	missingDownMigration := []byte("-- +goose Up\nSELECT 2;\n")
 	gapMigration := []byte("-- +goose Up\nSELECT 4;\n-- +goose Down\nSELECT 4;\n")
 	sourceFS := fstest.MapFS{
-		"00001_valid.sql":                &fstest.MapFile{Data: validMigration},
-		"00002_phase99_missing_down.sql": &fstest.MapFile{Data: missingDownMigration},
-		"00004_gap.sql":                  &fstest.MapFile{Data: gapMigration},
+		"00001_valid.sql": &fstest.MapFile{Data: validMigration},
+		"00002_workbook_interaction9_missing_down.sql": &fstest.MapFile{Data: missingDownMigration},
+		"00004_gap.sql": &fstest.MapFile{Data: gapMigration},
 	}
 	manifestPath := writeMigrationEvidenceManifest(t, manifestDocument{
 		SchemaID:                "cartulary.migration_history_manifest.v1",
@@ -23,7 +23,7 @@ func TestMigrationEvidenceSourceAuditReportsManifestAndSourceFindings(t *testing
 		ImmutableThroughVersion: 1,
 		Entries: []manifestEntry{
 			{Version: 1, Filename: "00001_valid.sql", SHA256: "not-the-source-hash"},
-			{Version: 2, Filename: "00002_phase99_missing_down.sql", SHA256: sha256Hex(missingDownMigration)},
+			{Version: 2, Filename: "00002_workbook_interaction9_missing_down.sql", SHA256: sha256Hex(missingDownMigration)},
 			{Version: 3, Filename: "00003_missing.sql", SHA256: strings.Repeat("0", 64)},
 		},
 	})

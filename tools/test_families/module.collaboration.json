@@ -23,7 +23,7 @@
           "scenario_187908558ca0"
         ],
         "titles": [
-          "FE-A11Y-P7-01 Verify conflict state, resolver controls, presence hint, stale-row notice, and save-state conflict communicate state by accessible name/state, not color alone."
+          "a11y.collaboration.row-01 Verify conflict state, resolver controls, presence hint, stale-row notice, and save-state conflict communicate state by accessible name/state, not color alone."
         ]
       },
       "evidence_class": "accessibility",

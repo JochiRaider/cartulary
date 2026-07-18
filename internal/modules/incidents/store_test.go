@@ -22,21 +22,21 @@ import (
 )
 
 func TestStoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences_Unit(t *testing.T) {
-	harness := storetest.StartStore(t, "phase2-u-2-02")
+	harness := storetest.StartStore(t, "incident_membership-u-2-02")
 	store := harness.Incidents
 	actor := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
-		"phase2-u202@example.test",
+		"incident_membership-u202@example.test",
 		"Incident administration U202",
-		"Phase2U202Pass!",
+		"IncidentMembershipU202Pass!",
 		false,
 		false,
 		true,
 	)
 
 	result := storetest.CreateIncidentInStore(t, harness.Incidents, actor, incidents.CreateIncidentRequest{
-		ClientTxnID: "txn-phase2-u-2-02-create",
+		ClientTxnID: "txn-incident_membership-u-2-02-create",
 		IncidentKey: "IR-U202",
 		Title:       "Incident administration U-2-02",
 	})
@@ -72,13 +72,13 @@ func TestStoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences_Unit(t *
 }
 
 func TestStoreCreateIncidentWorkbookBootstrapPortFailureRollsBack(t *testing.T) {
-	harness := storetest.StartStore(t, "phase2-support-bootstrap-port-rollback")
+	harness := storetest.StartStore(t, "incident_membership-support-bootstrap-port-rollback")
 	actor := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
-		"phase2-support-bootstrap-port@example.test",
+		"incident_membership-support-bootstrap-port@example.test",
 		"Incident administration Bootstrap Port",
-		"Phase2BootstrapPortPass!",
+		"IncidentMembershipBootstrapPortPass!",
 		false,
 		false,
 		true,
@@ -88,7 +88,7 @@ func TestStoreCreateIncidentWorkbookBootstrapPortFailureRollsBack(t *testing.T) 
 		WorkbookBootstrap: failingWorkbookBootstrapPort{err: bootstrapErr},
 	})
 	request := incidents.CreateIncidentRequest{
-		ClientTxnID: "txn-phase2-support-bootstrap-port-rollback",
+		ClientTxnID: "txn-incident_membership-support-bootstrap-port-rollback",
 		IncidentKey: "IR-SUPPORT-BOOTSTRAP-PORT-ROLLBACK",
 		Title:       "Incident administration support bootstrap port rollback",
 	}
@@ -124,14 +124,14 @@ func TestStoreCreateIncidentWorkbookBootstrapPortFailureRollsBack(t *testing.T) 
 }
 
 func TestIncidentBundleImportFinalizationCommitsBootstrapState(t *testing.T) {
-	harness := storetest.StartStore(t, "phase2-support-incident-bundle-finalize")
+	harness := storetest.StartStore(t, "incident_membership-support-incident-bundle-finalize")
 	store := harness.Incidents
 	actor := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
-		"phase2-support-bundle-finalize@example.test",
+		"incident_membership-support-bundle-finalize@example.test",
 		"Incident administration Bundle Finalize",
-		"Phase2BundleFinalizePass!",
+		"IncidentMembershipBundleFinalizePass!",
 		false,
 		true,
 		true,
@@ -189,14 +189,14 @@ func TestIncidentBundleImportFinalizationCommitsBootstrapState(t *testing.T) {
 }
 
 func TestIncidentBundleImportFinalizationRejectsMissingSubmitter(t *testing.T) {
-	harness := storetest.StartStore(t, "phase2-support-incident-bundle-finalize-missing")
+	harness := storetest.StartStore(t, "incident_membership-support-incident-bundle-finalize-missing")
 	store := harness.Incidents
 	creator := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
-		"phase2-support-bundle-finalize-creator@example.test",
+		"incident_membership-support-bundle-finalize-creator@example.test",
 		"Incident administration Bundle Finalize Creator",
-		"Phase2BundleFinalizeCreatorPass!",
+		"IncidentMembershipBundleFinalizeCreatorPass!",
 		false,
 		true,
 		true,
@@ -237,20 +237,20 @@ func TestIncidentBundleImportFinalizationRejectsMissingSubmitter(t *testing.T) {
 }
 
 func TestStoreCreateIncidentReturnsStableLocationValue_Unit(t *testing.T) {
-	harness := storetest.StartStore(t, "phase2-u-2-03")
+	harness := storetest.StartStore(t, "incident_membership-u-2-03")
 	actor := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
-		"phase2-u203@example.test",
+		"incident_membership-u203@example.test",
 		"Incident administration U203",
-		"Phase2U203Pass!",
+		"IncidentMembershipU203Pass!",
 		false,
 		false,
 		true,
 	)
 
 	result := storetest.CreateIncidentInStore(t, harness.Incidents, actor, incidents.CreateIncidentRequest{
-		ClientTxnID: "txn-phase2-u-2-03-create",
+		ClientTxnID: "txn-incident_membership-u-2-03-create",
 		IncidentKey: "IR-U203",
 		Title:       "Incident administration U-2-03",
 	})
@@ -285,14 +285,14 @@ VALUES ($1, $2, $2, $3, 'active', $4, $4)
 }
 
 func TestStoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor_Unit(t *testing.T) {
-	harness := storetest.StartStore(t, "phase2-u-2-04")
+	harness := storetest.StartStore(t, "incident_membership-u-2-04")
 	store := harness.Incidents
 	actor := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
-		"phase2-u204@example.test",
+		"incident_membership-u204@example.test",
 		"Incident administration U204",
-		"Phase2U204Pass!",
+		"IncidentMembershipU204Pass!",
 		false,
 		false,
 		true,
@@ -300,9 +300,9 @@ func TestStoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor_Un
 	secondActor := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
-		"phase2-u204-second@example.test",
+		"incident_membership-u204-second@example.test",
 		"Incident administration U204 Second",
-		"Phase2U204SecondPass!",
+		"IncidentMembershipU204SecondPass!",
 		false,
 		false,
 		true,
@@ -428,21 +428,21 @@ func TestStoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor_Un
 }
 
 func TestStoreIncidentPatchReturnsTypedVersionConflictDetails_Unit(t *testing.T) {
-	harness := storetest.StartStore(t, "phase2-u-2-14")
+	harness := storetest.StartStore(t, "incident_membership-u-2-14")
 	store := incidents.NewStore(harness.DB)
 	admin := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
-		"phase2-u214-admin@example.test",
+		"incident_membership-u214-admin@example.test",
 		"Incident administration U214 Admin",
-		"Phase2U214AdminPass!",
+		"IncidentMembershipU214AdminPass!",
 		false,
 		false,
 		true,
 	)
 
 	incidentResult := storetest.CreateIncidentInStore(t, harness.Incidents, admin, incidents.CreateIncidentRequest{
-		ClientTxnID: "txn-phase2-u-2-14-incident",
+		ClientTxnID: "txn-incident_membership-u-2-14-incident",
 		IncidentKey: "IR-U214",
 		Title:       "Incident administration U-2-14",
 	})
@@ -457,7 +457,7 @@ func TestStoreIncidentPatchReturnsTypedVersionConflictDetails_Unit(t *testing.T)
 			BaseIncidentVersion: incidentResult.Incident.IncidentVersion,
 			TLP:                 incidents.OptionalNullableString{Present: true, Value: &tlp},
 		},
-		"req-phase2-u-2-14-update",
+		"req-incident_membership-u-2-14-update",
 		time.Now().UTC(),
 	)
 	if err != nil {
@@ -476,7 +476,7 @@ func TestStoreIncidentPatchReturnsTypedVersionConflictDetails_Unit(t *testing.T)
 			BaseIncidentVersion: incidentResult.Incident.IncidentVersion,
 			TLP:                 incidents.OptionalNullableString{Present: true, Value: &staleTLP},
 		},
-		"req-phase2-u-2-14-stale",
+		"req-incident_membership-u-2-14-stale",
 		time.Now().UTC(),
 	)
 	if !errors.Is(err, incidents.ErrIncidentVersionConflict) {
@@ -508,14 +508,14 @@ func TestStoreIncidentPatchReturnsTypedVersionConflictDetails_Unit(t *testing.T)
 }
 
 func TestStoreMembershipPatchAndDeleteRejectStaleBaseVersion_Unit(t *testing.T) {
-	harness := storetest.StartStore(t, "phase2-u-2-07")
+	harness := storetest.StartStore(t, "incident_membership-u-2-07")
 	store := incidents.NewStore(harness.DB)
 	admin := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
-		"phase2-u207-admin@example.test",
+		"incident_membership-u207-admin@example.test",
 		"Incident administration U207 Admin",
-		"Phase2U207AdminPass!",
+		"IncidentMembershipU207AdminPass!",
 		false,
 		false,
 		true,
@@ -523,16 +523,16 @@ func TestStoreMembershipPatchAndDeleteRejectStaleBaseVersion_Unit(t *testing.T) 
 	target := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
-		"phase2-u207-target@example.test",
+		"incident_membership-u207-target@example.test",
 		"Incident administration U207 Target",
-		"Phase2U207TargetPass!",
+		"IncidentMembershipU207TargetPass!",
 		false,
 		false,
 		true,
 	)
 
 	incidentResult := storetest.CreateIncidentInStore(t, harness.Incidents, admin, incidents.CreateIncidentRequest{
-		ClientTxnID: "txn-phase2-u-2-07-incident",
+		ClientTxnID: "txn-incident_membership-u-2-07-incident",
 		IncidentKey: "IR-U207",
 		Title:       "Incident administration U-2-07",
 	})
@@ -544,7 +544,7 @@ func TestStoreMembershipPatchAndDeleteRejectStaleBaseVersion_Unit(t *testing.T) 
 		incidentResult.Incident.ID,
 		target,
 		incidents.MembershipCreateRequest{
-			ClientTxnID: "txn-phase2-u-2-07-membership",
+			ClientTxnID: "txn-incident_membership-u-2-07-membership",
 			UserID:      &target.ID,
 			Role:        "viewer",
 		},
@@ -560,7 +560,7 @@ func TestStoreMembershipPatchAndDeleteRejectStaleBaseVersion_Unit(t *testing.T) 
 			BaseMembershipVersion: staleVersion,
 			Role:                  "reviewer",
 		},
-		"req-phase2-u-2-07-patch",
+		"req-incident_membership-u-2-07-patch",
 		time.Now().UTC(),
 	); !errors.Is(err, incidents.ErrMembershipVersionConflict) {
 		t.Fatalf("stale membership patch must reject with version conflict: %v", err)
@@ -583,7 +583,7 @@ func TestStoreMembershipPatchAndDeleteRejectStaleBaseVersion_Unit(t *testing.T) 
 			BaseMembershipVersion: membershipResult.Membership.MembershipVersion,
 			Role:                  membershipResult.Membership.Role,
 		},
-		"req-phase2-u-2-07-no-op",
+		"req-incident_membership-u-2-07-no-op",
 		time.Now().UTC(),
 	)
 	if err != nil {
@@ -610,7 +610,7 @@ func TestStoreMembershipPatchAndDeleteRejectStaleBaseVersion_Unit(t *testing.T) 
 		incidentResult.Incident.ID,
 		target.ID,
 		incidents.MembershipDeleteRequest{BaseMembershipVersion: staleVersion},
-		"req-phase2-u-2-07-delete",
+		"req-incident_membership-u-2-07-delete",
 	); !errors.Is(err, incidents.ErrMembershipVersionConflict) {
 		t.Fatalf("stale membership delete must reject with version conflict: %v", err)
 	}

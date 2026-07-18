@@ -14,10 +14,10 @@ import (
 
 // U-4-07 / REQ-02-027, REQ-02-056..REQ-02-057, REQ-02-072..REQ-02-082 / AC-017, AC-077..AC-079.
 func TestIndicatorObservationSeparation_Unit(t *testing.T) {
-	harness := storetest.StartStore(t, "phase4-u-4-07-indicators")
+	harness := storetest.StartStore(t, "entity_linking-u-4-07-indicators")
 	store := indicators.NewStore(harness.DB)
-	actor := storetest.SeedLocalUserFlags(t, harness.DB, "u407@example.test", "U407", "U407Phase4Pass1!", false, false, true)
-	incident := storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-07-incident", "IR-U407", "Record relationships indicators")
+	actor := storetest.SeedLocalUserFlags(t, harness.DB, "u407@example.test", "U407", "U407EntityLinkingPass1!", false, false, true)
+	incident := storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-07-incident", "IR-U407", "Record relationships indicators")
 
 	create := func(clientTxnID string) indicators.MutationResult {
 		t.Helper()
@@ -35,8 +35,8 @@ func TestIndicatorObservationSeparation_Unit(t *testing.T) {
 		}
 		return result
 	}
-	first := create("txn-phase4-u-4-07-first")
-	second := create("txn-phase4-u-4-07-second")
+	first := create("txn-entity_linking-u-4-07-first")
+	second := create("txn-entity_linking-u-4-07-second")
 	if first.RecordID != second.RecordID || second.StatusCode != 200 {
 		t.Fatalf("canonical indicator dedupe failed: first=%#v second=%#v", first, second)
 	}
@@ -56,7 +56,7 @@ func TestIndicatorObservationSeparation_Unit(t *testing.T) {
 			SourceRecordID:            sourceRecordID.id,
 			SourceFieldKey:            sourceRecordID.field,
 			OriginKind:                "interactive_cell",
-			OriginLocator:             "phase4-u-4-07-observation-" + string(rune('1'+index)),
+			OriginLocator:             "entity_linking-u-4-07-observation-" + string(rune('1'+index)),
 			ObservedText:              golden.RecordIndicatorExamples[0].DefangedValue,
 			ResolvedIndicatorRecordID: &first.RecordID,
 			CreatedAt:                 sourceRecordID.created,

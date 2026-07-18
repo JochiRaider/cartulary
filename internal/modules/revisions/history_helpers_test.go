@@ -36,7 +36,7 @@ func seedRecord(t testing.TB, db *sql.DB, server *httptestx.Server, login workbo
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 	recordID := uuid.New()
-	workbookscenariotest.SeedHostRecord(t, db, incidentID, actorID, recordID, "History Host", "phase7-host", "", "")
+	workbookscenariotest.SeedHostRecord(t, db, incidentID, actorID, recordID, "History Host", "history_revision-host", "", "")
 	return incidentID, recordID
 }
 

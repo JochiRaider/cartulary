@@ -27,7 +27,7 @@ import (
 func TestUserListContinuationUsesLiveRows(t *testing.T) {
 	runtime := flowtest.StartRuntime(t)
 
-	server, db := startServer(t, runtime, "phase1-support-pagination")
+	server, db := startServer(t, runtime, "authentication-support-pagination")
 	defer db.Close()
 
 	seedFixedLocalUser(t, db, "10000000-0000-0000-0000-000000000701", "pagination-admin@example.test", "Pagination Admin", "PaginationAdmin1!", true)
@@ -108,7 +108,7 @@ func TestUserListContinuationUsesLiveRows(t *testing.T) {
 func TestUserListSearchTokenizesIdentifiersAndBindsCursorScope(t *testing.T) {
 	runtime := flowtest.StartRuntime(t)
 
-	server, db := startServer(t, runtime, "phase1-support-user-list-search")
+	server, db := startServer(t, runtime, "authentication-support-user-list-search")
 	defer db.Close()
 
 	nonAdminID := seedFixedLocalUser(t, db, "10000000-0000-0000-0000-000000000711", "search-viewer@example.test", "Search Viewer", "SearchViewer1!", false)
@@ -178,7 +178,7 @@ func TestUserListSearchTokenizesIdentifiersAndBindsCursorScope(t *testing.T) {
 
 func TestSurfaceEnvelope(t *testing.T) {
 	runtime := flowtest.StartRuntime(t)
-	ctx := newSupportRouteContext(t, runtime, "phase1-support-envelope")
+	ctx := newSupportRouteContext(t, runtime, "authentication-support-envelope")
 	defer ctx.db.Close()
 
 	for _, route := range routetest.RoutesForHarness(t, routetest.PublicRouteInventory(), routetest.RouteHarnessSurfaceEnvelope) {
@@ -192,12 +192,12 @@ func TestSurfaceEnvelope(t *testing.T) {
 
 func TestBootstrapBoundaries(t *testing.T) {
 	runtime := flowtest.StartRuntime(t)
-	ctx := newSupportRouteContext(t, runtime, "phase1-support-bootstrap")
+	ctx := newSupportRouteContext(t, runtime, "authentication-support-bootstrap")
 	defer ctx.db.Close()
 
 	bootstrapUserID, bootstrapEmail, bootstrapPassword := ctx.newLocalUser(t, "bootstrap-boundary", true, false, true)
 	bootstrapToken := requireBootstrapLogin(t, ctx.server, bootstrapEmail, bootstrapPassword)
-	bootstrapIncidentID := incidentstoretest.SeedIncidentMembershipSQL(t, ctx.db, bootstrapUserID, "phase1-support-bootstrap-ws")
+	bootstrapIncidentID := incidentstoretest.SeedIncidentMembershipSQL(t, ctx.db, bootstrapUserID, "authentication-support-bootstrap-ws")
 	targetUserID, _, _ := ctx.newLocalUser(t, "bootstrap-target", false, false, true)
 	totpTargetID, _, _, _, _ := ctx.newActiveTOTPLoggedInUser(t, "bootstrap-totp-target", false)
 	revokeTargetID, _, _, _, _ := ctx.newLoggedInLocalUser(t, "bootstrap-revoke-target", false, false, true)
@@ -222,7 +222,7 @@ func TestBootstrapBoundaries(t *testing.T) {
 
 func TestCSRFProtection(t *testing.T) {
 	runtime := flowtest.StartRuntime(t)
-	ctx := newSupportRouteContext(t, runtime, "phase1-support-csrf")
+	ctx := newSupportRouteContext(t, runtime, "authentication-support-csrf")
 	defer ctx.db.Close()
 
 	for _, route := range routetest.RoutesForHarness(t, routetest.PublicRouteInventory(), routetest.RouteHarnessCSRF) {
@@ -236,7 +236,7 @@ func TestCSRFProtection(t *testing.T) {
 
 func TestReplayAndStoredPayloadSafety(t *testing.T) {
 	runtime := flowtest.StartRuntime(t)
-	ctx := newSupportRouteContext(t, runtime, "phase1-support-replay")
+	ctx := newSupportRouteContext(t, runtime, "authentication-support-replay")
 	defer ctx.db.Close()
 
 	for _, route := range routetest.RoutesForHarness(t, routetest.PublicRouteInventory(), routetest.RouteHarnessReplayStoredPayload) {
@@ -313,7 +313,7 @@ func TestReplayAndStoredPayloadSafety(t *testing.T) {
 
 func TestAuditAttribution(t *testing.T) {
 	runtime := flowtest.StartRuntime(t)
-	ctx := newSupportRouteContext(t, runtime, "phase1-support-audit")
+	ctx := newSupportRouteContext(t, runtime, "authentication-support-audit")
 	defer ctx.db.Close()
 
 	for _, route := range routetest.RoutesForHarness(t, routetest.PublicRouteInventory(), routetest.RouteHarnessMutationAudit) {
@@ -342,7 +342,7 @@ func TestAuditAttribution(t *testing.T) {
 
 func TestSessionRevocation(t *testing.T) {
 	runtime := flowtest.StartRuntime(t)
-	ctx := newSupportRouteContext(t, runtime, "phase1-support-revocation")
+	ctx := newSupportRouteContext(t, runtime, "authentication-support-revocation")
 	defer ctx.db.Close()
 
 	for _, route := range routetest.RoutesForHarness(t, routetest.PublicRouteInventory(), routetest.RouteHarnessSessionRevocation) {
@@ -353,7 +353,7 @@ func TestSessionRevocation(t *testing.T) {
 				if socketUserID == "" {
 					t.Fatal("expected socket test user")
 				}
-				incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, ctx.db, socketUserID, "phase1-support-socket-bootstrap")
+				incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, ctx.db, socketUserID, "authentication-support-socket-bootstrap")
 				socket := connectSessionSocket(t, ctx.server, incidentID, socketSession.Value)
 				socket.Close(websocket.StatusNormalClosure, "support_cleanup")
 			case routetest.RouteLogout:
@@ -372,7 +372,7 @@ func TestSessionRevocation(t *testing.T) {
 				expectSessionRevoked(t, socket, "session_revoked")
 			case routetest.RoutePasswordChange:
 				userID, _, password, secretBase32, login := ctx.newActiveTOTPLoggedInUser(t, "support-password-change", false)
-				incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, ctx.db, userID, "phase1-support-password-change")
+				incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, ctx.db, userID, "authentication-support-password-change")
 				socket := connectSessionSocket(t, ctx.server, incidentID, login.sessionCookie.Value)
 				defer socket.Close(websocket.StatusNormalClosure, "support_cleanup")
 
@@ -423,7 +423,7 @@ func TestSessionRevocation(t *testing.T) {
 				}
 			case routetest.RouteUsersTOTPReset:
 				targetID, _, _, _, targetLogin := ctx.newActiveTOTPLoggedInUser(t, "support-totp-reset-target", false)
-				incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, ctx.db, targetID, "phase1-support-totp-reset")
+				incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, ctx.db, targetID, "authentication-support-totp-reset")
 				socket := connectSessionSocket(t, ctx.server, incidentID, targetLogin.sessionCookie.Value)
 				defer socket.Close(websocket.StatusNormalClosure, "support_cleanup")
 
@@ -470,7 +470,7 @@ func TestAuthorizationReDerivation(t *testing.T) {
 
 	for _, route := range routetest.RoutesForHarness(t, routetest.PublicRouteInventory(), routetest.RouteHarnessAuthorization) {
 		t.Run(string(route.ID), func(t *testing.T) {
-			ctx := newSupportRouteContext(t, runtime, "phase1-support-authorization-"+string(route.ID))
+			ctx := newSupportRouteContext(t, runtime, "authentication-support-authorization-"+string(route.ID))
 			defer ctx.db.Close()
 
 			beforeReq := ctx.buildSuccessRequest(t, route)
@@ -494,7 +494,7 @@ func TestAuthorizationReDerivation(t *testing.T) {
 
 func TestRequestContracts(t *testing.T) {
 	runtime := flowtest.StartRuntime(t)
-	ctx := newSupportRouteContext(t, runtime, "phase1-support-request-contracts")
+	ctx := newSupportRouteContext(t, runtime, "authentication-support-request-contracts")
 	defer ctx.db.Close()
 
 	for _, route := range routetest.RoutesForHarness(t, routetest.PublicRouteInventory(), routetest.RouteHarnessRequestContracts) {

@@ -153,7 +153,7 @@ if (lines.length !== 1) {
   throw new Error(`${label}: expected exactly one JSON line, got ${lines.length}`);
 }
 const summary = JSON.parse(lines[0]);
-if (summary.schema_id !== "cartulary.tool_run_summary.v4") {
+if (summary.schema_id !== "cartulary.tool_run_summary.v5") {
   throw new Error(`${label}: unexpected schema ${summary.schema_id}`);
 }
 if (summary.target !== expectedTarget) {
@@ -207,7 +207,7 @@ if [[ -n "${CARTULARY_TEST_RESULTS_DIR:-}" && -n "${CARTULARY_TEST_RUN_ID:-}" ]]
   "critical_path_wall_duration_ms": 1,
   "teardown_duration_ms": 0,
   "counts": {
-    "phases": 1,
+    "steps": 1,
     "tests": 0,
     "failed": 0,
     "authoritative": 0,
@@ -296,7 +296,7 @@ for (const name of ["alpha", "beta", "gamma", "smoke", "dry-run"]) {
       success_budget: { stdout_lines: 2, stdout_bytes: 1500, stderr_lines: 0, stderr_bytes: 0 },
       failure_budget: { stderr_lines: 35, stderr_bytes: 6000, excerpt_lines: 25, excerpt_bytes: 4096 },
       raw_stream_policy: "never_default",
-      summary_schema: "cartulary.tool_run_summary.v4",
+      summary_schema: "cartulary.tool_run_summary.v5",
     };
   }
   manifest.make_recipes[name] = { type: "aggregate", prerequisites: ["help"] };
@@ -478,9 +478,9 @@ target_start_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
   CARTULARY_TEST_RESULTS_DIR="${lifecycle_dir}/results" \
   CARTULARY_TEST_RUN_ID="lifecycle" \
-    "${ROOT_DIR}/tools/harness/output/test-output.sh" target-start alpha --children beta,gamma --service-backed 1 --expected-phases 2 --expected-tests 4 --force
+    "${ROOT_DIR}/tools/harness/output/test-output.sh" target-start alpha --children beta,gamma --service-backed 1 --expected-steps 2 --expected-tests 4 --force
 )"
-assert_equals "${target_start_output}" "[TARGET] start alpha service_backed=1 expected_phases=2 expected_tests=4 children=beta,gamma" "forced target-start lifecycle output"
+assert_equals "${target_start_output}" "[TARGET] start alpha service_backed=1 expected_steps=2 expected_tests=4 children=beta,gamma" "forced target-start lifecycle output"
 
 go_json_stream_output="$(
   printf '%s\n%s\n%s\n' '{"Output":"hello\n"}' 'not-json' '{"Output":"done"}' |

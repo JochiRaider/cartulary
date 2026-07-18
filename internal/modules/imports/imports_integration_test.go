@@ -27,15 +27,15 @@ func TestExtensionImportUploadEarlyFailCreatesNoDurableRows(t *testing.T) {
 	t.Cleanup(restore)
 
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase11-import-early-fail")
+	harness := runtime.StartServer(t, "extension_profile-import-early-fail")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase11-import-early-fail-incident",
-		"incident_key":  "IR-PHASE11-EARLY",
+		"client_txn_id": "txn-extension_profile-import-early-fail-incident",
+		"incident_key":  "IR-EXTENSION-PROFILE-EARLY",
 		"title":         "Enterprise integration import early fail",
 	})
 
-	metadata := `{"incident_id":"` + incident["incident_id"].(string) + `","client_txn_id":"txn-phase11-import-early-fail","extra":true}`
+	metadata := `{"incident_id":"` + incident["incident_id"].(string) + `","client_txn_id":"txn-extension_profile-import-early-fail","extra":true}`
 	resp := postImportUpload(t, harness.Server.HTTP.URL, adminLogin, metadata, "host,summary\nhost-1,alpha\n", "input.csv", false)
 	body := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_import_request")
 	details := body["error"].(map[string]any)["details"].(map[string]any)
@@ -51,7 +51,7 @@ func TestUploadMetadataNonObjectCreatesNoDurableRows_Integration(t *testing.T) {
 	t.Cleanup(restore)
 
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase11-import-metadata-non-object")
+	harness := runtime.StartServer(t, "extension_profile-import-metadata-non-object")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	resp := postImportUpload(t, harness.Server.HTTP.URL, adminLogin, `[]`, "host,summary\nhost-1,alpha\n", "input.csv", false)
@@ -69,15 +69,15 @@ func TestExtensionImportUploadExactReplayAndReadResources(t *testing.T) {
 	t.Cleanup(restore)
 
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase11-import-replay")
+	harness := runtime.StartServer(t, "extension_profile-import-replay")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase11-import-replay-incident",
-		"incident_key":  "IR-PHASE11-REPLAY",
+		"client_txn_id": "txn-extension_profile-import-replay-incident",
+		"incident_key":  "IR-EXTENSION-PROFILE-REPLAY",
 		"title":         "Enterprise integration import replay",
 	})
 	incidentID := incident["incident_id"].(string)
-	metadata := `{"client_txn_id":"txn-phase11-import-replay","incident_id":"` + incidentID + `"}`
+	metadata := `{"client_txn_id":"txn-extension_profile-import-replay","incident_id":"` + incidentID + `"}`
 	csv := "host,summary\nhost-1,alpha\nhost-2,beta\n"
 
 	firstResp := postImportUpload(t, harness.Server.HTTP.URL, adminLogin, metadata, csv, "first.csv", false)
@@ -162,15 +162,15 @@ func TestXLSXDiscoveryUsesBoundedUsedRange_Integration(t *testing.T) {
 	t.Cleanup(restore)
 
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase11-import-xlsx-discovery")
+	harness := runtime.StartServer(t, "extension_profile-import-xlsx-discovery")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase11-import-xlsx-incident",
-		"incident_key":  "IR-PHASE11-XLSX",
+		"client_txn_id": "txn-extension_profile-import-xlsx-incident",
+		"incident_key":  "IR-EXTENSION-PROFILE-XLSX",
 		"title":         "Enterprise integration XLSX import",
 	})
 	incidentID := incident["incident_id"].(string)
-	metadata := `{"client_txn_id":"txn-phase11-import-xlsx-upload","incident_id":"` + incidentID + `"}`
+	metadata := `{"client_txn_id":"txn-extension_profile-import-xlsx-upload","incident_id":"` + incidentID + `"}`
 
 	uploadResp := postImportUploadBytes(t, harness.Server.HTTP.URL, adminLogin, metadata, minimalXLSX(t), "input.xlsx", imports.MediaTypeXLSX, false)
 	uploadJob := httptestx.RequireSuccessEnvelope(t, uploadResp, http.StatusAccepted)["data"].(map[string]any)
@@ -211,16 +211,16 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 	t.Cleanup(restore)
 
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase11-import-apply")
+	harness := runtime.StartServer(t, "extension_profile-import-apply")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase11-import-apply-incident",
-		"incident_key":  "IR-PHASE11-APPLY",
+		"client_txn_id": "txn-extension_profile-import-apply-incident",
+		"incident_key":  "IR-EXTENSION-PROFILE-APPLY",
 		"title":         "Enterprise integration import apply",
 	})
 	incidentID := incident["incident_id"].(string)
 	hostRecordID := createImportAutoResolutionCandidateHost(t, harness.Server.HTTP.URL, adminLogin, incidentID)
-	metadata := `{"client_txn_id":"txn-phase11-import-apply-upload","incident_id":"` + incidentID + `"}`
+	metadata := `{"client_txn_id":"txn-extension_profile-import-apply-upload","incident_id":"` + incidentID + `"}`
 	csv := "host,summary,source_note\nhost-1, Alpha summary ,raw-a\nhost-2,Beta summary,raw-b\n"
 
 	uploadResp := postImportUpload(t, harness.Server.HTTP.URL, adminLogin, metadata, csv, "apply.csv", false)
@@ -234,7 +234,7 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 	unitID := units[0].(map[string]any)["import_unit_id"].(string)
 
 	mapping := map[string]any{
-		"client_txn_id":         "txn-phase11-import-apply-mapping",
+		"client_txn_id":         "txn-extension_profile-import-apply-mapping",
 		"target_view_schema_id": "cartulary.view.timeline.v2",
 		"header_row_ref":        1,
 		"data_start_row_ref":    2,
@@ -270,7 +270,7 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 		},
 	}
 	customAttrsMapping := cloneImportMappingPayload(t, mapping)
-	customAttrsMapping["client_txn_id"] = "txn-phase11-import-apply-custom-attrs"
+	customAttrsMapping["client_txn_id"] = "txn-extension_profile-import-apply-custom-attrs"
 	customAttrsMapping["unknown_column_policy"] = "preserve_custom_attrs"
 	customAttrsResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPut, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping", customAttrsMapping)
 	customAttrsErr := httptestx.RequireErrorEnvelope(t, customAttrsResp, http.StatusBadRequest, "invalid_import_request")
@@ -279,7 +279,7 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 	}
 
 	rejectUnmappedMapping := cloneImportMappingPayload(t, mapping)
-	rejectUnmappedMapping["client_txn_id"] = "txn-phase11-import-apply-reject-unmapped"
+	rejectUnmappedMapping["client_txn_id"] = "txn-extension_profile-import-apply-reject-unmapped"
 	rejectUnmappedMapping["unknown_column_policy"] = "reject_if_unmapped"
 	rejectUnmappedResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPut, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping", rejectUnmappedMapping)
 	rejectUnmappedErr := httptestx.RequireErrorEnvelope(t, rejectUnmappedResp, http.StatusBadRequest, "invalid_import_request")
@@ -293,13 +293,13 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 		t.Fatalf("unexpected mapped unit: %#v", mappedUnit)
 	}
 
-	selectResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/select", map[string]any{"client_txn_id": "txn-phase11-import-apply-select"})
+	selectResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/select", map[string]any{"client_txn_id": "txn-extension_profile-import-apply-select"})
 	selected := httptestx.RequireSuccessEnvelope(t, selectResp, http.StatusOK)["data"].(map[string]any)
 	if selected["session_status"] != "ready_to_apply" || selected["unit"].(map[string]any)["unit_status"] != "ready" {
 		t.Fatalf("unexpected selected state: %#v", selected)
 	}
 
-	applyResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-phase11-import-apply-apply"})
+	applyResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-extension_profile-import-apply-apply"})
 	applyJob := httptestx.RequireSuccessEnvelope(t, applyResp, http.StatusAccepted)["data"].(map[string]any)
 	applyJobResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+applyJob["job_id"].(string), nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	appliedJob := httptestx.RequireSuccessEnvelope(t, applyJobResp, http.StatusOK)["data"].(map[string]any)
@@ -332,7 +332,7 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 	requireTimelineImportRawCapture(t, harness.DB, recordIDsBySummary["Alpha summary"], sessionID, unitID, "source_note", "raw-a", 2, 3, "A1:C3")
 	requireTimelineImportRawCapture(t, harness.DB, recordIDsBySummary["Beta summary"], sessionID, unitID, "source_note", "raw-b", 3, 3, "A1:C3")
 
-	duplicateApply := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-phase11-import-apply-second"})
+	duplicateApply := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-extension_profile-import-apply-second"})
 	errBody := httptestx.RequireErrorEnvelope(t, duplicateApply, http.StatusConflict, "import_apply_blocked")
 	if errBody["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "duplicate_apply_blocked" {
 		t.Fatalf("unexpected duplicate apply error: %#v", errBody)
@@ -344,18 +344,18 @@ func TestTargetRegistryAndEntityOwnerFacade_Integration(t *testing.T) {
 	t.Cleanup(restore)
 
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase11-import-target-registry-host")
+	harness := runtime.StartServer(t, "extension_profile-import-target-registry-host")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase11-import-target-host-incident",
-		"incident_key":  "IR-PHASE11-HOST",
+		"client_txn_id": "txn-extension_profile-import-target-host-incident",
+		"incident_key":  "IR-EXTENSION-PROFILE-HOST",
 		"title":         "Enterprise integration host import",
 	})
 	incidentID := incident["incident_id"].(string)
 
-	sessionID, unitID := startCSVImportSession(t, harness.Server.HTTP.URL, adminLogin, incidentID, "txn-phase11-import-target-host-upload", "hostname\nimported-host-1\n", "hosts.csv")
+	sessionID, unitID := startCSVImportSession(t, harness.Server.HTTP.URL, adminLogin, incidentID, "txn-extension_profile-import-target-host-upload", "hostname\nimported-host-1\n", "hosts.csv")
 	unknownTargetMapping := map[string]any{
-		"client_txn_id":         "txn-phase11-import-target-unknown-mapping",
+		"client_txn_id":         "txn-extension_profile-import-target-unknown-mapping",
 		"target_view_schema_id": "cartulary.view.unknown.v1",
 		"header_row_ref":        1,
 		"data_start_row_ref":    2,
@@ -377,7 +377,7 @@ func TestTargetRegistryAndEntityOwnerFacade_Integration(t *testing.T) {
 	}
 
 	networkFlowMapping := map[string]any{
-		"client_txn_id":           "txn-phase11-import-target-network-flow-mapping",
+		"client_txn_id":           "txn-extension_profile-import-target-network-flow-mapping",
 		"target_kind":             imports.ImportTargetKindNetworkFlowTable,
 		"extension_profile_id":    imports.NetworkFlowExtensionProfileID,
 		"owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
@@ -403,7 +403,7 @@ func TestTargetRegistryAndEntityOwnerFacade_Integration(t *testing.T) {
 	}
 
 	hostMapping := cloneImportMappingPayload(t, unknownTargetMapping)
-	hostMapping["client_txn_id"] = "txn-phase11-import-target-host-mapping"
+	hostMapping["client_txn_id"] = "txn-extension_profile-import-target-host-mapping"
 	hostMapping["target_view_schema_id"] = "cartulary.view.hosts.v1"
 	mappingResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPut, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping", hostMapping)
 	mappedUnit := httptestx.RequireSuccessEnvelope(t, mappingResp, http.StatusOK)["data"].(map[string]any)
@@ -411,9 +411,9 @@ func TestTargetRegistryAndEntityOwnerFacade_Integration(t *testing.T) {
 		t.Fatalf("unexpected host mapped unit: %#v", mappedUnit)
 	}
 
-	selectResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/select", map[string]any{"client_txn_id": "txn-phase11-import-target-host-select"})
+	selectResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/select", map[string]any{"client_txn_id": "txn-extension_profile-import-target-host-select"})
 	httptestx.RequireSuccessEnvelope(t, selectResp, http.StatusOK)
-	applyResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-phase11-import-target-host-apply"})
+	applyResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-extension_profile-import-target-host-apply"})
 	applyJob := httptestx.RequireSuccessEnvelope(t, applyResp, http.StatusAccepted)["data"].(map[string]any)
 	applyJobResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+applyJob["job_id"].(string), nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	appliedJob := httptestx.RequireSuccessEnvelope(t, applyJobResp, http.StatusOK)["data"].(map[string]any)
@@ -552,18 +552,18 @@ func TestEvidenceImportUsesOwnerFacadeAndJournal_Integration(t *testing.T) {
 	t.Cleanup(restore)
 
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase11-import-evidence-owner-facade")
+	harness := runtime.StartServer(t, "extension_profile-import-evidence-owner-facade")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase11-import-evidence-owner-incident",
-		"incident_key":  "IR-PHASE11-EVIDENCE",
+		"client_txn_id": "txn-extension_profile-import-evidence-owner-incident",
+		"incident_key":  "IR-EXTENSION-PROFILE-EVIDENCE",
 		"title":         "Enterprise integration evidence owner facade",
 	})
 	incidentID := incident["incident_id"].(string)
 
-	sessionID, unitID := startCSVImportSession(t, harness.Server.HTTP.URL, adminLogin, incidentID, "txn-phase11-import-evidence-owner-upload", "title\nEvidence from import\n", "evidence.csv")
+	sessionID, unitID := startCSVImportSession(t, harness.Server.HTTP.URL, adminLogin, incidentID, "txn-extension_profile-import-evidence-owner-upload", "title\nEvidence from import\n", "evidence.csv")
 	mapping := map[string]any{
-		"client_txn_id":         "txn-phase11-import-evidence-owner-mapping",
+		"client_txn_id":         "txn-extension_profile-import-evidence-owner-mapping",
 		"target_view_schema_id": "cartulary.view.evidence.v1",
 		"header_row_ref":        1,
 		"data_start_row_ref":    2,
@@ -580,10 +580,10 @@ func TestEvidenceImportUsesOwnerFacadeAndJournal_Integration(t *testing.T) {
 	}
 	mappingResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPut, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping", mapping)
 	httptestx.RequireSuccessEnvelope(t, mappingResp, http.StatusOK)
-	selectResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/select", map[string]any{"client_txn_id": "txn-phase11-import-evidence-owner-select"})
+	selectResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/select", map[string]any{"client_txn_id": "txn-extension_profile-import-evidence-owner-select"})
 	httptestx.RequireSuccessEnvelope(t, selectResp, http.StatusOK)
 
-	applyResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-phase11-import-evidence-owner-apply"})
+	applyResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-extension_profile-import-evidence-owner-apply"})
 	applyJob := httptestx.RequireSuccessEnvelope(t, applyResp, http.StatusAccepted)["data"].(map[string]any)
 	applyJobResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+applyJob["job_id"].(string), nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	appliedJob := httptestx.RequireSuccessEnvelope(t, applyJobResp, http.StatusOK)["data"].(map[string]any)
@@ -603,7 +603,7 @@ func TestEvidenceImportUsesOwnerFacadeAndJournal_Integration(t *testing.T) {
 	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM import_apply_journal WHERE import_session_id::text = $1`, sessionID); got != 1 {
 		t.Fatalf("expected one import apply journal row, got %d", got)
 	}
-	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE source = 'imports.apply' AND client_txn_id = $1`, "import:"+sessionID+":"+unitID+":txn-phase11-import-evidence-owner-apply"); got != 1 {
+	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE source = 'imports.apply' AND client_txn_id = $1`, "import:"+sessionID+":"+unitID+":txn-extension_profile-import-evidence-owner-apply"); got != 1 {
 		t.Fatalf("expected one unit-level import change set, got %d", got)
 	}
 }
@@ -616,7 +616,7 @@ func createImportAutoResolutionCandidateHost(t testing.TB, serverURL string, log
 		http.MethodPost,
 		serverURL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.hosts.v1/rows",
 		map[string]any{
-			"client_txn_id":     "txn-phase11-import-apply-host-alias-candidate",
+			"client_txn_id":     "txn-extension_profile-import-apply-host-alias-candidate",
 			"host.display_name": "Import existing host",
 			"host.hostname":     "import-existing-host",
 			"host.aliases": map[string]any{

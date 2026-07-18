@@ -17,14 +17,14 @@ import (
 )
 
 func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "phase5-evidence-lifecycle")
+	harness := recordstoretest.StartStore(t, "evidence_lifecycle-evidence-lifecycle")
 	workbookStore := workbook.NewStore(harness.DB)
 	evidenceStore := evidence.NewStore(harness.DB)
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase5-lifecycle@example.test", "Phase5 Lifecycle", "Phase5Lifecycle1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase5-lifecycle-incident", "IR-P5-LIFECYCLE", "Evidence lifecycle")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "evidence_lifecycle-lifecycle@example.test", "EvidenceLifecycle Lifecycle", "EvidenceLifecycleLifecycle1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-lifecycle-incident", "IR-P5-LIFECYCLE", "Evidence lifecycle")
 
 	requested := createEvidenceViaWorkbook(t, workbookStore, actor, incident.ID, `{
-		"client_txn_id":"txn-phase5-lifecycle-requested",
+		"client_txn_id":"txn-evidence_lifecycle-lifecycle-requested",
 		"evidence.title":" Requested endpoint package ",
 		"evidence.storage_ref":" ticket://collect-1 ",
 		"evidence.collector_party_text":" IR collector ",
@@ -42,7 +42,7 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 	pendingReceipt := patchEvidenceViaWorkbook(t, workbookStore, actor, recordID, `{
 		"view_schema_id":"cartulary.view.evidence.v1",
 		"base_row_version":1,
-		"client_txn_id":"txn-phase5-lifecycle-pending",
+		"client_txn_id":"txn-evidence_lifecycle-lifecycle-pending",
 		"changes":[{"field_key":"evidence.lifecycle_state","value":"pending_receipt"}]
 	}`)
 	requireRowCellValue(t, pendingReceipt.Payload["row"].(map[string]any), "evidence.lifecycle_state", "pending_receipt")
@@ -50,7 +50,7 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 	received := patchEvidenceViaWorkbook(t, workbookStore, actor, recordID, `{
 		"view_schema_id":"cartulary.view.evidence.v1",
 		"base_row_version":2,
-		"client_txn_id":"txn-phase5-lifecycle-received",
+		"client_txn_id":"txn-evidence_lifecycle-lifecycle-received",
 		"changes":[{"field_key":"evidence.lifecycle_state","value":"received"}]
 	}`)
 	requireRowCellValue(t, received.Payload["row"].(map[string]any), "evidence.lifecycle_state", "received")
@@ -58,18 +58,18 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 	requireIllegalLifecyclePatch(t, workbookStore, actor, recordID, `{
 		"view_schema_id":"cartulary.view.evidence.v1",
 		"base_row_version":3,
-		"client_txn_id":"txn-phase5-lifecycle-available-without-blob",
+		"client_txn_id":"txn-evidence_lifecycle-lifecycle-available-without-blob",
 		"changes":[{"field_key":"evidence.lifecycle_state","value":"available"}]
 	}`)
 	requireIllegalLifecyclePatch(t, workbookStore, actor, recordID, `{
 		"view_schema_id":"cartulary.view.evidence.v1",
 		"base_row_version":3,
-		"client_txn_id":"txn-phase5-lifecycle-released-direct",
+		"client_txn_id":"txn-evidence_lifecycle-lifecycle-released-direct",
 		"changes":[{"field_key":"evidence.lifecycle_state","value":"released"}]
 	}`)
 
 	attachTarget := createEvidenceViaWorkbook(t, workbookStore, actor, incident.ID, `{
-		"client_txn_id":"txn-phase5-lifecycle-attach-target",
+		"client_txn_id":"txn-evidence_lifecycle-lifecycle-attach-target",
 		"evidence.title":"Blob arrives later",
 		"evidence.storage_ref":"ticket://collect-2",
 		"evidence.collector_party_text":"IR collector",
@@ -81,7 +81,7 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 	blobID := seedBlob(t, harness.DB, incident.ID, actor.ID, "available", BlobOptions{
 		ByteSize: 4, ObservedSize: ptrInt64(4), ObservedSHA: ptrString(strings.Repeat("b", 64)), ObservedContentType: ptrString("text/plain"),
 	})
-	attachRequest := evidence.AttachBlobRequest{ObjectBlobID: blobID, BaseRowVersion: 1, ClientTxnID: "txn-phase5-lifecycle-attach"}
+	attachRequest := evidence.AttachBlobRequest{ObjectBlobID: blobID, BaseRowVersion: 1, ClientTxnID: "txn-evidence_lifecycle-lifecycle-attach"}
 	attached, err := evidenceStore.AttachBlob(context.Background(), actor, attachRecordID, attachRequest, evidence.AttachBlobRequestHash(attachRequest), nil, "req-lifecycle-attach", time.Now().UTC())
 	if err != nil {
 		t.Fatalf("attach available blob to requested evidence: %v", err)
@@ -105,7 +105,7 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 	requireChangeSetAttribution(t, harness.DB, attached.Payload["change_set_id"].(string), actor.ID, "evidence.attach_blob", attachRequest.ClientTxnID)
 
 	quarantined := createEvidenceViaWorkbook(t, workbookStore, actor, incident.ID, `{
-		"client_txn_id":"txn-phase5-lifecycle-quarantined",
+		"client_txn_id":"txn-evidence_lifecycle-lifecycle-quarantined",
 		"evidence.title":"Quarantined evidence"
 	}`)
 	quarantinedRecordID := mustRowID(t, quarantined.Payload["row"].(map[string]any))
@@ -113,7 +113,7 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 		t.Fatalf("seed quarantined lifecycle: %v", err)
 	}
 	quarantinedBlobID := seedBlob(t, harness.DB, incident.ID, actor.ID, "available", BlobOptions{ByteSize: 1, ObservedSize: ptrInt64(1)})
-	quarantinedAttach := evidence.AttachBlobRequest{ObjectBlobID: quarantinedBlobID, BaseRowVersion: 1, ClientTxnID: "txn-phase5-quarantined-attach"}
+	quarantinedAttach := evidence.AttachBlobRequest{ObjectBlobID: quarantinedBlobID, BaseRowVersion: 1, ClientTxnID: "txn-evidence_lifecycle-quarantined-attach"}
 	if _, err := evidenceStore.AttachBlob(context.Background(), actor, quarantinedRecordID, quarantinedAttach, evidence.AttachBlobRequestHash(quarantinedAttach), nil, "req-quarantined-attach", time.Now().UTC()); !errors.Is(err, evidence.ErrEvidenceQuarantined) {
 		t.Fatalf("quarantined evidence attach got %v want ErrEvidenceQuarantined", err)
 	} else {

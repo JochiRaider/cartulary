@@ -378,7 +378,7 @@ func AssertDigestAlgorithms(t *testing.T) {
 	if !hex64(normalized) {
 		t.Fatalf("normalized row digest is not sha256 hex: %q", normalized)
 	}
-	rowID := RowID(IncidentID(), "nft_phase12", 2, rowDigest, normalized)
+	rowID := RowID(IncidentID(), "nft_network_flow", 2, rowDigest, normalized)
 	if !strings.HasPrefix(rowID, "nfr_") || len(rowID) != len("nfr_")+64 {
 		t.Fatalf("unexpected row ID: %q", rowID)
 	}
@@ -831,7 +831,7 @@ func flowRowFixture() FlowRow {
 	dstPort := int32(51515)
 	return FlowRow{
 		RowID:                     "nfr_" + strings.Repeat("1", 64),
-		NetworkFlowTableID:        "nft_phase12",
+		NetworkFlowTableID:        "nft_network_flow",
 		IncidentID:                IncidentID(),
 		SourceRowNumber:           2,
 		SourceRowDigestSHA256:     strings.Repeat("2", 64),

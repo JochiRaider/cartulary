@@ -19,11 +19,11 @@ import (
 
 // U-4-01 / REQ-02-028..REQ-02-036 / AC-019, AC-020, AC-022.
 func TestBindingMode_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "phase4-u-4-01")
+	harness := recordstoretest.StartStore(t, "entity_linking-u-4-01")
 	timelineStore := newResolutionTimelineCommands(harness.DB)
 	entityStore := hostidentity.NewStore(harness.DB)
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u401@example.test", "U401", "U401Phase4Pass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-01-incident", "IR-U401", "Record relationships U-4-01")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u401@example.test", "U401", "U401EntityLinkingPass1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-01-incident", "IR-U401", "Record relationships U-4-01")
 
 	recordstoretest.RequireViewFieldBindingMode(t, "U-4-01", golden.RecordTimelineViewSchemaID, golden.RecordFieldTimelineHostRefs, "mention_origin")
 	recordstoretest.RequireViewFieldBindingMode(t, "U-4-01", golden.RecordTimelineViewSchemaID, golden.RecordFieldTimelineIdentityRefs, "mention_origin")
@@ -39,7 +39,7 @@ func TestBindingMode_Unit(t *testing.T) {
 		t.Fatal("normalize mention token")
 	}
 	timelineResult, err := timelineStore.CreateRow(context.Background(), actor, incident.ID, CreateRequest{
-		ClientTxnID:          "txn-phase4-u-4-01-timeline",
+		ClientTxnID:          "txn-entity_linking-u-4-01-timeline",
 		ActivitySynopsisText: stringPtr("Mention origin row"),
 		HostRefs: &CollectionActionPayload{
 			Actions: []CollectionAction{
@@ -50,7 +50,7 @@ func TestBindingMode_Unit(t *testing.T) {
 				},
 			},
 		},
-	}, []byte("txn-phase4-u-4-01-timeline"), "req-phase4-u-4-01-timeline", time.Now().UTC())
+	}, []byte("txn-entity_linking-u-4-01-timeline"), "req-entity_linking-u-4-01-timeline", time.Now().UTC())
 	if err != nil {
 		t.Fatalf("create mention-origin row: %v", err)
 	}
@@ -65,12 +65,12 @@ func TestBindingMode_Unit(t *testing.T) {
 	}
 
 	entityResult, err := entityStore.CreateHostRow(context.Background(), actor, incident.ID, hostidentity.CreateRequest{
-		ClientTxnID: "txn-phase4-u-4-01-host",
+		ClientTxnID: "txn-entity_linking-u-4-01-host",
 		Values: map[string]string{
 			"host.display_name": "WS-023",
 			"host.hostname":     "WS-023",
 		},
-	}, []byte("txn-phase4-u-4-01-host"), "req-phase4-u-4-01-host", time.Now().UTC())
+	}, []byte("txn-entity_linking-u-4-01-host"), "req-entity_linking-u-4-01-host", time.Now().UTC())
 	if err != nil {
 		t.Fatalf("create entity-origin host row: %v", err)
 	}
@@ -85,12 +85,12 @@ func TestBindingMode_Unit(t *testing.T) {
 	}
 
 	identityResult, err := entityStore.CreateIdentityRow(context.Background(), actor, incident.ID, hostidentity.CreateRequest{
-		ClientTxnID: "txn-phase4-u-4-01-identity",
+		ClientTxnID: "txn-entity_linking-u-4-01-identity",
 		Values: map[string]string{
 			"identity.display_name": "Alex Analyst",
 			"identity.email":        "alex.analyst@example.test",
 		},
-	}, []byte("txn-phase4-u-4-01-identity"), "req-phase4-u-4-01-identity", time.Now().UTC())
+	}, []byte("txn-entity_linking-u-4-01-identity"), "req-entity_linking-u-4-01-identity", time.Now().UTC())
 	if err != nil {
 		t.Fatalf("create entity-origin identity row: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestBindingMode_Unit(t *testing.T) {
 		t.Fatal("normalize import identity mention token")
 	}
 	importRequest := CreateRequest{
-		ClientTxnID:          "txn-phase4-u-4-01-import-row",
+		ClientTxnID:          "txn-entity_linking-u-4-01-import-row",
 		ActivitySynopsisText: stringPtr("Import create preserves mention tokens"),
 		HostRefs: &CollectionActionPayload{Actions: []CollectionAction{{
 			Op:             "add_token",
@@ -128,7 +128,7 @@ func TestBindingMode_Unit(t *testing.T) {
 			NormalizedText: importIdentityNormalizedToken,
 		}}},
 	}
-	importResult, err := timelineStore.CreateImportedRow(context.Background(), actor, incident.ID, importRequest, TimelineCreateRequestHash(importRequest), "req-phase4-u-4-01-import-row", time.Now().UTC())
+	importResult, err := timelineStore.CreateImportedRow(context.Background(), actor, incident.ID, importRequest, TimelineCreateRequestHash(importRequest), "req-entity_linking-u-4-01-import-row", time.Now().UTC())
 	if err != nil {
 		t.Fatalf("import create row: %v", err)
 	}
@@ -162,32 +162,32 @@ func TestBindingMode_Unit(t *testing.T) {
 
 // U-4-02 / REQ-02-031..REQ-02-032, REQ-02-058 / AC-019, AC-021.
 func TestDuplicateMentionProvenance_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "phase4-u-4-02")
+	harness := recordstoretest.StartStore(t, "entity_linking-u-4-02")
 	store := newResolutionTimelineCommands(harness.DB)
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u402@example.test", "U402", "U402Phase4Pass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-02-incident", "IR-U402", "Record relationships U-4-02")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u402@example.test", "U402", "U402EntityLinkingPass1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-02-incident", "IR-U402", "Record relationships U-4-02")
 
 	normalizedToken, ok := fieldnorm.NormalizeMentionToken("WS-023")
 	if !ok {
 		t.Fatal("normalize mention token")
 	}
 	first, err := store.CreateRow(context.Background(), actor, incident.ID, CreateRequest{
-		ClientTxnID:          "txn-phase4-u-4-02-first",
+		ClientTxnID:          "txn-entity_linking-u-4-02-first",
 		ActivitySynopsisText: stringPtr("Duplicate provenance one"),
 		HostRefs: &CollectionActionPayload{
 			Actions: []CollectionAction{{Op: "add_token", RawText: "WS-023", NormalizedText: normalizedToken}},
 		},
-	}, []byte("txn-phase4-u-4-02-first"), "req-phase4-u-4-02-first", time.Now().UTC())
+	}, []byte("txn-entity_linking-u-4-02-first"), "req-entity_linking-u-4-02-first", time.Now().UTC())
 	if err != nil {
 		t.Fatalf("create first row: %v", err)
 	}
 	second, err := store.CreateRow(context.Background(), actor, incident.ID, CreateRequest{
-		ClientTxnID:          "txn-phase4-u-4-02-second",
+		ClientTxnID:          "txn-entity_linking-u-4-02-second",
 		ActivitySynopsisText: stringPtr("Duplicate provenance two"),
 		HostRefs: &CollectionActionPayload{
 			Actions: []CollectionAction{{Op: "add_token", RawText: "WS-023", NormalizedText: normalizedToken}},
 		},
-	}, []byte("txn-phase4-u-4-02-second"), "req-phase4-u-4-02-second", time.Now().UTC())
+	}, []byte("txn-entity_linking-u-4-02-second"), "req-entity_linking-u-4-02-second", time.Now().UTC())
 	if err != nil {
 		t.Fatalf("create second row: %v", err)
 	}
@@ -235,20 +235,20 @@ SELECT entity_mention_id::text, source_record_id::text, raw_text, origin_locator
 }
 
 func TestAttachedEvidenceCreateAndPatch(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "phase5-attached-evidence")
+	harness := recordstoretest.StartStore(t, "evidence_lifecycle-attached-evidence")
 	store := newResolutionTimelineCommands(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u5attach@example.test", "U5ATTACH", "U5AttachPass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase5-attached-incident", "IR-U5ATTACH", "Evidence attached evidence")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-attached-incident", "IR-U5ATTACH", "Evidence attached evidence")
 
 	evidenceID := seedTimelineEvidence(t, harness, incident.ID, actor.ID, "Screenshot one", "available")
 	create := CreateRequest{
-		ClientTxnID: "txn-phase5-attached-create",
+		ClientTxnID: "txn-evidence_lifecycle-attached-create",
 		AttachedEvidence: &CollectionActionPayload{Actions: []CollectionAction{{
 			Op:             "add_record_ref",
 			LinkedRecordID: &evidenceID,
 		}}},
 	}
-	created, err := store.CreateRow(context.Background(), actor, incident.ID, create, TimelineCreateRequestHash(create), "req-phase5-attached-create", time.Now().UTC())
+	created, err := store.CreateRow(context.Background(), actor, incident.ID, create, TimelineCreateRequestHash(create), "req-evidence_lifecycle-attached-create", time.Now().UTC())
 	if err != nil {
 		t.Fatalf("create screenshot-only timeline row: %v", err)
 	}
@@ -264,10 +264,10 @@ func TestAttachedEvidenceCreateAndPatch(t *testing.T) {
 	}
 
 	row := CreateRequest{
-		ClientTxnID:          "txn-phase5-attached-existing",
+		ClientTxnID:          "txn-evidence_lifecycle-attached-existing",
 		ActivitySynopsisText: stringPtr("Existing row"),
 	}
-	existing, err := store.CreateRow(context.Background(), actor, incident.ID, row, TimelineCreateRequestHash(row), "req-phase5-attached-existing", time.Now().UTC())
+	existing, err := store.CreateRow(context.Background(), actor, incident.ID, row, TimelineCreateRequestHash(row), "req-evidence_lifecycle-attached-existing", time.Now().UTC())
 	if err != nil {
 		t.Fatalf("create existing row: %v", err)
 	}
@@ -275,7 +275,7 @@ func TestAttachedEvidenceCreateAndPatch(t *testing.T) {
 	patch := PatchRequest{
 		ViewSchemaID:   TimelineViewSchemaID,
 		BaseRowVersion: existing.RowVersion,
-		ClientTxnID:    "txn-phase5-attached-patch",
+		ClientTxnID:    "txn-evidence_lifecycle-attached-patch",
 		CanonicalChange: []PatchChange{{
 			FieldKey: "timeline.attached_evidence_ids",
 			ActionPayload: &CollectionActionPayload{Actions: []CollectionAction{{
@@ -284,7 +284,7 @@ func TestAttachedEvidenceCreateAndPatch(t *testing.T) {
 			}}},
 		}},
 	}
-	patched, err := store.PatchRow(context.Background(), actor, existing.RecordID, patch, TimelinePatchRequestHash(patch), "req-phase5-attached-patch", time.Now().UTC())
+	patched, err := store.PatchRow(context.Background(), actor, existing.RecordID, patch, TimelinePatchRequestHash(patch), "req-evidence_lifecycle-attached-patch", time.Now().UTC())
 	if err != nil {
 		t.Fatalf("patch existing row with attached evidence: %v", err)
 	}
@@ -355,7 +355,7 @@ INSERT INTO object_blobs (
     byte_size, filename_hint, content_type_hint, observed_size, observed_content_type,
     target_expires_at, pending_expires_at, finalized_at, created_at, updated_at
 ) VALUES ($1, $2, $3, $4, $5, 8, 'screenshot.txt', 'text/plain', 8, 'text/plain', $6, $6, $7, $7, $7)
-`, blobID, incidentID, actorID, "phase5/"+blobID.String(), uploadState, now.Add(time.Hour), now); err != nil {
+`, blobID, incidentID, actorID, "evidence_lifecycle/"+blobID.String(), uploadState, now.Add(time.Hour), now); err != nil {
 		t.Fatalf("insert object blob: %v", err)
 	}
 	if _, err := harness.DB.Exec(context.Background(), `

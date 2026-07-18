@@ -137,11 +137,11 @@ test(exactScenarioTitle, async ({ page }) => {
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("FEIP501"),
-    "FE-I-P5-01 grid provenance",
+    "integration.entity-linking.row-01 grid provenance",
   );
   const host = (await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("feip501-host"),
-    "host.display_name": "FE-I-P5 Gateway",
+    "host.display_name": "integration.entity-linking Gateway",
     "host.hostname": "feip501-gateway.example.test",
     "host.aliases": aliasCollectionActionsPayload(["FEIP501 Gateway"]),
   })) as ViewRow;
@@ -151,7 +151,7 @@ test(exactScenarioTitle, async ({ page }) => {
     identitiesViewSchemaId,
     {
       client_txn_id: uniqueTxn("feip501-identity"),
-      "identity.display_name": "FE-I-P5 Analyst",
+      "identity.display_name": "integration.entity-linking Analyst",
       "identity.upn": "feip501.analyst@example.test",
       "identity.email": "feip501.analyst@example.test",
       "identity.sam_account_name": "feip501",
@@ -160,7 +160,7 @@ test(exactScenarioTitle, async ({ page }) => {
   )) as ViewRow;
   const note = (await createViewRow(page, incidentId, notesViewSchemaId, {
     client_txn_id: uniqueTxn("feip501-note"),
-    "note.title": "FE-I-P5 Note",
+    "note.title": "integration.entity-linking Note",
     "note.body": "Initial provenance note",
   })) as ViewRow;
   const timeline = (await createViewRow(
@@ -169,7 +169,8 @@ test(exactScenarioTitle, async ({ page }) => {
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("feip501-timeline"),
-      "timeline.activity_synopsis_text": "FE-I-P5 Gateway login by analyst",
+      "timeline.activity_synopsis_text":
+        "integration.entity-linking Gateway login by analyst",
       [hostRefsFieldKey]: mixedRefPayload(
         " FEIP501 Gateway ",
         host.record_id,
@@ -263,7 +264,7 @@ test(exactScenarioTitle, async ({ page }) => {
     hostsViewSchemaId,
     host.record_id,
     "host.display_name",
-    "FE-I-P5 Gateway edited",
+    "integration.entity-linking Gateway edited",
   );
   expect(hostPatch).toMatchObject({
     view_schema_id: hostsViewSchemaId,
@@ -271,7 +272,7 @@ test(exactScenarioTitle, async ({ page }) => {
     changes: [
       {
         field_key: "host.display_name",
-        value: "FE-I-P5 Gateway edited",
+        value: "integration.entity-linking Gateway edited",
       },
     ],
   });
@@ -286,7 +287,7 @@ test(exactScenarioTitle, async ({ page }) => {
   });
   await expect(
     page.getByTestId(rowCellTestId(host.record_id, "host.display_name")),
-  ).toHaveText("FE-I-P5 Gateway edited");
+  ).toHaveText("integration.entity-linking Gateway edited");
 
   await page.getByTestId(surfaceTabTestId(identitiesViewSchemaId)).click();
   await expectVisibleContractFieldsReachable(
@@ -308,7 +309,7 @@ test(exactScenarioTitle, async ({ page }) => {
     identitiesViewSchemaId,
     identity.record_id,
     "identity.display_name",
-    "FE-I-P5 Analyst edited",
+    "integration.entity-linking Analyst edited",
   );
   expect(identityPatch).toMatchObject({
     view_schema_id: identitiesViewSchemaId,
@@ -316,7 +317,7 @@ test(exactScenarioTitle, async ({ page }) => {
     changes: [
       {
         field_key: "identity.display_name",
-        value: "FE-I-P5 Analyst edited",
+        value: "integration.entity-linking Analyst edited",
       },
     ],
   });
@@ -333,7 +334,7 @@ test(exactScenarioTitle, async ({ page }) => {
     page.getByTestId(
       rowCellTestId(identity.record_id, "identity.display_name"),
     ),
-  ).toHaveText("FE-I-P5 Analyst edited");
+  ).toHaveText("integration.entity-linking Analyst edited");
 
   await page.getByTestId(surfaceTabTestId(notesViewSchemaId)).click();
   await expectVisibleContractFieldsReachable(
@@ -382,7 +383,7 @@ test(exactScenarioTitle, async ({ page }) => {
   });
   await expect(
     page.getByTestId(rowCellTestId(host.record_id, "host.display_name")),
-  ).toHaveText("FE-I-P5 Gateway edited");
+  ).toHaveText("integration.entity-linking Gateway edited");
   await page.getByTestId(surfaceTabTestId(identitiesViewSchemaId)).click();
   await scrollGridCellIntoView({
     cellKey: "identity.display_name",
@@ -394,7 +395,7 @@ test(exactScenarioTitle, async ({ page }) => {
     page.getByTestId(
       rowCellTestId(identity.record_id, "identity.display_name"),
     ),
-  ).toHaveText("FE-I-P5 Analyst edited");
+  ).toHaveText("integration.entity-linking Analyst edited");
   await page.getByTestId(surfaceTabTestId(notesViewSchemaId)).click();
   await scrollGridCellIntoView({
     cellKey: "note.body",

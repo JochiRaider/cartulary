@@ -17,7 +17,7 @@ import (
 )
 
 func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase7-i-7-06-indicator-child-rollback")
+	harness := workbookscenariotest.StartServer(t, "history_revision-i-7-06-indicator-child-rollback")
 	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, _ := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I706")
 	store := indicators.NewStore(harness.Server.Runtime.Postgres)
@@ -221,7 +221,7 @@ func seedIndicatorChildRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, ac
 	t.Helper()
 	recordID := uuid.New()
 	workbookscenariotest.SeedRecordEnvelope(t, db, incidentID, actorID, recordID, "indicator")
-	value := "phase7-" + suffix + ".example.test"
+	value := "history_revision-" + suffix + ".example.test"
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO indicators (
     record_id, incident_id, indicator_type, value_kind, display_value, normalized_value,

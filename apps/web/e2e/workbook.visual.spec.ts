@@ -168,8 +168,7 @@ type FrontendVisualFixture = {
   golden_filename: string;
   inspector_state: Record<string, unknown>;
   no_dynamic_regions: boolean;
-  owner_phase_ids: string[];
-  owner_row_ids: string[];
+  catalog_row_ids: string[];
   playwright_scenario_title: string;
   replacement_fixture_id: string;
   scroll_normalization: { kind: string; anchor?: string; reason?: string };
@@ -251,8 +250,7 @@ function expectCurrentFrontendVisualFixtureMetadata(
 ) {
   expect(fixture.status).toBe("current");
   expect(fixture.fixture_title.length).toBeGreaterThan(0);
-  expect(fixture.owner_phase_ids.length).toBeGreaterThan(0);
-  expect(fixture.owner_row_ids.length).toBeGreaterThan(0);
+  expect(fixture.catalog_row_ids.length).toBeGreaterThan(0);
   expect(fixture.playwright_scenario_title.length).toBeGreaterThan(0);
   expect(fixture.seed_id.length).toBeGreaterThan(0);
   expect(fixture.viewport_css_px).toMatch(/^[0-9]+x[0-9]+$/);
@@ -495,7 +493,7 @@ function releaseAuthVisualStep(release: (() => void) | null) {
   release?.();
 }
 
-test.describe("FE-P1 auth gateway visual readiness", () => {
+test.describe("browser.incident-selection auth gateway visual readiness", () => {
   test("Capture auth gateway initial, focused, loading, invalid credentials, MFA required, invalid MFA, MFA setup required, service unavailable, mobile, reduced-motion, and 200%-zoom states.", async ({
     page,
   }) => {
@@ -629,7 +627,7 @@ test.describe("FE-P1 auth gateway visual readiness", () => {
   });
 });
 
-test.describe("FE-P2 workbook visual readiness", () => {
+test.describe("browser.workbook-shell workbook visual readiness", () => {
   test("Capture Default Timeline workbook shell with view-bar query controls, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip.", async ({
     page,
   }) => {
@@ -638,7 +636,7 @@ test.describe("FE-P2 workbook visual readiness", () => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("FEV2SHELL"),
-      "FE-P2 visual default shell",
+      "browser.workbook-shell visual default shell",
     );
 
     const rows: ViewRow[] = [];
@@ -726,7 +724,7 @@ test.describe("FE-P2 workbook visual readiness", () => {
     await expect(page.getByTestId(incidentMembershipListTestId())).toHaveCount(
       0,
     );
-    await expect(page.getByText("Phase 3 workbook")).toHaveCount(0);
+    await expect(page.getByText("Timeline mutation workbook")).toHaveCount(0);
     await expect(page.getByText(/Timeline mutation substrate/u)).toHaveCount(0);
     await expect(
       page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
@@ -763,7 +761,9 @@ test.describe("FE-P2 workbook visual readiness", () => {
     const selectedRowId = renderedRecordIds[0];
     const selectedRow = rows.find((row) => row.record_id === selectedRowId);
     if (selectedRow === undefined) {
-      throw new Error(`FE-V-P2 fixture selected unknown row ${selectedRowId}`);
+      throw new Error(
+        `visual.workbook-shell fixture selected unknown row ${selectedRowId}`,
+      );
     }
     const selectedGridRow = grid.locator(
       `[data-grid-record-id="${selectedRow.record_id}"]`,
@@ -1022,7 +1022,7 @@ test.describe("workbook visual evidence", () => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("V3GRID01"),
-      "Phase 3 visual default",
+      "Timeline mutation visual default",
     );
     const timelineRow = (await createViewRow(
       page,
@@ -1069,7 +1069,7 @@ test.describe("workbook visual evidence", () => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("V3GRID02"),
-      "Phase 3 visual edit state",
+      "Timeline mutation visual edit state",
     );
     const timelineRow = (await createViewRow(
       page,
@@ -1205,7 +1205,7 @@ test.describe("workbook visual evidence", () => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("V3GRID03"),
-      "Phase 3 visual grouped rows",
+      "Timeline mutation visual grouped rows",
     );
     const firstRow = (await createViewRow(
       page,
@@ -1273,7 +1273,7 @@ test.describe("workbook visual evidence", () => {
   });
 });
 
-test.describe("FE-P3 visual readiness", () => {
+test.describe("browser.grid-interaction visual readiness", () => {
   test("Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.", async ({
     page,
   }) => {
@@ -1281,12 +1281,13 @@ test.describe("FE-P3 visual readiness", () => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("FEV3GRID"),
-      "FE-P3 grid adapter visual fixture",
+      "browser.grid-interaction grid adapter visual fixture",
     );
     await createViewRow(page, incidentId, timelineViewSchemaId, {
       client_txn_id: uniqueTxn("FEV3GRID-ROW"),
       "timeline.activity_utc_text": "2026-05-31T10:00:00Z",
-      "timeline.activity_synopsis_text": "FE-P3 visual adapter row",
+      "timeline.activity_synopsis_text":
+        "browser.grid-interaction visual adapter row",
     });
 
     await page.goto(`/?incident_id=${incidentId}`);
@@ -1294,7 +1295,9 @@ test.describe("FE-P3 visual readiness", () => {
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     await injectFeP3GridAdapterVisualFixture(page);
 
-    const fixture = page.locator("[data-design-fixture='fe-p3-grid-adapter']");
+    const fixture = page.locator(
+      "[data-design-fixture='grid-interaction-grid-adapter']",
+    );
     await expect(fixture).toBeVisible();
     for (const fixtureId of [
       "visual.fixture.frozen_column",
@@ -1316,7 +1319,7 @@ test.describe("FE-P3 visual readiness", () => {
   });
 });
 
-test.describe("FE-P4 visual readiness", () => {
+test.describe("browser.mutation-lifecycle visual readiness", () => {
   test("Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures.", async ({
     page,
   }) => {
@@ -1324,7 +1327,7 @@ test.describe("FE-P4 visual readiness", () => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("FEV4VISUAL"),
-      "FE-P4 visual readiness",
+      "browser.mutation-lifecycle visual readiness",
     );
     const timelineRow = (await createViewRow(
       page,
@@ -1333,7 +1336,8 @@ test.describe("FE-P4 visual readiness", () => {
       {
         client_txn_id: uniqueTxn("FEV4VISUAL-ROW"),
         "timeline.activity_utc_text": "2026-06-03T10:00:00Z",
-        "timeline.activity_synopsis_text": "FE-P4 visual editable row",
+        "timeline.activity_synopsis_text":
+          "browser.mutation-lifecycle visual editable row",
       },
     )) as ViewRow;
 
@@ -1348,7 +1352,9 @@ test.describe("FE-P4 visual readiness", () => {
       timelineRow.record_id,
       "timeline.activity_synopsis_text",
     );
-    await expect(summaryInput).toHaveText("FE-P4 visual editable row");
+    await expect(summaryInput).toHaveText(
+      "browser.mutation-lifecycle visual editable row",
+    );
     await summaryInput.click();
     const summaryEditor = page.getByTestId(
       timelineScalarEditorTestId({
@@ -1358,7 +1364,7 @@ test.describe("FE-P4 visual readiness", () => {
       }),
     );
     await expect(summaryEditor).toBeFocused();
-    await summaryEditor.fill("FE-P4 active visual edit");
+    await summaryEditor.fill("browser.mutation-lifecycle active visual edit");
     await assertWorkbookGridVisualRegression(
       page,
       "timeline-mutation-active-edit-cell",
@@ -1413,7 +1419,9 @@ test.describe("FE-P4 visual readiness", () => {
           surface: "grid",
         }),
       );
-      await blockedEditor.fill("FE-P4 blocked transaction edit");
+      await blockedEditor.fill(
+        "browser.mutation-lifecycle blocked transaction edit",
+      );
       await blockedEditor.press("Enter");
       await expect.poll(() => conflictController.calls.length).toBe(1);
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
@@ -1440,7 +1448,7 @@ test.describe("FE-P4 visual readiness", () => {
     const emptyIncidentId = await createIncident(
       page,
       uniqueIncidentKey("FEV4EMPTY"),
-      "FE-P4 empty Timeline query",
+      "browser.mutation-lifecycle empty Timeline query",
     );
     await page.goto(`/?incident_id=${emptyIncidentId}`);
     await maskIncidentIdentity(page, emptyIncidentId);
@@ -1472,7 +1480,7 @@ test.describe("FE-P4 visual readiness", () => {
   });
 });
 
-test.describe("FE-P5 workbook visual readiness", () => {
+test.describe("browser.entity-linking workbook visual readiness", () => {
   test("Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution metadata fixtures.", async ({
     page,
   }) => {
@@ -1480,7 +1488,7 @@ test.describe("FE-P5 workbook visual readiness", () => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("FEVP501"),
-      "FE-P5 visual mention chip states",
+      "browser.entity-linking visual mention chip states",
     );
     const {
       autoRawText,
@@ -1496,7 +1504,7 @@ test.describe("FE-P5 workbook visual readiness", () => {
       unresolvedRawText,
       unresolvedRow,
     } = await seedHostMentionStateFixture(page, incidentId, {
-      displayPrefix: "FE-V-P5",
+      displayPrefix: "visual.entity-linking",
       hostnamePrefix: "fevp501",
       occurredAt: {
         auto: "2026-06-06T15:15:00Z",
@@ -1507,11 +1515,11 @@ test.describe("FE-P5 workbook visual readiness", () => {
       },
       rawTextPrefix: "FEVP501",
       summary: {
-        auto: "FE-V-P5 auto chip state",
-        dismissed: "FE-V-P5 dismissed chip state",
-        manual: "FE-V-P5 manual resolution metadata",
-        resolved: "FE-V-P5 resolved chip state",
-        unresolved: "FE-V-P5 unresolved chip state",
+        auto: "visual.entity-linking auto chip state",
+        dismissed: "visual.entity-linking dismissed chip state",
+        manual: "visual.entity-linking manual resolution metadata",
+        resolved: "visual.entity-linking resolved chip state",
+        unresolved: "visual.entity-linking unresolved chip state",
       },
       txnPrefix: "fevp501",
     });
@@ -1535,7 +1543,7 @@ test.describe("FE-P5 workbook visual readiness", () => {
           relationshipItemsTestId(resolvedRow.record_id, hostRefsFieldKey),
         )
         .getByTestId(relationshipChipTestId(String(resolvedMention.item_ref))),
-    ).toContainText("FE-V-P5 Resolved Target");
+    ).toContainText("visual.entity-linking Resolved Target");
 
     await openTimelineInspector(page, manualRow.record_id);
     await page
@@ -1602,7 +1610,7 @@ test.describe("workbook visual evidence", () => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("V4GRID01"),
-      "Phase 4 visual mention chips",
+      "Entity linking visual mention chips",
     );
     const hostRow = (await createViewRow(page, incidentId, hostsViewSchemaId, {
       client_txn_id: uniqueTxn("V4GRID01-HOST"),
@@ -1667,7 +1675,7 @@ test.describe("workbook visual evidence", () => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("V4GRID02"),
-      "Phase 4 visual evidence access",
+      "Entity linking visual evidence access",
     );
     const evidenceRow = (await createViewRow(
       page,
@@ -1720,7 +1728,7 @@ test.describe("workbook visual evidence", () => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("V4GRID03"),
-      "Phase 4 visual task requests",
+      "Entity linking visual task requests",
     );
     const taskRow = (await createViewRow(
       page,
@@ -1773,7 +1781,7 @@ test.describe("workbook visual evidence", () => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("V5GRID01"),
-      "Phase 5 visual evidence states",
+      "Evidence lifecycle visual evidence states",
     );
     const evidenceRow = (await createViewRow(
       page,
@@ -1816,7 +1824,7 @@ test.describe("workbook visual evidence", () => {
     ).setInputFiles({
       name: "visual-request.txt",
       mimeType: "text/plain",
-      buffer: Buffer.from("phase5 visual evidence", "utf8"),
+      buffer: Buffer.from("evidence_lifecycle visual evidence", "utf8"),
     });
     await expect(
       await mountedGridCell(
@@ -1849,7 +1857,7 @@ test.describe("workbook visual evidence", () => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("V5GRID02"),
-      "Phase 5 visual evidence badges",
+      "Evidence lifecycle visual evidence badges",
     );
     const blocked = (await createViewRow(
       page,
@@ -1932,7 +1940,7 @@ test.describe("workbook visual evidence", () => {
   });
 });
 
-test.describe("FE-P6 visual readiness", () => {
+test.describe("browser.evidence-workflow visual readiness", () => {
   test("Capture evidence count, affordance, available, requested, pending, blocked, failed, inconsistent, preview, and download-handle state fixtures.", async ({
     page,
   }, testInfo) => {
@@ -1940,26 +1948,26 @@ test.describe("FE-P6 visual readiness", () => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("FEVP601"),
-      "FE-P6 visual evidence affordance",
+      "browser.evidence-workflow visual evidence affordance",
     );
     const requested = await createVisualEvidenceRow(page, incidentId, {
       lifecycleState: "requested",
       requestedAt: "2026-05-01T10:00:00Z",
-      storageRef: "case://fe-p6/requested",
+      storageRef: "case://evidence-workflow/requested",
       title: "01 requested evidence",
       txnPrefix: "FEVP601-REQUESTED",
     });
     const pending = await createVisualEvidenceRow(page, incidentId, {
       lifecycleState: "pending_receipt",
       requestedAt: "2026-05-01T10:05:00Z",
-      storageRef: "case://fe-p6/pending",
+      storageRef: "case://evidence-workflow/pending",
       title: "02 pending evidence",
       txnPrefix: "FEVP601-PENDING",
     });
     const blocked = await createVisualEvidenceRow(page, incidentId, {
       lifecycleState: "quarantined",
       requestedAt: "2026-05-01T10:10:00Z",
-      storageRef: "case://fe-p6/quarantined",
+      storageRef: "case://evidence-workflow/quarantined",
       title: "03 quarantined evidence",
       txnPrefix: "FEVP601-BLOCKED",
     });
@@ -1967,7 +1975,10 @@ test.describe("FE-P6 visual readiness", () => {
       page,
       incidentId,
       {
-        body: Buffer.from("FE-V-P6 preview visual evidence\n", "utf8"),
+        body: Buffer.from(
+          "visual.evidence-workflow preview visual evidence\n",
+          "utf8",
+        ),
         contentType: "text/plain",
         filename: "evidence-preview.txt",
         requestedAt: "2026-05-01T10:15:00Z",
@@ -1979,7 +1990,10 @@ test.describe("FE-P6 visual readiness", () => {
       page,
       incidentId,
       {
-        body: Buffer.from("FE-V-P6 download handle visual evidence\n", "utf8"),
+        body: Buffer.from(
+          "visual.evidence-workflow download handle visual evidence\n",
+          "utf8",
+        ),
         contentType: "text/plain",
         filename: "evidence-download-handle.txt",
         requestedAt: "2026-05-01T10:20:00Z",
@@ -1992,7 +2006,7 @@ test.describe("FE-P6 visual readiness", () => {
       incidentId,
       {
         body: Buffer.from(
-          "<!doctype html><title>FE-V-P6 unsupported preview</title>",
+          "<!doctype html><title>visual.evidence-workflow unsupported preview</title>",
           "utf8",
         ),
         contentType: "text/html",
@@ -2003,7 +2017,10 @@ test.describe("FE-P6 visual readiness", () => {
       },
     );
     const failedHandle = await createUploadedVisualEvidence(page, incidentId, {
-      body: Buffer.from("FE-V-P6 failed handle visual evidence\n", "utf8"),
+      body: Buffer.from(
+        "visual.evidence-workflow failed handle visual evidence\n",
+        "utf8",
+      ),
       contentType: "text/plain",
       filename: "evidence-failed-handle.txt",
       requestedAt: "2026-05-01T10:30:00Z",
@@ -2015,7 +2032,7 @@ test.describe("FE-P6 visual readiness", () => {
       incidentId,
       {
         body: Buffer.from(
-          "FE-V-P6 inconsistent handle visual evidence\n",
+          "visual.evidence-workflow inconsistent handle visual evidence\n",
           "utf8",
         ),
         contentType: "text/plain",
@@ -2032,7 +2049,8 @@ test.describe("FE-P6 visual readiness", () => {
       {
         client_txn_id: uniqueTxn("FEVP601-TIMELINE"),
         "timeline.activity_utc_text": "2026-05-01T11:00:00Z",
-        "timeline.activity_synopsis_text": "FE-P6 timeline evidence count",
+        "timeline.activity_synopsis_text":
+          "browser.evidence-workflow timeline evidence count",
       },
     )) as ViewRow;
 
@@ -2196,7 +2214,7 @@ test.describe("FE-P6 visual readiness", () => {
   });
 });
 
-test.describe("FE-P7 workbook visual readiness", () => {
+test.describe("browser.collaboration workbook visual readiness", () => {
   test("Capture row-gutter and cell presence markers.", async ({
     browser,
     page,
@@ -2206,7 +2224,7 @@ test.describe("FE-P7 workbook visual readiness", () => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("FEVP701"),
-      "FE-P7 visual collaboration states",
+      "browser.collaboration visual collaboration states",
     );
     const remote = await createIncidentMemberUser(page, incidentId, {
       display_name: "Visual Analyst",
@@ -2235,11 +2253,11 @@ test.describe("FE-P7 workbook visual readiness", () => {
         browser,
         sessionTracker,
         {
-          createdBy: "FE-V-P7-01",
+          createdBy: "visual.collaboration.row-01",
           email: remote.email,
           incidentId,
           password: remote.initial_password,
-          purpose: "FE-P7 visual presence analyst",
+          purpose: "browser.collaboration visual presence analyst",
           readyRecordId: presenceRow.record_id,
           userId: remote.user_id,
         },
@@ -2298,7 +2316,7 @@ test.describe("FE-P7 workbook visual readiness", () => {
   test("Capture same-field conflict resolver.", async ({ page }) => {
     const fixture = await prepareFeP7ConflictVisual(page, {
       incidentKeyPrefix: "FEVP701RESOLVE",
-      title: "FE-P7 visual conflict resolver",
+      title: "browser.collaboration visual conflict resolver",
     });
     try {
       await scrollGridTargetIntoView({
@@ -2334,7 +2352,7 @@ test.describe("FE-P7 workbook visual readiness", () => {
   test("Capture conflict save-state strip.", async ({ page }) => {
     const fixture = await prepareFeP7ConflictVisual(page, {
       incidentKeyPrefix: "FEVP701CONFLICTSTRIP",
-      title: "FE-P7 visual conflict strip",
+      title: "browser.collaboration visual conflict strip",
     });
     try {
       await page.getByTestId("conflict-close").click();
@@ -2355,7 +2373,7 @@ test.describe("FE-P7 workbook visual readiness", () => {
   test("Capture recovered saved-state strip.", async ({ page }) => {
     const fixture = await prepareFeP7ConflictVisual(page, {
       incidentKeyPrefix: "FEVP701RECOVERED",
-      title: "FE-P7 visual recovered strip",
+      title: "browser.collaboration visual recovered strip",
     });
     try {
       await page.getByTestId("conflict-keep-saved").click();
@@ -2375,7 +2393,7 @@ test.describe("FE-P7 workbook visual readiness", () => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("FEVP701INVALIDATE"),
-      "FE-P7 visual reset/invalidate strip",
+      "browser.collaboration visual reset/invalidate strip",
     );
     const invalidateRow = (await createViewRow(
       page,
@@ -2402,7 +2420,7 @@ test.describe("FE-P7 workbook visual readiness", () => {
   });
 });
 
-test.describe("FE-P8 workbook visual readiness", () => {
+test.describe("browser.saved-view-query workbook visual readiness", () => {
   test("Capture saved-view selector, active chips, grouped result, group row, default/startup state indicator, and empty successful query fixtures.", async ({
     page,
   }) => {
@@ -2410,7 +2428,7 @@ test.describe("FE-P8 workbook visual readiness", () => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("FEVP801"),
-      "FE-P8 visual saved view query controls",
+      "browser.saved-view-query visual saved view query controls",
     );
     const reviewedRow = (await createViewRow(
       page,
@@ -2420,13 +2438,14 @@ test.describe("FE-P8 workbook visual readiness", () => {
         client_txn_id: uniqueTxn("FEVP801-REVIEWED"),
         "timeline.activity_utc_text": "2026-06-08T12:00:00Z",
         "timeline.activity_synopsis_text":
-          "FE-P8 reviewed saved-view visual row",
+          "browser.saved-view-query reviewed saved-view visual row",
       },
     )) as ViewRow;
     await createViewRow(page, incidentId, timelineViewSchemaId, {
       client_txn_id: uniqueTxn("FEVP801-ROUGH"),
       "timeline.activity_utc_text": "2026-06-08T12:05:00Z",
-      "timeline.activity_synopsis_text": "FE-P8 rough grouped visual row",
+      "timeline.activity_synopsis_text":
+        "browser.saved-view-query rough grouped visual row",
     });
 
     await page.goto(`/?incident_id=${incidentId}`);
@@ -2475,7 +2494,7 @@ test.describe("FE-P8 workbook visual readiness", () => {
     await setSavedViewDraftName(
       page,
       timelineViewSchemaId,
-      "FE-P8 visual saved-view state",
+      "browser.saved-view-query visual saved-view state",
     );
     await createSavedViewFromCurrentSurface(page, timelineViewSchemaId);
     await expect(
@@ -2501,7 +2520,7 @@ test.describe("FE-P8 workbook visual readiness", () => {
     const emptyIncidentId = await createIncident(
       page,
       uniqueIncidentKey("FEVP801EMPTY"),
-      "FE-P8 empty successful Timeline query",
+      "browser.saved-view-query empty successful Timeline query",
     );
     await page.goto(`/?incident_id=${emptyIncidentId}`);
     await maskIncidentIdentity(page, emptyIncidentId);
@@ -2532,7 +2551,7 @@ test.describe("FE-P8 workbook visual readiness", () => {
   });
 });
 
-test.describe("FE-P9 workbook visual readiness", () => {
+test.describe("browser.inspector-history workbook visual readiness", () => {
   test("Capture inspector Details, Relationships, Evidence, History, rollback preview, destructive confirmation, and public error fixtures.", async ({
     page,
   }) => {
@@ -2540,7 +2559,7 @@ test.describe("FE-P9 workbook visual readiness", () => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("FEVP901"),
-      "FE-P9 visual inspector actions",
+      "browser.inspector-history visual inspector actions",
     );
     const evidence = (await createViewRow(
       page,
@@ -2548,8 +2567,9 @@ test.describe("FE-P9 workbook visual readiness", () => {
       evidenceViewSchemaId,
       {
         client_txn_id: uniqueTxn("FEVP901-EVIDENCE"),
-        "evidence.collector_party_text": "FE-P9 visual collector",
-        "evidence.title": "FE-P9 visual attached evidence",
+        "evidence.collector_party_text":
+          "browser.inspector-history visual collector",
+        "evidence.title": "browser.inspector-history visual attached evidence",
       },
     )) as ViewRow;
     const target = (await createViewRow(
@@ -2557,10 +2577,14 @@ test.describe("FE-P9 workbook visual readiness", () => {
       incidentId,
       timelineViewSchemaId,
       {
-        [hostRefsFieldKey]: collectionActionsPayload(["FE-P9 visual host"]),
+        [hostRefsFieldKey]: collectionActionsPayload([
+          "browser.inspector-history visual host",
+        ]),
         client_txn_id: uniqueTxn("FEVP901-TARGET"),
-        "timeline.raw_activity_text": "FE-P9 visual inspector details",
-        "timeline.activity_synopsis_text": "FE-P9 visual inspector target",
+        "timeline.raw_activity_text":
+          "browser.inspector-history visual inspector details",
+        "timeline.activity_synopsis_text":
+          "browser.inspector-history visual inspector target",
       },
     )) as ViewRow;
     const linkedTarget = (await patchRecord(page, target.record_id, {
@@ -2576,7 +2600,7 @@ test.describe("FE-P9 workbook visual readiness", () => {
     })) as ViewRow;
     const hostItem = requireItemByRawText(
       collectionItems(linkedTarget, hostRefsFieldKey),
-      "FE-P9 visual host",
+      "browser.inspector-history visual host",
     );
     const history = await fetchFeP9VisualRecordHistory(page, target.record_id);
     const rollbackItem = requireFeP9VisualHistoryEntryAction(history);
@@ -2611,7 +2635,7 @@ test.describe("FE-P9 workbook visual readiness", () => {
           surface: "inspector",
         }),
       ),
-    ).toHaveValue("FE-P9 visual inspector details");
+    ).toHaveValue("browser.inspector-history visual inspector details");
     await expect(
       page
         .getByTestId(
@@ -2707,7 +2731,8 @@ test.describe("FE-P9 workbook visual readiness", () => {
           body: JSON.stringify({
             error: {
               code: "row_version_conflict",
-              message: "Rollback target is stale for FE-P9 visual fixture.",
+              message:
+                "Rollback target is stale for browser.inspector-history visual fixture.",
               retryable: false,
             },
           }),
@@ -2771,7 +2796,9 @@ function requireFeP9VisualHistoryEntryAction(history: FeP9VisualHistoryData) {
         candidate.history_entry_ref.length > 0,
     ) ?? null;
   if (item === null) {
-    throw new Error("missing FE-P9 visual history_entry rollback item");
+    throw new Error(
+      "missing browser.inspector-history visual history_entry rollback item",
+    );
   }
   return item;
 }
@@ -2944,7 +2971,7 @@ test.describe("workbook visual evidence", () => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("V6GRID01"),
-      "Phase 6 visual presence markers",
+      "Collaboration visual presence markers",
     );
     const remote = await createIncidentMemberUser(page, incidentId, {
       display_name: "Visual Analyst",
@@ -2985,7 +3012,7 @@ test.describe("workbook visual evidence", () => {
           email: remote.email,
           incidentId,
           password: remote.initial_password,
-          purpose: "Phase 6 visual presence analyst",
+          purpose: "Collaboration visual presence analyst",
           readyRecordId: timelineRow.record_id,
           userId: remote.user_id,
         },
@@ -3049,7 +3076,7 @@ test.describe("workbook visual evidence", () => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("V6GRID02"),
-      "Phase 6 visual conflict resolver",
+      "Collaboration visual conflict resolver",
     );
     const timelineRow = (await createViewRow(
       page,
@@ -3095,7 +3122,7 @@ test.describe("workbook visual evidence", () => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("V6GRID03"),
-      "Phase 6 visual pending queue",
+      "Collaboration visual pending queue",
     );
     const syncRow = (await createViewRow(
       page,
@@ -3189,7 +3216,7 @@ test.describe("workbook visual evidence", () => {
   });
 });
 
-test.describe("FE-P10 workbook visual readiness", () => {
+test.describe("browser.coordination-review workbook visual readiness", () => {
   test("Capture Task Requests or Decisions, Parties link state, Communications Log, Handoff, Status Review, Lesson, keyboard focus, frozen column, resize handle, and fill-down fixtures.", async ({
     page,
   }) => {
@@ -3200,17 +3227,17 @@ test.describe("FE-P10 workbook visual readiness", () => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("FEVP1001"),
-      "FE-P10 coordination visual readiness",
+      "browser.coordination-review coordination visual readiness",
     );
     const owner = await createIncidentMemberUser(page, incidentId, {
-      display_name: "FE-P10 visual owner",
-      email: uniqueEmail("fe-p10-visual-owner"),
-      initial_password: "Phase10Visual1!",
+      display_name: "browser.coordination-review visual owner",
+      email: uniqueEmail("coordination-review-visual-owner"),
+      initial_password: "BackupRestoreVisual1!",
       role: "editor",
     });
     const party = (await createViewRow(page, incidentId, partiesViewSchemaId, {
       client_txn_id: uniqueTxn("FEVP1001-PARTY"),
-      "party.display_name": "FE-P10 Visual Party",
+      "party.display_name": "browser.coordination-review Visual Party",
       "party.party_kind": "team",
     })) as ViewRow;
     const taskRow = (await createViewRow(
@@ -3230,14 +3257,15 @@ test.describe("FE-P10 workbook visual readiness", () => {
       {
         client_txn_id: uniqueTxn("FEVP1001-DECISION"),
         "decision.decision_type": "containment",
-        "decision.rationale": "FE-P10 visual rationale",
-        "decision.summary": "FE-P10 visual decision",
+        "decision.rationale": "browser.coordination-review visual rationale",
+        "decision.summary": "browser.coordination-review visual decision",
       },
     )) as ViewRow;
     const comm = (await createViewRow(page, incidentId, commLogViewSchemaId, {
       client_txn_id: uniqueTxn("FEVP1001-COMM"),
-      "comm_log.audience": "FE-P10 visual responders",
-      "comm_log.channel_or_meeting": "FE-P10 visual bridge",
+      "comm_log.audience": "browser.coordination-review visual responders",
+      "comm_log.channel_or_meeting":
+        "browser.coordination-review visual bridge",
       "comm_log.comm_type": "briefing",
       "comm_log.decision_ids": {
         actions: [
@@ -3245,7 +3273,7 @@ test.describe("FE-P10 workbook visual readiness", () => {
         ],
         kind: "collection_actions_v1",
       },
-      "comm_log.summary": "FE-P10 visual communication",
+      "comm_log.summary": "browser.coordination-review visual communication",
     })) as ViewRow;
     const handoff = (await createViewRow(
       page,
@@ -3253,7 +3281,8 @@ test.describe("FE-P10 workbook visual readiness", () => {
       handoffViewSchemaId,
       {
         client_txn_id: uniqueTxn("FEVP1001-HANDOFF"),
-        "handoff.current_state_summary": "FE-P10 visual handoff state",
+        "handoff.current_state_summary":
+          "browser.coordination-review visual handoff state",
         "handoff.incoming_owner_user_id": owner.user_id,
       },
     )) as ViewRow;
@@ -3264,12 +3293,12 @@ test.describe("FE-P10 workbook visual readiness", () => {
       {
         client_txn_id: uniqueTxn("FEVP1001-STATUS"),
         "status_review.current_state_summary":
-          "FE-P10 visual status review state",
+          "browser.coordination-review visual status review state",
       },
     )) as ViewRow;
     const lesson = (await createViewRow(page, incidentId, lessonViewSchemaId, {
       client_txn_id: uniqueTxn("FEVP1001-LESSON"),
-      "lesson.summary": "FE-P10 visual lesson",
+      "lesson.summary": "browser.coordination-review visual lesson",
     })) as ViewRow;
 
     await page.goto(
@@ -3305,7 +3334,9 @@ test.describe("FE-P10 workbook visual readiness", () => {
     );
 
     await injectFeP3GridAdapterVisualFixture(page);
-    const fixture = page.locator("[data-design-fixture='fe-p3-grid-adapter']");
+    const fixture = page.locator(
+      "[data-design-fixture='grid-interaction-grid-adapter']",
+    );
     await expect(fixture).toBeVisible();
     for (const fixtureId of [
       "visual.fixture.frozen_column",
@@ -3331,45 +3362,45 @@ test.describe("FE-P10 workbook visual readiness", () => {
       {
         client_txn_id: uniqueTxn("FEVP1001-LINKED-TASK"),
         "task.requester_party_id": party.record_id,
-        "task.requester_party_text": "FE-P10 requester",
+        "task.requester_party_text": "browser.coordination-review requester",
         "task.task_kind": "follow_up",
-        "task.title": "FE-P10 party-linked task",
+        "task.title": "browser.coordination-review party-linked task",
       },
     )) as ViewRow;
 
     const surfaceExpectations = [
       {
-        expected: "FE-P10 party-linked task",
+        expected: "browser.coordination-review party-linked task",
         fieldKey: "task.title",
         recordId: linkedTask.record_id,
         surface: taskRequestsViewSchemaId,
       },
       {
-        expected: "FE-P10 Visual Party",
+        expected: "browser.coordination-review Visual Party",
         fieldKey: "party.display_name",
         recordId: party.record_id,
         surface: partiesViewSchemaId,
       },
       {
-        expected: "FE-P10 visual communication",
+        expected: "browser.coordination-review visual communication",
         fieldKey: "comm_log.summary",
         recordId: comm.record_id,
         surface: commLogViewSchemaId,
       },
       {
-        expected: "FE-P10 visual handoff state",
+        expected: "browser.coordination-review visual handoff state",
         fieldKey: "handoff.current_state_summary",
         recordId: handoff.record_id,
         surface: handoffViewSchemaId,
       },
       {
-        expected: "FE-P10 visual status review state",
+        expected: "browser.coordination-review visual status review state",
         fieldKey: "status_review.current_state_summary",
         recordId: status.record_id,
         surface: statusReviewViewSchemaId,
       },
       {
-        expected: "FE-P10 visual lesson",
+        expected: "browser.coordination-review visual lesson",
         fieldKey: "lesson.summary",
         recordId: lesson.record_id,
         surface: lessonViewSchemaId,
@@ -3432,7 +3463,7 @@ test.describe("FE-P10 workbook visual readiness", () => {
               "visual.fixture.tree_group_row",
             ],
             focus_state:
-              "Each FE-P10 coordination/review surface focuses its row cell after deterministic query state is visible.",
+              "Each browser.coordination-review coordination/review surface focuses its row cell after deterministic query state is visible.",
             screenshot_scopes: [
               "task requests workbook grid",
               "grid-adapter design fixture",
@@ -3451,13 +3482,13 @@ test.describe("FE-P10 workbook visual readiness", () => {
   });
 });
 
-test.describe("FE-P11 visual readiness", () => {
+test.describe("browser.design-readiness visual readiness", () => {
   test("Run the owned-stack Playwright visual suite with deterministic seed data, viewport, zoom, fixture ordering, dynamic masks, scroll anchors, focus/editor state, inspector state, and post-scroll settle behavior.", async ({
     browserName: _browserName,
   }, testInfo) => {
     const registry = loadFrontendVisualFixtureRegistry();
     expect(registry.schema_id).toBe(
-      "cartulary.frontend_visual_fixture_registry.v3",
+      "cartulary.frontend_visual_fixture_registry.v4",
     );
     expect(registry.owner_id).toBe("harness.visual");
     expect(registry.verification_id).toBe(
@@ -3511,14 +3542,17 @@ test.describe("FE-P11 visual readiness", () => {
     );
     expect(defaultShell?.fixture_title).toBe("Default Timeline workbook shell");
     expect(defaultShell?.capture_scope.kind).toBe("full_viewport");
-    expect(defaultShell?.owner_row_ids).not.toContain("FE-V-P11-03");
+    expect(defaultShell?.catalog_row_ids).not.toContain(
+      "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
+    );
 
     const exposedTheme = fixturesById.get(
       "visual.fixture.exposed_theme_states",
     );
     expect(exposedTheme?.fixture_title).toBe("Exposed theme states");
-    expect(exposedTheme?.owner_phase_ids).toEqual(["FE-P11"]);
-    expect(exposedTheme?.owner_row_ids).toEqual(["FE-V-P11-03"]);
+    expect(exposedTheme?.catalog_row_ids).toEqual([
+      "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
+    ]);
     expect(exposedTheme?.capture_scope).toEqual({
       kind: "selector",
       selector: "[data-design-fixture='exposed-theme']",
@@ -3538,7 +3572,7 @@ test.describe("FE-P11 visual readiness", () => {
             ),
             non_claim_boundaries: [
               "the exposed-theme fixture does not satisfy the default-shell fixture",
-              "current fixture metadata does not close FE-P11 without row accounting",
+              "current fixture metadata does not close browser.design-readiness without row accounting",
               "visual evidence remains non-publication evidence",
             ],
             registry_sha256: frontendVisualFixtureRegistryDigest(),
@@ -3559,12 +3593,13 @@ test.describe("FE-P11 visual readiness", () => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("FEV11THEME"),
-      "FE-P11 exposed theme visual fixture",
+      "browser.design-readiness exposed theme visual fixture",
     );
     await createViewRow(page, incidentId, timelineViewSchemaId, {
       client_txn_id: uniqueTxn("FEV11THEME-ROW"),
       "timeline.activity_utc_text": "2026-05-31T11:00:00Z",
-      "timeline.activity_synopsis_text": "FE-P11 exposed theme fixture row",
+      "timeline.activity_synopsis_text":
+        "browser.design-readiness exposed theme fixture row",
     });
 
     await page.goto(`/?incident_id=${incidentId}`);
@@ -3600,7 +3635,7 @@ async function createVisualEvidenceRow(
   },
 ): Promise<ViewRow> {
   return createEvidenceFixtureRow(page, incidentId, {
-    collectorPartyText: "FE-P6 visual fixture",
+    collectorPartyText: "browser.evidence-workflow visual fixture",
     ...options,
   });
 }
@@ -3611,7 +3646,7 @@ async function createUploadedVisualEvidence(
   options: EvidenceUploadOptions,
 ): Promise<ViewRow> {
   return createUploadedEvidenceFixture(page, incidentId, {
-    collectorPartyText: "FE-P6 visual fixture",
+    collectorPartyText: "browser.evidence-workflow visual fixture",
     ...options,
     txnSuffixes: {
       attach: "ATTACH",
@@ -3672,7 +3707,8 @@ async function armVisualPublicErrorFault(
       details: {
         reason_code: options.reasonCode,
       },
-      message: "Evidence access failed for FE-P6 visual fixture.",
+      message:
+        "Evidence access failed for browser.evidence-workflow visual fixture.",
       method: "POST",
       path: options.path,
       retryable: false,
@@ -3959,11 +3995,12 @@ async function assertExposedThemeCssVariables(page: Page) {
 
 async function injectFeP3GridAdapterVisualFixture(page: Page) {
   await injectDesignFixture(page, {
-    ariaLabel: "FE-P3 grid adapter visual fixtures",
-    fixtureName: "fe-p3-grid-adapter",
-    missingMainMessage: "Expected workbook shell main before FE-P3 fixture",
+    ariaLabel: "browser.grid-interaction grid adapter visual fixtures",
+    fixtureName: "grid-interaction-grid-adapter",
+    missingMainMessage:
+      "Expected workbook shell main before browser.grid-interaction fixture",
     styleText: `
-      [data-design-fixture='fe-p3-grid-adapter'] {
+      [data-design-fixture='grid-interaction-grid-adapter'] {
         position: fixed;
         inset: var(--ct-spacing-xl);
         box-sizing: border-box;
@@ -3985,11 +4022,11 @@ async function injectFeP3GridAdapterVisualFixture(page: Page) {
         z-index: 1000;
       }
 
-      [data-design-fixture='fe-p3-grid-adapter'] * {
+      [data-design-fixture='grid-interaction-grid-adapter'] * {
         box-sizing: border-box;
       }
 
-      .fe-p3-grid-fixture-table {
+      .grid-interaction-grid-fixture-table {
         min-width: 0;
         overflow: hidden;
         border: var(--ct-border-hairline);
@@ -3997,14 +4034,14 @@ async function injectFeP3GridAdapterVisualFixture(page: Page) {
         background: var(--ct-colors-surface-1);
       }
 
-      .fe-p3-grid-fixture-row {
+      .grid-interaction-grid-fixture-row {
         display: grid;
         grid-template-columns: 10rem 16rem 12rem 14rem 14rem;
         min-width: 66rem;
       }
 
-      .fe-p3-grid-fixture-head,
-      .fe-p3-grid-fixture-cell {
+      .grid-interaction-grid-fixture-head,
+      .grid-interaction-grid-fixture-cell {
         position: relative;
         min-width: 0;
         min-height: 3.75rem;
@@ -4019,7 +4056,7 @@ async function injectFeP3GridAdapterVisualFixture(page: Page) {
         color: var(--ct-colors-ink);
       }
 
-      .fe-p3-grid-fixture-head {
+      .grid-interaction-grid-fixture-head {
         min-height: 3rem;
         background: var(--ct-colors-surface-2);
         color: var(--ct-colors-ink-muted);
@@ -4028,7 +4065,7 @@ async function injectFeP3GridAdapterVisualFixture(page: Page) {
         font-weight: var(--ct-typography-metadata-fontWeight);
       }
 
-      .fe-p3-grid-fixture-frozen {
+      .grid-interaction-grid-fixture-frozen {
         position: sticky;
         left: 0;
         z-index: 2;
@@ -4036,7 +4073,7 @@ async function injectFeP3GridAdapterVisualFixture(page: Page) {
         box-shadow: 0.75rem 0 1rem rgba(0, 0, 0, 0.28);
       }
 
-      .fe-p3-grid-fixture-resize-handle {
+      .grid-interaction-grid-fixture-resize-handle {
         position: absolute;
         inset-block: 0.45rem;
         inset-inline-end: 0.2rem;
@@ -4045,13 +4082,13 @@ async function injectFeP3GridAdapterVisualFixture(page: Page) {
         background: var(--ct-colors-hairline-focus);
       }
 
-      .fe-p3-grid-fixture-active {
+      .grid-interaction-grid-fixture-active {
         outline: var(--ct-component-focus-ring-border);
         outline-offset: -0.2rem;
         background: var(--ct-colors-surface-3);
       }
 
-      .fe-p3-grid-fixture-editor {
+      .grid-interaction-grid-fixture-editor {
         width: 100%;
         min-width: 0;
         border: var(--ct-border-strong);
@@ -4062,7 +4099,7 @@ async function injectFeP3GridAdapterVisualFixture(page: Page) {
         font: inherit;
       }
 
-      .fe-p3-grid-fixture-fill {
+      .grid-interaction-grid-fixture-fill {
         position: absolute;
         right: 0.2rem;
         bottom: 0.2rem;
@@ -4073,7 +4110,7 @@ async function injectFeP3GridAdapterVisualFixture(page: Page) {
         background: var(--ct-colors-surface-1);
       }
 
-      .fe-p3-grid-fixture-group {
+      .grid-interaction-grid-fixture-group {
         grid-column: 1 / -1;
         min-height: 3.5rem;
         background: var(--ct-colors-surface-2);
@@ -4081,7 +4118,7 @@ async function injectFeP3GridAdapterVisualFixture(page: Page) {
         font-weight: 600;
       }
 
-      .fe-p3-grid-fixture-tree-toggle {
+      .grid-interaction-grid-fixture-tree-toggle {
         display: inline-grid;
         place-items: center;
         width: 1.35rem;
@@ -4092,21 +4129,21 @@ async function injectFeP3GridAdapterVisualFixture(page: Page) {
         color: var(--ct-colors-ink);
       }
 
-      .fe-p3-grid-fixture-side {
+      .grid-interaction-grid-fixture-side {
         display: grid;
         grid-template-rows: auto 1fr;
         gap: var(--ct-spacing-sm);
         min-width: 0;
       }
 
-      .fe-p3-grid-fixture-caption {
+      .grid-interaction-grid-fixture-caption {
         margin: 0;
         color: var(--ct-colors-ink-muted);
         font-family: var(--ct-typography-metadata-fontFamily);
         font-size: var(--ct-typography-metadata-fontSize);
       }
 
-      .fe-p3-grid-fixture-empty {
+      .grid-interaction-grid-fixture-empty {
         display: grid;
         place-items: center;
         min-height: 16rem;
@@ -4117,42 +4154,42 @@ async function injectFeP3GridAdapterVisualFixture(page: Page) {
         text-align: center;
       }
 
-      .fe-p3-grid-fixture-empty strong {
+      .grid-interaction-grid-fixture-empty strong {
         display: block;
         margin-block-end: var(--ct-spacing-xs);
         color: var(--ct-colors-ink);
       }
     `,
     html: `
-      <div class="fe-p3-grid-fixture-table" role="grid" aria-label="Adapter fixture grid">
-        <div class="fe-p3-grid-fixture-row" role="row">
-          <div class="fe-p3-grid-fixture-head fe-p3-grid-fixture-frozen" role="columnheader" data-fixture-id="visual.fixture.frozen_column">Record</div>
-          <div class="fe-p3-grid-fixture-head" role="columnheader" data-fixture-id="visual.fixture.resize_handle">Summary<span class="fe-p3-grid-fixture-resize-handle" aria-hidden="true"></span></div>
-          <div class="fe-p3-grid-fixture-head" role="columnheader">State</div>
-          <div class="fe-p3-grid-fixture-head" role="columnheader">Assignee</div>
-          <div class="fe-p3-grid-fixture-head" role="columnheader">Last edit</div>
+      <div class="grid-interaction-grid-fixture-table" role="grid" aria-label="Adapter fixture grid">
+        <div class="grid-interaction-grid-fixture-row" role="row">
+          <div class="grid-interaction-grid-fixture-head grid-interaction-grid-fixture-frozen" role="columnheader" data-fixture-id="visual.fixture.frozen_column">Record</div>
+          <div class="grid-interaction-grid-fixture-head" role="columnheader" data-fixture-id="visual.fixture.resize_handle">Summary<span class="grid-interaction-grid-fixture-resize-handle" aria-hidden="true"></span></div>
+          <div class="grid-interaction-grid-fixture-head" role="columnheader">State</div>
+          <div class="grid-interaction-grid-fixture-head" role="columnheader">Assignee</div>
+          <div class="grid-interaction-grid-fixture-head" role="columnheader">Last edit</div>
         </div>
-        <div class="fe-p3-grid-fixture-row" role="row">
-          <div class="fe-p3-grid-fixture-cell fe-p3-grid-fixture-group" role="rowheader" data-fixture-id="visual.fixture.tree_group_row"><span class="fe-p3-grid-fixture-tree-toggle" aria-hidden="true">v</span> reviewed group, 2 rows</div>
+        <div class="grid-interaction-grid-fixture-row" role="row">
+          <div class="grid-interaction-grid-fixture-cell grid-interaction-grid-fixture-group" role="rowheader" data-fixture-id="visual.fixture.tree_group_row"><span class="grid-interaction-grid-fixture-tree-toggle" aria-hidden="true">v</span> reviewed group, 2 rows</div>
         </div>
-        <div class="fe-p3-grid-fixture-row" role="row">
-          <div class="fe-p3-grid-fixture-cell fe-p3-grid-fixture-frozen" role="rowheader">record-1</div>
-          <div class="fe-p3-grid-fixture-cell fe-p3-grid-fixture-active" role="gridcell" data-fixture-id="visual.fixture.edit_cell"><input class="fe-p3-grid-fixture-editor" value="Edit cell adapter" aria-label="Summary editor" readonly><span class="fe-p3-grid-fixture-fill" data-fixture-id="visual.fixture.drag_fill_handle" aria-hidden="true"></span></div>
-          <div class="fe-p3-grid-fixture-cell" role="gridcell">reviewed</div>
-          <div class="fe-p3-grid-fixture-cell" role="gridcell">Analyst</div>
-          <div class="fe-p3-grid-fixture-cell" role="gridcell">saved</div>
+        <div class="grid-interaction-grid-fixture-row" role="row">
+          <div class="grid-interaction-grid-fixture-cell grid-interaction-grid-fixture-frozen" role="rowheader">record-1</div>
+          <div class="grid-interaction-grid-fixture-cell grid-interaction-grid-fixture-active" role="gridcell" data-fixture-id="visual.fixture.edit_cell"><input class="grid-interaction-grid-fixture-editor" value="Edit cell adapter" aria-label="Summary editor" readonly><span class="grid-interaction-grid-fixture-fill" data-fixture-id="visual.fixture.drag_fill_handle" aria-hidden="true"></span></div>
+          <div class="grid-interaction-grid-fixture-cell" role="gridcell">reviewed</div>
+          <div class="grid-interaction-grid-fixture-cell" role="gridcell">Analyst</div>
+          <div class="grid-interaction-grid-fixture-cell" role="gridcell">saved</div>
         </div>
-        <div class="fe-p3-grid-fixture-row" role="row">
-          <div class="fe-p3-grid-fixture-cell fe-p3-grid-fixture-frozen" role="rowheader">record-2</div>
-          <div class="fe-p3-grid-fixture-cell" role="gridcell">Frozen column remains pinned</div>
-          <div class="fe-p3-grid-fixture-cell" role="gridcell">rough</div>
-          <div class="fe-p3-grid-fixture-cell" role="gridcell">Unassigned</div>
-          <div class="fe-p3-grid-fixture-cell" role="gridcell">clean</div>
+        <div class="grid-interaction-grid-fixture-row" role="row">
+          <div class="grid-interaction-grid-fixture-cell grid-interaction-grid-fixture-frozen" role="rowheader">record-2</div>
+          <div class="grid-interaction-grid-fixture-cell" role="gridcell">Frozen column remains pinned</div>
+          <div class="grid-interaction-grid-fixture-cell" role="gridcell">rough</div>
+          <div class="grid-interaction-grid-fixture-cell" role="gridcell">Unassigned</div>
+          <div class="grid-interaction-grid-fixture-cell" role="gridcell">clean</div>
         </div>
       </div>
-      <aside class="fe-p3-grid-fixture-side" aria-label="Empty successful query fixture">
-        <p class="fe-p3-grid-fixture-caption">Adapter-owned visual states only. Row-gutter presence remains FE-P7 and grouped-result query ownership remains FE-P8.</p>
-        <div class="fe-p3-grid-fixture-empty" data-fixture-id="visual.fixture.empty_successful_query">
+      <aside class="grid-interaction-grid-fixture-side" aria-label="Empty successful query fixture">
+        <p class="grid-interaction-grid-fixture-caption">Adapter-owned visual states only. Row-gutter presence remains browser.collaboration and grouped-result query ownership remains browser.saved-view-query.</p>
+        <div class="grid-interaction-grid-fixture-empty" data-fixture-id="visual.fixture.empty_successful_query">
           <span><strong>No rows match this query</strong>Successful empty result</span>
         </div>
       </aside>
@@ -4479,7 +4516,7 @@ async function assertEvidenceAccessVisualRegression(
 
 async function installFeP6EvidenceAccessVisualStyle(page: Page) {
   await page.evaluate((gridTestId) => {
-    const styleId = "fe-p6-evidence-access-visual-style";
+    const styleId = "evidence-workflow-evidence-access-visual-style";
     document.getElementById(styleId)?.remove();
     const style = document.createElement("style");
     style.id = styleId;

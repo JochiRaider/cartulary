@@ -10,9 +10,9 @@
 | Baseline branch | `revision/grid-adapter` |
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
-| Tracker state | `IN_PROGRESS` — WS-10 atomic retirement |
-| Active start | T-045 closure checkpoint based on clean T-045 commit `e9342902` |
-| Active tasks | T-045A |
+| Tracker state | `CHECKPOINT` — WS-10 complete; WS-11 not yet active |
+| Active start | T-045A based on clean T-050 commit `80814390` |
+| Active tasks | None |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -496,7 +496,7 @@ WS-06 closure is recorded in `tools/delivery_identity_followup_ledger.json`. It 
 | WS-07 | Replace slice, audit, schema, and artifact APIs | DONE | WS-03–WS-06 | Successor CLI contract/smoke tests | Revert the whole interface checkpoint before atomic cutover. |
 | WS-08 | Migrate browser stages and scheduler topology | DONE | WS-05, WS-07 | Owner-based DAG, lifecycle, and browser tests | Revert authored topology and generated outputs together. |
 | WS-09 | Update task surface, generation, finalization, and baselines | DONE | WS-07, WS-08 | Generated surface/drift and fresh baseline plan | Revert owner inputs plus regenerated outputs together. |
-| WS-10 | Atomic deletion and hard cutover | IN_PROGRESS | WS-02–WS-09 | Deletion manifest and zero-reference scans | Revert the entire cutover commit; never add shims. |
+| WS-10 | Atomic deletion and hard cutover | DONE | WS-02–WS-09 | Deletion manifest and zero-reference scans | Revert the entire cutover commit; never add shims. |
 | WS-11 | Focused and broad verification | TODO | WS-10 | Successful fresh run roots and audit summaries | Forward-fix or revert the full cutover; old evidence is invalid. |
 | WS-12 | Validate and finalize the stable post-cutover handoff | TODO | WS-11 | Authoritative retained-run evidence and handoff log | Reopen tracker if any closure invariant fails. |
 
@@ -731,7 +731,7 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-043 | Delete phase/subsystem registries and maps | WS-10 | DONE | T-016,T-022,T-027,T-039 | 31-input deletion manifest, active-consumer cutover, public broad-runner checks, and zero-reference classification | Unified catalog is sole owner. |
 | T-044 | Delete phase-accounting and compatibility code | WS-10 | DONE | T-035,T-037,T-043 | Boundary and zero-reference scans | No old reader or shim remains. |
 | T-045 | Regenerate all permitted outputs | WS-10 | DONE | T-042,T-043,T-044 | Generated drift checks | Clean owner-first generated tree. |
-| T-045A | Prove atomic v2 parity and retirement | WS-10 | IN_PROGRESS | T-050 | NLSpec/schema/task-surface/topology parity and zero-reference report | v2 is complete and no v1 alias, reader, writer, catalog, or artifact identity is active. |
+| T-045A | Prove atomic v2 parity and retirement | WS-10 | DONE | T-050 | NLSpec/schema/task-surface/topology parity and zero-reference report | v2 is complete and no v1 alias, reader, writer, catalog, or artifact identity is active. |
 | T-046 | Run focused verification matrix | WS-11 | TODO | T-045A | Command results/run roots | All focused gates pass. |
 | T-047 | Run agent finalization and first warm check | WS-11 | TODO | T-046 | Successful warm run root | Fresh broad evidence exists. |
 | T-048 | Refresh retained baselines and repeat broad checks | WS-11 | TODO | T-047 | Finalized root and second results | No phase baseline is reused. |
@@ -1328,6 +1328,18 @@ Each entry must include:
 - Skipped/remaining checks: atomic zero-reference/parity scans, NLSpec/schema/task/topology parity, complete focused product/browser matrices, broad checks, finalization, release rehearsal, owner audits, and timing windows remain assigned to T-045A and WS-11/WS-12. No pre-deletion source snapshot is accepted as final evidence.
 - Next safe task: T-045A only. Prove atomic v2 parity across the NLSpec, schemas, generated task surface/topology, executable runtime, fixtures, environment identities, baselines, and zero-reference scans; remove or convert any remaining live delivery-shaped identity without restoring a migration reader, then close WS-10 before the separate WS-11 activation checkpoint.
 - Rollback boundary: revert the complete T-050 checkpoint to `e9342902`, including the immutable report, every migration-input/helper/schema deletion, the classification-reader removal, regenerated render index, guide/contract changes, and this tracker record. Never restore an individual crosswalk, classification registry, migration schema, or fallback reader beside the v2 catalog.
+
+#### 2026-07-18 — T-045A atomic v2 parity and retirement checkpoint
+
+- Branch/commit at start: `revision/grid-adapter` at clean T-050 checkpoint `80814390`. T-045A and WS-10 are `DONE`; no WS-11 task is active until the required separate activation checkpoint.
+- Atomic parity result: the NLSpec, attached schemas, authored and generated task surface, execution topology, scheduler, runner adapters, owner accounting, retained-root audit, fixtures, baselines, finalizer, and active guides now expose one owner-first v2 model. The visual fixture registry is `cartulary.frontend_visual_fixture_registry.v4` and names exact catalog rows; the empty delivery-label exception registry and schema are deleted. Generic target guidance is restored from task-surface/topology/catalog owners, and backend planning/aggregate emission now use `selectedRowIDs` and `owner_id` consistently.
+- Semantic retirement result: remaining harness-shaped ordinal fixture strings, helper names, filenames, selector prefixes, environment inputs, summary fields, and stale schema expectations were converted to semantic owner, domain, row, step, or current-schema identities. Recovery and object-store test filenames/symbols now describe backup and adapter contracts. Legitimate product-owned concepts such as the Workbook Import Assistant and Network Flow enforcement phase, plus product protocol IDs, remain unchanged under Section 2.4; no Core or domain behavior changed.
+- Zero-reference result: exact source and path scans found no live `phase-slice`, `phase_slice`, `phase-schedule`, `phase_schedule`, `phase-summary`, `phase_summary`, `PHASE_NAMESPACE`, `PHASE=`, `FE-P*`, `FE-VFIX`, old visual-registry fields/schema, delivery-label allowlist, old tool-run-summary schema, phase-label option, expected-phase field, phase-accounting path, or phase-shaped harness/test path. Explicit rejection fixtures, immutable handoff history, and reviewed product/runtime vocabulary remain the only permitted historical or product-phase references.
+- Passed validation: `make frontend-unit` passed at `.cartulary/test-results/20260718T115848Z-p89741`; `make backend-unit` passed with 235 tests at `.cartulary/test-results/20260718T120313Z-p1209`; the complete `make run-harness-smoke-extended` tier passed at `.cartulary/test-results/20260718T121619Z-p18512`; final `make generate` passed at `.cartulary/test-results/20260718T121819Z-p58892`; final `make generate-drift` passed at `.cartulary/test-results/20260718T121824Z-p60277`; final `make json-shape-check` passed at `.cartulary/test-results/20260718T121832Z-p64835`; final `make generated-artifact-policy-check` passed at `.cartulary/test-results/20260718T121834Z-p65202`; and final `make harness-contract` passed at `.cartulary/test-results/20260718T121834Z-p65383`. Direct semantic-identity/catalog checks, `make help`, `make help-all`, `make task-guide ROLE=module-author OWNER=module.networkflow`, owner-first target diagnostics, `make lint-scripts` at `.cartulary/test-results/20260718T121906Z-p66918`, `make lint-shell` at `.cartulary/test-results/20260718T121907Z-p67249`, `make lint-markdown` at `.cartulary/test-results/20260718T121921Z-p68303`, exact zero scans, JSON/JavaScript/shell syntax checks, and staged/unstaged diff checks passed.
+- Resolved validation history: atomic replay exposed a missing target-guidance implementation, an obsolete backend planner field, a mismatched aggregate owner key, a missing shell heredoc terminator, test-only tool-summary v4 fixtures, `expected_phases`, `--phase-label`, and an obsolete support zero-match message. Each was repaired at its current owner and the complete successor smoke replay passed. Three large Markdown files accidentally truncated during a mechanical source conversion were detected before validation, restored byte-for-byte from the clean checkpoint, and then changed only through narrow reviewed edits; no truncated bytes entered a checkpoint.
+- Skipped/remaining checks: T-045A does not claim the all-owner/service-backed/browser matrix, `test-fast`, targeted security suite, broad warm checks, finalizer baseline refresh, release rehearsal, owner audits, or timing window. Those are the ordered T-046 through T-051 obligations, and no pre-WS-11 result root is authoritative final evidence.
+- Next safe task: create a tracker-only checkpoint activating WS-11 and T-046, then run the complete focused post-cutover verification matrix without changing the closed WS-10 architecture or restoring a compatibility surface.
+- Rollback boundary: revert the complete T-045A checkpoint to `80814390`, including semantic fixture/test renames, visual-registry v4, removed exception machinery, owner-first diagnostics/planner repairs, generated outputs, contract updates, and this tracker record. Never restore one retired identifier or old-schema fixture as a tactical compatibility patch.
 
 ## 17. First-resumer checklist
 

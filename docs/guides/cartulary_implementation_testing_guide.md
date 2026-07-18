@@ -3,7 +3,7 @@
 **Status**: Derived implementation-planning artifact  
 **Authoritative sources**: Core 00–04 for implementation conformance; Core 05 for claim-bearing publication only  
 **Traceability source**: Appendix F  
-**Scope**: Base profile, with extension-profile testing hooks in Phases 11 and 12
+**Scope**: Base profile, with extension-profile testing hooks in the extension-profile owner groups
 
 ---
 
@@ -11,13 +11,13 @@
 
 This guide is a **derived implementation-planning artifact**, not an independent source of contract truth. Core 00 through Core 04 are authoritative for implementation conformance. Core 05 is authoritative for claim-bearing publication of timed or fixture-sensitive criteria only. Appendix F is the traceability aid. When this guide and an owner section diverge, the owner section governs and this guide must be repaired.[^precedence][^claim-publication]
 
-Use `docs/domain.md` for project-wide domain vocabulary and concept boundaries while planning or reviewing phase work. It is a navigation and terminology aid; it does not replace the owner sections or Appendix F traceability.
+Use `docs/domain.md` for project-wide domain vocabulary and concept boundaries while planning or reviewing owner-group work. It is a navigation and terminology aid; it does not replace the owner sections or Appendix F traceability.
 
-This guide preserves the phased implementation shape because it is useful for delivery planning, but the phase order is an **implementation aid**, not a parallel specification. A phase may group work for sequencing convenience. It does not change requirement ownership, route semantics, data-model rules, or conformance scope.[^precedence][^traceability]
+This guide preserves the owner-group implementation shape because it is useful for delivery planning, but the owner-group order is an **implementation aid**, not a parallel specification. An owner group may group work for sequencing convenience. It does not change requirement ownership, route semantics, data-model rules, or conformance scope.[^precedence][^traceability]
 
-Phase headers therefore name **primary owner sections**, not broad REQ blocks. The phase tables carry the exact REQ and AC identifiers for each planned test. Use the phase header to find the owner section. Use the row-level mappings to build the test and to prove traceability.[^precedence][^traceability]
+Owner-group headers therefore name **primary owner sections**, not broad REQ blocks. The owner-group tables carry the exact REQ and AC identifiers for each planned test. Use the owner-group header to find the owner section. Use the row-level mappings to build the test and to prove traceability.[^precedence][^traceability]
 
-This guide also resolves one dependency error from the prior version: reviewer-facing history, delete or restore, and rollback remain late-phase work, but the **minimal write-side mutation substrate** cannot wait until that phase. As soon as the first record-row mutation path exists, it must already emit attributed mutations, maintain projections, and satisfy normalized idempotency and optimistic-concurrency contracts. Phase 7 now completes the reviewer-facing history and rollback surface instead of introducing mutation history for the first time.[^traceability]
+This guide also resolves one dependency error from the prior version: reviewer-facing history, delete or restore, and rollback remain later owner work, but the **minimal write-side mutation substrate** cannot wait until that owner group. As soon as the first record-row mutation path exists, it must already emit attributed mutations, maintain projections, and satisfy normalized idempotency and optimistic-concurrency contracts. History and revision owner group now completes the reviewer-facing history and rollback surface instead of introducing mutation history for the first time.[^traceability]
 
 ### 1.1 Test categories used in this guide
 
@@ -38,13 +38,13 @@ Use this triage order for new or residual tests: map the exact title or symbol w
 
 ### 1.1.1 Service-backed fixture modes
 
-Service-backed Go tests must keep service ownership centralized in `tools/testservices`; phase helpers choose only the fixture isolation mode used inside that already-running Postgres and object-store pair.
+Service-backed Go tests must keep service ownership centralized in `tools/testservices`; owner helpers choose only the fixture isolation mode used inside that already-running Postgres and object-store pair.
 
 - Use isolated per-test Postgres template clones for startup, migration, rollback, process-boundary, HTTP/runtime, and unclear isolation cases.
 - Use transaction-backed Postgres fixtures for store-only tests once their seed and assertion helpers run through the shared `postgres.DB` test surface.
 - Use package-reused Postgres databases only for harness self-tests or rows with explicitly declared dirty-table reset scope; broad mutable-table resets are not a default fixture mode.
 - Use package-reused object-store buckets for ordinary route tests; helpers clear object contents before each test. Prefix cleanup is available for tests that can route all object keys through a unique prefix.
-- Treat fixture churn diagnostics in `service-scope.json` and `target-summary.json` as the source of truth when deciding whether a test needs stronger isolation. For failed harness runs, read compact `failure_class` and `failure_reason` fields in phase, target, scheduler, and run summaries before reading detailed logs: `product` means product evidence failed, `infra` means backing service/runtime readiness failed, `harness` means orchestration failed, `timing` means duration drift failed, and `artifact` means expected reports or cleanup artifacts failed.
+- Treat fixture churn diagnostics in `service-scope.json` and `target-summary.json` as the source of truth when deciding whether a test needs stronger isolation. For failed harness runs, read compact `failure_class` and `failure_reason` fields in owner, target, scheduler, and run summaries before reading detailed logs: `product` means product evidence failed, `infra` means backing service/runtime readiness failed, `harness` means orchestration failed, `timing` means duration drift failed, and `artifact` means expected reports or cleanup artifacts failed.
 
 ### 1.1.2 Toolchain output policy
 
@@ -58,15 +58,15 @@ When adding or changing public targets, update the testing harness public regist
 
 ### 1.2 Conformance posture
 
-Phases 0 through 10 are the base-profile implementation sequence. A base-profile claim MUST satisfy the current Base claim manifest in Core 04 rather than any historical endpoint shorthand such as `AC-299` alone. Phases 11 and 12 are intentionally not base-profile phases. They are extension-profile hook sections that keep extension work aligned to the current extension route families and claim manifests. Core 05 remains a separate normative companion for claim-bearing publication of timed or fixture-sensitive criteria and does not broaden Base Profile or extension-profile implementation conformance.[^base-manifest][^traceability][^claim-publication]
+the Base Profile owner groups are the base-profile implementation sequence. A base-profile claim MUST satisfy the current Base claim manifest in Core 04 rather than any historical endpoint shorthand such as `AC-299` alone. the extension-profile owner groups are intentionally not Base Profile owner groups. They are extension-profile hook sections that keep extension work aligned to the current extension route families and claim manifests. Core 05 remains a separate normative companion for claim-bearing publication of timed or fixture-sensitive criteria and does not broaden Base Profile or extension-profile implementation conformance.[^base-manifest][^traceability][^claim-publication]
 
 ---
 
-## 2. Phase 0 — Infrastructure, deployment configuration, and schema bootstrap
+## 2. Bootstrap and configuration owner group — Infrastructure, deployment configuration, and schema bootstrap
 
 ### 2.0.1 Scope
 
-This phase establishes the deployable shell and startup control plane:
+This owner group establishes the deployable shell and startup control plane:
 
 - modular-monolith application shell,
 - required services and runtime roots,
@@ -81,7 +81,7 @@ This phase establishes the deployable shell and startup control plane:
 - deployment-local applied-migration evidence capture,
 - object-store reachability.
 
-No domain routes beyond health or startup diagnostics should be treated as complete at the end of this phase. Bootstrap-created administrators enter the ordinary credential lifecycle later in Phase 1 rather than through a special startup-only auth path.[^base-manifest][^core01-routes]
+No domain routes beyond health or startup diagnostics should be treated as complete at the end of this owner group. Bootstrap-created administrators enter the ordinary credential lifecycle later in Authentication owner group rather than through a special startup-only auth path.[^base-manifest][^core01-routes]
 
 ### 2.0.2 Primary owner sections
 
@@ -107,7 +107,7 @@ No domain routes beyond health or startup diagnostics should be treated as compl
 | U-0-09 | The resource-limit registry resolves omitted defaults deterministically, enforces its closed numeric domains, rejects unknown limit keys, and never widens the fixed public ceilings for `sort[]`, `filters[]`, `changes[]`, or `collection_actions_v1.actions[]`.             | REQ-04-066, REQ-04-077, REQ-04-079..REQ-04-081             | AC-320         |
 | U-0-10 | The deployment-local operator migration-evidence command validates capture inputs, audits embedded migration source against the migration history manifest, emits secret-safe evidence-only JSON, and reports missing goose metadata without authorizing rewrite work.          | Core 01 §2.1A, REQ-04-077                                  | AC-231, AC-298 |
 
-Schema-bootstrap idempotency is authoritative integration evidence at `I-0-01`. Any migration-text regression guard stays support-only and is not part of the authoritative Phase 0 traceability map.
+Schema-bootstrap idempotency is authoritative integration evidence at `I-0-01`. Any migration-text regression guard stays support-only and is not part of the authoritative Bootstrap and configuration owner group traceability map.
 
 ### 2.0.4 Integration tests
 
@@ -133,11 +133,11 @@ Schema-bootstrap idempotency is authoritative integration evidence at `I-0-01`. 
 
 ---
 
-## 3. Phase 1 — Authentication, sessions, and deployment-local user administration
+## 3. Authentication owner group — Authentication, sessions, and deployment-local user administration
 
 ### 3.1.1 Scope
 
-This phase establishes the authenticated shell:
+This owner group establishes the authenticated shell:
 
 - local account login,
 - Argon2id password hashing,
@@ -159,15 +159,15 @@ Repository execution is catalog-driven. `tools/test_catalog_owner.json` and its
 `tools/test_families/*.json` manifests are the executable authority; broad gates
 derive their applicable owner/target/row partitions from that catalog. Use
 `make explain-test-owner OWNER=module.auth` before running the narrow
-`test-slice` or `service-backed-test-slice` selection. Historical Phase 1 row
+`test-slice` or `service-backed-test-slice` selection. Historical Authentication owner group row
 labels below remain implementation-guide citations only and do not select
 harness work.
 
-Shared harness owners for this phase are explicit:
+Shared harness owners for this owner group are explicit:
 
 - `internal/modules/auth/testsupport/routetest.PublicRouteInventory()` owns the auth public-route inventory together with the shared `surface_envelope`, `bootstrap_boundary`, `csrf`, `replay_stored_payload`, `mutation_audit`, `session_revocation`, `authorization_rederivation`, and `request_contracts` sweeps.
-- `internal/modules/auth/phase1_support_integration_test.go` owns the Phase 1 support-only inventory sweeps and must stay support-only even as the route inventory expands.
-- `apps/web/src/app/App.phase1.test.tsx` owns the authoritative ordinary-shell Phase 1 frontend-unit rows. `apps/web/src/app/App.phase1.support.test.tsx` remains support-only and must not claim `U-1-*` identifiers.
+- `internal/modules/auth/phase1_support_integration_test.go` owns the Authentication owner group support-only inventory sweeps and must stay support-only even as the route inventory expands.
+- `apps/web/src/app/App.phase1.test.tsx` owns the authoritative ordinary-shell Authentication owner group frontend-unit rows. `apps/web/src/app/App.phase1.support.test.tsx` remains support-only and must not claim `U-1-*` identifiers.
 
 ### 3.1.2 Primary owner sections
 
@@ -195,7 +195,7 @@ Shared harness owners for this phase are explicit:
 | U-1-11 | `POST /api/v1/auth/password/change` verifies `current_password` exactly as supplied after JSON decoding, requires a current TOTP assertion when an active factor exists, revokes all active sessions on success, and records only secret-safe deployment-local audit or idempotency state.                                                               | REQ-01-524, REQ-04-016, REQ-04-086             | AC-338                         |
 | U-1-12 | `POST /api/v1/auth/mfa/totp/begin` and `POST /api/v1/auth/mfa/totp/complete` accept exactly one auth mode, issue seed material only on begin, preserve begin idempotency within one auth scope plus `client_txn_id`, consume bootstrap tokens on successful complete, and distinguish first enrollment from replacement-enrollment session consequences. | REQ-01-522, REQ-01-525..REQ-01-526, REQ-04-084 | AC-336, AC-337, AC-339         |
 | U-1-13 | `POST /api/v1/users/{user_id}/password/reset`, `POST /api/v1/users/{user_id}/mfa/totp/reset`, and `POST /api/v1/users/{user_id}/sessions/revoke-all` are callable only by `deployment_admin`, preserve their route-owned state consequences, and do not widen incident-scoped authorization.                                                             | REQ-01-527..REQ-01-529, REQ-04-085..REQ-04-086 | AC-340..AC-342                 |
-| U-1-14 | The ordinary shell starts anonymous, sends the Phase 1 login request, refreshes session and credential-state resources after success, and keeps deployment-user controls denied for non-deployment-admin sessions.                                                                                                                                       | REQ-01-023..REQ-01-031, REQ-04-001..REQ-04-017 | AC-123, AC-130                 |
+| U-1-14 | The ordinary shell starts anonymous, sends the Authentication owner group login request, refreshes session and credential-state resources after success, and keeps deployment-user controls denied for non-deployment-admin sessions.                                                                                                                                       | REQ-01-023..REQ-01-031, REQ-04-001..REQ-04-017 | AC-123, AC-130                 |
 | U-1-15 | The ordinary shell follows `mfa_setup_required -> bootstrap_token -> totp/begin -> totp/complete`, sends the bootstrap-token requests with the ordinary client surface, and proves TOTP completion alone does not issue a session.                                                                                                                     | REQ-01-522, REQ-01-525..REQ-01-526, REQ-01-536 | AC-334, AC-336, AC-337, AC-347 |
 | U-1-16 | The ordinary account-security panel issues password-change and TOTP-enrollment requests, surfaces route-owned failures on the shell, and refreshes back to the anonymous shell after success revokes the session.                                                                                                                                       | REQ-01-524..REQ-01-526, REQ-04-016, REQ-04-083 | AC-336, AC-338, AC-339         |
 | U-1-17 | The ordinary deployment-admin panel creates and loads users, sends versioned patch requests, and surfaces `user_version_conflict` plus `last_deployment_admin` on the shell without relying on debug-only harness views.                                                                                                                                | REQ-01-117..REQ-01-126                         | AC-175..AC-180                 |
@@ -228,15 +228,15 @@ Shared harness owners for this phase are explicit:
 | E-1-11 | A reviewer-visible incident edit submitted after current-role demotion fails through the public `authorization_denied` envelope, renders only the public error code, and reloads with the lower current role.                 | REQ-01-127..REQ-01-137, REQ-04-021..REQ-04-026 | AC-175..AC-180, AC-231         |
 | E-1-12 | Deployment-admin revoke-all invalidates a target browser session, the next public session refresh returns the ordinary shell to login, and fresh login preserves unchanged incident membership access.                      | REQ-01-029, REQ-01-529, REQ-04-016, REQ-04-085 | AC-131, AC-136, AC-340..AC-342 |
 
-Phase 1 list-search implementation addendum: when `GET /api/v1/users` implementation work lands, promote manifest rows for user-list search/filter validation, cursor query mismatch, deployment-admin gating, identifier-shaped search such as a full hyphenated `user_id` matched through ordinary `list_search_v1` source-token prefix semantics, the `limit=1` later-page match fixture, and deployment-admin frontend stale-response handling. Those rows should map to REQ-01-117, REQ-01-234, REQ-01-238, REQ-01-240..REQ-01-242, REQ-01-581..REQ-01-584, REQ-04-038, AC-415, and AC-417.
+Authentication owner group list-search implementation addendum: when `GET /api/v1/users` implementation work lands, promote manifest rows for user-list search/filter validation, cursor query mismatch, deployment-admin gating, identifier-shaped search such as a full hyphenated `user_id` matched through ordinary `list_search_v1` source-token prefix semantics, the `limit=1` later-page match fixture, and deployment-admin frontend stale-response handling. Those rows should map to REQ-01-117, REQ-01-234, REQ-01-238, REQ-01-240..REQ-01-242, REQ-01-581..REQ-01-584, REQ-04-038, AC-415, and AC-417.
 
 ---
 
-## 4. Phase 2 — Incidents, memberships, and the incident-scoped control envelope
+## 4. Incident and membership owner group — Incidents, memberships, and the incident-scoped control envelope
 
 ### 4.2.1 Scope
 
-This phase establishes incident-scoped administration and the first stable incident-level API behavior:
+This owner group establishes incident-scoped administration and the first stable incident-level API behavior:
 
 - incident create, list, get, and patch,
 - creator bootstrap membership,
@@ -248,23 +248,23 @@ This phase establishes incident-scoped administration and the first stable incid
 - incident create and patch idempotency or optimistic versioning,
 - automatic creation of workbook preference objects at incident create.
 
-This phase does **not** yet complete record-row history for workbook records. It also does **not** migrate Phase 2 incident mutation attribution onto `change_sets`; Phase 2 still proves owner-level mutation artifacts on the existing audit substrate, and any storage migration is separate owner work. It does establish the expectation that every new mutating route from this point forward must already satisfy its route-owned validation, idempotency, versioning, authorization, audit, and route-family discovery contracts.[^base-manifest][^core01-routes]
+This owner group does **not** yet complete record-row history for workbook records. It also does **not** migrate Incident and membership owner group incident mutation attribution onto `change_sets`; Incident and membership owner group still proves owner-level mutation artifacts on the existing audit substrate, and any storage migration is separate owner work. It does establish the expectation that every new mutating route from this point forward must already satisfy its route-owned validation, idempotency, versioning, authorization, audit, and route-family discovery contracts.[^base-manifest][^core01-routes]
 
 Repository execution is catalog-driven. `tools/test_catalog_owner.json` and its
-semantic family manifests own the Phase 2 implementation coverage now assigned
+semantic family manifests own the Incident and membership owner group implementation coverage now assigned
 to incident, workbook, record, and web owners. Use `make
 explain-test-owner OWNER=<owner-id>` to inspect exact rows and applicable
-targets, then run the owner slice APIs. Historical Phase 2 row labels and debug
+targets, then run the owner slice APIs. Historical Incident and membership owner group row labels and debug
 probe names below are descriptive citations only; they are not scheduler or
 evidence identities.
 
-Shared harness owners for this phase are explicit:
+Shared harness owners for this owner group are explicit:
 
-- Owner route inventories under incidents, workbook, Timeline, records, entities, indicators, and extensions compose the Phase 2 public-envelope and role-control sweeps through `internal/testutil/routeinventory`; no single product facade owns another module's routes.
+- Owner route inventories under incidents, workbook, Timeline, records, entities, indicators, and extensions compose the Incident and membership owner group public-envelope and role-control sweeps through `internal/testutil/routeinventory`; no single product facade owns another module's routes.
 - `internal/modules/incidents/testsupport/routetest` contains only incident and membership routes. Workbook preferences, view queries, record actions, and collaboration behavior remain with their semantic owners.
 - `internal/modules/incidents/testsupport/mutationtest` owns incident resource and membership mutation traceability without exposing the underlying audit table at call sites.
 - `internal/modules/incidents/testsupport/storetest` owns rollback-backed incident store behavior; auth seeding comes from auth support, while `internal/testutil/appsupport.NewIncidentStore` owns cross-module store composition.
-- `apps/web/src/app/App.landing.test.tsx` and `apps/web/src/app/IncidentAdminPanel.test.tsx` own the authoritative frontend-unit Phase 2 rows. They complement, not replace, Playwright `E-2-01..E-2-03`.
+- `apps/web/src/app/App.landing.test.tsx` and `apps/web/src/app/IncidentAdminPanel.test.tsx` own the authoritative frontend-unit Incident and membership owner group rows. They complement, not replace, Playwright `E-2-01..E-2-03`.
 
 ### 4.2.2 Primary owner sections
 
@@ -317,19 +317,19 @@ Shared harness owners for this phase are explicit:
 | E-2-02 | The same incident appears in incident discovery, is retrieved into the ordinary incident shell through a raw `/?incident_id=...` deep link, and patches only the allowed incident metadata fields through visible default-path controls. | REQ-01-168..REQ-01-180, REQ-01-491.1, REQ-02-015, REQ-02-222..REQ-02-223 | AC-170..AC-174, AC-211..AC-214 |
 | E-2-03 | An incident admin adds, changes, and removes memberships on the ordinary shell. A non-admin incident member sees the same membership state but not the admin controls.              | REQ-01-127..REQ-01-137, REQ-04-021..REQ-04-030 | AC-175..AC-180                 |
 
-Phase 2 browser helpers that open incident controls must wait on semantic controls-readiness state rather than mutation-result copy. This is frontend implementation-support guidance only and does not add Core incident-resource behavior beyond the route and authorization contracts cited above.
+Incident and membership owner group browser helpers that open incident controls must wait on semantic controls-readiness state rather than mutation-result copy. This is frontend implementation-support guidance only and does not add Core incident-resource behavior beyond the route and authorization contracts cited above.
 
-Phase 2 list-search implementation addendum: when `GET /api/v1/incidents` implementation work lands, promote manifest rows for incident-list search/filter validation, cursor query mismatch, hidden-resource pagination, the `limit=1` later-page match fixture, and incident-directory frontend stale-response handling. Those rows should map to REQ-01-168, REQ-01-234, REQ-01-238, REQ-01-240..REQ-01-242, REQ-01-581..REQ-01-584, AC-415, and AC-416.
+Incident and membership owner group list-search implementation addendum: when `GET /api/v1/incidents` implementation work lands, promote manifest rows for incident-list search/filter validation, cursor query mismatch, hidden-resource pagination, the `limit=1` later-page match fixture, and incident-directory frontend stale-response handling. Those rows should map to REQ-01-168, REQ-01-234, REQ-01-238, REQ-01-240..REQ-01-242, REQ-01-581..REQ-01-584, AC-415, and AC-416.
 
-Phase 2 still keeps browser-authenticated request probes for route-owned validation errors, extension singleton discovery semantics, and reserved-family precedence, but those belong to supplemental browser support coverage rather than the authoritative E2E completion map. The debug-only `Phase2Harness` remains a probe-only support surface rather than completion evidence, while process smoke checks are supplemental Go rows selected through the `backend-process` execution family.
+Incident and membership owner group still keeps browser-authenticated request probes for route-owned validation errors, extension singleton discovery semantics, and reserved-family precedence, but those belong to supplemental browser support coverage rather than the authoritative E2E completion map. The debug-only `Phase2Harness` remains a probe-only support surface rather than completion evidence, while process smoke checks are supplemental Go rows selected through the `backend-process` execution family.
 
 ---
 
-## 5. Phase 3 — Timeline, grid hot path, and first record-row mutation substrate
+## 5. Timeline mutation owner group — Timeline, grid hot path, and first record-row mutation substrate
 
 ### 5.3.1 Scope
 
-This phase introduces the first high-volume workbook record path and therefore the first complete record-row mutation substrate:
+This owner group introduces the first high-volume workbook record path and therefore the first complete record-row mutation substrate:
 
 - Timeline row create and patch,
 - partial and uncertain capture,
@@ -339,7 +339,7 @@ This phase introduces the first high-volume workbook record path and therefore t
 - explicit `mark-reviewed` and `supersede` actions,
 - current Timeline `capture_state` machine: `rough`, `enriched`, `reviewed`, `superseded`.
 
-This is the first phase where record-row history exists at all. Phase 7 will later complete the reviewer-facing history, delete or restore, and rollback surface.
+This is the first owner group where record-row history exists at all. The History and revision owner group later completes the reviewer-facing history, delete or restore, and rollback surface.
 
 ### 5.3.2 Primary owner sections
 
@@ -379,7 +379,7 @@ This is the first phase where record-row history exists at all. Phase 7 will lat
 | U-3-GRID-02 | Timeline grid row bindings carry `record_id` and `row_version` and do not use visible row index as mutation identity.                                                                                                                  | REQ-01-015..REQ-01-017, REQ-01-022, REQ-03-033..REQ-03-035                                     | AC-001, AC-013, AC-047, AC-231         |
 | U-3-GRID-03 | A local edit in a sorted or filtered Timeline viewport emits a patch with the original bound `record_id`, `base_row_version`, and `field_key`.                                                                                         | REQ-01-022, REQ-01-035, REQ-01-057..REQ-01-060, REQ-03-033..REQ-03-035                         | AC-013, AC-125, AC-231                 |
 
-The Phase 3 workbook currently renders through the RDG-backed `@cartulary/grid-adapter`. `U-3-GRID-01/02/03` therefore own workbook binding behavior on the live adapter path, while vendor-specific RDG semantics stay with adapter-level tests.
+The Timeline mutation owner group workbook currently renders through the RDG-backed `@cartulary/grid-adapter`. `U-3-GRID-01/02/03` therefore own workbook binding behavior on the live adapter path, while vendor-specific RDG semantics stay with adapter-level tests.
 
 ### 5.3.4 Integration tests
 
@@ -390,7 +390,7 @@ The Phase 3 workbook currently renders through the RDG-backed `@cartulary/grid-a
 | I-3-03 | Incident-role authorization, review and supersede lifecycle transitions, replay semantics, and replacement-target legality hold on the live route surface, including the coupled supersede change-set shape. | REQ-01-083..REQ-01-088, REQ-03-104..REQ-03-110                         | AC-107..AC-111, AC-194..AC-199 |
 | I-3-04 | Same-field Timeline patch conflicts are transported as `409 same_field_conflict` with `error.conflict` and no mutation or idempotency write.  | REQ-03-063..REQ-03-068                                                 | AC-126                         |
 | I-3-05 | The canonical incident WebSocket route proves handshake, presence snapshot ordering, membership-gated acceptance, browser-origin rejection, and incident-access revocation while preserving access to other authorized incidents. | REQ-01-250..REQ-01-277, REQ-04-005..REQ-04-017                         | AC-131, AC-136, AC-162         |
-| I-3-06 | Phase 3 create, patch, mark-reviewed, supersede, query, and WebSocket pre-upgrade malformed or invalid requests return common error envelopes with route-specific details and malformed mutation requests create no durable writes. | REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-233, REQ-01-250..REQ-01-277 | AC-231, AC-329                 |
+| I-3-06 | Timeline mutation owner group create, patch, mark-reviewed, supersede, query, and WebSocket pre-upgrade malformed or invalid requests return common error envelopes with route-specific details and malformed mutation requests create no durable writes. | REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-233, REQ-01-250..REQ-01-277 | AC-231, AC-329                 |
 | I-3-07 | Rough and uncertain Timeline capture preserves null structured fields, raw details, source text, and unresolved mention text through later explicit resolution. | REQ-02-024..REQ-02-025                                                 | AC-406                         |
 
 ### 5.3.5 E2E tests
@@ -412,15 +412,15 @@ Browser tests bound to Core 05 measurement predicates or p95 fixture-sensitive e
 | V-3-GRID-02 | Timeline edit-state visuals cover active editable cell plus `Syncing`, `Saved`, and `Conflict` save-state presentations on the browser surface. | REQ-03-033..REQ-03-040, REQ-03-087..REQ-03-089 | AC-043, AC-126         |
 | V-3-GRID-03 | Timeline grouped rows and currently exposed grid chrome render deterministically through the owned visual harness.                            | REQ-01-022, REQ-03-236..REQ-03-241             | AC-124, AC-184, AC-231 |
 
-Phase 3 visual rows intentionally do not claim row-gutter collaboration markers, drag-fill, frozen-column, resize-handle, or full conflict-resolution fixtures until those controls are product-exposed and owned by their later phase manifests. Grouped Timeline visual evidence uses the production treegrid path for currently exposed grouping chrome.
+Timeline mutation owner group visual rows intentionally do not claim row-gutter collaboration markers, drag-fill, frozen-column, resize-handle, or full conflict-resolution fixtures until those controls are product-exposed and owned by their later owner group manifests. Grouped Timeline visual evidence uses the production treegrid path for currently exposed grouping chrome.
 
 ---
 
-## 6. Phase 4 — Entities, mentions, resolution, merge, and canonical-indicator foundations
+## 6. Entity linking owner group — Entities, mentions, resolution, merge, and canonical-indicator foundations
 
 ### 6.4.1 Scope
 
-This phase introduces progressive normalization, exact-match entity behavior, and the remaining Phase 4 base-profile HTTP/workbook evidence:
+This owner group introduces progressive normalization, exact-match entity behavior, and the remaining Entity linking owner group base-profile HTTP/workbook evidence:
 
 - `mention_origin` vs `entity_origin`,
 - entity-mention lifecycle (`unresolved`, `resolved`, `dismissed`),
@@ -450,7 +450,7 @@ This phase introduces progressive normalization, exact-match entity behavior, an
 
 ### 6.4.3 Unit tests
 
-Execution dependency is distinct from evidence layer in this phase. `U-4-01..U-4-07` are service-backed store-domain tests that execute through `make backend-store`; `U-4-08..U-4-09` remain pure decoder tests that execute through `make backend-unit`; `U-4-WB-*` are app-level workbook component tests that execute through `make frontend-unit`. Shared package tests remain support/tooling evidence unless an app-level row consumes them through `apps/web`.
+Execution dependency is distinct from evidence layer in this owner group. `U-4-01..U-4-07` are service-backed store-domain tests that execute through `make backend-store`; `U-4-08..U-4-09` remain pure decoder tests that execute through `make backend-unit`; `U-4-WB-*` are app-level workbook component tests that execute through `make frontend-unit`. Shared package tests remain support/tooling evidence unless an app-level row consumes them through `apps/web`.
 
 | ID     | Test                                                                                                                                                                                                                                                 | Exact REQs                                                                                                                                                 | Exact ACs                      |
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
@@ -464,10 +464,10 @@ Execution dependency is distinct from evidence layer in this phase. `U-4-01..U-4
 | U-4-08 | Timeline request decoding preserves authoritative raw mention text, applies mention-token normalization for exact-match eligibility, and accepts suppressed or forbidden rewrite tokens as valid submitted values without implicitly rewriting them. | REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-239, REQ-01-315..REQ-01-316, REQ-01-568, REQ-02-163..REQ-02-185, REQ-03-205..REQ-03-216, REQ-03-276..REQ-03-279 | AC-205, AC-388..AC-392         |
 | U-4-09 | Timeline create and patch request decoding accepts manual relationship actions only when provenance or confidence metadata is omitted and fails closed on client-supplied `confidence`, `provenance`, or routing overrides.                          | REQ-01-311, REQ-01-314..REQ-01-320, REQ-02-248, REQ-03-280                                                                                                 | AC-394, AC-396, AC-397         |
 | U-4-WB-01 | The assessment workbook payload builder maps band-first UI state to confidence score create fields, deduplicates support references, and does not submit derived confidence-band fields. | REQ-03-250..REQ-03-254 | AC-018, AC-080..AC-084 |
-| U-4-WB-02 | The app-level assessment workbook UI submits Phase 4 create payloads through ordinary controls and renders the returned assessment row. | REQ-03-250..REQ-03-254 | AC-018, AC-080..AC-084 |
+| U-4-WB-02 | The app-level assessment workbook UI submits Entity linking owner group create payloads through ordinary controls and renders the returned assessment row. | REQ-03-250..REQ-03-254 | AC-018, AC-080..AC-084 |
 | U-4-WB-03 | The Evidence workbook surface issues preview and download handle requests with the required empty-object body and consumes opaque returned hrefs instead of deriving storage access. | REQ-01-032, REQ-01-234, REQ-01-247, REQ-01-459, REQ-01-465 | AC-251 |
-| U-4-WB-04 | The generic workbook mutation builder emits required Phase 4 create payloads with trimmed direct values, timestamp fields, and explicit null clears. | REQ-01-329..REQ-01-340, REQ-03-255..REQ-03-260 | AC-085, AC-086, AC-137..AC-145 |
-| U-4-WB-05 | The generic workbook mutation builder maps direct clears plus token, party, record, and risk collection edits to typed Phase 4 collection action payloads. | REQ-01-329..REQ-01-340, REQ-03-255..REQ-03-260 | AC-085, AC-086, AC-137..AC-145 |
+| U-4-WB-04 | The generic workbook mutation builder emits required Entity linking owner group create payloads with trimmed direct values, timestamp fields, and explicit null clears. | REQ-01-329..REQ-01-340, REQ-03-255..REQ-03-260 | AC-085, AC-086, AC-137..AC-145 |
+| U-4-WB-05 | The generic workbook mutation builder maps direct clears plus token, party, record, and risk collection edits to typed Entity linking owner group collection action payloads. | REQ-01-329..REQ-01-340, REQ-03-255..REQ-03-260 | AC-085, AC-086, AC-137..AC-145 |
 
 ### 6.4.4 Integration tests
 
@@ -496,7 +496,7 @@ Execution dependency is distinct from evidence layer in this phase. `U-4-01..U-4
 | E-4-03 | A reviewer merges two duplicate entities from the inspector. The surviving row identity remains stable and dependent links or resolutions follow the survivor.                                        | REQ-01-181..REQ-01-195, REQ-02-064..REQ-02-066, REQ-03-247..REQ-03-249             | AC-023, AC-186, AC-209         |
 | E-4-04 | An eligible exact-match Timeline token auto-resolves on commit, while hedge, punctuation, parenthetical, or approximate forms remain unresolved and require explicit analyst action.                  | REQ-01-315..REQ-01-316, REQ-01-568, REQ-03-205..REQ-03-216, REQ-03-276..REQ-03-279 | AC-205, AC-388..AC-391         |
 | E-4-05 | An analyst drives the Assessments workbook surface through ordinary controls with band-first confidence, rationale, support references, default ordering, and state or band filtering; durable append-only storage and history remain backend evidence. | REQ-03-250..REQ-03-254                                                              | AC-018, AC-080..AC-084         |
-| E-4-06 | An analyst exercises the exposed generic workbook surfaces through typed controls, including defaults, collections, and visible validation failure; replay, authorization, durable history, and later queue-heavy workflow expansion remain backend or Phase 9 evidence. | REQ-01-329..REQ-01-340, REQ-03-255..REQ-03-260                                     | AC-085, AC-086, AC-137..AC-145 |
+| E-4-06 | An analyst exercises the exposed generic workbook surfaces through typed controls, including defaults, collections, and visible validation failure; replay, authorization, durable history, and later queue-heavy workflow expansion remain backend or Workbook interaction owner group evidence. | REQ-01-329..REQ-01-340, REQ-03-255..REQ-03-260                                     | AC-085, AC-086, AC-137..AC-145 |
 
 ### 6.4.6 Visual regression tests
 
@@ -508,11 +508,11 @@ Execution dependency is distinct from evidence layer in this phase. `U-4-01..U-4
 
 ---
 
-## 7. Phase 5 — Evidence, blob lifecycle, evidence access, and object storage
+## 7. Evidence lifecycle owner group — Evidence, blob lifecycle, evidence access, and object storage
 
 ### 7.5.1 Scope
 
-This phase completes the binary-evidence path:
+This owner group completes the binary-evidence path:
 
 - evidence records without blobs,
 - blob-slot creation,
@@ -582,11 +582,11 @@ This phase completes the binary-evidence path:
 
 ---
 
-## 8. Phase 6 — Collaboration, presence, and same-field conflict resolution
+## 8. Collaboration owner group — Collaboration, presence, and same-field conflict resolution
 
 ### 8.6.1 Scope
 
-This phase completes the live multi-user path:
+This owner group completes the live multi-user path:
 
 - incident-scoped WebSocket route,
 - `hello` and `resume`,
@@ -651,11 +651,11 @@ This phase completes the live multi-user path:
 
 ---
 
-## 9. Phase 7 — Reviewer-facing history, delete or restore, and rollback
+## 9. History and revision owner group — Reviewer-facing history, delete or restore, and rollback
 
 ### 9.7.1 Scope
 
-This phase completes the reviewer and destructive-operation surface:
+This owner group completes the reviewer and destructive-operation surface:
 
 - record-history retrieval,
 - history pagination,
@@ -713,11 +713,11 @@ This phase completes the reviewer and destructive-operation surface:
 
 ---
 
-## 10. Phase 8 — Links, tags, saved views, sorting, filtering, grouping, startup selection, and projection-backed query semantics
+## 10. Saved-view and query owner group — Links, tags, saved views, sorting, filtering, grouping, startup selection, and projection-backed query semantics
 
 ### 10.8.1 Scope
 
-This phase completes workbook configuration and projection-backed navigation:
+This owner group completes workbook configuration and projection-backed navigation:
 
 - typed record links and incident-scoped tags,
 - saved-view object lifecycle with exact scope vocabulary `private`, `shared`, `system`,
@@ -777,11 +777,11 @@ This phase completes workbook configuration and projection-backed navigation:
 
 ---
 
-## 11. Phase 9 — Keyboard contract, clipboard and bulk-edit behaviors, Notes, Indicators, Parties, Assessments, and analyst-work surfaces
+## 11. Workbook interaction owner group — Keyboard contract, clipboard and bulk-edit behaviors, Notes, Indicators, Parties, Assessments, and analyst-work surfaces
 
 ### 11.9.1 Scope
 
-This phase completes the remaining workbook-native operator surfaces and high-value interaction behaviors:
+This owner group completes the remaining workbook-native operator surfaces and high-value interaction behaviors:
 
 - full keyboard contract,
 - clipboard paste and bulk-edit behaviors,
@@ -853,13 +853,13 @@ This phase completes the remaining workbook-native operator surfaces and high-va
 
 ---
 
-## 12. Phase 10 — Operational backup, restore, and restore verification
+## 12. Backup and restore owner group — Operational backup, restore, and restore verification
 
-This phase is the final base-profile implementation phase. It is intentionally late because coherent restore verification depends on a populated deployment and on at least one successful built-in workbook query after restore.[^base-manifest][^core01-routes]
+This owner group is the final base-profile implementation owner group. It is intentionally late because coherent restore verification depends on a populated deployment and on at least one successful built-in workbook query after restore.[^base-manifest][^core01-routes]
 
 ### 12.10.1 Scope
 
-This phase completes deployment-local recovery behavior for the base profile:
+This owner group completes deployment-local recovery behavior for the base profile:
 
 - retained `backup_set` metadata and retention floors,
 - coherent restore of Postgres and object storage from the same retained `backup_set`,
@@ -907,7 +907,7 @@ This phase completes deployment-local recovery behavior for the base profile:
 
 ---
 
-## 13. Phase 11 — Extension profile testing hooks
+## 13. Extension-profile owner group — Extension profile testing hooks
 
 Extension profiles are not part of the base implementation sequence. This section exists so teams do not drift away from the current extension route families or profile claim boundaries while planning later work.
 
@@ -1008,7 +1008,7 @@ Each extension claim still requires the **base profile first**. The AC groups li
 **Primary owner sections**
 
 - Core 01 §17.5 Incident Portability Extension Profile public contract
-- Core 01 portability bundle and import phases
+- Core 01 portability bundle and import workflows
 - Core 04 §4.2 portability trust boundary
 
 **Extension delta ACs**
@@ -1057,9 +1057,9 @@ Each extension claim still requires the **base profile first**. The AC groups li
 - no auto-provisioning of local users or incident memberships,
 - no runtime provider-definition or provider-secret mutation route.
 
-### 13.12 Phase 12 — Network Flow Activity extension profile
+### 13.12 Network Flow Activity owner group — Network Flow Activity extension profile
 
-Network Flow Activity is an extension-profile adoption phase, not a Base profile phase. The repository map for this phase is active so public phase-slice targets can plan and report the row inventory, but every row remains blocked until the Network Flow implementation, immutable fixtures, transcripts, and executable selectors are available. A blocked Phase 12 row is traceability only and never closes conformance.
+Network Flow Activity is an extension profile, not part of the Base Profile. Its catalog rows are selected through owner commands and close only when the implementation, immutable fixtures, transcripts, and exact executable selectors are available. A catalog entry without accepted evidence is traceability only and never closes conformance.
 
 **Primary owner sections**
 
@@ -1072,7 +1072,7 @@ Network Flow Activity is an extension-profile adoption phase, not a Base profile
 - Graph Projection NLSpec ephemeral projection sections
 - Testing Harness NLSpec §§8, 11, 12, 16, and 17
 
-**Phase 12 acceptance rows**
+**Network Flow Activity owner group acceptance rows**
 
 | ID | Test | Exact REQs | Exact ACs |
 | --- | --- | --- | --- |
@@ -1188,7 +1188,7 @@ Network Flow Activity is an extension-profile adoption phase, not a Base profile
 
 ## 14. Shared cross-cutting harnesses
 
-These harnesses apply across phases and should be implemented once, then reused. The harness list is intentionally small and tied to current owner sections. When a phase introduces multiple public routes under the same surface, the harnesses should run from a shared route inventory rather than from scattered one-off assertions; Phase 1 auth and deployment-local user-administration surfaces already require that route-inventory discipline in the repo task surface, and Phase 2 incident surfaces continue the same rule. The same task-surface rule applies to browser harness ownership: webserver-backed browser rows belong in scheduler-safe service-backed browser sources and are duration-balanced by Playwright spec file, while isolated stateful, measurement, and visual browser suites keep their reset policy in the browser batch manifest under one owned shared stack per verification stage and remain scheduler-visible through browser-stage resource claims.
+These harnesses apply across owner families and should be implemented once, then reused. The harness list is intentionally small and tied to current owner sections. When an owner group introduces multiple public routes under the same surface, the harnesses should run from a shared route inventory rather than from scattered one-off assertions; Authentication owner group auth and deployment-local user-administration surfaces already require that route-inventory discipline in the repo task surface, and Incident and membership owner group incident surfaces continue the same rule. The same task-surface rule applies to browser harness ownership: webserver-backed browser rows belong in scheduler-safe service-backed browser sources and are duration-balanced by Playwright spec file, while isolated stateful, measurement, and visual browser suites keep their reset policy in the browser batch manifest under one owned shared stack per verification stage and remain scheduler-visible through browser-stage resource claims.
 
 Browser helpers that exercise visible UI workflows should be semantic-state helpers, not bare click sequences. A helper that opens a form, submits it, or navigates into a workbook must use distinct stable selectors for those actions and wait for the durable postcondition that owns the evidence, for example the selected `incident_id` route plus workbook-shell readiness. Reusing one selector for state-dependent controls is harness debt because it makes Playwright evidence sensitive to transient React replacement rather than user intent.
 
@@ -1387,14 +1387,14 @@ Conformance evidence must prove that the application remains one deployable unit
 
 ---
 
-## 15. Phase completion checklist
+## 15. Owner-group completion checklist
 
-A phase is complete only when all of the following are true:
+An owner group is complete only when all of the following are true:
 
-1. Every row in that phase’s executable authoritative manifest passes in the intended test layer, and the default task surface verifies that those rows actually executed rather than only matching names or symbols. Browser rows that share one real web-server bootstrap must also respect the task-surface orchestration contract rather than relying on incidental startup races.
-2. The shared harnesses in §14 pass for every route, event class, and mutation path introduced or materially changed by the phase.
-3. All earlier phases still pass after the phase lands.
-4. Any new view surface introduced in the phase is covered for:
+1. Every row in that owner group’s executable authoritative manifest passes in the intended test layer, and the default task surface verifies that those rows actually executed rather than only matching names or symbols. Browser rows that share one real web-server bootstrap must also respect the task-surface orchestration contract rather than relying on incidental startup races.
+2. The shared harnesses in §14 pass for every route, event class, and mutation path introduced or materially changed by the owner group.
+3. All earlier owner groups still pass after the owner group lands.
+4. Any new view surface introduced in the owner group is covered for:
    - query shape,
    - row identity,
    - allowed create semantics,
@@ -1402,12 +1402,12 @@ A phase is complete only when all of the following are true:
    - projection maintenance,
    - authorization,
    - history or audit consequences.
-5. Any mutation-bearing phase includes explicit integration coverage against the real backing boundary it depends on. Use `N/A` only when the owner section truly defines no external boundary for that work.
-6. No phase claims completion by relying on behavior deferred to a later phase when the current phase already assumes that behavior.
+5. Any mutation-bearing owner group includes explicit integration coverage against the real backing boundary it depends on. Use `N/A` only when the owner section truly defines no external boundary for that work.
+6. No owner group claims completion by relying on behavior deferred to a later owner group when the current owner group already assumes that behavior.
 
 ### 15.1 Base-profile completion rule
 
-The base implementation sequence is complete only when Phases 0 through 10 pass, the shared harnesses in §14 pass for every applicable surface, and the current Base claim manifest in Core 04 is fully covered. Historical endpoint shorthand such as `AC-299` is not sufficient on its own.[^base-manifest][^traceability]
+The base implementation sequence is complete only when the Base Profile owner groups pass, the shared harnesses in §14 pass for every applicable surface, and the current Base claim manifest in Core 04 is fully covered. Historical endpoint shorthand such as `AC-299` is not sufficient on its own.[^base-manifest][^traceability]
 
 The current Base claim manifest is:
 
@@ -1448,57 +1448,57 @@ Execution topology is owned separately by `tools/execution_topology_manifest.jso
 
 Service-backed Go helper starts are catalog-authorized. Only rows whose fixture and runtime profiles declare the required managed services may start `pgtest`, `s3test`, or owner-local test-support helpers. Adding an owner helper package must extend the test-support inventory and profile contracts rather than a name-based exception.
 
-### 16.1 Phase-to-owner-section map
+### 16.1 Owner-group-to-owner-section map
 
-| Phase    | Primary owner sections                                                                                                    |
+| Owner group | Primary owner sections                                                                                                    |
 | -------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Phase 0  | Core 01 §1; Core 01 §3.3.5.1 bootstrap-admin manifest contract; Core 04 §5–§8; Core 04 §12                                |
-| Phase 1  | Core 01 §3.3.2; Core 01 §3.3.2.2; Core 01 §3.3.5.1; Core 01 §3.3.7.1; Core 01 §3.3.10; Core 04 §1; Core 04 §3              |
-| Phase 2  | Core 01 §3.3.1; Core 01 §3.3.3; Core 01 §3.3.5.1–§3.3.5.3; Core 01 §3.3.7.1; Core 02 §4.5; Core 02 §18; Core 04 §2–§3     |
-| Phase 3  | Core 01 §3.3.5; Core 01 §7.4; Core 01 §8; Core 02 §5 and §14; Core 03 §1, §4, §6, §7, and §15                             |
-| Phase 4  | Core 01 §3.3.5 mention and merge routes; Core 02 §6–§10, §13, and §19; Core 03 §8.4, §9, §16, and §20                    |
-| Phase 5  | Core 01 §3.3.8; Core 01 §16; Core 02 §4.5 and §13; Core 03 §8 and §16; Core 04 §4.3 and §4.5                              |
-| Phase 6  | Core 01 §3.3.10; Core 01 §3.3.5; Core 03 §3–§4; Core 04 §1–§2 and §4.5                                                    |
-| Phase 7  | Core 01 §3.3.4.2 and §3.3.5; Core 02 §14–§15; Core 03 §10; Core 04 §2–§3                                                  |
-| Phase 8  | Core 01 §3.3.4; Core 01 §3.3.5.2; Core 01 §7.4; Core 01 §8; Core 02 §11–§12; Core 03 §2 and §14; Core 04 §2               |
-| Phase 9  | Core 01 §7.4 and §19; Core 02 §10 and §19; Core 03 §2, §11, §13, and §16–§20; Core 04 §2                                  |
-| Phase 10 | Core 01 §12.1–§12.2; Core 04 §2, §6, §9.14, and §12.3.3                                                                   |
-| Phase 11 | Core 01 §17 and §20; Core 02 extension-owned provenance, release, and bundle sections; Core 04 extension profile sections |
-| Phase 12 | Network Flow Activity NLSpec §23; Core 00 extension-profile status; Core 01 §§3.3.3.1, 3.3.6, 3.3.7, and 17.2; Core 02 §§10.2, 14.4, and 18; Core 03 §§2 and 4.3.1; Core 04 §§2, 3, 9.1B, and 12.3 |
+| Bootstrap and configuration owner group  | Core 01 §1; Core 01 §3.3.5.1 bootstrap-admin manifest contract; Core 04 §5–§8; Core 04 §12                                |
+| Authentication owner group  | Core 01 §3.3.2; Core 01 §3.3.2.2; Core 01 §3.3.5.1; Core 01 §3.3.7.1; Core 01 §3.3.10; Core 04 §1; Core 04 §3              |
+| Incident and membership owner group  | Core 01 §3.3.1; Core 01 §3.3.3; Core 01 §3.3.5.1–§3.3.5.3; Core 01 §3.3.7.1; Core 02 §4.5; Core 02 §18; Core 04 §2–§3     |
+| Timeline mutation owner group  | Core 01 §3.3.5; Core 01 §7.4; Core 01 §8; Core 02 §5 and §14; Core 03 §1, §4, §6, §7, and §15                             |
+| Entity linking owner group  | Core 01 §3.3.5 mention and merge routes; Core 02 §6–§10, §13, and §19; Core 03 §8.4, §9, §16, and §20                    |
+| Evidence lifecycle owner group  | Core 01 §3.3.8; Core 01 §16; Core 02 §4.5 and §13; Core 03 §8 and §16; Core 04 §4.3 and §4.5                              |
+| Collaboration owner group  | Core 01 §3.3.10; Core 01 §3.3.5; Core 03 §3–§4; Core 04 §1–§2 and §4.5                                                    |
+| History and revision owner group  | Core 01 §3.3.4.2 and §3.3.5; Core 02 §14–§15; Core 03 §10; Core 04 §2–§3                                                  |
+| Saved-view and query owner group  | Core 01 §3.3.4; Core 01 §3.3.5.2; Core 01 §7.4; Core 01 §8; Core 02 §11–§12; Core 03 §2 and §14; Core 04 §2               |
+| Workbook interaction owner group  | Core 01 §7.4 and §19; Core 02 §10 and §19; Core 03 §2, §11, §13, and §16–§20; Core 04 §2                                  |
+| Backup and restore owner group | Core 01 §12.1–§12.2; Core 04 §2, §6, §9.14, and §12.3.3                                                                   |
+| Extension-profile owner group | Core 01 §17 and §20; Core 02 extension-owned provenance, release, and bundle sections; Core 04 extension profile sections |
+| Network Flow Activity owner group | Network Flow Activity NLSpec §23; Core 00 extension-profile status; Core 01 §§3.3.3.1, 3.3.6, 3.3.7, and 17.2; Core 02 §§10.2, 14.4, and 18; Core 03 §§2 and 4.3.1; Core 04 §§2, 3, 9.1B, and 12.3 |
 
 ### 16.2 Base-profile AC coverage index
 
-| Coverage state       | AC cluster                                                                                                                                                                               | Planned owner phase or shared harness                            | Notes                                                                                                                                                    |
+| Coverage state       | AC cluster                                                                                                                                                                               | Planned owner group or shared harness                            | Notes                                                                                                                                                    |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Phase-owned          | `AC-294..AC-298`, `AC-320`, `AC-343..AC-346`                                                                                                                                             | Phase 0                                                          | Deployment configuration, runtime roots, bootstrap preflight, and resource-limit registry.                                                               |
-| Phase-owned          | `AC-123`, `AC-130..AC-163`, `AC-175..AC-180`, `AC-244..AC-250`, `AC-311..AC-312`, `AC-334..AC-347`                                                                                       | Phase 1                                                          | Session contract, credential lifecycle, deployment-local user administration, and bounded credential reset flows.                                        |
-| Phase-owned          | `AC-170..AC-174`, `AC-211..AC-214`, `AC-219..AC-220`, `AC-261`, `AC-370..AC-371`                                                                                                         | Phase 2                                                          | Incident create or patch, membership control, deployment-admin incident boundary, and extension discovery.                                               |
-| Phase-owned          | `AC-001..AC-002`, `AC-107..AC-111`, `AC-125`, `AC-191..AC-199`, `AC-299`, `AC-329..AC-331`                                                                                               | Phase 3                                                          | Timeline create or patch hot path, lifecycle, patch idempotency, and supersede-with-replacement.                                                         |
-| Shared               | `AC-009`, `AC-126`, `AC-203`                                                                                                                                                              | Phase 3 / Phase 6                                                | Phase 3 covers server-side field-level patch rebase, same-field conflict transport, and collection conflict values. Phase 6 remains owner for resolver, concurrent-client, and local pending-queue behavior. |
-| Phase-owned          | `AC-006`, `AC-017`, `AC-019..AC-023`, `AC-077..AC-079`, `AC-128`, `AC-186`, `AC-188..AC-190`, `AC-201..AC-202`, `AC-205`, `AC-209`, `AC-221..AC-225`, `AC-251`, `AC-277`, `AC-281..AC-284`, `AC-388..AC-394` | Phase 4                                                          | Mention lifecycle, exact-match reuse, alias handling, interactive auto-resolution, merge, Parties, coordination route surfaces, object-blob create, and evidence handle issuance. Phase 4 browser rows are visible workflow evidence only where the current implementation exposes the surface. |
-| Phase-owned          | `AC-004`, `AC-015..AC-016`, `AC-053`, `AC-102..AC-103`, `AC-154..AC-155`, `AC-252..AC-255`, `AC-321..AC-322`, `AC-405`                                                                   | Phase 5                                                          | Evidence lifecycle, safe preview or download redemption behavior, and binary-evidence storage boundary beyond Phase 4 route-shape evidence.              |
-| Phase-owned          | `AC-008`, `AC-037..AC-042`, `AC-129`, `AC-131..AC-136`, `AC-156..AC-163`, `AC-204`, `AC-226..AC-230`, `AC-376..AC-382`                                                                    | Phase 6                                                          | WebSocket lifecycle, presence, same-field conflict resolver behavior, local pending queue, and save-state semantics.                                    |
-| Phase-owned          | `AC-007`, `AC-010..AC-012`, `AC-181..AC-183`, `AC-187`, `AC-215..AC-218`, `AC-353`, `AC-383..AC-385`, `AC-412`, `AC-474`                                                                  | Phase 7                                                          | Reviewer history, delete or restore, rollback including merge-aware and Indicator-child rollback, destructive-operation lock precedence, and retained-history invariants. |
-| Phase-owned          | `AC-013..AC-014`, `AC-024..AC-026`, `AC-124`, `AC-127`, `AC-146..AC-153`, `AC-184..AC-185`, `AC-200`, `AC-206..AC-208`, `AC-210`, `AC-359..AC-368`, `AC-372..AC-375`, `AC-387`           | Phase 8                                                          | Links, tags, saved views, query-shape contract, view discovery, sparse patches, and live-authorized pagination.                                           |
-| Phase-owned          | `AC-003`, `AC-005`, `AC-018`, `AC-068..AC-090`, `AC-112`, `AC-116..AC-122`, `AC-137..AC-145`, `AC-278..AC-280`, `AC-285..AC-287`, `AC-300..AC-304`, `AC-313..AC-319`, `AC-354`, `AC-395..AC-397`, `AC-410` | Phase 9                                                          | Keyboard contract, built-in and remaining system surfaces, timestamp and direct-reference contracts, remaining coordination and party-linking flows, queue-heavy workflow expansion, and registry closure. Phase 4 smoke evidence does not complete these later interaction obligations. |
-| Phase-owned          | `AC-398..AC-403`                                                                                                                                                                         | Phase 10                                                         | Operational backup, restore, restore verification, and backup-storage binding.                                                                           |
+| Owner-cataloged          | `AC-294..AC-298`, `AC-320`, `AC-343..AC-346`                                                                                                                                             | Bootstrap and configuration owner group                                                          | Deployment configuration, runtime roots, bootstrap preflight, and resource-limit registry.                                                               |
+| Owner-cataloged          | `AC-123`, `AC-130..AC-163`, `AC-175..AC-180`, `AC-244..AC-250`, `AC-311..AC-312`, `AC-334..AC-347`                                                                                       | Authentication owner group                                                          | Session contract, credential lifecycle, deployment-local user administration, and bounded credential reset flows.                                        |
+| Owner-cataloged          | `AC-170..AC-174`, `AC-211..AC-214`, `AC-219..AC-220`, `AC-261`, `AC-370..AC-371`                                                                                                         | Incident and membership owner group                                                          | Incident create or patch, membership control, deployment-admin incident boundary, and extension discovery.                                               |
+| Owner-cataloged          | `AC-001..AC-002`, `AC-107..AC-111`, `AC-125`, `AC-191..AC-199`, `AC-299`, `AC-329..AC-331`                                                                                               | Timeline mutation owner group                                                          | Timeline create or patch hot path, lifecycle, patch idempotency, and supersede-with-replacement.                                                         |
+| Shared               | `AC-009`, `AC-126`, `AC-203`                                                                                                                                                              | Timeline mutation owner group / Collaboration owner group                                                | Timeline mutation owner group covers server-side field-level patch rebase, same-field conflict transport, and collection conflict values. Collaboration owner group remains owner for resolver, concurrent-client, and local pending-queue behavior. |
+| Owner-cataloged          | `AC-006`, `AC-017`, `AC-019..AC-023`, `AC-077..AC-079`, `AC-128`, `AC-186`, `AC-188..AC-190`, `AC-201..AC-202`, `AC-205`, `AC-209`, `AC-221..AC-225`, `AC-251`, `AC-277`, `AC-281..AC-284`, `AC-388..AC-394` | Entity linking owner group                                                          | Mention lifecycle, exact-match reuse, alias handling, interactive auto-resolution, merge, Parties, coordination route surfaces, object-blob create, and evidence handle issuance. Entity linking owner group browser rows are visible workflow evidence only where the current implementation exposes the surface. |
+| Owner-cataloged          | `AC-004`, `AC-015..AC-016`, `AC-053`, `AC-102..AC-103`, `AC-154..AC-155`, `AC-252..AC-255`, `AC-321..AC-322`, `AC-405`                                                                   | Evidence lifecycle owner group                                                          | Evidence lifecycle, safe preview or download redemption behavior, and binary-evidence storage boundary beyond Entity linking owner group route-shape evidence.              |
+| Owner-cataloged          | `AC-008`, `AC-037..AC-042`, `AC-129`, `AC-131..AC-136`, `AC-156..AC-163`, `AC-204`, `AC-226..AC-230`, `AC-376..AC-382`                                                                    | Collaboration owner group                                                          | WebSocket lifecycle, presence, same-field conflict resolver behavior, local pending queue, and save-state semantics.                                    |
+| Owner-cataloged          | `AC-007`, `AC-010..AC-012`, `AC-181..AC-183`, `AC-187`, `AC-215..AC-218`, `AC-353`, `AC-383..AC-385`, `AC-412`, `AC-474`                                                                  | History and revision owner group                                                          | Reviewer history, delete or restore, rollback including merge-aware and Indicator-child rollback, destructive-operation lock precedence, and retained-history invariants. |
+| Owner-cataloged          | `AC-013..AC-014`, `AC-024..AC-026`, `AC-124`, `AC-127`, `AC-146..AC-153`, `AC-184..AC-185`, `AC-200`, `AC-206..AC-208`, `AC-210`, `AC-359..AC-368`, `AC-372..AC-375`, `AC-387`           | Saved-view and query owner group                                                          | Links, tags, saved views, query-shape contract, view discovery, sparse patches, and live-authorized pagination.                                           |
+| Owner-cataloged          | `AC-003`, `AC-005`, `AC-018`, `AC-068..AC-090`, `AC-112`, `AC-116..AC-122`, `AC-137..AC-145`, `AC-278..AC-280`, `AC-285..AC-287`, `AC-300..AC-304`, `AC-313..AC-319`, `AC-354`, `AC-395..AC-397`, `AC-410` | Workbook interaction owner group                                                          | Keyboard contract, built-in and remaining system surfaces, timestamp and direct-reference contracts, remaining coordination and party-linking flows, queue-heavy workflow expansion, and registry closure. Entity linking owner group smoke evidence does not complete these later interaction obligations. |
+| Owner-cataloged          | `AC-398..AC-403`                                                                                                                                                                         | Backup and restore owner group                                                         | Operational backup, restore, restore verification, and backup-storage binding.                                                                           |
 | Shared harness-owned | `AC-043..AC-047`, `AC-048..AC-055`, `AC-097..AC-103`, `AC-231`, `AC-238..AC-260`, `AC-404..AC-408`                                                                                       | Shared harnesses in §14                                          | Timing, security, aggregate claim gate, hostile-content and authorization boundaries, topology, rough-capture preservation, and audit-source invariants. |
-| Phase-owned          | `AC-285..AC-287`                                                                                                                                                                         | Phase 9                                                          | Optional standardized workbook surfaces are exposed in the current build as additive workbook-native system views.                                       |
+| Owner-cataloged          | `AC-285..AC-287`                                                                                                                                                                         | Workbook interaction owner group                                                          | Optional standardized workbook surfaces are exposed in the current build as additive workbook-native system views.                                       |
 
 ### 16.3 Extension-only AC index
 
-| Extension profile         | Delta ACs beyond base                                                                                                                              | Planned hook phase |
+| Extension profile         | Delta ACs beyond base                                                                                                                              | Planned owner group |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| Import                    | `AC-027..AC-029`, `AC-063..AC-067`, `AC-232`, `AC-262..AC-265`, `AC-323..AC-325`, `AC-393`                                                         | Phase 11           |
-| Snapshot and Reporting    | `AC-030..AC-032`, `AC-056..AC-062`, `AC-071`, `AC-091`, `AC-104..AC-106`, `AC-113..AC-115`, `AC-233`, `AC-266..AC-269`, `AC-305..AC-307`, `AC-333` | Phase 11           |
-| Reference Pack            | `AC-033..AC-035`, `AC-092..AC-096`, `AC-234`, `AC-270..AC-272`, `AC-308..AC-310`, `AC-326`, `AC-369`                                               | Phase 11           |
-| Incident Portability      | `AC-164..AC-169`, `AC-236`, `AC-273..AC-276`, `AC-327..AC-328`, `AC-332`, `AC-386`, `AC-409`                                                       | Phase 11           |
-| Enterprise Authentication | `AC-036`, `AC-235`, `AC-288..AC-293`, `AC-348..AC-352`, `AC-433..AC-436`                                                                            | Phase 11           |
-| Network Flow Activity | `NF-AC-001..NF-AC-107` | Phase 12 |
+| Import                    | `AC-027..AC-029`, `AC-063..AC-067`, `AC-232`, `AC-262..AC-265`, `AC-323..AC-325`, `AC-393`                                                         | Extension-profile owner group           |
+| Snapshot and Reporting    | `AC-030..AC-032`, `AC-056..AC-062`, `AC-071`, `AC-091`, `AC-104..AC-106`, `AC-113..AC-115`, `AC-233`, `AC-266..AC-269`, `AC-305..AC-307`, `AC-333` | Extension-profile owner group           |
+| Reference Pack            | `AC-033..AC-035`, `AC-092..AC-096`, `AC-234`, `AC-270..AC-272`, `AC-308..AC-310`, `AC-326`, `AC-369`                                               | Extension-profile owner group           |
+| Incident Portability      | `AC-164..AC-169`, `AC-236`, `AC-273..AC-276`, `AC-327..AC-328`, `AC-332`, `AC-386`, `AC-409`                                                       | Extension-profile owner group           |
+| Enterprise Authentication | `AC-036`, `AC-235`, `AC-288..AC-293`, `AC-348..AC-352`, `AC-433..AC-436`                                                                            | Extension-profile owner group           |
+| Network Flow Activity | `NF-AC-001..NF-AC-107` | Network Flow Activity owner group |
 
 ### 16.4 Conditional surface note
 
-The standardized Findings, Investigative Queries, and Forensic Keywords surfaces are contract-defined as optional standardized workbook surfaces. The current build exposes all three as additive `scope='system'` workbook surfaces, so Phase 9 coverage includes `AC-285..AC-287` as implemented behavior. Future profiles that omit or replace optional standardized surfaces must update the implementation-owned coverage record and verify the conformance interpretation against Core 01 §7.4 and §19 plus Core 02 §10.4.4A and §10.4.6 before asserting the remaining Base claim.[^traceability][^core03-workbook][^core02-registry]
+The standardized Findings, Investigative Queries, and Forensic Keywords surfaces are contract-defined as optional standardized workbook surfaces. The current build exposes all three as additive `scope='system'` workbook surfaces, so Workbook interaction owner group coverage includes `AC-285..AC-287` as implemented behavior. Future profiles that omit or replace optional standardized surfaces must update the implementation-owned coverage record and verify the conformance interpretation against Core 01 §7.4 and §19 plus Core 02 §10.4.4A and §10.4.6 before asserting the remaining Base claim.[^traceability][^core03-workbook][^core02-registry]
 
 ### 16.5 Maintenance rule for manifest drift
 

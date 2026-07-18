@@ -13,13 +13,13 @@ import (
 )
 
 func TestIndicatorsCanonicalObservationLifecycle_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "phase9-u-9-04-indicators")
+	harness := recordstoretest.StartStore(t, "workbook_interaction-u-9-04-indicators")
 	store := NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u904@example.test", "U904 Indicators", "U904IndicatorsPass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-04-incident", "IR-U904", "Workbook inspector U-9-04")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-04-incident", "IR-U904", "Workbook inspector U-9-04")
 
 	created, err := store.CreateIndicatorRow(context.Background(), actor, incident.ID, CreateRequest{
-		ClientTxnID: "txn-phase9-u-9-04-indicator-create",
+		ClientTxnID: "txn-workbook_interaction-u-9-04-indicator-create",
 		Values: map[string]string{
 			"indicator.indicator_type":   "ipv4_addr",
 			"indicator.value_kind":       "atomic",
@@ -27,19 +27,19 @@ func TestIndicatorsCanonicalObservationLifecycle_Unit(t *testing.T) {
 			"indicator.normalized_value": "203.0.113.88",
 			"indicator.defanged_value":   "203(.)0(.)113(.)88",
 		},
-	}, []byte("txn-phase9-u-9-04-indicator-create"), "req-phase9-u-9-04-indicator-create", time.Date(2026, 5, 17, 17, 0, 0, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-u-9-04-indicator-create"), "req-workbook_interaction-u-9-04-indicator-create", time.Date(2026, 5, 17, 17, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create canonical indicator: %v", err)
 	}
 	replayed, err := store.CreateIndicatorRow(context.Background(), actor, incident.ID, CreateRequest{
-		ClientTxnID: "txn-phase9-u-9-04-indicator-dedupe",
+		ClientTxnID: "txn-workbook_interaction-u-9-04-indicator-dedupe",
 		Values: map[string]string{
 			"indicator.indicator_type": "ipv4_addr",
 			"indicator.value_kind":     "atomic",
 			"indicator.display_value":  "203.0.113.88",
 			"indicator.stix_pattern":   "[ipv4-addr:value = '203.0.113.88']",
 		},
-	}, []byte("txn-phase9-u-9-04-indicator-dedupe"), "req-phase9-u-9-04-indicator-dedupe", time.Date(2026, 5, 17, 17, 1, 0, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-u-9-04-indicator-dedupe"), "req-workbook_interaction-u-9-04-indicator-dedupe", time.Date(2026, 5, 17, 17, 1, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("dedupe canonical indicator: %v", err)
 	}

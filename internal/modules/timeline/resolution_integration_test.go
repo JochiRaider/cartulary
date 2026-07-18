@@ -27,18 +27,18 @@ import (
 // I-4-08 / REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-239, REQ-01-315..REQ-01-316, REQ-01-568, REQ-02-163..REQ-02-185, REQ-03-205..REQ-03-216, REQ-03-276..REQ-03-279 / AC-205, AC-388..AC-392.
 func TestAutoResolutionEligibility_Integration(t *testing.T) {
 	t.Run("host alias exact equality auto resolves in the same patch change set", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-u-4-08-host-auto-match")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-u-4-08-host-auto-match")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-u-4-08-host-incident",
-			"incident_key":  "IR-PHASE4-U408-A",
+			"client_txn_id": "txn-entity_linking-u-4-08-host-incident",
+			"incident_key":  "IR-ENTITY-LINKING-U408-A",
 			"title":         "Record relationships I-4-08 host auto match",
 		})
 		incidentID := incident["incident_id"].(string)
 		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "Gateway record", "gateway-record-01")
 		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "host", "VPN Gateway")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":                   "txn-phase4-u-4-08-host-row",
+			"client_txn_id":                   "txn-entity_linking-u-4-08-host-row",
 			"timeline.activity_synopsis_text": "Auto-match host row",
 		})
 		recordID := created["row"].(map[string]any)["record_id"].(string)
@@ -51,7 +51,7 @@ func TestAutoResolutionEligibility_Integration(t *testing.T) {
 			fixtures.TimelineCollectionPatchPayload(
 				golden.RecordFieldTimelineHostRefs,
 				1,
-				"txn-phase4-u-4-08-host-patch",
+				"txn-entity_linking-u-4-08-host-patch",
 				fixtures.CollectionActions(
 					fixtures.AddTokenAction(" vpn   gateway "),
 				),
@@ -68,7 +68,7 @@ func TestAutoResolutionEligibility_Integration(t *testing.T) {
 
 		changeSet := asserttest.LookupChangeSet(t, asserttest.SQLDatabase(harness.DB), data["change_set_id"].(string))
 		assertx.RequireActorAttribution(t, changeSet.ActorUserID, adminID, changeSet.Source, "timeline.records.patch")
-		if changeSet.ClientTxnID != "txn-phase4-u-4-08-host-patch" {
+		if changeSet.ClientTxnID != "txn-entity_linking-u-4-08-host-patch" {
 			t.Fatalf("unexpected auto-match client_txn_id: %#v", changeSet)
 		}
 
@@ -138,18 +138,18 @@ SELECT COUNT(*)
 	})
 
 	t.Run("identity alias exact equality derives the identity link type", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-u-4-08-identity-auto-match")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-u-4-08-identity-auto-match")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-u-4-08-identity-incident",
-			"incident_key":  "IR-PHASE4-U408-B",
+			"client_txn_id": "txn-entity_linking-u-4-08-identity-incident",
+			"incident_key":  "IR-ENTITY-LINKING-U408-B",
 			"title":         "Record relationships I-4-08 identity auto match",
 		})
 		incidentID := incident["incident_id"].(string)
 		seedIdentityRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalIdentityID, "Identity record", "identity-record@example.test", "identity-record@example.test", "IDENTITYREC")
 		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalIdentityID, "identity", "Analyst Alex")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":                   "txn-phase4-u-4-08-identity-row",
+			"client_txn_id":                   "txn-entity_linking-u-4-08-identity-row",
 			"timeline.activity_synopsis_text": "Auto-match identity row",
 		})
 		recordID := created["row"].(map[string]any)["record_id"].(string)
@@ -161,7 +161,7 @@ SELECT COUNT(*)
 			fixtures.TimelineCollectionPatchPayload(
 				golden.RecordFieldTimelineIdentityRefs,
 				1,
-				"txn-phase4-u-4-08-identity-patch",
+				"txn-entity_linking-u-4-08-identity-patch",
 				fixtures.CollectionActions(
 					fixtures.AddTokenAction(" analyst   alex "),
 				),
@@ -193,11 +193,11 @@ SELECT COUNT(*)
 	})
 
 	t.Run("create route auto resolves eligible host and identity tokens", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-u-4-08-create-auto-match")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-u-4-08-create-auto-match")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-u-4-08-create-incident",
-			"incident_key":  "IR-PHASE4-U408-CREATE",
+			"client_txn_id": "txn-entity_linking-u-4-08-create-incident",
+			"incident_key":  "IR-ENTITY-LINKING-U408-CREATE",
 			"title":         "Record relationships I-4-08 create auto match",
 		})
 		incidentID := incident["incident_id"].(string)
@@ -211,7 +211,7 @@ SELECT COUNT(*)
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
 			map[string]any{
-				"client_txn_id":                   "txn-phase4-u-4-08-create-row",
+				"client_txn_id":                   "txn-entity_linking-u-4-08-create-row",
 				"timeline.activity_synopsis_text": "Create auto-match row",
 				golden.RecordFieldTimelineHostRefs: fixtures.CollectionActions(
 					fixtures.AddTokenAction(" create   host alias "),
@@ -226,7 +226,7 @@ SELECT COUNT(*)
 		data := requireSuccessEnvelopeWithBody(t, resp, http.StatusCreated)["data"].(map[string]any)
 		row := data["row"].(map[string]any)
 		recordID := row["record_id"].(string)
-		requireMutationRecorded(t, harness.DB, data["change_set_id"].(string), recordID, adminID, "timeline.rows.create", "txn-phase4-u-4-08-create-row", 1, 1)
+		requireMutationRecorded(t, harness.DB, data["change_set_id"].(string), recordID, adminID, "timeline.rows.create", "txn-entity_linking-u-4-08-create-row", 1, 1)
 
 		hostLink := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), golden.RecordCanonicalHostRecordID, "observed_on_host")
 		assertx.RequireActiveLink(
@@ -277,11 +277,11 @@ SELECT COUNT(*)
 	})
 
 	t.Run("suppressor and forbidden rewrite tokens remain unresolved", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-u-4-08-unresolved")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-u-4-08-unresolved")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-u-4-08-unresolved-incident",
-			"incident_key":  "IR-PHASE4-U408-C",
+			"client_txn_id": "txn-entity_linking-u-4-08-unresolved-incident",
+			"incident_key":  "IR-ENTITY-LINKING-U408-C",
 			"title":         "Record relationships I-4-08 unresolved eligibility",
 		})
 		incidentID := incident["incident_id"].(string)
@@ -291,7 +291,7 @@ SELECT COUNT(*)
 		for _, rawText := range append([]string{}, golden.RecordAutoResolutionSuppressedTokens...) {
 			t.Run(rawText, func(t *testing.T) {
 				created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-					"client_txn_id":                   "txn-phase4-u-4-08-unresolved-row-" + strings.ReplaceAll(rawText, " ", "_"),
+					"client_txn_id":                   "txn-entity_linking-u-4-08-unresolved-row-" + strings.ReplaceAll(rawText, " ", "_"),
 					"timeline.activity_synopsis_text": "Unresolved eligibility row",
 				})
 				recordID := created["row"].(map[string]any)["record_id"].(string)
@@ -304,7 +304,7 @@ SELECT COUNT(*)
 					fixtures.TimelineCollectionPatchPayload(
 						golden.RecordFieldTimelineHostRefs,
 						1,
-						"txn-phase4-u-4-08-unresolved-patch-"+strings.ReplaceAll(rawText, " ", "_"),
+						"txn-entity_linking-u-4-08-unresolved-patch-"+strings.ReplaceAll(rawText, " ", "_"),
 						fixtures.CollectionActions(
 							fixtures.AddTokenAction(rawText),
 						),
@@ -358,11 +358,11 @@ SELECT COUNT(*)
 	})
 
 	t.Run("competing alias candidates stay unresolved", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-u-4-08-competing")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-u-4-08-competing")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-u-4-08-competing-incident",
-			"incident_key":  "IR-PHASE4-U408-D",
+			"client_txn_id": "txn-entity_linking-u-4-08-competing-incident",
+			"incident_key":  "IR-ENTITY-LINKING-U408-D",
 			"title":         "Record relationships I-4-08 competing aliases",
 		})
 		incidentID := incident["incident_id"].(string)
@@ -371,7 +371,7 @@ SELECT COUNT(*)
 		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "host", "WS-023")
 		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordDuplicateHostRecordID, "host", "WS-023")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":                   "txn-phase4-u-4-08-competing-row",
+			"client_txn_id":                   "txn-entity_linking-u-4-08-competing-row",
 			"timeline.activity_synopsis_text": "Competing auto-match row",
 		})
 		recordID := created["row"].(map[string]any)["record_id"].(string)
@@ -383,7 +383,7 @@ SELECT COUNT(*)
 			fixtures.TimelineCollectionPatchPayload(
 				golden.RecordFieldTimelineHostRefs,
 				1,
-				"txn-phase4-u-4-08-competing-patch",
+				"txn-entity_linking-u-4-08-competing-patch",
 				fixtures.CollectionActions(
 					fixtures.AddTokenAction("WS-023"),
 				),
@@ -411,11 +411,11 @@ SELECT COUNT(*)
 	})
 
 	t.Run("mixed eligible and ineligible tokens stay coupled to one accepted patch", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-u-4-08-mixed")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-u-4-08-mixed")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-u-4-08-mixed-incident",
-			"incident_key":  "IR-PHASE4-U408-E",
+			"client_txn_id": "txn-entity_linking-u-4-08-mixed-incident",
+			"incident_key":  "IR-ENTITY-LINKING-U408-E",
 			"title":         "Record relationships I-4-08 mixed eligibility",
 		})
 		incidentID := incident["incident_id"].(string)
@@ -424,7 +424,7 @@ SELECT COUNT(*)
 		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "host", "VPN Gateway")
 		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordStubHostRecordID, "host", "WS-023")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":                   "txn-phase4-u-4-08-mixed-row",
+			"client_txn_id":                   "txn-entity_linking-u-4-08-mixed-row",
 			"timeline.activity_synopsis_text": "Mixed auto-match row",
 		})
 		recordID := created["row"].(map[string]any)["record_id"].(string)
@@ -437,7 +437,7 @@ SELECT COUNT(*)
 			fixtures.TimelineCollectionPatchPayload(
 				golden.RecordFieldTimelineHostRefs,
 				1,
-				"txn-phase4-u-4-08-mixed-patch",
+				"txn-entity_linking-u-4-08-mixed-patch",
 				fixtures.CollectionActions(
 					fixtures.AddTokenAction(" vpn   gateway "),
 					fixtures.AddTokenAction("WS-023?"),
@@ -478,7 +478,7 @@ SELECT COUNT(*)
 	t.Run("late patch rollback leaves no auto-resolution side effects", func(t *testing.T) {
 		rollbackEnabled := false
 		var rollbackRecordID uuid.UUID
-		harness := workbookscenariotest.StartServerWithDependencies(t, "phase4-u-4-08-rollback", timeline.DependencySetForTesting(
+		harness := workbookscenariotest.StartServerWithDependencies(t, "entity_linking-u-4-08-rollback", timeline.DependencySetForTesting(
 			timeline.WithBeforeCommitHookForTesting(func(routeKey string, hookedRecordID uuid.UUID) error {
 				if rollbackEnabled && routeKey == "timeline.records.patch" && hookedRecordID == rollbackRecordID {
 					return errors.New("forced auto-match rollback")
@@ -488,15 +488,15 @@ SELECT COUNT(*)
 		))
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-u-4-08-rollback-incident",
-			"incident_key":  "IR-PHASE4-U408-F",
+			"client_txn_id": "txn-entity_linking-u-4-08-rollback-incident",
+			"incident_key":  "IR-ENTITY-LINKING-U408-F",
 			"title":         "Record relationships I-4-08 rollback",
 		})
 		incidentID := incident["incident_id"].(string)
 		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "Gateway record", "gateway-record-03")
 		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "host", "VPN Gateway")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":                   "txn-phase4-u-4-08-rollback-row",
+			"client_txn_id":                   "txn-entity_linking-u-4-08-rollback-row",
 			"timeline.activity_synopsis_text": "Rollback row",
 		})
 		recordID := created["row"].(map[string]any)["record_id"].(string)
@@ -516,7 +516,7 @@ SELECT COUNT(*)
 			fixtures.TimelineCollectionPatchPayload(
 				golden.RecordFieldTimelineHostRefs,
 				1,
-				"txn-phase4-u-4-08-rollback-patch",
+				"txn-entity_linking-u-4-08-rollback-patch",
 				fixtures.CollectionActions(
 					fixtures.AddTokenAction(" vpn   gateway "),
 				),
@@ -537,7 +537,7 @@ SELECT COUNT(*)
    AND actor_user_id::text = $2
    AND scope_key = $3
    AND client_txn_id = $4
-`, "timeline.records.patch", adminID, recordID, "txn-phase4-u-4-08-rollback-patch"); got != 0 {
+`, "timeline.records.patch", adminID, recordID, "txn-entity_linking-u-4-08-rollback-patch"); got != 0 {
 			t.Fatalf("rollback must not persist patch idempotency, got %d rows", got)
 		}
 		if got := queryCount(t, harness.DB, `
@@ -567,16 +567,16 @@ SELECT COUNT(*)
 	})
 
 	t.Run("projection rebuild never backfills auto-resolution for previously unresolved tokens", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-i-4-08-rebuild")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-08-rebuild")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-i-4-08-rebuild-incident",
-			"incident_key":  "IR-PHASE4-I408-G",
+			"client_txn_id": "txn-entity_linking-i-4-08-rebuild-incident",
+			"incident_key":  "IR-ENTITY-LINKING-I408-G",
 			"title":         "Record relationships I-4-08 projection rebuild",
 		})
 		incidentID := incident["incident_id"].(string)
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-i-4-08-rebuild-row",
+			"client_txn_id": "txn-entity_linking-i-4-08-rebuild-row",
 			golden.RecordFieldTimelineHostRefs: fixtures.CollectionActions(
 				fixtures.AddTokenAction("VPN Gateway"),
 			),
@@ -644,18 +644,18 @@ SELECT COUNT(*)
 // I-4-09 / REQ-01-311, REQ-01-314..REQ-01-320, REQ-02-248, REQ-03-280 / AC-394, AC-396, AC-397.
 func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
 	t.Run("create route add_resolved_ref persists manual host link and replays cleanly", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-i-4-09-create-add-resolved-ref")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-09-create-add-resolved-ref")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-i-4-09-create-incident",
-			"incident_key":  "IR-PHASE4-I409-D",
+			"client_txn_id": "txn-entity_linking-i-4-09-create-incident",
+			"incident_key":  "IR-ENTITY-LINKING-I409-D",
 			"title":         "Record relationships I-4-09 create add_resolved_ref",
 		})
 		incidentID := incident["incident_id"].(string)
 		workbookscenariotest.SeedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "WS-023.corp.example", "WS-023.corp.example", "", "")
 
 		createPayload := map[string]any{
-			"client_txn_id":                   "txn-phase4-i-4-09-create-row",
+			"client_txn_id":                   "txn-entity_linking-i-4-09-create-row",
 			"timeline.activity_synopsis_text": "Create-boundary manual host relationship row",
 			golden.RecordFieldTimelineHostRefs: fixtures.CollectionActions(
 				fixtures.AddResolvedRefAction("WS-023", golden.RecordCanonicalHostRecordID),
@@ -671,7 +671,7 @@ func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
 		)
 		createData := requireSuccessEnvelopeWithBody(t, createResp, http.StatusCreated)["data"].(map[string]any)
 		recordID := createData["row"].(map[string]any)["record_id"].(string)
-		requireMutationRecorded(t, harness.DB, createData["change_set_id"].(string), recordID, adminID, "timeline.rows.create", "txn-phase4-i-4-09-create-row", 1, 1)
+		requireMutationRecorded(t, harness.DB, createData["change_set_id"].(string), recordID, adminID, "timeline.rows.create", "txn-entity_linking-i-4-09-create-row", 1, 1)
 
 		link := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), golden.RecordCanonicalHostRecordID, "observed_on_host")
 		assertx.RequireActiveLink(
@@ -737,7 +737,7 @@ func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
 			map[string]any{
-				"client_txn_id": "txn-phase4-i-4-09-create-row",
+				"client_txn_id": "txn-entity_linking-i-4-09-create-row",
 				golden.RecordFieldTimelineHostRefs: fixtures.CollectionActions(
 					fixtures.AddResolvedRefAction("WS-024", golden.RecordCanonicalHostRecordID),
 				),
@@ -767,7 +767,7 @@ UPDATE incident_memberships
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
 			map[string]any{
-				"client_txn_id": "txn-phase4-i-4-09-create-denied",
+				"client_txn_id": "txn-entity_linking-i-4-09-create-denied",
 			},
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
@@ -781,17 +781,17 @@ UPDATE incident_memberships
 	})
 
 	t.Run("add_resolved_ref persists manual host link with null confidence", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-u-4-09-add-resolved-ref")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-u-4-09-add-resolved-ref")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-u-4-09-add-incident",
-			"incident_key":  "IR-PHASE4-U409-A",
+			"client_txn_id": "txn-entity_linking-u-4-09-add-incident",
+			"incident_key":  "IR-ENTITY-LINKING-U409-A",
 			"title":         "Record relationships I-4-09 add_resolved_ref",
 		})
 		incidentID := incident["incident_id"].(string)
 		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "WS-023.corp.example", "WS-023.corp.example")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":                   "txn-phase4-u-4-09-add-row",
+			"client_txn_id":                   "txn-entity_linking-u-4-09-add-row",
 			"timeline.activity_synopsis_text": "Manual host relationship row",
 		})
 		recordID := created["row"].(map[string]any)["record_id"].(string)
@@ -804,7 +804,7 @@ UPDATE incident_memberships
 			fixtures.TimelineCollectionPatchPayload(
 				golden.RecordFieldTimelineHostRefs,
 				1,
-				"txn-phase4-i-4-09-add-patch",
+				"txn-entity_linking-i-4-09-add-patch",
 				fixtures.CollectionActions(
 					fixtures.AddResolvedRefAction("WS-023", golden.RecordCanonicalHostRecordID),
 				),
@@ -818,7 +818,7 @@ UPDATE incident_memberships
 		if got := int64(data["row"].(map[string]any)["row_version"].(float64)); got != 2 {
 			t.Fatalf("unexpected add_resolved_ref row_version: got %d want 2", got)
 		}
-		requireMutationRecorded(t, harness.DB, data["change_set_id"].(string), recordID, adminID, "timeline.records.patch", "txn-phase4-i-4-09-add-patch", 1, 2)
+		requireMutationRecorded(t, harness.DB, data["change_set_id"].(string), recordID, adminID, "timeline.records.patch", "txn-entity_linking-i-4-09-add-patch", 1, 2)
 
 		link := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), golden.RecordCanonicalHostRecordID, "observed_on_host")
 		assertx.RequireActiveLink(
@@ -856,7 +856,7 @@ UPDATE incident_memberships
 			fixtures.TimelineCollectionPatchPayload(
 				golden.RecordFieldTimelineHostRefs,
 				1,
-				"txn-phase4-i-4-09-add-patch",
+				"txn-entity_linking-i-4-09-add-patch",
 				fixtures.CollectionActions(
 					fixtures.AddResolvedRefAction("WS-023", golden.RecordCanonicalHostRecordID),
 				),
@@ -892,7 +892,7 @@ UPDATE incident_memberships
 			fixtures.TimelineCollectionPatchPayload(
 				golden.RecordFieldTimelineHostRefs,
 				1,
-				"txn-phase4-i-4-09-add-patch",
+				"txn-entity_linking-i-4-09-add-patch",
 				fixtures.CollectionActions(
 					fixtures.AddResolvedRefAction("WS-024", golden.RecordCanonicalHostRecordID),
 				),
@@ -925,7 +925,7 @@ UPDATE incident_memberships
 			fixtures.TimelineCollectionPatchPayload(
 				golden.RecordFieldTimelineHostRefs,
 				2,
-				"txn-phase4-i-4-09-add-denied",
+				"txn-entity_linking-i-4-09-add-denied",
 				fixtures.CollectionActions(
 					fixtures.AddResolvedRefAction("WS-024", golden.RecordDuplicateHostRecordID),
 				),
@@ -942,17 +942,17 @@ UPDATE incident_memberships
 	})
 
 	t.Run("resolve_item persists manual identity link with null confidence", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-u-4-09-resolve-item")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-u-4-09-resolve-item")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-u-4-09-resolve-incident",
-			"incident_key":  "IR-PHASE4-U409-B",
+			"client_txn_id": "txn-entity_linking-u-4-09-resolve-incident",
+			"incident_key":  "IR-ENTITY-LINKING-U409-B",
 			"title":         "Record relationships I-4-09 resolve_item",
 		})
 		incidentID := incident["incident_id"].(string)
 		seedIdentityRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalIdentityID, "Alex Analyst", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-u-4-09-resolve-row",
+			"client_txn_id": "txn-entity_linking-u-4-09-resolve-row",
 			golden.RecordFieldTimelineIdentityRefs: fixtures.CollectionActions(
 				fixtures.AddTokenAction("alex.analyst@example.test"),
 			),
@@ -970,7 +970,7 @@ UPDATE incident_memberships
 			fixtures.TimelineCollectionPatchPayload(
 				golden.RecordFieldTimelineIdentityRefs,
 				1,
-				"txn-phase4-u-4-09-resolve-patch",
+				"txn-entity_linking-u-4-09-resolve-patch",
 				fixtures.CollectionActions(
 					fixtures.ResolveItemAction(unresolvedItem["item_ref"].(string), golden.RecordCanonicalIdentityID),
 				),
@@ -1014,16 +1014,16 @@ UPDATE incident_memberships
 	})
 
 	t.Run("resolve_item without a target is rejected without creating an identity", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-u-4-09-resolve-create")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-u-4-09-resolve-create")
 		adminLogin, _ := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-u-4-09-resolve-create-incident",
-			"incident_key":  "IR-PHASE4-U409-D",
+			"client_txn_id": "txn-entity_linking-u-4-09-resolve-create-incident",
+			"incident_key":  "IR-ENTITY-LINKING-U409-D",
 			"title":         "Record relationships I-4-09 resolve_item create",
 		})
 		incidentID := incident["incident_id"].(string)
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":                   "txn-phase4-u-4-09-resolve-create-row",
+			"client_txn_id":                   "txn-entity_linking-u-4-09-resolve-create-row",
 			"timeline.activity_synopsis_text": "Manual identity create-from-mention row",
 			golden.RecordFieldTimelineIdentityRefs: fixtures.CollectionActions(
 				fixtures.AddTokenAction("vpn.user@example.test"),
@@ -1042,7 +1042,7 @@ UPDATE incident_memberships
 			fixtures.TimelineCollectionPatchPayload(
 				golden.RecordFieldTimelineIdentityRefs,
 				1,
-				"txn-phase4-u-4-09-resolve-create-patch",
+				"txn-entity_linking-u-4-09-resolve-create-patch",
 				fixtures.CollectionActions(
 					map[string]any{
 						"op":       "resolve_item",
@@ -1073,16 +1073,16 @@ UPDATE incident_memberships
 	})
 
 	t.Run("client supplied confidence is rejected without side effects", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-u-4-09-reject")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-u-4-09-reject")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-u-4-09-reject-incident",
-			"incident_key":  "IR-PHASE4-U409-C",
+			"client_txn_id": "txn-entity_linking-u-4-09-reject-incident",
+			"incident_key":  "IR-ENTITY-LINKING-U409-C",
 			"title":         "Record relationships I-4-09 rejection",
 		})
 		incidentID := incident["incident_id"].(string)
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-u-4-09-reject-row",
+			"client_txn_id": "txn-entity_linking-u-4-09-reject-row",
 			golden.RecordFieldTimelineHostRefs: fixtures.CollectionActions(
 				fixtures.AddTokenAction("WS-023"),
 			),
@@ -1105,7 +1105,7 @@ UPDATE incident_memberships
 			fixtures.TimelineCollectionPatchPayload(
 				golden.RecordFieldTimelineHostRefs,
 				1,
-				"txn-phase4-u-4-09-reject-patch",
+				"txn-entity_linking-u-4-09-reject-patch",
 				fixtures.CollectionActions(
 					map[string]any{
 						"op":                 "resolve_item",
@@ -1134,7 +1134,7 @@ SELECT COUNT(*)
    AND actor_user_id::text = $2
    AND scope_key = $3
    AND client_txn_id = $4
-`, "timeline.records.patch", adminID, recordID, "txn-phase4-u-4-09-reject-patch"); got != 0 {
+`, "timeline.records.patch", adminID, recordID, "txn-entity_linking-u-4-09-reject-patch"); got != 0 {
 			t.Fatalf("rejected payload must not persist idempotency success state, got %d rows", got)
 		}
 		if got := queryCount(t, harness.DB, `

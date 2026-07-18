@@ -24,7 +24,7 @@ type ObjectStoreDependencyAdmin struct {
 	userID   uuid.UUID
 }
 
-func requirePhaseDObjectStoreDependencyErrorsUseOwnerPublicMapping(
+func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 	t *testing.T,
 	startServer func(testing.TB, string, objectstore.Store) *workbookscenariotest.ServerHarness,
 	admin ObjectStoreDependencyAdmin,

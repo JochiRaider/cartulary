@@ -32,7 +32,7 @@ func TestIncidentCreatePersistsBootstrapStateAndRollsBackAtomically_Integration(
 	runtime := scenariotest.StartRuntime(t)
 
 	t.Run("persists incident membership workbook preferences and audit attribution", func(t *testing.T) {
-		harness := runtime.StartServer(t, "phase2-i-2-01-persist")
+		harness := runtime.StartServer(t, "incident_membership-i-2-01-persist")
 
 		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 		createResp := httptestx.DoJSON(
@@ -120,7 +120,7 @@ func TestIncidentCreatePersistsBootstrapStateAndRollsBackAtomically_Integration(
 	})
 
 	t.Run("forced pre-commit failure rolls back incident create atomically", func(t *testing.T) {
-		harness := runtime.StartServerWithTestDependencies(t, "phase2-i-2-01-rollback", faulttest.IncidentCreateRollbackFaultDependencies())
+		harness := runtime.StartServerWithTestDependencies(t, "incident_membership-i-2-01-rollback", faulttest.IncidentCreateRollbackFaultDependencies())
 
 		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 		createResp := httptestx.DoJSON(
@@ -173,7 +173,7 @@ SELECT COUNT(*)
 
 func TestIncidentCreateReplayAndDuplicateKeyConflictUseNormalizedState_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase2-i-2-02")
+	harness := runtime.StartServer(t, "incident_membership-i-2-02")
 	normalizedIncidentKey := "IR-\u00C9-202"
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
@@ -350,8 +350,8 @@ func requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t *testing
 	for _, route := range routes {
 		route := route
 		t.Run(route.Name, func(t *testing.T) {
-			fixtureCtx := newRouteFixture(t, "phase2-i-2-03-"+route.Name)
-			progressionSlug := FixtureSlug("phase2-i-2-03-" + route.Name + "-progression")
+			fixtureCtx := newRouteFixture(t, "incident_membership-i-2-03-"+route.Name)
+			progressionSlug := FixtureSlug("incident_membership-i-2-03-" + route.Name + "-progression")
 			progressionUserID := flowtest.SeedLocalUserFlags(
 				t,
 				fixtureCtx.harness.DB,
@@ -470,7 +470,7 @@ func requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t *testing
 
 func TestIncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMaterialChange_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase2-i-2-04")
+	harness := runtime.StartServer(t, "incident_membership-i-2-04")
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -566,10 +566,10 @@ func TestIncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMaterialChange_Inte
 
 func TestMembershipPatchSameRoleReturnsOKWithoutVersionOrMutationArtifact_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase2-i-2-07")
+	harness := runtime.StartServer(t, "incident_membership-i-2-07")
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
-	targetUserID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase2-i207-target@example.test", "Incident administration I207 Target", "Phase2I207TargetPass!", false, false, true)
+	targetUserID := flowtest.SeedLocalUserFlags(t, harness.DB, "incident_membership-i207-target@example.test", "Incident administration I207 Target", "IncidentMembershipI207TargetPass!", false, false, true)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-i-2-07-create",
 		"incident_key":  "IR-I207",
@@ -633,7 +633,7 @@ SELECT role, membership_version
 
 func TestExtensionDiscoveryReturnsExactZeroMembershipShapeWithoutLeaks_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase2-i-2-05")
+	harness := runtime.StartServer(t, "incident_membership-i-2-05")
 
 	_, _ = flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	userID := flowtest.SeedLocalUserFlags(t, harness.DB, "extension-user@example.test", "Extension User", "ExtensionUser1!", false, false, true)
@@ -693,7 +693,7 @@ func TestExtensionDiscoveryReturnsExactZeroMembershipShapeWithoutLeaks_Integrati
 
 func TestUnclaimedReservedFamiliesReturnCanonical404AndOutsidePathsDoNot_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase2-i-2-06")
+	harness := runtime.StartServer(t, "incident_membership-i-2-06")
 
 	_, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	flowtest.SeedLocalUserFlags(t, harness.DB, "reserved-user@example.test", "Reserved User", "ReservedUser1!", false, false, true)

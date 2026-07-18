@@ -26,7 +26,7 @@ func TestDeleteRestoreAdapterMatrix_Unit(t *testing.T) {
 }
 
 func TestSoftDeleteRoutePreconditions_Unit(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase7-u-7-03-delete")
+	harness := workbookscenariotest.StartServer(t, "history_revision-u-7-03-delete")
 	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U703")
 	seedHostProjection(t, harness.DB, incidentID, recordID)
@@ -107,7 +107,7 @@ func TestSoftDeleteRoutePreconditions_Unit(t *testing.T) {
 }
 
 func TestRestoreTombstonePreconditions_Unit(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase7-u-7-04-restore")
+	harness := workbookscenariotest.StartServer(t, "history_revision-u-7-04-restore")
 	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U704")
 	seedHostProjection(t, harness.DB, incidentID, recordID)
@@ -247,7 +247,7 @@ INSERT INTO indicators (
     created_by_user_id,
     updated_by_user_id
 )
-VALUES ($1, $2, 'domain', 'atomic', 'phase7.example.test', 'phase7.example.test', 'domain:phase7.example.test', $3, $3)
+VALUES ($1, $2, 'domain', 'atomic', 'history_revision.example.test', 'history_revision.example.test', 'domain:history_revision.example.test', $3, $3)
 `, recordID, incidentID, actorUserID); err != nil {
 		t.Fatalf("seed indicator record: %v", err)
 	}
@@ -259,7 +259,7 @@ func seedRecordTag(t testing.TB, db *sql.DB, incidentID uuid.UUID, recordID uuid
 	tagID := uuid.New()
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO record_tags (record_tag_id, incident_id, record_id, tag_name, normalized_tag_name, created_by_user_id)
-VALUES ($1, $2, $3, 'History tag', 'phase 7 tag', $4)
+VALUES ($1, $2, $3, 'History tag', 'history_revision tag', $4)
 `, tagID, incidentID, recordID, actorUserID); err != nil {
 		t.Fatalf("seed record tag: %v", err)
 	}

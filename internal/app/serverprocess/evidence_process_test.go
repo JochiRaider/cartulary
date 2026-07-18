@@ -13,7 +13,7 @@ import (
 )
 
 func TestEvidenceUploadAttachProjection_Process(t *testing.T) {
-	server := startServerProcess(t, "phase5-e-smoke-01")
+	server := startServerProcess(t, "evidence_lifecycle-e-smoke-01")
 	adminLogin, _ := ProvisionBootstrapAdmin(t, server)
 	incident := CreateIncident(t, server, adminLogin.sessionCookie, adminLogin.csrfCookie, map[string]any{
 		"client_txn_id": "txn-e-5-smoke-incident",
@@ -35,7 +35,7 @@ func TestEvidenceUploadAttachProjection_Process(t *testing.T) {
 		"evidence.title": "Process evidence",
 	})
 	evidenceRecordID := evidence["row"].(map[string]any)["record_id"].(string)
-	payload := []byte("phase5 process evidence payload")
+	payload := []byte("evidence_lifecycle process evidence payload")
 	blobCreate := DoJSON(t, server, http.MethodPost, "/api/v1/object-blobs", map[string]any{
 		"incident_id":       incidentID,
 		"client_txn_id":     "txn-e-5-smoke-blob",

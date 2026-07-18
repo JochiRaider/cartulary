@@ -29,12 +29,12 @@ import (
 func TestReadyState_Process(t *testing.T) {
 	postgresHarness, s3Harness := sharedProcessHarnesses(t)
 
-	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase0-e-0-01")
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "bootstrap-e-0-01")
 
 	db := openSQL(t, testDB.DSN)
 	defer db.Close()
 
-	bucket := BucketName("phase0-e-0-01")
+	bucket := BucketName("bootstrap-e-0-01")
 	defer cleanupBucket(t, s3Harness, bucket)
 
 	configPath := writeConfig(t, string(fixtures.MustRead("config", "valid.toml")))
@@ -51,15 +51,15 @@ func TestReadyState_Process(t *testing.T) {
 	requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 1)
 	requireCountSQL(t, db, `SELECT COUNT(*) FROM incident_memberships`, 0)
 
-	payload := []byte("phase0 ready state proof")
+	payload := []byte("bootstrap ready state proof")
 	store, err := objectstore.NewFilesystemStore(env["CARTULARY__ROOTS__OBJECT_STORAGE__PATH"])
 	if err != nil {
 		t.Fatalf("open configured filesystem object store: %v", err)
 	}
-	if err := store.PutObject(context.Background(), "phase0-ready.txt", bytes.NewReader(payload), int64(len(payload)), "text/plain"); err != nil {
+	if err := store.PutObject(context.Background(), "bootstrap-ready.txt", bytes.NewReader(payload), int64(len(payload)), "text/plain"); err != nil {
 		t.Fatalf("write configured filesystem object store: %v", err)
 	}
-	object, _, err := store.ReadObject(context.Background(), "phase0-ready.txt", objectstore.ReadOptions{})
+	object, _, err := store.ReadObject(context.Background(), "bootstrap-ready.txt", objectstore.ReadOptions{})
 	if err != nil {
 		t.Fatalf("read configured filesystem object store: %v", err)
 	}
@@ -102,9 +102,9 @@ func TestInvalidConfigDiagnostics_Process(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase0-e-0-02")
+			testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "bootstrap-e-0-02")
 
-			bucket := BucketName("phase0-e-0-02")
+			bucket := BucketName("bootstrap-e-0-02")
 			defer cleanupBucket(t, s3Harness, bucket)
 
 			configPath := writeConfig(t, tc.configText)
@@ -129,12 +129,12 @@ func TestInvalidConfigDiagnostics_Process(t *testing.T) {
 func TestFirstAdminBootstrap_Process(t *testing.T) {
 	postgresHarness, s3Harness := sharedProcessHarnesses(t)
 
-	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase0-e-0-03")
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "bootstrap-e-0-03")
 
 	db := openSQL(t, testDB.DSN)
 	defer db.Close()
 
-	bucket := BucketName("phase0-e-0-03")
+	bucket := BucketName("bootstrap-e-0-03")
 	defer cleanupBucket(t, s3Harness, bucket)
 
 	configPath := writeConfig(t, string(fixtures.MustRead("config", "valid.toml")))
@@ -233,7 +233,7 @@ func TestBootstrapFailures_Process(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase0-e-0-04")
+			testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "bootstrap-e-0-04")
 
 			db := openSQL(t, testDB.DSN)
 			defer db.Close()
@@ -241,7 +241,7 @@ func TestBootstrapFailures_Process(t *testing.T) {
 				tc.seed(t, db)
 			}
 
-			bucket := BucketName("phase0-e-0-04")
+			bucket := BucketName("bootstrap-e-0-04")
 			defer cleanupBucket(t, s3Harness, bucket)
 
 			configPath := writeConfig(t, tc.configContent())
@@ -268,7 +268,7 @@ func TestBootstrapSkipAndRecovery_Process(t *testing.T) {
 	postgresHarness, s3Harness := sharedProcessHarnesses(t)
 
 	t.Run("existing active deployment admin skips stale and invalid bootstrap manifests", func(t *testing.T) {
-		testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase0-e-0-05-skip")
+		testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "bootstrap-e-0-05-skip")
 
 		db := openSQL(t, testDB.DSN)
 		defer db.Close()
@@ -276,7 +276,7 @@ func TestBootstrapSkipAndRecovery_Process(t *testing.T) {
 			t.Fatalf("seed active deployment admin: %v", err)
 		}
 
-		bucket := BucketName("phase0-e-0-05-skip")
+		bucket := BucketName("bootstrap-e-0-05-skip")
 		defer cleanupBucket(t, s3Harness, bucket)
 
 		cases := []struct {
@@ -312,7 +312,7 @@ func TestBootstrapSkipAndRecovery_Process(t *testing.T) {
 	})
 
 	t.Run("bootstrap recovery remains fail-closed", func(t *testing.T) {
-		testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase0-e-0-05-recovery")
+		testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "bootstrap-e-0-05-recovery")
 
 		db := openSQL(t, testDB.DSN)
 		defer db.Close()
@@ -325,7 +325,7 @@ func TestBootstrapSkipAndRecovery_Process(t *testing.T) {
 			t.Fatalf("seed bootstrap completion state: %v", err)
 		}
 
-		bucket := BucketName("phase0-e-0-05-recovery")
+		bucket := BucketName("bootstrap-e-0-05-recovery")
 		defer cleanupBucket(t, s3Harness, bucket)
 
 		configPath := writeConfig(t, string(fixtures.MustRead("config", "valid.toml")))
@@ -383,7 +383,7 @@ func writeConfig(t testing.TB, content string) string {
 
 	path := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatalf("write phase 0 config: %v", err)
+		t.Fatalf("write bootstrap config: %v", err)
 	}
 	return path
 }

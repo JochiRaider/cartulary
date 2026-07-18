@@ -23,7 +23,7 @@ export async function openNetworkFlowIncident(
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey(prefix),
-    `Phase 12 ${prefix} real application evidence`,
+    `Network Flow ${prefix} real application evidence`,
   );
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();

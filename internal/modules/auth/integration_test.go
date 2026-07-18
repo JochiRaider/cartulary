@@ -31,7 +31,7 @@ func TestLoginSessionLifecycle_Integration(t *testing.T) {
 	runtime := flowtest.StartRuntime(t)
 
 	t.Run("persists login inspection idle sliding and logout", func(t *testing.T) {
-		server, db := startServer(t, runtime, "phase1-i-1-01-lifecycle")
+		server, db := startServer(t, runtime, "authentication-i-1-01-lifecycle")
 		defer db.Close()
 
 		loginAt := time.Date(2026, time.April, 29, 17, 35, 4, 261991000, time.UTC)
@@ -105,7 +105,7 @@ func TestLoginSessionLifecycle_Integration(t *testing.T) {
 	})
 
 	t.Run("idle expiry fails closed and records session_expired", func(t *testing.T) {
-		server, db := startServer(t, runtime, "phase1-i-1-01-expiry")
+		server, db := startServer(t, runtime, "authentication-i-1-01-expiry")
 		defer db.Close()
 
 		loginAt := time.Date(2026, time.April, 29, 18, 0, 0, 0, time.UTC)
@@ -130,7 +130,7 @@ func TestLoginSessionLifecycle_Integration(t *testing.T) {
 	})
 
 	t.Run("sixth login revokes least recently used non-current session", func(t *testing.T) {
-		server, db := startServer(t, runtime, "phase1-i-1-01-concurrency")
+		server, db := startServer(t, runtime, "authentication-i-1-01-concurrency")
 		defer db.Close()
 
 		userID := seedLocalUser(t, db, "analyst2@example.test", "Analyst Two", "ConcurrencyPass1!", false)
@@ -177,11 +177,11 @@ func TestSessionRevocationClosesAttachedSocket_Integration(t *testing.T) {
 	runtime := flowtest.StartRuntime(t)
 
 	t.Run("logout revokes attached session socket", func(t *testing.T) {
-		server, db := startServer(t, runtime, "phase1-i-1-02-session-revoked")
+		server, db := startServer(t, runtime, "authentication-i-1-02-session-revoked")
 		defer db.Close()
 
 		userID := seedLocalUser(t, db, "socket-owner@example.test", "Socket Owner", "SocketPass123!", false)
-		incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, userID, "phase1-i-1-02-logout")
+		incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, userID, "authentication-i-1-02-logout")
 		sessionCookie, csrfCookie := loginLocalUser(t, server, "socket-owner@example.test", "SocketPass123!", nil)
 		socket := connectSessionSocket(t, server, incidentID, sessionCookie.Value)
 		defer socket.Close(websocket.StatusNormalClosure, "integration_cleanup")
@@ -199,11 +199,11 @@ func TestSessionRevocationClosesAttachedSocket_Integration(t *testing.T) {
 	})
 
 	t.Run("concurrency limit revokes attached least recently used session socket", func(t *testing.T) {
-		server, db := startServer(t, runtime, "phase1-i-1-02-concurrency-socket")
+		server, db := startServer(t, runtime, "authentication-i-1-02-concurrency-socket")
 		defer db.Close()
 
 		userID := seedLocalUser(t, db, "socket-concurrency@example.test", "Socket Concurrency", "SocketConcurrencyPass1!", false)
-		incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, userID, "phase1-i-1-02-concurrency")
+		incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, userID, "authentication-i-1-02-concurrency")
 		loginBase := time.Date(2026, time.April, 29, 19, 0, 0, 0, time.UTC)
 		httptestx.SetClockFixed(t, server, loginBase)
 		sessionCookie, _ := loginLocalUser(t, server, "socket-concurrency@example.test", "SocketConcurrencyPass1!", nil)
@@ -256,7 +256,7 @@ func TestCredentialStateAndBootstrapFlows_Integration(t *testing.T) {
 	runtime := flowtest.StartRuntime(t)
 
 	t.Run("first enrollment then password change revokes all sessions", func(t *testing.T) {
-		server, db := startServer(t, runtime, "phase1-i-1-04-first-enrollment")
+		server, db := startServer(t, runtime, "authentication-i-1-04-first-enrollment")
 		defer db.Close()
 
 		userID := seedLocalUser(t, db, "mfa-user@example.test", "MFA User", "BootstrapPass123!", true)
@@ -347,7 +347,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("replacement enrollment revokes current session and swaps the active factor", func(t *testing.T) {
-		server, db := startServer(t, runtime, "phase1-i-1-04-replacement-enrollment")
+		server, db := startServer(t, runtime, "authentication-i-1-04-replacement-enrollment")
 		defer db.Close()
 
 		seedLocalUser(t, db, "replace-user@example.test", "Replace User", "ReplacePass123!", true)
@@ -407,13 +407,13 @@ SELECT COUNT(*)
 func TestBootstrapTokenRouteBoundaries_Integration(t *testing.T) {
 	runtime := flowtest.StartRuntime(t)
 
-	server, db := startServer(t, runtime, "phase1-i-1-06-bootstrap-boundaries")
+	server, db := startServer(t, runtime, "authentication-i-1-06-bootstrap-boundaries")
 	defer db.Close()
 
 	seedLocalUser(t, db, "bootstrap-boundary@example.test", "Bootstrap Boundary", "BootstrapRoute123!", true)
 	bootstrapToken := requireBootstrapLogin(t, server, "bootstrap-boundary@example.test", "BootstrapRoute123!")
 	targetUserID := seedLocalUser(t, db, "bootstrap-ws-target@example.test", "Bootstrap WS Target", "BootstrapTarget123!", false)
-	incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, targetUserID, "phase1-i-1-06-bootstrap")
+	incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, targetUserID, "authentication-i-1-06-bootstrap")
 
 	begin := beginTOTPEnrollment(t, server, bootstrapToken, map[string]any{
 		"client_txn_id": "txn-bootstrap-boundary-begin",
@@ -457,7 +457,7 @@ func TestBootstrapTokenRouteBoundaries_Integration(t *testing.T) {
 func TestUserAdminLifecycle_Integration(t *testing.T) {
 	runtime := flowtest.StartRuntime(t)
 
-	server, db := startServer(t, runtime, "phase1-i-1-03-user-admin")
+	server, db := startServer(t, runtime, "authentication-i-1-03-user-admin")
 	defer db.Close()
 
 	adminID := seedLocalUserFlags(t, db, "admin-users@example.test", "Users Admin", "AdminUsersPass123!", false, true, true)
@@ -554,7 +554,7 @@ func TestAdminCredentialActions_Integration(t *testing.T) {
 	runtime := flowtest.StartRuntime(t)
 
 	t.Run("password reset revokes attached sockets and preserves active totp", func(t *testing.T) {
-		server, db := startServer(t, runtime, "phase1-i-1-05-password-reset")
+		server, db := startServer(t, runtime, "authentication-i-1-05-password-reset")
 		defer db.Close()
 
 		adminID := seedLocalUserFlags(t, db, "admin-reset@example.test", "Reset Admin", "ResetAdminPass123!", false, true, true)
@@ -563,7 +563,7 @@ func TestAdminCredentialActions_Integration(t *testing.T) {
 
 		targetSecret := "JBSWY3DPEHPK3PXP"
 		targetID := seedLocalUserWithActiveTOTP(t, db, "target-reset@example.test", "Target Reset", "TargetResetPass123!", true, false, targetSecret)
-		targetIncidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, targetID, "phase1-i-1-05-password-reset")
+		targetIncidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, targetID, "authentication-i-1-05-password-reset")
 		targetLogin := loginLocalUserWithSecondFactor(t, server, "target-reset@example.test", "TargetResetPass123!", generateTOTPCode(t, targetSecret))
 		targetSocket := connectSessionSocket(t, server, targetIncidentID, targetLogin.sessionCookie.Value)
 		defer targetSocket.Close(websocket.StatusNormalClosure, "integration_cleanup")
@@ -600,7 +600,7 @@ func TestAdminCredentialActions_Integration(t *testing.T) {
 	})
 
 	t.Run("totp reset revokes attached sockets and reopens bootstrap flow", func(t *testing.T) {
-		server, db := startServer(t, runtime, "phase1-i-1-05-totp-reset")
+		server, db := startServer(t, runtime, "authentication-i-1-05-totp-reset")
 		defer db.Close()
 
 		seedLocalUserFlags(t, db, "admin-totp-reset@example.test", "TOTP Reset Admin", "TotpResetAdmin123!", false, true, true)
@@ -608,7 +608,7 @@ func TestAdminCredentialActions_Integration(t *testing.T) {
 
 		targetSecret := "JBSWY3DPEHPK3QAA"
 		targetID := seedLocalUserWithActiveTOTP(t, db, "target-totp-reset@example.test", "Target TOTP Reset", "TargetTotpPass123!", true, false, targetSecret)
-		targetIncidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, targetID, "phase1-i-1-05-totp-reset")
+		targetIncidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, targetID, "authentication-i-1-05-totp-reset")
 		targetLogin := loginLocalUserWithSecondFactor(t, server, "target-totp-reset@example.test", "TargetTotpPass123!", generateTOTPCode(t, targetSecret))
 		targetSocket := connectSessionSocket(t, server, targetIncidentID, targetLogin.sessionCookie.Value)
 		defer targetSocket.Close(websocket.StatusNormalClosure, "integration_cleanup")
@@ -636,7 +636,7 @@ func TestAdminCredentialActions_Integration(t *testing.T) {
 	})
 
 	t.Run("revoke-all revokes attached sockets without mutating credentials", func(t *testing.T) {
-		server, db := startServer(t, runtime, "phase1-i-1-05-revoke-all")
+		server, db := startServer(t, runtime, "authentication-i-1-05-revoke-all")
 		defer db.Close()
 
 		seedLocalUserFlags(t, db, "admin-revoke-all@example.test", "Revoke All Admin", "RevokeAllAdmin123!", false, true, true)
@@ -644,7 +644,7 @@ func TestAdminCredentialActions_Integration(t *testing.T) {
 
 		targetSecret := "JBSWY3DPEHPK3QAB"
 		targetID := seedLocalUserWithActiveTOTP(t, db, "target-revoke-all@example.test", "Target Revoke All", "TargetRevokePass123!", true, false, targetSecret)
-		targetIncidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, targetID, "phase1-i-1-05-revoke-all")
+		targetIncidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, targetID, "authentication-i-1-05-revoke-all")
 		targetLogin := loginLocalUserWithSecondFactor(t, server, "target-revoke-all@example.test", "TargetRevokePass123!", generateTOTPCode(t, targetSecret))
 		targetSocket := connectSessionSocket(t, server, targetIncidentID, targetLogin.sessionCookie.Value)
 		defer targetSocket.Close(websocket.StatusNormalClosure, "integration_cleanup")
@@ -670,7 +670,7 @@ func TestAdminCredentialActions_Integration(t *testing.T) {
 func TestCredentialStateTransitions_Integration(t *testing.T) {
 	runtime := flowtest.StartRuntime(t)
 
-	server, db := startServer(t, runtime, "phase1-i-1-04-state-transitions")
+	server, db := startServer(t, runtime, "authentication-i-1-04-state-transitions")
 	defer db.Close()
 
 	userID := seedLocalUser(t, db, "state-transitions@example.test", "State Transitions", "StateTransitions1!", false)
@@ -833,7 +833,7 @@ func TestCredentialStateTransitions_Integration(t *testing.T) {
 func TestBootstrapEnrollmentConsumption_Integration(t *testing.T) {
 	runtime := flowtest.StartRuntime(t)
 
-	server, db := startServer(t, runtime, "phase1-i-1-04-bootstrap-consumption")
+	server, db := startServer(t, runtime, "authentication-i-1-04-bootstrap-consumption")
 	defer db.Close()
 
 	seedLocalUser(t, db, "bootstrap-consumption@example.test", "Bootstrap Consumption", "BootstrapConsumption1!", true)
@@ -887,7 +887,7 @@ func TestBootstrapEnrollmentConsumption_Integration(t *testing.T) {
 func TestUserAdminAudit_Integration(t *testing.T) {
 	runtime := flowtest.StartRuntime(t)
 
-	server, db := startServer(t, runtime, "phase1-i-1-03-audit")
+	server, db := startServer(t, runtime, "authentication-i-1-03-audit")
 	defer db.Close()
 
 	adminID := seedLocalUserFlags(t, db, "audit-admin@example.test", "Audit Admin", "AuditAdminPass1!", false, true, true)
@@ -954,7 +954,7 @@ func TestAdminCredentialAuditAndScope_Integration(t *testing.T) {
 	runtime := flowtest.StartRuntime(t)
 
 	t.Run("password reset audit is deployment-local and incident admins are denied", func(t *testing.T) {
-		server, db := startServer(t, runtime, "phase1-i-1-05-audit-scope")
+		server, db := startServer(t, runtime, "authentication-i-1-05-audit-scope")
 		defer db.Close()
 
 		adminID := seedLocalUserFlags(t, db, "scope-admin@example.test", "Scope Admin", "ScopeAdminPass1!", false, true, true)
@@ -965,13 +965,13 @@ func TestAdminCredentialAuditAndScope_Integration(t *testing.T) {
 		incidentAdminSession, incidentAdminCSRF := loginLocalUser(t, server, "incident-admin@example.test", "IncidentAdminPass1!", nil)
 
 		incident := createIncidentResource(t, server, adminSession, adminCSRF, map[string]any{
-			"client_txn_id": "txn-phase1-scope-incident",
-			"incident_key":  "IR-PHASE1-SCOPE",
+			"client_txn_id": "txn-authentication-scope-incident",
+			"incident_key":  "IR-AUTHENTICATION-SCOPE",
 			"title":         "Authentication Scope",
 		})
 		incidentID := incident["incident_id"].(string)
 		createIncidentMembership(t, server, incidentID, adminSession, adminCSRF, map[string]any{
-			"client_txn_id": "txn-phase1-scope-membership",
+			"client_txn_id": "txn-authentication-scope-membership",
 			"email":         "incident-admin@example.test",
 			"role":          "admin",
 		})
@@ -1015,7 +1015,7 @@ func TestAdminCredentialAuditAndScope_Integration(t *testing.T) {
 
 		passwordReset := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/password/reset", map[string]any{
 			"base_user_version": 1,
-			"client_txn_id":     "txn-phase1-admin-audit-password-reset",
+			"client_txn_id":     "txn-authentication-admin-audit-password-reset",
 			"new_password":      "ScopeTargetChanged1!",
 			"reason":            "deployment admin reset",
 		}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
@@ -1029,7 +1029,7 @@ func TestAdminCredentialAuditAndScope_Integration(t *testing.T) {
 			ClientTxnID: event.ClientTxnID,
 			RequestID:   event.RequestID,
 			CreatedAt:   event.CreatedAt,
-		}, adminID, "users.password.reset", "txn-phase1-admin-audit-password-reset")
+		}, adminID, "users.password.reset", "txn-authentication-admin-audit-password-reset")
 		securityassert.RequireSecretSafePayload(t, event.After, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32"})
 		if got := event.After["user_version"]; got != float64(2) {
 			t.Fatalf("unexpected users.password.reset after_json: %#v", event.After)
@@ -1040,7 +1040,7 @@ func TestAdminCredentialAuditAndScope_Integration(t *testing.T) {
 	})
 
 	t.Run("totp reset and revoke-all write safe deployment-admin audit records", func(t *testing.T) {
-		server, db := startServer(t, runtime, "phase1-i-1-05-audit-events")
+		server, db := startServer(t, runtime, "authentication-i-1-05-audit-events")
 		defer db.Close()
 
 		adminID := seedLocalUserFlags(t, db, "audit-events-admin@example.test", "Audit Events Admin", "AuditEventsAdmin1!", false, true, true)
@@ -1051,13 +1051,13 @@ func TestAdminCredentialAuditAndScope_Integration(t *testing.T) {
 
 		totpReset := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+totpTargetID+"/mfa/totp/reset", map[string]any{
 			"base_user_version": 1,
-			"client_txn_id":     "txn-phase1-admin-audit-totp-reset",
+			"client_txn_id":     "txn-authentication-admin-audit-totp-reset",
 			"reason":            "deployment admin totp reset",
 		}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
 		httptestx.RequireSuccessEnvelope(t, totpReset, http.StatusOK)
 
 		revokeAll := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+revokeTargetID+"/sessions/revoke-all", map[string]any{
-			"client_txn_id": "txn-phase1-admin-audit-revoke-all",
+			"client_txn_id": "txn-authentication-admin-audit-revoke-all",
 			"reason":        "deployment admin revoke all",
 		}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
 		httptestx.RequireSuccessEnvelope(t, revokeAll, http.StatusOK)
@@ -1095,7 +1095,7 @@ func TestAdminCredentialAuditAndScope_Integration(t *testing.T) {
 func TestUserCreateReplayReturnsOriginalCommittedResource_Integration(t *testing.T) {
 	runtime := flowtest.StartRuntime(t)
 
-	server, db := startServer(t, runtime, "phase1-i-1-03-create-replay")
+	server, db := startServer(t, runtime, "authentication-i-1-03-create-replay")
 	defer db.Close()
 
 	adminID := seedLocalUserFlags(t, db, "create-replay-admin@example.test", "Create Replay Admin", "CreateReplayAdmin1!", false, true, true)
@@ -1193,7 +1193,7 @@ func TestUserCreateReplayReturnsOriginalCommittedResource_Integration(t *testing
 func TestPasswordChangeReplayAndStoredPayload_Integration(t *testing.T) {
 	runtime := flowtest.StartRuntime(t)
 
-	server, db := startServer(t, runtime, "phase1-i-1-04-password-change-replay")
+	server, db := startServer(t, runtime, "authentication-i-1-04-password-change-replay")
 	defer db.Close()
 
 	userID := seedLocalUserWithActiveTOTP(t, db, "password-replay@example.test", "Password Replay", "PasswordReplay1!", true, false, "JBSWY3DPEHPK3QBA")
@@ -1273,7 +1273,7 @@ func TestPasswordChangeReplayAndStoredPayload_Integration(t *testing.T) {
 func TestAdminPasswordResetReplayReturnsOriginalCommittedResource_Integration(t *testing.T) {
 	runtime := flowtest.StartRuntime(t)
 
-	server, db := startServer(t, runtime, "phase1-i-1-05-password-reset-replay")
+	server, db := startServer(t, runtime, "authentication-i-1-05-password-reset-replay")
 	defer db.Close()
 
 	adminID := seedLocalUserFlags(t, db, "admin-password-replay@example.test", "Admin Password Replay", "AdminPasswordReplay1!", false, true, true)
@@ -1366,7 +1366,7 @@ func TestAdminTOTPResetAndRevokeAllReplay_Integration(t *testing.T) {
 	runtime := flowtest.StartRuntime(t)
 
 	t.Run("totp reset replays the original response and rejects divergent reuse", func(t *testing.T) {
-		server, db := startServer(t, runtime, "phase1-i-1-05-totp-reset-replay")
+		server, db := startServer(t, runtime, "authentication-i-1-05-totp-reset-replay")
 		defer db.Close()
 
 		adminID := seedLocalUserFlags(t, db, "admin-totp-replay@example.test", "Admin TOTP Replay", "AdminTotpReplay1!", false, true, true)
@@ -1428,7 +1428,7 @@ func TestAdminTOTPResetAndRevokeAllReplay_Integration(t *testing.T) {
 	})
 
 	t.Run("revoke-all replays the original response and rejects divergent reuse", func(t *testing.T) {
-		server, db := startServer(t, runtime, "phase1-i-1-05-revoke-all-replay")
+		server, db := startServer(t, runtime, "authentication-i-1-05-revoke-all-replay")
 		defer db.Close()
 
 		adminID := seedLocalUserFlags(t, db, "admin-revoke-replay@example.test", "Admin Revoke Replay", "AdminRevokeReplay1!", false, true, true)

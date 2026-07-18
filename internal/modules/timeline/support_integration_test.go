@@ -15,27 +15,27 @@ import (
 
 func TestAuthorizationMatrix(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase3-support-auth")
+	harness := runtime.StartServer(t, "timeline_mutation-support-auth")
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdminUUID(t, harness.Server.HTTP.URL)
 	incident := incidentscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-support-phase3-auth-incident",
+		"client_txn_id": "txn-support-timeline_mutation-auth-incident",
 		"incident_key":  "IR-SUPPORT-AUTH",
 		"title":         "Timeline support auth matrix",
 	})
 	incidentID := incident["incident_id"].(string)
 
-	editorUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase3-editor@example.test", "Timeline Editor", "Phase3EditorPass1!", false, false, true)
-	reviewerUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase3-reviewer@example.test", "Timeline Reviewer", "Phase3ReviewerPass1!", false, false, true)
-	outsiderUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase3-outsider@example.test", "Timeline Outsider", "Phase3OutsiderPass1!", false, false, true)
+	editorUser := flowtest.SeedLocalUserRecord(t, harness.DB, "timeline_mutation-editor@example.test", "Timeline Editor", "TimelineMutationEditorPass1!", false, false, true)
+	reviewerUser := flowtest.SeedLocalUserRecord(t, harness.DB, "timeline_mutation-reviewer@example.test", "Timeline Reviewer", "TimelineMutationReviewerPass1!", false, false, true)
+	outsiderUser := flowtest.SeedLocalUserRecord(t, harness.DB, "timeline_mutation-outsider@example.test", "Timeline Outsider", "TimelineMutationOutsiderPass1!", false, false, true)
 	_ = outsiderUser
 
 	incidentscenariotest.CreateMembershipForUser(t, harness.Server, adminLogin, incidentID, editorUser.ID.String(), editorUser.Email, "editor")
 	incidentscenariotest.CreateMembershipForUser(t, harness.Server, adminLogin, incidentID, reviewerUser.ID.String(), reviewerUser.Email, "reviewer")
 
-	editorSession, editorCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, editorUser.Email, "Phase3EditorPass1!", nil)
-	reviewerSession, reviewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, reviewerUser.Email, "Phase3ReviewerPass1!", nil)
-	outsiderSession, outsiderCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "phase3-outsider@example.test", "Phase3OutsiderPass1!", nil)
+	editorSession, editorCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, editorUser.Email, "TimelineMutationEditorPass1!", nil)
+	reviewerSession, reviewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, reviewerUser.Email, "TimelineMutationReviewerPass1!", nil)
+	outsiderSession, outsiderCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "timeline_mutation-outsider@example.test", "TimelineMutationOutsiderPass1!", nil)
 
 	editorLogin := flowtest.LoginResult{SessionCookie: editorSession, CSRFCookie: editorCSRF}
 	reviewerLogin := flowtest.LoginResult{SessionCookie: reviewerSession, CSRFCookie: reviewerCSRF}
@@ -90,7 +90,7 @@ func TestAuthorizationMatrix(t *testing.T) {
 					http.MethodPost,
 					harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
 					map[string]any{
-						"client_txn_id":                   fmt.Sprintf("txn-support-phase3-auth-create-%s", tc.name),
+						"client_txn_id":                   fmt.Sprintf("txn-support-timeline_mutation-auth-create-%s", tc.name),
 						"timeline.activity_synopsis_text": fmt.Sprintf("created by %s", tc.name),
 					},
 					httptestx.WithCookies(tc.login.SessionCookie, tc.login.CSRFCookie),
@@ -107,19 +107,19 @@ func TestAuthorizationMatrix(t *testing.T) {
 
 	t.Run("patch route matrix", func(t *testing.T) {
 		editorTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":                   "txn-support-phase3-auth-patch-editor",
+			"client_txn_id":                   "txn-support-timeline_mutation-auth-patch-editor",
 			"timeline.activity_synopsis_text": "patch editor target",
 		})
 		reviewerTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":                   "txn-support-phase3-auth-patch-reviewer",
+			"client_txn_id":                   "txn-support-timeline_mutation-auth-patch-reviewer",
 			"timeline.activity_synopsis_text": "patch reviewer target",
 		})
 		adminTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":                   "txn-support-phase3-auth-patch-admin",
+			"client_txn_id":                   "txn-support-timeline_mutation-auth-patch-admin",
 			"timeline.activity_synopsis_text": "patch admin target",
 		})
 		deniedTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":                   "txn-support-phase3-auth-patch-denied",
+			"client_txn_id":                   "txn-support-timeline_mutation-auth-patch-denied",
 			"timeline.activity_synopsis_text": "patch denied target",
 		})
 
@@ -144,7 +144,7 @@ func TestAuthorizationMatrix(t *testing.T) {
 					map[string]any{
 						"view_schema_id":   timeline.TimelineViewSchemaID,
 						"base_row_version": 1,
-						"client_txn_id":    fmt.Sprintf("txn-support-phase3-auth-patch-%s", tc.name),
+						"client_txn_id":    fmt.Sprintf("txn-support-timeline_mutation-auth-patch-%s", tc.name),
 						"changes": []map[string]any{
 							{"field_key": "timeline.activity_synopsis_text", "value": fmt.Sprintf("patched by %s", tc.name)},
 						},
@@ -163,15 +163,15 @@ func TestAuthorizationMatrix(t *testing.T) {
 
 	t.Run("mark reviewed route matrix", func(t *testing.T) {
 		reviewerTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":                   "txn-support-phase3-auth-review-reviewer",
+			"client_txn_id":                   "txn-support-timeline_mutation-auth-review-reviewer",
 			"timeline.activity_synopsis_text": "review reviewer target",
 		})
 		adminTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":                   "txn-support-phase3-auth-review-admin",
+			"client_txn_id":                   "txn-support-timeline_mutation-auth-review-admin",
 			"timeline.activity_synopsis_text": "review admin target",
 		})
 		deniedTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":                   "txn-support-phase3-auth-review-denied",
+			"client_txn_id":                   "txn-support-timeline_mutation-auth-review-denied",
 			"timeline.activity_synopsis_text": "review denied target",
 		})
 
@@ -195,7 +195,7 @@ func TestAuthorizationMatrix(t *testing.T) {
 					harness.Server.HTTP.URL+"/api/v1/records/"+tc.recordID+"/mark-reviewed",
 					map[string]any{
 						"base_row_version": 1,
-						"client_txn_id":    fmt.Sprintf("txn-support-phase3-auth-review-%s", tc.name),
+						"client_txn_id":    fmt.Sprintf("txn-support-timeline_mutation-auth-review-%s", tc.name),
 					},
 					httptestx.WithCookies(tc.login.SessionCookie, tc.login.CSRFCookie),
 					httptestx.WithHeader(authn.CSRFHeaderName, tc.login.CSRFCookie.Value),
@@ -211,27 +211,27 @@ func TestAuthorizationMatrix(t *testing.T) {
 
 	t.Run("supersede route matrix", func(t *testing.T) {
 		reviewerTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":                   "txn-support-phase3-auth-supersede-reviewer",
+			"client_txn_id":                   "txn-support-timeline_mutation-auth-supersede-reviewer",
 			"timeline.activity_synopsis_text": "supersede reviewer target",
 		})
 		adminTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":                   "txn-support-phase3-auth-supersede-admin",
+			"client_txn_id":                   "txn-support-timeline_mutation-auth-supersede-admin",
 			"timeline.activity_synopsis_text": "supersede admin target",
 		})
 		deniedTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":                   "txn-support-phase3-auth-supersede-denied",
+			"client_txn_id":                   "txn-support-timeline_mutation-auth-supersede-denied",
 			"timeline.activity_synopsis_text": "supersede denied target",
 		})
 		reviewerReplacement := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":                   "txn-support-phase3-auth-supersede-reviewer-replacement",
+			"client_txn_id":                   "txn-support-timeline_mutation-auth-supersede-reviewer-replacement",
 			"timeline.activity_synopsis_text": "supersede reviewer replacement",
 		})
 		adminReplacement := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":                   "txn-support-phase3-auth-supersede-admin-replacement",
+			"client_txn_id":                   "txn-support-timeline_mutation-auth-supersede-admin-replacement",
 			"timeline.activity_synopsis_text": "supersede admin replacement",
 		})
 		deniedReplacement := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":                   "txn-support-phase3-auth-supersede-denied-replacement",
+			"client_txn_id":                   "txn-support-timeline_mutation-auth-supersede-denied-replacement",
 			"timeline.activity_synopsis_text": "supersede denied replacement",
 		})
 
@@ -253,9 +253,9 @@ func TestAuthorizationMatrix(t *testing.T) {
 		reviewerTargetID := reviewerTarget["row"].(map[string]any)["record_id"].(string)
 		adminTargetID := adminTarget["row"].(map[string]any)["record_id"].(string)
 		deniedTargetID := deniedTarget["row"].(map[string]any)["record_id"].(string)
-		markReviewed(reviewerTargetID, "txn-support-phase3-auth-supersede-reviewer-mark")
-		markReviewed(adminTargetID, "txn-support-phase3-auth-supersede-admin-mark")
-		markReviewed(deniedTargetID, "txn-support-phase3-auth-supersede-denied-mark")
+		markReviewed(reviewerTargetID, "txn-support-timeline_mutation-auth-supersede-reviewer-mark")
+		markReviewed(adminTargetID, "txn-support-timeline_mutation-auth-supersede-admin-mark")
+		markReviewed(deniedTargetID, "txn-support-timeline_mutation-auth-supersede-denied-mark")
 
 		cases := []struct {
 			name                string
@@ -278,7 +278,7 @@ func TestAuthorizationMatrix(t *testing.T) {
 					harness.Server.HTTP.URL+"/api/v1/records/"+tc.recordID+"/supersede",
 					map[string]any{
 						"base_row_version":      2,
-						"client_txn_id":         fmt.Sprintf("txn-support-phase3-auth-supersede-%s", tc.name),
+						"client_txn_id":         fmt.Sprintf("txn-support-timeline_mutation-auth-supersede-%s", tc.name),
 						"reason":                fmt.Sprintf("superseded by %s", tc.name),
 						"replacement_record_id": tc.replacementRecordID,
 					},

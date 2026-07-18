@@ -45,7 +45,7 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("S8B01"),
-    "Workbook query support FE-B-P8-01 helper coverage",
+    "Workbook query support browser.saved-view-query.row-01 helper coverage",
   );
   const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("s8b01-alpha"),

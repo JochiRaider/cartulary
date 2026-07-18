@@ -21,7 +21,7 @@ import (
 )
 
 func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase7-i-7-01-delete-restore")
+	harness := workbookscenariotest.StartServer(t, "history_revision-i-7-01-delete-restore")
 	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I701")
 	seedHostProjection(t, harness.DB, incidentID, recordID)
@@ -284,7 +284,7 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 }
 
 func TestHistoryPaginationRecordBinding_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase7-i-7-02-pagination")
+	harness := workbookscenariotest.StartServer(t, "history_revision-i-7-02-pagination")
 	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordA := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I702A")
 	incidentB, recordB := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I702B")
@@ -351,10 +351,10 @@ func TestHistoryPaginationRecordBinding_Integration(t *testing.T) {
 }
 
 func TestMergeChangeSetRollback_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase7-i-7-05-merge-rollback")
+	harness := workbookscenariotest.StartServer(t, "history_revision-i-7-05-merge-rollback")
 	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-		"client_txn_id": "txn-phase7-i-7-05-incident",
+		"client_txn_id": "txn-history_revision-i-7-05-incident",
 		"incident_key":  "IR-P7-I705",
 		"title":         "History Merge Rollback",
 	})
@@ -388,7 +388,7 @@ func TestMergeChangeSetRollback_Integration(t *testing.T) {
 		"loser_record_id":           loser.String(),
 		"survivor_base_row_version": 1,
 		"loser_base_row_version":    1,
-		"client_txn_id":             "txn-phase7-i-7-05-merge-hosts",
+		"client_txn_id":             "txn-history_revision-i-7-05-merge-hosts",
 		"reason":                    "merge rollback fixture",
 	}), http.StatusOK)["data"].(map[string]any)
 	mergeChangeSetID := mergeData["change_set_id"].(string)
@@ -433,13 +433,13 @@ SELECT COUNT(*)
 	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 19, 0, 0, 0, time.UTC))
 	rollbackBody := map[string]any{
 		"base_row_version": 2,
-		"client_txn_id":    "txn-phase7-i-7-05-rollback-merge",
+		"client_txn_id":    "txn-history_revision-i-7-05-rollback-merge",
 		"target":           map[string]any{"kind": "change_set", "change_set_id": mergeChangeSetID},
 	}
 	rollbackData := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, survivor, rollbackBody), http.StatusOK)["data"].(map[string]any)
 	requireAffectedRecords(t, rollbackData, survivor, loser, timeline, outgoingTarget, assessment)
 	rollbackChangeSetID := rollbackData["rollback_change_set_id"].(string)
-	if countRows(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE change_set_id::text = $1 AND source = 'rollback' AND client_txn_id = 'txn-phase7-i-7-05-rollback-merge'`, rollbackChangeSetID) != 1 {
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE change_set_id::text = $1 AND source = 'rollback' AND client_txn_id = 'txn-history_revision-i-7-05-rollback-merge'`, rollbackChangeSetID) != 1 {
 		t.Fatalf("merge rollback did not append rollback change_set")
 	}
 	if countRows(t, harness.DB, `SELECT COUNT(*) FROM change_set_mutations WHERE change_set_id::text = $1 AND operation_kind = 'rollback'`, rollbackChangeSetID) < 8 {
@@ -474,7 +474,7 @@ SELECT COUNT(*)
 	}
 
 	replayData := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, survivor, rollbackBody), http.StatusOK)["data"].(map[string]any)
-	if replayData["rollback_change_set_id"] != rollbackChangeSetID || countRows(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE source = 'rollback' AND client_txn_id = 'txn-phase7-i-7-05-rollback-merge'`) != 1 {
+	if replayData["rollback_change_set_id"] != rollbackChangeSetID || countRows(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE source = 'rollback' AND client_txn_id = 'txn-history_revision-i-7-05-rollback-merge'`) != 1 {
 		t.Fatalf("merge rollback replay was not idempotent: first=%#v replay=%#v", rollbackData, replayData)
 	}
 
@@ -488,18 +488,18 @@ SELECT COUNT(*)
 		"loser_record_id":           staleLoser.String(),
 		"survivor_base_row_version": 1,
 		"loser_base_row_version":    1,
-		"client_txn_id":             "txn-phase7-i-7-05-stale-merge-hosts",
+		"client_txn_id":             "txn-history_revision-i-7-05-stale-merge-hosts",
 	}), http.StatusOK)["data"].(map[string]any)
 	staleRollback := rollbackRecord(t, harness, login, staleSurvivor, map[string]any{
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase7-i-7-05-stale-rollback-merge",
+		"client_txn_id":    "txn-history_revision-i-7-05-stale-rollback-merge",
 		"target":           map[string]any{"kind": "change_set", "change_set_id": staleMerge["change_set_id"].(string)},
 	})
 	httptestx.RequireErrorEnvelope(t, staleRollback, http.StatusConflict, "row_version_conflict")
 }
 
 func TestStaleRestoreRollbackFailsClosed_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase7-i-7-03-stale-restore")
+	harness := workbookscenariotest.StartServer(t, "history_revision-i-7-03-stale-restore")
 	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I703")
 	seedHostProjection(t, harness.DB, incidentID, recordID)
@@ -730,7 +730,7 @@ func requireHistoryActionContains(t testing.TB, item map[string]any, want string
 }
 
 func TestRetainedHistoryAcrossRestartAndClosure_Integration(t *testing.T) {
-	server, db, env := startReusableServer(t, "phase7-i-7-04-restart")
+	server, db, env := startReusableServer(t, "history_revision-i-7-04-restart")
 	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, server)
 	incidentID, recordID := seedRecord(t, db, server, login, actorID, "IR-P7-I704")
 	base := time.Date(2026, 5, 10, 16, 0, 0, 0, time.UTC)

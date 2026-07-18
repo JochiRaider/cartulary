@@ -28,7 +28,7 @@ func TestObjectStoreInitialization_Integration(t *testing.T) {
 		}
 		defer store.Close()
 
-		payload := []byte("phase0 object-store bootstrap")
+		payload := []byte("bootstrap object-store bootstrap")
 		if err := store.PutObject(context.Background(), "proof/proof.txt", bytes.NewReader(payload), int64(len(payload)), "text/plain"); err != nil {
 			t.Fatalf("put filesystem object: %v", err)
 		}

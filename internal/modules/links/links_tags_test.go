@@ -27,9 +27,9 @@ import (
 const TimelineView = "cartulary.view.timeline.v2"
 
 func TestActiveLinksAndTagsViewsV1Contract(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "phase8-active-links-tags-v1")
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase8-views@example.test", "Workbook query Views", "Phase8ViewsPass1!", false, true, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase8-active-views-incident", "IR-P8-VIEWS", "Workbook query active view contracts")
+	harness := recordstoretest.StartStore(t, "saved_view_query-active-links-tags-v1")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-views@example.test", "Workbook query Views", "SavedViewQueryViewsPass1!", false, true, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-saved_view_query-active-views-incident", "IR-P8-VIEWS", "Workbook query active view contracts")
 	incidentID := incident.ID
 
 	wantLinkColumns := []string{
@@ -143,9 +143,9 @@ VALUES
 }
 
 func TestRecordLinkOwnerValidation(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "phase8-link-owner-validation")
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase8-validation@example.test", "Workbook query Validation", "Phase8ValidationPass1!", false, true, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase8-link-validation-incident", "IR-P8-VALIDATE", "Workbook query link validation")
+	harness := recordstoretest.StartStore(t, "saved_view_query-link-owner-validation")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-validation@example.test", "Workbook query Validation", "SavedViewQueryValidationPass1!", false, true, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-saved_view_query-link-validation-incident", "IR-P8-VALIDATE", "Workbook query link validation")
 	src := uuid.New()
 	dst := uuid.New()
 	replacement := uuid.New()
@@ -246,9 +246,9 @@ func TestRecordLinkOwnerValidation(t *testing.T) {
 }
 
 func TestTypedLinksAndTags_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "phase8-u-8-01-links-tags")
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase8-u801@example.test", "Workbook query U801", "Phase8U801Pass1!", false, true, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase8-u-8-01-incident", "IR-P8-U801", "Workbook query typed links and tags")
+	harness := recordstoretest.StartStore(t, "saved_view_query-u-8-01-links-tags")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-u801@example.test", "Workbook query U801", "SavedViewQueryU801Pass1!", false, true, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-saved_view_query-u-8-01-incident", "IR-P8-U801", "Workbook query typed links and tags")
 	incidentID := incident.ID
 	timelineFacade := timeline.NewFacade(harness.DB)
 
@@ -281,7 +281,7 @@ VALUES ($1, $2, $3, $4, 'manual', $5, $5)
 		dst := uuid.New()
 		recordstoretest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, src)
 		recordstoretest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, dst)
-		if _, err := harness.DB.Exec(context.Background(), `SAVEPOINT phase8_invalid_link_type`); err != nil {
+		if _, err := harness.DB.Exec(context.Background(), `SAVEPOINT saved_view_query_invalid_link_type`); err != nil {
 			t.Fatalf("create invalid link savepoint: %v", err)
 		}
 		if _, err := harness.DB.Exec(context.Background(), `
@@ -290,15 +290,15 @@ VALUES ($1, $2, $3, 'free_text_relation', 'manual', $4, $4)
 `, incidentID, src, dst, actor.ID); err == nil {
 			t.Fatalf("free-text link_type was accepted")
 		}
-		if _, err := harness.DB.Exec(context.Background(), `ROLLBACK TO SAVEPOINT phase8_invalid_link_type`); err != nil {
+		if _, err := harness.DB.Exec(context.Background(), `ROLLBACK TO SAVEPOINT saved_view_query_invalid_link_type`); err != nil {
 			t.Fatalf("rollback invalid link savepoint: %v", err)
 		}
 	})
 
 	t.Run("timeline tags use add_tag remove_tag and composite mutation targets", func(t *testing.T) {
 		request, apiErr := timeline.DecodeTimelineCreateRequest(strings.NewReader(`{
-			"client_txn_id": "txn-phase8-u-8-01-create-tags",
-			"timeline.activity_synopsis_text": "phase8 tags",
+			"client_txn_id": "txn-saved_view_query-u-8-01-create-tags",
+			"timeline.activity_synopsis_text": "saved_view_query tags",
 			"timeline.tags": {
 				"kind": "collection_actions_v1",
 				"actions": [
@@ -320,8 +320,8 @@ VALUES ($1, $2, $3, 'free_text_relation', 'manual', $4, $4)
 			Actor:       actor,
 			IncidentID:  incidentID,
 			Request:     request,
-			RequestHash: []byte("txn-phase8-u-8-01-create-tags"),
-			RequestID:   "req-phase8-u-8-01-create-tags",
+			RequestHash: []byte("txn-saved_view_query-u-8-01-create-tags"),
+			RequestID:   "req-saved_view_query-u-8-01-create-tags",
 			Now:         time.Now().UTC(),
 		})
 		if err != nil {
@@ -363,7 +363,7 @@ SELECT COUNT(*)
 		patchRequest := timeline.PatchRequest{
 			ViewSchemaID:   TimelineView,
 			BaseRowVersion: 1,
-			ClientTxnID:    "txn-phase8-u-8-01-remove-tag",
+			ClientTxnID:    "txn-saved_view_query-u-8-01-remove-tag",
 			CanonicalChange: []timeline.PatchChange{{
 				FieldKey: "timeline.tags",
 				ActionPayload: &timeline.CollectionActionPayload{Actions: []timeline.CollectionAction{{
@@ -376,8 +376,8 @@ SELECT COUNT(*)
 			Actor:       actor,
 			RecordID:    recordID,
 			Request:     patchRequest,
-			RequestHash: []byte("txn-phase8-u-8-01-remove-tag"),
-			RequestID:   "req-phase8-u-8-01-remove-tag",
+			RequestHash: []byte("txn-saved_view_query-u-8-01-remove-tag"),
+			RequestID:   "req-saved_view_query-u-8-01-remove-tag",
 			Now:         time.Now().UTC(),
 		})
 		if err != nil {
@@ -425,7 +425,7 @@ SELECT COUNT(*)
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
 				_, apiErr := timeline.DecodeTimelineCreateRequest(strings.NewReader(`{
-					"client_txn_id": "txn-phase8-u-8-01-invalid-tag",
+					"client_txn_id": "txn-saved_view_query-u-8-01-invalid-tag",
 					"timeline.activity_synopsis_text": "invalid",
 					"timeline.tags": {
 						"kind": "collection_actions_v1",
@@ -441,25 +441,25 @@ SELECT COUNT(*)
 }
 
 func TestLinkTagProjectionHistoryQuery_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase8-i-8-03-link-tag-atomic")
+	harness := workbookscenariotest.StartServer(t, "saved_view_query-i-8-03-link-tag-atomic")
 	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-		"client_txn_id": "txn-phase8-i-8-03-incident",
+		"client_txn_id": "txn-saved_view_query-i-8-03-incident",
 		"incident_key":  "IR-P8-I803",
 		"title":         "Workbook query link tag atomicity",
 	})
 	incidentID := mustUUID(t, incident["incident_id"].(string))
 
 	row := createTimelineRow(t, harness, login, incidentID, map[string]any{
-		"client_txn_id":                   "txn-phase8-i-8-03-create",
-		"timeline.activity_synopsis_text": "phase8 atomic row",
+		"client_txn_id":                   "txn-saved_view_query-i-8-03-create",
+		"timeline.activity_synopsis_text": "saved_view_query atomic row",
 	})
 	recordID := mustUUID(t, row["record_id"].(string))
 	evidenceID := uuid.New()
 	workbookscenariotest.SeedRecordEnvelope(t, harness.DB, incidentID, actorID, evidenceID, "evidence")
 	if _, err := harness.DB.Exec(`
 INSERT INTO evidence (record_id, incident_id, title, lifecycle_state, upload_state)
-VALUES ($1, $2, 'phase8 evidence', 'available', 'available')
+VALUES ($1, $2, 'saved_view_query evidence', 'available', 'available')
 `, evidenceID, incidentID); err != nil {
 		t.Fatalf("seed evidence: %v", err)
 	}
@@ -470,7 +470,7 @@ VALUES ($1, $2, 'phase8 evidence', 'available', 'available')
 	patched := patchTimelineRow(t, harness, login, recordID, map[string]any{
 		"view_schema_id":   TimelineView,
 		"base_row_version": row["row_version"],
-		"client_txn_id":    "txn-phase8-i-8-03-link-tag",
+		"client_txn_id":    "txn-saved_view_query-i-8-03-link-tag",
 		"changes": []map[string]any{
 			{
 				"field_key":      "timeline.tags",
@@ -539,7 +539,7 @@ SELECT COUNT(*)
 	beforeRefRows := countRows(t, harness.DB, `SELECT COUNT(*) FROM record_history_entry_refs WHERE record_id = $1`, recordID)
 	rollbackData := rollbackRecord(t, harness, login, recordID, map[string]any{
 		"base_row_version": 2,
-		"client_txn_id":    "txn-phase8-i-8-03-tag-rollback",
+		"client_txn_id":    "txn-saved_view_query-i-8-03-tag-rollback",
 		"target":           map[string]any{"kind": "history_entry", "history_entry_ref": ref},
 	})
 	if rollbackData["row_version"] != float64(3) {
@@ -549,7 +549,7 @@ SELECT COUNT(*)
 		t.Fatalf("tag rollback did not tombstone active tag, got %d", got)
 	}
 	rollbackChangeSetID := rollbackData["rollback_change_set_id"].(string)
-	if got := countRows(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE change_set_id::text = $1 AND source = 'rollback' AND client_txn_id = 'txn-phase8-i-8-03-tag-rollback'`, rollbackChangeSetID); got != 1 {
+	if got := countRows(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE change_set_id::text = $1 AND source = 'rollback' AND client_txn_id = 'txn-saved_view_query-i-8-03-tag-rollback'`, rollbackChangeSetID); got != 1 {
 		t.Fatalf("tag rollback did not append attributed rollback change_set, got %d", got)
 	}
 	if got := countRows(t, harness.DB, `SELECT COUNT(*) FROM change_set_mutations WHERE change_set_id::text = $1 AND target_kind = 'record_tag' AND target_id = $2 AND operation_kind = 'rollback'`, rollbackChangeSetID, tagRef); got != 1 {

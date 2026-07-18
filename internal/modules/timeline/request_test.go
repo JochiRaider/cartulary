@@ -17,7 +17,7 @@ func TestAutoResolutionEligibility_Unit(t *testing.T) {
 		payload := fixtures.TimelineCollectionPatchPayload(
 			golden.RecordFieldTimelineHostRefs,
 			7,
-			"txn-phase4-u-4-08-normalize",
+			"txn-entity_linking-u-4-08-normalize",
 			fixtures.CollectionActions(
 				fixtures.AddTokenAction(" vpn   gateway "),
 			),
@@ -48,7 +48,7 @@ func TestAutoResolutionEligibility_Unit(t *testing.T) {
 				payload := fixtures.TimelineCollectionPatchPayload(
 					golden.RecordFieldTimelineHostRefs,
 					7,
-					"txn-phase4-u-4-08-"+rawText,
+					"txn-entity_linking-u-4-08-"+rawText,
 					fixtures.CollectionActions(
 						fixtures.AddTokenAction(rawText),
 					),
@@ -77,7 +77,7 @@ func TestManualTimelineConfidenceNull_Unit(t *testing.T) {
 		payload := fixtures.TimelineCollectionPatchPayload(
 			golden.RecordFieldTimelineIdentityRefs,
 			4,
-			"txn-phase4-u-4-09-manual",
+			"txn-entity_linking-u-4-09-manual",
 			fixtures.CollectionActions(
 				fixtures.AddResolvedRefAction("alex.analyst@example.test", golden.RecordCanonicalIdentityID),
 			),
@@ -98,7 +98,7 @@ func TestManualTimelineConfidenceNull_Unit(t *testing.T) {
 
 	t.Run("manual create-time add_resolved_ref omits confidence and should decode", func(t *testing.T) {
 		payload := map[string]any{
-			"client_txn_id": "txn-phase4-u-4-09-create-manual",
+			"client_txn_id": "txn-entity_linking-u-4-09-create-manual",
 			golden.RecordFieldTimelineHostRefs: fixtures.CollectionActions(
 				fixtures.AddResolvedRefAction("WS-023", golden.RecordCanonicalHostRecordID),
 			),
@@ -200,7 +200,7 @@ func TestManualTimelineConfidenceNull_Unit(t *testing.T) {
 				payload := fixtures.TimelineCollectionPatchPayload(
 					tc.field,
 					4,
-					"txn-phase4-u-4-09-"+tc.name,
+					"txn-entity_linking-u-4-09-"+tc.name,
 					fixtures.CollectionActions(tc.action),
 				)
 				data, err := json.Marshal(payload)

@@ -22,8 +22,8 @@ test("advances the shared clock past idle expiry and requires a fresh login afte
   workerAdminRequest,
 }) => {
   const testClock = new TestClock(page);
-  const email = uniqueEmail("phase1-e104");
-  const password = "Phase1E104Pass!";
+  const email = uniqueEmail("authentication-e104");
+  const password = "AuthenticationE104Pass!";
   const user = await createLocalUser(workerAdminRequest, {
     email,
     display_name: "Authentication E104",
@@ -37,9 +37,9 @@ test("advances the shared clock past idle expiry and requires a fresh login afte
   await new AccountSettings(page).open("account-security");
   await expect(page.getByTestId(accountTestId("refresh-state"))).toBeVisible();
   await sessionTracker.captureCurrentSession(page, {
-    createdBy: "phase1 ordinary shell",
+    createdBy: "authentication ordinary shell",
     email,
-    purpose: "phase1 e104 initial ordinary login",
+    purpose: "authentication e104 initial ordinary login",
     userId: user.user_id,
   });
 
@@ -67,9 +67,9 @@ test("advances the shared clock past idle expiry and requires a fresh login afte
   await new AccountSettings(page).open("account-security");
   await expect(page.getByTestId(accountTestId("refresh-state"))).toBeVisible();
   await sessionTracker.captureCurrentSession(page, {
-    createdBy: "phase1 ordinary shell",
+    createdBy: "authentication ordinary shell",
     email,
-    purpose: "phase1 e104 re-login after expiry",
+    purpose: "authentication e104 re-login after expiry",
     userId: user.user_id,
   });
 });

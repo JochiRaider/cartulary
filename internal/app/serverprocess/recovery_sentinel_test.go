@@ -25,8 +25,8 @@ import (
 
 func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 	ctx := context.Background()
-	fixture := captureRestoreSource(t, "phase10-i-10-02-source")
-	target := prepareRestoreTarget(t, "phase10-i-10-02-target")
+	fixture := captureRestoreSource(t, "backup_restore-i-10-02-source")
+	target := prepareRestoreTarget(t, "backup_restore-i-10-02-target")
 	gate := &RestoreReadinessGate{}
 
 	result, err := recovery.NewRestoreRunner(fixture.SourceStore, fixture.BackupStorage).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
@@ -51,8 +51,8 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 	}
 
 	basis, err := recovery.RestoreVerificationBasisSHA256(map[string]string{
-		"backup_mechanism": "phase10.process.restore.v1",
-		"source_root":      "phase10-i-10-02-source",
+		"backup_mechanism": "backup_restore.process.restore.v1",
+		"source_root":      "backup_restore-i-10-02-source",
 	})
 	if err != nil {
 		t.Fatalf("restore verification basis: %v", err)
@@ -82,7 +82,7 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 	defer server.Stop(t)
 	server.WaitForReady(t)
 
-	login := LoginLocalUserWithSecondFactor(t, server, phase1BootstrapAdminEmail, phase1BootstrapAdminPassword, GenerateTOTPCode(t, fixture.AdminTOTPSecret))
+	login := LoginLocalUserWithSecondFactor(t, server, authenticationBootstrapAdminEmail, authenticationBootstrapAdminPassword, GenerateTOTPCode(t, fixture.AdminTOTPSecret))
 	getIncident := DoJSON(t, server, http.MethodGet, "/api/v1/incidents/"+fixture.IncidentID, nil, withCookies(login.sessionCookie))
 	httptestx.RequireSuccessEnvelope(t, getIncident, http.StatusOK)
 	RequireTimelineEvidenceCount(t, server, login, fixture.IncidentID, fixture.TimelineRecordID, 1, true)
@@ -148,7 +148,7 @@ func captureRestoreSource(t testing.TB, prefix string) SourceBackupFixture {
 	adminLogin, adminSecret := ProvisionBootstrapAdmin(t, server)
 	incident := CreateIncident(t, server, adminLogin.sessionCookie, adminLogin.csrfCookie, map[string]any{
 		"client_txn_id": "txn-" + prefix + "-incident",
-		"incident_key":  "IR-PHASE10-RESTORE",
+		"incident_key":  "IR-BACKUP-RESTORE-RESTORE",
 		"title":         "Recovery and coordination restore source",
 	})
 	incidentID := incident["incident_id"].(string)
@@ -165,7 +165,7 @@ func captureRestoreSource(t testing.TB, prefix string) SourceBackupFixture {
 		"evidence.title": "restore source evidence",
 	})
 	evidenceRecordID := evidence["row"].(map[string]any)["record_id"].(string)
-	payload := []byte("phase10 restore coherent blob payload")
+	payload := []byte("backup_restore restore coherent blob payload")
 	blobCreate := DoJSON(t, server, http.MethodPost, "/api/v1/object-blobs", map[string]any{
 		"incident_id":       incidentID,
 		"client_txn_id":     "txn-" + prefix + "-blob",
@@ -446,9 +446,9 @@ func CaptureParams(params recovery.CaptureBackupSetParams) recovery.CaptureBacku
 
 func TestPublicRouteInventoryAbsence_Process(t *testing.T) {
 	postgresHarness, s3Harness := sharedProcessHarnesses(t)
-	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase10-e-10-03-route-absence")
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "backup_restore-e-10-03-route-absence")
 
-	bucket := BucketName("phase10-e-10-03")
+	bucket := BucketName("backup_restore-e-10-03")
 	defer cleanupBucket(t, s3Harness, bucket)
 
 	configPath := writeConfig(t, string(fixtures.MustRead("config", "valid.toml")))

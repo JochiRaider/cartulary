@@ -72,8 +72,8 @@ test("signs in as a local user and inspects the ordinary session surface", async
   sessionTracker,
   workerAdminRequest,
 }) => {
-  const email = uniqueEmail("phase1-e101");
-  const password = "Phase1E101Pass!";
+  const email = uniqueEmail("authentication-e101");
+  const password = "AuthenticationE101Pass!";
   const user = await createLocalUser(workerAdminRequest, {
     email,
     display_name: "Authentication E101",
@@ -114,9 +114,9 @@ test("signs in as a local user and inspects the ordinary session surface", async
 
   await expectLandingAccountSession(page);
   await sessionTracker.captureCurrentSession(page, {
-    createdBy: "phase1 ordinary shell",
+    createdBy: "authentication ordinary shell",
     email,
-    purpose: "phase1 e101 successful ordinary login",
+    purpose: "authentication e101 successful ordinary login",
     userId: user.user_id,
   });
 });
@@ -126,8 +126,8 @@ test("requires MFA on the ordinary login surface, rejects wrong codes, and accep
   sessionTracker,
   workerAdminRequest,
 }) => {
-  const email = uniqueEmail("phase1-e102");
-  const password = "Phase1E102Pass!";
+  const email = uniqueEmail("authentication-e102");
+  const password = "AuthenticationE102Pass!";
   const user = await createLocalUser(workerAdminRequest, {
     email,
     display_name: "Authentication E102",
@@ -179,9 +179,9 @@ test("requires MFA on the ordinary login surface, rejects wrong codes, and accep
   await validTotpResponse;
   await expectLandingAccountSession(page);
   await sessionTracker.captureCurrentSession(page, {
-    createdBy: "phase1 ordinary shell",
+    createdBy: "authentication ordinary shell",
     email,
-    purpose: "phase1 e102 successful ordinary login",
+    purpose: "authentication e102 successful ordinary login",
     userId: user.user_id,
   });
 });
@@ -190,11 +190,11 @@ test("rejects invalid credentials without issuing a session cookie", async ({
   page,
   workerAdminRequest,
 }) => {
-  const email = uniqueEmail("phase1-e103");
+  const email = uniqueEmail("authentication-e103");
   await createLocalUser(workerAdminRequest, {
     email,
     display_name: "Authentication E103",
-    initial_password: "Phase1E103Pass!",
+    initial_password: "AuthenticationE103Pass!",
     mfa_required: false,
   });
 
@@ -218,12 +218,12 @@ test("lets deployment admins create and patch users, rejects stale versions, and
   workerAdminRequest,
 }) => {
   await new AuthGateway(page).goto();
-  const createEmail = uniqueEmail("phase1-e105");
+  const createEmail = uniqueEmail("authentication-e105");
 
   await new DeploymentAdministration(page).createUser({
     email: createEmail,
     displayName: "Authentication E105 User",
-    password: "Phase1E105Pass!",
+    password: "AuthenticationE105Pass!",
     mfaRequired: false,
   });
 
@@ -303,8 +303,8 @@ test("follows the bootstrap-token enrollment sequence on the ordinary login shel
   sessionTracker,
   workerAdminRequest,
 }) => {
-  const email = uniqueEmail("phase1-e106");
-  const password = "Phase1E106Pass!";
+  const email = uniqueEmail("authentication-e106");
+  const password = "AuthenticationE106Pass!";
   const user = await createLocalUser(workerAdminRequest, {
     email,
     display_name: "Authentication E106",
@@ -350,9 +350,9 @@ test("follows the bootstrap-token enrollment sequence on the ordinary login shel
   );
   await expectLandingAccountSession(page);
   await sessionTracker.captureCurrentSession(page, {
-    createdBy: "phase1 ordinary shell",
+    createdBy: "authentication ordinary shell",
     email,
-    purpose: "phase1 e106 post-bootstrap login",
+    purpose: "authentication e106 post-bootstrap login",
     userId: user.user_id,
   });
 
@@ -361,7 +361,7 @@ test("follows the bootstrap-token enrollment sequence on the ordinary login shel
     workerAdminRequest,
     user.user_id,
     loadedUser.user_version,
-    "phase1 e106 admin totp reset",
+    "authentication e106 admin totp reset",
   );
 
   await clearBrowserSession(page);
@@ -402,9 +402,9 @@ test("follows the bootstrap-token enrollment sequence on the ordinary login shel
   );
   await expectLandingAccountSession(page);
   await sessionTracker.captureCurrentSession(page, {
-    createdBy: "phase1 ordinary shell",
+    createdBy: "authentication ordinary shell",
     email,
-    purpose: "phase1 e106 post-reset bootstrap login",
+    purpose: "authentication e106 post-reset bootstrap login",
     userId: user.user_id,
   });
 });
@@ -414,8 +414,8 @@ test("requires the current password and current TOTP code, revokes the session i
   sessionTracker,
   workerAdminRequest,
 }) => {
-  const email = uniqueEmail("phase1-e107");
-  const password = "Phase1E107Pass!";
+  const email = uniqueEmail("authentication-e107");
+  const password = "AuthenticationE107Pass!";
   const user = await createLocalUser(workerAdminRequest, {
     email,
     display_name: "Authentication E107",
@@ -433,15 +433,15 @@ test("requires the current password and current TOTP code, revokes the session i
   );
   await expectLandingAccountSession(page);
   await sessionTracker.captureCurrentSession(page, {
-    createdBy: "phase1 ordinary shell",
+    createdBy: "authentication ordinary shell",
     email,
-    purpose: "phase1 e107 initial login before password change",
+    purpose: "authentication e107 initial login before password change",
     userId: user.user_id,
   });
 
   await new AccountSettings(page).changePassword(
     "WrongCurrent1!",
-    "Phase1E107Changed!",
+    "AuthenticationE107Changed!",
     generateTotpCode(secretBase32),
   );
   await expect(page.getByTestId(publicErrorCodeTestId("account"))).toHaveText(
@@ -450,7 +450,7 @@ test("requires the current password and current TOTP code, revokes the session i
 
   await new AccountSettings(page).changePassword(
     password,
-    "Phase1E107Changed!",
+    "AuthenticationE107Changed!",
     "",
   );
   await expect(page.getByTestId(publicErrorCodeTestId("account"))).toHaveText(
@@ -459,7 +459,7 @@ test("requires the current password and current TOTP code, revokes the session i
 
   await new AccountSettings(page).changePassword(
     password,
-    "Phase1E107Changed!",
+    "AuthenticationE107Changed!",
     generateTotpCode(secretBase32),
   );
   await expect(page.getByTestId(authTestId("login-username"))).toBeVisible();
@@ -471,14 +471,14 @@ test("requires the current password and current TOTP code, revokes the session i
 
   await new AuthGateway(page).login(
     email,
-    "Phase1E107Changed!",
+    "AuthenticationE107Changed!",
     generateTotpCode(secretBase32),
   );
   await expectLandingAccountSession(page);
   await sessionTracker.captureCurrentSession(page, {
-    createdBy: "phase1 ordinary shell",
+    createdBy: "authentication ordinary shell",
     email,
-    purpose: "phase1 e107 login after password change",
+    purpose: "authentication e107 login after password change",
     userId: user.user_id,
   });
 });
@@ -489,8 +489,8 @@ test("keeps deployment-user administration on deployment-admin sessions and hide
   workerAdmin,
   workerAdminRequest,
 }) => {
-  const targetEmail = uniqueEmail("phase1-e108-target");
-  const targetPassword = "Phase1E108Pass!";
+  const targetEmail = uniqueEmail("authentication-e108-target");
+  const targetPassword = "AuthenticationE108Pass!";
   const targetUser = await createLocalUser(workerAdminRequest, {
     email: targetEmail,
     display_name: "Authentication E108 Target",
@@ -499,8 +499,8 @@ test("keeps deployment-user administration on deployment-admin sessions and hide
   });
   await enrollTotpViaBootstrap(targetEmail, targetPassword);
 
-  const incidentAdminEmail = uniqueEmail("phase1-e108-incident-admin");
-  const incidentAdminPassword = "Phase1E108Incident!";
+  const incidentAdminEmail = uniqueEmail("authentication-e108-incident-admin");
+  const incidentAdminPassword = "AuthenticationE108Incident!";
   const incidentAdminUser = await createLocalUser(workerAdminRequest, {
     email: incidentAdminEmail,
     display_name: "Authentication E108 Incident Admin",
@@ -519,9 +519,9 @@ test("keeps deployment-user administration on deployment-admin sessions and hide
   await new AuthGateway(page).login(incidentAdminEmail, incidentAdminPassword);
   await expectLandingAccountSession(page);
   await sessionTracker.captureCurrentSession(page, {
-    createdBy: "phase1 ordinary shell",
+    createdBy: "authentication ordinary shell",
     email: incidentAdminEmail,
-    purpose: "phase1 e108 incident-admin login",
+    purpose: "authentication e108 incident-admin login",
     userId: incidentAdminUser.user_id,
   });
   await expect(
@@ -547,8 +547,8 @@ test("keeps deployment-user administration on deployment-admin sessions and hide
       `/api/v1/users/${targetUser.user_id}/password/reset`,
       {
         base_user_version: targetUserVersion,
-        client_txn_id: uniqueTxn("phase1-e108-incident-password-reset"),
-        new_password: "Phase1E108Changed!",
+        client_txn_id: uniqueTxn("authentication-e108-incident-password-reset"),
+        new_password: "AuthenticationE108Changed!",
         reason: "incident admin denial probe",
       },
     );
@@ -557,7 +557,7 @@ test("keeps deployment-user administration on deployment-admin sessions and hide
       `/api/v1/users/${targetUser.user_id}/mfa/totp/reset`,
       {
         base_user_version: targetUserVersion,
-        client_txn_id: uniqueTxn("phase1-e108-incident-totp-reset"),
+        client_txn_id: uniqueTxn("authentication-e108-incident-totp-reset"),
         reason: "incident admin denial probe",
       },
     );
@@ -565,7 +565,7 @@ test("keeps deployment-user administration on deployment-admin sessions and hide
       incidentAdminRequests,
       `/api/v1/users/${targetUser.user_id}/sessions/revoke-all`,
       {
-        client_txn_id: uniqueTxn("phase1-e108-incident-revoke-all"),
+        client_txn_id: uniqueTxn("authentication-e108-incident-revoke-all"),
         reason: "incident admin denial probe",
       },
     );
@@ -582,7 +582,7 @@ test("keeps deployment-user administration on deployment-admin sessions and hide
   await page.getByTestId(deploymentAdminTestId("password-reset")).click();
   await page
     .getByTestId(deploymentAdminTestId("new-password"))
-    .fill("Phase1E108Changed!");
+    .fill("AuthenticationE108Changed!");
   await page
     .getByTestId(deploymentAdminTestId("reason"))
     .fill("deployment admin action");
@@ -624,9 +624,9 @@ test("keeps deployment-user administration on deployment-admin sessions and hide
   await new AuthGateway(page).login(incidentAdminEmail, incidentAdminPassword);
   await expectLandingAccountSession(page);
   await sessionTracker.captureCurrentSession(page, {
-    createdBy: "phase1 ordinary shell",
+    createdBy: "authentication ordinary shell",
     email: incidentAdminEmail,
-    purpose: "phase1 e108 incident-admin login after admin actions",
+    purpose: "authentication e108 incident-admin login after admin actions",
     userId: incidentAdminUser.user_id,
   });
 });
@@ -701,8 +701,8 @@ test("clears a stale selected incident after membership removal while preserving
     uniqueIncidentKey("E110B"),
     "Authentication E-1-10 alternate",
   );
-  const targetEmail = uniqueEmail("phase1-e110-target");
-  const targetPassword = "Phase1E110Pass!";
+  const targetEmail = uniqueEmail("authentication-e110-target");
+  const targetPassword = "AuthenticationE110Pass!";
   const targetUser = await createLocalUser(workerAdminRequest, {
     email: targetEmail,
     display_name: "Authentication E110 Target",
@@ -727,9 +727,9 @@ test("clears a stale selected incident after membership removal while preserving
   await new AuthGateway(page).login(targetEmail, targetPassword);
   await expectLandingAccountSession(page);
   await sessionTracker.captureCurrentSession(page, {
-    createdBy: "phase1 ordinary shell",
+    createdBy: "authentication ordinary shell",
     email: targetEmail,
-    purpose: "phase1 e110 stale incident selection target",
+    purpose: "authentication e110 stale incident selection target",
     userId: targetUser.user_id,
   });
 
@@ -788,8 +788,8 @@ test("observes current-role authorization on a stale reviewer edit through the p
     uniqueIncidentKey("E111"),
     "Authentication E-1-11",
   );
-  const targetEmail = uniqueEmail("phase1-e111-reviewer");
-  const targetPassword = "Phase1E111Pass!";
+  const targetEmail = uniqueEmail("authentication-e111-reviewer");
+  const targetPassword = "AuthenticationE111Pass!";
   const targetUser = await createLocalUser(workerAdminRequest, {
     email: targetEmail,
     display_name: "Authentication E111 Reviewer",
@@ -803,9 +803,9 @@ test("observes current-role authorization on a stale reviewer edit through the p
   await new AuthGateway(page).login(targetEmail, targetPassword);
   await expectLandingAccountSession(page);
   await sessionTracker.captureCurrentSession(page, {
-    createdBy: "phase1 ordinary shell",
+    createdBy: "authentication ordinary shell",
     email: targetEmail,
-    purpose: "phase1 e111 reviewer stale edit",
+    purpose: "authentication e111 reviewer stale edit",
     userId: targetUser.user_id,
   });
 
@@ -873,8 +873,8 @@ test("returns a revoked target browser to login and allows re-authentication wit
     uniqueIncidentKey("E112B"),
     "Authentication E-1-12 alternate",
   );
-  const targetEmail = uniqueEmail("phase1-e112-target");
-  const targetPassword = "Phase1E112Pass!";
+  const targetEmail = uniqueEmail("authentication-e112-target");
+  const targetPassword = "AuthenticationE112Pass!";
   const targetUser = await createLocalUser(workerAdminRequest, {
     email: targetEmail,
     display_name: "Authentication E112 Target",
@@ -897,16 +897,16 @@ test("returns a revoked target browser to login and allows re-authentication wit
     page.getByTestId(landingIncidentCardTestId(incidentId)),
   ).toBeVisible();
   await sessionTracker.captureCurrentSession(page, {
-    createdBy: "phase1 ordinary shell",
+    createdBy: "authentication ordinary shell",
     email: targetEmail,
-    purpose: "phase1 e112 target before revoke-all",
+    purpose: "authentication e112 target before revoke-all",
     userId: targetUser.user_id,
   });
 
   await revokeAllSessions(
     workerAdminRequest,
     targetUser.user_id,
-    "phase1 e112 explicit revoke-all",
+    "authentication e112 explicit revoke-all",
   );
 
   const revokedSessionResponse = waitForPublicAPIResponse(page, {
@@ -929,9 +929,9 @@ test("returns a revoked target browser to login and allows re-authentication wit
   await new AuthGateway(page).login(targetEmail, targetPassword);
   await expectLandingAccountSession(page);
   await sessionTracker.captureCurrentSession(page, {
-    createdBy: "phase1 ordinary shell",
+    createdBy: "authentication ordinary shell",
     email: targetEmail,
-    purpose: "phase1 e112 target after revoke-all re-auth",
+    purpose: "authentication e112 target after revoke-all re-auth",
     userId: targetUser.user_id,
   });
   await expect(
@@ -948,16 +948,16 @@ test("Verify ordinary login, incident entry, and current-role refresh stay on pu
   sessionTracker,
   workerAdminRequest,
 }) => {
-  const email = uniqueEmail("phase1-feep101");
-  const password = "Phase1FEEP101Pass!";
+  const email = uniqueEmail("authentication-feep101");
+  const password = "AuthenticationFEEP101Pass!";
   const user = await createLocalUser(workerAdminRequest, {
     email,
-    display_name: "Authentication FE-E-P1-01",
+    display_name: "Authentication end-to-end.incident-selection.row-01",
     initial_password: password,
     mfa_required: false,
   });
   const incidentKey = uniqueIncidentKey("FEEP101");
-  const incidentTitle = "FE-E-P1-01 incident entry";
+  const incidentTitle = "end-to-end.incident-selection.row-01 incident entry";
   const incidentId = await createIncident(page, incidentKey, incidentTitle);
   await createIncidentMembership(page, incidentId, email, "admin");
 
@@ -973,9 +973,9 @@ test("Verify ordinary login, incident entry, and current-role refresh stay on pu
   await loginResponse;
   await expectLandingAccountSession(page);
   await sessionTracker.captureCurrentSession(page, {
-    createdBy: "phase1 ordinary shell",
+    createdBy: "authentication ordinary shell",
     email,
-    purpose: "FE-E-P1-01 ordinary login",
+    purpose: "end-to-end.incident-selection.row-01 ordinary login",
     userId: user.user_id,
   });
 
@@ -1013,7 +1013,7 @@ async function createIncident(page: Page, incidentKey: string, title: string) {
   const response = await page.request.post(`${apiBase}/api/v1/incidents`, {
     headers: await csrfHeaders(page),
     data: {
-      client_txn_id: uniqueTxn("phase1-incident"),
+      client_txn_id: uniqueTxn("authentication-incident"),
       incident_key: incidentKey,
       title,
     },
@@ -1034,7 +1034,7 @@ async function createIncidentMembership(
     {
       headers: await csrfHeaders(page),
       data: {
-        client_txn_id: uniqueTxn("phase1-membership"),
+        client_txn_id: uniqueTxn("authentication-membership"),
         email,
         role,
       },

@@ -23,7 +23,7 @@
           "scenario_9cb8459f8063"
         ],
         "titles": [
-          "FE-A11Y-P3-01 Verify grid cells, editors, group rows, active cell, edit mode, disabled/read-only state, and blocked actions are keyboard accessible and announced without color-only signals."
+          "a11y.grid-interaction.row-01 Verify grid cells, editors, group rows, active cell, edit mode, disabled/read-only state, and blocked actions are keyboard accessible and announced without color-only signals."
         ]
       },
       "evidence_class": "accessibility",

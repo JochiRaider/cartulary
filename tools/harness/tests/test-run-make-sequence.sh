@@ -469,7 +469,6 @@ assert_contains "${check_harness_smoke_block}" "--projection check-harness-smoke
 assert_contains "${task_guide_node_tool_line}" '$(call RUN_MAKE_NODE_TOOL,task-guide,ROLE="$(ROLE)" OWNER="$(OWNER)" JSON="$(JSON)")' "task-guide node-tool scoped env"
 assert_not_contains "${task_guide_node_tool_line}" 'BASELINE_FILE="$(BASELINE_FILE)"' "task-guide omits unrelated baseline env"
 assert_contains "${target_plan_node_tool_line}" '$(call RUN_MAKE_NODE_TOOL,target-plan,TARGET="$(TARGET)")' "target-plan node-tool scoped env"
-assert_not_contains "${target_plan_node_tool_line}" 'PHASE="$(PHASE)"' "target-plan omits retired selection env"
 assert_contains "${fixture_report_node_tool_line}" '$(call RUN_MAKE_NODE_TOOL,fixture-report,RESULTS_DIR="$(RESULTS_DIR)" RUN_ID="$(RUN_ID)" TARGET="$(TARGET)" JSON="$(JSON)" FIXTURE_THRESHOLD_MS="$(FIXTURE_THRESHOLD_MS)" FIXTURE_TOP="$(FIXTURE_TOP)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)")' "fixture-report node-tool scoped env"
 assert_not_contains "${fixture_report_node_tool_line}" 'ROLE="$(ROLE)"' "fixture-report omits unrelated role env"
 assert_contains "${go_test_duration_baseline_drift_node_tool_line}" '$(call RUN_MAKE_NODE_TOOL,go-test-duration-baseline-drift,RESULTS_DIR="$(RESULTS_DIR)" GO_TEST_DURATION_BASELINE="$(GO_TEST_DURATION_BASELINE)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")' "go duration drift node-tool current-run env"

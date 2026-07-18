@@ -21,7 +21,7 @@ import (
 
 func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase11-reporting-provenance")
+	harness := runtime.StartServer(t, "extension_profile-reporting-provenance")
 
 	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -283,7 +283,7 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 
 func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase11-reporting-lifecycle")
+	harness := runtime.StartServer(t, "extension_profile-reporting-lifecycle")
 
 	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	reviewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "report-reviewer@example.test", "Report Reviewer", "ReviewerPass1!", false, false, true)
@@ -427,7 +427,7 @@ func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.
 
 func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase11-reporting-idempotency")
+	harness := runtime.StartServer(t, "extension_profile-reporting-idempotency")
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -612,7 +612,7 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 
 func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase11-reporting-shape-auth")
+	harness := runtime.StartServer(t, "extension_profile-reporting-shape-auth")
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	reviewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "shape-reviewer@example.test", "Shape Reviewer", "ShapeReviewer1!", false, false, true)

@@ -43,7 +43,7 @@ test("Verify attach flow uses generated protocol types, public error envelopes, 
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("FEIP601"),
-    "FE-I-P6-01 evidence integration",
+    "integration.evidence-workflow.row-01 evidence integration",
   );
   const evidenceRow = (await createViewRow(
     page,
@@ -51,7 +51,7 @@ test("Verify attach flow uses generated protocol types, public error envelopes, 
     evidenceViewSchemaId,
     {
       client_txn_id: uniqueTxn("fei-p6-evidence"),
-      "evidence.title": "FE-I-P6 attach target",
+      "evidence.title": "integration.evidence-workflow attach target",
       "evidence.collector_party_text": "Browser evidence",
     },
   )) as unknown as ViewRow;
@@ -62,9 +62,12 @@ test("Verify attach flow uses generated protocol types, public error envelopes, 
   await page
     .getByTestId(evidenceAttachFileInputTestId(evidenceRow.record_id))
     .setInputFiles({
-      name: "fe-i-p6-evidence.txt",
+      name: "integration.evidence-workflow-evidence.txt",
       mimeType: "text/plain",
-      buffer: Buffer.from("FE-I-P6 evidence body", "utf8"),
+      buffer: Buffer.from(
+        "integration.evidence-workflow evidence body",
+        "utf8",
+      ),
     });
 
   await expect(
@@ -89,8 +92,8 @@ test("Verify attach flow uses generated protocol types, public error envelopes, 
   const expectedCreateBlobBody = {
     incident_id: incidentId,
     client_txn_id: createBlobBody.client_txn_id,
-    byte_size: Buffer.byteLength("FE-I-P6 evidence body"),
-    filename_hint: "fe-i-p6-evidence.txt",
+    byte_size: Buffer.byteLength("integration.evidence-workflow evidence body"),
+    filename_hint: "integration.evidence-workflow-evidence.txt",
     content_type_hint: "text/plain",
   } satisfies ObjectBlobCreateRequest;
   expect(createBlobBody).toEqual(expectedCreateBlobBody);
@@ -173,7 +176,9 @@ test("Verify attach flow uses generated protocol types, public error envelopes, 
     .getByTestId(evidenceDownloadButtonTestId(evidenceRow.record_id))
     .click();
   const download = await downloadPromise;
-  expect(download.suggestedFilename()).toBe("fe-i-p6-evidence.txt");
+  expect(download.suggestedFilename()).toBe(
+    "integration.evidence-workflow-evidence.txt",
+  );
   const downloadHandleRequest = await observed.requirePost(
     (request) =>
       new URL(request.url()).pathname ===
@@ -225,17 +230,17 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("FEEP601"),
-    "FE-E-P6-01 evidence handles",
+    "end-to-end.evidence-workflow.row-01 evidence handles",
   );
-  const safeBody = "FE-E-P6 safe preview body";
+  const safeBody = "end-to-end.evidence-workflow safe preview body";
   const safeRow = (await createViewRow(page, incidentId, evidenceViewSchemaId, {
     client_txn_id: uniqueTxn("fee-p6-safe-evidence"),
-    "evidence.title": "FE-E-P6 safe evidence",
+    "evidence.title": "end-to-end.evidence-workflow safe evidence",
     "evidence.collector_party_text": "Browser evidence",
   })) as unknown as ViewRow;
   const blockedRow = await createUploadedEvidence(page, incidentId, {
-    title: "FE-E-P6 blocked preview evidence",
-    filename: "fe-e-p6-blocked.html",
+    title: "end-to-end.evidence-workflow blocked preview evidence",
+    filename: "end-to-end.evidence-workflow-blocked.html",
     contentType: "text/html",
     body: Buffer.from(
       "<script>window.__fee_p6_blocked = true</script>",
@@ -243,10 +248,13 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
     ),
   });
   const authRow = await createUploadedEvidence(page, incidentId, {
-    title: "FE-E-P6 current authorization evidence",
-    filename: "fe-e-p6-current-auth.txt",
+    title: "end-to-end.evidence-workflow current authorization evidence",
+    filename: "end-to-end.evidence-workflow-current-auth.txt",
     contentType: "text/plain",
-    body: Buffer.from("FE-E-P6 current authorization body", "utf8"),
+    body: Buffer.from(
+      "end-to-end.evidence-workflow current authorization body",
+      "utf8",
+    ),
   });
   const observed = collectEvidenceRouteRequests(page);
 
@@ -257,7 +265,7 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
   await page
     .getByTestId(evidenceAttachFileInputTestId(safeRow.record_id))
     .setInputFiles({
-      name: "fe-e-p6-safe.txt",
+      name: "end-to-end.evidence-workflow-safe.txt",
       mimeType: "text/plain",
       buffer: Buffer.from(safeBody, "utf8"),
     });
@@ -277,7 +285,7 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
 
   const createBlobRequest = await observed.requirePost(
     (request) => new URL(request.url()).pathname === "/api/v1/object-blobs",
-    "FE-E-P6 object blob create request",
+    "end-to-end.evidence-workflow object blob create request",
   );
   const createBlobBody =
     createBlobRequest.postDataJSON() as ObjectBlobCreateRequest;
@@ -285,13 +293,13 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
     incident_id: incidentId,
     client_txn_id: createBlobBody.client_txn_id,
     byte_size: Buffer.byteLength(safeBody),
-    filename_hint: "fe-e-p6-safe.txt",
+    filename_hint: "end-to-end.evidence-workflow-safe.txt",
     content_type_hint: "text/plain",
   } satisfies ObjectBlobCreateRequest);
   const createBlobEnvelope =
     await observed.requireJsonResponse<ObjectBlobCreateEnvelope>(
       createBlobRequest,
-      "FE-E-P6 object blob create envelope",
+      "end-to-end.evidence-workflow object blob create envelope",
     );
   expectSameOriginObjectUploadTarget(
     createBlobEnvelope.data.upload_target.href,
@@ -301,7 +309,7 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
   const uploadRequest = await observed.requirePut(
     (request) =>
       new URL(request.url()).pathname.startsWith("/api/v1/object-uploads/"),
-    "FE-E-P6 object upload request",
+    "end-to-end.evidence-workflow object upload request",
   );
   expect(new URL(uploadRequest.url()).pathname).toBe(
     createBlobEnvelope.data.upload_target.href,
@@ -311,7 +319,7 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
     (request) =>
       new URL(request.url()).pathname ===
       `/api/v1/evidence-records/${safeRow.record_id}/attach-blob`,
-    "FE-E-P6 evidence attach request",
+    "end-to-end.evidence-workflow evidence attach request",
   );
   const attachBody = attachRequest.postDataJSON() as EvidenceAttachBlobRequest;
   expect(attachBody).toEqual({
@@ -321,7 +329,7 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
   } satisfies EvidenceAttachBlobRequest);
   await observed.requireJsonResponse(
     attachRequest,
-    "FE-E-P6 evidence attach envelope",
+    "end-to-end.evidence-workflow evidence attach envelope",
   );
 
   await page
@@ -344,7 +352,7 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
     (request) =>
       new URL(request.url()).pathname ===
       `/api/v1/evidence-records/${safeRow.record_id}/preview-handle`,
-    "FE-E-P6 preview handle request",
+    "end-to-end.evidence-workflow preview handle request",
   );
   const safePreviewHandleBody =
     safePreviewHandleRequest.postDataJSON() as EvidenceHandleIssueRequest;
@@ -352,7 +360,7 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
   const safePreviewHandleEnvelope =
     await observed.requireJsonResponse<EvidenceHandleEnvelope>(
       safePreviewHandleRequest,
-      "FE-E-P6 preview handle envelope",
+      "end-to-end.evidence-workflow preview handle envelope",
     );
   expectSameOriginEvidenceHandle(safePreviewHandleEnvelope.data.href);
   expect(safePreviewHandleEnvelope.data.handle_kind).toBe("preview");
@@ -364,12 +372,14 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
     .getByTestId(evidenceDownloadButtonTestId(safeRow.record_id))
     .click();
   const download = await downloadPromise;
-  expect(download.suggestedFilename()).toBe("fe-e-p6-safe.txt");
+  expect(download.suggestedFilename()).toBe(
+    "end-to-end.evidence-workflow-safe.txt",
+  );
   const safeDownloadHandleRequest = await observed.requirePost(
     (request) =>
       new URL(request.url()).pathname ===
       `/api/v1/evidence-records/${safeRow.record_id}/download-handle`,
-    "FE-E-P6 download handle request",
+    "end-to-end.evidence-workflow download handle request",
   );
   const safeDownloadHandleBody =
     safeDownloadHandleRequest.postDataJSON() as EvidenceHandleIssueRequest;
@@ -377,7 +387,7 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
   const safeDownloadHandleEnvelope =
     await observed.requireJsonResponse<EvidenceHandleEnvelope>(
       safeDownloadHandleRequest,
-      "FE-E-P6 download handle envelope",
+      "end-to-end.evidence-workflow download handle envelope",
     );
   expectSameOriginEvidenceHandle(safeDownloadHandleEnvelope.data.href);
   expect(safeDownloadHandleEnvelope.data.handle_kind).toBe("download");
@@ -401,11 +411,11 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
     (request) =>
       new URL(request.url()).pathname ===
       `/api/v1/evidence-records/${blockedRow.record_id}/preview-handle`,
-    "FE-E-P6 blocked preview handle request",
+    "end-to-end.evidence-workflow blocked preview handle request",
   );
   const blockedPreviewEnvelope = await observed.requireJsonErrorResponse(
     blockedPreviewRequest,
-    "FE-E-P6 blocked preview public error envelope",
+    "end-to-end.evidence-workflow blocked preview public error envelope",
     409,
     "evidence_access_unavailable",
   );
@@ -416,8 +426,8 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
 
   const memberPassword = "MemberEvidence1!";
   const member = await createIncidentMemberUser(page, incidentId, {
-    email: uniqueEmail("fe-e-p6-member"),
-    display_name: "FE-E-P6 member",
+    email: uniqueEmail("end-to-end.evidence-workflow-member"),
+    display_name: "end-to-end.evidence-workflow member",
     initial_password: memberPassword,
     role: "editor",
   });
@@ -426,7 +436,7 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
   failOnUnexpectedPageError(memberPage);
   try {
     await sessionTracker.loginTrackedUser(memberPage, {
-      createdBy: "FE-E-P6-01",
+      createdBy: "end-to-end.evidence-workflow.row-01",
       email: member.email,
       password: memberPassword,
       purpose: "current evidence handle authorization denial",
@@ -449,17 +459,17 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
           dataTestIdSelector(evidencePreviewFrameTestId(authRow.record_id)),
         )
         .locator("body"),
-    ).toContainText("FE-E-P6 current authorization body");
+    ).toContainText("end-to-end.evidence-workflow current authorization body");
     const authPreviewHandleRequest = await memberObserved.requirePost(
       (request) =>
         new URL(request.url()).pathname ===
         `/api/v1/evidence-records/${authRow.record_id}/preview-handle`,
-      "FE-E-P6 member preview handle request",
+      "end-to-end.evidence-workflow member preview handle request",
     );
     const authPreviewHandleEnvelope =
       await memberObserved.requireJsonResponse<EvidenceHandleEnvelope>(
         authPreviewHandleRequest,
-        "FE-E-P6 member preview handle envelope",
+        "end-to-end.evidence-workflow member preview handle envelope",
       );
     const currentAuthHref = authPreviewHandleEnvelope.data.href;
     expectSameOriginEvidenceHandle(currentAuthHref);

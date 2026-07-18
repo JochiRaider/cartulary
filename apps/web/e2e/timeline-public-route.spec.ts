@@ -284,17 +284,19 @@ test(
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("FEEP401"),
-      "FE-E-P4-01 public route browser coverage",
+      "end-to-end.mutation-lifecycle.row-01 public route browser coverage",
     );
     const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
       client_txn_id: uniqueTxn("feep401-alpha"),
       "timeline.activity_utc_text": "2026-04-10T10:00:00.000Z",
-      "timeline.activity_synopsis_text": "FE-E-P4-01 Alpha",
+      "timeline.activity_synopsis_text":
+        "end-to-end.mutation-lifecycle.row-01 Alpha",
     });
     const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
       client_txn_id: uniqueTxn("feep401-beta"),
       "timeline.activity_utc_text": "2026-04-10T10:05:00.000Z",
-      "timeline.activity_synopsis_text": "FE-E-P4-01 Beta",
+      "timeline.activity_synopsis_text":
+        "end-to-end.mutation-lifecycle.row-01 Beta",
     });
     const pasteSeed = await createViewRow(
       page,
@@ -302,7 +304,8 @@ test(
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("feep401-paste-seed"),
-        "timeline.activity_synopsis_text": "FE-E-P4-01 Paste seed",
+        "timeline.activity_synopsis_text":
+          "end-to-end.mutation-lifecycle.row-01 Paste seed",
       },
     );
     const tabularSeed = await createViewRow(
@@ -311,7 +314,8 @@ test(
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("feep401-tabular-seed"),
-        "timeline.activity_synopsis_text": "FE-E-P4-01 Tabular seed",
+        "timeline.activity_synopsis_text":
+          "end-to-end.mutation-lifecycle.row-01 Tabular seed",
       },
     );
 
@@ -345,7 +349,7 @@ test(
         page.getByTestId(
           rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
         ),
-      ).toHaveText("FE-E-P4-01 Alpha");
+      ).toHaveText("end-to-end.mutation-lifecycle.row-01 Alpha");
 
       const createBodies: Record<string, unknown>[] = [];
       const createRoute = `**/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/rows`;
@@ -376,7 +380,7 @@ test(
         );
         await page
           .getByTestId(draftSynopsisTestId)
-          .fill("FE-E-P4-01 Rough summary");
+          .fill("end-to-end.mutation-lifecycle.row-01 Rough summary");
         await page.getByTestId(draftSynopsisTestId).press("Enter");
         const createEnvelope = await readTimelineMutation(await createResponse);
         const createdRow = createEnvelope.data.row;
@@ -407,7 +411,7 @@ test(
               "timeline.activity_synopsis_text",
             ),
           ),
-        ).toHaveText("FE-E-P4-01 Rough summary");
+        ).toHaveText("end-to-end.mutation-lifecycle.row-01 Rough summary");
         await scrollGridCellIntoView({
           cellKey: "timeline.capture_state",
           page,
@@ -432,7 +436,7 @@ test(
       ] as const) {
         const response = await postTimelineCreatePublic(page, incidentId, {
           client_txn_id: uniqueTxn(`feep401-create-${fieldKey}`),
-          "timeline.activity_synopsis_text": `FE-E-P4-01 forbidden ${fieldKey}`,
+          "timeline.activity_synopsis_text": `end-to-end.mutation-lifecycle.row-01 forbidden ${fieldKey}`,
           [fieldKey]: value,
         });
         await expectPublicError(response, 400, "invalid_mutation_payload", {
@@ -443,7 +447,9 @@ test(
       const rows = await queryViewRows(page, incidentId, timelineViewSchemaId);
       expect(
         rows.some((row) =>
-          String(summaryValue(row) ?? "").startsWith("FE-E-P4-01 forbidden "),
+          String(summaryValue(row) ?? "").startsWith(
+            "end-to-end.mutation-lifecycle.row-01 forbidden ",
+          ),
         ),
       ).toBe(false);
     });
@@ -471,7 +477,9 @@ test(
             surface: "grid",
           }),
         );
-        await betaInlineEditor.fill("FE-E-P4-01 Beta inline edit");
+        await betaInlineEditor.fill(
+          "end-to-end.mutation-lifecycle.row-01 Beta inline edit",
+        );
         await betaInlineEditor.press("Enter");
         const heldCall = await heldPatch.waitForHit;
         expect(heldCall.recordId).toBe(beta.record_id);
@@ -486,7 +494,7 @@ test(
         expect(changes).toEqual([
           {
             field_key: "timeline.activity_synopsis_text",
-            value: "FE-E-P4-01 Beta inline edit",
+            value: "end-to-end.mutation-lifecycle.row-01 Beta inline edit",
           },
         ]);
         await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
@@ -519,7 +527,7 @@ test(
           page.getByTestId(
             rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
           ),
-        ).toHaveText("FE-E-P4-01 Beta inline edit");
+        ).toHaveText("end-to-end.mutation-lifecycle.row-01 Beta inline edit");
         await expect(
           page.getByTestId(timelineRowVersionTestId(beta.record_id)),
         ).toHaveText(String(patchEnvelope.data.row.row_version));
@@ -540,7 +548,7 @@ test(
           patchEnvelope.data.row.row_version,
         );
         expect(summaryValue(replayEnvelope.data.row)).toBe(
-          "FE-E-P4-01 Beta inline edit",
+          "end-to-end.mutation-lifecycle.row-01 Beta inline edit",
         );
 
         await expectPublicError(
@@ -549,7 +557,7 @@ test(
             changes: [
               {
                 field_key: "timeline.activity_synopsis_text",
-                value: "FE-E-P4-01 divergent replay",
+                value: "end-to-end.mutation-lifecycle.row-01 divergent replay",
               },
             ],
           }),
@@ -603,7 +611,8 @@ test(
             changes: [
               {
                 field_key: "timeline.activity_synopsis_text",
-                value: "FE-E-P4-01 future row version",
+                value:
+                  "end-to-end.mutation-lifecycle.row-01 future row version",
               },
             ],
           }),
@@ -617,7 +626,8 @@ test(
           timelineViewSchemaId,
           {
             client_txn_id: uniqueTxn("feep401-conflict-row"),
-            "timeline.activity_synopsis_text": "FE-E-P4-01 conflict base",
+            "timeline.activity_synopsis_text":
+              "end-to-end.mutation-lifecycle.row-01 conflict base",
           },
         );
         const serverConflictPatch = await patchTimelinePublic(
@@ -630,7 +640,7 @@ test(
             changes: [
               {
                 field_key: "timeline.activity_synopsis_text",
-                value: "FE-E-P4-01 conflict server",
+                value: "end-to-end.mutation-lifecycle.row-01 conflict server",
               },
             ],
           },
@@ -644,7 +654,7 @@ test(
             changes: [
               {
                 field_key: "timeline.activity_synopsis_text",
-                value: "FE-E-P4-01 conflict client",
+                value: "end-to-end.mutation-lifecycle.row-01 conflict client",
               },
             ],
           }),
@@ -666,7 +676,7 @@ test(
           page.getByTestId(
             rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
           ),
-        ).toHaveText("FE-E-P4-01 Beta inline edit");
+        ).toHaveText("end-to-end.mutation-lifecycle.row-01 Beta inline edit");
         await expect(
           page.getByTestId(timelineRowVersionTestId(beta.record_id)),
         ).toHaveText(String(patchEnvelope.data.row.row_version));
@@ -713,12 +723,12 @@ test(
               surface: "grid",
             }),
           )
-          .fill("FE-E-P4-01 scalar, comma only");
+          .fill("end-to-end.mutation-lifecycle.row-01 scalar, comma only");
         await dispatchClipboardText(
           page,
           pasteSeed.record_id,
           "timeline.activity_synopsis_text",
-          "FE-E-P4-01 scalar, comma only",
+          "end-to-end.mutation-lifecycle.row-01 scalar, comma only",
         );
         const scalarPatch = await scalarPatchResponse;
         expect(scalarPatch.ok()).toBeTruthy();
@@ -727,7 +737,7 @@ test(
           changes: [
             {
               field_key: "timeline.activity_synopsis_text",
-              value: "FE-E-P4-01 scalar, comma only",
+              value: "end-to-end.mutation-lifecycle.row-01 scalar, comma only",
             },
           ],
         });
@@ -757,7 +767,12 @@ test(
       );
       await pasteGridMatrix({
         fieldKey: "timeline.activity_synopsis_text",
-        matrix: [["FE-E-P4-01 tabular summary", "feep401-host.example.test"]],
+        matrix: [
+          [
+            "end-to-end.mutation-lifecycle.row-01 tabular summary",
+            "feep401-host.example.test",
+          ],
+        ],
         page,
         recordId: tabularSeed.record_id,
         surface: timelineViewSchemaId,
@@ -765,7 +780,8 @@ test(
       const pasteBody = readPostBody(await pasteRequest);
       expect(pasteBody).toMatchObject({
         view_schema_id: timelineViewSchemaId,
-        clipboard_text: "FE-E-P4-01 tabular summary\tfeep401-host.example.test",
+        clipboard_text:
+          "end-to-end.mutation-lifecycle.row-01 tabular summary\tfeep401-host.example.test",
         format: "tsv",
         start_field_key: "timeline.activity_synopsis_text",
         columns: [
@@ -789,12 +805,12 @@ test(
             "timeline.activity_synopsis_text",
           ),
         ),
-      ).toHaveText("FE-E-P4-01 tabular summary");
+      ).toHaveText("end-to-end.mutation-lifecycle.row-01 tabular summary");
 
       const foreignIncidentId = await createIncident(
         page,
         uniqueIncidentKey("FEEP401FOREIGN"),
-        "FE-E-P4-01 foreign paste target",
+        "end-to-end.mutation-lifecycle.row-01 foreign paste target",
       );
       const foreign = await createViewRow(
         page,
@@ -802,7 +818,8 @@ test(
         timelineViewSchemaId,
         {
           client_txn_id: uniqueTxn("feep401-foreign-row"),
-          "timeline.activity_synopsis_text": "FE-E-P4-01 foreign untouched",
+          "timeline.activity_synopsis_text":
+            "end-to-end.mutation-lifecycle.row-01 foreign untouched",
         },
       );
       await expectPublicError(
@@ -810,7 +827,7 @@ test(
           view_schema_id: timelineViewSchemaId,
           client_txn_id: uniqueTxn("feep401-invalid-paste-target"),
           clipboard_text:
-            "FE-E-P4-01 should not create\nFE-E-P4-01 should not disclose",
+            "end-to-end.mutation-lifecycle.row-01 should not create\nend-to-end.mutation-lifecycle.row-01 should not disclose",
           format: "tsv",
           start_field_key: "timeline.activity_synopsis_text",
           columns: ["timeline.activity_synopsis_text"],
@@ -833,7 +850,9 @@ test(
       );
       expect(
         localRowsAfterRejectedPaste.some(
-          (row) => summaryValue(row) === "FE-E-P4-01 should not create",
+          (row) =>
+            summaryValue(row) ===
+            "end-to-end.mutation-lifecycle.row-01 should not create",
         ),
       ).toBe(false);
       const foreignRowsAfterRejectedPaste = await queryViewRows(
@@ -842,13 +861,13 @@ test(
         timelineViewSchemaId,
       );
       expect(summaryValue(foreignRowsAfterRejectedPaste[0])).toBe(
-        "FE-E-P4-01 foreign untouched",
+        "end-to-end.mutation-lifecycle.row-01 foreign untouched",
       );
 
       const staleIncidentId = await createIncident(
         page,
         uniqueIncidentKey("FEEP401STALE"),
-        "FE-E-P4-01 grouped paste conflict",
+        "end-to-end.mutation-lifecycle.row-01 grouped paste conflict",
       );
       const staleFirst = await createViewRow(
         page,
@@ -856,7 +875,8 @@ test(
         timelineViewSchemaId,
         {
           client_txn_id: uniqueTxn("feep401-stale-first"),
-          "timeline.activity_synopsis_text": "FE-E-P4-01 stale first base",
+          "timeline.activity_synopsis_text":
+            "end-to-end.mutation-lifecycle.row-01 stale first base",
         },
       );
       const staleSecond = await createViewRow(
@@ -865,7 +885,8 @@ test(
         timelineViewSchemaId,
         {
           client_txn_id: uniqueTxn("feep401-stale-second"),
-          "timeline.activity_synopsis_text": "FE-E-P4-01 stale second base",
+          "timeline.activity_synopsis_text":
+            "end-to-end.mutation-lifecycle.row-01 stale second base",
         },
       );
       const staleContext = await browser.newContext({
@@ -898,8 +919,14 @@ test(
           throw new Error("expected two visible stale Timeline records");
         }
         const stalePasteTextByRecordId = new Map([
-          [staleFirst.record_id, "FE-E-P4-01 stale first client"],
-          [staleSecond.record_id, "FE-E-P4-01 stale second client"],
+          [
+            staleFirst.record_id,
+            "end-to-end.mutation-lifecycle.row-01 stale first client",
+          ],
+          [
+            staleSecond.record_id,
+            "end-to-end.mutation-lifecycle.row-01 stale second client",
+          ],
         ]);
         const staleStartText = stalePasteTextByRecordId.get(staleStartRecordId);
         const staleNextText = stalePasteTextByRecordId.get(staleNextRecordId);
@@ -934,7 +961,7 @@ test(
           changes: [
             {
               field_key: "timeline.activity_synopsis_text",
-              value: "FE-E-P4-01 stale first server",
+              value: "end-to-end.mutation-lifecycle.row-01 stale first server",
             },
           ],
         });
@@ -945,7 +972,7 @@ test(
           changes: [
             {
               field_key: "timeline.activity_synopsis_text",
-              value: "FE-E-P4-01 stale second server",
+              value: "end-to-end.mutation-lifecycle.row-01 stale second server",
             },
           ],
         });
@@ -962,9 +989,11 @@ test(
           stalePage,
           staleStartRecordId,
           "timeline.activity_synopsis_text",
-          [staleStartText, staleNextText, "FE-E-P4-01 stale created"].join(
-            "\n",
-          ),
+          [
+            staleStartText,
+            staleNextText,
+            "end-to-end.mutation-lifecycle.row-01 stale created",
+          ].join("\n"),
         );
         const groupedEnvelope = (await (await groupedPasteResponse).json()) as {
           data: {
@@ -1113,7 +1142,9 @@ test(
           surface: "grid",
         }),
       );
-      await alphaSummaryEditor.fill("FE-E-P4-01 unknown fallback local");
+      await alphaSummaryEditor.fill(
+        "end-to-end.mutation-lifecycle.row-01 unknown fallback local",
+      );
       await alphaSummaryEditor.press("Enter");
       const unknownEnvelope = await expectPublicError(
         await unknownPatchResponse,
@@ -1130,7 +1161,7 @@ test(
       await expect(notice).not.toContainText("stack trace");
       await expect(notice).not.toContainText("private.go");
       await expect(alphaSummaryEditor).toHaveValue(
-        "FE-E-P4-01 unknown fallback local",
+        "end-to-end.mutation-lifecycle.row-01 unknown fallback local",
       );
 
       page.once("dialog", async (dialog) => {
@@ -1143,12 +1174,12 @@ test(
 
     await test.step("real session revocation replays queued public PATCH work in FIFO order", async () => {
       await exerciseRevokedPendingReplay({
-        createdBy: "FE-E-P4-01",
+        createdBy: "end-to-end.mutation-lifecycle.row-01",
         incidentKeyPrefix: "FEEP401REVOKE",
         localValues: [
-          "FE-E-P4-01 revoked A local",
-          "FE-E-P4-01 revoked B local",
-          "FE-E-P4-01 revoked C local",
+          "end-to-end.mutation-lifecycle.row-01 revoked A local",
+          "end-to-end.mutation-lifecycle.row-01 revoked B local",
+          "end-to-end.mutation-lifecycle.row-01 revoked C local",
         ],
         page,
         scenario: "revoked",
@@ -1157,7 +1188,7 @@ test(
           await revokeAllSessions(
             workerAdminRequest,
             member.user_id,
-            "FE-E-P4-01 browser revoke-all",
+            "end-to-end.mutation-lifecycle.row-01 browser revoke-all",
           );
         },
       });
@@ -1171,7 +1202,7 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("FEEP401RECOVERY"),
-    "FE-E-P4-01 transaction conflict recovery",
+    "end-to-end.mutation-lifecycle.row-01 transaction conflict recovery",
   );
   const remountRow = await createViewRow(
     page,
@@ -1179,12 +1210,14 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("feep401-remount-row"),
-      "timeline.activity_synopsis_text": "FE-E-P4-01 remount base",
+      "timeline.activity_synopsis_text":
+        "end-to-end.mutation-lifecycle.row-01 remount base",
     },
   );
   const retryRow = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("feep401-retry-row"),
-    "timeline.activity_synopsis_text": "FE-E-P4-01 retry base",
+    "timeline.activity_synopsis_text":
+      "end-to-end.mutation-lifecycle.row-01 retry base",
   });
   const discardRow = await createViewRow(
     page,
@@ -1192,7 +1225,8 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("feep401-discard-row"),
-      "timeline.activity_synopsis_text": "FE-E-P4-01 discard base",
+      "timeline.activity_synopsis_text":
+        "end-to-end.mutation-lifecycle.row-01 discard base",
     },
   );
   const sameFieldRow = await createViewRow(
@@ -1201,7 +1235,8 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("feep401-same-field-row"),
-      "timeline.activity_synopsis_text": "FE-E-P4-01 resolver base",
+      "timeline.activity_synopsis_text":
+        "end-to-end.mutation-lifecycle.row-01 resolver base",
     },
   );
 
@@ -1212,7 +1247,7 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
       await submitTimelineSummary(
         page,
         remountRow.record_id,
-        "FE-E-P4-01 remount first",
+        "end-to-end.mutation-lifecycle.row-01 remount first",
       );
       await expect.poll(() => patchController.calls.length).toBe(1);
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
@@ -1225,7 +1260,7 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
       await submitTimelineSummary(
         page,
         remountRow.record_id,
-        "FE-E-P4-01 remount second",
+        "end-to-end.mutation-lifecycle.row-01 remount second",
       );
       await expect.poll(() => patchController.calls.length).toBe(2);
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
@@ -1249,7 +1284,7 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
       await submitTimelineSummary(
         page,
         retryRow.record_id,
-        "FE-E-P4-01 retry local",
+        "end-to-end.mutation-lifecycle.row-01 retry local",
       );
       await expect.poll(() => patchController.calls.length).toBe(3);
       const blockedCall = patchController.calls[2];
@@ -1275,7 +1310,7 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
           changes: [
             {
               field_key: "timeline.data_source_text",
-              value: "FE-E-P4-01 server advance",
+              value: "end-to-end.mutation-lifecycle.row-01 server advance",
             },
           ],
         },
@@ -1312,7 +1347,7 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
       await submitTimelineSummary(
         page,
         discardRow.record_id,
-        "FE-E-P4-01 discard local",
+        "end-to-end.mutation-lifecycle.row-01 discard local",
       );
       await expect.poll(() => patchController.calls.length).toBe(5);
       await expect(
@@ -1332,7 +1367,7 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
             "timeline.activity_synopsis_text",
           ),
         ),
-      ).toHaveText("FE-E-P4-01 discard base");
+      ).toHaveText("end-to-end.mutation-lifecycle.row-01 discard base");
       expect(patchController.calls).toHaveLength(5);
     });
   } finally {
@@ -1355,7 +1390,7 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
         await submitTimelineSummary(
           stalePage,
           sameFieldRow.record_id,
-          "FE-E-P4-01 resolver local",
+          "end-to-end.mutation-lifecycle.row-01 resolver local",
         );
         await expect.poll(() => stalePatchController.calls.length).toBe(1);
         const blockedCall = stalePatchController.calls[0];
@@ -1370,7 +1405,7 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
             changes: [
               {
                 field_key: "timeline.activity_synopsis_text",
-                value: "FE-E-P4-01 resolver server",
+                value: "end-to-end.mutation-lifecycle.row-01 resolver server",
               },
             ],
           },
@@ -1388,11 +1423,11 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
           sameFieldRow.row_version,
         );
         await expect(stalePage.getByTestId("conflict-local-value")).toHaveValue(
-          "FE-E-P4-01 resolver local",
+          "end-to-end.mutation-lifecycle.row-01 resolver local",
         );
         await expect(
           stalePage.getByTestId("conflict-server-value"),
-        ).toHaveValue("FE-E-P4-01 resolver server");
+        ).toHaveValue("end-to-end.mutation-lifecycle.row-01 resolver server");
         await expect(
           stalePage.getByTestId(pendingQueueRecoveryPanelTestId()),
         ).toHaveCount(0);

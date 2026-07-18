@@ -397,9 +397,9 @@ func TestUserCreateRouteDefaults_Unit(t *testing.T) {
 		request := newJSONRequest(t, http.MethodPost, "/api/v1/users", `{
 			"client_txn_id":"txn-user-create-invalid-field",
 			"auth_kind":"local",
-			"email":"phase1-invalid@example.test",
+			"email":"authentication-invalid@example.test",
 			"display_name":"Authentication Invalid",
-			"initial_password":"Phase1InvalidPass!",
+			"initial_password":"AuthenticationInvalidPass!",
 			"is_active":false
 		}`)
 		addSessionAuth(request, keys, token, true)
@@ -435,9 +435,9 @@ func TestUserCreateRouteDefaults_Unit(t *testing.T) {
 		request := newJSONRequest(t, http.MethodPost, "/api/v1/users", `{
 			"client_txn_id":"txn-user-create-invalid-auth-kind",
 			"auth_kind":"ldap",
-			"email":"phase1-invalid-auth-kind@example.test",
+			"email":"authentication-invalid-auth-kind@example.test",
 			"display_name":"Authentication Invalid Auth Kind",
-			"initial_password":"Phase1InvalidAuthKindPass!"
+			"initial_password":"AuthenticationInvalidAuthKindPass!"
 		}`)
 		addSessionAuth(request, keys, token, true)
 		service.handleUsersCollection(recorder, request)
@@ -456,7 +456,7 @@ func TestUserCreateRouteDefaults_Unit(t *testing.T) {
 		sessionID := uuid.MustParse("10000000-0000-0000-0000-000000000110")
 		userID := uuid.MustParse("10000000-0000-0000-0000-00000000010b")
 		token := "user-create-defaults-token"
-		initialPassword := "Phase1DefaultsPass!"
+		initialPassword := "AuthenticationDefaultsPass!"
 		responseCreatedAt := now.Add(time.Minute)
 
 		var capturedPasswordHash string
@@ -472,7 +472,7 @@ func TestUserCreateRouteDefaults_Unit(t *testing.T) {
 				if actor.ID != adminID || !actor.IsDeploymentAdmin {
 					t.Fatalf("unexpected create actor: %#v", actor)
 				}
-				if email != "phase1-create@example.test" {
+				if email != "authentication-create@example.test" {
 					t.Fatalf("unexpected create email: got %q", email)
 				}
 				if displayName != "Authentication Create" {
@@ -525,9 +525,9 @@ func TestUserCreateRouteDefaults_Unit(t *testing.T) {
 		request := newJSONRequest(t, http.MethodPost, "/api/v1/users", `{
 			"client_txn_id":"txn-user-create-defaults",
 			"auth_kind":"local",
-			"email":" phase1-create@example.test ",
+			"email":" authentication-create@example.test ",
 			"display_name":" Authentication Create ",
-			"initial_password":"Phase1DefaultsPass!"
+			"initial_password":"AuthenticationDefaultsPass!"
 		}`)
 		addSessionAuth(request, keys, token, true)
 		service.handleUsersCollection(recorder, request)
@@ -540,7 +540,7 @@ func TestUserCreateRouteDefaults_Unit(t *testing.T) {
 		}
 		expectedHash := hashRequestPayload(map[string]any{
 			"auth_kind":           "local",
-			"email":               "phase1-create@example.test",
+			"email":               "authentication-create@example.test",
 			"display_name":        "Authentication Create",
 			"initial_password":    requestSecretFingerprint(keys, initialPassword),
 			"mfa_required":        true,
@@ -551,8 +551,8 @@ func TestUserCreateRouteDefaults_Unit(t *testing.T) {
 		}
 
 		data := decodeSuccessData(t, recorder)
-		if got := data["email"]; got != "phase1-create@example.test" {
-			t.Fatalf("unexpected normalized create response email: got %v want phase1-create@example.test", got)
+		if got := data["email"]; got != "authentication-create@example.test" {
+			t.Fatalf("unexpected normalized create response email: got %v want authentication-create@example.test", got)
 		}
 		if got := data["display_name"]; got != "Authentication Create" {
 			t.Fatalf("unexpected normalized create response display_name: got %v want Authentication Create", got)
@@ -2276,8 +2276,8 @@ func RouteCSRFPayload(t testing.TB, route routetest.RouteInventoryEntry) string 
 	case routetest.RoutePasswordChange:
 		return `{
 			"client_txn_id":"txn-password-csrf",
-			"current_password":"Phase1CSRFCurrent!",
-			"new_password":"Phase1CSRFFresh!"
+			"current_password":"AuthenticationCSRFCurrent!",
+			"new_password":"AuthenticationCSRFFresh!"
 		}`
 	case routetest.RouteTOTPBegin:
 		return `{"client_txn_id":"txn-totp-begin-csrf"}`
@@ -2293,7 +2293,7 @@ func RouteCSRFPayload(t testing.TB, route routetest.RouteInventoryEntry) string 
 			"auth_kind":"local",
 			"email":"csrf-route@example.test",
 			"display_name":"CSRF Route",
-			"initial_password":"Phase1CSRFFresh!"
+			"initial_password":"AuthenticationCSRFFresh!"
 		}`
 	case routetest.RouteUsersPatch:
 		return `{
@@ -2304,7 +2304,7 @@ func RouteCSRFPayload(t testing.TB, route routetest.RouteInventoryEntry) string 
 		return `{
 			"base_user_version":1,
 			"client_txn_id":"txn-user-password-reset-csrf",
-			"new_password":"Phase1CSRFFresh!"
+			"new_password":"AuthenticationCSRFFresh!"
 		}`
 	case routetest.RouteUsersTOTPReset:
 		return `{

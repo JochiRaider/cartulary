@@ -23,7 +23,7 @@ func TestConcurrentEditsResolverPath_Integration(t *testing.T) {
 	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-collaboration-i-6-03-incident",
-		"incident_key":  "IR-PHASE6-I-6-03",
+		"incident_key":  "IR-COLLABORATION-I-6-03",
 		"title":         "Collaboration I-6-03 concurrent resolver path",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))

@@ -196,103 +196,103 @@ type AuthA11yAppLocalTestId = string & {
 };
 
 const p1AccessibilityScenarioTitles = [
-  "FE-A11Y-P1-01 deferred session loading exposes progress and keeps recovery controls keyboard reachable",
-  "FE-A11Y-P1-01 anonymous login after initial session_required reaches login controls and authenticated landing",
-  "FE-A11Y-P1-01 mfa_required challenge is keyboard reachable, visibly focused, named, and safely announced",
-  "FE-A11Y-P1-01 mfa_setup_required enrollment is keyboard reachable and public errors hide private setup diagnostics",
-  "FE-A11Y-P1-01 authenticated landing exposes account, admin, incident, retry, and visible incident controls",
-  "FE-A11Y-P1-01 incident empty, list, selected, stale-selection, and incident-error states expose keyboard recovery",
-  "FE-A11Y-P1-01 forbidden access-denied public envelope is announced and exposes recovery without private diagnostics",
-  "FE-A11Y-P1-01 revoked session after prior authentication announces session end and supports re-authentication",
-  "FE-A11Y-P1-01 generic public error envelope renders safe diagnostics and keyboard error recovery",
+  "a11y.incident-selection.row-01 deferred session loading exposes progress and keeps recovery controls keyboard reachable",
+  "a11y.incident-selection.row-01 anonymous login after initial session_required reaches login controls and authenticated landing",
+  "a11y.incident-selection.row-01 mfa_required challenge is keyboard reachable, visibly focused, named, and safely announced",
+  "a11y.incident-selection.row-01 mfa_setup_required enrollment is keyboard reachable and public errors hide private setup diagnostics",
+  "a11y.incident-selection.row-01 authenticated landing exposes account, admin, incident, retry, and visible incident controls",
+  "a11y.incident-selection.row-01 incident empty, list, selected, stale-selection, and incident-error states expose keyboard recovery",
+  "a11y.incident-selection.row-01 forbidden access-denied public envelope is announced and exposes recovery without private diagnostics",
+  "a11y.incident-selection.row-01 revoked session after prior authentication announces session end and supports re-authentication",
+  "a11y.incident-selection.row-01 generic public error envelope renders safe diagnostics and keyboard error recovery",
 ] as const;
 const p2AccessibilityScenarioTitles = [
-  "FE-A11Y-P2-01 Verify shell regions, tabs, switchers, menus, inspector controls, and status strip are keyboard reachable, visibly focused, and named.",
+  "a11y.workbook-shell.row-01 Verify shell regions, tabs, switchers, menus, inspector controls, and status strip are keyboard reachable, visibly focused, and named.",
 ] as const;
 const p3AccessibilityScenarioTitles = [
-  "FE-A11Y-P3-01 Verify grid cells, editors, group rows, active cell, edit mode, disabled/read-only state, and blocked actions are keyboard accessible and announced without color-only signals.",
+  "a11y.grid-interaction.row-01 Verify grid cells, editors, group rows, active cell, edit mode, disabled/read-only state, and blocked actions are keyboard accessible and announced without color-only signals.",
 ] as const;
 const p4AccessibilityScenarioTitles = [
-  "FE-A11Y-P4-01 Verify grid navigation, edit entry/exit, paste feedback, validation feedback, save-state communication, and Esc priority are keyboard and screen-reader safe.",
+  "a11y.mutation-lifecycle.row-01 Verify grid navigation, edit entry/exit, paste feedback, validation feedback, save-state communication, and Esc priority are keyboard and screen-reader safe.",
 ] as const;
 const p5AccessibilityScenarioTitles = [
-  "FE-A11Y-P5-01 Verify mention chip states and manual-resolution controls have accessible names, visible focus, and non-color-only distinction.",
+  "a11y.entity-linking.row-01 Verify mention chip states and manual-resolution controls have accessible names, visible focus, and non-color-only distinction.",
 ] as const;
 const p6AccessibilityScenarioTitles = [
-  "FE-A11Y-P6-01 Verify evidence icon buttons, blocked states, error states, preview controls, and download controls have names, focus, contrast, and non-color-only distinctions.",
+  "a11y.evidence-workflow.row-01 Verify evidence icon buttons, blocked states, error states, preview controls, and download controls have names, focus, contrast, and non-color-only distinctions.",
 ] as const;
 const p7AccessibilityScenarioTitles = [
-  "FE-A11Y-P7-01 Verify conflict state, resolver controls, presence hint, stale-row notice, and save-state conflict communicate state by accessible name/state, not color alone.",
+  "a11y.collaboration.row-01 Verify conflict state, resolver controls, presence hint, stale-row notice, and save-state conflict communicate state by accessible name/state, not color alone.",
 ] as const;
 const p8AccessibilityScenarioTitles = [
-  "FE-A11Y-P8-01 Verify sort, filter, group, saved-view menu, active chips, group expand-collapse, and default/startup controls are keyboard reachable and announced.",
+  "a11y.saved-view-query.row-01 Verify sort, filter, group, saved-view menu, active chips, group expand-collapse, and default/startup controls are keyboard reachable and announced.",
 ] as const;
 const p9AccessibilityScenarioTitles = [
-  "FE-A11Y-P9-01 Verify inspector tabs, relationship links, evidence controls, history controls, rollback, destructive actions, and errors are keyboard reachable and announced.",
+  "a11y.inspector-history.row-01 Verify inspector tabs, relationship links, evidence controls, history controls, rollback, destructive actions, and errors are keyboard reachable and announced.",
 ] as const;
 const p9ConfigAccessibilityScenarioTitles = [
-  "FE-A11Y-P9-02 Verify keyboard open/close, panel navigation, Esc, focus restoration, disabled/blocked states, no-row empty state, and destructive confirmation focus for config-driven inspector behavior.",
+  "a11y.inspector-history.row-02 Verify keyboard open/close, panel navigation, Esc, focus restoration, disabled/blocked states, no-row empty state, and destructive confirmation focus for config-driven inspector behavior.",
 ] as const;
 const p10AccessibilityScenarioTitles = [
-  "FE-A11Y-P10-01 Verify coordination surfaces and full keyboard/clipboard controls meet keyboard reachability, focus visibility, accessible-name, ARIA, and non-color-only state expectations.",
+  "a11y.coordination-review.row-01 Verify coordination surfaces and full keyboard/clipboard controls meet keyboard reachability, focus visibility, accessible-name, ARIA, and non-color-only state expectations.",
 ] as const;
 const p11AccessibilityScenarioTitles = [
-  "FE-A11Y-P11-01 Verify global accessibility matrix for keyboard access, visible focus, System views, grid navigation/edit entry/exit, Esc, ARIA states, icon-only labels, contrast, and non-color-only empty/loading/error/blocked states.",
+  "a11y.design-readiness.row-01 Verify global accessibility matrix for keyboard access, visible focus, System views, grid navigation/edit entry/exit, Esc, ARIA states, icon-only labels, contrast, and non-color-only empty/loading/error/blocked states.",
 ] as const;
 
 if (p2AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
-    `FE-A11Y-P2-01 must declare exactly 1 scenario; found ${p2AccessibilityScenarioTitles.length}`,
+    `a11y.workbook-shell.row-01 must declare exactly 1 scenario; found ${p2AccessibilityScenarioTitles.length}`,
   );
 }
 if (p3AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
-    `FE-A11Y-P3-01 must declare exactly 1 scenario; found ${p3AccessibilityScenarioTitles.length}`,
+    `a11y.grid-interaction.row-01 must declare exactly 1 scenario; found ${p3AccessibilityScenarioTitles.length}`,
   );
 }
 if (p4AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
-    `FE-A11Y-P4-01 must declare exactly 1 scenario; found ${p4AccessibilityScenarioTitles.length}`,
+    `a11y.mutation-lifecycle.row-01 must declare exactly 1 scenario; found ${p4AccessibilityScenarioTitles.length}`,
   );
 }
 if (p5AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
-    `FE-A11Y-P5-01 must declare exactly 1 scenario; found ${p5AccessibilityScenarioTitles.length}`,
+    `a11y.entity-linking.row-01 must declare exactly 1 scenario; found ${p5AccessibilityScenarioTitles.length}`,
   );
 }
 if (p6AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
-    `FE-A11Y-P6-01 must declare exactly 1 scenario; found ${p6AccessibilityScenarioTitles.length}`,
+    `a11y.evidence-workflow.row-01 must declare exactly 1 scenario; found ${p6AccessibilityScenarioTitles.length}`,
   );
 }
 if (p7AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
-    `FE-A11Y-P7-01 must declare exactly 1 scenario; found ${p7AccessibilityScenarioTitles.length}`,
+    `a11y.collaboration.row-01 must declare exactly 1 scenario; found ${p7AccessibilityScenarioTitles.length}`,
   );
 }
 if (p8AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
-    `FE-A11Y-P8-01 must declare exactly 1 scenario; found ${p8AccessibilityScenarioTitles.length}`,
+    `a11y.saved-view-query.row-01 must declare exactly 1 scenario; found ${p8AccessibilityScenarioTitles.length}`,
   );
 }
 if (p9AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
-    `FE-A11Y-P9-01 must declare exactly 1 scenario; found ${p9AccessibilityScenarioTitles.length}`,
+    `a11y.inspector-history.row-01 must declare exactly 1 scenario; found ${p9AccessibilityScenarioTitles.length}`,
   );
 }
 if (p9ConfigAccessibilityScenarioTitles.length !== 1) {
   throw new Error(
-    `FE-A11Y-P9-02 must declare exactly 1 scenario; found ${p9ConfigAccessibilityScenarioTitles.length}`,
+    `a11y.inspector-history.row-02 must declare exactly 1 scenario; found ${p9ConfigAccessibilityScenarioTitles.length}`,
   );
 }
 if (p10AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
-    `FE-A11Y-P10-01 must declare exactly 1 scenario; found ${p10AccessibilityScenarioTitles.length}`,
+    `a11y.coordination-review.row-01 must declare exactly 1 scenario; found ${p10AccessibilityScenarioTitles.length}`,
   );
 }
 if (p11AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
-    `FE-A11Y-P11-01 must declare exactly 1 scenario; found ${p11AccessibilityScenarioTitles.length}`,
+    `a11y.design-readiness.row-01 must declare exactly 1 scenario; found ${p11AccessibilityScenarioTitles.length}`,
   );
 }
 
@@ -301,7 +301,8 @@ const A11yAppLocalSelectors = Object.freeze({
     owner: "apps/web incident administration",
     reason:
       "Incident patch controls are app-local to the incident admin panel until later incident-surface selector promotion.",
-    scope: "FE-P1 selected-incident accessibility recovery path",
+    scope:
+      "browser.incident-selection selected-incident accessibility recovery path",
     testId: "incident-patch-button" as AuthA11yAppLocalTestId,
   },
 });
@@ -1178,7 +1179,7 @@ async function createA11yEvidenceRow(
   },
 ): Promise<ViewRow> {
   return createEvidenceFixtureRow(page, incidentId, {
-    collectorPartyText: "FE-P6 accessibility fixture",
+    collectorPartyText: "browser.evidence-workflow accessibility fixture",
     ...options,
   });
 }
@@ -1189,7 +1190,7 @@ async function createUploadedA11yEvidence(
   options: EvidenceUploadOptions,
 ): Promise<ViewRow> {
   return createUploadedEvidenceFixture(page, incidentId, {
-    collectorPartyText: "FE-P6 accessibility fixture",
+    collectorPartyText: "browser.evidence-workflow accessibility fixture",
     ...options,
   });
 }
@@ -1263,7 +1264,8 @@ async function armA11yPublicErrorFault(
       details: {
         reason_code: options.reasonCode,
       },
-      message: "Evidence access failed for FE-P6 accessibility fixture.",
+      message:
+        "Evidence access failed for browser.evidence-workflow accessibility fixture.",
       method: "POST",
       path: options.path,
       retryable: false,
@@ -1352,13 +1354,13 @@ async function fulfillPublicError(
   });
 }
 
-test.describe("FE-P2 accessibility readiness", () => {
+test.describe("browser.workbook-shell accessibility readiness", () => {
   test(p2AccessibilityScenarioTitles[0], async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("A11YP2"),
-      "FE-A11Y-P2-01 workbook shell",
+      "a11y.workbook-shell.row-01 workbook shell",
     );
     const timelineRow = (await createViewRow(
       page,
@@ -1367,7 +1369,8 @@ test.describe("FE-P2 accessibility readiness", () => {
       {
         client_txn_id: uniqueTxn("fe-a11y-p2-01-row"),
         "timeline.activity_utc_text": "2026-05-31T09:00:00Z",
-        "timeline.activity_synopsis_text": "FE-P2 accessibility shell row",
+        "timeline.activity_synopsis_text":
+          "browser.workbook-shell accessibility shell row",
         "timeline.raw_activity_text": "Inspector control coverage",
       },
     )) as ViewRow;
@@ -1504,7 +1507,7 @@ if (
   (process.env.CARTULARY_BROWSER_RUNTIME_PROFILE_ID ?? "default") ===
   "network_flow_claimed"
 ) {
-  test("FE-A11Y-P12-01 Verify claimed Network Analysis tabs, query controls, semantic grids, inspector, graph, contributor drawer, mapping modal, focus return, names, and ARIA evidence.", async ({
+  test("a11y.network-analysis.row-01 Verify claimed Network Analysis tabs, query controls, semantic grids, inspector, graph, contributor drawer, mapping modal, focus return, names, and ARIA evidence.", async ({
     page,
   }) => {
     await openClaimedNetworkAnalysis(page, "FEP12A11Y");
@@ -1565,13 +1568,13 @@ if (
   });
 }
 
-test.describe("FE-P3 accessibility readiness", () => {
+test.describe("browser.grid-interaction accessibility readiness", () => {
   test(p3AccessibilityScenarioTitles[0], async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("A11YP3"),
-      "FE-A11Y-P3-01 grid adapter",
+      "a11y.grid-interaction.row-01 grid adapter",
     );
     const alphaRow = (await createViewRow(
       page,
@@ -1696,13 +1699,13 @@ test.describe("FE-P3 accessibility readiness", () => {
   });
 });
 
-test.describe("FE-P4 accessibility readiness", () => {
+test.describe("browser.mutation-lifecycle accessibility readiness", () => {
   test(p4AccessibilityScenarioTitles[0], async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("A11YP4"),
-      "FE-A11Y-P4-01 Timeline accessibility",
+      "a11y.mutation-lifecycle.row-01 Timeline accessibility",
     );
     const editRow = (await createViewRow(
       page,
@@ -1711,7 +1714,8 @@ test.describe("FE-P4 accessibility readiness", () => {
       {
         client_txn_id: uniqueTxn("fe-a11y-p4-01-edit"),
         "timeline.activity_utc_text": "2026-06-03T10:00:00Z",
-        "timeline.activity_synopsis_text": "FE-P4 edit accessibility row",
+        "timeline.activity_synopsis_text":
+          "browser.mutation-lifecycle edit accessibility row",
         "timeline.raw_activity_text": "Escape priority details",
       },
     )) as ViewRow;
@@ -1722,7 +1726,8 @@ test.describe("FE-P4 accessibility readiness", () => {
       {
         client_txn_id: uniqueTxn("fe-a11y-p4-01-paste"),
         "timeline.activity_utc_text": "2026-06-03T10:05:00Z",
-        "timeline.activity_synopsis_text": "FE-P4 paste accessibility row",
+        "timeline.activity_synopsis_text":
+          "browser.mutation-lifecycle paste accessibility row",
       },
     )) as ViewRow;
     const pendingRow = (await createViewRow(
@@ -1732,7 +1737,8 @@ test.describe("FE-P4 accessibility readiness", () => {
       {
         client_txn_id: uniqueTxn("fe-a11y-p4-01-pending"),
         "timeline.activity_utc_text": "2026-06-03T10:10:00Z",
-        "timeline.activity_synopsis_text": "FE-P4 pending accessibility row",
+        "timeline.activity_synopsis_text":
+          "browser.mutation-lifecycle pending accessibility row",
       },
     )) as ViewRow;
     const validationRow = (await createViewRow(
@@ -1742,7 +1748,8 @@ test.describe("FE-P4 accessibility readiness", () => {
       {
         client_txn_id: uniqueTxn("fe-a11y-p4-01-validation"),
         "timeline.activity_utc_text": "2026-06-03T10:15:00Z",
-        "timeline.activity_synopsis_text": "FE-P4 validation accessibility row",
+        "timeline.activity_synopsis_text":
+          "browser.mutation-lifecycle validation accessibility row",
       },
     )) as ViewRow;
 
@@ -1771,18 +1778,25 @@ test.describe("FE-P4 accessibility readiness", () => {
       "aria-label",
       `Activity Synopsis ${editRow.record_id}`,
     );
-    await editSummary.fill("FE-P4 accessibility committed edit");
+    await editSummary.fill(
+      "browser.mutation-lifecycle accessibility committed edit",
+    );
     await editSummary.press("Enter");
     await expect(
       page.getByTestId(
         rowCellTestId(editRow.record_id, "timeline.activity_synopsis_text"),
       ),
-    ).toHaveText("FE-P4 accessibility committed edit");
+    ).toHaveText("browser.mutation-lifecycle accessibility committed edit");
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
 
     await pasteGridMatrix({
       fieldKey: "timeline.activity_synopsis_text",
-      matrix: [["FE-P4 accessibility pasted summary", "a11y-host.example"]],
+      matrix: [
+        [
+          "browser.mutation-lifecycle accessibility pasted summary",
+          "a11y-host.example",
+        ],
+      ],
       page,
       recordId: pasteRow.record_id,
       surface: timelineViewSchemaId,
@@ -1792,7 +1806,7 @@ test.describe("FE-P4 accessibility readiness", () => {
       page.getByTestId(
         rowCellTestId(pasteRow.record_id, "timeline.activity_synopsis_text"),
       ),
-    ).toHaveText("FE-P4 accessibility pasted summary");
+    ).toHaveText("browser.mutation-lifecycle accessibility pasted summary");
 
     const patchController = await installPatchTransportFailureController(page);
     try {
@@ -1802,7 +1816,9 @@ test.describe("FE-P4 accessibility readiness", () => {
         pendingRow.record_id,
         "timeline.activity_synopsis_text",
       );
-      await pendingSummary.fill("FE-P4 accessibility pending replay");
+      await pendingSummary.fill(
+        "browser.mutation-lifecycle accessibility pending replay",
+      );
       await pendingSummary.press("Enter");
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
       await expectStatusRole(page.getByTestId(pendingQueueNoticeTestId()));
@@ -1881,7 +1897,9 @@ test.describe("FE-P4 accessibility readiness", () => {
         pendingRow.record_id,
         "timeline.activity_synopsis_text",
       );
-      await blockedSummary.fill("FE-P4 accessibility blocked edit");
+      await blockedSummary.fill(
+        "browser.mutation-lifecycle accessibility blocked edit",
+      );
       await blockedSummary.press("Enter");
       await expect.poll(() => recoveryController.calls.length).toBe(1);
 
@@ -1942,13 +1960,13 @@ test.describe("FE-P4 accessibility readiness", () => {
   });
 });
 
-test.describe("FE-P5 accessibility readiness", () => {
+test.describe("browser.entity-linking accessibility readiness", () => {
   test(p5AccessibilityScenarioTitles[0], async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("A11YP5"),
-      "FE-A11Y-P5-01 mention states",
+      "a11y.entity-linking.row-01 mention states",
     );
     const {
       autoRawText,
@@ -2129,13 +2147,13 @@ test.describe("FE-P5 accessibility readiness", () => {
   });
 });
 
-test.describe("FE-P6 accessibility readiness", () => {
+test.describe("browser.evidence-workflow accessibility readiness", () => {
   test(p6AccessibilityScenarioTitles[0], async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("A11YP6"),
-      "FE-A11Y-P6-01 evidence access",
+      "a11y.evidence-workflow.row-01 evidence access",
     );
     const requested = await createA11yEvidenceRow(page, incidentId, {
       lifecycleState: "requested",
@@ -2366,7 +2384,7 @@ test.describe("FE-P6 accessibility readiness", () => {
   });
 });
 
-test.describe("FE-P7 accessibility readiness", () => {
+test.describe("browser.collaboration accessibility readiness", () => {
   test(
     p7AccessibilityScenarioTitles[0],
     async ({ browser, page, sessionTracker }) => {
@@ -2402,7 +2420,7 @@ test.describe("FE-P7 accessibility readiness", () => {
           browser,
           sessionTracker,
           {
-            createdBy: "FE-A11Y-P7-01",
+            createdBy: "a11y.collaboration.row-01",
             email: remote.email,
             incidentId,
             password: remote.initial_password,
@@ -2505,7 +2523,7 @@ test.describe("FE-P7 accessibility readiness", () => {
   );
 });
 
-test.describe("FE-P8 accessibility readiness", () => {
+test.describe("browser.saved-view-query accessibility readiness", () => {
   test(p8AccessibilityScenarioTitles[0], async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
@@ -2679,18 +2697,20 @@ test.describe("FE-P8 accessibility readiness", () => {
   });
 });
 
-test.describe("FE-P9 accessibility readiness", () => {
+test.describe("browser.inspector-history accessibility readiness", () => {
   test(p9ConfigAccessibilityScenarioTitles[0], async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("A11YP902"),
-      "FE-A11Y-P9-02 config-driven inspector",
+      "a11y.inspector-history.row-02 config-driven inspector",
     );
     const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
       client_txn_id: uniqueTxn("fe-a11y-p9-02-row"),
-      "timeline.raw_activity_text": "FE-A11Y-P9-02 inspector details",
-      "timeline.activity_synopsis_text": "FE-A11Y-P9-02 selected row",
+      "timeline.raw_activity_text":
+        "a11y.inspector-history.row-02 inspector details",
+      "timeline.activity_synopsis_text":
+        "a11y.inspector-history.row-02 selected row",
     })) as ViewRow;
 
     await page.goto(`/?incident_id=${incidentId}`);
@@ -2726,7 +2746,9 @@ test.describe("FE-P9 accessibility readiness", () => {
       }),
     );
     await expectVisibleFocus(detailsEditor);
-    await expect(detailsEditor).toHaveValue("FE-A11Y-P9-02 inspector details");
+    await expect(detailsEditor).toHaveValue(
+      "a11y.inspector-history.row-02 inspector details",
+    );
 
     await expectVisibleSemanticGridCellFocus(summaryCell);
     await page.keyboard.press("Shift+F10");
@@ -2940,7 +2962,7 @@ test.describe("FE-P9 accessibility readiness", () => {
   });
 });
 
-test.describe("FE-P10 accessibility readiness", () => {
+test.describe("browser.coordination-review accessibility readiness", () => {
   test(p10AccessibilityScenarioTitles[0], async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
@@ -2949,9 +2971,9 @@ test.describe("FE-P10 accessibility readiness", () => {
       "FE-A11Y-P10 coordination accessibility",
     );
     const owner = await createIncidentMemberUser(page, incidentId, {
-      display_name: "FE-P10 accessibility owner",
-      email: uniqueEmail("fe-p10-a11y-owner"),
-      initial_password: "Phase10A11y1!",
+      display_name: "browser.coordination-review accessibility owner",
+      email: uniqueEmail("coordination-review-a11y-owner"),
+      initial_password: "BackupRestoreA11y1!",
       role: "editor",
     });
     const party = (await createViewRow(page, incidentId, partiesViewSchemaId, {
@@ -3303,7 +3325,7 @@ test.describe("FE-P10 accessibility readiness", () => {
   });
 });
 
-test.describe("FE-P11 accessibility readiness", () => {
+test.describe("browser.design-readiness accessibility readiness", () => {
   test(p11AccessibilityScenarioTitles[0], async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
@@ -3454,7 +3476,7 @@ test.describe("FE-P11 accessibility readiness", () => {
   });
 });
 
-test.describe("FE-P1 accessibility readiness", () => {
+test.describe("browser.incident-selection accessibility readiness", () => {
   test(p1AccessibilityScenarioTitles[0], async ({ page }) => {
     await clearBrowserSession(page);
     const heldSession = await holdSinglePublicAPIResponse(page, {
@@ -3541,9 +3563,9 @@ test.describe("FE-P1 accessibility readiness", () => {
         ],
       });
       await sessionTracker.captureCurrentSession(page, {
-        createdBy: "phase1 accessibility",
+        createdBy: "authentication accessibility",
         email,
-        purpose: "FE-A11Y-P1-01 anonymous login",
+        purpose: "a11y.incident-selection.row-01 anonymous login",
         userId: user.user_id,
       });
     },
@@ -3596,9 +3618,9 @@ test.describe("FE-P1 accessibility readiness", () => {
         page.getByTestId(incidentLandingTestId("current-user")),
       ).toContainText("A11Y P1 MFA");
       await sessionTracker.captureCurrentSession(page, {
-        createdBy: "phase1 accessibility",
+        createdBy: "authentication accessibility",
         email,
-        purpose: "FE-A11Y-P1-01 mfa_required retry",
+        purpose: "a11y.incident-selection.row-01 mfa_required retry",
         userId: user.user_id,
       });
     },
@@ -3810,9 +3832,9 @@ test.describe("FE-P1 accessibility readiness", () => {
         page.getByTestId(appRouteTestId("workbook-current-user")),
       );
       await sessionTracker.captureCurrentSession(page, {
-        createdBy: "phase1 accessibility",
+        createdBy: "authentication accessibility",
         email,
-        purpose: "FE-A11Y-P1-01 incident states",
+        purpose: "a11y.incident-selection.row-01 incident states",
         userId: user.user_id,
       });
     },
@@ -3892,16 +3914,17 @@ test.describe("FE-P1 accessibility readiness", () => {
         page.getByTestId(appRouteTestId("workbook-current-user")),
       ).toContainText("A11Y P1 Revoked");
       await sessionTracker.captureCurrentSession(page, {
-        createdBy: "phase1 accessibility",
+        createdBy: "authentication accessibility",
         email,
-        purpose: "FE-A11Y-P1-01 revoked session before revoke-all",
+        purpose:
+          "a11y.incident-selection.row-01 revoked session before revoke-all",
         userId: user.user_id,
       });
 
       await revokeAllSessions(
         workerAdminRequest,
         user.user_id,
-        "FE-A11Y-P1-01 revoked-session",
+        "a11y.incident-selection.row-01 revoked-session",
       );
       await page.getByLabel("Account and application navigation").click();
       await page.getByRole("menuitem", { name: "Incidents" }).click();
@@ -3927,9 +3950,9 @@ test.describe("FE-P1 accessibility readiness", () => {
         page.getByTestId(appRouteTestId("workbook-current-user")),
       ).toContainText("A11Y P1 Revoked");
       await sessionTracker.captureCurrentSession(page, {
-        createdBy: "phase1 accessibility",
+        createdBy: "authentication accessibility",
         email,
-        purpose: "FE-A11Y-P1-01 revoked session re-auth",
+        purpose: "a11y.incident-selection.row-01 revoked session re-auth",
         userId: user.user_id,
       });
     },

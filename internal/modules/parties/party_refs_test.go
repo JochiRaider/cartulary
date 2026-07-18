@@ -109,19 +109,19 @@ func TestDirectDecisionReferenceDecoderAcceptsOnlyExactStableIDs_Unit(t *testing
 
 func TestDirectPartyReferencesRequireSameIncidentActiveParties_Unit(t *testing.T) {
 	ctx := context.Background()
-	harness := recordstoretest.StartStore(t, "phase9-u-9-11-party-refs")
+	harness := recordstoretest.StartStore(t, "workbook_interaction-u-9-11-party-refs")
 	store := workbook.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u911@example.test", "U911 Party Refs", "U911PartyRefs1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-11-incident", "IR-U911", "Workbook inspector U-9-11")
-	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-11-other-incident", "IR-U911B", "Workbook inspector U-9-11 Other")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-11-incident", "IR-U911", "Workbook inspector U-9-11")
+	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-11-other-incident", "IR-U911B", "Workbook inspector U-9-11 Other")
 
-	activeParty := mustCreatePartyFor(t, store, actor, incident.ID, "txn-phase9-u-9-11-active-party", "Active Party")
-	foreignParty := mustCreatePartyFor(t, store, actor, otherIncident.ID, "txn-phase9-u-9-11-foreign-party", "Foreign Party")
-	deletedParty := mustCreatePartyFor(t, store, actor, incident.ID, "txn-phase9-u-9-11-deleted-party", "Deleted Party")
+	activeParty := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-u-9-11-active-party", "Active Party")
+	foreignParty := mustCreatePartyFor(t, store, actor, otherIncident.ID, "txn-workbook_interaction-u-9-11-foreign-party", "Foreign Party")
+	deletedParty := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-u-9-11-deleted-party", "Deleted Party")
 	if _, err := harness.DB.Exec(ctx, `UPDATE records SET deleted_at = $2, deleted_by_user_id = $3 WHERE record_id = $1`, deletedParty, time.Date(2026, 5, 18, 13, 0, 0, 0, time.UTC), actor.ID); err != nil {
 		t.Fatalf("soft-delete party target: %v", err)
 	}
-	wrongType := mustCreateEvidenceFor(t, store, actor, incident.ID, "txn-phase9-u-9-11-wrong-type-evidence", "Wrong type evidence")
+	wrongType := mustCreateEvidenceFor(t, store, actor, incident.ID, "txn-workbook_interaction-u-9-11-wrong-type-evidence", "Wrong type evidence")
 
 	for _, tc := range []struct {
 		name         string
@@ -133,30 +133,30 @@ func TestDirectPartyReferencesRequireSameIncidentActiveParties_Unit(t *testing.T
 		{
 			name:         "collector",
 			viewSchemaID: workbook.EvidenceViewSchemaID,
-			recordID:     mustCreateEvidenceFor(t, store, actor, incident.ID, "txn-phase9-u-9-11-collector-evidence", "Collector party ref"),
+			recordID:     mustCreateEvidenceFor(t, store, actor, incident.ID, "txn-workbook_interaction-u-9-11-collector-evidence", "Collector party ref"),
 			baseVersion:  1,
 			fieldKey:     "evidence.collector_party_id",
 		},
 		{
 			name:         "source",
 			viewSchemaID: workbook.EvidenceViewSchemaID,
-			recordID:     mustCreateEvidenceFor(t, store, actor, incident.ID, "txn-phase9-u-9-11-source-evidence", "Source party ref"),
+			recordID:     mustCreateEvidenceFor(t, store, actor, incident.ID, "txn-workbook_interaction-u-9-11-source-evidence", "Source party ref"),
 			baseVersion:  1,
 			fieldKey:     "evidence.source_party_id",
 		},
 		{
 			name:         "requester",
 			viewSchemaID: workbook.TaskRequestsViewSchemaID,
-			recordID:     mustCreateTaskFor(t, store, actor, incident.ID, "txn-phase9-u-9-11-requester-task", "Requester party ref"),
+			recordID:     mustCreateTaskFor(t, store, actor, incident.ID, "txn-workbook_interaction-u-9-11-requester-task", "Requester party ref"),
 			baseVersion:  1,
 			fieldKey:     "task.requester_party_id",
 		},
 	} {
-		linked := mustPatchPartyRefFor(t, store, actor, tc.recordID, tc.viewSchemaID, tc.baseVersion, tc.fieldKey, &activeParty, "txn-phase9-u-9-11-"+tc.name+"-link-active")
+		linked := mustPatchPartyRefFor(t, store, actor, tc.recordID, tc.viewSchemaID, tc.baseVersion, tc.fieldKey, &activeParty, "txn-workbook_interaction-u-9-11-"+tc.name+"-link-active")
 		requirePartyReferenceCellValue(t, linked, tc.fieldKey, activeParty.String())
 
 		linkedVersion := mustRowVersion(t, linked)
-		cleared := mustPatchPartyRefFor(t, store, actor, tc.recordID, tc.viewSchemaID, linkedVersion, tc.fieldKey, nil, "txn-phase9-u-9-11-"+tc.name+"-clear")
+		cleared := mustPatchPartyRefFor(t, store, actor, tc.recordID, tc.viewSchemaID, linkedVersion, tc.fieldKey, nil, "txn-workbook_interaction-u-9-11-"+tc.name+"-clear")
 		requirePartyReferenceCellValue(t, cleared, tc.fieldKey, nil)
 		clearVersion := mustRowVersion(t, cleared)
 
@@ -169,7 +169,7 @@ func TestDirectPartyReferencesRequireSameIncidentActiveParties_Unit(t *testing.T
 			{name: "wrong-type", id: wrongType},
 			{name: "deployment-user", id: actor.ID},
 		} {
-			err := patchPartyRefFor(store, actor, tc.recordID, tc.viewSchemaID, clearVersion, tc.fieldKey, &invalid.id, "txn-phase9-u-9-11-"+tc.name+"-"+invalid.name)
+			err := patchPartyRefFor(store, actor, tc.recordID, tc.viewSchemaID, clearVersion, tc.fieldKey, &invalid.id, "txn-workbook_interaction-u-9-11-"+tc.name+"-"+invalid.name)
 			var validationErr *workbook.MutationValidationError
 			if !errors.As(err, &validationErr) {
 				t.Fatalf("%s %s: expected mutation validation error, got %v", tc.name, invalid.name, err)

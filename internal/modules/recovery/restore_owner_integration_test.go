@@ -14,7 +14,7 @@ import (
 
 func TestRestoreReadinessAndCoherentStoreOrder_Unit(t *testing.T) {
 	ctx := context.Background()
-	failing := newRestoreProjectionContractFixture(t, ctx, "phase10-u-10-02-failing", uuid.MustParse("00000000-0000-0000-0000-000000102001"))
+	failing := newRestoreProjectionContractFixture(t, ctx, "backup_restore-u-10-02-failing", uuid.MustParse("00000000-0000-0000-0000-000000102001"))
 	failingReadiness := &recordingRestoreReadinessGate{}
 	failingObserver := &restoreStepRecorder{}
 	failing.Target.Projections = failingProjectionRebuilder{}
@@ -35,7 +35,7 @@ func TestRestoreReadinessAndCoherentStoreOrder_Unit(t *testing.T) {
 		t.Fatalf("failing restore steps got %v want %v", got, want)
 	}
 
-	success := newRestoreProjectionContractFixture(t, ctx, "phase10-u-10-02-success", uuid.MustParse("00000000-0000-0000-0000-000000102002"))
+	success := newRestoreProjectionContractFixture(t, ctx, "backup_restore-u-10-02-success", uuid.MustParse("00000000-0000-0000-0000-000000102002"))
 	readiness := &recordingRestoreReadinessGate{}
 	observer := &restoreStepRecorder{}
 	success.Target.Projections = &recordingProjectionRebuilder{}
@@ -61,7 +61,7 @@ func TestRestoreReadinessAndCoherentStoreOrder_Unit(t *testing.T) {
 
 func TestMissingArtifactFailsBeforeReadinessBlocked_Integration(t *testing.T) {
 	ctx := context.Background()
-	fixture := newRestoreProjectionContractFixture(t, ctx, "phase10-i-10-03", uuid.MustParse("00000000-0000-0000-0000-000000103003"))
+	fixture := newRestoreProjectionContractFixture(t, ctx, "backup_restore-i-10-03", uuid.MustParse("00000000-0000-0000-0000-000000103003"))
 	readiness := &recordingRestoreReadinessGate{}
 	observer := &restoreStepRecorder{}
 	fixture.Target.Projections = &recordingProjectionRebuilder{}
@@ -86,7 +86,7 @@ func TestMissingArtifactFailsBeforeReadinessBlocked_Integration(t *testing.T) {
 
 func TestFailClosedRestoreVerificationBlocked_Unit(t *testing.T) {
 	ctx := context.Background()
-	fixture := newRestoreProjectionContractFixture(t, ctx, "phase10-u-10-03", uuid.MustParse("00000000-0000-0000-0000-000000103001"))
+	fixture := newRestoreProjectionContractFixture(t, ctx, "backup_restore-u-10-03", uuid.MustParse("00000000-0000-0000-0000-000000103001"))
 
 	for _, tc := range []struct {
 		name    string
@@ -158,8 +158,8 @@ func TestFailClosedRestoreVerificationBlocked_Unit(t *testing.T) {
 	}
 
 	basis, err := recovery.RestoreVerificationBasisSHA256(map[string]string{
-		"backup_mechanism": "phase10.recovery.restore.v1",
-		"fixture":          "phase10-u-10-03",
+		"backup_mechanism": "backup_restore.recovery.restore.v1",
+		"fixture":          "backup_restore-u-10-03",
 	})
 	if err != nil {
 		t.Fatalf("restore verification basis: %v", err)
@@ -179,7 +179,7 @@ func TestFailClosedRestoreVerificationBlocked_Unit(t *testing.T) {
 		t.Fatalf("successful verification state got %#v", verified)
 	}
 
-	failureFixture := newRestoreProjectionContractFixture(t, ctx, "phase10-u-10-03-failure", uuid.MustParse("00000000-0000-0000-0000-000000103002"))
+	failureFixture := newRestoreProjectionContractFixture(t, ctx, "backup_restore-u-10-03-failure", uuid.MustParse("00000000-0000-0000-0000-000000103002"))
 	failureTarget := failureFixture.Target
 	failureTarget.Projections = failingProjectionRebuilder{}
 	_, err = recovery.NewRestoreVerificationService(failureFixture.Store, failureFixture.Runner).VerifyBackupSet(ctx, recovery.RestoreVerificationTarget{

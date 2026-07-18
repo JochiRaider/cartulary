@@ -156,7 +156,7 @@
           "const": "NF-AC-107"
         },
         "selector_prefix": {
-          "const": "phase12/network-flow/"
+          "const": "network-flow/acceptance/"
         },
         "tracker_row_prefix": {
           "const": "NF-AC-"

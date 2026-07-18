@@ -19,30 +19,30 @@ func TestOptionalStandardizedSurfacesStoreBehavior_Unit(t *testing.T) {
 	requireOptionalSurfaceResources(t)
 
 	ctx := context.Background()
-	harness := recordstoretest.StartStore(t, "phase9-optional-surfaces-store")
+	harness := recordstoretest.StartStore(t, "workbook_interaction-optional-surfaces-store")
 	store := workbook.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "optional-surfaces@example.test", "Optional Surfaces", "OptionalSurfaces1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-optional-incident", "IR-OPTIONAL", "Workbook inspector optional surfaces")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-optional-incident", "IR-OPTIONAL", "Workbook inspector optional surfaces")
 
 	before := countOptionalSurfaceDurableState(t, harness.DB, incident.ID)
 	_, err := store.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.FindingsViewSchemaID,
-		ClientTxnID:  "txn-phase9-optional-finding-reject",
+		ClientTxnID:  "txn-workbook_interaction-optional-finding-reject",
 		Values: map[string]workbook.ValueChange{
 			"finding.kind": Text("finding"),
 		},
-	}, []byte("txn-phase9-optional-finding-reject"), "req-phase9-optional-finding-reject", Time(0))
+	}, []byte("txn-workbook_interaction-optional-finding-reject"), "req-workbook_interaction-optional-finding-reject", Time(0))
 	requireMutationValidation(t, err, "finding.statement", "missing_required_field")
 	requireOptionalSurfaceDurableState(t, harness.DB, incident.ID, before, "rejected finding create")
 
-	support := mustCreateRow(t, store, actor, incident.ID, workbook.NotesViewSchemaID, "txn-phase9-optional-support-note", map[string]workbook.ValueChange{
+	support := mustCreateRow(t, store, actor, incident.ID, workbook.NotesViewSchemaID, "txn-workbook_interaction-optional-support-note", map[string]workbook.ValueChange{
 		"note.title": Text("Supporting note"),
 	}, nil, Time(0))
-	contradiction := mustCreateRow(t, store, actor, incident.ID, workbook.NotesViewSchemaID, "txn-phase9-optional-contradiction-note", map[string]workbook.ValueChange{
+	contradiction := mustCreateRow(t, store, actor, incident.ID, workbook.NotesViewSchemaID, "txn-workbook_interaction-optional-contradiction-note", map[string]workbook.ValueChange{
 		"note.title": Text("Contradictory note"),
 	}, nil, Time(0))
 
-	finding := mustCreateRow(t, store, actor, incident.ID, workbook.FindingsViewSchemaID, "txn-phase9-optional-finding", map[string]workbook.ValueChange{
+	finding := mustCreateRow(t, store, actor, incident.ID, workbook.FindingsViewSchemaID, "txn-workbook_interaction-optional-finding", map[string]workbook.ValueChange{
 		"finding.statement":        Text("EDR shows suspicious process execution"),
 		"finding.kind":             Text("hypothesis"),
 		"finding.confidence_score": optionalNumber(72),
@@ -59,7 +59,7 @@ func TestOptionalStandardizedSurfacesStoreBehavior_Unit(t *testing.T) {
 	requireCoordinationCollectionItemCount(t, findingRow, "finding.supporting_refs", 0)
 	requireCoordinationCollectionItemCount(t, findingRow, "finding.contradictory_refs", 0)
 
-	closed := mustPatch(t, store, actor, finding.RecordID, workbook.FindingsViewSchemaID, 1, "txn-phase9-optional-finding-close",
+	closed := mustPatch(t, store, actor, finding.RecordID, workbook.FindingsViewSchemaID, 1, "txn-workbook_interaction-optional-finding-close",
 		ValueChange("finding.state", Text("closed")),
 		CollectionChange("finding.supporting_refs", Collection(addOptionalSurfaceRecordRef(support.RecordID))),
 		CollectionChange("finding.contradictory_refs", Collection(addOptionalSurfaceRecordRef(contradiction.RecordID))),
@@ -72,17 +72,17 @@ func TestOptionalStandardizedSurfacesStoreBehavior_Unit(t *testing.T) {
 	requireManualReferenceLink(t, harness, finding.RecordID, support.RecordID, "finding.supporting_refs", "supported_by")
 	requireManualReferenceLink(t, harness, finding.RecordID, contradiction.RecordID, "finding.contradictory_refs", "references_record")
 
-	reopened := mustPatch(t, store, actor, finding.RecordID, workbook.FindingsViewSchemaID, 2, "txn-phase9-optional-finding-reopen",
+	reopened := mustPatch(t, store, actor, finding.RecordID, workbook.FindingsViewSchemaID, 2, "txn-workbook_interaction-optional-finding-reopen",
 		ValueChange("finding.state", Text("open")),
 	)
 	requireCoordinationCellValue(t, reopened.Payload["row"].(map[string]any), "finding.closed_at", nil)
 
-	_, err = Patch(store, actor, finding.RecordID, workbook.FindingsViewSchemaID, 3, "txn-phase9-optional-finding-invalid-confidence",
+	_, err = Patch(store, actor, finding.RecordID, workbook.FindingsViewSchemaID, 3, "txn-workbook_interaction-optional-finding-invalid-confidence",
 		ValueChange("finding.confidence_score", optionalNumber(101)),
 	)
 	requireMutationValidation(t, err, "finding.confidence_score", "invalid_value")
 
-	investigativeQuery := mustCreateRow(t, store, actor, incident.ID, workbook.InvestigativeQueriesViewSchemaID, "txn-phase9-optional-query", map[string]workbook.ValueChange{
+	investigativeQuery := mustCreateRow(t, store, actor, incident.ID, workbook.InvestigativeQueriesViewSchemaID, "txn-workbook_interaction-optional-query", map[string]workbook.ValueChange{
 		"investigative_query.platform":   Text("Kusto"),
 		"investigative_query.purpose":    Text("Find suspicious PowerShell"),
 		"investigative_query.query_text": Text("SecurityEvent | take 10"),
@@ -95,7 +95,7 @@ func TestOptionalStandardizedSurfacesStoreBehavior_Unit(t *testing.T) {
 	requireCellNonEmpty(t, queryRow, "investigative_query.created_at")
 	requireCellNonEmpty(t, queryRow, "investigative_query.created_day")
 
-	forensicKeyword := mustCreateRow(t, store, actor, incident.ID, workbook.ForensicKeywordsViewSchemaID, "txn-phase9-optional-keyword", map[string]workbook.ValueChange{
+	forensicKeyword := mustCreateRow(t, store, actor, incident.ID, workbook.ForensicKeywordsViewSchemaID, "txn-workbook_interaction-optional-keyword", map[string]workbook.ValueChange{
 		"forensic_keyword.pattern": Text("powershell.exe"),
 		"forensic_keyword.reason":  Text("Interactive shell execution"),
 	}, nil, Time(0))
@@ -105,7 +105,7 @@ func TestOptionalStandardizedSurfacesStoreBehavior_Unit(t *testing.T) {
 	requireCoordinationCellValue(t, keywordRow, "forensic_keyword.match_mode", "literal")
 	requireCoordinationCellValue(t, keywordRow, "forensic_keyword.case_sensitive", false)
 
-	keywordPatched := mustPatch(t, store, actor, forensicKeyword.RecordID, workbook.ForensicKeywordsViewSchemaID, 1, "txn-phase9-optional-keyword-patch",
+	keywordPatched := mustPatch(t, store, actor, forensicKeyword.RecordID, workbook.ForensicKeywordsViewSchemaID, 1, "txn-workbook_interaction-optional-keyword-patch",
 		ValueChange("forensic_keyword.match_mode", Text("regex")),
 		ValueChange("forensic_keyword.case_sensitive", optionalBool(true)),
 	)
@@ -113,24 +113,24 @@ func TestOptionalStandardizedSurfacesStoreBehavior_Unit(t *testing.T) {
 	requireCoordinationCellValue(t, keywordPatchedRow, "forensic_keyword.match_mode", "regex")
 	requireCoordinationCellValue(t, keywordPatchedRow, "forensic_keyword.case_sensitive", true)
 
-	_, err = Patch(store, actor, forensicKeyword.RecordID, workbook.ForensicKeywordsViewSchemaID, 2, "txn-phase9-optional-keyword-invalid-mode",
+	_, err = Patch(store, actor, forensicKeyword.RecordID, workbook.ForensicKeywordsViewSchemaID, 2, "txn-workbook_interaction-optional-keyword-invalid-mode",
 		ValueChange("forensic_keyword.match_mode", Text("glob")),
 	)
 	requireMutationValidation(t, err, "forensic_keyword.match_mode", "invalid_value")
 }
 
 func TestOptionalStandardizedSurfacesProjectionQueryBehavior_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "phase9-optional-surfaces-query")
+	harness := recordstoretest.StartStore(t, "workbook_interaction-optional-surfaces-query")
 	store := workbook.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "optional-query@example.test", "Optional Query", "OptionalQuery1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-optional-query-incident", "IR-OPTIONAL-QUERY", "Workbook inspector optional query behavior")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-optional-query-incident", "IR-OPTIONAL-QUERY", "Workbook inspector optional query behavior")
 
-	finding := mustCreateRow(t, store, actor, incident.ID, workbook.FindingsViewSchemaID, "txn-phase9-optional-query-finding-high", map[string]workbook.ValueChange{
+	finding := mustCreateRow(t, store, actor, incident.ID, workbook.FindingsViewSchemaID, "txn-workbook_interaction-optional-query-finding-high", map[string]workbook.ValueChange{
 		"finding.statement":        Text("Confirmed malware execution"),
 		"finding.kind":             Text("hypothesis"),
 		"finding.confidence_score": optionalNumber(91),
 	}, nil, Time(0))
-	mustCreateRow(t, store, actor, incident.ID, workbook.FindingsViewSchemaID, "txn-phase9-optional-query-finding-low", map[string]workbook.ValueChange{
+	mustCreateRow(t, store, actor, incident.ID, workbook.FindingsViewSchemaID, "txn-workbook_interaction-optional-query-finding-low", map[string]workbook.ValueChange{
 		"finding.statement":        Text("Possible benign admin action"),
 		"finding.kind":             Text("finding"),
 		"finding.confidence_score": optionalNumber(12),
@@ -141,12 +141,12 @@ func TestOptionalStandardizedSurfacesProjectionQueryBehavior_Unit(t *testing.T) 
 		GroupBy: StringPtr("finding.kind"),
 	}, finding.RecordID, "finding.kind", "hypothesis")
 
-	query := mustCreateRow(t, store, actor, incident.ID, workbook.InvestigativeQueriesViewSchemaID, "txn-phase9-optional-query-kusto", map[string]workbook.ValueChange{
+	query := mustCreateRow(t, store, actor, incident.ID, workbook.InvestigativeQueriesViewSchemaID, "txn-workbook_interaction-optional-query-kusto", map[string]workbook.ValueChange{
 		"investigative_query.platform":   Text("Kusto"),
 		"investigative_query.purpose":    Text("Endpoint triage"),
 		"investigative_query.query_text": Text("DeviceProcessEvents | take 20"),
 	}, nil, Time(0))
-	mustCreateRow(t, store, actor, incident.ID, workbook.InvestigativeQueriesViewSchemaID, "txn-phase9-optional-query-splunk", map[string]workbook.ValueChange{
+	mustCreateRow(t, store, actor, incident.ID, workbook.InvestigativeQueriesViewSchemaID, "txn-workbook_interaction-optional-query-splunk", map[string]workbook.ValueChange{
 		"investigative_query.platform":   Text("Splunk"),
 		"investigative_query.purpose":    Text("Network triage"),
 		"investigative_query.query_text": Text("index=proxy | head 20"),
@@ -157,13 +157,13 @@ func TestOptionalStandardizedSurfacesProjectionQueryBehavior_Unit(t *testing.T) 
 		GroupBy: StringPtr("investigative_query.platform"),
 	}, query.RecordID, "investigative_query.platform", "Kusto")
 
-	keyword := mustCreateRow(t, store, actor, incident.ID, workbook.ForensicKeywordsViewSchemaID, "txn-phase9-optional-query-keyword-regex", map[string]workbook.ValueChange{
+	keyword := mustCreateRow(t, store, actor, incident.ID, workbook.ForensicKeywordsViewSchemaID, "txn-workbook_interaction-optional-query-keyword-regex", map[string]workbook.ValueChange{
 		"forensic_keyword.pattern":        Text("(?i)powershell"),
 		"forensic_keyword.reason":         Text("Shell execution"),
 		"forensic_keyword.match_mode":     Text("regex"),
 		"forensic_keyword.case_sensitive": optionalBool(true),
 	}, nil, Time(0))
-	mustCreateRow(t, store, actor, incident.ID, workbook.ForensicKeywordsViewSchemaID, "txn-phase9-optional-query-keyword-literal", map[string]workbook.ValueChange{
+	mustCreateRow(t, store, actor, incident.ID, workbook.ForensicKeywordsViewSchemaID, "txn-workbook_interaction-optional-query-keyword-literal", map[string]workbook.ValueChange{
 		"forensic_keyword.pattern": Text("cmd.exe"),
 		"forensic_keyword.reason":  Text("Command shell"),
 	}, nil, Time(0))
@@ -175,10 +175,10 @@ func TestOptionalStandardizedSurfacesProjectionQueryBehavior_Unit(t *testing.T) 
 }
 
 func TestFindingsConfidenceBandBoundaries_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "phase9-optional-findings-confidence-boundaries")
+	harness := recordstoretest.StartStore(t, "workbook_interaction-optional-findings-confidence-boundaries")
 	store := workbook.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "optional-boundaries@example.test", "Optional Boundaries", "OptionalBoundaries1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-optional-boundaries-incident", "IR-OPTIONAL-BAND", "Workbook inspector optional finding confidence bands")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-optional-boundaries-incident", "IR-OPTIONAL-BAND", "Workbook inspector optional finding confidence bands")
 
 	createdByBand := map[string][]uuid.UUID{}
 	for index, tc := range []struct {
@@ -200,7 +200,7 @@ func TestFindingsConfidenceBandBoundaries_Unit(t *testing.T) {
 		if tc.score != nil {
 			values["finding.confidence_score"] = optionalNumber(*tc.score)
 		}
-		result := mustCreateRow(t, store, actor, incident.ID, workbook.FindingsViewSchemaID, "txn-phase9-optional-boundary-"+tc.key, values, nil, Time(time.Duration(index)*time.Minute))
+		result := mustCreateRow(t, store, actor, incident.ID, workbook.FindingsViewSchemaID, "txn-workbook_interaction-optional-boundary-"+tc.key, values, nil, Time(time.Duration(index)*time.Minute))
 		row := result.Payload["row"].(map[string]any)
 		if tc.score == nil {
 			requireCoordinationCellValue(t, row, "finding.confidence_score", nil)

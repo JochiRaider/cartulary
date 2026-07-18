@@ -22,33 +22,33 @@ func (partyTestAttributionResolver) ResolveImportedSourceActorsTx(context.Contex
 }
 
 func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "phase9-u-9-05-parties")
+	harness := recordstoretest.StartStore(t, "workbook_interaction-u-9-05-parties")
 	store := workbook.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u905@example.test", "U905 Parties", "U905PartiesPass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-05-incident", "IR-U905", "Workbook inspector U-9-05")
-	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-05-other-incident", "IR-U905B", "Workbook inspector U-9-05 Other")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-05-incident", "IR-U905", "Workbook inspector U-9-05")
+	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-05-other-incident", "IR-U905B", "Workbook inspector U-9-05 Other")
 
 	createdByEmail, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.PartiesViewSchemaID,
-		ClientTxnID:  "txn-phase9-u-9-05-party-email",
+		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-email",
 		Values: map[string]workbook.ValueChange{
 			"party.display_name":  textChange("IR Vendor"),
 			"party.party_kind":    textChange("organization"),
 			"party.primary_email": textChange("Vendor@Example.Test"),
 		},
-	}, []byte("txn-phase9-u-9-05-party-email"), "req-phase9-u-9-05-party-email", time.Date(2026, 5, 18, 12, 0, 0, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-u-9-05-party-email"), "req-workbook_interaction-u-9-05-party-email", time.Date(2026, 5, 18, 12, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create party by email: %v", err)
 	}
 	reusedByEmail, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.PartiesViewSchemaID,
-		ClientTxnID:  "txn-phase9-u-9-05-party-email-reuse",
+		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-email-reuse",
 		Values: map[string]workbook.ValueChange{
 			"party.display_name":  textChange("Phone-like label must not drive reuse"),
 			"party.party_kind":    textChange("person"),
 			"party.primary_email": textChange(" vendor@example.test "),
 		},
-	}, []byte("txn-phase9-u-9-05-party-email-reuse"), "req-phase9-u-9-05-party-email-reuse", time.Date(2026, 5, 18, 12, 1, 0, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-u-9-05-party-email-reuse"), "req-workbook_interaction-u-9-05-party-email-reuse", time.Date(2026, 5, 18, 12, 1, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("reuse party by email: %v", err)
 	}
@@ -59,25 +59,25 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 
 	createdByExternalRef, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.PartiesViewSchemaID,
-		ClientTxnID:  "txn-phase9-u-9-05-party-external-ref",
+		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-external-ref",
 		Values: map[string]workbook.ValueChange{
 			"party.display_name": textChange("Outside Counsel"),
 			"party.party_kind":   textChange("organization"),
 			"party.external_ref": textChange("EXT-42"),
 		},
-	}, []byte("txn-phase9-u-9-05-party-external-ref"), "req-phase9-u-9-05-party-external-ref", time.Date(2026, 5, 18, 12, 2, 0, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-u-9-05-party-external-ref"), "req-workbook_interaction-u-9-05-party-external-ref", time.Date(2026, 5, 18, 12, 2, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create party by external ref: %v", err)
 	}
 	reusedByExternalRef, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.PartiesViewSchemaID,
-		ClientTxnID:  "txn-phase9-u-9-05-party-external-ref-reuse",
+		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-external-ref-reuse",
 		Values: map[string]workbook.ValueChange{
 			"party.display_name": textChange("Outside Counsel Alias"),
 			"party.party_kind":   textChange("organization"),
 			"party.external_ref": textChange(" ext-42 "),
 		},
-	}, []byte("txn-phase9-u-9-05-party-external-ref-reuse"), "req-phase9-u-9-05-party-external-ref-reuse", time.Date(2026, 5, 18, 12, 3, 0, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-u-9-05-party-external-ref-reuse"), "req-workbook_interaction-u-9-05-party-external-ref-reuse", time.Date(2026, 5, 18, 12, 3, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("reuse party by external ref: %v", err)
 	}
@@ -88,27 +88,27 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 
 	displayOnly, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.PartiesViewSchemaID,
-		ClientTxnID:  "txn-phase9-u-9-05-party-display-only",
+		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-display-only",
 		Values: map[string]workbook.ValueChange{
 			"party.display_name":      textChange("Duplicate Display"),
 			"party.party_kind":        textChange("person"),
 			"party.organization_name": textChange("Duplicate Org"),
 			"party.role_title":        textChange("Duplicate Role"),
 		},
-	}, []byte("txn-phase9-u-9-05-party-display-only"), "req-phase9-u-9-05-party-display-only", time.Date(2026, 5, 18, 12, 3, 30, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-u-9-05-party-display-only"), "req-workbook_interaction-u-9-05-party-display-only", time.Date(2026, 5, 18, 12, 3, 30, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create display-only party: %v", err)
 	}
 	displayOnlyAgain, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.PartiesViewSchemaID,
-		ClientTxnID:  "txn-phase9-u-9-05-party-display-only-again",
+		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-display-only-again",
 		Values: map[string]workbook.ValueChange{
 			"party.display_name":      textChange("Duplicate Display"),
 			"party.party_kind":        textChange("person"),
 			"party.organization_name": textChange("Duplicate Org"),
 			"party.role_title":        textChange("Duplicate Role"),
 		},
-	}, []byte("txn-phase9-u-9-05-party-display-only-again"), "req-phase9-u-9-05-party-display-only-again", time.Date(2026, 5, 18, 12, 3, 45, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-u-9-05-party-display-only-again"), "req-workbook_interaction-u-9-05-party-display-only-again", time.Date(2026, 5, 18, 12, 3, 45, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create second display-only party: %v", err)
 	}
@@ -119,27 +119,27 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 
 	phoneLike, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.PartiesViewSchemaID,
-		ClientTxnID:  "txn-phase9-u-9-05-party-phone-like",
+		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-phone-like",
 		Values: map[string]workbook.ValueChange{
 			"party.display_name":      textChange("+1 555 0100"),
 			"party.party_kind":        textChange("person"),
 			"party.organization_name": textChange("+1 555 0100"),
 			"party.role_title":        textChange("+1 555 0100"),
 		},
-	}, []byte("txn-phase9-u-9-05-party-phone-like"), "req-phase9-u-9-05-party-phone-like", time.Date(2026, 5, 18, 12, 3, 46, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-u-9-05-party-phone-like"), "req-workbook_interaction-u-9-05-party-phone-like", time.Date(2026, 5, 18, 12, 3, 46, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create phone-like party: %v", err)
 	}
 	phoneLikeAgain, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.PartiesViewSchemaID,
-		ClientTxnID:  "txn-phase9-u-9-05-party-phone-like-again",
+		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-phone-like-again",
 		Values: map[string]workbook.ValueChange{
 			"party.display_name":      textChange("+1 555 0100"),
 			"party.party_kind":        textChange("person"),
 			"party.organization_name": textChange("+1 555 0100"),
 			"party.role_title":        textChange("+1 555 0100"),
 		},
-	}, []byte("txn-phase9-u-9-05-party-phone-like-again"), "req-phase9-u-9-05-party-phone-like-again", time.Date(2026, 5, 18, 12, 3, 47, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-u-9-05-party-phone-like-again"), "req-workbook_interaction-u-9-05-party-phone-like-again", time.Date(2026, 5, 18, 12, 3, 47, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create second phone-like party: %v", err)
 	}
@@ -150,24 +150,24 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 
 	ambiguousAnchor, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.PartiesViewSchemaID,
-		ClientTxnID:  "txn-phase9-u-9-05-party-ambiguous-anchor",
+		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-ambiguous-anchor",
 		Values: map[string]workbook.ValueChange{
 			"party.display_name":  textChange("Ambiguous Anchor"),
 			"party.party_kind":    textChange("organization"),
 			"party.primary_email": textChange("ambiguous@example.test"),
 		},
-	}, []byte("txn-phase9-u-9-05-party-ambiguous-anchor"), "req-phase9-u-9-05-party-ambiguous-anchor", time.Date(2026, 5, 18, 12, 3, 50, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-u-9-05-party-ambiguous-anchor"), "req-workbook_interaction-u-9-05-party-ambiguous-anchor", time.Date(2026, 5, 18, 12, 3, 50, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create ambiguous anchor party: %v", err)
 	}
 	ambiguousDuplicate, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.PartiesViewSchemaID,
-		ClientTxnID:  "txn-phase9-u-9-05-party-ambiguous-duplicate",
+		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-ambiguous-duplicate",
 		Values: map[string]workbook.ValueChange{
 			"party.display_name": textChange("Ambiguous Duplicate"),
 			"party.party_kind":   textChange("organization"),
 		},
-	}, []byte("txn-phase9-u-9-05-party-ambiguous-duplicate"), "req-phase9-u-9-05-party-ambiguous-duplicate", time.Date(2026, 5, 18, 12, 3, 55, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-u-9-05-party-ambiguous-duplicate"), "req-workbook_interaction-u-9-05-party-ambiguous-duplicate", time.Date(2026, 5, 18, 12, 3, 55, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create ambiguous duplicate party: %v", err)
 	}
@@ -176,13 +176,13 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 	}
 	ambiguousCreate, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.PartiesViewSchemaID,
-		ClientTxnID:  "txn-phase9-u-9-05-party-ambiguous-create",
+		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-ambiguous-create",
 		Values: map[string]workbook.ValueChange{
 			"party.display_name":  textChange("Ambiguous Create"),
 			"party.party_kind":    textChange("organization"),
 			"party.primary_email": textChange(" ambiguous@example.test "),
 		},
-	}, []byte("txn-phase9-u-9-05-party-ambiguous-create"), "req-phase9-u-9-05-party-ambiguous-create", time.Date(2026, 5, 18, 12, 3, 59, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-u-9-05-party-ambiguous-create"), "req-workbook_interaction-u-9-05-party-ambiguous-create", time.Date(2026, 5, 18, 12, 3, 59, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create party with ambiguous email: %v", err)
 	}
@@ -193,13 +193,13 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 
 	otherIncidentParty, err := store.CreateWorkbookRow(context.Background(), actor, otherIncident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.PartiesViewSchemaID,
-		ClientTxnID:  "txn-phase9-u-9-05-other-party",
+		ClientTxnID:  "txn-workbook_interaction-u-9-05-other-party",
 		Values: map[string]workbook.ValueChange{
 			"party.display_name":  textChange("Other Incident Vendor"),
 			"party.party_kind":    textChange("organization"),
 			"party.primary_email": textChange("vendor@example.test"),
 		},
-	}, []byte("txn-phase9-u-9-05-other-party"), "req-phase9-u-9-05-other-party", time.Date(2026, 5, 18, 12, 4, 0, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-u-9-05-other-party"), "req-workbook_interaction-u-9-05-other-party", time.Date(2026, 5, 18, 12, 4, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create other incident party: %v", err)
 	}
@@ -209,26 +209,26 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 
 	deletedEmailParty, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.PartiesViewSchemaID,
-		ClientTxnID:  "txn-phase9-u-9-05-deleted-email-party",
+		ClientTxnID:  "txn-workbook_interaction-u-9-05-deleted-email-party",
 		Values: map[string]workbook.ValueChange{
 			"party.display_name":  textChange("Deleted Email Party"),
 			"party.party_kind":    textChange("organization"),
 			"party.primary_email": textChange("deleted-email@example.test"),
 		},
-	}, []byte("txn-phase9-u-9-05-deleted-email-party"), "req-phase9-u-9-05-deleted-email-party", time.Date(2026, 5, 18, 12, 4, 10, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-u-9-05-deleted-email-party"), "req-workbook_interaction-u-9-05-deleted-email-party", time.Date(2026, 5, 18, 12, 4, 10, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create deleted email party: %v", err)
 	}
-	softDeletePartyFor(t, harness, actor, deletedEmailParty.RecordID, "txn-phase9-u-9-05-delete-email-party")
+	softDeletePartyFor(t, harness, actor, deletedEmailParty.RecordID, "txn-workbook_interaction-u-9-05-delete-email-party")
 	replacementEmailParty, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.PartiesViewSchemaID,
-		ClientTxnID:  "txn-phase9-u-9-05-replacement-email-party",
+		ClientTxnID:  "txn-workbook_interaction-u-9-05-replacement-email-party",
 		Values: map[string]workbook.ValueChange{
 			"party.display_name":  textChange("Replacement Email Party"),
 			"party.party_kind":    textChange("organization"),
 			"party.primary_email": textChange(" deleted-email@example.test "),
 		},
-	}, []byte("txn-phase9-u-9-05-replacement-email-party"), "req-phase9-u-9-05-replacement-email-party", time.Date(2026, 5, 18, 12, 4, 20, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-u-9-05-replacement-email-party"), "req-workbook_interaction-u-9-05-replacement-email-party", time.Date(2026, 5, 18, 12, 4, 20, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create replacement email party: %v", err)
 	}
@@ -239,26 +239,26 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 
 	deletedExternalRefParty, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.PartiesViewSchemaID,
-		ClientTxnID:  "txn-phase9-u-9-05-deleted-external-ref-party",
+		ClientTxnID:  "txn-workbook_interaction-u-9-05-deleted-external-ref-party",
 		Values: map[string]workbook.ValueChange{
 			"party.display_name": textChange("Deleted External Ref Party"),
 			"party.party_kind":   textChange("organization"),
 			"party.external_ref": textChange("DELETED-EXT-42"),
 		},
-	}, []byte("txn-phase9-u-9-05-deleted-external-ref-party"), "req-phase9-u-9-05-deleted-external-ref-party", time.Date(2026, 5, 18, 12, 4, 30, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-u-9-05-deleted-external-ref-party"), "req-workbook_interaction-u-9-05-deleted-external-ref-party", time.Date(2026, 5, 18, 12, 4, 30, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create deleted external ref party: %v", err)
 	}
-	softDeletePartyFor(t, harness, actor, deletedExternalRefParty.RecordID, "txn-phase9-u-9-05-delete-external-ref-party")
+	softDeletePartyFor(t, harness, actor, deletedExternalRefParty.RecordID, "txn-workbook_interaction-u-9-05-delete-external-ref-party")
 	replacementExternalRefParty, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.PartiesViewSchemaID,
-		ClientTxnID:  "txn-phase9-u-9-05-replacement-external-ref-party",
+		ClientTxnID:  "txn-workbook_interaction-u-9-05-replacement-external-ref-party",
 		Values: map[string]workbook.ValueChange{
 			"party.display_name": textChange("Replacement External Ref Party"),
 			"party.party_kind":   textChange("organization"),
 			"party.external_ref": textChange(" deleted-ext-42 "),
 		},
-	}, []byte("txn-phase9-u-9-05-replacement-external-ref-party"), "req-phase9-u-9-05-replacement-external-ref-party", time.Date(2026, 5, 18, 12, 4, 40, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-u-9-05-replacement-external-ref-party"), "req-workbook_interaction-u-9-05-replacement-external-ref-party", time.Date(2026, 5, 18, 12, 4, 40, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create replacement external ref party: %v", err)
 	}
@@ -269,12 +269,12 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 
 	evidence, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.EvidenceViewSchemaID,
-		ClientTxnID:  "txn-phase9-u-9-05-evidence-text",
+		ClientTxnID:  "txn-workbook_interaction-u-9-05-evidence-text",
 		Values: map[string]workbook.ValueChange{
 			"evidence.title":                textChange("Collector source text"),
 			"evidence.collector_party_text": textChange("IR Vendor <vendor@example.test>"),
 		},
-	}, []byte("txn-phase9-u-9-05-evidence-text"), "req-phase9-u-9-05-evidence-text", time.Date(2026, 5, 18, 12, 5, 0, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-u-9-05-evidence-text"), "req-workbook_interaction-u-9-05-evidence-text", time.Date(2026, 5, 18, 12, 5, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create evidence with party text: %v", err)
 	}
@@ -284,12 +284,12 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 
 	phoneTextEvidence, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.EvidenceViewSchemaID,
-		ClientTxnID:  "txn-phase9-u-9-05-evidence-phone-text",
+		ClientTxnID:  "txn-workbook_interaction-u-9-05-evidence-phone-text",
 		Values: map[string]workbook.ValueChange{
 			"evidence.title":                textChange("Collector phone-like source text"),
 			"evidence.collector_party_text": textChange("+1 555 0100"),
 		},
-	}, []byte("txn-phase9-u-9-05-evidence-phone-text"), "req-phase9-u-9-05-evidence-phone-text", time.Date(2026, 5, 18, 12, 5, 30, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-u-9-05-evidence-phone-text"), "req-workbook_interaction-u-9-05-evidence-phone-text", time.Date(2026, 5, 18, 12, 5, 30, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create evidence with phone-like party text: %v", err)
 	}

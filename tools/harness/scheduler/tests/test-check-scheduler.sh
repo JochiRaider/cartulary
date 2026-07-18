@@ -475,7 +475,7 @@ if (lines.length !== 1) {
   throw new Error(`${label}: expected exactly one JSON line, got ${lines.length}`);
 }
 const summary = JSON.parse(lines[0]);
-if (summary.schema_id !== "cartulary.tool_run_summary.v4") {
+if (summary.schema_id !== "cartulary.tool_run_summary.v5") {
   throw new Error(`${label}: unexpected schema ${summary.schema_id}`);
 }
 if (summary.target !== expectedTarget) {
@@ -1888,7 +1888,7 @@ cat >"${summary_timing_dir}/valid/check/target-summary.json" <<'JSON'
 JSON
 cat >"${summary_timing_dir}/valid/check/tool-run-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v4",
+  "schema_id": "cartulary.tool_run_summary.v5",
   "target": "check",
   "status": "pass",
   "completed_at": "2026-01-01T00:02:00.000Z",
@@ -1911,7 +1911,7 @@ cat >"${summary_timing_dir}/valid/run-summary.json" <<'JSON'
 JSON
 cat >"${summary_timing_dir}/valid/tool-run-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v4",
+  "schema_id": "cartulary.tool_run_summary.v5",
   "target": "check",
   "status": "pass",
   "completed_at": "2026-01-01T00:02:00.000Z",
@@ -1928,7 +1928,7 @@ cp "${summary_timing_dir}/valid/check/target-summary.json" "${summary_timing_dir
 cp "${summary_timing_dir}/valid/run-summary.json" "${summary_timing_dir}/stale/run-summary.json"
 cat >"${summary_timing_dir}/stale/check/tool-run-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v4",
+  "schema_id": "cartulary.tool_run_summary.v5",
   "target": "check",
   "status": "pass",
   "completed_at": "2026-01-01T00:01:10.000Z",
@@ -1974,7 +1974,7 @@ function baseSummary(target, durationMs) {
 
 function toolSummary(target, durationMs) {
   return {
-    schema_id: "cartulary.tool_run_summary.v4",
+    schema_id: "cartulary.tool_run_summary.v5",
     target,
     status: "pass",
     completed_at: emittedAt(durationMs),
@@ -2291,7 +2291,7 @@ cat >"${parent_work_unit_dir}/stale/check/target-summary.json" <<'JSON'
 JSON
 cat >"${parent_work_unit_dir}/stale/check/tool-run-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v4",
+  "schema_id": "cartulary.tool_run_summary.v5",
   "target": "check",
   "status": "pass",
   "completed_at": "2026-01-01T00:02:01.233Z",

@@ -14,7 +14,7 @@ import (
 )
 
 func TestDestructiveOperationLocks_Unit(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase7-u-7-06-rollback-lock")
+	harness := workbookscenariotest.StartServer(t, "history_revision-u-7-06-rollback-lock")
 	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U706")
 	changeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000601")

@@ -1145,3 +1145,4 @@ assert.throws(
   /check_schedules\.target_profiles\.backend-unit\.make_prerequisite_policy must be one of run, skip/,
   "topology validation must reject unknown check work-unit make prerequisite policies",
 );
+EOF

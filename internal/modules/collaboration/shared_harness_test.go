@@ -94,7 +94,7 @@ func TestSocketLifecycleEvidenceIndex(t *testing.T) {
 			if !strings.Contains(reference, "::Test") {
 				t.Fatalf("socket lifecycle obligation %s references non-test evidence %q", obligation, reference)
 			}
-			if strings.Contains(reference, "phase6_shared_harness_test.go") {
+			if strings.Contains(reference, "collaboration_shared_harness_test.go") {
 				t.Fatalf("socket lifecycle obligation %s must not use inventory-only evidence %q", obligation, reference)
 			}
 		}

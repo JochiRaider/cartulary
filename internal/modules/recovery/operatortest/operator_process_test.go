@@ -85,12 +85,12 @@ func TestMVPObjectStoreInitOperatorCreatesConfiguredBucket(t *testing.T) {
 func TestCanonicalOperatorBackupInspectLatest_Process(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
-	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase10-e-10-01-canonical-inspect")
+	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "backup_restore-e-10-01-canonical-inspect")
 	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN)
 	sourcePool := mustOpenOperatorPool(t, sourceDB.DSN)
 	backupStorage := newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot)
 	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000102501")
-	seedOperatorRecoveryBackupSet(t, ctx, sourcePool, sourceConfig, backupStorage, backupSetID, time.Now().UTC().Add(-time.Minute), "phase10-canonical-inspect")
+	seedOperatorRecoveryBackupSet(t, ctx, sourcePool, sourceConfig, backupStorage, backupSetID, time.Now().UTC().Add(-time.Minute), "backup_restore-canonical-inspect")
 
 	operatorBin := injectedOperatorBinary(t)
 	stdout, stderr, exitCode := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
@@ -123,7 +123,7 @@ func TestCanonicalOperatorBackupInspectLatest_Process(t *testing.T) {
 	invalidStdout, invalidStderr, invalidExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
 		"backup", "inspect", "latest",
 		"--source-config-file", sourceConfig.path,
-		"--deployment-admin-email", "phase10-admin@example.test",
+		"--deployment-admin-email", "backup_restore-admin@example.test",
 	)
 	requireOperatorRecoveryFailure(t, invalidStdout, invalidStderr, invalidExit, "backup_inspect_latest", 2, "invalid_operator_request", "invalid_flag_value")
 }
@@ -131,9 +131,9 @@ func TestCanonicalOperatorBackupInspectLatest_Process(t *testing.T) {
 func TestCanonicalOperatorBackupCreate_Process(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
-	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase10-e-10-01-canonical-create")
+	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "backup_restore-e-10-01-canonical-create")
 	s3Harness := s3test.Start(t)
-	bucket := fmt.Sprintf("phase10-canonical-create-%d", time.Now().UnixNano())
+	bucket := fmt.Sprintf("backup_restore-canonical-create-%d", time.Now().UnixNano())
 	if err := s3Harness.CreateBucket(ctx, bucket); err != nil {
 		t.Fatalf("create backup create bucket: %v", err)
 	}
@@ -144,8 +144,8 @@ func TestCanonicalOperatorBackupCreate_Process(t *testing.T) {
 	})
 
 	sourceConfig := operatorManagedS3Config(t, sourceDB.DSN, "backup-create")
-	actorID := seedOperatorUser(t, sourceDB.DSN, "phase10-e-10-01-canonical-create@example.test", true, true)
-	blob := seedOperatorObjectBlob(t, sourceDB.DSN, actorID, []byte("phase10 canonical backup create object proof"))
+	actorID := seedOperatorUser(t, sourceDB.DSN, "backup_restore-e-10-01-canonical-create@example.test", true, true)
+	blob := seedOperatorObjectBlob(t, sourceDB.DSN, actorID, []byte("backup_restore canonical backup create object proof"))
 	if _, err := s3Harness.RoundTrip(ctx, bucket, blob.storageKey, blob.body); err != nil {
 		t.Fatalf("write source object for canonical backup create: %v", err)
 	}
@@ -206,17 +206,17 @@ func TestCanonicalOperatorBackupCreate_Process(t *testing.T) {
 func TestCanonicalOperatorRestoreLatest_Process(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
-	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase10-e-10-01-canonical-restore-source")
-	targetDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase10-e-10-01-canonical-restore-target")
+	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "backup_restore-e-10-01-canonical-restore-source")
+	targetDB := postgresHarness.PrepareIsolatedDatabaseT(t, "backup_restore-e-10-01-canonical-restore-target")
 	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN)
 	targetConfig := operatorExplicitConfig(t, targetDB.DSN)
 
-	adminEmail := "phase10-e-10-01-canonical-restore@example.test"
+	adminEmail := "backup_restore-e-10-01-canonical-restore@example.test"
 	seedOperatorUser(t, sourceDB.DSN, adminEmail, true, true)
 	sourcePool := mustOpenOperatorPool(t, sourceDB.DSN)
 	backupStorage := newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot)
 	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000102601")
-	seedOperatorRecoveryBackupSet(t, ctx, sourcePool, sourceConfig, backupStorage, backupSetID, time.Now().UTC().Add(-time.Minute), "phase10-canonical-restore")
+	seedOperatorRecoveryBackupSet(t, ctx, sourcePool, sourceConfig, backupStorage, backupSetID, time.Now().UTC().Add(-time.Minute), "backup_restore-canonical-restore")
 
 	operatorBin := injectedOperatorBinary(t)
 	sameStdout, sameStderr, sameExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
@@ -270,15 +270,15 @@ func TestCanonicalOperatorRestoreLatest_Process(t *testing.T) {
 func TestCanonicalOperatorRestoreVerifyLatest_Process(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
-	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase10-e-10-01-canonical-verify-latest-source")
-	targetDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase10-e-10-01-canonical-verify-latest-target")
+	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "backup_restore-e-10-01-canonical-verify-latest-source")
+	targetDB := postgresHarness.PrepareIsolatedDatabaseT(t, "backup_restore-e-10-01-canonical-verify-latest-target")
 	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN)
 	targetConfig := operatorExplicitConfig(t, targetDB.DSN)
-	seedOperatorUser(t, sourceDB.DSN, "phase10-e-10-01-canonical-verify-latest@example.test", true, true)
+	seedOperatorUser(t, sourceDB.DSN, "backup_restore-e-10-01-canonical-verify-latest@example.test", true, true)
 	sourcePool := mustOpenOperatorPool(t, sourceDB.DSN)
 	backupStorage := newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot)
 	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000102701")
-	seedOperatorRecoveryBackupSet(t, ctx, sourcePool, sourceConfig, backupStorage, backupSetID, time.Now().UTC().Add(-time.Minute), "phase10-canonical-verify-latest")
+	seedOperatorRecoveryBackupSet(t, ctx, sourcePool, sourceConfig, backupStorage, backupSetID, time.Now().UTC().Add(-time.Minute), "backup_restore-canonical-verify-latest")
 
 	operatorBin := injectedOperatorBinary(t)
 	missingMarkerStdout, missingMarkerStderr, missingMarkerExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
@@ -320,18 +320,18 @@ func TestCanonicalOperatorRestoreVerifyLatest_Process(t *testing.T) {
 func TestCanonicalOperatorRestoreVerifyDue_Process(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
-	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase10-e-10-01-canonical-verify-due-source")
-	targetDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase10-e-10-01-canonical-verify-due-target")
+	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "backup_restore-e-10-01-canonical-verify-due-source")
+	targetDB := postgresHarness.PrepareIsolatedDatabaseT(t, "backup_restore-e-10-01-canonical-verify-due-target")
 	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN)
 	targetConfig := operatorExplicitConfig(t, targetDB.DSN)
-	seedOperatorUser(t, sourceDB.DSN, "phase10-e-10-01-canonical-verify-due@example.test", true, true)
+	seedOperatorUser(t, sourceDB.DSN, "backup_restore-e-10-01-canonical-verify-due@example.test", true, true)
 	sourcePool := mustOpenOperatorPool(t, sourceDB.DSN)
 	backupStorage := newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot)
 	now := time.Now().UTC()
 	olderBackupSetID := uuid.MustParse("00000000-0000-0000-0000-000000102801")
 	newerBackupSetID := uuid.MustParse("00000000-0000-0000-0000-000000102802")
-	seedOperatorRecoveryBackupSet(t, ctx, sourcePool, sourceConfig, backupStorage, newerBackupSetID, now.Add(-time.Minute), "phase10-canonical-verify-due-newer")
-	seedOperatorRecoveryBackupSet(t, ctx, sourcePool, sourceConfig, backupStorage, olderBackupSetID, now.Add(-2*time.Minute), "phase10-canonical-verify-due-older")
+	seedOperatorRecoveryBackupSet(t, ctx, sourcePool, sourceConfig, backupStorage, newerBackupSetID, now.Add(-time.Minute), "backup_restore-canonical-verify-due-newer")
+	seedOperatorRecoveryBackupSet(t, ctx, sourcePool, sourceConfig, backupStorage, olderBackupSetID, now.Add(-2*time.Minute), "backup_restore-canonical-verify-due-older")
 	writeRestoreVerificationTargetMarker(t, loadOperatorConfig(t, targetConfig.path))
 
 	operatorBin := injectedOperatorBinary(t)
@@ -420,7 +420,7 @@ func seedOperatorRecoveryBackupSet(t testing.TB, ctx context.Context, pool *pgxp
 	if err != nil {
 		t.Fatalf("capture source object artifact: %v", err)
 	}
-	objectManifestBody, objectSummaryBody := operatorPhaseEObjectArtifacts(t, backupSetID, consistencyPointAt, label, objectArtifact, nil)
+	objectManifestBody, objectSummaryBody := operatorObjectStoreBackupObjectArtifacts(t, backupSetID, consistencyPointAt, label, objectArtifact, nil)
 	createdAt := consistencyPointAt.Add(-time.Minute)
 	backupSet, err := recovery.NewCaptureService(recovery.NewStore(pool), backupStorage).CaptureBackupSet(ctx, recovery.CaptureBackupSetParams{
 		BackupSetID:                       backupSetID,
@@ -987,7 +987,7 @@ RETURNING id
 	return userID
 }
 
-func operatorPhaseEObjectArtifacts(t testing.TB, backupSetID uuid.UUID, consistencyPointAt time.Time, bucket string, objectSnapshotBody []byte, blobIndex map[string]uuid.UUID) ([]byte, []byte) {
+func operatorObjectStoreBackupObjectArtifacts(t testing.TB, backupSetID uuid.UUID, consistencyPointAt time.Time, bucket string, objectSnapshotBody []byte, blobIndex map[string]uuid.UUID) ([]byte, []byte) {
 	t.Helper()
 	snapshot, err := recovery.DecodeObjectStoreSnapshotArtifact(objectSnapshotBody)
 	if err != nil {

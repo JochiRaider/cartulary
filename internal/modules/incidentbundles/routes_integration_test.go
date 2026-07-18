@@ -37,7 +37,7 @@ import (
 
 func TestExportJobIdempotencyAndDescriptor_Integration(t *testing.T) {
 	withIncidentPortabilityClaimed(t)
-	harness := scenariotest.StartRuntime(t).StartServer(t, "phase11-incident-bundle-export")
+	harness := scenariotest.StartRuntime(t).StartServer(t, "extension_profile-incident-bundle-export")
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-source",
@@ -116,7 +116,7 @@ func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testin
 		<-release
 	}))
 	t.Cleanup(func() { releaseOnce.Do(func() { close(release) }) })
-	harness := scenariotest.StartRuntime(t).StartServerWithTestDependencies(t, "phase11-incident-bundle-export-auth", deps)
+	harness := scenariotest.StartRuntime(t).StartServerWithTestDependencies(t, "extension_profile-incident-bundle-export-auth", deps)
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-export-auth-source",
@@ -133,10 +133,10 @@ func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testin
 	memberAdminPassword := "BundleMemberAdminPassphrase11!"
 	memberOnlyPassword := "BundleMemberOnlyPassphrase11!"
 	nonmemberAdminPassword := "BundleNonmemberAdminPassphrase11!"
-	submitterUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase11-bundle-submitter@example.test", "Phase11 Bundle Submitter", submitterPassword, false, true, true)
-	memberAdminUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase11-bundle-member-admin@example.test", "Phase11 Bundle Member Admin", memberAdminPassword, false, true, true)
-	memberOnlyUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase11-bundle-member-only@example.test", "Phase11 Bundle Member Only", memberOnlyPassword, false, false, true)
-	nonmemberAdminUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase11-bundle-nonmember-admin@example.test", "Phase11 Bundle Nonmember Admin", nonmemberAdminPassword, false, true, true)
+	submitterUser := flowtest.SeedLocalUserRecord(t, harness.DB, "extension_profile-bundle-submitter@example.test", "ExtensionProfile Bundle Submitter", submitterPassword, false, true, true)
+	memberAdminUser := flowtest.SeedLocalUserRecord(t, harness.DB, "extension_profile-bundle-member-admin@example.test", "ExtensionProfile Bundle Member Admin", memberAdminPassword, false, true, true)
+	memberOnlyUser := flowtest.SeedLocalUserRecord(t, harness.DB, "extension_profile-bundle-member-only@example.test", "ExtensionProfile Bundle Member Only", memberOnlyPassword, false, false, true)
+	nonmemberAdminUser := flowtest.SeedLocalUserRecord(t, harness.DB, "extension_profile-bundle-nonmember-admin@example.test", "ExtensionProfile Bundle Nonmember Admin", nonmemberAdminPassword, false, true, true)
 	submitterCookies, submitterCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, submitterUser.Email, submitterPassword, nil)
 	memberAdminCookies, memberAdminCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, memberAdminUser.Email, memberAdminPassword, nil)
 	memberOnlyCookies, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, memberOnlyUser.Email, memberOnlyPassword, nil)
@@ -207,8 +207,8 @@ func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testin
 func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing.T) {
 	withIncidentPortabilityClaimed(t)
 	runtime := scenariotest.StartRuntime(t)
-	sourceHarness := runtime.StartServer(t, "phase11-incident-bundle-source")
-	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "phase11-incident-bundle-target")
+	sourceHarness := runtime.StartServer(t, "extension_profile-incident-bundle-source")
+	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-target")
 	sourceAdmin, sourceAdminID := flowtest.ProvisionBootstrapAdmin(t, sourceHarness.Server.HTTP.URL)
 	targetAdmin, targetAdminID := flowtest.ProvisionBootstrapAdmin(t, targetHarness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, sourceHarness.Server, sourceAdmin, map[string]any{
@@ -223,7 +223,7 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	})
 	recordID := row["row"].(map[string]any)["record_id"].(string)
 	seededState := seedIncidentBundlePortableState(t, sourceHarness, incidentID, recordID, sourceAdminID)
-	sourceViewerID := flowtest.SeedLocalUserFlags(t, sourceHarness.DB, "phase11-import-source-viewer@example.test", "Enterprise integration Import Source Viewer", "Phase11ImportViewer1!", false, false, true)
+	sourceViewerID := flowtest.SeedLocalUserFlags(t, sourceHarness.DB, "extension_profile-import-source-viewer@example.test", "Enterprise integration Import Source Viewer", "ExtensionProfileImportViewer1!", false, false, true)
 	scenariotest.CreateMembership(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
 		"client_txn_id": "txn-incident-bundle-source-viewer",
 		"user_id":       sourceViewerID,
@@ -393,7 +393,7 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	if countRows(t, targetHarness.DB, `SELECT count(*) FROM incident_bundle_imported_attributions WHERE incident_id = $1 AND source_table = 'change_sets' AND source_column = 'actor_user_id' AND source_actor_id = $2 AND local_user_id = $3`, incidentID, sourceAdminID, targetAdminID) == 0 {
 		t.Fatalf("import must retain source actor attribution sidecars")
 	}
-	if countRows(t, targetHarness.DB, `SELECT count(*) FROM record_tags WHERE incident_id = $1 AND record_id = $2 AND normalized_tag_name = 'phase11-portability'`, incidentID, recordID) != 1 {
+	if countRows(t, targetHarness.DB, `SELECT count(*) FROM record_tags WHERE incident_id = $1 AND record_id = $2 AND normalized_tag_name = 'extension_profile-portability'`, incidentID, recordID) != 1 {
 		t.Fatalf("import must preserve record tag attachments")
 	}
 	if countRows(t, targetHarness.DB, `SELECT count(*) FROM evidence_custody_events WHERE incident_id = $1 AND evidence_record_id = $2`, incidentID, seededState.EvidenceRecordID) != 1 {
@@ -493,7 +493,7 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 func TestImportFinalPublicationRechecksSubmitterAvailability_Integration(t *testing.T) {
 	withIncidentPortabilityClaimed(t)
 	runtime := scenariotest.StartRuntime(t)
-	sourceHarness := runtime.StartServer(t, "phase11-incident-bundle-finalize-source")
+	sourceHarness := runtime.StartServer(t, "extension_profile-incident-bundle-finalize-source")
 	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, sourceHarness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, sourceHarness.Server, sourceAdmin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-finalize-source",
@@ -544,10 +544,10 @@ func TestImportFinalPublicationRechecksSubmitterAvailability_Integration(t *test
 				<-release
 			}))
 			t.Cleanup(func() { releaseOnce.Do(func() { close(release) }) })
-			targetHarness := startIsolatedIncidentBundleServerWithDependencies(t, runtime, "phase11-incident-bundle-finalize-"+strings.ReplaceAll(tc.name, " ", "-"), deps)
+			targetHarness := startIsolatedIncidentBundleServerWithDependencies(t, runtime, "extension_profile-incident-bundle-finalize-"+strings.ReplaceAll(tc.name, " ", "-"), deps)
 			targetAdmin, targetAdminID := flowtest.ProvisionBootstrapAdmin(t, targetHarness.Server.HTTP.URL)
-			observerPassword := "Phase11ImportObserverPass!"
-			observerUser := flowtest.SeedLocalUserRecord(t, targetHarness.DB, "phase11-import-observer-"+strings.ReplaceAll(tc.name, " ", "-")+"@example.test", "Enterprise integration Import Observer", observerPassword, false, true, true)
+			observerPassword := "ExtensionProfileImportObserverPass!"
+			observerUser := flowtest.SeedLocalUserRecord(t, targetHarness.DB, "extension_profile-import-observer-"+strings.ReplaceAll(tc.name, " ", "-")+"@example.test", "Enterprise integration Import Observer", observerPassword, false, true, true)
 			observerCookies, observerCSRF := flowtest.LoginLocalUser(t, targetHarness.Server.HTTP.URL, observerUser.Email, observerPassword, nil)
 			observerLogin := flowtest.LoginResult{SessionCookie: observerCookies, CSRFCookie: observerCSRF}
 
@@ -578,8 +578,8 @@ func TestImportFinalPublicationRechecksSubmitterAvailability_Integration(t *test
 func TestSupersededTimelineReplacementSurvivesImport_Integration(t *testing.T) {
 	withIncidentPortabilityClaimed(t)
 	runtime := scenariotest.StartRuntime(t)
-	sourceHarness := runtime.StartServer(t, "phase11-incident-bundle-supersede-source")
-	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "phase11-incident-bundle-supersede-target")
+	sourceHarness := runtime.StartServer(t, "extension_profile-incident-bundle-supersede-source")
+	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-supersede-target")
 	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, sourceHarness.Server.HTTP.URL)
 	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, targetHarness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, sourceHarness.Server, sourceAdmin, map[string]any{
@@ -632,8 +632,8 @@ func TestSupersededTimelineReplacementSurvivesImport_Integration(t *testing.T) {
 func TestFailureFamiliesLeaveNoVisibleIncident_Integration(t *testing.T) {
 	withIncidentPortabilityClaimed(t)
 	runtime := scenariotest.StartRuntime(t)
-	sourceHarness := runtime.StartServer(t, "phase11-incident-bundle-failure-source")
-	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "phase11-incident-bundle-failure-target")
+	sourceHarness := runtime.StartServer(t, "extension_profile-incident-bundle-failure-source")
+	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-failure-target")
 	sourceAdmin, sourceAdminID := flowtest.ProvisionBootstrapAdmin(t, sourceHarness.Server.HTTP.URL)
 	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, targetHarness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, sourceHarness.Server, sourceAdmin, map[string]any{
@@ -652,7 +652,7 @@ func TestFailureFamiliesLeaveNoVisibleIncident_Integration(t *testing.T) {
 	blobPath := firstZipMemberWithPrefix(t, bundleBytes, "blobs/sha256/")
 
 	t.Run("export missing blob", func(t *testing.T) {
-		brokenHarness := startIsolatedIncidentBundleServer(t, runtime, "phase11-incident-bundle-export-missing-blob")
+		brokenHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-export-missing-blob")
 		brokenAdmin, brokenAdminID := flowtest.ProvisionBootstrapAdmin(t, brokenHarness.Server.HTTP.URL)
 		brokenIncident := scenariotest.CreateIncident(t, brokenHarness.Server, brokenAdmin, map[string]any{
 			"client_txn_id": "txn-incident-bundle-export-missing-blob",
@@ -693,7 +693,7 @@ func TestFailureFamiliesLeaveNoVisibleIncident_Integration(t *testing.T) {
 		{
 			name:       "blob hash mismatch",
 			txn:        "txn-import-blob-hash-mismatch",
-			bundle:     replaceZipMemberAndChecksum(t, bundleBytes, blobPath, []byte("phase11 wrong blob bytes\n")),
+			bundle:     replaceZipMemberAndChecksum(t, bundleBytes, blobPath, []byte("extension_profile wrong blob bytes\n")),
 			wantReason: "blob_hash_mismatch",
 		},
 		{
@@ -761,7 +761,7 @@ func TestFailureFamiliesLeaveNoVisibleIncident_Integration(t *testing.T) {
 	}
 
 	t.Run("safe directory entries import", func(t *testing.T) {
-		directoryHarness := startIsolatedIncidentBundleServer(t, runtime, "phase11-incident-bundle-directory-import")
+		directoryHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-directory-import")
 		directoryAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, directoryHarness.Server.HTTP.URL)
 		terminal := importBundleAndWait(t, directoryHarness.Server, directoryAdmin, appendZipDirectoryMembers(t, bundleBytes, "data/", "integrity/", "ext/"), "txn-import-safe-directories")
 		if terminal["status"] != "succeeded" {
@@ -780,14 +780,14 @@ func TestFailureFamiliesLeaveNoVisibleIncident_Integration(t *testing.T) {
 	})
 
 	t.Run("archive extracted byte limit", func(t *testing.T) {
-		limitHarness := startIsolatedIncidentBundleServerWithEnv(t, runtime, "phase11-incident-bundle-extracted-limit", map[string]string{
+		limitHarness := startIsolatedIncidentBundleServerWithEnv(t, runtime, "extension_profile-incident-bundle-extracted-limit", map[string]string{
 			"CARTULARY__LIMITS__INCIDENT_BUNDLES__MAX_EXTRACTED_BYTES": "1",
 		})
 		limitAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, limitHarness.Server.HTTP.URL)
 		assertImportFailureLeavesState(t, limitHarness, limitAdmin, incidentID, "txn-import-extracted-limit", bundleBytes, "archive_extracted_bytes_exceeded")
 	})
 	t.Run("archive member count limit", func(t *testing.T) {
-		limitHarness := startIsolatedIncidentBundleServerWithEnv(t, runtime, "phase11-incident-bundle-member-limit", map[string]string{
+		limitHarness := startIsolatedIncidentBundleServerWithEnv(t, runtime, "extension_profile-incident-bundle-member-limit", map[string]string{
 			"CARTULARY__LIMITS__ARCHIVES__MAX_MEMBERS": "20",
 		})
 		limitAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, limitHarness.Server.HTTP.URL)
@@ -800,7 +800,7 @@ func TestFailureFamiliesLeaveNoVisibleIncident_Integration(t *testing.T) {
 
 func TestDescriptorPaginationAndCanonicalManifest_Integration(t *testing.T) {
 	withIncidentPortabilityClaimed(t)
-	harness := scenariotest.StartRuntime(t).StartServer(t, "phase11-incident-bundle-descriptor-canonical")
+	harness := scenariotest.StartRuntime(t).StartServer(t, "extension_profile-incident-bundle-descriptor-canonical")
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-descriptor-canonical",
@@ -864,7 +864,7 @@ func TestDescriptorPaginationAndCanonicalManifest_Integration(t *testing.T) {
 
 func TestImportEnvelopeFailuresCreateNoDurableState_Integration(t *testing.T) {
 	withIncidentPortabilityClaimed(t)
-	harness := scenariotest.StartRuntime(t).StartServer(t, "phase11-incident-bundle-envelope-failures")
+	harness := scenariotest.StartRuntime(t).StartServer(t, "extension_profile-incident-bundle-envelope-failures")
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	validFile := []byte("not a bundle but parser-valid bytes")
 	cases := []struct {
@@ -1019,7 +1019,7 @@ func seedIncidentBundlePortableState(t testing.TB, harness *scenariotest.ServerH
 	actorUUID := uuid.MustParse(actorUserID)
 	if _, err := harness.DB.Exec(`
 INSERT INTO record_tags (incident_id, record_id, tag_name, normalized_tag_name, created_by_user_id)
-VALUES ($1, $2, 'Phase11 Portability', 'phase11-portability', $3)
+VALUES ($1, $2, 'ExtensionProfile Portability', 'extension_profile-portability', $3)
 `, incidentID, timelineRecordID, actorUserID); err != nil {
 		t.Fatalf("seed record tag: %v", err)
 	}
@@ -1050,7 +1050,7 @@ INSERT INTO indicator_observations (
     resolved_indicator_record_id, row_version, created_by_user_id, resolved_by_user_id,
     resolved_at, resolution_method, deleted_at, deleted_by_user_id
 )
-VALUES ($1, $2, 'timeline.activity_synopsis_text', 'auto_extract', 'phase11', 'portable.example.test', 'domain', 'portable.example.test', 'resolved', $3, 2, $4, $4, now(), 'fixture', now(), $4)
+VALUES ($1, $2, 'timeline.activity_synopsis_text', 'auto_extract', 'extension_profile', 'portable.example.test', 'domain', 'portable.example.test', 'resolved', $3, 2, $4, $4, now(), 'fixture', now(), $4)
 `, incidentUUID, timelineUUID, indicatorID, actorUUID); err != nil {
 		t.Fatalf("seed indicator observation: %v", err)
 	}
@@ -1069,7 +1069,7 @@ INSERT INTO entity_mentions (
     raw_text, normalized_text, resolution_status, row_version, ordinal,
     created_by_user_id, resolved_record_id, resolved_by_user_id, resolved_at, resolution_method
 )
-VALUES ($1, 'host', 'timeline.activity_synopsis_text', 'manual', 'phase11', 'portable host', 'portable host', 'resolved', 1, 1, $2, $3, $2, now(), 'fixture')
+VALUES ($1, 'host', 'timeline.activity_synopsis_text', 'manual', 'extension_profile', 'portable host', 'portable host', 'resolved', 1, 1, $2, $3, $2, now(), 'fixture')
 `, timelineUUID, actorUUID, historyHostID); err != nil {
 		t.Fatalf("seed entity mention: %v", err)
 	}
@@ -1180,10 +1180,10 @@ VALUES (
 	nonReversibleChangeSetID := uuid.New()
 	seedPortableRecordTagCreateHistory(t, harness.DB, incidentUUID, historyHostID, actorUUID, nonReversibleChangeSetID, time.Date(2026, 5, 25, 17, 1, 0, 0, time.UTC))
 
-	blobBytes := []byte("phase11 incident bundle blob\n")
+	blobBytes := []byte("extension_profile incident bundle blob\n")
 	sum := sha256.Sum256(blobBytes)
 	blobSHA := hex.EncodeToString(sum[:])
-	sourceStorageKey := "phase11/source/" + incidentID + "/" + blobSHA
+	sourceStorageKey := "extension_profile/source/" + incidentID + "/" + blobSHA
 	if err := harness.Server.Runtime.ObjectStore.PutObject(ctx, sourceStorageKey, bytes.NewReader(blobBytes), int64(len(blobBytes)), "text/plain"); err != nil {
 		t.Fatalf("seed source object bytes: %v", err)
 	}
@@ -1206,7 +1206,7 @@ INSERT INTO object_blobs (
     pending_expires_at,
     finalized_at
 )
-VALUES ($1, $2, $3, 'available', $4, 'phase11.txt', 'text/plain', $5, $4, 'text/plain', $5, now() + interval '1 hour', now() + interval '1 hour', now())
+VALUES ($1, $2, $3, 'available', $4, 'extension_profile.txt', 'text/plain', $5, $4, 'text/plain', $5, now() + interval '1 hour', now() + interval '1 hour', now())
 RETURNING object_blob_id
 `, incidentID, actorUserID, sourceStorageKey, len(blobBytes), blobSHA).Scan(&objectBlobID); err != nil {
 		t.Fatalf("seed object blob row: %v", err)
@@ -1361,11 +1361,11 @@ func seedPortableRecordTagCreateHistory(t testing.TB, db *sql.DB, incidentID uui
 	recordTagID := uuid.New()
 	afterValue := map[string]any{
 		"record_id": recordID.String(),
-		"tag_name":  "Phase11 History",
+		"tag_name":  "ExtensionProfile History",
 	}
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO record_tags (record_tag_id, incident_id, record_id, tag_name, normalized_tag_name, created_by_user_id, created_at, updated_at)
-VALUES ($1, $2, $3, 'Phase11 History', 'phase11-history', $4, $5, $5)
+VALUES ($1, $2, $3, 'ExtensionProfile History', 'extension_profile-history', $4, $5, $5)
 `, recordTagID, incidentID, recordID, actorID, createdAt); err != nil {
 		t.Fatalf("seed portable history record tag: %v", err)
 	}
@@ -2032,7 +2032,7 @@ INSERT INTO object_blobs (
     finalized_at
 )
 VALUES ($1, $2, $3, 'available', $4, 'missing.txt', 'text/plain', $5, $4, 'text/plain', $5, now() + interval '1 hour', now() + interval '1 hour', now())
-`, incidentID, actorUserID, "phase11/missing/"+incidentID+"/"+sha, len(missingBytes), sha); err != nil {
+`, incidentID, actorUserID, "extension_profile/missing/"+incidentID+"/"+sha, len(missingBytes), sha); err != nil {
 		t.Fatalf("seed missing object blob row: %v", err)
 	}
 }

@@ -33,20 +33,20 @@ import (
 
 func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase8-savedviews-u-8-02")
+	harness := runtime.StartServer(t, "saved_view_query-savedviews-u-8-02")
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase8-u-8-02-incident",
+		"client_txn_id": "txn-saved_view_query-u-8-02-incident",
 		"incident_key":  "IR-U802",
 		"title":         "Workbook query saved views",
 	})
 	incidentID := incident["incident_id"].(string)
 
-	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase8-u802-viewer@example.test", "Phase8 U802 Viewer", "Phase8U802Viewer1!", false, false, true)
-	viewerSession, viewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "phase8-u802-viewer@example.test", "Phase8U802Viewer1!", nil)
-	otherID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase8-u802-other@example.test", "Phase8 U802 Other", "Phase8U802Other1!", false, false, true)
+	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-u802-viewer@example.test", "SavedViewQuery U802 Viewer", "SavedViewQueryU802Viewer1!", false, false, true)
+	viewerSession, viewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "saved_view_query-u802-viewer@example.test", "SavedViewQueryU802Viewer1!", nil)
+	otherID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-u802-other@example.test", "SavedViewQuery U802 Other", "SavedViewQueryU802Other1!", false, false, true)
 	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
-		"client_txn_id": "txn-phase8-u-8-02-viewer-membership",
+		"client_txn_id": "txn-saved_view_query-u-8-02-viewer-membership",
 		"user_id":       viewerID,
 		"role":          "viewer",
 	})
@@ -334,10 +334,10 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 
 func TestSavedViewCreateEvolvesAdditiveHiddenFields_Unit(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase8-savedviews-layout-evolution-u-8-02")
+	harness := runtime.StartServer(t, "saved_view_query-savedviews-layout-evolution-u-8-02")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase8-layout-evolution-incident",
+		"client_txn_id": "txn-saved_view_query-layout-evolution-incident",
 		"incident_key":  "IR-U802-LAYOUT-EVOLUTION",
 		"title":         "Workbook query saved-view layout evolution",
 	})
@@ -536,18 +536,18 @@ func TestSavedViewScopeVocabulary_Unit(t *testing.T) {
 }
 
 func TestSavedViewPatchContract_Unit(t *testing.T) {
-	harness := storetest.StartStore(t, "phase8-savedviews-u-8-04")
-	admin := authstoretest.SeedLocalUserRecord(t, harness.DB, "phase8-u804-admin@example.test", "Phase8 U804 Admin", "Phase8U804Admin1!", false, false, true)
+	harness := storetest.StartStore(t, "saved_view_query-savedviews-u-8-04")
+	admin := authstoretest.SeedLocalUserRecord(t, harness.DB, "saved_view_query-u804-admin@example.test", "SavedViewQuery U804 Admin", "SavedViewQueryU804Admin1!", false, false, true)
 	incident := storetest.CreateIncidentInStore(t, harness.Incidents, admin, incidents.CreateIncidentRequest{
-		ClientTxnID: "txn-phase8-u-8-04-incident",
+		ClientTxnID: "txn-saved_view_query-u-8-04-incident",
 		IncidentKey: "IR-U804",
 		Title:       "Workbook query saved-view patch",
 	})
 
 	incidentID := incident.Incident.ID
-	owner := authstoretest.SeedLocalUserRecord(t, harness.DB, "phase8-u804-owner@example.test", "Phase8 U804 Owner", "Phase8U804Owner1!", false, false, true)
+	owner := authstoretest.SeedLocalUserRecord(t, harness.DB, "saved_view_query-u804-owner@example.test", "SavedViewQuery U804 Owner", "SavedViewQueryU804Owner1!", false, false, true)
 	storetest.CreateMembershipInStore(t, harness.DB, admin, incidentID, owner, incidents.MembershipCreateRequest{
-		ClientTxnID: "txn-phase8-u-8-04-owner-membership",
+		ClientTxnID: "txn-saved_view_query-u-8-04-owner-membership",
 		UserID:      &owner.ID,
 		Role:        "viewer",
 	})
@@ -649,10 +649,10 @@ func TestSavedViewPatchContract_Unit(t *testing.T) {
 
 func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase8-savedviews-i-8-01")
+	harness := runtime.StartServer(t, "saved_view_query-savedviews-i-8-01")
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase8-i-8-01-incident",
+		"client_txn_id": "txn-saved_view_query-i-8-01-incident",
 		"incident_key":  "IR-I801",
 		"title":         "Workbook query saved-view lifecycle",
 	})
@@ -660,15 +660,15 @@ func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 	incidentUUID := workbookscenariotest.MustUUID(t, incidentID)
 	adminUUID := workbookscenariotest.MustUUID(t, adminID)
 
-	ownerID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase8-i801-owner@example.test", "Phase8 I801 Owner", "Phase8I801Owner1!", false, false, true)
-	peerID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase8-i801-peer@example.test", "Phase8 I801 Peer", "Phase8I801Peer1!", false, false, true)
-	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-01-owner-membership", "user_id": ownerID, "role": "viewer"})
-	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-01-peer-membership", "user_id": peerID, "role": "viewer"})
-	ownerSession, ownerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "phase8-i801-owner@example.test", "Phase8I801Owner1!", nil)
-	peerSession, peerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "phase8-i801-peer@example.test", "Phase8I801Peer1!", nil)
+	ownerID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-i801-owner@example.test", "SavedViewQuery I801 Owner", "SavedViewQueryI801Owner1!", false, false, true)
+	peerID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-i801-peer@example.test", "SavedViewQuery I801 Peer", "SavedViewQueryI801Peer1!", false, false, true)
+	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-i-8-01-owner-membership", "user_id": ownerID, "role": "viewer"})
+	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-i-8-01-peer-membership", "user_id": peerID, "role": "viewer"})
+	ownerSession, ownerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "saved_view_query-i801-owner@example.test", "SavedViewQueryI801Owner1!", nil)
+	peerSession, peerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "saved_view_query-i801-peer@example.test", "SavedViewQueryI801Peer1!", nil)
 
-	timelineOne := timelineroutetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-01-row-one", "timeline.activity_synopsis_text": "Saved-view delete keeps records"})
-	timelineTwo := timelineroutetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-01-row-two", "timeline.activity_synopsis_text": "Saved-view delete keeps linked records"})
+	timelineOne := timelineroutetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-i-8-01-row-one", "timeline.activity_synopsis_text": "Saved-view delete keeps records"})
+	timelineTwo := timelineroutetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-i-8-01-row-two", "timeline.activity_synopsis_text": "Saved-view delete keeps linked records"})
 	recordOneID := workbookscenariotest.MustUUID(t, timelineOne["row"].(map[string]any)["record_id"].(string))
 	recordTwoID := workbookscenariotest.MustUUID(t, timelineTwo["row"].(map[string]any)["record_id"].(string))
 	workbookscenariotest.SeedRecordLink(t, harness.DB, incidentUUID, adminUUID, uuid.MustParse("00000000-0000-0000-0000-000000008151"), recordOneID, recordTwoID, "references_record", "manual", nil)
@@ -677,7 +677,7 @@ func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.evidence.v1/rows",
-		map[string]any{"client_txn_id": "txn-phase8-i-8-01-evidence", "evidence.title": "Saved-view delete keeps evidence"},
+		map[string]any{"client_txn_id": "txn-saved_view_query-i-8-01-evidence", "evidence.title": "Saved-view delete keeps evidence"},
 		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)

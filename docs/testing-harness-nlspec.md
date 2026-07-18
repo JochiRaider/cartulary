@@ -16,7 +16,7 @@ This NLSpec owns only harness mechanics: command invocation, owner and row selec
 
 Owner catalogs, verification contracts, schemas, task-surface inputs, and execution-topology inputs are reviewed derived contracts. They MUST implement this NLSpec and their cited product or support owners, but they MUST NOT supersede either source. Migration trackers and handoffs are implementation authorities only; they MUST NOT create lasting harness behavior. Guides, generated outputs, repository source, tests, and retained artifacts MUST NOT become alternate behavior owners.
 
-Frontend readiness mechanics introduced by `browser-e2e-visual`, `browser-e2e-a11y`, `test-evidence-audit`, owner test-family manifests, `tools/frontend_visual_fixture_registry.json`, `cartulary.test_evidence_accounting.v1`, `cartulary.frontend_visual_fixture_registry.v3`, `cartulary.frontend_accessibility_summary.v4`, and `cartulary.frontend_claim_publication_review.v1` are harness and implementation-readiness mechanics only. They MUST NOT define Core product behavior, MUST NOT promote visual or accessibility evidence into product-conformance evidence, and MUST NOT activate Core 05 claim-publication review unless a claim-bearing publication predicate is active.
+Frontend readiness mechanics introduced by `browser-e2e-visual`, `browser-e2e-a11y`, `test-evidence-audit`, owner test-family manifests, `tools/frontend_visual_fixture_registry.json`, `cartulary.test_evidence_accounting.v1`, `cartulary.frontend_visual_fixture_registry.v4`, `cartulary.frontend_accessibility_summary.v4`, and `cartulary.frontend_claim_publication_review.v1` are harness and implementation-readiness mechanics only. They MUST NOT define Core product behavior, MUST NOT promote visual or accessibility evidence into product-conformance evidence, and MUST NOT activate Core 05 claim-publication review unless a claim-bearing publication predicate is active.
 
 Harness v1 command IDs, delivery-phase registries, schemas, artifact identities, and retained runs are historical investigation evidence after the v2 cutover. A v2 implementation MUST NOT provide v1 aliases, fallback readers, dual catalogs, dual writers, or newest-artifact fallback. Historical v1 artifacts MUST NOT close a v2 verification or release gate.
 
@@ -137,7 +137,7 @@ Verified by: TH-HARNESS-AC-062, TH-HARNESS-AC-066, TH-HARNESS-AC-071
 | runtime profile          | A closed startup and managed-service identity referenced by a catalog row.                                                                               |
 | resource profile         | A closed set of logical scheduler-resource claims referenced by a catalog row; it does not define physical capacity.                                    |
 | fixture profile          | A closed fixture-policy and budget identity referenced by a catalog row.                                                                                 |
-| delivery phase           | Historical `phase0` through `phase12` or `FE-P0` through `FE-P12` test-accounting identity, unsupported by the v2 runtime.                              |
+| retired delivery identity | Any ordinal execution identity from the predecessor harness, unsupported by the current owner-based runtime.                                           |
 
 Domain and product terms keep their meanings from the product specs and `docs/domain.md`.
 
@@ -604,29 +604,7 @@ Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-064, TH-HARNESS-AC-070
 Verified by: TH-HARNESS-AC-004, TH-HARNESS-AC-064, TH-HARNESS-AC-071
 
 **TH-HARNESS-REQ-073**
-The v1 retirement mapping is normative:
-
-| Retired v1 identity | v2 disposition |
-| --- | --- |
-| `phase-slice`, `cartulary.harness.command.phase_slice.v1` | Replaced by `test-slice` and `cartulary.harness.command.test_slice.v1`. |
-| `service-backed-slice`, `cartulary.harness.command.service_backed_slice.v1` | Replaced by `service-backed-test-slice` and `cartulary.harness.command.service_backed_test_slice.v1`. |
-| `explain-phase`, `cartulary.harness.command.explain_phase.v1` | Replaced by `explain-test-owner`. |
-| `frontend-evidence-audit`, `cartulary.harness.command.frontend_evidence_audit.v1` | Replaced by `test-evidence-audit` and `cartulary.harness.command.test_evidence_audit.v1`. |
-| `cartulary.harness.command.task_guide.v1` and `phase-author` | Replaced by `cartulary.harness.command.task_guide.v2` and `module-author`. |
-| `phase-ledgers`, `cartulary.harness.command.phase_ledgers.v1`, `phase-ledger-drift`, `cartulary.harness.command.phase_ledger_drift.v1` | Deleted; catalog validation and diagnostics replace them. |
-| `phase-schedules`, `cartulary.harness.command.phase_schedules.v1`, `phase-schedule-drift`, `cartulary.harness.command.phase_schedule_drift.v1` | Deleted; generation and drift are part of `generate` and `generate-drift`. |
-| `PHASE`, `PHASE_NAMESPACE`, `base_phase_join` | Deleted; `OWNER` and exact `ROWS` replace selection. |
-| `cartulary.phase_slice_plan.v2` | Replaced by `cartulary.test_slice_plan.v1`. |
-| `cartulary.phase_slice_scheduler_summary.v4` | Replaced by `cartulary.test_slice_scheduler_summary.v1`. |
-| `cartulary.frontend_row_accounting.v5` | Replaced by `cartulary.test_evidence_accounting.v1`. |
-| `cartulary.frontend_evidence_audit_summary.v1` | Replaced by `cartulary.test_evidence_audit_summary.v1`. |
-| `cartulary.test_phase_summary.v3`, phase-owned artifact names | Replaced by `cartulary.test_owner_summary.v1` and Section 8 owner artifact names. |
-| `cartulary.phase_registry.v1`, `cartulary.phase_test_map.v2`, `cartulary.frontend_phase_registry.v5`, `cartulary.frontend_phase_test_map.v4` | Deleted; owner and family schemas in TH-HARNESS-REQ-268 replace them. |
-| `cartulary.subsystem_test_registry.v1` and Graph Projection special-case maps | Deleted after their five frozen identities reconcile into the owner catalog. |
-| `phase-summary.json`, `frontend-row-accounting.json`, `frontend-evidence-audit-summary.json` | Replaced by the exact Section 8 owner-first artifact paths. |
-| `TH-HARNESS-REQ-104..110`, `TH-HARNESS-REQ-351` | Retired and permanently reserved. |
-
-Old retained artifacts remain manually inspectable but MUST NOT be interpreted as v2 evidence.
+The public commands, machine contracts, selection inputs, artifact paths, and schema IDs declared by this specification are closed. Any undeclared predecessor identity is unsupported and MUST NOT be accepted, translated, discovered, read, or emitted. Historical migration mappings belong only in the immutable reconciliation handoff and Git history; they are not normative runtime inputs.
 Verified by: TH-HARNESS-AC-068, TH-HARNESS-AC-070
 
 **TH-HARNESS-REQ-074**
@@ -904,7 +882,7 @@ Verified by: TH-HARNESS-AC-064, TH-HARNESS-AC-066
 Verified by: TH-HARNESS-AC-064, TH-HARNESS-AC-071
 
 **TH-HARNESS-REQ-123**
-`PHASE`, `PHASE_NAMESPACE`, and all other retired v1 selection inputs are undeclared in v2. A removed or otherwise undeclared Make command-line input MUST fail before child work as `usage_error`; an undeclared inherited environment value MUST be ignored and MUST NOT reach child environments, as required by TH-HARNESS-REQ-112.
+Any Make command-line input not declared by the selected target MUST fail before child work as `usage_error`; an undeclared inherited environment value MUST be ignored and MUST NOT reach child environments, as required by TH-HARNESS-REQ-112.
 Verified by: TH-HARNESS-AC-064, TH-HARNESS-AC-070
 
 ### 5.1 Precedence
@@ -1331,7 +1309,6 @@ The following schema IDs are public contracts. Schema file paths are repository 
 | `cartulary.task_guide_summary.v2`               | `tools/schemas/cartulary.task_guide_summary.v2.schema.json`               | present           | Task guidance            | Before target-local JSON output. |
 | `cartulary.test_catalog_check_summary.v1`       | `tools/schemas/cartulary.test_catalog_check_summary.v1.schema.json`       | present           | Catalog validator        | Before private catalog-check success. |
 | `cartulary.documentation_read_exceptions.v1`    | `tools/schemas/cartulary.documentation_read_exceptions.v1.schema.json`    | present           | Documentation boundary owner | Before documentation-read policy validation. |
-| `cartulary.delivery_phase_semantic_allowlist.v1` | `tools/schemas/cartulary.delivery_phase_semantic_allowlist.v1.schema.json` | present          | Semantic identity boundary owner | Before delivery-identity scan success. |
 | `cartulary.govulncheck_findings.v1`             | `tools/schemas/cartulary.govulncheck_findings.v1.schema.json`             | present           | Govulncheck wrapper      | Before failure classification or target-summary security rollup consumes findings. |
 | `cartulary.test_services.lease.v1`              | `tools/schemas/cartulary.test_services.lease.v1.schema.json`              | present           | Service suite            | Before attach or cleanup relies on lease. |
 | `cartulary.test_services.lifecycle.v2`          | `tools/schemas/cartulary.test_services.lifecycle.v2.schema.json`          | present           | Service suite            | During service lifecycle JSONL validation. |
@@ -1359,7 +1336,7 @@ The following schema IDs are public contracts. Schema file paths are repository 
 | `cartulary.execution_topology_render_cache.v1`  | `tools/schemas/cartulary.execution_topology_render_cache.v1.schema.json`  | present           | Execution-topology renderer | Before cached render content is reused.   |
 | `cartulary.frontend_accessibility_summary.v4`   | `tools/schemas/cartulary.frontend_accessibility_summary.v4.schema.json`   | present           | Browser accessibility target | Before `browser-e2e-a11y` success.    |
 | `cartulary.release_readiness_evidence.v2`       | `tools/schemas/cartulary.release_readiness_evidence.v2.schema.json`       | present           | Release-readiness aggregation | Before `release-readiness-evidence` success. |
-| `cartulary.frontend_visual_fixture_registry.v3` | `tools/schemas/cartulary.frontend_visual_fixture_registry.v3.schema.json` | present           | Frontend visual fixture registry validation | During JSON shape checks, catalog checks, and visual readiness validation. |
+| `cartulary.frontend_visual_fixture_registry.v4` | `tools/schemas/cartulary.frontend_visual_fixture_registry.v4.schema.json` | present           | Semantic frontend visual fixture registry validation | During JSON shape checks, catalog checks, and visual readiness validation. |
 | `cartulary.frontend_claim_publication_review.v1` | `tools/schemas/cartulary.frontend_claim_publication_review.v1.schema.json` | present          | Conditional frontend claim-publication review metadata; no default target emits it | Before any future or explicit frontend claim-review artifact is accepted as Core 05-routed release evidence. |
 | `cartulary.otel_conformance_summary.v1`         | `tools/schemas/cartulary.otel_conformance_summary.v1.schema.json`         | present           | OpenTelemetry conformance target | Before `otel-conformance` success. |
 
@@ -1497,7 +1474,7 @@ Verified by: TH-HARNESS-AC-066
 Verified by: TH-HARNESS-AC-064, TH-HARNESS-AC-071
 
 **TH-HARNESS-REQ-275**
-`cartulary.documentation_read_exceptions.v1` and `cartulary.delivery_phase_semantic_allowlist.v1` are required current schema attachments. They MUST use Draft 2020-12, constant `schema_id`, closed enums, required fields, and `additionalProperties=false`; a policy validator MUST reject an unknown field, unknown purpose or classification, duplicate semantic locator, missing owner, or line-number-only exception before scanning executable behavior.
+`cartulary.documentation_read_exceptions.v1` is a required current schema attachment. It MUST use Draft 2020-12, constant `schema_id`, closed enums, required fields, and `additionalProperties=false`; its policy validator MUST reject an unknown field, purpose, operation, missing owner, or unsafe path before scanning executable behavior.
 Verified by: TH-HARNESS-AC-067, TH-HARNESS-AC-071
 
 ### 8.1 Artifact Families
@@ -1843,7 +1820,7 @@ Verified by: TH-HARNESS-AC-065
 **TH-HARNESS-REQ-367**
 Both owner-slice commands use `stop_on_first_failure=false`. Running independent work drains after a failure; work whose dependency failed does not start. Cancellation MUST propagate through the existing scheduler contract. Finalizers and cleanup MUST always run, subject to the existing destructive-safety guards.
 
-The owner-slice commands and direct browser-stage commands MUST use the shared scheduler family `test_slice`; `phase_slice` is not a current scheduler family or capacity-profile identity. Owner plans MUST retain `plan_semantic_digest` and `scheduler_semantic_digest`. These digests exclude invocation timestamps and run IDs, and identical semantic selections, profiles, work units, dependencies, resource claims, timeouts, and finalizers MUST produce identical digests. Browser scheduler units MUST preserve the catalog-derived browser session group, runtime profile, exact selected group set, stage serialization resource, and evidence target. A browser evidence finalizer MUST run after every session reaches a terminal state, and the parent target summary MUST run after every evidence finalizer reaches a terminal state.
+The owner-slice commands and direct browser-stage commands MUST use the shared scheduler family `test_slice`. Owner plans MUST retain `plan_semantic_digest` and `scheduler_semantic_digest`. These digests exclude invocation timestamps and run IDs, and identical semantic selections, profiles, work units, dependencies, resource claims, timeouts, and finalizers MUST produce identical digests. Browser scheduler units MUST preserve the catalog-derived browser session group, runtime profile, exact selected group set, stage serialization resource, and evidence target. A browser evidence finalizer MUST run after every session reaches a terminal state, and the parent target summary MUST run after every evidence finalizer reaches a terminal state.
 
 Resource admission is FIFO for conflicting claims: a later ready unit MUST NOT take capacity needed by an earlier ready resource-blocked unit when their claims overlap. Ready units with disjoint claims MAY proceed. Product work has one scheduler attempt. A dependency failure emits `skipped_dependency`; an interrupt emits `cancelled`; an ordinary scheduler watchdog emits `infrastructure_failed` with `timeout_failure`. Finalizers become ready when every declared dependency is terminal, whether successful, failed, or dependency-skipped. They run in deterministic manifest order after ordinary running work drains. Cleanup failure is primary only when no earlier higher-precedence failure exists.
 
@@ -3101,15 +3078,15 @@ Documentation-read enforcement MUST contain static fixtures, runtime negative fi
 Verified by: TH-HARNESS-AC-067
 
 **TH-HARNESS-REQ-609**
-`tools/delivery_phase_semantic_allowlist.json` MUST validate as `cartulary.delivery_phase_semantic_allowlist.v1`. The delivery-phase scan MUST detect, case-insensitively, path components, filenames, symbols, titles, selector values, variables, schema IDs, artifact names, and target IDs matching `phase(?:_|-| )?(?:0|[1-9][0-9]*)`, `FE-P[0-9]+`, or an exact retired identity from TH-HARNESS-REQ-073.
+The semantic-identity scan MUST detect delivery-shaped path components, filenames, symbols, titles, selector values, variables, schema IDs, artifact names, and target IDs case-insensitively. The implementation MAY keep closed detection patterns, but MUST NOT publish or consume a runtime exception registry.
 Verified by: TH-HARNESS-AC-067, TH-HARNESS-AC-070
 
 **TH-HARNESS-REQ-610**
-Each semantic allowlist row contains one normalized repository-relative location; locator kind `path_component`, `filename`, `symbol`, `title`, `selector`, `variable`, `schema_id`, `artifact_name`, or `target_id`; and exactly one exact locator value or bounded pattern. It also contains classification `product_phase` or `execution_step`, owner ID, and nonempty reason. A bounded pattern is at most 256 ASCII bytes, begins with `^`, ends with `$`, contains no lookaround or backreference, and MUST match at least one scanned identity; every match from one row MUST have the same owner and classification. Line-number-only exceptions are invalid. Historical documents outside executable surfaces do not require an exception. A match in a live catalog selector, generated topology identity, public input, schema identity, or harness/test path MUST NOT be allowed as a delivery-phase identity.
+Every semantic-identity violation in an executable source, live catalog selector, generated topology identity, public input, schema identity, harness/test path, or active fixture MUST fail the gate. No allowlist, path exception, compatibility classification, or line-number exception is permitted. Product vocabulary that legitimately uses the word “phase” without encoding delivery order remains outside the delivery-shaped patterns and is owned by its product specification.
 Verified by: TH-HARNESS-AC-067, TH-HARNESS-AC-070
 
 **TH-HARNESS-REQ-611**
-An ambiguous semantic match blocks closure. The scanner MUST report the matched token, normalized location, and required classification without opening or copying unrelated document content. Product concepts such as incident phase, operator phase, job progress phase, and the normatively named Workbook Import Assistant phase remain valid only when classified by their product owner.
+An ambiguous semantic match blocks closure. The scanner MUST report the matched token and normalized location without opening or copying unrelated document content.
 Verified by: TH-HARNESS-AC-067
 
 ### 15.1 Secret Pattern Table

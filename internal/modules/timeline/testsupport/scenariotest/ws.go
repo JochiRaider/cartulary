@@ -39,7 +39,7 @@ func ConnectTimelineSocket(t testing.TB, server *httptestx.Server, incidentID st
 
 	client := incidentwstest.ConnectAndHello(t, server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 		SessionToken:     sessionToken,
-		ClientInstanceID: "phase3-test-" + incidentID,
+		ClientInstanceID: "timeline-mutation-test-" + incidentID,
 		Presence: platformws.PresenceInput{
 			SheetRef: map[string]string{
 				"kind": "view_schema",

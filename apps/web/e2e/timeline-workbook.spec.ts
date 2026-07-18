@@ -154,8 +154,8 @@ test("drives review, demotion, and supersede through the visible workbook surfac
   page,
   sessionTracker,
 }) => {
-  const reviewerEmail = uniqueEmail("phase3-e303-reviewer");
-  const reviewerPassword = "Phase3E303Reviewer!";
+  const reviewerEmail = uniqueEmail("timeline_mutation-e303-reviewer");
+  const reviewerPassword = "TimelineMutationE303Reviewer!";
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E303"),
@@ -192,11 +192,11 @@ test("drives review, demotion, and supersede through the visible workbook surfac
     browser,
     sessionTracker,
     {
-      createdBy: "phase3 reviewer lifecycle flow",
+      createdBy: "timeline_mutation reviewer lifecycle flow",
       email: reviewerEmail,
       incidentId,
       password: reviewerPassword,
-      purpose: "phase3 e303 reviewer workbook lifecycle",
+      purpose: "timeline_mutation e303 reviewer workbook lifecycle",
       userId: reviewerUser.user_id,
     },
   );

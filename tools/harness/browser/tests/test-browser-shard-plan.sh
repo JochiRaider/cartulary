@@ -114,7 +114,7 @@ cat >"$legacy_baseline" <<'JSON'
   "file_overhead_ms": 500,
   "shard_target_ms": 8000,
   "entries": {
-    "FE-I-P5-01": {
+    "integration.entity-linking.row-01": {
       "file": "apps/web/e2e/alpha.spec.ts",
       "title": "legacy",
       "weight_ms": 1
@@ -163,7 +163,7 @@ JSON
 mkdir -p "$results_dir/check"
 cat >"$results_dir/check/tool-run-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v4",
+  "schema_id": "cartulary.tool_run_summary.v5",
   "target": "check",
   "status": "pass"
 }

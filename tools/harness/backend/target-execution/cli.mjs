@@ -89,8 +89,10 @@ export async function runGoTargetCLI(argv, options = {}) {
         return 2;
     }
   } catch (error) {
+    const detail =
+      error instanceof Error && error.stack ? error.stack : String(error);
     process.stderr.write(
-      `${error instanceof Error ? error.message : String(error)}\n`,
+      `${detail}\n`,
     );
     return process.exitCode && process.exitCode !== 0 ? process.exitCode : 1;
   }

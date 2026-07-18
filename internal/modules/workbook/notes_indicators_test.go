@@ -16,26 +16,26 @@ import (
 )
 
 func TestNotesAreArtifactBackedRows_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "phase9-u-9-03-notes")
+	harness := recordstoretest.StartStore(t, "workbook_interaction-u-9-03-notes")
 	store := workbook.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u903@example.test", "U903 Notes", "U903NotesPass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-03-incident", "IR-U903", "Workbook inspector U-9-03")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-03-incident", "IR-U903", "Workbook inspector U-9-03")
 	sourceRecordID := uuid.New()
 	recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, sourceRecordID)
 
 	created, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.NotesViewSchemaID,
-		ClientTxnID:  "txn-phase9-u-9-03-note",
+		ClientTxnID:  "txn-workbook_interaction-u-9-03-note",
 		Values: map[string]workbook.ValueChange{
 			"note.title": textChange("Workbook inspector artifact note"),
 			"note.body":  textChange("Artifact-backed note body"),
 		},
 		Collections: map[string]workbook.CollectionActionPayload{
 			"note.tags": {
-				Actions: []workbook.CollectionAction{{Op: "add_tag", RawText: "phase9-sprint3", NormalizedText: "phase9-sprint3"}},
+				Actions: []workbook.CollectionAction{{Op: "add_tag", RawText: "workbook_interaction-sprint3", NormalizedText: "workbook_interaction-sprint3"}},
 			},
 		},
-	}, []byte("txn-phase9-u-9-03-note"), "req-phase9-u-9-03-note", time.Date(2026, 5, 17, 15, 0, 0, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-u-9-03-note"), "req-workbook_interaction-u-9-03-note", time.Date(2026, 5, 17, 15, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create note through workbook store: %v", err)
 	}
@@ -49,22 +49,22 @@ SELECT count(*)
    AND a.artifact_type = 'note'
 `, created.RecordID, 1)
 	requireScalarCount(t, harness, `SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'notes'`, 0)
-	requireScalarCount(t, harness, `SELECT count(*) FROM record_tags WHERE incident_id = $1 AND record_id = $2 AND normalized_tag_name = 'phase9-sprint3' AND deleted_at IS NULL`, incident.ID, created.RecordID, 1)
+	requireScalarCount(t, harness, `SELECT count(*) FROM record_tags WHERE incident_id = $1 AND record_id = $2 AND normalized_tag_name = 'workbook_interaction-sprint3' AND deleted_at IS NULL`, incident.ID, created.RecordID, 1)
 	requireScalarCount(t, harness, `SELECT count(*) FROM record_revisions WHERE record_id = $1 AND row_version = 1`, created.RecordID, 1)
 
 	linked, err := store.CreateLinkedNote(context.Background(), actor, sourceRecordID, workbook.LinkedNoteCreateRequest{
-		ClientTxnID: "txn-phase9-u-9-03-linked-note",
+		ClientTxnID: "txn-workbook_interaction-u-9-03-linked-note",
 		Values: map[string]workbook.ValueChange{
 			"note.title": textChange("Workbook inspector linked note"),
 			"note.body":  textChange("Linked through references_artifact"),
 		},
 	}, workbook.LinkedNoteCreateRequestHash(sourceRecordID, workbook.LinkedNoteCreateRequest{
-		ClientTxnID: "txn-phase9-u-9-03-linked-note",
+		ClientTxnID: "txn-workbook_interaction-u-9-03-linked-note",
 		Values: map[string]workbook.ValueChange{
 			"note.title": textChange("Workbook inspector linked note"),
 			"note.body":  textChange("Linked through references_artifact"),
 		},
-	}), "req-phase9-u-9-03-linked-note", time.Date(2026, 5, 17, 15, 5, 0, 0, time.UTC))
+	}), "req-workbook_interaction-u-9-03-linked-note", time.Date(2026, 5, 17, 15, 5, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create linked note: %v", err)
 	}
@@ -123,20 +123,20 @@ SELECT count(*)
 }
 
 func TestNotesAndIndicatorsQueryThroughWorkbookProjections_Integration(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "phase9-i-9-02-notes-indicators")
+	harness := recordstoretest.StartStore(t, "workbook_interaction-i-9-02-notes-indicators")
 	workbookStore := workbook.NewStore(harness.DB)
 	indicatorStore := indicators.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "i902@example.test", "I902 Projection", "I902ProjectionPass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-incident", "IR-I902", "Workbook inspector I-9-02")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-i-9-02-incident", "IR-I902", "Workbook inspector I-9-02")
 
 	note, err := workbookStore.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.NotesViewSchemaID,
-		ClientTxnID:  "txn-phase9-i-9-02-note",
+		ClientTxnID:  "txn-workbook_interaction-i-9-02-note",
 		Values: map[string]workbook.ValueChange{
 			"note.title": textChange("Projection-backed note"),
-			"note.body":  textChange("query token phase9-note-projection"),
+			"note.body":  textChange("query token workbook_interaction-note-projection"),
 		},
-	}, []byte("txn-phase9-i-9-02-note"), "req-phase9-i-9-02-note", time.Date(2026, 5, 17, 16, 0, 0, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-i-9-02-note"), "req-workbook_interaction-i-9-02-note", time.Date(2026, 5, 17, 16, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create projection note: %v", err)
 	}
@@ -147,13 +147,13 @@ func TestNotesAndIndicatorsQueryThroughWorkbookProjections_Integration(t *testin
 	requireQueriedRow(t, noteRows, note.RecordID)
 
 	indicator, err := indicatorStore.CreateIndicatorRow(context.Background(), actor, incident.ID, indicators.CreateRequest{
-		ClientTxnID: "txn-phase9-i-9-02-indicator",
+		ClientTxnID: "txn-workbook_interaction-i-9-02-indicator",
 		Values: map[string]string{
 			"indicator.indicator_type": "ipv4_addr",
 			"indicator.value_kind":     "atomic",
 			"indicator.display_value":  "203.0.113.45",
 		},
-	}, []byte("txn-phase9-i-9-02-indicator"), "req-phase9-i-9-02-indicator", time.Date(2026, 5, 17, 16, 5, 0, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-i-9-02-indicator"), "req-workbook_interaction-i-9-02-indicator", time.Date(2026, 5, 17, 16, 5, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create projection indicator: %v", err)
 	}
@@ -165,20 +165,20 @@ func TestNotesAndIndicatorsQueryThroughWorkbookProjections_Integration(t *testin
 }
 
 func TestAssessmentsQueryThroughWorkbookProjections_Integration(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "phase9-i-9-02-assessments")
+	harness := recordstoretest.StartStore(t, "workbook_interaction-i-9-02-assessments")
 	workbookStore := workbook.NewStore(harness.DB)
 	assessmentStore := assessments.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "i902-assessments@example.test", "I902 Assessments", "I902AssessmentsPass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-assessment-incident", "IR-I902-ASSESS", "Workbook inspector I-9-02 assessments")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-i-9-02-assessment-incident", "IR-I902-ASSESS", "Workbook inspector I-9-02 assessments")
 
 	hostID := uuid.New()
 	supportID := uuid.New()
-	recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, hostID, "Workbook inspector projection assessment host", "phase9-projection-assessment", "", "")
+	recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, hostID, "Workbook inspector projection assessment host", "workbook_interaction-projection-assessment", "", "")
 	recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, supportID)
 
 	confidenceScore := 85
 	request := assessments.CreateRequest{
-		ClientTxnID:     "txn-phase9-i-9-02-assessment",
+		ClientTxnID:     "txn-workbook_interaction-i-9-02-assessment",
 		SubjectRef:      &hostID,
 		SubjectType:     "host",
 		AssessmentState: "confirmed",
@@ -192,7 +192,7 @@ func TestAssessmentsQueryThroughWorkbookProjections_Integration(t *testing.T) {
 		incident.ID,
 		request,
 		assessments.CreateRequestHash(request),
-		"req-phase9-i-9-02-assessment",
+		"req-workbook_interaction-i-9-02-assessment",
 		time.Date(2026, 5, 17, 16, 10, 0, 0, time.UTC),
 	)
 	if err != nil {
@@ -218,16 +218,16 @@ func TestAssessmentsQueryThroughWorkbookProjections_Integration(t *testing.T) {
 }
 
 func TestTaskRequestsAndDecisionsQueryThroughWorkbookProjections_Integration(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "phase9-i-9-02-tasks-decisions")
+	harness := recordstoretest.StartStore(t, "workbook_interaction-i-9-02-tasks-decisions")
 	workbookStore := workbook.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "i902-tasks-decisions@example.test", "I902 Tasks Decisions", "I902TasksDecisions1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-task-decision-incident", "IR-I902-TD", "Workbook inspector I-9-02 tasks decisions")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-i-9-02-task-decision-incident", "IR-I902-TD", "Workbook inspector I-9-02 tasks decisions")
 
-	supportID := mustCreateEvidenceFor(t, workbookStore, actor, incident.ID, "txn-phase9-i-9-02-decision-support", "I-9-02 decision support")
-	affectedID := mustCreateEvidenceFor(t, workbookStore, actor, incident.ID, "txn-phase9-i-9-02-decision-affected", "I-9-02 affected record")
+	supportID := mustCreateEvidenceFor(t, workbookStore, actor, incident.ID, "txn-workbook_interaction-i-9-02-decision-support", "I-9-02 decision support")
+	affectedID := mustCreateEvidenceFor(t, workbookStore, actor, incident.ID, "txn-workbook_interaction-i-9-02-decision-affected", "I-9-02 affected record")
 	decision, err := workbookStore.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.DecisionsViewSchemaID,
-		ClientTxnID:  "txn-phase9-i-9-02-decision",
+		ClientTxnID:  "txn-workbook_interaction-i-9-02-decision",
 		Values: map[string]workbook.ValueChange{
 			"decision.summary":       textChange("Projection-backed decision"),
 			"decision.decision_type": textChange("containment"),
@@ -237,7 +237,7 @@ func TestTaskRequestsAndDecisionsQueryThroughWorkbookProjections_Integration(t *
 			"decision.support_refs":        {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &supportID}}},
 			"decision.affected_record_ids": {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &affectedID}}},
 		},
-	}, []byte("txn-phase9-i-9-02-decision"), "req-phase9-i-9-02-decision", time.Date(2026, 5, 17, 16, 15, 0, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-i-9-02-decision"), "req-workbook_interaction-i-9-02-decision", time.Date(2026, 5, 17, 16, 15, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create projection decision: %v", err)
 	}
@@ -257,7 +257,7 @@ func TestTaskRequestsAndDecisionsQueryThroughWorkbookProjections_Integration(t *
 	decisionID := decision.RecordID
 	task, err := workbookStore.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.TaskRequestsViewSchemaID,
-		ClientTxnID:  "txn-phase9-i-9-02-task",
+		ClientTxnID:  "txn-workbook_interaction-i-9-02-task",
 		Values: map[string]workbook.ValueChange{
 			"task.title":              textChange("Projection-backed task"),
 			"task.task_kind":          textChange("collection"),
@@ -267,7 +267,7 @@ func TestTaskRequestsAndDecisionsQueryThroughWorkbookProjections_Integration(t *
 		Collections: map[string]workbook.CollectionActionPayload{
 			"task.linked_record_ids": {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &supportID}}},
 		},
-	}, []byte("txn-phase9-i-9-02-task"), "req-phase9-i-9-02-task", time.Date(2026, 5, 17, 16, 20, 0, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-i-9-02-task"), "req-workbook_interaction-i-9-02-task", time.Date(2026, 5, 17, 16, 20, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create projection task: %v", err)
 	}
@@ -293,11 +293,11 @@ func TestTaskRequestsAndDecisionsQueryThroughWorkbookProjections_Integration(t *
 
 func TestWorkbookHotProjectionTablesRebuild_Integration(t *testing.T) {
 	ctx := context.Background()
-	harness := recordstoretest.StartStore(t, "phase9-i-9-02-hot-projections")
+	harness := recordstoretest.StartStore(t, "workbook_interaction-i-9-02-hot-projections")
 	workbookStore := workbook.NewStore(harness.DB)
 	projectionStore := projections.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "i902-hot-projections@example.test", "I902 Hot Projections", "I902HotProjection1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-hot-incident", "IR-I902-HOT", "Workbook inspector I-9-02 hot projections")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-i-9-02-hot-incident", "IR-I902-HOT", "Workbook inspector I-9-02 hot projections")
 
 	requireScalarCount(t, harness, `
 SELECT count(*)
@@ -317,32 +317,32 @@ SELECT count(*)
 
 	party, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.PartiesViewSchemaID,
-		ClientTxnID:  "txn-phase9-i-9-02-hot-party",
+		ClientTxnID:  "txn-workbook_interaction-i-9-02-hot-party",
 		Values: map[string]workbook.ValueChange{
 			"party.display_name": textChange("Projection table party"),
 			"party.party_kind":   textChange("person"),
 		},
-	}, []byte("txn-phase9-i-9-02-hot-party"), "req-phase9-i-9-02-hot-party", time.Date(2026, 6, 30, 13, 0, 0, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-i-9-02-hot-party"), "req-workbook_interaction-i-9-02-hot-party", time.Date(2026, 6, 30, 13, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create party projection row: %v", err)
 	}
 	evidence, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.EvidenceViewSchemaID,
-		ClientTxnID:  "txn-phase9-i-9-02-hot-evidence",
+		ClientTxnID:  "txn-workbook_interaction-i-9-02-hot-evidence",
 		Values: map[string]workbook.ValueChange{
 			"evidence.title": textChange("Projection table evidence"),
 		},
-	}, []byte("txn-phase9-i-9-02-hot-evidence"), "req-phase9-i-9-02-hot-evidence", time.Date(2026, 6, 30, 13, 1, 0, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-i-9-02-hot-evidence"), "req-workbook_interaction-i-9-02-hot-evidence", time.Date(2026, 6, 30, 13, 1, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create evidence projection row: %v", err)
 	}
 	note, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.NotesViewSchemaID,
-		ClientTxnID:  "txn-phase9-i-9-02-hot-note",
+		ClientTxnID:  "txn-workbook_interaction-i-9-02-hot-note",
 		Values: map[string]workbook.ValueChange{
 			"note.title": textChange("Projection table note"),
 		},
-	}, []byte("txn-phase9-i-9-02-hot-note"), "req-phase9-i-9-02-hot-note", time.Date(2026, 6, 30, 13, 2, 0, 0, time.UTC))
+	}, []byte("txn-workbook_interaction-i-9-02-hot-note"), "req-workbook_interaction-i-9-02-hot-note", time.Date(2026, 6, 30, 13, 2, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create artifact projection row: %v", err)
 	}
@@ -389,18 +389,18 @@ SELECT count(*)
 }
 
 func TestCoordinationSurfacesQueryThroughWorkbookProjections_Integration(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "phase9-i-9-02-coordination")
+	harness := recordstoretest.StartStore(t, "workbook_interaction-i-9-02-coordination")
 	workbookStore := workbook.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "i902-coordination@example.test", "I902 Coordination", "I902Coordination1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-coordination-incident", "IR-I902-COORD", "Workbook inspector I-9-02 coordination")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-i-9-02-coordination-incident", "IR-I902-COORD", "Workbook inspector I-9-02 coordination")
 
-	partyID := mustCreatePartyFor(t, workbookStore, actor, incident.ID, "txn-phase9-i-9-02-coordination-party", "Projection coordination party")
-	taskID := mustCreateTaskFor(t, workbookStore, actor, incident.ID, "txn-phase9-i-9-02-coordination-task", "Projection coordination task")
-	evidenceID := mustCreateEvidenceFor(t, workbookStore, actor, incident.ID, "txn-phase9-i-9-02-coordination-evidence", "Projection coordination evidence")
-	decisionID := mustCreateDecision(t, workbookStore, actor, incident.ID, "txn-phase9-i-9-02-coordination-decision", "approved", "Projection coordination decision")
+	partyID := mustCreatePartyFor(t, workbookStore, actor, incident.ID, "txn-workbook_interaction-i-9-02-coordination-party", "Projection coordination party")
+	taskID := mustCreateTaskFor(t, workbookStore, actor, incident.ID, "txn-workbook_interaction-i-9-02-coordination-task", "Projection coordination task")
+	evidenceID := mustCreateEvidenceFor(t, workbookStore, actor, incident.ID, "txn-workbook_interaction-i-9-02-coordination-evidence", "Projection coordination evidence")
+	decisionID := mustCreateDecision(t, workbookStore, actor, incident.ID, "txn-workbook_interaction-i-9-02-coordination-decision", "approved", "Projection coordination decision")
 
 	nextReport := time.Date(2026, 5, 24, 12, 0, 0, 0, time.UTC)
-	comm := mustCreateRow(t, workbookStore, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-phase9-i-9-02-comm", map[string]workbook.ValueChange{
+	comm := mustCreateRow(t, workbookStore, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-i-9-02-comm", map[string]workbook.ValueChange{
 		"comm_log.timestamp_utc":      Timestamp(time.Date(2026, 5, 21, 12, 0, 0, 0, time.UTC)),
 		"comm_log.comm_type":          textChange("briefing"),
 		"comm_log.audience":           textChange("Projection leadership"),
@@ -427,7 +427,7 @@ func TestCoordinationSurfacesQueryThroughWorkbookProjections_Integration(t *test
 	requireProjectedCollectionCount(t, commRow, "comm_log.audience_party_ids", 1)
 
 	acknowledgedAt := time.Date(2026, 5, 22, 14, 0, 0, 0, time.UTC)
-	handoff := mustCreateRow(t, workbookStore, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-phase9-i-9-02-handoff", map[string]workbook.ValueChange{
+	handoff := mustCreateRow(t, workbookStore, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-i-9-02-handoff", map[string]workbook.ValueChange{
 		"handoff.timestamp_utc":          Timestamp(time.Date(2026, 5, 22, 13, 0, 0, 0, time.UTC)),
 		"handoff.incoming_owner_user_id": UUID(actor.ID),
 		"handoff.current_state_summary":  textChange("Projection-backed handoff"),
@@ -449,7 +449,7 @@ func TestCoordinationSurfacesQueryThroughWorkbookProjections_Integration(t *test
 	requireProjectedCollectionCount(t, handoffRow, "handoff.open_risk_refs", 1)
 
 	statusNextReport := time.Date(2026, 5, 25, 15, 0, 0, 0, time.UTC)
-	status := mustCreateRow(t, workbookStore, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-phase9-i-9-02-status", map[string]workbook.ValueChange{
+	status := mustCreateRow(t, workbookStore, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-workbook_interaction-i-9-02-status", map[string]workbook.ValueChange{
 		"status_review.timestamp_utc":         Timestamp(time.Date(2026, 5, 23, 15, 0, 0, 0, time.UTC)),
 		"status_review.current_state_summary": textChange("Projection-backed status review"),
 		"status_review.next_report_at":        Timestamp(statusNextReport),
@@ -469,7 +469,7 @@ func TestCoordinationSurfacesQueryThroughWorkbookProjections_Integration(t *test
 	requireProjectedCollectionCount(t, statusRow, "status_review.pending_evidence_ids", 1)
 	requireProjectedCollectionCount(t, statusRow, "status_review.open_decision_ids", 1)
 
-	lesson := mustCreateRow(t, workbookStore, actor, incident.ID, workbook.LessonViewSchemaID, "txn-phase9-i-9-02-lesson", map[string]workbook.ValueChange{
+	lesson := mustCreateRow(t, workbookStore, actor, incident.ID, workbook.LessonViewSchemaID, "txn-workbook_interaction-i-9-02-lesson", map[string]workbook.ValueChange{
 		"lesson.timestamp_utc": Timestamp(time.Date(2026, 5, 24, 16, 0, 0, 0, time.UTC)),
 		"lesson.summary":       textChange("Projection-backed lesson"),
 		"lesson.closure_state": textChange("closed"),

@@ -16,18 +16,18 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 )
 
-func TestPhaseDAdapterContractHardening(t *testing.T) {
-	requirePhaseDAdapterContractHardening(t)
+func TestObjectStoreAdapterContractHardening(t *testing.T) {
+	requireObjectStoreAdapterContractHardening(t)
 }
 
-func requirePhaseDAdapterContractHardening(t *testing.T) {
+func requireObjectStoreAdapterContractHardening(t *testing.T) {
 	t.Helper()
-	t.Run("input_contracts", requirePhaseDAdapterInputContracts)
-	t.Run("retry_algorithm", requirePhaseDAdapterRetryAlgorithm)
-	t.Run("read_streams_are_close_observable", requirePhaseDAdapterReadStreamsAreCloseObservable)
+	t.Run("input_contracts", requireObjectStoreAdapterInputContracts)
+	t.Run("retry_algorithm", requireObjectStoreAdapterRetryAlgorithm)
+	t.Run("read_streams_are_close_observable", requireObjectStoreAdapterReadStreamsAreCloseObservable)
 }
 
-func requirePhaseDAdapterInputContracts(t *testing.T) {
+func requireObjectStoreAdapterInputContracts(t *testing.T) {
 	store, err := objectstore.NewFilesystemStore(t.TempDir())
 	if err != nil {
 		t.Fatalf("create filesystem store: %v", err)
@@ -62,7 +62,7 @@ func requirePhaseDAdapterInputContracts(t *testing.T) {
 	requireAdapterError(t, err, objectstore.ErrorCodeInvalidRequest, objectstore.ReasonInvalidRequest)
 }
 
-func requirePhaseDAdapterRetryAlgorithm(t *testing.T) {
+func requireObjectStoreAdapterRetryAlgorithm(t *testing.T) {
 	restore := objectstore.SetRetryBackoffForTest(0)
 	defer restore()
 
@@ -154,14 +154,14 @@ func requirePhaseDAdapterRetryAlgorithm(t *testing.T) {
 	}
 }
 
-func requirePhaseDAdapterReadStreamsAreCloseObservable(t *testing.T) {
+func requireObjectStoreAdapterReadStreamsAreCloseObservable(t *testing.T) {
 	store, err := objectstore.NewFilesystemStore(t.TempDir())
 	if err != nil {
 		t.Fatalf("create filesystem store: %v", err)
 	}
 	defer store.Close()
 
-	payload := []byte("phase d close tracking")
+	payload := []byte("object store close tracking")
 	if err := store.PutObject(context.Background(), "proof/close.txt", bytes.NewReader(payload), int64(len(payload)), "text/plain"); err != nil {
 		t.Fatalf("put object: %v", err)
 	}

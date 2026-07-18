@@ -206,7 +206,7 @@ func socketChangeIncludesView(socketChange workbookscenariotest.RecordChangeSock
 
 func TestRecordEnvelopeHeadSchema(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase4-records-head")
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "entity_linking-records-head")
 
 	db, err := sql.Open("pgx", testDB.DSN)
 	if err != nil {
@@ -262,7 +262,7 @@ type SupportSuite struct {
 func newSupportSuite(t *testing.T, label string) *SupportSuite {
 	t.Helper()
 
-	harness := workbookscenariotest.StartRuntime(t).StartServer(t, "phase4-support-"+label)
+	harness := workbookscenariotest.StartRuntime(t).StartServer(t, "entity_linking-support-"+label)
 	bootstrapLogin, bootstrapUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	return &SupportSuite{
 		label:           label,
@@ -286,7 +286,7 @@ func (s *SupportSuite) newScenario(t *testing.T, route workbookscenariotest.Rout
 	actorRecord := workbookscenariotest.SeedLocalUserFlags(
 		t,
 		s.harness.DB,
-		"phase4-support-"+s.label+"-"+string(route.Key)+"@example.test",
+		"entity_linking-support-"+s.label+"-"+string(route.Key)+"@example.test",
 		"Record relationships Support Admin",
 		actorPassword,
 		false,
@@ -516,7 +516,7 @@ func (s *SupportScenario) seedWorkbookCreate(t *testing.T, viewSchemaID string, 
 func (s *SupportScenario) seedUploadedObjectBlob(t *testing.T, label string) string {
 	t.Helper()
 
-	payload := []byte("phase4 support object " + label)
+	payload := []byte("entity_linking support object " + label)
 	sum := sha256.Sum256(payload)
 	resp := workbookscenariotest.DoJSON(
 		t,
@@ -951,14 +951,14 @@ func findRouteByKey(t testing.TB, key workbookscenariotest.RouteKey) workbooksce
 			return route
 		}
 	}
-	t.Fatalf("missing phase4 route inventory entry %s", key)
+	t.Fatalf("missing entity_linking route inventory entry %s", key)
 	return workbookscenariotest.RouteInventoryEntry{}
 }
 
 func supportTxn(label string, routeKey workbookscenariotest.RouteKey) string {
-	return "txn-phase4-support-" + label + "-" + string(routeKey)
+	return "txn-entity_linking-support-" + label + "-" + string(routeKey)
 }
 
 func supportUUID(label string, routeKey workbookscenariotest.RouteKey, name string) uuid.UUID {
-	return uuid.NewSHA1(uuid.NameSpaceOID, []byte("cartulary-phase4-support:"+label+":"+string(routeKey)+":"+name))
+	return uuid.NewSHA1(uuid.NameSpaceOID, []byte("cartulary-entity_linking-support:"+label+":"+string(routeKey)+":"+name))
 }

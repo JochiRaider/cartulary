@@ -17,16 +17,16 @@ import (
 
 // I-4-07 / REQ-02-027, REQ-02-056..REQ-02-057, REQ-02-072..REQ-02-082 / AC-017, AC-077..AC-079.
 func TestIndicatorsRoute_Integration(t *testing.T) {
-	harness := scenariotest.StartServer(t, "phase4-i-4-07-indicators")
+	harness := scenariotest.StartServer(t, "entity_linking-i-4-07-indicators")
 	adminLogin, adminUserID := scenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase4-i-4-07-incident",
+		"client_txn_id": "txn-entity_linking-i-4-07-incident",
 		"incident_key":  "IR-I407",
 		"title":         "Record relationships indicator route",
 	})
 	incidentID := scenariotest.MustUUID(t, incident["incident_id"].(string))
 	payload := map[string]any{
-		"client_txn_id":              "txn-phase4-i-4-07-create",
+		"client_txn_id":              "txn-entity_linking-i-4-07-create",
 		"indicator.indicator_type":   golden.RecordIndicatorExamples[0].IndicatorType,
 		"indicator.value_kind":       golden.RecordIndicatorExamples[0].ValueKind,
 		"indicator.display_value":    golden.RecordIndicatorExamples[0].DisplayValue,
@@ -72,7 +72,7 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 			SourceRecordID:            sourceID,
 			SourceFieldKey:            sourceRecordID.field,
 			OriginKind:                "interactive_cell",
-			OriginLocator:             "phase4-i-4-07-observation-" + string(rune('1'+index)),
+			OriginLocator:             "entity_linking-i-4-07-observation-" + string(rune('1'+index)),
 			ObservedText:              golden.RecordIndicatorExamples[0].DefangedValue,
 			ResolvedIndicatorRecordID: &recordID,
 			CreatedAt:                 golden.RecordPastTime.Add(time.Duration(index) * time.Minute),

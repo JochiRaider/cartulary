@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildInspectorMentions } from "./timeline/models/workbookMentionChips";
 
-describe("FE-P5 mention chip state model", () => {
+describe("browser.entity-linking mention chip state model", () => {
   it("preserves closed mention chip states by stable identifiers and field keys", () => {
     const row = {
       recordId: "record-1",

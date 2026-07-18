@@ -853,7 +853,7 @@ if [[ "$support_zero_status" -eq 0 ]]; then
 fi
 assert_contains "$support_zero_output" "failure: backend-integration support unknown-owner" "support zero-match label"
 assert_contains "$support_zero_output" "coverage=support" "support zero-match coverage"
-assert_contains "$support_zero_output" "message=support selector matched zero tests" "support zero-match message"
+assert_contains "$support_zero_output" "message=support step matched zero tests" "support zero-match message"
 
 
 printf "run-go-target smoke passed\n"

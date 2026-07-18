@@ -380,7 +380,7 @@ test("keyboard shortcuts keep workbook grid anchors without module switching", a
   const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e901-alpha"),
     "timeline.date_entered_text": "Workbook inspector alpha",
-    [hostRefsFieldKey]: collectionActionsPayload(["Phase9Host?"]),
+    [hostRefsFieldKey]: collectionActionsPayload(["WorkbookInteractionHost?"]),
   });
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(
@@ -409,7 +409,7 @@ test("keyboard shortcuts keep workbook grid anchors without module switching", a
 
   await openTimelineInspector(page, alpha.record_id as string);
   await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
-    "Phase9Host?",
+    "WorkbookInteractionHost?",
   );
   expect(page.url()).toBe(initialURL);
   await scrollGridCellIntoView({
@@ -541,32 +541,45 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("FEBP1002"),
-    "FE-B-P10-02 workbook keyboard contract",
+    "browser.coordination-review.row-02 workbook keyboard contract",
   );
   const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("fe-b-p10-02-alpha"),
-    "timeline.activity_synopsis_text": "FE-B-P10-02 Alpha",
-    "timeline.raw_activity_text": "FE-B-P10-02 Alpha details",
+    client_txn_id: uniqueTxn("browser.coordination-review.row-02-alpha"),
+    "timeline.activity_synopsis_text":
+      "browser.coordination-review.row-02 Alpha",
+    "timeline.raw_activity_text":
+      "browser.coordination-review.row-02 Alpha details",
   });
   const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("fe-b-p10-02-beta"),
-    "timeline.activity_synopsis_text": "FE-B-P10-02 Beta",
-    "timeline.raw_activity_text": "FE-B-P10-02 Beta details",
+    client_txn_id: uniqueTxn("browser.coordination-review.row-02-beta"),
+    "timeline.activity_synopsis_text":
+      "browser.coordination-review.row-02 Beta",
+    "timeline.raw_activity_text":
+      "browser.coordination-review.row-02 Beta details",
   });
   await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("fe-b-p10-02-gamma"),
-    "timeline.activity_synopsis_text": "FE-B-P10-02 Gamma",
-    "timeline.raw_activity_text": "FE-B-P10-02 Gamma details",
+    client_txn_id: uniqueTxn("browser.coordination-review.row-02-gamma"),
+    "timeline.activity_synopsis_text":
+      "browser.coordination-review.row-02 Gamma",
+    "timeline.raw_activity_text":
+      "browser.coordination-review.row-02 Gamma details",
   });
-  await createTimelineFillers(page, incidentId, "FE-B-P10-02 filler", 24);
+  await createTimelineFillers(
+    page,
+    incidentId,
+    "browser.coordination-review.row-02 filler",
+    24,
+  );
   const virtualTarget = await createViewRow(
     page,
     incidentId,
     timelineViewSchemaId,
     {
-      client_txn_id: uniqueTxn("fe-b-p10-02-virtual"),
-      "timeline.activity_synopsis_text": "ZZZ FE-B-P10-02 virtual target",
-      "timeline.raw_activity_text": "FE-B-P10-02 virtual details",
+      client_txn_id: uniqueTxn("browser.coordination-review.row-02-virtual"),
+      "timeline.activity_synopsis_text":
+        "ZZZ browser.coordination-review.row-02 virtual target",
+      "timeline.raw_activity_text":
+        "browser.coordination-review.row-02 virtual details",
     },
   );
 
@@ -584,7 +597,9 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
   const alphaSummary = page.getByTestId(
     rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
   );
-  await expect(alphaSummary).toHaveText("FE-B-P10-02 Alpha");
+  await expect(alphaSummary).toHaveText(
+    "browser.coordination-review.row-02 Alpha",
+  );
   const alphaSummaryCell = await activateSemanticGridCell(alphaSummary);
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.activity_synopsis_text`,
@@ -599,7 +614,7 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
     element.dispatchEvent(event);
     return data.getData("text/plain");
   });
-  expect(copiedText).toBe("FE-B-P10-02 Alpha");
+  expect(copiedText).toBe("browser.coordination-review.row-02 Alpha");
 
   await page.keyboard.press("ArrowRight");
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
@@ -619,9 +634,13 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
       surface: "grid",
     }),
   );
-  await alphaSummaryEditor.fill("FE-B-P10-02 dirty draft");
+  await alphaSummaryEditor.fill(
+    "browser.coordination-review.row-02 dirty draft",
+  );
   await alphaSummaryEditor.press("Escape");
-  await expect(alphaSummary).toHaveText("FE-B-P10-02 Alpha");
+  await expect(alphaSummary).toHaveText(
+    "browser.coordination-review.row-02 Alpha",
+  );
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
 
   await openTimelineInspector(page, alpha.record_id);
@@ -638,11 +657,17 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
   const inspectorDetails = page.getByTestId(
     rowInspectorFieldTestId(alpha.record_id, "timeline.raw_activity_text"),
   );
-  await expect(inspectorDetails).toHaveValue("FE-B-P10-02 Alpha details");
+  await expect(inspectorDetails).toHaveValue(
+    "browser.coordination-review.row-02 Alpha details",
+  );
   await inspectorDetails.focus();
-  await inspectorDetails.fill("FE-B-P10-02 inspector dirty draft");
+  await inspectorDetails.fill(
+    "browser.coordination-review.row-02 inspector dirty draft",
+  );
   await inspectorDetails.press("Escape");
-  await expect(inspectorDetails).toHaveValue("FE-B-P10-02 Alpha details");
+  await expect(inspectorDetails).toHaveValue(
+    "browser.coordination-review.row-02 Alpha details",
+  );
   await inspectorDetails.press("Escape");
   await expect(alphaSummaryCell).toBeFocused();
   await alphaSummaryCell.press("Escape");
@@ -673,7 +698,12 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
   );
   await pasteGridMatrix({
     fieldKey: "timeline.activity_synopsis_text",
-    matrix: [["FE-B-P10-02 pasted Beta", "fe-b-p10-02-host-token"]],
+    matrix: [
+      [
+        "browser.coordination-review.row-02 pasted Beta",
+        "browser.coordination-review.row-02-host-token",
+      ],
+    ],
     page,
     recordId: beta.record_id,
     surface: timelineViewSchemaId,
@@ -694,7 +724,7 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
     page.getByTestId(
       rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveText("FE-B-P10-02 pasted Beta");
+  ).toHaveText("browser.coordination-review.row-02 pasted Beta");
   const betaAfterPaste = await waitForViewRow(
     page,
     incidentId,
@@ -702,7 +732,7 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
     beta.record_id,
   );
   expect(stringCell(betaAfterPaste, "timeline.activity_synopsis_text")).toBe(
-    "FE-B-P10-02 pasted Beta",
+    "browser.coordination-review.row-02 pasted Beta",
   );
 
   await scrollGridCellIntoView({
@@ -830,8 +860,10 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
       headers: await csrfHeaders(page),
       data: {
         base_row_version: betaBeforeReview.row_version,
-        client_txn_id: uniqueTxn("fe-b-p10-02-review-beta"),
-        reason: "FE-B-P10-02 grouping setup",
+        client_txn_id: uniqueTxn(
+          "browser.coordination-review.row-02-review-beta",
+        ),
+        reason: "browser.coordination-review.row-02 grouping setup",
       },
     },
   );
@@ -952,7 +984,7 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
     host = await createViewRow(page, incidentId, hostsViewSchemaId, {
       client_txn_id: uniqueTxn("e9grid01-host"),
       "host.display_name": "Workbook inspector host anchor",
-      "host.hostname": "phase9-host.example.test",
+      "host.hostname": "workbook_interaction-host.example.test",
     });
     await expectSharedGridAnchorSurface({
       page,
@@ -973,7 +1005,7 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
       {
         client_txn_id: uniqueTxn("e9grid01-identity"),
         "identity.display_name": "Workbook inspector identity anchor",
-        "identity.upn": "phase9.identity@example.test",
+        "identity.upn": "workbook_interaction.identity@example.test",
       },
     );
     await expectSharedGridAnchorSurface({
@@ -1182,7 +1214,7 @@ test("Host entity-origin clipboard paste reuses exact matches and creates stubs"
   const existing = await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e9grid-host-existing"),
     "host.display_name": "Workbook inspector reusable host",
-    "host.hostname": "phase9-host-reuse.example.test",
+    "host.hostname": "workbook_interaction-host-reuse.example.test",
   });
   const postURLs: string[] = [];
   page.on("request", (request) => {
@@ -1219,8 +1251,8 @@ test("Host entity-origin clipboard paste reuses exact matches and creates stubs"
     data.setData(
       "text/plain",
       [
-        "Workbook inspector pasted host reuse\tphase9-host-reuse.example.test",
-        "Workbook inspector pasted host create\tphase9-host-create.example.test",
+        "Workbook inspector pasted host reuse\tworkbook_interaction-host-reuse.example.test",
+        "Workbook inspector pasted host create\tworkbook_interaction-host-create.example.test",
       ].join("\n"),
     );
     element.dispatchEvent(
@@ -1249,7 +1281,8 @@ test("Host entity-origin clipboard paste reuses exact matches and creates stubs"
   const created = rows.find(
     (row) =>
       row.record_id !== existing.record_id &&
-      stringCell(row, "host.hostname") === "phase9-host-create.example.test",
+      stringCell(row, "host.hostname") ===
+        "workbook_interaction-host-create.example.test",
   );
   expect(created).toBeTruthy();
   if (created) {
@@ -1275,7 +1308,7 @@ test("Identity entity-origin clipboard paste reuses exact matches and creates st
     {
       client_txn_id: uniqueTxn("e9grid-identity-existing"),
       "identity.display_name": "Workbook inspector reusable identity",
-      "identity.upn": "phase9.identity.reuse@example.test",
+      "identity.upn": "workbook_interaction.identity.reuse@example.test",
     },
   );
   const postURLs: string[] = [];
@@ -1313,8 +1346,8 @@ test("Identity entity-origin clipboard paste reuses exact matches and creates st
     data.setData(
       "text/plain",
       [
-        "Workbook inspector pasted identity reuse\tphase9.identity.reuse@example.test",
-        "Workbook inspector pasted identity create\tphase9.identity.create@example.test",
+        "Workbook inspector pasted identity reuse\tworkbook_interaction.identity.reuse@example.test",
+        "Workbook inspector pasted identity create\tworkbook_interaction.identity.create@example.test",
       ].join("\n"),
     );
     element.dispatchEvent(
@@ -1343,7 +1376,8 @@ test("Identity entity-origin clipboard paste reuses exact matches and creates st
   const created = rows.find(
     (row) =>
       row.record_id !== existing.record_id &&
-      stringCell(row, "identity.upn") === "phase9.identity.create@example.test",
+      stringCell(row, "identity.upn") ===
+        "workbook_interaction.identity.create@example.test",
   );
   expect(created).toBeTruthy();
   if (created) {

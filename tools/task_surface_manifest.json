@@ -6002,6 +6002,7 @@
       "name": "explain-target",
       "backing_scripts": [
         "tools/harness/diagnostics/explain-target-cli.mjs",
+        "tools/harness/diagnostics/task-guidance.mjs",
         "tools/harness/diagnostics/target-plan-cli.mjs"
       ],
       "output_policy": {

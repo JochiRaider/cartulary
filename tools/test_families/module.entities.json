@@ -23,7 +23,7 @@
           "scenario_7a764f9f68ea"
         ],
         "titles": [
-          "FE-A11Y-P5-01 Verify mention chip states and manual-resolution controls have accessible names, visible focus, and non-color-only distinction."
+          "a11y.entity-linking.row-01 Verify mention chip states and manual-resolution controls have accessible names, visible focus, and non-color-only distinction."
         ]
       },
       "evidence_class": "accessibility",

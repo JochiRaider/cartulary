@@ -277,7 +277,7 @@ func TestIncidentSocketPresenceScopeEphemeral_Unit(t *testing.T) {
 	harness, admin, _, incidentA := setupSocketIncidentWithAdminID(t, runtime, "collaboration-u-6-08-presence-scope-a")
 	incidentBResource := incidentscenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-collaboration-u-6-08-presence-scope-b",
-		"incident_key":  "IR-PHASE6U608PRESENCEB",
+		"incident_key":  "IR-COLLABORATIONU608PRESENCEB",
 		"title":         "collaboration-u-6-08-presence-scope-b",
 	})
 	incidentB := incidentBResource["incident_id"].(string)

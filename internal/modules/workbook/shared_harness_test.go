@@ -38,7 +38,7 @@ func TestWorkbookRouteInventoryCoverage(t *testing.T) {
 }
 
 func TestWorkbookRouteConformance(t *testing.T) {
-	harness, login, actorID, incidentID := ConflictFixture(t, "collaboration-support-shared-workbook-routes", "IR-PHASE6-SUPPORT-WORKBOOK")
+	harness, login, actorID, incidentID := ConflictFixture(t, "collaboration-support-shared-workbook-routes", "IR-COLLABORATION-SUPPORT-WORKBOOK")
 	allowedNoteFields := workbookscenariotest.AllowedFieldKeys(t, "collaboration-support-shared-workbook-routes", NotesViewSchemaID)
 
 	createTxnID := "txn-collaboration-support-create"

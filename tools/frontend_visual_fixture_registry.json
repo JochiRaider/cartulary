@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.frontend_visual_fixture_registry.v3",
+  "schema_id": "cartulary.frontend_visual_fixture_registry.v4",
   "owner_id": "harness.visual",
   "verification_id": "harness.visual.verification.stable_fixture_identity",
   "fixtures": [
@@ -7,12 +7,6 @@
       "fixture_id": "visual.fixture.claimed_network_analysis_workspace_states",
       "fixture_title": "Claimed Network Analysis workspace states",
       "status": "current",
-      "owner_phase_ids": [
-        "FE-P12"
-      ],
-      "owner_row_ids": [
-        "FE-V-P12-01"
-      ],
       "playwright_scenario_title": "Capture claimed Network Analysis accepted inspector, rejected diagnostics, and graph contributor drawer at the deterministic desktop viewport.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-accepted-inspector-linux.png",
       "golden_artifacts": [
@@ -52,20 +46,15 @@
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
-      "replacement_fixture_id": ""
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "module.networkflow.visual.capture_deterministic_claimed_network_analysis_a_47b1c2cce6"
+      ]
     },
     {
       "fixture_id": "visual.fixture.default_timeline_workbook_shell",
       "fixture_title": "Default Timeline workbook shell",
       "status": "current",
-      "owner_phase_ids": [
-        "FE-P2",
-        "FE-P9"
-      ],
-      "owner_row_ids": [
-        "FE-V-P2-01",
-        "FE-V-P9-01"
-      ],
       "playwright_scenario_title": "Capture Default Timeline workbook shell with view-bar query controls, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-default-timeline-workbook-shell-linux.png",
       "golden_artifacts": [
@@ -99,7 +88,7 @@
       },
       "inspector_state": {
         "kind": "fixture_specific",
-        "description": "Default shell capture has the inspector collapsed with an explicit opener visible; FE-P9 supporting artifacts explicitly open the inspector for relationships, history, rollback preview, destructive confirmation, and public error states."
+        "description": "Default shell capture has the inspector collapsed with an explicit opener visible; inspector/history supporting artifacts explicitly open the inspector for relationships, history, rollback preview, destructive confirmation, and public error states."
       },
       "dynamic_masks": [
         "incident identifiers",
@@ -108,20 +97,15 @@
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
-      "replacement_fixture_id": ""
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "module.workbook.visual.capture_default_timeline_workbook_shell_with_vie_c06bbcbee0"
+      ]
     },
     {
       "fixture_id": "visual.fixture.drag_fill_handle",
       "fixture_title": "Drag-fill handle",
       "status": "current",
-      "owner_phase_ids": [
-        "FE-P3",
-        "FE-P10"
-      ],
-      "owner_row_ids": [
-        "FE-V-P3-01",
-        "FE-V-P10-01"
-      ],
       "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png",
       "golden_artifacts": [
@@ -159,22 +143,15 @@
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
-      "replacement_fixture_id": ""
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba"
+      ]
     },
     {
       "fixture_id": "visual.fixture.edit_cell",
       "fixture_title": "Edit cell",
       "status": "current",
-      "owner_phase_ids": [
-        "FE-P3",
-        "FE-P4",
-        "FE-P10"
-      ],
-      "owner_row_ids": [
-        "FE-V-P3-01",
-        "FE-V-P4-01",
-        "FE-V-P10-01"
-      ],
       "playwright_scenario_title": "Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-active-edit-cell-linux.png",
       "golden_artifacts": [
@@ -214,22 +191,15 @@
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
-      "replacement_fixture_id": ""
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67"
+      ]
     },
     {
       "fixture_id": "visual.fixture.empty_successful_query",
       "fixture_title": "Empty successful query",
       "status": "current",
-      "owner_phase_ids": [
-        "FE-P3",
-        "FE-P4",
-        "FE-P8"
-      ],
-      "owner_row_ids": [
-        "FE-V-P3-01",
-        "FE-V-P4-01",
-        "FE-V-P8-01"
-      ],
       "playwright_scenario_title": "Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-empty-timeline-query-linux.png",
       "golden_artifacts": [
@@ -269,18 +239,15 @@
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
-      "replacement_fixture_id": ""
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67"
+      ]
     },
     {
       "fixture_id": "visual.fixture.evidence_affordance",
       "fixture_title": "Evidence affordance",
       "status": "current",
-      "owner_phase_ids": [
-        "FE-P6"
-      ],
-      "owner_row_ids": [
-        "FE-V-P6-01"
-      ],
       "playwright_scenario_title": "Capture evidence count, affordance, available, requested, pending, blocked, failed, inconsistent, preview, and download-handle state fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-affordance-states-linux.png",
       "golden_artifacts": [
@@ -319,18 +286,15 @@
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
-      "replacement_fixture_id": ""
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "module.evidence.visual.capture_evidence_count_affordance_available_requ_cfada809e4"
+      ]
     },
     {
       "fixture_id": "visual.fixture.exposed_theme_states",
       "fixture_title": "Exposed theme states",
       "status": "current",
-      "owner_phase_ids": [
-        "FE-P11"
-      ],
-      "owner_row_ids": [
-        "FE-V-P11-03"
-      ],
       "playwright_scenario_title": "Capture exposed dark_graphite token and theme states with deterministic density, color, component, focus, and semantic-state samples.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-exposed-theme-states-linux.png",
       "golden_artifacts": [
@@ -365,20 +329,15 @@
       "dynamic_masks": [],
       "no_dynamic_regions": true,
       "blocked_reason": "",
-      "replacement_fixture_id": ""
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c"
+      ]
     },
     {
       "fixture_id": "visual.fixture.frozen_column",
       "fixture_title": "Frozen column",
       "status": "current",
-      "owner_phase_ids": [
-        "FE-P3",
-        "FE-P10"
-      ],
-      "owner_row_ids": [
-        "FE-V-P3-01",
-        "FE-V-P10-01"
-      ],
       "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png",
       "golden_artifacts": [
@@ -416,18 +375,15 @@
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
-      "replacement_fixture_id": ""
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba"
+      ]
     },
     {
       "fixture_id": "visual.fixture.mention_chip_state_matrix",
       "fixture_title": "Mention chip state matrix",
       "status": "current",
-      "owner_phase_ids": [
-        "FE-P5"
-      ],
-      "owner_row_ids": [
-        "FE-V-P5-01"
-      ],
       "playwright_scenario_title": "Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution metadata fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/entity-mention-chip-states-linux.png",
       "golden_artifacts": [
@@ -465,20 +421,15 @@
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
-      "replacement_fixture_id": ""
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "module.entities.visual.capture_unresolved_token_resolved_chip_auto_reso_d3b74bd9d7"
+      ]
     },
     {
       "fixture_id": "visual.fixture.resize_handle",
       "fixture_title": "Resize handle",
       "status": "current",
-      "owner_phase_ids": [
-        "FE-P3",
-        "FE-P10"
-      ],
-      "owner_row_ids": [
-        "FE-V-P3-01",
-        "FE-V-P10-01"
-      ],
       "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png",
       "golden_artifacts": [
@@ -516,18 +467,15 @@
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
-      "replacement_fixture_id": ""
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba"
+      ]
     },
     {
       "fixture_id": "visual.fixture.row_gutter_presence",
       "fixture_title": "Row-gutter presence",
       "status": "current",
-      "owner_phase_ids": [
-        "FE-P7"
-      ],
-      "owner_row_ids": [
-        "FE-V-P7-01"
-      ],
       "playwright_scenario_title": "Capture row-gutter and cell presence markers.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-presence-markers-linux.png",
       "golden_artifacts": [
@@ -566,18 +514,15 @@
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
-      "replacement_fixture_id": ""
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "module.collaboration.visual.capture_presence_markers_same_field_conflict_res_f0a62c52a1"
+      ]
     },
     {
       "fixture_id": "visual.fixture.same_field_conflict",
       "fixture_title": "Same-field conflict",
       "status": "current",
-      "owner_phase_ids": [
-        "FE-P7"
-      ],
-      "owner_row_ids": [
-        "FE-V-P7-01"
-      ],
       "playwright_scenario_title": "Capture same-field conflict resolver.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-resolver-linux.png",
       "golden_artifacts": [
@@ -618,20 +563,15 @@
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
-      "replacement_fixture_id": ""
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "module.collaboration.visual.capture_presence_markers_same_field_conflict_res_f0a62c52a1"
+      ]
     },
     {
       "fixture_id": "visual.fixture.save_state_strip",
       "fixture_title": "Save-state strip",
       "status": "current",
-      "owner_phase_ids": [
-        "FE-P4",
-        "FE-P7"
-      ],
-      "owner_row_ids": [
-        "FE-V-P4-01",
-        "FE-V-P7-01"
-      ],
       "playwright_scenario_title": "Capture conflict save-state strip.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-strip-linux.png",
       "golden_artifacts": [
@@ -680,18 +620,15 @@
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
-      "replacement_fixture_id": ""
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "module.collaboration.visual.capture_presence_markers_same_field_conflict_res_f0a62c52a1"
+      ]
     },
     {
       "fixture_id": "visual.fixture.saved_view_query_controls_and_grouped_result",
       "fixture_title": "Saved-view query controls and grouped result",
       "status": "current",
-      "owner_phase_ids": [
-        "FE-P8"
-      ],
-      "owner_row_ids": [
-        "FE-V-P8-01"
-      ],
       "playwright_scenario_title": "Capture saved-view selector, active chips, grouped result, group row, default/startup state indicator, and empty successful query fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-saved-view-query-controls-linux.png",
       "golden_artifacts": [
@@ -729,18 +666,15 @@
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
-      "replacement_fixture_id": ""
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "module.savedviews.visual.capture_saved_view_selector_active_chips_grouped_3da7859cdc"
+      ]
     },
     {
       "fixture_id": "visual.fixture.task_requests_or_decisions",
       "fixture_title": "Task Requests or Decisions",
       "status": "current",
-      "owner_phase_ids": [
-        "FE-P10"
-      ],
-      "owner_row_ids": [
-        "FE-V-P10-01"
-      ],
       "playwright_scenario_title": "Capture Task Requests or Decisions, Parties link state, Communications Log, Handoff, Status Review, Lesson, keyboard focus, frozen column, resize handle, and fill-down fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/record-relationships-task-requests-linux.png",
       "golden_artifacts": [
@@ -778,22 +712,15 @@
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
-      "replacement_fixture_id": ""
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc"
+      ]
     },
     {
       "fixture_id": "visual.fixture.tree_group_row",
       "fixture_title": "Tree/group row",
       "status": "current",
-      "owner_phase_ids": [
-        "FE-P3",
-        "FE-P8",
-        "FE-P10"
-      ],
-      "owner_row_ids": [
-        "FE-V-P3-01",
-        "FE-V-P8-01",
-        "FE-V-P10-01"
-      ],
       "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png",
       "golden_artifacts": [
@@ -831,7 +758,10 @@
       ],
       "no_dynamic_regions": false,
       "blocked_reason": "",
-      "replacement_fixture_id": ""
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba"
+      ]
     }
   ]
 }

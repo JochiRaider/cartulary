@@ -17,17 +17,17 @@ import (
 )
 
 func TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase9-i-9-01-clipboard-paste")
+	harness := workbookscenariotest.StartServer(t, "workbook_interaction-i-9-01-clipboard-paste")
 	adminLogin, _ := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase9-i-9-01-incident",
-		"incident_key":  "IR-PHASE9-I901",
+		"client_txn_id": "txn-workbook_interaction-i-9-01-incident",
+		"incident_key":  "IR-WORKBOOK-INTERACTION-I901",
 		"title":         "Workbook inspector clipboard paste",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
 	existing := requireWorkbookCreate(t, harness, adminLogin, incidentID, timeline.TimelineViewSchemaID, map[string]any{
-		"client_txn_id":                   "txn-phase9-i-9-01-existing",
+		"client_txn_id":                   "txn-workbook_interaction-i-9-01-existing",
 		"timeline.activity_synopsis_text": "Existing base",
 	})
 	existingRow := existing["row"].(map[string]any)
@@ -35,7 +35,7 @@ func TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration(
 
 	pasteData := requireClipboardPaste(t, harness, adminLogin, incidentID, timeline.TimelineViewSchemaID, map[string]any{
 		"view_schema_id":  timeline.TimelineViewSchemaID,
-		"client_txn_id":   "txn-phase9-i-9-01-paste",
+		"client_txn_id":   "txn-workbook_interaction-i-9-01-paste",
 		"clipboard_text":  "Updated existing\tDetails from paste\tgateway-one\tpreserve-me\nCreated from paste\tCreated details\tgateway-two\tpreserve-new",
 		"format":          "tsv",
 		"start_field_key": "timeline.activity_synopsis_text",
@@ -60,7 +60,7 @@ func TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration(
 	requireCellValue(t, patchedRow, "timeline.activity_synopsis_text", "Updated existing")
 	requireCellValue(t, createdRow, "timeline.activity_synopsis_text", "Created from paste")
 
-	requireChangeSetSource(t, harness, changeSetID, "timeline.clipboard_paste", "txn-phase9-i-9-01-paste")
+	requireChangeSetSource(t, harness, changeSetID, "timeline.clipboard_paste", "txn-workbook_interaction-i-9-01-paste")
 	requireMutationTargets(t, harness, changeSetID, []string{existingID.String(), createdID.String()})
 	requireRevisionCount(t, harness, existingID, 2)
 	requireRevisionCount(t, harness, createdID, 1)
@@ -70,13 +70,13 @@ func TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration(
 	requireMentionOriginKind(t, harness, createdID, "timeline.host_refs", "clipboard_paste")
 
 	firstConflictBase := requireWorkbookCreate(t, harness, adminLogin, incidentID, timeline.TimelineViewSchemaID, map[string]any{
-		"client_txn_id":                   "txn-phase9-i-9-01-conflict-base-first",
+		"client_txn_id":                   "txn-workbook_interaction-i-9-01-conflict-base-first",
 		"timeline.activity_synopsis_text": "Conflict base first",
 	})
 	firstConflictRow := firstConflictBase["row"].(map[string]any)
 	firstConflictID := workbookscenariotest.MustUUID(t, firstConflictRow["record_id"].(string))
 	secondConflictBase := requireWorkbookCreate(t, harness, adminLogin, incidentID, timeline.TimelineViewSchemaID, map[string]any{
-		"client_txn_id":                   "txn-phase9-i-9-01-conflict-base-second",
+		"client_txn_id":                   "txn-workbook_interaction-i-9-01-conflict-base-second",
 		"timeline.activity_synopsis_text": "Conflict base second",
 	})
 	secondConflictRow := secondConflictBase["row"].(map[string]any)
@@ -84,7 +84,7 @@ func TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration(
 	requireWorkbookPatch(t, harness, adminLogin, firstConflictID, map[string]any{
 		"view_schema_id":   timeline.TimelineViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase9-i-9-01-server-update-first",
+		"client_txn_id":    "txn-workbook_interaction-i-9-01-server-update-first",
 		"changes": []map[string]any{{
 			"field_key": "timeline.activity_synopsis_text",
 			"value":     "Server value first",
@@ -93,7 +93,7 @@ func TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration(
 	requireWorkbookPatch(t, harness, adminLogin, secondConflictID, map[string]any{
 		"view_schema_id":   timeline.TimelineViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase9-i-9-01-server-update-second",
+		"client_txn_id":    "txn-workbook_interaction-i-9-01-server-update-second",
 		"changes": []map[string]any{{
 			"field_key": "timeline.activity_synopsis_text",
 			"value":     "Server value second",
@@ -102,7 +102,7 @@ func TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration(
 
 	partial := requireClipboardPaste(t, harness, adminLogin, incidentID, timeline.TimelineViewSchemaID, map[string]any{
 		"view_schema_id":  timeline.TimelineViewSchemaID,
-		"client_txn_id":   "txn-phase9-i-9-01-partial-conflict",
+		"client_txn_id":   "txn-workbook_interaction-i-9-01-partial-conflict",
 		"clipboard_text":  "Client conflicting summary first\nClient conflicting summary second\nNon-conflicting created",
 		"format":          "tsv",
 		"start_field_key": "timeline.activity_synopsis_text",
@@ -134,46 +134,46 @@ func TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration(
 	firstResolveData := resolveTimelineConflict(t, harness, adminLogin, firstConflictID, firstConflict["conflict_token"].(string), map[string]any{
 		"conflict_token":  firstConflict["conflict_token"].(string),
 		"resolution_kind": "use_unsaved",
-		"client_txn_id":   "txn-phase9-i-9-01-resolve-conflict-first",
+		"client_txn_id":   "txn-workbook_interaction-i-9-01-resolve-conflict-first",
 		"resolved_value":  "Client conflicting summary first",
 	})
 	firstResolveChangeSetID := firstResolveData["change_set_id"].(string)
 	if firstResolveChangeSetID == partial["change_set_id"].(string) {
 		t.Fatalf("conflict resolution must create a separate change_set: paste=%s resolve=%s", partial["change_set_id"], firstResolveChangeSetID)
 	}
-	requireChangeSetSource(t, harness, firstResolveChangeSetID, "timeline.records.conflicts.resolve", "txn-phase9-i-9-01-resolve-conflict-first")
+	requireChangeSetSource(t, harness, firstResolveChangeSetID, "timeline.records.conflicts.resolve", "txn-workbook_interaction-i-9-01-resolve-conflict-first")
 	secondResolveData := resolveTimelineConflict(t, harness, adminLogin, secondConflictID, secondConflict["conflict_token"].(string), map[string]any{
 		"conflict_token":  secondConflict["conflict_token"].(string),
 		"resolution_kind": "use_unsaved",
-		"client_txn_id":   "txn-phase9-i-9-01-resolve-conflict-second",
+		"client_txn_id":   "txn-workbook_interaction-i-9-01-resolve-conflict-second",
 		"resolved_value":  "Client conflicting summary second",
 	})
 	secondResolveChangeSetID := secondResolveData["change_set_id"].(string)
 	if secondResolveChangeSetID == partial["change_set_id"].(string) || secondResolveChangeSetID == firstResolveChangeSetID {
 		t.Fatalf("each conflict resolution must create its own change_set: paste=%s first=%s second=%s", partial["change_set_id"], firstResolveChangeSetID, secondResolveChangeSetID)
 	}
-	requireChangeSetSource(t, harness, secondResolveChangeSetID, "timeline.records.conflicts.resolve", "txn-phase9-i-9-01-resolve-conflict-second")
+	requireChangeSetSource(t, harness, secondResolveChangeSetID, "timeline.records.conflicts.resolve", "txn-workbook_interaction-i-9-01-resolve-conflict-second")
 }
 
 func TestEntityOriginClipboardPasteUsesSharedIngest_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase9-i-9-01-entity-origin-paste")
+	harness := workbookscenariotest.StartServer(t, "workbook_interaction-i-9-01-entity-origin-paste")
 	adminLogin, _ := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase9-i-9-01-entity-incident",
-		"incident_key":  "IR-PHASE9-I901-ENTITY",
+		"client_txn_id": "txn-workbook_interaction-i-9-01-entity-incident",
+		"incident_key":  "IR-WORKBOOK-INTERACTION-I901-ENTITY",
 		"title":         "Workbook inspector entity-origin paste",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
 	existingHost := requireWorkbookCreate(t, harness, adminLogin, incidentID, hostidentity.HostsViewSchemaID, map[string]any{
-		"client_txn_id":     "txn-phase9-i-9-01-existing-host",
+		"client_txn_id":     "txn-workbook_interaction-i-9-01-existing-host",
 		"host.display_name": "Existing Gateway",
 		"host.hostname":     "shared-gateway",
 	})
 	existingHostID := existingHost["row"].(map[string]any)["record_id"].(string)
 	hostPaste := requireClipboardPaste(t, harness, adminLogin, incidentID, hostidentity.HostsViewSchemaID, map[string]any{
 		"view_schema_id":  hostidentity.HostsViewSchemaID,
-		"client_txn_id":   "txn-phase9-i-9-01-host-paste",
+		"client_txn_id":   "txn-workbook_interaction-i-9-01-host-paste",
 		"clipboard_text":  "Renamed Gateway\tshared-gateway\nNew Host\tnew-host",
 		"format":          "tsv",
 		"start_field_key": "host.display_name",
@@ -187,12 +187,12 @@ func TestEntityOriginClipboardPasteUsesSharedIngest_Integration(t *testing.T) {
 	if got := hostRows[0].(map[string]any)["record_id"]; got != existingHostID {
 		t.Fatalf("host paste must reuse exact-match record_id: got %#v want %s rows=%#v", got, existingHostID, hostRows)
 	}
-	requireChangeSetSource(t, harness, hostPaste["change_set_id"].(string), "entities.hosts.clipboard_paste", "txn-phase9-i-9-01-host-paste")
+	requireChangeSetSource(t, harness, hostPaste["change_set_id"].(string), "entities.hosts.clipboard_paste", "txn-workbook_interaction-i-9-01-host-paste")
 	requireEntityOriginAndNoMentions(t, harness, hostRows[0].(map[string]any)["record_id"].(string), "hosts", "entity_sheet")
 
 	identityPaste := requireClipboardPaste(t, harness, adminLogin, incidentID, hostidentity.IdentitiesViewSchemaID, map[string]any{
 		"view_schema_id":  hostidentity.IdentitiesViewSchemaID,
-		"client_txn_id":   "txn-phase9-i-9-01-identity-paste",
+		"client_txn_id":   "txn-workbook_interaction-i-9-01-identity-paste",
 		"clipboard_text":  "Analyst One\tanalyst.one@example.test",
 		"format":          "tsv",
 		"start_field_key": "identity.display_name",
@@ -203,25 +203,25 @@ func TestEntityOriginClipboardPasteUsesSharedIngest_Integration(t *testing.T) {
 	if len(identityRows) != 1 {
 		t.Fatalf("expected one identity-origin pasted row, got %#v", identityRows)
 	}
-	requireChangeSetSource(t, harness, identityPaste["change_set_id"].(string), "entities.identities.clipboard_paste", "txn-phase9-i-9-01-identity-paste")
+	requireChangeSetSource(t, harness, identityPaste["change_set_id"].(string), "entities.identities.clipboard_paste", "txn-workbook_interaction-i-9-01-identity-paste")
 	requireEntityOriginAndNoMentions(t, harness, identityRows[0].(map[string]any)["record_id"].(string), "identities", "entity_sheet")
 }
 
 func TestBulkMutationsPersistOneVisibleBatch_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase9-i-9-01-bulk-mutations")
+	harness := workbookscenariotest.StartServer(t, "workbook_interaction-i-9-01-bulk-mutations")
 	adminLogin, _ := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase9-i-9-01-bulk-incident",
-		"incident_key":  "IR-PHASE9-I901-BULK",
+		"client_txn_id": "txn-workbook_interaction-i-9-01-bulk-incident",
+		"incident_key":  "IR-WORKBOOK-INTERACTION-I901-BULK",
 		"title":         "Workbook inspector bulk mutations",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 	first := requireWorkbookCreate(t, harness, adminLogin, incidentID, timeline.TimelineViewSchemaID, map[string]any{
-		"client_txn_id":                   "txn-phase9-i-9-01-bulk-first",
+		"client_txn_id":                   "txn-workbook_interaction-i-9-01-bulk-first",
 		"timeline.activity_synopsis_text": "Bulk first",
 	})
 	second := requireWorkbookCreate(t, harness, adminLogin, incidentID, timeline.TimelineViewSchemaID, map[string]any{
-		"client_txn_id":                   "txn-phase9-i-9-01-bulk-second",
+		"client_txn_id":                   "txn-workbook_interaction-i-9-01-bulk-second",
 		"timeline.activity_synopsis_text": "Bulk second",
 	})
 	firstID := first["row"].(map[string]any)["record_id"].(string)
@@ -229,7 +229,7 @@ func TestBulkMutationsPersistOneVisibleBatch_Integration(t *testing.T) {
 
 	fill := requireBulkMutation(t, harness, adminLogin, incidentID, timeline.TimelineViewSchemaID, map[string]any{
 		"view_schema_id": timeline.TimelineViewSchemaID,
-		"client_txn_id":  "txn-phase9-i-9-01-fill-down",
+		"client_txn_id":  "txn-workbook_interaction-i-9-01-fill-down",
 		"kind":           "fill_down_v1",
 		"field_key":      "timeline.raw_activity_text",
 		"value":          "Filled source text",
@@ -238,12 +238,12 @@ func TestBulkMutationsPersistOneVisibleBatch_Integration(t *testing.T) {
 			{"record_id": secondID, "base_row_version": 1},
 		},
 	})
-	requireChangeSetSource(t, harness, fill["change_set_id"].(string), "workbook.bulk_mutations", "txn-phase9-i-9-01-fill-down")
+	requireChangeSetSource(t, harness, fill["change_set_id"].(string), "workbook.bulk_mutations", "txn-workbook_interaction-i-9-01-fill-down")
 	requireMutationTargets(t, harness, fill["change_set_id"].(string), []string{firstID, secondID})
 
 	tag := requireBulkMutation(t, harness, adminLogin, incidentID, timeline.TimelineViewSchemaID, map[string]any{
 		"view_schema_id": timeline.TimelineViewSchemaID,
-		"client_txn_id":  "txn-phase9-i-9-01-tag-bulk",
+		"client_txn_id":  "txn-workbook_interaction-i-9-01-tag-bulk",
 		"kind":           "multi_row_tag_assignment_v1",
 		"tag_name":       "bulk-tag",
 		"targets": []map[string]any{
@@ -251,42 +251,42 @@ func TestBulkMutationsPersistOneVisibleBatch_Integration(t *testing.T) {
 			{"record_id": secondID, "base_row_version": 2},
 		},
 	})
-	requireChangeSetSource(t, harness, tag["change_set_id"].(string), "workbook.bulk_mutations", "txn-phase9-i-9-01-tag-bulk")
+	requireChangeSetSource(t, harness, tag["change_set_id"].(string), "workbook.bulk_mutations", "txn-workbook_interaction-i-9-01-tag-bulk")
 	requireRecordTag(t, harness, firstID, "bulk-tag")
 	requireRecordTag(t, harness, secondID, "bulk-tag")
 }
 
 func TestClipboardPasteAndBulkRejectCrossIncidentTargets_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase9-i-9-01-cross-incident-batch-targets")
+	harness := workbookscenariotest.StartServer(t, "workbook_interaction-i-9-01-cross-incident-batch-targets")
 	adminLogin, _ := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentA := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase9-i-9-01-cross-incident-a",
-		"incident_key":  "IR-PHASE9-I901-XA",
+		"client_txn_id": "txn-workbook_interaction-i-9-01-cross-incident-a",
+		"incident_key":  "IR-WORKBOOK-INTERACTION-I901-XA",
 		"title":         "Workbook inspector cross incident A",
 	})
 	incidentAID := workbookscenariotest.MustUUID(t, incidentA["incident_id"].(string))
 	incidentB := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase9-i-9-01-cross-incident-b",
-		"incident_key":  "IR-PHASE9-I901-XB",
+		"client_txn_id": "txn-workbook_interaction-i-9-01-cross-incident-b",
+		"incident_key":  "IR-WORKBOOK-INTERACTION-I901-XB",
 		"title":         "Workbook inspector cross incident B",
 	})
 	incidentBID := workbookscenariotest.MustUUID(t, incidentB["incident_id"].(string))
 
 	local := requireWorkbookCreate(t, harness, adminLogin, incidentAID, timeline.TimelineViewSchemaID, map[string]any{
-		"client_txn_id":                   "txn-phase9-i-9-01-cross-local",
+		"client_txn_id":                   "txn-workbook_interaction-i-9-01-cross-local",
 		"timeline.activity_synopsis_text": "Local batch target",
 	})
 	localID := workbookscenariotest.MustUUID(t, local["row"].(map[string]any)["record_id"].(string))
 	foreign := requireWorkbookCreate(t, harness, adminLogin, incidentBID, timeline.TimelineViewSchemaID, map[string]any{
-		"client_txn_id":                   "txn-phase9-i-9-01-cross-foreign",
+		"client_txn_id":                   "txn-workbook_interaction-i-9-01-cross-foreign",
 		"timeline.activity_synopsis_text": "Foreign batch target",
 	})
 	foreignID := workbookscenariotest.MustUUID(t, foreign["row"].(map[string]any)["record_id"].(string))
 
 	for _, baseRowVersion := range []int{1, 99} {
-		txnID := "txn-phase9-i-9-01-cross-paste"
+		txnID := "txn-workbook_interaction-i-9-01-cross-paste"
 		if baseRowVersion > 1 {
-			txnID = "txn-phase9-i-9-01-cross-paste-future-version"
+			txnID = "txn-workbook_interaction-i-9-01-cross-paste-future-version"
 		}
 		body := requireClipboardPaste(t, harness, adminLogin, incidentAID, timeline.TimelineViewSchemaID, map[string]any{
 			"view_schema_id":  timeline.TimelineViewSchemaID,
@@ -308,7 +308,7 @@ func TestClipboardPasteAndBulkRejectCrossIncidentTargets_Integration(t *testing.
 
 	fillBody := requireBulkMutationStatus(t, harness, adminLogin, incidentAID, timeline.TimelineViewSchemaID, map[string]any{
 		"view_schema_id": timeline.TimelineViewSchemaID,
-		"client_txn_id":  "txn-phase9-i-9-01-cross-fill-down",
+		"client_txn_id":  "txn-workbook_interaction-i-9-01-cross-fill-down",
 		"kind":           "fill_down_v1",
 		"field_key":      "timeline.raw_activity_text",
 		"value":          "Should not fill",
@@ -322,11 +322,11 @@ func TestClipboardPasteAndBulkRejectCrossIncidentTargets_Integration(t *testing.
 	requireTimelineSummaryAndVersion(t, harness, foreignID, "Foreign batch target", 1)
 	requireNoTimelineSourceText(t, harness, localID)
 	requireNoTimelineSourceText(t, harness, foreignID)
-	requireNoChangeSetForClientTxn(t, harness, "txn-phase9-i-9-01-cross-fill-down")
+	requireNoChangeSetForClientTxn(t, harness, "txn-workbook_interaction-i-9-01-cross-fill-down")
 
 	tagBody := requireBulkMutationStatus(t, harness, adminLogin, incidentAID, timeline.TimelineViewSchemaID, map[string]any{
 		"view_schema_id": timeline.TimelineViewSchemaID,
-		"client_txn_id":  "txn-phase9-i-9-01-cross-tag",
+		"client_txn_id":  "txn-workbook_interaction-i-9-01-cross-tag",
 		"kind":           "multi_row_tag_assignment_v1",
 		"tag_name":       "should-not-tag",
 		"targets": []map[string]any{
@@ -337,7 +337,7 @@ func TestClipboardPasteAndBulkRejectCrossIncidentTargets_Integration(t *testing.
 	requireNoVersionOracle(t, tagBody)
 	requireNoRecordTag(t, harness, localID.String(), "should-not-tag")
 	requireNoRecordTag(t, harness, foreignID.String(), "should-not-tag")
-	requireNoChangeSetForClientTxn(t, harness, "txn-phase9-i-9-01-cross-tag")
+	requireNoChangeSetForClientTxn(t, harness, "txn-workbook_interaction-i-9-01-cross-tag")
 }
 
 func requireClipboardPaste(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, viewSchemaID string, body map[string]any, wantStatus int) map[string]any {

@@ -132,7 +132,7 @@ func TestIncidentSocketRevocationSources(t *testing.T) {
 	t.Run("incident close", func(t *testing.T) {
 		closeIncident := incidentscenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 			"client_txn_id": "txn-collaboration-support-socket-incident-close-incident",
-			"incident_key":  "IR-PHASE6SUPPORTSOCKETCLOSE",
+			"incident_key":  "IR-COLLABORATIONSUPPORTSOCKETCLOSE",
 			"title":         "Collaboration support socket close",
 		})
 		closeIncidentID := closeIncident["incident_id"].(string)

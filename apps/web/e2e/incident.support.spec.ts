@@ -36,7 +36,9 @@ test("supports route-owned incident validation errors through browser-authentica
     await page.request.post(`${apiBase}/api/v1/incidents`, {
       headers: await csrfHeaders(page),
       data: {
-        client_txn_id: uniqueTxn("phase2-support-invalid-create-memberships"),
+        client_txn_id: uniqueTxn(
+          "incident_membership-support-invalid-create-memberships",
+        ),
         incident_key: uniqueIncidentKey("S204INVALID"),
         title: "Invalid create",
         initial_memberships: [],
@@ -53,7 +55,9 @@ test("supports route-owned incident validation errors through browser-authentica
     await page.request.post(`${apiBase}/api/v1/incidents`, {
       headers: await csrfHeaders(page),
       data: {
-        client_txn_id: uniqueTxn("phase2-support-invalid-create-unknown"),
+        client_txn_id: uniqueTxn(
+          "incident_membership-support-invalid-create-unknown",
+        ),
         incident_key: uniqueIncidentKey("S204UNKNOWN"),
         title: "Invalid create",
         unexpected: true,
@@ -101,8 +105,8 @@ test("supports zero-membership extension discovery and singleton pagination reje
   page,
   sessionTracker,
 }) => {
-  const zeroMemberEmail = uniqueEmail("phase2-support-e205");
-  const zeroMemberPassword = "Phase2SupportE205Pass!";
+  const zeroMemberEmail = uniqueEmail("incident_membership-support-e205");
+  const zeroMemberPassword = "IncidentMembershipSupportE205Pass!";
   const zeroMemberUser = await createLocalUser(page, {
     email: zeroMemberEmail,
     display_name: "Incident administration Support Zero Member",
@@ -110,10 +114,10 @@ test("supports zero-membership extension discovery and singleton pagination reje
   });
 
   await sessionTracker.loginTrackedUser(page, {
-    createdBy: "phase2 support zero-member landing",
+    createdBy: "incident_membership support zero-member landing",
     email: zeroMemberEmail,
     password: zeroMemberPassword,
-    purpose: "phase2 support zero-member login",
+    purpose: "incident_membership support zero-member login",
     userId: zeroMemberUser.user_id,
   });
   await page.goto("/");
@@ -159,8 +163,8 @@ test("supports reserved-family dispatch precedence probes while ordinary base an
   page,
   sessionTracker,
 }) => {
-  const zeroMemberEmail = uniqueEmail("phase2-support-e206");
-  const zeroMemberPassword = "Phase2SupportE206Pass!";
+  const zeroMemberEmail = uniqueEmail("incident_membership-support-e206");
+  const zeroMemberPassword = "IncidentMembershipSupportE206Pass!";
   const zeroMemberUser = await createLocalUser(page, {
     email: zeroMemberEmail,
     display_name: "Incident administration Support Reserved Family User",
@@ -168,10 +172,10 @@ test("supports reserved-family dispatch precedence probes while ordinary base an
   });
 
   await sessionTracker.loginTrackedUser(page, {
-    createdBy: "phase2 support reserved-family zero-member",
+    createdBy: "incident_membership support reserved-family zero-member",
     email: zeroMemberEmail,
     password: zeroMemberPassword,
-    purpose: "phase2 support reserved-family login",
+    purpose: "incident_membership support reserved-family login",
     userId: zeroMemberUser.user_id,
   });
   await page.goto("/");

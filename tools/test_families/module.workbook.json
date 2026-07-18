@@ -23,7 +23,7 @@
           "scenario_4970f1b5320f"
         ],
         "titles": [
-          "FE-A11Y-P10-01 Verify coordination surfaces and full keyboard/clipboard controls meet keyboard reachability, focus visibility, accessible-name, ARIA, and non-color-only state expectations."
+          "a11y.coordination-review.row-01 Verify coordination surfaces and full keyboard/clipboard controls meet keyboard reachability, focus visibility, accessible-name, ARIA, and non-color-only state expectations."
         ]
       },
       "evidence_class": "accessibility",
@@ -55,7 +55,7 @@
           "scenario_5039de8a2f57"
         ],
         "titles": [
-          "FE-A11Y-P4-01 Verify grid navigation, edit entry/exit, paste feedback, validation feedback, save-state communication, and Esc priority are keyboard and screen-reader safe."
+          "a11y.mutation-lifecycle.row-01 Verify grid navigation, edit entry/exit, paste feedback, validation feedback, save-state communication, and Esc priority are keyboard and screen-reader safe."
         ]
       },
       "evidence_class": "accessibility",
@@ -87,7 +87,7 @@
           "scenario_60213d2463bf"
         ],
         "titles": [
-          "FE-A11Y-P9-01 Verify inspector tabs, relationship links, evidence controls, history controls, rollback, destructive actions, and errors are keyboard reachable and announced."
+          "a11y.inspector-history.row-01 Verify inspector tabs, relationship links, evidence controls, history controls, rollback, destructive actions, and errors are keyboard reachable and announced."
         ]
       },
       "evidence_class": "accessibility",
@@ -119,7 +119,7 @@
           "scenario_594d53561642"
         ],
         "titles": [
-          "FE-A11Y-P9-02 Verify keyboard open/close, panel navigation, Esc, focus restoration, disabled/blocked states, no-row empty state, and destructive confirmation focus for config-driven inspector behavior."
+          "a11y.inspector-history.row-02 Verify keyboard open/close, panel navigation, Esc, focus restoration, disabled/blocked states, no-row empty state, and destructive confirmation focus for config-driven inspector behavior."
         ]
       },
       "evidence_class": "accessibility",
@@ -151,7 +151,7 @@
           "scenario_e7bdba6c9e86"
         ],
         "titles": [
-          "FE-A11Y-P2-01 Verify shell regions, tabs, switchers, menus, inspector controls, and status strip are keyboard reachable, visibly focused, and named."
+          "a11y.workbook-shell.row-01 Verify shell regions, tabs, switchers, menus, inspector controls, and status strip are keyboard reachable, visibly focused, and named."
         ]
       },
       "evidence_class": "accessibility",

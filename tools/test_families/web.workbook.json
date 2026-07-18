@@ -1404,7 +1404,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.inspector.test.tsx",
         "titles": [
-          "FE-P9 inspector and row-local action coverage keeps the Timeline inspector unmounted until explicit activation"
+          "browser.inspector-history inspector and row-local action coverage keeps the Timeline inspector unmounted until explicit activation"
         ]
       },
       "evidence_class": "unit",
@@ -1427,7 +1427,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.inspector.test.tsx",
         "titles": [
-          "FE-P9 inspector and row-local action coverage renders Timeline collection cells compactly until inline edit activation"
+          "browser.inspector-history inspector and row-local action coverage renders Timeline collection cells compactly until inline edit activation"
         ]
       },
       "evidence_class": "unit",

@@ -215,8 +215,6 @@ const retiredPublicMakeVariables = Object.freeze([
   "BROWSER_SUPPORT_RESULTS_DIR",
   "BROWSER_VISUAL_RESULTS_DIR",
   "CHECK_RESULTS_DIR",
-  "PHASE",
-  "PHASE_NAMESPACE",
 ]);
 const makeInputSourcesEnv = "CARTULARY_MAKE_INPUT_SOURCES";
 const makeCommandLineOrigins = new Set(["cli"]);
@@ -841,22 +839,6 @@ function validateTargetInputValue(name, value, input, manifest) {
       });
     }
     return tokens.join(",");
-  }
-  if (input.type === "phase_namespace") {
-    if (!["base", "frontend"].includes(value)) {
-      throw new HarnessConfigError(`${name} must be base or frontend`, {
-        reason: input.invalid_reason,
-      });
-    }
-    return value;
-  }
-  if (input.type === "phase_id") {
-    if (!/^(?:phase[0-9]+|FE-P[0-9]+)$/u.test(value)) {
-      throw new HarnessConfigError(`${name} must be phaseN or FE-PN`, {
-        reason: input.invalid_reason,
-      });
-    }
-    return value;
   }
   if (input.type === "target_name") {
     const knownTargets = new Set((manifest.targets ?? []).map((entry) => entry.name));

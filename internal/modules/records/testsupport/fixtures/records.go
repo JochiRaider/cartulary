@@ -158,7 +158,7 @@ type IndicatorLifecycleFixture struct {
 func RecordIncident() IncidentFixture {
 	return IncidentFixture{
 		IncidentID:  golden.RecordIncidentID,
-		IncidentKey: "IR-PHASE4-001",
+		IncidentKey: "IR-ENTITY-LINKING-001",
 		Title:       "Record relationships readiness incident",
 	}
 }

@@ -111,7 +111,7 @@ assert_no_ambient_summary() {
 assert_probe_artifact_contains() {
   local probe_label="$1"
   local target="$2"
-  local phase_label="$3"
+  local step_label="$3"
   local needle="$4"
   local assertion_label="$5"
 
@@ -120,7 +120,7 @@ assert_probe_artifact_contains() {
     --results-root "$probe_results_root" \
     --run-id "$(probe_run_id "$probe_label")" \
     --target "$target" \
-    --phase-label "$phase_label" \
+    --step-label "$step_label" \
     --needle "$needle" \
     --label "$assertion_label"
 }

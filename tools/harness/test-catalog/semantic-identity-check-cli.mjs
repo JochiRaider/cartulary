@@ -32,65 +32,6 @@ function walk(root, relativeRoot) {
   return result.sort(asciiCompare);
 }
 
-const allowlistLocatorKinds = new Set([
-  "path_component",
-  "filename",
-  "symbol",
-  "title",
-  "selector",
-  "variable",
-  "schema_id",
-  "artifact_name",
-  "target_id",
-]);
-
-function rawAllowlistEntries(root) {
-  const allowlistPath = path.join(root, "tools/delivery_phase_semantic_allowlist.json");
-  if (!existsSync(allowlistPath)) return [];
-  const document = readJSON(allowlistPath);
-  return document.allowlist ?? [];
-}
-
-function validateAllowlist(root, candidates, requireCandidateMatch) {
-  const entries = rawAllowlistEntries(root);
-  const ownerRegistryPath = path.join(root, "tools/test_catalog_owner.json");
-  const ownerIDs = existsSync(ownerRegistryPath)
-    ? new Set(readJSON(ownerRegistryPath).owners?.map((entry) => entry.owner_id) ?? [])
-    : null;
-  const keys = [];
-  for (const entry of entries) {
-    if (!entry || typeof entry !== "object" || Array.isArray(entry)) throw new Error("semantic allowlist entry must be an object");
-    if (typeof entry.location !== "string" || path.isAbsolute(entry.location) || path.posix.normalize(entry.location) !== entry.location || /:\d+(?::\d+)?$/u.test(entry.location)) {
-      throw new Error(`semantic allowlist location must be normalized and must not be line-number-only: ${entry.location ?? ""}`);
-    }
-    if (!allowlistLocatorKinds.has(entry.locator_kind)) throw new Error(`unknown semantic allowlist locator kind: ${entry.locator_kind ?? ""}`);
-    if (typeof entry.locator !== "string" || entry.locator.length === 0) throw new Error("semantic allowlist locator is required");
-    if (!new Set(["product_phase", "execution_step"]).has(entry.classification)) throw new Error(`unknown semantic allowlist classification: ${entry.classification ?? ""}`);
-    if (typeof entry.owner_id !== "string" || !/^(?:module|platform|app|web|package|harness)\.[a-z][a-z0-9_]{0,62}$/u.test(entry.owner_id)) {
-      throw new Error(`invalid semantic allowlist owner: ${entry.owner_id ?? ""}`);
-    }
-    if (ownerIDs && !ownerIDs.has(entry.owner_id)) throw new Error(`unknown semantic allowlist owner: ${entry.owner_id}`);
-    if (typeof entry.reason !== "string" || entry.reason.trim() === "") throw new Error("semantic allowlist reason is required");
-    const key = `${entry.location}\0${entry.locator_kind}\0${entry.locator}`;
-    keys.push(key);
-    if (requireCandidateMatch) {
-      const matches = candidates.filter((candidate) => `${candidate.location}\0${candidate.locator_kind}\0${candidate.locator}` === key);
-      if (matches.length !== 1) throw new Error(`semantic allowlist entry must match exactly one identity: ${entry.location}::${entry.locator_kind}:${entry.locator}`);
-    }
-  }
-  const sorted = [...new Set(keys)].sort(asciiCompare);
-  if (keys.length !== sorted.length || keys.some((key, index) => key !== sorted[index])) {
-    throw new Error("semantic allowlist entries must be ASCII-sorted and duplicate-free");
-  }
-  return entries;
-}
-
-function allowed(entries, violation) {
-  return entries.some((entry) => entry.location === violation.location
-    && entry.locator_kind === violation.locator_kind
-    && entry.locator === violation.locator);
-}
-
 function collectGoViolations(root) {
   const violations = [];
   const testFiles = ["internal", "cmd"]
@@ -341,22 +282,14 @@ function collectAllCandidates(root) {
 
 export function validateSemanticGoIdentities(root) {
   const candidates = [...collectGoViolations(root), ...collectCatalogGoViolations(root)];
-  const entries = validateAllowlist(root, candidates, false);
-  const violations = candidates
-    .filter((violation) => !allowed(entries, violation))
-    .sort((left, right) => asciiCompare(
+  return candidates.sort((left, right) => asciiCompare(
       `${left.location}\0${left.locator_kind}\0${left.locator}`,
       `${right.location}\0${right.locator_kind}\0${right.locator}`,
     ));
-  return violations;
 }
 
 export function validateSemanticIdentities(root) {
-  const candidates = collectAllCandidates(root);
-  const entries = validateAllowlist(root, candidates, true);
-  return candidates
-    .filter((violation) => !allowed(entries, violation))
-    .sort((left, right) => asciiCompare(
+  return collectAllCandidates(root).sort((left, right) => asciiCompare(
       `${left.location}\0${left.locator_kind}\0${left.locator}`,
       `${right.location}\0${right.locator_kind}\0${right.locator}`,
     ));

@@ -539,7 +539,7 @@ describe("WorkbookShell surface selection", () => {
               href: "/api/v1/object-uploads/test-token",
               method: "PUT",
               headers: {
-                "X-Upload-Contract": "phase5",
+                "X-Upload-Contract": "evidence_lifecycle",
               },
             },
           },
@@ -2777,7 +2777,7 @@ describe("WorkbookShell surface selection", () => {
     const uploadInit = uploadCall?.[1] as RequestInit;
     expect(uploadInit.credentials).toBe("omit");
     const uploadHeaders = uploadInit.headers as Headers;
-    expect(uploadHeaders.get("X-Upload-Contract")).toBe("phase5");
+    expect(uploadHeaders.get("X-Upload-Contract")).toBe("evidence_lifecycle");
     expect(uploadHeaders.get("Content-Type")).toBe("text/plain");
   });
 

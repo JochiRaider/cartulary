@@ -147,7 +147,7 @@ test("Verify history and rollback preview/action use public route contracts, pre
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("FEIP901"),
-    "FE-I-P9-01 rollback public envelope",
+    "integration.inspector-history.row-01 rollback public envelope",
   );
   const evidence = (await createViewRow(
     page,
@@ -155,13 +155,15 @@ test("Verify history and rollback preview/action use public route contracts, pre
     evidenceViewSchemaId,
     {
       client_txn_id: uniqueTxn("feip901-evidence"),
-      "evidence.collector_party_text": "FE-I-P9 collector",
-      "evidence.title": "FE-I-P9 attached evidence",
+      "evidence.collector_party_text":
+        "integration.inspector-history collector",
+      "evidence.title": "integration.inspector-history attached evidence",
     },
   )) as unknown as ViewRow;
   const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("feip901-row"),
-    "timeline.activity_synopsis_text": "FE-I-P9 rollback row",
+    "timeline.activity_synopsis_text":
+      "integration.inspector-history rollback row",
   })) as unknown as ViewRow;
   const linkedRow = (await patchRecord(page, row.record_id, {
     base_row_version: row.row_version,
@@ -206,7 +208,7 @@ test("Verify history and rollback preview/action use public route contracts, pre
     changes: [
       {
         field_key: "timeline.activity_synopsis_text",
-        value: "FE-I-P9 stale server update",
+        value: "integration.inspector-history stale server update",
       },
     ],
     client_txn_id: uniqueTxn("feip901-stale"),
@@ -250,11 +252,12 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("FEEP901"),
-    "FE-E-P9-01 inspector row-local actions",
+    "end-to-end.inspector-history.row-01 inspector row-local actions",
   );
   await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("feep901-fallback"),
-    "timeline.activity_synopsis_text": "FE-E-P9 fallback row",
+    "timeline.activity_synopsis_text":
+      "end-to-end.inspector-history fallback row",
   });
   const evidence = (await createViewRow(
     page,
@@ -262,15 +265,19 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
     evidenceViewSchemaId,
     {
       client_txn_id: uniqueTxn("feep901-evidence"),
-      "evidence.collector_party_text": "FE-E-P9 collector",
-      "evidence.title": "FE-E-P9 attached evidence",
+      "evidence.collector_party_text": "end-to-end.inspector-history collector",
+      "evidence.title": "end-to-end.inspector-history attached evidence",
     },
   )) as unknown as ViewRow;
   const target = (await createViewRow(page, incidentId, timelineViewSchemaId, {
-    [hostRefsFieldKey]: collectionActionsPayload(["FE-E-P9 stable host"]),
+    [hostRefsFieldKey]: collectionActionsPayload([
+      "end-to-end.inspector-history stable host",
+    ]),
     client_txn_id: uniqueTxn("feep901-target"),
-    "timeline.raw_activity_text": "FE-E-P9 detailed inspector body",
-    "timeline.activity_synopsis_text": "FE-E-P9 selected row",
+    "timeline.raw_activity_text":
+      "end-to-end.inspector-history detailed inspector body",
+    "timeline.activity_synopsis_text":
+      "end-to-end.inspector-history selected row",
   })) as unknown as ViewRow;
   const linkedTarget = (await patchRecord(page, target.record_id, {
     base_row_version: target.row_version,
@@ -285,7 +292,7 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
   })) as unknown as ViewRow;
   const hostItem = requireItemByRawText(
     collectionItems(linkedTarget, hostRefsFieldKey),
-    "FE-E-P9 stable host",
+    "end-to-end.inspector-history stable host",
   );
   const attachedEvidenceItem =
     collectionItems(linkedTarget, "timeline.attached_evidence_ids").find(
@@ -327,7 +334,7 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
         surface: "inspector",
       }),
     ),
-  ).toHaveValue("FE-E-P9 detailed inspector body");
+  ).toHaveValue("end-to-end.inspector-history detailed inspector body");
   await expect(
     page
       .getByTestId(relationshipItemsTestId(target.record_id, hostRefsFieldKey))
@@ -410,10 +417,10 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
   expect(restoreBody.base_row_version).toBe(deletedEnvelope.data.row_version);
   expect(String(restoreBody.client_txn_id)).toMatch(/^timeline-client-/u);
 
-  const memberPassword = "Phase9Reviewer1!";
+  const memberPassword = "WorkbookInteractionReviewer1!";
   const member = await createIncidentMemberUser(page, incidentId, {
-    display_name: "FE-E-P9 reviewer",
-    email: uniqueEmail("fe-e-p9-reviewer"),
+    display_name: "end-to-end.inspector-history reviewer",
+    email: uniqueEmail("end-to-end.inspector-history-reviewer"),
     initial_password: memberPassword,
     role: "reviewer",
   });
@@ -422,7 +429,7 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
   try {
     await disableWorkbookSockets(memberPage);
     await sessionTracker.loginTrackedUser(memberPage, {
-      createdBy: "FE-E-P9-01",
+      createdBy: "end-to-end.inspector-history.row-01",
       email: member.email,
       password: memberPassword,
       purpose: "row-local rollback authorization denial",
@@ -498,10 +505,10 @@ test("Verify default-closed inspector state, no-row state, surface switch config
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("FEEP902"),
-    "FE-E-P9-02 view-schema inspector config",
+    "end-to-end.inspector-history.row-02 view-schema inspector config",
   );
   const timelineSavedView = await createSavedView(page, incidentId, {
-    display_name: "FE-E-P9-02 Timeline saved view",
+    display_name: "end-to-end.inspector-history.row-02 Timeline saved view",
     scope: "shared",
     view_schema_id: timelineViewSchemaId,
   });
@@ -511,14 +518,16 @@ test("Verify default-closed inspector state, no-row state, surface switch config
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("feep902-seed"),
-      "timeline.raw_activity_text": "FE-E-P9-02 seed raw details",
-      "timeline.activity_synopsis_text": "FE-E-P9-02 seed summary",
+      "timeline.raw_activity_text":
+        "end-to-end.inspector-history.row-02 seed raw details",
+      "timeline.activity_synopsis_text":
+        "end-to-end.inspector-history.row-02 seed summary",
     },
   )) as unknown as ViewRow;
   const hostSeed = (await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("feep902-host"),
-    "host.display_name": "FE-E-P9-02 host",
-    "host.hostname": "fe-e-p9-02.example.test",
+    "host.display_name": "end-to-end.inspector-history.row-02 host",
+    "host.hostname": "end-to-end.inspector-history.row-02.example.test",
   })) as unknown as ViewRow;
 
   await openTimelineSurface(page, incidentId);
@@ -577,7 +586,7 @@ test("Verify default-closed inspector state, no-row state, surface switch config
   });
   await page.getByTestId(hostInspectButtonTestId).click();
   await expect(page.getByTestId("host-inspector")).toContainText(
-    "FE-E-P9-02 host",
+    "end-to-end.inspector-history.row-02 host",
   );
   await page.getByTestId(surfaceTabTestId(timelineViewSchemaId)).click();
   await expect(page.getByTestId("host-inspector")).toHaveCount(0);
@@ -590,10 +599,12 @@ test("Verify default-closed inspector state, no-row state, surface switch config
     targetTestId: draftSummaryTestId,
   });
   const draftSummary = page.getByTestId(draftSummaryTestId);
-  await draftSummary.fill("FE-E-P9-02 hot path created");
+  await draftSummary.fill(
+    "end-to-end.inspector-history.row-02 hot path created",
+  );
   await draftSummary.press("Enter");
   const created = await waitForCommittedRowSummary(page, {
-    expectedSummary: "FE-E-P9-02 hot path created",
+    expectedSummary: "end-to-end.inspector-history.row-02 hot path created",
     surface: timelineViewSchemaId,
     timeoutMs: 5_000,
   });
@@ -610,7 +621,9 @@ test("Verify default-closed inspector state, no-row state, surface switch config
       surface: "grid",
     }),
   );
-  await createdSummaryEditor.fill("FE-E-P9-02 hot path edited");
+  await createdSummaryEditor.fill(
+    "end-to-end.inspector-history.row-02 hot path edited",
+  );
   await createdSummaryEditor.press("Tab");
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
   await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
@@ -633,7 +646,10 @@ test("Verify default-closed inspector state, no-row state, surface switch config
     const data = new DataTransfer();
     data.setData(
       "text/plain",
-      ["FE-E-P9-02 pasted first", "FE-E-P9-02 pasted second"].join("\n"),
+      [
+        "end-to-end.inspector-history.row-02 pasted first",
+        "end-to-end.inspector-history.row-02 pasted second",
+      ].join("\n"),
     );
     element.dispatchEvent(
       new ClipboardEvent("paste", {
@@ -657,14 +673,14 @@ test("Verify default-closed inspector state, no-row state, surface switch config
         (row.cells as Record<string, { value: unknown }>)[
           "timeline.activity_synopsis_text"
         ]?.value ?? "",
-      ).startsWith("FE-E-P9-02 pasted "),
+      ).startsWith("end-to-end.inspector-history.row-02 pasted "),
     ),
   ).toHaveLength(2);
 
-  const memberPassword = "Phase9InspectorViewer1!";
+  const memberPassword = "WorkbookInteractionInspectorViewer1!";
   const member = await createIncidentMemberUser(page, incidentId, {
-    display_name: "FE-E-P9-02 viewer",
-    email: uniqueEmail("fe-e-p9-02-viewer"),
+    display_name: "end-to-end.inspector-history.row-02 viewer",
+    email: uniqueEmail("end-to-end.inspector-history.row-02-viewer"),
     initial_password: memberPassword,
     role: "viewer",
   });
@@ -673,7 +689,7 @@ test("Verify default-closed inspector state, no-row state, surface switch config
   try {
     await disableWorkbookSockets(memberPage);
     await sessionTracker.loginTrackedUser(memberPage, {
-      createdBy: "FE-E-P9-02",
+      createdBy: "end-to-end.inspector-history.row-02",
       email: member.email,
       password: memberPassword,
       purpose: "inspector-backed record action denial",

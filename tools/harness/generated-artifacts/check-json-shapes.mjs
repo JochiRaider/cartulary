@@ -94,7 +94,7 @@ const networkFlowContractIndexSchemaID =
 const networkFlowTimezoneRulesetProvenanceSchemaID =
   "cartulary.network_flow_timezone_ruleset_provenance.v1";
 const frontendVisualFixtureRegistrySchemaID =
-  "cartulary.frontend_visual_fixture_registry.v3";
+  "cartulary.frontend_visual_fixture_registry.v4";
 const schedulerSummaryCommonSchemaID = "cartulary.scheduler_summary.common.v10";
 const schedulerSummaryCommonSchemaIDs = new Set([schedulerSummaryCommonSchemaID]);
 
@@ -1409,7 +1409,7 @@ function validateNetworkFlowActivityAccountingShape(file) {
   );
   requireExact(
     acceptanceAccounting.selector_prefix,
-    "phase12/network-flow/",
+    "network-flow/acceptance/",
     `${file}.acceptance_accounting.selector_prefix`,
   );
   requireExact(
@@ -4255,13 +4255,26 @@ function validateAll(root) {
   validateSchemaAttachmentPolicy(root);
   validateHarnessHelperOwnership(root);
   validateVerificationContracts(root);
-  validateTestCatalog(root);
+  const testCatalog = validateTestCatalog(root);
   validateTestCatalogImportBoundary(root);
   scanExecutableDocumentationReads(root);
+  const visualFixtureRegistry = readShapeFile(
+    repoFile(root, "tools/frontend_visual_fixture_registry.json"),
+  );
   validateSchemaSync(
     frontendVisualFixtureRegistrySchemaID,
-    readShapeFile(repoFile(root, "tools/frontend_visual_fixture_registry.json")),
+    visualFixtureRegistry,
   );
+  for (const fixture of visualFixtureRegistry.fixtures) {
+    for (const rowID of fixture.catalog_row_ids) {
+      const row = testCatalog.rowByID.get(rowID);
+      if (!row || row.runner !== "playwright" || row.evidence_class !== "visual") {
+        throw new Error(
+          `visual fixture ${fixture.fixture_id} references non-visual catalog row ${rowID}`,
+        );
+      }
+    }
+  }
 
   validateExecutionTopologyShape(
     repoFile(root, "tools/execution_topology_manifest.json"),

@@ -19,19 +19,19 @@ import (
 )
 
 func TestHandleIssueEmptyBodyNonIdempotent_Unit(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase5-handle-issue")
+	harness := workbookscenariotest.StartServer(t, "evidence_lifecycle-handle-issue")
 	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-		"client_txn_id": "txn-phase5-handle-issue-incident",
-		"incident_key":  "phase5-handle-issue",
+		"client_txn_id": "txn-evidence_lifecycle-handle-issue-incident",
+		"incident_key":  "evidence_lifecycle-handle-issue",
 		"title":         "Evidence handle issue",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 	recordID := uuid.New()
 	seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
-	payload := []byte("phase5 handle issue")
+	payload := []byte("evidence_lifecycle handle issue")
 	expectedSHA := fmt.Sprintf("%x", sha256Sum(payload))
-	attachData := attachUploadedBlobWithMetadata(t, harness, login, incidentID, recordID, payload, "issue.txt", "text/plain", "txn-phase5-handle-issue-blob", "txn-phase5-handle-issue-attach")
+	attachData := attachUploadedBlobWithMetadata(t, harness, login, incidentID, recordID, payload, "issue.txt", "text/plain", "txn-evidence_lifecycle-handle-issue-blob", "txn-evidence_lifecycle-handle-issue-attach")
 	objectBlobID := attachData["object_blob_id"].(string)
 
 	beforeInvalid := countAccessHandles(t, harness, incidentID)
@@ -85,10 +85,10 @@ func TestHandleIssueEmptyBodyNonIdempotent_Unit(t *testing.T) {
 }
 
 func TestHandleRedemptionRechecksCurrentState_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "phase5-handle-current-state")
+	harness := recordstoretest.StartStore(t, "evidence_lifecycle-handle-current-state")
 	store := evidence.NewStore(harness.DB)
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase5-handle-current@example.test", "Phase5 Handle Current", "Phase5HandleCurrent1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase5-handle-current-incident", "IR-P5-HANDLE-CURRENT", "Evidence handle current state")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "evidence_lifecycle-handle-current@example.test", "EvidenceLifecycle Handle Current", "EvidenceLifecycleHandleCurrent1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-handle-current-incident", "IR-P5-HANDLE-CURRENT", "Evidence handle current state")
 
 	unsupportedRecordID := seedEvidenceAttachmentRecord(t, harness.DB, incident.ID, actor.ID, "available")
 	unsupportedBlobID := seedBlob(t, harness.DB, incident.ID, actor.ID, "available", BlobOptions{
@@ -169,18 +169,18 @@ func TestHandleRedemptionRechecksCurrentState_Unit(t *testing.T) {
 }
 
 func TestDownloadDispositionFallback_Unit(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase5-disposition")
+	harness := workbookscenariotest.StartServer(t, "evidence_lifecycle-disposition")
 	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-		"client_txn_id": "txn-phase5-disposition-incident",
-		"incident_key":  "phase5-disposition",
+		"client_txn_id": "txn-evidence_lifecycle-disposition-incident",
+		"incident_key":  "evidence_lifecycle-disposition",
 		"title":         "Evidence disposition",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
 	sanitizedRecordID := uuid.New()
 	seedEvidenceRecord(t, harness, incidentID, adminID, sanitizedRecordID)
-	attachUploadedBlobWithMetadata(t, harness, login, incidentID, sanitizedRecordID, []byte("filename body"), "dir/evil\\bad\r\nname.txt", "text/plain", "txn-phase5-disposition-sanitize-blob", "txn-phase5-disposition-sanitize-attach")
+	attachUploadedBlobWithMetadata(t, harness, login, incidentID, sanitizedRecordID, []byte("filename body"), "dir/evil\\bad\r\nname.txt", "text/plain", "txn-evidence_lifecycle-disposition-sanitize-blob", "txn-evidence_lifecycle-disposition-sanitize-attach")
 	download := issueEvidenceHandle(t, harness, login, sanitizedRecordID, "download-handle")
 	if got := download["filename"]; got != "direvilbadname.txt" {
 		t.Fatalf("sanitized filename got %#v want direvilbadname.txt", got)
@@ -195,7 +195,7 @@ func TestDownloadDispositionFallback_Unit(t *testing.T) {
 
 	fallbackRecordID := uuid.New()
 	seedEvidenceRecord(t, harness, incidentID, adminID, fallbackRecordID)
-	attachUploadedBlobWithMetadata(t, harness, login, incidentID, fallbackRecordID, []byte("pngish"), "../..", "image/png", "txn-phase5-disposition-fallback-blob", "txn-phase5-disposition-fallback-attach")
+	attachUploadedBlobWithMetadata(t, harness, login, incidentID, fallbackRecordID, []byte("pngish"), "../..", "image/png", "txn-evidence_lifecycle-disposition-fallback-blob", "txn-evidence_lifecycle-disposition-fallback-attach")
 	preview := issueEvidenceHandle(t, harness, login, fallbackRecordID, "preview-handle")
 	wantFilename := "evidence-" + fallbackRecordID.String() + ".png"
 	if got := preview["filename"]; got != wantFilename {
@@ -211,18 +211,18 @@ func TestDownloadDispositionFallback_Unit(t *testing.T) {
 }
 
 func TestSanitizeFilenameRemovesNUL_Unit(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase5-disposition-nul")
+	harness := workbookscenariotest.StartServer(t, "evidence_lifecycle-disposition-nul")
 	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-		"client_txn_id": "txn-phase5-disposition-nul-incident",
-		"incident_key":  "phase5-disposition-nul",
+		"client_txn_id": "txn-evidence_lifecycle-disposition-nul-incident",
+		"incident_key":  "evidence_lifecycle-disposition-nul",
 		"title":         "Evidence disposition NUL",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
 	recordID := uuid.New()
 	seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
-	attachUploadedBlobWithMetadata(t, harness, login, incidentID, recordID, []byte("filename nul body"), "evil\x00name.txt", "text/plain", "txn-phase5-disposition-nul-blob", "txn-phase5-disposition-nul-attach")
+	attachUploadedBlobWithMetadata(t, harness, login, incidentID, recordID, []byte("filename nul body"), "evil\x00name.txt", "text/plain", "txn-evidence_lifecycle-disposition-nul-blob", "txn-evidence_lifecycle-disposition-nul-attach")
 	download := issueEvidenceHandle(t, harness, login, recordID, "download-handle")
 	if got := download["filename"]; got != "evilname.txt" {
 		t.Fatalf("NUL-sanitized filename got %#v want evilname.txt", got)

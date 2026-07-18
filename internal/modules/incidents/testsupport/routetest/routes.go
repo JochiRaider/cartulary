@@ -21,7 +21,7 @@ func PublicIncidentCore() []routeinventory.Entry {
 			MutationOwners: []routeinventory.MutationOwner{MutationOwnerIncidentResource, MutationOwnerIncidentMembership},
 			Body: func(fixture routeinventory.Fixture) map[string]any {
 				return map[string]any{
-					"client_txn_id": "txn-phase2-public-incident-create-" + fixture.ClientTxnSuffix,
+					"client_txn_id": "txn-incident-membership-public-incident-create-" + fixture.ClientTxnSuffix,
 					"incident_key":  "IR-PUBLIC-" + strings.ToUpper(fixture.ClientTxnSuffix),
 					"title":         "Public inventory incident " + fixture.ClientTxnSuffix,
 				}
@@ -47,7 +47,7 @@ func PublicMembershipAdmin() []routeinventory.Entry {
 			SuccessStatus: http.StatusCreated, SuccessEnvelope: true, RequiresCSRF: true,
 			MutationOwners: []routeinventory.MutationOwner{MutationOwnerIncidentMembership},
 			Body: func(fixture routeinventory.Fixture) map[string]any {
-				return map[string]any{"client_txn_id": "txn-phase2-public-membership-create-" + fixture.ClientTxnSuffix, "user_id": fixture.CandidateUserID, "role": "viewer"}
+				return map[string]any{"client_txn_id": "txn-incident-membership-public-membership-create-" + fixture.ClientTxnSuffix, "user_id": fixture.CandidateUserID, "role": "viewer"}
 			},
 		},
 		{
@@ -89,7 +89,7 @@ func ControlMembershipAdmin() []routeinventory.Entry {
 			Name: "membership create", Transport: routeinventory.TransportHTTP, Method: http.MethodPost, Template: "/api/v1/incidents/{incident_id}/memberships",
 			SuccessStatus: http.StatusCreated, SuccessEnvelope: true, RequiresCSRF: true, AllowedRole: routeinventory.ControlRoleAdminOnly,
 			Body: func(fixture routeinventory.Fixture) map[string]any {
-				return map[string]any{"client_txn_id": "txn-phase2-control-membership-create-" + fixture.ClientTxnSuffix, "user_id": fixture.CandidateUserID, "role": "viewer"}
+				return map[string]any{"client_txn_id": "txn-incident-membership-control-membership-create-" + fixture.ClientTxnSuffix, "user_id": fixture.CandidateUserID, "role": "viewer"}
 			},
 		},
 		{

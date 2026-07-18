@@ -647,7 +647,7 @@ func backupObjectStoreBucket(cfg config.Config) (string, error) {
 
 func restoreVerificationBasisForConfig(cfg config.Config) (string, error) {
 	return recovery.RestoreVerificationBasisSHA256(map[string]string{
-		"backup_mechanism":         "cartulary.phase10.filesystem_snapshot.v1",
+		"backup_mechanism":         "cartulary.backup.filesystem_snapshot.v1",
 		"database_storage_binding": rootBindingBasis(cfg.Roots.DatabaseStorage),
 		"object_storage_binding":   rootBindingBasis(cfg.Roots.ObjectStorage),
 		"backup_storage_binding":   rootBindingBasis(cfg.Roots.BackupStorage),

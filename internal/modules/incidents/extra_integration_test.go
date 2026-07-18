@@ -16,10 +16,10 @@ import (
 
 func TestMembershipCreateReplayReturnsOriginalAndDivergentConflict(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase2-membership-replay")
+	harness := runtime.StartServer(t, "incident_membership-membership-replay")
 
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
-	targetUserID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase2-membership-replay@example.test", "Replay Target", "ReplayTarget1!", false, false, true)
+	targetUserID := flowtest.SeedLocalUserFlags(t, harness.DB, "incident_membership-membership-replay@example.test", "Replay Target", "ReplayTarget1!", false, false, true)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-membership-replay-incident",
 		"incident_key":  "IR-MREPLAY",
@@ -33,7 +33,7 @@ func TestMembershipCreateReplayReturnsOriginalAndDivergentConflict(t *testing.T)
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
 		map[string]any{
 			"client_txn_id": "txn-membership-replay",
-			"email":         " phase2-membership-replay@example.test ",
+			"email":         " incident_membership-membership-replay@example.test ",
 			"role":          "viewer",
 		},
 		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
@@ -50,7 +50,7 @@ func TestMembershipCreateReplayReturnsOriginalAndDivergentConflict(t *testing.T)
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
 		map[string]any{
 			"client_txn_id": "txn-membership-replay",
-			"email":         "phase2-membership-replay@example.test",
+			"email":         "incident_membership-membership-replay@example.test",
 			"role":          "viewer",
 		},
 		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
@@ -68,7 +68,7 @@ func TestMembershipCreateReplayReturnsOriginalAndDivergentConflict(t *testing.T)
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
 		map[string]any{
 			"client_txn_id": "txn-membership-replay",
-			"email":         "phase2-membership-replay@example.test",
+			"email":         "incident_membership-membership-replay@example.test",
 			"role":          "reviewer",
 		},
 		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
@@ -108,7 +108,7 @@ SELECT COUNT(*)
 
 func TestIncidentPatchWritesAuditBeforeAfter(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase2-incident-audit")
+	harness := runtime.StartServer(t, "incident_membership-incident-audit")
 
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -164,10 +164,10 @@ func TestIncidentPatchWritesAuditBeforeAfter(t *testing.T) {
 
 func TestMembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase2-membership-audit")
+	harness := runtime.StartServer(t, "incident_membership-membership-audit")
 
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
-	targetUserID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase2-membership-audit@example.test", "Audit Target", "AuditTarget1!", false, false, true)
+	targetUserID := flowtest.SeedLocalUserFlags(t, harness.DB, "incident_membership-membership-audit@example.test", "Audit Target", "AuditTarget1!", false, false, true)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-membership-audit-incident",
 		"incident_key":  "IR-MAUDIT",

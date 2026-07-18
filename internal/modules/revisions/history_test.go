@@ -18,7 +18,7 @@ import (
 )
 
 func TestRecordHistoryEnvelope_Unit(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase7-u-7-01-history-envelope")
+	harness := workbookscenariotest.StartServer(t, "history_revision-u-7-01-history-envelope")
 	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U701")
 	base := time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC)
@@ -114,7 +114,7 @@ func TestRecordHistoryOpenAPIContract_Unit(t *testing.T) {
 }
 
 func TestHistoryEntryRefStability_Unit(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase7-u-7-02-history-ref")
+	harness := workbookscenariotest.StartServer(t, "history_revision-u-7-02-history-ref")
 	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U702")
 	base := time.Date(2026, 5, 10, 13, 0, 0, 0, time.UTC)
@@ -165,7 +165,7 @@ func TestHistoryEntryRefStability_Unit(t *testing.T) {
 }
 
 func TestRetainedHistoryInvariants_Unit(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase7-u-7-07-retained-history")
+	harness := workbookscenariotest.StartServer(t, "history_revision-u-7-07-retained-history")
 	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U707")
 	base := time.Date(2026, 5, 10, 14, 0, 0, 0, time.UTC)

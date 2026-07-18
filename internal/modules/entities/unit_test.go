@@ -76,10 +76,10 @@ func normalizeJSONMap(t testing.TB, value map[string]any) map[string]any {
 // U-4-03 / REQ-02-034, REQ-02-038, REQ-02-054..REQ-02-055 / AC-020, AC-021, AC-186.
 func TestCreateFromMention_Unit(t *testing.T) {
 	t.Run("explicit host resolve links the selected mention to the canonical record", func(t *testing.T) {
-		harness := recordstoretest.StartStore(t, "phase4-u-4-03-host-reuse")
+		harness := recordstoretest.StartStore(t, "entity_linking-u-4-03-host-reuse")
 		mentionStore := mentions.NewStore(harness.DB)
-		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u403-host@example.test", "U403 Host", "U403HostPhase4Pass1!", false, false, true)
-		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-03-host-incident", "IR-U403-H", "Record relationships U-4-03 host")
+		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u403-host@example.test", "U403 Host", "U403HostEntityLinkingPass1!", false, false, true)
+		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-03-host-incident", "IR-U403-H", "Record relationships U-4-03 host")
 
 		recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
 		recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordTimelineRecordID)
@@ -140,10 +140,10 @@ SELECT display_name, hostname, host_state
 	})
 
 	t.Run("identity resolve without an explicit target is rejected without creating a stub", func(t *testing.T) {
-		harness := recordstoretest.StartStore(t, "phase4-u-4-03-identity-create")
+		harness := recordstoretest.StartStore(t, "entity_linking-u-4-03-identity-create")
 		mentionStore := mentions.NewStore(harness.DB)
-		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u403-identity@example.test", "U403 Identity", "U403IdentityPhase4Pass1!", false, false, true)
-		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-03-identity-incident", "IR-U403-I", "Record relationships U-4-03 identity")
+		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u403-identity@example.test", "U403 Identity", "U403IdentityEntityLinkingPass1!", false, false, true)
+		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-03-identity-incident", "IR-U403-I", "Record relationships U-4-03 identity")
 
 		recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordTimelineMixedRecordID)
 		recordstoretest.SeedMention(t, harness.DB, actor.ID, golden.RecordIdentityMentionID, golden.RecordTimelineMixedRecordID, golden.RecordFieldTimelineIdentityRefs, "identity", "alex.analyst@example.test", "unresolved", nil, nil)
@@ -172,11 +172,11 @@ SELECT display_name, hostname, host_state
 
 // U-4-04 / REQ-02-039..REQ-02-041 / AC-188..AC-190, AC-224, AC-225.
 func TestDismissRestoreMentionLifecycle_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "phase4-u-4-04")
+	harness := recordstoretest.StartStore(t, "entity_linking-u-4-04")
 	mentionStore := mentions.NewStore(harness.DB)
 	timelineFacade := timeline.NewFacade(harness.DB)
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u404@example.test", "U404", "U404Phase4Pass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-04-incident", "IR-U404", "Record relationships U-4-04")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u404@example.test", "U404", "U404EntityLinkingPass1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-04-incident", "IR-U404", "Record relationships U-4-04")
 
 	recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
 	normalizedHostToken, ok := fieldnorm.NormalizeMentionToken("WS-023")
@@ -185,7 +185,7 @@ func TestDismissRestoreMentionLifecycle_Unit(t *testing.T) {
 	}
 	summary := "dismiss and restore relationship row"
 	createRequest := timeline.CreateRequest{
-		ClientTxnID:          "txn-phase4-u-4-04-row",
+		ClientTxnID:          "txn-entity_linking-u-4-04-row",
 		ActivitySynopsisText: &summary,
 		HostRefs: &timeline.CollectionActionPayload{
 			Actions: []timeline.CollectionAction{
@@ -202,8 +202,8 @@ func TestDismissRestoreMentionLifecycle_Unit(t *testing.T) {
 		Actor:       actor,
 		IncidentID:  incident.ID,
 		Request:     createRequest,
-		RequestHash: []byte("txn-phase4-u-4-04-row"),
-		RequestID:   "req-phase4-u-4-04-row",
+		RequestHash: []byte("txn-entity_linking-u-4-04-row"),
+		RequestID:   "req-entity_linking-u-4-04-row",
 		Now:         golden.RecordBaseTime,
 	})
 	if err != nil {
@@ -220,10 +220,10 @@ func TestDismissRestoreMentionLifecycle_Unit(t *testing.T) {
 	initialMention := recordstoretest.LookupMention(t, harness.DB, mentionID)
 	dismissRequest := mentions.MentionActionRequest{
 		BaseMentionRowVersion: initialMention.RowVersion,
-		ClientTxnID:           "txn-phase4-u-4-04-dismiss",
+		ClientTxnID:           "txn-entity_linking-u-4-04-dismiss",
 		Action:                "dismiss_item",
 	}
-	dismissResult, err := mentionStore.ApplyMentionAction(context.Background(), actor, mentionID, dismissRequest, mentions.MentionActionRequestHash(dismissRequest), "req-phase4-u-4-04-dismiss", golden.RecordBaseTime)
+	dismissResult, err := mentionStore.ApplyMentionAction(context.Background(), actor, mentionID, dismissRequest, mentions.MentionActionRequestHash(dismissRequest), "req-entity_linking-u-4-04-dismiss", golden.RecordBaseTime)
 	if err != nil {
 		t.Fatalf("dismiss mention: %v", err)
 	}
@@ -256,10 +256,10 @@ SELECT COUNT(*)
 
 	restoreRequest := mentions.MentionActionRequest{
 		BaseMentionRowVersion: dismissed.RowVersion,
-		ClientTxnID:           "txn-phase4-u-4-04-restore",
+		ClientTxnID:           "txn-entity_linking-u-4-04-restore",
 		Action:                "revert_to_unresolved",
 	}
-	restoreResult, err := mentionStore.ApplyMentionAction(context.Background(), actor, mentionID, restoreRequest, mentions.MentionActionRequestHash(restoreRequest), "req-phase4-u-4-04-restore", golden.RecordBaseTime.Add(time.Minute))
+	restoreResult, err := mentionStore.ApplyMentionAction(context.Background(), actor, mentionID, restoreRequest, mentions.MentionActionRequestHash(restoreRequest), "req-entity_linking-u-4-04-restore", golden.RecordBaseTime.Add(time.Minute))
 	if err != nil {
 		t.Fatalf("restore mention: %v", err)
 	}
@@ -295,10 +295,10 @@ func TestExactMatchPrecedence_Unit(t *testing.T) {
 	startFixture := func(t *testing.T, suffix string) (*recordstoretest.StoreHarness, *hostidentity.Store, authn.UserRecord, uuid.UUID) {
 		t.Helper()
 
-		harness := recordstoretest.StartStore(t, "phase4-u-4-05-"+suffix)
+		harness := recordstoretest.StartStore(t, "entity_linking-u-4-05-"+suffix)
 		store := hostidentity.NewStore(harness.DB)
-		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u405-"+suffix+"@example.test", "U405 "+suffix, "U405Phase4Pass1!", false, false, true)
-		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-05-"+suffix, "IR-U405-"+suffix, "Record relationships U-4-05 "+suffix)
+		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u405-"+suffix+"@example.test", "U405 "+suffix, "U405EntityLinkingPass1!", false, false, true)
+		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-05-"+suffix, "IR-U405-"+suffix, "Record relationships U-4-05 "+suffix)
 		return harness, store, actor, incident.ID
 	}
 	seedHost := func(t *testing.T, harness *recordstoretest.StoreHarness, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, displayName string, aadDeviceID string, fqdn string, hostname string) {
@@ -382,9 +382,9 @@ UPDATE identities
 				seedHost(t, harness, incidentID, actor.ID, hostHostnameRecordID, "Hostname Host", "", "", "host-ladder")
 
 				reuse, err := store.CreateHostRow(context.Background(), actor, incidentID, hostidentity.CreateRequest{
-					ClientTxnID: "txn-phase4-u-4-05-" + tc.suffix,
+					ClientTxnID: "txn-entity_linking-u-4-05-" + tc.suffix,
 					Values:      tc.values,
-				}, []byte("txn-phase4-u-4-05-"+tc.suffix), "req-"+tc.suffix, golden.RecordBaseTime)
+				}, []byte("txn-entity_linking-u-4-05-"+tc.suffix), "req-"+tc.suffix, golden.RecordBaseTime)
 				if err != nil {
 					t.Fatalf("host exact-match reuse: %v", err)
 				}
@@ -482,9 +482,9 @@ UPDATE identities
 				seedIdentity(t, harness, incidentID, actor.ID, identitySAMRecordID, "SAM Identity", "", "", "", "", "SAMMATCH")
 
 				reuse, err := store.CreateIdentityRow(context.Background(), actor, incidentID, hostidentity.CreateRequest{
-					ClientTxnID: "txn-phase4-u-4-05-" + tc.suffix,
+					ClientTxnID: "txn-entity_linking-u-4-05-" + tc.suffix,
 					Values:      tc.values,
-				}, []byte("txn-phase4-u-4-05-"+tc.suffix), "req-"+tc.suffix, golden.RecordBaseTime.Add(2*time.Minute))
+				}, []byte("txn-entity_linking-u-4-05-"+tc.suffix), "req-"+tc.suffix, golden.RecordBaseTime.Add(2*time.Minute))
 				if err != nil {
 					t.Fatalf("identity exact-match reuse: %v", err)
 				}
@@ -516,11 +516,11 @@ UPDATE identities
 			recordstoretest.SeedEntityAlias(t, harness.DB, incidentID, actor.ID, hostAliasRecordID, "host", "Workstation 23")
 
 			hostAliasOnly, err := store.CreateHostRow(context.Background(), actor, incidentID, hostidentity.CreateRequest{
-				ClientTxnID: "txn-phase4-u-4-05-host-alias",
+				ClientTxnID: "txn-entity_linking-u-4-05-host-alias",
 				Values: map[string]string{
 					"host.display_name": "Workstation 23",
 				},
-			}, []byte("txn-phase4-u-4-05-host-alias"), "req-host-alias", golden.RecordBaseTime.Add(time.Minute))
+			}, []byte("txn-entity_linking-u-4-05-host-alias"), "req-host-alias", golden.RecordBaseTime.Add(time.Minute))
 			if err != nil {
 				t.Fatalf("host alias-only create: %v", err)
 			}
@@ -537,11 +537,11 @@ UPDATE identities
 			recordstoretest.SeedEntityAlias(t, harness.DB, incidentID, actor.ID, identityAliasRecordID, "identity", "Case Owner")
 
 			identityFuzzyNonMatch, err := store.CreateIdentityRow(context.Background(), actor, incidentID, hostidentity.CreateRequest{
-				ClientTxnID: "txn-phase4-u-4-05-identity-fuzzy",
+				ClientTxnID: "txn-entity_linking-u-4-05-identity-fuzzy",
 				Values: map[string]string{
 					"identity.display_name": "Case Ownr",
 				},
-			}, []byte("txn-phase4-u-4-05-identity-fuzzy"), "req-identity-fuzzy", golden.RecordBaseTime.Add(3*time.Minute))
+			}, []byte("txn-entity_linking-u-4-05-identity-fuzzy"), "req-identity-fuzzy", golden.RecordBaseTime.Add(3*time.Minute))
 			if err != nil {
 				t.Fatalf("identity fuzzy non-match create: %v", err)
 			}
@@ -555,10 +555,10 @@ UPDATE identities
 // U-4-06 / REQ-02-064..REQ-02-066 / AC-023, AC-186, AC-209.
 func TestExplicitEntityMerge_Unit(t *testing.T) {
 	t.Run("host merge preserves raw mentions, loser lineage, and survivor reuse", func(t *testing.T) {
-		harness := recordstoretest.StartStore(t, "phase4-u-4-06-host")
+		harness := recordstoretest.StartStore(t, "entity_linking-u-4-06-host")
 		store := hostidentity.NewStore(harness.DB)
-		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u406@example.test", "U406", "U406Phase4Pass1!", false, false, true)
-		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-06-incident", "IR-U406", "Record relationships U-4-06")
+		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u406@example.test", "U406", "U406EntityLinkingPass1!", false, false, true)
+		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-06-incident", "IR-U406", "Record relationships U-4-06")
 
 		recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
 		recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordDuplicateHostRecordID, "WS-023 duplicate", "WS-023-DUP", "ws-023.corp.example.test", "")
@@ -579,8 +579,8 @@ func TestExplicitEntityMerge_Unit(t *testing.T) {
 			LoserRecordID:          golden.RecordDuplicateHostRecordID,
 			SurvivorBaseRowVersion: 1,
 			LoserBaseRowVersion:    1,
-			ClientTxnID:            "txn-phase4-u-4-06-merge",
-		}, []byte("txn-phase4-u-4-06-merge"), "req-merge", golden.RecordBaseTime)
+			ClientTxnID:            "txn-entity_linking-u-4-06-merge",
+		}, []byte("txn-entity_linking-u-4-06-merge"), "req-merge", golden.RecordBaseTime)
 		if err != nil {
 			t.Fatalf("merge entity: %v", err)
 		}
@@ -636,11 +636,11 @@ SELECT COUNT(*)
 		}
 
 		reuse, err := store.CreateHostRow(context.Background(), actor, incident.ID, hostidentity.CreateRequest{
-			ClientTxnID: "txn-phase4-u-4-06-reuse",
+			ClientTxnID: "txn-entity_linking-u-4-06-reuse",
 			Values: map[string]string{
 				"host.fqdn": "ws-023.corp.example.test",
 			},
-		}, []byte("txn-phase4-u-4-06-reuse"), "req-reuse", golden.RecordBaseTime.Add(time.Minute))
+		}, []byte("txn-entity_linking-u-4-06-reuse"), "req-reuse", golden.RecordBaseTime.Add(time.Minute))
 		if err != nil {
 			t.Fatalf("post-merge exact-match reuse: %v", err)
 		}
@@ -650,10 +650,10 @@ SELECT COUNT(*)
 	})
 
 	t.Run("identity merge preserves raw mentions, loser lineage, and survivor reuse", func(t *testing.T) {
-		harness := recordstoretest.StartStore(t, "phase4-u-4-06-identity")
+		harness := recordstoretest.StartStore(t, "entity_linking-u-4-06-identity")
 		store := hostidentity.NewStore(harness.DB)
-		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u406-identity@example.test", "U406 Identity", "U406IdentityPhase4Pass1!", false, false, true)
-		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-06-identity-incident", "IR-U406-I", "Record relationships U-4-06 identity")
+		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u406-identity@example.test", "U406 Identity", "U406IdentityEntityLinkingPass1!", false, false, true)
+		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-06-identity-incident", "IR-U406-I", "Record relationships U-4-06 identity")
 
 		recordstoretest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordCanonicalIdentityID, "Alex Analyst", "alex.survivor@example.test", "alex.survivor@example.test", "ALEXSURV")
 		recordstoretest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordDuplicateIdentityID, "Alex Duplicate", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
@@ -668,8 +668,8 @@ SELECT COUNT(*)
 			LoserRecordID:          golden.RecordDuplicateIdentityID,
 			SurvivorBaseRowVersion: 1,
 			LoserBaseRowVersion:    1,
-			ClientTxnID:            "txn-phase4-u-4-06-identity-merge",
-		}, []byte("txn-phase4-u-4-06-identity-merge"), "req-identity-merge", golden.RecordBaseTime)
+			ClientTxnID:            "txn-entity_linking-u-4-06-identity-merge",
+		}, []byte("txn-entity_linking-u-4-06-identity-merge"), "req-identity-merge", golden.RecordBaseTime)
 		if err != nil {
 			t.Fatalf("merge identity: %v", err)
 		}
@@ -706,11 +706,11 @@ SELECT identity_state, merged_into_record_id::text, row_version
 		}
 
 		reuse, err := store.CreateIdentityRow(context.Background(), actor, incident.ID, hostidentity.CreateRequest{
-			ClientTxnID: "txn-phase4-u-4-06-identity-reuse",
+			ClientTxnID: "txn-entity_linking-u-4-06-identity-reuse",
 			Values: map[string]string{
 				"identity.email": "alex.analyst@example.test",
 			},
-		}, []byte("txn-phase4-u-4-06-identity-reuse"), "req-identity-reuse", golden.RecordBaseTime.Add(time.Minute))
+		}, []byte("txn-entity_linking-u-4-06-identity-reuse"), "req-identity-reuse", golden.RecordBaseTime.Add(time.Minute))
 		if err != nil {
 			t.Fatalf("post-merge identity exact-match reuse: %v", err)
 		}
@@ -720,10 +720,10 @@ SELECT identity_state, merged_into_record_id::text, row_version
 	})
 
 	t.Run("host merge exposes carried secondary reusable identifiers", func(t *testing.T) {
-		harness := recordstoretest.StartStore(t, "phase4-u-4-06-host-reusable-row")
+		harness := recordstoretest.StartStore(t, "entity_linking-u-4-06-host-reusable-row")
 		store := hostidentity.NewStore(harness.DB)
-		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u406-host-reusable@example.test", "U406 Host Reusable", "U406HostReusablePhase4Pass1!", false, false, true)
-		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-06-host-reusable-incident", "IR-U406-HR", "Record relationships U-4-06 host reusable rows")
+		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u406-host-reusable@example.test", "U406 Host Reusable", "U406HostReusableEntityLinkingPass1!", false, false, true)
+		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-06-host-reusable-incident", "IR-U406-HR", "Record relationships U-4-06 host reusable rows")
 		survivorID := uuid.New()
 		loserID := uuid.New()
 
@@ -734,8 +734,8 @@ SELECT identity_state, merged_into_record_id::text, row_version
 			LoserRecordID:          loserID,
 			SurvivorBaseRowVersion: 1,
 			LoserBaseRowVersion:    1,
-			ClientTxnID:            "txn-phase4-u-4-06-host-reusable-merge",
-		}, []byte("txn-phase4-u-4-06-host-reusable-merge"), "req-host-reusable-merge", golden.RecordBaseTime); err != nil {
+			ClientTxnID:            "txn-entity_linking-u-4-06-host-reusable-merge",
+		}, []byte("txn-entity_linking-u-4-06-host-reusable-merge"), "req-host-reusable-merge", golden.RecordBaseTime); err != nil {
 			t.Fatalf("merge host reusable identifiers: %v", err)
 		}
 
@@ -748,11 +748,11 @@ SELECT identity_state, merged_into_record_id::text, row_version
 		requireNoReusableIdentifierItem(t, survivorRow, "host.reusable_identifiers", "fqdn", "ws-023.current.example.test")
 
 		reuse, err := store.CreateHostRow(context.Background(), actor, incident.ID, hostidentity.CreateRequest{
-			ClientTxnID: "txn-phase4-u-4-06-host-reusable-create",
+			ClientTxnID: "txn-entity_linking-u-4-06-host-reusable-create",
 			Values: map[string]string{
 				"host.fqdn": "legacy-ws-023.example.test",
 			},
-		}, []byte("txn-phase4-u-4-06-host-reusable-create"), "req-host-reusable-create", golden.RecordBaseTime.Add(time.Minute))
+		}, []byte("txn-entity_linking-u-4-06-host-reusable-create"), "req-host-reusable-create", golden.RecordBaseTime.Add(time.Minute))
 		if err != nil {
 			t.Fatalf("post-merge host reusable exact match: %v", err)
 		}
@@ -764,10 +764,10 @@ SELECT identity_state, merged_into_record_id::text, row_version
 	})
 
 	t.Run("identity merge exposes carried secondary reusable identifiers", func(t *testing.T) {
-		harness := recordstoretest.StartStore(t, "phase4-u-4-06-identity-reusable-row")
+		harness := recordstoretest.StartStore(t, "entity_linking-u-4-06-identity-reusable-row")
 		store := hostidentity.NewStore(harness.DB)
-		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u406-identity-reusable@example.test", "U406 Identity Reusable", "U406IdentityReusablePhase4Pass1!", false, false, true)
-		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-06-identity-reusable-incident", "IR-U406-IR", "Record relationships U-4-06 identity reusable rows")
+		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u406-identity-reusable@example.test", "U406 Identity Reusable", "U406IdentityReusableEntityLinkingPass1!", false, false, true)
+		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-06-identity-reusable-incident", "IR-U406-IR", "Record relationships U-4-06 identity reusable rows")
 		survivorID := uuid.New()
 		loserID := uuid.New()
 
@@ -778,8 +778,8 @@ SELECT identity_state, merged_into_record_id::text, row_version
 			LoserRecordID:          loserID,
 			SurvivorBaseRowVersion: 1,
 			LoserBaseRowVersion:    1,
-			ClientTxnID:            "txn-phase4-u-4-06-identity-reusable-merge",
-		}, []byte("txn-phase4-u-4-06-identity-reusable-merge"), "req-identity-reusable-merge", golden.RecordBaseTime); err != nil {
+			ClientTxnID:            "txn-entity_linking-u-4-06-identity-reusable-merge",
+		}, []byte("txn-entity_linking-u-4-06-identity-reusable-merge"), "req-identity-reusable-merge", golden.RecordBaseTime); err != nil {
 			t.Fatalf("merge identity reusable identifiers: %v", err)
 		}
 
@@ -792,11 +792,11 @@ SELECT identity_state, merged_into_record_id::text, row_version
 		requireNoReusableIdentifierItem(t, survivorRow, "identity.reusable_identifiers", "email", "alex.survivor@example.test")
 
 		reuse, err := store.CreateIdentityRow(context.Background(), actor, incident.ID, hostidentity.CreateRequest{
-			ClientTxnID: "txn-phase4-u-4-06-identity-reusable-create",
+			ClientTxnID: "txn-entity_linking-u-4-06-identity-reusable-create",
 			Values: map[string]string{
 				"identity.email": "alex.legacy@example.test",
 			},
-		}, []byte("txn-phase4-u-4-06-identity-reusable-create"), "req-identity-reusable-create", golden.RecordBaseTime.Add(time.Minute))
+		}, []byte("txn-entity_linking-u-4-06-identity-reusable-create"), "req-identity-reusable-create", golden.RecordBaseTime.Add(time.Minute))
 		if err != nil {
 			t.Fatalf("post-merge identity reusable exact match: %v", err)
 		}

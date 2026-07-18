@@ -15,8 +15,8 @@ import {
   workbookSaveStateConflictAnchorIdentity,
 } from "./workbookPendingQueue";
 
-const incidentId = "incident-fe-p4";
-const clientInstanceId = "client-instance-fe-p4";
+const incidentId = "incident-mutation-lifecycle";
+const clientInstanceId = "client-instance-mutation-lifecycle";
 const viewSchemaId = "cartulary.view.timeline.v2";
 
 function createQueue() {

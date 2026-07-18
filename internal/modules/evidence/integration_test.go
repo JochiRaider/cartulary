@@ -26,17 +26,17 @@ import (
 )
 
 func TestObjectUploadAttachWorkbookProjection_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase5-upload-attach-projection")
+	harness := workbookscenariotest.StartServer(t, "evidence_lifecycle-upload-attach-projection")
 	login, _ := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-		"client_txn_id": "txn-phase5-i-01-incident",
-		"incident_key":  "phase5-i-01",
+		"client_txn_id": "txn-evidence_lifecycle-i-01-incident",
+		"incident_key":  "evidence_lifecycle-i-01",
 		"title":         "Evidence upload attach projection",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
 	timelineData := requireHTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.timeline.v2", map[string]any{
-		"client_txn_id":                   "txn-phase5-i-01-timeline",
+		"client_txn_id":                   "txn-evidence_lifecycle-i-01-timeline",
 		"timeline.activity_synopsis_text": "Endpoint screenshot received",
 	})
 	timelineRow := timelineData["row"].(map[string]any)
@@ -44,17 +44,17 @@ func TestObjectUploadAttachWorkbookProjection_Integration(t *testing.T) {
 	timelineRowVersion := int(timelineRow["row_version"].(float64))
 	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 0, false)
 	evidenceData := requireHTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.evidence.v1", map[string]any{
-		"client_txn_id":                 "txn-phase5-i-01-evidence",
+		"client_txn_id":                 "txn-evidence_lifecycle-i-01-evidence",
 		"evidence.title":                "Endpoint screenshot",
 		"evidence.collector_party_text": "IR collector",
 	})
 	evidenceRecordID := workbookscenariotest.MustUUID(t, evidenceData["row"].(map[string]any)["record_id"].(string))
 
-	payload := []byte("phase5 projection object")
+	payload := []byte("evidence_lifecycle projection object")
 	sum := sha256.Sum256(payload)
 	createResp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 		"incident_id":       incidentID.String(),
-		"client_txn_id":     "txn-phase5-i-01-blob",
+		"client_txn_id":     "txn-evidence_lifecycle-i-01-blob",
 		"byte_size":         len(payload),
 		"filename_hint":     " endpoint.txt ",
 		"content_type_hint": "text/plain",
@@ -71,7 +71,7 @@ func TestObjectUploadAttachWorkbookProjection_Integration(t *testing.T) {
 	attachBody := map[string]any{
 		"object_blob_id":   createData["object_blob_id"],
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase5-i-01-attach",
+		"client_txn_id":    "txn-evidence_lifecycle-i-01-attach",
 	}
 	attachResp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+evidenceRecordID.String()+"/attach-blob", attachBody, authOptions(login)...)
 	attachData := httptestx.RequireSuccessEnvelope(t, attachResp, http.StatusOK)["data"].(map[string]any)
@@ -83,7 +83,7 @@ func TestObjectUploadAttachWorkbookProjection_Integration(t *testing.T) {
 	requireHTTPWorkbookPatch(t, harness, login, timelineRecordID, map[string]any{
 		"view_schema_id":   "cartulary.view.timeline.v2",
 		"base_row_version": timelineRowVersion,
-		"client_txn_id":    "txn-phase5-i-01-link-evidence",
+		"client_txn_id":    "txn-evidence_lifecycle-i-01-link-evidence",
 		"changes": []map[string]any{{
 			"field_key": "timeline.attached_evidence_ids",
 			"action_payload": map[string]any{
@@ -115,11 +115,11 @@ func TestObjectUploadAttachWorkbookProjection_Integration(t *testing.T) {
 }
 
 func TestObjectUploadCapabilityRoute_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase5-object-upload-capability")
+	harness := workbookscenariotest.StartServer(t, "evidence_lifecycle-object-upload-capability")
 	login, _ := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-		"client_txn_id": "txn-phase5-upload-capability-incident",
-		"incident_key":  "phase5-upload-capability",
+		"client_txn_id": "txn-evidence_lifecycle-upload-capability-incident",
+		"incident_key":  "evidence_lifecycle-upload-capability",
 		"title":         "Evidence upload capability",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
@@ -154,19 +154,19 @@ func TestObjectUploadCapabilityRoute_Integration(t *testing.T) {
 	malformed := putUpload(t, "/api/v1/object-uploads/not-a-token", "hello")
 	httptestx.RequireErrorEnvelope(t, malformed, http.StatusNotFound, "object_upload_not_found_or_revoked")
 
-	undersizeData := createSlot(t, "txn-phase5-upload-capability-undersize")
+	undersizeData := createSlot(t, "txn-evidence_lifecycle-upload-capability-undersize")
 	undersizeTarget := undersizeData["upload_target"].(map[string]any)
 	undersizeResp := putUpload(t, undersizeTarget["href"].(string), "hell")
 	undersizeBody := httptestx.RequireErrorEnvelope(t, undersizeResp, http.StatusBadRequest, "object_upload_rejected")
 	httptestx.RequireErrorDetail(t, undersizeBody, "reason_code", "byte_size_mismatch")
 
-	oversizeData := createSlot(t, "txn-phase5-upload-capability-oversize")
+	oversizeData := createSlot(t, "txn-evidence_lifecycle-upload-capability-oversize")
 	oversizeTarget := oversizeData["upload_target"].(map[string]any)
 	oversizeResp := putUpload(t, oversizeTarget["href"].(string), "helloo")
 	oversizeBody := httptestx.RequireErrorEnvelope(t, oversizeResp, http.StatusRequestEntityTooLarge, "object_upload_rejected")
 	httptestx.RequireErrorDetail(t, oversizeBody, "reason_code", "byte_size_exceeds_contract")
 
-	wrongStateData := createSlot(t, "txn-phase5-upload-capability-wrong-state")
+	wrongStateData := createSlot(t, "txn-evidence_lifecycle-upload-capability-wrong-state")
 	wrongStateBlobID := workbookscenariotest.MustUUID(t, wrongStateData["object_blob_id"].(string))
 	updateBlobState(t, harness, wrongStateBlobID, "available")
 	wrongStateTarget := wrongStateData["upload_target"].(map[string]any)
@@ -174,7 +174,7 @@ func TestObjectUploadCapabilityRoute_Integration(t *testing.T) {
 	wrongStateBody := httptestx.RequireErrorEnvelope(t, wrongStateResp, http.StatusConflict, "object_upload_rejected")
 	httptestx.RequireErrorDetail(t, wrongStateBody, "reason_code", "blob_not_pending")
 
-	successData := createSlot(t, "txn-phase5-upload-capability-success")
+	successData := createSlot(t, "txn-evidence_lifecycle-upload-capability-success")
 	successTarget := successData["upload_target"].(map[string]any)
 	successResp := putUpload(t, successTarget["href"].(string), "hello")
 	httptestx.RequireStatus(t, successResp, http.StatusNoContent)
@@ -182,19 +182,19 @@ func TestObjectUploadCapabilityRoute_Integration(t *testing.T) {
 
 func TestAttachRouteContract_Integration(t *testing.T) {
 	runtime := workbookscenariotest.StartRuntime(t)
-	testDB := runtime.PrepareGroupServerDatabase(t, "phase5-attach-route-contract", "phase5-attach-route-contract")
-	harness := runtime.StartServerWithDatabase(t, "phase5-attach-route-contract", testDB)
+	testDB := runtime.PrepareGroupServerDatabase(t, "evidence_lifecycle-attach-route-contract", "evidence_lifecycle-attach-route-contract")
+	harness := runtime.StartServerWithDatabase(t, "evidence_lifecycle-attach-route-contract", testDB)
 	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	objectStoreAdmin := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "phase5-object-store-admin@example.test", "Phase5 Object Store Admin", "Phase5ObjectStoreAdmin1!", false, true, true)
+	objectStoreAdmin := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "evidence_lifecycle-object-store-admin@example.test", "EvidenceLifecycle Object Store Admin", "EvidenceLifecycleObjectStoreAdmin1!", false, true, true)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-		"client_txn_id": "txn-phase5-attach-route-incident",
-		"incident_key":  "phase5-attach-route",
+		"client_txn_id": "txn-evidence_lifecycle-attach-route-incident",
+		"incident_key":  "evidence_lifecycle-attach-route",
 		"title":         "Evidence attach route contract",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 	otherIncident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-		"client_txn_id": "txn-phase5-attach-route-other",
-		"incident_key":  "phase5-attach-route-other",
+		"client_txn_id": "txn-evidence_lifecycle-attach-route-other",
+		"incident_key":  "evidence_lifecycle-attach-route-other",
 		"title":         "Evidence attach route other",
 	})
 	otherIncidentID := workbookscenariotest.MustUUID(t, otherIncident["incident_id"].(string))
@@ -221,13 +221,13 @@ func TestAttachRouteContract_Integration(t *testing.T) {
 	}
 
 	t.Run("viewer cannot attach", func(t *testing.T) {
-		viewer := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "phase5-attach-viewer@example.test", "Phase5 Attach Viewer", "Phase5AttachViewer1!", false, false, true)
-		workbookscenariotest.SeedIncidentMembership(t, harness.DB, incidentID, viewer.ID, "Phase5 Attach Viewer", "viewer", adminID)
-		viewerLogin := loginLocalUserNoMFA(t, harness, "phase5-attach-viewer@example.test", "Phase5AttachViewer1!")
+		viewer := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "evidence_lifecycle-attach-viewer@example.test", "EvidenceLifecycle Attach Viewer", "EvidenceLifecycleAttachViewer1!", false, false, true)
+		workbookscenariotest.SeedIncidentMembership(t, harness.DB, incidentID, viewer.ID, "EvidenceLifecycle Attach Viewer", "viewer", adminID)
+		viewerLogin := loginLocalUserNoMFA(t, harness, "evidence_lifecycle-attach-viewer@example.test", "EvidenceLifecycleAttachViewer1!")
 		resp := workbookscenariotest.DoJSON(t, http.MethodPost, attachURL, map[string]any{
 			"object_blob_id":   availableBlobID.String(),
 			"base_row_version": 1,
-			"client_txn_id":    "txn-phase5-viewer-denied",
+			"client_txn_id":    "txn-evidence_lifecycle-viewer-denied",
 		}, authOptions(viewerLogin)...)
 		httptestx.RequireErrorEnvelope(t, resp, http.StatusForbidden, "authorization_denied")
 		requireEvidenceStates(t, harness, recordID, "received", "pending")
@@ -254,7 +254,7 @@ func TestAttachRouteContract_Integration(t *testing.T) {
 				resp := workbookscenariotest.DoJSON(t, http.MethodPost, attachURL, map[string]any{
 					"object_blob_id":   tc.blobID.String(),
 					"base_row_version": tc.base,
-					"client_txn_id":    "txn-phase5-route-" + strings.ReplaceAll(tc.name, " ", "-"),
+					"client_txn_id":    "txn-evidence_lifecycle-route-" + strings.ReplaceAll(tc.name, " ", "-"),
 				}, authOptions(login)...)
 				body := httptestx.RequireErrorEnvelope(t, resp, tc.wantStatus, tc.wantCode)
 				if tc.wantReason != "" {
@@ -273,14 +273,14 @@ func TestAttachRouteContract_Integration(t *testing.T) {
 		seedEvidenceRecord(t, harness, incidentID, adminID, replayRecordID)
 		firstBlobID := insertRouteBlob(t, harness, incidentID, adminID, "available")
 		replayURL := harness.Server.HTTP.URL + "/api/v1/evidence-records/" + replayRecordID.String() + "/attach-blob"
-		body := map[string]any{"object_blob_id": firstBlobID.String(), "base_row_version": 1, "client_txn_id": "txn-phase5-route-divergent"}
+		body := map[string]any{"object_blob_id": firstBlobID.String(), "base_row_version": 1, "client_txn_id": "txn-evidence_lifecycle-route-divergent"}
 		first := httptestx.RequireSuccessEnvelope(t, workbookscenariotest.DoJSON(t, http.MethodPost, replayURL, body, authOptions(login)...), http.StatusOK)["data"].(map[string]any)
 		beforeRevisions := countEvidenceRevisions(t, harness, replayRecordID)
 		secondBlobID := insertRouteBlob(t, harness, incidentID, adminID, "available")
 		resp := workbookscenariotest.DoJSON(t, http.MethodPost, replayURL, map[string]any{
 			"object_blob_id":   secondBlobID.String(),
 			"base_row_version": 2,
-			"client_txn_id":    "txn-phase5-route-divergent",
+			"client_txn_id":    "txn-evidence_lifecycle-route-divergent",
 		}, authOptions(login)...)
 		httptestx.RequireErrorEnvelope(t, resp, http.StatusConflict, "client_txn_conflict")
 		if got := countEvidenceRevisions(t, harness, replayRecordID); got != beforeRevisions {
@@ -295,14 +295,14 @@ func TestAttachRouteContract_Integration(t *testing.T) {
 	})
 
 	t.Run("object-store dependency errors use owner public mapping", func(t *testing.T) {
-		requirePhaseDObjectStoreDependencyErrorsUseOwnerPublicMapping(
+		requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 			t,
 			func(t testing.TB, prefix string, store objectstore.Store) *workbookscenariotest.ServerHarness {
 				return runtime.StartServerWithDatabaseAndObjectStore(t, prefix, testDB, store)
 			},
 			ObjectStoreDependencyAdmin{
 				email:    objectStoreAdmin.Email,
-				password: "Phase5ObjectStoreAdmin1!",
+				password: "EvidenceLifecycleObjectStoreAdmin1!",
 				userID:   objectStoreAdmin.ID,
 			},
 		)
@@ -310,17 +310,17 @@ func TestAttachRouteContract_Integration(t *testing.T) {
 }
 
 func TestAttachedEvidenceProjectionRebuild_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase5-projection-rebuild")
+	harness := workbookscenariotest.StartServer(t, "evidence_lifecycle-projection-rebuild")
 	login, _ := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-		"client_txn_id": "txn-phase5-projection-incident",
-		"incident_key":  "phase5-projection",
+		"client_txn_id": "txn-evidence_lifecycle-projection-incident",
+		"incident_key":  "evidence_lifecycle-projection",
 		"title":         "Evidence projection rebuild",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
 	timelineData := requireHTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.timeline.v2", map[string]any{
-		"client_txn_id":                   "txn-phase5-projection-timeline",
+		"client_txn_id":                   "txn-evidence_lifecycle-projection-timeline",
 		"timeline.activity_synopsis_text": "Projection rebuild row",
 	})
 	timelineRow := timelineData["row"].(map[string]any)
@@ -328,16 +328,16 @@ func TestAttachedEvidenceProjectionRebuild_Integration(t *testing.T) {
 	timelineRowVersion := int(timelineRow["row_version"].(float64))
 
 	evidenceData := requireHTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.evidence.v1", map[string]any{
-		"client_txn_id":  "txn-phase5-projection-evidence",
+		"client_txn_id":  "txn-evidence_lifecycle-projection-evidence",
 		"evidence.title": "Projection evidence",
 	})
 	evidenceRecordID := workbookscenariotest.MustUUID(t, evidenceData["row"].(map[string]any)["record_id"].(string))
-	attachUploadedBlobWithMetadata(t, harness, login, incidentID, evidenceRecordID, []byte("phase5 projection rebuild"), "projection.txt", "text/plain", "txn-phase5-projection-blob", "txn-phase5-projection-attach")
+	attachUploadedBlobWithMetadata(t, harness, login, incidentID, evidenceRecordID, []byte("evidence_lifecycle projection rebuild"), "projection.txt", "text/plain", "txn-evidence_lifecycle-projection-blob", "txn-evidence_lifecycle-projection-attach")
 
 	requireHTTPWorkbookPatch(t, harness, login, timelineRecordID, map[string]any{
 		"view_schema_id":   "cartulary.view.timeline.v2",
 		"base_row_version": timelineRowVersion,
-		"client_txn_id":    "txn-phase5-projection-link",
+		"client_txn_id":    "txn-evidence_lifecycle-projection-link",
 		"changes": []map[string]any{{
 			"field_key": "timeline.attached_evidence_ids",
 			"action_payload": map[string]any{
@@ -377,38 +377,38 @@ UPDATE timeline_grid_projection
 }
 
 func TestAttachPublishesWorkbookWebSocketRefresh_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase5-attach-websocket-refresh")
+	harness := workbookscenariotest.StartServer(t, "evidence_lifecycle-attach-websocket-refresh")
 	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-		"client_txn_id": "txn-phase5-i-07-incident",
-		"incident_key":  "phase5-i-07",
+		"client_txn_id": "txn-evidence_lifecycle-i-07-incident",
+		"incident_key":  "evidence_lifecycle-i-07",
 		"title":         "Evidence attach websocket refresh",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
 	timelineData := requireHTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.timeline.v2", map[string]any{
-		"client_txn_id":                   "txn-phase5-i-07-timeline",
+		"client_txn_id":                   "txn-evidence_lifecycle-i-07-timeline",
 		"timeline.activity_synopsis_text": "WebSocket evidence count target",
 	})
 	timelineRow := timelineData["row"].(map[string]any)
 	timelineRecordID := workbookscenariotest.MustUUID(t, timelineRow["record_id"].(string))
 	timelineRowVersion := int64(timelineRow["row_version"].(float64))
 	hostData := requireHTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.hosts.v1", map[string]any{
-		"client_txn_id":     "txn-phase5-i-07-host",
+		"client_txn_id":     "txn-evidence_lifecycle-i-07-host",
 		"host.display_name": "Evidence host",
 		"host.hostname":     "EVIDENCE-HOST",
 	})
 	hostRecordID := workbookscenariotest.MustUUID(t, hostData["row"].(map[string]any)["record_id"].(string))
 	hostRowVersion := int64(hostData["row"].(map[string]any)["row_version"].(float64))
 	identityData := requireHTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.identities.v1", map[string]any{
-		"client_txn_id":         "txn-phase5-i-07-identity",
+		"client_txn_id":         "txn-evidence_lifecycle-i-07-identity",
 		"identity.display_name": "Evidence identity",
 		"identity.email":        "evidence.identity@example.test",
 	})
 	identityRecordID := workbookscenariotest.MustUUID(t, identityData["row"].(map[string]any)["record_id"].(string))
 	identityRowVersion := int64(identityData["row"].(map[string]any)["row_version"].(float64))
 	evidenceData := requireHTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.evidence.v1", map[string]any{
-		"client_txn_id":  "txn-phase5-i-07-evidence",
+		"client_txn_id":  "txn-evidence_lifecycle-i-07-evidence",
 		"evidence.title": "WebSocket evidence",
 	})
 	evidenceRecordID := workbookscenariotest.MustUUID(t, evidenceData["row"].(map[string]any)["record_id"].(string))
@@ -433,7 +433,7 @@ INSERT INTO record_links (
 
 	socket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID.String(), incidentwstest.ConnectOptions{
 		SessionToken:     login.SessionCookie.Value,
-		ClientInstanceID: "phase5-i-07-record-change-listener",
+		ClientInstanceID: "evidence_lifecycle-i-07-record-change-listener",
 		Presence: platformws.PresenceInput{
 			SheetRef: map[string]string{"kind": "view_schema", "id": "cartulary.view.timeline.v2"},
 			Mode:     "viewing",
@@ -441,7 +441,7 @@ INSERT INTO record_links (
 	})
 	defer socket.Close(websocket.StatusNormalClosure, "test_complete")
 
-	attachData := attachUploadedBlobWithMetadata(t, harness, login, incidentID, evidenceRecordID, []byte("phase5 websocket attach"), "websocket.txt", "text/plain", "txn-phase5-i-07-blob", "txn-phase5-i-07-attach")
+	attachData := attachUploadedBlobWithMetadata(t, harness, login, incidentID, evidenceRecordID, []byte("evidence_lifecycle websocket attach"), "websocket.txt", "text/plain", "txn-evidence_lifecycle-i-07-blob", "txn-evidence_lifecycle-i-07-attach")
 	rowVersion := int64(attachData["row"].(map[string]any)["row_version"].(float64))
 	changes := AwaitRecordChanges(t, socket, map[uuid.UUID]int64{
 		evidenceRecordID: rowVersion,
@@ -492,7 +492,7 @@ INSERT INTO record_links (
 	requireEntityEvidenceProjectionCount(t, harness, login, incidentID, "cartulary.view.identities.v1", identityRecordID, "identity.evidence_count", 1)
 
 	objectBlobID := workbookscenariotest.MustUUID(t, attachData["object_blob_id"].(string))
-	quarantine, err := evidence.NewStore(harness.Server.Runtime.Postgres).QuarantineBlob(context.Background(), adminID, objectBlobID, "content_inspection_quarantine", "req-phase5-i-07-quarantine", time.Now().UTC())
+	quarantine, err := evidence.NewStore(harness.Server.Runtime.Postgres).QuarantineBlob(context.Background(), adminID, objectBlobID, "content_inspection_quarantine", "req-evidence_lifecycle-i-07-quarantine", time.Now().UTC())
 	if err != nil {
 		t.Fatalf("quarantine entity-linked evidence: %v", err)
 	}
@@ -592,11 +592,11 @@ func ChangedFieldKeys(t testing.TB, payload map[string]any) []string {
 }
 
 func TestExpiredSlotReplay_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase5-expired-slot-replay")
+	harness := workbookscenariotest.StartServer(t, "evidence_lifecycle-expired-slot-replay")
 	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-		"client_txn_id": "txn-phase5-expired-slot-incident",
-		"incident_key":  "phase5-expired-slot",
+		"client_txn_id": "txn-evidence_lifecycle-expired-slot-incident",
+		"incident_key":  "evidence_lifecycle-expired-slot",
 		"title":         "Evidence expired slot replay",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
@@ -605,7 +605,7 @@ func TestExpiredSlotReplay_Integration(t *testing.T) {
 	httptestx.SetClockFixed(t, harness.Server, issuedAt)
 	createBody := map[string]any{
 		"incident_id":       incidentID.String(),
-		"client_txn_id":     "txn-phase5-expired-slot",
+		"client_txn_id":     "txn-evidence_lifecycle-expired-slot",
 		"byte_size":         17,
 		"filename_hint":     " expired.txt ",
 		"content_type_hint": "text/plain",
@@ -641,7 +641,7 @@ func TestExpiredSlotReplay_Integration(t *testing.T) {
 
 	freshBody := map[string]any{
 		"incident_id":       incidentID.String(),
-		"client_txn_id":     "txn-phase5-expired-slot-fresh",
+		"client_txn_id":     "txn-evidence_lifecycle-expired-slot-fresh",
 		"byte_size":         17,
 		"filename_hint":     " expired.txt ",
 		"content_type_hint": "text/plain",
@@ -659,11 +659,11 @@ func TestExpiredSlotReplay_Integration(t *testing.T) {
 }
 
 func TestHandleRedeemInvalidatesOnCurrentStateLoss_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase5-handle-redeem-invalidates")
+	harness := workbookscenariotest.StartServer(t, "evidence_lifecycle-handle-redeem-invalidates")
 	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-		"client_txn_id": "txn-phase5-i-03-incident",
-		"incident_key":  "phase5-i-03",
+		"client_txn_id": "txn-evidence_lifecycle-i-03-incident",
+		"incident_key":  "evidence_lifecycle-i-03",
 		"title":         "Evidence handle invalidation",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
@@ -675,7 +675,7 @@ func TestHandleRedeemInvalidatesOnCurrentStateLoss_Integration(t *testing.T) {
 	t.Run("membership loss and wrong session hide the handle", func(t *testing.T) {
 		recordID := uuid.New()
 		seedEvidenceRecord(t, harness, activeIncidentID, activeAdminID, recordID)
-		attachUploadedBlobWithMetadata(t, harness, activeLogin, activeIncidentID, recordID, []byte("membership body"), "membership.txt", "text/plain", "txn-phase5-i-03-membership-blob", "txn-phase5-i-03-membership-attach")
+		attachUploadedBlobWithMetadata(t, harness, activeLogin, activeIncidentID, recordID, []byte("membership body"), "membership.txt", "text/plain", "txn-evidence_lifecycle-i-03-membership-blob", "txn-evidence_lifecycle-i-03-membership-attach")
 		handle := issueEvidenceHandle(t, harness, activeLogin, recordID, "preview-handle")
 		if _, err := harness.DB.ExecContext(context.Background(), `
 DELETE FROM incident_memberships
@@ -691,9 +691,9 @@ DELETE FROM incident_memberships
 		)
 
 		workbookscenariotest.SeedIncidentMembership(t, harness.DB, activeIncidentID, activeAdminID, "Bootstrap Admin", "admin", activeAdminID)
-		otherUser := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "phase5-i-03-other@example.test", "Phase5 Other", "Phase5Other1!", false, false, true)
-		workbookscenariotest.SeedIncidentMembership(t, harness.DB, activeIncidentID, otherUser.ID, "Phase5 Other", "admin", activeAdminID)
-		otherLogin := loginLocalUserNoMFA(t, harness, "phase5-i-03-other@example.test", "Phase5Other1!")
+		otherUser := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "evidence_lifecycle-i-03-other@example.test", "EvidenceLifecycle Other", "EvidenceLifecycleOther1!", false, false, true)
+		workbookscenariotest.SeedIncidentMembership(t, harness.DB, activeIncidentID, otherUser.ID, "EvidenceLifecycle Other", "admin", activeAdminID)
+		otherLogin := loginLocalUserNoMFA(t, harness, "evidence_lifecycle-i-03-other@example.test", "EvidenceLifecycleOther1!")
 		httptestx.RequireErrorEnvelope(t,
 			workbookscenariotest.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, workbookscenariotest.WithCookies(otherLogin.SessionCookie)),
 			http.StatusNotFound,
@@ -710,7 +710,7 @@ DELETE FROM incident_memberships
 			updateEvidenceBlobLink(t, harness, recordID, nil)
 		}},
 		{name: "blob replacement", reasonCode: "evidence_inconsistent", mutate: func(recordID uuid.UUID, objectBlobID uuid.UUID) {
-			replacementID := linkSeededBlob(t, harness, activeIncidentID, activeAdminID, recordID, "available", "available", "phase5/i-03/replacement-"+recordID.String())
+			replacementID := linkSeededBlob(t, harness, activeIncidentID, activeAdminID, recordID, "available", "available", "evidence_lifecycle/i-03/replacement-"+recordID.String())
 			updateEvidenceBlobLink(t, harness, recordID, &replacementID)
 		}},
 		{name: "evidence delete", reasonCode: "evidence_inconsistent", mutate: func(recordID uuid.UUID, objectBlobID uuid.UUID) {
@@ -742,7 +742,7 @@ DELETE FROM incident_memberships
 			t.Run(endpoint+" "+scenario.name, func(t *testing.T) {
 				recordID := uuid.New()
 				seedEvidenceRecord(t, harness, activeIncidentID, activeAdminID, recordID)
-				attachData := attachUploadedBlobWithMetadata(t, harness, activeLogin, activeIncidentID, recordID, []byte("phase5 invalidation"), "invalidate.txt", "text/plain", "txn-"+recordID.String()+"-blob", "txn-"+recordID.String()+"-attach")
+				attachData := attachUploadedBlobWithMetadata(t, harness, activeLogin, activeIncidentID, recordID, []byte("evidence_lifecycle invalidation"), "invalidate.txt", "text/plain", "txn-"+recordID.String()+"-blob", "txn-"+recordID.String()+"-attach")
 				objectBlobID := workbookscenariotest.MustUUID(t, attachData["object_blob_id"].(string))
 				handle := issueEvidenceHandle(t, harness, activeLogin, recordID, endpoint)
 				scenario.mutate(recordID, objectBlobID)
@@ -757,7 +757,7 @@ DELETE FROM incident_memberships
 	t.Run("logout revokes issuing session before lookup", func(t *testing.T) {
 		recordID := uuid.New()
 		seedEvidenceRecord(t, harness, activeIncidentID, activeAdminID, recordID)
-		attachUploadedBlobWithMetadata(t, harness, activeLogin, activeIncidentID, recordID, []byte("logout body"), "logout.txt", "text/plain", "txn-phase5-i-03-logout-blob", "txn-phase5-i-03-logout-attach")
+		attachUploadedBlobWithMetadata(t, harness, activeLogin, activeIncidentID, recordID, []byte("logout body"), "logout.txt", "text/plain", "txn-evidence_lifecycle-i-03-logout-blob", "txn-evidence_lifecycle-i-03-logout-attach")
 		handle := issueEvidenceHandle(t, harness, activeLogin, recordID, "preview-handle")
 		logout := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/auth/logout", map[string]any{}, authOptions(activeLogin)...)
 		httptestx.RequireSuccessEnvelope(t, logout, http.StatusOK)
@@ -771,20 +771,20 @@ DELETE FROM incident_memberships
 
 func TestQuarantineBoundaryPreservesTwoStepAttach_Integration(t *testing.T) {
 	t.Run("AC-405 object bytes stay outside structured state and loss fails closed", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase5-i-04-object-boundary")
+		harness := workbookscenariotest.StartServer(t, "evidence_lifecycle-i-04-object-boundary")
 		login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-			"client_txn_id": "txn-phase5-i-04-boundary-incident",
-			"incident_key":  "phase5-i-04-boundary",
+			"client_txn_id": "txn-evidence_lifecycle-i-04-boundary-incident",
+			"incident_key":  "evidence_lifecycle-i-04-boundary",
 			"title":         "Evidence object boundary",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 		recordID := uuid.New()
 		seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
 
-		marker := "phase5-ac405-marker-" + uuid.NewString() + "-payload"
+		marker := "evidence_lifecycle-ac405-marker-" + uuid.NewString() + "-payload"
 		payload := []byte("prefix-" + marker + "-suffix")
-		attachData := attachUploadedBlobWithMetadata(t, harness, login, incidentID, recordID, payload, "boundary.txt", "text/plain", "txn-phase5-i-04-boundary-blob", "txn-phase5-i-04-boundary-attach")
+		attachData := attachUploadedBlobWithMetadata(t, harness, login, incidentID, recordID, payload, "boundary.txt", "text/plain", "txn-evidence_lifecycle-i-04-boundary-blob", "txn-evidence_lifecycle-i-04-boundary-attach")
 		objectBlobID := workbookscenariotest.MustUUID(t, attachData["object_blob_id"].(string))
 
 		preview := issueEvidenceHandle(t, harness, login, recordID, "preview-handle")
@@ -821,26 +821,26 @@ func TestQuarantineBoundaryPreservesTwoStepAttach_Integration(t *testing.T) {
 	})
 
 	t.Run("failed unattached cleanup deletes bytes and retains metadata", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase5-i-04-cleanup")
+		harness := workbookscenariotest.StartServer(t, "evidence_lifecycle-i-04-cleanup")
 		login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-			"client_txn_id": "txn-phase5-i-04-cleanup-incident",
-			"incident_key":  "phase5-i-04-cleanup",
+			"client_txn_id": "txn-evidence_lifecycle-i-04-cleanup-incident",
+			"incident_key":  "evidence_lifecycle-i-04-cleanup",
 			"title":         "Evidence cleanup",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 		now := time.Now().UTC().Truncate(time.Second)
 
 		cleanupBlobID := uuid.New()
-		cleanupKey := "phase5/i-04/cleanup/" + cleanupBlobID.String()
-		cleanupPayload := "phase5 cleanup orphan bytes"
+		cleanupKey := "evidence_lifecycle/i-04/cleanup/" + cleanupBlobID.String()
+		cleanupPayload := "evidence_lifecycle cleanup orphan bytes"
 		if err := harness.Server.Runtime.ObjectStore.PutObject(context.Background(), cleanupKey, strings.NewReader(cleanupPayload), int64(len(cleanupPayload)), "text/plain"); err != nil {
 			t.Fatalf("put cleanup candidate object: %v", err)
 		}
 		insertFailedCleanupBlob(t, harness, incidentID, adminID, cleanupBlobID, cleanupKey, now)
 
 		expiredBlobID := uuid.New()
-		insertExpiredPendingBlob(t, harness, incidentID, adminID, expiredBlobID, "phase5/i-04/expired/"+expiredBlobID.String(), now)
+		insertExpiredPendingBlob(t, harness, incidentID, adminID, expiredBlobID, "evidence_lifecycle/i-04/expired/"+expiredBlobID.String(), now)
 
 		result, err := evidence.NewStore(harness.Server.Runtime.Postgres).CleanupFailedUnattachedBlobBytes(context.Background(), harness.Server.Runtime.ObjectStore, now, 10)
 		if err != nil {
@@ -860,27 +860,27 @@ func TestQuarantineBoundaryPreservesTwoStepAttach_Integration(t *testing.T) {
 	})
 
 	t.Run("quarantine bridges evidence and blocks attach preview and download", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase5-i-04-quarantine")
+		harness := workbookscenariotest.StartServer(t, "evidence_lifecycle-i-04-quarantine")
 		login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-			"client_txn_id": "txn-phase5-i-04-quarantine-incident",
-			"incident_key":  "phase5-i-04-quarantine",
+			"client_txn_id": "txn-evidence_lifecycle-i-04-quarantine-incident",
+			"incident_key":  "evidence_lifecycle-i-04-quarantine",
 			"title":         "Evidence quarantine",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 		recordID := uuid.New()
 		seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
-		attachData := attachUploadedBlobWithMetadata(t, harness, login, incidentID, recordID, []byte("phase5 quarantine body"), "quarantine.txt", "text/plain", "txn-phase5-i-04-quarantine-blob", "txn-phase5-i-04-quarantine-attach")
+		attachData := attachUploadedBlobWithMetadata(t, harness, login, incidentID, recordID, []byte("evidence_lifecycle quarantine body"), "quarantine.txt", "text/plain", "txn-evidence_lifecycle-i-04-quarantine-blob", "txn-evidence_lifecycle-i-04-quarantine-attach")
 		objectBlobID := workbookscenariotest.MustUUID(t, attachData["object_blob_id"].(string))
 		preview := issueEvidenceHandle(t, harness, login, recordID, "preview-handle")
 		download := issueEvidenceHandle(t, harness, login, recordID, "download-handle")
 		beforeRevisions := countEvidenceRevisions(t, harness, recordID)
 
 		store := evidence.NewStore(harness.Server.Runtime.Postgres)
-		if _, err := store.QuarantineBlob(context.Background(), adminID, objectBlobID, "unsupported_trigger", "req-phase5-i-04-bad-trigger", time.Now().UTC()); !errors.Is(err, evidence.ErrIllegalBlobTransition) {
+		if _, err := store.QuarantineBlob(context.Background(), adminID, objectBlobID, "unsupported_trigger", "req-evidence_lifecycle-i-04-bad-trigger", time.Now().UTC()); !errors.Is(err, evidence.ErrIllegalBlobTransition) {
 			t.Fatalf("unsupported quarantine trigger got %v want ErrIllegalBlobTransition", err)
 		}
-		result, err := store.QuarantineBlob(context.Background(), adminID, objectBlobID, "content_inspection_quarantine", "req-phase5-i-04-quarantine", time.Now().UTC())
+		result, err := store.QuarantineBlob(context.Background(), adminID, objectBlobID, "content_inspection_quarantine", "req-evidence_lifecycle-i-04-quarantine", time.Now().UTC())
 		if err != nil {
 			t.Fatalf("quarantine blob: %v", err)
 		}
@@ -911,7 +911,7 @@ func TestQuarantineBoundaryPreservesTwoStepAttach_Integration(t *testing.T) {
 			workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+secondRecordID.String()+"/attach-blob", map[string]any{
 				"object_blob_id":   objectBlobID.String(),
 				"base_row_version": 1,
-				"client_txn_id":    "txn-phase5-i-04-quarantine-attach-blocked",
+				"client_txn_id":    "txn-evidence_lifecycle-i-04-quarantine-attach-blocked",
 			}, authOptions(login)...),
 			http.StatusConflict,
 			"evidence_attach_rejected",
@@ -922,8 +922,8 @@ func TestQuarantineBoundaryPreservesTwoStepAttach_Integration(t *testing.T) {
 		}
 
 		pendingID := uuid.New()
-		insertExpiredPendingBlob(t, harness, incidentID, adminID, pendingID, "phase5/i-04/pending-quarantine/"+pendingID.String(), time.Now().UTC().Add(2*time.Hour))
-		if _, err := store.QuarantineBlob(context.Background(), adminID, pendingID, "admin_quarantine", "req-phase5-i-04-pending-quarantine", time.Now().UTC()); !errors.Is(err, evidence.ErrIllegalBlobTransition) {
+		insertExpiredPendingBlob(t, harness, incidentID, adminID, pendingID, "evidence_lifecycle/i-04/pending-quarantine/"+pendingID.String(), time.Now().UTC().Add(2*time.Hour))
+		if _, err := store.QuarantineBlob(context.Background(), adminID, pendingID, "admin_quarantine", "req-evidence_lifecycle-i-04-pending-quarantine", time.Now().UTC()); !errors.Is(err, evidence.ErrIllegalBlobTransition) {
 			t.Fatalf("pending quarantine got %v want ErrIllegalBlobTransition", err)
 		}
 	})
@@ -938,18 +938,18 @@ func TestQuarantineBoundaryPreservesTwoStepAttach_Integration(t *testing.T) {
 			{name: "svg", contentType: "image/svg+xml", filename: "pretend-raster.png"},
 		} {
 			t.Run(active.name, func(t *testing.T) {
-				harness := workbookscenariotest.StartServer(t, "phase5-i-04-active-"+active.name)
+				harness := workbookscenariotest.StartServer(t, "evidence_lifecycle-i-04-active-"+active.name)
 				login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 				incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-					"client_txn_id": "txn-phase5-i-04-active-" + active.name + "-incident",
-					"incident_key":  "phase5-i-04-active-" + active.name,
+					"client_txn_id": "txn-evidence_lifecycle-i-04-active-" + active.name + "-incident",
+					"incident_key":  "evidence_lifecycle-i-04-active-" + active.name,
 					"title":         "Evidence active content " + active.name,
 				})
 				incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 				recordID := uuid.New()
 				seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
-				payload := []byte("<script>window.__cartulary_phase5_active_content = true</script>")
-				attachData := attachUploadedBlobWithHints(t, harness, login, incidentID, recordID, payload, active.filename, "image/png", active.contentType, "txn-phase5-i-04-active-"+active.name+"-blob", "txn-phase5-i-04-active-"+active.name+"-attach")
+				payload := []byte("<script>window.__cartulary_evidence_lifecycle_active_content = true</script>")
+				attachData := attachUploadedBlobWithHints(t, harness, login, incidentID, recordID, payload, active.filename, "image/png", active.contentType, "txn-evidence_lifecycle-i-04-active-"+active.name+"-blob", "txn-evidence_lifecycle-i-04-active-"+active.name+"-attach")
 				objectBlobID := workbookscenariotest.MustUUID(t, attachData["object_blob_id"].(string))
 				requireObservedContentType(t, harness, objectBlobID, active.contentType)
 
@@ -1063,7 +1063,7 @@ SELECT
     (SELECT COUNT(*) FROM record_links WHERE incident_id = $1 AND deleted_at IS NULL),
     (SELECT COUNT(*) FROM timeline_events WHERE incident_id = $1)
 `, incidentID, recordID).Scan(&counts.ChangeSets, &counts.Mutations, &counts.Revisions, &counts.RecordLinks, &counts.TimelineRows); err != nil {
-		t.Fatalf("count phase5 source/history state: %v", err)
+		t.Fatalf("count evidence_lifecycle source/history state: %v", err)
 	}
 	return counts
 }
@@ -1125,7 +1125,7 @@ func insertRouteBlob(t testing.TB, harness *workbookscenariotest.ServerHarness, 
 	objectBlobID := uuid.New()
 	storageKey, err := blobref.ObjectBlobStorageKey(incidentID, objectBlobID)
 	if err != nil {
-		t.Fatalf("phase5 route blob storage key: %v", err)
+		t.Fatalf("evidence_lifecycle route blob storage key: %v", err)
 	}
 	now := time.Now().UTC()
 	var finalizedAt any
@@ -1152,7 +1152,7 @@ INSERT INTO object_blobs (
 )
 `, objectBlobID, incidentID, actorID, storageKey, uploadState,
 		now.Add(time.Hour), now.Add(24*time.Hour), finalizedAt, terminalReason, failedAt, nullableCleanupDue(uploadState, now), now); err != nil {
-		t.Fatalf("insert phase5 route blob: %v", err)
+		t.Fatalf("insert evidence_lifecycle route blob: %v", err)
 	}
 	return objectBlobID
 }

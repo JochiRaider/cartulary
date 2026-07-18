@@ -30,7 +30,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
 
 	t.Run("create patch review and supersede replays stay single-write and preserve substrate", func(t *testing.T) {
-		server, db := startServer(t, runtime, "phase3-i-3-01-replay")
+		server, db := startServer(t, runtime, "timeline_mutation-i-3-01-replay")
 
 		adminLogin, adminID := provisionBootstrapAdmin(t, server)
 		incident := createIncident(t, server, adminLogin, map[string]any{
@@ -443,7 +443,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 	})
 
 	t.Run("late transaction failures roll back source history projection and collaboration", func(t *testing.T) {
-		server, db := startServerWithTimelineOptions(t, runtime, "phase3-i-3-01-rollback", timeline.WithBeforeCommitHookForTesting(
+		server, db := startServerWithTimelineOptions(t, runtime, "timeline_mutation-i-3-01-rollback", timeline.WithBeforeCommitHookForTesting(
 			func(routeKey string, recordID uuid.UUID) error {
 				return errors.New("forced timeline rollback")
 			},
@@ -496,23 +496,23 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 
 func TestRouteIdempotencyIsActorScoped(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	server, db := startServer(t, runtime, "phase3-idempotency-actor-scope")
+	server, db := startServer(t, runtime, "timeline_mutation-idempotency-actor-scope")
 	defer db.Close()
 
 	adminLogin, adminID := provisionBootstrapAdmin(t, server)
-	editorID := seedLocalUserFlags(t, db, "phase3-actor-scope-editor@example.test", "Actor Scope Editor", "ActorScopeEditor1!", false, false, true)
+	editorID := seedLocalUserFlags(t, db, "timeline_mutation-actor-scope-editor@example.test", "Actor Scope Editor", "ActorScopeEditor1!", false, false, true)
 	incident := createIncident(t, server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase3-actor-scope-incident",
+		"client_txn_id": "txn-timeline_mutation-actor-scope-incident",
 		"incident_key":  "IR-ACTOR-SCOPE",
 		"title":         "Actor-scoped idempotency",
 	})
 	incidentID := incident["incident_id"].(string)
-	createMembership(t, server, incidentID, editorID, "phase3-actor-scope-editor@example.test", "editor", adminLogin)
-	editorSession, editorCSRF := loginLocalUser(t, server, "phase3-actor-scope-editor@example.test", "ActorScopeEditor1!")
+	createMembership(t, server, incidentID, editorID, "timeline_mutation-actor-scope-editor@example.test", "editor", adminLogin)
+	editorSession, editorCSRF := loginLocalUser(t, server, "timeline_mutation-actor-scope-editor@example.test", "ActorScopeEditor1!")
 	editorLogin := loginResult{sessionCookie: editorSession, csrfCookie: editorCSRF}
 
 	createPayload := map[string]any{
-		"client_txn_id":                   "txn-phase3-shared-row-create",
+		"client_txn_id":                   "txn-timeline_mutation-shared-row-create",
 		"timeline.activity_synopsis_text": "shared create txn",
 	}
 	adminCreate := createTimelineRow(t, server, incidentID, adminLogin, createPayload)
@@ -549,19 +549,19 @@ SELECT COUNT(*)
    AND actor_user_id::text IN ($2, $3)
    AND scope_key = $4
    AND client_txn_id = $5
-`, "timeline.rows.create", adminID, editorID, incidentID+":"+timeline.TimelineViewSchemaID, "txn-phase3-shared-row-create"); got != 2 {
+`, "timeline.rows.create", adminID, editorID, incidentID+":"+timeline.TimelineViewSchemaID, "txn-timeline_mutation-shared-row-create"); got != 2 {
 		t.Fatalf("expected two actor-scoped create idempotency rows, got %d", got)
 	}
 
 	patchTarget := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
-		"client_txn_id":                   "txn-phase3-actor-scope-patch-target",
+		"client_txn_id":                   "txn-timeline_mutation-actor-scope-patch-target",
 		"timeline.activity_synopsis_text": "patch target",
 	})
 	patchRecordID := patchTarget["row"].(map[string]any)["record_id"].(string)
 	adminPatchPayload := map[string]any{
 		"view_schema_id":   timeline.TimelineViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase3-shared-row-patch",
+		"client_txn_id":    "txn-timeline_mutation-shared-row-patch",
 		"changes": []map[string]any{
 			{"field_key": "timeline.activity_synopsis_text", "value": "admin patch"},
 		},
@@ -579,7 +579,7 @@ SELECT COUNT(*)
 	editorPatchPayload := map[string]any{
 		"view_schema_id":   timeline.TimelineViewSchemaID,
 		"base_row_version": 2,
-		"client_txn_id":    "txn-phase3-shared-row-patch",
+		"client_txn_id":    "txn-timeline_mutation-shared-row-patch",
 		"changes": []map[string]any{
 			{"field_key": "timeline.raw_activity_text", "value": "editor patch"},
 		},
@@ -624,14 +624,14 @@ SELECT COUNT(*)
    AND actor_user_id::text IN ($2, $3)
    AND scope_key = $4
    AND client_txn_id = $5
-`, "timeline.records.patch", adminID, editorID, patchRecordID, "txn-phase3-shared-row-patch"); got != 2 {
+`, "timeline.records.patch", adminID, editorID, patchRecordID, "txn-timeline_mutation-shared-row-patch"); got != 2 {
 		t.Fatalf("expected two actor-scoped patch idempotency rows, got %d", got)
 	}
 	if got := queryCount(t, db, `
 SELECT COUNT(DISTINCT actor_user_id)
   FROM route_idempotency
  WHERE route_key IN ('timeline.rows.create', 'timeline.records.patch')
-   AND client_txn_id IN ('txn-phase3-shared-row-create', 'txn-phase3-shared-row-patch')
+   AND client_txn_id IN ('txn-timeline_mutation-shared-row-create', 'txn-timeline_mutation-shared-row-patch')
    AND actor_user_id::text IN ($1, $2)
 `, adminID, editorID); got != 2 {
 		t.Fatalf("expected both actors represented in idempotency rows, got %d", got)
@@ -640,7 +640,7 @@ SELECT COUNT(DISTINCT actor_user_id)
 
 func TestPatchSameFieldConflictEnvelope_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	server, db := startServer(t, runtime, "phase3-i-3-04-same-field-conflict")
+	server, db := startServer(t, runtime, "timeline_mutation-i-3-04-same-field-conflict")
 	defer db.Close()
 
 	adminLogin, adminID := provisionBootstrapAdmin(t, server)
@@ -726,7 +726,7 @@ SELECT COUNT(*)
 
 func TestRouteEnvelopeMatrix_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	server, db := startServer(t, runtime, "phase3-i-3-06-envelope-matrix")
+	server, db := startServer(t, runtime, "timeline_mutation-i-3-06-envelope-matrix")
 	defer db.Close()
 
 	adminLogin, _ := provisionBootstrapAdmin(t, server)
@@ -887,7 +887,7 @@ func TestRouteEnvelopeMatrix_Integration(t *testing.T) {
 
 func TestRoughUncertainCapturePreservation_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	server, db := startServer(t, runtime, "phase3-i-3-07-rough-preservation")
+	server, db := startServer(t, runtime, "timeline_mutation-i-3-07-rough-preservation")
 	defer db.Close()
 
 	adminLogin, adminID := provisionBootstrapAdmin(t, server)
@@ -973,7 +973,7 @@ func TestRoughUncertainCapturePreservation_Integration(t *testing.T) {
 func TestProjectionQueryUsesDeterministicRebuild_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
 
-	server, db := startServer(t, runtime, "phase3-i-3-02")
+	server, db := startServer(t, runtime, "timeline_mutation-i-3-02")
 	defer db.Close()
 
 	adminLogin, _ := provisionBootstrapAdmin(t, server)
@@ -1113,7 +1113,7 @@ func TestAuthorizationLifecycleAndSupersedeTransitions_Integration(t *testing.T)
 	runtime := scenariotest.StartRuntime(t)
 
 	t.Run("authorization re-derives, reasons normalize, and supersede guards hold", func(t *testing.T) {
-		server, db := startServer(t, runtime, "phase3-i-3-03")
+		server, db := startServer(t, runtime, "timeline_mutation-i-3-03")
 		defer db.Close()
 
 		adminLogin, adminID := provisionBootstrapAdmin(t, server)
@@ -1574,7 +1574,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 	})
 
 	t.Run("supersede rollback clears source history projection link and collaboration", func(t *testing.T) {
-		server, db := startServerWithTimelineOptions(t, runtime, "phase3-i-3-03-rollback", timeline.WithBeforeCommitHookForTesting(
+		server, db := startServerWithTimelineOptions(t, runtime, "timeline_mutation-i-3-03-rollback", timeline.WithBeforeCommitHookForTesting(
 			func(routeKey string, recordID uuid.UUID) error {
 				if routeKey == "timeline.records.supersede" {
 					return errors.New("forced supersede rollback")
@@ -1651,7 +1651,7 @@ func TestCanonicalIncidentWebSocket_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
 
 	t.Run("handshake membership and presence snapshot use the canonical incident route", func(t *testing.T) {
-		server, db := startServer(t, runtime, "phase3-i-3-05-handshake")
+		server, db := startServer(t, runtime, "timeline_mutation-i-3-05-handshake")
 		defer db.Close()
 
 		adminLogin, _ := provisionBootstrapAdmin(t, server)
@@ -1664,7 +1664,7 @@ func TestCanonicalIncidentWebSocket_Integration(t *testing.T) {
 
 		first := incidentwstest.ConnectAndHello(t, server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 			SessionToken:     adminLogin.sessionCookie.Value,
-			ClientInstanceID: "phase3-i-3-05-first",
+			ClientInstanceID: "timeline_mutation-i-3-05-first",
 			Presence:         timelinePresence(),
 		})
 		defer first.Close(websocket.StatusNormalClosure, "test_complete")
@@ -1674,7 +1674,7 @@ func TestCanonicalIncidentWebSocket_Integration(t *testing.T) {
 
 		second := incidentwstest.ConnectAndHello(t, server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 			SessionToken:     adminLogin.sessionCookie.Value,
-			ClientInstanceID: "phase3-i-3-05-second",
+			ClientInstanceID: "timeline_mutation-i-3-05-second",
 			Presence:         timelinePresence(),
 		})
 		defer second.Close(websocket.StatusNormalClosure, "test_complete")
@@ -1685,11 +1685,11 @@ func TestCanonicalIncidentWebSocket_Integration(t *testing.T) {
 			t.Fatalf("presence_snapshot must be sorted by connection_id: %#v", second.PresenceSnapshot)
 		}
 
-		outsiderID := seedLocalUserFlags(t, db, "phase3-i-3-05-outsider@example.test", "Timeline WS Outsider", "Phase3OutsiderPass1!", false, false, true)
+		outsiderID := seedLocalUserFlags(t, db, "timeline_mutation-i-3-05-outsider@example.test", "Timeline WS Outsider", "TimelineMutationOutsiderPass1!", false, false, true)
 		if outsiderID == "" {
 			t.Fatal("expected outsider user")
 		}
-		outsiderSession, _ := loginLocalUser(t, server, "phase3-i-3-05-outsider@example.test", "Phase3OutsiderPass1!")
+		outsiderSession, _ := loginLocalUser(t, server, "timeline_mutation-i-3-05-outsider@example.test", "TimelineMutationOutsiderPass1!")
 		incidentwstest.RequireDialErrorEnvelope(t, server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 			SessionToken: outsiderSession.Value,
 		}, http.StatusNotFound, "incident_not_found")
@@ -1701,7 +1701,7 @@ func TestCanonicalIncidentWebSocket_Integration(t *testing.T) {
 	})
 
 	t.Run("incident membership removal revokes only that incident socket", func(t *testing.T) {
-		server, db := startServer(t, runtime, "phase3-i-3-05-revocation")
+		server, db := startServer(t, runtime, "timeline_mutation-i-3-05-revocation")
 		defer db.Close()
 
 		adminLogin, _ := provisionBootstrapAdmin(t, server)
@@ -1718,15 +1718,15 @@ func TestCanonicalIncidentWebSocket_Integration(t *testing.T) {
 		incidentAID := incidentA["incident_id"].(string)
 		incidentBID := incidentB["incident_id"].(string)
 
-		userID := seedLocalUserFlags(t, db, "phase3-i-3-05-member@example.test", "Timeline WS Member", "Phase3MemberPass1!", false, false, true)
-		createMembership(t, server, incidentAID, userID, "phase3-i-3-05-member@example.test", "editor", adminLogin)
-		createMembership(t, server, incidentBID, userID, "phase3-i-3-05-member@example.test", "editor", adminLogin)
+		userID := seedLocalUserFlags(t, db, "timeline_mutation-i-3-05-member@example.test", "Timeline WS Member", "TimelineMutationMemberPass1!", false, false, true)
+		createMembership(t, server, incidentAID, userID, "timeline_mutation-i-3-05-member@example.test", "editor", adminLogin)
+		createMembership(t, server, incidentBID, userID, "timeline_mutation-i-3-05-member@example.test", "editor", adminLogin)
 		membershipVersion := queryMembershipVersion(t, db, incidentAID, userID)
 
-		sessionCookie, _ := loginLocalUser(t, server, "phase3-i-3-05-member@example.test", "Phase3MemberPass1!")
+		sessionCookie, _ := loginLocalUser(t, server, "timeline_mutation-i-3-05-member@example.test", "TimelineMutationMemberPass1!")
 		socketA := incidentwstest.ConnectAndHello(t, server.HTTP.URL, incidentAID, incidentwstest.ConnectOptions{
 			SessionToken:     sessionCookie.Value,
-			ClientInstanceID: "phase3-i-3-05-revoked",
+			ClientInstanceID: "timeline_mutation-i-3-05-revoked",
 			Presence:         timelinePresence(),
 		})
 		defer socketA.Close(websocket.StatusNormalClosure, "test_complete")
@@ -1736,7 +1736,7 @@ func TestCanonicalIncidentWebSocket_Integration(t *testing.T) {
 
 		socketB := incidentwstest.ConnectAndHello(t, server.HTTP.URL, incidentBID, incidentwstest.ConnectOptions{
 			SessionToken:     sessionCookie.Value,
-			ClientInstanceID: "phase3-i-3-05-retained",
+			ClientInstanceID: "timeline_mutation-i-3-05-retained",
 			Presence:         timelinePresence(),
 		})
 		defer socketB.Close(websocket.StatusNormalClosure, "test_complete")
@@ -1745,7 +1745,7 @@ func TestCanonicalIncidentWebSocket_Integration(t *testing.T) {
 
 func TestTimelineTimeConversionProfile(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	server, db := startServer(t, runtime, "phase3-i-3-08-time-conversion")
+	server, db := startServer(t, runtime, "timeline_mutation-i-3-08-time-conversion")
 	defer db.Close()
 
 	adminLogin, adminID := provisionBootstrapAdmin(t, server)
@@ -1775,9 +1775,9 @@ func TestTimelineTimeConversionProfile(t *testing.T) {
 		t.Fatalf("unexpected default time conversion profile: %#v", defaultProfile)
 	}
 
-	editorID := seedLocalUserFlags(t, db, "phase3-i-3-08-editor@example.test", "Timeline Time Editor", "Phase3TimeEditor1!", false, false, true)
-	createMembership(t, server, incidentID, editorID, "phase3-i-3-08-editor@example.test", "editor", adminLogin)
-	editorSession, editorCSRF := loginLocalUser(t, server, "phase3-i-3-08-editor@example.test", "Phase3TimeEditor1!")
+	editorID := seedLocalUserFlags(t, db, "timeline_mutation-i-3-08-editor@example.test", "Timeline Time Editor", "TimelineMutationTimeEditor1!", false, false, true)
+	createMembership(t, server, incidentID, editorID, "timeline_mutation-i-3-08-editor@example.test", "editor", adminLogin)
+	editorSession, editorCSRF := loginLocalUser(t, server, "timeline_mutation-i-3-08-editor@example.test", "TimelineMutationTimeEditor1!")
 	editorPut := doJSON(
 		t,
 		http.MethodPut,

@@ -26,7 +26,7 @@
     "expected_count": 107,
     "first_id": "NF-AC-001",
     "last_id": "NF-AC-107",
-    "selector_prefix": "phase12/network-flow/",
+    "selector_prefix": "network-flow/acceptance/",
     "tracker_row_prefix": "NF-AC-",
     "matrix_source": "tools/test_families/module.networkflow.json",
     "rows": [

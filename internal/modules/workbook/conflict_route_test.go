@@ -19,7 +19,7 @@ import (
 const NotesViewSchemaID = "cartulary.view.notes.v1"
 
 func TestGridWriteConcurrencyRoute_Unit(t *testing.T) {
-	harness, login, _, incidentID := ConflictFixture(t, "collaboration-u-6-01-grid-write-concurrency", "IR-PHASE6-U-6-01")
+	harness, login, _, incidentID := ConflictFixture(t, "collaboration-u-6-01-grid-write-concurrency", "IR-COLLABORATION-U-6-01")
 	note := CreateNote(t, harness, login, incidentID, "txn-collaboration-u-6-01-create", "Base title", "Base body")
 	recordID := workbookscenariotest.MustUUID(t, note["record_id"].(string))
 
@@ -98,7 +98,7 @@ func TestGridWriteConcurrencyRoute_Unit(t *testing.T) {
 }
 
 func TestSameFieldConflictHTTP_Unit(t *testing.T) {
-	harness, login, actorID, incidentID := ConflictFixture(t, "collaboration-u-6-02-same-field-http", "IR-PHASE6-U-6-02")
+	harness, login, actorID, incidentID := ConflictFixture(t, "collaboration-u-6-02-same-field-http", "IR-COLLABORATION-U-6-02")
 	note := CreateNote(t, harness, login, incidentID, "txn-collaboration-u-6-02-create", "Base title", "Base body")
 	recordID := workbookscenariotest.MustUUID(t, note["record_id"].(string))
 	requireWorkbookPatch(t, harness, login, recordID, map[string]any{
@@ -139,7 +139,7 @@ func TestSameFieldConflictHTTP_Unit(t *testing.T) {
 }
 
 func TestTextCompareMergeDurability_Unit(t *testing.T) {
-	harness, login, _, incidentID := ConflictFixture(t, "collaboration-u-6-03-text-merge-durability", "IR-PHASE6-U-6-03")
+	harness, login, _, incidentID := ConflictFixture(t, "collaboration-u-6-03-text-merge-durability", "IR-COLLABORATION-U-6-03")
 	note := CreateNote(t, harness, login, incidentID, "txn-collaboration-u-6-03-clean-create", "Merge note", "one\ntwo\nthree")
 	recordID := workbookscenariotest.MustUUID(t, note["record_id"].(string))
 	requireWorkbookPatch(t, harness, login, recordID, map[string]any{
@@ -239,7 +239,7 @@ func TestTextCompareMergeDurability_Unit(t *testing.T) {
 }
 
 func TestCollectionReviewRouteResolve_Unit(t *testing.T) {
-	harness, login, actorID, incidentID := ConflictFixture(t, "collaboration-u-6-04-collection-review-route", "IR-PHASE6-U-6-04")
+	harness, login, actorID, incidentID := ConflictFixture(t, "collaboration-u-6-04-collection-review-route", "IR-COLLABORATION-U-6-04")
 	RequireCollectionReviewCaseInventory(t, CollectionReviewCases())
 
 	partyData := requireWorkbookCreate(t, harness, login, incidentID, "cartulary.view.parties.v1", map[string]any{
@@ -411,7 +411,7 @@ func TestCollectionReviewRouteResolve_Unit(t *testing.T) {
 }
 
 func TestConflictResolveDurability_Unit(t *testing.T) {
-	harness, login, actorID, incidentID := ConflictFixture(t, "collaboration-u-6-06-conflict-resolve-durability", "IR-PHASE6-U-6-06")
+	harness, login, actorID, incidentID := ConflictFixture(t, "collaboration-u-6-06-conflict-resolve-durability", "IR-COLLABORATION-U-6-06")
 
 	keepRecordID, keepConflict := CreateNoteTitleConflict(t, harness, login, incidentID, "keep", "Keep saved", "Keep local")
 	beforeKeep := snapshotWorkbookConflictSideEffects(t, harness, incidentID, keepRecordID)

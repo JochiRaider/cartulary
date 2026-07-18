@@ -17,7 +17,7 @@ import (
 
 func TestSchemaBootstrap_Integration(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	db := postgresHarness.MigrationDatabaseT(t, "phase0-i-0-01", "up")
+	db := postgresHarness.MigrationDatabaseT(t, "bootstrap-i-0-01", "up")
 	source := dbmigrations.Source()
 
 	assertCount(t, db, `SELECT COUNT(*) FROM pg_extension WHERE extname IN ('pgcrypto', 'citext')`, 2)

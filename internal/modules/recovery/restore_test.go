@@ -14,8 +14,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
-func TestRestoreCandidateUsesPhaseELatestTieBreakers(t *testing.T) {
-	db := pgtest.Start(t).BeginRollbackDBT(t, "phase10-u-10-02-latest-tiebreaker")
+func TestRestoreCandidateUsesObjectStoreBackupLatestTieBreakers(t *testing.T) {
+	db := pgtest.Start(t).BeginRollbackDBT(t, "backup_restore-u-10-02-latest-tiebreaker")
 	store := recovery.NewStore(db)
 	capture := newCaptureService(t, store)
 	ctx := context.Background()
@@ -57,7 +57,7 @@ func TestObjectStoreSnapshotCarriesRestorableBytes(t *testing.T) {
 		_ = store.Close()
 	})
 
-	payload := []byte("phase10 restorable object bytes")
+	payload := []byte("backup_restore restorable object bytes")
 	if err := store.PutObject(ctx, "objects/proof.txt", bytes.NewReader(payload), int64(len(payload)), "text/plain"); err != nil {
 		t.Fatalf("put object fixture: %v", err)
 	}

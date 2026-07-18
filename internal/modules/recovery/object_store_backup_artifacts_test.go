@@ -13,7 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 )
 
-func TestSupportPhaseE_ObjectStoreBackupManifestCanonicalAndSummaryRedacted(t *testing.T) {
+func TestSupportObjectStoreBackup_ObjectStoreBackupManifestCanonicalAndSummaryRedacted(t *testing.T) {
 	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000100501")
 	point := time.Date(2026, 6, 3, 14, 0, 0, 0, time.UTC)
 	snapshot := recovery.ObjectStoreSnapshotArtifact{
@@ -80,14 +80,14 @@ func TestSupportPhaseE_ObjectStoreBackupManifestCanonicalAndSummaryRedacted(t *t
 	}
 }
 
-func TestSupportPhaseE_DuplicateArtifactKeysRejected(t *testing.T) {
+func TestSupportObjectStoreBackup_DuplicateArtifactKeysRejected(t *testing.T) {
 	body := []byte(`{"schema_id":"cartulary.object_store_backup_manifest.v1","schema_id":"cartulary.object_store_backup_manifest.v1"}` + "\n")
 	if _, err := recovery.DecodeObjectStoreBackupManifestArtifact(body); err == nil || !strings.Contains(err.Error(), "unique") {
 		t.Fatalf("duplicate manifest keys error got %v", err)
 	}
 }
 
-func TestSupportPhaseE_CaptureSeaweedFSS3BackupArtifactsFromObjectStore(t *testing.T) {
+func TestSupportObjectStoreBackup_CaptureSeaweedFSS3BackupArtifactsFromObjectStore(t *testing.T) {
 	ctx := context.Background()
 	store, err := objectstore.NewFilesystemStore(t.TempDir())
 	if err != nil {

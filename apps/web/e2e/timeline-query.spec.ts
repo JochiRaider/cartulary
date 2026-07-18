@@ -126,17 +126,19 @@ test(exactScenarioTitle, async ({ page }) => {
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("FEIP401"),
-    "FE-I-P4-01 Timeline query identity",
+    "integration.mutation-lifecycle.row-01 Timeline query identity",
   );
   const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("feip401-alpha"),
     "timeline.activity_utc_text": "2026-04-10T10:00:00.000Z",
-    "timeline.activity_synopsis_text": "FE-I-P4-01 Alpha",
+    "timeline.activity_synopsis_text":
+      "integration.mutation-lifecycle.row-01 Alpha",
   });
   const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("feip401-beta"),
     "timeline.activity_utc_text": "2026-04-10T10:05:00.000Z",
-    "timeline.activity_synopsis_text": "FE-I-P4-01 Beta",
+    "timeline.activity_synopsis_text":
+      "integration.mutation-lifecycle.row-01 Beta",
   });
 
   const omittedQuery = await queryTimelineEnvelope(page, incidentId, {});
@@ -193,7 +195,7 @@ test(exactScenarioTitle, async ({ page }) => {
     page.getByTestId(
       rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveText("FE-I-P4-01 Alpha");
+  ).toHaveText("integration.mutation-lifecycle.row-01 Alpha");
 
   const betaPatchResponse = waitForTimelinePatch(page, beta.record_id);
   const betaSummaryCell = page.getByTestId(
@@ -207,7 +209,9 @@ test(exactScenarioTitle, async ({ page }) => {
       surface: "grid",
     }),
   );
-  await betaSummaryEditor.fill("FE-I-P4-01 Beta patched");
+  await betaSummaryEditor.fill(
+    "integration.mutation-lifecycle.row-01 Beta patched",
+  );
   await betaSummaryEditor.press("Enter");
   const betaPatchEnvelope = await readTimelineMutation(await betaPatchResponse);
   await expect(
@@ -217,7 +221,7 @@ test(exactScenarioTitle, async ({ page }) => {
     page.getByTestId(
       rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveText("FE-I-P4-01 Beta patched");
+  ).toHaveText("integration.mutation-lifecycle.row-01 Beta patched");
 
   const createResponse = page.waitForResponse(
     (response) =>
@@ -234,7 +238,9 @@ test(exactScenarioTitle, async ({ page }) => {
     surface: timelineViewSchemaId,
     targetTestId: draftSummaryTestId,
   });
-  await page.getByTestId(draftSummaryTestId).fill("FE-I-P4-01 Created");
+  await page
+    .getByTestId(draftSummaryTestId)
+    .fill("integration.mutation-lifecycle.row-01 Created");
   await page.getByTestId(draftSummaryTestId).press("Enter");
   const createEnvelope = await readTimelineMutation(await createResponse);
   const createdRecordId = createEnvelope.data.row.record_id;
@@ -242,7 +248,7 @@ test(exactScenarioTitle, async ({ page }) => {
     page.getByTestId(
       rowCellTestId(createdRecordId, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveText("FE-I-P4-01 Created");
+  ).toHaveText("integration.mutation-lifecycle.row-01 Created");
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
 
   await scrollGridCellIntoView({

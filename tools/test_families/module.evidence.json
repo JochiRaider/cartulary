@@ -23,7 +23,7 @@
           "scenario_bd0842a0bd8b"
         ],
         "titles": [
-          "FE-A11Y-P6-01 Verify evidence icon buttons, blocked states, error states, preview controls, and download controls have names, focus, contrast, and non-color-only distinctions."
+          "a11y.evidence-workflow.row-01 Verify evidence icon buttons, blocked states, error states, preview controls, and download controls have names, focus, contrast, and non-color-only distinctions."
         ]
       },
       "evidence_class": "accessibility",

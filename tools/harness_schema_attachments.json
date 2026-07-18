@@ -72,13 +72,6 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.delivery_phase_semantic_allowlist.v1",
-      "path": "tools/schemas/cartulary.delivery_phase_semantic_allowlist.v1.schema.json",
-      "classification": "owner_input",
-      "producer": "semantic identity boundary owner",
-      "validation": "json-shape-check"
-    },
-    {
       "schema_id": "cartulary.design_token_registry.v1",
       "path": "tools/schemas/cartulary.design_token_registry.v1.schema.json",
       "classification": "owner_input",
@@ -135,8 +128,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.frontend_visual_fixture_registry.v3",
-      "path": "tools/schemas/cartulary.frontend_visual_fixture_registry.v3.schema.json",
+      "schema_id": "cartulary.frontend_visual_fixture_registry.v4",
+      "path": "tools/schemas/cartulary.frontend_visual_fixture_registry.v4.schema.json",
       "classification": "owner_input",
       "producer": "visual fixture owner",
       "validation": "json-shape-check"

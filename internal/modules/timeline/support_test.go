@@ -13,7 +13,7 @@ import (
 func TestUnit_CreateRequestCoverage(t *testing.T) {
 	t.Run("zero field create is allowed for timeline", func(t *testing.T) {
 		request, apiErr := DecodeTimelineCreateRequest(bytes.NewBufferString(`{
-			"client_txn_id": "txn-support-phase3-zero"
+			"client_txn_id": "txn-support-timeline_mutation-zero"
 		}`))
 		if apiErr != nil {
 			t.Fatalf("expected zero-field timeline create to decode, got %#v", apiErr)
@@ -25,7 +25,7 @@ func TestUnit_CreateRequestCoverage(t *testing.T) {
 
 	t.Run("one non-empty value remains valid and normalizes", func(t *testing.T) {
 		request, apiErr := DecodeTimelineCreateRequest(bytes.NewBufferString(`{
-			"client_txn_id": "txn-support-phase3-one-value",
+			"client_txn_id": "txn-support-timeline_mutation-one-value",
 			"timeline.activity_synopsis_text": "  First capture  "
 		}`))
 		if apiErr != nil {
@@ -39,7 +39,7 @@ func TestUnit_CreateRequestCoverage(t *testing.T) {
 
 	t.Run("client-owned system fields fail closed", func(t *testing.T) {
 		_, apiErr := DecodeTimelineCreateRequest(bytes.NewBufferString(`{
-			"client_txn_id": "txn-support-phase3-invalid",
+			"client_txn_id": "txn-support-timeline_mutation-invalid",
 			"timeline.capture_state": "reviewed"
 		}`))
 		if apiErr == nil {
@@ -111,7 +111,7 @@ func TestUnit_PatchRequestHashNormalization(t *testing.T) {
 	left, apiErr := DecodeTimelinePatchRequest(bytes.NewBufferString(`{
 		"view_schema_id": "cartulary.view.timeline.v2",
 		"base_row_version": 3,
-		"client_txn_id": "txn-support-phase3-hash",
+		"client_txn_id": "txn-support-timeline_mutation-hash",
 		"changes": [
 			{ "field_key": "timeline.activity_synopsis_text", "value": "summary" },
 			{ "field_key": "timeline.raw_activity_text", "value": "details" }
@@ -123,7 +123,7 @@ func TestUnit_PatchRequestHashNormalization(t *testing.T) {
 	right, apiErr := DecodeTimelinePatchRequest(bytes.NewBufferString(`{
 		"view_schema_id": "cartulary.view.timeline.v2",
 		"base_row_version": 3,
-		"client_txn_id": "txn-support-phase3-hash",
+		"client_txn_id": "txn-support-timeline_mutation-hash",
 		"changes": [
 			{ "field_key": "timeline.raw_activity_text", "value": "details" },
 			{ "field_key": "timeline.activity_synopsis_text", "value": "summary" }
@@ -221,21 +221,21 @@ func TestUnit_SupersedeGuardAndHashHelpers(t *testing.T) {
 	}
 
 	reason := "superseded"
-	left := TimelineActionRequestHash(4, "txn-support-phase3-supersede", &reason, &otherRecordID)
-	right := TimelineActionRequestHash(4, "txn-support-phase3-supersede", &reason, &otherRecordID)
+	left := TimelineActionRequestHash(4, "txn-support-timeline_mutation-supersede", &reason, &otherRecordID)
+	right := TimelineActionRequestHash(4, "txn-support-timeline_mutation-supersede", &reason, &otherRecordID)
 	if !hashesEqual(left, right) {
 		t.Fatal("expected identical supersede request hashes to match")
 	}
-	if !hashesEqual(left, TimelineActionRequestHash(4, "txn-support-phase3-supersede-different-key", &reason, &otherRecordID)) {
+	if !hashesEqual(left, TimelineActionRequestHash(4, "txn-support-timeline_mutation-supersede-different-key", &reason, &otherRecordID)) {
 		t.Fatal("expected client_txn_id changes to be excluded from the normalized request hash")
 	}
 
-	if hashesEqual(left, TimelineActionRequestHash(4, "txn-support-phase3-supersede", &reason, &anotherReplacementID)) {
+	if hashesEqual(left, TimelineActionRequestHash(4, "txn-support-timeline_mutation-supersede", &reason, &anotherReplacementID)) {
 		t.Fatal("expected replacement id changes to alter the normalized request hash")
 	}
 
 	differentReason := "superseded differently"
-	if hashesEqual(left, TimelineActionRequestHash(4, "txn-support-phase3-supersede", &differentReason, &otherRecordID)) {
+	if hashesEqual(left, TimelineActionRequestHash(4, "txn-support-timeline_mutation-supersede", &differentReason, &otherRecordID)) {
 		t.Fatal("expected reason changes to alter the normalized request hash")
 	}
 }

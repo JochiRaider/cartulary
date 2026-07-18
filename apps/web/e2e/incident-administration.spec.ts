@@ -241,7 +241,9 @@ async function putAccountDensityPreference(
       headers: await csrfHeaders(page),
       data: {
         base_preferences_version: latest.preferences_version,
-        client_txn_id: uniqueTxn("fe-b-p2-01-density-restore"),
+        client_txn_id: uniqueTxn(
+          "browser.workbook-shell.row-01-density-restore",
+        ),
         density_mode: densityMode,
       },
     },
@@ -338,12 +340,14 @@ test("updates workbook density from Account Settings while the workbook remains 
 }) => {
   const originalPreferences = await readAccountPreferences(page);
   const incidentKey = uniqueIncidentKey("FEBP201D");
-  const incidentTitle = "FE-B-P2-01 density";
+  const incidentTitle = "browser.workbook-shell.row-01 density";
   const incidentId = await createIncident(page, incidentKey, incidentTitle);
   const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("fe-b-p2-01-density-row"),
-    "timeline.activity_synopsis_text": "FE-B-P2-01 density row",
-    "timeline.raw_activity_text": "FE-B-P2-01 density details",
+    client_txn_id: uniqueTxn("browser.workbook-shell.row-01-density-row"),
+    "timeline.activity_synopsis_text":
+      "browser.workbook-shell.row-01 density row",
+    "timeline.raw_activity_text":
+      "browser.workbook-shell.row-01 density details",
   });
 
   try {
@@ -359,7 +363,7 @@ test("updates workbook density from Account Settings while the workbook remains 
       page.getByTestId(
         rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),
       ),
-    ).toHaveText("FE-B-P2-01 density row");
+    ).toHaveText("browser.workbook-shell.row-01 density row");
     await expectWorkbookShellComposition(page, {
       incidentId,
       incidentKey,
@@ -419,10 +423,10 @@ test("Verify System views switcher keyboard entry, roving focus, selection, dism
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("FEBP202"),
-    "FE-B-P2-02 switcher focus",
+    "browser.workbook-shell.row-02 switcher focus",
   );
   await createViewRow(page, incidentId, indicatorsViewSchemaId, {
-    client_txn_id: uniqueTxn("fe-b-p2-02-indicator"),
+    client_txn_id: uniqueTxn("browser.workbook-shell.row-02-indicator"),
     "indicator.indicator_type": "ipv4_addr",
     "indicator.value_kind": "atomic",
     "indicator.display_value": "198.51.100.24",
@@ -492,36 +496,37 @@ test("Verify saved views appear only under the active surface's view selector an
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("FEEP201"),
-    "FE-E-P2-01 saved-view placement",
+    "end-to-end.workbook-shell.row-01 saved-view placement",
   );
   const host = await createViewRow(page, incidentId, hostsViewSchemaId, {
-    client_txn_id: uniqueTxn("fe-e-p2-01-host"),
-    "host.display_name": "FE-E-P2-01 host",
-    "host.hostname": "fe-e-p2-01-host.example.test",
+    client_txn_id: uniqueTxn("end-to-end.workbook-shell.row-01-host"),
+    "host.display_name": "end-to-end.workbook-shell.row-01 host",
+    "host.hostname": "end-to-end.workbook-shell.row-01-host.example.test",
   });
   const indicator = await createViewRow(
     page,
     incidentId,
     indicatorsViewSchemaId,
     {
-      client_txn_id: uniqueTxn("fe-e-p2-01-indicator"),
+      client_txn_id: uniqueTxn("end-to-end.workbook-shell.row-01-indicator"),
       "indicator.indicator_type": "ipv4_addr",
       "indicator.value_kind": "atomic",
       "indicator.display_value": "203.0.113.45",
     },
   );
   const hostSavedView = await createSavedView(page, incidentId, {
-    display_name: "FE-E-P2-01 host saved view",
+    display_name: "end-to-end.workbook-shell.row-01 host saved view",
     scope: "shared",
     view_schema_id: hostsViewSchemaId,
   });
   const indicatorSavedView = await createSavedView(page, incidentId, {
-    display_name: "FE-E-P2-01 indicator saved view",
+    display_name: "end-to-end.workbook-shell.row-01 indicator saved view",
     scope: "shared",
     view_schema_id: indicatorsViewSchemaId,
   });
   const indicatorSystemSavedView = await seedSystemSavedView(page, incidentId, {
-    display_name: "FE-E-P2-01 indicator system saved view",
+    display_name:
+      "end-to-end.workbook-shell.row-01 indicator system saved view",
     view_schema_id: indicatorsViewSchemaId,
   });
 
@@ -753,8 +758,8 @@ test("lets incident admins manage memberships and hides those controls from non-
   page,
   sessionTracker,
 }) => {
-  const memberEmail = uniqueEmail("phase2-e203-member");
-  const memberPassword = "Phase2E203Pass!";
+  const memberEmail = uniqueEmail("incident_membership-e203-member");
+  const memberPassword = "IncidentMembershipE203Pass!";
   const memberUser = await createLocalUser(page, {
     email: memberEmail,
     display_name: "Incident administration E203 Member",
@@ -799,11 +804,11 @@ test("lets incident admins manage memberships and hides those controls from non-
   ).toHaveText("Version 2");
 
   const memberPage = await openIncidentAsTrackedUser(browser, sessionTracker, {
-    createdBy: "phase2 non-admin membership view",
+    createdBy: "incident_membership non-admin membership view",
     email: memberEmail,
     incidentId,
     password: memberPassword,
-    purpose: "phase2 e203 non-admin incident shell",
+    purpose: "incident_membership e203 non-admin incident shell",
     userId: memberUser.user_id,
   });
 

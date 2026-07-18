@@ -44,7 +44,7 @@ test(exactScenarioTitle, async ({ page }) => {
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("FEEP501"),
-    "Evidence FE-E-P5-01",
+    "Evidence end-to-end.entity-linking.row-01",
   );
   const manualTarget = (await createViewRow(
     page,
@@ -52,13 +52,13 @@ test(exactScenarioTitle, async ({ page }) => {
     hostsViewSchemaId,
     {
       client_txn_id: uniqueTxn("feep501-manual-target"),
-      "host.display_name": "FE-E-P5 Manual Target",
+      "host.display_name": "end-to-end.entity-linking Manual Target",
       "host.hostname": "feep501-manual-target.example.test",
     },
   )) as ViewRow;
   const autoTarget = (await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("feep501-auto-target"),
-    "host.display_name": "FE-E-P5 Auto Target",
+    "host.display_name": "end-to-end.entity-linking Auto Target",
     "host.hostname": "feep501-auto-target.example.test",
     "host.aliases": aliasCollectionActionsPayload(["FEEP501 Auto Alias"]),
   })) as ViewRow;
@@ -68,7 +68,7 @@ test(exactScenarioTitle, async ({ page }) => {
     hostsViewSchemaId,
     {
       client_txn_id: uniqueTxn("feep501-correction-target"),
-      "host.display_name": "FE-E-P5 Corrected Target",
+      "host.display_name": "end-to-end.entity-linking Corrected Target",
       "host.hostname": "feep501-corrected-target.example.test",
     },
   )) as ViewRow;
@@ -80,7 +80,8 @@ test(exactScenarioTitle, async ({ page }) => {
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("feep501-manual-row"),
-      "timeline.activity_synopsis_text": "FE-E-P5 manual lifecycle row",
+      "timeline.activity_synopsis_text":
+        "end-to-end.entity-linking manual lifecycle row",
       [hostRefsFieldKey]: collectionActionsPayload([manualRawText]),
     },
   )) as ViewRow;
@@ -90,7 +91,8 @@ test(exactScenarioTitle, async ({ page }) => {
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("feep501-auto-correction-row"),
-      "timeline.activity_synopsis_text": "FE-E-P5 auto correction row",
+      "timeline.activity_synopsis_text":
+        "end-to-end.entity-linking auto correction row",
     },
   )) as ViewRow;
   const autoUndoRow = (await createViewRow(
@@ -99,7 +101,8 @@ test(exactScenarioTitle, async ({ page }) => {
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("feep501-auto-undo-row"),
-      "timeline.activity_synopsis_text": "FE-E-P5 auto undo row",
+      "timeline.activity_synopsis_text":
+        "end-to-end.entity-linking auto undo row",
     },
   )) as ViewRow;
   const manualMention = requireItemByRawText(
@@ -251,7 +254,9 @@ test(exactScenarioTitle, async ({ page }) => {
   const autoCorrectionNotice = page.getByTestId(
     autoResolutionNoticeTestId(String(autoCorrectionItem.item_ref)),
   );
-  await expect(autoCorrectionNotice).toContainText("FE-E-P5 Auto Target");
+  await expect(autoCorrectionNotice).toContainText(
+    "end-to-end.entity-linking Auto Target",
+  );
   await expect(autoCorrectionNotice).toContainText("FEEP501 Auto Alias");
   await autoCorrectionNotice
     .getByTestId(
@@ -335,7 +340,9 @@ test(exactScenarioTitle, async ({ page }) => {
   const autoUndoNotice = page.getByTestId(
     autoResolutionNoticeTestId(String(autoUndoItem.item_ref)),
   );
-  await expect(autoUndoNotice).toContainText("FE-E-P5 Auto Target");
+  await expect(autoUndoNotice).toContainText(
+    "end-to-end.entity-linking Auto Target",
+  );
   const removeFailedUndoRoute = await routeFailedMentionActionOnce(
     page,
     autoUndoItem.item_ref,

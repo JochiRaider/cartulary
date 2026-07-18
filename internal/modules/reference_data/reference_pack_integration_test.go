@@ -26,7 +26,7 @@ import (
 
 func TestImportListReadReplayAndJobSummary_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase11-reference-pack-import")
+	harness := runtime.StartServer(t, "extension_profile-reference-pack-import")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	bundle := referencePackBundle(t, bundleOptions{
@@ -89,7 +89,7 @@ func TestImportListReadReplayAndJobSummary_Integration(t *testing.T) {
 
 func TestActivationDisableReverifyAndRefreshLifecycle_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase11-reference-pack-lifecycle")
+	harness := runtime.StartServer(t, "extension_profile-reference-pack-lifecycle")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	importReferencePack(t, harness, adminLogin, "type_registry.asset", "1", "txn-rp-asset-v1")
@@ -147,7 +147,7 @@ func TestActivationDisableReverifyAndRefreshLifecycle_Integration(t *testing.T) 
 
 func TestFailuresRemainInactiveAndNoNetworkIsNeeded_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase11-reference-pack-failures")
+	harness := runtime.StartServer(t, "extension_profile-reference-pack-failures")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	importReferencePack(t, harness, adminLogin, "type_registry.asset", "1", "txn-rp-prior-v1")
@@ -202,7 +202,7 @@ func TestAdmissionQueuesBeforeVerificationAndCancelPreventsCommit_Integration(t 
 	defer restoreHook()
 
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase11-reference-pack-async-admission")
+	harness := runtime.StartServer(t, "extension_profile-reference-pack-async-admission")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	resp := postReferencePackUpload(t, harness.Server.HTTP.URL, adminLogin, `{"client_txn_id":"txn-rp-queued-import"}`, referencePackBundle(t, bundleOptions{
@@ -235,7 +235,7 @@ func TestAdmissionQueuesBeforeVerificationAndCancelPreventsCommit_Integration(t 
 
 func TestMinimumDisconnectedBundleSeededExactly_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase11-reference-pack-minimum-disconnected")
+	harness := runtime.StartServer(t, "extension_profile-reference-pack-minimum-disconnected")
 
 	rows, err := harness.DB.Query(`
 SELECT rp.pack_key, rp.version, rp.pack_kind, rp.pack_contract_version, rp.verification_method, rpas.active_version
@@ -274,7 +274,7 @@ SELECT rp.pack_key, rp.version, rp.pack_kind, rp.pack_contract_version, rp.verif
 
 func TestRefreshOmittedSelectorReplayUsesAdmittedSet_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase11-reference-pack-refresh-replay")
+	harness := runtime.StartServer(t, "extension_profile-reference-pack-refresh-replay")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	first := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/refresh", map[string]any{
@@ -297,7 +297,7 @@ func TestRefreshOmittedSelectorReplayUsesAdmittedSet_Integration(t *testing.T) {
 
 func TestUploadEnvelopeFailureCreatesNoDurableStateAndAdminIsRequired_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase11-reference-pack-envelope-and-authz")
+	harness := runtime.StartServer(t, "extension_profile-reference-pack-envelope-and-authz")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	beforeJobs := queryCount(t, harness.DB, `SELECT count(*) FROM reference_pack_job_payloads`)
@@ -337,7 +337,7 @@ func TestUploadEnvelopeFailureCreatesNoDurableStateAndAdminIsRequired_Integratio
 
 func TestOptionalPackStatesDegradeOnlyOptionalSurfacesAndPreserveCoreWorkflows_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase11-reference-pack-optional-degradation")
+	harness := runtime.StartServer(t, "extension_profile-reference-pack-optional-degradation")
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	baselineViewSchemas := viewSchemaIDs(t, harness, adminLogin)
@@ -424,7 +424,7 @@ func TestJobsRequireDeploymentAdminAtPollAndCancelTime_Integration(t *testing.T)
 	defer restoreHook()
 
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase11-reference-pack-job-authz")
+	harness := runtime.StartServer(t, "extension_profile-reference-pack-job-authz")
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	resp := postReferencePackUpload(t, harness.Server.HTTP.URL, adminLogin, `{"client_txn_id":"txn-rp-job-auth-import"}`, referencePackBundle(t, bundleOptions{

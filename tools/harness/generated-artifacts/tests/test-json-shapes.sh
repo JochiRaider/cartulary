@@ -833,7 +833,7 @@ write_valid_fixture_tier_proof() {
   "owner_id": "module.recovery",
   "row_id": "I-11-IMPORT-01",
   "execution_family": "backend_integration_import_boundary_negative",
-  "symbol": "TestPhase11_I_11_IMPORT_01_InvalidRequestHasNoDurableRows",
+  "symbol": "TestImportInvalidRequestHasNoDurableRows",
   "effective_fixture_policy": "template_clone",
   "proof_kind": "template_clone",
   "proof_status": "retained",
@@ -985,7 +985,7 @@ write_valid_agent_finalize_summary() {
   "actions": [
     {
       "action_id": "generated_structure_refresh",
-      "description": "Refresh phase-ledger and phase-schedule generated artifacts, then verify no unsupported drift remains.",
+      "description": "Refresh generated task and topology artifacts, then verify no unsupported drift remains.",
       "requires_results_dir": false,
       "mutating": true,
       "status": "pass",

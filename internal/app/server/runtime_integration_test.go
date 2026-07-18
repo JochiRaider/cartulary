@@ -31,10 +31,10 @@ import (
 
 func TestInvalidConfigNeverReachesReady_Integration(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase0-invalid-config")
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "bootstrap-invalid-config")
 
 	s3Harness := s3test.Start(t)
-	bucket, err := s3Harness.BootstrapBucket(context.Background(), "phase0-invalid-config")
+	bucket, err := s3Harness.BootstrapBucket(context.Background(), "bootstrap-invalid-config")
 	if err != nil {
 		t.Fatalf("bootstrap bucket: %v", err)
 	}
@@ -86,12 +86,12 @@ func TestFirstAdminBootstrap_Integration(t *testing.T) {
 	s3Harness := s3test.Start(t)
 
 	t.Run("commits one deployment admin, bootstrap marker, and startup audit before readiness", func(t *testing.T) {
-		testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase0-bootstrap-success")
+		testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "bootstrap-bootstrap-success")
 
 		db := openSQL(t, testDB.DSN)
 		defer db.Close()
 
-		bucket := BucketName("phase0-bootstrap-success")
+		bucket := BucketName("bootstrap-bootstrap-success")
 		defer func() {
 			if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
 				t.Logf("cleanup bucket: %v", err)
@@ -163,25 +163,25 @@ func TestFirstAdminBootstrap_Integration(t *testing.T) {
 	})
 
 	t.Run("rolls back the whole bootstrap transaction when the audit insert fails", func(t *testing.T) {
-		testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase0-bootstrap-rollback")
+		testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "bootstrap-bootstrap-rollback")
 
 		db := openSQL(t, testDB.DSN)
 		defer db.Close()
 		if _, err := db.ExecContext(context.Background(), `
-CREATE OR REPLACE FUNCTION phase0_fail_bootstrap_audit() RETURNS trigger AS $$
+CREATE OR REPLACE FUNCTION bootstrap_fail_bootstrap_audit() RETURNS trigger AS $$
 BEGIN
-    RAISE EXCEPTION 'phase0 forced bootstrap audit failure';
+    RAISE EXCEPTION 'bootstrap forced bootstrap audit failure';
 END;
 $$ LANGUAGE plpgsql;
-CREATE TRIGGER phase0_fail_bootstrap_audit
+CREATE TRIGGER bootstrap_fail_bootstrap_audit
 BEFORE INSERT ON deployment_admin_audit_events
 FOR EACH ROW
-EXECUTE FUNCTION phase0_fail_bootstrap_audit();
+EXECUTE FUNCTION bootstrap_fail_bootstrap_audit();
 `); err != nil {
 			t.Fatalf("install bootstrap rollback trigger: %v", err)
 		}
 
-		bucket := BucketName("phase0-bootstrap-rollback")
+		bucket := BucketName("bootstrap-bootstrap-rollback")
 		defer func() {
 			if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
 				t.Logf("cleanup bucket: %v", err)
@@ -294,7 +294,7 @@ func TestBootstrapFailures_Integration(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase0-bootstrap-failure")
+			testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "bootstrap-bootstrap-failure")
 
 			db := openSQL(t, testDB.DSN)
 			defer db.Close()
@@ -328,14 +328,14 @@ func TestBootstrapFailures_Integration(t *testing.T) {
 	}
 
 	t.Run("startup failure leaves a borrowed postgres pool open", func(t *testing.T) {
-		testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase0-borrowed-postgres")
+		testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "bootstrap-borrowed-postgres")
 		pool, err := pgxpool.New(context.Background(), testDB.DSN)
 		if err != nil {
 			t.Fatalf("open borrowed postgres pool: %v", err)
 		}
 		defer pool.Close()
 
-		bucket := BucketName("phase0-borrowed-postgres")
+		bucket := BucketName("bootstrap-borrowed-postgres")
 		defer func() {
 			if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
 				t.Logf("cleanup bucket: %v", err)
@@ -358,7 +358,7 @@ func TestBootstrapSkipAndRecovery_Integration(t *testing.T) {
 	s3Harness := s3test.Start(t)
 
 	t.Run("existing active deployment admin skips stale and invalid manifests", func(t *testing.T) {
-		testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase0-bootstrap-skip")
+		testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "bootstrap-bootstrap-skip")
 
 		db := openSQL(t, testDB.DSN)
 		defer db.Close()
@@ -366,7 +366,7 @@ func TestBootstrapSkipAndRecovery_Integration(t *testing.T) {
 			t.Fatalf("seed active deployment admin: %v", err)
 		}
 
-		bucket := BucketName("phase0-bootstrap-skip")
+		bucket := BucketName("bootstrap-bootstrap-skip")
 		defer func() {
 			if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
 				t.Logf("cleanup bucket: %v", err)
@@ -408,7 +408,7 @@ func TestBootstrapSkipAndRecovery_Integration(t *testing.T) {
 	})
 
 	t.Run("bootstrap recovery remains fail-closed when completion state exists without an active admin", func(t *testing.T) {
-		testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase0-bootstrap-recovery")
+		testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "bootstrap-bootstrap-recovery")
 
 		db := openSQL(t, testDB.DSN)
 		defer db.Close()
@@ -421,7 +421,7 @@ func TestBootstrapSkipAndRecovery_Integration(t *testing.T) {
 			t.Fatalf("seed bootstrap completion marker: %v", err)
 		}
 
-		bucket := BucketName("phase0-bootstrap-recovery")
+		bucket := BucketName("bootstrap-bootstrap-recovery")
 		defer func() {
 			if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
 				t.Logf("cleanup bucket: %v", err)

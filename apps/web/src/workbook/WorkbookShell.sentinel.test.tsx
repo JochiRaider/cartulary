@@ -300,7 +300,7 @@ describe("keyboard and grid anchor coverage", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-phase9-anchor",
+        change_set_id: "change-set-workbook_interaction-anchor",
         row: timelineRow({
           recordId: "record-1",
           rowVersion: 2,
@@ -469,7 +469,7 @@ describe("keyboard and grid anchor coverage", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-phase9-enter-anchor",
+        change_set_id: "change-set-workbook_interaction-enter-anchor",
         row: timelineRow({
           recordId: "record-1",
           rowVersion: 2,
@@ -771,7 +771,7 @@ describe("keyboard and grid anchor coverage", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-phase9-rendered-paste",
+        change_set_id: "change-set-workbook_interaction-rendered-paste",
         rows: [
           timelineRow({
             recordId: "record-1",
@@ -903,7 +903,8 @@ describe("keyboard and grid anchor coverage", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-phase9-rendered-paste-conflicts",
+        change_set_id:
+          "change-set-workbook_interaction-rendered-paste-conflicts",
         rows: [
           timelineRow({
             recordId: "record-3",

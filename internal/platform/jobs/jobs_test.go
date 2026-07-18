@@ -89,7 +89,7 @@ func TestManagerTerminalSuccessRetainsJobResource(t *testing.T) {
 		JobID:    jobID,
 		Progress: jobs.Progress{Completed: 1, Total: &total},
 		ResultSummary: &jobs.ResultSummary{
-			Code:    "phase11_test_completed",
+			Code:    "extension_profile_test_completed",
 			Message: "Enterprise integration test completed.",
 		},
 	})

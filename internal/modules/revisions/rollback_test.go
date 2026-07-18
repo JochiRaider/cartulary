@@ -17,7 +17,7 @@ import (
 )
 
 func TestRollbackSelectorUnion_Unit(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase7-u-7-05-rollback")
+	harness := workbookscenariotest.StartServer(t, "history_revision-u-7-05-rollback")
 	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U705")
 	changeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000501")
@@ -86,7 +86,7 @@ func TestRollbackSelectorUnion_Unit(t *testing.T) {
 		setMembershipRole(t, harness.DB, incidentID, actorID, "editor")
 		forbidden := rollbackRecord(t, harness, login, recordID, map[string]any{"base_row_version": 2, "client_txn_id": "txn-forbidden", "target": map[string]any{"kind": "history_entry", "history_entry_ref": historyEntryRef}})
 		httptestx.RequireErrorEnvelope(t, forbidden, http.StatusForbidden, "authorization_denied")
-		hiddenUser := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "phase7-hidden@example.test", "History Hidden", "HiddenPass1!", false, false, true)
+		hiddenUser := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "history_revision-hidden@example.test", "History Hidden", "HiddenPass1!", false, false, true)
 		hiddenLogin := loginLocalUser(t, harness, hiddenUser.Email, "HiddenPass1!")
 		hiddenExisting := rollbackRecord(t, harness, hiddenLogin, recordID, map[string]any{"base_row_version": 2, "client_txn_id": "txn-hidden-existing", "target": map[string]any{"kind": "history_entry", "history_entry_ref": historyEntryRef}})
 		httptestx.RequireErrorEnvelope(t, hiddenExisting, http.StatusNotFound, "incident_not_found")
@@ -574,13 +574,13 @@ func loginLocalUser(t testing.TB, harness *workbookscenariotest.ServerHarness, u
 func createAttachedEvidencePatchTarget(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, suffix string) (uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID) {
 	t.Helper()
 	timelineData := WorkbookCreate(t, harness, login, incidentID, "cartulary.view.timeline.v2", map[string]any{
-		"client_txn_id":                   "txn-phase7-" + suffix + "-timeline-create",
+		"client_txn_id":                   "txn-history_revision-" + suffix + "-timeline-create",
 		"timeline.activity_synopsis_text": "Timeline " + suffix,
 	})
 	timelineRow := timelineData["row"].(map[string]any)
 	timelineRecordID := mustUUID(t, timelineRow["record_id"].(string))
 	evidenceData := WorkbookCreate(t, harness, login, incidentID, "cartulary.view.evidence.v1", map[string]any{
-		"client_txn_id":  "txn-phase7-" + suffix + "-evidence-create",
+		"client_txn_id":  "txn-history_revision-" + suffix + "-evidence-create",
 		"evidence.title": "Evidence " + suffix,
 	})
 	evidenceRow := evidenceData["row"].(map[string]any)
@@ -589,7 +589,7 @@ func createAttachedEvidencePatchTarget(t testing.TB, harness *workbookscenariote
 	patchData := WorkbookPatch(t, harness, login, timelineRecordID, map[string]any{
 		"view_schema_id":   "cartulary.view.timeline.v2",
 		"base_row_version": int64(timelineRow["row_version"].(float64)),
-		"client_txn_id":    "txn-phase7-" + suffix + "-attach-evidence",
+		"client_txn_id":    "txn-history_revision-" + suffix + "-attach-evidence",
 		"changes": []map[string]any{{
 			"field_key": "timeline.attached_evidence_ids",
 			"action_payload": map[string]any{
@@ -632,7 +632,7 @@ func createDetachedEvidencePatchTarget(t testing.TB, harness *workbookscenariote
 	patchData := WorkbookPatch(t, harness, login, timelineRecordID, map[string]any{
 		"view_schema_id":   "cartulary.view.timeline.v2",
 		"base_row_version": 2,
-		"client_txn_id":    "txn-phase7-" + suffix + "-detach-evidence",
+		"client_txn_id":    "txn-history_revision-" + suffix + "-detach-evidence",
 		"changes": []map[string]any{{
 			"field_key": "timeline.attached_evidence_ids",
 			"action_payload": map[string]any{
@@ -793,8 +793,8 @@ func seedRollbackHostPatchWithSource(t testing.TB, db *sql.DB, incidentID uuid.U
 	t.Helper()
 	beforeRecord := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "record_type": "host", "row_version": 1}
 	afterRecord := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "record_type": "host", "row_version": 2}
-	beforeSource := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "display_name": beforeName, "hostname": "phase7-host", "host_state": "canonical", "row_version": 1}
-	afterSource := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "display_name": afterName, "hostname": "phase7-host", "host_state": "canonical", "row_version": 2}
+	beforeSource := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "display_name": beforeName, "hostname": "history_revision-host", "host_state": "canonical", "row_version": 1}
+	afterSource := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "display_name": afterName, "hostname": "history_revision-host", "host_state": "canonical", "row_version": 2}
 	beforeValue := map[string]any{"record": beforeRecord, "source": beforeSource}
 	afterValue := map[string]any{"record": afterRecord, "source": afterSource}
 	if _, err := db.ExecContext(context.Background(), `
@@ -849,15 +849,15 @@ func seedRollbackHostAndTagChangeSet(t testing.TB, db *sql.DB, incidentID uuid.U
 	createdAt := time.Date(2026, 5, 10, 17, 8, 0, 0, time.UTC)
 	seedChangeSet(t, db, historySeed{IncidentID: incidentID, ActorID: actorID, RecordID: recordID, ChangeSetID: changeSetID, CreatedAt: createdAt, Source: "workbook.records.patch"})
 	seedRollbackHostPatchEntry(t, db, incidentID, actorID, changeSetID, recordID, 1, createdAt, "unsupported before", "unsupported after")
-	insertMutation(t, db, changeSetID, 2, "record_tag", uuid.New().String(), "create", nil, map[string]any{"tag_name": "phase7", "record_id": recordID.String()})
+	insertMutation(t, db, changeSetID, 2, "record_tag", uuid.New().String(), "create", nil, map[string]any{"tag_name": "history_revision", "record_id": recordID.String()})
 }
 
 func seedRollbackHostPatchEntry(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorID uuid.UUID, changeSetID uuid.UUID, recordID uuid.UUID, sequenceNo int, createdAt time.Time, beforeName string, afterName string) {
 	t.Helper()
 	beforeRecord := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "record_type": "host", "row_version": 1}
 	afterRecord := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "record_type": "host", "row_version": 2}
-	beforeSource := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "display_name": beforeName, "hostname": "phase7-host", "host_state": "canonical", "row_version": 1}
-	afterSource := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "display_name": afterName, "hostname": "phase7-host", "host_state": "canonical", "row_version": 2}
+	beforeSource := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "display_name": beforeName, "hostname": "history_revision-host", "host_state": "canonical", "row_version": 1}
+	afterSource := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "display_name": afterName, "hostname": "history_revision-host", "host_state": "canonical", "row_version": 2}
 	beforeValue := map[string]any{"record": beforeRecord, "source": beforeSource}
 	afterValue := map[string]any{"record": afterRecord, "source": afterSource}
 	mustExec(t, db, `
@@ -932,7 +932,7 @@ INSERT INTO record_links (record_link_id, incident_id, src_record_id, dst_record
 VALUES ($1, $2, $3, $4, 'references_record', 'manual', $5, $5, $6, $6)
 	`, linkID, incidentID, src, dst, actorID, time.Now().UTC())
 	after := linkValue(linkID, incidentID, src, dst, "references_record", nil, "manual", actorID, nil)
-	seedChangeSet(t, db, historySeed{IncidentID: incidentID, ActorID: actorID, RecordID: src, ChangeSetID: changeSetID, CreatedAt: time.Now().UTC(), Source: "phase7.rollback.fixture"})
+	seedChangeSet(t, db, historySeed{IncidentID: incidentID, ActorID: actorID, RecordID: src, ChangeSetID: changeSetID, CreatedAt: time.Now().UTC(), Source: "history_revision.rollback.fixture"})
 	insertMutation(t, db, changeSetID, 1, "record_link", linkID.String(), "create", nil, after)
 	return src, dst, linkID
 }
@@ -948,7 +948,7 @@ VALUES ($1, $2, $3, $4, 'references_record', 'manual', $5, $5, $6, $6, $7, $5)
 	`, linkID, incidentID, src, dst, actorID, deletedAt.Add(-time.Minute), deletedAt)
 	before := linkValue(linkID, incidentID, src, dst, "references_record", nil, "manual", actorID, nil)
 	after := linkValue(linkID, incidentID, src, dst, "references_record", nil, "manual", actorID, &deletedAt)
-	seedChangeSet(t, db, historySeed{IncidentID: incidentID, ActorID: actorID, RecordID: src, ChangeSetID: changeSetID, CreatedAt: time.Now().UTC(), Source: "phase7.rollback.fixture"})
+	seedChangeSet(t, db, historySeed{IncidentID: incidentID, ActorID: actorID, RecordID: src, ChangeSetID: changeSetID, CreatedAt: time.Now().UTC(), Source: "history_revision.rollback.fixture"})
 	insertMutation(t, db, changeSetID, 1, "record_link", linkID.String(), "delete", before, after)
 	return src, dst, linkID
 }
@@ -963,7 +963,7 @@ INSERT INTO record_links (record_link_id, incident_id, src_record_id, dst_record
 VALUES ($1, $2, $3, $4, 'attached_evidence', 'timeline.attached_evidence_ids', 'manual', $5, $5, $6, $6)
 `, linkID, incidentID, src, dst, actorID, now)
 	after := linkValueWithTimestamps(linkID, incidentID, src, dst, "attached_evidence", stringPtr("timeline.attached_evidence_ids"), "manual", actorID, now, nil)
-	seedChangeSet(t, db, historySeed{IncidentID: incidentID, ActorID: actorID, RecordID: src, ChangeSetID: changeSetID, CreatedAt: now, Source: "phase7.rollback.fixture"})
+	seedChangeSet(t, db, historySeed{IncidentID: incidentID, ActorID: actorID, RecordID: src, ChangeSetID: changeSetID, CreatedAt: now, Source: "history_revision.rollback.fixture"})
 	insertMutation(t, db, changeSetID, 1, "record_link", linkID.String(), "create", nil, after)
 	return src, dst, linkID
 }
@@ -980,7 +980,7 @@ VALUES ($1, $2, $3, $4, 'attached_evidence', 'timeline.attached_evidence_ids', '
 `, linkID, incidentID, src, dst, actorID, now, deletedAt)
 	before := linkValueWithTimestamps(linkID, incidentID, src, dst, "attached_evidence", stringPtr("timeline.attached_evidence_ids"), "manual", actorID, now, nil)
 	after := linkValueWithTimestamps(linkID, incidentID, src, dst, "attached_evidence", stringPtr("timeline.attached_evidence_ids"), "manual", actorID, now, &deletedAt)
-	seedChangeSet(t, db, historySeed{IncidentID: incidentID, ActorID: actorID, RecordID: src, ChangeSetID: changeSetID, CreatedAt: deletedAt, Source: "phase7.rollback.fixture"})
+	seedChangeSet(t, db, historySeed{IncidentID: incidentID, ActorID: actorID, RecordID: src, ChangeSetID: changeSetID, CreatedAt: deletedAt, Source: "history_revision.rollback.fixture"})
 	insertMutation(t, db, changeSetID, 1, "record_link", linkID.String(), "delete", before, after)
 	return src, dst, linkID
 }
@@ -1009,7 +1009,7 @@ INSERT INTO object_blobs (
     object_blob_id, incident_id, created_by_user_id, storage_key, upload_state,
     byte_size, target_expires_at, pending_expires_at, finalized_at, created_at, updated_at
 ) VALUES ($1, $2, $3, $4, 'available', 1, $5, $5, $6, $6, $6)
-`, blobID, incidentID, actorID, "phase7/rollback/"+blobID.String(), now.Add(time.Hour), now)
+`, blobID, incidentID, actorID, "history_revision/rollback/"+blobID.String(), now.Add(time.Hour), now)
 	mustExec(t, db, `
 INSERT INTO evidence (record_id, incident_id, title, lifecycle_state, upload_state, object_blob_id, requested_at, received_at, created_at, updated_at)
 VALUES ($1, $2, $3, 'available', 'available', $4, $5, $5, $5, $5)
@@ -1034,15 +1034,15 @@ INSERT INTO entity_mentions (
     entity_mention_id, source_record_id, entity_type, source_field_key, origin_kind, origin_locator,
     raw_text, normalized_text, resolution_status, row_version, ordinal, created_by_user_id, created_at,
     resolved_record_id, resolved_by_user_id, resolved_at, resolution_method
-) VALUES ($1, $2, 'host', 'timeline.host_refs', 'manual', 'phase7', 'Mention Host', 'mention host', 'resolved', 2, 1, $3, $4, $5, $3, $4, 'explicit_resolve_route')
+) VALUES ($1, $2, 'host', 'timeline.host_refs', 'manual', 'history_revision', 'Mention Host', 'mention host', 'resolved', 2, 1, $3, $4, $5, $3, $4, 'explicit_resolve_route')
 `, mentionID, source, actorID, now, target)
 	mustExec(t, db, `
 INSERT INTO record_links (record_link_id, incident_id, src_record_id, dst_record_id, link_type, field_key, provenance, owner_user_id, created_by_user_id, decided_at, created_at)
 VALUES ($1, $2, $3, $4, 'observed_on_host', 'timeline.host_refs', 'manual', $5, $5, $6, $6)
 `, linkID, incidentID, source, target, actorID, now)
 	mustExec(t, db, `UPDATE records SET row_version = 2 WHERE record_id = $1`, source)
-	beforeMention := map[string]any{"entity_mention_id": mentionID.String(), "source_record_id": source.String(), "entity_type": "host", "source_field_key": "timeline.host_refs", "origin_kind": "manual", "origin_locator": "phase7", "raw_text": "Mention Host", "normalized_text": "mention host", "resolution_status": "unresolved", "row_version": 1, "ordinal": 1}
-	afterMention := map[string]any{"entity_mention_id": mentionID.String(), "source_record_id": source.String(), "entity_type": "host", "source_field_key": "timeline.host_refs", "origin_kind": "manual", "origin_locator": "phase7", "raw_text": "Mention Host", "normalized_text": "mention host", "resolution_status": "resolved", "row_version": 2, "ordinal": 1, "resolved_record_id": target.String(), "resolved_by_user_id": actorID.String(), "resolved_at": now.Format(time.RFC3339Nano), "resolution_method": "explicit_resolve_route"}
+	beforeMention := map[string]any{"entity_mention_id": mentionID.String(), "source_record_id": source.String(), "entity_type": "host", "source_field_key": "timeline.host_refs", "origin_kind": "manual", "origin_locator": "history_revision", "raw_text": "Mention Host", "normalized_text": "mention host", "resolution_status": "unresolved", "row_version": 1, "ordinal": 1}
+	afterMention := map[string]any{"entity_mention_id": mentionID.String(), "source_record_id": source.String(), "entity_type": "host", "source_field_key": "timeline.host_refs", "origin_kind": "manual", "origin_locator": "history_revision", "raw_text": "Mention Host", "normalized_text": "mention host", "resolution_status": "resolved", "row_version": 2, "ordinal": 1, "resolved_record_id": target.String(), "resolved_by_user_id": actorID.String(), "resolved_at": now.Format(time.RFC3339Nano), "resolution_method": "explicit_resolve_route"}
 	linkAfter := linkValue(linkID, incidentID, source, target, "observed_on_host", stringPtr("timeline.host_refs"), "manual", actorID, nil)
 	seedChangeSet(t, db, historySeed{IncidentID: incidentID, ActorID: actorID, RecordID: source, ChangeSetID: changeSetID, CreatedAt: now, Source: "entities.mentions.action"})
 	insertMutation(t, db, changeSetID, 1, "entity_mention", mentionID.String(), "patch", beforeMention, afterMention)
@@ -1064,15 +1064,15 @@ INSERT INTO entity_mentions (
     entity_mention_id, source_record_id, entity_type, source_field_key, origin_kind, origin_locator,
     raw_text, normalized_text, resolution_status, row_version, ordinal, created_by_user_id, created_at,
     resolved_record_id, resolved_by_user_id, resolved_at, resolution_method
-) VALUES ($1, $2, 'host', 'timeline.host_refs', 'manual', 'phase7-dismiss', 'Dismiss Host', 'dismiss host', 'dismissed', 2, 1, $3, $4, NULL, NULL, NULL, NULL)
+) VALUES ($1, $2, 'host', 'timeline.host_refs', 'manual', 'history_revision-dismiss', 'Dismiss Host', 'dismiss host', 'dismissed', 2, 1, $3, $4, NULL, NULL, NULL, NULL)
 `, mentionID, source, actorID, now)
 	mustExec(t, db, `
 INSERT INTO record_links (record_link_id, incident_id, src_record_id, dst_record_id, link_type, field_key, provenance, owner_user_id, created_by_user_id, decided_at, created_at, deleted_at, deleted_by_user_id)
 VALUES ($1, $2, $3, $4, 'observed_on_host', 'timeline.host_refs', 'manual', $5, $5, $6, $6, $7, $5)
 `, linkID, incidentID, source, target, actorID, now, deletedAt)
 	mustExec(t, db, `UPDATE records SET row_version = 2 WHERE record_id = $1`, source)
-	beforeMention := map[string]any{"entity_mention_id": mentionID.String(), "source_record_id": source.String(), "entity_type": "host", "source_field_key": "timeline.host_refs", "origin_kind": "manual", "origin_locator": "phase7-dismiss", "raw_text": "Dismiss Host", "normalized_text": "dismiss host", "resolution_status": "resolved", "row_version": 1, "ordinal": 1, "resolved_record_id": target.String(), "resolved_by_user_id": actorID.String(), "resolved_at": now.Format(time.RFC3339Nano), "resolution_method": "explicit_resolve_route"}
-	afterMention := map[string]any{"entity_mention_id": mentionID.String(), "source_record_id": source.String(), "entity_type": "host", "source_field_key": "timeline.host_refs", "origin_kind": "manual", "origin_locator": "phase7-dismiss", "raw_text": "Dismiss Host", "normalized_text": "dismiss host", "resolution_status": "dismissed", "row_version": 2, "ordinal": 1}
+	beforeMention := map[string]any{"entity_mention_id": mentionID.String(), "source_record_id": source.String(), "entity_type": "host", "source_field_key": "timeline.host_refs", "origin_kind": "manual", "origin_locator": "history_revision-dismiss", "raw_text": "Dismiss Host", "normalized_text": "dismiss host", "resolution_status": "resolved", "row_version": 1, "ordinal": 1, "resolved_record_id": target.String(), "resolved_by_user_id": actorID.String(), "resolved_at": now.Format(time.RFC3339Nano), "resolution_method": "explicit_resolve_route"}
+	afterMention := map[string]any{"entity_mention_id": mentionID.String(), "source_record_id": source.String(), "entity_type": "host", "source_field_key": "timeline.host_refs", "origin_kind": "manual", "origin_locator": "history_revision-dismiss", "raw_text": "Dismiss Host", "normalized_text": "dismiss host", "resolution_status": "dismissed", "row_version": 2, "ordinal": 1}
 	linkBefore := linkValueWithTimestamps(linkID, incidentID, source, target, "observed_on_host", stringPtr("timeline.host_refs"), "manual", actorID, now, nil)
 	linkAfter := linkValueWithTimestamps(linkID, incidentID, source, target, "observed_on_host", stringPtr("timeline.host_refs"), "manual", actorID, now, &deletedAt)
 	seedChangeSet(t, db, historySeed{IncidentID: incidentID, ActorID: actorID, RecordID: source, ChangeSetID: changeSetID, CreatedAt: now, Source: "entities.mentions.action"})
@@ -1091,11 +1091,11 @@ func seedRollbackMentionRestorePatch(t testing.TB, db *sql.DB, incidentID uuid.U
 INSERT INTO entity_mentions (
     entity_mention_id, source_record_id, entity_type, source_field_key, origin_kind, origin_locator,
     raw_text, normalized_text, resolution_status, row_version, ordinal, created_by_user_id, created_at
-) VALUES ($1, $2, 'host', 'timeline.host_refs', 'manual', 'phase7-restore', 'Restore Host', 'restore host', 'unresolved', 2, 1, $3, $4)
+) VALUES ($1, $2, 'host', 'timeline.host_refs', 'manual', 'history_revision-restore', 'Restore Host', 'restore host', 'unresolved', 2, 1, $3, $4)
 `, mentionID, source, actorID, now)
 	mustExec(t, db, `UPDATE records SET row_version = 2 WHERE record_id = $1`, source)
-	beforeMention := map[string]any{"entity_mention_id": mentionID.String(), "source_record_id": source.String(), "entity_type": "host", "source_field_key": "timeline.host_refs", "origin_kind": "manual", "origin_locator": "phase7-restore", "raw_text": "Restore Host", "normalized_text": "restore host", "resolution_status": "dismissed", "row_version": 1, "ordinal": 1}
-	afterMention := map[string]any{"entity_mention_id": mentionID.String(), "source_record_id": source.String(), "entity_type": "host", "source_field_key": "timeline.host_refs", "origin_kind": "manual", "origin_locator": "phase7-restore", "raw_text": "Restore Host", "normalized_text": "restore host", "resolution_status": "unresolved", "row_version": 2, "ordinal": 1}
+	beforeMention := map[string]any{"entity_mention_id": mentionID.String(), "source_record_id": source.String(), "entity_type": "host", "source_field_key": "timeline.host_refs", "origin_kind": "manual", "origin_locator": "history_revision-restore", "raw_text": "Restore Host", "normalized_text": "restore host", "resolution_status": "dismissed", "row_version": 1, "ordinal": 1}
+	afterMention := map[string]any{"entity_mention_id": mentionID.String(), "source_record_id": source.String(), "entity_type": "host", "source_field_key": "timeline.host_refs", "origin_kind": "manual", "origin_locator": "history_revision-restore", "raw_text": "Restore Host", "normalized_text": "restore host", "resolution_status": "unresolved", "row_version": 2, "ordinal": 1}
 	seedChangeSet(t, db, historySeed{IncidentID: incidentID, ActorID: actorID, RecordID: source, ChangeSetID: changeSetID, CreatedAt: now, Source: "entities.mentions.action"})
 	insertMutation(t, db, changeSetID, 1, "entity_mention", mentionID.String(), "patch", beforeMention, afterMention)
 	return source, mentionID
@@ -1123,7 +1123,7 @@ func seedRollbackRecordTagMutation(t testing.TB, db *sql.DB, incidentID uuid.UUI
 	t.Helper()
 	recordID := uuid.New()
 	workbookscenariotest.SeedHostRecord(t, db, incidentID, actorID, recordID, "Tag Host", "tag-host", "", "")
-	seedRollbackMutationWithRef(t, db, incidentID, actorID, recordID, changeSetID, 1, "record_tag", uuid.New().String(), "create", nil, map[string]any{"tag_name": "phase7"}, historyRef)
+	seedRollbackMutationWithRef(t, db, incidentID, actorID, recordID, changeSetID, 1, "record_tag", uuid.New().String(), "create", nil, map[string]any{"tag_name": "history_revision"}, historyRef)
 	return recordID
 }
 
@@ -1154,7 +1154,7 @@ func seedRollbackHostPair(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorI
 
 func seedRollbackMutationWithRef(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, changeSetID uuid.UUID, sequenceNo int, targetKind string, targetID string, operation string, before any, after any, historyRef string) {
 	t.Helper()
-	seedChangeSet(t, db, historySeed{IncidentID: incidentID, ActorID: actorID, RecordID: recordID, ChangeSetID: changeSetID, CreatedAt: time.Now().UTC(), Source: "phase7.rollback.fixture"})
+	seedChangeSet(t, db, historySeed{IncidentID: incidentID, ActorID: actorID, RecordID: recordID, ChangeSetID: changeSetID, CreatedAt: time.Now().UTC(), Source: "history_revision.rollback.fixture"})
 	insertMutation(t, db, changeSetID, sequenceNo, targetKind, targetID, operation, before, after)
 	seedHistoryRef(t, db, recordID, changeSetID, sequenceNo, historyRef)
 }

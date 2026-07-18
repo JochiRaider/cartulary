@@ -318,7 +318,7 @@ type RawViewContract = {
   readonly view_schema_id: string;
 };
 
-// FE-U-P0-02 exposes this narrow parser error contract for malformed
+// unit.stage-0.row-02 exposes this narrow parser error contract for malformed
 // view-schema adapter inputs that could otherwise drift away from field_key.
 function viewContractInvariant(source: string, detail: string): never {
   throw new Error(`View contract invariant failed: ${source} ${detail}`);

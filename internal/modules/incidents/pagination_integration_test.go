@@ -14,11 +14,11 @@ import (
 
 func TestIncidentListUsesLiveFirstPageIndependentlyOfTestClock(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServerWithHarnessControls(t, "phase2-pagination-live-first-page")
+	harness := runtime.StartServerWithHarnessControls(t, "incident_membership-pagination-live-first-page")
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-support-phase2-live-first-create",
+		"client_txn_id": "txn-support-incident_membership-live-first-create",
 		"incident_key":  "IR-PAGINATION-LIVE",
 		"title":         "Live First Page",
 	})
@@ -57,11 +57,11 @@ func TestIncidentListUsesLiveFirstPageIndependentlyOfTestClock(t *testing.T) {
 
 func TestIncidentListSearchStatusAndCursorScope(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase2-pagination-incidents-search-status")
+	harness := runtime.StartServer(t, "incident_membership-pagination-incidents-search-status")
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	first := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id":             "txn-support-phase2-search-first",
+		"client_txn_id":             "txn-support-incident_membership-search-first",
 		"incident_key":              "IR-SEARCH-FIRST",
 		"title":                     "First Incident",
 		"severity":                  "high",
@@ -71,7 +71,7 @@ func TestIncidentListSearchStatusAndCursorScope(t *testing.T) {
 
 	httptestx.SetClockAfter(t, harness.Server, mustParseTimestamp(t, first["updated_at"]), time.Second)
 	scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-support-phase2-search-second",
+		"client_txn_id": "txn-support-incident_membership-search-second",
 		"incident_key":  "IR-SEARCH-SECOND",
 		"title":         "Second Incident",
 		"severity":      "low",
@@ -116,11 +116,11 @@ func TestIncidentListSearchStatusAndCursorScope(t *testing.T) {
 
 func TestIncidentListContinuationUsesLiveMembershipQuery(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase2-pagination-incidents")
+	harness := runtime.StartServer(t, "incident_membership-pagination-incidents")
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	first := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-support-phase2-incidents-first",
+		"client_txn_id": "txn-support-incident_membership-incidents-first",
 		"incident_key":  "IR-PAGINATION-FIRST",
 		"title":         "First Incident",
 	})
@@ -128,7 +128,7 @@ func TestIncidentListContinuationUsesLiveMembershipQuery(t *testing.T) {
 
 	httptestx.SetClockAfter(t, harness.Server, mustParseTimestamp(t, first["updated_at"]), time.Second)
 	second := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-support-phase2-incidents-second",
+		"client_txn_id": "txn-support-incident_membership-incidents-second",
 		"incident_key":  "IR-PAGINATION-SECOND",
 		"title":         "Second Incident",
 	})
@@ -199,33 +199,33 @@ func TestIncidentListContinuationUsesLiveMembershipQuery(t *testing.T) {
 
 func TestIncidentListContinuationOmitsRevokedMembership(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase2-pagination-revoked-membership")
+	harness := runtime.StartServer(t, "incident_membership-pagination-revoked-membership")
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "pagination-viewer@example.test", "Pagination Viewer", "PaginationViewer1!", false, false, true)
 	viewerSession, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "pagination-viewer@example.test", "PaginationViewer1!", nil)
 
 	first := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-support-phase2-revoke-first",
+		"client_txn_id": "txn-support-incident_membership-revoke-first",
 		"incident_key":  "IR-PAGINATION-REVOKE-FIRST",
 		"title":         "Revoked First Incident",
 	})
 	firstID := first["incident_id"].(string)
 	scenariotest.CreateMembership(t, harness.Server, adminLogin, firstID, map[string]any{
-		"client_txn_id": "txn-support-phase2-revoke-first-membership",
+		"client_txn_id": "txn-support-incident_membership-revoke-first-membership",
 		"user_id":       viewerID,
 		"role":          "viewer",
 	})
 
 	httptestx.SetClockAfter(t, harness.Server, mustParseTimestamp(t, first["updated_at"]), time.Second)
 	second := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-support-phase2-revoke-second",
+		"client_txn_id": "txn-support-incident_membership-revoke-second",
 		"incident_key":  "IR-PAGINATION-REVOKE-SECOND",
 		"title":         "Visible Second Incident",
 	})
 	secondID := second["incident_id"].(string)
 	scenariotest.CreateMembership(t, harness.Server, adminLogin, secondID, map[string]any{
-		"client_txn_id": "txn-support-phase2-revoke-second-membership",
+		"client_txn_id": "txn-support-incident_membership-revoke-second-membership",
 		"user_id":       viewerID,
 		"role":          "viewer",
 	})
@@ -264,11 +264,11 @@ func TestIncidentListContinuationOmitsRevokedMembership(t *testing.T) {
 
 func TestMembershipListContinuationUsesLiveRows(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase2-pagination-memberships")
+	harness := runtime.StartServer(t, "incident_membership-pagination-memberships")
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-support-phase2-memberships-incident",
+		"client_txn_id": "txn-support-incident_membership-memberships-incident",
 		"incident_key":  "IR-PAGINATION-MEMBERSHIPS",
 		"title":         "Membership Pagination",
 	})
@@ -277,8 +277,8 @@ func TestMembershipListContinuationUsesLiveRows(t *testing.T) {
 	memberOneID := flowtest.SeedLocalUserFlags(t, harness.DB, "membership-one@example.test", "Membership One", "MembershipOne1!", false, false, true)
 	memberTwoID := flowtest.SeedLocalUserFlags(t, harness.DB, "membership-two@example.test", "Membership Two", "MembershipTwo1!", false, false, true)
 
-	createMembership(t, harness, adminLogin, incidentID, "txn-support-phase2-membership-one", memberOneID, "viewer")
-	memberTwo := createMembership(t, harness, adminLogin, incidentID, "txn-support-phase2-membership-two", memberTwoID, "viewer")
+	createMembership(t, harness, adminLogin, incidentID, "txn-support-incident_membership-membership-one", memberOneID, "viewer")
+	memberTwo := createMembership(t, harness, adminLogin, incidentID, "txn-support-incident_membership-membership-two", memberTwoID, "viewer")
 
 	firstPage := httptestx.DoJSON(
 		t,

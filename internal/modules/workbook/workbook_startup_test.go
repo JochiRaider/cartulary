@@ -20,22 +20,22 @@ import (
 
 func TestWorkbookPreferencePointers_Unit(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase8-workbook-prefs-u-8-05")
+	harness := runtime.StartServer(t, "saved_view_query-workbook-prefs-u-8-05")
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase8-u-8-05-incident",
+		"client_txn_id": "txn-saved_view_query-u-8-05-incident",
 		"incident_key":  "IR-U805",
 		"title":         "Workbook query workbook preferences",
 	})
 	incidentID := incident["incident_id"].(string)
 
-	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase8-u805-viewer@example.test", "Phase8 U805 Viewer", "Phase8U805Viewer1!", false, false, true)
-	viewerSession, viewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "phase8-u805-viewer@example.test", "Phase8U805Viewer1!", nil)
-	secondAdminID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase8-u805-admin2@example.test", "Phase8 U805 Admin2", "Phase8U805Admin21!", false, false, true)
-	secondAdminSession, secondAdminCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "phase8-u805-admin2@example.test", "Phase8U805Admin21!", nil)
-	otherID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase8-u805-other@example.test", "Phase8 U805 Other", "Phase8U805Other1!", false, false, true)
-	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-u-8-05-viewer-membership", "user_id": viewerID, "role": "viewer"})
-	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-u-8-05-admin2-membership", "user_id": secondAdminID, "role": "admin"})
+	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-u805-viewer@example.test", "SavedViewQuery U805 Viewer", "SavedViewQueryU805Viewer1!", false, false, true)
+	viewerSession, viewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "saved_view_query-u805-viewer@example.test", "SavedViewQueryU805Viewer1!", nil)
+	secondAdminID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-u805-admin2@example.test", "SavedViewQuery U805 Admin2", "SavedViewQueryU805Admin21!", false, false, true)
+	secondAdminSession, secondAdminCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "saved_view_query-u805-admin2@example.test", "SavedViewQueryU805Admin21!", nil)
+	otherID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-u805-other@example.test", "SavedViewQuery U805 Other", "SavedViewQueryU805Other1!", false, false, true)
+	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-u-8-05-viewer-membership", "user_id": viewerID, "role": "viewer"})
+	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-u-8-05-admin2-membership", "user_id": secondAdminID, "role": "admin"})
 
 	homeSavedViewID := "00000000-0000-0000-0000-000000008501"
 	defaultSavedViewID := "00000000-0000-0000-0000-000000008502"
@@ -110,7 +110,7 @@ func TestWorkbookStartupFallback_Integration(t *testing.T) {
 			profiles[index].Claimed = true
 		}
 	}
-	harness := runtime.StartServerWithDependencies(t, "phase8-workbook-startup-i-8-02", httpapi.DependencySet{
+	harness := runtime.StartServerWithDependencies(t, "saved_view_query-workbook-startup-i-8-02", httpapi.DependencySet{
 		ExtensionProfiles: profiles,
 		ModuleOverrides: map[string]any{
 			networkflow.KeyRingsOverrideKey: NetworkFlowHarnessKeyRings(t),
@@ -118,16 +118,16 @@ func TestWorkbookStartupFallback_Integration(t *testing.T) {
 	})
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase8-i-8-02-incident",
+		"client_txn_id": "txn-saved_view_query-i-8-02-incident",
 		"incident_key":  "IR-I802",
 		"title":         "Workbook query workbook startup",
 	})
 	incidentID := incident["incident_id"].(string)
 
-	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase8-i802-viewer@example.test", "Phase8 I802 Viewer", "Phase8I802Viewer1!", false, false, true)
-	viewerSession, viewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "phase8-i802-viewer@example.test", "Phase8I802Viewer1!", nil)
-	otherID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase8-i802-other@example.test", "Phase8 I802 Other", "Phase8I802Other1!", false, false, true)
-	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-02-viewer-membership", "user_id": viewerID, "role": "viewer"})
+	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-i802-viewer@example.test", "SavedViewQuery I802 Viewer", "SavedViewQueryI802Viewer1!", false, false, true)
+	viewerSession, viewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "saved_view_query-i802-viewer@example.test", "SavedViewQueryI802Viewer1!", nil)
+	otherID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-i802-other@example.test", "SavedViewQuery I802 Other", "SavedViewQueryI802Other1!", false, false, true)
+	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-i-8-02-viewer-membership", "user_id": viewerID, "role": "viewer"})
 
 	homeSavedViewID := "00000000-0000-0000-0000-000000008601"
 	defaultSavedViewID := "00000000-0000-0000-0000-000000008602"
@@ -245,11 +245,11 @@ func NetworkFlowHarnessKeyRings(t testing.TB) *networkflow.KeyRings {
 	t.Helper()
 	rings, err := networkflow.ParseKeyRings([]byte(`{
   "schema_id":"cartulary.network_flow_key_rings.v1",
-  "cursor_key_ring":{"algorithm":"aes_256_gcm_v1","keys":[{"cursor_key_id":"phase8-harness-cursor","state":"active","secret_ref":{"kind":"env","name":"phase8-harness-cursor"}}]},
-  "safe_digest_key_ring":{"algorithm":"hmac_sha256_v1","keys":[{"safe_digest_key_id":"phase8-harness-safe","state":"active","secret_ref":{"kind":"env","name":"phase8-harness-safe"}}]}
+  "cursor_key_ring":{"algorithm":"aes_256_gcm_v1","keys":[{"cursor_key_id":"saved_view_query-harness-cursor","state":"active","secret_ref":{"kind":"env","name":"saved_view_query-harness-cursor"}}]},
+  "safe_digest_key_ring":{"algorithm":"hmac_sha256_v1","keys":[{"safe_digest_key_id":"saved_view_query-harness-safe","state":"active","secret_ref":{"kind":"env","name":"saved_view_query-harness-safe"}}]}
 }`), map[string]string{
-		"CARTULARY_SECRET_PHASE8_HARNESS_CURSOR": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
-		"CARTULARY_SECRET_PHASE8_HARNESS_SAFE":   "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+		"CARTULARY_SECRET_WORKBOOK_HARNESS_CURSOR": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+		"CARTULARY_SECRET_WORKBOOK_HARNESS_SAFE":   "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
 	}, time.Date(2026, 7, 13, 12, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("parse Workbook query Network Flow harness key rings: %v", err)
@@ -259,18 +259,18 @@ func NetworkFlowHarnessKeyRings(t testing.TB) *networkflow.KeyRings {
 
 func TestWorkbookStartupBaseSurfaceDoesNotRequireSavedView_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase8-workbook-startup-base-surface-i-8-02")
+	harness := runtime.StartServer(t, "saved_view_query-workbook-startup-base-surface-i-8-02")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase8-i-8-02-base-incident",
+		"client_txn_id": "txn-saved_view_query-i-8-02-base-incident",
 		"incident_key":  "IR-I802-BASE",
 		"title":         "Workbook query base startup",
 	})
 	incidentID := incident["incident_id"].(string)
 
-	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase8-i802-base-viewer@example.test", "Phase8 I802 Base Viewer", "Phase8I802BaseViewer1!", false, false, true)
-	viewerSession, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "phase8-i802-base-viewer@example.test", "Phase8I802BaseViewer1!", nil)
-	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-02-base-viewer-membership", "user_id": viewerID, "role": "viewer"})
+	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-i802-base-viewer@example.test", "SavedViewQuery I802 Base Viewer", "SavedViewQueryI802BaseViewer1!", false, false, true)
+	viewerSession, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "saved_view_query-i802-base-viewer@example.test", "SavedViewQueryI802BaseViewer1!", nil)
+	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-i-8-02-base-viewer-membership", "user_id": viewerID, "role": "viewer"})
 	putDefaultWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, adminLogin.SessionCookie, adminLogin.CSRFCookie, map[string]any{
 		"default_sheet_ref": map[string]any{"kind": "view_schema", "id": "cartulary.view.task_requests.v1"},
 	})

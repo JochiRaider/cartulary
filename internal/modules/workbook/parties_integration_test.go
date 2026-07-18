@@ -13,47 +13,47 @@ import (
 )
 
 func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase9-i-9-03-party-links")
+	harness := workbookscenariotest.StartServer(t, "workbook_interaction-i-9-03-party-links")
 	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentData := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase9-i-9-03-incident",
+		"client_txn_id": "txn-workbook_interaction-i-9-03-incident",
 		"incident_key":  "IR-I903",
 		"title":         "Workbook inspector I-9-03 party links",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incidentData["incident_id"].(string))
 	otherIncidentData := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase9-i-9-03-other-incident",
+		"client_txn_id": "txn-workbook_interaction-i-9-03-other-incident",
 		"incident_key":  "IR-I903B",
 		"title":         "Workbook inspector I-9-03 other incident",
 	})
 	otherIncidentID := workbookscenariotest.MustUUID(t, otherIncidentData["incident_id"].(string))
 
 	partyData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1", map[string]any{
-		"client_txn_id":      "txn-phase9-i-9-03-party",
+		"client_txn_id":      "txn-workbook_interaction-i-9-03-party",
 		"party.display_name": "IR Vendor",
 		"party.party_kind":   "organization",
 	})
 	partyID := workbookscenariotest.MustUUID(t, partyData["row"].(map[string]any)["record_id"].(string))
 	otherPartyData := requireWorkbookCreate(t, harness, adminLogin, otherIncidentID, "cartulary.view.parties.v1", map[string]any{
-		"client_txn_id":      "txn-phase9-i-9-03-other-party",
+		"client_txn_id":      "txn-workbook_interaction-i-9-03-other-party",
 		"party.display_name": "Foreign Vendor",
 		"party.party_kind":   "organization",
 	})
 	otherPartyID := workbookscenariotest.MustUUID(t, otherPartyData["row"].(map[string]any)["record_id"].(string))
 	deletedPartyData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1", map[string]any{
-		"client_txn_id":      "txn-phase9-i-9-03-deleted-party",
+		"client_txn_id":      "txn-workbook_interaction-i-9-03-deleted-party",
 		"party.display_name": "Deleted Vendor",
 		"party.party_kind":   "organization",
 	})
 	deletedPartyID := workbookscenariotest.MustUUID(t, deletedPartyData["row"].(map[string]any)["record_id"].(string))
 	deleteDeletedTarget := deleteRecordViaWorkbookRoute(t, harness, adminLogin, deletedPartyID, map[string]any{
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase9-i-9-03-delete-target-party",
+		"client_txn_id":    "txn-workbook_interaction-i-9-03-delete-target-party",
 	})
 	httptestx.RequireSuccessEnvelope(t, deleteDeletedTarget, http.StatusOK)
 
 	evidenceData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.evidence.v1", map[string]any{
-		"client_txn_id":                 "txn-phase9-i-9-03-evidence",
+		"client_txn_id":                 "txn-workbook_interaction-i-9-03-evidence",
 		"evidence.title":                "Workbook inspector party text",
 		"evidence.collector_party_text": "Raw collector label",
 		"evidence.source_party_text":    "Raw source label",
@@ -66,7 +66,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 	linkedCollector := requireWorkbookPatch(t, harness, adminLogin, evidenceID, map[string]any{
 		"view_schema_id":   "cartulary.view.evidence.v1",
 		"base_row_version": evidenceRow["row_version"],
-		"client_txn_id":    "txn-phase9-i-9-03-link-collector",
+		"client_txn_id":    "txn-workbook_interaction-i-9-03-link-collector",
 		"changes": []map[string]any{
 			{"field_key": "evidence.collector_party_id", "value": partyID.String()},
 		},
@@ -77,7 +77,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 	clearedCollectorLink := requireWorkbookPatch(t, harness, adminLogin, evidenceID, map[string]any{
 		"view_schema_id":   "cartulary.view.evidence.v1",
 		"base_row_version": linkedCollector["row_version"],
-		"client_txn_id":    "txn-phase9-i-9-03-clear-collector-link",
+		"client_txn_id":    "txn-workbook_interaction-i-9-03-clear-collector-link",
 		"changes": []map[string]any{
 			{"field_key": "evidence.collector_party_id", "value": nil},
 		},
@@ -88,7 +88,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 	linkedSource := requireWorkbookPatch(t, harness, adminLogin, evidenceID, map[string]any{
 		"view_schema_id":   "cartulary.view.evidence.v1",
 		"base_row_version": clearedCollectorLink["row_version"],
-		"client_txn_id":    "txn-phase9-i-9-03-link-source",
+		"client_txn_id":    "txn-workbook_interaction-i-9-03-link-source",
 		"changes": []map[string]any{
 			{"field_key": "evidence.source_party_id", "value": partyID.String()},
 		},
@@ -99,7 +99,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 	clearedSourceText := requireWorkbookPatch(t, harness, adminLogin, evidenceID, map[string]any{
 		"view_schema_id":   "cartulary.view.evidence.v1",
 		"base_row_version": linkedSource["row_version"],
-		"client_txn_id":    "txn-phase9-i-9-03-clear-source-text",
+		"client_txn_id":    "txn-workbook_interaction-i-9-03-clear-source-text",
 		"changes": []map[string]any{
 			{"field_key": "evidence.source_party_text", "value": nil},
 		},
@@ -110,7 +110,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 	restoredSource := requireWorkbookPatch(t, harness, adminLogin, evidenceID, map[string]any{
 		"view_schema_id":   "cartulary.view.evidence.v1",
 		"base_row_version": clearedSourceText["row_version"],
-		"client_txn_id":    "txn-phase9-i-9-03-restore-source-both",
+		"client_txn_id":    "txn-workbook_interaction-i-9-03-restore-source-both",
 		"changes": []map[string]any{
 			{"field_key": "evidence.source_party_text", "value": "Raw source label restored"},
 			{"field_key": "evidence.source_party_id", "value": partyID.String()},
@@ -120,7 +120,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 	clearedBoth := requireWorkbookPatch(t, harness, adminLogin, evidenceID, map[string]any{
 		"view_schema_id":   "cartulary.view.evidence.v1",
 		"base_row_version": restoredSource["row_version"],
-		"client_txn_id":    "txn-phase9-i-9-03-clear-source-both",
+		"client_txn_id":    "txn-workbook_interaction-i-9-03-clear-source-both",
 		"changes": []map[string]any{
 			{"field_key": "evidence.source_party_text", "value": nil},
 			{"field_key": "evidence.source_party_id", "value": nil},
@@ -133,7 +133,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 	}
 
 	taskData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.task_requests.v1", map[string]any{
-		"client_txn_id":             "txn-phase9-i-9-03-task",
+		"client_txn_id":             "txn-workbook_interaction-i-9-03-task",
 		"task.title":                "Party requester task",
 		"task.task_kind":            "request",
 		"task.requester_party_text": "Requester raw text",
@@ -143,7 +143,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 	linkedRequester := requireWorkbookPatch(t, harness, adminLogin, taskID, map[string]any{
 		"view_schema_id":   "cartulary.view.task_requests.v1",
 		"base_row_version": taskRow["row_version"],
-		"client_txn_id":    "txn-phase9-i-9-03-link-requester",
+		"client_txn_id":    "txn-workbook_interaction-i-9-03-link-requester",
 		"changes": []map[string]any{
 			{"field_key": "task.requester_party_id", "value": partyID.String()},
 		},
@@ -204,7 +204,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 			resp := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", tc.recordID, map[string]any{
 				"view_schema_id":   tc.viewSchemaID,
 				"base_row_version": tc.baseRow["row_version"],
-				"client_txn_id":    "txn-phase9-i-9-03-" + tc.name + "-" + target.name,
+				"client_txn_id":    "txn-workbook_interaction-i-9-03-" + tc.name + "-" + target.name,
 				"changes": []map[string]any{
 					{"field_key": tc.fieldKey, "value": target.id.String()},
 				},
@@ -220,7 +220,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 	}
 
 	refOnlyTaskData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.task_requests.v1", map[string]any{
-		"client_txn_id":             "txn-phase9-i-9-03-task-ref-only",
+		"client_txn_id":             "txn-workbook_interaction-i-9-03-task-ref-only",
 		"task.title":                "Party requester ref-only task",
 		"task.task_kind":            "request",
 		"task.requester_party_text": "Requester raw text for ref-only clear",
@@ -230,7 +230,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 	linkedRefOnlyRequester := requireWorkbookPatch(t, harness, adminLogin, refOnlyTaskID, map[string]any{
 		"view_schema_id":   "cartulary.view.task_requests.v1",
 		"base_row_version": refOnlyTaskRow["row_version"],
-		"client_txn_id":    "txn-phase9-i-9-03-link-ref-only-requester",
+		"client_txn_id":    "txn-workbook_interaction-i-9-03-link-ref-only-requester",
 		"changes": []map[string]any{
 			{"field_key": "task.requester_party_id", "value": partyID.String()},
 		},
@@ -241,7 +241,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 	clearedRefOnlyText := requireWorkbookPatch(t, harness, adminLogin, refOnlyTaskID, map[string]any{
 		"view_schema_id":   "cartulary.view.task_requests.v1",
 		"base_row_version": linkedRefOnlyRequester["row_version"],
-		"client_txn_id":    "txn-phase9-i-9-03-clear-ref-only-requester-text",
+		"client_txn_id":    "txn-workbook_interaction-i-9-03-clear-ref-only-requester-text",
 		"changes": []map[string]any{
 			{"field_key": "task.requester_party_text", "value": nil},
 		},
@@ -256,7 +256,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 	clearedRefOnlyBoth := requireWorkbookPatch(t, harness, adminLogin, refOnlyTaskID, map[string]any{
 		"view_schema_id":   "cartulary.view.task_requests.v1",
 		"base_row_version": clearedRefOnlyText["row_version"],
-		"client_txn_id":    "txn-phase9-i-9-03-clear-ref-only-requester-both",
+		"client_txn_id":    "txn-workbook_interaction-i-9-03-clear-ref-only-requester-both",
 		"changes": []map[string]any{
 			{"field_key": "task.requester_party_text", "value": nil},
 			{"field_key": "task.requester_party_id", "value": nil},
@@ -286,7 +286,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 	beforeReferencedDeleteRevisions := partyRecordRevisionCount(t, harness, partyID)
 	referencedDelete := deleteRecordViaWorkbookRoute(t, harness, adminLogin, partyID, map[string]any{
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase9-i-9-03-delete-referenced-party",
+		"client_txn_id":    "txn-workbook_interaction-i-9-03-delete-referenced-party",
 	})
 	referencedDeleteBody := httptestx.RequireErrorEnvelope(t, referencedDelete, http.StatusConflict, "record_delete_blocked")
 	referencedDeleteDetails := referencedDeleteBody["error"].(map[string]any)["details"].(map[string]any)
@@ -301,14 +301,14 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 	}
 
 	collectionPartyData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1", map[string]any{
-		"client_txn_id":      "txn-phase9-i-9-03-collection-party",
+		"client_txn_id":      "txn-workbook_interaction-i-9-03-collection-party",
 		"party.display_name": "Collection Party",
 		"party.party_kind":   "team",
 	})
 	collectionPartyID := workbookscenariotest.MustUUID(t, collectionPartyData["row"].(map[string]any)["record_id"].(string))
 
 	commData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1", map[string]any{
-		"client_txn_id":               "txn-phase9-i-9-03-comm-preservation",
+		"client_txn_id":               "txn-workbook_interaction-i-9-03-comm-preservation",
 		"comm_log.comm_type":          "briefing",
 		"comm_log.audience":           "Collection audience preserved",
 		"comm_log.channel_or_meeting": "Bridge",
@@ -320,7 +320,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 		linkedComm := requireWorkbookPatch(t, harness, adminLogin, commID, map[string]any{
 			"view_schema_id":   "cartulary.view.comm_log.v1",
 			"base_row_version": commRow["row_version"],
-			"client_txn_id":    "txn-phase9-i-9-03-add-" + fieldKey,
+			"client_txn_id":    "txn-workbook_interaction-i-9-03-add-" + fieldKey,
 			"changes": []map[string]any{
 				{"field_key": fieldKey, "action_payload": collectionActions(addPartyRef(collectionPartyID))},
 			},
@@ -331,7 +331,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 		clearedComm := requireWorkbookPatch(t, harness, adminLogin, commID, map[string]any{
 			"view_schema_id":   "cartulary.view.comm_log.v1",
 			"base_row_version": linkedComm["row_version"],
-			"client_txn_id":    "txn-phase9-i-9-03-remove-" + fieldKey,
+			"client_txn_id":    "txn-workbook_interaction-i-9-03-remove-" + fieldKey,
 			"changes": []map[string]any{
 				{"field_key": fieldKey, "action_payload": collectionActions(removePartyRef(collectionPartyID))},
 			},
@@ -354,7 +354,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 			resp := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", commID, map[string]any{
 				"view_schema_id":   "cartulary.view.comm_log.v1",
 				"base_row_version": commRow["row_version"],
-				"client_txn_id":    "txn-phase9-i-9-03-" + fieldKey + "-" + target.name,
+				"client_txn_id":    "txn-workbook_interaction-i-9-03-" + fieldKey + "-" + target.name,
 				"changes": []map[string]any{
 					{"field_key": fieldKey, "action_payload": collectionActions(addPartyRef(target.id))},
 				},
@@ -370,7 +370,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 	}
 
 	requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1", map[string]any{
-		"client_txn_id":               "txn-phase9-i-9-03-comm-party-ref",
+		"client_txn_id":               "txn-workbook_interaction-i-9-03-comm-party-ref",
 		"comm_log.comm_type":          "briefing",
 		"comm_log.audience":           "Collection audience",
 		"comm_log.channel_or_meeting": "Bridge",
@@ -379,7 +379,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 	})
 	collectionDelete := deleteRecordViaWorkbookRoute(t, harness, adminLogin, collectionPartyID, map[string]any{
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase9-i-9-03-delete-collection-party",
+		"client_txn_id":    "txn-workbook_interaction-i-9-03-delete-collection-party",
 	})
 	httptestx.RequireErrorEnvelope(t, collectionDelete, http.StatusConflict, "record_delete_blocked")
 	if got := partyRecordCount(t, harness, collectionPartyID, "deleted_at IS NULL AND row_version = 1"); got != 1 {
@@ -389,7 +389,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 	clearedRequester := requireWorkbookPatch(t, harness, adminLogin, taskID, map[string]any{
 		"view_schema_id":   "cartulary.view.task_requests.v1",
 		"base_row_version": linkedRequester["row_version"],
-		"client_txn_id":    "txn-phase9-i-9-03-clear-requester-before-delete",
+		"client_txn_id":    "txn-workbook_interaction-i-9-03-clear-requester-before-delete",
 		"changes": []map[string]any{
 			{"field_key": "task.requester_party_id", "value": nil},
 		},
@@ -398,7 +398,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 	requireCellValue(t, clearedRequester, "task.requester_party_id", nil)
 	unreferencedDelete := deleteRecordViaWorkbookRoute(t, harness, adminLogin, partyID, map[string]any{
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase9-i-9-03-delete-unreferenced-party",
+		"client_txn_id":    "txn-workbook_interaction-i-9-03-delete-unreferenced-party",
 	})
 	httptestx.RequireSuccessEnvelope(t, unreferencedDelete, http.StatusOK)
 	if got := partyRecordCount(t, harness, partyID, "deleted_at IS NOT NULL AND deleted_by_user_id = $2 AND row_version = 2", adminUserID); got != 1 {

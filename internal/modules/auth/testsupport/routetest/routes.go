@@ -123,68 +123,68 @@ func ValidateRouteInventory(t testing.TB, routes []RouteInventoryEntry) {
 
 	for _, route := range routes {
 		if route.Method == "" {
-			t.Fatalf("phase1 route %s missing method", route.ID)
+			t.Fatalf("authentication route %s missing method", route.ID)
 		}
 		if route.Template == "" {
-			t.Fatalf("phase1 route %s missing template", route.ID)
+			t.Fatalf("authentication route %s missing template", route.ID)
 		}
 		if route.SuccessStatus == 0 {
-			t.Fatalf("phase1 route %s missing success status", route.ID)
+			t.Fatalf("authentication route %s missing success status", route.ID)
 		}
 		if route.HarnessRequirements == nil {
-			t.Fatalf("phase1 route %s missing harness requirements", route.ID)
+			t.Fatalf("authentication route %s missing harness requirements", route.ID)
 		}
 		for _, harness := range routeHarnessClasses {
 			requirement, ok := route.HarnessRequirements[harness]
 			if !ok {
-				t.Fatalf("phase1 route %s missing harness requirement for %s", route.ID, harness)
+				t.Fatalf("authentication route %s missing harness requirement for %s", route.ID, harness)
 			}
 			if requirement != RouteHarnessRequired && requirement != RouteHarnessNotApplicable {
-				t.Fatalf("phase1 route %s has invalid harness requirement %q for %s", route.ID, requirement, harness)
+				t.Fatalf("authentication route %s has invalid harness requirement %q for %s", route.ID, requirement, harness)
 			}
 		}
 		if route.Transport == RouteTransportWebSocket {
 			if route.HarnessRequirements[RouteHarnessSurfaceEnvelope] != RouteHarnessNotApplicable {
-				t.Fatalf("phase1 websocket route %s must not require the surface envelope harness", route.ID)
+				t.Fatalf("authentication websocket route %s must not require the surface envelope harness", route.ID)
 			}
 		}
 		if route.RequiresCSRF && route.HarnessRequirements[RouteHarnessCSRF] != RouteHarnessRequired {
-			t.Fatalf("phase1 route %s requires csrf but matrix marks %s", route.ID, route.HarnessRequirements[RouteHarnessCSRF])
+			t.Fatalf("authentication route %s requires csrf but matrix marks %s", route.ID, route.HarnessRequirements[RouteHarnessCSRF])
 		}
 		if !route.RequiresCSRF && route.HarnessRequirements[RouteHarnessCSRF] != RouteHarnessNotApplicable {
-			t.Fatalf("phase1 route %s does not require csrf but matrix marks %s", route.ID, route.HarnessRequirements[RouteHarnessCSRF])
+			t.Fatalf("authentication route %s does not require csrf but matrix marks %s", route.ID, route.HarnessRequirements[RouteHarnessCSRF])
 		}
 		switch route.AuthorizationChange {
 		case RouteAuthorizationNotApplicable:
 			if route.HarnessRequirements[RouteHarnessAuthorization] != RouteHarnessNotApplicable {
-				t.Fatalf("phase1 route %s marks authorization n/a but matrix requires it", route.ID)
+				t.Fatalf("authentication route %s marks authorization n/a but matrix requires it", route.ID)
 			}
 		case RouteAuthorizationDemoteDeploymentAdmin:
 			if route.HarnessRequirements[RouteHarnessAuthorization] != RouteHarnessRequired {
-				t.Fatalf("phase1 route %s must require authorization re-derivation", route.ID)
+				t.Fatalf("authentication route %s must require authorization re-derivation", route.ID)
 			}
 			if route.AuthorizationStatus == 0 || route.AuthorizationCode == "" {
-				t.Fatalf("phase1 route %s missing authorization expectation", route.ID)
+				t.Fatalf("authentication route %s missing authorization expectation", route.ID)
 			}
 		default:
-			t.Fatalf("phase1 route %s has invalid authorization change %q", route.ID, route.AuthorizationChange)
+			t.Fatalf("authentication route %s has invalid authorization change %q", route.ID, route.AuthorizationChange)
 		}
 		if route.RequestContracts.Empty() {
 			if route.HarnessRequirements[RouteHarnessRequestContracts] != RouteHarnessNotApplicable {
-				t.Fatalf("phase1 route %s has no request contracts but matrix requires them", route.ID)
+				t.Fatalf("authentication route %s has no request contracts but matrix requires them", route.ID)
 			}
 		} else {
 			if route.HarnessRequirements[RouteHarnessRequestContracts] != RouteHarnessRequired {
-				t.Fatalf("phase1 route %s has request contracts but matrix does not require them", route.ID)
+				t.Fatalf("authentication route %s has request contracts but matrix does not require them", route.ID)
 			}
 			for _, contract := range route.RequestContracts.ClosedVocabulary {
 				if contract.Field == "" {
-					t.Fatalf("phase1 route %s has a closed-vocabulary contract with no field", route.ID)
+					t.Fatalf("authentication route %s has a closed-vocabulary contract with no field", route.ID)
 				}
 			}
 			for _, contract := range route.RequestContracts.WritableStrings {
 				if contract.Field == "" {
-					t.Fatalf("phase1 route %s has a writable-string contract with no field", route.ID)
+					t.Fatalf("authentication route %s has a writable-string contract with no field", route.ID)
 				}
 			}
 		}

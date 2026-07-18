@@ -10,7 +10,7 @@ import (
 )
 
 func TestIncidentCreateListAndWorkbookPrefs_Process(t *testing.T) {
-	server := startServerProcess(t, "phase2-e-2-01")
+	server := startServerProcess(t, "incident_membership-e-2-01")
 
 	adminLogin, _ := ProvisionBootstrapAdmin(t, server)
 	created := CreateIncident(t, server, adminLogin.sessionCookie, adminLogin.csrfCookie, map[string]any{
@@ -48,7 +48,7 @@ func TestIncidentCreateListAndWorkbookPrefs_Process(t *testing.T) {
 }
 
 func TestIncidentValidationAndPatch_Process(t *testing.T) {
-	server := startServerProcess(t, "phase2-e-2-02")
+	server := startServerProcess(t, "incident_membership-e-2-02")
 
 	adminLogin, _ := ProvisionBootstrapAdmin(t, server)
 
@@ -109,19 +109,19 @@ func TestIncidentValidationAndPatch_Process(t *testing.T) {
 }
 
 func TestMembershipAdminFlow_Process(t *testing.T) {
-	server := startServerProcess(t, "phase2-e-2-03")
+	server := startServerProcess(t, "incident_membership-e-2-03")
 
 	adminLogin, _ := ProvisionBootstrapAdmin(t, server)
 	createdUser := CreateUser(t, server, adminLogin.sessionCookie, adminLogin.csrfCookie, map[string]any{
 		"client_txn_id":    "txn-e-2-03-user",
 		"auth_kind":        "local",
-		"email":            "phase2-e-2-03@example.test",
-		"display_name":     "Phase2 E203",
-		"initial_password": "Phase2E203Pass!",
+		"email":            "incident_membership-e-2-03@example.test",
+		"display_name":     "IncidentMembership E203",
+		"initial_password": "IncidentMembershipE203Pass!",
 		"mfa_required":     false,
 	})
 	userID := createdUser["user_id"].(string)
-	userLogin := LoginLocalUserWithSecondFactor(t, server, "phase2-e-2-03@example.test", "Phase2E203Pass!", "")
+	userLogin := LoginLocalUserWithSecondFactor(t, server, "incident_membership-e-2-03@example.test", "IncidentMembershipE203Pass!", "")
 
 	incident := CreateIncident(t, server, adminLogin.sessionCookie, adminLogin.csrfCookie, map[string]any{
 		"client_txn_id": "txn-e-2-03-incident",
@@ -168,7 +168,7 @@ func TestMembershipAdminFlow_Process(t *testing.T) {
 }
 
 func TestMembershipPatchDeleteAndLastAdmin_Process(t *testing.T) {
-	server := startServerProcess(t, "phase2-e-2-04")
+	server := startServerProcess(t, "incident_membership-e-2-04")
 
 	adminLogin, _ := ProvisionBootstrapAdmin(t, server)
 	adminSession := adminLogin.sessionCookie
@@ -179,9 +179,9 @@ func TestMembershipPatchDeleteAndLastAdmin_Process(t *testing.T) {
 	createdUser := CreateUser(t, server, adminSession, adminCSRF, map[string]any{
 		"client_txn_id":    "txn-e-2-04-user",
 		"auth_kind":        "local",
-		"email":            "phase2-e-2-04@example.test",
-		"display_name":     "Phase2 E204",
-		"initial_password": "Phase2E204Pass!",
+		"email":            "incident_membership-e-2-04@example.test",
+		"display_name":     "IncidentMembership E204",
+		"initial_password": "IncidentMembershipE204Pass!",
 	})
 	userID := createdUser["user_id"].(string)
 	incident := CreateIncident(t, server, adminSession, adminCSRF, map[string]any{
@@ -251,19 +251,19 @@ func TestMembershipPatchDeleteAndLastAdmin_Process(t *testing.T) {
 }
 
 func TestExtensionDiscoveryAndReservedRoutes_Process(t *testing.T) {
-	server := startServerProcess(t, "phase2-e-2-05")
+	server := startServerProcess(t, "incident_membership-e-2-05")
 
 	adminLogin, _ := ProvisionBootstrapAdmin(t, server)
 	createdUser := CreateUser(t, server, adminLogin.sessionCookie, adminLogin.csrfCookie, map[string]any{
 		"client_txn_id":    "txn-e-2-05-user",
 		"auth_kind":        "local",
-		"email":            "phase2-e-2-05@example.test",
-		"display_name":     "Phase2 E205",
-		"initial_password": "Phase2E205Pass!",
+		"email":            "incident_membership-e-2-05@example.test",
+		"display_name":     "IncidentMembership E205",
+		"initial_password": "IncidentMembershipE205Pass!",
 		"mfa_required":     false,
 	})
 	userID := createdUser["user_id"].(string)
-	userLogin := LoginLocalUserWithSecondFactor(t, server, "phase2-e-2-05@example.test", "Phase2E205Pass!", "")
+	userLogin := LoginLocalUserWithSecondFactor(t, server, "incident_membership-e-2-05@example.test", "IncidentMembershipE205Pass!", "")
 
 	extensions := DoJSON(t, server, http.MethodGet, "/api/v1/extensions", nil, withCookies(userLogin.sessionCookie))
 	extensionsBody := httptestx.RequireSuccessEnvelope(t, extensions, http.StatusOK)["data"].(map[string]any)
@@ -298,7 +298,7 @@ func requireSmokeExtensionClaim(t testing.TB, body map[string]any, profileID str
 }
 
 func TestDeploymentAdminBoundary_Process(t *testing.T) {
-	server := startServerProcess(t, "phase2-e-2-06")
+	server := startServerProcess(t, "incident_membership-e-2-06")
 
 	adminLogin, _ := ProvisionBootstrapAdmin(t, server)
 	incident := CreateIncident(t, server, adminLogin.sessionCookie, adminLogin.csrfCookie, map[string]any{
@@ -311,14 +311,14 @@ func TestDeploymentAdminBoundary_Process(t *testing.T) {
 	deploymentOnly := CreateUser(t, server, adminLogin.sessionCookie, adminLogin.csrfCookie, map[string]any{
 		"client_txn_id":       "txn-e-2-06-user",
 		"auth_kind":           "local",
-		"email":               "phase2-e-2-06@example.test",
-		"display_name":        "Phase2 E206",
-		"initial_password":    "Phase2E206Pass!",
+		"email":               "incident_membership-e-2-06@example.test",
+		"display_name":        "IncidentMembership E206",
+		"initial_password":    "IncidentMembershipE206Pass!",
 		"mfa_required":        false,
 		"is_deployment_admin": true,
 	})
 	_ = deploymentOnly
-	deploymentLogin := LoginLocalUserWithSecondFactor(t, server, "phase2-e-2-06@example.test", "Phase2E206Pass!", "")
+	deploymentLogin := LoginLocalUserWithSecondFactor(t, server, "incident_membership-e-2-06@example.test", "IncidentMembershipE206Pass!", "")
 
 	getIncident := DoJSON(t, server, http.MethodGet, "/api/v1/incidents/"+incidentID, nil, withCookies(deploymentLogin.sessionCookie))
 	httptestx.RequireErrorEnvelope(t, getIncident, http.StatusNotFound, "incident_not_found")

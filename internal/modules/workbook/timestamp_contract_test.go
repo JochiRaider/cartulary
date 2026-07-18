@@ -108,7 +108,7 @@ func patchPayload(t testing.TB, viewSchemaID string, fieldKey string, value any)
 	payload := map[string]any{
 		"view_schema_id":   viewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase9-u-9-10",
+		"client_txn_id":    "txn-workbook_interaction-u-9-10",
 		"changes": []map[string]any{
 			{
 				"field_key": fieldKey,

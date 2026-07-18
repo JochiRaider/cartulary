@@ -18,7 +18,7 @@ func TestWorkbookOpenAPIRecordMutationContracts(t *testing.T) {
 		t.Fatalf("OpenAPI title still advertises stale Timeline Timeline-only scope: %q", title)
 	}
 	version := workbookStringAt(t, info, "version")
-	if strings.Contains(version, "phase3") {
+	if strings.Contains(version, "timeline_mutation") {
 		t.Fatalf("OpenAPI version still advertises Timeline scope: %q", version)
 	}
 

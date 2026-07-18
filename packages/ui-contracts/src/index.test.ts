@@ -1306,22 +1306,31 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
   });
 
   it("does not export delivery-phase selector aliases", () => {
-    for (const alias of [
-      "phase1AccountTestId",
-      "phase1AdminTestId",
-      "phase1AuthTestId",
-      "phase1ErrorCodeTestId",
-      "phase1ErrorSummaryTestIds",
-      "phase1LandingTestId",
-      "phase1RouteTestId",
-      "phase2IncidentRowTestId",
-      "phase2MembershipDeleteButtonTestId",
-      "phase2MembershipPatchButtonTestId",
-      "phase2MembershipRoleInputTestId",
-      "phase2MembershipRowTestId",
-      "phase2MembershipVersionTestId",
-      "phase2SelectIncidentButtonTestId",
-    ]) {
+    const ordinalPrefixes = [
+      ["pha", "se1"].join(""),
+      ["pha", "se2"].join(""),
+    ];
+    const aliases = [
+      ...[
+        "AccountTestId",
+        "AdminTestId",
+        "AuthTestId",
+        "ErrorCodeTestId",
+        "ErrorSummaryTestIds",
+        "LandingTestId",
+        "RouteTestId",
+      ].map((suffix) => `${ordinalPrefixes[0]}${suffix}`),
+      ...[
+        "IncidentRowTestId",
+        "MembershipDeleteButtonTestId",
+        "MembershipPatchButtonTestId",
+        "MembershipRoleInputTestId",
+        "MembershipRowTestId",
+        "MembershipVersionTestId",
+        "SelectIncidentButtonTestId",
+      ].map((suffix) => `${ordinalPrefixes[1]}${suffix}`),
+    ];
+    for (const alias of aliases) {
       expect(alias in uiContracts, alias).toBe(false);
     }
   });

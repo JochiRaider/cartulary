@@ -20,10 +20,10 @@ function targetRows(ctx) {
       }
       return row.owner_id === ctx.ownerSelection;
     });
-    if (ctx.ownerRowIDs.length === 0) {
+    if (ctx.selectedRowIDs.length === 0) {
       ctx.targetPlanRows = ownerRows;
     } else {
-      const selectedIDs = new Set(ctx.ownerRowIDs);
+      const selectedIDs = new Set(ctx.selectedRowIDs);
       const selectedTargets = new Set(
         ownerRows
           .filter((row) => selectedIDs.has(row.id))

@@ -14,11 +14,11 @@ import (
 )
 
 func TestWorkbookRouteGuardsFailBeforeMutation(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase9-workbook-route-guards")
+	harness := workbookscenariotest.StartServer(t, "workbook_interaction-workbook-route-guards")
 	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase9-workbook-route-guards-incident",
-		"incident_key":  "IR-PHASE9-ROUTE-GUARDS",
+		"client_txn_id": "txn-workbook_interaction-workbook-route-guards-incident",
+		"incident_key":  "IR-WORKBOOK-INTERACTION-ROUTE-GUARDS",
 		"title":         "Workbook inspector workbook route guards",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
@@ -29,7 +29,7 @@ func TestWorkbookRouteGuardsFailBeforeMutation(t *testing.T) {
 
 	beforeAuth := snapshotWorkbookRouteGuardState(t, harness, incidentID)
 	body := map[string]any{
-		"client_txn_id": "txn-phase9-workbook-route-guards-auth",
+		"client_txn_id": "txn-workbook_interaction-workbook-route-guards-auth",
 		"note.title":    "guarded note",
 	}
 
@@ -62,7 +62,7 @@ func TestWorkbookRouteGuardsFailBeforeMutation(t *testing.T) {
 	workbookscenariotest.ExpectNoSocketMessage(t, socket)
 
 	noteData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.notes.v1", map[string]any{
-		"client_txn_id": "txn-phase9-workbook-route-guards-note",
+		"client_txn_id": "txn-workbook_interaction-workbook-route-guards-note",
 		"note.title":    "closed incident guard note",
 	})
 	recordID := workbookscenariotest.MustUUID(t, noteData["row"].(map[string]any)["record_id"].(string))
@@ -81,7 +81,7 @@ UPDATE incidents
 
 	beforeClosed := snapshotWorkbookRouteGuardState(t, harness, incidentID)
 	closedCreate := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.notes.v1", uuid.Nil, map[string]any{
-		"client_txn_id": "txn-phase9-workbook-route-guards-closed-create",
+		"client_txn_id": "txn-workbook_interaction-workbook-route-guards-closed-create",
 		"note.title":    "blocked after close",
 	})
 	httptestx.RequireErrorEnvelope(t, closedCreate, http.StatusConflict, "incident_closed")
@@ -89,7 +89,7 @@ UPDATE incidents
 	closedPatch := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
 		"view_schema_id":   "cartulary.view.notes.v1",
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase9-workbook-route-guards-closed-patch",
+		"client_txn_id":    "txn-workbook_interaction-workbook-route-guards-closed-patch",
 		"changes": []map[string]any{{
 			"field_key": "note.title",
 			"value":     "blocked patch after close",
@@ -107,12 +107,12 @@ UPDATE incidents
 func requireConflictResolveSecurityPrecedence(t testing.TB, harness *workbookscenariotest.ServerHarness, adminLogin workbookscenariotest.LoginResult, adminUserID uuid.UUID, incidentID uuid.UUID) {
 	t.Helper()
 
-	note := CreateNote(t, harness, adminLogin, incidentID, "txn-phase9-conflict-guard-create", "Conflict guard", "Conflict guard body")
+	note := CreateNote(t, harness, adminLogin, incidentID, "txn-workbook_interaction-conflict-guard-create", "Conflict guard", "Conflict guard body")
 	recordID := workbookscenariotest.MustUUID(t, note["record_id"].(string))
 	requireWorkbookPatch(t, harness, adminLogin, recordID, map[string]any{
 		"view_schema_id":   NotesViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase9-conflict-guard-server",
+		"client_txn_id":    "txn-workbook_interaction-conflict-guard-server",
 		"changes": []map[string]any{{
 			"field_key": "note.title",
 			"value":     "Conflict guard server",
@@ -121,7 +121,7 @@ func requireConflictResolveSecurityPrecedence(t testing.TB, harness *workbooksce
 	conflictResponse := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
 		"view_schema_id":   NotesViewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-phase9-conflict-guard-client",
+		"client_txn_id":    "txn-workbook_interaction-conflict-guard-client",
 		"changes": []map[string]any{{
 			"field_key": "note.title",
 			"value":     "Conflict guard client",
@@ -132,27 +132,27 @@ func requireConflictResolveSecurityPrecedence(t testing.TB, harness *workbooksce
 	validBody := map[string]any{
 		"conflict_token":  conflictToken,
 		"resolution_kind": "keep_saved",
-		"client_txn_id":   "txn-phase9-conflict-guard-resolution",
+		"client_txn_id":   "txn-workbook_interaction-conflict-guard-resolution",
 	}
 	resolveURL := harness.Server.HTTP.URL + "/api/v1/records/" + recordID.String() + "/conflicts/" + conflictToken + "/resolve"
 	invalidTokenURL := harness.Server.HTTP.URL + "/api/v1/records/" + recordID.String() + "/conflicts/not-a-token/resolve"
 
-	viewer := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "phase9-conflict-viewer@example.test", "Workbook inspector Conflict Viewer", "Phase9ConflictViewer1!", false, false, true)
+	viewer := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "workbook_interaction-conflict-viewer@example.test", "Workbook inspector Conflict Viewer", "WorkbookInteractionConflictViewer1!", false, false, true)
 	workbookscenariotest.SeedIncidentMembership(t, harness.DB, incidentID, viewer.ID, viewer.DisplayName, "viewer", adminUserID)
-	viewerLogin := LoginLocalUserNoMFA(t, harness, viewer.Email, "Phase9ConflictViewer1!")
-	nonMember := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "phase9-conflict-nonmember@example.test", "Workbook inspector Conflict Nonmember", "Phase9ConflictNonmember1!", false, false, true)
-	nonMemberLogin := LoginLocalUserNoMFA(t, harness, nonMember.Email, "Phase9ConflictNonmember1!")
+	viewerLogin := LoginLocalUserNoMFA(t, harness, viewer.Email, "WorkbookInteractionConflictViewer1!")
+	nonMember := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "workbook_interaction-conflict-nonmember@example.test", "Workbook inspector Conflict Nonmember", "WorkbookInteractionConflictNonmember1!", false, false, true)
+	nonMemberLogin := LoginLocalUserNoMFA(t, harness, nonMember.Email, "WorkbookInteractionConflictNonmember1!")
 
-	otherNote := CreateNote(t, harness, adminLogin, incidentID, "txn-phase9-conflict-guard-other-record", "Other record", "Other body")
+	otherNote := CreateNote(t, harness, adminLogin, incidentID, "txn-workbook_interaction-conflict-guard-other-record", "Other record", "Other body")
 	otherRecordID := workbookscenariotest.MustUUID(t, otherNote["record_id"].(string))
 	wrongRecordURL := harness.Server.HTTP.URL + "/api/v1/records/" + otherRecordID.String() + "/conflicts/" + conflictToken + "/resolve"
 	otherIncident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase9-conflict-guard-other-incident",
-		"incident_key":  "IR-PHASE9-CONFLICT-OTHER",
+		"client_txn_id": "txn-workbook_interaction-conflict-guard-other-incident",
+		"incident_key":  "IR-WORKBOOK-INTERACTION-CONFLICT-OTHER",
 		"title":         "Workbook inspector conflict other incident",
 	})
 	otherIncidentID := workbookscenariotest.MustUUID(t, otherIncident["incident_id"].(string))
-	otherIncidentNote := CreateNote(t, harness, adminLogin, otherIncidentID, "txn-phase9-conflict-guard-cross-incident-record", "Cross incident record", "Cross incident body")
+	otherIncidentNote := CreateNote(t, harness, adminLogin, otherIncidentID, "txn-workbook_interaction-conflict-guard-cross-incident-record", "Cross incident record", "Cross incident body")
 	otherIncidentRecordID := workbookscenariotest.MustUUID(t, otherIncidentNote["record_id"].(string))
 	crossIncidentURL := harness.Server.HTTP.URL + "/api/v1/records/" + otherIncidentRecordID.String() + "/conflicts/" + conflictToken + "/resolve"
 	missingRecordURL := harness.Server.HTTP.URL + "/api/v1/records/00000000-0000-4000-8000-000000009999/conflicts/not-a-token/resolve"
@@ -191,7 +191,7 @@ func requireConflictResolveSecurityPrecedence(t testing.TB, harness *workbooksce
 	invalidBody := workbookscenariotest.DoJSON(t, http.MethodPost, resolveURL, map[string]any{
 		"conflict_token":  "different-token",
 		"resolution_kind": "keep_saved",
-		"client_txn_id":   "txn-phase9-conflict-guard-invalid-body",
+		"client_txn_id":   "txn-workbook_interaction-conflict-guard-invalid-body",
 	}, workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	httptestx.RequireErrorEnvelope(t, invalidBody, http.StatusBadRequest, "invalid_mutation_payload")
 

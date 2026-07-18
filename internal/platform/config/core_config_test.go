@@ -699,7 +699,7 @@ func setRootBinding(cfg Config, rootName string, binding RootBinding) Config {
 	case "export_outputs":
 		cfg.Roots.ExportOutputs = binding
 	default:
-		panic("unknown phase0 root name: " + rootName)
+		panic("unknown bootstrap root name: " + rootName)
 	}
 
 	return cfg

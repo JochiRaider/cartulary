@@ -139,7 +139,7 @@ test("Verify saved-view create/update/select/default UI uses active surface scop
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("FEIP801"),
-    "Workbook query FE-I-P8-01 saved-view UI integration",
+    "Workbook query integration.saved-view-query.row-01 saved-view UI integration",
   );
   const timelineRow = await createViewRow(
     page,
@@ -147,7 +147,8 @@ test("Verify saved-view create/update/select/default UI uses active surface scop
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("feip801-row"),
-      "timeline.activity_synopsis_text": "FE-I-P8 saved view row",
+      "timeline.activity_synopsis_text":
+        "integration.saved-view-query saved view row",
     },
   );
   const privateSavedView = await createSavedView(page, incidentId, {
@@ -405,7 +406,7 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("FEBP801"),
-    "Workbook query FE-B-P8-01 browser helper coverage",
+    "Workbook query browser.saved-view-query.row-01 browser helper coverage",
   );
   const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("febp801-alpha"),
@@ -665,7 +666,7 @@ test("Verify saved-view persistence, default/startup surface persistence, and qu
   await verifySavedViewPersistenceReplay(
     page,
     "FEEP801",
-    "Workbook query FE-E-P8-01 persisted query replay",
+    "Workbook query end-to-end.saved-view-query.row-01 persisted query replay",
   );
 });
 
@@ -1075,9 +1076,9 @@ test("workbook startup falls back to Timeline for an unsupported explicit sheet"
     display_name: "Workbook query hidden home",
     view_schema_id: hostsViewSchemaId,
   });
-  const viewerPassword = "Phase8E802Viewer!";
+  const viewerPassword = "SavedViewQueryE802Viewer!";
   const viewer = await createIncidentMemberUser(page, incidentId, {
-    email: uniqueEmail("phase8-e802-viewer"),
+    email: uniqueEmail("saved_view_query-e802-viewer"),
     display_name: "Workbook query E-8-02 Viewer",
     initial_password: viewerPassword,
     role: "viewer",

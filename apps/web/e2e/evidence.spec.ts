@@ -332,7 +332,10 @@ test("tracks requested evidence before a blob exists and later advances it", asy
     .setInputFiles({
       name: "requested.txt",
       mimeType: "text/plain",
-      buffer: Buffer.from("phase5 requested evidence payload", "utf8"),
+      buffer: Buffer.from(
+        "evidence_lifecycle requested evidence payload",
+        "utf8",
+      ),
     });
 
   const advanced = await waitForEvidenceRow(

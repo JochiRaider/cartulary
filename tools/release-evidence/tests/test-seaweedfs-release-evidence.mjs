@@ -239,7 +239,7 @@ const currentResultsDir = ".cartulary/test-results";
 const currentRunID = "unit-current-run";
 const currentCompatibilityReportPath = `${currentResultsDir}/${currentRunID}/seaweedfs-compatibility/object-store-compatibility-report.json`;
 const passingCompatibilitySummary = {
-  schema_id: "cartulary.tool_run_summary.v4",
+  schema_id: "cartulary.tool_run_summary.v5",
   target: "seaweedfs-compatibility",
   status: "pass",
 };
@@ -331,7 +331,7 @@ const failedSummaryCompatibility = buildSeaweedFSCompatibilityEvidence({
   currentResultsDir,
   currentRunId: currentRunID,
   targetSummary: {
-    schema_id: "cartulary.tool_run_summary.v4",
+    schema_id: "cartulary.tool_run_summary.v5",
     target: "seaweedfs-compatibility",
     status: "fail",
   },

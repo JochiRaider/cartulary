@@ -23,7 +23,7 @@
           "scenario_49ef3edfd325"
         ],
         "titles": [
-          "FE-A11Y-P8-01 Verify sort, filter, group, saved-view menu, active chips, group expand-collapse, and default/startup controls are keyboard reachable and announced."
+          "a11y.saved-view-query.row-01 Verify sort, filter, group, saved-view menu, active chips, group expand-collapse, and default/startup controls are keyboard reachable and announced."
         ]
       },
       "evidence_class": "accessibility",

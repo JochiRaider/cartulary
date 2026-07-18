@@ -50,8 +50,6 @@ export const retiredPublicMakeVariables = Object.freeze([
   "BROWSER_SUPPORT_RESULTS_DIR",
   "BROWSER_VISUAL_RESULTS_DIR",
   "CHECK_RESULTS_DIR",
-  "PHASE",
-  "PHASE_NAMESPACE",
 ]);
 
 export function resolveRepoPath(value) {

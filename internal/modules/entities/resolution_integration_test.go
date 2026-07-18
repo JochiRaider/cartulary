@@ -28,10 +28,10 @@ import (
 // I-4-01 / REQ-01-196..REQ-01-227, REQ-02-039..REQ-02-044 / AC-188..AC-190, AC-221..AC-225.
 func TestResolveRoute_Integration(t *testing.T) {
 	t.Run("resolve_item uses authoritative route replay and history conformance", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-i-4-01-resolve-conformance")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-01-resolve-conformance")
 		adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-i-4-01-resolve-conf-incident",
+			"client_txn_id": "txn-entity_linking-i-4-01-resolve-conf-incident",
 			"incident_key":  "IR-I401-RC",
 			"title":         "Record relationships I-4-01 resolve conformance",
 		})
@@ -51,7 +51,7 @@ func TestResolveRoute_Integration(t *testing.T) {
 		workbookscenariotest.RequireRouteReplayHistoryConformance(t, harness.DB, harness.Server.HTTP.URL, workbookscenariotest.RouteConformanceCase{
 			Route:                  route,
 			Context:                ctx,
-			ClientTxnID:            "txn-phase4-i-4-01-resolve-conformance",
+			ClientTxnID:            "txn-entity_linking-i-4-01-resolve-conformance",
 			Login:                  adminLogin,
 			ActorUserID:            adminUserID.String(),
 			ExpectedMutationSource: "entities.entity_mentions.resolve",
@@ -65,10 +65,10 @@ func TestResolveRoute_Integration(t *testing.T) {
 	})
 
 	t.Run("resolve_item persists durable state, replays idempotently, and emits websocket invalidation", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-i-4-01-resolve")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-01-resolve")
 		adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-i-4-01-resolve-incident",
+			"client_txn_id": "txn-entity_linking-i-4-01-resolve-incident",
 			"incident_key":  "IR-I401-R",
 			"title":         "Record relationships I-4-01 resolve route",
 		})
@@ -82,7 +82,7 @@ func TestResolveRoute_Integration(t *testing.T) {
 		hostSocket := workbookscenariotest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordHostsViewSchemaID, adminLogin.SessionCookie.Value)
 		defer hostSocket.Close(1000, "test_complete")
 
-		payload := fixtures.MentionResolveRoutePayload(1, "txn-phase4-i-4-01-resolve", golden.RecordMentionActionResolve, uuidPointer(golden.RecordCanonicalHostRecordID), nil)
+		payload := fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-resolve", golden.RecordMentionActionResolve, uuidPointer(golden.RecordCanonicalHostRecordID), nil)
 		resp := workbookscenariotest.DoJSON(
 			t,
 			http.MethodPost,
@@ -164,7 +164,7 @@ SELECT COUNT(*)
    AND actor_user_id::text = $2
    AND scope_key = $3
    AND client_txn_id = $4
-`, "entities.entity_mentions.resolve", adminUserID.String(), golden.RecordHostMentionID.String(), "txn-phase4-i-4-01-resolve"); got != 1 {
+`, "entities.entity_mentions.resolve", adminUserID.String(), golden.RecordHostMentionID.String(), "txn-entity_linking-i-4-01-resolve"); got != 1 {
 			t.Fatalf("expected one route idempotency row for a replayed mention action, got %d", got)
 		}
 
@@ -172,7 +172,7 @@ SELECT COUNT(*)
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
-			fixtures.MentionResolveRoutePayload(1, "txn-phase4-i-4-01-resolve", "dismiss_item", nil, nil),
+			fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-resolve", "dismiss_item", nil, nil),
 			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
@@ -180,10 +180,10 @@ SELECT COUNT(*)
 	})
 
 	t.Run("dismiss_item removes active links and fails closed on stale or illegal transitions", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-i-4-01-dismiss")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-01-dismiss")
 		adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-i-4-01-dismiss-incident",
+			"client_txn_id": "txn-entity_linking-i-4-01-dismiss-incident",
 			"incident_key":  "IR-I401-D",
 			"title":         "Record relationships I-4-01 dismiss route",
 		})
@@ -202,7 +202,7 @@ SELECT COUNT(*)
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
-			fixtures.MentionResolveRoutePayload(1, "txn-phase4-i-4-01-dismiss", "dismiss_item", nil, nil),
+			fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-dismiss", "dismiss_item", nil, nil),
 			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
@@ -239,7 +239,7 @@ SELECT COUNT(*)
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
-			fixtures.MentionResolveRoutePayload(1, "txn-phase4-i-4-01-stale", "revert_to_unresolved", nil, nil),
+			fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-stale", "revert_to_unresolved", nil, nil),
 			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
@@ -252,7 +252,7 @@ SELECT COUNT(*)
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
-			fixtures.MentionResolveRoutePayload(2, "txn-phase4-i-4-01-illegal", "dismiss_item", nil, nil),
+			fixtures.MentionResolveRoutePayload(2, "txn-entity_linking-i-4-01-illegal", "dismiss_item", nil, nil),
 			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
@@ -267,10 +267,10 @@ SELECT COUNT(*)
 	})
 
 	t.Run("revert_to_unresolved restores unresolved mention state and emits websocket invalidation", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-i-4-01-revert")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-01-revert")
 		adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-i-4-01-revert-incident",
+			"client_txn_id": "txn-entity_linking-i-4-01-revert-incident",
 			"incident_key":  "IR-I401-U",
 			"title":         "Record relationships I-4-01 revert route",
 		})
@@ -289,7 +289,7 @@ SELECT COUNT(*)
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
-			fixtures.MentionResolveRoutePayload(1, "txn-phase4-i-4-01-revert", "revert_to_unresolved", nil, nil),
+			fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-revert", "revert_to_unresolved", nil, nil),
 			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
@@ -316,10 +316,10 @@ SELECT COUNT(*)
 	})
 
 	t.Run("authorization and target validation are re-derived from live state", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-i-4-01-access")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-01-access")
 		adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-i-4-01-access-incident",
+			"client_txn_id": "txn-entity_linking-i-4-01-access-incident",
 			"incident_key":  "IR-I401-A",
 			"title":         "Record relationships I-4-01 access checks",
 		})
@@ -343,7 +343,7 @@ UPDATE incident_memberships
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
-			fixtures.MentionResolveRoutePayload(1, "txn-phase4-i-4-01-denied", "resolve_item", uuidPointer(golden.RecordCanonicalHostRecordID), nil),
+			fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-denied", "resolve_item", uuidPointer(golden.RecordCanonicalHostRecordID), nil),
 			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
@@ -360,22 +360,22 @@ UPDATE incident_memberships
 			t.Fatalf("restore incident membership: %v", err)
 		}
 
-		otherActor := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "phase4-i401-other@example.test", "Phase4 I401 Other", "Phase4I401OtherPass1!", false, false, true)
-		otherIncident := workbookscenariotest.CreateIncidentInStore(t, harness.Server.Runtime.Postgres, otherActor, "txn-phase4-i-4-01-hidden-incident", "IR-I401-H", "Record relationships I-4-01 hidden")
+		otherActor := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "entity_linking-i401-other@example.test", "EntityLinking I401 Other", "EntityLinkingI401OtherPass1!", false, false, true)
+		otherIncident := workbookscenariotest.CreateIncidentInStore(t, harness.Server.Runtime.Postgres, otherActor, "txn-entity_linking-i-4-01-hidden-incident", "IR-I401-H", "Record relationships I-4-01 hidden")
 		workbookscenariotest.SeedHostRecord(t, harness.DB, otherIncident.ID, otherActor.ID, golden.RecordDuplicateHostRecordID, "Hidden WS-023", "HIDDEN-WS-023", "", "")
 
 		hiddenResp := workbookscenariotest.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
-			fixtures.MentionResolveRoutePayload(1, "txn-phase4-i-4-01-hidden", "resolve_item", uuidPointer(golden.RecordDuplicateHostRecordID), nil),
+			fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-hidden", "resolve_item", uuidPointer(golden.RecordDuplicateHostRecordID), nil),
 			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
 		workbookscenariotest.RequireErrorBody(t, hiddenResp, http.StatusNotFound, "resolved_record_not_found")
 
 		otherVisibleIncident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-i-4-01-visible-incident",
+			"client_txn_id": "txn-entity_linking-i-4-01-visible-incident",
 			"incident_key":  "IR-I401-V",
 			"title":         "Record relationships I-4-01 visible other incident",
 		})
@@ -386,7 +386,7 @@ UPDATE incident_memberships
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
-			fixtures.MentionResolveRoutePayload(1, "txn-phase4-i-4-01-cross", "resolve_item", uuidPointer(golden.RecordStubHostRecordID), nil),
+			fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-cross", "resolve_item", uuidPointer(golden.RecordStubHostRecordID), nil),
 			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
@@ -396,7 +396,7 @@ UPDATE incident_memberships
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
-			fixtures.MentionResolveRoutePayload(1, "txn-phase4-i-4-01-wrong-type", "resolve_item", uuidPointer(golden.RecordCanonicalIdentityID), nil),
+			fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-wrong-type", "resolve_item", uuidPointer(golden.RecordCanonicalIdentityID), nil),
 			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
@@ -420,10 +420,10 @@ SELECT COUNT(*)
 // I-4-02 / REQ-02-035..REQ-02-036, REQ-02-054..REQ-02-055, REQ-02-059..REQ-02-063 / AC-022, AC-186.
 func TestEntityOriginUpsert_Integration(t *testing.T) {
 	t.Run("host create covers direct create, preserved exact-match reuse, alias-only non-reuse, and conflict handling", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-i-4-02-host")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-02-host")
 		adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-i-4-02-host-incident",
+			"client_txn_id": "txn-entity_linking-i-4-02-host-incident",
 			"incident_key":  "IR-I402-H",
 			"title":         "Record relationships I-4-02 host create",
 		})
@@ -434,7 +434,7 @@ func TestEntityOriginUpsert_Integration(t *testing.T) {
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
 			map[string]any{
-				"client_txn_id":     "txn-phase4-i-4-02-host-create",
+				"client_txn_id":     "txn-entity_linking-i-4-02-host-create",
 				"host.display_name": "Gateway record",
 				"host.hostname":     "GATEWAY-01",
 				"host.fqdn":         "gateway-01.corp.example",
@@ -504,7 +504,7 @@ SELECT
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
 			map[string]any{
-				"client_txn_id":     "txn-phase4-i-4-02-host-reuse",
+				"client_txn_id":     "txn-entity_linking-i-4-02-host-reuse",
 				"host.display_name": "Gateway reused",
 				"host.fqdn":         "gateway-01.corp.example",
 			},
@@ -524,7 +524,7 @@ SELECT
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
 			map[string]any{
-				"client_txn_id":     "txn-phase4-i-4-02-host-alias-only",
+				"client_txn_id":     "txn-entity_linking-i-4-02-host-alias-only",
 				"host.display_name": "VPN Gateway",
 			},
 			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
@@ -540,7 +540,7 @@ SELECT
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
 			map[string]any{
-				"client_txn_id": "txn-phase4-i-4-02-host-alias-payload-only",
+				"client_txn_id": "txn-entity_linking-i-4-02-host-alias-payload-only",
 				"host.aliases": map[string]any{
 					"kind": "collection_actions_v1",
 					"actions": []map[string]any{
@@ -560,7 +560,7 @@ SELECT
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
 			map[string]any{
-				"client_txn_id":     "txn-phase4-i-4-02-host-conflict",
+				"client_txn_id":     "txn-entity_linking-i-4-02-host-conflict",
 				"host.display_name": "Conflict Host",
 				"host.hostname":     "COLLISION-01",
 			},
@@ -582,10 +582,10 @@ SELECT
 	})
 
 	t.Run("identity create covers direct create, preserved exact-match reuse, alias-only non-reuse, and conflict handling", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-i-4-02-identity")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-02-identity")
 		adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-i-4-02-identity-incident",
+			"client_txn_id": "txn-entity_linking-i-4-02-identity-incident",
 			"incident_key":  "IR-I402-I",
 			"title":         "Record relationships I-4-02 identity create",
 		})
@@ -596,7 +596,7 @@ SELECT
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordIdentitiesViewSchemaID+"/rows",
 			map[string]any{
-				"client_txn_id":             "txn-phase4-i-4-02-identity-create",
+				"client_txn_id":             "txn-entity_linking-i-4-02-identity-create",
 				"identity.display_name":     "Alex Analyst",
 				"identity.email":            "alex.analyst@example.test",
 				"identity.sam_account_name": "ALEXA",
@@ -665,7 +665,7 @@ SELECT
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordIdentitiesViewSchemaID+"/rows",
 			map[string]any{
-				"client_txn_id":         "txn-phase4-i-4-02-identity-reuse",
+				"client_txn_id":         "txn-entity_linking-i-4-02-identity-reuse",
 				"identity.display_name": "Alex Analyst Reused",
 				"identity.email":        "alex.analyst@example.test",
 			},
@@ -692,7 +692,7 @@ SELECT COUNT(*)
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordIdentitiesViewSchemaID+"/rows",
 			map[string]any{
-				"client_txn_id":         "txn-phase4-i-4-02-identity-alias-only",
+				"client_txn_id":         "txn-entity_linking-i-4-02-identity-alias-only",
 				"identity.display_name": "Case Owner",
 			},
 			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
@@ -708,7 +708,7 @@ SELECT COUNT(*)
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordIdentitiesViewSchemaID+"/rows",
 			map[string]any{
-				"client_txn_id": "txn-phase4-i-4-02-identity-alias-payload-only",
+				"client_txn_id": "txn-entity_linking-i-4-02-identity-alias-payload-only",
 				"identity.aliases": map[string]any{
 					"kind": "collection_actions_v1",
 					"actions": []map[string]any{
@@ -728,7 +728,7 @@ SELECT COUNT(*)
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordIdentitiesViewSchemaID+"/rows",
 			map[string]any{
-				"client_txn_id":         "txn-phase4-i-4-02-identity-conflict",
+				"client_txn_id":         "txn-entity_linking-i-4-02-identity-conflict",
 				"identity.display_name": "Conflict Identity",
 				"identity.email":        "collision@example.test",
 			},
@@ -749,10 +749,10 @@ SELECT COUNT(*)
 	})
 
 	t.Run("create routes emit history, round-trip current-state query reads, and re-derive live authorization", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-i-4-02-query-auth")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-02-query-auth")
 		adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-i-4-02-query-auth-incident",
+			"client_txn_id": "txn-entity_linking-i-4-02-query-auth-incident",
 			"incident_key":  "IR-I402-Q",
 			"title":         "Record relationships I-4-02 query and auth",
 		})
@@ -760,7 +760,7 @@ SELECT COUNT(*)
 		viewLogin := workbookscenariotest.LoginResult{SessionCookie: adminLogin.SessionCookie, CSRFCookie: adminLogin.CSRFCookie}
 
 		hostPayload := map[string]any{
-			"client_txn_id":     "txn-phase4-i-4-02-query-host",
+			"client_txn_id":     "txn-entity_linking-i-4-02-query-host",
 			"host.display_name": "Gateway query host",
 			"host.hostname":     "GATEWAY-Q-01",
 			"host.aliases": map[string]any{
@@ -787,13 +787,13 @@ SELECT COUNT(*)
 			ClientTxnID: hostChangeSet.ClientTxnID,
 			RequestID:   hostChangeSet.RequestID,
 			CreatedAt:   hostChangeSet.CreatedAt,
-		}, adminUserID.String(), "entities.hosts.rows.create", "txn-phase4-i-4-02-query-host")
+		}, adminUserID.String(), "entities.hosts.rows.create", "txn-entity_linking-i-4-02-query-host")
 		if got := asserttest.CountChangeSetMutations(t, asserttest.SQLDatabase(harness.DB), hostData["change_set_id"].(string)); got != 2 {
 			t.Fatalf("expected host and alias create mutation rows, got %d", got)
 		}
 
 		identityPayload := map[string]any{
-			"client_txn_id":             "txn-phase4-i-4-02-query-identity",
+			"client_txn_id":             "txn-entity_linking-i-4-02-query-identity",
 			"identity.display_name":     "Alex Query",
 			"identity.email":            "alex.query@example.test",
 			"identity.sam_account_name": "ALEXQ",
@@ -821,7 +821,7 @@ SELECT COUNT(*)
 			ClientTxnID: identityChangeSet.ClientTxnID,
 			RequestID:   identityChangeSet.RequestID,
 			CreatedAt:   identityChangeSet.CreatedAt,
-		}, adminUserID.String(), "entities.identities.rows.create", "txn-phase4-i-4-02-query-identity")
+		}, adminUserID.String(), "entities.identities.rows.create", "txn-entity_linking-i-4-02-query-identity")
 		if got := asserttest.CountChangeSetMutations(t, asserttest.SQLDatabase(harness.DB), identityData["change_set_id"].(string)); got != 2 {
 			t.Fatalf("expected identity and alias create mutation rows, got %d", got)
 		}
@@ -921,7 +921,7 @@ SELECT COUNT(*)
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
 			map[string]any{
-				"client_txn_id":     "txn-phase4-i-4-02-query-host",
+				"client_txn_id":     "txn-entity_linking-i-4-02-query-host",
 				"host.display_name": "Gateway query host divergent",
 				"host.hostname":     "GATEWAY-Q-01",
 			},
@@ -946,7 +946,7 @@ UPDATE incident_memberships
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
 			map[string]any{
-				"client_txn_id":     "txn-phase4-i-4-02-query-host-denied",
+				"client_txn_id":     "txn-entity_linking-i-4-02-query-host-denied",
 				"host.display_name": "Denied host",
 				"host.hostname":     "DENIED-HOST",
 			},
@@ -1003,10 +1003,10 @@ func requireEntityOriginRejected(t *testing.T, db *sql.DB, tableName string, rec
 }
 
 func TestEntityCreateAuthAndCSRFFailBeforeMalformedBody_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase4-entity-create-auth-csrf-order")
+	harness := workbookscenariotest.StartServer(t, "entity_linking-entity-create-auth-csrf-order")
 	adminLogin, _ := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase4-entity-create-auth-order-incident",
+		"client_txn_id": "txn-entity_linking-entity-create-auth-order-incident",
 		"incident_key":  "IR-AUTH-CSRF-ORDER",
 		"title":         "Entity create auth csrf ordering",
 	})
@@ -1062,10 +1062,10 @@ func TestEntityCreateAuthAndCSRFFailBeforeMalformedBody_Integration(t *testing.T
 // I-4-03 / REQ-01-181..REQ-01-195, REQ-02-064..REQ-02-066 / AC-023, AC-186, AC-209.
 func TestExplicitMergeRoute_Integration(t *testing.T) {
 	t.Run("entity route failures enforce authentication csrf visibility role and body precedence", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-entity-route-failure-precedence")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-entity-route-failure-precedence")
 		adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-route-precedence-incident",
+			"client_txn_id": "txn-entity_linking-route-precedence-incident",
 			"incident_key":  "IR-ROUTE-PRECEDENCE",
 			"title":         "Entity route failure precedence",
 		})
@@ -1122,8 +1122,8 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 			workbookscenariotest.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, url, "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusBadRequest, "invalid_mutation_payload")
 		}
 
-		otherActor := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "phase4-route-precedence-other@example.test", "Phase4 Route Other", "Phase4RouteOtherPass1!", false, false, true)
-		otherIncident := workbookscenariotest.CreateIncidentInStore(t, harness.Server.Runtime.Postgres, otherActor, "txn-phase4-route-precedence-hidden-incident", "IR-ROUTE-PRECEDENCE-HIDDEN", "Entity route hidden incident")
+		otherActor := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "entity_linking-route-precedence-other@example.test", "EntityLinking Route Other", "EntityLinkingRouteOtherPass1!", false, false, true)
+		otherIncident := workbookscenariotest.CreateIncidentInStore(t, harness.Server.Runtime.Postgres, otherActor, "txn-entity_linking-route-precedence-hidden-incident", "IR-ROUTE-PRECEDENCE-HIDDEN", "Entity route hidden incident")
 		hiddenLoserID := uuid.New()
 		workbookscenariotest.SeedHostRecord(t, harness.DB, otherIncident.ID, otherActor.ID, hiddenLoserID, "Hidden loser", "HIDDEN-LOSER", "", "")
 
@@ -1132,7 +1132,7 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 				"loser_record_id":           loserID,
 				"survivor_base_row_version": 1,
 				"loser_base_row_version":    1,
-				"client_txn_id":             "txn-phase4-route-precedence-" + loserID,
+				"client_txn_id":             "txn-entity_linking-route-precedence-" + loserID,
 			}, withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 			workbookscenariotest.RequireErrorBody(t, resp, http.StatusNotFound, "incident_not_found")
 		}
@@ -1144,12 +1144,12 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 	})
 
 	t.Run("host merge repoints live fan-out and preserves survivor reuse", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-i-4-03")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-03")
 		workbookscenariotest.RequireSchemaTables(t, harness.DB, "I-4-03", "hosts", "identities", "entity_mentions", "record_tags", "assessments")
 
 		adminLogin, adminUserID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-i-4-03-incident",
+			"client_txn_id": "txn-entity_linking-i-4-03-incident",
 			"incident_key":  "IR-I403",
 			"title":         "Entity merge",
 		})
@@ -1177,7 +1177,7 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 				"loser_record_id":           golden.RecordDuplicateHostRecordID.String(),
 				"survivor_base_row_version": 1,
 				"loser_base_row_version":    1,
-				"client_txn_id":             "txn-phase4-i-4-03-merge",
+				"client_txn_id":             "txn-entity_linking-i-4-03-merge",
 				"reason":                    "  merge duplicate host  ",
 			},
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
@@ -1319,7 +1319,7 @@ SELECT COUNT(*)
 				"loser_record_id":           golden.RecordDuplicateHostRecordID.String(),
 				"survivor_base_row_version": 1,
 				"loser_base_row_version":    1,
-				"client_txn_id":             "txn-phase4-i-4-03-merge",
+				"client_txn_id":             "txn-entity_linking-i-4-03-merge",
 				"reason":                    "  merge duplicate host  ",
 			},
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
@@ -1338,7 +1338,7 @@ SELECT COUNT(*)
 				"loser_record_id":           golden.RecordDuplicateHostRecordID.String(),
 				"survivor_base_row_version": 1,
 				"loser_base_row_version":    1,
-				"client_txn_id":             "txn-phase4-i-4-03-merge",
+				"client_txn_id":             "txn-entity_linking-i-4-03-merge",
 				"reason":                    "different replay payload",
 			},
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
@@ -1351,7 +1351,7 @@ SELECT COUNT(*)
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
 			map[string]any{
-				"client_txn_id": "txn-phase4-i-4-03-create-after-merge",
+				"client_txn_id": "txn-entity_linking-i-4-03-create-after-merge",
 				"host.fqdn":     "ws-023.corp.example.test",
 			},
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
@@ -1366,10 +1366,10 @@ SELECT COUNT(*)
 	})
 
 	t.Run("merge conflict exposes both supplied and current versions", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-i-4-03-version-conflict")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-03-version-conflict")
 		adminLogin, adminUserID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-i-4-03-version-conflict-incident",
+			"client_txn_id": "txn-entity_linking-i-4-03-version-conflict-incident",
 			"incident_key":  "IR-I403-V",
 			"title":         "Entity merge version conflict",
 		})
@@ -1388,7 +1388,7 @@ SELECT COUNT(*)
 				"loser_record_id":           golden.RecordDuplicateHostRecordID.String(),
 				"survivor_base_row_version": 1,
 				"loser_base_row_version":    2,
-				"client_txn_id":             "txn-phase4-i-4-03-version-conflict",
+				"client_txn_id":             "txn-entity_linking-i-4-03-version-conflict",
 			},
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
@@ -1409,10 +1409,10 @@ SELECT COUNT(*)
 	})
 
 	t.Run("host merge collision uses owner precondition detail shape", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-i-4-03-collision-detail")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-03-collision-detail")
 		adminLogin, adminUserID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-i-4-03-collision-detail-incident",
+			"client_txn_id": "txn-entity_linking-i-4-03-collision-detail-incident",
 			"incident_key":  "IR-I403-COLLISION",
 			"title":         "Entity merge collision",
 		})
@@ -1431,7 +1431,7 @@ SELECT COUNT(*)
 				"loser_record_id":           golden.RecordDuplicateHostRecordID.String(),
 				"survivor_base_row_version": 1,
 				"loser_base_row_version":    1,
-				"client_txn_id":             "txn-phase4-i-4-03-collision-detail-merge",
+				"client_txn_id":             "txn-entity_linking-i-4-03-collision-detail-merge",
 			},
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
@@ -1453,10 +1453,10 @@ SELECT COUNT(*)
 	})
 
 	t.Run("merge authorization re-derives current incident role", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-i-4-03-authz")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-03-authz")
 		adminLogin, adminUserID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-i-4-03-authz-incident",
+			"client_txn_id": "txn-entity_linking-i-4-03-authz-incident",
 			"incident_key":  "IR-I403-A",
 			"title":         "Entity merge authz",
 		})
@@ -1483,7 +1483,7 @@ UPDATE incident_memberships
 				"loser_record_id":           golden.RecordDuplicateHostRecordID.String(),
 				"survivor_base_row_version": 1,
 				"loser_base_row_version":    1,
-				"client_txn_id":             "txn-phase4-i-4-03-authz-merge",
+				"client_txn_id":             "txn-entity_linking-i-4-03-authz-merge",
 			},
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
@@ -1492,10 +1492,10 @@ UPDATE incident_memberships
 	})
 
 	t.Run("identity merge preserves loser lineage, raw mention text, and current-state readback", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "phase4-i-4-03-identity")
+		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-03-identity")
 		adminLogin, adminUserID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
-			"client_txn_id": "txn-phase4-i-4-03-identity-incident",
+			"client_txn_id": "txn-entity_linking-i-4-03-identity-incident",
 			"incident_key":  "IR-I403-I",
 			"title":         "Entity identity merge",
 		})
@@ -1519,7 +1519,7 @@ UPDATE incident_memberships
 				"loser_record_id":           golden.RecordDuplicateIdentityID.String(),
 				"survivor_base_row_version": 1,
 				"loser_base_row_version":    1,
-				"client_txn_id":             "txn-phase4-i-4-03-identity-merge",
+				"client_txn_id":             "txn-entity_linking-i-4-03-identity-merge",
 				"reason":                    "merge duplicate identity",
 			},
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
@@ -1540,7 +1540,7 @@ UPDATE incident_memberships
 			ClientTxnID: changeSet.ClientTxnID,
 			RequestID:   changeSet.RequestID,
 			CreatedAt:   changeSet.CreatedAt,
-		}, adminUserID.String(), "entities.records.merge", "txn-phase4-i-4-03-identity-merge")
+		}, adminUserID.String(), "entities.records.merge", "txn-entity_linking-i-4-03-identity-merge")
 		if got := asserttest.CountChangeSetMutations(t, asserttest.SQLDatabase(harness.DB), mergeData["change_set_id"].(string)); got < 2 {
 			t.Fatalf("expected identity merge to emit at least two mutation rows, got %d", got)
 		}
@@ -1585,7 +1585,7 @@ UPDATE incident_memberships
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordIdentitiesViewSchemaID+"/rows",
 			map[string]any{
-				"client_txn_id":         "txn-phase4-i-4-03-identity-after-merge",
+				"client_txn_id":         "txn-entity_linking-i-4-03-identity-after-merge",
 				"identity.email":        "alex.analyst@example.test",
 				"identity.display_name": "Alex After Merge",
 			},
@@ -1600,11 +1600,11 @@ UPDATE incident_memberships
 }
 
 func TestEntityCreateIdempotencyIsActorScoped(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase4-entity-create-actor-scope")
+	harness := workbookscenariotest.StartServer(t, "entity_linking-entity-create-actor-scope")
 	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	editor := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "phase4-entity-scope-editor@example.test", "Entity Scope Editor", "EntityScopeEditor1!", false, false, true)
+	editor := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "entity_linking-entity-scope-editor@example.test", "Entity Scope Editor", "EntityScopeEditor1!", false, false, true)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase4-entity-scope-incident",
+		"client_txn_id": "txn-entity_linking-entity-scope-incident",
 		"incident_key":  "IR-E-ACTOR-SCOPE",
 		"title":         "Entity actor-scoped idempotency",
 	})
@@ -1624,7 +1624,7 @@ func TestEntityCreateIdempotencyIsActorScoped(t *testing.T) {
 			viewSchema: golden.RecordHostsViewSchemaID,
 			payload: func(label string) map[string]any {
 				return map[string]any{
-					"client_txn_id":     "txn-phase4-shared-host-create",
+					"client_txn_id":     "txn-entity_linking-shared-host-create",
 					"host.display_name": "Actor scoped host " + label,
 					"host.hostname":     "ACTOR-SCOPE-" + label,
 				}
@@ -1636,7 +1636,7 @@ func TestEntityCreateIdempotencyIsActorScoped(t *testing.T) {
 			viewSchema: golden.RecordIdentitiesViewSchemaID,
 			payload: func(label string) map[string]any {
 				return map[string]any{
-					"client_txn_id":         "txn-phase4-shared-identity-create",
+					"client_txn_id":         "txn-entity_linking-shared-identity-create",
 					"identity.display_name": "Actor Scoped " + label,
 					"identity.email":        "actor-scope-" + label + "@example.test",
 				}
@@ -1652,7 +1652,7 @@ func TestEntityCreateIdempotencyIsActorScoped(t *testing.T) {
 					value = "198.51.100.11"
 				}
 				return map[string]any{
-					"client_txn_id":              "txn-phase4-shared-indicator-create",
+					"client_txn_id":              "txn-entity_linking-shared-indicator-create",
 					"indicator.indicator_type":   golden.RecordIndicatorTypeIPv4,
 					"indicator.value_kind":       golden.RecordIndicatorValueKindAtomic,
 					"indicator.display_value":    value,
@@ -1724,10 +1724,10 @@ func provisionBootstrapAdmin(t testing.TB, server *httptestx.Server) (loginResul
 
 	bootstrapToken := requireBootstrapLogin(t, server, "bootstrap-admin@example.test", "BootstrapPass1!")
 	begin := beginTOTPEnrollment(t, server, bootstrapToken, map[string]any{
-		"client_txn_id": "txn-phase4-bootstrap-admin-begin",
+		"client_txn_id": "txn-entity_linking-bootstrap-admin-begin",
 	})
 	secretBase32 := begin["totp_setup"].(map[string]any)["secret_base32"].(string)
-	completeInitialEnrollment(t, server, bootstrapToken, begin["enrollment_id"].(string), secretBase32, "txn-phase4-bootstrap-admin-complete")
+	completeInitialEnrollment(t, server, bootstrapToken, begin["enrollment_id"].(string), secretBase32, "txn-entity_linking-bootstrap-admin-complete")
 	login := loginLocalUserWithSecondFactor(t, server, "bootstrap-admin@example.test", "BootstrapPass1!", generateTOTPCode(t, secretBase32))
 
 	sessionResp := doEntitiesJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(login.sessionCookie))
