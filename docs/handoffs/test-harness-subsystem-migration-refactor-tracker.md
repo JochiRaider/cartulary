@@ -10,9 +10,9 @@
 | Baseline branch | `revision/grid-adapter` |
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
-| Tracker state | `CHECKPOINT` — WS-09 complete; WS-10 not activated |
-| Active start | None; clean WS-09 closure candidate from `942842ed` |
-| Active tasks | None |
+| Tracker state | `IN_PROGRESS` — WS-10 atomic retirement |
+| Active start | Clean tree at WS-09 closure commit `63a8212b` |
+| Active tasks | T-042 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -496,7 +496,7 @@ WS-06 closure is recorded in `tools/delivery_identity_followup_ledger.json`. It 
 | WS-07 | Replace slice, audit, schema, and artifact APIs | DONE | WS-03–WS-06 | Successor CLI contract/smoke tests | Revert the whole interface checkpoint before atomic cutover. |
 | WS-08 | Migrate browser stages and scheduler topology | DONE | WS-05, WS-07 | Owner-based DAG, lifecycle, and browser tests | Revert authored topology and generated outputs together. |
 | WS-09 | Update task surface, generation, finalization, and baselines | DONE | WS-07, WS-08 | Generated surface/drift and fresh baseline plan | Revert owner inputs plus regenerated outputs together. |
-| WS-10 | Atomic deletion and hard cutover | TODO | WS-02–WS-09 | Deletion manifest and zero-reference scans | Revert the entire cutover commit; never add shims. |
+| WS-10 | Atomic deletion and hard cutover | IN_PROGRESS | WS-02–WS-09 | Deletion manifest and zero-reference scans | Revert the entire cutover commit; never add shims. |
 | WS-11 | Focused and broad verification | TODO | WS-10 | Successful fresh run roots and audit summaries | Forward-fix or revert the full cutover; old evidence is invalid. |
 | WS-12 | Validate and finalize the stable post-cutover handoff | TODO | WS-11 | Authoritative retained-run evidence and handoff log | Reopen tracker if any closure invariant fails. |
 
@@ -727,7 +727,7 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-039 | Cut task surface to successor targets | WS-09 | DONE | T-032,T-033,T-034 | Help/contract/smoke tests | Removed inputs fail and new targets work. |
 | T-040 | Fold schedule generation into standard targets | WS-09 | DONE | T-038 | Generate/generate-drift | No public schedule target remains. |
 | T-041 | Replace finalizer and duration baseline flow | WS-09 | DONE | T-034,T-038 | Finalizer tests and refresh plan | Owner summaries drive finalization. |
-| T-042 | Delete ledgers and ledger machinery | WS-10 | TODO | T-039,T-041 | Deletion manifest/zero scan | All 26 and every consumer are gone. |
+| T-042 | Delete ledgers and ledger machinery | WS-10 | IN_PROGRESS | T-039,T-041 | Deletion manifest/zero scan | All 26 and every consumer are gone. |
 | T-043 | Delete phase/subsystem registries and maps | WS-10 | TODO | T-016,T-022,T-027,T-039 | Deletion manifest/zero scan | Unified catalog is sole owner. |
 | T-044 | Delete phase-accounting and compatibility code | WS-10 | TODO | T-035,T-037,T-043 | Boundary and zero-reference scans | No old reader or shim remains. |
 | T-045 | Regenerate all permitted outputs | WS-10 | TODO | T-042,T-043,T-044 | Generated drift checks | Clean owner-first generated tree. |
@@ -1257,6 +1257,15 @@ Each entry must include:
 - Skipped checks: a real `agent-finalize RESULTS_DIR=<root>` refresh was not run because no post-T-041 full warm `make check` root exists on identical source bytes; synthetic retained-run fixtures prove the fail-closed compatibility boundary, and T-047/T-048 own the first authoritative warm root and compatible baseline refresh. Broad `make check`, per-owner execution/audit closure, release rehearsal, and performance windows remain WS-11/WS-12.
 - Next safe task: create a tracker-only WS-10 activation checkpoint with T-042 as the sole active task. Then delete phase ledgers and their renderers/checks/policies/finalizer references without activating T-043 concurrently or restoring any compatibility surface.
 - Rollback boundary: revert the complete T-041/WS-09 closure checkpoint to `942842ed`, including finalizer action/profile/schema changes, retained owner-evidence preflight, release owner-partition consumption, semantic baseline policy and stores, generated help/index outputs, focused tests, and this tracker record. Never restore phase-summary consumption or repopulate a retired timing key independently.
+
+#### 2026-07-18 — WS-10 activation checkpoint
+
+- Branch/commit at start: `revision/grid-adapter` at clean WS-09 closure commit `63a8212b`. WS-02 through WS-09 are complete; WS-10 is now the only `IN_PROGRESS` workstream and T-042 is the sole active task.
+- Active scope: delete all 26 generated Markdown phase ledgers and their renderer, freshness checks, policy ownership, generated-artifact declarations, finalizer references, fixtures, and documentation consumers. This slice must leave the unified catalog and successor owner diagnostics as the only operational coverage view.
+- Sequencing guard: T-043 registry/map deletion, T-044 compatibility-code deletion, T-045 regeneration, T-050 reconciliation-input retirement, and T-045A atomic parity remain `TODO`. They may be mapped while resolving dependencies but must not be implemented or marked active before T-042 is validated, recorded, and committed.
+- Prerequisites: T-039 and T-041 are complete, the public surface and finalizer no longer invoke ledger machinery, and the clean WS-09 closure is the rollback point.
+- Next safe task: T-042 only. Resolve the frozen 26-ledger inventory and every live consumer, delete the owner inputs and renderer/check/policy edges through authored files, regenerate permitted outputs only through Make, and prove a zero-reference result before updating this tracker.
+- Rollback boundary: revert the eventual complete T-042 checkpoint to `63a8212b`. Do not restore a ledger renderer, ledger freshness gate, or generated-artifact exception independently.
 
 ## 17. First-resumer checklist
 
