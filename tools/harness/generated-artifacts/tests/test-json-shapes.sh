@@ -80,24 +80,6 @@ run_accessibility_summary_writer() {
   )
 }
 
-run_frontend_phase_map_validation() {
-  local file="$1"
-  local phase="$2"
-
-  (
-    cd "$ROOT_DIR"
-    "$NODE_BIN" --input-type=module - "$file" "$phase" <<'JS'
-import { readFileSync } from "node:fs";
-import { validateFrontendPhaseMap } from "./tools/harness/phase-accounting/frontend-phase-manifest.mjs";
-
-const [file, phase] = process.argv.slice(2);
-const manifest = JSON.parse(readFileSync(file, "utf8"));
-validateFrontendPhaseMap(manifest, file, phase);
-console.log("frontend phase map validated");
-JS
-  )
-}
-
 write_valid_phase_map() {
   local file="$1"
 
@@ -2095,62 +2077,6 @@ mutate_json_fixture release-readiness-ambiguous-visual-conformance "$release_rea
 release_readiness_ambiguous_visual_output="$(assert_fails "release readiness evidence rejects ambiguous visual conformance effect" \
   run_schema_validation cartulary.release_readiness_evidence.v2 "$release_readiness_ambiguous_visual")"
 assert_contains "$release_readiness_ambiguous_visual_output" "must be equal to one of the allowed values" "release readiness ambiguous visual conformance"
-
-frontend_visual_product_map="$tmp_dir/fe_p8_visual_product_map.json"
-cp "$ROOT_DIR/tools/frontend_phase_maps/fe_p8_test_map.json" "$frontend_visual_product_map"
-"$NODE_BIN" - "$frontend_visual_product_map" <<'JS'
-const fs = require("node:fs");
-const file = process.argv[2];
-const manifest = JSON.parse(fs.readFileSync(file, "utf8"));
-const row = manifest.rows.find((entry) => entry.id === "FE-V-P8-01");
-if (!row) {
-  throw new Error("FE-V-P8-01 fixture row not found");
-}
-row.evidence_class = "product_conformance";
-row.core_req_ids = ["REQ-01-035"];
-row.core_ac_ids = ["AC-013"];
-fs.writeFileSync(file, `${JSON.stringify(manifest, null, 2)}\n`);
-JS
-frontend_visual_product_output="$(assert_fails "frontend visual rows reject product conformance" \
-  run_frontend_phase_map_validation "$frontend_visual_product_map" FE-P8)"
-assert_contains "$frontend_visual_product_output" "must not use product_conformance" "frontend visual product conformance rejection"
-
-frontend_base_title_reuse_map="$tmp_dir/fe_p9_base_title_reuse_map.json"
-cp "$ROOT_DIR/tools/frontend_phase_maps/fe_p9_test_map.json" "$frontend_base_title_reuse_map"
-"$NODE_BIN" - "$frontend_base_title_reuse_map" <<'JS'
-const fs = require("node:fs");
-const file = process.argv[2];
-const manifest = JSON.parse(fs.readFileSync(file, "utf8"));
-const row = manifest.rows.find((entry) => entry.id === "FE-E-P9-03");
-if (!row) {
-  throw new Error("FE-E-P9-03 row not found");
-}
-row.scenario_titles = [
-  "Task Request and Decision workbook workflows stay native",
-];
-fs.writeFileSync(file, `${JSON.stringify(manifest, null, 2)}\n`);
-JS
-frontend_base_title_reuse_output="$(assert_fails "frontend browser rows reject base Playwright title reuse" \
-  run_frontend_phase_map_validation "$frontend_base_title_reuse_map" FE-P9)"
-assert_contains "$frontend_base_title_reuse_output" "reuses base authoritative Playwright title" "frontend base title reuse rejection"
-
-frontend_duplicate_title_map="$tmp_dir/fe_p9_duplicate_title_map.json"
-cp "$ROOT_DIR/tools/frontend_phase_maps/fe_p9_test_map.json" "$frontend_duplicate_title_map"
-"$NODE_BIN" - "$frontend_duplicate_title_map" <<'JS'
-const fs = require("node:fs");
-const file = process.argv[2];
-const manifest = JSON.parse(fs.readFileSync(file, "utf8"));
-const source = manifest.rows.find((entry) => entry.id === "FE-E-P9-02");
-const target = manifest.rows.find((entry) => entry.id === "FE-E-P9-03");
-if (!source || !target) {
-  throw new Error("FE-E-P9-02 or FE-E-P9-03 row not found");
-}
-target.scenario_titles = [...source.scenario_titles];
-fs.writeFileSync(file, `${JSON.stringify(manifest, null, 2)}\n`);
-JS
-frontend_duplicate_title_output="$(assert_fails "frontend browser rows reject duplicate FE Playwright titles" \
-  run_frontend_phase_map_validation "$frontend_duplicate_title_map" FE-P9)"
-assert_contains "$frontend_duplicate_title_output" "duplicates frontend browser title owned by FE-E-P9-02" "frontend duplicate browser title rejection"
 
 frontend_a11y_writer_missing="$tmp_dir/frontend-accessibility-summary-writer-missing.json"
 frontend_a11y_writer_missing_output="$(assert_fails "frontend accessibility summary writer rejects missing implemented evidence" \

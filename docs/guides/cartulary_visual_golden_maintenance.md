@@ -76,18 +76,18 @@ screenshot scopes. The current accepted shell refresh additionally includes the
 width-only shell chrome contract, the vertical-only resize regression fix for
 the top bar, and reactivated Playwright screenshot comparisons.
 
-| Affected row | Owner map | Related fixture IDs | Screenshot scope |
+| Affected row | Current authority | Related fixture IDs | Screenshot scope |
 | --- | --- | --- | --- |
-| `FE-V-P2-01` | `tools/frontend_phase_maps/fe_p2_test_map.json` | `FE-VFIX-01` | App-owned shell root, snapshot `fe-v-p2-01-default-timeline-workbook-shell`. |
-| `V-3-GRID-01` | `tools/phase3_test_map.json` | `FE-VFIX-01`, `FE-VFIX-08` | Fixed viewport shell. |
-| `V-3-GRID-02` | `tools/phase3_test_map.json` | `FE-VFIX-08`, `FE-VFIX-12` | Grid shell and named status-strip slot. |
-| `V-3-GRID-03` | `tools/phase3_test_map.json` | `FE-VFIX-06`, `FE-VFIX-13` | Grid shell. |
-| `V-4-GRID-01` | `tools/phase4_test_map.json` | None currently claimed. | Grid shell. |
-| `V-4-GRID-03` | `tools/phase4_test_map.json` | `FE-VFIX-07` | Grid shell. |
-| `V-5-GRID-02` | `tools/phase5_test_map.json` | `FE-VFIX-05` | Grid shell. |
-| `V-6-GRID-01` | `tools/phase6_test_map.json` | `FE-VFIX-04` | Grid shell. |
-| `V-6-GRID-02` | `tools/phase6_test_map.json` | `FE-VFIX-03`, `FE-VFIX-08` | Fixed viewport shell. |
-| `V-6-GRID-03` | `tools/phase6_test_map.json` | `FE-VFIX-03`, `FE-VFIX-08` | Fixed viewport shell and named status-strip slot. |
+| `FE-V-P2-01` | `tools/test_families/*.json` | `FE-VFIX-01` | App-owned shell root, snapshot `fe-v-p2-01-default-timeline-workbook-shell`. |
+| `V-3-GRID-01` | `tools/test_families/*.json` | `FE-VFIX-01`, `FE-VFIX-08` | Fixed viewport shell. |
+| `V-3-GRID-02` | `tools/test_families/*.json` | `FE-VFIX-08`, `FE-VFIX-12` | Grid shell and named status-strip slot. |
+| `V-3-GRID-03` | `tools/test_families/*.json` | `FE-VFIX-06`, `FE-VFIX-13` | Grid shell. |
+| `V-4-GRID-01` | `tools/test_families/*.json` | None currently claimed. | Grid shell. |
+| `V-4-GRID-03` | `tools/test_families/*.json` | `FE-VFIX-07` | Grid shell. |
+| `V-5-GRID-02` | `tools/test_families/*.json` | `FE-VFIX-05` | Grid shell. |
+| `V-6-GRID-01` | `tools/test_families/*.json` | `FE-VFIX-04` | Grid shell. |
+| `V-6-GRID-02` | `tools/test_families/*.json` | `FE-VFIX-03`, `FE-VFIX-08` | Fixed viewport shell. |
+| `V-6-GRID-03` | `tools/test_families/*.json` | `FE-VFIX-03`, `FE-VFIX-08` | Fixed viewport shell and named status-strip slot. |
 
 ### Current Evidence managed-object refresh citation map
 
@@ -97,9 +97,9 @@ state. This map is current-profile visual maintenance for the authoritative
 `V-*` row only; FE-P6 readiness is owned separately by `FE-VFIX-05` and
 `FE-V-P6-01`.
 
-| Affected row | Owner map | Related fixture IDs | Screenshot scope |
+| Affected row | Current authority | Related fixture IDs | Screenshot scope |
 | --- | --- | --- | --- |
-| `V-5-GRID-01` | `tools/phase5_test_map.json` | None currently claimed. | Grid shell, snapshot `v-5-grid-01-available-evidence`. |
+| `V-5-GRID-01` | `tools/test_families/*.json` | None currently claimed. | Grid shell, snapshot `v-5-grid-01-available-evidence`. |
 
 ### Current FE-P3 grid-adapter fixture citation map
 
@@ -107,9 +107,9 @@ The FE-P3 grid-adapter fixture uses deterministic test-only DOM inside an
 ordinary workbook page so adapter visual states can be owned without pulling
 later row-gutter or grouped-result query behavior into FE-P3.
 
-| Affected row | Owner map | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
+| Affected row | Current authority | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
 | --- | --- | --- | --- | --- | --- | --- |
-| `FE-V-P3-01` | `tools/frontend_phase_maps/fe_p3_test_map.json` | `FE-VFIX-09`, `FE-VFIX-10`, `FE-VFIX-11`, `FE-VFIX-12`, `FE-VFIX-13`, `FE-VFIX-15` | Deterministic workbook incident plus test-only `section[data-design-fixture='fe-p3-grid-adapter']` grid-adapter specimen. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; specimen text is static and contains no generated IDs, actor names, timestamps, or cursors. | Selector crop, snapshot `fe-v-p3-01-grid-adapter-fixtures`. |
+| `FE-V-P3-01` | `tools/test_families/*.json` | `FE-VFIX-09`, `FE-VFIX-10`, `FE-VFIX-11`, `FE-VFIX-12`, `FE-VFIX-13`, `FE-VFIX-15` | Deterministic workbook incident plus test-only `section[data-design-fixture='fe-p3-grid-adapter']` grid-adapter specimen. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; specimen text is static and contains no generated IDs, actor names, timestamps, or cursors. | Selector crop, snapshot `fe-v-p3-01-grid-adapter-fixtures`. |
 
 ### Current FE-P4 visual readiness fixture citation map
 
@@ -120,9 +120,9 @@ empty Timeline query state. This map is
 design-direction evidence only; it does not create product conformance or Core
 05 publication evidence.
 
-| Affected row | Owner map | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
+| Affected row | Current authority | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
 | --- | --- | --- | --- | --- | --- | --- |
-| `FE-V-P4-01` | `tools/frontend_phase_maps/fe_p4_test_map.json` | `FE-VFIX-08`, `FE-VFIX-12`, `FE-VFIX-15` | Deterministic workbook incident with one Timeline row, held transport failure for pending replay, one injected transaction conflict for actionable recovery, and a fresh zero-row Timeline incident for the empty query state. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; generated record identifiers and clock-derived labels masked by visual preparation; transaction identifiers are not rendered. | Grid/status captures, snapshots `fe-v-p4-01-active-edit-cell`, `fe-v-p4-01-pending-replay-status`, `fe-v-p4-01-transaction-recovery-panel`, and `fe-v-p4-01-empty-timeline-query`. |
+| `FE-V-P4-01` | `tools/test_families/*.json` | `FE-VFIX-08`, `FE-VFIX-12`, `FE-VFIX-15` | Deterministic workbook incident with one Timeline row, held transport failure for pending replay, one injected transaction conflict for actionable recovery, and a fresh zero-row Timeline incident for the empty query state. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; generated record identifiers and clock-derived labels masked by visual preparation; transaction identifiers are not rendered. | Grid/status captures, snapshots `fe-v-p4-01-active-edit-cell`, `fe-v-p4-01-pending-replay-status`, `fe-v-p4-01-transaction-recovery-panel`, and `fe-v-p4-01-empty-timeline-query`. |
 
 ### Current FE-P5 visual readiness fixture citation map
 
@@ -133,9 +133,9 @@ mention inspector state in one first-viewport fixture. This map is
 design-direction evidence
 only; it does not create product conformance or Core 05 publication evidence.
 
-| Affected row | Owner map | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
+| Affected row | Current authority | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
 | --- | --- | --- | --- | --- | --- | --- |
-| `FE-V-P5-01` | `tools/frontend_phase_maps/fe_p5_test_map.json` | `FE-VFIX-02` | Deterministic workbook incident with Timeline rows for unresolved, resolved, resolved-with-manual-metadata, auto-resolved, and dismissed mention states. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; generated record identifiers and clock-derived labels masked by visual preparation. | Fixed viewport capture, snapshot `fe-v-p5-01-mention-chip-states`. |
+| `FE-V-P5-01` | `tools/test_families/*.json` | `FE-VFIX-02` | Deterministic workbook incident with Timeline rows for unresolved, resolved, resolved-with-manual-metadata, auto-resolved, and dismissed mention states. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; generated record identifiers and clock-derived labels masked by visual preparation. | Fixed viewport capture, snapshot `fe-v-p5-01-mention-chip-states`. |
 
 ### Current FE-P6 visual readiness fixture citation map
 
@@ -143,9 +143,9 @@ The FE-P6 visual readiness fixture uses deterministic app-owned Evidence and
 Timeline workbook state. It is design-direction evidence only and keeps Core 05
 claim-publication evidence out of scope.
 
-| Affected row | Owner map | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
+| Affected row | Current authority | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
 | --- | --- | --- | --- | --- | --- | --- |
-| `FE-V-P6-01` | `tools/frontend_phase_maps/fe_p6_test_map.json` | `FE-VFIX-05` | Deterministic workbook incident with requested, pending, quarantined, available-preview, available-download, unsupported-preview, failed-handle, and inconsistent-handle Evidence rows, plus one Timeline row with an attached PNG evidence count. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; generated record identifiers and clock-derived labels masked by visual preparation; native file-input dimensions are normalized only for the FE-P6 actions-column screenshot crop. | Evidence grid right-edge actions-column capture, snapshot `fe-v-p6-01-evidence-affordance-states`; Timeline row evidence-actions anchor capture, snapshot `fe-v-p6-01-timeline-evidence-count`. |
+| `FE-V-P6-01` | `tools/test_families/*.json` | `FE-VFIX-05` | Deterministic workbook incident with requested, pending, quarantined, available-preview, available-download, unsupported-preview, failed-handle, and inconsistent-handle Evidence rows, plus one Timeline row with an attached PNG evidence count. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; generated record identifiers and clock-derived labels masked by visual preparation; native file-input dimensions are normalized only for the FE-P6 actions-column screenshot crop. | Evidence grid right-edge actions-column capture, snapshot `fe-v-p6-01-evidence-affordance-states`; Timeline row evidence-actions anchor capture, snapshot `fe-v-p6-01-timeline-evidence-count`. |
 
 ### Current FE-P7 visual readiness fixture citation map
 
@@ -155,9 +155,9 @@ evidence only and keeps Core 05 claim-publication evidence out of scope. Fresh
 FE-P7 closure requires current `browser-e2e-visual` row accounting; retained
 passing visual evidence is context only after a newer visual audit fails.
 
-| Affected row | Owner map | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
+| Affected row | Current authority | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
 | --- | --- | --- | --- | --- | --- | --- |
-| `FE-V-P7-01` | `tools/frontend_phase_maps/fe_p7_test_map.json` | `FE-VFIX-03`, `FE-VFIX-04`, `FE-VFIX-08` | Deterministic workbook incidents for a remote Timeline presence row, same-field conflict resolver state with the exact rejected grid draft retained, conflict and recovered save-state strips, and a delete/restore invalidate refresh strip. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; generated record identifiers and dynamic actor connection data masked by visual preparation; remote actor initials remain deterministic. | Grid capture `fe-v-p7-01-presence-markers`; viewport capture `fe-v-p7-01-conflict-resolver`; status-strip captures `fe-v-p7-01-conflict-strip`, `fe-v-p7-01-recovered-saved-strip`, and `fe-v-p7-01-reset-invalidate-notice`. |
+| `FE-V-P7-01` | `tools/test_families/*.json` | `FE-VFIX-03`, `FE-VFIX-04`, `FE-VFIX-08` | Deterministic workbook incidents for a remote Timeline presence row, same-field conflict resolver state with the exact rejected grid draft retained, conflict and recovered save-state strips, and a delete/restore invalidate refresh strip. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; generated record identifiers and dynamic actor connection data masked by visual preparation; remote actor initials remain deterministic. | Grid capture `fe-v-p7-01-presence-markers`; viewport capture `fe-v-p7-01-conflict-resolver`; status-strip captures `fe-v-p7-01-conflict-strip`, `fe-v-p7-01-recovered-saved-strip`, and `fe-v-p7-01-reset-invalidate-notice`. |
 
 ### Current FE-P9 visual readiness fixture citation map
 
@@ -165,9 +165,9 @@ The FE-P9 visual readiness fixture uses deterministic app-owned Timeline and
 Evidence workbook state. It is design-direction evidence only and does not
 create product conformance or Core 05 claim-publication evidence.
 
-| Affected row | Owner map | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
+| Affected row | Current authority | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
 | --- | --- | --- | --- | --- | --- | --- |
-| `FE-V-P9-01` | `tools/frontend_phase_maps/fe_p9_test_map.json` | `FE-VFIX-01`, `FE-VFIX-16`, `FE-VFIX-17`, `FE-VFIX-18` | Deterministic workbook incident with one Timeline row linked to one Evidence row, an unresolved host relationship token, retained row history, rollback preview, destructive confirmation, public rollback error envelope, host/identity merge state, and blocked Evidence preview state. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; generated record identifiers, history references, and clock-derived labels masked by visual preparation. | Fixed viewport captures `fe-v-p9-01-inspector-relationships`, `fe-v-p9-01-inspector-history`, `fe-v-p9-01-rollback-preview`, `fe-v-p9-01-destructive-confirmation`, `fe-v-p9-01-public-error`, plus added selector captures for merge and blocked-preview fixtures when implemented. |
+| `FE-V-P9-01` | `tools/test_families/*.json` | `FE-VFIX-01`, `FE-VFIX-16`, `FE-VFIX-17`, `FE-VFIX-18` | Deterministic workbook incident with one Timeline row linked to one Evidence row, an unresolved host relationship token, retained row history, rollback preview, destructive confirmation, public rollback error envelope, host/identity merge state, and blocked Evidence preview state. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; generated record identifiers, history references, and clock-derived labels masked by visual preparation. | Fixed viewport captures `fe-v-p9-01-inspector-relationships`, `fe-v-p9-01-inspector-history`, `fe-v-p9-01-rollback-preview`, `fe-v-p9-01-destructive-confirmation`, `fe-v-p9-01-public-error`, plus added selector captures for merge and blocked-preview fixtures when implemented. |
 
 ### Current exposed-theme fixture citation map
 
@@ -176,9 +176,9 @@ so generated theme CSS is injected through the same runtime path as the
 workbook shell. It does not expose a theme switcher and does not claim support
 for light or high-contrast themes.
 
-| Affected row | Owner map | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
+| Affected row | Current authority | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
 | --- | --- | --- | --- | --- | --- | --- |
-| `FE-V-P11-03` | `tools/frontend_phase_maps/fe_p11_test_map.json` | `FE-VFIX-14` | Deterministic workbook incident plus test-only `section[data-design-fixture='exposed-theme']` token specimen. | `1280x720`, browser default zoom matching `{layout.zoomDefault}`. | None; specimen text is static and contains no generated IDs, actor names, timestamps, or cursors. | `capture_scope.kind="selector"` with `[data-design-fixture='exposed-theme']`, snapshot `fe-v-p11-03-exposed-theme-states`. |
+| `FE-V-P11-03` | `tools/test_families/*.json` | `FE-VFIX-14` | Deterministic workbook incident plus test-only `section[data-design-fixture='exposed-theme']` token specimen. | `1280x720`, browser default zoom matching `{layout.zoomDefault}`. | None; specimen text is static and contains no generated IDs, actor names, timestamps, or cursors. | `capture_scope.kind="selector"` with `[data-design-fixture='exposed-theme']`, snapshot `fe-v-p11-03-exposed-theme-states`. |
 
 ## Accepted Refresh Triggers
 

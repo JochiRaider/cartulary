@@ -22,12 +22,6 @@ import {
   summarizeFixtureActivities,
 } from "../../diagnostics/fixture-reporting.mjs";
 import {
-  appendFrontendRowAccountingFailures,
-  frontendRowAccountingFailures,
-  frontendRowAccountingForTarget,
-  normalizeFrontendRowAccountingScope,
-} from "../../phase-accounting/frontend-row-accounting.mjs";
-import {
   compactJSONString,
   prettyJSONString,
   secureMkdir,
@@ -55,7 +49,6 @@ import {
   verboseOutput,
 } from "../tool-output.mjs";
 import {
-  frontendRowAccountingSchemaID,
   resolveResultsRoot,
   resolveRunId,
   targetSummarySchemaID,
@@ -1748,15 +1741,11 @@ export function handleTargetSummary(args) {
     skippedFromChildTargets,
     skippedFromSchedulerTargets,
     failedDependency,
-    frontendRowAccountingOptions,
     quietSuccess,
     quietFailure,
     suppressMachineOutput,
     preserveExistingToolSummary,
   } = parseTargetSummaryArgs(args);
-  const frontendRowAccountingScope = normalizeFrontendRowAccountingScope(
-    frontendRowAccountingOptions,
-  );
   const summary = summarizeTargetDir(target);
   const securityRollup = govulncheckRollupFromPhaseSummaries(
     target,
@@ -2052,33 +2041,7 @@ export function handleTargetSummary(args) {
       reportCollationEndTime,
     ...durationFieldsForJSON(totalsSection),
   };
-  const browserOwnerIndex = validatedBrowserOwnerIndex(summary.targetDir, target);
-  const frontendRowAccounting = browserOwnerIndex
-    ? null
-    : frontendRowAccountingForTarget(
-        target,
-        status.toLowerCase(),
-        summary.targetDir,
-        { scope: frontendRowAccountingScope },
-      );
-  const frontendRowAccountingPath = frontendRowAccounting
-    ? path.join(summary.targetDir, "frontend-row-accounting.json")
-    : "";
-  if (frontendRowAccounting) {
-    writeValidatedJson(
-      frontendRowAccountingPath,
-      frontendRowAccountingSchemaID,
-      frontendRowAccounting,
-    );
-    ownSection.artifacts.frontend_row_accounting = relToRepo(
-      frontendRowAccountingPath,
-    );
-    if (totalsSection.artifacts && typeof totalsSection.artifacts === "object") {
-      totalsSection.artifacts.frontend_row_accounting = relToRepo(
-        frontendRowAccountingPath,
-      );
-    }
-  }
+  validatedBrowserOwnerIndex(summary.targetDir, target);
   const browserArtifacts = browserOwnedStackArtifacts(summary.targetDir, target);
   if (browserArtifacts.stackMetadata) {
     ownSection.artifacts.browser_stack = browserArtifacts.stackMetadata;
@@ -2114,28 +2077,11 @@ export function handleTargetSummary(args) {
       );
     }
   }
-  const frontendAccountingFailures =
-    status === "PASS"
-      ? frontendRowAccountingFailures(frontendRowAccounting)
-      : [];
-  appendFrontendRowAccountingFailures(
-    ownSection,
-    frontendAccountingFailures,
-    { normalizeCounts, failureFieldsForJSON },
-  );
-  appendFrontendRowAccountingFailures(
-    totalsSection,
-    frontendAccountingFailures,
-    { normalizeCounts, failureFieldsForJSON },
-  );
   const testAccountingFailures =
     status === "PASS" ? testAccountingUnmappedFailures(ownSection, target) : [];
   appendTestAccountingFailures(ownSection, testAccountingFailures);
   appendTestAccountingFailures(totalsSection, testAccountingFailures);
-  const finalStatus =
-    frontendAccountingFailures.length > 0 || testAccountingFailures.length > 0
-      ? "FAIL"
-      : status;
+  const finalStatus = testAccountingFailures.length > 0 ? "FAIL" : status;
   const targetExtensions = {
     ...securityRollup.extensions,
     ...(schedulerAccounting
@@ -2249,10 +2195,7 @@ export function handleTargetSummary(args) {
     );
     writeSkippedChildTargetLines(process.stderr, target, skippedChildTargets);
   }
-  return frontendAccountingFailures.length > 0 ||
-    testAccountingFailures.length > 0
-    ? 1
-    : 0;
+  return testAccountingFailures.length > 0 ? 1 : 0;
 }
 
 function createDurationAggregate() {

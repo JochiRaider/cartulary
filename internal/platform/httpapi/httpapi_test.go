@@ -296,57 +296,6 @@ func TestNewHandler_KeepsUnclaimedReservedExtensionRootsUnavailable(t *testing.T
 	}
 }
 
-func TestCurrentExtensionProfilesMatchPhaseManifestClaims(t *testing.T) {
-	t.Parallel()
-
-	type profileClaim struct {
-		ProfileID string `json:"profile_id"`
-		Claimed   bool   `json:"claimed"`
-	}
-	type phaseManifest struct {
-		Phase         string         `json:"phase"`
-		ProfileClaims []profileClaim `json:"profile_claims"`
-	}
-
-	want := map[string]bool{}
-	manifestPaths := []string{
-		"../../../tools/phase11_test_map.json",
-		"../../../tools/phase12_test_map.json",
-	}
-	for _, manifestPath := range manifestPaths {
-		payload, err := os.ReadFile(manifestPath)
-		if err != nil {
-			t.Fatalf("read phase profile-claim manifest %s: %v", manifestPath, err)
-		}
-		var manifest phaseManifest
-		if err := json.Unmarshal(payload, &manifest); err != nil {
-			t.Fatalf("decode phase profile-claim manifest %s: %v", manifestPath, err)
-		}
-		for _, claim := range manifest.ProfileClaims {
-			if existing, exists := want[claim.ProfileID]; exists && existing != claim.Claimed {
-				t.Fatalf("conflicting profile claim for %s in %s: existing=%v manifest=%v", claim.ProfileID, manifest.Phase, existing, claim.Claimed)
-			}
-			want[claim.ProfileID] = claim.Claimed
-		}
-	}
-	if len(want) == 0 {
-		t.Fatal("phase manifests must declare profile_claims")
-	}
-	for _, profile := range CurrentExtensionProfiles() {
-		claimed, ok := want[profile.ProfileID]
-		if !ok {
-			t.Fatalf("phase manifests missing profile claim for %s", profile.ProfileID)
-		}
-		if profile.Claimed != claimed {
-			t.Fatalf("profile %s claimed mismatch: runtime=%v manifest=%v", profile.ProfileID, profile.Claimed, claimed)
-		}
-		delete(want, profile.ProfileID)
-	}
-	if len(want) > 0 {
-		t.Fatalf("phase manifests declare unknown profile claims: %#v", want)
-	}
-}
-
 func TestCurrentExtensionProfilesMatchExtensionContractRegistry(t *testing.T) {
 	t.Parallel()
 

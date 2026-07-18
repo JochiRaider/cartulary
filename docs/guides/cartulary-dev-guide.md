@@ -778,7 +778,8 @@ Every production workbook grid MUST keep RDG row and column virtualization enabl
 - Frontend lint, type-check, and unit targets include `/packages/grid-adapter`, `/packages/view-contracts`, `/packages/ui-contracts`, and `/packages/test-utils`, not only `/apps/web`.
 - Sparse patch reducers preserve unchanged row object references and never use visible row index as identity.
 - Grid changes in the fragility trigger list run the grid-adapter harness, focused browser tests, and visual-regression fixtures.
-- `tools/frontend_phase_registry.json` exists, every active frontend row is scheduler-visible, and generated frontend ledgers match frontend maps.
+- Every active frontend catalog row is scheduler-visible through its semantic
+  family manifest, and generated topology matches the catalog owner inputs.
 - Every implemented `FE-A11Y-*` row maps to `make browser-e2e-a11y` and appears in `cartulary.frontend_accessibility_summary.v3`.
 - Non-Core design/support frontend rows do not claim Core requirements.
 

@@ -489,9 +489,11 @@ func AssertErrorDetailShape(t *testing.T) {
 
 func AssertLargeTimingClassification(t *testing.T) {
 	t.Helper()
-	manifest := ReadFile(t, "tools/phase12_test_map.json")
-	if !bytes.Contains(manifest, []byte("Large-fixture timing evidence remains engineering-only unless Core 05")) {
-		t.Fatalf("Network Flow manifest must keep large-fixture timing evidence outside product conformance publication")
+	manifest := ReadFile(t, "tools/test_families/module.networkflow.json")
+	if !bytes.Contains(manifest, []byte(`"evidence_class": "measurement"`)) ||
+		!bytes.Contains(manifest, []byte(`"claim_posture": "informative"`)) ||
+		!bytes.Contains(manifest, []byte("without a timing claim")) {
+		t.Fatalf("Network Flow owner manifest must keep measurement evidence informative and outside product conformance publication")
 	}
 }
 

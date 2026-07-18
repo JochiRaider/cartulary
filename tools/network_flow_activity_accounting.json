@@ -28,7 +28,7 @@
     "last_id": "NF-AC-107",
     "selector_prefix": "phase12/network-flow/",
     "tracker_row_prefix": "NF-AC-",
-    "matrix_source": "tools/phase12_test_map.json",
+    "matrix_source": "tools/test_families/module.networkflow.json",
     "rows": [
       {
         "acceptance_id": "NF-AC-001",

@@ -7,7 +7,6 @@ import { normalizeBrowserBatchStages } from "../browser/browser-batch-manifest.m
 import {
   compareExecutionDependencies,
   executionDependencyInfo,
-  targetForExecutionDependency,
 } from "../execution/execution-dependencies.mjs";
 import {
   loadExecutionTopology,
@@ -15,17 +14,10 @@ import {
 } from "../generated-artifacts/execution-topology.mjs";
 import {
   activePhaseStatus,
-  collectEntries,
-  collectSupportGoEntries,
-  entryClaimStatus,
-  loadManifest,
-  phaseManifestNames,
-  phaseManifestRoot,
   phaseRegistryEntry,
-  playwrightEntryTitles,
-  vitestEntryTitles,
 } from "../phase-accounting/index.mjs";
 import { findTargetDescriptor } from "../backend/backend-target-plan.mjs";
+import { loadTestCatalog, targetForCatalogRow } from "../test-catalog/index.mjs";
 import {
   makeRecipeEntries,
   targetEntryMap,
@@ -62,82 +54,40 @@ function uniqueSorted(values) {
   return Array.from(new Set(values.filter((value) => value !== ""))).sort(compareStrings);
 }
 
-function relToRepo(value, root = repoRoot) {
-  const relative = path.relative(root, value).replaceAll("\\", "/");
-  if (!relative.startsWith("../") && relative !== "..") {
-    return relative === "" ? "." : relative;
-  }
-  return value.replaceAll("\\", "/");
-}
-
-function targetForEntry(entry) {
-  return targetForExecutionDependency(
-    entry.execution_dependency ?? "",
-    `manifest entry ${entry.id} execution_dependency`,
-  );
-}
-
-function targetForSupportEntry(entry) {
-  return targetForExecutionDependency(
-    entry.target ?? "",
-    `support_go_target ${entry.file ?? "(missing file)"} target`,
-  );
-}
-
 export function collectExecutionPhaseRows(root = repoRoot) {
   const cacheKey = cacheKeyForRoot(root);
   const cached = executionPhaseRowsCache.get(cacheKey);
   if (cached) {
     return cached;
   }
-  const rows = [];
-  for (const phase of phaseManifestNames(root)) {
-    const { manifest, manifestPath } = loadManifest(root, phase);
-    for (const entry of collectEntries(manifest)) {
-      rows.push({
-        id: entry.id,
-        phase,
-        section: entry.section,
-        coverage: entry.coverage,
-        claim_status: entryClaimStatus(entry),
+  const taskSurface = loadTaskSurface(root).manifest;
+  const commandTargetByID = new Map(
+    taskSurface.targets.map((entry) => [entry.command_id, entry.name]),
+  );
+  const rows = loadTestCatalog(root).rows
+    .filter((entry) => entry.status === "active")
+    .map((entry) => {
+      const selector = entry.selector ?? {};
+      const target = targetForCatalogRow(entry, { commandTargetByID });
+      return {
+        id: entry.row_id,
+        phase: entry.owner_id,
+        section: entry.family_id,
+        coverage: "authoritative",
+        claim_status: entry.status,
         runner: entry.runner,
-        execution_dependency: entry.execution_dependency ?? "",
-        evidence_class: entry.evidence_class ?? "",
-        layer: entry.layer ?? "",
-        default_check_required: entry.default_check_required === true,
-        runtime_binaries: [...(entry.runtime_binaries ?? [])],
-        target: targetForEntry(entry),
-        file: entry.file ?? "",
-        package: entry.package ?? "",
-        title:
-          entry.runner === "vitest"
-            ? vitestEntryTitles(entry).join(" | ")
-            : entry.runner === "playwright"
-              ? playwrightEntryTitles(entry).join(" | ")
-              : entry.title ?? "",
-        manifest_path: relToRepo(manifestPath, phaseManifestRoot(root)),
-      });
-    }
-    for (const entry of collectSupportGoEntries(manifest)) {
-      rows.push({
-        id: `support:${entry.file}`,
-        phase,
-        section: entry.section ?? "",
-        coverage: "support",
-        runner: "go_test",
-        execution_dependency: entry.target ?? "",
-        evidence_class: entry.evidence_class ?? "",
-        layer: entry.layer ?? "",
-        default_check_required: entry.default_check_required === true,
-        runtime_binaries: [...(entry.runtime_binaries ?? [])],
-        target: targetForSupportEntry(entry),
-        file: entry.file ?? "",
-        package: entry.package ?? "",
-        title: entry.selection_pattern ?? "",
-        manifest_path: relToRepo(manifestPath, phaseManifestRoot(root)),
-      });
-    }
-  }
+        execution_dependency: target.replaceAll("-", "_"),
+        evidence_class: entry.evidence_class,
+        layer: entry.family_id,
+        default_check_required: entry.default_check === true,
+        runtime_binaries: [],
+        target,
+        file: selector.file ?? "",
+        package: selector.package ?? "",
+        title: [...(selector.tests ?? []), ...(selector.titles ?? [])].join(" | "),
+        manifest_path: `tools/test_families/${entry.owner_id}.json`,
+      };
+    });
   const result = rows.sort((left, right) => (
     compareStrings(left.phase, right.phase) ||
     compareStrings(left.target, right.target) ||

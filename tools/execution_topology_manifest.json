@@ -700,18 +700,6 @@
         ],
         "make_prerequisite_policy": "skip"
       },
-      "service-backed-unit-check": {
-        "schedules": [
-          "check"
-        ],
-        "profile": "after_setup_cpu",
-        "priority_band": "drift_validation",
-        "order": 200,
-        "needs": [
-          "toolchain-drift"
-        ],
-        "make_prerequisite_policy": "skip"
-      },
       "testservices-build": {
         "schedules": [
           "check"

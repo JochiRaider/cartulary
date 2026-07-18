@@ -155,7 +155,13 @@ This phase establishes the authenticated shell:
 
 Incident-specific work does not begin until the bounded credential lifecycle and deployment-local account boundary are trustworthy.[^base-manifest][^core01-routes]
 
-Repository execution for this phase is manifest-driven. `tools/phase1_test_map.json` is the executable authoritative inventory for Phase 1 completion, and `make test`, `make check`, and `make ci` must both select and verify every mapped authoritative row. `make backend-unit` carries the pure Phase 1 handler-unit rows, while `make backend-store` carries the service-backed Phase 1 unit rows `U-1-05`, `U-1-06`, and `U-1-08`; `make frontend-unit` carries `U-1-14..U-1-17`; `make backend-integration` carries `I-1-01..I-1-06`; and the ordinary-shell browser rows continue to execute through the Phase 1 Playwright manifest under `browser_functional` and `browser_stateful`. Support-only backend sweeps and smoke coverage remain valuable, but they are not substitutes for the manifest-owned completion rows.
+Repository execution is catalog-driven. `tools/test_catalog_owner.json` and its
+`tools/test_families/*.json` manifests are the executable authority; broad gates
+derive their applicable owner/target/row partitions from that catalog. Use
+`make explain-test-owner OWNER=module.auth` before running the narrow
+`test-slice` or `service-backed-test-slice` selection. Historical Phase 1 row
+labels below remain implementation-guide citations only and do not select
+harness work.
 
 Shared harness owners for this phase are explicit:
 
@@ -244,7 +250,13 @@ This phase establishes incident-scoped administration and the first stable incid
 
 This phase does **not** yet complete record-row history for workbook records. It also does **not** migrate Phase 2 incident mutation attribution onto `change_sets`; Phase 2 still proves owner-level mutation artifacts on the existing audit substrate, and any storage migration is separate owner work. It does establish the expectation that every new mutating route from this point forward must already satisfy its route-owned validation, idempotency, versioning, authorization, audit, and route-family discovery contracts.[^base-manifest][^core01-routes]
 
-Repository execution for this phase is manifest-driven. `tools/phase2_test_map.json` is the executable authoritative inventory for Phase 2 completion, and `make test`, `make check`, and `make ci` must both select and verify every mapped authoritative row. Authoritative Go unit execution is split by manifest `execution_dependency`: `make backend-unit` carries `U-2-01`, `U-2-05`, `U-2-06`, `U-2-08`, `U-2-09`, and `U-2-10`, while `make backend-store` carries `U-2-02`, `U-2-03`, `U-2-04`, `U-2-07`, and `U-2-14`. `make backend-unit` also executes manifest-declared support-only unit seams, including membership patch/delete decoder support and workbook-preference PUT decoder plus OpenAPI contract support. Authoritative browser rows execute through `browser_functional` under `make browser-e2e-webserver-backed`. `backend-integration-support` emits support coverage through manifest-owned execution families rather than a second independent runtime, `make browser-e2e-support` is a helper slice already exercised inside `make browser-e2e-webserver-backed`, and `apps/web/src/app/Phase2Harness.tsx` remains a debug probe surface only. Runtime-backed HTTP conformance checks, extra regressions, process smoke coverage, and browser-authenticated request probes remain valuable support coverage, but they are supplemental evidence selected through the manifest-owned aggregate targets.
+Repository execution is catalog-driven. `tools/test_catalog_owner.json` and its
+semantic family manifests own the Phase 2 implementation coverage now assigned
+to incident, workbook, record, and web owners. Use `make
+explain-test-owner OWNER=<owner-id>` to inspect exact rows and applicable
+targets, then run the owner slice APIs. Historical Phase 2 row labels and debug
+probe names below are descriptive citations only; they are not scheduler or
+evidence identities.
 
 Shared harness owners for this phase are explicit:
 

@@ -162,7 +162,7 @@
           "const": "NF-AC-"
         },
         "matrix_source": {
-          "const": "tools/phase12_test_map.json"
+          "const": "tools/test_families/module.networkflow.json"
         },
         "rows": {
           "type": "array",

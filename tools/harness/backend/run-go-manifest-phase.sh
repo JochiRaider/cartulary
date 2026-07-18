@@ -68,7 +68,7 @@ repo_root="$(cd "$script_dir/../../.." && pwd)"
 node_bin="${NODE_BIN:-node}"
 manifest_script="$repo_root/tools/harness/phase-accounting/phase-manifest.mjs"
 if [[ -n "${CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION:-}" ]]; then
-  echo "CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION is retired; use tools/phase_policy_exceptions.json for temporary empty manifest selection exceptions" >&2
+  echo "CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION is retired; empty catalog selections are rejected" >&2
   exit 2
 fi
 match_count="$("$node_bin" "$manifest_script" go-count "$phase_manifest" "$section" "$coverage" "$execution_dependency" "${package_patterns[@]}")"

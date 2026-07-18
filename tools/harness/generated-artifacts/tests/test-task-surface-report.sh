@@ -68,31 +68,6 @@ assert_fails() {
   printf '%s' "$output"
 }
 
-write_phase_registry() {
-  local root="$1"
-  local phase="$2"
-  local phase_number="${phase#phase}"
-
-  mkdir -p "$root/tools"
-  cat >"$root/tools/phase_registry.json" <<JSON
-{
-  "schema_id": "cartulary.phase_registry.v1",
-  "phases": [
-    {
-      "phase": "$phase",
-      "order": $phase_number,
-      "status": "active",
-      "label": "Phase $phase_number",
-      "manifest_path": "tools/${phase}_test_map.json",
-      "ledger_path": "docs/testing/${phase}_coverage_ledger.md",
-      "scope": "synthetic $phase scope.",
-      "normative_owners": "Synthetic owner."
-    }
-  ]
-}
-JSON
-}
-
 valid_output="$(assert_passes "current task-surface report" "$NODE_BIN" "$REPORTER" --check)"
 assert_contains "$valid_output" "Cartulary task-surface report" "current report header"
 assert_contains "$valid_output" "target_class counts:" "current report target_class summary"
@@ -126,7 +101,7 @@ assert_contains "$valid_all_output" "runtime_reset:" "current report runtime res
 assert_contains "$valid_all_output" "side_effects=" "current exhaustive report public target side effects"
 assert_contains "$valid_all_output" "task target classes:" "current exhaustive report target section"
 assert_contains "$valid_all_output" "logical harness checks:" "current exhaustive report harness section"
-assert_contains "$valid_all_output" "phase-map execution dependencies:" "current exhaustive report phase dependency section"
+assert_contains "$valid_all_output" "catalog target partitions:" "current exhaustive report catalog partition section"
 
 "$NODE_BIN" --input-type=module - "$ROOT_DIR" <<'EOF'
 import assert from "node:assert/strict";
@@ -288,62 +263,6 @@ assert.ok(
   "long target help must not concatenate target and description",
 );
 EOF
-
-phase_root="$(mktemp -d "$ROOT_DIR/tmp/task-surface-phase-root.XXXXXX")"
-cleanup_paths+=("$phase_root")
-mkdir -p "$phase_root/tools"
-write_phase_registry "$phase_root" phase99
-cat >"$phase_root/tools/phase99_test_map.json" <<'JSON'
-{
-  "schema_id": "cartulary.phase_test_map.v2",
-  "phase": "phase99",
-  "note": "Synthetic task-surface report fixture.",
-  "ledger": {
-    "title": "Phase 99 Coverage Ledger",
-    "notes": "Synthetic task-surface report fixture.",
-    "authoritative_execution": "make phase-slice PHASE=phase99",
-    "support_execution_extras": [],
-    "sections": [],
-    "shared_harness": [],
-    "support_only": []
-  },
-  "expected_ids": ["U-99-01"],
-  "support_go_targets": [],
-  "unit": [
-    {
-      "id": "U-99-01",
-      "coverage": "authoritative",
-      "runner": "go_test",
-      "package": "./internal/modules/auth",
-      "file": "internal/modules/auth/store_test.go",
-      "symbol": "TestConcurrencyLimitRevokesLRUNonCurrent_Unit",
-      "execution_dependency": "backend_store",
-      "execution_family": "backend-store",
-      "execution_label": "Backend store",
-      "evidence_class": "product_conformance",
-      "layer": "backend_store",
-      "default_check_required": true,
-      "default_check_kind": "primary_local_evidence",
-      "default_check_reason_code": "cheapest_authoritative_layer",
-      "primary_evidence_owner": "task-surface-report-fixture",
-      "duplicate_of": null,
-      "evidence_delta": "Synthetic task-surface report fixture coverage.",
-      "warm_local_cost_class": "low",
-      "evidence_layer": "backend_store",
-      "claim_status": "implemented",
-      "claim": "task surface report discovers future phase dependencies",
-      "out_of_scope": "task surface report discovers future phase dependencies"
-    }
-  ],
-  "integration": [],
-  "e2e": []
-}
-JSON
-synthetic_report="$(
-  CARTULARY_PHASE_MANIFEST_ROOT="$phase_root" "$NODE_BIN" "$REPORTER" --json
-)"
-assert_contains "$synthetic_report" '"phase": "phase99"' "synthetic task-surface phase dependency"
-assert_contains "$synthetic_report" '"execution_dependency": "backend_store"' "synthetic task-surface execution dependency"
 
 tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/task-surface-report.XXXXXX")"
 cleanup_paths+=("$tmp_dir")

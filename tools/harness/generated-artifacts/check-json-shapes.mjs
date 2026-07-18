@@ -1559,7 +1559,7 @@ function validateNetworkFlowActivityAccountingShape(file) {
   );
   requireExact(
     matrixSource,
-    "tools/phase12_test_map.json",
+    "tools/test_families/module.networkflow.json",
     `${file}.acceptance_accounting.matrix_source`,
   );
   const acceptanceRows = requireObjectArray(
@@ -1609,12 +1609,9 @@ function validateNetworkFlowActivityAccountingShape(file) {
     expectedNetworkFlowIDs("NF-AC-", expectedAcceptanceCount),
   );
   const matrix = readShapeFile(repoFile(repoRoot, matrixSource), matrixSource);
-  const matrixSelectors = [];
-  for (const collection of [matrix.unit, matrix.integration, matrix.e2e]) {
-    for (const selector of requireObjectArray(collection, `${matrixSource} selector collection`)) {
-      matrixSelectors.push(selector);
-    }
-  }
+  const matrixRows = requireObjectArray(matrix.rows, `${matrixSource}.rows`, {
+    nonEmpty: true,
+  }).filter((row) => row.status === "active");
   const accountedAcceptanceIDs = new Set();
   for (const [index, row] of acceptanceRows.entries()) {
     const label = `${file}.acceptance_accounting.rows[${index}]`;
@@ -1665,13 +1662,30 @@ function validateNetworkFlowActivityAccountingShape(file) {
       if (!symbolOrTitle || !selectorSource.includes(symbolOrTitle)) {
         throw new Error(`${selectorLabel} does not resolve in ${selectorFile}`);
       }
-      const phaseRow = matrixSelectors.find((candidate) =>
-        candidate.file === selectorFile &&
-        (candidate.symbol === selector.symbol || candidate.title === selector.title) &&
-        candidate.id.includes(acceptanceID.replace("NF-AC-", "NFAC")),
-      );
-      if (!phaseRow) {
-        throw new Error(`${selectorLabel} is not an exact ${acceptanceID} Phase 12 selector`);
+      const catalogRows = matrixRows.filter((candidate) => {
+        const catalogSelector = candidate.selector;
+        if (!catalogSelector || typeof catalogSelector !== "object") {
+          return false;
+        }
+        if (selector.title) {
+          return (
+            candidate.runner === "playwright" &&
+            catalogSelector.file === selectorFile &&
+            Array.isArray(catalogSelector.titles) &&
+            catalogSelector.titles.includes(selector.title)
+          );
+        }
+        return (
+          candidate.runner === "go" &&
+          catalogSelector.package === selector.package &&
+          Array.isArray(catalogSelector.tests) &&
+          catalogSelector.tests.includes(selector.symbol)
+        );
+      });
+      if (catalogRows.length !== 1) {
+        throw new Error(
+          `${selectorLabel} must resolve to exactly one active ${acceptanceID} catalog row; found ${catalogRows.length}`,
+        );
       }
     }
     assertExactIDSet(actualKinds, requiredEvidenceKinds, `${label}.required_evidence_kinds`);
@@ -4399,18 +4413,10 @@ function validateAll(root) {
   validateTestCatalog(root);
   validateTestCatalogImportBoundary(root);
   scanExecutableDocumentationReads(root);
-  validatePhaseRegistryShape(repoFile(root, "tools/phase_registry.json"));
-  validatePhaseRegistry(root);
-  validateFrontendPhaseArtifacts(root);
-  validateFrontendSchemaArtifacts(root);
-  for (const entry of activePhaseRegistryEntries(root)) {
-    validatePhaseMapShape(repoFile(root, entry.manifest_path));
-    validatePhaseManifestSemantics(root, entry.phase);
-  }
-  validatePhasePolicyExceptionsShape(
-    repoFile(root, "tools/phase_policy_exceptions.json"),
+  validateSchemaSync(
+    frontendVisualFixtureRegistrySchemaID,
+    readShapeFile(repoFile(root, "tools/frontend_visual_fixture_registry.json")),
   );
-  loadPhasePolicyExceptions(root);
 
   validateExecutionTopologyShape(
     repoFile(root, "tools/execution_topology_manifest.json"),

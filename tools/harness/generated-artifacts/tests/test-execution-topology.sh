@@ -592,7 +592,6 @@ const expectedCheckWorkUnitPriorities = [
   ["phase-test-name-check", 12000],
   ["test-catalog-check", 11500],
   ["go-test-duration-baseline-coverage", 11400],
-  ["service-backed-unit-check", 11100],
   ["generated-artifact-policy-check", 11050],
   ["generate-drift", 11000],
   ["migration-input-drift", 10900],
@@ -1135,7 +1134,7 @@ assert.throws(
 );
 
 const duplicateOrderTopology = topologyFixture();
-duplicateOrderTopology.check_schedules.target_profiles["service-backed-unit-check"].order =
+duplicateOrderTopology.check_schedules.target_profiles["generate-drift"].order =
   250;
 assert.throws(
   () =>

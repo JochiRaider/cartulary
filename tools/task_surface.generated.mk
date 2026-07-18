@@ -71,7 +71,6 @@
   harness-smoke-duration-baseline-drift \
   scheduler-event-order-drift \
   scheduler-summary-timing-drift \
-  service-backed-unit-check \
   testservices-build \
   test-service-images \
   run-harness-smoke-fast \
@@ -636,11 +635,6 @@ scheduler-event-order-drift:
 scheduler-summary-timing-drift:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,scheduler-summary-timing-drift)
 	$(Q)$(call RUN_MAKE_NODE_TOOL,scheduler-summary-timing-drift,RESULTS_DIR="$(RESULTS_DIR)" TARGET="$(TARGET)" SCHEDULER_WARM_CHECK_BUDGET_MS="$(SCHEDULER_WARM_CHECK_BUDGET_MS)" SCHEDULER_WARM_CHECK_BALANCE_RATIO="$(SCHEDULER_WARM_CHECK_BALANCE_RATIO)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
-
-service-backed-unit-check: export CARTULARY_TEST_TARGET ?= service-backed-unit-check
-service-backed-unit-check: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-service-backed-unit-check:
-	$(Q)$(RUN_PHASE_SCRIPT) "service-backed-unit-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(GO) run ./tools/gotestservicecheck
 
 testservices-build: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 testservices-build: $(TEST_SERVICES_BIN)

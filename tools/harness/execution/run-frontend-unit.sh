@@ -18,12 +18,6 @@ if [[ ! "${VITEST_MAX_WORKERS}" =~ ^[0-9]+$ ]] ||
 fi
 unset VITEST_FLAGS || true
 
-if [[ -n "${CARTULARY_PHASE_SLICE_PHASE:-}" && -z "${CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE:-}" ]]; then
-  export CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE=disabled
-  export CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE=base
-  export CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE="${CARTULARY_PHASE_SLICE_PHASE}"
-fi
-
 if [[ ! -x "${PNPM_BIN}" ]]; then
   echo "repo-local pnpm was not found at ${PNPM_BIN}; run make frontend-toolchain" >&2
   exit 1
@@ -40,22 +34,6 @@ corepack_home="${NODE_RUNTIME_DIR}/corepack"
 
 command=("${PNPM_BIN}" --dir apps/web exec vitest run)
 command+=(--project=browser-unit --project=harness-node)
-if [[ "${CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE:-}" == "selected_rows" ]]; then
-  frontend_row_ids="${CARTULARY_FRONTEND_ROW_ACCOUNTING_ROW_IDS:-}"
-  if [[ -z "${frontend_row_ids}" ]]; then
-    echo "selected frontend row accounting requires CARTULARY_FRONTEND_ROW_ACCOUNTING_ROW_IDS" >&2
-    exit 2
-  fi
-  frontend_grep="$(
-    "${NODE_HELPER}" "${ROOT_DIR}/tools/harness/phase-accounting/frontend-phase-manifest.mjs" \
-      title-grep frontend-unit --row-ids "${frontend_row_ids}"
-  )"
-  if [[ -z "${frontend_grep}" ]]; then
-    echo "no frontend-unit scenarios found for selected frontend rows: ${frontend_row_ids}" >&2
-    exit 2
-  fi
-  command+=("-t" "${frontend_grep}")
-fi
 command+=(--maxWorkers="${VITEST_MAX_WORKERS}")
 
 vitest_report_succeeded() {
@@ -84,26 +62,6 @@ if (
 process.exit(1);
 NODE
 }
-
-if [[ -n "${CARTULARY_PHASE_SLICE_PHASE:-}" ]]; then
-  phase_status=0
-  phase_label="frontend-unit ${CARTULARY_PHASE_SLICE_PHASE} authoritative"
-  if ! "${ROOT_DIR}/tools/harness/execution/run-vitest-manifest-phase.sh" \
-    "${phase_label}" \
-    "${CARTULARY_PHASE_SLICE_PHASE}" \
-    authoritative \
-    frontend_unit \
-    -- \
-    env PATH="${path_prefix}" COREPACK_HOME="${corepack_home}" "${command[@]}"; then
-    phase_status=1
-  fi
-  if [[ "${phase_status}" -eq 0 ]]; then
-    emit_target_summary pass
-    exit 0
-  fi
-  emit_target_summary fail || true
-  exit "${phase_status}"
-fi
 
 if [[ "${output_mode}" == "quiet" ]]; then
   run_command=("${command[@]}" --reporter=json --outputFile="${run_report}")
@@ -157,38 +115,6 @@ if [[ ! -f "${run_report}" ]]; then
   emit_target_summary fail || true
   exit "${status:-1}"
 fi
-
-if [[ "${CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE:-}" == "selected_rows" ]]; then
-  if [[ "${status}" -eq 0 && "${run_status}" -eq 0 ]]; then
-    emit_target_summary pass
-    exit 0
-  fi
-  selected_exit_status="${status}"
-  if [[ "${selected_exit_status}" -eq 0 ]]; then
-    selected_exit_status="${run_status}"
-  fi
-  if [[ "${selected_exit_status}" -eq 0 ]]; then
-    selected_exit_status=1
-  fi
-  emit_target_summary fail || true
-  exit "${selected_exit_status}"
-fi
-
-export CARTULARY_PHASE_ACCOUNTING_MODE=derived
-export CARTULARY_MANIFEST_COVERAGE=authoritative
-export CARTULARY_MANIFEST_EXECUTION_DEPENDENCY=frontend_unit
-mapfile -t frontend_unit_phases < <("${NODE_HELPER}" "${ROOT_DIR}/tools/harness/phase-accounting/phase-manifest.mjs" vitest-phases authoritative frontend_unit)
-for manifest_phase in "${frontend_unit_phases[@]}"; do
-  export CARTULARY_MANIFEST_PHASE="${manifest_phase}"
-  emit_report_phase_summary vitest-manifest-phase "frontend-unit ${manifest_phase} authoritative" "${command_text}" "${end_time}" "${end_time}" 0 0 "${run_status}" || status=$?
-done
-
-unset CARTULARY_MANIFEST_PHASE || true
-unset CARTULARY_MANIFEST_COVERAGE || true
-unset CARTULARY_MANIFEST_EXECUTION_DEPENDENCY || true
-export CARTULARY_VITEST_EXCLUDE_MANIFEST_EXECUTION_DEPENDENCY=frontend_unit
-export CARTULARY_VITEST_ALLOW_EMPTY_SELECTION=1
-emit_report_phase_summary vitest-phase "frontend-unit residual" "${command_text}" "${end_time}" "${end_time}" 0 0 "${run_status}" || status=$?
 
 if [[ "${run_status}" -ne 0 && "${status}" -eq 0 ]]; then
   status="${run_status}"

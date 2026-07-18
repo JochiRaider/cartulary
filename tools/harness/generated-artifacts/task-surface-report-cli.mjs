@@ -17,7 +17,7 @@ import {
   taskSurfaceMakeDensity,
   taskSurfaceSchemaID,
 } from "./task-surface/index.mjs";
-import { collectEntries, loadManifest, phaseManifestNames } from "../phase-accounting/index.mjs";
+import { loadTestCatalog, targetForCatalogRow } from "../test-catalog/index.mjs";
 
 const schedulerGrowthBudgets = Object.freeze({
   manifestBytesPerWorkUnit: 1700,
@@ -68,7 +68,7 @@ function main() {
   const targetScriptRefs = new Map(
     phonyTargets.map((target) => [target, collectDirectScriptRefs(targetBlocks.get(target) ?? "")]),
   );
-  const phaseDependencies = collectPhaseDependencies();
+  const catalogTargetPartitions = collectCatalogTargetPartitions(manifest);
   const errors = validateTaskSurface({
     authoredMake,
     generatedMakePath,
@@ -86,7 +86,7 @@ function main() {
     errors,
     helpEntries,
     manifest,
-    phaseDependencies,
+    catalogTargetPartitions,
     phonyTargets,
     targetScriptRefs,
     makeDensity: taskSurfaceMakeDensity(manifest),
@@ -338,29 +338,26 @@ function collectForbiddenMakeOwnership(source) {
   return violations;
 }
 
-function collectPhaseDependencies() {
-  const rows = [];
-
-  for (const phase of phaseManifestNames(repoRoot)) {
-    const { manifest } = loadManifest(repoRoot, phase);
-    const counts = new Map();
-    for (const entry of collectEntries(manifest)) {
-      if (typeof entry.execution_dependency !== "string" || entry.execution_dependency === "") {
-        continue;
-      }
-      const key = `${entry.section}:${entry.execution_dependency}`;
-      counts.set(key, (counts.get(key) ?? 0) + 1);
-    }
-    for (const [key, count] of counts.entries()) {
-      const [section, executionDependency] = key.split(":", 2);
-      rows.push({ count, execution_dependency: executionDependency, phase, section });
-    }
-  }
-  return rows.sort((left, right) =>
-    `${left.phase}:${left.section}:${left.execution_dependency}`.localeCompare(
-      `${right.phase}:${right.section}:${right.execution_dependency}`,
-    ),
+function collectCatalogTargetPartitions(taskSurface) {
+  const commandTargetByID = new Map(
+    taskSurface.targets.map((entry) => [entry.command_id, entry.name]),
   );
+  const counts = new Map();
+  for (const row of loadTestCatalog(repoRoot).rows.filter((entry) => entry.status === "active")) {
+    const targetID = targetForCatalogRow(row, { commandTargetByID });
+    const key = `${row.owner_id}:${targetID}:${row.runner}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([key, count]) => {
+      const [ownerID, targetID, runner] = key.split(":", 3);
+      return { count, owner_id: ownerID, runner, target_id: targetID };
+    })
+    .sort((left, right) =>
+      `${left.owner_id}:${left.target_id}:${left.runner}`.localeCompare(
+        `${right.owner_id}:${right.target_id}:${right.runner}`,
+      ),
+    );
 }
 
 function validateTaskSurface({
@@ -546,11 +543,11 @@ function validateTaskSurface({
 }
 
 function buildReport({
+  catalogTargetPartitions,
   errors,
   helpEntries,
   makeDensity,
   manifest,
-  phaseDependencies,
   phonyTargets,
   schedulerGrowth,
   targetScriptRefs,
@@ -618,7 +615,7 @@ function buildReport({
     });
 
   return {
-    schema_id: "cartulary.task_surface_report.v3",
+    schema_id: "cartulary.task_surface_report.v4",
     check_passed: errors.length === 0,
     errors,
     targets,
@@ -646,7 +643,7 @@ function buildReport({
     scheduler_growth: Object.fromEntries(
       Object.entries(schedulerGrowth).filter(([key]) => key !== "errors"),
     ),
-    phase_execution_dependencies: phaseDependencies,
+    catalog_target_partitions: catalogTargetPartitions,
   };
 }
 
@@ -734,17 +731,17 @@ function printHumanReport(report, { allMode = false } = {}) {
     }
 
     console.log("");
-    console.log("phase-map execution dependencies:");
-    for (const row of report.phase_execution_dependencies) {
+    console.log("catalog target partitions:");
+    for (const row of report.catalog_target_partitions) {
       console.log(
-        `  ${row.phase} ${row.section} ${row.execution_dependency} rows=${row.count}`,
+        `  ${row.owner_id} ${row.target_id} ${row.runner} rows=${row.count}`,
       );
     }
   } else {
     console.log("");
     console.log(`logical harness checks: ${report.harness_checks.length}`);
-    console.log(`phase-map execution dependencies: ${report.phase_execution_dependencies.length}`);
-    console.log("use --all to print public targets, private targets, harness checks, and phase dependency rows");
+    console.log(`catalog target partitions: ${report.catalog_target_partitions.length}`);
+    console.log("use --all to print public targets, private targets, harness checks, and catalog partitions");
   }
 
   if (report.errors.length > 0) {

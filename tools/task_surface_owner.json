@@ -1534,18 +1534,6 @@
       "type": "node_tool",
       "prerequisites": []
     },
-    "service-backed-unit-check": {
-      "type": "phase_command",
-      "prerequisites": [],
-      "mode": "run_phase",
-      "phase_label": "service-backed-unit-check",
-      "command": [
-        "$(GO)",
-        "run",
-        "./tools/gotestservicecheck"
-      ],
-      "test_target": "self"
-    },
     "testservices-build": {
       "prerequisites": [
         "$(TEST_SERVICES_BIN)"
@@ -3851,12 +3839,7 @@
         "tools/harness_schema_attachments.json",
         "tools/schemas/cartulary.harness_helper_ownership.v1.schema.json",
         "tools/schemas/cartulary.harness_schema_attachments.v1.schema.json",
-        "tools/harness/phase-accounting/phase-manifest.mjs",
-        "tools/harness/phase-accounting/phase-manifest-cli.mjs",
-        "tools/harness/phase-accounting/phase-registry.mjs",
         "tools/execution_topology_manifest.json",
-        "tools/phase_registry.json",
-        "tools/phase_policy_exceptions.json",
         "tools/generated_artifact_policy.json",
         "tools/frontend_import_boundaries.json",
         "tools/scheduler_resource_registry.json",
@@ -7174,17 +7157,6 @@
           }
         ]
       }
-    },
-    {
-      "name": "service-backed-unit-check",
-      "backing_scripts": [
-        "tools/gotestservicecheck/main.go"
-      ],
-      "target_class": "check_internal",
-      "default_inclusion_sets": [
-        "check"
-      ],
-      "lifecycle_state": "candidate_child"
     },
     {
       "name": "testservices-build",

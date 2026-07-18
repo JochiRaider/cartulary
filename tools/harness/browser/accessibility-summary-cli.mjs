@@ -3,10 +3,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { validateSchemaSync } from "../contract/index.mjs";
-import {
-  loadFrontendPhaseMap,
-  loadFrontendPhaseRegistry,
-} from "../phase-accounting/index.mjs";
+import { loadTestCatalog } from "../test-catalog/index.mjs";
 
 const accessibilitySummarySchemaID =
   "cartulary.frontend_accessibility_summary.v3";
@@ -133,18 +130,16 @@ function scenarioCoverageTitle(rowId, title) {
     .replace(/\.$/, "");
 }
 
-function scenarioRowsForAccessibility(manifest) {
-  return manifest.rows.filter((candidate) => {
-    if (!candidate.id.startsWith("FE-A11Y-")) {
-      return false;
-    }
-    return (
-      candidate.claim_status === "implemented" &&
-      candidate.targets.some(
-        (target) => target.target_name === "browser-e2e-a11y",
-      )
+function legacyAccessibilityIdentity(row) {
+  const match = /^(FE-A11Y-P(0|[1-9][0-9]*)-[0-9]{2})\b/u.exec(
+    row.selector.titles[0] ?? "",
+  );
+  if (!match) {
+    throw new Error(
+      `catalog accessibility row ${row.row_id} has no retained accessibility report identity`,
     );
-  });
+  }
+  return { rowID: match[1], phaseID: `FE-P${match[2]}` };
 }
 
 function loadContrastRecords(contrastDir) {
@@ -220,33 +215,44 @@ function contrastSummaryForScenario(scenario, contrastRecords) {
 
 function collectRowsAndScenarios(options) {
   const scenarioStatuses = loadScenarioStatuses(options.phaseDir);
-  const registry = loadFrontendPhaseRegistry(process.cwd());
+  const catalog = loadTestCatalog(process.cwd());
   const phaseRows = [];
   const scenarios = [];
-  for (const phase of registry.phases) {
-    const { manifest } = loadFrontendPhaseMap(process.cwd(), phase.phase_id);
-    for (const row of scenarioRowsForAccessibility(manifest)) {
-      if ((row.runtime_profile_id ?? "default") !== options.runtimeProfileId) {
-        continue;
-      }
-      phaseRows.push({
-        row_id: row.id,
-        phase_id: phase.phase_id,
-        evidence_class: row.evidence_class,
-        claim_status: row.claim_status,
-        targets: row.targets,
+  const rows = catalog.rows.filter(
+    (row) =>
+      row.status === "active" &&
+      row.runner === "playwright" &&
+      row.selector.stage === "accessibility" &&
+      row.runtime_profile_id === options.runtimeProfileId,
+  );
+  for (const row of rows) {
+    const identity = legacyAccessibilityIdentity(row);
+    phaseRows.push({
+      row_id: identity.rowID,
+      phase_id: identity.phaseID,
+      evidence_class: "design_direction",
+      claim_status: "implemented",
+      targets: [
+        {
+          target_name: "browser-e2e-a11y",
+          command_id: "cartulary.harness.command.browser_e2e_a11y.v1",
+          evidence_role: "primary",
+          required_for_closure: true,
+          frontend_row_accounting_required: true,
+          scenario_title_required: true,
+        },
+      ],
+    });
+    for (const title of row.selector.titles) {
+      const scenarioStatus = normalizeScenarioStatus(
+        scenarioStatuses.get(title) ??
+          (options.status === "pass" ? "missing" : "fail"),
+      );
+      scenarios.push({
+        row_id: identity.rowID,
+        title,
+        status: scenarioStatus,
       });
-      for (const title of row.scenario_titles) {
-        const scenarioStatus = normalizeScenarioStatus(
-          scenarioStatuses.get(title) ??
-            (options.status === "pass" ? "missing" : "fail"),
-        );
-        scenarios.push({
-          row_id: row.id,
-          title,
-          status: scenarioStatus,
-        });
-      }
     }
   }
   return { phaseRows, scenarios };
