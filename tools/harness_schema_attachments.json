@@ -436,13 +436,6 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.test_step_summary.v1",
-      "path": "tools/schemas/cartulary.test_step_summary.v1.schema.json",
-      "classification": "public_contract",
-      "producer": "step handlers",
-      "validation": "json-shape-check"
-    },
-    {
       "schema_id": "cartulary.test_run_summary.v6",
       "path": "tools/schemas/cartulary.test_run_summary.v6.schema.json",
       "classification": "public_contract",
@@ -489,6 +482,13 @@
       "path": "tools/schemas/cartulary.test_slice_scheduler_summary.v1.schema.json",
       "classification": "public_contract",
       "producer": "owner-slice scheduler",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.test_step_summary.v1",
+      "path": "tools/schemas/cartulary.test_step_summary.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "step handlers",
       "validation": "json-shape-check"
     },
     {

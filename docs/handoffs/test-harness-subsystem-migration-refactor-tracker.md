@@ -12,7 +12,7 @@
 | Baseline worktree | Clean |
 | Tracker state | `IN_PROGRESS` — WS-10 atomic retirement |
 | Active start | T-043 closure checkpoint based on clean T-042 commit `e81adf0b` |
-| Active tasks | T-045 |
+| Active tasks | T-050 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -730,13 +730,13 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-042 | Delete ledgers and ledger machinery | WS-10 | DONE | T-039,T-041 | 26-file/4-module deletion manifest, surface negatives, zero-reference classification, and focused/extended gates | All 26 and every operational consumer are gone; registry metadata is T-043 deletion inventory. |
 | T-043 | Delete phase/subsystem registries and maps | WS-10 | DONE | T-016,T-022,T-027,T-039 | 31-input deletion manifest, active-consumer cutover, public broad-runner checks, and zero-reference classification | Unified catalog is sole owner. |
 | T-044 | Delete phase-accounting and compatibility code | WS-10 | DONE | T-035,T-037,T-043 | Boundary and zero-reference scans | No old reader or shim remains. |
-| T-045 | Regenerate all permitted outputs | WS-10 | IN_PROGRESS | T-042,T-043,T-044 | Generated drift checks | Clean owner-first generated tree. |
+| T-045 | Regenerate all permitted outputs | WS-10 | DONE | T-042,T-043,T-044 | Generated drift checks | Clean owner-first generated tree. |
 | T-045A | Prove atomic v2 parity and retirement | WS-10 | TODO | T-050 | NLSpec/schema/task-surface/topology parity and zero-reference report | v2 is complete and no v1 alias, reader, writer, catalog, or artifact identity is active. |
 | T-046 | Run focused verification matrix | WS-11 | TODO | T-045A | Command results/run roots | All focused gates pass. |
 | T-047 | Run agent finalization and first warm check | WS-11 | TODO | T-046 | Successful warm run root | Fresh broad evidence exists. |
 | T-048 | Refresh retained baselines and repeat broad checks | WS-11 | TODO | T-047 | Finalized root and second results | No phase baseline is reused. |
 | T-049 | Run release check | WS-11 | TODO | T-048 | Release-check result | Public/release harness changes pass. |
-| T-050 | Capture reconciliation and remove crosswalk | WS-10 | TODO | T-045 | Final reconciliation report | Temporary compatibility-free migration input removed before authoritative source snapshots. |
+| T-050 | Capture reconciliation and remove crosswalk | WS-10 | IN_PROGRESS | T-045 | Final reconciliation report | Temporary compatibility-free migration input removed before authoritative source snapshots. |
 | T-051 | Complete handoff and closure audit | WS-12 | TODO | T-049 | Handoff log and clean status | Section 15 is fully satisfied. |
 
 ## 13. Verification matrix
@@ -1305,6 +1305,17 @@ Each entry must include:
 - Skipped/remaining checks: generated-topology-dependent step-runner, task-surface, schema, scheduler, and extended harness replays are deferred only to the immediately active T-045 regeneration checkpoint. Product suites, browser execution, broad checks, owner audits, finalization, release rehearsal, and performance windows remain WS-11/WS-12 scope.
 - Next safe task: T-045 only. Run ordinary Make generation from the stabilized authored owners, repair any generator or contract defect without restoring a compatibility identity, then prove generated drift, JSON shapes, generated-root policy, and focused successor smokes before recording the generated-tree checkpoint.
 - Rollback boundary: revert the complete T-044 checkpoint to `398ed6fa`, including all compatibility deletions, generic step-runtime/schema replacements, authored task/scheduler ownership changes, NLSpec version updates, package/browser routing, tests, and this tracker record. Never restore an individual phase reader, schema, alias, or smoke beside the owner-first runtime.
+
+#### 2026-07-18 — T-045 owner-first generated-tree checkpoint
+
+- Branch/commit at start: `revision/grid-adapter` at clean T-044 checkpoint `96259620`. T-045 is `DONE`; T-050 is now the sole active task and WS-10 remains the only active workstream.
+- Generation result: ordinary `make generate` now regenerates task-surface Make/runtime files, the task-surface manifest, scheduler/browser projections, and the execution-topology render index from authored owners with only v2 step/owner identities. The authored topology target and priority band are `semantic-identity-check`/`semantic_validation`; generated recipes use `RUN_STEP_SCRIPT`, `step_command`, and `--step-label` exclusively.
+- Bootstrap result: execution-dependency topology is loaded lazily, so bootstrap and generation can repair stale generated projections without importing those projections before the generator runs. No temporary alias or old variable was added. The one-time stale-tree bootstrap used the Make-owned `generate-artifacts` target with an explicit current `RUN_STEP_SCRIPT`; the regenerated tree then passed the canonical `make generate` path without overrides.
+- Contract repairs: restored executable modes on retained CLI/smoke files, corrected the step-summary schema ID to v1, restored current target-summary count/duration aggregation helpers after compatibility deletion, and ASCII-sorted schema attachments and helper facades. Harness fixtures now assert the reduced successor smoke/facade sets and current `step` failure field.
+- Passed validation: canonical `make generate` passed at `.cartulary/test-results/20260718T111924Z-p1263`; final `make generate-drift` passed at `.cartulary/test-results/20260718T112406Z-p16683`; `make json-shape-check` passed at `.cartulary/test-results/20260718T112059Z-p9985`; `make generated-artifact-policy-check` passed at `.cartulary/test-results/20260718T112105Z-p10401`; and all 74 `make harness-contract` tests passed at `.cartulary/test-results/20260718T112344Z-p15581`. JavaScript/shell syntax and `git diff --check` remain clean.
+- Resolved validation history: the initial canonical generator exposed eager loading of the stale topology and then the authored topology's retired validation target. Subsequent JSON checks exposed unsorted successor schema/facade entries, and harness-contract exposed seven stale compatibility expectations plus one generic input-contract fixture. Each defect was corrected and replayed to green; none is an accepted failure or compatibility exception.
+- Next safe task: T-050 only. Materialize the immutable 833-row final reconciliation report from the frozen migration inputs and live catalog, record its SHA-256, then delete every temporary baseline, crosswalk, migration schema, and migration helper before running T-045A parity on the stabilized source tree.
+- Rollback boundary: revert the complete T-045 checkpoint to `96259620`, including authored topology/bootstrap fixes, generated outputs, successor schema/count repairs, executable modes, tests, and this tracker record. Never restore the stale generated surface or add a retired bootstrap alias.
 
 ## 17. First-resumer checklist
 

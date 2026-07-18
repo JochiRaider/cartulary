@@ -176,14 +176,6 @@
       "allowed_consumers": []
     },
     {
-      "key": "step_execution_runtime",
-      "boundary_group": "execution_runtime",
-      "paths": [
-        "tools/harness/execution/step-runtime.sh"
-      ],
-      "allowed_consumers": []
-    },
-    {
       "key": "scheduler_contract_helpers",
       "boundary_group": "scheduler",
       "paths": [
@@ -243,6 +235,14 @@
       "boundary_group": "static_analysis",
       "paths": [
         "tools/harness/static-analysis/govulncheck-findings.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "step_execution_runtime",
+      "boundary_group": "execution_runtime",
+      "paths": [
+        "tools/harness/execution/step-runtime.sh"
       ],
       "allowed_consumers": []
     },

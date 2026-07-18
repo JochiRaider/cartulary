@@ -894,6 +894,60 @@ function addCounts(target, source) {
   }
 }
 
+function createStepAggregate() {
+  return {
+    steps: 0,
+    ...createCounts(),
+    ...createDurationFields(),
+  };
+}
+
+function countsForJSON(aggregate) {
+  const counts = {
+    steps: aggregate.steps,
+    tests: aggregate.tests,
+    failed: aggregate.failed,
+    non_test: aggregate.non_test,
+    non_test_failed: aggregate.non_test_failed,
+    packages: aggregate.packages,
+  };
+  for (const coverage of testCoverageBuckets) {
+    counts[coverage] = aggregate[coverage];
+    counts[`${coverage}_failed`] = aggregate[`${coverage}_failed`];
+  }
+  return counts;
+}
+
+function findSlowestTarget(targetSummaries) {
+  return targetSummaries.reduce((current, summary) => {
+    const view = targetSummaryAccountingView(summary);
+    const durationMs = clampDurationMs(
+      view.critical_path_wall_duration_ms ?? view.wall_duration_ms ?? view.logical_duration_ms ?? 0,
+    );
+    if (!current || durationMs > current.critical_path_wall_duration_ms) {
+      return {
+        target: summary.target,
+        critical_path_wall_duration_ms: durationMs,
+        basis: "critical_path_wall_duration_ms",
+      };
+    }
+    return current;
+  }, null);
+}
+
+function findSlowestLifecycleBucket(targetSummaries) {
+  return targetSummaries.reduce((current, summary) => {
+    const bucket = targetSummaryAccountingView(summary).slowest_lifecycle_bucket;
+    if (!bucket) return current;
+    const candidate = {
+      target: summary.target,
+      name: bucket.name,
+      duration_ms: clampDurationMs(bucket.duration_ms ?? 0),
+    };
+    return !current || candidate.duration_ms > current.duration_ms ? candidate : current;
+  }, null);
+}
+
 function sectionFromFlatSummary(summary, fallbackTarget) {
   const durations = readSummaryDurationFields(summary);
   const counts = normalizeCounts(summary?.counts ?? {});
@@ -1117,7 +1171,7 @@ function skippedChildTargetSummaries(
 }
 
 function combineSummarySections(target, sections, status = "pass") {
-  const aggregate = createDurationAggregate();
+  const aggregate = createStepAggregate();
   const accountingModes = createAccountingModes();
   const timingFailures = [];
   const teardownFailures = [];

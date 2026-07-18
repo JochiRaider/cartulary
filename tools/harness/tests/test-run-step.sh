@@ -717,7 +717,7 @@ single_span_step_dir="$single_span_results/single-span/short-target/short-step"
 mkdir -p "$single_span_step_dir"
 cat >"$single_span_step_dir/step-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.test_step_summary.v3",
+  "schema_id": "cartulary.test_step_summary.v1",
   "label": "short step",
   "target": "short-target",
   "runner": "shell",
@@ -800,7 +800,7 @@ infra_service_dir="$infra_timing_results/infra-timing/_shared/test-services/suit
 mkdir -p "$infra_step_dir" "$infra_service_dir"
 cat >"$infra_step_dir/step-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.test_step_summary.v3",
+  "schema_id": "cartulary.test_step_summary.v1",
   "label": "infra passing tests",
   "target": "infra-target",
   "runner": "shell",

@@ -4,7 +4,7 @@ import {
   validateRunId,
 } from "./harness-contract.mjs";
 
-export const stepSummarySchemaID = "cartulary.test_step_summary.v3";
+export const stepSummarySchemaID = "cartulary.test_step_summary.v1";
 export const targetTimingSchemaID = "cartulary.test_target_timing.v1";
 export const targetSummarySchemaID = "cartulary.test_target_summary.v4";
 export const runSummarySchemaID = "cartulary.test_run_summary.v6";

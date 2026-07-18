@@ -872,7 +872,7 @@
     },
     "doctor": {
       "prerequisites": [],
-      "type": "phase_command",
+      "type": "step_command",
       "mode": "command",
       "env": {
         "GO": "$(GO)",
@@ -902,7 +902,7 @@
         "frontend-install",
         "playwright-install"
       ],
-      "type": "phase_command",
+      "type": "step_command",
       "mode": "command",
       "command": [
         "mkdir",
@@ -916,9 +916,9 @@
         "$(NODE_BIN)",
         "build-web"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "otel-conformance",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "otel-conformance",
       "command": [
         "$(NODE_BIN)",
         "./tools/otel/check-otel-conformance.mjs"
@@ -935,7 +935,7 @@
       "prerequisites": [
         "$(FRONTEND_TOOLCHAIN_STAMP)"
       ],
-      "type": "phase_command",
+      "type": "step_command",
       "mode": "command",
       "env": {
         "FRONTEND_TOOLCHAIN_STAMP": "$(FRONTEND_TOOLCHAIN_STAMP)",
@@ -962,7 +962,7 @@
     },
     "db-up": {
       "prerequisites": [],
-      "type": "phase_command",
+      "type": "step_command",
       "mode": "command",
       "command": [
         "bash",
@@ -972,7 +972,7 @@
     },
     "db-migrate": {
       "prerequisites": [],
-      "type": "phase_command",
+      "type": "step_command",
       "mode": "command",
       "env": {
         "GO": "$(GO)",
@@ -988,7 +988,7 @@
     },
     "db-reset": {
       "prerequisites": [],
-      "type": "phase_command",
+      "type": "step_command",
       "mode": "command",
       "env": {
         "GO": "$(GO)",
@@ -1005,7 +1005,7 @@
     },
     "services-up": {
       "prerequisites": [],
-      "type": "phase_command",
+      "type": "step_command",
       "mode": "command",
       "command": [
         "bash",
@@ -1015,7 +1015,7 @@
     },
     "services-down": {
       "prerequisites": [],
-      "type": "phase_command",
+      "type": "step_command",
       "mode": "command",
       "command": [
         "bash",
@@ -1032,7 +1032,7 @@
     },
     "postgres-wait": {
       "prerequisites": [],
-      "type": "phase_command",
+      "type": "step_command",
       "mode": "command",
       "command": [
         "bash",
@@ -1042,7 +1042,7 @@
     },
     "object-store-wait": {
       "prerequisites": [],
-      "type": "phase_command",
+      "type": "step_command",
       "mode": "command",
       "command": [
         "bash",
@@ -1052,7 +1052,7 @@
     },
     "object-store-init": {
       "prerequisites": [],
-      "type": "phase_command",
+      "type": "step_command",
       "mode": "command",
       "env": {
         "OBJECT_STORE_BUCKET": "$(OBJECT_STORE_BUCKET)"
@@ -1065,7 +1065,7 @@
     },
     "object-store-reset": {
       "prerequisites": [],
-      "type": "phase_command",
+      "type": "step_command",
       "mode": "command",
       "env": {
         "OBJECT_STORE_BUCKET": "$(OBJECT_STORE_BUCKET)",
@@ -1082,7 +1082,7 @@
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)"
       ],
-      "type": "phase_command",
+      "type": "step_command",
       "mode": "command",
       "env": {
         "GO": "$(GO)",
@@ -1144,7 +1144,7 @@
       "prerequisites": [
         "codegen-toolchain"
       ],
-      "type": "phase_command",
+      "type": "step_command",
       "mode": "command",
       "command": [
         "$(MAKE)",
@@ -1156,14 +1156,14 @@
       "prerequisites": [
         "$(NODE_BIN)"
       ],
-      "type": "phase_command",
+      "type": "step_command",
       "mode": "command",
       "env": {
         "GO": "$(GO)",
         "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
         "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
         "NODE_BIN": "$(NODE_BIN)",
-        "RUN_PHASE_SCRIPT": "$(RUN_PHASE_SCRIPT)",
+        "RUN_STEP_SCRIPT": "$(RUN_STEP_SCRIPT)",
         "SQLC_BIN": "$(SQLC_BIN)"
       },
       "command": [
@@ -1176,9 +1176,9 @@
       "prerequisites": [
         "codegen-toolchain"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "generate-drift",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "generate-drift",
       "command": [
         "./tools/harness/generated-artifacts/check-generate-drift.sh"
       ],
@@ -1188,9 +1188,9 @@
       "prerequisites": [
         "$(NODE_BIN)"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "generated-artifact-policy-check",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "generated-artifact-policy-check",
       "command": [
         "$(NODE_BIN)",
         "./tools/harness/generated-artifacts/check-generated-artifact-policy.mjs"
@@ -1202,9 +1202,9 @@
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "json-shape-check",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "json-shape-check",
       "command": [
         "$(NODE_BIN)",
         "./tools/harness/generated-artifacts/check-json-shapes.mjs"
@@ -1216,7 +1216,7 @@
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)"
       ],
-      "type": "phase_command",
+      "type": "step_command",
       "mode": "command",
       "command": [
         "$(NODE_BIN)",
@@ -1228,9 +1228,9 @@
         "build-migrate",
         "$(GOOSE_BIN)"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "migration-drift",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "migration-drift",
       "env": {
         "GO": "$(GO)",
         "CONFIG_FILE": "$(CONFIG_FILE)",
@@ -1246,9 +1246,9 @@
     },
     "migration-input-drift": {
       "prerequisites": [],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "migration-input-drift",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "migration-input-drift",
       "command": [
         "./tools/harness/generated-artifacts/database-contract-drift/check-migrations.sh"
       ],
@@ -1263,9 +1263,9 @@
         "build-migrate",
         "$(GOOSE_BIN)"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "migration-scratch-apply",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "migration-scratch-apply",
       "env": {
         "GO": "$(GO)",
         "CONFIG_FILE": "$(CONFIG_FILE)",
@@ -1289,9 +1289,9 @@
         "build-migrate",
         "build-operator"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "deployable-shape",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "deployable-shape",
       "command": [
         "./tools/release-evidence/check-deployable-shape.sh"
       ],
@@ -1302,9 +1302,9 @@
       "prerequisites": [
         "deployable-shape"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "standup-package-smoke",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "standup-package-smoke",
       "command": [
         "./tools/release-evidence/check-standup-package-smoke.sh"
       ],
@@ -1315,9 +1315,9 @@
       "prerequisites": [
         "deployable-shape"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "standup-operational-recovery-smoke",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "standup-operational-recovery-smoke",
       "command": [
         "./tools/release-evidence/check-standup-operational-recovery-smoke.sh"
       ],
@@ -1328,9 +1328,9 @@
       "prerequisites": [
         "$(NODE_BIN)"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "test-catalog-check",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "test-catalog-check",
       "command": [
         "$(NODE_BIN)",
         "./tools/harness/test-catalog/catalog-check.mjs"
@@ -1341,9 +1341,9 @@
       "prerequisites": [
         "$(NODE_BIN)"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "agent-finalize",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "agent-finalize",
       "env": {
         "MAKE": "$(MAKE)"
       },
@@ -1363,9 +1363,9 @@
       "prerequisites": [
         "$(NODE_BIN)"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "benchmark-claim-check",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "benchmark-claim-check",
       "command": [
         "$(NODE_BIN)",
         "./tools/release-evidence/check-benchmark-claim.mjs",
@@ -1397,7 +1397,7 @@
     },
     "graph-projection-fixture-candidate": {
       "prerequisites": [],
-      "type": "phase_command",
+      "type": "step_command",
       "mode": "command",
       "env": {
         "CARTULARY_TEST_RESULTS_DIR": "$(CARTULARY_TEST_RESULTS_DIR)",
@@ -1466,7 +1466,7 @@
         "test-service-images"
       ],
       "comments": [
-        "Phase 0 process evidence is part of the developer gate and must never be direct-run only."
+        "Process-level evidence is part of the developer gate and must never be direct-run only."
       ],
       "env": {
         "CARTULARY_SERVER_HARNESS_BIN": "$(SERVER_HARNESS_BIN)",
@@ -1561,9 +1561,9 @@
       "prerequisites": [
         "testservices-build"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "warm test service images",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "warm test service images",
       "command": [
         "tools/harness/readiness/warm-test-service-images.sh",
         "$(TEST_SERVICES_BIN)"
@@ -1571,7 +1571,7 @@
       "test_target": "self"
     },
     "run-harness-smoke-fast": {
-      "type": "phase_command",
+      "type": "step_command",
       "prerequisites": [
         "$(NODE_BIN)"
       ],
@@ -1591,7 +1591,7 @@
       "test_target": "self"
     },
     "run-harness-smoke-extended": {
-      "type": "phase_command",
+      "type": "step_command",
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)"
@@ -1612,7 +1612,7 @@
       "test_target": "self"
     },
     "run-harness-smoke-execution": {
-      "type": "phase_command",
+      "type": "step_command",
       "prerequisites": [
         "$(NODE_BIN)"
       ],
@@ -1632,7 +1632,7 @@
       "test_target": "self"
     },
     "run-harness-smoke-lifecycle": {
-      "type": "phase_command",
+      "type": "step_command",
       "prerequisites": [
         "$(NODE_BIN)"
       ],
@@ -1652,7 +1652,7 @@
       "test_target": "self"
     },
     "run-harness-smoke-full": {
-      "type": "phase_command",
+      "type": "step_command",
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)"
@@ -1672,16 +1672,16 @@
       ],
       "test_target": "self"
     },
-    "phase-test-name-check": {
-      "type": "phase_command",
+    "semantic-identity-check": {
+      "type": "step_command",
       "prerequisites": [
         "$(NODE_BIN)"
       ],
-      "mode": "run_phase",
-      "phase_label": "phase-test-name-check",
+      "mode": "run_step",
+      "step_label": "semantic-identity-check",
       "command": [
         "$(NODE_BIN)",
-        "./tools/harness/phase-accounting/phase-test-name-check-cli.mjs"
+        "./tools/harness/test-catalog/semantic-identity-check-cli.mjs"
       ],
       "test_target": "self"
     },
@@ -1690,9 +1690,9 @@
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "frontend typecheck",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "frontend typecheck",
       "env": {
         "PATH": "$(NODE_RUNTIME_DIR)/bin:$$PATH",
         "COREPACK_HOME": "$(NODE_RUNTIME_DIR)/corepack"
@@ -1709,7 +1709,7 @@
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)"
       ],
-      "type": "phase_command",
+      "type": "step_command",
       "mode": "command",
       "env": {
         "PNPM": "$(PNPM)",
@@ -1723,13 +1723,13 @@
       "test_target": "self"
     },
     "frontend-import-boundary-check": {
-      "type": "phase_command",
+      "type": "step_command",
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)"
       ],
-      "mode": "run_phase",
-      "phase_label": "frontend-import-boundary-check",
+      "mode": "run_step",
+      "step_label": "frontend-import-boundary-check",
       "command": [
         "$(NODE_BIN)",
         "./tools/harness/static-analysis/frontend-import-boundary-check-cli.mjs"
@@ -1737,12 +1737,12 @@
       "test_target": "self"
     },
     "backend-module-boundary-check": {
-      "type": "phase_command",
+      "type": "step_command",
       "prerequisites": [
         "$(NODE_BIN)"
       ],
-      "mode": "run_phase",
-      "phase_label": "backend-module-boundary-check",
+      "mode": "run_step",
+      "step_label": "backend-module-boundary-check",
       "command": [
         "$(NODE_BIN)",
         "./tools/harness/static-analysis/backend-module-boundary-check-cli.mjs"
@@ -1761,9 +1761,9 @@
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "lint biome",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "lint biome",
       "command": [
         "bash",
         "./tools/harness/static-analysis/frontend-biome.sh",
@@ -1779,9 +1779,9 @@
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "lint scripts",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "lint scripts",
       "command": [
         "bash",
         "./tools/harness/static-analysis/scripts-biome.sh",
@@ -1795,9 +1795,9 @@
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "lint markdown",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "lint markdown",
       "command": [
         "bash",
         "./tools/harness/static-analysis/markdownlint.sh"
@@ -1807,13 +1807,13 @@
       "failure_note": "inspect Markdown lint diagnostics; do not run broad prose reflow"
     },
     "harness-contract-tests": {
-      "type": "phase_command",
+      "type": "step_command",
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)"
       ],
-      "mode": "run_phase",
-      "phase_label": "harness-contract-tests",
+      "mode": "run_step",
+      "step_label": "harness-contract-tests",
       "command": [
         "$(NODE_BIN)",
         "--test",
@@ -1822,13 +1822,13 @@
       "test_target": "self"
     },
     "harness-contract": {
-      "type": "phase_command",
+      "type": "step_command",
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)"
       ],
-      "mode": "run_phase",
-      "phase_label": "harness-contract",
+      "mode": "run_step",
+      "step_label": "harness-contract",
       "command": [
         "$(NODE_BIN)",
         "--test",
@@ -1841,9 +1841,9 @@
       "prerequisites": [
         "shell-lint-toolchain"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "lint shell",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "lint shell",
       "env": {
         "SHELLCHECK_BIN": "$(SHELLCHECK_BIN)",
         "LINT_SHELL_STRICT": "1"
@@ -1863,9 +1863,9 @@
     },
     "format-go": {
       "prerequisites": [],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "format go",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "format go",
       "command": [
         "bash",
         "./tools/harness/static-analysis/go-format.sh",
@@ -1878,9 +1878,9 @@
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "format frontend",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "format frontend",
       "command": [
         "bash",
         "./tools/harness/static-analysis/frontend-biome.sh",
@@ -2011,9 +2011,9 @@
       "test_target": "self"
     },
     "browser-e2e-visual-update": {
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "browser-e2e-visual-update",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "browser-e2e-visual-update",
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
@@ -2055,7 +2055,7 @@
         "$(TEST_SERVICES_BIN)",
         "test-service-images"
       ],
-      "phase_label": "test service-backed",
+      "step_label": "test service-backed",
       "service_wrapper": "test-services",
       "test_target": "self"
     },
@@ -2077,7 +2077,7 @@
         "$(TEST_SERVICES_BIN)",
         "test-service-images"
       ],
-      "phase_label": "test-fast service-backed",
+      "step_label": "test-fast service-backed",
       "service_wrapper": "test-services",
       "test_target": "self"
     },
@@ -2104,9 +2104,9 @@
     },
     "lint-go-format": {
       "prerequisites": [],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "lint gofmt",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "lint gofmt",
       "command": [
         "bash",
         "./tools/harness/static-analysis/go-format.sh",
@@ -2118,9 +2118,9 @@
     },
     "lint-go-vet": {
       "prerequisites": [],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "lint go-vet",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "lint go-vet",
       "command": [
         "bash",
         "./tools/harness/static-analysis/go-vet.sh"
@@ -2132,9 +2132,9 @@
       "prerequisites": [
         "go-lint-toolchain"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "lint staticcheck",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "lint staticcheck",
       "env": {
         "GO": "$(GO)",
         "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
@@ -2152,9 +2152,9 @@
       "prerequisites": [
         "govulncheck-toolchain"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "go vulncheck",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "go vulncheck",
       "env": {
         "GO": "$(GO)",
         "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
@@ -2174,9 +2174,9 @@
       "prerequisites": [
         "gosec-toolchain"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "go gosec targeted",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "go gosec targeted",
       "env": {
         "GO": "$(GO)",
         "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
@@ -2198,9 +2198,9 @@
       "prerequisites": [
         "gosec-toolchain"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "go gosec audit",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "go gosec audit",
       "env": {
         "GO": "$(GO)",
         "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
@@ -2240,7 +2240,7 @@
       "type": "summary_target",
       "child_target": "run-harness-smoke-fast",
       "status": "pass",
-      "phase_label": "check-harness-smoke",
+      "step_label": "check-harness-smoke",
       "projection": "check-harness-smoke",
       "test_target": "self"
     },
@@ -2254,7 +2254,7 @@
         "build-migrate",
         "test-service-images"
       ],
-      "phase_label": "check service-backed",
+      "step_label": "check service-backed",
       "service_wrapper": "test-services",
       "test_target": "self"
     },
@@ -2281,9 +2281,9 @@
       "prerequisites": [
         "$(NODE_BIN)"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "release-readiness-evidence",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "release-readiness-evidence",
       "command": [
         "$(NODE_BIN)",
         "./tools/release-evidence/release-readiness-evidence.mjs"
@@ -2299,9 +2299,9 @@
       "prerequisites": [
         "$(LICENSE_REPORT_ARTIFACT)"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "license-report",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "license-report",
       "command": [
         "./tools/release-evidence/check-release-artifact.sh",
         "\"license report\"",
@@ -2314,9 +2314,9 @@
       "prerequisites": [
         "$(SBOM_ARTIFACT)"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "sbom",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "sbom",
       "command": [
         "./tools/release-evidence/check-release-artifact.sh",
         "\"SBOM\"",
@@ -2329,9 +2329,9 @@
       "prerequisites": [
         "object-store-init"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "seaweedfs-compatibility",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "seaweedfs-compatibility",
       "env": {
         "GO": "$(GO)",
         "GOCACHE": "$(GO_CACHE_DIR)",
@@ -2353,9 +2353,9 @@
         "$(TEST_SERVICES_BIN)",
         "test-service-images"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "seaweedfs-migration-preservation",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "seaweedfs-migration-preservation",
       "env": {
         "GO": "$(GO)",
         "GOCACHE": "$(GO_CACHE_DIR)",
@@ -2382,16 +2382,16 @@
         "tools/release-evidence/seaweedfs-release-evidence.mjs",
         "tools/seaweedfs_migration_occurrence_classifications.json"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "seaweedfs-release-evidence",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "seaweedfs-release-evidence",
       "env": {
         "RELEASE_ARTIFACT_DIR": "$(RELEASE_ARTIFACT_DIR)",
         "SBOM_ARTIFACT": "$(SBOM_ARTIFACT)",
         "LICENSE_REPORT_ARTIFACT": "$(LICENSE_REPORT_ARTIFACT)",
         "SEAWEEDFS_RELEASE_ARTIFACT_DIR": "$(RELEASE_ARTIFACT_DIR)/seaweedfs",
         "SEAWEEDFS_COMPATIBILITY_REPORT": "$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-compatibility/object-store-compatibility-report.json",
-        "SEAWEEDFS_MIGRATION_PASS_DIR": "$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-migration-preservation/phase-f-object-store-migration/pass"
+        "SEAWEEDFS_MIGRATION_PASS_DIR": "$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-migration-preservation/object-store-migration/pass"
       },
       "command": [
         "$(NODE_BIN)",
@@ -2414,16 +2414,16 @@
         "tools/release-evidence/seaweedfs-release-evidence.mjs",
         "tools/seaweedfs_migration_occurrence_classifications.json"
       ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "seaweedfs-release-gate",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "seaweedfs-release-gate",
       "env": {
         "RELEASE_ARTIFACT_DIR": "$(RELEASE_ARTIFACT_DIR)",
         "SBOM_ARTIFACT": "$(SBOM_ARTIFACT)",
         "LICENSE_REPORT_ARTIFACT": "$(LICENSE_REPORT_ARTIFACT)",
         "SEAWEEDFS_RELEASE_ARTIFACT_DIR": "$(RELEASE_ARTIFACT_DIR)/seaweedfs",
         "SEAWEEDFS_COMPATIBILITY_REPORT": "$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-compatibility/object-store-compatibility-report.json",
-        "SEAWEEDFS_MIGRATION_PASS_DIR": "$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-migration-preservation/phase-f-object-store-migration/pass",
+        "SEAWEEDFS_MIGRATION_PASS_DIR": "$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-migration-preservation/object-store-migration/pass",
         "CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED": "$(CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED)"
       },
       "command": [
@@ -2502,9 +2502,9 @@
     },
     "duration-baseline-drift-suite": {
       "prerequisites": [],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "duration-baseline-drift-suite",
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "duration-baseline-drift-suite",
       "command": [
         "./tools/harness/duration-accounting/duration-baseline-drift-suite.sh"
       ],
@@ -2637,7 +2637,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.doctor.v1",
       "semantic_behaviors": [
@@ -2687,7 +2687,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.bootstrap.v1",
       "semantic_behaviors": [
@@ -2751,7 +2751,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.bootstrap_node_runtime.v1",
       "semantic_behaviors": [
@@ -2816,7 +2816,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.frontend_toolchain.v1",
       "semantic_behaviors": [
@@ -2870,7 +2870,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.frontend_install.v1",
       "semantic_behaviors": [
@@ -2936,7 +2936,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.playwright_install.v1",
       "semantic_behaviors": [
@@ -3000,7 +3000,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "failure_or_verbose",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.db_up.v1",
       "semantic_behaviors": [
@@ -3063,7 +3063,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "failure_or_verbose",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.db_migrate.v1",
       "semantic_behaviors": [
@@ -3135,7 +3135,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "failure_or_verbose",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.db_reset.v1",
       "semantic_behaviors": [
@@ -3239,7 +3239,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "failure_or_verbose",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.services_up.v1",
       "semantic_behaviors": [
@@ -3302,7 +3302,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "failure_or_verbose",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.services_down.v1",
       "semantic_behaviors": [
@@ -3410,7 +3410,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "failure_or_verbose",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.object_store_init.v1",
       "semantic_behaviors": [
@@ -3482,7 +3482,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "failure_or_verbose",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.object_store_reset.v1",
       "semantic_behaviors": [
@@ -3679,7 +3679,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.generate.v1",
       "semantic_behaviors": [
@@ -3754,7 +3754,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.generate_drift.v1",
       "semantic_behaviors": [
@@ -3808,7 +3808,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.generated_artifact_policy_check.v1",
       "semantic_behaviors": [
@@ -3871,7 +3871,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.json_shape_check.v1",
       "semantic_behaviors": [
@@ -3924,7 +3924,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.toolchain_drift.v1",
       "semantic_behaviors": [
@@ -3977,7 +3977,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.migration_input_drift.v1",
       "semantic_behaviors": [
@@ -4032,7 +4032,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.migration_scratch_apply.v1",
       "semantic_behaviors": [
@@ -4099,7 +4099,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.migration_drift.v1",
       "semantic_behaviors": [
@@ -4181,7 +4181,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.standup_package_smoke.v1",
       "semantic_behaviors": [
@@ -4271,7 +4271,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.standup_operational_recovery_smoke.v1",
       "semantic_behaviors": [
@@ -4368,7 +4368,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.agent_finalize.v1",
       "semantic_behaviors": [
@@ -4465,7 +4465,7 @@
           "excerpt_bytes": 6000
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.test_evidence_audit.v1",
       "semantic_behaviors": [
@@ -4553,7 +4553,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.benchmark_claim_check.v1",
       "semantic_behaviors": [
@@ -4786,7 +4786,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.test_slice.v1",
       "semantic_behaviors": [
@@ -4959,7 +4959,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.service_backed_test_slice.v1",
       "semantic_behaviors": [
@@ -5140,7 +5140,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.backend_unit.v1",
       "semantic_behaviors": [
@@ -5196,7 +5196,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.backend_store.v1",
       "semantic_behaviors": [
@@ -5274,7 +5274,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.backend_integration.v1",
       "semantic_behaviors": [
@@ -5365,7 +5365,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.backend_process.v1",
       "semantic_behaviors": [
@@ -6002,7 +6002,6 @@
       "name": "explain-target",
       "backing_scripts": [
         "tools/harness/diagnostics/explain-target-cli.mjs",
-        "tools/harness/diagnostics/task-guidance.mjs",
         "tools/harness/diagnostics/target-plan-cli.mjs"
       ],
       "output_policy": {
@@ -6126,7 +6125,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.go_test_duration_baselines.v1",
       "semantic_behaviors": [
@@ -6255,7 +6254,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.go_test_duration_baseline_coverage.v1",
       "semantic_behaviors": [
@@ -6326,7 +6325,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.go_test_duration_baseline_drift.v1",
       "semantic_behaviors": [
@@ -6414,7 +6413,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.browser_e2e_duration_baselines.v1",
       "semantic_behaviors": [
@@ -6509,7 +6508,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.browser_e2e_duration_baseline_drift.v1",
       "semantic_behaviors": [
@@ -6597,7 +6596,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.service_backed_make_target_duration_baselines.v1",
       "semantic_behaviors": [
@@ -6692,7 +6691,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.service_backed_make_target_duration_baseline_drift.v1",
       "semantic_behaviors": [
@@ -6780,7 +6779,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.harness_smoke_duration_baselines.v1",
       "semantic_behaviors": [
@@ -6886,7 +6885,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.harness_smoke_duration_baseline_drift.v1",
       "semantic_behaviors": [
@@ -6975,7 +6974,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.scheduler_event_order_drift.v1",
       "semantic_behaviors": [
@@ -7064,7 +7063,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.scheduler_summary_timing_drift.v1",
       "semantic_behaviors": [
@@ -7241,9 +7240,9 @@
       "lifecycle_state": "candidate_child"
     },
     {
-      "name": "phase-test-name-check",
+      "name": "semantic-identity-check",
       "backing_scripts": [
-        "tools/harness/phase-accounting/phase-test-name-check-cli.mjs"
+        "tools/harness/test-catalog/semantic-identity-check-cli.mjs"
       ],
       "target_class": "check_internal",
       "default_inclusion_sets": [
@@ -7269,7 +7268,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.frontend_typecheck.v1",
       "semantic_behaviors": [
@@ -7324,7 +7323,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.frontend_unit.v1",
       "semantic_behaviors": [
@@ -7399,7 +7398,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.frontend_import_boundary_check.v1",
       "semantic_behaviors": [
@@ -7453,7 +7452,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.backend_module_boundary_check.v1",
       "semantic_behaviors": [
@@ -7516,7 +7515,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.frontend_fallow_static.v1",
       "semantic_behaviors": [
@@ -7569,7 +7568,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.lint_biome.v1",
       "semantic_behaviors": [
@@ -7622,7 +7621,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.lint_scripts.v1",
       "semantic_behaviors": [
@@ -7675,7 +7674,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.lint_markdown.v1",
       "semantic_behaviors": [
@@ -7739,7 +7738,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.harness_contract.v1",
       "semantic_behaviors": [
@@ -7793,7 +7792,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.lint_shell.v1",
       "semantic_behaviors": [
@@ -7843,7 +7842,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.format.v1",
       "semantic_behaviors": [
@@ -7907,6 +7906,8 @@
         "tools/harness/browser/run-browser-e2e-target.sh",
         "tools/harness/browser/run-browser-e2e-batch.sh",
         "tools/harness/browser/browser-batch-manifest.mjs",
+        "tools/harness/browser/browser-catalog-group-cli.mjs",
+        "tools/harness/browser/browser-scheduler-dependencies.mjs",
         "tools/harness/browser/start-web-e2e.sh"
       ],
       "output_policy": {
@@ -7925,7 +7926,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.browser_e2e.v1",
       "semantic_behaviors": [
@@ -7992,8 +7993,8 @@
         "tools/harness/browser/run-browser-e2e-target.sh",
         "tools/harness/browser/run-browser-e2e-batch.sh",
         "tools/harness/browser/browser-batch-manifest.mjs",
-        "tools/harness/browser/run-browser-e2e-webserver-backed.sh",
-        "tools/harness/browser/run-playwright-webserver-batch.sh",
+        "tools/harness/browser/browser-catalog-group-cli.mjs",
+        "tools/harness/browser/browser-scheduler-dependencies.mjs",
         "tools/harness/browser/browser-shard-plan.mjs",
         "tools/harness/browser/start-web-e2e.sh"
       ],
@@ -8013,7 +8014,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.browser_e2e_webserver_backed.v1",
       "semantic_behaviors": [
@@ -8089,8 +8090,8 @@
         "tools/harness/browser/run-browser-e2e-target.sh",
         "tools/harness/browser/run-browser-e2e-batch.sh",
         "tools/harness/browser/browser-batch-manifest.mjs",
-        "tools/harness/browser/run-browser-e2e-functional.sh",
-        "tools/harness/browser/run-playwright-webserver-batch.sh",
+        "tools/harness/browser/browser-catalog-group-cli.mjs",
+        "tools/harness/browser/browser-scheduler-dependencies.mjs",
         "tools/harness/browser/browser-shard-plan.mjs",
         "tools/harness/browser/start-web-e2e.sh"
       ],
@@ -8104,6 +8105,8 @@
         "tools/harness/browser/run-browser-e2e-target.sh",
         "tools/harness/browser/run-browser-e2e-batch.sh",
         "tools/harness/browser/browser-batch-manifest.mjs",
+        "tools/harness/browser/browser-catalog-group-cli.mjs",
+        "tools/harness/browser/browser-scheduler-dependencies.mjs",
         "tools/harness/browser/start-web-e2e.sh"
       ],
       "command_id": "cartulary.harness.command.browser_e2e_support.v1",
@@ -8119,7 +8122,8 @@
         "tools/harness/browser/run-browser-e2e-target.sh",
         "tools/harness/browser/run-browser-e2e-batch.sh",
         "tools/harness/browser/browser-batch-manifest.mjs",
-        "tools/harness/browser/run-browser-e2e-stateful.sh",
+        "tools/harness/browser/browser-catalog-group-cli.mjs",
+        "tools/harness/browser/browser-scheduler-dependencies.mjs",
         "tools/harness/browser/start-web-e2e.sh"
       ],
       "output_policy": {
@@ -8138,7 +8142,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.browser_e2e_stateful.v1",
       "semantic_behaviors": [
@@ -8215,6 +8219,8 @@
         "tools/harness/browser/run-browser-e2e-target.sh",
         "tools/harness/browser/run-browser-e2e-batch.sh",
         "tools/harness/browser/browser-batch-manifest.mjs",
+        "tools/harness/browser/browser-catalog-group-cli.mjs",
+        "tools/harness/browser/browser-scheduler-dependencies.mjs",
         "tools/harness/browser/run-browser-e2e-resettable.sh",
         "tools/harness/browser/start-web-e2e.sh"
       ],
@@ -8228,7 +8234,8 @@
         "tools/harness/browser/run-browser-e2e-target.sh",
         "tools/harness/browser/run-browser-e2e-batch.sh",
         "tools/harness/browser/browser-batch-manifest.mjs",
-        "tools/harness/browser/run-browser-e2e-measurement.sh",
+        "tools/harness/browser/browser-catalog-group-cli.mjs",
+        "tools/harness/browser/browser-scheduler-dependencies.mjs",
         "tools/harness/browser/start-web-e2e.sh"
       ],
       "output_policy": {
@@ -8247,7 +8254,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.browser_e2e_measurement.v1",
       "semantic_behaviors": [
@@ -8313,8 +8320,8 @@
         "tools/harness/browser/run-browser-e2e-target.sh",
         "tools/harness/browser/run-browser-e2e-batch.sh",
         "tools/harness/browser/browser-batch-manifest.mjs",
-        "tools/harness/browser/run-browser-e2e-a11y.sh",
-        "tools/harness/browser/accessibility-summary-cli.mjs",
+        "tools/harness/browser/browser-catalog-group-cli.mjs",
+        "tools/harness/browser/browser-scheduler-dependencies.mjs",
         "tools/harness/browser/start-web-e2e.sh"
       ],
       "output_policy": {
@@ -8333,7 +8340,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.browser_e2e_a11y.v1",
       "semantic_behaviors": [
@@ -8400,7 +8407,8 @@
         "tools/harness/browser/run-browser-e2e-target.sh",
         "tools/harness/browser/run-browser-e2e-batch.sh",
         "tools/harness/browser/browser-batch-manifest.mjs",
-        "tools/harness/browser/run-browser-e2e-visual.sh",
+        "tools/harness/browser/browser-catalog-group-cli.mjs",
+        "tools/harness/browser/browser-scheduler-dependencies.mjs",
         "tools/harness/browser/start-web-e2e.sh"
       ],
       "output_policy": {
@@ -8419,7 +8427,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.browser_e2e_visual.v1",
       "semantic_behaviors": [
@@ -8484,9 +8492,7 @@
       "name": "browser-e2e-visual-update",
       "backing_scripts": [
         "tools/harness/browser/run-browser-e2e-visual-update.sh",
-        "tools/harness/browser/run-browser-e2e-visual.sh",
-        "tools/harness/browser/run-browser-e2e-manifest-dependency.sh",
-        "tools/harness/browser/run-playwright-phase.sh",
+        "tools/harness/browser/browser-catalog-group-cli.mjs",
         "tools/harness/browser/start-web-e2e.sh"
       ],
       "output_policy": {
@@ -8505,7 +8511,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.browser_e2e_visual_update.v1",
       "semantic_behaviors": [
@@ -8611,7 +8617,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.test_fast.v1",
       "semantic_behaviors": [
@@ -8699,7 +8705,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.test.v1",
       "semantic_behaviors": [
@@ -8774,7 +8780,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.lint.v1",
       "semantic_behaviors": [
@@ -8867,7 +8873,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.go_vulncheck.v1",
       "semantic_behaviors": [
@@ -8943,7 +8949,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.go_gosec_targeted.v1",
       "semantic_behaviors": [
@@ -9001,7 +9007,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.go_gosec_audit.v1",
       "semantic_behaviors": [
@@ -9059,7 +9065,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.check.v1",
       "semantic_behaviors": [
@@ -9167,7 +9173,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.ci.v1",
       "semantic_behaviors": [
@@ -9243,7 +9249,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.release_check.v1",
       "semantic_behaviors": [
@@ -9319,7 +9325,7 @@
           "excerpt_bytes": 6000
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.release_readiness_evidence.v1",
       "semantic_behaviors": [
@@ -9398,7 +9404,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.seaweedfs_compatibility.v1",
       "semantic_behaviors": [
@@ -9470,7 +9476,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.seaweedfs_migration_preservation.v1",
       "semantic_behaviors": [
@@ -9548,7 +9554,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.seaweedfs_release_evidence.v1",
       "semantic_behaviors": [
@@ -9604,7 +9610,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.seaweedfs_release_gate.v1",
       "semantic_behaviors": [
@@ -9658,7 +9664,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.build.v1",
       "semantic_behaviors": [
@@ -9723,7 +9729,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.build_server.v1",
       "semantic_behaviors": [
@@ -9788,7 +9794,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.build_server_harness.v1",
       "semantic_behaviors": [
@@ -9882,7 +9888,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.build_migrate.v1",
       "semantic_behaviors": [
@@ -9945,7 +9951,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.build_operator.v1",
       "semantic_behaviors": [
@@ -10026,7 +10032,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
+        "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.build_web.v1",
       "semantic_behaviors": [
@@ -10248,7 +10254,6 @@
         "harness-smoke-service-backed-scheduler-matrix",
         "harness-smoke-run-make-sequence",
         "harness-smoke-run-go-target",
-        "harness-smoke-run-frontend-unit",
         "harness-smoke-frontend-import-boundaries",
         "harness-smoke-fallow-static"
       ]
@@ -10257,8 +10262,7 @@
       "checks": [
         "harness-smoke-run-make-sequence-fast",
         "harness-smoke-cartulary-runner-service-backed-target",
-        "harness-smoke-make-node-tools",
-        "harness-smoke-run-frontend-unit"
+        "harness-smoke-make-node-tools"
       ]
     },
     "lifecycle": {
@@ -10306,7 +10310,6 @@
         "harness-smoke-service-backed-scheduler-matrix",
         "harness-smoke-run-make-sequence",
         "harness-smoke-run-go-target",
-        "harness-smoke-run-frontend-unit",
         "harness-smoke-frontend-import-boundaries",
         "harness-smoke-fallow-static",
         "harness-smoke-web-e2e-lifecycle",
@@ -10534,16 +10537,16 @@
       ]
     },
     {
-      "name": "harness-smoke-phase-test-names",
+      "name": "harness-smoke-semantic-identities",
       "backing_scripts": [
-        "tools/harness/phase-accounting/tests/test-check-phase-test-names.sh",
-        "tools/harness/phase-accounting/phase-test-name-check-cli.mjs"
+        "tools/harness/test-catalog/tests/test-semantic-identity-check.sh",
+        "tools/harness/test-catalog/semantic-identity-check-cli.mjs"
       ]
     },
     {
-      "name": "harness-smoke-run-phase",
+      "name": "harness-smoke-run-step",
       "backing_scripts": [
-        "tools/harness/tests/test-run-phase.sh"
+        "tools/harness/tests/test-run-step.sh"
       ]
     },
     {
@@ -10625,39 +10628,15 @@
       ]
     },
     {
-      "name": "harness-smoke-run-playwright-phase",
+      "name": "harness-smoke-run-playwright-step",
       "backing_scripts": [
-        "tools/harness/browser/tests/test-run-playwright-phase.sh"
+        "tools/harness/browser/tests/test-run-playwright-step.sh"
       ]
     },
     {
-      "name": "harness-smoke-run-playwright-manifest-phase",
+      "name": "harness-smoke-run-vitest-step",
       "backing_scripts": [
-        "tools/harness/browser/tests/test-run-playwright-manifest-phase.sh"
-      ]
-    },
-    {
-      "name": "harness-smoke-run-playwright-webserver-batch",
-      "backing_scripts": [
-        "tools/harness/browser/tests/test-run-playwright-webserver-batch.sh"
-      ]
-    },
-    {
-      "name": "harness-smoke-run-vitest-phase",
-      "backing_scripts": [
-        "tools/harness/execution/tests/test-run-vitest-phase.sh"
-      ]
-    },
-    {
-      "name": "harness-smoke-run-vitest-manifest-phase",
-      "backing_scripts": [
-        "tools/harness/execution/tests/test-run-vitest-manifest-phase.sh"
-      ]
-    },
-    {
-      "name": "harness-smoke-run-frontend-unit",
-      "backing_scripts": [
-        "tools/harness/execution/tests/test-run-frontend-unit.sh"
+        "tools/harness/execution/tests/test-run-vitest-step.sh"
       ]
     },
     {

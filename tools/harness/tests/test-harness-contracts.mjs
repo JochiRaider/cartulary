@@ -1004,7 +1004,7 @@ test("semantic JSON rejects ambiguous encodings and ignores display metadata", (
 test("semantic allowlist accepts one exact owned product-phase identity", () => {
   const root = mkdtempSync(path.join(repoRoot, "tmp", "semantic-allowlist."));
   try {
-    writeFixtureFile(root, "internal/fixture/semantic_test.go", "package fixture\n\nfunc TestProductStage(t *testing.T) {}\n");
+    writeFixtureFile(root, "internal/fixture/phase2_test.go", "package fixture\n\nfunc TestProductStage(t *testing.T) {}\n");
     writeJSONFile(path.join(root, "tools/test_catalog_owner.json"), {
       schema_id: "cartulary.test_owner_registry.v1",
       owners: [{ owner_id: "module.fixture", manifest_path: "tools/test_families/module.fixture.json", status: "active" }],
@@ -1012,9 +1012,9 @@ test("semantic allowlist accepts one exact owned product-phase identity", () => 
     writeJSONFile(path.join(root, "tools/delivery_phase_semantic_allowlist.json"), {
       schema_id: "cartulary.delivery_phase_semantic_allowlist.v1",
       allowlist: [{
-        location: "internal/fixture/semantic_test.go",
+        location: "internal/fixture/phase2_test.go",
         locator_kind: "filename",
-        locator: "semantic_test.go",
+        locator: "phase2_test.go",
         classification: "product_phase",
         owner_id: "module.fixture",
         reason: "Fixture models an owner-defined numbered product stage.",
@@ -1040,7 +1040,7 @@ test("semantic allowlist rejects unmatched, duplicate, line-number, and unknown-
     },
     {
       name: "line-number",
-      mutate(entries) { entries[0].location = "internal/fixture/semantic_test.go:12"; },
+      mutate(entries) { entries[0].location = "internal/fixture/phase2_test.go:12"; },
       pattern: /must not be line-number-only/iu,
     },
     {
@@ -1052,15 +1052,15 @@ test("semantic allowlist rejects unmatched, duplicate, line-number, and unknown-
   for (const fixtureCase of cases) {
     const root = mkdtempSync(path.join(repoRoot, "tmp", `semantic-allowlist-${fixtureCase.name}.`));
     try {
-      writeFixtureFile(root, "internal/fixture/semantic_test.go", "package fixture\n\nfunc TestProductStage(t *testing.T) {}\n");
+      writeFixtureFile(root, "internal/fixture/phase2_test.go", "package fixture\n\nfunc TestProductStage(t *testing.T) {}\n");
       writeJSONFile(path.join(root, "tools/test_catalog_owner.json"), {
         schema_id: "cartulary.test_owner_registry.v1",
         owners: [{ owner_id: "module.fixture", manifest_path: "tools/test_families/module.fixture.json", status: "active" }],
       });
       const entries = [{
-        location: "internal/fixture/semantic_test.go",
+        location: "internal/fixture/phase2_test.go",
         locator_kind: "filename",
-        locator: "semantic_test.go",
+        locator: "phase2_test.go",
         classification: "product_phase",
         owner_id: "module.fixture",
         reason: "Fixture models an owner-defined numbered product stage.",
@@ -2390,7 +2390,6 @@ test("execution harness smoke is a narrow execution-wrapper subset", () => {
     "harness-smoke-run-make-sequence-fast",
     "harness-smoke-cartulary-runner-service-backed-target",
     "harness-smoke-make-node-tools",
-    "harness-smoke-run-frontend-unit",
   ];
   assert.deepEqual(manifest.harness_tiers.execution.checks, expectedExecutionChecks);
   const extendedChecks = new Set(manifest.harness_tiers.extended.checks);
@@ -3360,18 +3359,17 @@ test("per-target input contract rejects misplaced Make variables and ignores amb
   assert.throws(
     () =>
       preflightPublicTarget("target-plan", {
-        UNDECLARED_INPUT: "unexpected",
-        CARTULARY_MAKE_INPUT_SOURCES: "UNDECLARED_INPUT=cli",
+        OWNER: "module.networkflow",
+        CARTULARY_MAKE_INPUT_SOURCES: "OWNER=cli",
       }),
     (error) =>
       error instanceof HarnessConfigError &&
-      error.failure_reason === "usage_error" &&
-      /UNDECLARED_INPUT is not declared for target target-plan/.test(error.message),
+      /OWNER is not declared for target target-plan/.test(error.message),
   );
   assert.doesNotThrow(() =>
     preflightPublicTarget("target-plan", {
-      UNDECLARED_INPUT: "unexpected",
-      CARTULARY_MAKE_INPUT_SOURCES: "UNDECLARED_INPUT=env",
+      OWNER: "module.networkflow",
+      CARTULARY_MAKE_INPUT_SOURCES: "OWNER=env",
     }),
   );
   assert.throws(
@@ -4001,7 +3999,7 @@ test("harness import boundary consumes the authored helper ownership registry", 
   const helperOwnership = loadHarnessHelperOwnership(repoRoot);
   const authoredOwnerFacadePaths = ownerFacadePathLists(helperOwnership);
   const report = collectHarnessImportBoundaryViolations(repoRoot);
-  assert.equal(helperOwnership.facades.length, 39);
+  assert.equal(helperOwnership.facades.length, 34);
   assert.deepEqual(
     Object.keys(report.owner_facades).sort(),
     Object.keys(authoredOwnerFacadePaths).sort(),
@@ -4314,7 +4312,7 @@ test("primary public failure uses closed deterministic tie breakers", () => {
       kind: "failure",
       source: "",
       target: "",
-      phase: "",
+      step: "",
       runner: "",
       label: "",
       message: "",

@@ -167,7 +167,7 @@ export function writeFinalizerFailureStep(
     path.join(stepDir, "step-summary.json"),
     `${JSON.stringify(
       {
-        schema_id: "cartulary.test_step_summary.v3",
+        schema_id: "cartulary.test_step_summary.v1",
         label,
         target: ctx.testTarget,
         runner: "go-shard-finalizer",

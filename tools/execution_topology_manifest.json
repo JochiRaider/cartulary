@@ -470,7 +470,7 @@
         "local_evidence": 25000,
         "harness_evidence": 15000,
         "static_validation": 13000,
-        "phase_validation": 12000,
+        "semantic_validation": 12000,
         "drift_validation": 11300
       }
     },
@@ -649,7 +649,7 @@
           "check"
         ],
         "profile": "after_setup_cpu",
-        "priority_band": "phase_validation",
+        "priority_band": "semantic_validation",
         "order": 500,
         "needs": [
           "check-frontend-install"
@@ -693,7 +693,7 @@
           "check"
         ],
         "profile": "after_setup_cpu",
-        "priority_band": "phase_validation",
+        "priority_band": "semantic_validation",
         "order": 600,
         "needs": [
           "toolchain-drift"
@@ -724,12 +724,12 @@
           "testservices-build"
         ]
       },
-      "phase-test-name-check": {
+      "semantic-identity-check": {
         "schedules": [
           "check"
         ],
         "profile": "after_setup_cpu",
-        "priority_band": "phase_validation",
+        "priority_band": "semantic_validation",
         "order": 0,
         "needs": [
           "toolchain-drift"
