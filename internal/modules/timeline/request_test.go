@@ -11,7 +11,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 )
 
-// U-4-08 / REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-239, REQ-01-315..REQ-01-316, REQ-01-568, REQ-02-163..REQ-02-185, REQ-03-205..REQ-03-216, REQ-03-276..REQ-03-279 / AC-205, AC-388..AC-392.
+// timeline-resolution-unit / REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-239, REQ-01-315..REQ-01-316, REQ-01-568, REQ-02-163..REQ-02-185, REQ-03-205..REQ-03-216, REQ-03-276..REQ-03-279 / AC-205, AC-388..AC-392.
 func TestAutoResolutionEligibility_Unit(t *testing.T) {
 	t.Run("mention token contract preserves raw text and collapses whitespace for comparison", func(t *testing.T) {
 		payload := fixtures.TimelineCollectionPatchPayload(
@@ -71,7 +71,7 @@ func TestAutoResolutionEligibility_Unit(t *testing.T) {
 	})
 }
 
-// U-4-09 / REQ-01-311, REQ-01-314..REQ-01-320, REQ-02-248, REQ-03-280 / AC-394, AC-396, AC-397.
+// timeline-resolution-unit / REQ-01-311, REQ-01-314..REQ-01-320, REQ-02-248, REQ-03-280 / AC-394, AC-396, AC-397.
 func TestManualTimelineConfidenceNull_Unit(t *testing.T) {
 	t.Run("manual relationship mutation omits confidence and should decode", func(t *testing.T) {
 		payload := fixtures.TimelineCollectionPatchPayload(

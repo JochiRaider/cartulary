@@ -635,7 +635,7 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("FEV2SHELL"),
+      uniqueIncidentKey("VISUALWORKBOOKSHELL"),
       "browser.workbook-shell visual default shell",
     );
 
@@ -669,7 +669,7 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
     for (const [index, summary] of fixtureRows.entries()) {
       rows.push(
         (await createViewRow(page, incidentId, timelineViewSchemaId, {
-          client_txn_id: uniqueTxn(`FEV2SHELL-ROW-${index + 1}`),
+          client_txn_id: uniqueTxn(`VISUALWORKBOOKSHELL-ROW-${index + 1}`),
           "timeline.activity_utc_text": new Date(
             Date.UTC(2026, 3, 18, 14, 12 + index * 2, 34),
           ).toISOString(),
@@ -1021,7 +1021,7 @@ test.describe("workbook visual evidence", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("V3GRID01"),
+      uniqueIncidentKey("VISUALTIMELINEDEFAULT"),
       "Timeline mutation visual default",
     );
     const timelineRow = (await createViewRow(
@@ -1029,7 +1029,7 @@ test.describe("workbook visual evidence", () => {
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("V3GRID01-ROW"),
+        client_txn_id: uniqueTxn("VISUALTIMELINEDEFAULT-ROW"),
         "timeline.activity_utc_text": "2025-02-17T09:12:00Z",
         "timeline.activity_synopsis_text": "Default visual row",
       },
@@ -1068,7 +1068,7 @@ test.describe("workbook visual evidence", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("V3GRID02"),
+      uniqueIncidentKey("VISUALTIMELINEEDIT"),
       "Timeline mutation visual edit state",
     );
     const timelineRow = (await createViewRow(
@@ -1076,7 +1076,7 @@ test.describe("workbook visual evidence", () => {
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("V3GRID02-ROW"),
+        client_txn_id: uniqueTxn("VISUALTIMELINEEDIT-ROW"),
         "timeline.activity_utc_text": "2025-01-01T00:00:00Z",
         "timeline.activity_synopsis_text": "Editable visual row",
       },
@@ -1204,7 +1204,7 @@ test.describe("workbook visual evidence", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("V3GRID03"),
+      uniqueIncidentKey("VISUALTIMELINEGROUPED"),
       "Timeline mutation visual grouped rows",
     );
     const firstRow = (await createViewRow(
@@ -1212,13 +1212,13 @@ test.describe("workbook visual evidence", () => {
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("V3GRID03-ROWA"),
+        client_txn_id: uniqueTxn("VISUALTIMELINEGROUPED-ROWA"),
         "timeline.activity_utc_text": "2025-02-17T11:00:00Z",
         "timeline.activity_synopsis_text": "Alpha grouped row",
       },
     )) as ViewRow;
     await createViewRow(page, incidentId, timelineViewSchemaId, {
-      client_txn_id: uniqueTxn("V3GRID03-ROWB"),
+      client_txn_id: uniqueTxn("VISUALTIMELINEGROUPED-ROWB"),
       "timeline.activity_utc_text": "2025-02-17T11:05:00Z",
       "timeline.activity_synopsis_text": "Beta grouped row",
     });
@@ -1280,11 +1280,11 @@ test.describe("browser.grid-interaction visual readiness", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("FEV3GRID"),
+      uniqueIncidentKey("VISUALGRIDADAPTER"),
       "browser.grid-interaction grid adapter visual fixture",
     );
     await createViewRow(page, incidentId, timelineViewSchemaId, {
-      client_txn_id: uniqueTxn("FEV3GRID-ROW"),
+      client_txn_id: uniqueTxn("VISUALGRIDADAPTER-ROW"),
       "timeline.activity_utc_text": "2026-05-31T10:00:00Z",
       "timeline.activity_synopsis_text":
         "browser.grid-interaction visual adapter row",
@@ -1326,7 +1326,7 @@ test.describe("browser.mutation-lifecycle visual readiness", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("FEV4VISUAL"),
+      uniqueIncidentKey("VISUALMUTATION"),
       "browser.mutation-lifecycle visual readiness",
     );
     const timelineRow = (await createViewRow(
@@ -1334,7 +1334,7 @@ test.describe("browser.mutation-lifecycle visual readiness", () => {
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("FEV4VISUAL-ROW"),
+        client_txn_id: uniqueTxn("VISUALMUTATION-ROW"),
         "timeline.activity_utc_text": "2026-06-03T10:00:00Z",
         "timeline.activity_synopsis_text":
           "browser.mutation-lifecycle visual editable row",
@@ -1447,7 +1447,7 @@ test.describe("browser.mutation-lifecycle visual readiness", () => {
 
     const emptyIncidentId = await createIncident(
       page,
-      uniqueIncidentKey("FEV4EMPTY"),
+      uniqueIncidentKey("VISUALEMPTYQUERY"),
       "browser.mutation-lifecycle empty Timeline query",
     );
     await page.goto(`/?incident_id=${emptyIncidentId}`);
@@ -1487,7 +1487,7 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("FEVP501"),
+      uniqueIncidentKey("VISUALENTITYLINKING"),
       "browser.entity-linking visual mention chip states",
     );
     const {
@@ -1505,7 +1505,7 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
       unresolvedRow,
     } = await seedHostMentionStateFixture(page, incidentId, {
       displayPrefix: "visual.entity-linking",
-      hostnamePrefix: "fevp501",
+      hostnamePrefix: "visual-entity-linking",
       occurredAt: {
         auto: "2026-06-06T15:15:00Z",
         dismissed: "2026-06-06T15:20:00Z",
@@ -1513,7 +1513,7 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
         resolved: "2026-06-06T15:05:00Z",
         unresolved: "2026-06-06T15:00:00Z",
       },
-      rawTextPrefix: "FEVP501",
+      rawTextPrefix: "VISUALENTITYLINKING",
       summary: {
         auto: "visual.entity-linking auto chip state",
         dismissed: "visual.entity-linking dismissed chip state",
@@ -1521,7 +1521,7 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
         resolved: "visual.entity-linking resolved chip state",
         unresolved: "visual.entity-linking unresolved chip state",
       },
-      txnPrefix: "fevp501",
+      txnPrefix: "visual-entity-linking",
     });
 
     await page.goto(`/?incident_id=${incidentId}`);
@@ -1609,11 +1609,11 @@ test.describe("workbook visual evidence", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("V4GRID01"),
+      uniqueIncidentKey("VISUALENTITYLINKINGAUX"),
       "Entity linking visual mention chips",
     );
     const hostRow = (await createViewRow(page, incidentId, hostsViewSchemaId, {
-      client_txn_id: uniqueTxn("V4GRID01-HOST"),
+      client_txn_id: uniqueTxn("VISUALENTITYLINKINGAUX-HOST"),
       "host.display_name": "WS-023",
       "host.hostname": "ws-023.visual.example.test",
     })) as ViewRow;
@@ -1622,7 +1622,7 @@ test.describe("workbook visual evidence", () => {
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("V4GRID01-UNRESOLVED"),
+        client_txn_id: uniqueTxn("VISUALENTITYLINKINGAUX-UNRESOLVED"),
         "timeline.activity_utc_text": "2026-07-15T12:00:00Z",
         "timeline.activity_synopsis_text": "Unresolved mention visual row",
         [hostRefsFieldKey]: collectionActionsPayload(["WS-023?"]),
@@ -1633,7 +1633,7 @@ test.describe("workbook visual evidence", () => {
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("V4GRID01-RESOLVED"),
+        client_txn_id: uniqueTxn("VISUALENTITYLINKINGAUX-RESOLVED"),
         "timeline.activity_utc_text": "2026-07-15T12:01:00Z",
         "timeline.activity_synopsis_text": "Resolved mention visual row",
         [hostRefsFieldKey]: resolvedRefPayload("WS-023", hostRow.record_id),
@@ -1674,7 +1674,7 @@ test.describe("workbook visual evidence", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("V4GRID02"),
+      uniqueIncidentKey("VISUALEVIDENCEACCESS"),
       "Entity linking visual evidence access",
     );
     const evidenceRow = (await createViewRow(
@@ -1682,7 +1682,7 @@ test.describe("workbook visual evidence", () => {
       incidentId,
       evidenceViewSchemaId,
       {
-        client_txn_id: uniqueTxn("V4GRID02-EVIDENCE"),
+        client_txn_id: uniqueTxn("VISUALEVIDENCEACCESS-EVIDENCE"),
         "evidence.title": "Visual evidence package",
         "evidence.storage_ref": "slot/visual",
       },
@@ -1727,7 +1727,7 @@ test.describe("workbook visual evidence", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("V4GRID03"),
+      uniqueIncidentKey("VISUALCOORDINATION"),
       "Entity linking visual task requests",
     );
     const taskRow = (await createViewRow(
@@ -1735,7 +1735,7 @@ test.describe("workbook visual evidence", () => {
       incidentId,
       taskRequestsViewSchemaId,
       {
-        client_txn_id: uniqueTxn("V4GRID03-TASK"),
+        client_txn_id: uniqueTxn("VISUALCOORDINATION-TASK"),
         "task.title": "Visual task request",
         "task.task_kind": "collection",
       },
@@ -1780,7 +1780,7 @@ test.describe("workbook visual evidence", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("V5GRID01"),
+      uniqueIncidentKey("VISUALEVIDENCEAVAILABLE"),
       "Evidence lifecycle visual evidence states",
     );
     const evidenceRow = (await createViewRow(
@@ -1788,7 +1788,7 @@ test.describe("workbook visual evidence", () => {
       incidentId,
       evidenceViewSchemaId,
       {
-        client_txn_id: uniqueTxn("V5GRID01-EVIDENCE"),
+        client_txn_id: uniqueTxn("VISUALEVIDENCEAVAILABLE-EVIDENCE"),
         "evidence.title": "Requested visual package",
         "evidence.storage_ref": "ticket://visual-request",
       },
@@ -1856,7 +1856,7 @@ test.describe("workbook visual evidence", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("V5GRID02"),
+      uniqueIncidentKey("VISUALEVIDENCEBLOCKED"),
       "Evidence lifecycle visual evidence badges",
     );
     const blocked = (await createViewRow(
@@ -1864,7 +1864,7 @@ test.describe("workbook visual evidence", () => {
       incidentId,
       evidenceViewSchemaId,
       {
-        client_txn_id: uniqueTxn("V5GRID02-BLOCKED"),
+        client_txn_id: uniqueTxn("VISUALEVIDENCEBLOCKED-BLOCKED"),
         "evidence.title": "Blocked visual package",
         "evidence.storage_ref": "ticket://visual-blocked",
       },
@@ -1874,7 +1874,7 @@ test.describe("workbook visual evidence", () => {
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("V5GRID02-TIMELINE"),
+        client_txn_id: uniqueTxn("VISUALEVIDENCEBLOCKED-TIMELINE"),
         "timeline.activity_synopsis_text": "Visual evidence badge row",
       },
     )) as ViewRow;
@@ -1947,7 +1947,7 @@ test.describe("browser.evidence-workflow visual readiness", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("FEVP601"),
+      uniqueIncidentKey("VISUALEVIDENCEWORKFLOW"),
       "browser.evidence-workflow visual evidence affordance",
     );
     const requested = await createVisualEvidenceRow(page, incidentId, {
@@ -1955,21 +1955,21 @@ test.describe("browser.evidence-workflow visual readiness", () => {
       requestedAt: "2026-05-01T10:00:00Z",
       storageRef: "case://evidence-workflow/requested",
       title: "01 requested evidence",
-      txnPrefix: "FEVP601-REQUESTED",
+      txnPrefix: "VISUALEVIDENCEWORKFLOW-REQUESTED",
     });
     const pending = await createVisualEvidenceRow(page, incidentId, {
       lifecycleState: "pending_receipt",
       requestedAt: "2026-05-01T10:05:00Z",
       storageRef: "case://evidence-workflow/pending",
       title: "02 pending evidence",
-      txnPrefix: "FEVP601-PENDING",
+      txnPrefix: "VISUALEVIDENCEWORKFLOW-PENDING",
     });
     const blocked = await createVisualEvidenceRow(page, incidentId, {
       lifecycleState: "quarantined",
       requestedAt: "2026-05-01T10:10:00Z",
       storageRef: "case://evidence-workflow/quarantined",
       title: "03 quarantined evidence",
-      txnPrefix: "FEVP601-BLOCKED",
+      txnPrefix: "VISUALEVIDENCEWORKFLOW-BLOCKED",
     });
     const availablePreview = await createUploadedVisualEvidence(
       page,
@@ -1983,7 +1983,7 @@ test.describe("browser.evidence-workflow visual readiness", () => {
         filename: "evidence-preview.txt",
         requestedAt: "2026-05-01T10:15:00Z",
         title: "04 available preview evidence",
-        txnPrefix: "FEVP601-PREVIEW",
+        txnPrefix: "VISUALEVIDENCEWORKFLOW-PREVIEW",
       },
     );
     const downloadHandle = await createUploadedVisualEvidence(
@@ -1998,7 +1998,7 @@ test.describe("browser.evidence-workflow visual readiness", () => {
         filename: "evidence-download-handle.txt",
         requestedAt: "2026-05-01T10:20:00Z",
         title: "05 download handle evidence",
-        txnPrefix: "FEVP601-DOWNLOAD",
+        txnPrefix: "VISUALEVIDENCEWORKFLOW-DOWNLOAD",
       },
     );
     const previewBlocked = await createUploadedVisualEvidence(
@@ -2013,7 +2013,7 @@ test.describe("browser.evidence-workflow visual readiness", () => {
         filename: "evidence-preview-blocked.html",
         requestedAt: "2026-05-01T10:25:00Z",
         title: "06 preview blocked evidence",
-        txnPrefix: "FEVP601-PREVIEW-BLOCKED",
+        txnPrefix: "VISUALEVIDENCEWORKFLOW-PREVIEW-BLOCKED",
       },
     );
     const failedHandle = await createUploadedVisualEvidence(page, incidentId, {
@@ -2025,7 +2025,7 @@ test.describe("browser.evidence-workflow visual readiness", () => {
       filename: "evidence-failed-handle.txt",
       requestedAt: "2026-05-01T10:30:00Z",
       title: "07 failed handle evidence",
-      txnPrefix: "FEVP601-FAILED",
+      txnPrefix: "VISUALEVIDENCEWORKFLOW-FAILED",
     });
     const inconsistentHandle = await createUploadedVisualEvidence(
       page,
@@ -2039,7 +2039,7 @@ test.describe("browser.evidence-workflow visual readiness", () => {
         filename: "evidence-inconsistent-handle.txt",
         requestedAt: "2026-05-01T10:35:00Z",
         title: "08 inconsistent handle evidence",
-        txnPrefix: "FEVP601-INCONSISTENT",
+        txnPrefix: "VISUALEVIDENCEWORKFLOW-INCONSISTENT",
       },
     );
     const timelineRow = (await createViewRow(
@@ -2047,7 +2047,7 @@ test.describe("browser.evidence-workflow visual readiness", () => {
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("FEVP601-TIMELINE"),
+        client_txn_id: uniqueTxn("VISUALEVIDENCEWORKFLOW-TIMELINE"),
         "timeline.activity_utc_text": "2026-05-01T11:00:00Z",
         "timeline.activity_synopsis_text":
           "browser.evidence-workflow timeline evidence count",
@@ -2223,7 +2223,7 @@ test.describe("browser.collaboration workbook visual readiness", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("FEVP701"),
+      uniqueIncidentKey("VISUALCOLLABORATION"),
       "browser.collaboration visual collaboration states",
     );
     const remote = await createIncidentMemberUser(page, incidentId, {
@@ -2237,7 +2237,7 @@ test.describe("browser.collaboration workbook visual readiness", () => {
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("FEVP701-PRESENCE"),
+        client_txn_id: uniqueTxn("VISUALCOLLABORATION-PRESENCE"),
         "timeline.activity_synopsis_text": "Presence visual row",
       },
     )) as ViewRow;
@@ -2315,7 +2315,7 @@ test.describe("browser.collaboration workbook visual readiness", () => {
 
   test("Capture same-field conflict resolver.", async ({ page }) => {
     const fixture = await prepareFeP7ConflictVisual(page, {
-      incidentKeyPrefix: "FEVP701RESOLVE",
+      incidentKeyPrefix: "VISUALCOLLABORATIONRESOLVE",
       title: "browser.collaboration visual conflict resolver",
     });
     try {
@@ -2351,7 +2351,7 @@ test.describe("browser.collaboration workbook visual readiness", () => {
 
   test("Capture conflict save-state strip.", async ({ page }) => {
     const fixture = await prepareFeP7ConflictVisual(page, {
-      incidentKeyPrefix: "FEVP701CONFLICTSTRIP",
+      incidentKeyPrefix: "VISUALCOLLABORATIONCONFLICTSTRIP",
       title: "browser.collaboration visual conflict strip",
     });
     try {
@@ -2372,7 +2372,7 @@ test.describe("browser.collaboration workbook visual readiness", () => {
 
   test("Capture recovered saved-state strip.", async ({ page }) => {
     const fixture = await prepareFeP7ConflictVisual(page, {
-      incidentKeyPrefix: "FEVP701RECOVERED",
+      incidentKeyPrefix: "VISUALCOLLABORATIONRECOVERED",
       title: "browser.collaboration visual recovered strip",
     });
     try {
@@ -2392,7 +2392,7 @@ test.describe("browser.collaboration workbook visual readiness", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("FEVP701INVALIDATE"),
+      uniqueIncidentKey("VISUALCOLLABORATIONINVALIDATE"),
       "browser.collaboration visual reset/invalidate strip",
     );
     const invalidateRow = (await createViewRow(
@@ -2400,7 +2400,7 @@ test.describe("browser.collaboration workbook visual readiness", () => {
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("FEVP701-INVALIDATE"),
+        client_txn_id: uniqueTxn("VISUALCOLLABORATION-INVALIDATE"),
         "timeline.activity_synopsis_text": "Invalidate visual base",
       },
     )) as ViewRow;
@@ -2427,7 +2427,7 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("FEVP801"),
+      uniqueIncidentKey("VISUALSAVEDVIEW"),
       "browser.saved-view-query visual saved view query controls",
     );
     const reviewedRow = (await createViewRow(
@@ -2435,14 +2435,14 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("FEVP801-REVIEWED"),
+        client_txn_id: uniqueTxn("VISUALSAVEDVIEW-REVIEWED"),
         "timeline.activity_utc_text": "2026-06-08T12:00:00Z",
         "timeline.activity_synopsis_text":
           "browser.saved-view-query reviewed saved-view visual row",
       },
     )) as ViewRow;
     await createViewRow(page, incidentId, timelineViewSchemaId, {
-      client_txn_id: uniqueTxn("FEVP801-ROUGH"),
+      client_txn_id: uniqueTxn("VISUALSAVEDVIEW-ROUGH"),
       "timeline.activity_utc_text": "2026-06-08T12:05:00Z",
       "timeline.activity_synopsis_text":
         "browser.saved-view-query rough grouped visual row",
@@ -2519,7 +2519,7 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
 
     const emptyIncidentId = await createIncident(
       page,
-      uniqueIncidentKey("FEVP801EMPTY"),
+      uniqueIncidentKey("VISUALSAVEDVIEWEMPTY"),
       "browser.saved-view-query empty successful Timeline query",
     );
     await page.goto(`/?incident_id=${emptyIncidentId}`);
@@ -2558,7 +2558,7 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("FEVP901"),
+      uniqueIncidentKey("VISUALINSPECTORHISTORY"),
       "browser.inspector-history visual inspector actions",
     );
     const evidence = (await createViewRow(
@@ -2566,7 +2566,7 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
       incidentId,
       evidenceViewSchemaId,
       {
-        client_txn_id: uniqueTxn("FEVP901-EVIDENCE"),
+        client_txn_id: uniqueTxn("VISUALINSPECTORHISTORY-EVIDENCE"),
         "evidence.collector_party_text":
           "browser.inspector-history visual collector",
         "evidence.title": "browser.inspector-history visual attached evidence",
@@ -2580,7 +2580,7 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
         [hostRefsFieldKey]: collectionActionsPayload([
           "browser.inspector-history visual host",
         ]),
-        client_txn_id: uniqueTxn("FEVP901-TARGET"),
+        client_txn_id: uniqueTxn("VISUALINSPECTORHISTORY-TARGET"),
         "timeline.raw_activity_text":
           "browser.inspector-history visual inspector details",
         "timeline.activity_synopsis_text":
@@ -2595,7 +2595,7 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
           field_key: "timeline.attached_evidence_ids",
         },
       ],
-      client_txn_id: uniqueTxn("FEVP901-LINK"),
+      client_txn_id: uniqueTxn("VISUALINSPECTORHISTORY-LINK"),
       view_schema_id: timelineViewSchemaId,
     })) as ViewRow;
     const hostItem = requireItemByRawText(
@@ -2875,7 +2875,7 @@ async function driveFeP7InvalidateRefreshVisual({
       headers: await csrfHeaders(page),
       data: {
         base_row_version: rowVersion,
-        client_txn_id: uniqueTxn("fevp701-delete"),
+        client_txn_id: uniqueTxn("visual-collaboration-delete"),
       },
     },
   );
@@ -2908,7 +2908,7 @@ async function driveFeP7InvalidateRefreshVisual({
         headers: await csrfHeaders(page),
         data: {
           base_row_version: Number(removeMessage.payload.row_version),
-          client_txn_id: uniqueTxn("fevp701-restore"),
+          client_txn_id: uniqueTxn("visual-collaboration-restore"),
         },
       },
     );
@@ -2970,7 +2970,7 @@ test.describe("workbook visual evidence", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("V6GRID01"),
+      uniqueIncidentKey("VISUALCOLLABORATIONPRESENCE"),
       "Collaboration visual presence markers",
     );
     const remote = await createIncidentMemberUser(page, incidentId, {
@@ -2984,7 +2984,7 @@ test.describe("workbook visual evidence", () => {
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("V6GRID01-ROW"),
+        client_txn_id: uniqueTxn("VISUALCOLLABORATIONPRESENCE-ROW"),
         "timeline.activity_synopsis_text": "Presence visual row",
       },
     )) as ViewRow;
@@ -3008,7 +3008,7 @@ test.describe("workbook visual evidence", () => {
         browser,
         sessionTracker,
         {
-          createdBy: "V-6-GRID-01",
+          createdBy: "collaboration-visual",
           email: remote.email,
           incidentId,
           password: remote.initial_password,
@@ -3075,7 +3075,7 @@ test.describe("workbook visual evidence", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("V6GRID02"),
+      uniqueIncidentKey("VISUALCOLLABORATIONCONFLICT"),
       "Collaboration visual conflict resolver",
     );
     const timelineRow = (await createViewRow(
@@ -3083,7 +3083,7 @@ test.describe("workbook visual evidence", () => {
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("V6GRID02-ROW"),
+        client_txn_id: uniqueTxn("VISUALCOLLABORATIONCONFLICT-ROW"),
         "timeline.activity_synopsis_text": "Conflict visual base",
       },
     )) as ViewRow;
@@ -3121,7 +3121,7 @@ test.describe("workbook visual evidence", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("V6GRID03"),
+      uniqueIncidentKey("VISUALCOLLABORATIONSAVE"),
       "Collaboration visual pending queue",
     );
     const syncRow = (await createViewRow(
@@ -3129,7 +3129,7 @@ test.describe("workbook visual evidence", () => {
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("V6GRID03-ROW"),
+        client_txn_id: uniqueTxn("VISUALCOLLABORATIONSAVE-ROW"),
         "timeline.activity_utc_text": "2025-03-06T10:00:00Z",
         "timeline.activity_synopsis_text": "Pending visual base",
       },
@@ -3139,7 +3139,7 @@ test.describe("workbook visual evidence", () => {
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("V6GRID03-CONFLICT-ROW"),
+        client_txn_id: uniqueTxn("VISUALCOLLABORATIONSAVE-CONFLICT-ROW"),
         "timeline.activity_utc_text": "2025-03-06T10:05:00Z",
         "timeline.activity_synopsis_text": "Pending conflict visual base",
       },
@@ -3226,7 +3226,7 @@ test.describe("browser.coordination-review workbook visual readiness", () => {
     });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("FEVP1001"),
+      uniqueIncidentKey("VISUALCOORDINATIONREVIEW"),
       "browser.coordination-review coordination visual readiness",
     );
     const owner = await createIncidentMemberUser(page, incidentId, {
@@ -3236,7 +3236,7 @@ test.describe("browser.coordination-review workbook visual readiness", () => {
       role: "editor",
     });
     const party = (await createViewRow(page, incidentId, partiesViewSchemaId, {
-      client_txn_id: uniqueTxn("FEVP1001-PARTY"),
+      client_txn_id: uniqueTxn("VISUALCOORDINATIONREVIEW-PARTY"),
       "party.display_name": "browser.coordination-review Visual Party",
       "party.party_kind": "team",
     })) as ViewRow;
@@ -3245,7 +3245,7 @@ test.describe("browser.coordination-review workbook visual readiness", () => {
       incidentId,
       taskRequestsViewSchemaId,
       {
-        client_txn_id: uniqueTxn("V4GRID03-TASK"),
+        client_txn_id: uniqueTxn("VISUALCOORDINATION-TASK"),
         "task.task_kind": "collection",
         "task.title": "Visual task request",
       },
@@ -3255,14 +3255,14 @@ test.describe("browser.coordination-review workbook visual readiness", () => {
       incidentId,
       decisionsViewSchemaId,
       {
-        client_txn_id: uniqueTxn("FEVP1001-DECISION"),
+        client_txn_id: uniqueTxn("VISUALCOORDINATIONREVIEW-DECISION"),
         "decision.decision_type": "containment",
         "decision.rationale": "browser.coordination-review visual rationale",
         "decision.summary": "browser.coordination-review visual decision",
       },
     )) as ViewRow;
     const comm = (await createViewRow(page, incidentId, commLogViewSchemaId, {
-      client_txn_id: uniqueTxn("FEVP1001-COMM"),
+      client_txn_id: uniqueTxn("VISUALCOORDINATIONREVIEW-COMM"),
       "comm_log.audience": "browser.coordination-review visual responders",
       "comm_log.channel_or_meeting":
         "browser.coordination-review visual bridge",
@@ -3280,7 +3280,7 @@ test.describe("browser.coordination-review workbook visual readiness", () => {
       incidentId,
       handoffViewSchemaId,
       {
-        client_txn_id: uniqueTxn("FEVP1001-HANDOFF"),
+        client_txn_id: uniqueTxn("VISUALCOORDINATIONREVIEW-HANDOFF"),
         "handoff.current_state_summary":
           "browser.coordination-review visual handoff state",
         "handoff.incoming_owner_user_id": owner.user_id,
@@ -3291,13 +3291,13 @@ test.describe("browser.coordination-review workbook visual readiness", () => {
       incidentId,
       statusReviewViewSchemaId,
       {
-        client_txn_id: uniqueTxn("FEVP1001-STATUS"),
+        client_txn_id: uniqueTxn("VISUALCOORDINATIONREVIEW-STATUS"),
         "status_review.current_state_summary":
           "browser.coordination-review visual status review state",
       },
     )) as ViewRow;
     const lesson = (await createViewRow(page, incidentId, lessonViewSchemaId, {
-      client_txn_id: uniqueTxn("FEVP1001-LESSON"),
+      client_txn_id: uniqueTxn("VISUALCOORDINATIONREVIEW-LESSON"),
       "lesson.summary": "browser.coordination-review visual lesson",
     })) as ViewRow;
 
@@ -3360,7 +3360,7 @@ test.describe("browser.coordination-review workbook visual readiness", () => {
       incidentId,
       taskRequestsViewSchemaId,
       {
-        client_txn_id: uniqueTxn("FEVP1001-LINKED-TASK"),
+        client_txn_id: uniqueTxn("VISUALCOORDINATIONREVIEW-LINKED-TASK"),
         "task.requester_party_id": party.record_id,
         "task.requester_party_text": "browser.coordination-review requester",
         "task.task_kind": "follow_up",
@@ -3592,11 +3592,11 @@ test.describe("browser.design-readiness visual readiness", () => {
     await page.setViewportSize({ width: 1280, height: 720 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("FEV11THEME"),
+      uniqueIncidentKey("VISUALDESIGNREADINESS"),
       "browser.design-readiness exposed theme visual fixture",
     );
     await createViewRow(page, incidentId, timelineViewSchemaId, {
-      client_txn_id: uniqueTxn("FEV11THEME-ROW"),
+      client_txn_id: uniqueTxn("VISUALDESIGNREADINESS-ROW"),
       "timeline.activity_utc_text": "2026-05-31T11:00:00Z",
       "timeline.activity_synopsis_text":
         "browser.design-readiness exposed theme fixture row",
@@ -5659,7 +5659,7 @@ if (
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await openClaimedNetworkAnalysis(page, "FEP12VISUAL");
+    await openClaimedNetworkAnalysis(page, "NETWORKFLOWVISUAL");
     const fixture = readFileSync(networkFlowMinimalCSV, "utf8");
     const lines = fixture.trimEnd().split("\n");
     const invalidRow = lines.at(-1)?.replace("192.0.2.10", "not-an-ip") ?? "";

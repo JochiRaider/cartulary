@@ -46,8 +46,8 @@ test("auto-resolves only eligible exact-match Timeline tokens", async ({
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E404"),
-    "Record relationships E-4-04",
+    uniqueIncidentKey("ENTITY-AUTORESOLUTION"),
+    "Record relationships entity-resolution",
   );
   const autoTarget = (await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e404-auto"),
@@ -68,14 +68,14 @@ test("auto-resolves only eligible exact-match Timeline tokens", async ({
     "host.aliases": aliasCollectionActionsPayload(["WS-023"]),
   });
 
-  await createTimelineFillers(page, incidentId, "E-4-04 filler", 32);
+  await createTimelineFillers(page, incidentId, "entity-resolution filler", 32);
   const suppressedRow = (await createViewRow(
     page,
     incidentId,
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("e404-suppressed"),
-      "timeline.activity_synopsis_text": "E-4-04 suppressed row",
+      "timeline.activity_synopsis_text": "entity-resolution suppressed row",
     },
   )) as ViewRow;
   const eligibleRow = (await createViewRow(
@@ -84,7 +84,7 @@ test("auto-resolves only eligible exact-match Timeline tokens", async ({
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("e404-eligible"),
-      "timeline.activity_synopsis_text": "E-4-04 eligible row",
+      "timeline.activity_synopsis_text": "entity-resolution eligible row",
     },
   )) as ViewRow;
 

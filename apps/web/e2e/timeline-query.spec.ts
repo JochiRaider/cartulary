@@ -125,17 +125,17 @@ function visibleRecordIds(page: Page) {
 test(exactScenarioTitle, async ({ page }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("FEIP401"),
+    uniqueIncidentKey("TIMELINEQUERY"),
     "integration.mutation-lifecycle.row-01 Timeline query identity",
   );
   const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("feip401-alpha"),
+    client_txn_id: uniqueTxn("timeline-query-alpha"),
     "timeline.activity_utc_text": "2026-04-10T10:00:00.000Z",
     "timeline.activity_synopsis_text":
       "integration.mutation-lifecycle.row-01 Alpha",
   });
   const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("feip401-beta"),
+    client_txn_id: uniqueTxn("timeline-query-beta"),
     "timeline.activity_utc_text": "2026-04-10T10:05:00.000Z",
     "timeline.activity_synopsis_text":
       "integration.mutation-lifecycle.row-01 Beta",

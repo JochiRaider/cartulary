@@ -77,10 +77,10 @@ test("shows Reference Pack progress and cancel controls without blocking landing
   ).toBeVisible();
   await page
     .getByTestId(incidentLandingTestId("incident-key"))
-    .fill("IR-E-11-01");
+    .fill("IR-REFERENCE-PACK");
   await expect(
     page.getByTestId(incidentLandingTestId("incident-key")),
-  ).toHaveValue("IR-E-11-01");
+  ).toHaveValue("IR-REFERENCE-PACK");
   await page.getByRole("button", { name: "Close new incident" }).click();
 
   await new DeploymentAdministration(page).selectPanel("reference-packs");

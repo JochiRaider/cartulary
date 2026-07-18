@@ -67,9 +67,13 @@ run_target_summary() {
 run_group() {
   local group_name="$1"
   local target="$2"
+  local execution_target="$target"
+  if [[ "${CARTULARY_BROWSER_MAINTENANCE_MODE:-}" == "snapshot_update" ]]; then
+    execution_target="${CARTULARY_TEST_TARGET:-browser-e2e-visual-update}"
+  fi
 
   "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}" \
-    CARTULARY_TEST_TARGET="$target" \
+    CARTULARY_TEST_TARGET="$execution_target" \
     NODE_BIN="$PLAYWRIGHT_OWNED_STACK_NODE_BIN" \
     PNPM="$PLAYWRIGHT_OWNED_STACK_PNPM_BIN" \
     "$PLAYWRIGHT_OWNED_STACK_NODE_BIN" \
@@ -130,6 +134,9 @@ for group_row in "${stage_groups[@]}"; do
 done
 
 for child_target in "${summary_children_array[@]}"; do
+  if [[ "${CARTULARY_BROWSER_MAINTENANCE_MODE:-}" == "snapshot_update" ]]; then
+    continue
+  fi
   child_status="${child_target_status[$child_target]:-0}"
   if [[ "$child_status" -eq 0 ]]; then
     run_target_summary "$child_target" pass || child_status=$?

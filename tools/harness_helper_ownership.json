@@ -255,14 +255,6 @@
       "allowed_consumers": []
     },
     {
-      "key": "test_output_frontend_indexing",
-      "boundary_group": "test_output",
-      "paths": [
-        "tools/harness/output/test-output/frontend-indexes.mjs"
-      ],
-      "allowed_consumers": []
-    },
-    {
       "key": "test_slice_planning",
       "boundary_group": "scheduler",
       "paths": [

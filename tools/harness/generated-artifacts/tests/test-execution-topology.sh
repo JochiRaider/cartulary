@@ -766,7 +766,7 @@ const futureRows = [
   ...rows,
   {
     ...existingRow,
-    id: "U-99-01",
+    id: "module.example.unit.synthetic-row",
     owner_id: "module.future",
   },
 ];

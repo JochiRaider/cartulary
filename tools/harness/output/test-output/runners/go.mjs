@@ -175,22 +175,8 @@ function accountingOverrideClassification(owner, step = "") {
   };
 }
 
-function inferStepFromText(value) {
-  if (!value) {
-    return "";
-  }
-  const patterns = [
-    /\bstep(?:\s|_|-)?(\d+)\b/i,
-    /\b[UIE][-_](\d+)-\d+\b/,
-    /\b[UIE]_(\d+)_\d+\b/,
-  ];
-  for (const pattern of patterns) {
-    const match = value.match(pattern);
-    if (match) {
-      return `step${match[1]}`;
-    }
-  }
-  return "";
+function catalogOwnerFromEnvironment() {
+  return optionalEnv("CARTULARY_CATALOG_OWNER_ID");
 }
 
 function firstGoActionableLine(lines) {
@@ -260,7 +246,7 @@ function readGoEvents(logFile) {
   return events;
 }
 
-function classifyGoTest(importPath, testName, stepLabel) {
+function classifyGoTest(importPath, testName, _stepLabel) {
   const manifestIndex = loadManifestIndex();
   const authoritative = manifestIndex.authoritativeGo.get(
     `${importPath}::${testName}`,
@@ -275,35 +261,21 @@ function classifyGoTest(importPath, testName, stepLabel) {
     };
   }
 
-  const inferredStep =
-    inferStepFromText(testName) || inferStepFromText(stepLabel);
-  const override = accountingOverrideClassification(owner, inferredStep);
+  const step = catalogOwnerFromEnvironment();
+  const override = accountingOverrideClassification(owner, step);
   if (override) {
     return override;
-  }
-  const support =
-    /^TestSupportStep\d+_/.test(testName) ||
-    /ProcessSmoke/.test(testName) ||
-    /\bsupport\b/i.test(stepLabel) ||
-    /\bsmoke\b/i.test(stepLabel);
-  if (support) {
-    return {
-      coverage: "support",
-      step: inferredStep,
-      id: "",
-      owner,
-    };
   }
 
   return {
     coverage: "unmapped",
-    step: inferredStep,
+    step,
     id: "",
     owner,
   };
 }
 
-function classifyGoPackageFailure(importPath, stepLabel) {
+function classifyGoPackageFailure(importPath, _stepLabel) {
   const owner = toRepoRelativePackage(importPath);
   const catalogStep = optionalEnv("CARTULARY_CATALOG_OWNER_ID");
   const manifestCoverage = optionalEnv("CARTULARY_MANIFEST_COVERAGE");
@@ -318,24 +290,14 @@ function classifyGoPackageFailure(importPath, stepLabel) {
     };
   }
 
-  const inferredStep = inferStepFromText(stepLabel);
-  const override = accountingOverrideClassification(owner, inferredStep);
+  const step = catalogOwnerFromEnvironment();
+  const override = accountingOverrideClassification(owner, step);
   if (override) {
     return override;
   }
-  const support =
-    /\bsupport\b/i.test(stepLabel) || /\bsmoke\b/i.test(stepLabel);
-  if (support) {
-    return {
-      coverage: "support",
-      step: inferredStep,
-      id: "",
-      owner,
-    };
-  }
   return {
     coverage: "unmapped",
-    step: inferredStep,
+    step,
     id: "",
     owner,
   };
@@ -559,9 +521,7 @@ function summarizeGoRun(logFile, stepLabel, exitStatus, selection = null) {
     const coverage =
       coverageOverride !== ""
         ? normalizeTestCoverage(coverageOverride)
-        : /\bsupport\b/i.test(stepLabel)
-          ? "support"
-          : "unmapped";
+        : "unmapped";
     const message =
       passedCount === 0 && skippedCount === 0 && incompleteCount === 0
         ? coverage === "support"
@@ -570,7 +530,7 @@ function summarizeGoRun(logFile, stepLabel, exitStatus, selection = null) {
         : `go test inventory requires top-level pass: skipped=${skippedCount} incomplete=${incompleteCount}`;
     dossiers.push({
       coverage,
-      step: inferStepFromText(stepLabel),
+      step: catalogOwnerFromEnvironment(),
       id: "",
       runner: "go_test",
       package_or_file: "(step selection)",
@@ -686,9 +646,7 @@ function evaluateGoManifest(summary) {
     step,
     missingIDs: [...new Set(missingIDs)].sort(),
     unexpectedIDs: [...new Set(unexpectedIDs)].sort(),
-    forbiddenIDFiles: Array.from(
-      loadManifestIndex().forbiddenFilesByStep.get(step) ?? [],
-    ).sort(),
+    forbiddenIDFiles: [],
   };
 }
 
@@ -735,7 +693,7 @@ export function handleGoStep({ catalogAware }) {
 
   writeStepArtifacts(context, {
     status,
-    step: inferStepFromText(context.label),
+    step: catalogOwnerFromEnvironment(),
     counts: summary.counts,
     owners: summary.owners,
     inventory: summary.inventory,

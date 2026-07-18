@@ -8,7 +8,6 @@ import {
   statSync,
 } from "node:fs";
 import path from "node:path";
-import { loadFrontendVitestIndex as loadFrontendVitestIndexAdapter } from "../frontend-indexes.mjs";
 import { validateSchemaSync } from "../../../contract/harness-contract.mjs";
 import {
   collectVitestManifestEntries as collectVitestManifestEntriesAdapter,
@@ -157,38 +156,8 @@ function loadManifestIndex() {
   return loadManifestIndexAdapter(repoRoot, { normalizePath, toGoImportPath });
 }
 
-function catalogFallbackClassification() {
-  return null;
-}
-
-function inferStepFromText(value) {
-  if (!value) {
-    return "";
-  }
-  const patterns = [
-    /\bstep(?:\s|_|-)?(\d+)\b/i,
-    /\b[UIE][-_](\d+)-\d+\b/,
-    /\b[UIE]_(\d+)_\d+\b/,
-  ];
-  for (const pattern of patterns) {
-    const match = value.match(pattern);
-    if (match) {
-      return `step${match[1]}`;
-    }
-  }
-  return "";
-}
-
-function claimsConformanceRowTitle(value) {
-  const text = String(value ?? "");
-  return (
-    /\bFE-[A-Z]+-P\d+-\d+\b/.test(text) ||
-    /\b[UIE]-\d+(?:-[A-Z0-9]+)*-\d+\b/.test(text)
-  );
-}
-
-function supportNamedTitle(value) {
-  return /^Step\s+\d+\s+support\b/i.test(value);
+function catalogOwnerFromEnvironment() {
+  return optionalEnv("CARTULARY_CATALOG_OWNER_ID");
 }
 
 function renderList(values) {
@@ -220,19 +189,8 @@ function createInventoryItem({ coverage, step, id, owner, name }) {
   };
 }
 
-function classifyVitestCase(ownerPath, title, stepLabel) {
+function classifyVitestCase(ownerPath, title) {
   const manifestFile = vitestOwnerToSelectionFile(ownerPath);
-  const manifested = loadManifestIndex().manifestVitest.get(
-    `${manifestFile}::${title}`,
-  );
-  if (manifested && manifested.coverage !== "authoritative") {
-    return {
-      coverage: "support",
-      step: manifested.step,
-      id: manifested.id,
-      owner: ownerPath,
-    };
-  }
   const authoritative = loadManifestIndex().authoritativeVitest.get(
     `${manifestFile}::${title}`,
   );
@@ -244,56 +202,12 @@ function classifyVitestCase(ownerPath, title, stepLabel) {
       owner: ownerPath,
     };
   }
-  const frontendManifested = loadFrontendVitestIndex().byTitle.get(title);
-  if (frontendManifested) {
-    return {
-      coverage: frontendManifested.coverage,
-      step: frontendManifested.step,
-      id: frontendManifested.id,
-      owner: ownerPath,
-    };
-  }
-  const inferredStep =
-    inferStepFromText(ownerPath) ||
-    inferStepFromText(title) ||
-    inferStepFromText(stepLabel);
-  if (claimsConformanceRowTitle(title)) {
-    return {
-      coverage: "unmapped",
-      step: inferredStep,
-      id: "",
-      owner: ownerPath,
-    };
-  }
-  const support =
-    ownerPath.includes(".support.") ||
-    supportNamedTitle(title) ||
-    isForbiddenFile(
-      ownerPath,
-      inferStepFromText(ownerPath) || inferStepFromText(title),
-    ) ||
-    /\bsupport\b/i.test(stepLabel);
-  if (support) {
-    return {
-      coverage: "support",
-      step: inferredStep,
-      id: "",
-      owner: ownerPath,
-    };
-  }
-  return (
-    catalogFallbackClassification(
-      "vitest",
-      ownerPath,
-      title,
-      inferredStep,
-    ) ?? {
-      coverage: "unmapped",
-      step: inferredStep,
-      id: "",
-      owner: ownerPath,
-    }
-  );
+  return {
+    coverage: "unmapped",
+    step: catalogOwnerFromEnvironment(),
+    id: "",
+    owner: ownerPath,
+  };
 }
 
 function normalizeVitestOwnerPath(filePath) {
@@ -395,9 +309,7 @@ function evaluateFlatTitleManifest(
     step,
     missingIDs,
     unexpectedIDs,
-    forbiddenIDFiles: Array.from(
-      loadManifestIndex().forbiddenFilesByStep.get(step) ?? [],
-    ).sort(),
+    forbiddenIDFiles: [],
   };
 }
 
@@ -490,7 +402,7 @@ function finalizeManifestAwareRunnerStep(
         failure_class: "harness",
         failure_reason: "tool_diagnostic_failure",
         coverage: "non_test",
-        step: inferStepFromText(context.label),
+        step: catalogOwnerFromEnvironment(),
         id: "",
         runner,
         package_or_file: `(${runner} runner)`,
@@ -504,7 +416,7 @@ function finalizeManifestAwareRunnerStep(
 
   writeStepArtifacts(context, {
     status,
-    step: inferStepFromText(context.label),
+    step: catalogOwnerFromEnvironment(),
     counts: stepCounts,
     owners: summary.owners,
     inventory: summary.inventory,
@@ -683,34 +595,22 @@ function appendVitestFileResults(value, fileResults, visited) {
   }
 }
 
-function findVitestAuthoritativeFileEntry(ownerPath, stepLabel) {
+function findVitestAuthoritativeFileEntry(ownerPath) {
   const manifestFile = vitestOwnerToSelectionFile(ownerPath);
-  const inferredStep =
-    inferStepFromText(ownerPath) || inferStepFromText(stepLabel);
-  let fallback = null;
-
-  for (const entry of loadManifestIndex().authoritativeVitest.values()) {
-    if (normalizePath(entry.file) !== manifestFile) {
-      continue;
-    }
-    if (!fallback) {
-      fallback = entry;
-    }
-    if (inferredStep && entry.step === inferredStep) {
-      return entry;
-    }
-  }
-
-  return fallback;
+  const entries = [...loadManifestIndex().authoritativeVitest.values()].filter(
+    (entry) => normalizePath(entry.file) === manifestFile,
+  );
+  const ownerIDs = new Set(entries.map((entry) => entry.step));
+  return ownerIDs.size === 1 ? entries[0] : null;
 }
 
-function classifyVitestFileFailure(ownerPath, stepLabel, selection = null) {
+function classifyVitestFileFailure(ownerPath, _stepLabel, selection = null) {
   const selected = selection?.classifyFileFailure?.(ownerPath);
   if (selected) {
     return selected;
   }
 
-  const authoritative = findVitestAuthoritativeFileEntry(ownerPath, stepLabel);
+  const authoritative = findVitestAuthoritativeFileEntry(ownerPath);
   if (authoritative) {
     return {
       coverage: "authoritative",
@@ -720,33 +620,12 @@ function classifyVitestFileFailure(ownerPath, stepLabel, selection = null) {
     };
   }
 
-  const inferredStep =
-    inferStepFromText(ownerPath) || inferStepFromText(stepLabel);
-  const support =
-    ownerPath.includes(".support.") ||
-    isForbiddenFile(ownerPath, inferredStep) ||
-    /\bsupport\b/i.test(stepLabel);
-  if (support) {
-    return {
-      coverage: "support",
-      step: inferredStep,
-      id: "",
-      owner: ownerPath,
-    };
-  }
-  return (
-    catalogFallbackClassification(
-      "vitest",
-      ownerPath,
-      "",
-      inferredStep,
-    ) ?? {
-      coverage: "unmapped",
-      step: inferredStep,
-      id: "",
-      owner: ownerPath,
-    }
-  );
+  return {
+    coverage: "unmapped",
+    step: catalogOwnerFromEnvironment(),
+    id: "",
+    owner: ownerPath,
+  };
 }
 
 function firstVitestAppFrame(message) {
@@ -1040,7 +919,7 @@ function summarizeVitestRun(
   ) {
     dossiers.push({
       coverage: "unmapped",
-      step: inferStepFromText(stepLabel),
+      step: catalogOwnerFromEnvironment(),
       id: "",
       runner: "vitest",
       package_or_file: "(vitest selection)",
@@ -1117,7 +996,7 @@ export function handleVitestStep({ catalogAware }) {
       failure_class: interrupted ? "interrupted" : "artifact",
       failure_reason: interrupted ? "cancelled_or_interrupted" : undefined,
       coverage: "non_test",
-      step: inferStepFromText(context.label),
+      step: catalogOwnerFromEnvironment(),
       id: "",
       runner: "vitest",
       package_or_file: "(vitest runner)",
@@ -1128,7 +1007,7 @@ export function handleVitestStep({ catalogAware }) {
     };
     writeStepArtifacts(context, {
       status: "fail",
-      step: inferStepFromText(context.label),
+      step: catalogOwnerFromEnvironment(),
       counts,
       owners: [],
       inventory: [],
@@ -1152,7 +1031,7 @@ export function handleVitestStep({ catalogAware }) {
   if (context.countingMode === "none") {
     writeStepArtifacts(context, {
       status: "pass",
-      step: inferStepFromText(context.label),
+      step: catalogOwnerFromEnvironment(),
       counts: createCounts(),
       owners: [],
       inventory: [],
@@ -1208,17 +1087,6 @@ export function handleVitestStep({ catalogAware }) {
   });
 }
 
-function isForbiddenFile(file, step) {
-  if (!step) {
-    return false;
-  }
-  const files = loadManifestIndex().forbiddenFilesByStep.get(step);
-  return files ? files.has(file) : false;
-}
-
-function loadFrontendVitestIndex() {
-  return loadFrontendVitestIndexAdapter(repoRoot);
-}
 
 function selectedPlaywrightEntriesFromReport(reportFile, scope) {
   return selectedPlaywrightEntriesFromReportAdapter(repoRoot, reportFile, scope);

@@ -1,556 +1,189 @@
 # Cartulary Repository Bootstrap Guide
 
-## 1. Purpose
+**Status**: Implementation-support guide
+**Authority**: The normative Core documents own product behavior;
+`docs/testing-harness-nlspec.md` owns harness mechanics; `docs/domain.md` owns
+domain vocabulary and concept boundaries.
 
-This guide defines the first concrete steps for creating a new Cartulary repository in an empty folder and making it usable for TDD from day one. It assumes a greenfield start, uses the normative core as the behavior owner, and uses the development guide plus the progressive implementation and testing guide as implementation-support inputs rather than as independent authorities.[^1]
+## Goal
 
-The target outcome is not “a repo that compiles.” The target outcome is a repo that already has the right architectural boundaries, command surface, local services, contract/codegen plumbing, and reusable test harnesses so that Codex can work phase by phase without inventing architecture midstream.[^2]
+A bootstrapped Cartulary repository has stable architectural boundaries,
+deterministic generation, managed local services, an owner-first test catalog,
+and reusable test composition before feature behavior expands. Compilation alone
+is not closure.
 
-## 2. What the bootstrap must produce
+This guide describes the current repository shape. It does not preserve a
+delivery-stage implementation plan, copied test inventory, or alternate command
+surface.
 
-At bootstrap completion, the repository should satisfy all of the following:
+## Required Architecture
 
-- one modular-monolith application skeleton, not a set of future microservices.[^3]
-- one root Go module and one top-level pnpm workspace with the baseline monorepo layout already in place.[^4]
-- local PostgreSQL and S3-compatible object storage available through `docker-compose.dev.yml` for development and integration tests.[^3][^5]
-- a root `Makefile` with the canonical developer task surface, including `help`, `task-guide`, `help-all`, `doctor`, `bootstrap`, `db-up`, `db-migrate`, `db-reset`, `dev`, `generate`, `test`, `lint`, `check`, `build`, `clean`, and `distclean`.[^6]
-- a live contract derivation path from owner sections to `/contracts/*` to generated code, with drift detection wired into `make check`.[^7]
-- reusable unit, integration, and black-box end-to-end harnesses, plus the shared cross-cutting harnesses that must apply across phases.[^8]
-- the first red tests for Phase 0 checked in before any feature code beyond the bootstrap shell is treated as complete.[^9]
+Keep the modular-monolith boundaries explicit:
 
-## 3. Scope boundaries for the first implementation window
+- `cmd/*` packages are binary composition roots only.
+- `internal/app/server`, `internal/app/migrate`, and `internal/app/operator` are
+  the application facades for their commands.
+- `internal/platform/*` owns transport, configuration, storage adapters, auth
+  primitives, runtime plumbing, and job shells.
+- `internal/modules/*` owns domain and application behavior.
+- `internal/testutil/*` owns reusable backend harnesses and fixtures.
+- `contracts/*` is the derived repo-local contract layer.
+- `db/migrations` and `db/queries` are authored SQL inputs.
+- `apps/web` is the web application; `packages/*` contains shared TypeScript
+  packages.
+- `tools`, `scripts`, and `configs/dev` own repository automation and local
+  configuration inputs.
 
-For a greenfield backend-first start, the implementation window should cover bootstrap infrastructure, then Phase 0, then Phase 1, then the incident shell in Phase 2, and only then the first real record-row mutation path in Phase 3.[^10]
+Source owners construct their revision providers. Generic revision coordination
+validates and runs the complete catalog without absorbing source-specific
+behavior.
 
-Do not start with file-based import, reporting, reference packs, portability, or enterprise auth. Those are extension-profile concerns or later-phase work, even though the repo should reserve the internal module boundaries and directories for them from the beginning.[^10][^11]
+## Toolchain and Dependency Bootstrap
 
-Do not start by building forms-first CRUD. Cartulary is explicitly grid first, preserves the spreadsheet mental model at the view layer, and expects the record mutation substrate to be present as soon as the first hot-path workbook mutation exists.[^12][^13]
+Use the repository's pinned toolchain and public Make surface:
 
-## 4. Step 1: create the repository control surface
+```sh
+make doctor
+make bootstrap
+make toolchain-drift
+```
 
-Start in an empty folder and create the control files first. For Cartulary, the repo-control facts are already fixed and should be used directly.
+Do not invoke package managers or language tools as substitute automation when a
+Make-owned wrapper exists. Do not hand-edit lockfiles or tool-managed install
+artifacts.
+
+The canonical Go module path is `github.com/JochiRaider/cartulary`. The pnpm
+workspace owns `apps/web` and shared packages. Tool versions live in
+`tools/toolchain_pins.json`; mirrored version text must pass drift validation.
+
+## Local Services
+
+The development environment provides real PostgreSQL and an S3-compatible object
+store through repository-owned service targets:
+
+```sh
+make services-up
+make db-up
+make db-migrate
+make object-store-init
+```
+
+Use `make db-reset` only when resetting repo-local development data is intended.
+Application tests that claim storage, migration, transaction, object-lifecycle,
+or service-integration behavior must use the applicable managed-service harness,
+not mocks that cannot exercise those boundaries.
+
+The server runtime owns only resources it creates. Borrowed Postgres and object
+store dependencies are never closed by the runtime. Cleanup is reverse-order and
+idempotent.
+
+## Generation Bootstrap
+
+Establish one authored-input-to-generated-output path before adding derived
+contracts:
+
+```sh
+make generate
+make generate-drift
+make generated-artifact-policy-check
+make json-shape-check
+```
+
+Generated roots declared by `tools/generated_artifact_policy.json`, generated
+topology, generated schedules, and the generated task surface are read-only.
+Change their owner inputs and regenerate through Make.
+
+Bootstrap generation should prove:
+
+- authored contracts validate before code generation;
+- output ordering and bytes are deterministic;
+- stale, missing, and unexpected outputs are detected;
+- ordinary generation owns topology and schedule outputs;
+- a clean generated tree is reproducible from committed inputs.
+
+## Harness Bootstrap
+
+The executable model is:
 
 ```text
-Repository remote: https://github.com/JochiRaider/cartulary.git
-Go module path: github.com/JochiRaider/cartulary
-Supported toolchains: Go 1.26 with toolchain go1.26.5; Node 24.15.0; pnpm 10.33.0; Staticcheck v0.7.0; Gosec v2.26.1
-Canonical pin source for an existing checkout: tools/toolchain_pins.json
+owner -> family -> semantic row -> work unit -> owner artifact shard
 ```
 
-Create these root files immediately:
+`tools/test_catalog_owner.json` registers owners and authored family manifests.
+`tools/test_families/*.json` owns semantic rows and exact selectors.
+Verification contracts own the postconditions those rows support. Authored
+topology owns runtime, fixture, isolation, dependency, and resource policy.
 
-- `README.md`
-- `AGENTS.md`
-- `Makefile`
-- `docker-compose.dev.yml`
-- `.editorconfig`
-- `.env.example`
-- `go.mod`
-- `package.json`
-- `pnpm-workspace.yaml`
-- `biome.json`
-- `tsconfig.base.json`
+Create reusable harnesses before adding rows that depend on them. The baseline
+includes:
 
-`AGENTS.md` should exist from the beginning because the development guide treats it as the intended owner for contributor and coding-agent procedure, including the repo map, canonical command surface, generated-file edit prohibitions, and local execution procedure.[^14]
+- in-process HTTP envelopes and public error checks;
+- process readiness and diagnostics;
+- real Postgres, migration, and object-store fixtures;
+- authorization re-derivation and tenant isolation;
+- idempotent replay and divergent-replay checks;
+- projection determinism and rebuild support;
+- WebSocket connection, reconnect, and cleanup behavior;
+- exact Go, Vitest, shell, and Playwright selector-result adapters;
+- owner accounting, summary, and evidence-audit support.
 
-Recommended first commands:
+Every selected row must resolve exactly once and emit an independently
+identifiable terminal result. Aggregate command success cannot stand in for
+selector evidence.
 
-```bash
-git init
-go mod init github.com/JochiRaider/cartulary
-pnpm init
+## Initial Implementation Workflow
+
+Discover the current owner surface instead of copying row IDs into a guide:
+
+```sh
+make help
+make help-all
+make task-guide ROLE=module-author OWNER=<owner-id>
+make explain-test-owner OWNER=<owner-id>
 ```
 
-Recommended first directory command:
-
-```bash
-mkdir -p \
-  cmd/server cmd/migrate cmd/operator \
-  internal/app/server internal/app/migrate internal/app/operator internal/app/revisionassembly internal/app/serverprocess \
-  internal/platform/httpapi internal/platform/ws internal/platform/jobs \
-  internal/platform/postgres internal/platform/objectstore internal/platform/authn internal/platform/config \
-  internal/modules/auth internal/modules/incidents internal/modules/timeline internal/modules/entities \
-  internal/modules/evidence internal/modules/imports internal/modules/links internal/modules/revisions \
-  internal/modules/projections internal/modules/reference_data internal/modules/reporting internal/modules/collaboration \
-  internal/gen/contracts internal/gen/sql \
-  db/migrations db/queries \
-  contracts/openapi contracts/ws contracts/view-schemas contracts/errors contracts/otel \
-  apps/web packages/ui packages/grid-adapter packages/protocol-ts/src/generated packages/view-contracts packages/ui-contracts packages/test-utils \
-  scripts tools docs configs/dev internal/testutil/appsupport internal/testutil/configtest internal/testutil/pgtest \
-  internal/testutil/s3test internal/testutil/httptestx internal/testutil/wstest \
-  internal/testutil/fixtures internal/testutil/golden internal/testutil/golden/otel
-```
-
-Do not try to finalize dependency versions in the guide itself. Pin them in the repo-control files once chosen, because those files become the source of exact toolchain truth for the repository.[^15]
-
-When an adopted OpenTelemetry NLSpec is active, exact OTel package versions, generated constants provenance, and source snapshot values remain repo-control facts; this guide only reserves the directory and artifact locations.
-
-## 5. Step 2: lay down the baseline monorepo tree
-
-Create the baseline directory structure before writing business logic. The intended baseline is a polyglot modular-monolith monorepo with a Go application layer, a TypeScript browser layer, and a repo-local contract layer that keeps them aligned.[^4]
-
-Use this tree as the initial repository shape:
-
-```text
-/
-  README.md
-  AGENTS.md
-  Makefile
-  docker-compose.dev.yml
-  .editorconfig
-  .env.example
-  go.mod
-  package.json
-  pnpm-workspace.yaml
-  biome.json
-  tsconfig.base.json
-
-  /cmd
-    /server
-    /migrate
-
-  /internal
-    /app
-    /platform
-      /httpapi
-      /ws
-      /jobs
-      /postgres
-      /objectstore
-      /authn
-      /config
-    /modules
-      /auth
-      /incidents
-      /timeline
-      /entities
-      /evidence
-      /imports
-      /links
-      /revisions
-      /projections
-      /reference_data
-      /reporting
-      /collaboration
-    /gen
-      /contracts
-      /sql
-
-  /db
-    /migrations
-    /queries
-
-  /contracts
-    /openapi
-    /ws
-    /view-schemas
-    /errors
-
-  /apps
-    /web
-
-  /packages
-    /ui
-    /grid-adapter
-    /protocol-ts
-    /view-contracts
-    /ui-contracts
-    /test-utils
-
-  /scripts
-  /tools
-  /docs
-```
-
-This structure matches the intended baseline in the development guide and keeps transport, runtime plumbing, and storage adapters under `internal/platform`, while domain and application logic live under `internal/modules`.[^4][^16]
-
-`/packages/grid-adapter` owns the direct `react-data-grid` integration. `/apps/web` must consume Cartulary adapter components and types from `/packages/grid-adapter` rather than importing `react-data-grid` directly. `/packages/ui` remains presentational and must not own workbook state, grid mutation semantics, or vendor-coordinate translation.[^25]
-
-`/packages/view-contracts`, `/packages/ui-contracts`, and `/packages/test-utils` must also be real workspace packages with their own package manifests, TS config, and source exports. They should follow the same source-export pattern used by `/packages/protocol-ts`: `/packages/view-contracts` stays a thin parser or adapter over generated contract artifacts, `/packages/ui-contracts` owns runtime-safe UI selector and test-id contracts, and `/packages/test-utils` owns browser helper choreography reused by functional and visual workbook suites.
-
-Two rules matter immediately:
-
-- keep the backend as one root Go module and the frontend as one top-level pnpm workspace.[^4]
-- create the module directories now, even when many are still empty, so Codex does not invent alternate module boundaries later.[^3][^16]
-
-## 6. Step 3: scaffold the backend composition root before handlers
-
-Create `/cmd/server`, `/cmd/migrate`, and `/cmd/operator` first as thin executable roots. They own only OS-process mechanics and delegate to their exact `internal/app/server`, `internal/app/migrate`, and `internal/app/operator` facades; they do not import domain modules, platform implementations, another binary's facade, or a root `internal/app` Go package. Schema DDL changes belong in numbered migrations under `/db/migrations`, not in startup side effects.[^16]
-
-Use `internal/app/revisionassembly` as the one exact aggregator for revisions providers exposed by source-owner root facades. Revisions owns contribution types, current-profile requirements, validation, and generic coordination; application assembly does not import provider subpackages directly. Keep reusable server and storage test composition in `internal/testutil/appsupport`, and reserve `internal/app/serverprocess` for test-only process evidence.
-
-Then create the platform packages with empty or stubbed interfaces:
-
-- `internal/platform/httpapi`
-- `internal/platform/httpruntime`
-- `internal/platform/ws`
-- `internal/platform/jobs`
-- `internal/platform/postgres`
-- `internal/platform/objectstore`
-- `internal/platform/authn`
-- `internal/platform/config`
-
-Their initial responsibilities should match the development-guide split: HTTP envelopes and middleware in `httpapi`, listener acquisition and bounded shutdown in `httpruntime`, WebSocket lifecycle in `ws`, job shell in `jobs`, `pgx` pool and transaction helpers in `postgres`, S3-compatible storage access in `objectstore`, password and session primitives in `authn`, and deployment-config plus runtime-root validation in `config`.[^16]
-
-Recommended first compile target:
-
-- `cmd/server/main.go` creates the signal context and delegates server execution to `internal/app/server`.
-- `cmd/migrate/main.go` delegates the exact production command `migrate up` to `internal/app/migrate`; application code loads config, opens Postgres, and applies forward `goose` migrations. Penultimate-version application belongs to database-contract test support, not the deployable CLI.
-- `cmd/operator/main.go` delegates recovery inspection/control to application and module code. Operator recovery invocation is local-process tooling authorized by OS execution permission plus deployment-local configuration and recovery secret access, not by browser sessions or `deployment_admin`.
-- non-nil PostgreSQL pools and object stores injected into `internal/app/server` are borrowed; runtime-owned dependencies are released once in reverse acquisition order.
-- `internal/platform/httpruntime` owns ordinary listener acquisition and graceful/forced HTTP shutdown policy. Inherited-listener acquisition is a harness-only `server` build-profile contribution, never a production-server capability.
-- all three binaries compile before any domain module is implemented.
-
-## 7. Step 4: pin the backend dependency baseline
-
-Start with the backend runtime dependency family already called out in the development guide:
-
-- `github.com/jackc/pgx/v5`
-- `github.com/coder/websocket`
-- `github.com/minio/minio-go/v7`
-- `github.com/BurntSushi/toml`
-- `golang.org/x/crypto`
-- `github.com/pquerna/otp`
-
-Use the Go standard library for HTTP routing and most core plumbing, especially `net/http`, `encoding/json`, `log/slog`, `context`, and `net/http/httptest`.[^17]
-
-For development tools, add:
-
-- `sqlc`
-- `goose`
-- `staticcheck`
-- `testcontainers-go`
-
-Do not introduce a Go web framework or ORM into the bootstrap. The baseline explicitly excludes that stack choice.[^17]
-
-## 8. Step 5: create local development services and configuration
-
-`docker-compose.dev.yml` should stand up only the local backing services needed by the modular monolith during development: PostgreSQL and a SeaweedFS S3-compatible object store.[^6][^18]
-
-Create a repo-local sample config such as `configs/dev/config.toml`, but keep the runtime contract aligned with the normative deployment-config rules:
-
-- canonical runtime path defaults to `/etc/cartulary/config.toml`.
-- `CARTULARY_CONFIG_FILE` may point the server to an alternate absolute path.
-- `CARTULARY__...` overlays nested config keys and must fail on unknown keys.[^19]
-
-Your initial `config.toml` should already include the required runtime roots and bootstrap path keys, even if some are only local-dev paths at first:
-
-- `roots.database_storage`
-- `roots.object_storage`
-- `roots.backup_storage`
-- `roots.reference_pack_storage`
-- `roots.temporary_work`
-- `roots.export_outputs`
-- `bootstrap.first_admin_manifest_path`
-- `limits.*` resource-limit keys used by the effective configuration.[^5][^19]
-
-The configuration loader must fail closed on invalid schema ID, invalid deployment profile, missing required roots, invalid path shapes, or out-of-range resource limits, and startup validation must complete before any HTTP listener, WebSocket listener, or background-job runner starts.[^5][^19]
-
-## 9. Step 6: establish the contract layer and code-generation plumbing
-
-Create the contract directories at bootstrap even if they only contain minimal artifacts at first:
-
-- `/contracts/openapi`
-- `/contracts/ws`
-- `/contracts/view-schemas`
-- `/contracts/errors`
-
-The repository derivation chain is owner section or adopted NLSpec to `/contracts/*` to generated Go and TypeScript code to runtime consumers. `/contracts/*` is therefore a repo-local derived artifact layer, not the behavior owner, and generated paths must never become hand-edited source files.[^7]
-
-Recommended bootstrap rule:
-
-- create minimal placeholder artifacts only for what the repository can actually validate today.
-- keep `make generate` live from day one.
-- make generated outputs explicit and mark them `DO NOT EDIT`.
-- fail `make check` if `make generate` changes tracked files.[^7]
-
-For the initial greenfield phase, it is enough for `make generate` to prove the pipeline works on empty or skeletal contract inputs. The important point is that the repo already has one deterministic path for generated code before Codex starts filling in routes and schemas.
-
-## 10. Step 7: define the command surface before feature work
-
-Implement the root `Makefile` next. It should expose the baseline human-facing tasks from the development guide:[^6]
-
-- `make help`
-- `make task-guide`
-- `make help-all`
-- `make doctor`
-- `make bootstrap`
-- `make db-up`
-- `make db-migrate`
-- `make db-reset`
-- `make dev`
-- `make generate`
-- `make test-fast`
-- `make test`
-- `make lint`
-- `make lint-shell`
-- `make check`
-- `make ci`
-- `make release-check`
-- `make build`
-- `make clean`
-- `make distclean`
-
-Repository-local recommended meanings:
-
-- `make help`: print the compact workflow task surface without bootstrapping local toolchains.
-- `make task-guide ROLE=module-author OWNER=<owner-id>`: print the concise owner-oriented target-selection view without bootstrapping local toolchains; feature guidance is derived from the selected catalog owner and labels cross-owner checks as general hygiene.
-- `make help-all`: print the exhaustive public workflow-tiered task surface without bootstrapping local toolchains.
-- `make doctor`: verify required local tools and pinned toolchain versions without installing them.
-- `make bootstrap`: install Go tools, install pinned ShellCheck, install pnpm dependencies, and prepare local service prerequisites.
-- `make db-up`: start PostgreSQL and the S3-compatible object store through Compose without migrating a retained database.
-- `make db-migrate`: apply local database migrations without resetting the database or object storage.
-- `make db-reset`: recreate the local database and apply migrations.
-- `make dev`: run the Go server and, once present, the Vite dev server.
-- `make generate`: regenerate `sqlc` outputs and contract-derived outputs.
-- `make help-all` remains the exhaustive public catalog grouped by operator workflow: local dev, fast verification, full gates, investigate a run, maintenance, and release.
-- `make task-guide ROLE=module-author OWNER=<owner-id>`, `make task-surface-report`, `make target-plan`, `make target-plan-json`, `make explain-test-owner OWNER=<owner-id>`, `make explain-target`, `make explain-run`, and `make fixture-report` are investigation commands for owner guidance, task-surface and catalog metadata, run summaries, scheduler progress/logs, and fixture-cost artifacts.
-- Duration-baseline refresh and drift commands belong to maintenance with generated-artifact, toolchain, migration, catalog, semantic-identity, and benchmark-claim checks. Task-surface, scheduler, browser, and topology generation and drift are owned by `make generate` and `make generate-drift`.
-- `make backend-store`: run the service-backed store-domain backend inventory using real Postgres; owner rows preserve their semantic row identities through batching.
-- `make test-fast`: run the pure backend unit slice, the service-backed backend store and integration slices, explicit support integration and process-smoke coverage, frontend type-checking, and frontend unit tests.
-- `make test`: run the authoritative full corpus, including manifest-verified browser E2E and explicit supplemental support suites. Backend service-backed work, webserver-backed browser evidence, and the isolated `browser-e2e` batch should run through one service-backed stage scheduled from `tools/scheduler_manifest.json` by declared resource capacity; authoritative browser functional rows are selected from phase manifests but executed as duration-balanced Playwright manifest-entry shards using `tools/browser_e2e_duration_baselines.json`, while the isolated stage keeps stateful, measurement, and visual browser reset boundaries in the topology-derived `tools/browser_e2e_batch_manifest.json`. Aggregate target summaries are finalized after the `cartulary-test-services` wrapper has completed teardown so leak-check, janitor, and service-termination spans remain visible. Summary artifacts report wall, critical-path wall, executed, logical, reused, derived, and teardown durations as separate fields, with backend service-backed and aggregate browser duration groups reported separately.
-- `make lint`: run Go gofmt, vet, and Staticcheck plus authored frontend Biome, JavaScript orchestration script Biome, blocking ShellCheck, and frontend type-check.
-- `make lint-shell`: run blocking ShellCheck over the deterministic tracked shell-script inventory.
-- `make check`: run the full developer gate and fail if any authoritative catalog row is absent from its declared evidence surface. Run `toolchain-drift` as the root setup gate, then fan out scheduler-visible readiness work for codegen, Go lint, Govulncheck, targeted Gosec, ShellCheck, frontend install, server and migration build artifacts, and service images; downstream work depends only on the readiness units it consumes. `tools/execution_topology_manifest.json` expands reusable resource profiles plus per-target `check_schedule` dependency metadata into `tools/check_schedule_manifest.json`, which drives the developer-gate DAG by resources declared in `tools/scheduler_resource_registry.json` rather than by fixed serial setup steps. The scheduler resource registry owns capacity profiles, default limits, override environment names, and service-backed auto-limit policies; `make check` forwards `CHECK_HOST_CPU_JOBS` and `CHECK_HOST_IO_JOBS` only when explicitly set rather than injecting default CLI resource overrides. Scheduler weights are priority, not only display order: a ready higher-weight unit that is temporarily resource-blocked reserves the resources blocking it, while lower-weight work may backfill only through unrelated resources. The concrete `build-server`, `build-migrate`, and `test-service-images` work units prepare only the artifacts their local-check consumers require, so migration verification can follow `build-migrate` without waiting for frontend install, server packaging, or service-image warmup. Operator build and deployable-shape evidence belong to explicit build, CI, and release-shaped surfaces. `check-service-backed` expands into visible check-scheduler leaves: service startup is a low-resource session unit that claims `host_cpu:1`, `host_io:1`, and retains `suite_service_stack`, while backend, process, webserver-backed browser projection, full-target-equivalent stateful browser, and aggregate service-backed leaves run as sibling check work units with direct host and service resource claims. Ordinary browser measurement, current visual browser work, and current accessibility browser work remain direct and CI/release evidence surfaces rather than default local `check-service-backed` children. The check path does not forward bounded host claims into nested service-backed `go_cpu` or `go_io`; direct standalone service-backed targets continue to use the generated `tools/scheduler_manifest.json`. Migration verification remains a separate check-scheduler work unit, but it applies migrations against scratch Postgres databases and therefore declares Postgres service requirements and claims the separate exclusive `migration_scratch_postgres` lane so it can run beside the suite service stack. Static validation leaves, backend lint, script lint, blocking shell lint, pure backend unit evidence, frontend type-checking, frontend unit evidence, harness smoke, and generated-artifact drift are separate check-scheduler work units. Duration-baseline drift and warm scheduler health checks run from explicit maintenance surfaces such as `agent-finalize RESULTS_DIR=<retained-run-root>` so the default local correctness gate is not itself a timing-drift gate. Finalize the service-backed aggregate summary after wrapper teardown and fail on hidden lifecycle teardown failures as non-test failures. Browser stage expansion is split by execution dependency: webserver-backed functional rows are planned as duration-balanced Playwright manifest-entry shards, while isolated ordering and reset policy stay in the topology-derived `tools/browser_e2e_batch_manifest.json`. `tools/execution_topology_manifest.json` renders `cartulary.scheduler_manifest.v2`, which expands manifest-declared service-backed sources into Go shards and explicit Make targets, derives Go shard `go_cpu` and `go_io` resource profiles from committed timing and fixture metadata, derives explicit scheduler work-unit weights from `tools/service_backed_make_target_duration_baselines.json`, and uses registry capacity profiles plus generated per-browser-stage lanes as the concurrency authority.
-  The default output mode is `summary`. Successful verification targets print bounded `[RESULT]` and `[ARTIFACTS]` lines, keep successful child stdout/stderr in artifacts, and keep successful stderr empty. The check and service-backed schedulers may also print concise start, summary, and bounded `[PROGRESS] target=<target> completed=<done>/<total> ...` heartbeat lines; progress does not repeat artifact paths. Full scheduler progress, nested progress, per-shard steps, raw resource maps, and per-transition details remain in scheduler JSON/JSONL artifacts and `progress-summary.log`. Use `CARTULARY_OUTPUT_MODE=verbose` or `VERBOSE=1` for live child streams, `CARTULARY_OUTPUT_MODE=debug` for wrapper/scheduler telemetry, and `CARTULARY_OUTPUT_MODE=machine` for canonical JSON output.
-- `make ci`: run the provider-neutral CI gate that composes the canonical task surface and enforces execution truth, codegen drift, migration verification, and deployable-shape checks.
-- `make release-check`: run the release verification tier by composing the developer gate, dependency license report verification, SBOM verification, and release build verification.
-- `make build`: build the application artifact with embedded frontend assets.
-- `make clean`: remove reproducible repo-local build and report artifacts while preserving checked-in files and external Go caches.
-- `make distclean`: additionally remove repo-local tool/runtime caches after printing the removal list.
-
-`make check` is not optional. It is the required developer verification gate and must include codegen drift detection and migration verification.[^6] `make release-check` is the release verification gate and must fail if the required license or SBOM artifacts are missing or empty.
-
-Repo-control helper targets SHOULD also include at least `make frontend-unit`, `make browser-e2e-support`, and `make browser-e2e-visual` so the frontend workspace packages, support browser helpers, and workbook screenshot fixtures can run independently. `make browser-e2e-visual` remains a Playwright screenshot suite under the owned-stack harness rather than a second visual runner.
-
-By the end of bootstrap, `make check` must include a frontend smoke path that proves the browser bundle can import `react-data-grid/lib/styles.css`, render a minimal Cartulary fixture grid through `/packages/grid-adapter`, and key rows by `record_id`. The smoke fixture must include at least two rows with distinct `record_id` values. This smoke path must not assert feature-complete workbook behavior. It exists only to fail early on package-format, CSS-export, peer-dependency, and stable-row-key integration errors.[^25]
-
-## 11. Step 8: bootstrap the TDD harness before the first feature slice
-
-Cartulary’s testing guide is owner-shaped and expects unit, integration, and E2E coverage, with the shared harnesses in Section 14 implemented once and reused across owners.[^8][^20]
-
-Create the test harness structure before Phase 0 implementation. A practical backend-first layout is:
-
-```text
-/internal/testutil
-  /configtest
-  /pgtest
-  /processtest
-  /s3test
-  /httptestx
-  /wstest
-  /fixtures
-  /golden
-```
-
-Recommended responsibilities:
-
-- `configtest`: effective-config fixture loader, overlay helper, invalid-config golden files.
-- `pgtest`: Postgres testcontainer startup plus fresh migrated database-per-test helpers.
-- `processtest`: real `cmd/server` lifecycle, readiness and health polling, fail-closed connection probes, and startup diagnostics parsing.
-- `s3test`: S3-compatible object-store testcontainer startup, bucket bootstrap, round-trip helper.
-- `httptestx`: in-process runtime or HTTP server boot helper, authenticated request helper, and JSON envelope assertions.
-- `wstest`: WebSocket connect, handshake, receive, revoke, and close assertions.
-- `fixtures`: canonical bootstrap manifests, config artifacts, and payload fixtures.
-- `golden`: deterministic expected JSON or diagnostics outputs.
-
-Then implement the shared cross-cutting harnesses as reusable assertions rather than one-off tests:
-
-- envelope consistency.
-- authorization re-derivation.
-- mutation attribution and history emission.
-- idempotent replay and divergent replay.
-- closed-vocabulary rejection.
-- writable-string normalization.
-- view-schema field-key conformance.
-- projection determinism and rebuild.
-- WebSocket lifecycle behavior.[^8]
-
-The development guide adds one more concrete boundary: backend integration tests must use real Postgres and an S3-compatible object store through `testcontainers-go` or equivalent real-service harnesses, and they must exercise HTTP routes, WebSocket behavior, object-store lifecycle, projection maintenance, and migration application.[^21]
-
-## 12. Step 9: define the TDD workflow as repository law
-
-Once the harness exists, make the TDD loop mechanical.
-
-For every slice of work:
-
-1. choose one owner row or a very small semantic family from the owner catalog.[^9]
-2. create the failing unit tests first and include the phase test IDs in the test names or comments.
-3. implement the smallest code needed to make those tests pass.
-4. add or activate the matching integration tests against real backing services.
-5. run `make check`.
-6. refactor only behind a green test suite.
-
-Recommended test naming convention:
-
-- `TestPhase0_ConfigDiscovery_U_0_01`
-- `TestPhase0_RuntimeRoots_U_0_02`
-- `TestPhase1_LoginRequestShape_U_1_01`
-- `TestPhase3_TimelinePatchReplay_U_3_07`
-
-That keeps the implementation plan, the test corpus, and Codex work orders aligned to the same identifiers.
-
-Use the phase test IDs as the unit of planning for Codex. “Make U-0-01 through U-0-05 pass” is a good work order. “Implement config” is too vague and tends to drift.[^9][^20]
-
-Also make two failure classes impossible to ignore:
-
-- codegen drift after `make generate`.
-- migration drift when schema-affecting changes are not represented in `/db/migrations/*` or migrations do not apply cleanly in CI.[^6][^7]
-
-## 13. Step 10: execute the first implementation slices in order
-
-### Slice A: repository bootstrap only
-
-Goal: create the tree, dependencies, Compose services, `Makefile`, minimal config loader, migration runner, and reusable test harnesses.
-
-Definition of done:
-
-- `go test ./...` compiles and runs the empty or stubbed backend packages.
-- `make db-up` starts Postgres and the S3-compatible object store.
-- `make db-migrate` can connect and apply an initial migration set.
-- `make db-reset` can recreate the local database and apply an initial migration set.
-- `make generate` runs successfully, even if the generated outputs are skeletal.
-- `make check` passes on the bootstrap baseline.[^6]
-
-### Slice B: Phase 0
-
-Begin by writing the failing tests for the Phase 0 matrix:
-
-- U-0-01 through U-0-09.
-- I-0-01 through I-0-06.
-- E-0-01 through E-0-05.[^9]
-
-Implement only enough code to satisfy Phase 0 scope:
-
-- deployment-config artifact loading and overlay.
-- runtime-root registry and path validation.
-- resource-limit registry validation.
-- schema bootstrap and migration idempotency.
-- object-store reachability.
-- first-admin bootstrap preflight and manifest validation.
-- fail-closed startup gating.
-
-Do not treat domain routes as complete at the end of this slice. Phase 0 ends with health or startup diagnostics plus a trustworthy process shell, not incident behavior.[^9]
-
-Recommended package targets for Slice B:
-
-- `internal/platform/config`
-- `internal/platform/postgres`
-- `internal/platform/objectstore`
-- `internal/app/server`
-- `internal/app/migrate`
-- `internal/app/operator`
-- `internal/app/revisionassembly`
-- `cmd/server`
-- `cmd/migrate`
-- `cmd/operator`
-- the minimal administrative schema and audit tables needed for bootstrap state
-
-### Slice C: Phase 1
-
-After Phase 0 is green, write the failing Phase 1 tests and implement the authenticated shell:
-
-- login, logout, session inspection.
-- session lifecycle and concurrency cap.
-- credential-state inspection.
-- password change.
-- TOTP begin and complete.
-- deployment-local user create and patch.
-- admin password reset, TOTP reset, revoke-all.
-- `session_revoked` behavior on connected sockets.[^22][^23]
-
-This slice should primarily land in:
-
-- `internal/platform/authn`
-- `internal/modules/auth`
-- `internal/platform/ws`
-- the session and deployment-local admin tables plus audit substrate
-
-### Slice D: Phase 2
-
-Only after the auth shell is stable should you add incident create, list, get, patch, membership routes, extension discovery, and workbook-preference bootstrap.[^10]
-
-This slice primarily lands in:
-
-- `internal/modules/incidents`
-- `internal/platform/httpapi`
-- contract artifacts for incident, membership, extension, and saved-view families
-
-### Slice E: Phase 3
-
-Only after incident control exists should you implement the first hot-path record-row mutation substrate for Timeline. Phase 3 is where the system first proves that row creation, autosave, projection maintenance, attributed mutation history, lifecycle state, and idempotent patch replay all work together.[^13]
-
-Do not implement Timeline as temporary CRUD. The testing guide is explicit that once the first record-row mutation path exists, it must already emit attributed mutations, maintain projections, and satisfy normalized idempotency and optimistic-concurrency contracts.[^13]
-
-## 14. Step 11: wire CI at the same time as local development
-
-As soon as the root task surface exists, wire CI around `make ci` rather than a handwritten subset of local commands. The provider-neutral entrypoint must already compose generation drift detection, authoritative and support test execution, migration verification, and deployable-shape checks.
-
-The green condition is not just passing tests. CI must also prove that:
-
-- `make generate` leaves a clean diff.
-- every authoritative catalog row actually executed in the intended layer.
-- migrations apply successfully on an empty database and on an upgrade path.
-- the repository still builds as one application artifact rather than drifting toward separate deployables.[^6][^24]
-
-## 15. Recommended Codex work order
-
-Use Codex in this order:
-
-1. create the repository tree and control files.
-2. wire the root `Makefile` and `docker-compose.dev.yml`.
-3. add the Go composition root, platform stubs, and migration runner.
-4. add the contract directories and generation pipeline.
-5. add shared test harness packages.
-6. write Phase 0 unit tests first.
-7. implement until Phase 0 unit tests pass.
-8. write and pass the Phase 0 integration tests.
-9. move to Phase 1 only when `make check` is green again.
-
-A useful initial Codex prompt is:
-
-```text
-Bootstrap a greenfield Cartulary repo as a modular monolith in Go with a pnpm workspace. Create the baseline tree, root Makefile, docker-compose.dev.yml for Postgres and a SeaweedFS S3-compatible object store, cmd/server, cmd/migrate, internal/platform/*, internal/modules/*, db/migrations, db/queries, contracts/*, and a reusable backend test harness. Then write failing Phase 0 tests U-0-01 through U-0-05 before implementing config loading, runtime-root validation, and fail-closed startup.
-```
-
-## 16. Bootstrap definition of done
-
-The repository bootstrap is complete when all of the following are true:
-
-- the baseline monorepo tree exists and is committed.[^4]
-- the command surface exists and `make check` is the enforced developer gate.[^6]
-- PostgreSQL and the S3-compatible object store can be started locally through Compose.[^18]
-- contract/codegen directories exist and generated outputs are treated as read-only.[^7]
-- the frontend smoke path renders a minimal `react-data-grid` fixture through `/packages/grid-adapter`, imports `react-data-grid/lib/styles.css`, and keys fixture rows by distinct `record_id` values.[^25]
-- reusable shared harnesses exist for in-process HTTP envelopes, real process readiness or diagnostics, authorization re-derivation where applicable, idempotency, projection determinism where applicable, and WebSocket lifecycle.[^8]
-- the first failing Phase 0 tests are checked in and can be run repeatedly.[^9]
-- no feature work beyond the bootstrap shell has bypassed migrations, config validation, or the TDD loop.[^16][^20]
-
-That state is the correct handoff point for Codex. From there, implementation should proceed phase by phase, with the repository already structured to prevent architectural drift.
-
-## Sources
-[^1]: [00_document_set_status_and_precedence.md](sandbox:/mnt/data/00_document_set_status_and_precedence.md), lines 5-13 and 22-33; [cartulary-dev-guide.md](sandbox:/mnt/data/cartulary-dev-guide.md), lines 9-13; [cartulary_implementation_testing_guide.md](sandbox:/mnt/data/cartulary_implementation_testing_guide.md), lines 10-18.
-[^2]: [cartulary-dev-guide.md](sandbox:/mnt/data/cartulary-dev-guide.md), lines 79-85, 241-247, 365-371, and 618-643.
-[^3]: [01_architecture_storage_and_view_contracts.md](sandbox:/mnt/data/01_architecture_storage_and_view_contracts.md), lines 5-20 and 28-49; [cartulary-dev-guide.md](sandbox:/mnt/data/cartulary-dev-guide.md), lines 79-85.
-[^4]: [cartulary-dev-guide.md](sandbox:/mnt/data/cartulary-dev-guide.md), lines 231-347.
-[^5]: [04_security_deployment_and_conformance.md](sandbox:/mnt/data/04_security_deployment_and_conformance.md), lines 459-478 and 1629-1820.
-[^6]: [cartulary-dev-guide.md](sandbox:/mnt/data/cartulary-dev-guide.md), lines 618-695.
-[^7]: [cartulary-dev-guide.md](sandbox:/mnt/data/cartulary-dev-guide.md), lines 363-414.
-[^8]: [cartulary_implementation_testing_guide.md](sandbox:/mnt/data/cartulary_implementation_testing_guide.md), lines 869-953.
-[^9]: [cartulary_implementation_testing_guide.md](sandbox:/mnt/data/cartulary_implementation_testing_guide.md), lines 32-93 and 958-978.
-[^10]: [cartulary_implementation_testing_guide.md](sandbox:/mnt/data/cartulary_implementation_testing_guide.md), lines 26-28, 97-117, 172-188, and 240-255.
-[^11]: [01_architecture_storage_and_view_contracts.md](sandbox:/mnt/data/01_architecture_storage_and_view_contracts.md), lines 51-69; [cartulary-dev-guide.md](sandbox:/mnt/data/cartulary-dev-guide.md), lines 487-504.
-[^12]: [03_workbook_interaction_collaboration_and_workflows.md](sandbox:/mnt/data/03_workbook_interaction_collaboration_and_workflows.md), lines 5-23.
-[^13]: [cartulary_implementation_testing_guide.md](sandbox:/mnt/data/cartulary_implementation_testing_guide.md), lines 18 and 240-299.
-[^14]: [cartulary-dev-guide.md](sandbox:/mnt/data/cartulary-dev-guide.md), lines 1058-1065 and 1071-1073.
-[^15]: [cartulary-dev-guide.md](sandbox:/mnt/data/cartulary-dev-guide.md), lines 122-133 and 239-249.
-[^16]: [cartulary-dev-guide.md](sandbox:/mnt/data/cartulary-dev-guide.md), lines 424-512.
-[^17]: [cartulary-dev-guide.md](sandbox:/mnt/data/cartulary-dev-guide.md), lines 135-170 and 203-212.
-[^18]: [04_security_deployment_and_conformance.md](sandbox:/mnt/data/04_security_deployment_and_conformance.md), lines 428-434; [cartulary-dev-guide.md](sandbox:/mnt/data/cartulary-dev-guide.md), lines 255-256 and 624-627.
-[^19]: [04_security_deployment_and_conformance.md](sandbox:/mnt/data/04_security_deployment_and_conformance.md), lines 1629-1646 and 1654-1715.
-[^20]: [cartulary_implementation_testing_guide.md](sandbox:/mnt/data/cartulary_implementation_testing_guide.md), lines 20-28, 891-900, and 958-974.
-[^21]: [cartulary-dev-guide.md](sandbox:/mnt/data/cartulary-dev-guide.md), lines 662-688.
-[^22]: [cartulary_implementation_testing_guide.md](sandbox:/mnt/data/cartulary_implementation_testing_guide.md), lines 97-168.
-[^23]: [04_security_deployment_and_conformance.md](sandbox:/mnt/data/04_security_deployment_and_conformance.md), lines 7-39 and 43-94.
-[^24]: [00_document_set_status_and_precedence.md](sandbox:/mnt/data/00_document_set_status_and_precedence.md), lines 128-132; [cartulary-dev-guide.md](sandbox:/mnt/data/cartulary-dev-guide.md), lines 692-695.
-[^25]: [R09-react-data-grid-research-report.md](sandbox:/mnt/data/R09-react-data-grid-research-report.md), especially §§1, 3, 18, and 20 on the inspected `react-data-grid` package shape, controlled grid surface, CSS export, and build/package constraints.
+For each small owner change:
+
+1. Select one semantic row or a cohesive family.
+2. Write the exact failing test and catalog selector.
+3. Implement the smallest owner-cohesive behavior.
+4. Run `make test-slice OWNER=<owner-id> ROWS=<row-id,...>`.
+5. Run the service-backed slice when the runtime profile requires managed
+   services.
+6. Broaden to the complete owner, generated drift, and `make check`.
+7. Refactor only behind green owner evidence.
+
+Use descriptive language-level test names. Stable selection identity belongs in
+the catalog, not in encoded delivery labels inside symbols, fixture data, or
+comments.
+
+## CI and Release Shape
+
+Wire CI around `make ci`, not a handwritten subset of local commands. CI must
+prove deterministic generation, migration applicability, owner-row execution,
+cleanup, deployable composition, and artifact schema validity.
+
+Release readiness uses the same owner accounting and finalizer contract as local
+verification. A separate CI-only registry or reader is not permitted.
+
+## Bootstrap Definition of Done
+
+Bootstrap is complete when:
+
+- the repository boundaries above exist and compile;
+- `make doctor`, `make generate-drift`, and the generated-artifact checks pass;
+- managed PostgreSQL and object-store services start, report readiness, and
+  clean up through public targets;
+- migrations apply to an empty database and expose current history evidence;
+- reusable process, storage, auth, projection, and browser harnesses exist;
+- the owner catalog and verification contracts validate;
+- representative unit, service-backed, browser, and failure-path rows emit valid
+  per-owner accounting;
+- `make test-fast` and `make check` pass on the bootstrapped tree;
+- generated outputs and retained result roots do not leave untracked authority;
+- the handoff records exact successful commands, result roots, skipped checks,
+  and the rollback commit.
+
+From that state, feature work proceeds by owner and semantic evidence obligation.
+New capabilities extend the catalog and generic scheduler rather than creating a
+new execution model.

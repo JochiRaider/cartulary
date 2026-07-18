@@ -780,7 +780,8 @@ Every production workbook grid MUST keep RDG row and column virtualization enabl
 - Grid changes in the fragility trigger list run the grid-adapter harness, focused browser tests, and visual-regression fixtures.
 - Every active frontend catalog row is scheduler-visible through its semantic
   family manifest, and generated topology matches the catalog owner inputs.
-- Every implemented `FE-A11Y-*` row maps to `make browser-e2e-a11y` and appears in `cartulary.frontend_accessibility_summary.v3`.
+- Every applicable semantic accessibility row maps to `make browser-e2e-a11y`
+  and appears in the target's per-owner evidence accounting and owner summary.
 - Non-Core design/support frontend rows do not claim Core requirements.
 
 ---

@@ -8,7 +8,6 @@ import {
   statSync,
 } from "node:fs";
 import path from "node:path";
-import { loadFrontendPlaywrightIndex as loadFrontendPlaywrightIndexAdapter } from "../frontend-indexes.mjs";
 import {
   loadManifestIndex as loadManifestIndexAdapter,
   playwrightEntryTitles,
@@ -166,34 +165,8 @@ function loadManifestIndex() {
   return loadManifestIndexAdapter(repoRoot, { normalizePath, toGoImportPath });
 }
 
-function catalogFallbackClassification() {
-  return null;
-}
-
-function inferStepFromText(value) {
-  if (!value) {
-    return "";
-  }
-  const patterns = [
-    /\bstep(?:\s|_|-)?(\d+)\b/i,
-    /\b[UIE][-_](\d+)-\d+\b/,
-    /\b[UIE]_(\d+)_\d+\b/,
-  ];
-  for (const pattern of patterns) {
-    const match = value.match(pattern);
-    if (match) {
-      return `step${match[1]}`;
-    }
-  }
-  return "";
-}
-
-function claimsConformanceRowTitle(value) {
-  const text = String(value ?? "");
-  return (
-    /\bFE-[A-Z]+-P\d+-\d+\b/.test(text) ||
-    /\b[UIE]-\d+(?:-[A-Z0-9]+)*-\d+\b/.test(text)
-  );
+function catalogOwnerFromEnvironment() {
+  return optionalEnv("CARTULARY_CATALOG_OWNER_ID");
 }
 
 function renderList(values) {
@@ -281,9 +254,7 @@ function evaluateFlatTitleManifest(
     step,
     missingIDs,
     unexpectedIDs,
-    forbiddenIDFiles: Array.from(
-      loadManifestIndex().forbiddenFilesByStep.get(step) ?? [],
-    ).sort(),
+    forbiddenIDFiles: [],
   };
 }
 
@@ -376,7 +347,7 @@ function finalizeManifestAwareRunnerStep(
         failure_class: "harness",
         failure_reason: "tool_diagnostic_failure",
         coverage: "non_test",
-        step: inferStepFromText(context.label),
+        step: catalogOwnerFromEnvironment(),
         id: "",
         runner,
         package_or_file: `(${runner} runner)`,
@@ -390,7 +361,7 @@ function finalizeManifestAwareRunnerStep(
 
   writeStepArtifacts(context, {
     status,
-    step: inferStepFromText(context.label),
+    step: catalogOwnerFromEnvironment(),
     counts: stepCounts,
     owners: summary.owners,
     inventory: summary.inventory,
@@ -431,24 +402,8 @@ function normalizePlaywrightFile(file) {
   return normalizePath(path.join("apps/web", "e2e", normalized));
 }
 
-function isForbiddenFile(file, step) {
-  if (!step) {
-    return false;
-  }
-  const files = loadManifestIndex().forbiddenFilesByStep.get(step);
-  return files ? files.has(file) : false;
-}
-
-function loadFrontendPlaywrightIndex() {
-  return loadFrontendPlaywrightIndexAdapter(repoRoot);
-}
-
-function classifyPlaywrightCase(file, title, stepLabel) {
+function classifyPlaywrightCase(file, title) {
   const normalizedFile = normalizePlaywrightFile(file);
-  const manifested = loadManifestIndex().manifestPlaywright.get(
-    `${normalizedFile}::${title}`,
-  );
-  const frontendManifested = loadFrontendPlaywrightIndex().byTitle.get(title);
   const authoritative = loadManifestIndex().authoritativePlaywright.get(
     `${normalizedFile}::${title}`,
   );
@@ -460,68 +415,12 @@ function classifyPlaywrightCase(file, title, stepLabel) {
       owner: normalizedFile,
     };
   }
-  if (frontendManifested && /\bauthoritative\b/i.test(stepLabel)) {
-    return {
-      coverage: frontendManifested.coverage,
-      step: frontendManifested.step,
-      id: frontendManifested.id,
-      owner: normalizedFile,
-    };
-  }
-  if (manifested && manifested.coverage !== "authoritative") {
-    return {
-      coverage: "support",
-      step: manifested.step,
-      id: manifested.id,
-      owner: normalizedFile,
-    };
-  }
-  if (frontendManifested) {
-    return {
-      coverage: frontendManifested.coverage,
-      step: frontendManifested.step,
-      id: frontendManifested.id,
-      owner: normalizedFile,
-    };
-  }
-  const inferredStep =
-    inferStepFromText(normalizedFile) ||
-    inferStepFromText(title) ||
-    inferStepFromText(stepLabel);
-  if (claimsConformanceRowTitle(title)) {
-    return {
-      coverage: "unmapped",
-      step: inferredStep,
-      id: "",
-      owner: normalizedFile,
-    };
-  }
-  const support =
-    normalizedFile.includes(".support.") ||
-    isForbiddenFile(normalizedFile, inferredStep) ||
-    /\bsupport\b/i.test(stepLabel) ||
-    /\bsmoke\b/i.test(stepLabel);
-  if (support) {
-    return {
-      coverage: "support",
-      step: inferredStep,
-      id: "",
-      owner: normalizedFile,
-    };
-  }
-  return (
-    catalogFallbackClassification(
-      "playwright",
-      normalizedFile,
-      title,
-      inferredStep,
-    ) ?? {
-      coverage: "unmapped",
-      step: inferredStep,
-      id: "",
-      owner: normalizedFile,
-    }
-  );
+  return {
+    coverage: "unmapped",
+    step: catalogOwnerFromEnvironment(),
+    id: "",
+    owner: normalizedFile,
+  };
 }
 
 function parsePlaywrightStartTime(value) {
@@ -763,7 +662,7 @@ function summarizePlaywrightRun(reportFile, stepLabel, selection = null) {
     dossiers.push({
       failure_class: "harness",
       coverage,
-      step: inferStepFromText(stepLabel),
+      step: catalogOwnerFromEnvironment(),
       id: "",
       runner: "playwright",
       package_or_file: "(playwright setup)",
@@ -788,7 +687,7 @@ function summarizePlaywrightRun(reportFile, stepLabel, selection = null) {
     dossiers.push({
       failure_class: "harness",
       coverage: "non_test",
-      step: inferStepFromText(stepLabel),
+      step: catalogOwnerFromEnvironment(),
       id: "",
       runner: "playwright",
       package_or_file: "(playwright runner)",
@@ -894,7 +793,7 @@ function summarizePlaywrightRun(reportFile, stepLabel, selection = null) {
           : "unmapped";
     dossiers.push({
       coverage,
-      step: inferStepFromText(stepLabel),
+      step: catalogOwnerFromEnvironment(),
       id: "",
       runner: "playwright",
       package_or_file: "(playwright selection)",
@@ -914,7 +813,7 @@ function summarizePlaywrightRun(reportFile, stepLabel, selection = null) {
     dossiers,
     playwrightTiming: summarizePlaywrightTiming(
       specs,
-      inferStepFromText(stepLabel),
+      catalogOwnerFromEnvironment(),
       stepLabel,
       selection,
     ),

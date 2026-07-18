@@ -39,7 +39,7 @@ test("creates and edits required workbook mutation surfaces through typed generi
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E4GENERIC"),
+    uniqueIncidentKey("GENERIC-WORKBOOK"),
     "Record relationships generic workbook mutation E2E",
   );
   const support = (await createViewRow(page, incidentId, timelineViewSchemaId, {

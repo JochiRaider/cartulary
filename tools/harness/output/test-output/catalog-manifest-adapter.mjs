@@ -69,9 +69,6 @@ export function loadManifestIndex(root, { normalizePath, toGoImportPath }) {
     authoritativeGo: new Map(),
     authoritativeVitest: new Map(),
     authoritativePlaywright: new Map(),
-    manifestVitest: new Map(),
-    manifestPlaywright: new Map(),
-    forbiddenFilesByStep: new Map(),
   };
   for (const entry of entriesFor(root)) {
     if (entry.runner === "go_test") {
@@ -87,7 +84,6 @@ export function loadManifestIndex(root, { normalizePath, toGoImportPath }) {
       for (const title of vitestEntryTitles(entry)) {
         const keyed = { ...entry, title };
         const key = `${normalizePath(entry.file)}::${title}`;
-        index.manifestVitest.set(key, keyed);
         index.authoritativeVitest.set(key, keyed);
       }
       continue;
@@ -96,7 +92,6 @@ export function loadManifestIndex(root, { normalizePath, toGoImportPath }) {
       for (const title of playwrightEntryTitles(entry)) {
         const keyed = { ...entry, title };
         const key = `${normalizePath(entry.file)}::${title}`;
-        index.manifestPlaywright.set(key, keyed);
         index.authoritativePlaywright.set(key, keyed);
       }
     }

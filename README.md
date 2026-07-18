@@ -246,11 +246,11 @@ The current core also defines bounded extension profiles for:
 
 ## Project status
 
-Cartulary is under active implementation on a specification-first basis. The normative core in `docs/spec/` defines the architecture, data model, workbook behavior, security posture, deployment model, and conformance boundaries, and the implementation is built and verified against it phase by phase.
+Cartulary is under active implementation on a specification-first basis. The normative core in `docs/spec/` defines the architecture, data model, workbook behavior, security posture, deployment model, and conformance boundaries. The owner catalog and verification contracts select semantic backend, frontend, and cross-cutting evidence against those rules.
 
-Backend implementation has progressed through its Phase 11 work. The Go backend builds runnable `server`, `migrate`, and `operator` binaries and carries phase-tagged test coverage (`U-`/`I-`/`E-` identifiers) across the Base Profile and the Import, Snapshot and Reporting, Reference Pack, and Incident Portability extension profiles, backed by sequential migrations under `db/migrations/` and generated contracts under `contracts/`. The Enterprise Authentication extension profile remains reserved and unclaimed.
+The Go backend builds runnable `server`, `migrate`, and `operator` binaries and implements the Base Profile plus bounded Import, Snapshot and Reporting, Reference Pack, and Incident Portability extension-profile behavior. Sequential migrations live under `db/migrations/`, derived contracts live under `contracts/`, and the Enterprise Authentication extension profile remains reserved and unclaimed.
 
-The web client under `apps/web` is being built out on its own phased track and is at an earlier stage than the backend. The repository remains specification-first: the normative core is authoritative, and this README is a derived overview rather than a source of normative truth.
+The web client under `apps/web` shares the same owner-first catalog and evidence model as the backend. The repository remains specification-first: the normative core is authoritative, and this README is a derived overview rather than a source of normative truth.
 
 ## License
 

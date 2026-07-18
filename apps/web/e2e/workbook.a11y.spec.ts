@@ -1012,7 +1012,9 @@ function requireA11yHistoryEntryAction(history: A11yHistoryData) {
         candidate.history_entry_ref.length > 0,
     ) ?? null;
   if (item === null) {
-    throw new Error("missing FE-A11Y-P9 history_entry rollback item");
+    throw new Error(
+      "missing a11y.inspector-history history_entry rollback item",
+    );
   }
   return item;
 }
@@ -1359,7 +1361,7 @@ test.describe("browser.workbook-shell accessibility readiness", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("A11YP2"),
+      uniqueIncidentKey("A11YWORKBOOKSHELL"),
       "a11y.workbook-shell.row-01 workbook shell",
     );
     const timelineRow = (await createViewRow(
@@ -1367,7 +1369,7 @@ test.describe("browser.workbook-shell accessibility readiness", () => {
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("fe-a11y-p2-01-row"),
+        client_txn_id: uniqueTxn("a11y.workbook-shell-01-row"),
         "timeline.activity_utc_text": "2026-05-31T09:00:00Z",
         "timeline.activity_synopsis_text":
           "browser.workbook-shell accessibility shell row",
@@ -1510,7 +1512,7 @@ if (
   test("a11y.network-analysis.row-01 Verify claimed Network Analysis tabs, query controls, semantic grids, inspector, graph, contributor drawer, mapping modal, focus return, names, and ARIA evidence.", async ({
     page,
   }) => {
-    await openClaimedNetworkAnalysis(page, "FEP12A11Y");
+    await openClaimedNetworkAnalysis(page, "NETWORKFLOWA11Y");
     await importNetworkFlowCSV(page, { displayName: "accessible-flow" });
 
     const workspace = page.getByTestId(networkAnalysisTestId("workspace"));
@@ -1573,7 +1575,7 @@ test.describe("browser.grid-interaction accessibility readiness", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("A11YP3"),
+      uniqueIncidentKey("A11YGRIDINTERACTION"),
       "a11y.grid-interaction.row-01 grid adapter",
     );
     const alphaRow = (await createViewRow(
@@ -1581,7 +1583,7 @@ test.describe("browser.grid-interaction accessibility readiness", () => {
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("fe-a11y-p3-01-alpha"),
+        client_txn_id: uniqueTxn("a11y.grid-interaction-01-alpha"),
         "timeline.activity_utc_text": "2026-05-31T10:00:00Z",
         "timeline.activity_synopsis_text": "Alpha accessibility row",
         "timeline.raw_activity_text": "Keyboard grid coverage",
@@ -1592,7 +1594,7 @@ test.describe("browser.grid-interaction accessibility readiness", () => {
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("fe-a11y-p3-01-beta"),
+        client_txn_id: uniqueTxn("a11y.grid-interaction-01-beta"),
         "timeline.activity_utc_text": "2026-05-31T10:05:00Z",
         "timeline.activity_synopsis_text": "Beta accessibility row",
         "timeline.raw_activity_text": "Grouped grid coverage",
@@ -1704,7 +1706,7 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("A11YP4"),
+      uniqueIncidentKey("A11YMUTATIONLIFECYCLE"),
       "a11y.mutation-lifecycle.row-01 Timeline accessibility",
     );
     const editRow = (await createViewRow(
@@ -1712,7 +1714,7 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("fe-a11y-p4-01-edit"),
+        client_txn_id: uniqueTxn("a11y.mutation-lifecycle-01-edit"),
         "timeline.activity_utc_text": "2026-06-03T10:00:00Z",
         "timeline.activity_synopsis_text":
           "browser.mutation-lifecycle edit accessibility row",
@@ -1724,7 +1726,7 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("fe-a11y-p4-01-paste"),
+        client_txn_id: uniqueTxn("a11y.mutation-lifecycle-01-paste"),
         "timeline.activity_utc_text": "2026-06-03T10:05:00Z",
         "timeline.activity_synopsis_text":
           "browser.mutation-lifecycle paste accessibility row",
@@ -1735,7 +1737,7 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("fe-a11y-p4-01-pending"),
+        client_txn_id: uniqueTxn("a11y.mutation-lifecycle-01-pending"),
         "timeline.activity_utc_text": "2026-06-03T10:10:00Z",
         "timeline.activity_synopsis_text":
           "browser.mutation-lifecycle pending accessibility row",
@@ -1746,7 +1748,7 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("fe-a11y-p4-01-validation"),
+        client_txn_id: uniqueTxn("a11y.mutation-lifecycle-01-validation"),
         "timeline.activity_utc_text": "2026-06-03T10:15:00Z",
         "timeline.activity_synopsis_text":
           "browser.mutation-lifecycle validation accessibility row",
@@ -1965,7 +1967,7 @@ test.describe("browser.entity-linking accessibility readiness", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("A11YP5"),
+      uniqueIncidentKey("A11YENTITYLINKING"),
       "a11y.entity-linking.row-01 mention states",
     );
     const {
@@ -1983,8 +1985,8 @@ test.describe("browser.entity-linking accessibility readiness", () => {
       unresolvedRawText,
       unresolvedRow,
     } = await seedHostMentionStateFixture(page, incidentId, {
-      displayPrefix: "FE-A11Y-P5",
-      hostnamePrefix: "fe-a11y-p5",
+      displayPrefix: "a11y.entity-linking",
+      hostnamePrefix: "a11y.entity-linking",
       occurredAt: {
         auto: "2026-06-06T16:15:00Z",
         dismissed: "2026-06-06T16:20:00Z",
@@ -1992,19 +1994,36 @@ test.describe("browser.entity-linking accessibility readiness", () => {
         resolved: "2026-06-06T16:05:00Z",
         unresolved: "2026-06-06T16:00:00Z",
       },
-      rawTextPrefix: "FEA11YP5",
+      rawTextPrefix: "A11YENTITYLINKING",
       summary: {
-        auto: "FE-A11Y-P5 auto chip",
-        dismissed: "FE-A11Y-P5 dismissed chip",
-        manual: "FE-A11Y-P5 manual chip",
-        resolved: "FE-A11Y-P5 resolved chip",
-        unresolved: "FE-A11Y-P5 unresolved chip",
+        auto: "a11y.entity-linking auto chip",
+        dismissed: "a11y.entity-linking dismissed chip",
+        manual: "a11y.entity-linking manual chip",
+        resolved: "a11y.entity-linking resolved chip",
+        unresolved: "a11y.entity-linking unresolved chip",
       },
-      txnPrefix: "fe-a11y-p5",
+      txnPrefix: "a11y.entity-linking",
     });
 
     await page.goto(`/?incident_id=${incidentId}`);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+
+    for (const recordId of [
+      unresolvedRow.record_id,
+      resolvedRow.record_id,
+      manualRow.record_id,
+      autoRow.record_id,
+      dismissedRow.record_id,
+    ]) {
+      await expectVisibleSemanticGridCellFocus(
+        await mountedGridCell(
+          page,
+          timelineViewSchemaId,
+          recordId,
+          "timeline.activity_synopsis_text",
+        ),
+      );
+    }
 
     await openTimelineInspector(page, unresolvedRow.record_id);
     const unresolvedChip = page
@@ -2027,7 +2046,7 @@ test.describe("browser.entity-linking accessibility readiness", () => {
       .getByTestId(relationshipChipTestId(String(resolvedMention.item_ref)));
     await expect(resolvedChip).toHaveAttribute(
       "aria-label",
-      /^Resolved FE-A11Y-P5 Resolved Target$/u,
+      /^Resolved a11y.entity-linking Resolved Target$/u,
     );
     await expect(resolvedChip).toContainText("Resolved");
     await expectVisibleFocus(resolvedChip);
@@ -2092,7 +2111,7 @@ test.describe("browser.entity-linking accessibility readiness", () => {
     const autoNotice = page.getByTestId(
       autoResolutionNoticeTestId(String(autoItem.item_ref)),
     );
-    await expect(autoNotice).toContainText("FE-A11Y-P5 Auto Target");
+    await expect(autoNotice).toContainText("a11y.entity-linking Auto Target");
     await expectVisibleFocus(
       autoNotice.getByTestId(
         autoResolutionUndoButtonTestId(String(autoItem.item_ref)),
@@ -2118,22 +2137,6 @@ test.describe("browser.entity-linking accessibility readiness", () => {
       page.getByTestId(mentionRestoreUnresolvedButtonTestId()),
     );
 
-    for (const recordId of [
-      unresolvedRow.record_id,
-      resolvedRow.record_id,
-      manualRow.record_id,
-      autoRow.record_id,
-      dismissedRow.record_id,
-    ]) {
-      await expectVisibleSemanticGridCellFocus(
-        await mountedGridCell(
-          page,
-          timelineViewSchemaId,
-          recordId,
-          "timeline.activity_synopsis_text",
-        ),
-      );
-    }
     await expectAllInteractiveControlsNamed(page);
     await expectNoFocusTrap(page);
     await expectAndRecordContrast(page, [
@@ -2152,79 +2155,85 @@ test.describe("browser.evidence-workflow accessibility readiness", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("A11YP6"),
+      uniqueIncidentKey("A11YEVIDENCEWORKFLOW"),
       "a11y.evidence-workflow.row-01 evidence access",
     );
     const requested = await createA11yEvidenceRow(page, incidentId, {
       lifecycleState: "requested",
       requestedAt: "2026-06-07T10:00:00Z",
-      storageRef: "case://fe-a11y-p6/requested",
+      storageRef: "case://a11y.evidence-workflow/requested",
       title: "01 requested evidence",
-      txnPrefix: "fe-a11y-p6-requested",
+      txnPrefix: "a11y.evidence-workflow-requested",
     });
     const pending = await createA11yEvidenceRow(page, incidentId, {
       lifecycleState: "pending_receipt",
       requestedAt: "2026-06-07T10:05:00Z",
-      storageRef: "case://fe-a11y-p6/pending",
+      storageRef: "case://a11y.evidence-workflow/pending",
       title: "02 pending evidence",
-      txnPrefix: "fe-a11y-p6-pending",
+      txnPrefix: "a11y.evidence-workflow-pending",
     });
     const blocked = await createA11yEvidenceRow(page, incidentId, {
       lifecycleState: "quarantined",
       requestedAt: "2026-06-07T10:10:00Z",
-      storageRef: "case://fe-a11y-p6/quarantined",
+      storageRef: "case://a11y.evidence-workflow/quarantined",
       title: "03 quarantined evidence",
-      txnPrefix: "fe-a11y-p6-blocked",
+      txnPrefix: "a11y.evidence-workflow-blocked",
     });
     const availablePreview = await createUploadedA11yEvidence(
       page,
       incidentId,
       {
-        body: Buffer.from("FE-A11Y-P6 preview evidence\n", "utf8"),
+        body: Buffer.from("a11y.evidence-workflow preview evidence\n", "utf8"),
         contentType: "text/plain",
-        filename: "fe-a11y-p6-preview.txt",
+        filename: "a11y.evidence-workflow-preview.txt",
         requestedAt: "2026-06-07T10:15:00Z",
         title: "04 available preview evidence",
-        txnPrefix: "fe-a11y-p6-preview",
+        txnPrefix: "a11y.evidence-workflow-preview",
       },
     );
     const downloadHandle = await createUploadedA11yEvidence(page, incidentId, {
-      body: Buffer.from("FE-A11Y-P6 download evidence\n", "utf8"),
+      body: Buffer.from("a11y.evidence-workflow download evidence\n", "utf8"),
       contentType: "text/plain",
-      filename: "fe-a11y-p6-download.txt",
+      filename: "a11y.evidence-workflow-download.txt",
       requestedAt: "2026-06-07T10:20:00Z",
       title: "05 download handle evidence",
-      txnPrefix: "fe-a11y-p6-download",
+      txnPrefix: "a11y.evidence-workflow-download",
     });
     const previewBlocked = await createUploadedA11yEvidence(page, incidentId, {
       body: Buffer.from(
-        "<!doctype html><title>FE-A11Y-P6 unsupported preview</title>",
+        "<!doctype html><title>a11y.evidence-workflow unsupported preview</title>",
         "utf8",
       ),
       contentType: "text/html",
-      filename: "fe-a11y-p6-preview-blocked.html",
+      filename: "a11y.evidence-workflow-preview-blocked.html",
       requestedAt: "2026-06-07T10:25:00Z",
       title: "06 preview blocked evidence",
-      txnPrefix: "fe-a11y-p6-preview-blocked",
+      txnPrefix: "a11y.evidence-workflow-preview-blocked",
     });
     const failedHandle = await createUploadedA11yEvidence(page, incidentId, {
-      body: Buffer.from("FE-A11Y-P6 failed handle evidence\n", "utf8"),
+      body: Buffer.from(
+        "a11y.evidence-workflow failed handle evidence\n",
+        "utf8",
+      ),
       contentType: "text/plain",
-      filename: "fe-a11y-p6-failed.txt",
+      filename: "a11y.evidence-workflow-failed.txt",
       requestedAt: "2026-06-07T10:30:00Z",
       title: "07 failed handle evidence",
-      txnPrefix: "fe-a11y-p6-failed",
+      txnPrefix: "a11y.evidence-workflow-failed",
     });
     const inconsistentHandle = await createUploadedA11yEvidence(
       page,
       incidentId,
       {
-        body: Buffer.from("FE-A11Y-P6 inconsistent handle evidence\n", "utf8"),
+        body: Buffer.from(
+          "a11y.evidence-workflow inconsistent handle evidence\n",
+          "utf8",
+        ),
         contentType: "text/plain",
-        filename: "fe-a11y-p6-inconsistent.txt",
+        filename: "a11y.evidence-workflow-inconsistent.txt",
         requestedAt: "2026-06-07T10:35:00Z",
         title: "08 inconsistent handle evidence",
-        txnPrefix: "fe-a11y-p6-inconsistent",
+        txnPrefix: "a11y.evidence-workflow-inconsistent",
       },
     );
 
@@ -2297,7 +2306,9 @@ test.describe("browser.evidence-workflow accessibility readiness", () => {
     const downloadPromise = page.waitForEvent("download");
     await downloadButton.click();
     const download = await downloadPromise;
-    expect(download.suggestedFilename()).toBe("fe-a11y-p6-download.txt");
+    expect(download.suggestedFilename()).toBe(
+      "a11y.evidence-workflow-download.txt",
+    );
     await expect(
       page.getByTestId(evidenceAccessMessageTestId(downloadHandle.record_id)),
     ).toHaveAttribute("role", "status");
@@ -2391,18 +2402,18 @@ test.describe("browser.collaboration accessibility readiness", () => {
       await page.setViewportSize({ width: 1440, height: 900 });
       const incidentId = await createIncident(
         page,
-        uniqueIncidentKey("A11YP7"),
-        "FE-A11Y-P7 conflict accessibility",
+        uniqueIncidentKey("A11YCOLLABORATION"),
+        "a11y.collaboration conflict accessibility",
       );
       const remote = await createIncidentMemberUser(page, incidentId, {
         display_name: "Accessible Analyst",
-        email: uniqueEmail("fe-a11y-p7-remote"),
-        initial_password: "FeA11yP7RemotePass!",
+        email: uniqueEmail("a11y.collaboration-remote"),
+        initial_password: "A11yCollaborationRemotePass!",
         role: "editor",
       });
       const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
-        client_txn_id: uniqueTxn("fe-a11y-p7-row"),
-        "timeline.activity_synopsis_text": "FE-A11Y-P7 conflict base",
+        client_txn_id: uniqueTxn("a11y.collaboration-row"),
+        "timeline.activity_synopsis_text": "a11y.collaboration conflict base",
       });
       const recordId = requireRecordId(row);
       const patchController = await installPatchController(page);
@@ -2424,7 +2435,7 @@ test.describe("browser.collaboration accessibility readiness", () => {
             email: remote.email,
             incidentId,
             password: remote.initial_password,
-            purpose: "FE-A11Y-P7 remote presence analyst",
+            purpose: "a11y.collaboration remote presence analyst",
             readyRecordId: recordId,
             userId: remote.user_id,
           },
@@ -2441,12 +2452,12 @@ test.describe("browser.collaboration accessibility readiness", () => {
 
         await driveRealTimelineSummaryConflict({
           baseRowVersion: 1,
-          localValue: "FE-A11Y-P7 local draft",
+          localValue: "a11y.collaboration local draft",
           page,
           patchController,
           recordId,
           remotePatchPage: remotePage,
-          remoteValue: "FE-A11Y-P7 saved value",
+          remoteValue: "a11y.collaboration saved value",
           txnPrefix: "fea11yp7-conflict",
         });
         const resolver = page.getByTestId("conflict-resolver");
@@ -2460,10 +2471,10 @@ test.describe("browser.collaboration accessibility readiness", () => {
           "timeline.activity_synopsis_text",
         );
         await expect(page.getByTestId("conflict-server-value")).toHaveValue(
-          "FE-A11Y-P7 saved value",
+          "a11y.collaboration saved value",
         );
         await expect(page.getByTestId("conflict-local-value")).toHaveValue(
-          "FE-A11Y-P7 local draft",
+          "a11y.collaboration local draft",
         );
         await expect(page.getByRole("button", { name: "Close" })).toBeVisible();
         await expect(
@@ -2528,21 +2539,21 @@ test.describe("browser.saved-view-query accessibility readiness", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("A11YP8"),
-      "FE-A11Y-P8 query controls",
+      uniqueIncidentKey("A11YSAVEDVIEWQUERY"),
+      "a11y.saved-view-query query controls",
     );
     const reviewedRow = await createViewRow(
       page,
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("fe-a11y-p8-reviewed"),
-        "timeline.activity_synopsis_text": "FE-A11Y-P8 reviewed row",
+        client_txn_id: uniqueTxn("a11y.saved-view-query-reviewed"),
+        "timeline.activity_synopsis_text": "a11y.saved-view-query reviewed row",
       },
     );
     await createViewRow(page, incidentId, timelineViewSchemaId, {
-      client_txn_id: uniqueTxn("fe-a11y-p8-rough"),
-      "timeline.activity_synopsis_text": "FE-A11Y-P8 rough row",
+      client_txn_id: uniqueTxn("a11y.saved-view-query-rough"),
+      "timeline.activity_synopsis_text": "a11y.saved-view-query rough row",
     });
 
     await page.goto(`/?incident_id=${incidentId}`);
@@ -2637,7 +2648,7 @@ test.describe("browser.saved-view-query accessibility readiness", () => {
       savedViewNameInputTestId(timelineViewSchemaId),
     );
     await expectVisibleFocus(savedViewNameInput);
-    await savedViewNameInput.fill("FE-A11Y-P8 keyboard saved view");
+    await savedViewNameInput.fill("a11y.saved-view-query keyboard saved view");
     const createSavedViewButton = page.getByTestId(
       savedViewCreateButtonTestId(timelineViewSchemaId),
     );
@@ -2702,11 +2713,11 @@ test.describe("browser.inspector-history accessibility readiness", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("A11YP902"),
+      uniqueIncidentKey("A11YINSPECTORCONFIG"),
       "a11y.inspector-history.row-02 config-driven inspector",
     );
     const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
-      client_txn_id: uniqueTxn("fe-a11y-p9-02-row"),
+      client_txn_id: uniqueTxn("a11y.inspector-history-02-row"),
       "timeline.raw_activity_text":
         "a11y.inspector-history.row-02 inspector details",
       "timeline.activity_synopsis_text":
@@ -2750,6 +2761,11 @@ test.describe("browser.inspector-history accessibility readiness", () => {
       "a11y.inspector-history.row-02 inspector details",
     );
 
+    await detailsEditor.press("Escape");
+    const semanticSummaryCell = semanticGridCell(summaryCell);
+    await expect(semanticSummaryCell).toBeFocused();
+    await semanticSummaryCell.press("Escape");
+    await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
     await expectVisibleSemanticGridCellFocus(summaryCell);
     await page.keyboard.press("Shift+F10");
     const openHistory = page.getByTestId(
@@ -2796,24 +2812,26 @@ test.describe("browser.inspector-history accessibility readiness", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("A11YP9"),
-      "FE-A11Y-P9 inspector actions",
+      uniqueIncidentKey("A11YINSPECTORHISTORY"),
+      "a11y.inspector-history inspector actions",
     );
     const evidence = (await createViewRow(
       page,
       incidentId,
       evidenceViewSchemaId,
       {
-        client_txn_id: uniqueTxn("fe-a11y-p9-evidence"),
-        "evidence.collector_party_text": "FE-A11Y-P9 collector",
-        "evidence.title": "FE-A11Y-P9 evidence",
+        client_txn_id: uniqueTxn("a11y.inspector-history-evidence"),
+        "evidence.collector_party_text": "a11y.inspector-history collector",
+        "evidence.title": "a11y.inspector-history evidence",
       },
     )) as ViewRow;
     const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
-      [hostRefsFieldKey]: collectionActionsPayload(["FE-A11Y-P9 host"]),
-      client_txn_id: uniqueTxn("fe-a11y-p9-row"),
-      "timeline.raw_activity_text": "FE-A11Y-P9 inspector details",
-      "timeline.activity_synopsis_text": "FE-A11Y-P9 selected row",
+      [hostRefsFieldKey]: collectionActionsPayload([
+        "a11y.inspector-history host",
+      ]),
+      client_txn_id: uniqueTxn("a11y.inspector-history-row"),
+      "timeline.raw_activity_text": "a11y.inspector-history inspector details",
+      "timeline.activity_synopsis_text": "a11y.inspector-history selected row",
     })) as ViewRow;
     const linkedRow = (await patchRecord(page, row.record_id, {
       base_row_version: row.row_version,
@@ -2823,12 +2841,12 @@ test.describe("browser.inspector-history accessibility readiness", () => {
           field_key: "timeline.attached_evidence_ids",
         },
       ],
-      client_txn_id: uniqueTxn("fe-a11y-p9-link"),
+      client_txn_id: uniqueTxn("a11y.inspector-history-link"),
       view_schema_id: timelineViewSchemaId,
     })) as ViewRow;
     const hostItem = requireItemByRawText(
       collectionItems(linkedRow, hostRefsFieldKey),
-      "FE-A11Y-P9 host",
+      "a11y.inspector-history host",
     );
     const history = await fetchA11yRecordHistory(page, row.record_id);
     const rollbackItem = requireA11yHistoryEntryAction(history);
@@ -2863,7 +2881,9 @@ test.describe("browser.inspector-history accessibility readiness", () => {
       }),
     );
     await expectVisibleFocus(detailsEditor);
-    await expect(detailsEditor).toHaveValue("FE-A11Y-P9 inspector details");
+    await expect(detailsEditor).toHaveValue(
+      "a11y.inspector-history inspector details",
+    );
 
     const relationshipChip = page
       .getByTestId(relationshipItemsTestId(row.record_id, hostRefsFieldKey))
@@ -2871,6 +2891,12 @@ test.describe("browser.inspector-history accessibility readiness", () => {
     await expect(relationshipChip).toContainText("Unresolved");
     await expectVisibleFocus(relationshipChip);
 
+    await expectVisibleFocus(detailsEditor);
+    await detailsEditor.press("Escape");
+    const semanticSummaryCell = semanticGridCell(summaryCell);
+    await expect(semanticSummaryCell).toBeFocused();
+    await semanticSummaryCell.press("Escape");
+    await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
     await expectVisibleSemanticGridCellFocus(summaryCell);
     await page.keyboard.press("Shift+F10");
     const openHistory = page.getByTestId(
@@ -2907,7 +2933,7 @@ test.describe("browser.inspector-history accessibility readiness", () => {
         body: JSON.stringify({
           error: {
             code: "row_version_conflict",
-            message: "Rollback target is stale for FE-A11Y-P9.",
+            message: "Rollback target is stale for a11y.inspector-history.",
             retryable: false,
           },
         }),
@@ -2967,8 +2993,8 @@ test.describe("browser.coordination-review accessibility readiness", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("A11YP10"),
-      "FE-A11Y-P10 coordination accessibility",
+      uniqueIncidentKey("A11YCOORDINATIONREVIEW"),
+      "a11y.coordination-review coordination accessibility",
     );
     const owner = await createIncidentMemberUser(page, incidentId, {
       display_name: "browser.coordination-review accessibility owner",
@@ -2977,8 +3003,8 @@ test.describe("browser.coordination-review accessibility readiness", () => {
       role: "editor",
     });
     const party = (await createViewRow(page, incidentId, partiesViewSchemaId, {
-      client_txn_id: uniqueTxn("fe-a11y-p10-party"),
-      "party.display_name": "FE-A11Y-P10 response party",
+      client_txn_id: uniqueTxn("a11y.coordination-review-party"),
+      "party.display_name": "a11y.coordination-review response party",
       "party.party_kind": "team",
     })) as ViewRow;
     const task = (await createViewRow(
@@ -2986,11 +3012,11 @@ test.describe("browser.coordination-review accessibility readiness", () => {
       incidentId,
       taskRequestsViewSchemaId,
       {
-        client_txn_id: uniqueTxn("fe-a11y-p10-task"),
+        client_txn_id: uniqueTxn("a11y.coordination-review-task"),
         "task.priority": "normal",
         "task.requester_party_id": party.record_id,
         "task.task_kind": "collection",
-        "task.title": "FE-A11Y-P10 task alpha",
+        "task.title": "a11y.coordination-review task alpha",
       },
     )) as ViewRow;
     const urgentTask = (await createViewRow(
@@ -2998,10 +3024,10 @@ test.describe("browser.coordination-review accessibility readiness", () => {
       incidentId,
       taskRequestsViewSchemaId,
       {
-        client_txn_id: uniqueTxn("fe-a11y-p10-urgent-task"),
+        client_txn_id: uniqueTxn("a11y.coordination-review-urgent-task"),
         "task.priority": "urgent",
         "task.task_kind": "follow_up",
-        "task.title": "FE-A11Y-P10 task urgent",
+        "task.title": "a11y.coordination-review task urgent",
       },
     )) as ViewRow;
     const clipboardRow = (await createViewRow(
@@ -3009,9 +3035,10 @@ test.describe("browser.coordination-review accessibility readiness", () => {
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("fe-a11y-p10-clipboard"),
+        client_txn_id: uniqueTxn("a11y.coordination-review-clipboard"),
         "timeline.activity_utc_text": "2026-06-12T10:00:00Z",
-        "timeline.activity_synopsis_text": "FE-A11Y-P10 clipboard row",
+        "timeline.activity_synopsis_text":
+          "a11y.coordination-review clipboard row",
       },
     )) as ViewRow;
     const decision = (await createViewRow(
@@ -3019,16 +3046,16 @@ test.describe("browser.coordination-review accessibility readiness", () => {
       incidentId,
       decisionsViewSchemaId,
       {
-        client_txn_id: uniqueTxn("fe-a11y-p10-decision"),
+        client_txn_id: uniqueTxn("a11y.coordination-review-decision"),
         "decision.decision_type": "containment",
-        "decision.rationale": "FE-A11Y-P10 coordination rationale",
-        "decision.summary": "FE-A11Y-P10 decision summary",
+        "decision.rationale": "a11y.coordination-review coordination rationale",
+        "decision.summary": "a11y.coordination-review decision summary",
       },
     )) as ViewRow;
     const comm = (await createViewRow(page, incidentId, commLogViewSchemaId, {
-      client_txn_id: uniqueTxn("fe-a11y-p10-comm"),
-      "comm_log.audience": "FE-A11Y-P10 responders",
-      "comm_log.channel_or_meeting": "FE-A11Y-P10 bridge",
+      client_txn_id: uniqueTxn("a11y.coordination-review-comm"),
+      "comm_log.audience": "a11y.coordination-review responders",
+      "comm_log.channel_or_meeting": "a11y.coordination-review bridge",
       "comm_log.comm_type": "briefing",
       "comm_log.decision_ids": {
         actions: [
@@ -3036,15 +3063,16 @@ test.describe("browser.coordination-review accessibility readiness", () => {
         ],
         kind: "collection_actions_v1",
       },
-      "comm_log.summary": "FE-A11Y-P10 communications log",
+      "comm_log.summary": "a11y.coordination-review communications log",
     })) as ViewRow;
     const handoff = (await createViewRow(
       page,
       incidentId,
       handoffViewSchemaId,
       {
-        client_txn_id: uniqueTxn("fe-a11y-p10-handoff"),
-        "handoff.current_state_summary": "FE-A11Y-P10 handoff state",
+        client_txn_id: uniqueTxn("a11y.coordination-review-handoff"),
+        "handoff.current_state_summary":
+          "a11y.coordination-review handoff state",
         "handoff.incoming_owner_user_id": owner.user_id,
       },
     )) as ViewRow;
@@ -3053,19 +3081,19 @@ test.describe("browser.coordination-review accessibility readiness", () => {
       incidentId,
       statusReviewViewSchemaId,
       {
-        client_txn_id: uniqueTxn("fe-a11y-p10-status"),
+        client_txn_id: uniqueTxn("a11y.coordination-review-status"),
         "status_review.current_state_summary":
-          "FE-A11Y-P10 status review state",
+          "a11y.coordination-review status review state",
       },
     )) as ViewRow;
     const lesson = (await createViewRow(page, incidentId, lessonViewSchemaId, {
-      client_txn_id: uniqueTxn("fe-a11y-p10-lesson"),
-      "lesson.summary": "FE-A11Y-P10 lesson summary",
+      client_txn_id: uniqueTxn("a11y.coordination-review-lesson"),
+      "lesson.summary": "a11y.coordination-review lesson summary",
     })) as ViewRow;
 
     const surfaces = [
       {
-        expected: "FE-A11Y-P10 task alpha",
+        expected: "a11y.coordination-review task alpha",
         fieldKey: "task.title",
         groupToken: "coordination",
         label: "Task Requests",
@@ -3073,7 +3101,7 @@ test.describe("browser.coordination-review accessibility readiness", () => {
         viewSchemaId: taskRequestsViewSchemaId,
       },
       {
-        expected: "FE-A11Y-P10 decision summary",
+        expected: "a11y.coordination-review decision summary",
         fieldKey: "decision.summary",
         groupToken: "coordination",
         label: "Decisions",
@@ -3081,7 +3109,7 @@ test.describe("browser.coordination-review accessibility readiness", () => {
         viewSchemaId: decisionsViewSchemaId,
       },
       {
-        expected: "FE-A11Y-P10 response party",
+        expected: "a11y.coordination-review response party",
         fieldKey: "party.display_name",
         groupToken: "coordination",
         label: "Parties",
@@ -3089,7 +3117,7 @@ test.describe("browser.coordination-review accessibility readiness", () => {
         viewSchemaId: partiesViewSchemaId,
       },
       {
-        expected: "FE-A11Y-P10 communications log",
+        expected: "a11y.coordination-review communications log",
         fieldKey: "comm_log.summary",
         groupToken: "coordination",
         label: "Communications Log",
@@ -3097,7 +3125,7 @@ test.describe("browser.coordination-review accessibility readiness", () => {
         viewSchemaId: commLogViewSchemaId,
       },
       {
-        expected: "FE-A11Y-P10 handoff state",
+        expected: "a11y.coordination-review handoff state",
         fieldKey: "handoff.current_state_summary",
         groupToken: "coordination",
         label: "Handoff",
@@ -3105,7 +3133,7 @@ test.describe("browser.coordination-review accessibility readiness", () => {
         viewSchemaId: handoffViewSchemaId,
       },
       {
-        expected: "FE-A11Y-P10 status review state",
+        expected: "a11y.coordination-review status review state",
         fieldKey: "status_review.current_state_summary",
         groupToken: "review-learning",
         label: "Status Review",
@@ -3113,7 +3141,7 @@ test.describe("browser.coordination-review accessibility readiness", () => {
         viewSchemaId: statusReviewViewSchemaId,
       },
       {
-        expected: "FE-A11Y-P10 lesson summary",
+        expected: "a11y.coordination-review lesson summary",
         fieldKey: "lesson.summary",
         groupToken: "review-learning",
         label: "Lesson",
@@ -3203,7 +3231,7 @@ test.describe("browser.coordination-review accessibility readiness", () => {
       );
       return data.getData("text/plain");
     });
-    expect(copiedTaskTitle).toBe("FE-A11Y-P10 task alpha");
+    expect(copiedTaskTitle).toBe("a11y.coordination-review task alpha");
 
     await page.goto(`/?incident_id=${incidentId}`);
     await expect(
@@ -3218,13 +3246,20 @@ test.describe("browser.coordination-review accessibility readiness", () => {
     await expectVisibleSemanticGridCellFocus(clipboardSummary);
     await pasteGridMatrix({
       fieldKey: "timeline.activity_synopsis_text",
-      matrix: [["FE-A11Y-P10 pasted timeline", "fe-a11y-p10-host"]],
+      matrix: [
+        [
+          "a11y.coordination-review pasted timeline",
+          "a11y.coordination-review-host",
+        ],
+      ],
       page,
       recordId: clipboardRow.record_id,
       surface: timelineViewSchemaId,
     });
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-    await expect(clipboardSummary).toHaveText("FE-A11Y-P10 pasted timeline");
+    await expect(clipboardSummary).toHaveText(
+      "a11y.coordination-review pasted timeline",
+    );
 
     await openA11ySystemSurface(page, {
       groupToken: "coordination",
@@ -3254,14 +3289,17 @@ test.describe("browser.coordination-review accessibility readiness", () => {
       urgentTask.record_id,
       "task.title",
     );
-    await expectCellTextOrValue(urgentTitle, "FE-A11Y-P10 task urgent");
+    await expectCellTextOrValue(
+      urgentTitle,
+      "a11y.coordination-review task urgent",
+    );
 
     await openSavedViewActionMenu(page, taskRequestsViewSchemaId);
     const savedViewName = page.getByTestId(
       savedViewNameInputTestId(taskRequestsViewSchemaId),
     );
     await expectVisibleFocus(savedViewName);
-    await savedViewName.fill("FE-A11Y-P10 keyboard saved view");
+    await savedViewName.fill("a11y.coordination-review keyboard saved view");
     const createSavedView = page.getByTestId(
       savedViewCreateButtonTestId(taskRequestsViewSchemaId),
     );
@@ -3273,36 +3311,38 @@ test.describe("browser.coordination-review accessibility readiness", () => {
     await expect(savedStatus).toHaveAttribute("aria-live", "polite");
     await expect(savedStatus).toHaveText("Saved view created.");
 
-    await test.info().attach("fe-a11y-p10-01-readiness-matrix.json", {
-      contentType: "application/json",
-      body: Buffer.from(
-        `${JSON.stringify(
-          {
-            checks: [
-              "keyboard reachability",
-              "visible focus",
-              "accessible names",
-              "system-view menu ARIA state",
-              "status and saved-view live regions",
-              "clipboard copy and paste",
-              "non-color-only filter chip state",
-            ],
-            scenario_title: test.info().title,
-            stable_identity_scope: "view_schema_id + record_id + field_key",
-            surfaces: surfaces.map((surface) => ({
-              field_key: surface.fieldKey,
-              record_id: surface.row.record_id,
-              surface: surface.label,
-              view_schema_id: surface.viewSchemaId,
-            })),
-            viewport: "1440x900",
-            zoom: "100%",
-          },
-          null,
-          2,
-        )}\n`,
-      ),
-    });
+    await test
+      .info()
+      .attach("a11y.coordination-review-01-readiness-matrix.json", {
+        contentType: "application/json",
+        body: Buffer.from(
+          `${JSON.stringify(
+            {
+              checks: [
+                "keyboard reachability",
+                "visible focus",
+                "accessible names",
+                "system-view menu ARIA state",
+                "status and saved-view live regions",
+                "clipboard copy and paste",
+                "non-color-only filter chip state",
+              ],
+              scenario_title: test.info().title,
+              stable_identity_scope: "view_schema_id + record_id + field_key",
+              surfaces: surfaces.map((surface) => ({
+                field_key: surface.fieldKey,
+                record_id: surface.row.record_id,
+                surface: surface.label,
+                view_schema_id: surface.viewSchemaId,
+              })),
+              viewport: "1440x900",
+              zoom: "100%",
+            },
+            null,
+            2,
+          )}\n`,
+        ),
+      });
 
     await expectAllInteractiveControlsNamed(page);
     await expectNoFocusTrap(page);
@@ -3330,17 +3370,17 @@ test.describe("browser.design-readiness accessibility readiness", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("A11YP11"),
-      "FE-A11Y-P11 global accessibility matrix",
+      uniqueIncidentKey("A11YDESIGNREADINESS"),
+      "a11y.design-readiness global accessibility matrix",
     );
     const timelineRow = (await createViewRow(
       page,
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("fe-a11y-p11-timeline"),
+        client_txn_id: uniqueTxn("a11y.design-readiness-timeline"),
         "timeline.activity_utc_text": "2026-06-13T09:30:00Z",
-        "timeline.activity_synopsis_text": "FE-A11Y-P11 timeline row",
+        "timeline.activity_synopsis_text": "a11y.design-readiness timeline row",
         "timeline.raw_activity_text": "Global accessibility matrix details",
       },
     )) as ViewRow;
@@ -3349,10 +3389,10 @@ test.describe("browser.design-readiness accessibility readiness", () => {
       incidentId,
       taskRequestsViewSchemaId,
       {
-        client_txn_id: uniqueTxn("fe-a11y-p11-task"),
+        client_txn_id: uniqueTxn("a11y.design-readiness-task"),
         "task.priority": "normal",
         "task.task_kind": "collection",
-        "task.title": "FE-A11Y-P11 task row",
+        "task.title": "a11y.design-readiness task row",
       },
     )) as ViewRow;
 
@@ -3392,13 +3432,13 @@ test.describe("browser.design-readiness accessibility readiness", () => {
       "aria-label",
       `Activity Synopsis ${timelineRow.record_id}`,
     );
-    await summaryCell.fill("FE-A11Y-P11 edited via keyboard");
+    await summaryCell.fill("a11y.design-readiness edited via keyboard");
     await summaryCell.press("Enter");
     await expect(
       page.getByTestId(
         rowCellTestId(timelineRow.record_id, "timeline.activity_synopsis_text"),
       ),
-    ).toHaveText("FE-A11Y-P11 edited via keyboard");
+    ).toHaveText("a11y.design-readiness edited via keyboard");
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
 
     await openTimelineInspector(page, timelineRow.record_id);
@@ -3436,7 +3476,7 @@ test.describe("browser.design-readiness accessibility readiness", () => {
       taskRow.record_id,
       "task.title",
     );
-    await expectCellTextOrValue(taskTitle, "FE-A11Y-P11 task row");
+    await expectCellTextOrValue(taskTitle, "a11y.design-readiness task row");
     await expectVisibleSemanticGridCellFocus(taskTitle);
     await openFilterPopover(page, taskRequestsViewSchemaId);
     await expect(

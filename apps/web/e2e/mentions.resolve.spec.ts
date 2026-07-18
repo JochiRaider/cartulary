@@ -47,8 +47,8 @@ test("resolves and creates entities from Timeline mentions in the inspector", as
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E401"),
-    "Record relationships E-4-01",
+    uniqueIncidentKey("MENTION-RESOLUTION"),
+    "Record relationships entity-resolution",
   );
   const existingHost = (await createViewRow(
     page,
@@ -61,20 +61,20 @@ test("resolves and creates entities from Timeline mentions in the inspector", as
     },
   )) as ViewRow;
 
-  await createTimelineFillers(page, incidentId, "E-4-01 filler", 12);
+  await createTimelineFillers(page, incidentId, "entity-resolution filler", 12);
   const siblingRow = (await createViewRow(
     page,
     incidentId,
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("e401-sibling"),
-      "timeline.activity_synopsis_text": "E-4-01 sibling unresolved",
+      "timeline.activity_synopsis_text": "entity-resolution sibling unresolved",
       [hostRefsFieldKey]: collectionActionsPayload(["WS-023?"]),
     },
   )) as ViewRow;
   const mainRow = (await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e401-main"),
-    "timeline.activity_synopsis_text": "E-4-01 workbook row",
+    "timeline.activity_synopsis_text": "entity-resolution workbook row",
   })) as ViewRow;
   const identitiesBefore = await queryViewRows(
     page,
@@ -90,7 +90,7 @@ test("resolves and creates entities from Timeline mentions in the inspector", as
   );
   await ensureTimelineGridTargetVisible(page, mainSummaryTestId);
   await expect(page.getByTestId(mainSummaryTestId)).toHaveText(
-    "E-4-01 workbook row",
+    "entity-resolution workbook row",
   );
 
   const hostAddEnvelope = await addRelationshipTokenViaUI(

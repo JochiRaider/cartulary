@@ -26,8 +26,8 @@ test("merges duplicate entities from the inspector and preserves survivor identi
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E403"),
-    "Record relationships E-4-03",
+    uniqueIncidentKey("ENTITY-MERGE"),
+    "Record relationships entity-resolution",
   );
   const survivor = (await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e403-survivor"),
@@ -69,7 +69,7 @@ test("merges duplicate entities from the inspector and preserves survivor identi
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("e403-row"),
-      "timeline.activity_synopsis_text": "E-4-03 dependent row",
+      "timeline.activity_synopsis_text": "entity-resolution dependent row",
       [hostRefsFieldKey]: collectionActionsPayload(["Workstation 23"]),
     },
   )) as ViewRow;
@@ -83,7 +83,8 @@ test("merges duplicate entities from the inspector and preserves survivor identi
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("e403-identity-row"),
-      "timeline.activity_synopsis_text": "E-4-03 identity dependent row",
+      "timeline.activity_synopsis_text":
+        "entity-resolution identity dependent row",
       [identityRefsFieldKey]: collectionActionsPayload(["Case Owner"]),
     },
   )) as ViewRow;
@@ -140,7 +141,7 @@ test("merges duplicate entities from the inspector and preserves survivor identi
     incidentId,
     loser,
     loserLabel: "WS-023 duplicate",
-    mergeReason: "Record relationships E-4-03 duplicate merge",
+    mergeReason: "Record relationships entity-resolution duplicate merge",
     rawText: "Workstation 23",
     recordType: "host",
     resolvedLabel: "WS-023",
@@ -156,7 +157,8 @@ test("merges duplicate entities from the inspector and preserves survivor identi
     incidentId,
     loser: identityLoser,
     loserLabel: "Alex Analyst duplicate",
-    mergeReason: "Record relationships E-4-03 identity duplicate merge",
+    mergeReason:
+      "Record relationships entity-resolution identity duplicate merge",
     rawText: "Case Owner",
     recordType: "identity",
     resolvedLabel: "Alex Analyst",

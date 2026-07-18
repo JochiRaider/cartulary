@@ -610,24 +610,13 @@ function ownerSource(item) {
   if (item.coverage === "unmapped") {
     return "none";
   }
+  if (item.id) {
+    return "test_catalog";
+  }
   if (item.coverage === "raw") {
     return "execution_topology";
   }
-  if (item.id) {
-    return String(item.id).startsWith("FE-") ? "frontend_step_map" : "step_map";
-  }
-  if (item.coverage === "tooling_support" || item.coverage === "unowned_regression" || item.coverage === "support") {
-    return "classification_manifest";
-  }
-  return "summary";
-}
-
-function rowLikeInventoryTitle(item) {
-  const value = String(item?.symbol_or_title ?? "");
-  return (
-    /\bFE-[A-Z]+-P\d+-\d+\b/.test(value) ||
-    /\b[UIE]-\d+(?:-[A-Z0-9]+)*-\d+\b/.test(value)
-  );
+  return "explicit_accounting";
 }
 
 function writeAccountingForSummary(target, summary) {
@@ -650,9 +639,9 @@ function writeAccountingForSummary(target, summary) {
       }
       byFile.get(file).push(item);
     }
-    const rowLike = items.filter(rowLikeInventoryTitle).length;
+    const catalogRows = items.filter((item) => Boolean(item.id)).length;
     process.stdout.write(
-      `[ACCOUNTING-BUCKET] target=${target || summary.target || "run"} coverage=${coverage} entries=${items.length} files=${byFile.size} row_like_titles=${rowLike}\n`,
+      `[ACCOUNTING-BUCKET] target=${target || summary.target || "run"} coverage=${coverage} entries=${items.length} files=${byFile.size} catalog_rows=${catalogRows}\n`,
     );
     const files = [...byFile.entries()].sort((left, right) => {
       if (right[1].length !== left[1].length) {

@@ -720,7 +720,7 @@ write_valid_scheduler_pressure_summary() {
   "row_fixture_pressure": [
     {
       "target": "backend-store",
-      "row_id": "U-9-08",
+      "row_id": "module.workbook.store",
       "execution_family": "graph_projection_coordination",
       "fixture_class": "transaction_or_shared_postgres",
       "work_unit_count": 1,
@@ -739,7 +739,7 @@ write_valid_scheduler_pressure_summary() {
   "fixture_proof_records": [
     {
       "target": "backend-store",
-      "row_id": "U-9-08",
+      "row_id": "module.workbook.store",
       "execution_family": "graph_projection_coordination",
       "symbol": "TestCoordinationProjectionSortFilterGroup_Unit",
       "fixture_policy": "transaction",
@@ -755,7 +755,7 @@ write_valid_scheduler_pressure_summary() {
       "schema_id": "cartulary.fixture_tier_proof.v2",
       "target": "backend-store",
       "owner_id": "module.graphprojection",
-      "row_id": "U-9-08",
+      "row_id": "module.workbook.store",
       "execution_family": "graph_projection_coordination",
       "symbol": "TestCoordinationProjectionSortFilterGroup_Unit",
       "effective_fixture_policy": "transaction",
@@ -831,7 +831,7 @@ write_valid_fixture_tier_proof() {
   "schema_id": "cartulary.fixture_tier_proof.v2",
   "target": "backend-integration",
   "owner_id": "module.recovery",
-  "row_id": "I-11-IMPORT-01",
+  "row_id": "module.imports.integration",
   "execution_family": "backend_integration_import_boundary_negative",
   "symbol": "TestImportInvalidRequestHasNoDurableRows",
   "effective_fixture_policy": "template_clone",

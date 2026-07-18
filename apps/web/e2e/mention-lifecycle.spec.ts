@@ -43,7 +43,7 @@ const exactScenarioTitle =
 test(exactScenarioTitle, async ({ page }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("FEEP501"),
+    uniqueIncidentKey("ENTITYMENTION"),
     "Evidence end-to-end.entity-linking.row-01",
   );
   const manualTarget = (await createViewRow(
@@ -51,35 +51,35 @@ test(exactScenarioTitle, async ({ page }) => {
     incidentId,
     hostsViewSchemaId,
     {
-      client_txn_id: uniqueTxn("feep501-manual-target"),
+      client_txn_id: uniqueTxn("entity-mention-manual-target"),
       "host.display_name": "end-to-end.entity-linking Manual Target",
-      "host.hostname": "feep501-manual-target.example.test",
+      "host.hostname": "entity-mention-manual-target.example.test",
     },
   )) as ViewRow;
   const autoTarget = (await createViewRow(page, incidentId, hostsViewSchemaId, {
-    client_txn_id: uniqueTxn("feep501-auto-target"),
+    client_txn_id: uniqueTxn("entity-mention-auto-target"),
     "host.display_name": "end-to-end.entity-linking Auto Target",
-    "host.hostname": "feep501-auto-target.example.test",
-    "host.aliases": aliasCollectionActionsPayload(["FEEP501 Auto Alias"]),
+    "host.hostname": "entity-mention-auto-target.example.test",
+    "host.aliases": aliasCollectionActionsPayload(["ENTITYMENTION Auto Alias"]),
   })) as ViewRow;
   const correctionTarget = (await createViewRow(
     page,
     incidentId,
     hostsViewSchemaId,
     {
-      client_txn_id: uniqueTxn("feep501-correction-target"),
+      client_txn_id: uniqueTxn("entity-mention-correction-target"),
       "host.display_name": "end-to-end.entity-linking Corrected Target",
-      "host.hostname": "feep501-corrected-target.example.test",
+      "host.hostname": "entity-mention-corrected-target.example.test",
     },
   )) as ViewRow;
-  const manualRawText = "FEEP501 Manual Raw";
-  const autoRawText = "FEEP501 Auto Alias";
+  const manualRawText = "ENTITYMENTION Manual Raw";
+  const autoRawText = "ENTITYMENTION Auto Alias";
   const manualRow = (await createViewRow(
     page,
     incidentId,
     timelineViewSchemaId,
     {
-      client_txn_id: uniqueTxn("feep501-manual-row"),
+      client_txn_id: uniqueTxn("entity-mention-manual-row"),
       "timeline.activity_synopsis_text":
         "end-to-end.entity-linking manual lifecycle row",
       [hostRefsFieldKey]: collectionActionsPayload([manualRawText]),
@@ -90,7 +90,7 @@ test(exactScenarioTitle, async ({ page }) => {
     incidentId,
     timelineViewSchemaId,
     {
-      client_txn_id: uniqueTxn("feep501-auto-correction-row"),
+      client_txn_id: uniqueTxn("entity-mention-auto-correction-row"),
       "timeline.activity_synopsis_text":
         "end-to-end.entity-linking auto correction row",
     },
@@ -100,7 +100,7 @@ test(exactScenarioTitle, async ({ page }) => {
     incidentId,
     timelineViewSchemaId,
     {
-      client_txn_id: uniqueTxn("feep501-auto-undo-row"),
+      client_txn_id: uniqueTxn("entity-mention-auto-undo-row"),
       "timeline.activity_synopsis_text":
         "end-to-end.entity-linking auto undo row",
     },
@@ -257,7 +257,7 @@ test(exactScenarioTitle, async ({ page }) => {
   await expect(autoCorrectionNotice).toContainText(
     "end-to-end.entity-linking Auto Target",
   );
-  await expect(autoCorrectionNotice).toContainText("FEEP501 Auto Alias");
+  await expect(autoCorrectionNotice).toContainText("ENTITYMENTION Auto Alias");
   await autoCorrectionNotice
     .getByTestId(
       autoResolutionReviewButtonTestId(String(autoCorrectionItem.item_ref)),
@@ -271,7 +271,7 @@ test(exactScenarioTitle, async ({ page }) => {
   const removeFailedCorrectionRoute = await routeFailedMentionActionOnce(
     page,
     autoCorrectionItem.item_ref,
-    "feep501-auto-correction-conflict",
+    "entity-mention-auto-correction-conflict",
   );
   const failedCorrectionResponsePromise = waitForMentionAction(
     page,
@@ -346,7 +346,7 @@ test(exactScenarioTitle, async ({ page }) => {
   const removeFailedUndoRoute = await routeFailedMentionActionOnce(
     page,
     autoUndoItem.item_ref,
-    "feep501-auto-undo-conflict",
+    "entity-mention-auto-undo-conflict",
   );
   const failedUndoResponsePromise = waitForMentionAction(
     page,

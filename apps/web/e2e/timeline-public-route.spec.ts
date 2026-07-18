@@ -283,17 +283,17 @@ test(
 
     const incidentId = await createIncident(
       page,
-      uniqueIncidentKey("FEEP401"),
+      uniqueIncidentKey("TIMELINEPUBLIC"),
       "end-to-end.mutation-lifecycle.row-01 public route browser coverage",
     );
     const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
-      client_txn_id: uniqueTxn("feep401-alpha"),
+      client_txn_id: uniqueTxn("timeline-public-alpha"),
       "timeline.activity_utc_text": "2026-04-10T10:00:00.000Z",
       "timeline.activity_synopsis_text":
         "end-to-end.mutation-lifecycle.row-01 Alpha",
     });
     const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
-      client_txn_id: uniqueTxn("feep401-beta"),
+      client_txn_id: uniqueTxn("timeline-public-beta"),
       "timeline.activity_utc_text": "2026-04-10T10:05:00.000Z",
       "timeline.activity_synopsis_text":
         "end-to-end.mutation-lifecycle.row-01 Beta",
@@ -303,7 +303,7 @@ test(
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("feep401-paste-seed"),
+        client_txn_id: uniqueTxn("timeline-public-paste-seed"),
         "timeline.activity_synopsis_text":
           "end-to-end.mutation-lifecycle.row-01 Paste seed",
       },
@@ -313,7 +313,7 @@ test(
       incidentId,
       timelineViewSchemaId,
       {
-        client_txn_id: uniqueTxn("feep401-tabular-seed"),
+        client_txn_id: uniqueTxn("timeline-public-tabular-seed"),
         "timeline.activity_synopsis_text":
           "end-to-end.mutation-lifecycle.row-01 Tabular seed",
       },
@@ -435,7 +435,7 @@ test(
         ["timeline.edited_at", "2026-04-10T10:15:00Z"],
       ] as const) {
         const response = await postTimelineCreatePublic(page, incidentId, {
-          client_txn_id: uniqueTxn(`feep401-create-${fieldKey}`),
+          client_txn_id: uniqueTxn(`timeline-public-create-${fieldKey}`),
           "timeline.activity_synopsis_text": `end-to-end.mutation-lifecycle.row-01 forbidden ${fieldKey}`,
           [fieldKey]: value,
         });
@@ -568,7 +568,7 @@ test(
           await patchTimelinePublic(page, beta.record_id, {
             view_schema_id: timelineViewSchemaId,
             base_row_version: patchEnvelope.data.row.row_version,
-            client_txn_id: uniqueTxn("feep401-empty-changes"),
+            client_txn_id: uniqueTxn("timeline-public-empty-changes"),
             changes: [],
           }),
           400,
@@ -579,7 +579,7 @@ test(
           await patchTimelinePublic(page, beta.record_id, {
             view_schema_id: timelineViewSchemaId,
             base_row_version: patchEnvelope.data.row.row_version,
-            client_txn_id: uniqueTxn("feep401-duplicate-field"),
+            client_txn_id: uniqueTxn("timeline-public-duplicate-field"),
             changes: [
               { field_key: "timeline.activity_synopsis_text", value: "first" },
               { field_key: "timeline.activity_synopsis_text", value: "second" },
@@ -593,7 +593,7 @@ test(
           await patchTimelinePublic(page, beta.record_id, {
             view_schema_id: timelineViewSchemaId,
             base_row_version: patchEnvelope.data.row.row_version,
-            client_txn_id: uniqueTxn("feep401-over-max"),
+            client_txn_id: uniqueTxn("timeline-public-over-max"),
             changes: Array.from({ length: 33 }, (_, index) => ({
               field_key: "timeline.activity_synopsis_text",
               value: `over max ${index}`,
@@ -607,7 +607,7 @@ test(
           await patchTimelinePublic(page, beta.record_id, {
             view_schema_id: timelineViewSchemaId,
             base_row_version: patchEnvelope.data.row.row_version + 100,
-            client_txn_id: uniqueTxn("feep401-row-version-conflict"),
+            client_txn_id: uniqueTxn("timeline-public-row-version-conflict"),
             changes: [
               {
                 field_key: "timeline.activity_synopsis_text",
@@ -625,7 +625,7 @@ test(
           incidentId,
           timelineViewSchemaId,
           {
-            client_txn_id: uniqueTxn("feep401-conflict-row"),
+            client_txn_id: uniqueTxn("timeline-public-conflict-row"),
             "timeline.activity_synopsis_text":
               "end-to-end.mutation-lifecycle.row-01 conflict base",
           },
@@ -636,7 +636,7 @@ test(
           {
             view_schema_id: timelineViewSchemaId,
             base_row_version: conflictRow.row_version,
-            client_txn_id: uniqueTxn("feep401-same-field-server"),
+            client_txn_id: uniqueTxn("timeline-public-same-field-server"),
             changes: [
               {
                 field_key: "timeline.activity_synopsis_text",
@@ -650,7 +650,7 @@ test(
           await patchTimelinePublic(page, conflictRow.record_id, {
             view_schema_id: timelineViewSchemaId,
             base_row_version: conflictRow.row_version,
-            client_txn_id: uniqueTxn("feep401-same-field-client"),
+            client_txn_id: uniqueTxn("timeline-public-same-field-client"),
             changes: [
               {
                 field_key: "timeline.activity_synopsis_text",
@@ -770,7 +770,7 @@ test(
         matrix: [
           [
             "end-to-end.mutation-lifecycle.row-01 tabular summary",
-            "feep401-host.example.test",
+            "timeline-public-host.example.test",
           ],
         ],
         page,
@@ -781,7 +781,7 @@ test(
       expect(pasteBody).toMatchObject({
         view_schema_id: timelineViewSchemaId,
         clipboard_text:
-          "end-to-end.mutation-lifecycle.row-01 tabular summary\tfeep401-host.example.test",
+          "end-to-end.mutation-lifecycle.row-01 tabular summary\ttimeline-public-host.example.test",
         format: "tsv",
         start_field_key: "timeline.activity_synopsis_text",
         columns: [
@@ -809,7 +809,7 @@ test(
 
       const foreignIncidentId = await createIncident(
         page,
-        uniqueIncidentKey("FEEP401FOREIGN"),
+        uniqueIncidentKey("TIMELINEPUBLICFOREIGN"),
         "end-to-end.mutation-lifecycle.row-01 foreign paste target",
       );
       const foreign = await createViewRow(
@@ -817,7 +817,7 @@ test(
         foreignIncidentId,
         timelineViewSchemaId,
         {
-          client_txn_id: uniqueTxn("feep401-foreign-row"),
+          client_txn_id: uniqueTxn("timeline-public-foreign-row"),
           "timeline.activity_synopsis_text":
             "end-to-end.mutation-lifecycle.row-01 foreign untouched",
         },
@@ -825,7 +825,7 @@ test(
       await expectPublicError(
         await postTimelinePastePublic(page, incidentId, {
           view_schema_id: timelineViewSchemaId,
-          client_txn_id: uniqueTxn("feep401-invalid-paste-target"),
+          client_txn_id: uniqueTxn("timeline-public-invalid-paste-target"),
           clipboard_text:
             "end-to-end.mutation-lifecycle.row-01 should not create\nend-to-end.mutation-lifecycle.row-01 should not disclose",
           format: "tsv",
@@ -866,7 +866,7 @@ test(
 
       const staleIncidentId = await createIncident(
         page,
-        uniqueIncidentKey("FEEP401STALE"),
+        uniqueIncidentKey("TIMELINEPUBLICSTALE"),
         "end-to-end.mutation-lifecycle.row-01 grouped paste conflict",
       );
       const staleFirst = await createViewRow(
@@ -874,7 +874,7 @@ test(
         staleIncidentId,
         timelineViewSchemaId,
         {
-          client_txn_id: uniqueTxn("feep401-stale-first"),
+          client_txn_id: uniqueTxn("timeline-public-stale-first"),
           "timeline.activity_synopsis_text":
             "end-to-end.mutation-lifecycle.row-01 stale first base",
         },
@@ -884,7 +884,7 @@ test(
         staleIncidentId,
         timelineViewSchemaId,
         {
-          client_txn_id: uniqueTxn("feep401-stale-second"),
+          client_txn_id: uniqueTxn("timeline-public-stale-second"),
           "timeline.activity_synopsis_text":
             "end-to-end.mutation-lifecycle.row-01 stale second base",
         },
@@ -957,7 +957,7 @@ test(
         await patchRecord(page, staleFirst.record_id, {
           view_schema_id: timelineViewSchemaId,
           base_row_version: staleFirst.row_version,
-          client_txn_id: uniqueTxn("feep401-stale-first-server"),
+          client_txn_id: uniqueTxn("timeline-public-stale-first-server"),
           changes: [
             {
               field_key: "timeline.activity_synopsis_text",
@@ -968,7 +968,7 @@ test(
         await patchRecord(page, staleSecond.record_id, {
           view_schema_id: timelineViewSchemaId,
           base_row_version: staleSecond.row_version,
-          client_txn_id: uniqueTxn("feep401-stale-second-server"),
+          client_txn_id: uniqueTxn("timeline-public-stale-second-server"),
           changes: [
             {
               field_key: "timeline.activity_synopsis_text",
@@ -1175,7 +1175,7 @@ test(
     await test.step("real session revocation replays queued public PATCH work in FIFO order", async () => {
       await exerciseRevokedPendingReplay({
         createdBy: "end-to-end.mutation-lifecycle.row-01",
-        incidentKeyPrefix: "FEEP401REVOKE",
+        incidentKeyPrefix: "TIMELINEPUBLICREVOKE",
         localValues: [
           "end-to-end.mutation-lifecycle.row-01 revoked A local",
           "end-to-end.mutation-lifecycle.row-01 revoked B local",
@@ -1201,7 +1201,7 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
 
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("FEEP401RECOVERY"),
+    uniqueIncidentKey("TIMELINEPUBLICRECOVERY"),
     "end-to-end.mutation-lifecycle.row-01 transaction conflict recovery",
   );
   const remountRow = await createViewRow(
@@ -1209,13 +1209,13 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
     incidentId,
     timelineViewSchemaId,
     {
-      client_txn_id: uniqueTxn("feep401-remount-row"),
+      client_txn_id: uniqueTxn("timeline-public-remount-row"),
       "timeline.activity_synopsis_text":
         "end-to-end.mutation-lifecycle.row-01 remount base",
     },
   );
   const retryRow = await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("feep401-retry-row"),
+    client_txn_id: uniqueTxn("timeline-public-retry-row"),
     "timeline.activity_synopsis_text":
       "end-to-end.mutation-lifecycle.row-01 retry base",
   });
@@ -1224,7 +1224,7 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
     incidentId,
     timelineViewSchemaId,
     {
-      client_txn_id: uniqueTxn("feep401-discard-row"),
+      client_txn_id: uniqueTxn("timeline-public-discard-row"),
       "timeline.activity_synopsis_text":
         "end-to-end.mutation-lifecycle.row-01 discard base",
     },
@@ -1234,7 +1234,7 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
     incidentId,
     timelineViewSchemaId,
     {
-      client_txn_id: uniqueTxn("feep401-same-field-row"),
+      client_txn_id: uniqueTxn("timeline-public-same-field-row"),
       "timeline.activity_synopsis_text":
         "end-to-end.mutation-lifecycle.row-01 resolver base",
     },
@@ -1306,7 +1306,7 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
         {
           view_schema_id: timelineViewSchemaId,
           base_row_version: blockedCall?.body.base_row_version,
-          client_txn_id: uniqueTxn("feep401-retry-server-advance"),
+          client_txn_id: uniqueTxn("timeline-public-retry-server-advance"),
           changes: [
             {
               field_key: "timeline.data_source_text",
@@ -1401,7 +1401,7 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
           {
             view_schema_id: timelineViewSchemaId,
             base_row_version: sameFieldRow.row_version,
-            client_txn_id: uniqueTxn("feep401-resolver-server"),
+            client_txn_id: uniqueTxn("timeline-public-resolver-server"),
             changes: [
               {
                 field_key: "timeline.activity_synopsis_text",

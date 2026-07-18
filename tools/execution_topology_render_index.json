@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 2,
-  "input_digest": "sha256:659d753ee2bade974c3cb7f4512e88b9465a405e82402236976a9928d636558c",
+  "input_digest": "sha256:6c76fbe1a3b7cf0f31885856c926296fdead1784751ecb0255cded435dbe5b6d",
   "inputs": [
     {
       "path": "contracts/verification/owners/app.operator.json",
@@ -432,7 +432,7 @@
     {
       "path": "tools/harness/browser/browser-catalog-group-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:ebf6f4c1f97c9d4a712d3ff3a730e2ced87df405d4907ea5cb003ebf6b816d23"
+      "hash": "sha256:4fbe478a48f7232a65be28a573317eb1b10ec84e14a5a029caa42d69d813c261"
     },
     {
       "path": "tools/harness/browser/browser-evidence-finalize-cli.mjs",
@@ -457,7 +457,7 @@
     {
       "path": "tools/harness/browser/browser-stage-scheduler-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:51181bda255b6da410a4030f62a4ac8142042f9f6b76419863e175c164fca63a"
+      "hash": "sha256:bce7b45b1df8d4e95afc84036dd7b2fbf0583e25eefc27d2c1007282b73564ab"
     },
     {
       "path": "tools/harness/browser/browser-target-finalizer-cli.mjs",
@@ -667,7 +667,7 @@
     {
       "path": "tools/harness/generated-artifacts/execution-topology.mjs",
       "role": "renderer_source",
-      "hash": "sha256:80923f8c3e8cc9d19575bd43c598165b14ba942465819e64ad695dda8e39e2ea"
+      "hash": "sha256:5873a4ff420a10a95987bc66c9afd21cbdcb2aa8ade818889874c1811a59aca4"
     },
     {
       "path": "tools/harness/generated-artifacts/index.mjs",
@@ -902,7 +902,7 @@
     {
       "path": "tools/harness/test-catalog/semantic-identity-check-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:da645bda0ea548957df566891e2bd0489712f64ceeb6b9e602aa8cf9ba666515"
+      "hash": "sha256:1d68620c007afd412a0246d038d6a3ee96cc3ec08d50302238d17580f7c9bffd"
     },
     {
       "path": "tools/harness/test-catalog/semantic-json.mjs",

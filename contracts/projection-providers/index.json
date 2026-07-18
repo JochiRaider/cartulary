@@ -47,7 +47,7 @@
       ],
       "rebuild_after": [],
       "characterization_refs": [
-        "internal/modules/timeline/phase3_projection_contract_test.go"
+        "internal/modules/timeline/projection_contract_test.go"
       ]
     },
     {
@@ -85,7 +85,7 @@
         "timeline"
       ],
       "characterization_refs": [
-        "internal/modules/entities/phase4_integration_test.go"
+        "internal/modules/entities/resolution_integration_test.go"
       ]
     },
     {
@@ -123,7 +123,7 @@
         "host"
       ],
       "characterization_refs": [
-        "internal/modules/entities/phase4_integration_test.go"
+        "internal/modules/entities/resolution_integration_test.go"
       ]
     },
     {
@@ -160,7 +160,7 @@
         "identity"
       ],
       "characterization_refs": [
-        "internal/modules/indicators/phase9_indicators_test.go"
+        "internal/modules/indicators/indicators_test.go"
       ]
     },
     {
@@ -197,7 +197,7 @@
         "indicator"
       ],
       "characterization_refs": [
-        "internal/modules/assessments/phase9_assessment_contract_test.go",
+        "internal/modules/assessments/assessment_contract_test.go",
         "internal/modules/projections/query_test.go"
       ]
     },
@@ -245,7 +245,7 @@
         "assessment"
       ],
       "characterization_refs": [
-        "internal/modules/workbook/phase9_coordination_surfaces_test.go",
+        "internal/modules/workbook/coordination_surfaces_test.go",
         "internal/modules/projections/query_test.go"
       ]
     },
@@ -282,7 +282,7 @@
         "artifact"
       ],
       "characterization_refs": [
-        "internal/modules/evidence/phase5_integration_test.go",
+        "internal/modules/evidence/integration_test.go",
         "internal/modules/projections/query_test.go"
       ]
     },
@@ -319,7 +319,7 @@
         "evidence"
       ],
       "characterization_refs": [
-        "internal/modules/workbook/phase9_parties_integration_test.go",
+        "internal/modules/workbook/parties_integration_test.go",
         "internal/modules/projections/query_test.go"
       ]
     },
@@ -357,7 +357,7 @@
         "party"
       ],
       "characterization_refs": [
-        "internal/modules/tasksdecisions/phase9_task_decisions_store_test.go",
+        "internal/modules/tasksdecisions/task_decisions_store_test.go",
         "internal/modules/projections/query_test.go"
       ]
     },
@@ -395,7 +395,7 @@
         "task_request"
       ],
       "characterization_refs": [
-        "internal/modules/tasksdecisions/phase9_task_decisions_store_test.go",
+        "internal/modules/tasksdecisions/task_decisions_store_test.go",
         "internal/modules/projections/query_test.go"
       ]
     }

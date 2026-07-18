@@ -24,7 +24,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
-// I-4-08 / REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-239, REQ-01-315..REQ-01-316, REQ-01-568, REQ-02-163..REQ-02-185, REQ-03-205..REQ-03-216, REQ-03-276..REQ-03-279 / AC-205, AC-388..AC-392.
+// timeline-resolution / REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-239, REQ-01-315..REQ-01-316, REQ-01-568, REQ-02-163..REQ-02-185, REQ-03-205..REQ-03-216, REQ-03-276..REQ-03-279 / AC-205, AC-388..AC-392.
 func TestAutoResolutionEligibility_Integration(t *testing.T) {
 	t.Run("host alias exact equality auto resolves in the same patch change set", func(t *testing.T) {
 		harness := workbookscenariotest.StartServer(t, "entity_linking-u-4-08-host-auto-match")
@@ -32,7 +32,7 @@ func TestAutoResolutionEligibility_Integration(t *testing.T) {
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-host-incident",
 			"incident_key":  "IR-ENTITY-LINKING-U408-A",
-			"title":         "Record relationships I-4-08 host auto match",
+			"title":         "Record relationships timeline-resolution host auto match",
 		})
 		incidentID := incident["incident_id"].(string)
 		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "Gateway record", "gateway-record-01")
@@ -93,7 +93,7 @@ SELECT COUNT(*)
 		}
 
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
-		requireViewRowFieldSurface(t, "I-4-08", row, timeline.TimelineViewSchemaID)
+		requireViewRowFieldSurface(t, "timeline-resolution", row, timeline.TimelineViewSchemaID)
 		item := requireSingleCollectionItem(t, row, golden.RecordFieldTimelineHostRefs)
 		if item["item_kind"] != "resolved_ref" {
 			t.Fatalf("expected resolved_ref item after auto-match, got %#v", item)
@@ -143,7 +143,7 @@ SELECT COUNT(*)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-identity-incident",
 			"incident_key":  "IR-ENTITY-LINKING-U408-B",
-			"title":         "Record relationships I-4-08 identity auto match",
+			"title":         "Record relationships timeline-resolution identity auto match",
 		})
 		incidentID := incident["incident_id"].(string)
 		seedIdentityRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalIdentityID, "Identity record", "identity-record@example.test", "identity-record@example.test", "IDENTITYREC")
@@ -185,7 +185,7 @@ SELECT COUNT(*)
 			golden.RecordAutoMatchLinkExpectation.Confidence,
 		)
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
-		requireViewRowFieldSurface(t, "I-4-08", row, timeline.TimelineViewSchemaID)
+		requireViewRowFieldSurface(t, "timeline-resolution", row, timeline.TimelineViewSchemaID)
 		item := requireSingleCollectionItem(t, row, golden.RecordFieldTimelineIdentityRefs)
 		if item["matched_alias_text"] != "Analyst Alex" || item["provenance"] != golden.RecordLinkProvenanceAutoMatch {
 			t.Fatalf("expected identity auto-match metadata in refreshed row, got %#v", item)
@@ -198,7 +198,7 @@ SELECT COUNT(*)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-create-incident",
 			"incident_key":  "IR-ENTITY-LINKING-U408-CREATE",
-			"title":         "Record relationships I-4-08 create auto match",
+			"title":         "Record relationships timeline-resolution create auto match",
 		})
 		incidentID := incident["incident_id"].(string)
 		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "Create Host", "create-host")
@@ -282,7 +282,7 @@ SELECT COUNT(*)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-unresolved-incident",
 			"incident_key":  "IR-ENTITY-LINKING-U408-C",
-			"title":         "Record relationships I-4-08 unresolved eligibility",
+			"title":         "Record relationships timeline-resolution unresolved eligibility",
 		})
 		incidentID := incident["incident_id"].(string)
 		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "Host record", "host-record-23")
@@ -320,7 +320,7 @@ SELECT COUNT(*)
 				}
 
 				row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
-				requireViewRowFieldSurface(t, "I-4-08", row, timeline.TimelineViewSchemaID)
+				requireViewRowFieldSurface(t, "timeline-resolution", row, timeline.TimelineViewSchemaID)
 				item := requireSingleCollectionItem(t, row, golden.RecordFieldTimelineHostRefs)
 				if item["item_kind"] != "unresolved_mention" {
 					t.Fatalf("expected unresolved_mention item for %q, got %#v", rawText, item)
@@ -363,7 +363,7 @@ SELECT COUNT(*)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-competing-incident",
 			"incident_key":  "IR-ENTITY-LINKING-U408-D",
-			"title":         "Record relationships I-4-08 competing aliases",
+			"title":         "Record relationships timeline-resolution competing aliases",
 		})
 		incidentID := incident["incident_id"].(string)
 		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "Host A", "host-a")
@@ -394,7 +394,7 @@ SELECT COUNT(*)
 		requireSuccessEnvelopeWithBody(t, resp, http.StatusOK)
 
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
-		requireViewRowFieldSurface(t, "I-4-08", row, timeline.TimelineViewSchemaID)
+		requireViewRowFieldSurface(t, "timeline-resolution", row, timeline.TimelineViewSchemaID)
 		item := requireSingleCollectionItem(t, row, golden.RecordFieldTimelineHostRefs)
 		if item["item_kind"] != "unresolved_mention" {
 			t.Fatalf("competing alias candidates must remain unresolved, got %#v", item)
@@ -416,7 +416,7 @@ SELECT COUNT(*)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-mixed-incident",
 			"incident_key":  "IR-ENTITY-LINKING-U408-E",
-			"title":         "Record relationships I-4-08 mixed eligibility",
+			"title":         "Record relationships timeline-resolution mixed eligibility",
 		})
 		incidentID := incident["incident_id"].(string)
 		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "Gateway record", "gateway-record-02")
@@ -454,7 +454,7 @@ SELECT COUNT(*)
 		}
 
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
-		requireViewRowFieldSurface(t, "I-4-08", row, timeline.TimelineViewSchemaID)
+		requireViewRowFieldSurface(t, "timeline-resolution", row, timeline.TimelineViewSchemaID)
 		items := collectionItems(t, row, golden.RecordFieldTimelineHostRefs)
 		if len(items) != 2 {
 			t.Fatalf("expected two host ref items after mixed patch, got %#v", items)
@@ -490,7 +490,7 @@ SELECT COUNT(*)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-rollback-incident",
 			"incident_key":  "IR-ENTITY-LINKING-U408-F",
-			"title":         "Record relationships I-4-08 rollback",
+			"title":         "Record relationships timeline-resolution rollback",
 		})
 		incidentID := incident["incident_id"].(string)
 		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "Gateway record", "gateway-record-03")
@@ -558,7 +558,7 @@ SELECT COUNT(*)
 		}
 
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
-		requireViewRowFieldSurface(t, "I-4-08", row, timeline.TimelineViewSchemaID)
+		requireViewRowFieldSurface(t, "timeline-resolution", row, timeline.TimelineViewSchemaID)
 		if got := int64(row["row_version"].(float64)); got != 1 {
 			t.Fatalf("rollback must preserve source row_version, got %d", got)
 		}
@@ -572,7 +572,7 @@ SELECT COUNT(*)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-08-rebuild-incident",
 			"incident_key":  "IR-ENTITY-LINKING-I408-G",
-			"title":         "Record relationships I-4-08 projection rebuild",
+			"title":         "Record relationships timeline-resolution projection rebuild",
 		})
 		incidentID := incident["incident_id"].(string)
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
@@ -584,7 +584,7 @@ SELECT COUNT(*)
 		record := created["row"].(map[string]any)
 		recordID := record["record_id"].(string)
 		rowBefore := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
-		requireViewRowFieldSurface(t, "I-4-08", rowBefore, timeline.TimelineViewSchemaID)
+		requireViewRowFieldSurface(t, "timeline-resolution", rowBefore, timeline.TimelineViewSchemaID)
 		itemBefore := requireSingleCollectionItem(t, rowBefore, golden.RecordFieldTimelineHostRefs)
 		if itemBefore["item_kind"] != "unresolved_mention" {
 			t.Fatalf("expected unresolved token before later alias creation, got %#v", itemBefore)
@@ -606,7 +606,7 @@ SELECT COUNT(*)
 		envelope := queryTimelineEnvelope(t, harness.Server, incidentID, adminLogin, map[string]any{})
 		contractassert.RequireDefaultQueryMeta(t, envelope, timeline.TimelineViewSchemaID)
 		rowAfter := findRow(t, envelope["data"].(map[string]any)["rows"].([]any), recordID)
-		requireViewRowFieldSurface(t, "I-4-08", rowAfter, timeline.TimelineViewSchemaID)
+		requireViewRowFieldSurface(t, "timeline-resolution", rowAfter, timeline.TimelineViewSchemaID)
 		itemAfter := requireSingleCollectionItem(t, rowAfter, golden.RecordFieldTimelineHostRefs)
 		if itemAfter["item_kind"] != "unresolved_mention" {
 			t.Fatalf("projection rebuild must not late-auto-resolve unresolved tokens, got %#v", itemAfter)
@@ -641,7 +641,7 @@ SELECT COUNT(*)
 	})
 }
 
-// I-4-09 / REQ-01-311, REQ-01-314..REQ-01-320, REQ-02-248, REQ-03-280 / AC-394, AC-396, AC-397.
+// timeline-resolution / REQ-01-311, REQ-01-314..REQ-01-320, REQ-02-248, REQ-03-280 / AC-394, AC-396, AC-397.
 func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
 	t.Run("create route add_resolved_ref persists manual host link and replays cleanly", func(t *testing.T) {
 		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-09-create-add-resolved-ref")
@@ -649,7 +649,7 @@ func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-09-create-incident",
 			"incident_key":  "IR-ENTITY-LINKING-I409-D",
-			"title":         "Record relationships I-4-09 create add_resolved_ref",
+			"title":         "Record relationships timeline-resolution create add_resolved_ref",
 		})
 		incidentID := incident["incident_id"].(string)
 		workbookscenariotest.SeedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "WS-023.corp.example", "WS-023.corp.example", "", "")
@@ -687,7 +687,7 @@ func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
 		envelope := queryTimelineEnvelope(t, harness.Server, incidentID, adminLogin, map[string]any{})
 		contractassert.RequireDefaultQueryMeta(t, envelope, timeline.TimelineViewSchemaID)
 		row := findRow(t, envelope["data"].(map[string]any)["rows"].([]any), recordID)
-		requireViewRowFieldSurface(t, "I-4-09", row, timeline.TimelineViewSchemaID)
+		requireViewRowFieldSurface(t, "timeline-resolution", row, timeline.TimelineViewSchemaID)
 		item := requireSingleCollectionItem(t, row, golden.RecordFieldTimelineHostRefs)
 		if item["item_kind"] != "resolved_ref" || item["resolved_record_id"] != golden.RecordCanonicalHostRecordID.String() {
 			t.Fatalf("unexpected create-route current-state item: %#v", item)
@@ -786,7 +786,7 @@ UPDATE incident_memberships
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-09-add-incident",
 			"incident_key":  "IR-ENTITY-LINKING-U409-A",
-			"title":         "Record relationships I-4-09 add_resolved_ref",
+			"title":         "Record relationships timeline-resolution add_resolved_ref",
 		})
 		incidentID := incident["incident_id"].(string)
 		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "WS-023.corp.example", "WS-023.corp.example")
@@ -831,7 +831,7 @@ UPDATE incident_memberships
 			golden.RecordManualLinkExpectation.Confidence,
 		)
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
-		requireViewRowFieldSurface(t, "I-4-09", row, timeline.TimelineViewSchemaID)
+		requireViewRowFieldSurface(t, "timeline-resolution", row, timeline.TimelineViewSchemaID)
 		item := requireSingleCollectionItem(t, row, golden.RecordFieldTimelineHostRefs)
 		if item["item_kind"] != "resolved_ref" {
 			t.Fatalf("expected resolved_ref item after add_resolved_ref, got %#v", item)
@@ -947,7 +947,7 @@ UPDATE incident_memberships
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-09-resolve-incident",
 			"incident_key":  "IR-ENTITY-LINKING-U409-B",
-			"title":         "Record relationships I-4-09 resolve_item",
+			"title":         "Record relationships timeline-resolution resolve_item",
 		})
 		incidentID := incident["incident_id"].(string)
 		seedIdentityRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalIdentityID, "Alex Analyst", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
@@ -994,7 +994,7 @@ UPDATE incident_memberships
 			golden.RecordManualLinkExpectation.Confidence,
 		)
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
-		requireViewRowFieldSurface(t, "I-4-09", row, timeline.TimelineViewSchemaID)
+		requireViewRowFieldSurface(t, "timeline-resolution", row, timeline.TimelineViewSchemaID)
 		item := requireSingleCollectionItem(t, row, golden.RecordFieldTimelineIdentityRefs)
 		if item["item_kind"] != "resolved_ref" {
 			t.Fatalf("expected resolved_ref item after resolve_item, got %#v", item)
@@ -1019,7 +1019,7 @@ UPDATE incident_memberships
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-09-resolve-create-incident",
 			"incident_key":  "IR-ENTITY-LINKING-U409-D",
-			"title":         "Record relationships I-4-09 resolve_item create",
+			"title":         "Record relationships timeline-resolution resolve_item create",
 		})
 		incidentID := incident["incident_id"].(string)
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
@@ -1078,7 +1078,7 @@ UPDATE incident_memberships
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-09-reject-incident",
 			"incident_key":  "IR-ENTITY-LINKING-U409-C",
-			"title":         "Record relationships I-4-09 rejection",
+			"title":         "Record relationships timeline-resolution rejection",
 		})
 		incidentID := incident["incident_id"].(string)
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
@@ -1155,7 +1155,7 @@ SELECT COUNT(*)
 		assertx.RequireRawTextPreserved(t, beforeMention.RawText, afterMention.RawText)
 
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
-		requireViewRowFieldSurface(t, "I-4-09", row, timeline.TimelineViewSchemaID)
+		requireViewRowFieldSurface(t, "timeline-resolution", row, timeline.TimelineViewSchemaID)
 		if got := int64(row["row_version"].(float64)); got != 1 {
 			t.Fatalf("rejected payload must not advance row_version, got %d", got)
 		}

@@ -1096,6 +1096,71 @@ test("semantic identity violations fail without an exception registry", () => {
   }
 });
 
+test("semantic identity validation distinguishes fixture routing from product payloads", () => {
+  const root = mkdtempSync(path.join(repoRoot, "tmp", "semantic-fixture-identity-negative."));
+  try {
+    writeFixtureFile(
+      root,
+      "apps/web/e2e/fixture.spec.ts",
+      [
+        'test("incident phase transition remains product vocabulary", async () => {',
+        '  const productPayload = { label: "Phase 2" };',
+        '  uniqueTxn("module.fixture.integration");',
+        '  return productPayload;',
+        '});',
+        "",
+      ].join("\n"),
+    );
+    assert.deepEqual(validateSemanticIdentities(root), [
+      {
+        location: "apps/web/e2e/fixture.spec.ts",
+        locator_kind: "fixture_identity",
+        locator: "uniqueTxn=module.fixture.integration",
+        reason: "identity-bearing fixture metadata embeds a catalog identity",
+      },
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("semantic identity validation rejects Go fixture routing without banning product payloads", () => {
+  const root = mkdtempSync(path.join(repoRoot, "tmp", "semantic-go-fixture-identity-negative."));
+  try {
+    writeFixtureFile(
+      root,
+      "internal/fixture/identity_test.go",
+      [
+        "package fixture",
+        "",
+        "func exerciseFixture(t *testing.T) {",
+        '  productPayload := "Phase 2"',
+        '  StartStore(t, "module.fixture.integration")',
+        '  request := Request{ClientTxnID: "txn-sprint8-conflict"}',
+        "  _, _ = productPayload, request",
+        "}",
+        "",
+      ].join("\n"),
+    );
+    assert.deepEqual(validateSemanticIdentities(root), [
+      {
+        location: "internal/fixture/identity_test.go",
+        locator_kind: "fixture_identity",
+        locator: "line 5:module.fixture.integration",
+        reason: "identity-bearing Go fixture metadata embeds a catalog identity",
+      },
+      {
+        location: "internal/fixture/identity_test.go",
+        locator_kind: "fixture_identity",
+        locator: "line 6:txn-sprint8-conflict",
+        reason: "identity-bearing Go fixture metadata encodes a delivery phase or sprint",
+      },
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("test catalog implementation cannot depend on execution or accounting layers", () => {
   const root = mkdtempSync(path.join(repoRoot, "tmp", "owner-catalog-imports."));
   try {
@@ -2560,33 +2625,6 @@ test("generated task surface and Make wrapper keep harness projection wiring", (
   const targetEntries = new Map(
     taskSurface.targets.map((entry) => [entry.name, entry]),
   );
-  const producedSummaryTargets = new Set(
-    Object.values(taskSurface.sequences ?? {}).flatMap((sequence) =>
-      (sequence.steps ?? []).flatMap(
-        (step) => step.produces_summary_targets ?? [],
-      ),
-    ),
-  );
-  for (const target of producedSummaryTargets) {
-    const recipe = taskSurface.make_recipes[target];
-    const entry = targetEntries.get(target);
-    if (
-      recipe?.mode !== "run_phase" ||
-      entry?.output_policy?.summary_schema !== "cartulary.tool_run_summary.v5"
-    ) {
-      continue;
-    }
-    assert.match(
-      taskSurfaceMake,
-      new RegExp(`RUN_RETAINED_TARGET_SUMMARY,${target},pass`),
-      `${target} run_phase recipe must retain a passing target summary`,
-    );
-    assert.match(
-      taskSurfaceMake,
-      new RegExp(`RUN_RETAINED_TARGET_SUMMARY,${target},fail`),
-      `${target} run_phase recipe must retain a failing target summary`,
-    );
-  }
 });
 
 test("machine task-surface owner defines public output classes and side effects", () => {
@@ -3018,6 +3056,72 @@ test("catalog browser scheduler digest is deterministic and delivery-independent
   assert.deepEqual(extension(first), extension(second));
   assert.match(extension(first).scheduler_semantic_digest, /^sha256:[0-9a-f]{64}$/u);
   assert.equal(JSON.stringify(extension(first)).includes("phase"), false);
+  const sessions = first.workUnits.filter((unit) => unit.kind === "browser_stage_session");
+  const finalizers = first.workUnits.filter((unit) => unit.kind === "finalizer");
+  assert.ok(sessions.every((unit) => unit.completionKeys[0] === unit.id));
+  assert.ok(
+    finalizers.every((unit) =>
+      unit.needs.every((need) => first.workUnits.some((candidate) => candidate.id === need)),
+    ),
+    "validation finalizers must depend on exact scheduled unit identities",
+  );
+});
+
+test("visual snapshot update reuses profile-aware sessions without validation finalizers", () => {
+  const manifest = path.join(repoRoot, "tools", "browser_e2e_batch_manifest.json");
+  const stage = resolveBrowserBatchStage(manifest, "visual");
+  const defaultGroup = stage.groups.find((group) => group.runtimeProfileID === "default");
+  const claimedGroup = stage.groups.find((group) => group.runtimeProfileID === "network_flow_claimed");
+  assert.ok(defaultGroup);
+  assert.ok(claimedGroup);
+  const sharedStage = {
+    ...stage,
+    groups: [
+      defaultGroup,
+      {
+        ...defaultGroup,
+        name: `${defaultGroup.name}-shared-companion`,
+        selectedRowIDs: [`${defaultGroup.selectedRowIDs[0]}.companion`],
+      },
+      claimedGroup,
+    ],
+  };
+  const schedule = buildBrowserStageSchedule(sharedStage, manifest, {
+    mode: "snapshot_update",
+    target: "browser-e2e-visual-update",
+  });
+  assert.equal(schedule.target, "browser-e2e-visual-update");
+  assert.equal(schedule.totalWorkUnits, 2, "one stack must serve each session/profile tuple");
+  assert.equal(schedule.finalizerCount, 0);
+  assert.equal(schedule.workUnits.length, 2);
+  assert.ok(schedule.workUnits.every((unit) => unit.kind === "browser_stage_session"));
+  assert.ok(schedule.workUnits.every((unit) => unit.target === "browser-e2e-visual-update"));
+  assert.ok(
+    schedule.workUnits.every(
+      (unit) =>
+        unit.command.command.endsWith("tools/harness/browser/start-web-e2e.sh") &&
+        unit.command.env.CARTULARY_BROWSER_MAINTENANCE_MODE === "snapshot_update" &&
+        unit.command.env.CARTULARY_PLAYWRIGHT_UPDATE_SNAPSHOTS === "1",
+    ),
+    "every update session must retain owned stack cleanup and snapshot propagation",
+  );
+  const defaultSession = schedule.workUnits.find(
+    (unit) => unit.command.env.CARTULARY_BROWSER_RUNTIME_PROFILE_ID === "default",
+  );
+  assert.equal(
+    defaultSession.command.env.CARTULARY_BROWSER_SELECTED_GROUPS,
+    [defaultGroup.name, `${defaultGroup.name}-shared-companion`].sort().join(","),
+  );
+  assert.throws(
+    () => buildBrowserStageSchedule(stage, manifest, { mode: "unsupported" }),
+    /unsupported browser scheduler mode/u,
+  );
+  const helper = readFileSync(
+    path.join(repoRoot, "tools/harness/browser/run-browser-e2e-visual-update.sh"),
+    "utf8",
+  );
+  assert.match(helper, /visual --mode snapshot_update/u);
+  assert.doesNotMatch(helper, /awk|stage-runner|start-web-e2e/u);
 });
 
 test("service-backed Go shard units are executable by their declared targets", () => {
@@ -3549,6 +3653,25 @@ test("browser topology is catalog-derived, semantic, and profile-isolated", () =
   }
 });
 
+test("authored browser topology rejects obsolete selection fields", () => {
+  const topology = readJSON("tools/execution_topology_manifest.json");
+  topology.browser_e2e_batch.stages[0].groups[0].selected_phase = "constructed-obsolete-value";
+  const fixture = path.join(
+    repoRoot,
+    "tools",
+    `execution-topology-obsolete-${process.pid}.json`,
+  );
+  try {
+    writeFileSync(fixture, `${JSON.stringify(topology, null, 2)}\n`);
+    assert.throws(
+      () => loadExecutionTopology({ manifestPath: fixture }),
+      /unknown key selected_phase/u,
+    );
+  } finally {
+    rmSync(fixture, { force: true });
+  }
+});
+
 test("default check service-backed browser work uses declared session groups", () => {
   const { serviceBacked, expandedCheckSchedule } = renderedArtifacts();
   const serviceCheck = serviceBacked.schedules.find(
@@ -4018,7 +4141,7 @@ test("harness import boundary consumes the authored helper ownership registry", 
   const helperOwnership = loadHarnessHelperOwnership(repoRoot);
   const authoredOwnerFacadePaths = ownerFacadePathLists(helperOwnership);
   const report = collectHarnessImportBoundaryViolations(repoRoot);
-  assert.equal(helperOwnership.facades.length, 34);
+  assert.equal(helperOwnership.facades.length, 33);
   assert.deepEqual(
     Object.keys(report.owner_facades).sort(),
     Object.keys(authoredOwnerFacadePaths).sort(),

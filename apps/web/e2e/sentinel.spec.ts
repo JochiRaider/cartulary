@@ -201,8 +201,8 @@ test("pastes a representative 20x5 Timeline clipboard range", async ({
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E902"),
-    "Workbook inspector E-9-PASTE-02 clipboard paste",
+    uniqueIncidentKey("CLIPBOARD-PASTE"),
+    "Workbook inspector workbook-interaction clipboard paste",
   );
   const seed = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e902-seed"),
@@ -310,8 +310,8 @@ test("groups paste conflicts and preserves selection continuity", async ({
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E902-CONFLICT"),
-    "Workbook inspector E-9-CONFLICT-02 grouped paste conflicts",
+    uniqueIncidentKey("CLIPBOARD-CONFLICT"),
+    "Workbook inspector workbook-interaction grouped paste conflicts",
   );
   const first = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e902-conflict-first"),
@@ -482,8 +482,8 @@ test("groups paste conflicts and preserves selection continuity", async ({
 test("Notes tab creates artifact-backed linked notes", async ({ page }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E903"),
-    "Workbook inspector E-9-03 Notes linked create",
+    uniqueIncidentKey("LINKED-NOTES"),
+    "Workbook inspector linked-notes Notes linked create",
   );
   const source = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e903-source"),
@@ -508,7 +508,7 @@ test("Notes tab creates artifact-backed linked notes", async ({ page }) => {
   ).toHaveCount(1, { timeout: 15_000 });
   await page
     .getByTestId("generic-create-field-note.title")
-    .fill("Workbook inspector E-9-03 linked note");
+    .fill("Workbook inspector linked-notes linked note");
   await page
     .getByTestId("generic-create-field-note.body")
     .fill("Created from the Notes tab with a source record link.");
@@ -532,7 +532,7 @@ test("Notes tab creates artifact-backed linked notes", async ({ page }) => {
   const noteRecordId = envelope.data.row.record_id;
   await expect(
     page.getByTestId(rowCellTestId(noteRecordId, "note.title")),
-  ).toHaveText("Workbook inspector E-9-03 linked note");
+  ).toHaveText("Workbook inspector linked-notes linked note");
 
   const rows = await queryViewRows(page, incidentId, notesViewSchemaId);
   const noteRow = rows.find((row) => row.record_id === noteRecordId);
@@ -546,7 +546,7 @@ test("Workbook inspector fills the shell work area across row counts", async ({
   await page.setViewportSize({ width: 1440, height: 900 });
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E9LAYOUT"),
+    uniqueIncidentKey("WORKBOOK-LAYOUT"),
     "Workbook inspector inspector shell layout",
   );
   const timelineRows: ViewApiRow[] = [];
@@ -608,8 +608,8 @@ test("Party create and link preserve raw text on the workbook surface", async ({
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E904"),
-    "Workbook inspector E-9-04 party create link",
+    uniqueIncidentKey("PARTY-LINKING"),
+    "Workbook inspector party-linking party create link",
   );
   const evidence = await createViewRow(page, incidentId, evidenceViewSchemaId, {
     client_txn_id: uniqueTxn("e904-evidence"),
@@ -1103,8 +1103,8 @@ test("assessment workflow keeps invalid timestamp drafts local", async ({
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E905"),
-    "Workbook inspector E-9-05 assessment workflow",
+    uniqueIncidentKey("ASSESSMENT-WORKFLOW"),
+    "Workbook inspector assessment-workflow assessment workflow",
   );
   const subjectA = await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e905-host-a"),
@@ -1302,11 +1302,11 @@ test("Verify Timeline inspector Workflow create-related actions stay in the work
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("FEEP903"),
+    uniqueIncidentKey("WORKBOOKWORKFLOW"),
     "end-to-end.inspector-history.row-03 Timeline inspector create-related workflows",
   );
   const source = await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("feep903-source"),
+    client_txn_id: uniqueTxn("workbook-workflow-source"),
     "timeline.activity_synopsis_text":
       "end-to-end.inspector-history.row-03 create-related source",
     "timeline.raw_activity_text": "Inspector Workflow create-related source.",
@@ -1481,12 +1481,12 @@ test("Task Request and Decision workbook workflows stay native", async ({
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E906"),
-    "Workbook inspector E-9-TASKDECISION-06 Task and Decision workflows",
+    uniqueIncidentKey("TASK-DECISION-WORKFLOW"),
+    "Workbook inspector task-decision-workflow Task and Decision workflows",
   );
   const support = await createViewRow(page, incidentId, evidenceViewSchemaId, {
     client_txn_id: uniqueTxn("e906-support"),
-    "evidence.title": "E-9-06 supporting packet",
+    "evidence.title": "coordination-review supporting packet",
   });
   const targetDecision = await createViewRow(
     page,
@@ -1494,7 +1494,7 @@ test("Task Request and Decision workbook workflows stay native", async ({
     decisionsViewSchemaId,
     {
       client_txn_id: uniqueTxn("e906-target-decision"),
-      "decision.summary": "E-9-06 target decision",
+      "decision.summary": "coordination-review target decision",
       "decision.decision_type": "containment",
       "decision.rationale": "Initial containment rationale.",
       "decision.support_refs": {
@@ -1511,7 +1511,7 @@ test("Task Request and Decision workbook workflows stay native", async ({
     decisionsViewSchemaId,
     {
       client_txn_id: uniqueTxn("e906-superseding-decision"),
-      "decision.summary": "E-9-06 superseding decision",
+      "decision.summary": "coordination-review superseding decision",
       "decision.decision_type": "containment",
       "decision.rationale": "Updated containment rationale.",
       "decision.status": "approved",
@@ -1557,7 +1557,7 @@ test("Task Request and Decision workbook workflows stay native", async ({
     .selectOption(supersedingDecision.record_id as string);
   await page
     .getByTestId("decision-supersede-reason")
-    .fill("E-9-06 explicit supersession");
+    .fill("coordination-review explicit supersession");
   await page.getByTestId("decision-supersede-submit").click();
   const supersedeEnvelope = await (await supersedeResponse).json();
   expect(supersedeEnvelope.data.view_schema_id).toBe(decisionsViewSchemaId);
@@ -1639,7 +1639,11 @@ test("Task Request and Decision workbook workflows stay native", async ({
     page.getByTestId(gridShellTestId(taskRequestsViewSchemaId)),
   ).toBeVisible();
   const dueAt = "2026-05-19T16:00:00Z";
-  await setGenericCreateField(page, "task.title", "E-9-06 workbook task");
+  await setGenericCreateField(
+    page,
+    "task.title",
+    "coordination-review workbook task",
+  );
   await setGenericCreateField(page, "task.task_kind", "collection");
   await setGenericCreateField(page, "task.workstream", "forensics");
   await setGenericCreateField(page, "task.due_at", dueAt);
@@ -1672,7 +1676,7 @@ test("Task Request and Decision workbook workflows stay native", async ({
     incidentId,
     taskRequestsViewSchemaId,
     "task.title",
-    "E-9-06 workbook task",
+    "coordination-review workbook task",
   );
   expect(task.cells["task.decision_record_id"]?.value).toBe(
     supersedingDecision.record_id,
@@ -1684,7 +1688,11 @@ test("Task Request and Decision workbook workflows stay native", async ({
   expect(task.cells["task.priority"]?.value).toBe("normal");
   expect(collectionItems(task, "task.linked_record_ids")).toHaveLength(1);
 
-  await setGenericCreateField(page, "task.title", "E-9-06 urgent queue task");
+  await setGenericCreateField(
+    page,
+    "task.title",
+    "coordination-review urgent queue task",
+  );
   await setGenericCreateField(page, "task.task_kind", "follow_up");
   await setGenericCreateField(page, "task.priority", "urgent");
   await page
@@ -1695,7 +1703,7 @@ test("Task Request and Decision workbook workflows stay native", async ({
     incidentId,
     taskRequestsViewSchemaId,
     "task.title",
-    "E-9-06 urgent queue task",
+    "coordination-review urgent queue task",
   );
   expect(urgentTask.cells["task.priority"]?.value).toBe("urgent");
 
@@ -1894,17 +1902,17 @@ test("coordination workbook workflows stay native", async ({
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E906COORD"),
-    "Workbook inspector E-9-COORDINATION-06 coordination workflows",
+    uniqueIncidentKey("COORDINATION-WORKFLOW"),
+    "Workbook inspector workbook-interaction coordination workflows",
   );
   const party = await createViewRow(page, incidentId, partiesViewSchemaId, {
     client_txn_id: uniqueTxn("e906coord-party"),
-    "party.display_name": "E-9-06 Coordination Lead",
+    "party.display_name": "Coordination Review Lead",
     "party.party_kind": "team",
   });
   const evidence = await createViewRow(page, incidentId, evidenceViewSchemaId, {
     client_txn_id: uniqueTxn("e906coord-evidence"),
-    "evidence.title": "E-9-06 coordination evidence",
+    "evidence.title": "coordination-review evidence",
   });
   const decision = await createViewRow(
     page,
@@ -1912,14 +1920,14 @@ test("coordination workbook workflows stay native", async ({
     decisionsViewSchemaId,
     {
       client_txn_id: uniqueTxn("e906coord-decision"),
-      "decision.summary": "E-9-06 coordination decision",
+      "decision.summary": "coordination-review decision",
       "decision.decision_type": "containment",
       "decision.rationale": "Coordination workflow decision.",
     },
   );
   const task = await createViewRow(page, incidentId, taskRequestsViewSchemaId, {
     client_txn_id: uniqueTxn("e906coord-task"),
-    "task.title": "E-9-06 coordination task",
+    "task.title": "coordination-review task",
     "task.task_kind": "follow_up",
   });
 
@@ -1937,7 +1945,7 @@ test("coordination workbook workflows stay native", async ({
   await setGenericCreateField(
     page,
     "comm_log.audience",
-    "E-9-06 coordination audience",
+    "coordination-review audience",
   );
   await setGenericCreateField(
     page,
@@ -1947,7 +1955,7 @@ test("coordination workbook workflows stay native", async ({
   await setGenericCreateField(
     page,
     "comm_log.summary",
-    "E-9-06 coordination log",
+    "coordination-review log",
   );
   await waitForGenericOption(
     page,
@@ -1987,10 +1995,10 @@ test("coordination workbook workflows stay native", async ({
     incidentId,
     commLogViewSchemaId,
     "comm_log.summary",
-    "E-9-06 coordination log",
+    "coordination-review log",
   );
   expect(comm.cells["comm_log.audience"]?.value).toBe(
-    "E-9-06 coordination audience",
+    "coordination-review audience",
   );
   expect(collectionItems(comm, "comm_log.decision_ids")).toHaveLength(1);
   expect(collectionItems(comm, "comm_log.action_task_ids")).toHaveLength(1);
@@ -2003,7 +2011,7 @@ test("coordination workbook workflows stay native", async ({
   await setGenericCreateField(
     page,
     "handoff.current_state_summary",
-    "E-9-06 handoff state",
+    "coordination-review handoff state",
   );
   await page
     .getByTestId(genericCreateSubmitTestId(handoffViewSchemaId))
@@ -2024,7 +2032,7 @@ test("coordination workbook workflows stay native", async ({
     incidentId,
     handoffViewSchemaId,
     "handoff.current_state_summary",
-    "E-9-06 handoff state",
+    "coordination-review handoff state",
   );
   await editGenericCell(
     page,
@@ -2092,7 +2100,7 @@ test("coordination workbook workflows stay native", async ({
   await setGenericCreateField(
     page,
     "status_review.current_state_summary",
-    "E-9-06 status review state",
+    "coordination-review status review state",
   );
   await page
     .getByTestId(genericCreateSubmitTestId(statusReviewViewSchemaId))
@@ -2102,7 +2110,7 @@ test("coordination workbook workflows stay native", async ({
     incidentId,
     statusReviewViewSchemaId,
     "status_review.current_state_summary",
-    "E-9-06 status review state",
+    "coordination-review status review state",
   );
   await editExtendedSurfaceCell(
     page,
@@ -2182,14 +2190,18 @@ test("coordination workbook workflows stay native", async ({
   );
 
   await openGenericSurface(page, incidentId, lessonViewSchemaId, "Lesson");
-  await setGenericCreateField(page, "lesson.summary", "E-9-06 lesson workflow");
+  await setGenericCreateField(
+    page,
+    "lesson.summary",
+    "coordination-review lesson workflow",
+  );
   await page.getByTestId(genericCreateSubmitTestId(lessonViewSchemaId)).click();
   const lesson = await waitForViewRowByCell(
     page,
     incidentId,
     lessonViewSchemaId,
     "lesson.summary",
-    "E-9-06 lesson workflow",
+    "coordination-review lesson workflow",
   );
   await editExtendedSurfaceCell(
     page,
@@ -2247,8 +2259,8 @@ test("optional standardized surfaces are workbook-native when exposed", async ({
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E907"),
-    "Workbook inspector E-9-07 optional surfaces",
+    uniqueIncidentKey("OPTIONAL-SURFACES"),
+    "Workbook inspector workbook-interaction optional surfaces",
   );
   const supportingNote = await createViewRow(
     page,
@@ -2256,7 +2268,7 @@ test("optional standardized surfaces are workbook-native when exposed", async ({
     notesViewSchemaId,
     {
       client_txn_id: uniqueTxn("e907-note"),
-      "note.title": "E-9-07 supporting note",
+      "note.title": "workbook-interaction supporting note",
     },
   );
 
@@ -2445,8 +2457,8 @@ test("required registry identities stay canonical with optional additions", asyn
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E908"),
-    "Workbook inspector E-9-08 registry identities",
+    uniqueIncidentKey("REGISTRY-IDENTITIES"),
+    "Workbook inspector workbook-interaction registry identities",
   );
   await expectRequiredAndOptionalRegistryExposed(page);
 
@@ -2495,7 +2507,7 @@ test("Verify Task Requests, Decisions, Parties, Communications Log, Handoff, Sta
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("FEBP1001"),
+    uniqueIncidentKey("WORKBOOKREGISTRY"),
     "browser.coordination-review.row-01 workbook shell coordination surfaces",
   );
   const savedViewIdsBySurface = new Map<string, string>();

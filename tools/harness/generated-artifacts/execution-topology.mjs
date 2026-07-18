@@ -62,6 +62,27 @@ const checkScheduleTargetKeys = new Set([
   "env",
 ]);
 const browserStageGeneratedNeedsPolicyKeys = new Set(["selected_peer_stages", "reason"]);
+const browserTopologyProfileKeys = new Set(["id", "kind", "key_ring_manifest_path"]);
+const browserTopologyStageKeys = new Set([
+  "name",
+  "target",
+  "schedule_tags",
+  "scheduler_needs",
+  "summary_children",
+  "groups",
+]);
+const browserTopologyGroupKeys = new Set([
+  "name",
+  "target",
+  "kind",
+  "coverage",
+  "execution_dependency",
+  "workers",
+  "reset_before",
+  "runtime_profile_id",
+  "browser_session_group",
+  "browser_session_isolation_reason",
+]);
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -452,6 +473,7 @@ function validateBrowserBatch(topology, dependencyByID, taskTargets) {
   const runtimeProfileIDs = new Set();
   for (const [index, profile] of runtimeProfiles.entries()) {
     const profileLabel = `browser_e2e_batch.runtime_profiles[${index + 1}]`;
+    validateAllowedKeys(requireObject(profile, profileLabel), browserTopologyProfileKeys, profileLabel);
     const profileID = requireString(profile?.id, `${profileLabel}.id`);
     requireString(profile?.kind, `${profileLabel}.kind`);
     if (!/^[a-z][a-z0-9_]*$/u.test(profileID)) {
@@ -469,6 +491,7 @@ function validateBrowserBatch(topology, dependencyByID, taskTargets) {
   const seenStages = new Set();
   for (const [index, stage] of stages.entries()) {
     const label = `browser_e2e_batch.stages[${index + 1}]`;
+    validateAllowedKeys(requireObject(stage, label), browserTopologyStageKeys, label);
     const name = requireString(stage?.name, `${label}.name`);
     const target = requireString(stage.target, `${label}.target`);
     if (seenStages.has(name)) {
@@ -496,6 +519,7 @@ function validateBrowserBatch(topology, dependencyByID, taskTargets) {
     }
     for (const group of requireNonEmptyArray(stage.groups, `${label}.groups`)) {
       const groupLabel = `${label}.groups.${group?.name ?? "(missing)"}`;
+      validateAllowedKeys(requireObject(group, groupLabel), browserTopologyGroupKeys, groupLabel);
       const groupTarget = requireString(group.target, `${groupLabel}.target`);
       if (!taskTargets.has(groupTarget)) {
         throw new Error(`${groupLabel}.target ${groupTarget} is missing from task_surface.targets`);
@@ -1029,7 +1053,6 @@ export function renderBrowserBatchManifest(topology) {
             browser_session_group:
               policyGroup.browser_session_group ?? `${stage.target}-${runtimeProfileID}`,
           };
-          delete group.selected_phase;
           if (selectorStage === "stateful" && fileIndex > 0 && !group.reset_before) {
             group.reset_before = `${policyGroup.name}-before-${fileIdentity}`;
           }

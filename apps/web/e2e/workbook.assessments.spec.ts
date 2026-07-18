@@ -32,7 +32,7 @@ test("creates append-only assessment history through the workbook UI", async ({
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E4ASSESS"),
+    uniqueIncidentKey("WORKBOOK-ASSESSMENTS"),
     "Record relationships assessment workbook E2E",
   );
   const subject = (await createViewRow(page, incidentId, hostsViewSchemaId, {

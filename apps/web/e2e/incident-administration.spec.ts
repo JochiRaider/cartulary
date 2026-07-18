@@ -300,10 +300,10 @@ test("creates an incident, bootstraps the creator as admin, and lands on the wor
   });
   await page.goto("/");
 
-  const incidentKey = uniqueIncidentKey("E201");
+  const incidentKey = uniqueIncidentKey("INCIDENT-ADMINISTRATION");
   await new IncidentDirectory(page).createAndOpenIncident(
     incidentKey,
-    "Incident administration E-2-01",
+    "Incident administration incident-directory",
   );
 
   await expect(page).toHaveURL(/incident_id=/);
@@ -311,7 +311,7 @@ test("creates an incident, bootstraps the creator as admin, and lands on the wor
   const openedIncidentId = openedWorkbookUrl.searchParams.get("incident_id");
   expect(openedWorkbookUrl.pathname).toBe("/");
   if (openedIncidentId === null) {
-    throw new Error("expected E-2-01 to open an incident workbook");
+    throw new Error("expected incident-directory to open an incident workbook");
   }
   await setCurrentSavedViewAsHome(page, timelineViewSchemaId);
   await expect(
@@ -326,7 +326,7 @@ test("creates an incident, bootstraps the creator as admin, and lands on the wor
     expectIncidentPreferences: true,
     incidentId: openedIncidentId,
     incidentKey,
-    incidentTitle: "Incident administration E-2-01",
+    incidentTitle: "Incident administration incident-directory",
   });
   expect(pageErrors).toEqual([]);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
@@ -339,7 +339,7 @@ test("updates workbook density from Account Settings while the workbook remains 
   page,
 }) => {
   const originalPreferences = await readAccountPreferences(page);
-  const incidentKey = uniqueIncidentKey("FEBP201D");
+  const incidentKey = uniqueIncidentKey("INCIDENTDELETE");
   const incidentTitle = "browser.workbook-shell.row-01 density";
   const incidentId = await createIncident(page, incidentKey, incidentTitle);
   const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
@@ -422,7 +422,7 @@ test("Verify System views switcher keyboard entry, roving focus, selection, dism
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("FEBP202"),
+    uniqueIncidentKey("INCIDENTMEMBERSHIP"),
     "browser.workbook-shell.row-02 switcher focus",
   );
   await createViewRow(page, incidentId, indicatorsViewSchemaId, {
@@ -495,7 +495,7 @@ test("Verify saved views appear only under the active surface's view selector an
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("FEEP201"),
+    uniqueIncidentKey("INCIDENTADMIN"),
     "end-to-end.workbook-shell.row-01 saved-view placement",
   );
   const host = await createViewRow(page, incidentId, hostsViewSchemaId, {
@@ -684,11 +684,11 @@ test("Verify saved views appear only under the active surface's view selector an
 test("shows incident discovery, raw querystring deep-link retrieval, and promoted-field-only patching on the ordinary incident shell", async ({
   page,
 }) => {
-  const incidentKey = uniqueIncidentKey("E202");
+  const incidentKey = uniqueIncidentKey("INCIDENT-MEMBERSHIP");
   const incidentId = await createIncident(
     page,
     incidentKey,
-    "Incident administration E-2-02",
+    "Incident administration incident-directory",
   );
 
   await new IncidentDirectory(page).goto();
@@ -708,7 +708,7 @@ test("shows incident discovery, raw querystring deep-link retrieval, and promote
     incidentKey,
   );
   await expect(page.getByTestId("incident-summary-title")).toHaveText(
-    "Incident administration E-2-02",
+    "Incident administration incident-directory",
   );
   await expect(page.getByTestId("incident-summary-version")).toHaveText(
     "Version 1",
@@ -767,8 +767,8 @@ test("lets incident admins manage memberships and hides those controls from non-
   });
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E203"),
-    "Incident administration E-2-03",
+    uniqueIncidentKey("INCIDENT-ACCESS"),
+    "Incident administration incident-directory",
   );
 
   await openIncidentFromLanding(page, incidentId);

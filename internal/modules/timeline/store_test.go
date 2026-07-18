@@ -577,7 +577,7 @@ func TestSupersedeReplayAndRollbackCoupling_Unit(t *testing.T) {
 	t.Run("illegal targets and replay stay fail-closed and single-write", func(t *testing.T) {
 		harness := storetest.StartStore(t, "timeline_mutation-u-3-10")
 		store, actor, incidentID := newStoreFixture(t, harness, "U310", "txn-timeline_mutation-u-3-10-incident")
-		otherIncident := createIncidentInStore(t, harness, actor, "txn-timeline_mutation-u-3-10-other-incident", "IR-U310X", "Timeline U-3-10 other")
+		otherIncident := createIncidentInStore(t, harness, actor, "txn-timeline_mutation-u-3-10-other-incident", "IR-U310X", "Timeline timeline-storage other")
 
 		row := createReviewedTimelineRow(t, store, actor, incidentID, "txn-timeline_mutation-u-3-10-row", "row", BaseTime())
 		replacement := createTimelineSummaryRow(t, store, actor, incidentID, "txn-timeline_mutation-u-3-10-replacement", "replacement", BaseTime().Add(time.Minute))

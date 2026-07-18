@@ -146,7 +146,7 @@ test("Verify history and rollback preview/action use public route contracts, pre
   await disableWorkbookSockets(page);
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("FEIP901"),
+    uniqueIncidentKey("WORKBOOKINSPECTORINTEGRATION"),
     "integration.inspector-history.row-01 rollback public envelope",
   );
   const evidence = (await createViewRow(
@@ -154,14 +154,14 @@ test("Verify history and rollback preview/action use public route contracts, pre
     incidentId,
     evidenceViewSchemaId,
     {
-      client_txn_id: uniqueTxn("feip901-evidence"),
+      client_txn_id: uniqueTxn("workbook-inspector-integration-evidence"),
       "evidence.collector_party_text":
         "integration.inspector-history collector",
       "evidence.title": "integration.inspector-history attached evidence",
     },
   )) as unknown as ViewRow;
   const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("feip901-row"),
+    client_txn_id: uniqueTxn("workbook-inspector-integration-row"),
     "timeline.activity_synopsis_text":
       "integration.inspector-history rollback row",
   })) as unknown as ViewRow;
@@ -173,7 +173,7 @@ test("Verify history and rollback preview/action use public route contracts, pre
         field_key: "timeline.attached_evidence_ids",
       },
     ],
-    client_txn_id: uniqueTxn("feip901-link"),
+    client_txn_id: uniqueTxn("workbook-inspector-integration-link"),
     view_schema_id: timelineViewSchemaId,
   })) as unknown as ViewRow;
   const history = await fetchRecordHistory(page, row.record_id);
@@ -211,7 +211,7 @@ test("Verify history and rollback preview/action use public route contracts, pre
         value: "integration.inspector-history stale server update",
       },
     ],
-    client_txn_id: uniqueTxn("feip901-stale"),
+    client_txn_id: uniqueTxn("workbook-inspector-integration-stale"),
     view_schema_id: timelineViewSchemaId,
   });
 
@@ -251,11 +251,11 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("FEEP901"),
+    uniqueIncidentKey("WORKBOOKINSPECTOR"),
     "end-to-end.inspector-history.row-01 inspector row-local actions",
   );
   await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("feep901-fallback"),
+    client_txn_id: uniqueTxn("workbook-inspector-fallback"),
     "timeline.activity_synopsis_text":
       "end-to-end.inspector-history fallback row",
   });
@@ -264,7 +264,7 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
     incidentId,
     evidenceViewSchemaId,
     {
-      client_txn_id: uniqueTxn("feep901-evidence"),
+      client_txn_id: uniqueTxn("workbook-inspector-evidence"),
       "evidence.collector_party_text": "end-to-end.inspector-history collector",
       "evidence.title": "end-to-end.inspector-history attached evidence",
     },
@@ -273,7 +273,7 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
     [hostRefsFieldKey]: collectionActionsPayload([
       "end-to-end.inspector-history stable host",
     ]),
-    client_txn_id: uniqueTxn("feep901-target"),
+    client_txn_id: uniqueTxn("workbook-inspector-target"),
     "timeline.raw_activity_text":
       "end-to-end.inspector-history detailed inspector body",
     "timeline.activity_synopsis_text":
@@ -287,7 +287,7 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
         field_key: "timeline.attached_evidence_ids",
       },
     ],
-    client_txn_id: uniqueTxn("feep901-link"),
+    client_txn_id: uniqueTxn("workbook-inspector-link"),
     view_schema_id: timelineViewSchemaId,
   })) as unknown as ViewRow;
   const hostItem = requireItemByRawText(
@@ -504,7 +504,7 @@ test("Verify default-closed inspector state, no-row state, surface switch config
   await disableWorkbookSockets(page);
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("FEEP902"),
+    uniqueIncidentKey("WORKBOOKHISTORY"),
     "end-to-end.inspector-history.row-02 view-schema inspector config",
   );
   const timelineSavedView = await createSavedView(page, incidentId, {
@@ -517,7 +517,7 @@ test("Verify default-closed inspector state, no-row state, surface switch config
     incidentId,
     timelineViewSchemaId,
     {
-      client_txn_id: uniqueTxn("feep902-seed"),
+      client_txn_id: uniqueTxn("workbook-history-seed"),
       "timeline.raw_activity_text":
         "end-to-end.inspector-history.row-02 seed raw details",
       "timeline.activity_synopsis_text":
@@ -525,7 +525,7 @@ test("Verify default-closed inspector state, no-row state, surface switch config
     },
   )) as unknown as ViewRow;
   const hostSeed = (await createViewRow(page, incidentId, hostsViewSchemaId, {
-    client_txn_id: uniqueTxn("feep902-host"),
+    client_txn_id: uniqueTxn("workbook-history-host"),
     "host.display_name": "end-to-end.inspector-history.row-02 host",
     "host.hostname": "end-to-end.inspector-history.row-02.example.test",
   })) as unknown as ViewRow;
@@ -701,7 +701,7 @@ test("Verify default-closed inspector state, no-row state, surface switch config
         headers: await csrfHeaders(memberPage),
         data: {
           base_row_version: timelineSeed.row_version,
-          client_txn_id: uniqueTxn("feep902-denied-delete"),
+          client_txn_id: uniqueTxn("workbook-history-denied-delete"),
         },
       },
     );

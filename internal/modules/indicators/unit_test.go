@@ -12,7 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 )
 
-// U-4-07 / REQ-02-027, REQ-02-056..REQ-02-057, REQ-02-072..REQ-02-082 / AC-017, AC-077..AC-079.
+// indicator-storage / REQ-02-027, REQ-02-056..REQ-02-057, REQ-02-072..REQ-02-082 / AC-017, AC-077..AC-079.
 func TestIndicatorObservationSeparation_Unit(t *testing.T) {
 	harness := storetest.StartStore(t, "entity_linking-u-4-07-indicators")
 	store := indicators.NewStore(harness.DB)

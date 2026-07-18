@@ -55,6 +55,18 @@ function groupArtifactRoot(target, groupName) {
   return path.join(runRoot(), target, "browser-groups", safeName);
 }
 
+function executionTarget(group) {
+  const mode = process.env.CARTULARY_BROWSER_MAINTENANCE_MODE ?? "";
+  if (mode === "") return group.target;
+  if (mode !== "snapshot_update" || group.kind !== "visual") {
+    throw new Error(`unsupported browser maintenance mode ${mode || "(empty)"} for ${group.kind}`);
+  }
+  if (process.env.CARTULARY_TEST_TARGET !== "browser-e2e-visual-update") {
+    throw new Error("snapshot_update mode requires CARTULARY_TEST_TARGET=browser-e2e-visual-update");
+  }
+  return process.env.CARTULARY_TEST_TARGET;
+}
+
 function groupRows(catalog, group) {
   const rows = group.selectedRowIDs.map((rowID) => {
     const row = catalog.rowByID.get(rowID);
@@ -124,7 +136,8 @@ function main() {
   if (!group) throw new Error(`browser stage ${options.stage} has no group ${options.group}`);
   const catalog = loadTestCatalog(root);
   const rows = groupRows(catalog, group);
-  const artifactRoot = groupArtifactRoot(group.target, group.name);
+  const target = executionTarget(group);
+  const artifactRoot = groupArtifactRoot(target, group.name);
   secureMkdir(artifactRoot);
   const reportPath = path.join(artifactRoot, "playwright-report.json");
   const stdoutPath = path.join(artifactRoot, "stdout.log");
@@ -163,7 +176,7 @@ function main() {
   const exitCode = exitCodeForRows(rowResults, child);
   const result = {
     schema_id: "cartulary.browser_group_result.v1",
-    target_id: group.target,
+    target_id: target,
     stage_id: stage.name,
     group_id: group.name,
     runtime_profile_id: group.runtimeProfileID,

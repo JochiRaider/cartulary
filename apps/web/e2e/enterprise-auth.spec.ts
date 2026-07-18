@@ -116,7 +116,7 @@ test("handles enterprise session root landing for zero, one, multiple, and disap
 
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E1103"),
+    uniqueIncidentKey("ENTERPRISE-AUTH"),
     "Enterprise Root Convergence",
   );
   const singlePassword = "EnterpriseRoot1!";
@@ -129,12 +129,12 @@ test("handles enterprise session root landing for zero, one, multiple, and disap
 
   const multipleIncidentA = await createIncident(
     page,
-    uniqueIncidentKey("E1103A"),
+    uniqueIncidentKey("ENTERPRISE-AUTH-PRIMARY"),
     "Enterprise Multiple A",
   );
   const multipleIncidentB = await createIncident(
     page,
-    uniqueIncidentKey("E1103B"),
+    uniqueIncidentKey("ENTERPRISE-AUTH-SECONDARY"),
     "Enterprise Multiple B",
   );
   const multiplePassword = "EnterpriseMultiple1!";

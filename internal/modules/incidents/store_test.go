@@ -38,7 +38,7 @@ func TestStoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences_Unit(t *
 	result := storetest.CreateIncidentInStore(t, harness.Incidents, actor, incidents.CreateIncidentRequest{
 		ClientTxnID: "txn-incident_membership-u-2-02-create",
 		IncidentKey: "IR-U202",
-		Title:       "Incident administration U-2-02",
+		Title:       "Incident administration incident-storage",
 	})
 
 	if result.StatusCode != http.StatusCreated {
@@ -252,7 +252,7 @@ func TestStoreCreateIncidentReturnsStableLocationValue_Unit(t *testing.T) {
 	result := storetest.CreateIncidentInStore(t, harness.Incidents, actor, incidents.CreateIncidentRequest{
 		ClientTxnID: "txn-incident_membership-u-2-03-create",
 		IncidentKey: "IR-U203",
-		Title:       "Incident administration U-2-03",
+		Title:       "Incident administration incident-storage",
 	})
 
 	if result.StatusCode != http.StatusCreated {
@@ -444,7 +444,7 @@ func TestStoreIncidentPatchReturnsTypedVersionConflictDetails_Unit(t *testing.T)
 	incidentResult := storetest.CreateIncidentInStore(t, harness.Incidents, admin, incidents.CreateIncidentRequest{
 		ClientTxnID: "txn-incident_membership-u-2-14-incident",
 		IncidentKey: "IR-U214",
-		Title:       "Incident administration U-2-14",
+		Title:       "Incident administration incident-storage",
 	})
 
 	ctx := context.Background()
@@ -534,7 +534,7 @@ func TestStoreMembershipPatchAndDeleteRejectStaleBaseVersion_Unit(t *testing.T) 
 	incidentResult := storetest.CreateIncidentInStore(t, harness.Incidents, admin, incidents.CreateIncidentRequest{
 		ClientTxnID: "txn-incident_membership-u-2-07-incident",
 		IncidentKey: "IR-U207",
-		Title:       "Incident administration U-2-07",
+		Title:       "Incident administration incident-storage",
 	})
 
 	membershipResult := storetest.CreateMembershipInStore(

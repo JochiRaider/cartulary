@@ -93,22 +93,8 @@ function removeEmptyArtifact(file) {
   }
 }
 
-function inferStepFromText(value) {
-  if (!value) {
-    return "";
-  }
-  const patterns = [
-    /\bstep(?:\s|_|-)?(\d+)\b/i,
-    /\b[UIE][-_](\d+)-\d+\b/,
-    /\b[UIE]_(\d+)_\d+\b/,
-  ];
-  for (const pattern of patterns) {
-    const match = value.match(pattern);
-    if (match) {
-      return `step${match[1]}`;
-    }
-  }
-  return "";
+function catalogOwnerFromEnvironment() {
+  return optionalEnv("CARTULARY_CATALOG_OWNER_ID");
 }
 
 function firstActionableLine(lines) {
@@ -515,7 +501,7 @@ export function handleShellStep() {
   if (context.exitStatus === 0) {
     return finalizeShellStep(context, stdoutLog, stderrLog, {
       status: "pass",
-      step: inferStepFromText(context.label),
+      step: catalogOwnerFromEnvironment(),
       counts: {
         ...createCounts(),
       },
@@ -548,7 +534,7 @@ export function handleShellStep() {
   );
   return finalizeShellStep(context, stdoutLog, stderrLog, {
     status: "fail",
-    step: inferStepFromText(context.label),
+    step: catalogOwnerFromEnvironment(),
     counts: {
       ...createCounts(),
       failed: 1,
@@ -562,7 +548,7 @@ export function handleShellStep() {
         failure_class: failureDetails.failure_class,
         failure_reason: failureDetails.failure_reason,
         coverage: "non_test",
-        step: inferStepFromText(context.label),
+        step: catalogOwnerFromEnvironment(),
         id: "",
         runner: "shell",
         package_or_file: "(shell command)",

@@ -17,22 +17,22 @@ import (
 	. "github.com/JochiRaider/cartulary/internal/modules/timeline"
 )
 
-// U-4-01 / REQ-02-028..REQ-02-036 / AC-019, AC-020, AC-022.
+// timeline-storage / REQ-02-028..REQ-02-036 / AC-019, AC-020, AC-022.
 func TestBindingMode_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "entity_linking-u-4-01")
 	timelineStore := newResolutionTimelineCommands(harness.DB)
 	entityStore := hostidentity.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u401@example.test", "U401", "U401EntityLinkingPass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-01-incident", "IR-U401", "Record relationships U-4-01")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-01-incident", "IR-U401", "Record relationships timeline-storage")
 
-	recordstoretest.RequireViewFieldBindingMode(t, "U-4-01", golden.RecordTimelineViewSchemaID, golden.RecordFieldTimelineHostRefs, "mention_origin")
-	recordstoretest.RequireViewFieldBindingMode(t, "U-4-01", golden.RecordTimelineViewSchemaID, golden.RecordFieldTimelineIdentityRefs, "mention_origin")
-	recordstoretest.RequireViewFieldBindingMode(t, "U-4-01", golden.RecordHostsViewSchemaID, "host.display_name", "entity_origin")
-	recordstoretest.RequireViewFieldBindingMode(t, "U-4-01", golden.RecordHostsViewSchemaID, "host.hostname", "entity_origin")
-	recordstoretest.RequireViewFieldBindingMode(t, "U-4-01", golden.RecordHostsViewSchemaID, "host.aliases", "entity_origin")
-	recordstoretest.RequireViewFieldBindingMode(t, "U-4-01", golden.RecordIdentitiesViewSchemaID, "identity.display_name", "entity_origin")
-	recordstoretest.RequireViewFieldBindingMode(t, "U-4-01", golden.RecordIdentitiesViewSchemaID, "identity.email", "entity_origin")
-	recordstoretest.RequireViewFieldBindingMode(t, "U-4-01", golden.RecordIdentitiesViewSchemaID, "identity.aliases", "entity_origin")
+	recordstoretest.RequireViewFieldBindingMode(t, "timeline-storage", golden.RecordTimelineViewSchemaID, golden.RecordFieldTimelineHostRefs, "mention_origin")
+	recordstoretest.RequireViewFieldBindingMode(t, "timeline-storage", golden.RecordTimelineViewSchemaID, golden.RecordFieldTimelineIdentityRefs, "mention_origin")
+	recordstoretest.RequireViewFieldBindingMode(t, "timeline-storage", golden.RecordHostsViewSchemaID, "host.display_name", "entity_origin")
+	recordstoretest.RequireViewFieldBindingMode(t, "timeline-storage", golden.RecordHostsViewSchemaID, "host.hostname", "entity_origin")
+	recordstoretest.RequireViewFieldBindingMode(t, "timeline-storage", golden.RecordHostsViewSchemaID, "host.aliases", "entity_origin")
+	recordstoretest.RequireViewFieldBindingMode(t, "timeline-storage", golden.RecordIdentitiesViewSchemaID, "identity.display_name", "entity_origin")
+	recordstoretest.RequireViewFieldBindingMode(t, "timeline-storage", golden.RecordIdentitiesViewSchemaID, "identity.email", "entity_origin")
+	recordstoretest.RequireViewFieldBindingMode(t, "timeline-storage", golden.RecordIdentitiesViewSchemaID, "identity.aliases", "entity_origin")
 
 	normalizedHostToken, ok := fieldnorm.NormalizeMentionToken("WS-023")
 	if !ok {
@@ -160,12 +160,12 @@ func TestBindingMode_Unit(t *testing.T) {
 	}
 }
 
-// U-4-02 / REQ-02-031..REQ-02-032, REQ-02-058 / AC-019, AC-021.
+// timeline-storage / REQ-02-031..REQ-02-032, REQ-02-058 / AC-019, AC-021.
 func TestDuplicateMentionProvenance_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "entity_linking-u-4-02")
 	store := newResolutionTimelineCommands(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u402@example.test", "U402", "U402EntityLinkingPass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-02-incident", "IR-U402", "Record relationships U-4-02")
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-02-incident", "IR-U402", "Record relationships timeline-storage")
 
 	normalizedToken, ok := fieldnorm.NormalizeMentionToken("WS-023")
 	if !ok {

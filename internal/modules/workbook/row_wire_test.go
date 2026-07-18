@@ -21,7 +21,7 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 	adminLogin, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-u-8-10-incident",
-		"incident_key":  "IR-SAVED-VIEW-QUERY-U-8-10",
+		"incident_key":  "IR-SAVED-VIEW-QUERY-ROW-WIRE",
 		"title":         "Workbook query row wire",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
@@ -396,7 +396,7 @@ func TestLiveAuthorizedCursorPagination_Integration(t *testing.T) {
 	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-i-8-04-incident",
-		"incident_key":  "IR-SAVED-VIEW-QUERY-I-8-04",
+		"incident_key":  "IR-SAVED-VIEW-QUERY-INTEGRATION",
 		"title":         "Workbook query cursor",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
@@ -448,7 +448,7 @@ func TestLiveAuthorizedCursorPagination_Integration(t *testing.T) {
 
 	otherIncident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-i-8-04-other-incident",
-		"incident_key":  "IR-SAVED-VIEW-QUERY-I-8-04-OTHER",
+		"incident_key":  "IR-SAVED-VIEW-QUERY-INTEGRATION-OTHER",
 		"title":         "Workbook query cursor other",
 	})
 	otherIncidentID := workbookscenariotest.MustUUID(t, otherIncident["incident_id"].(string))
@@ -467,7 +467,7 @@ func TestCursorContinuationRechecksAuthorization_Integration(t *testing.T) {
 	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-i-8-04-auth-incident",
-		"incident_key":  "IR-SAVED-VIEW-QUERY-I-8-04-AUTH",
+		"incident_key":  "IR-SAVED-VIEW-QUERY-INTEGRATION-AUTH",
 		"title":         "Workbook query cursor auth",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
@@ -499,7 +499,7 @@ func TestCursorContinuationRechecksMembership_Integration(t *testing.T) {
 	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-i-8-04-membership-incident",
-		"incident_key":  "IR-SAVED-VIEW-QUERY-I-8-04-MEMBER",
+		"incident_key":  "IR-SAVED-VIEW-QUERY-INTEGRATION-MEMBER",
 		"title":         "Workbook query cursor membership",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
@@ -591,7 +591,7 @@ func TestPrefixAndNullLastOrdering(t *testing.T) {
 	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-e-8-04-prefix-incident",
-		"incident_key":  "IR-SAVED-VIEW-QUERY-E-8-04-PREFIX",
+		"incident_key":  "IR-SAVED-VIEW-QUERY-BROWSER-PREFIX",
 		"title":         "Workbook query prefix",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))

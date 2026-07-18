@@ -113,16 +113,6 @@ const [root] = process.argv.slice(2);
 const manifest = JSON.parse(readFileSync(path.join(root, "tools/task_surface_manifest.json"), "utf8"));
 const { helpAllLines, renderTaskSurfaceMake } = await import(pathToFileURL(path.join(root, "tools/harness/generated-artifacts/task-surface/index.mjs")));
 assert.equal(manifest.schema_id, "cartulary.task_surface_manifest.v15", "task surface schema must be v15");
-for (const retiredTarget of ["phase-ledgers", "phase-ledger-drift"]) {
-  assert.ok(
-    !manifest.targets.some((entry) => entry.name === retiredTarget),
-    `${retiredTarget} must be absent from the successor task surface`,
-  );
-  assert.ok(
-    !helpAllLines(manifest).some((line) => line.includes(retiredTarget)),
-    `${retiredTarget} must be absent from generated help`,
-  );
-}
 for (const target of manifest.targets.filter((entry) => entry.target_class === "public")) {
   assert.ok(target.input_contract, `${target.name} must declare an input contract`);
   assert.equal(

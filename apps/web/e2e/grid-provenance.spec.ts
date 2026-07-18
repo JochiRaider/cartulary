@@ -136,30 +136,32 @@ async function patchBodyForEdit(
 test(exactScenarioTitle, async ({ page }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("FEIP501"),
+    uniqueIncidentKey("GRIDPROVENANCE"),
     "integration.entity-linking.row-01 grid provenance",
   );
   const host = (await createViewRow(page, incidentId, hostsViewSchemaId, {
-    client_txn_id: uniqueTxn("feip501-host"),
+    client_txn_id: uniqueTxn("grid-provenance-host"),
     "host.display_name": "integration.entity-linking Gateway",
-    "host.hostname": "feip501-gateway.example.test",
-    "host.aliases": aliasCollectionActionsPayload(["FEIP501 Gateway"]),
+    "host.hostname": "grid-provenance-gateway.example.test",
+    "host.aliases": aliasCollectionActionsPayload(["GRIDPROVENANCE Gateway"]),
   })) as ViewRow;
   const identity = (await createViewRow(
     page,
     incidentId,
     identitiesViewSchemaId,
     {
-      client_txn_id: uniqueTxn("feip501-identity"),
+      client_txn_id: uniqueTxn("grid-provenance-identity"),
       "identity.display_name": "integration.entity-linking Analyst",
-      "identity.upn": "feip501.analyst@example.test",
-      "identity.email": "feip501.analyst@example.test",
-      "identity.sam_account_name": "feip501",
-      "identity.aliases": aliasCollectionActionsPayload(["FEIP501 Analyst"]),
+      "identity.upn": "grid-provenance.analyst@example.test",
+      "identity.email": "grid-provenance.analyst@example.test",
+      "identity.sam_account_name": "grid-provenance",
+      "identity.aliases": aliasCollectionActionsPayload([
+        "GRIDPROVENANCE Analyst",
+      ]),
     },
   )) as ViewRow;
   const note = (await createViewRow(page, incidentId, notesViewSchemaId, {
-    client_txn_id: uniqueTxn("feip501-note"),
+    client_txn_id: uniqueTxn("grid-provenance-note"),
     "note.title": "integration.entity-linking Note",
     "note.body": "Initial provenance note",
   })) as ViewRow;
@@ -168,18 +170,18 @@ test(exactScenarioTitle, async ({ page }) => {
     incidentId,
     timelineViewSchemaId,
     {
-      client_txn_id: uniqueTxn("feip501-timeline"),
+      client_txn_id: uniqueTxn("grid-provenance-timeline"),
       "timeline.activity_synopsis_text":
         "integration.entity-linking Gateway login by analyst",
       [hostRefsFieldKey]: mixedRefPayload(
-        " FEIP501 Gateway ",
+        " GRIDPROVENANCE Gateway ",
         host.record_id,
-        "FEIP501 Unresolved Host",
+        "GRIDPROVENANCE Unresolved Host",
       ),
       [identityRefsFieldKey]: mixedRefPayload(
-        " FEIP501 Analyst ",
+        " GRIDPROVENANCE Analyst ",
         identity.record_id,
-        "FEIP501 Unresolved Identity",
+        "GRIDPROVENANCE Unresolved Identity",
       ),
     },
   )) as ViewRow;
@@ -215,22 +217,22 @@ test(exactScenarioTitle, async ({ page }) => {
   const hostMentionBefore = mentionFingerprint(
     timelineBefore,
     hostRefsFieldKey,
-    " FEIP501 Gateway ",
+    " GRIDPROVENANCE Gateway ",
   );
   const identityMentionBefore = mentionFingerprint(
     timelineBefore,
     identityRefsFieldKey,
-    " FEIP501 Analyst ",
+    " GRIDPROVENANCE Analyst ",
   );
   const unresolvedHostMentionBefore = mentionFingerprint(
     timelineBefore,
     hostRefsFieldKey,
-    "FEIP501 Unresolved Host",
+    "GRIDPROVENANCE Unresolved Host",
   );
   const unresolvedIdentityMentionBefore = mentionFingerprint(
     timelineBefore,
     identityRefsFieldKey,
-    "FEIP501 Unresolved Identity",
+    "GRIDPROVENANCE Unresolved Identity",
   );
   expect(hostMentionBefore.resolved_record_id).toBe(host.record_id);
   expect(identityMentionBefore.resolved_record_id).toBe(identity.record_id);
@@ -258,7 +260,7 @@ test(exactScenarioTitle, async ({ page }) => {
   });
   await expect(
     page.getByTestId(rowCellTestId(host.record_id, "host.aliases")),
-  ).toContainText("FEIP501 Gateway");
+  ).toContainText("GRIDPROVENANCE Gateway");
   const hostPatch = await patchBodyForEdit(
     page,
     hostsViewSchemaId,
@@ -303,7 +305,7 @@ test(exactScenarioTitle, async ({ page }) => {
   });
   await expect(
     page.getByTestId(rowCellTestId(identity.record_id, "identity.aliases")),
-  ).toContainText("FEIP501 Analyst");
+  ).toContainText("GRIDPROVENANCE Analyst");
   const identityPatch = await patchBodyForEdit(
     page,
     identitiesViewSchemaId,
@@ -414,27 +416,31 @@ test(exactScenarioTitle, async ({ page }) => {
   )) as ViewRow[];
   const timelineAfter = findRow(timelineRowsAfter, timeline.record_id);
   expect(
-    mentionFingerprint(timelineAfter, hostRefsFieldKey, " FEIP501 Gateway "),
+    mentionFingerprint(
+      timelineAfter,
+      hostRefsFieldKey,
+      " GRIDPROVENANCE Gateway ",
+    ),
   ).toEqual(hostMentionBefore);
   expect(
     mentionFingerprint(
       timelineAfter,
       hostRefsFieldKey,
-      "FEIP501 Unresolved Host",
+      "GRIDPROVENANCE Unresolved Host",
     ),
   ).toEqual(unresolvedHostMentionBefore);
   expect(
     mentionFingerprint(
       timelineAfter,
       identityRefsFieldKey,
-      " FEIP501 Analyst ",
+      " GRIDPROVENANCE Analyst ",
     ),
   ).toEqual(identityMentionBefore);
   expect(
     mentionFingerprint(
       timelineAfter,
       identityRefsFieldKey,
-      "FEIP501 Unresolved Identity",
+      "GRIDPROVENANCE Unresolved Identity",
     ),
   ).toEqual(unresolvedIdentityMentionBefore);
 });

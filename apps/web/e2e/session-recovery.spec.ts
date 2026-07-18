@@ -21,7 +21,7 @@ test("preserves unsaved local work after socket revocation and re-authentication
 }) => {
   await test.step("deployment-admin revoke-all preserves and replays local work", async () => {
     await exerciseRevokedPendingReplay({
-      createdBy: "E-6-03",
+      createdBy: "collaboration-recovery",
       incidentKeyPrefix: "E603REVOKE",
       page,
       scenario: "revoke-all",
@@ -30,7 +30,7 @@ test("preserves unsaved local work after socket revocation and re-authentication
         await revokeAllSessions(
           workerAdminRequest,
           member.user_id,
-          "Collaboration E-6-03 browser revoke-all",
+          "Collaboration collaboration-recovery browser revoke-all",
         );
       },
     });
@@ -39,7 +39,7 @@ test("preserves unsaved local work after socket revocation and re-authentication
 
   await test.step("current-session logout preserves and replays local work", async () => {
     await exerciseRevokedPendingReplay({
-      createdBy: "E-6-03",
+      createdBy: "collaboration-recovery",
       incidentKeyPrefix: "E603LOGOUT",
       page,
       scenario: "logout",
@@ -61,7 +61,7 @@ test("preserves unsaved local work after socket revocation and re-authentication
   await test.step("idle expiry preserves and replays local work after re-authentication", async () => {
     const testClock = new TestClock(page);
     await exerciseRevokedPendingReplay({
-      createdBy: "E-6-03",
+      createdBy: "collaboration-recovery",
       incidentKeyPrefix: "E603IDLE",
       page,
       scenario: "idle-expiry",

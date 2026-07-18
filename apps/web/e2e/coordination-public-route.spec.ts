@@ -131,7 +131,7 @@ test("Verify coordination rows can be queried and edited through public view/row
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("FEEP1001"),
+    uniqueIncidentKey("WORKBOOKCOORDINATION"),
     "end-to-end.coordination-review.row-01 public coordination route contracts",
   );
   const memberPassword = "BackupRestoreEditor1!";
@@ -145,7 +145,7 @@ test("Verify coordination rows can be queried and edited through public view/row
   const seededRows = new Map<string, ViewApiRow>();
   for (const entry of coordinationCases) {
     const createPayload = {
-      client_txn_id: uniqueTxn(`feep1001-create-${entry.label}`),
+      client_txn_id: uniqueTxn(`workbook-coordination-create-${entry.label}`),
       ...entry.createValues,
       ...(entry.viewSchemaId === handoffViewSchemaId
         ? { "handoff.incoming_owner_user_id": member.user_id }
@@ -188,7 +188,7 @@ test("Verify coordination rows can be queried and edited through public view/row
       expect(queriedRow.record_id).toBe(seeded.record_id);
       expect(Number.isSafeInteger(queriedRow.row_version)).toBeTruthy();
 
-      const txnId = uniqueTxn(`feep1001-patch-${entry.label}`);
+      const txnId = uniqueTxn(`workbook-coordination-patch-${entry.label}`);
       const patchBody = {
         base_row_version: queriedRow.row_version,
         changes: [
@@ -269,7 +269,7 @@ test("Verify coordination rows can be queried and edited through public view/row
           value: "urgent",
         },
       ],
-      client_txn_id: uniqueTxn("feep1001-denied-current-role"),
+      client_txn_id: uniqueTxn("workbook-coordination-denied-current-role"),
       view_schema_id: taskCase.viewSchemaId,
     };
     const denied = await memberPage.request.patch(

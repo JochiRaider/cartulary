@@ -18,13 +18,13 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 	incidentData := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-i-9-03-incident",
 		"incident_key":  "IR-I903",
-		"title":         "Workbook inspector I-9-03 party links",
+		"title":         "Workbook inspector workbook-interaction party links",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incidentData["incident_id"].(string))
 	otherIncidentData := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-i-9-03-other-incident",
 		"incident_key":  "IR-I903B",
-		"title":         "Workbook inspector I-9-03 other incident",
+		"title":         "Workbook inspector workbook-interaction other incident",
 	})
 	otherIncidentID := workbookscenariotest.MustUUID(t, otherIncidentData["incident_id"].(string))
 

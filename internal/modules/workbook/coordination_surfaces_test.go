@@ -26,10 +26,10 @@ import (
 
 func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 	ctx := context.Background()
-	harness := recordstoretest.StartStore(t, "workbook_interaction-sprint7-coordination-defaults")
+	harness := recordstoretest.StartStore(t, "workbook_interaction-collaboration-coordination-defaults")
 	store := workbook.NewStore(harness.DB)
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "sprint7-coordination@example.test", "Sprint7 Coordination", "Sprint7Coordination1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-sprint7-coordination-incident", "IR-S7-COORD", "Workbook inspector Sprint 7 coordination defaults")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "collaboration-coordination@example.test", "Collaboration Coordination", "CollaborationCoordination1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-coordination-incident", "IR-COLLABORATION-COORD", "Workbook inspector collaboration workflow coordination defaults")
 
 	for _, tc := range []struct {
 		name         string
@@ -71,9 +71,9 @@ func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 		before := countDurableState(t, harness, incident.ID)
 		_, err := store.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
 			ViewSchemaID: tc.viewSchemaID,
-			ClientTxnID:  "txn-workbook_interaction-sprint7-" + tc.name,
+			ClientTxnID:  "txn-workbook_interaction-collaboration-" + tc.name,
 			Values:       tc.values,
-		}, []byte("txn-workbook_interaction-sprint7-"+tc.name), "req-workbook_interaction-sprint7-"+tc.name, Time(0))
+		}, []byte("txn-workbook_interaction-collaboration-"+tc.name), "req-workbook_interaction-collaboration-"+tc.name, Time(0))
 		requireMutationValidation(t, err, tc.wantField, "missing_required_field")
 		requireDurableState(t, harness, incident.ID, before, tc.name)
 	}
@@ -83,7 +83,7 @@ func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 	expectDecodePatchRejected(t, workbook.StatusReviewViewSchemaID, "status_review.status_review_id", "client-supplied")
 	expectDecodePatchRejected(t, workbook.LessonViewSchemaID, "lesson.lesson_id", "client-supplied")
 
-	comm := mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-sprint7-comm-defaults", map[string]workbook.ValueChange{
+	comm := mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-comm-defaults", map[string]workbook.ValueChange{
 		"comm_log.comm_type":          Text("briefing"),
 		"comm_log.audience":           Text("Leadership Team"),
 		"comm_log.channel_or_meeting": Text("Bridge"),
@@ -100,14 +100,14 @@ func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 	requireCoordinationCollectionItemCount(t, commRow, "comm_log.audience_party_ids", 0)
 	requireCoordinationCollectionItemCount(t, commRow, "comm_log.attendee_party_ids", 0)
 	beforeCommVersion := RecordVersion(t, harness.DB, comm.RecordID)
-	_, err := Patch(store, actor, comm.RecordID, workbook.CommLogViewSchemaID, beforeCommVersion, "txn-workbook_interaction-sprint7-comm-invalid-type",
+	_, err := Patch(store, actor, comm.RecordID, workbook.CommLogViewSchemaID, beforeCommVersion, "txn-workbook_interaction-collaboration-comm-invalid-type",
 		ValueChange("comm_log.comm_type", workbook.ValueChange{Kind: "text", Text: stringPtr("emergency")}))
 	requireMutationValidation(t, err, "comm_log.comm_type", "invalid_value")
 	if got := RecordVersion(t, harness.DB, comm.RecordID); got != beforeCommVersion {
 		t.Fatalf("invalid comm type changed row version: got %d want %d", got, beforeCommVersion)
 	}
 
-	handoff := mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-sprint7-handoff-defaults", map[string]workbook.ValueChange{
+	handoff := mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-handoff-defaults", map[string]workbook.ValueChange{
 		"handoff.incoming_owner_user_id": UUID(actor.ID),
 		"handoff.current_state_summary":  Text("Night shift owns containment"),
 	}, nil, Time(time.Hour))
@@ -123,14 +123,14 @@ func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 	requireCoordinationCollectionItemCount(t, handoffRow, "handoff.open_decision_ids", 0)
 	requireCoordinationCollectionItemCount(t, handoffRow, "handoff.open_risk_refs", 0)
 	acknowledgedAt := Time(2 * time.Hour)
-	handoffAck := mustPatch(t, store, actor, handoff.RecordID, workbook.HandoffViewSchemaID, 1, "txn-workbook_interaction-sprint7-handoff-ack",
+	handoffAck := mustPatch(t, store, actor, handoff.RecordID, workbook.HandoffViewSchemaID, 1, "txn-workbook_interaction-collaboration-handoff-ack",
 		ValueChange("handoff.acknowledged_at", workbook.ValueChange{Kind: "timestamp", Timestamp: &acknowledgedAt}))
 	requireCoordinationCellValue(t, handoffAck.Payload["row"].(map[string]any), "handoff.ack_state", "acknowledged")
-	handoffClear := mustPatch(t, store, actor, handoff.RecordID, workbook.HandoffViewSchemaID, 2, "txn-workbook_interaction-sprint7-handoff-clear-ack",
+	handoffClear := mustPatch(t, store, actor, handoff.RecordID, workbook.HandoffViewSchemaID, 2, "txn-workbook_interaction-collaboration-handoff-clear-ack",
 		ValueChange("handoff.acknowledged_at", workbook.ValueChange{Kind: "null"}))
 	requireCoordinationCellValue(t, handoffClear.Payload["row"].(map[string]any), "handoff.ack_state", "pending")
 
-	status := mustCreateRow(t, store, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-workbook_interaction-sprint7-status-defaults", map[string]workbook.ValueChange{
+	status := mustCreateRow(t, store, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-status-defaults", map[string]workbook.ValueChange{
 		"status_review.current_state_summary": Text("Containment is stable"),
 	}, nil, Time(2*time.Hour))
 	statusRow := status.Payload["row"].(map[string]any)
@@ -144,7 +144,7 @@ func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 	requireCoordinationCollectionItemCount(t, statusRow, "status_review.pending_evidence_ids", 0)
 	requireCoordinationCollectionItemCount(t, statusRow, "status_review.open_decision_ids", 0)
 
-	lesson := mustCreateRow(t, store, actor, incident.ID, workbook.LessonViewSchemaID, "txn-workbook_interaction-sprint7-lesson-defaults", map[string]workbook.ValueChange{
+	lesson := mustCreateRow(t, store, actor, incident.ID, workbook.LessonViewSchemaID, "txn-workbook_interaction-collaboration-lesson-defaults", map[string]workbook.ValueChange{
 		"lesson.summary": Text("Preserve VPN logs earlier"),
 	}, nil, Time(3*time.Hour))
 	lessonRow := lesson.Payload["row"].(map[string]any)
@@ -156,7 +156,7 @@ func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 	requireCoordinationCollectionItemCount(t, lessonRow, "lesson.follow_up_task_ids", 0)
 	requireCoordinationCollectionItemCount(t, lessonRow, "lesson.evidence_refs", 0)
 	beforeLessonVersion := RecordVersion(t, harness.DB, lesson.RecordID)
-	_, err = Patch(store, actor, lesson.RecordID, workbook.LessonViewSchemaID, beforeLessonVersion, "txn-workbook_interaction-sprint7-lesson-invalid-closure",
+	_, err = Patch(store, actor, lesson.RecordID, workbook.LessonViewSchemaID, beforeLessonVersion, "txn-workbook_interaction-collaboration-lesson-invalid-closure",
 		ValueChange("lesson.closure_state", workbook.ValueChange{Kind: "text", Text: stringPtr("archived")}))
 	requireMutationValidation(t, err, "lesson.closure_state", "invalid_value")
 	if got := RecordVersion(t, harness.DB, lesson.RecordID); got != beforeLessonVersion {
@@ -165,17 +165,17 @@ func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 }
 
 func TestRejectedCoordinationCreateEmitsNoRecordChanged_Unit(t *testing.T) {
-	harness := recordstoretest.StartServer(t, "workbook_interaction-sprint7-rejected-create-ws")
+	harness := recordstoretest.StartServer(t, "workbook_interaction-collaboration-rejected-create-ws")
 	login, _ := recordstoretest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := recordstoretest.CreateIncident(t, harness.Server, login, map[string]any{
-		"client_txn_id": "txn-workbook_interaction-sprint7-rejected-ws-incident",
-		"incident_key":  "IR-S7-REJECTED-WS",
-		"title":         "Workbook inspector Sprint 7 rejected create websocket",
+		"client_txn_id": "txn-workbook_interaction-collaboration-rejected-ws-incident",
+		"incident_key":  "IR-COLLABORATION-REJECTED-WS",
+		"title":         "Workbook inspector collaboration workflow rejected create websocket",
 	})
 	incidentID := incident["incident_id"].(string)
 	socket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 		Cookies:          []*http.Cookie{login.SessionCookie},
-		ClientInstanceID: "workbook_interaction-sprint7-rejected-create-listener",
+		ClientInstanceID: "workbook_interaction-collaboration-rejected-create-listener",
 		Presence: platformws.PresenceInput{
 			SheetRef: map[string]string{"kind": "view_schema", "id": workbook.CommLogViewSchemaID},
 			Mode:     "viewing",
@@ -189,10 +189,10 @@ func TestRejectedCoordinationCreateEmitsNoRecordChanged_Unit(t *testing.T) {
 		clientTxnID  string
 		wantField    string
 	}{
-		{viewSchemaID: workbook.CommLogViewSchemaID, artifactType: "comm_log", clientTxnID: "txn-workbook_interaction-sprint7-zero-field-comm", wantField: "comm_log.comm_type"},
-		{viewSchemaID: workbook.HandoffViewSchemaID, artifactType: "handoff", clientTxnID: "txn-workbook_interaction-sprint7-zero-field-handoff", wantField: "handoff.incoming_owner_user_id"},
-		{viewSchemaID: workbook.StatusReviewViewSchemaID, artifactType: "status_review", clientTxnID: "txn-workbook_interaction-sprint7-zero-field-status", wantField: "status_review.current_state_summary"},
-		{viewSchemaID: workbook.LessonViewSchemaID, artifactType: "lesson", clientTxnID: "txn-workbook_interaction-sprint7-zero-field-lesson", wantField: "lesson.summary"},
+		{viewSchemaID: workbook.CommLogViewSchemaID, artifactType: "comm_log", clientTxnID: "txn-workbook_interaction-collaboration-zero-field-comm", wantField: "comm_log.comm_type"},
+		{viewSchemaID: workbook.HandoffViewSchemaID, artifactType: "handoff", clientTxnID: "txn-workbook_interaction-collaboration-zero-field-handoff", wantField: "handoff.incoming_owner_user_id"},
+		{viewSchemaID: workbook.StatusReviewViewSchemaID, artifactType: "status_review", clientTxnID: "txn-workbook_interaction-collaboration-zero-field-status", wantField: "status_review.current_state_summary"},
+		{viewSchemaID: workbook.LessonViewSchemaID, artifactType: "lesson", clientTxnID: "txn-workbook_interaction-collaboration-zero-field-lesson", wantField: "lesson.summary"},
 	} {
 		t.Run(tc.viewSchemaID, func(t *testing.T) {
 			before := countSQLDurableState(t, harness.DB, incidentID)
@@ -217,9 +217,9 @@ func TestRejectedCoordinationCreateEmitsNoRecordChanged_Unit(t *testing.T) {
 
 func TestCoordinationSavedViewsRemainAdditive_Unit(t *testing.T) {
 	ctx := context.Background()
-	harness := recordstoretest.StartStore(t, "workbook_interaction-sprint7-coordination-saved-views")
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "sprint7-saved-views@example.test", "Sprint7 Saved Views", "Sprint7SavedViews1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-sprint7-saved-views-incident", "IR-S7-SAVED-VIEWS", "Workbook inspector Sprint 7 coordination saved views")
+	harness := recordstoretest.StartStore(t, "workbook_interaction-collaboration-coordination-saved-views")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "collaboration-saved-views@example.test", "Collaboration Saved Views", "CollaborationSavedViews1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-saved-views-incident", "IR-COLLABORATION-SAVED-VIEWS", "Workbook inspector collaboration workflow coordination saved views")
 	savedViewStore := savedviews.NewStore(harness.DB)
 	startupStore := workbookstartup.NewStore(harness.DB)
 	workbookStore := workbook.NewStore(harness.DB)
@@ -310,13 +310,13 @@ func DefaultQueryMeta(t testing.TB, viewSchemaID string) viewschema.QueryMeta {
 }
 
 func TestCoordinationProjectionSortFilterGroup_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "workbook_interaction-sprint7-coordination-projections")
+	harness := recordstoretest.StartStore(t, "workbook_interaction-collaboration-coordination-projections")
 	store := workbook.NewStore(harness.DB)
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "sprint7-projection@example.test", "Sprint7 Projection", "Sprint7Projection1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-sprint7-projection-incident", "IR-S7-PROJECTION", "Workbook inspector Sprint 7 coordination projections")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "collaboration-projection@example.test", "Collaboration Projection", "CollaborationProjection1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-projection-incident", "IR-COLLABORATION-PROJECTION", "Workbook inspector collaboration workflow coordination projections")
 
 	commOneNextReport := time.Date(2026, 5, 20, 9, 0, 0, 0, time.UTC)
-	_ = mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-sprint7-comm-projection-one", map[string]workbook.ValueChange{
+	_ = mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-comm-projection-one", map[string]workbook.ValueChange{
 		"comm_log.timestamp_utc":      Timestamp(time.Date(2026, 5, 18, 9, 0, 0, 0, time.UTC)),
 		"comm_log.comm_type":          Text("briefing"),
 		"comm_log.audience":           Text("Leads"),
@@ -326,7 +326,7 @@ func TestCoordinationProjectionSortFilterGroup_Unit(t *testing.T) {
 		"comm_log.privilege_tag":      Text("internal"),
 	}, nil, Time(0))
 	commTwoNextReport := time.Date(2026, 5, 21, 9, 0, 0, 0, time.UTC)
-	commTwo := mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-sprint7-comm-projection-two", map[string]workbook.ValueChange{
+	commTwo := mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-comm-projection-two", map[string]workbook.ValueChange{
 		"comm_log.timestamp_utc":      Timestamp(time.Date(2026, 5, 19, 9, 0, 0, 0, time.UTC)),
 		"comm_log.comm_type":          Text("notification"),
 		"comm_log.audience":           Text("Duty managers"),
@@ -344,13 +344,13 @@ func TestCoordinationProjectionSortFilterGroup_Unit(t *testing.T) {
 		GroupBy: StringPtr("comm_log.comm_type"),
 	}, commTwo.RecordID, "comm_log.comm_type", "notification")
 
-	handoffPending := mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-sprint7-handoff-projection-pending", map[string]workbook.ValueChange{
+	handoffPending := mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-handoff-projection-pending", map[string]workbook.ValueChange{
 		"handoff.timestamp_utc":          Timestamp(time.Date(2026, 5, 18, 10, 0, 0, 0, time.UTC)),
 		"handoff.incoming_owner_user_id": UUID(actor.ID),
 		"handoff.current_state_summary":  Text("Pending projection handoff"),
 	}, nil, Time(2*time.Minute))
 	acknowledgedAt := time.Date(2026, 5, 19, 11, 0, 0, 0, time.UTC)
-	handoffAck := mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-sprint7-handoff-projection-ack", map[string]workbook.ValueChange{
+	handoffAck := mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-handoff-projection-ack", map[string]workbook.ValueChange{
 		"handoff.timestamp_utc":          Timestamp(time.Date(2026, 5, 19, 10, 0, 0, 0, time.UTC)),
 		"handoff.incoming_owner_user_id": UUID(actor.ID),
 		"handoff.current_state_summary":  Text("Acknowledged projection handoff"),
@@ -380,12 +380,12 @@ func TestCoordinationProjectionSortFilterGroup_Unit(t *testing.T) {
 	}
 	requireRecordOrder(t, ackDesc, []uuid.UUID{handoffAck.RecordID, handoffPending.RecordID})
 
-	_ = mustCreateRow(t, store, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-workbook_interaction-sprint7-status-projection-one", map[string]workbook.ValueChange{
+	_ = mustCreateRow(t, store, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-status-projection-one", map[string]workbook.ValueChange{
 		"status_review.timestamp_utc":         Timestamp(time.Date(2026, 5, 18, 12, 0, 0, 0, time.UTC)),
 		"status_review.current_state_summary": Text("Status review baseline"),
 	}, nil, Time(4*time.Minute))
 	statusNextReport := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
-	status := mustCreateRow(t, store, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-workbook_interaction-sprint7-status-projection-two", map[string]workbook.ValueChange{
+	status := mustCreateRow(t, store, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-status-projection-two", map[string]workbook.ValueChange{
 		"status_review.timestamp_utc":         Timestamp(time.Date(2026, 5, 19, 12, 0, 0, 0, time.UTC)),
 		"status_review.review_owner_user_id":  UUID(actor.ID),
 		"status_review.current_state_summary": Text("Status review next report"),
@@ -401,11 +401,11 @@ func TestCoordinationProjectionSortFilterGroup_Unit(t *testing.T) {
 		GroupBy: StringPtr("status_review.review_owner_user_id"),
 	}, status.RecordID, "status_review.review_owner_user_id", actor.ID.String())
 
-	_ = mustCreateRow(t, store, actor, incident.ID, workbook.LessonViewSchemaID, "txn-workbook_interaction-sprint7-lesson-projection-open", map[string]workbook.ValueChange{
+	_ = mustCreateRow(t, store, actor, incident.ID, workbook.LessonViewSchemaID, "txn-workbook_interaction-collaboration-lesson-projection-open", map[string]workbook.ValueChange{
 		"lesson.timestamp_utc": Timestamp(time.Date(2026, 5, 18, 13, 0, 0, 0, time.UTC)),
 		"lesson.summary":       Text("Open lesson projection"),
 	}, nil, Time(6*time.Minute))
-	lesson := mustCreateRow(t, store, actor, incident.ID, workbook.LessonViewSchemaID, "txn-workbook_interaction-sprint7-lesson-projection-closed", map[string]workbook.ValueChange{
+	lesson := mustCreateRow(t, store, actor, incident.ID, workbook.LessonViewSchemaID, "txn-workbook_interaction-collaboration-lesson-projection-closed", map[string]workbook.ValueChange{
 		"lesson.timestamp_utc": Timestamp(time.Date(2026, 5, 19, 13, 0, 0, 0, time.UTC)),
 		"lesson.summary":       Text("Closed lesson projection"),
 		"lesson.owner_user_id": UUID(actor.ID),
@@ -423,26 +423,26 @@ func TestCoordinationProjectionSortFilterGroup_Unit(t *testing.T) {
 }
 
 func TestCoordinationDeclaredQueryFieldsAreMapped_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "workbook_interaction-sprint7-coordination-query-fields")
+	harness := recordstoretest.StartStore(t, "workbook_interaction-collaboration-coordination-query-fields")
 	store := workbook.NewStore(harness.DB)
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "sprint7-query-fields@example.test", "Sprint7 Query Fields", "Sprint7QueryFields1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-sprint7-query-fields-incident", "IR-S7-QUERY-FIELDS", "Workbook inspector Sprint 7 declared query fields")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "collaboration-query-fields@example.test", "Collaboration Query Fields", "CollaborationQueryFields1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-query-fields-incident", "IR-COLLABORATION-QUERY-FIELDS", "Workbook inspector collaboration workflow declared query fields")
 
-	mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-sprint7-query-fields-comm", map[string]workbook.ValueChange{
+	mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-query-fields-comm", map[string]workbook.ValueChange{
 		"comm_log.comm_type":          Text("briefing"),
 		"comm_log.audience":           Text("Query field audience"),
 		"comm_log.channel_or_meeting": Text("Bridge"),
 		"comm_log.summary":            Text("Query field comm log"),
 		"comm_log.privilege_tag":      Text("internal"),
 	}, nil, Time(0))
-	mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-sprint7-query-fields-handoff", map[string]workbook.ValueChange{
+	mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-query-fields-handoff", map[string]workbook.ValueChange{
 		"handoff.incoming_owner_user_id": UUID(actor.ID),
 		"handoff.current_state_summary":  Text("Query field handoff"),
 	}, nil, Time(time.Minute))
-	mustCreateRow(t, store, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-workbook_interaction-sprint7-query-fields-status", map[string]workbook.ValueChange{
+	mustCreateRow(t, store, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-query-fields-status", map[string]workbook.ValueChange{
 		"status_review.current_state_summary": Text("Query field status review"),
 	}, nil, Time(2*time.Minute))
-	mustCreateRow(t, store, actor, incident.ID, workbook.LessonViewSchemaID, "txn-workbook_interaction-sprint7-query-fields-lesson", map[string]workbook.ValueChange{
+	mustCreateRow(t, store, actor, incident.ID, workbook.LessonViewSchemaID, "txn-workbook_interaction-collaboration-query-fields-lesson", map[string]workbook.ValueChange{
 		"lesson.summary": Text("Query field lesson"),
 	}, nil, Time(3*time.Minute))
 
@@ -493,23 +493,23 @@ func TestCoordinationDeclaredQueryFieldsAreMapped_Unit(t *testing.T) {
 }
 
 func TestCoordinationSemanticFilters_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "workbook_interaction-sprint7-coordination-semantic-filters")
+	harness := recordstoretest.StartStore(t, "workbook_interaction-collaboration-coordination-semantic-filters")
 	store := workbook.NewStore(harness.DB)
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "sprint7-filters@example.test", "Sprint7 Filters", "Sprint7Filters1!", false, false, true)
-	alternate := recordstoretest.SeedLocalUserFlags(t, harness.DB, "sprint7-filters-alt@example.test", "Sprint7 Filters Alt", "Sprint7FiltersAlt1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-sprint7-filters-incident", "IR-S7-FILTERS", "Workbook inspector Sprint 7 semantic filters")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "collaboration-filters@example.test", "Collaboration Filters", "CollaborationFilters1!", false, false, true)
+	alternate := recordstoretest.SeedLocalUserFlags(t, harness.DB, "collaboration-filters-alt@example.test", "Collaboration Filters Alt", "CollaborationFiltersAlt1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-filters-incident", "IR-COLLABORATION-FILTERS", "Workbook inspector collaboration workflow semantic filters")
 	_, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.HandoffViewSchemaID,
-		ClientTxnID:  "txn-workbook_interaction-sprint7-filter-nonmember-owner",
+		ClientTxnID:  "txn-workbook_interaction-collaboration-filter-nonmember-owner",
 		Values: map[string]workbook.ValueChange{
 			"handoff.incoming_owner_user_id": UUID(alternate.ID),
 			"handoff.current_state_summary":  Text("Non-member owner must fail"),
 		},
-	}, []byte("txn-workbook_interaction-sprint7-filter-nonmember-owner"), "req-workbook_interaction-sprint7-filter-nonmember-owner", Time(0))
+	}, []byte("txn-workbook_interaction-collaboration-filter-nonmember-owner"), "req-workbook_interaction-collaboration-filter-nonmember-owner", Time(0))
 	requireMutationValidation(t, err, "handoff.incoming_owner_user_id", "invalid_value")
 	recordstoretest.SeedIncidentMembership(t, harness.DB, incident.ID, alternate.ID, alternate.DisplayName, "editor", actor.ID)
 
-	commPositive := mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-sprint7-filter-comm-positive", map[string]workbook.ValueChange{
+	commPositive := mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-filter-comm-positive", map[string]workbook.ValueChange{
 		"comm_log.timestamp_utc":      Timestamp(time.Date(2026, 5, 19, 9, 0, 0, 0, time.UTC)),
 		"comm_log.comm_type":          Text("notification"),
 		"comm_log.audience":           Text("Incident Command"),
@@ -518,7 +518,7 @@ func TestCoordinationSemanticFilters_Unit(t *testing.T) {
 		"comm_log.next_report_at":     Timestamp(time.Date(2026, 5, 22, 9, 0, 0, 0, time.UTC)),
 		"comm_log.privilege_tag":      Text("privileged"),
 	}, nil, Time(0))
-	mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-sprint7-filter-comm-negative", map[string]workbook.ValueChange{
+	mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-filter-comm-negative", map[string]workbook.ValueChange{
 		"comm_log.timestamp_utc":      Timestamp(time.Date(2026, 5, 20, 9, 0, 0, 0, time.UTC)),
 		"comm_log.comm_type":          Text("briefing"),
 		"comm_log.audience":           Text("Engineering"),
@@ -528,40 +528,40 @@ func TestCoordinationSemanticFilters_Unit(t *testing.T) {
 		"comm_log.privilege_tag":      Text("public"),
 	}, nil, Time(time.Minute))
 
-	handoffPositive := mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-sprint7-filter-handoff-positive", map[string]workbook.ValueChange{
+	handoffPositive := mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-filter-handoff-positive", map[string]workbook.ValueChange{
 		"handoff.timestamp_utc":          Timestamp(time.Date(2026, 5, 19, 10, 0, 0, 0, time.UTC)),
 		"handoff.outgoing_owner_user_id": UUID(actor.ID),
 		"handoff.incoming_owner_user_id": UUID(alternate.ID),
 		"handoff.current_state_summary":  Text("Semantic filter positive handoff"),
 		"handoff.acknowledged_at":        Timestamp(time.Date(2026, 5, 19, 11, 0, 0, 0, time.UTC)),
 	}, nil, Time(2*time.Minute))
-	mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-sprint7-filter-handoff-negative", map[string]workbook.ValueChange{
+	mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-filter-handoff-negative", map[string]workbook.ValueChange{
 		"handoff.timestamp_utc":          Timestamp(time.Date(2026, 5, 20, 10, 0, 0, 0, time.UTC)),
 		"handoff.outgoing_owner_user_id": UUID(alternate.ID),
 		"handoff.incoming_owner_user_id": UUID(actor.ID),
 		"handoff.current_state_summary":  Text("Semantic filter negative handoff"),
 	}, nil, Time(3*time.Minute))
 
-	statusPositive := mustCreateRow(t, store, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-workbook_interaction-sprint7-filter-status-positive", map[string]workbook.ValueChange{
+	statusPositive := mustCreateRow(t, store, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-filter-status-positive", map[string]workbook.ValueChange{
 		"status_review.timestamp_utc":         Timestamp(time.Date(2026, 5, 19, 12, 0, 0, 0, time.UTC)),
 		"status_review.review_owner_user_id":  UUID(actor.ID),
 		"status_review.current_state_summary": Text("Semantic filter positive status"),
 		"status_review.next_report_at":        Timestamp(time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)),
 	}, nil, Time(4*time.Minute))
-	mustCreateRow(t, store, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-workbook_interaction-sprint7-filter-status-negative", map[string]workbook.ValueChange{
+	mustCreateRow(t, store, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-filter-status-negative", map[string]workbook.ValueChange{
 		"status_review.timestamp_utc":         Timestamp(time.Date(2026, 5, 20, 12, 0, 0, 0, time.UTC)),
 		"status_review.review_owner_user_id":  UUID(alternate.ID),
 		"status_review.current_state_summary": Text("Semantic filter negative status"),
 		"status_review.next_report_at":        Timestamp(time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC)),
 	}, nil, Time(5*time.Minute))
 
-	lessonPositive := mustCreateRow(t, store, actor, incident.ID, workbook.LessonViewSchemaID, "txn-workbook_interaction-sprint7-filter-lesson-positive", map[string]workbook.ValueChange{
+	lessonPositive := mustCreateRow(t, store, actor, incident.ID, workbook.LessonViewSchemaID, "txn-workbook_interaction-collaboration-filter-lesson-positive", map[string]workbook.ValueChange{
 		"lesson.timestamp_utc": Timestamp(time.Date(2026, 5, 19, 13, 0, 0, 0, time.UTC)),
 		"lesson.summary":       Text("Semantic filter positive lesson"),
 		"lesson.owner_user_id": UUID(actor.ID),
 		"lesson.closure_state": Text("closed"),
 	}, nil, Time(6*time.Minute))
-	mustCreateRow(t, store, actor, incident.ID, workbook.LessonViewSchemaID, "txn-workbook_interaction-sprint7-filter-lesson-negative", map[string]workbook.ValueChange{
+	mustCreateRow(t, store, actor, incident.ID, workbook.LessonViewSchemaID, "txn-workbook_interaction-collaboration-filter-lesson-negative", map[string]workbook.ValueChange{
 		"lesson.timestamp_utc": Timestamp(time.Date(2026, 5, 20, 13, 0, 0, 0, time.UTC)),
 		"lesson.summary":       Text("Semantic filter negative lesson"),
 		"lesson.owner_user_id": UUID(alternate.ID),
@@ -614,18 +614,18 @@ func TestCoordinationSemanticFilters_Unit(t *testing.T) {
 }
 
 func TestCoordinationCollectionItemShapes_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "workbook_interaction-sprint7-coordination-collection-shapes")
+	harness := recordstoretest.StartStore(t, "workbook_interaction-collaboration-coordination-collection-shapes")
 	store := workbook.NewStore(harness.DB)
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "sprint7-shapes@example.test", "Sprint7 Shapes", "Sprint7Shapes1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-sprint7-shapes-incident", "IR-S7-SHAPES", "Workbook inspector Sprint 7 collection item shapes")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "collaboration-shapes@example.test", "Collaboration Shapes", "CollaborationShapes1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-shapes-incident", "IR-COLLABORATION-SHAPES", "Workbook inspector collaboration workflow collection item shapes")
 
-	partyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-sprint7-shapes-party", "Coordination Shape Party")
-	attendeePartyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-sprint7-shapes-attendee", "Coordination Shape Attendee")
-	decisionID := mustCreateDecision(t, store, actor, incident.ID, "txn-workbook_interaction-sprint7-shapes-decision", "approved", "Shape decision")
-	taskID := mustCreateTaskFor(t, store, actor, incident.ID, "txn-workbook_interaction-sprint7-shapes-task", "Shape task")
-	evidenceID := mustCreateEvidenceFor(t, store, actor, incident.ID, "txn-workbook_interaction-sprint7-shapes-evidence", "Shape evidence")
+	partyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-shapes-party", "Coordination Shape Party")
+	attendeePartyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-shapes-attendee", "Coordination Shape Attendee")
+	decisionID := mustCreateDecision(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-shapes-decision", "approved", "Shape decision")
+	taskID := mustCreateTaskFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-shapes-task", "Shape task")
+	evidenceID := mustCreateEvidenceFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-shapes-evidence", "Shape evidence")
 
-	comm := mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-sprint7-shapes-comm", MinimumValues(actor.ID, workbook.CommLogViewSchemaID), map[string]workbook.CollectionActionPayload{
+	comm := mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-shapes-comm", MinimumValues(actor.ID, workbook.CommLogViewSchemaID), map[string]workbook.CollectionActionPayload{
 		"comm_log.decision_ids":       Collection(addOptionalSurfaceRecordRef(decisionID)),
 		"comm_log.action_task_ids":    Collection(addOptionalSurfaceRecordRef(taskID)),
 		"comm_log.audience_party_ids": Collection(workbook.CollectionAction{Op: "add_party_ref", PartyID: &partyID}),
@@ -637,7 +637,7 @@ func TestCoordinationCollectionItemShapes_Unit(t *testing.T) {
 	requirePartyRefItemShape(t, commRow, "comm_log.audience_party_ids", partyID)
 	requirePartyRefItemShape(t, commRow, "comm_log.attendee_party_ids", attendeePartyID)
 
-	handoff := mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-sprint7-shapes-handoff", MinimumValues(actor.ID, workbook.HandoffViewSchemaID), map[string]workbook.CollectionActionPayload{
+	handoff := mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-shapes-handoff", MinimumValues(actor.ID, workbook.HandoffViewSchemaID), map[string]workbook.CollectionActionPayload{
 		"handoff.open_task_ids":     Collection(addOptionalSurfaceRecordRef(taskID)),
 		"handoff.open_decision_ids": Collection(addOptionalSurfaceRecordRef(decisionID)),
 		"handoff.open_risk_refs":    {Actions: []workbook.CollectionAction{{Op: "add_risk_ref", RiskRefText: "Escalate outbound access", NormalizedText: "escalate outbound access"}}},
@@ -647,7 +647,7 @@ func TestCoordinationCollectionItemShapes_Unit(t *testing.T) {
 	requireRecordRefItemShape(t, handoffRow, "handoff.open_decision_ids", decisionID)
 	requireRiskRefItemShape(t, handoffRow, "handoff.open_risk_refs", "Escalate outbound access")
 
-	status := mustCreateRow(t, store, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-workbook_interaction-sprint7-shapes-status", MinimumValues(actor.ID, workbook.StatusReviewViewSchemaID), map[string]workbook.CollectionActionPayload{
+	status := mustCreateRow(t, store, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-shapes-status", MinimumValues(actor.ID, workbook.StatusReviewViewSchemaID), map[string]workbook.CollectionActionPayload{
 		"status_review.blocked_task_ids":     Collection(addOptionalSurfaceRecordRef(taskID)),
 		"status_review.pending_evidence_ids": Collection(addOptionalSurfaceRecordRef(evidenceID)),
 		"status_review.open_decision_ids":    Collection(addOptionalSurfaceRecordRef(decisionID)),
@@ -657,7 +657,7 @@ func TestCoordinationCollectionItemShapes_Unit(t *testing.T) {
 	requireRecordRefItemShape(t, statusRow, "status_review.pending_evidence_ids", evidenceID)
 	requireRecordRefItemShape(t, statusRow, "status_review.open_decision_ids", decisionID)
 
-	lesson := mustCreateRow(t, store, actor, incident.ID, workbook.LessonViewSchemaID, "txn-workbook_interaction-sprint7-shapes-lesson", MinimumValues(actor.ID, workbook.LessonViewSchemaID), map[string]workbook.CollectionActionPayload{
+	lesson := mustCreateRow(t, store, actor, incident.ID, workbook.LessonViewSchemaID, "txn-workbook_interaction-collaboration-shapes-lesson", MinimumValues(actor.ID, workbook.LessonViewSchemaID), map[string]workbook.CollectionActionPayload{
 		"lesson.follow_up_task_ids": Collection(addOptionalSurfaceRecordRef(taskID)),
 		"lesson.evidence_refs":      Collection(addOptionalSurfaceRecordRef(evidenceID)),
 	}, Time(3*time.Minute))
@@ -667,15 +667,15 @@ func TestCoordinationCollectionItemShapes_Unit(t *testing.T) {
 }
 
 func TestCoordinationDuplicateCoalescing_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "workbook_interaction-sprint7-coordination-duplicate-coalescing")
+	harness := recordstoretest.StartStore(t, "workbook_interaction-collaboration-coordination-duplicate-coalescing")
 	store := workbook.NewStore(harness.DB)
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "sprint7-duplicates@example.test", "Sprint7 Duplicates", "Sprint7Duplicates1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-sprint7-duplicates-incident", "IR-S7-DUPLICATES", "Workbook inspector Sprint 7 duplicate coalescing")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "collaboration-duplicates@example.test", "Collaboration Duplicates", "CollaborationDuplicates1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-duplicates-incident", "IR-COLLABORATION-DUPLICATES", "Workbook inspector collaboration workflow duplicate coalescing")
 
-	partyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-sprint7-duplicates-party", "Duplicate Party")
-	decisionID := mustCreateDecision(t, store, actor, incident.ID, "txn-workbook_interaction-sprint7-duplicates-decision", "approved", "Duplicate decision")
-	taskID := mustCreateTaskFor(t, store, actor, incident.ID, "txn-workbook_interaction-sprint7-duplicates-task", "Duplicate task")
-	evidenceID := mustCreateEvidenceFor(t, store, actor, incident.ID, "txn-workbook_interaction-sprint7-duplicates-evidence", "Duplicate evidence")
+	partyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-duplicates-party", "Duplicate Party")
+	decisionID := mustCreateDecision(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-duplicates-decision", "approved", "Duplicate decision")
+	taskID := mustCreateTaskFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-duplicates-task", "Duplicate task")
+	evidenceID := mustCreateEvidenceFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-duplicates-evidence", "Duplicate evidence")
 
 	for _, tc := range []struct {
 		name         string
@@ -697,7 +697,7 @@ func TestCoordinationDuplicateCoalescing_Unit(t *testing.T) {
 		{"lesson-evidence", workbook.LessonViewSchemaID, "lesson.evidence_refs", addOptionalSurfaceRecordRef(evidenceID), evidenceID},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			clientTxnID := "txn-workbook_interaction-sprint7-duplicates-" + tc.name
+			clientTxnID := "txn-workbook_interaction-collaboration-duplicates-" + tc.name
 			values := MinimumValues(actor.ID, tc.viewSchemaID)
 			collections := map[string]workbook.CollectionActionPayload{
 				tc.fieldKey: Collection(tc.action, tc.action),
@@ -720,7 +720,7 @@ func TestCoordinationDuplicateCoalescing_Unit(t *testing.T) {
 		})
 	}
 
-	riskClientTxnID := "txn-workbook_interaction-sprint7-duplicates-risk"
+	riskClientTxnID := "txn-workbook_interaction-collaboration-duplicates-risk"
 	riskValues := MinimumValues(actor.ID, workbook.HandoffViewSchemaID)
 	riskCollections := map[string]workbook.CollectionActionPayload{
 		"handoff.open_risk_refs": {
@@ -748,26 +748,26 @@ func TestCoordinationDuplicateCoalescing_Unit(t *testing.T) {
 
 func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 	ctx := context.Background()
-	harness := recordstoretest.StartStore(t, "workbook_interaction-sprint7-coordination-collections")
+	harness := recordstoretest.StartStore(t, "workbook_interaction-collaboration-coordination-collections")
 	store := workbook.NewStore(harness.DB)
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "sprint7-collections@example.test", "Sprint7 Collections", "Sprint7Collections1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-sprint7-collections-incident", "IR-S7-COLLECTIONS", "Workbook inspector Sprint 7 coordination collections")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "collaboration-collections@example.test", "Collaboration Collections", "CollaborationCollections1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-collections-incident", "IR-COLLABORATION-COLLECTIONS", "Workbook inspector collaboration workflow coordination collections")
 
-	partyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-sprint7-party", "Coordination Legal")
-	otherPartyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-sprint7-party-other", "Coordination Legal Alternate")
-	decisionID := mustCreateDecision(t, store, actor, incident.ID, "txn-workbook_interaction-sprint7-decision", "approved", "Approve coordination plan")
-	taskID := mustCreateTaskFor(t, store, actor, incident.ID, "txn-workbook_interaction-sprint7-task", "Coordinate endpoint logs")
-	evidenceID := mustCreateEvidenceFor(t, store, actor, incident.ID, "txn-workbook_interaction-sprint7-evidence", "Coordination evidence")
+	partyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-party", "Coordination Legal")
+	otherPartyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-party-other", "Coordination Legal Alternate")
+	decisionID := mustCreateDecision(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-decision", "approved", "Approve coordination plan")
+	taskID := mustCreateTaskFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-task", "Coordinate endpoint logs")
+	evidenceID := mustCreateEvidenceFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-evidence", "Coordination evidence")
 
-	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-sprint7-foreign-incident", "IR-S7-COLLECTIONS-FOREIGN", "Workbook inspector Sprint 7 foreign incident")
-	foreignEvidenceID := mustCreateEvidenceFor(t, store, actor, otherIncident.ID, "txn-workbook_interaction-sprint7-foreign-evidence", "Foreign evidence")
-	foreignTaskID := mustCreateTaskFor(t, store, actor, otherIncident.ID, "txn-workbook_interaction-sprint7-foreign-task", "Foreign task")
-	foreignDecisionID := mustCreateDecision(t, store, actor, otherIncident.ID, "txn-workbook_interaction-sprint7-foreign-decision", "approved", "Foreign decision")
-	foreignPartyID := mustCreatePartyFor(t, store, actor, otherIncident.ID, "txn-workbook_interaction-sprint7-foreign-party", "Foreign party")
-	deletedEvidenceID := mustCreateEvidenceFor(t, store, actor, incident.ID, "txn-workbook_interaction-sprint7-deleted-evidence", "Deleted evidence")
-	deletedTaskID := mustCreateTaskFor(t, store, actor, incident.ID, "txn-workbook_interaction-sprint7-deleted-task", "Deleted task")
-	deletedDecisionID := mustCreateDecision(t, store, actor, incident.ID, "txn-workbook_interaction-sprint7-deleted-decision", "approved", "Deleted decision")
-	deletedPartyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-sprint7-deleted-party", "Deleted party")
+	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-foreign-incident", "IR-COLLABORATION-COLLECTIONS-FOREIGN", "Workbook inspector collaboration workflow foreign incident")
+	foreignEvidenceID := mustCreateEvidenceFor(t, store, actor, otherIncident.ID, "txn-workbook_interaction-collaboration-foreign-evidence", "Foreign evidence")
+	foreignTaskID := mustCreateTaskFor(t, store, actor, otherIncident.ID, "txn-workbook_interaction-collaboration-foreign-task", "Foreign task")
+	foreignDecisionID := mustCreateDecision(t, store, actor, otherIncident.ID, "txn-workbook_interaction-collaboration-foreign-decision", "approved", "Foreign decision")
+	foreignPartyID := mustCreatePartyFor(t, store, actor, otherIncident.ID, "txn-workbook_interaction-collaboration-foreign-party", "Foreign party")
+	deletedEvidenceID := mustCreateEvidenceFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-deleted-evidence", "Deleted evidence")
+	deletedTaskID := mustCreateTaskFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-deleted-task", "Deleted task")
+	deletedDecisionID := mustCreateDecision(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-deleted-decision", "approved", "Deleted decision")
+	deletedPartyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-deleted-party", "Deleted party")
 	for label, recordID := range map[string]uuid.UUID{
 		"evidence": deletedEvidenceID,
 		"task":     deletedTaskID,
@@ -812,7 +812,7 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 			{name: "deleted", id: invalidTargets[field.targetType].deleted},
 		} {
 			before := countDurableState(t, harness, incident.ID)
-			clientTxnID := "txn-workbook_interaction-sprint7-invalid-" + strings.ReplaceAll(field.fieldKey, ".", "-") + "-" + invalid.name
+			clientTxnID := "txn-workbook_interaction-collaboration-invalid-" + strings.ReplaceAll(field.fieldKey, ".", "-") + "-" + invalid.name
 			_, err := store.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
 				ViewSchemaID: field.viewSchemaID,
 				ClientTxnID:  clientTxnID,
@@ -834,7 +834,7 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 			{name: "deleted", id: deletedPartyID},
 		} {
 			before := countDurableState(t, harness, incident.ID)
-			clientTxnID := "txn-workbook_interaction-sprint7-invalid-" + strings.ReplaceAll(fieldKey, ".", "-") + "-" + invalid.name
+			clientTxnID := "txn-workbook_interaction-collaboration-invalid-" + strings.ReplaceAll(fieldKey, ".", "-") + "-" + invalid.name
 			_, err := store.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
 				ViewSchemaID: workbook.CommLogViewSchemaID,
 				ClientTxnID:  clientTxnID,
@@ -846,7 +846,7 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 		}
 	}
 
-	comm := mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-sprint7-comm-collections", map[string]workbook.ValueChange{
+	comm := mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-comm-collections", map[string]workbook.ValueChange{
 		"comm_log.comm_type":          Text("briefing"),
 		"comm_log.audience":           Text("Leadership source text"),
 		"comm_log.channel_or_meeting": Text("Bridge"),
@@ -867,14 +867,14 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 	requireManualReferenceLink(t, harness, comm.RecordID, taskID, "comm_log.action_task_ids", "references_record")
 	requireManualReferenceLink(t, harness, comm.RecordID, partyID, "comm_log.audience_party_ids", "references_record")
 
-	commWithAttendee := mustPatch(t, store, actor, comm.RecordID, workbook.CommLogViewSchemaID, 1, "txn-workbook_interaction-sprint7-comm-add-attendee",
+	commWithAttendee := mustPatch(t, store, actor, comm.RecordID, workbook.CommLogViewSchemaID, 1, "txn-workbook_interaction-collaboration-comm-add-attendee",
 		CollectionChange("comm_log.attendee_party_ids", Collection(workbook.CollectionAction{Op: "add_party_ref", PartyID: &otherPartyID})))
 	requireCoordinationCellValue(t, commWithAttendee.Payload["row"].(map[string]any), "comm_log.audience", "Leadership source text")
-	commWithoutAttendee := mustPatch(t, store, actor, comm.RecordID, workbook.CommLogViewSchemaID, 2, "txn-workbook_interaction-sprint7-comm-remove-attendee",
+	commWithoutAttendee := mustPatch(t, store, actor, comm.RecordID, workbook.CommLogViewSchemaID, 2, "txn-workbook_interaction-collaboration-comm-remove-attendee",
 		CollectionChange("comm_log.attendee_party_ids", Collection(workbook.CollectionAction{Op: "remove_party_ref", ItemRef: "party_ref:" + otherPartyID.String()})))
 	requireCoordinationCellValue(t, commWithoutAttendee.Payload["row"].(map[string]any), "comm_log.audience", "Leadership source text")
 
-	handoff := mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-sprint7-handoff-collections", map[string]workbook.ValueChange{
+	handoff := mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-handoff-collections", map[string]workbook.ValueChange{
 		"handoff.incoming_owner_user_id": UUID(actor.ID),
 		"handoff.current_state_summary":  Text("Open coordination work"),
 	}, map[string]workbook.CollectionActionPayload{
@@ -899,7 +899,7 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 	if got := countLinksForField(t, harness, handoff.RecordID, "handoff.open_risk_refs"); got != 0 {
 		t.Fatalf("risk refs must not create generic record links, got %d", got)
 	}
-	secondHandoff := mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-sprint7-handoff-risk-scoped", map[string]workbook.ValueChange{
+	secondHandoff := mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-handoff-risk-scoped", map[string]workbook.ValueChange{
 		"handoff.incoming_owner_user_id": UUID(actor.ID),
 		"handoff.current_state_summary":  Text("Separate handoff same risk text"),
 	}, map[string]workbook.CollectionActionPayload{
@@ -909,14 +909,14 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 	if got := countActiveRiskRefs(t, harness, secondHandoff.RecordID); got != 1 {
 		t.Fatalf("same risk text must be scoped per handoff: got %d want 1", got)
 	}
-	removedRisk := mustPatch(t, store, actor, handoff.RecordID, workbook.HandoffViewSchemaID, 1, "txn-workbook_interaction-sprint7-handoff-remove-risk",
+	removedRisk := mustPatch(t, store, actor, handoff.RecordID, workbook.HandoffViewSchemaID, 1, "txn-workbook_interaction-collaboration-handoff-remove-risk",
 		CollectionChange("handoff.open_risk_refs", workbook.CollectionActionPayload{Actions: []workbook.CollectionAction{{Op: "remove_risk_ref", ItemRef: riskRef}}}))
 	requireCoordinationCollectionItemCount(t, removedRisk.Payload["row"].(map[string]any), "handoff.open_risk_refs", 0)
 	if got := countActiveRiskRefs(t, harness, secondHandoff.RecordID); got != 1 {
 		t.Fatalf("removing one handoff risk ref affected another handoff: got %d want 1", got)
 	}
 
-	status := mustCreateRow(t, store, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-workbook_interaction-sprint7-status-collections", map[string]workbook.ValueChange{
+	status := mustCreateRow(t, store, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-status-collections", map[string]workbook.ValueChange{
 		"status_review.current_state_summary": Text("Status with open coordination work"),
 	}, map[string]workbook.CollectionActionPayload{
 		"status_review.blocked_task_ids":     Collection(addOptionalSurfaceRecordRef(taskID)),
@@ -928,7 +928,7 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 	requireCoordinationCollectionItemCount(t, statusRow, "status_review.pending_evidence_ids", 1)
 	requireCoordinationCollectionItemCount(t, statusRow, "status_review.open_decision_ids", 1)
 
-	lesson := mustCreateRow(t, store, actor, incident.ID, workbook.LessonViewSchemaID, "txn-workbook_interaction-sprint7-lesson-collections", map[string]workbook.ValueChange{
+	lesson := mustCreateRow(t, store, actor, incident.ID, workbook.LessonViewSchemaID, "txn-workbook_interaction-collaboration-lesson-collections", map[string]workbook.ValueChange{
 		"lesson.summary": Text("Follow up on evidence and work"),
 	}, map[string]workbook.CollectionActionPayload{
 		"lesson.follow_up_task_ids": Collection(addOptionalSurfaceRecordRef(taskID)),
@@ -1157,7 +1157,7 @@ func requireInvalidCollectionPatch(t testing.TB, harness *recordstoretest.StoreH
 	t.Helper()
 	before := countDurableState(t, harness, incidentID)
 	baseVersion := RecordVersion(t, harness.DB, recordID)
-	_, err := Patch(store, actor, recordID, viewSchemaID, baseVersion, "txn-workbook_interaction-sprint7-invalid-"+strings.ReplaceAll(context, " ", "-"), CollectionChange(fieldKey, collection))
+	_, err := Patch(store, actor, recordID, viewSchemaID, baseVersion, "txn-workbook_interaction-collaboration-invalid-"+strings.ReplaceAll(context, " ", "-"), CollectionChange(fieldKey, collection))
 	requireMutationValidation(t, err, fieldKey, "invalid_value")
 	requireDurableState(t, harness, incidentID, before, context)
 	if got := RecordVersion(t, harness.DB, recordID); got != baseVersion {
@@ -1191,7 +1191,7 @@ func expectDecodePatchRejected(t testing.TB, viewSchemaID string, fieldKey strin
 	payload, err := json.Marshal(map[string]any{
 		"view_schema_id":   viewSchemaID,
 		"base_row_version": 1,
-		"client_txn_id":    "txn-workbook_interaction-sprint7-decode-reject-" + fieldKey,
+		"client_txn_id":    "txn-workbook_interaction-collaboration-decode-reject-" + fieldKey,
 		"changes": []map[string]any{
 			{
 				"field_key": fieldKey,

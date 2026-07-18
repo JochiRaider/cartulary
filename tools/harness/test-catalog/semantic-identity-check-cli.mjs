@@ -10,6 +10,13 @@ const declarationPattern = /^(?:func|type|const|var)\s+([A-Za-z_][A-Za-z0-9_]*)/
 const frontendDeclarationPattern = /\b(?:function|class|interface|type|const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)/gu;
 const frontendCallTitlePattern = /\b(?:describe|it|test)(?:\.[A-Za-z]+)?\s*\(\s*[`"']([^`"']*)/gu;
 const frontendTitlePattern = /(?:(?:Phase|Sprint)\s+\d+|FE-[A-Z]+-P\d+(?:-[A-Z0-9]+)*|(?:^|\s)[UIEV]-\d+(?:-[A-Z0-9]+)+)/iu;
+const catalogIdentityPattern = /(?:^|[^a-z0-9])(?:module|platform|app|web|package|harness)\.[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+(?:[^a-z0-9]|$)/iu;
+const compactDeliveryIdentityPattern = /(?:Phase|phase|Sprint|sprint)\d+/u;
+const goFixtureIdentityContextPattern = /\b(?:StartStore|StartServer|SeedLocalUserFlags|CreateIncidentInStore|ClientTxnID|ClientInstanceID|clientTxnID|client_txn_id|incident_key)\b/u;
+const goFixtureIdentityValuePattern = /(?:^|[^a-z0-9])(?:txn|req|run|fixture|scenario|artifact|isolation)[_.-]|@example\.test|(?:^|[^a-z0-9])IR-/iu;
+const goStringLiteralPattern = /`([^`]*)`|"((?:\\.|[^"\\])*)"/gu;
+const frontendFixtureIdentityCallPattern = /\b(uniqueIncidentKey|uniqueTxn|uniqueEmail)\s*\(\s*[`"']([^`"']*)/gu;
+const frontendFixtureIdentityMetadataPattern = /\b(createdBy|purpose|scenario|incidentKeyPrefix|txnPrefix|displayPrefix|hostnamePrefix|rawTextPrefix|client_txn_id|incident_key|fixture_id|seed_id|artifact_name)\s*:\s*[`"']([^`"']*)/gu;
 
 function asciiCompare(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -55,6 +62,25 @@ function collectGoViolations(root) {
         locator: match[1],
         reason: "test declaration encodes a delivery phase or sprint",
       });
+    }
+    for (const [lineIndex, line] of source.split("\n").entries()) {
+      const identityContext = goFixtureIdentityContextPattern.test(line);
+      for (const match of line.matchAll(goStringLiteralPattern)) {
+        const value = match[1] ?? match[2] ?? "";
+        const catalogIdentity = catalogIdentityPattern.test(value);
+        const deliveryIdentity = deliveryIdentityPattern.test(value) || compactDeliveryIdentityPattern.test(value);
+        if (!catalogIdentity && !deliveryIdentity) continue;
+        if (catalogIdentity && !identityContext) continue;
+        if (deliveryIdentity && !identityContext && !goFixtureIdentityValuePattern.test(value)) continue;
+        violations.push({
+          location: relativePath,
+          locator_kind: "fixture_identity",
+          locator: `line ${lineIndex + 1}:${value}`,
+          reason: catalogIdentity
+            ? "identity-bearing Go fixture metadata embeds a catalog identity"
+            : "identity-bearing Go fixture metadata encodes a delivery phase or sprint",
+        });
+      }
     }
   }
   return violations;
@@ -117,6 +143,24 @@ function collectFrontendViolations(root) {
         locator: match[1],
         reason: "frontend suite or test title encodes a delivery phase, sprint, or legacy row",
       });
+    }
+    for (const pattern of [frontendFixtureIdentityCallPattern, frontendFixtureIdentityMetadataPattern]) {
+      for (const match of source.matchAll(pattern)) {
+        const value = match[2];
+        if (
+          !deliveryIdentityPattern.test(value) &&
+          !frontendTitlePattern.test(value) &&
+          !catalogIdentityPattern.test(value)
+        ) continue;
+        violations.push({
+          location: relativePath,
+          locator_kind: "fixture_identity",
+          locator: `${match[1]}=${value}`,
+          reason: catalogIdentityPattern.test(value)
+            ? "identity-bearing fixture metadata embeds a catalog identity"
+            : "identity-bearing fixture metadata encodes a delivery phase, sprint, or legacy row",
+        });
+      }
     }
   }
   for (const relativePath of walk(root, "apps/web/e2e/support").filter((entry) => /\.[cm]?[jt]sx?$/u.test(entry))) {

@@ -672,7 +672,7 @@ func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 	recordOneID := workbookscenariotest.MustUUID(t, timelineOne["row"].(map[string]any)["record_id"].(string))
 	recordTwoID := workbookscenariotest.MustUUID(t, timelineTwo["row"].(map[string]any)["record_id"].(string))
 	workbookscenariotest.SeedRecordLink(t, harness.DB, incidentUUID, adminUUID, uuid.MustParse("00000000-0000-0000-0000-000000008151"), recordOneID, recordTwoID, "references_record", "manual", nil)
-	workbookscenariotest.SeedRecordTag(t, harness.DB, incidentUUID, adminUUID, uuid.MustParse("00000000-0000-0000-0000-000000008152"), recordOneID, "sprint3")
+	workbookscenariotest.SeedRecordTag(t, harness.DB, incidentUUID, adminUUID, uuid.MustParse("00000000-0000-0000-0000-000000008152"), recordOneID, "saved-view-filter")
 	evidenceResp := httptestx.DoJSON(
 		t,
 		http.MethodPost,

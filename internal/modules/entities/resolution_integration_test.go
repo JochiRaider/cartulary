@@ -25,7 +25,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
-// I-4-01 / REQ-01-196..REQ-01-227, REQ-02-039..REQ-02-044 / AC-188..AC-190, AC-221..AC-225.
+// entity-resolution / REQ-01-196..REQ-01-227, REQ-02-039..REQ-02-044 / AC-188..AC-190, AC-221..AC-225.
 func TestResolveRoute_Integration(t *testing.T) {
 	t.Run("resolve_item uses authoritative route replay and history conformance", func(t *testing.T) {
 		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-01-resolve-conformance")
@@ -33,7 +33,7 @@ func TestResolveRoute_Integration(t *testing.T) {
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-01-resolve-conf-incident",
 			"incident_key":  "IR-I401-RC",
-			"title":         "Record relationships I-4-01 resolve conformance",
+			"title":         "Record relationships entity-resolution resolve conformance",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 		workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
@@ -70,7 +70,7 @@ func TestResolveRoute_Integration(t *testing.T) {
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-01-resolve-incident",
 			"incident_key":  "IR-I401-R",
-			"title":         "Record relationships I-4-01 resolve route",
+			"title":         "Record relationships entity-resolution resolve route",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 		workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
@@ -185,7 +185,7 @@ SELECT COUNT(*)
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-01-dismiss-incident",
 			"incident_key":  "IR-I401-D",
-			"title":         "Record relationships I-4-01 dismiss route",
+			"title":         "Record relationships entity-resolution dismiss route",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 		workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
@@ -272,7 +272,7 @@ SELECT COUNT(*)
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-01-revert-incident",
 			"incident_key":  "IR-I401-U",
-			"title":         "Record relationships I-4-01 revert route",
+			"title":         "Record relationships entity-resolution revert route",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 		workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
@@ -321,7 +321,7 @@ SELECT COUNT(*)
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-01-access-incident",
 			"incident_key":  "IR-I401-A",
-			"title":         "Record relationships I-4-01 access checks",
+			"title":         "Record relationships entity-resolution access checks",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 		workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
@@ -361,7 +361,7 @@ UPDATE incident_memberships
 		}
 
 		otherActor := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "entity_linking-i401-other@example.test", "EntityLinking I401 Other", "EntityLinkingI401OtherPass1!", false, false, true)
-		otherIncident := workbookscenariotest.CreateIncidentInStore(t, harness.Server.Runtime.Postgres, otherActor, "txn-entity_linking-i-4-01-hidden-incident", "IR-I401-H", "Record relationships I-4-01 hidden")
+		otherIncident := workbookscenariotest.CreateIncidentInStore(t, harness.Server.Runtime.Postgres, otherActor, "txn-entity_linking-i-4-01-hidden-incident", "IR-I401-H", "Record relationships entity-resolution hidden")
 		workbookscenariotest.SeedHostRecord(t, harness.DB, otherIncident.ID, otherActor.ID, golden.RecordDuplicateHostRecordID, "Hidden WS-023", "HIDDEN-WS-023", "", "")
 
 		hiddenResp := workbookscenariotest.DoJSON(
@@ -377,7 +377,7 @@ UPDATE incident_memberships
 		otherVisibleIncident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-01-visible-incident",
 			"incident_key":  "IR-I401-V",
-			"title":         "Record relationships I-4-01 visible other incident",
+			"title":         "Record relationships entity-resolution visible other incident",
 		})
 		otherVisibleIncidentID := workbookscenariotest.MustUUID(t, otherVisibleIncident["incident_id"].(string))
 		workbookscenariotest.SeedHostRecord(t, harness.DB, otherVisibleIncidentID, adminUserID, golden.RecordStubHostRecordID, "Visible WS-023", "VISIBLE-WS-023", "", "")
@@ -417,7 +417,7 @@ SELECT COUNT(*)
 	})
 }
 
-// I-4-02 / REQ-02-035..REQ-02-036, REQ-02-054..REQ-02-055, REQ-02-059..REQ-02-063 / AC-022, AC-186.
+// entity-resolution / REQ-02-035..REQ-02-036, REQ-02-054..REQ-02-055, REQ-02-059..REQ-02-063 / AC-022, AC-186.
 func TestEntityOriginUpsert_Integration(t *testing.T) {
 	t.Run("host create covers direct create, preserved exact-match reuse, alias-only non-reuse, and conflict handling", func(t *testing.T) {
 		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-02-host")
@@ -425,7 +425,7 @@ func TestEntityOriginUpsert_Integration(t *testing.T) {
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-02-host-incident",
 			"incident_key":  "IR-I402-H",
-			"title":         "Record relationships I-4-02 host create",
+			"title":         "Record relationships entity-resolution host create",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
@@ -587,7 +587,7 @@ SELECT
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-02-identity-incident",
 			"incident_key":  "IR-I402-I",
-			"title":         "Record relationships I-4-02 identity create",
+			"title":         "Record relationships entity-resolution identity create",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
@@ -754,7 +754,7 @@ SELECT COUNT(*)
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-02-query-auth-incident",
 			"incident_key":  "IR-I402-Q",
-			"title":         "Record relationships I-4-02 query and auth",
+			"title":         "Record relationships entity-resolution query and auth",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 		viewLogin := workbookscenariotest.LoginResult{SessionCookie: adminLogin.SessionCookie, CSRFCookie: adminLogin.CSRFCookie}
@@ -829,7 +829,7 @@ SELECT COUNT(*)
 		hostEnvelope := workbookscenariotest.QueryViewEnvelope(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordHostsViewSchemaID, viewLogin)
 		contractassert.RequireDefaultQueryMeta(t, hostEnvelope, golden.RecordHostsViewSchemaID)
 		hostRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordHostsViewSchemaID, viewLogin), hostRecordID.String())
-		requireViewRowFieldSurface(t, "I-4-02", hostRow, golden.RecordHostsViewSchemaID)
+		requireViewRowFieldSurface(t, "entity-resolution", hostRow, golden.RecordHostsViewSchemaID)
 		hostAlias := workbookscenariotest.RequireSingleCollectionItem(t, hostRow, "host.aliases")
 		if hostAlias["item_kind"] != "alias" || hostAlias["alias_text"] != "Gateway Query Alias" || !strings.HasPrefix(hostAlias["item_ref"].(string), "entity_alias:") {
 			t.Fatalf("unexpected host alias readback: %#v", hostAlias)
@@ -838,7 +838,7 @@ SELECT COUNT(*)
 		identityEnvelope := workbookscenariotest.QueryViewEnvelope(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordIdentitiesViewSchemaID, viewLogin)
 		contractassert.RequireDefaultQueryMeta(t, identityEnvelope, golden.RecordIdentitiesViewSchemaID)
 		identityRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordIdentitiesViewSchemaID, viewLogin), identityRecordID.String())
-		requireViewRowFieldSurface(t, "I-4-02", identityRow, golden.RecordIdentitiesViewSchemaID)
+		requireViewRowFieldSurface(t, "entity-resolution", identityRow, golden.RecordIdentitiesViewSchemaID)
 		identityAlias := workbookscenariotest.RequireSingleCollectionItem(t, identityRow, "identity.aliases")
 		if identityAlias["item_kind"] != "alias" || identityAlias["alias_text"] != "Query Owner" || !strings.HasPrefix(identityAlias["item_ref"].(string), "entity_alias:") {
 			t.Fatalf("unexpected identity alias readback: %#v", identityAlias)
@@ -865,14 +865,14 @@ SELECT COUNT(*)
 		contractassert.RequireProjectionDeterminism(t, identityProjectionBefore, identityProjectionAfter)
 
 		hostRowAfterRebuild := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordHostsViewSchemaID, viewLogin), hostRecordID.String())
-		requireViewRowFieldSurface(t, "I-4-02", hostRowAfterRebuild, golden.RecordHostsViewSchemaID)
+		requireViewRowFieldSurface(t, "entity-resolution", hostRowAfterRebuild, golden.RecordHostsViewSchemaID)
 		contractassert.RequireProjectionDeterminism(t, hostRow["cells"], hostRowAfterRebuild["cells"])
 		if rebuiltHostAlias := workbookscenariotest.RequireSingleCollectionItem(t, hostRowAfterRebuild, "host.aliases"); rebuiltHostAlias["alias_text"] != "Gateway Query Alias" {
 			t.Fatalf("unexpected rebuilt host alias readback: %#v", rebuiltHostAlias)
 		}
 
 		identityRowAfterRebuild := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordIdentitiesViewSchemaID, viewLogin), identityRecordID.String())
-		requireViewRowFieldSurface(t, "I-4-02", identityRowAfterRebuild, golden.RecordIdentitiesViewSchemaID)
+		requireViewRowFieldSurface(t, "entity-resolution", identityRowAfterRebuild, golden.RecordIdentitiesViewSchemaID)
 		contractassert.RequireProjectionDeterminism(t, identityRow["cells"], identityRowAfterRebuild["cells"])
 		if rebuiltIdentityAlias := workbookscenariotest.RequireSingleCollectionItem(t, identityRowAfterRebuild, "identity.aliases"); rebuiltIdentityAlias["alias_text"] != "Query Owner" {
 			t.Fatalf("unexpected rebuilt identity alias readback: %#v", rebuiltIdentityAlias)
@@ -1059,7 +1059,7 @@ func TestEntityCreateAuthAndCSRFFailBeforeMalformedBody_Integration(t *testing.T
 	workbookscenariotest.ExpectNoSocketMessage(t, socket)
 }
 
-// I-4-03 / REQ-01-181..REQ-01-195, REQ-02-064..REQ-02-066 / AC-023, AC-186, AC-209.
+// entity-resolution / REQ-01-181..REQ-01-195, REQ-02-064..REQ-02-066 / AC-023, AC-186, AC-209.
 func TestExplicitMergeRoute_Integration(t *testing.T) {
 	t.Run("entity route failures enforce authentication csrf visibility role and body precedence", func(t *testing.T) {
 		harness := workbookscenariotest.StartServer(t, "entity_linking-entity-route-failure-precedence")
@@ -1145,7 +1145,7 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 
 	t.Run("host merge repoints live fan-out and preserves survivor reuse", func(t *testing.T) {
 		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-03")
-		workbookscenariotest.RequireSchemaTables(t, harness.DB, "I-4-03", "hosts", "identities", "entity_mentions", "record_tags", "assessments")
+		workbookscenariotest.RequireSchemaTables(t, harness.DB, "entity-resolution", "hosts", "identities", "entity_mentions", "record_tags", "assessments")
 
 		adminLogin, adminUserID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{

@@ -18,9 +18,9 @@ scheduling, artifacts, evidence accounting, cleanup, and command behavior.
 `docs/design.md` supplies design direction only. Core 05 owns any active
 claim-publication boundary.
 
-Historical `FE-P*` delivery tables, frontend phase maps, generated coverage ledgers,
-guide digests, cumulative joins, and frontend-only row accounting are not current
-execution or ownership inputs.
+Retired delivery tables, generated coverage ledgers, guide digests, cumulative
+joins, and frontend-only row accounting are not current execution or ownership
+inputs.
 
 ## 2. Frontend ownership model
 

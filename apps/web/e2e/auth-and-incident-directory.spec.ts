@@ -509,8 +509,8 @@ test("keeps deployment-user administration on deployment-admin sessions and hide
   });
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E108"),
-    "Authentication E-1-08",
+    uniqueIncidentKey("ACCESS-SESSION"),
+    "Authentication access-control",
   );
   await createIncidentMembership(page, incidentId, incidentAdminEmail, "admin");
 
@@ -634,10 +634,10 @@ test("keeps deployment-user administration on deployment-admin sessions and hide
 test("creates an incident from the landing screen, lists it, and opens the workbook as incident admin", async ({
   page,
 }) => {
-  const incidentKey = uniqueIncidentKey("E109");
-  const incidentTitle = "Authentication E-1-09";
-  const secondIncidentKey = uniqueIncidentKey("E109B");
-  const secondIncidentTitle = "Authentication E-1-09 companion";
+  const incidentKey = uniqueIncidentKey("INCIDENT-DIRECTORY");
+  const incidentTitle = "Authentication incident-directory";
+  const secondIncidentKey = uniqueIncidentKey("INCIDENT-DIRECTORY-COMPANION");
+  const secondIncidentTitle = "Authentication incident-directory companion";
 
   await new IncidentDirectory(page).goto();
   await expect(page.getByTestId(incidentLandingTestId("shell"))).toBeVisible();
@@ -693,13 +693,13 @@ test("clears a stale selected incident after membership removal while preserving
 }) => {
   const selectedIncidentId = await createIncident(
     page,
-    uniqueIncidentKey("E110A"),
-    "Authentication E-1-10 selected",
+    uniqueIncidentKey("INCIDENT-SELECTION"),
+    "Authentication incident-directory selected",
   );
   const alternateIncidentId = await createIncident(
     page,
-    uniqueIncidentKey("E110B"),
-    "Authentication E-1-10 alternate",
+    uniqueIncidentKey("INCIDENT-ALTERNATE"),
+    "Authentication incident-directory alternate",
   );
   const targetEmail = uniqueEmail("authentication-e110-target");
   const targetPassword = "AuthenticationE110Pass!";
@@ -785,8 +785,8 @@ test("observes current-role authorization on a stale reviewer edit through the p
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E111"),
-    "Authentication E-1-11",
+    uniqueIncidentKey("ACCESS-BOOTSTRAP"),
+    "Authentication access-control",
   );
   const targetEmail = uniqueEmail("authentication-e111-reviewer");
   const targetPassword = "AuthenticationE111Pass!";
@@ -865,13 +865,13 @@ test("returns a revoked target browser to login and allows re-authentication wit
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E112"),
-    "Authentication E-1-12",
+    uniqueIncidentKey("ACCESS-SESSION-RECOVERY"),
+    "Authentication access-control",
   );
   const alternateIncidentId = await createIncident(
     page,
-    uniqueIncidentKey("E112B"),
-    "Authentication E-1-12 alternate",
+    uniqueIncidentKey("ACCESS-SESSION-ALTERNATE"),
+    "Authentication access-control alternate",
   );
   const targetEmail = uniqueEmail("authentication-e112-target");
   const targetPassword = "AuthenticationE112Pass!";
@@ -948,15 +948,15 @@ test("Verify ordinary login, incident entry, and current-role refresh stay on pu
   sessionTracker,
   workerAdminRequest,
 }) => {
-  const email = uniqueEmail("authentication-feep101");
-  const password = "AuthenticationFEEP101Pass!";
+  const email = uniqueEmail("authentication-auth-session");
+  const password = "AuthenticationAUTHSESSIONPass!";
   const user = await createLocalUser(workerAdminRequest, {
     email,
     display_name: "Authentication end-to-end.incident-selection.row-01",
     initial_password: password,
     mfa_required: false,
   });
-  const incidentKey = uniqueIncidentKey("FEEP101");
+  const incidentKey = uniqueIncidentKey("AUTHSESSION");
   const incidentTitle = "end-to-end.incident-selection.row-01 incident entry";
   const incidentId = await createIncident(page, incidentKey, incidentTitle);
   await createIncidentMembership(page, incidentId, email, "admin");

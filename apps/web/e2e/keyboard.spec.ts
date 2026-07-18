@@ -374,8 +374,8 @@ test("keyboard shortcuts keep workbook grid anchors without module switching", a
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E901"),
-    "Workbook inspector E-9-01 keyboard contract",
+    uniqueIncidentKey("KEYBOARD-CONTRACT"),
+    "Workbook inspector workbook-interaction keyboard contract",
   );
   const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e901-alpha"),
@@ -453,7 +453,7 @@ test("keeps the incident workbook inside the browser viewport and delegates over
   await page.setViewportSize({ width: 1280, height: 720 });
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E9LAYOUT"),
+    uniqueIncidentKey("WORKBOOK-LAYOUT"),
     "Workbook inspector bounded workbook layout",
   );
   await createTimelineFillers(
@@ -540,7 +540,7 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("FEBP1002"),
+    uniqueIncidentKey("WORKBOOKKEYBOARD"),
     "browser.coordination-review.row-02 workbook keyboard contract",
   );
   const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
@@ -949,8 +949,8 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E9GRID01"),
-    "Workbook inspector E-9-GRIDANCHORS-01 keyboard anchor semantics",
+    uniqueIncidentKey("KEYBOARD-GRID"),
+    "Workbook inspector workbook-interaction keyboard anchor semantics",
   );
 
   let host: ViewApiRow | undefined;
@@ -1208,8 +1208,8 @@ test("Host entity-origin clipboard paste reuses exact matches and creates stubs"
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E9GRIDHOSTPASTE"),
-    "Workbook inspector E-9-GRIDHOST-01 host paste",
+    uniqueIncidentKey("KEYBOARD-HOST-PASTE"),
+    "Workbook inspector workbook-interaction host paste",
   );
   const existing = await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e9grid-host-existing"),
@@ -1298,8 +1298,8 @@ test("Identity entity-origin clipboard paste reuses exact matches and creates st
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E9GRIDIDENTITYPASTE"),
-    "Workbook inspector E-9-GRIDIDENTITY-01 identity paste",
+    uniqueIncidentKey("KEYBOARD-IDENTITY-PASTE"),
+    "Workbook inspector workbook-interaction identity paste",
   );
   const existing = await createViewRow(
     page,

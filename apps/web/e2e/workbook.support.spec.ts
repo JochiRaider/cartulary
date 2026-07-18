@@ -49,14 +49,14 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
   );
   const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("s8b01-alpha"),
-    "timeline.activity_synopsis_text": "Alpha support FE-B",
+    "timeline.activity_synopsis_text": "Alpha support browser.saved-view",
   });
   const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("s8b01-beta"),
-    "timeline.activity_synopsis_text": "Beta support FE-B",
+    "timeline.activity_synopsis_text": "Beta support browser.saved-view",
   });
   const savedView = await createSavedView(page, incidentId, {
-    display_name: "FE-B support source",
+    display_name: "browser.saved-view support source",
     scope: "private",
     view_schema_id: timelineViewSchemaId,
   });
@@ -73,7 +73,7 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
     page.getByTestId(
       rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveText("Alpha support FE-B");
+  ).toHaveText("Alpha support browser.saved-view");
 
   await clickTimelineRowAction(
     page,
@@ -191,7 +191,7 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
   await setSavedViewDraftName(
     page,
     timelineViewSchemaId,
-    "FE-B support persisted",
+    "browser.saved-view support persisted",
   );
   await selectSavedViewScope(page, timelineViewSchemaId, "shared");
   const patchRequest = page.waitForRequest(
@@ -210,7 +210,7 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
   );
   expect(readPostBody(await patchRequest)).toMatchObject({
     base_saved_view_version: savedView.saved_view_version,
-    display_name: "FE-B support persisted",
+    display_name: "browser.saved-view support persisted",
     layout_json: {
       layout_schema_id: "cartulary.layout.v1",
     },

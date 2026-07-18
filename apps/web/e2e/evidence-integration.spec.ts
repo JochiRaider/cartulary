@@ -42,7 +42,7 @@ test("Verify attach flow uses generated protocol types, public error envelopes, 
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("FEIP601"),
+    uniqueIncidentKey("EVIDENCEINTEGRATION"),
     "integration.evidence-workflow.row-01 evidence integration",
   );
   const evidenceRow = (await createViewRow(
@@ -229,7 +229,7 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("FEEP601"),
+    uniqueIncidentKey("EVIDENCEWORKFLOW"),
     "end-to-end.evidence-workflow.row-01 evidence handles",
   );
   const safeBody = "end-to-end.evidence-workflow safe preview body";

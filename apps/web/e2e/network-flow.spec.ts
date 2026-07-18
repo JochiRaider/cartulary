@@ -234,7 +234,7 @@ test("Network Analysis alias collision requires explicit approval", async ({
 test("Verify Network Analysis clears protected grid, inspector, graph, contributor, and selection state after lifecycle loss and refetches after recovery.", async ({
   page,
 }) => {
-  await openClaimedNetworkAnalysis(page, "FEP12STATE");
+  await openClaimedNetworkAnalysis(page, "NETWORKFLOWSTATE");
   await importNetworkFlowCSV(page, { displayName: "lifecycle-source" });
   await page.getByTestId(networkAnalysisTestId("mode-graph")).click();
   const edge = page.getByTestId(/^network-flow-edge-/).first();
@@ -276,7 +276,7 @@ test("Verify Network Analysis clears protected grid, inspector, graph, contribut
 test("Verify claimed Network Analysis discovery, import, mapping approval, semantic grids, graph, contributors, and lifecycle controls through the real application.", async ({
   page,
 }) => {
-  await openClaimedNetworkAnalysis(page, "FEP12BROWSER");
+  await openClaimedNetworkAnalysis(page, "NETWORKFLOWBROWSER");
   await importNetworkFlowCSV(page, { displayName: "browser-evidence" });
   await expect(
     page.getByTestId(networkAnalysisTestId("accepted-grid")),

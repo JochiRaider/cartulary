@@ -541,6 +541,12 @@ if [[ -e "$cleanup_failure_dir/runtime-root" ]]; then
 fi
 
 source "$ROOT_DIR/tools/harness/browser/playwright-owned-stack.sh"
+missing_runtime_profile_stderr="$tmp_dir/missing-runtime-profile.stderr"
+if resolve_playwright_owned_stack_env "$ROOT_DIR" 2>"$missing_runtime_profile_stderr"; then
+  fail "playwright owned stack env must reject missing runtime profile metadata"
+fi
+assert_file_contains "$missing_runtime_profile_stderr" "browser stack metadata is missing CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID" "missing runtime profile metadata rejection"
+CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID=default
 resolve_playwright_owned_stack_env "$ROOT_DIR"
 if array_has_prefix_entry "CARTULARY_SERVER_BIN=" "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}"; then
   fail "playwright owned stack env must not inject CARTULARY_SERVER_BIN by default"
@@ -559,6 +565,7 @@ if ! array_has_prefix_entry "CARTULARY_WEB_E2E_PUBLIC_ORIGIN=http://127.0.0.1:14
 fi
 unset CARTULARY_WEB_E2E_API_ORIGIN
 unset CARTULARY_WEB_E2E_PUBLIC_ORIGIN
+unset CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID
 
 command_override="$tmp_dir/explicit-runtime-bin.sh"
 cat >"$command_override" <<'EOF'

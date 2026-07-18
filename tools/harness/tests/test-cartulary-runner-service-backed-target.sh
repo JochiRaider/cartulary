@@ -93,8 +93,8 @@ exec "$@"
 EOF
 chmod +x "$fake_test_services"
 
-fake_run_phase="$tmp_dir/fake-run-step.sh"
-cat >"$fake_run_phase" <<'EOF'
+fake_run_step="$tmp_dir/fake-run-step.sh"
+cat >"$fake_run_step" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -107,7 +107,7 @@ shift 2
 printf 'step-label=%s\n' "$label" >>"${FAKE_WRAPPER_LOG:?}"
 exec "$@"
 EOF
-chmod +x "$fake_run_phase"
+chmod +x "$fake_run_step"
 
 fake_scheduler="$tmp_dir/fake-scheduler.mjs"
 cat >"$fake_scheduler" <<'EOF'
@@ -178,7 +178,7 @@ run_case() {
     MAKE="fake-make" \
     NODE_BIN="$node_bin" \
     TEST_SERVICES_BIN="$fake_test_services" \
-    RUN_STEP_SCRIPT="$fake_run_phase" \
+    RUN_STEP_SCRIPT="$fake_run_step" \
     RUN_SERVICE_BACKED_SCHEDULE_SCRIPT="$fake_scheduler" \
     TEST_OUTPUT_SCRIPT="$fake_test_output" \
     TASK_SURFACE_MANIFEST="$ROOT_DIR/tools/task_surface_manifest.json" \
@@ -191,7 +191,7 @@ run_case() {
 
   assert_equals "$status" "$expected_status" "$name exit status"
   assert_equals "$output" "" "$name output"
-  assert_contains "$(cat "$log_file")" "test-services $fake_run_phase" "$name service wrapper"
+  assert_contains "$(cat "$log_file")" "test-services $fake_run_step" "$name service wrapper"
   assert_contains "$(cat "$log_file")" "step-label=test service-backed" "$name step label"
   assert_contains "$(cat "$log_file")" "scheduler args=--target test-service-backed --manifest $ROOT_DIR/tools/scheduler_manifest.json --defer-summary" "$name scheduler args"
 }
@@ -286,8 +286,8 @@ assert_equals "$summary_fail_status" "1" "summary child failure exit status"
 assert_contains "$summary_fail_output" "[FAIL] target=check-summary-fail" "summary fail output"
 assert_json_field_equals "$summary_fail_results/summary-fail/check-summary-fail/target-summary.json" "status" "fail" "summary fail status"
 
-projection_run_phase="$tmp_dir/projection-run-step.sh"
-cat >"$projection_run_phase" <<'EOF'
+projection_run_step="$tmp_dir/projection-run-step.sh"
+cat >"$projection_run_step" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 if [[ "${2:-}" != "--" ]]; then
@@ -298,7 +298,7 @@ shift 2
 printf 'projection child=%s target=%s\n' "${*: -1}" "${CARTULARY_TEST_TARGET:-}" >>"${FAKE_PROJECTION_LOG:?}"
 exit 0
 EOF
-chmod +x "$projection_run_phase"
+chmod +x "$projection_run_step"
 
 projection_test_output="$tmp_dir/projection-test-output.sh"
 cat >"$projection_test_output" <<'EOF'
@@ -313,7 +313,7 @@ projection_log="$tmp_dir/projection.log"
 FAKE_PROJECTION_LOG="$projection_log" \
 MAKE_BIN="$summary_make" \
 NODE_BIN="$node_bin" \
-RUN_STEP_SCRIPT="$projection_run_phase" \
+RUN_STEP_SCRIPT="$projection_run_step" \
 TEST_OUTPUT_SCRIPT="$projection_test_output" \
 TASK_SURFACE_MANIFEST="$ROOT_DIR/tools/task_surface_manifest.json" \
   "$node_bin" "$HELPER" summary-target --target check-summary-projection --child-target child-pass --status pass --step-label "summary projection child" --projection check-harness-smoke

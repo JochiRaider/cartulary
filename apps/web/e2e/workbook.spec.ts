@@ -61,8 +61,8 @@ test("saved-view route foundation persists canonical state while browser lifecyc
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E801"),
-    "Workbook query E-8-01 saved-view route foundation",
+    uniqueIncidentKey("SAVED-VIEW-QUERY"),
+    "Workbook query saved-view-query saved-view route foundation",
   );
 
   await page.goto(`/?incident_id=${incidentId}`);
@@ -138,7 +138,7 @@ test("Verify saved-view create/update/select/default UI uses active surface scop
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("FEIP801"),
+    uniqueIncidentKey("SAVEDVIEWINTEGRATION"),
     "Workbook query integration.saved-view-query.row-01 saved-view UI integration",
   );
   const timelineRow = await createViewRow(
@@ -146,13 +146,13 @@ test("Verify saved-view create/update/select/default UI uses active surface scop
     incidentId,
     timelineViewSchemaId,
     {
-      client_txn_id: uniqueTxn("feip801-row"),
+      client_txn_id: uniqueTxn("saved-view-integration-row"),
       "timeline.activity_synopsis_text":
         "integration.saved-view-query saved view row",
     },
   );
   const privateSavedView = await createSavedView(page, incidentId, {
-    display_name: "FE-I private timeline",
+    display_name: "browser.saved-view-integration private timeline",
     scope: "private",
     view_schema_id: timelineViewSchemaId,
     query_json: {
@@ -171,7 +171,7 @@ test("Verify saved-view create/update/select/default UI uses active surface scop
     layout_json: {},
   });
   const systemSavedView = await seedSystemSavedView(page, incidentId, {
-    display_name: "FE-I system timeline",
+    display_name: "browser.saved-view-integration system timeline",
     view_schema_id: timelineViewSchemaId,
     query_json: {
       filters: [
@@ -227,7 +227,7 @@ test("Verify saved-view create/update/select/default UI uses active surface scop
   await setSavedViewDraftName(
     page,
     timelineViewSchemaId,
-    "FE-I updated shared",
+    "browser.saved-view-integration updated shared",
   );
   await selectSavedViewScope(page, timelineViewSchemaId, "shared");
   const patchRequest = page.waitForRequest(
@@ -254,7 +254,7 @@ test("Verify saved-view create/update/select/default UI uses active surface scop
   ]);
   expect(patchBody).toMatchObject({
     base_saved_view_version: privateSavedView.saved_view_version,
-    display_name: "FE-I updated shared",
+    display_name: "browser.saved-view-integration updated shared",
     scope: "shared",
     query_json: {
       filters: [
@@ -342,7 +342,7 @@ test("Verify saved-view create/update/select/default UI uses active surface scop
     systemSavedView.saved_view_id,
   );
   expect(readPostBody(await duplicateRequest)).toMatchObject({
-    display_name: "FE-I system timeline Copy",
+    display_name: "browser.saved-view-integration system timeline Copy",
     scope: "private",
     view_schema_id: timelineViewSchemaId,
     query_json: {
@@ -385,7 +385,7 @@ test("Verify saved-view create/update/select/default UI uses active surface scop
   await setSavedViewDraftName(
     page,
     timelineViewSchemaId,
-    "FE-I created current",
+    "browser.saved-view-integration created current",
   );
   const createRequest = page.waitForRequest(
     (request) =>
@@ -394,7 +394,7 @@ test("Verify saved-view create/update/select/default UI uses active surface scop
   );
   await createSavedViewFromCurrentSurface(page, timelineViewSchemaId);
   expect(readPostBody(await createRequest)).toMatchObject({
-    display_name: "FE-I created current",
+    display_name: "browser.saved-view-integration created current",
     scope: "private",
     view_schema_id: timelineViewSchemaId,
   });
@@ -405,23 +405,23 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("FEBP801"),
+    uniqueIncidentKey("SAVEDVIEWBROWSER"),
     "Workbook query browser.saved-view-query.row-01 browser helper coverage",
   );
   const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("febp801-alpha"),
-    "timeline.activity_synopsis_text": "Alpha FE-B",
+    client_txn_id: uniqueTxn("saved-view-browser-alpha"),
+    "timeline.activity_synopsis_text": "Alpha browser.saved-view",
   });
   const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("febp801-beta"),
-    "timeline.activity_synopsis_text": "Beta FE-B",
+    client_txn_id: uniqueTxn("saved-view-browser-beta"),
+    "timeline.activity_synopsis_text": "Beta browser.saved-view",
   });
   const gamma = await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("febp801-gamma"),
-    "timeline.activity_synopsis_text": "Gamma FE-B",
+    client_txn_id: uniqueTxn("saved-view-browser-gamma"),
+    "timeline.activity_synopsis_text": "Gamma browser.saved-view",
   });
   const savedView = await createSavedView(page, incidentId, {
-    display_name: "FE-B helper source",
+    display_name: "browser.saved-view helper source",
     scope: "private",
     view_schema_id: timelineViewSchemaId,
   });
@@ -438,7 +438,7 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
     page.getByTestId(
       rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveText("Alpha FE-B");
+  ).toHaveText("Alpha browser.saved-view");
 
   await clickTimelineRowAction(
     page,
@@ -571,7 +571,7 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
   await setSavedViewDraftName(
     page,
     timelineViewSchemaId,
-    "FE-B helper persisted",
+    "browser.saved-view helper persisted",
   );
   await selectSavedViewScope(page, timelineViewSchemaId, "shared");
   const patchRequest = page.waitForRequest(
@@ -591,7 +591,7 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
   const patchBody = readPostBody(await patchRequest);
   expect(patchBody).toMatchObject({
     base_saved_view_version: savedView.saved_view_version,
-    display_name: "FE-B helper persisted",
+    display_name: "browser.saved-view helper persisted",
     scope: "shared",
     query_json: {
       filters: [
@@ -665,7 +665,7 @@ test("Verify saved-view persistence, default/startup surface persistence, and qu
 }) => {
   await verifySavedViewPersistenceReplay(
     page,
-    "FEEP801",
+    "SAVEDVIEWQUERY",
     "Workbook query end-to-end.saved-view-query.row-01 persisted query replay",
   );
 });
@@ -676,7 +676,7 @@ test("verifies saved-view persistence, default/startup surface persistence, and 
   await verifySavedViewPersistenceReplay(
     page,
     "E805",
-    "Workbook query E-8-05 persisted query replay",
+    "Workbook query saved-view-replay persisted query replay",
   );
 });
 
@@ -691,16 +691,16 @@ async function verifySavedViewPersistenceReplay(
     incidentTitle,
   );
   const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("feep801-alpha"),
-    "timeline.activity_synopsis_text": "Alpha FE-E",
+    client_txn_id: uniqueTxn("saved-view-query-alpha"),
+    "timeline.activity_synopsis_text": "Alpha browser.saved-view-replay",
   });
   const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("feep801-beta"),
-    "timeline.activity_synopsis_text": "Beta FE-E",
+    client_txn_id: uniqueTxn("saved-view-query-beta"),
+    "timeline.activity_synopsis_text": "Beta browser.saved-view-replay",
   });
   await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("feep801-gamma"),
-    "timeline.activity_synopsis_text": "Gamma FE-E",
+    client_txn_id: uniqueTxn("saved-view-query-gamma"),
+    "timeline.activity_synopsis_text": "Gamma browser.saved-view-replay",
   });
 
   await page.goto(`/?incident_id=${incidentId}`);
@@ -715,7 +715,7 @@ async function verifySavedViewPersistenceReplay(
     page.getByTestId(
       rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveText("Alpha FE-E");
+  ).toHaveText("Alpha browser.saved-view-replay");
 
   await clickTimelineRowAction(
     page,
@@ -786,7 +786,7 @@ async function verifySavedViewPersistenceReplay(
   await setSavedViewDraftName(
     page,
     timelineViewSchemaId,
-    "FE-E persisted replay",
+    "browser.saved-view-replay persisted replay",
   );
   const createRequest = page.waitForRequest(
     (request) =>
@@ -801,7 +801,7 @@ async function verifySavedViewPersistenceReplay(
   await createSavedViewFromCurrentSurface(page, timelineViewSchemaId);
   const createBody = readPostBody(await createRequest);
   expect(createBody).toMatchObject({
-    display_name: "FE-E persisted replay",
+    display_name: "browser.saved-view-replay persisted replay",
     scope: "private",
     view_schema_id: timelineViewSchemaId,
     query_json: {
@@ -847,7 +847,7 @@ async function verifySavedViewPersistenceReplay(
     (candidate) => candidate.saved_view_id === savedView.saved_view_id,
   );
   expect(persistedSavedView).toMatchObject({
-    display_name: "FE-E persisted replay",
+    display_name: "browser.saved-view-replay persisted replay",
     view_schema_id: timelineViewSchemaId,
     query_json: {
       filters: [
@@ -978,8 +978,8 @@ test("workbook startup falls back to Timeline for an unsupported explicit sheet"
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E802"),
-    "Workbook query E-8-02 startup fallback",
+    uniqueIncidentKey("WORKBOOK-STARTUP"),
+    "Workbook query workbook-interaction startup fallback",
   );
 
   await page.goto(
@@ -1079,7 +1079,7 @@ test("workbook startup falls back to Timeline for an unsupported explicit sheet"
   const viewerPassword = "SavedViewQueryE802Viewer!";
   const viewer = await createIncidentMemberUser(page, incidentId, {
     email: uniqueEmail("saved_view_query-e802-viewer"),
-    display_name: "Workbook query E-8-02 Viewer",
+    display_name: "Workbook query workbook-interaction Viewer",
     initial_password: viewerPassword,
     role: "viewer",
   });
@@ -1107,8 +1107,8 @@ test("browser Timeline sort, filter, and group controls submit stable query keys
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E803"),
-    "Workbook query E-8-03 Timeline query controls",
+    uniqueIncidentKey("WORKBOOK-QUERY"),
+    "Workbook query view-query Timeline query controls",
   );
   const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e803-alpha"),
@@ -1273,8 +1273,8 @@ test("browser Notes full_text and prefix queries remain exact", async ({
 }) => {
   const incidentId = await createIncident(
     page,
-    uniqueIncidentKey("E804"),
-    "Workbook query E-8-04 exact search",
+    uniqueIncidentKey("WORKBOOK-STATE"),
+    "Workbook query view-query exact search",
   );
   const alpha = await createViewRow(page, incidentId, notesViewSchemaId, {
     client_txn_id: uniqueTxn("e804-alpha"),

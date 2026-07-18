@@ -18,7 +18,18 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "../../..");
 
 function usage() {
-  return "usage: browser-stage-scheduler-cli.mjs <stage>";
+  return "usage: browser-stage-scheduler-cli.mjs <stage> [--mode snapshot_update]";
+}
+
+const validationMode = "validation";
+const snapshotUpdateMode = "snapshot_update";
+
+function parseArgs(argv) {
+  if (argv.length === 1) return { stageName: argv[0], mode: validationMode };
+  if (argv.length === 3 && argv[1] === "--mode" && argv[2] === snapshotUpdateMode) {
+    return { stageName: argv[0], mode: snapshotUpdateMode };
+  }
+  throw new Error(usage());
 }
 
 function sessions(stage) {
@@ -35,21 +46,33 @@ function sessions(stage) {
   }
   return [...grouped.values()]
     .map((entry) => ({ ...entry, groupIDs: entry.groupIDs.sort() }))
-    .sort((left, right) => left.id.localeCompare(right.id));
+    .sort((left, right) =>
+      left.id.localeCompare(right.id) || left.runtimeProfileID.localeCompare(right.runtimeProfileID),
+    );
 }
 
-export function buildBrowserStageSchedule(stage, manifestPath) {
-  const stageResource = `browser_stage_${stage.name.replaceAll(/[^a-z0-9_]/gu, "_")}`;
+export function buildBrowserStageSchedule(stage, manifestPath, options = {}) {
+  const mode = options.mode ?? validationMode;
+  if (!new Set([validationMode, snapshotUpdateMode]).has(mode)) {
+    throw new Error(`unsupported browser scheduler mode ${mode}`);
+  }
+  if (mode === snapshotUpdateMode && stage.name !== "visual") {
+    throw new Error("snapshot_update mode is limited to the visual browser stage");
+  }
+  const target = mode === snapshotUpdateMode
+    ? (options.target ?? "browser-e2e-visual-update")
+    : stage.target;
+  const stageResource = `browser_stage_${target.replaceAll(/[^a-z0-9_]/gu, "_")}`;
   const sessionUnits = sessions(stage).map((session, order) => ({
-    id: `browser_session:${session.id}`,
-    label: `browser session ${session.id}`,
+    id: `browser_session:${session.id}:${session.runtimeProfileID}`,
+    label: `browser session ${session.id} (${session.runtimeProfileID})`,
     kind: "browser_stage_session",
     class: "browser",
-    target: stage.target,
-    aggregateTarget: stage.target,
+    target,
+    aggregateTarget: target,
     needs: [],
-    completionKeys: [`browser_session:${session.id}`],
-    failureKeys: [`browser_session:${session.id}`],
+    completionKeys: [`browser_session:${session.id}:${session.runtimeProfileID}`],
+    failureKeys: [`browser_session:${session.id}:${session.runtimeProfileID}`],
     resourceClaims: new Map([["browser_stack", 1], [stageResource, 1], ["process", 1]]),
     priority: 0,
     weightMs: 1,
@@ -66,16 +89,24 @@ export function buildBrowserStageSchedule(stage, manifestPath) {
       env: {
         ...process.env,
         BROWSER_E2E_BATCH_MANIFEST: manifestPath,
-        CARTULARY_TEST_TARGET: stage.target,
+        CARTULARY_TEST_TARGET: target,
         CARTULARY_BROWSER_SESSION_GROUP: session.id,
         CARTULARY_BROWSER_RUNTIME_PROFILE_ID: session.runtimeProfileID,
         CARTULARY_BROWSER_SELECTED_GROUPS: session.groupIDs.join(","),
         CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+        ...(mode === snapshotUpdateMode
+          ? {
+              CARTULARY_BROWSER_MAINTENANCE_MODE: snapshotUpdateMode,
+              CARTULARY_PLAYWRIGHT_UPDATE_SNAPSHOTS: "1",
+            }
+          : {}),
       },
     },
   }));
   const sessionIDs = sessionUnits.map((unit) => unit.id);
-  const evidenceTargets = [...new Set(stage.groups.map((group) => group.target))].sort();
+  const evidenceTargets = mode === validationMode
+    ? [...new Set(stage.groups.map((group) => group.target))].sort()
+    : [];
   const node = process.env.NODE_BIN || process.execPath;
   const evidenceUnits = evidenceTargets.map((target, index) => ({
     id: `browser_evidence:${target}`,
@@ -83,7 +114,7 @@ export function buildBrowserStageSchedule(stage, manifestPath) {
     kind: "finalizer",
     class: "artifact",
     target,
-    aggregateTarget: stage.target,
+        aggregateTarget: target,
     needs: sessionIDs,
     completionKeys: [`browser_evidence:${target}`],
     failureKeys: [`browser_evidence:${target}`],
@@ -100,12 +131,12 @@ export function buildBrowserStageSchedule(stage, manifestPath) {
     },
   }));
   const targetFinalizer = {
-    id: `browser_target_summary:${stage.target}`,
-    label: `browser target summary ${stage.target}`,
+    id: `browser_target_summary:${target}`,
+    label: `browser target summary ${target}`,
     kind: "finalizer",
     class: "artifact",
-    target: stage.target,
-    aggregateTarget: stage.target,
+    target,
+    aggregateTarget: target,
     needs: evidenceUnits.map((unit) => unit.id),
     completionKeys: [`browser_target_summary:${stage.target}`],
     failureKeys: [`browser_target_summary:${stage.target}`],
@@ -119,7 +150,7 @@ export function buildBrowserStageSchedule(stage, manifestPath) {
       command: node,
       args: [
         path.join(root, "tools", "harness", "browser", "browser-target-finalizer-cli.mjs"),
-        "--target", stage.target,
+        "--target", target,
         "--groups", stage.groups.map((group) => group.name).sort().join(","),
         "--group-targets", stage.groups
           .map((group) => `${group.name}=${group.target}`)
@@ -130,11 +161,12 @@ export function buildBrowserStageSchedule(stage, manifestPath) {
       env: process.env,
     },
   };
-  const workUnits = [...sessionUnits, ...evidenceUnits, targetFinalizer];
+  const finalizerUnits = mode === validationMode ? [...evidenceUnits, targetFinalizer] : [];
+  const workUnits = [...sessionUnits, ...finalizerUnits];
   const initial = schedulerCapacityProfileLimits(
     "test_slice",
     testSliceDefaultCapacityProfile,
-    `${stage.target} browser scheduler`,
+    `${target} browser scheduler`,
   );
   initial.limits.set(stageResource, 1);
   initial.sources.set(stageResource, "generated:browser_stage_serialization");
@@ -142,14 +174,15 @@ export function buildBrowserStageSchedule(stage, manifestPath) {
     scheduler: "test_slice",
     resourceLimits: initial.limits,
     resourceLimitSources: initial.sources,
-    label: `${stage.target} browser scheduler`,
+    label: `${target} browser scheduler`,
     workUnits,
     pruneToClaims: true,
   });
   const schedulerSemanticDigest = semanticJSONDigest({
     scheduler_kind: "test_slice",
-    target: stage.target,
+    target,
     stage: stage.name,
+    mode,
     sessions: sessions(stage),
     groups: stage.groups.map((group) => ({
       id: group.name,
@@ -162,7 +195,7 @@ export function buildBrowserStageSchedule(stage, manifestPath) {
     resource_limits: Object.fromEntries(resolved.resourceLimits),
   });
   return {
-    target: stage.target,
+    target,
     kind: "test_slice",
     prefix: "BROWSER-SCHEDULER",
     eventSchemaID: "cartulary.scheduler_event.v6",
@@ -176,12 +209,13 @@ export function buildBrowserStageSchedule(stage, manifestPath) {
     resourceLimitSources: resolved.resourceLimitSources,
     workUnits,
     totalWorkUnits: sessionUnits.length,
-    finalizerCount: evidenceUnits.length + 1,
+    finalizerCount: finalizerUnits.length,
     shouldReplayLog: ({ result }) => result.status !== 0,
     summaryExtra: () => ({
       extensions: {
         "cartulary.test_slice.browser_scheduler.v1": {
           stage_id: stage.name,
+          mode,
           scheduler_semantic_digest: schedulerSemanticDigest,
         },
       },
@@ -190,15 +224,18 @@ export function buildBrowserStageSchedule(stage, manifestPath) {
 }
 
 async function main() {
-  if (process.argv.length !== 3) throw new Error(usage());
+  const options = parseArgs(process.argv.slice(2));
   const manifestPath = path.resolve(
     root,
     process.env.BROWSER_E2E_BATCH_MANIFEST || "tools/browser_e2e_batch_manifest.json",
   );
-  const stage = resolveBrowserBatchStage(manifestPath, process.argv[2]);
+  const stage = resolveBrowserBatchStage(manifestPath, options.stageName);
   const result = await runNormalizedSchedule({
     repoRoot: root,
-    schedule: buildBrowserStageSchedule(stage, manifestPath),
+    schedule: buildBrowserStageSchedule(stage, manifestPath, {
+      mode: options.mode,
+      target: process.env.CARTULARY_TEST_TARGET,
+    }),
     testOutputScript: process.env.TEST_OUTPUT_SCRIPT || path.join(root, "tools", "harness", "output", "test-output.mjs"),
   });
   return publicExitCodeForSummary(result.summary);
