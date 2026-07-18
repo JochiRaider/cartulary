@@ -11,8 +11,8 @@
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
 | Tracker state | `IN_PROGRESS` — WS-08 browser and scheduler topology |
-| Active start | Clean tree at `ddfd2afa` |
-| Active tasks | T-036 |
+| Active start | Clean tree at `720ec441` |
+| Active tasks | T-037 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -721,8 +721,8 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-033 | Implement owner diagnostics/task guide | WS-07 | DONE | T-032 | Text/JSON contract tests and exact catalog-topology reconciliation | Commands report exact owner topology. |
 | T-034 | Implement owner evidence accounting/audit | WS-07 | DONE | T-032 | Exact runner/accounting and retained-root audit fixtures; focused real-row execution | Fresh compatible target partitions reconcile and incomplete or incompatible evidence fails closed. |
 | T-035 | Replace schemas and artifact identities | WS-07 | DONE | T-032,T-034 | Four attached successor schemas, retained artifact smoke, old-ID rejection, and drift checks | No successor artifact uses delivery phase identity. |
-| T-036 | Migrate browser stages/runtime profiles | WS-08 | IN_PROGRESS | T-027,T-032 | Browser plan tests | Selection derives from catalog resources. |
-| T-037 | Migrate scheduler DAG and lifecycle | WS-08 | TODO | T-036 | Scheduler/lifecycle tests | Phase ordering has no execution role. |
+| T-036 | Migrate browser stages/runtime profiles | WS-08 | DONE | T-027,T-032 | Catalog-derived v6 topology tests, exact Playwright adapter tests, schema/drift gates, and full stateful runtime/profile evidence | Selection derives from catalog resources. |
+| T-037 | Migrate scheduler DAG and lifecycle | WS-08 | IN_PROGRESS | T-036 | Scheduler/lifecycle tests | Phase ordering has no execution role. |
 | T-038 | Regenerate owner-first topology | WS-08 | TODO | T-037 | Generation/drift evidence | Authored and generated topology agree. |
 | T-039 | Cut task surface to successor targets | WS-09 | TODO | T-032,T-033,T-034 | Help/contract/smoke tests | Removed inputs fail and new targets work. |
 | T-040 | Fold schedule generation into standard targets | WS-09 | TODO | T-038 | Generate/generate-drift | No public schedule target remains. |
@@ -1172,6 +1172,17 @@ Each entry must include:
 - Prerequisites: the unified 833-row catalog, exact selector resolution, semantic frontend identities, owner slice plan, and schema-complete evidence accounting from WS-03 through WS-07 are clean and committed. Browser generation must consume those owners rather than reading a phase registry or crosswalk.
 - Next safe task: T-036 only. Implement semantic browser planning and Playwright result adaptation, preserve explicit isolated startup configuration for `network_flow_claimed`, and validate webserver-backed/stateful/accessibility/visual/measurement selection without starting T-037.
 - Rollback boundary: revert this tracker-only activation checkpoint to return to the clean WS-07 closure. Do not make WS-08 and WS-09 active together or introduce a translated phase batch.
+
+#### 2026-07-18 — T-036 browser stages and runtime profiles complete
+
+- Branch/commit at start: `revision/grid-adapter` at clean WS-08 activation checkpoint `720ec441`. T-036 is `DONE`; T-037 is now the sole active task and T-038 remains `TODO`.
+- Execution result: `cartulary.browser_e2e_batch_manifest.v6` is generated from the 143 active Playwright catalog rows plus authored stage/runtime/isolation policy. The six direct evidence stages close 79 webserver-backed, 9 support, 14 stateful, 3 measurement, 13 accessibility, and 25 visual rows exactly once; every generated group owns one exact selector file, semantic row IDs, an explicit runtime profile, and an explicit browser session. No generated browser group contains `selected_phase`, a delivery-phase ID, or a runtime translation path. Claimed Network Flow groups use distinct immutable-startup sessions, including the previously omitted measurement partition.
+- Implementation result: direct browser targets execute catalog groups through one structured Playwright adapter with explicit Chromium project selection, exact file/title joins, scheduler-compatible worker-admin inputs, redacted reports/logs, and exit `10`/`11`/`13`/`130` classification. Aggregate Playwright success without exact selector observations, duplicate/missing observations, and unauthorized skips cannot close a row. Browser targets emit uniform `<target>/owners/<owner-id>/` accounting/summary shards plus a schema-valid `browser-owner-index.json`; target tool summaries reference that index and no longer invoke the legacy frontend phase-accounting reader when the validated owner index exists.
+- Focused validation: `make phase-schedules` passed at `.cartulary/test-results/20260718T051737Z-p96279`; `make harness-contract` passed 74 tests at `.cartulary/test-results/20260718T051742Z-p96494`; `make json-shape-check` passed at `.cartulary/test-results/20260718T051758Z-p97414`; `make generate-drift` passed at `.cartulary/test-results/20260718T051800Z-p97766`; `make lint-scripts`, `make lint-shell`, and `make lint-markdown` passed at `.cartulary/test-results/20260718T051805Z-p99293`, `.cartulary/test-results/20260718T051806Z-p99640`, and `.cartulary/test-results/20260718T051807Z-p869`; `make generated-artifact-policy-check` passed at `.cartulary/test-results/20260718T052150Z-p26468`.
+- Runtime validation: `make browser-e2e-stateful` passed on the final pre-tracker implementation bytes at `.cartulary/test-results/20260718T051835Z-p2882`, closing 14 semantic rows across 12 file groups, two immutable runtime-profile sessions, eight owner shards, and one referenced passing owner index. The earlier `.cartulary/test-results/20260718T050146Z-p89887` failure exposed missing suite-file propagation and worker-admin inputs; `.cartulary/test-results/20260718T050453Z-p15053` then closed all 14 rows but exposed the retained phase-accounting consumer. Both defects were structurally removed before the accepted run.
+- Skipped checks: full webserver-backed, accessibility, visual, measurement, aggregate, scheduler timeout/signal/finalizer, and browser lifecycle matrix execution is intentionally deferred to T-037/T-038 and the WS-08 exit gate. Broad `make check`, release rehearsal, and all-owner audit closure remain WS-11.
+- Next safe task: T-037 only. Route owner and browser work through the generic `test_slice` scheduler identity; implement deterministic dependencies, FIFO resources, timeout/cancellation/signal handling, independent drain, always-run finalizers, and primary-failure precedence without starting T-038 topology closure.
+- Rollback boundary: revert the T-036 implementation checkpoint to `720ec441` as one unit; authored browser policy, generated batch/scheduler outputs, Playwright project/adapter code, browser accounting schemas, and target-summary index consumption must not be split across rollback sides.
 
 ## 17. First-resumer checklist
 

@@ -52,6 +52,22 @@ for session_row in "${stage_sessions[@]}"; do
   fi
 done
 
+mapfile -t evidence_targets < <(
+  "$node_bin" "$ROOT_DIR/tools/harness/browser/browser-batch-manifest.mjs" stage-runner "$MANIFEST" "$stage" |
+    tail -n +3 |
+    cut -f2 |
+    sort -u
+)
+for evidence_target in "${evidence_targets[@]}"; do
+  evidence_status=0
+  env CARTULARY_TEST_TARGET="$evidence_target" \
+    NODE_BIN="$node_bin" \
+    "$node_bin" "$ROOT_DIR/tools/harness/browser/browser-evidence-finalize-cli.mjs" "$evidence_target" || evidence_status=$?
+  if [[ "$evidence_status" -ne 0 && "$status" -eq 0 ]]; then
+    status="$evidence_status"
+  fi
+done
+
 if [[ "$status" -eq 0 ]]; then
   requested=pass
 else

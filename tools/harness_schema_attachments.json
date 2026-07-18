@@ -3,6 +3,8 @@
   "attachments": [
     { "schema_id": "cartulary.agent_finalize_action_cache_record.v1", "path": "tools/schemas/cartulary.agent_finalize_action_cache_record.v1.schema.json", "classification": "public_contract", "producer": "agent finalizer", "validation": "json-shape-check" },
     { "schema_id": "cartulary.agent_finalize_summary.v3", "path": "tools/schemas/cartulary.agent_finalize_summary.v3.schema.json", "classification": "public_contract", "producer": "agent finalizer", "validation": "json-shape-check" },
+    { "schema_id": "cartulary.browser_group_result.v1", "path": "tools/schemas/cartulary.browser_group_result.v1.schema.json", "classification": "public_contract", "producer": "browser evidence adapter", "validation": "json-shape-check" },
+    { "schema_id": "cartulary.browser_owner_index.v1", "path": "tools/schemas/cartulary.browser_owner_index.v1.schema.json", "classification": "public_contract", "producer": "browser evidence finalizer", "validation": "json-shape-check" },
     { "schema_id": "cartulary.browser_startup_diagnostics.v1", "path": "tools/schemas/cartulary.browser_startup_diagnostics.v1.schema.json", "classification": "public_contract", "producer": "browser lifecycle", "validation": "json-shape-check" },
     { "schema_id": "cartulary.cache.build_artifact.v1", "path": "tools/schemas/cartulary.cache.build_artifact.v1.schema.json", "classification": "public_contract", "producer": "build cache", "validation": "json-shape-check" },
     { "schema_id": "cartulary.cache.readiness.v1", "path": "tools/schemas/cartulary.cache.readiness.v1.schema.json", "classification": "public_contract", "producer": "readiness cache", "validation": "json-shape-check" },

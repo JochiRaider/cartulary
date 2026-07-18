@@ -27,7 +27,7 @@
     "finished_at": { "$ref": "cartulary.test_slice_plan.v1#/$defs/timestamp" },
     "duration_ms": { "type": "integer", "minimum": 0 },
     "status": { "enum": ["pass", "fail"] },
-    "completion_scope": { "enum": ["full_owner", "selected_subset"] },
+    "completion_scope": { "enum": ["full_owner", "selected_subset", "target_partition"] },
     "counts": { "$ref": "cartulary.test_slice_scheduler_summary.v1#/$defs/counts" },
     "unused_inputs": { "$ref": "cartulary.test_slice_plan.v1#/$defs/unique_strings" },
     "primary_failure": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/primary_failure" }] },
@@ -48,7 +48,7 @@
     "artifacts": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["evidence_accounting", "owner_summary", "plan", "scheduler_summary", "tool_run_summary"],
+      "required": ["evidence_accounting", "owner_summary", "tool_run_summary"],
       "properties": {
         "evidence_accounting": { "type": "string", "minLength": 1 },
         "owner_summary": { "type": "string", "minLength": 1 },

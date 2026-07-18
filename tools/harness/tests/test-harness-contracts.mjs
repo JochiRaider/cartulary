@@ -88,6 +88,7 @@ import {
   loadOwnerAccountingSelection,
 } from "../evidence-accounting/index.mjs";
 import { adaptGoInvocation } from "../execution/runners/go.mjs";
+import { adaptPlaywrightReport } from "../execution/runners/playwright.mjs";
 import { adaptShellInvocation } from "../execution/runners/shell.mjs";
 import { adaptVitestInvocation } from "../execution/runners/vitest.mjs";
 import {
@@ -392,6 +393,38 @@ test("runner adapters require one exact terminal observation per selected row", 
       { status: 0, stdout: JSON.stringify({ testResults: [] }) },
     )[0].terminal_state,
     "infrastructure_failed",
+  );
+
+  const playwrightRow = {
+    row_id: "row.playwright",
+    selector: {
+      file: "apps/web/e2e/exact.spec.ts",
+      titles: ["exact browser title"],
+    },
+  };
+  const playwrightReport = {
+    suites: [{
+      specs: [{
+        file: "apps/web/e2e/exact.spec.ts",
+        title: "exact browser title",
+        tests: [{ status: "expected", results: [{ status: "passed", duration: 9 }] }],
+      }],
+    }],
+  };
+  assert.deepEqual(
+    adaptPlaywrightReport([playwrightRow], playwrightReport, 0)[0],
+    {
+      row_id: "row.playwright",
+      terminal_state: "passed",
+      duration_ms: 9,
+      exit_code: 0,
+      failure_reason: null,
+    },
+  );
+  assert.equal(
+    adaptPlaywrightReport([playwrightRow], { suites: [] }, 0)[0].terminal_state,
+    "infrastructure_failed",
+    "aggregate Playwright success cannot close a row without its exact selector observation",
   );
 
   assert.equal(
@@ -3384,6 +3417,40 @@ test("extended harness contracts are explicit and outside default local check", 
   );
 });
 
+test("browser topology is catalog-derived, semantic, and profile-isolated", () => {
+  const { browserBatch } = renderedArtifacts();
+  assert.equal(browserBatch.schema_id, "cartulary.browser_e2e_batch_manifest.v6");
+  assert.doesNotMatch(JSON.stringify(browserBatch), /(?:selected_phase|\bFE-|\bE-[0-9]|phase[0-9])/u);
+  const catalog = loadTestCatalog(repoRoot);
+  const selectorStageByBatchStage = new Map([
+    ["webserver-backed", "webserver_backed"],
+    ["support", "support"],
+    ["stateful", "stateful"],
+    ["measurement", "measurement"],
+    ["a11y", "accessibility"],
+    ["visual", "visual"],
+  ]);
+  for (const [batchStage, selectorStage] of selectorStageByBatchStage) {
+    const stage = browserBatch.stages.find((entry) => entry.name === batchStage);
+    assert.ok(stage, `missing generated browser stage ${batchStage}`);
+    const selected = stage.groups.flatMap((group) => group.selected_row_ids).sort();
+    const expected = catalog.rows
+      .filter((row) => row.runner === "playwright" && row.selector.stage === selectorStage)
+      .map((row) => row.row_id)
+      .sort();
+    assert.deepEqual(selected, expected, `${batchStage} must cover every catalog row exactly once`);
+    assert.equal(new Set(selected).size, selected.length);
+    for (const group of stage.groups) {
+      assert.equal(group.specs.length, 1);
+      assert.ok(group.selected_row_ids.every((rowID) => catalog.rowByID.has(rowID)));
+      if (group.runtime_profile_id === "network_flow_claimed") {
+        assert.ok(group.browser_session_group);
+        assert.match(group.browser_session_isolation_reason, /startup|configuration/u);
+      }
+    }
+  }
+});
+
 test("default check service-backed browser work uses declared session groups", () => {
   const { serviceBacked, expandedCheckSchedule } = renderedArtifacts();
   const serviceCheck = serviceBacked.schedules.find(
@@ -3412,11 +3479,10 @@ test("default check service-backed browser work uses declared session groups", (
   const browserSessions = check.work_units.filter(
     (unit) => unit.kind === "browser_stage_session",
   );
+  const statefulSource = browserSources.find((source) => source.browser_stage === "stateful");
   const expectedStatefulSessionGroups = [
-    "stateful-phase1",
-    "stateful-phase6",
-    "stateful-phase8",
-  ].map((group) => `default-check-stateful-isolated-${group}`);
+    ...new Set(statefulSource.groups.map((group) => group.browser_session_group)),
+  ];
   assert.equal(browserSessions.length, 1 + expectedStatefulSessionGroups.length);
   assert.deepEqual(
     browserSessions.map((unit) => unit.browser_session_group).sort(),
@@ -3433,17 +3499,17 @@ test("default check service-backed browser work uses declared session groups", (
       unit.kind === "browser_group" &&
       unit.aggregate_target === "browser-e2e-webserver-backed",
   );
-  const functionalBrowserGroups = webserverBrowserGroups.filter(
-    (unit) => unit.browser_group?.kind === "functional_shard",
-  );
-  const supportBrowserGroups = webserverBrowserGroups.filter(
-    (unit) => unit.browser_group?.kind === "support",
-  );
-  const functionalShardCounts = new Set(
-    functionalBrowserGroups.map((unit) => unit.browser_group?.shard_count),
-  );
-  assert.deepEqual([...functionalShardCounts], [functionalBrowserGroups.length]);
-  assert.equal(supportBrowserGroups.length, 1);
+  assert.ok(webserverBrowserGroups.length > 0);
+  const catalog = loadTestCatalog(repoRoot);
+  const catalogByID = catalog.rowByID;
+  for (const unit of webserverBrowserGroups) {
+    assert.equal(unit.browser_group?.kind, "duration_balanced_specs");
+    assert.ok(unit.browser_group?.selected_row_ids.length > 0);
+    for (const rowID of unit.browser_group.selected_row_ids) {
+      assert.equal(catalogByID.get(rowID)?.default_check, true);
+      assert.equal(catalogByID.get(rowID)?.selector.stage, "webserver_backed");
+    }
+  }
   for (const excludedBrowserTarget of [
     "browser-e2e-measurement",
     "browser-e2e-visual",
@@ -3465,7 +3531,7 @@ test("default check service-backed browser work uses declared session groups", (
         unit.kind === "browser_group" &&
         unit.aggregate_target === "browser-e2e-stateful",
     ).length,
-    expectedStatefulSessionGroups.length,
+    statefulSource.groups.length,
   );
   const statefulBrowserGroups = check.work_units.filter(
     (unit) =>
@@ -3477,36 +3543,16 @@ test("default check service-backed browser work uses declared session groups", (
       .map((unit) => [unit.browser_group?.name, unit.browser_group?.selected_row_ids ?? []])
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([, rowIDs]) => rowIDs),
-    [["E-1-04", "E-1-05"], ["E-6-03"], ["E-8-05"]],
+    statefulSource.groups
+      .map((group) => [group.name, group.selected_row_ids])
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([, rowIDs]) => rowIDs),
   );
   for (const unit of statefulBrowserGroups) {
-    assert.equal(unit.env.CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE, "disabled");
-    assert.equal(unit.env.CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE, "base");
+    assert.equal(unit.env?.CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE, undefined);
+    assert.equal(unit.env?.CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE, undefined);
+    assert.ok(unit.browser_group.selected_row_ids.every((rowID) => catalogByID.get(rowID)?.default_check));
   }
-  const defaultFunctionalEntryIDs = functionalBrowserGroups.flatMap(
-    (unit) => unit.browser_group?.entry_ids ?? [],
-  );
-  for (const explicitRowID of [
-    "FE-E-P4-01",
-    "FE-E-P5-01",
-    "FE-E-P6-01",
-    "FE-E-P7-01",
-    "FE-E-P8-01",
-    "FE-E-P9-01",
-    "FE-E-P9-02",
-    "FE-E-P9-03",
-    "FE-E-P10-01",
-  ]) {
-    assert.equal(
-      defaultFunctionalEntryIDs.includes(explicitRowID),
-      false,
-      `${explicitRowID} must stay outside default check browser projection`,
-    );
-  }
-  assert.deepEqual(
-    [...new Set(defaultFunctionalEntryIDs.filter((id) => id.startsWith("FE-")))].sort(),
-    ["FE-B-P2-01", "FE-B-P2-02", "FE-E-P1-01", "FE-E-P2-01"].sort(),
-  );
   assertBrowserWorkerSlots(
     check.work_units.filter(
       (unit) =>

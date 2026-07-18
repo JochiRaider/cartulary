@@ -65,96 +65,18 @@ run_target_summary() {
 }
 
 run_group() {
-  local target="$1"
-  local kind="$2"
-  local workers="$3"
-  local coverage="$4"
-  local execution_dependency="$5"
-  local selected_phase="$6"
-  local selected_row_ids="$7"
-  local browser_session_group="$8"
-  local runtime_profile_id="$9"
-  shift 9
+  local group_name="$1"
+  local target="$2"
 
-  local -a group_env=(
-    env
-    "CARTULARY_TEST_TARGET=$target"
-    "NODE_BIN=$PLAYWRIGHT_OWNED_STACK_NODE_BIN"
-    "CARTULARY_BROWSER_RUNTIME_PROFILE_ID=$runtime_profile_id"
-    "CARTULARY_BROWSER_GROUP_KIND=$kind"
-    "CARTULARY_BROWSER_GROUP_COVERAGE=$coverage"
-    "CARTULARY_BROWSER_GROUP_EXECUTION_DEPENDENCY=$execution_dependency"
-  )
-
-  if [[ -n "$selected_phase" ]]; then
-    group_env+=("CARTULARY_BROWSER_SELECTED_PHASE=$selected_phase")
-  fi
-
-  if [[ -n "$selected_row_ids" ]]; then
-    group_env+=("CARTULARY_BROWSER_SELECTED_ROW_IDS=$selected_row_ids")
-  fi
-
-  if [[ -n "$browser_session_group" ]]; then
-    group_env+=("CARTULARY_BROWSER_SESSION_GROUP=$browser_session_group")
-  fi
-
-  if [[ "$workers" != "default" ]]; then
-    group_env+=(
-      "CARTULARY_PLAYWRIGHT_WORKER_COUNT=$workers"
-      "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET=0"
-      "PLAYWRIGHT_WORKERS=$workers"
-    )
-  fi
-
-  case "$kind" in
-    webserver-backed)
-      "${group_env[@]}" "$ROOT_DIR/tools/harness/browser/run-browser-e2e-webserver-backed.sh"
-      ;;
-    duration_balanced_specs)
-      if [[ "$target" == "browser-e2e-webserver-backed" ]]; then
-        "${group_env[@]}" "$ROOT_DIR/tools/harness/browser/run-browser-e2e-webserver-backed.sh"
-      else
-        "${group_env[@]}" "$ROOT_DIR/tools/harness/browser/run-browser-e2e-functional.sh"
-      fi
-      ;;
-    functional)
-      "${group_env[@]}" "$ROOT_DIR/tools/harness/browser/run-browser-e2e-functional.sh"
-      ;;
-    support)
-      local -a support_env=(
-        "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}"
-        "CARTULARY_TEST_TARGET=$target"
-        "NODE_BIN=$PLAYWRIGHT_OWNED_STACK_NODE_BIN"
-      )
-      if [[ "$workers" != "default" ]]; then
-        support_env+=("PLAYWRIGHT_WORKERS=$workers")
-      fi
-      "${support_env[@]}" "$ROOT_DIR/tools/harness/browser/run-playwright-webserver-batch.sh" \
-        support \
-        -- \
-        "$PLAYWRIGHT_OWNED_STACK_PNPM_BIN" --dir apps/web exec playwright test \
-        --config playwright.webserver-backed.config.ts
-      ;;
-    stateful)
-      "${group_env[@]}" "$ROOT_DIR/tools/harness/browser/run-browser-e2e-stateful.sh"
-      ;;
-    stateful_partition)
-      "${group_env[@]}" "$ROOT_DIR/tools/harness/browser/run-browser-e2e-stateful.sh"
-      ;;
-    measurement)
-      "${group_env[@]}" "$ROOT_DIR/tools/harness/browser/run-browser-e2e-measurement.sh"
-      ;;
-    visual)
-      "${group_env[@]}" "$ROOT_DIR/tools/harness/browser/run-browser-e2e-visual.sh"
-      ;;
-    a11y)
-      "${group_env[@]}" "$ROOT_DIR/tools/harness/browser/run-browser-e2e-a11y.sh"
-      ;;
-    *)
-      echo "unsupported browser E2E batch group kind ${kind}" >&2
-      return 2
-      ;;
-  esac
+  "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}" \
+    CARTULARY_TEST_TARGET="$target" \
+    NODE_BIN="$PLAYWRIGHT_OWNED_STACK_NODE_BIN" \
+    PNPM="$PLAYWRIGHT_OWNED_STACK_PNPM_BIN" \
+    "$PLAYWRIGHT_OWNED_STACK_NODE_BIN" \
+    "$ROOT_DIR/tools/harness/browser/browser-catalog-group-cli.mjs" \
+    --manifest "$MANIFEST" \
+    --stage "$stage" \
+    --group "$group_name"
 }
 
 if [[ -n "${CARTULARY_TEST_TARGET:-}" && "${CARTULARY_TEST_TARGET}" == "$stage_target" ]]; then
@@ -179,15 +101,10 @@ fi
 
 for group_row in "${stage_groups[@]}"; do
   group_row_fields="${group_row//$'\t'/$'\x1f'}"
-  IFS=$'\x1f' read -r _group_name target kind workers reset_before coverage execution_dependency _stage_schedule_tags _stage_scheduler_needs selected_phase selected_row_ids browser_session_group _browser_session_isolation_reason runtime_profile_id <<<"$group_row_fields"
+  IFS=$'\x1f' read -r _group_name target _kind _workers reset_before _coverage _execution_dependency _stage_schedule_tags _stage_scheduler_needs _selected_row_ids _browser_session_group _browser_session_isolation_reason _runtime_profile_id _specs <<<"$group_row_fields"
 
   if [[ -n "${CARTULARY_BROWSER_SELECTED_GROUPS:-}" && ",${CARTULARY_BROWSER_SELECTED_GROUPS}," != *",${_group_name},"* ]]; then
     continue
-  fi
-
-  if [[ -n "${CARTULARY_BROWSER_SELECTED_ROW_IDS:-}" ]]; then
-    selected_phase="${CARTULARY_BROWSER_SELECTED_PHASE:-${CARTULARY_PHASE_SLICE_PHASE:-$selected_phase}}"
-    selected_row_ids="${CARTULARY_BROWSER_SELECTED_ROW_IDS}"
   fi
 
   if [[ -n "$reset_before" ]]; then
@@ -197,7 +114,7 @@ for group_row in "${stage_groups[@]}"; do
   fi
 
   set +e
-  run_group "$target" "$kind" "$workers" "$coverage" "$execution_dependency" "$selected_phase" "$selected_row_ids" "$browser_session_group" "$runtime_profile_id"
+  run_group "$_group_name" "$target"
   group_status=$?
   set -e
 

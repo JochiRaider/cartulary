@@ -1287,7 +1287,7 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
     : null;
   const schedulerTiming = schedulerTimingFromSummary(schedulerSummary);
   const schedulerArtifacts = schedulerSummary?.artifacts ?? {};
-  const browserArtifacts = browserOwnedStackArtifacts(targetArtifactRoot);
+  const browserArtifacts = browserOwnedStackArtifacts(targetArtifactRoot, targetSummary.target);
   const serviceMetadata = serviceSharedMetadata(runRunRoot);
   const workUnits =
     targetSummary.kind === "aggregate"
@@ -1339,6 +1339,9 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
             "browser_startup_diagnostics",
             browserArtifacts.startupDiagnostics,
           )
+        : null,
+      browserArtifacts.ownerIndex
+        ? fileArtifactRef("browser_owner_index", browserArtifacts.ownerIndex)
         : null,
       existsSync(runSummaryFile)
         ? fileArtifactRef("run_summary", relToRepo(runSummaryFile))
@@ -1458,15 +1461,30 @@ function serviceSharedSummaryArtifacts(runRunRoot) {
     });
 }
 
-function browserOwnedStackArtifacts(targetDir) {
+function validatedBrowserOwnerIndex(targetDir, target = "") {
+  const file = path.join(targetDir, "browser-owner-index.json");
+  if (!existsSync(file)) return null;
+  const value = JSON.parse(readFileSync(file, "utf8"));
+  validateSchemaSync("cartulary.browser_owner_index.v1", value);
+  if (target && value.target_id !== target) {
+    throw new Error(`browser owner index target ${value.target_id} does not match ${target}`);
+  }
+  return value;
+}
+
+function browserOwnedStackArtifacts(targetDir, target = "") {
   const ownedStackDir = path.join(targetDir, "owned-stack");
   const stackMetadata = path.join(ownedStackDir, "stack.json");
   const startupDiagnostics = path.join(ownedStackDir, "startup-diagnostics.json");
+  const ownerIndex = validatedBrowserOwnerIndex(targetDir, target)
+    ? path.join(targetDir, "browser-owner-index.json")
+    : "";
   return {
     stackMetadata: existsSync(stackMetadata) ? relToRepo(stackMetadata) : "",
     startupDiagnostics: existsSync(startupDiagnostics)
       ? relToRepo(startupDiagnostics)
       : "",
+    ownerIndex: ownerIndex ? relToRepo(ownerIndex) : "",
   };
 }
 
@@ -2034,12 +2052,15 @@ export function handleTargetSummary(args) {
       reportCollationEndTime,
     ...durationFieldsForJSON(totalsSection),
   };
-  const frontendRowAccounting = frontendRowAccountingForTarget(
-    target,
-    status.toLowerCase(),
-    summary.targetDir,
-    { scope: frontendRowAccountingScope },
-  );
+  const browserOwnerIndex = validatedBrowserOwnerIndex(summary.targetDir, target);
+  const frontendRowAccounting = browserOwnerIndex
+    ? null
+    : frontendRowAccountingForTarget(
+        target,
+        status.toLowerCase(),
+        summary.targetDir,
+        { scope: frontendRowAccountingScope },
+      );
   const frontendRowAccountingPath = frontendRowAccounting
     ? path.join(summary.targetDir, "frontend-row-accounting.json")
     : "";
@@ -2058,7 +2079,7 @@ export function handleTargetSummary(args) {
       );
     }
   }
-  const browserArtifacts = browserOwnedStackArtifacts(summary.targetDir);
+  const browserArtifacts = browserOwnedStackArtifacts(summary.targetDir, target);
   if (browserArtifacts.stackMetadata) {
     ownSection.artifacts.browser_stack = browserArtifacts.stackMetadata;
     if (totalsSection.artifacts && typeof totalsSection.artifacts === "object") {
@@ -2071,6 +2092,12 @@ export function handleTargetSummary(args) {
     if (totalsSection.artifacts && typeof totalsSection.artifacts === "object") {
       totalsSection.artifacts.browser_startup_diagnostics =
         browserArtifacts.startupDiagnostics;
+    }
+  }
+  if (browserArtifacts.ownerIndex) {
+    ownSection.artifacts.browser_owner_index = browserArtifacts.ownerIndex;
+    if (totalsSection.artifacts && typeof totalsSection.artifacts === "object") {
+      totalsSection.artifacts.browser_owner_index = browserArtifacts.ownerIndex;
     }
   }
   const releaseReadinessEvidencePath = path.join(

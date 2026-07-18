@@ -11,7 +11,7 @@ import {
   validateObjectShape,
 } from "../contract/json-shape.mjs";
 
-export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v5";
+export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v6";
 
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const browserBatchKeys = new Set(["schema_id", "runtime_profiles", "stages"]);
@@ -35,7 +35,6 @@ const browserGroupKeys = new Set([
   "execution_dependency",
   "dependency_target",
   "reset_before",
-  "selected_phase",
   "selected_row_ids",
   "browser_session_group",
   "browser_session_isolation_reason",
@@ -183,6 +182,12 @@ function normalizeStage(stage, index, runtimeProfiles) {
   const normalizedGroups = groups.map((group, groupIndex) =>
     normalizeGroup(stage.name, group, groupIndex + 1, runtimeProfiles),
   );
+  const duplicateGroup = normalizedGroups.find(
+    (group, groupIndex) => normalizedGroups.findIndex((candidate) => candidate.name === group.name) !== groupIndex,
+  );
+  if (duplicateGroup) {
+    throw new Error(`browser E2E batch stage ${stage.name} contains duplicate group ${duplicateGroup.name}`);
+  }
   const groupTargets = new Set(normalizedGroups.map((group) => group.target));
   for (const child of normalizedSummaryChildren) {
     if (!groupTargets.has(child)) {
@@ -270,6 +275,16 @@ function normalizeGroup(stageName, group, index, runtimeProfiles) {
       `browser E2E batch group ${group.name} references unknown runtime profile ${runtimeProfileID}`,
     );
   }
+  const browserSessionGroup = normalizeOptionalString(group.browser_session_group);
+  if (!browserSessionGroup) {
+    throw new Error(`browser E2E batch group ${group.name} must declare browser_session_group`);
+  }
+  const browserSessionIsolationReason = normalizeOptionalString(group.browser_session_isolation_reason);
+  if (runtimeProfileID !== "default" && !browserSessionIsolationReason) {
+    throw new Error(
+      `browser E2E batch group ${group.name} must explain non-default runtime-profile session isolation`,
+    );
+  }
   return {
     name: group.name.trim(),
     target: group.target.trim(),
@@ -279,12 +294,23 @@ function normalizeGroup(stageName, group, index, runtimeProfiles) {
       group.execution_dependency === undefined ? "" : String(group.execution_dependency).trim(),
     workers: group.workers === undefined ? "default" : String(group.workers),
     resetBefore: group.reset_before === undefined ? "" : String(group.reset_before),
-    selectedPhase: normalizeOptionalString(group.selected_phase),
     selectedRowIDs: normalizeSelectedRowIDs(group),
-    browserSessionGroup: normalizeOptionalString(group.browser_session_group),
-    browserSessionIsolationReason: normalizeOptionalString(group.browser_session_isolation_reason),
+    specs: normalizeSpecs(group),
+    browserSessionGroup,
+    browserSessionIsolationReason,
     runtimeProfileID,
   };
+}
+
+function normalizeSpecs(group) {
+  if (!Array.isArray(group.specs) || group.specs.length !== 1) {
+    throw new Error(`browser E2E batch group ${group.name} specs must contain exactly one catalog selector file`);
+  }
+  const file = String(group.specs[0] ?? "").trim();
+  if (!/^apps\/web\/e2e\/.+\.spec\.ts$/u.test(file) || file.includes("..")) {
+    throw new Error(`browser E2E batch group ${group.name} has an unsafe or unsupported spec path`);
+  }
+  return [file];
 }
 
 function normalizeOptionalString(value) {
@@ -293,7 +319,7 @@ function normalizeOptionalString(value) {
 
 function normalizeSelectedRowIDs(group) {
   if (group.selected_row_ids === undefined) {
-    return [];
+    throw new Error(`browser E2E batch group ${group.name} must declare selected_row_ids`);
   }
   if (!Array.isArray(group.selected_row_ids)) {
     throw new Error(`browser E2E batch group ${group.name} selected_row_ids must be an array`);
@@ -305,11 +331,17 @@ function normalizeSelectedRowIDs(group) {
     if (id === "") {
       throw new Error(`browser E2E batch group ${group.name} selected_row_ids ${index + 1} must be non-empty`);
     }
+    if (!/^[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+$/u.test(id)) {
+      throw new Error(`browser E2E batch group ${group.name} selected_row_ids contains non-semantic identity ${id}`);
+    }
     if (seen.has(id)) {
       throw new Error(`browser E2E batch group ${group.name} selected_row_ids contains duplicate ${id}`);
     }
     seen.add(id);
     ids.push(id);
+  }
+  if (ids.length === 0) {
+    throw new Error(`browser E2E batch group ${group.name} selected_row_ids must not be empty`);
   }
   return ids;
 }
@@ -344,11 +376,11 @@ function printRunnerMetadata(stage) {
         group.executionDependency,
         stage.scheduleTags.join(","),
         stage.schedulerNeeds.join(","),
-        group.selectedPhase,
         group.selectedRowIDs.join(","),
         group.browserSessionGroup,
         group.browserSessionIsolationReason,
         group.runtimeProfileID,
+        group.specs.join(","),
       ].join("\t") + "\n",
     );
   }
@@ -366,7 +398,6 @@ function printGroupSelections(manifestPath) {
           group.kind,
           group.coverage,
           group.executionDependency,
-          group.selectedPhase,
           group.selectedRowIDs.join(","),
         ].join("\t") + "\n",
       );

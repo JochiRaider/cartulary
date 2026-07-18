@@ -28,7 +28,7 @@ export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v15";
 export const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v2";
 export const checkScheduleSchemaID = "cartulary.check_schedule_sources.v1";
 export const serviceBackedScheduleSchemaID = "cartulary.service_backed_schedule_sources.v1";
-export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v5";
+export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v6";
 export const makeTargetBaselineSchemaID =
   "cartulary.scheduler_work_unit_duration_baselines.v2";
 const defaultCheckWorkUnitWeightMs = 10_000;
@@ -65,6 +65,10 @@ const browserStageGeneratedNeedsPolicyKeys = new Set(["selected_peer_stages", "r
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function asciiCompare(left, right) {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 function resolveRepoPath(root, value) {
@@ -158,6 +162,19 @@ function validateAllowedKeys(value, allowed, label) {
 
 function objectFromEntries(entries) {
   return Object.fromEntries([...entries].sort(([left], [right]) => left.localeCompare(right)));
+}
+
+function loadCatalogRowsForGeneratedTopology(root) {
+  const registry = readJSON(path.join(root, "tools", "test_catalog_owner.json"));
+  return requireNonEmptyArray(registry.owners, "test_catalog_owner.owners")
+    .flatMap((owner, index) => {
+      const manifestPath = requireString(
+        owner.manifest_path,
+        `test_catalog_owner.owners[${index + 1}].manifest_path`,
+      );
+      const manifest = readJSON(resolveRepoPath(root, manifestPath));
+      return requireNonEmptyArray(manifest.rows, `${manifestPath}.rows`);
+    });
 }
 
 export function browserStageGeneratedNeedsPolicyForStage(
@@ -923,9 +940,75 @@ export function renderTaskSurfaceManifest(topology) {
 }
 
 export function renderBrowserBatchManifest(topology) {
+  const catalogRows = loadCatalogRowsForGeneratedTopology(topology.root);
+  const selectorStageByKind = new Map([
+    ["webserver-backed", "webserver_backed"],
+    ["duration_balanced_specs", "webserver_backed"],
+    ["functional", "webserver_backed"],
+    ["support", "support"],
+    ["stateful", "stateful"],
+    ["stateful_partition", "stateful"],
+    ["measurement", "measurement"],
+    ["a11y", "accessibility"],
+    ["visual", "visual"],
+  ]);
+
+  const stages = topology.browserBatch.stages.map((stage) => ({
+    ...clone(stage),
+    groups: stage.groups.flatMap((policyGroup) => {
+      const selectorStage = selectorStageByKind.get(policyGroup.kind);
+      if (!selectorStage) {
+        throw new Error(`browser group ${policyGroup.name} has no catalog selector-stage mapping`);
+      }
+      const runtimeProfileID = policyGroup.runtime_profile_id ?? "default";
+      const rows = catalogRows
+        .filter(
+          (row) => row.runner === "playwright" &&
+            row.selector.stage === selectorStage &&
+            row.runtime_profile_id === runtimeProfileID,
+        )
+        .sort((left, right) => asciiCompare(left.row_id, right.row_id));
+      if (rows.length === 0) {
+        throw new Error(
+          `browser group ${policyGroup.name} selects no catalog rows for ${selectorStage}/${runtimeProfileID}`,
+        );
+      }
+      const byFile = new Map();
+      for (const row of rows) {
+        const fileRows = byFile.get(row.selector.file) ?? [];
+        fileRows.push(row);
+        byFile.set(row.selector.file, fileRows);
+      }
+      return [...byFile.entries()]
+        .sort(([left], [right]) => asciiCompare(left, right))
+        .map(([file, fileRows], fileIndex) => {
+          const fileIdentity = file
+            .replace(/^apps\/web\/e2e\//u, "")
+            .replace(/\.spec\.ts$/u, "")
+            .replaceAll(/[^a-zA-Z0-9]+/gu, "-")
+            .replaceAll(/^-|-$/gu, "")
+            .toLowerCase();
+          const group = {
+            ...clone(policyGroup),
+            name: `${policyGroup.name}-${fileIdentity}`,
+            selected_row_ids: fileRows.map((row) => row.row_id),
+            specs: [file],
+            runtime_profile_id: runtimeProfileID,
+            browser_session_group:
+              policyGroup.browser_session_group ?? `${stage.target}-${runtimeProfileID}`,
+          };
+          delete group.selected_phase;
+          if (selectorStage === "stateful" && fileIndex > 0 && !group.reset_before) {
+            group.reset_before = `${policyGroup.name}-before-${fileIdentity}`;
+          }
+          return group;
+        });
+    }),
+  }));
   return {
     schema_id: browserBatchManifestSchemaID,
-    ...clone(topology.browserBatch),
+    runtime_profiles: clone(topology.browserBatch.runtime_profiles),
+    stages,
   };
 }
 

@@ -5,12 +5,6 @@ import { fileURLToPath } from "node:url";
 
 import { normalizeBrowserBatchStages } from "../browser/browser-batch-manifest.mjs";
 import {
-  browserDefaultCheckRowIndex,
-  browserDurationBaselineEntries,
-  selectedEntriesForPlan,
-} from "../browser/browser-duration-accounting.mjs";
-import { createPlanFromEntries as createBrowserShardPlanFromEntries } from "../browser/browser-shard-plan.mjs";
-import {
   browserStageGeneratedNeedsPolicyForStage,
   defaultExecutionTopologyManifestPath,
   loadExecutionTopology,
@@ -21,14 +15,6 @@ import {
   compareExecutionDependencies,
   executionDependencyInfo,
 } from "../execution/execution-dependencies.mjs";
-import {
-  collectEntries,
-  entryIsExecutable,
-  loadFrontendPhaseMap,
-  loadFrontendPhaseRegistry,
-  loadManifest,
-  phaseManifestNames,
-} from "../phase-accounting/index.mjs";
 import {
   browserStageResource,
   resourceLimitsForCapacityProfile,
@@ -45,8 +31,6 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
 const scheduleSchemaID = "cartulary.service_backed_schedule_sources.v1";
 const makeTargetBaselineSchemaID = "cartulary.scheduler_work_unit_duration_baselines.v2";
-const defaultBrowserFunctionalMinShards = 2;
-const defaultBrowserFunctionalMaxShards = 6;
 
 class UsageError extends Error {}
 
@@ -92,6 +76,37 @@ function resolvePath(file) {
 
 function readJSON(file) {
   return JSON.parse(readFileSync(resolvePath(file), "utf8"));
+}
+
+function catalogBrowserRowIndex() {
+  const targetByStage = new Map([
+    ["webserver_backed", "browser-e2e-webserver-backed"],
+    ["support", "browser-e2e-support"],
+    ["stateful", "browser-e2e-stateful"],
+    ["measurement", "browser-e2e-measurement"],
+    ["accessibility", "browser-e2e-a11y"],
+    ["visual", "browser-e2e-visual"],
+  ]);
+  const dependencyByStage = new Map([
+    ["webserver_backed", "browser_functional"],
+    ["support", "browser_support"],
+    ["stateful", "browser_stateful"],
+    ["measurement", "browser_measurement"],
+    ["accessibility", "browser_a11y"],
+    ["visual", "browser_visual"],
+  ]);
+  const registry = readJSON("tools/test_catalog_owner.json");
+  const rows = registry.owners.flatMap((owner) => readJSON(owner.manifest_path).rows);
+  return new Map(
+    rows
+      .filter((row) => row.runner === "playwright")
+      .map((row) => [row.row_id, {
+        admissible: row.default_check === true,
+        implemented: true,
+        targets: [targetByStage.get(row.selector.stage)],
+        execution_dependency: dependencyByStage.get(row.selector.stage),
+      }]),
+  );
 }
 
 function requireObject(value, label) {
@@ -622,9 +637,6 @@ function browserStageResourceLimit(profile, stageName) {
 
 function selectedGroupFields(group) {
   const fields = {};
-  if (group.selectedPhase) {
-    fields.selected_phase = group.selectedPhase;
-  }
   if (Array.isArray(group.selectedRowIDs) && group.selectedRowIDs.length > 0) {
     fields.selected_row_ids = [...group.selectedRowIDs];
   }
@@ -766,7 +778,9 @@ function projectBrowserGroupForDefaultCheck(group, rowIndex, label) {
 
 function browserGroupSessionFields(stage, group, sessionGroup) {
   const fields = { runtime_profile_id: group.runtimeProfileID };
-  if (group.browserSessionGroup) {
+  if (sessionGroup?.name) {
+    fields.browser_session_group = sessionGroup.name;
+  } else if (group.browserSessionGroup) {
     fields.browser_session_group = group.browserSessionGroup;
   } else if (group.kind === "stateful_partition") {
     const base = sessionGroup?.name ?? stage.target;
@@ -779,25 +793,6 @@ function browserGroupSessionFields(stage, group, sessionGroup) {
   return fields;
 }
 
-function browserFunctionalSharding(profile) {
-  const raw = profile.defaults.browser_functional_sharding ?? {};
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    throw new Error("defaults.browser_functional_sharding must be an object when present");
-  }
-  const minShards = raw.min_shards ?? defaultBrowserFunctionalMinShards;
-  const maxShards = raw.max_shards ?? defaultBrowserFunctionalMaxShards;
-  if (!Number.isInteger(minShards) || minShards < 1) {
-    throw new Error("defaults.browser_functional_sharding.min_shards must be a positive integer when present");
-  }
-  if (!Number.isInteger(maxShards) || maxShards < 1) {
-    throw new Error("defaults.browser_functional_sharding.max_shards must be a positive integer when present");
-  }
-  if (minShards > maxShards) {
-    throw new Error("defaults.browser_functional_sharding.min_shards must be less than or equal to max_shards");
-  }
-  return { minShards, maxShards };
-}
-
 function browserGroupSources(
   profile,
   timing,
@@ -808,7 +803,6 @@ function browserGroupSources(
   { defaultCheckOnly = false, rowIndex = new Map() } = {},
 ) {
   const groups = [];
-  const functionalSharding = browserFunctionalSharding(profile);
   for (const group of stage.groups) {
     const projectedGroup = defaultCheckOnly
       ? projectBrowserGroupForDefaultCheck(
@@ -820,77 +814,7 @@ function browserGroupSources(
     if (!projectedGroup) {
       continue;
     }
-    if (stage.name === "webserver-backed" && projectedGroup.kind === "duration_balanced_specs") {
-      const selectedEntries = selectedEntriesForPlan(repoRoot, { defaultCheckOnly });
-      const plan = createBrowserShardPlanFromEntries({
-        baselineFile: path.join(repoRoot, "tools", "browser_e2e_duration_baselines.json"),
-        minShards: functionalSharding.minShards,
-        maxShards: functionalSharding.maxShards,
-        baselineEntries: browserDurationBaselineEntries(repoRoot),
-        selectedEntries,
-        runtimeProfileID: projectedGroup.runtimeProfileID,
-      });
-      for (const [index, shard] of plan.shards.entries()) {
-        const id = `${stage.target}:${shard.name}`;
-        const entryIDs = shard.entries.map((entry) => entry.id);
-        const env = defaultCheckOnly
-          ? {
-              CARTULARY_BROWSER_SELECTED_ROW_IDS: entryIDs.join(","),
-              ...frontendAccountingEnvForSelectedRows(
-                entryIDs,
-                rowIndex,
-                latestBasePhase(shard.phases),
-              ),
-            }
-          : {};
-        groups.push({
-          id,
-          name: shard.name,
-          kind: "functional_shard",
-          target: stage.target,
-          aggregate_target: stage.target,
-          coverage: projectedGroup.coverage,
-          execution_dependency: projectedGroup.executionDependency,
-          shard_name: shard.name,
-          shard_index: index,
-          shard_count: plan.shard_count,
-          workers: "1",
-          phases: shard.phases,
-          entry_ids: entryIDs,
-          runtime_profile_id: projectedGroup.runtimeProfileID,
-          ...browserGroupSessionFields(stage, projectedGroup, sessionGroup),
-          ...(Object.keys(env).length > 0 ? { env } : {}),
-          priority: priorities.browserCriticalPath,
-          weight_ms: shard.weight_ms,
-          resource_claims: browserGroupResourceClaims(profile, stage.name),
-        });
-      }
-      if (projectedGroup.runtimeProfileID === "default") groups.push({
-        id: `${stage.target}:support`,
-        name: "support",
-        kind: "support",
-        target: stage.target,
-        aggregate_target: stage.target,
-        coverage: "supplemental",
-        execution_dependency: "browser_support",
-        workers: "1",
-        runtime_profile_id: "default",
-        ...browserGroupSessionFields(stage, projectedGroup, sessionGroup),
-        priority: priorities.browserCriticalPath,
-        weight_ms: browserGroupWeight(timing, scheduleTarget, `${stage.target}:support`, stage.target),
-        resource_claims: browserGroupResourceClaims(profile, stage.name),
-      });
-      continue;
-    }
     const id = `${stage.target}:${group.name}`;
-    const env =
-      defaultCheckOnly && Array.isArray(projectedGroup.selectedRowIDs) && projectedGroup.selectedRowIDs.length > 0
-        ? frontendAccountingEnvForSelectedRows(
-            projectedGroup.selectedRowIDs,
-            rowIndex,
-            projectedGroup.selectedPhase,
-          )
-        : {};
     groups.push({
       id,
       name: projectedGroup.name,
@@ -903,7 +827,6 @@ function browserGroupSources(
       runtime_profile_id: projectedGroup.runtimeProfileID,
       ...selectedGroupFields(projectedGroup),
       ...browserGroupSessionFields(stage, projectedGroup, sessionGroup),
-      ...(Object.keys(env).length > 0 ? { env } : {}),
       priority: priorities.browserCriticalPath,
       weight_ms: browserGroupWeight(
         timing,
@@ -950,15 +873,11 @@ function browserSource(
     sessionGroup,
     options,
   );
-  const env = options.defaultCheckOnly
-    ? browserStageFrontendAccountingEnv(groups, options.rowIndex ?? new Map())
-    : {};
   return {
     type: "browser_stage",
     class: "browser",
     target: stage.target,
     browser_stage: stageName,
-    ...(Object.keys(env).length > 0 ? { env } : {}),
     ...(sessionGroup
       ? {
           browser_session_group: sessionGroup.name,
@@ -1007,55 +926,12 @@ function validateStageHasServiceBackedEvidence(stage, scheduleTarget) {
         `${scheduleTarget} browser stage ${stage.name} dependency ${dependency} is not service-backed browser evidence`,
       );
     }
-    if (!hasPlaywrightRows(group.coverage, dependency)) {
+    if (!Array.isArray(group.selectedRowIDs) || group.selectedRowIDs.length === 0) {
       throw new Error(
-        `${scheduleTarget} browser stage ${stage.name} has no phase-map Playwright rows for ${group.coverage} ${dependency}`,
+        `${scheduleTarget} browser stage ${stage.name} has no catalog Playwright rows for ${group.coverage} ${dependency}`,
       );
     }
   }
-}
-
-function hasPlaywrightRows(coverage, executionDependency) {
-  const frontendTargetByDependency = new Map([
-    ["browser_functional", "browser-e2e-webserver-backed"],
-    ["browser_stateful", "browser-e2e-stateful"],
-    ["browser_measurement", "browser-e2e-measurement"],
-    ["browser_a11y", "browser-e2e-a11y"],
-    ["browser_visual", "browser-e2e-visual"],
-  ]);
-  const frontendTarget = frontendTargetByDependency.get(executionDependency);
-  if (frontendTarget) {
-    const registry = loadFrontendPhaseRegistry(repoRoot);
-    const hasFrontendRows = registry.phases.some((phase) => {
-      const { manifest } = loadFrontendPhaseMap(repoRoot, phase.phase_id);
-      return manifest.rows.some(
-        (row) =>
-          row.targets.some((target) => target.target_name === frontendTarget) &&
-          (coverage === "authoritative"
-            ? executionDependency === "browser_a11y"
-            : coverage === "supplemental" &&
-              row.evidence_class !== "product_conformance"),
-      );
-    });
-    if (hasFrontendRows) {
-      return true;
-    }
-  }
-  for (const phase of phaseManifestNames(repoRoot)) {
-    const { manifest } = loadManifest(repoRoot, phase);
-    if (
-      collectEntries(manifest).some(
-        (entry) =>
-          entry.runner === "playwright" &&
-          entry.coverage === coverage &&
-          entry.execution_dependency === executionDependency &&
-          entryIsExecutable(entry),
-      )
-    ) {
-      return true;
-    }
-  }
-  return false;
 }
 
 function selectedBrowserStages(scheduleProfile, browserStages) {
@@ -1105,7 +981,7 @@ function renderSchedule(profile, timing, scheduleProfile, browserStages) {
   const selector = browserSelector(scheduleProfile);
   const browserDefaultCheckOnly = selector?.defaultCheckRequired === true;
   const browserRowIndex = browserDefaultCheckOnly
-    ? browserDefaultCheckRowIndex(repoRoot)
+    ? catalogBrowserRowIndex()
     : new Map();
   const sessionGroupsByStage = browserSessionGroupByStage(selector?.sessionGroups ?? []);
   if (selector?.sessionGroups?.length > 0) {
