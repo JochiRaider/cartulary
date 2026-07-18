@@ -12,29 +12,38 @@ function regexEscape(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 
-function buildPlaywrightInvocation(root, unit, rows, workers, artifactRoot) {
+export function buildPlaywrightInvocations(root, unit, rows, workers, artifactRoot) {
   const pnpm = process.env.PNPM || path.join(root, "tmp", "node-runtime", "bin", "pnpm");
-  const files = [...new Set(rows.map((row) => row.selector.file))].sort();
-  const titles = [...new Set(rows.flatMap((row) => row.selector.titles))].sort();
-  const projects = [...new Set(rows.map((row) => row.selector.project_id))].sort();
-  if (projects.length !== 1) throw new Error(`${unit.work_unit_id} must resolve one Playwright project`);
   mkdirSync(artifactRoot, { recursive: true });
-  const reportPath = path.join(artifactRoot, "playwright-report.json");
-  return [{
-    command: pnpm,
-    args: [
-      "--dir", "apps/web", "exec", "playwright", "test",
-      "--config", "playwright.config.ts",
-      "--reporter=json",
-      "--project", projects[0],
-      "--workers", String(workers.playwright),
-      "--output", path.join(artifactRoot, "playwright-output"),
-      ...files,
-      "-g", `(?:${titles.map(regexEscape).join("|")})`,
-    ],
-    reportPath,
-    rows,
-  }];
+  const partitions = unit.target_name === "browser-e2e-stateful"
+    ? rows.map((row) => [row])
+    : [rows];
+  return partitions.map((partition, index) => {
+    const files = [...new Set(partition.map((row) => row.selector.file))].sort();
+    const titles = [...new Set(partition.flatMap((row) => row.selector.titles))].sort();
+    const projects = [...new Set(partition.map((row) => row.selector.project_id))].sort();
+    if (projects.length !== 1) {
+      throw new Error(`${unit.work_unit_id} must resolve one Playwright project`);
+    }
+    const partitionID = String(index + 1).padStart(3, "0");
+    const reportPath = path.join(artifactRoot, `${partitionID}-playwright-report.json`);
+    return {
+      command: pnpm,
+      args: [
+        "--dir", "apps/web", "exec", "playwright", "test",
+        "--config", "playwright.config.ts",
+        "--reporter=json",
+        "--project", projects[0],
+        "--workers", String(unit.target_name === "browser-e2e-stateful" ? 1 : workers.playwright),
+        "--output", path.join(artifactRoot, `${partitionID}-playwright-output`),
+        ...files,
+        "-g", `(?:${titles.map(regexEscape).join("|")})`,
+      ],
+      browserSessionGroup: `owner-${unit.work_unit_id}-${partitionID}`,
+      reportPath,
+      rows: partition,
+    };
+  });
 }
 
 function run(command, args, options = {}) {
@@ -58,7 +67,7 @@ function invocationsForUnit(root, unit, rows, workers, artifactRoot) {
   if (unit.runner === "vitest") return buildVitestInvocations(root, rows, workers.vitest, pnpm);
   if (unit.runner === "shell") return buildShellInvocations(rows);
   if (unit.runner === "playwright") {
-    return buildPlaywrightInvocation(root, unit, rows, workers, artifactRoot);
+    return buildPlaywrightInvocations(root, unit, rows, workers, artifactRoot);
   }
   throw new Error(`unsupported owner-slice runner ${unit.runner}`);
 }
@@ -123,7 +132,8 @@ export function executeOwnerSlicePlan(root, plan, options = {}) {
             // scheduler already retains/redacts the unit result and logs.
             CARTULARY_SUPPRESS_CHILD_SUCCESS: "0",
             CARTULARY_TEST_TARGET: unit.target_name,
-            CARTULARY_BROWSER_SESSION_GROUP: `owner-${unit.work_unit_id}`,
+            CARTULARY_BROWSER_SESSION_GROUP:
+              rawInvocation.browserSessionGroup ?? `owner-${unit.work_unit_id}`,
             CARTULARY_BROWSER_RUNTIME_PROFILE_ID: unit.runtime_profile_id,
             CARTULARY_PLAYWRIGHT_EXTERNAL_SERVER: unit.runner === "playwright" ? "1" : "",
             PLAYWRIGHT_JSON_OUTPUT_FILE: rawInvocation.reportPath ?? "",

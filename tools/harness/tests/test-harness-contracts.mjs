@@ -100,6 +100,7 @@ import {
   OwnerSliceUsageError,
   resolveOwnerSliceSelection,
 } from "../owner-slice/index.mjs";
+import { buildPlaywrightInvocations } from "../owner-slice/execution.mjs";
 import { buildSourceSnapshot } from "../owner-slice/source-snapshot.mjs";
 import { ownerSliceChildEnvironment } from "../owner-slice/scheduler.mjs";
 import { buildModuleAuthorTaskGuide, explainTestOwner } from "../diagnostics/owner-diagnostics.mjs";
@@ -491,6 +492,44 @@ test("owner slice children cannot inherit selector inputs or Make command-line o
     CARTULARY_TEST_RUN_ID: "parent-run",
   });
   assert.deepEqual(child, { PATH: "/bin" });
+});
+
+test("stateful owner browser rows execute as isolated single-worker partitions", () => {
+  const artifactRoot = mkdtempSync(path.join(repoRoot, "tmp", "owner-stateful-plan-test."));
+  try {
+    const invocations = buildPlaywrightInvocations(
+      repoRoot,
+      { work_unit_id: "stateful.auth", target_name: "browser-e2e-stateful" },
+      [
+        {
+          row_id: "row.stateful.one",
+          selector: {
+            file: "apps/web/e2e/one.spec.ts",
+            project_id: "chromium",
+            titles: ["stateful one"],
+          },
+        },
+        {
+          row_id: "row.stateful.two",
+          selector: {
+            file: "apps/web/e2e/two.spec.ts",
+            project_id: "chromium",
+            titles: ["stateful two"],
+          },
+        },
+      ],
+      { playwright: 3 },
+      artifactRoot,
+    );
+    assert.equal(invocations.length, 2);
+    assert.deepEqual(invocations.map((invocation) => invocation.rows.length), [1, 1]);
+    assert.deepEqual(invocations.map((invocation) =>
+      invocation.args[invocation.args.indexOf("--workers") + 1]), ["1", "1"]);
+    assert.equal(new Set(invocations.map((invocation) => invocation.reportPath)).size, 2);
+    assert.equal(new Set(invocations.map((invocation) => invocation.browserSessionGroup)).size, 2);
+  } finally {
+    rmSync(artifactRoot, { recursive: true, force: true });
+  }
 });
 
 test("owner accounting closes exact rows and preserves subset completion scope", async () => {
