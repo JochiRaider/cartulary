@@ -217,6 +217,25 @@ test("owner catalog closes identities, selectors, profiles, and semantic digests
   );
 });
 
+test("backend owner migration reconciles every frozen row and support selector", () => {
+  const result = spawnSync(
+    process.execPath,
+    [path.join(repoRoot, "tools/harness/migration/reconcile-backend-owner-catalog.mjs")],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  const summary = JSON.parse(result.stdout);
+  assert.equal(summary.schema_id, "cartulary.test_backend_reconciliation_summary.v1");
+  assert.equal(summary.status, "pass");
+  assert.equal(summary.authoritative_population, 456);
+  assert.equal(summary.authoritative_selector_atoms, 550);
+  assert.equal(summary.support_population, 37);
+  assert.equal(summary.support_selector_atoms, 118);
+  assert.equal(summary.backend_catalog_rows, 493);
+  assert.deepEqual(summary.remaining_pending_by_source, { frontend_phase_maps: 87 });
+  assert.deepEqual(summary.counts_by_runner, { go: 335, playwright: 92, vitest: 29 });
+});
+
 test("runner selector resolvers preserve exact closed shapes across all runners", () => {
   const runnerRegistry = readJSON("tools/test_runner_registry.json");
   const runnerByID = new Map(runnerRegistry.runners.map((entry) => [entry.runner, entry]));
