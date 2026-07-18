@@ -10,9 +10,9 @@
 | Baseline branch | `revision/grid-adapter` |
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
-| Tracker state | `CHECKPOINT` — WS-10 complete; WS-11 not yet active |
-| Active start | T-045A based on clean T-050 commit `80814390` |
-| Active tasks | None |
+| Tracker state | `IN_PROGRESS` — WS-11 validation and release rehearsal |
+| Active start | T-046 based on clean T-045A commit `4f2c2097` |
+| Active tasks | T-046 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -497,7 +497,7 @@ WS-06 closure is recorded in `tools/delivery_identity_followup_ledger.json`. It 
 | WS-08 | Migrate browser stages and scheduler topology | DONE | WS-05, WS-07 | Owner-based DAG, lifecycle, and browser tests | Revert authored topology and generated outputs together. |
 | WS-09 | Update task surface, generation, finalization, and baselines | DONE | WS-07, WS-08 | Generated surface/drift and fresh baseline plan | Revert owner inputs plus regenerated outputs together. |
 | WS-10 | Atomic deletion and hard cutover | DONE | WS-02–WS-09 | Deletion manifest and zero-reference scans | Revert the entire cutover commit; never add shims. |
-| WS-11 | Focused and broad verification | TODO | WS-10 | Successful fresh run roots and audit summaries | Forward-fix or revert the full cutover; old evidence is invalid. |
+| WS-11 | Focused and broad verification | IN_PROGRESS | WS-10 | Successful fresh run roots and audit summaries | Forward-fix or revert the full cutover; old evidence is invalid. |
 | WS-12 | Validate and finalize the stable post-cutover handoff | TODO | WS-11 | Authoritative retained-run evidence and handoff log | Reopen tracker if any closure invariant fails. |
 
 Before WS-10, old and new implementations may coexist only on unmerged migration branches to enable comparison. Public authority remains singular, and no dual-reader or dual-writer state may be merged. WS-10 is one cohesive checkpoint. After WS-10, remediation is a forward fix or full checkpoint revert, never a compatibility shim.
@@ -732,7 +732,7 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-044 | Delete phase-accounting and compatibility code | WS-10 | DONE | T-035,T-037,T-043 | Boundary and zero-reference scans | No old reader or shim remains. |
 | T-045 | Regenerate all permitted outputs | WS-10 | DONE | T-042,T-043,T-044 | Generated drift checks | Clean owner-first generated tree. |
 | T-045A | Prove atomic v2 parity and retirement | WS-10 | DONE | T-050 | NLSpec/schema/task-surface/topology parity and zero-reference report | v2 is complete and no v1 alias, reader, writer, catalog, or artifact identity is active. |
-| T-046 | Run focused verification matrix | WS-11 | TODO | T-045A | Command results/run roots | All focused gates pass. |
+| T-046 | Run focused verification matrix | WS-11 | IN_PROGRESS | T-045A | Command results/run roots | All focused gates pass. |
 | T-047 | Run agent finalization and first warm check | WS-11 | TODO | T-046 | Successful warm run root | Fresh broad evidence exists. |
 | T-048 | Refresh retained baselines and repeat broad checks | WS-11 | TODO | T-047 | Finalized root and second results | No phase baseline is reused. |
 | T-049 | Run release check | WS-11 | TODO | T-048 | Release-check result | Public/release harness changes pass. |
@@ -1340,6 +1340,13 @@ Each entry must include:
 - Skipped/remaining checks: T-045A does not claim the all-owner/service-backed/browser matrix, `test-fast`, targeted security suite, broad warm checks, finalizer baseline refresh, release rehearsal, owner audits, or timing window. Those are the ordered T-046 through T-051 obligations, and no pre-WS-11 result root is authoritative final evidence.
 - Next safe task: create a tracker-only checkpoint activating WS-11 and T-046, then run the complete focused post-cutover verification matrix without changing the closed WS-10 architecture or restoring a compatibility surface.
 - Rollback boundary: revert the complete T-045A checkpoint to `80814390`, including semantic fixture/test renames, visual-registry v4, removed exception machinery, owner-first diagnostics/planner repairs, generated outputs, contract updates, and this tracker record. Never restore one retired identifier or old-schema fixture as a tactical compatibility patch.
+
+#### 2026-07-18 — WS-11 / T-046 activation checkpoint
+
+- Branch/commit at start: `revision/grid-adapter` at clean atomic-cutover commit `4f2c2097`. WS-10 remains closed; WS-11 and T-046 are now `IN_PROGRESS`, and T-046 is the sole active task.
+- Scope lock: run the complete focused post-cutover matrix against owner-first source bytes, including generated/schema/catalog/harness/static/frontend/backend/security gates, all catalog owners, applicable service-backed slices, and every browser execution mode. Any defect is a forward fix in its v2 owner followed by a new checkpoint; no compatibility identity or migration input may be restored.
+- Next safe task: T-046 only. Record exact run roots, failures, skips, rollback point, and the next safe task before starting T-047.
+- Rollback boundary: revert only this tracker activation checkpoint to `4f2c2097`; the closed WS-10 cutover remains intact.
 
 ## 17. First-resumer checklist
 
