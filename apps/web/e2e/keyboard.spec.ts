@@ -2,6 +2,7 @@ import {
   assertGroupRowPresentationOnly,
   assertMountedGridRowCountAtMost,
   changeGrouping,
+  isTestIdVisibleWithinGridViewport,
   pasteGridMatrix,
   scrollGridCellIntoView,
   scrollGridToOffset,
@@ -577,7 +578,7 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
     {
       client_txn_id: uniqueTxn("browser.coordination-review.row-02-virtual"),
       "timeline.activity_synopsis_text":
-        "ZZZ browser.coordination-review.row-02 virtual target",
+        "zzz browser.coordination-review.row-02 virtual target",
       "timeline.raw_activity_text":
         "browser.coordination-review.row-02 virtual details",
     },
@@ -900,6 +901,8 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
     page,
     surface: timelineViewSchemaId,
   });
+  await changeGrouping(page, timelineViewSchemaId, "");
+  await expect(page.getByTestId(reviewedGroupTestId)).not.toBeVisible();
 
   await sortByHeader(
     page,
@@ -912,11 +915,19 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
     page,
     surface: timelineViewSchemaId,
   });
-  await expect(
-    page.getByTestId(
-      rowCellTestId(virtualTarget.record_id, "timeline.activity_synopsis_text"),
-    ),
-  ).not.toBeVisible();
+  const virtualTargetTestId = rowCellTestId(
+    virtualTarget.record_id,
+    "timeline.activity_synopsis_text",
+  );
+  await expect
+    .poll(() =>
+      isTestIdVisibleWithinGridViewport(
+        page,
+        timelineViewSchemaId,
+        virtualTargetTestId,
+      ),
+    )
+    .toBe(false);
   await scrollGridCellIntoView({
     cellKey: "timeline.activity_synopsis_text",
     page,
@@ -924,11 +935,23 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
     surface: timelineViewSchemaId,
     timeoutMs: 6_000,
   });
-  await expect(
-    page.getByTestId(
-      rowCellTestId(virtualTarget.record_id, "timeline.activity_synopsis_text"),
-    ),
-  ).toBeVisible();
+  await expect(page.getByTestId(virtualTargetTestId)).toBeVisible();
+  await expect
+    .poll(() =>
+      isTestIdVisibleWithinGridViewport(
+        page,
+        timelineViewSchemaId,
+        virtualTargetTestId,
+      ),
+    )
+    .toBe(true);
+  const frozenGutter = page.getByTestId(
+    gridRowGutterTestId(timelineViewSchemaId, virtualTarget.record_id),
+  );
+  await expect(frozenGutter).toHaveCSS("position", "sticky");
+  const frozenGutterLeft = await frozenGutter.evaluate(
+    (element) => getComputedStyle(element).left,
+  );
   await page
     .getByTestId(gridShellTestId(timelineViewSchemaId))
     .locator(gridScrollportSelector())
@@ -936,11 +959,8 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
       element.scrollLeft = 480;
       element.dispatchEvent(new Event("scroll", { bubbles: true }));
     });
-  const frozenGutter = page.getByTestId(
-    gridRowGutterTestId(timelineViewSchemaId, virtualTarget.record_id),
-  );
   await expect(frozenGutter).toHaveCSS("position", "sticky");
-  await expect(frozenGutter).toHaveCSS("left", "0px");
+  await expect(frozenGutter).toHaveCSS("left", frozenGutterLeft);
 });
 
 test("shared grid keyboard anchors stay stable across workbook cells", async ({

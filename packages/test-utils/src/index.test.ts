@@ -25,6 +25,7 @@ import {
   changeGrouping,
   collapseGridGroup,
   expandGridGroup,
+  isTestIdVisibleWithinGridViewport,
   removeFilterChip,
   scrollGridCellIntoView,
   scrollGridTargetIntoView,
@@ -329,6 +330,48 @@ describe("@cartulary/test-utils grid continuity", () => {
 });
 
 describe("@cartulary/test-utils virtualized grid targeting", () => {
+  it("distinguishes mounted targets outside the clipped grid viewport", async () => {
+    const outside = installMarkerAnchorFixture({
+      markerRect: { height: 18, left: 130, top: 472, width: 48 },
+      targetCellRect: { height: 60, left: 100, top: 440, width: 120 },
+    });
+
+    await expect(
+      isTestIdVisibleWithinGridViewport(
+        outside.page,
+        testTimelineViewSchemaId,
+        outside.targetTestId,
+      ),
+    ).resolves.toBe(false);
+
+    document.body.innerHTML = "";
+    vi.restoreAllMocks();
+    const inside = installMarkerAnchorFixture({
+      markerRect: { height: 18, left: 130, top: 72, width: 48 },
+    });
+    await expect(
+      isTestIdVisibleWithinGridViewport(
+        inside.page,
+        testTimelineViewSchemaId,
+        inside.targetTestId,
+      ),
+    ).resolves.toBe(true);
+  });
+
+  it("treats an unmounted virtual target as outside the grid viewport", async () => {
+    const { page, targetTestId } = installGridTargetFixture({
+      includeTarget: false,
+    });
+
+    await expect(
+      isTestIdVisibleWithinGridViewport(
+        page,
+        testTimelineViewSchemaId,
+        targetTestId,
+      ),
+    ).resolves.toBe(false);
+  });
+
   it("aligns an already-visible target before returning the existing scroll position", async () => {
     const { grid, page, scrollIntoViewCalls, targetTestId } =
       installGridTargetFixture({

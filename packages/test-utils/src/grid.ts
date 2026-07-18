@@ -30,6 +30,7 @@ export {
 export { assertMarkerAnchoredToGridTarget } from "./marker";
 export {
   assertMountedGridRowCountAtMost,
+  isTestIdVisibleWithinGridViewport,
   scrollGridCellIntoView,
   scrollGridTargetIntoView,
   scrollGridToBottom,

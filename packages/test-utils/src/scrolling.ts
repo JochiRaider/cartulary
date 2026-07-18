@@ -263,7 +263,23 @@ export async function isTestIdVisibleWithinGridViewport(
   surface: WorkbookSurface,
   testId: string,
 ) {
-  const state = await readTestIdGridViewportState(page, surface, testId);
+  const target = page.getByTestId(testId);
+  if (!(await isLocatorVisible(target))) {
+    return false;
+  }
+
+  let state: Awaited<ReturnType<typeof readTestIdGridViewportState>>;
+  try {
+    state = await readTestIdGridViewportState(page, surface, testId);
+  } catch (error) {
+    // Virtualized rows can unmount between the visibility check and geometry
+    // read. That target is outside the viewport by definition. Preserve real
+    // grid-contract failures when the target remains mounted.
+    if (!(await isLocatorVisible(target))) {
+      return false;
+    }
+    throw error;
+  }
   return (
     state.top >= -viewportVisibilityTolerancePx &&
     state.left >= -viewportVisibilityTolerancePx &&
