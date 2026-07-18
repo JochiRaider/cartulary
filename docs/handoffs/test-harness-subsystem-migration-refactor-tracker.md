@@ -10,7 +10,9 @@
 | Baseline branch | `revision/grid-adapter` |
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
-| Tracker state | `READY` — WS-02 complete; WS-03 is the next safe workstream |
+| Tracker state | `IN_PROGRESS` — WS-03 unified test catalog |
+| Active start | Clean tree at `a5db27faf1b75e29f880fe80fee965f0346d3cae` |
+| Active tasks | T-014, T-015, T-016, T-017, T-018 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -485,7 +487,7 @@ These follow-ups do not block harness completion unless the old production ident
 | WS-00 | Freeze baseline and build migration crosswalk | DONE | None | `tools/test_migration_baseline.json`; `tools/test_migration_crosswalk.json` | Revert inventory-only commit. |
 | WS-01 | Revise owner contracts and repository procedure | DONE | WS-00 | Adopted harness contract and command-policy review | Revert contract commit before implementation consumers land. |
 | WS-02 | Create machine verification owners and remove documentation parsing | DONE | WS-01 | Schema-valid contracts and decoupling ledger closure | Revert an owner contract and its consumers together. |
-| WS-03 | Build unified test catalog | TODO | WS-01, WS-02 | Registry/manifests loader and catalog checks | Revert catalog stack; old catalog remains authoritative only before cutover. |
+| WS-03 | Build unified test catalog | IN_PROGRESS | WS-01, WS-02 | Registry/manifests loader and catalog checks | Revert catalog stack; old catalog remains authoritative only before cutover. |
 | WS-04 | Migrate backend rows | TODO | WS-03 | 456 backend dispositions and focused tests | Revert complete owner slices, never individual aliases. |
 | WS-05 | Migrate frontend rows | TODO | WS-03 | 87 frontend dispositions and browser accounting tests | Revert complete owner slices with fixture metadata. |
 | WS-06 | Rename tests, symbols, fixtures, and goldens | TODO | WS-04, WS-05 | Semantic scan and visual digest report | Revert complete rename slices; no duplicate old/new tests. |
@@ -695,11 +697,11 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-011 | Migrate harness executable requirements | WS-02 | DONE | T-010 | Focused harness tests | Harness tests consume machine owners only. |
 | T-012 | Migrate product/tool documentation readers | WS-02 | DONE | T-010 | Per-owner tests and scan | Section 6 is closed. |
 | T-013 | Add no-document-read guard | WS-02 | DONE | T-011,T-012 | Negative fixtures | Unauthorized doc reads fail deterministically. |
-| T-014 | Add owner registry and family schemas | WS-03 | TODO | T-010 | JSON shape evidence | Owner/family files validate. |
-| T-015 | Implement unified catalog loader and validator | WS-03 | TODO | T-014 | Unit/smoke tests | Invalid references/selectors are rejected. |
-| T-016 | Absorb Graph Projection subsystem map | WS-03 | TODO | T-015 | Crosswalk/catalog evidence | No special subsystem path needed. |
-| T-017 | Eliminate `unowned_regression` | WS-03 | TODO | T-015 | Classification reconciliation | Every retained support row has an owner. |
-| T-018 | Add module-family import guardrails | WS-03 | TODO | T-015 | Boundary tests | Dependency direction is enforced. |
+| T-014 | Add owner registry and family schemas | WS-03 | IN_PROGRESS | T-010 | JSON shape evidence | Owner/family files validate. |
+| T-015 | Implement unified catalog loader and validator | WS-03 | IN_PROGRESS | T-014 | Unit/smoke tests | Invalid references/selectors are rejected. |
+| T-016 | Absorb Graph Projection subsystem map | WS-03 | IN_PROGRESS | T-015 | Crosswalk/catalog evidence | No special subsystem path needed. |
+| T-017 | Eliminate `unowned_regression` | WS-03 | IN_PROGRESS | T-015 | Classification reconciliation | Every retained support row has an owner. |
+| T-018 | Add module-family import guardrails | WS-03 | IN_PROGRESS | T-015 | Boundary tests | Dependency direction is enforced. |
 | T-019 | Migrate phase0–phase4 backend rows | WS-04 | TODO | T-015 | Crosswalk/focused tests | Rows have terminal dispositions. |
 | T-020 | Migrate phase5–phase8 backend rows | WS-04 | TODO | T-015 | Crosswalk/focused tests | Rows have terminal dispositions. |
 | T-021 | Migrate phase9–phase12 backend rows | WS-04 | TODO | T-015 | Crosswalk/focused tests | Rows have terminal dispositions. |
