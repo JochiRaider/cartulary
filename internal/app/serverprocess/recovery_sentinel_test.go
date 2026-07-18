@@ -75,8 +75,8 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 		t.Fatalf("restore verification did not pass: %#v", verification)
 	}
 	verificationBody := RequireStoredArtifactProof(t, fixture.BackupStorage, verification.ArtifactProof)
-	verificationPath := WriteEvidenceArtifact(t, "phase-e-backup-restore", "restore-verification.json", verificationBody)
-	t.Logf("phase_e_restore_verification_artifact=%s", verificationPath)
+	verificationPath := WriteEvidenceArtifact(t, "backup-restore", "restore-verification.json", verificationBody)
+	t.Logf("backup_restore_verification_artifact=%s", verificationPath)
 
 	server := processtest.StartServer(t, processtest.ServerOptions{Env: target.Env})
 	defer server.Stop(t)
@@ -288,8 +288,8 @@ func captureRestoreSource(t testing.TB, prefix string) SourceBackupFixture {
 	if bytes.Contains(rawPostgresArtifact, []byte("restore source timeline")) {
 		t.Fatalf("raw process backup artifact contains plaintext incident data: %s", rawPostgresArtifact)
 	}
-	manifestPath := WriteEvidenceArtifact(t, "phase-e-backup-restore", "object-store-backup-manifest.json", latestObjectArtifacts.ManifestBody)
-	summaryPath := WriteEvidenceArtifact(t, "phase-e-backup-restore", "object-store-backup-summary.json", latestObjectArtifacts.SummaryBody)
+	manifestPath := WriteEvidenceArtifact(t, "backup-restore", "object-store-backup-manifest.json", latestObjectArtifacts.ManifestBody)
+	summaryPath := WriteEvidenceArtifact(t, "backup-restore", "object-store-backup-summary.json", latestObjectArtifacts.SummaryBody)
 	manifest, err := recovery.DecodeObjectStoreBackupManifestArtifact(latestObjectArtifacts.ManifestBody)
 	if err != nil {
 		t.Fatalf("decode retained object-store backup manifest: %v", err)
@@ -298,7 +298,7 @@ func captureRestoreSource(t testing.TB, prefix string) SourceBackupFixture {
 		!manifest.ConsistencyPointAt.Equal(consistencyPointAt) ||
 		manifest.ObjectStoreBackend != recovery.ObjectStoreBackendSeaweedFSS3 ||
 		manifest.ObjectCount == 0 {
-		t.Fatalf("object-store backup manifest does not satisfy Phase E predicate at %s: %#v", manifestPath, manifest)
+		t.Fatalf("object-store backup manifest does not satisfy backup predicate at %s: %#v", manifestPath, manifest)
 	}
 	hasBlobID := false
 	for _, object := range manifest.Objects {
@@ -323,8 +323,8 @@ func captureRestoreSource(t testing.TB, prefix string) SourceBackupFixture {
 			t.Fatalf("shareable object-store backup summary leaked raw storage ref at %s", summaryPath)
 		}
 	}
-	t.Logf("phase_e_object_store_backup_manifest=%s", manifestPath)
-	t.Logf("phase_e_object_store_backup_summary=%s", summaryPath)
+	t.Logf("object_store_backup_manifest=%s", manifestPath)
+	t.Logf("object_store_backup_summary=%s", summaryPath)
 
 	return SourceBackupFixture{
 		SourceStore:          recovery.NewStore(sourcePool),
@@ -355,11 +355,11 @@ func WriteEvidenceArtifact(t testing.TB, group string, name string, body []byte)
 	t.Helper()
 	dir := EvidenceDir(group)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
-		t.Fatalf("create Phase E evidence dir: %v", err)
+		t.Fatalf("create backup-restore evidence dir: %v", err)
 	}
 	path := filepath.Join(dir, name)
 	if err := os.WriteFile(path, body, 0o600); err != nil {
-		t.Fatalf("write Phase E evidence artifact: %v", err)
+		t.Fatalf("write backup-restore evidence artifact: %v", err)
 	}
 	return path
 }
@@ -373,7 +373,7 @@ func EvidenceDir(group string) string {
 	}
 	if resultsDir == "" || runID == "" {
 		resultsDir = filepath.Join(".cartulary", "test-results")
-		runID = "local-phase-e"
+		runID = "local-backup-restore"
 	}
 	return filepath.Join(resultsDir, runID, target, group)
 }

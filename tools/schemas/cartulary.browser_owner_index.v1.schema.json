@@ -11,12 +11,12 @@
   "properties": {
     "schema_id": { "const": "cartulary.browser_owner_index.v1" },
     "target_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
-    "run_id": { "$ref": "cartulary.test_slice_plan.v1#/$defs/nonempty" },
-    "source_snapshot_digest": { "$ref": "cartulary.test_slice_plan.v1#/$defs/digest" },
-    "catalog_semantic_digest": { "$ref": "cartulary.test_slice_plan.v1#/$defs/digest" },
-    "verification_semantic_digest": { "$ref": "cartulary.test_slice_plan.v1#/$defs/digest" },
+    "run_id": { "$ref": "cartulary.test_slice_plan.v2#/$defs/nonempty" },
+    "source_snapshot_digest": { "$ref": "cartulary.test_slice_plan.v2#/$defs/digest" },
+    "catalog_semantic_digest": { "$ref": "cartulary.test_slice_plan.v2#/$defs/digest" },
+    "verification_semantic_digest": { "$ref": "cartulary.test_slice_plan.v2#/$defs/digest" },
     "status": { "enum": ["pass", "fail"] },
-    "selected_rows": { "$ref": "cartulary.test_slice_plan.v1#/$defs/row_ids" },
+    "selected_rows": { "$ref": "cartulary.test_slice_plan.v2#/$defs/row_ids" },
     "owner_shards": {
       "type": "array",
       "minItems": 1,
@@ -27,7 +27,7 @@
         "properties": {
           "owner_id": { "$ref": "cartulary.test_family_manifest.v1#/$defs/owner_id" },
           "status": { "enum": ["pass", "fail"] },
-          "selected_rows": { "$ref": "cartulary.test_slice_plan.v1#/$defs/row_ids" },
+          "selected_rows": { "$ref": "cartulary.test_slice_plan.v2#/$defs/row_ids" },
           "evidence_accounting": { "type": "string", "minLength": 1 },
           "owner_summary": { "type": "string", "minLength": 1 }
         }

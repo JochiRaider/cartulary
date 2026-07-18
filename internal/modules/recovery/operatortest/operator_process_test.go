@@ -133,7 +133,7 @@ func TestCanonicalOperatorBackupCreate_Process(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "backup_restore-e-10-01-canonical-create")
 	s3Harness := s3test.Start(t)
-	bucket := fmt.Sprintf("backup_restore-canonical-create-%d", time.Now().UnixNano())
+	bucket := fmt.Sprintf("backup-restore-canonical-create-%d", time.Now().UnixNano())
 	if err := s3Harness.CreateBucket(ctx, bucket); err != nil {
 		t.Fatalf("create backup create bucket: %v", err)
 	}

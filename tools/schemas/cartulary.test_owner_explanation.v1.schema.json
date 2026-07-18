@@ -8,8 +8,8 @@
     "schema_id": { "const": "cartulary.test_owner_explanation.v1" },
     "owner_id": { "$ref": "cartulary.test_family_manifest.v1#/$defs/owner_id" },
     "manifest_path": { "$ref": "cartulary.test_family_manifest.v1#/$defs/repo_path" },
-    "catalog_semantic_digest": { "$ref": "cartulary.test_slice_plan.v1#/$defs/digest" },
-    "verification_semantic_digest": { "$ref": "cartulary.test_slice_plan.v1#/$defs/digest" },
+    "catalog_semantic_digest": { "$ref": "cartulary.test_slice_plan.v2#/$defs/digest" },
+    "verification_semantic_digest": { "$ref": "cartulary.test_slice_plan.v2#/$defs/digest" },
     "row_count": { "type": "integer", "minimum": 1 },
     "service_backed_row_count": { "type": "integer", "minimum": 0 },
     "families": {

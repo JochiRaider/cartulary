@@ -15,7 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 )
 
-func TestSupportPhaseF_MigrationRunCanonicalStateGuardsAndRedaction(t *testing.T) {
+func TestSupportObjectStoreMigrationRunCanonicalStateGuardsAndRedaction(t *testing.T) {
 	runID := uuid.MustParse("00000000-0000-0000-0000-000000130001")
 	now := time.Date(2026, 6, 4, 10, 0, 0, 0, time.UTC)
 	run, err := recovery.NewObjectStoreMigrationRun(runID, now, "operator@example.test", "http://source.internal:9000", "http://target.internal:8333", "private-bucket", "private-bucket")
@@ -50,7 +50,7 @@ func TestSupportPhaseF_MigrationRunCanonicalStateGuardsAndRedaction(t *testing.T
 	}
 }
 
-func TestSupportPhaseF_WriteQuiescenceRejectsOperatorAssertionOnly(t *testing.T) {
+func TestSupportObjectStoreMigrationWriteQuiescenceRejectsOperatorAssertionOnly(t *testing.T) {
 	valid := recovery.ObjectStoreMigrationWriteQuiescenceProof{
 		SchemaID:                recovery.ObjectStoreMigrationProofSchemaID,
 		ProofKind:               "process_stopped",
@@ -68,7 +68,7 @@ func TestSupportPhaseF_WriteQuiescenceRejectsOperatorAssertionOnly(t *testing.T)
 	}
 }
 
-func TestSupportPhaseF_MigrationValidationCanonicalDigestDuplicateKeysAndResult(t *testing.T) {
+func TestSupportObjectStoreMigrationValidationCanonicalDigestDuplicateKeysAndResult(t *testing.T) {
 	ctx := context.Background()
 	source := newMigrationFilesystemStore(t)
 	target := newMigrationFilesystemStore(t)
@@ -148,7 +148,7 @@ func TestSupportPhaseF_MigrationValidationCanonicalDigestDuplicateKeysAndResult(
 	}
 }
 
-func TestSupportPhaseF_CopyLedgerStatusesAndZeroByteObjects(t *testing.T) {
+func TestSupportObjectStoreMigrationCopyLedgerStatusesAndZeroByteObjects(t *testing.T) {
 	ctx := context.Background()
 	runID := uuid.MustParse("00000000-0000-0000-0000-000000130005")
 	cases := []struct {
@@ -224,7 +224,7 @@ func TestSupportPhaseF_CopyLedgerStatusesAndZeroByteObjects(t *testing.T) {
 	}
 }
 
-func TestSupportPhaseF_MigrationBlobReferencePreflight(t *testing.T) {
+func TestSupportObjectStoreMigrationBlobReferencePreflight(t *testing.T) {
 	objectBlobID := uuid.MustParse("00000000-0000-0000-0000-000000130030")
 	incidentID := uuid.MustParse("00000000-0000-0000-0000-000000130031")
 	validBlob := func() recovery.ObjectStoreMigrationBlob {
@@ -260,7 +260,7 @@ func TestSupportPhaseF_MigrationBlobReferencePreflight(t *testing.T) {
 	}
 }
 
-func TestSupportPhaseF_MigrationBlobReferencePreflightRejectsInvalidKeysBeforeBackendCalls(t *testing.T) {
+func TestSupportObjectStoreMigrationBlobReferencePreflightRejectsInvalidKeysBeforeBackendCalls(t *testing.T) {
 	ctx := context.Background()
 	objectBlobID := uuid.MustParse("00000000-0000-0000-0000-000000130040")
 	incidentID := uuid.MustParse("00000000-0000-0000-0000-000000130041")

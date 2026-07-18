@@ -7498,7 +7498,7 @@
         "tools/fallow/reachability_owner.json",
         "tools/fallow/cartulary-boundaries.rulepack.json",
         "tools/schemas/cartulary.fallow_reachability_owner.v1.schema.json",
-        "tools/schemas/cartulary.fallow_static_summary.v1.schema.json"
+        "tools/schemas/cartulary.fallow_static_summary.v2.schema.json"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -10655,7 +10655,7 @@
         "tools/fallow/reachability_owner.json",
         "tools/fallow/cartulary-boundaries.rulepack.json",
         "tools/schemas/cartulary.fallow_reachability_owner.v1.schema.json",
-        "tools/schemas/cartulary.fallow_static_summary.v1.schema.json"
+        "tools/schemas/cartulary.fallow_static_summary.v2.schema.json"
       ]
     },
     {

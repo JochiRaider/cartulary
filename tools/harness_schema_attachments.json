@@ -100,8 +100,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.fallow_static_summary.v1",
-      "path": "tools/schemas/cartulary.fallow_static_summary.v1.schema.json",
+      "schema_id": "cartulary.fallow_static_summary.v2",
+      "path": "tools/schemas/cartulary.fallow_static_summary.v2.schema.json",
       "classification": "public_contract",
       "producer": "Fallow wrapper",
       "validation": "json-shape-check"
@@ -457,8 +457,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.test_slice_plan.v1",
-      "path": "tools/schemas/cartulary.test_slice_plan.v1.schema.json",
+      "schema_id": "cartulary.test_slice_plan.v2",
+      "path": "tools/schemas/cartulary.test_slice_plan.v2.schema.json",
       "classification": "public_contract",
       "producer": "owner-slice planner",
       "validation": "json-shape-check"

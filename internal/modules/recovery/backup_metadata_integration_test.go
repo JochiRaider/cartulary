@@ -43,7 +43,7 @@ func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testin
 	incidentID := uuid.MustParse(incident["incident_id"].(string))
 	objectKey := "backup_restore/i-10-01/" + incident["incident_id"].(string) + "/proof.txt"
 	objectPayload := []byte("backup_restore backup proof")
-	sourceBucket := "backup_restore-i-10-01-source-" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	sourceBucket := "backup-restore-i-10-01-source-" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	if err := runtimeHarness.S3.CreateBucket(ctx, sourceBucket); err != nil {
 		t.Fatalf("create source SeaweedFS bucket: %v", err)
 	}
@@ -162,7 +162,7 @@ INSERT INTO object_blobs (
 		t.Fatalf("open fresh target Postgres: %v", err)
 	}
 	t.Cleanup(targetPool.Close)
-	targetBucket := "backup_restore-i-10-01-target-" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	targetBucket := "backup-restore-i-10-01-target-" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	if err := runtimeHarness.S3.CreateBucket(ctx, targetBucket); err != nil {
 		t.Fatalf("create target SeaweedFS bucket: %v", err)
 	}

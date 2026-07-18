@@ -9,7 +9,7 @@ Use direct relative imports. Do not add path aliases or app-local barrel
 exports without updating this convention and the import-boundary checks.
 
 Keep tests beside the module or surface they cover. Shared fixtures belong in
-`testing/`. Phase-named test files are coverage/harness accounting labels only;
+`testing/`. Test files and selectors use semantic owner and behavior identities;
 they are not runtime architecture boundaries.
 
 Generated artifacts and generated harness outputs remain owned by their source

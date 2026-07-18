@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.test_slice_plan.v1",
+  "$id": "cartulary.test_slice_plan.v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -31,7 +31,7 @@
     "expected_artifacts"
   ],
   "properties": {
-    "schema_id": { "const": "cartulary.test_slice_plan.v1" },
+    "schema_id": { "const": "cartulary.test_slice_plan.v2" },
     "command_id": { "enum": ["cartulary.harness.command.test_slice.v1", "cartulary.harness.command.service_backed_test_slice.v1"] },
     "target": { "enum": ["test-slice", "service-backed-test-slice"] },
     "run_id": { "$ref": "#/$defs/nonempty" },
@@ -121,7 +121,7 @@
     "work_unit": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["work_unit_id", "runner", "target_name", "row_ids", "runtime_profile_id", "resource_profile_id", "fixture_profile_id", "managed_service_ids", "resource_claims", "dependencies", "expected_artifacts", "timeout_seconds"],
+      "required": ["work_unit_id", "runner", "target_name", "row_ids", "runtime_profile_id", "resource_profile_id", "fixture_profile_id", "managed_service_ids", "runtime_binary_ids", "resource_claims", "dependencies", "expected_artifacts", "timeout_seconds"],
       "properties": {
         "work_unit_id": { "type": "string", "pattern": "^unit\\.[a-z0-9_]+\\.[0-9a-f]{12}$", "maxLength": 96 },
         "runner": { "enum": ["go", "vitest", "playwright", "shell"] },
@@ -131,6 +131,7 @@
         "resource_profile_id": { "$ref": "#/$defs/nonempty" },
         "fixture_profile_id": { "$ref": "#/$defs/nonempty" },
         "managed_service_ids": { "$ref": "#/$defs/unique_strings" },
+        "runtime_binary_ids": { "$ref": "#/$defs/unique_strings" },
         "resource_claims": { "$ref": "#/$defs/resource_claims" },
         "dependencies": { "$ref": "#/$defs/unique_strings" },
         "expected_artifacts": { "$ref": "#/$defs/unique_strings" },

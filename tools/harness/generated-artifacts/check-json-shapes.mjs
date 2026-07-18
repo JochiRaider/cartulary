@@ -74,7 +74,7 @@ const serviceBackedMakeTargetBaselineSchemaID =
 const toolRunSummarySchemaID = "cartulary.tool_run_summary.v5";
 const fallowReachabilityOwnerSchemaID =
   "cartulary.fallow_reachability_owner.v1";
-const fallowStaticSummarySchemaID = "cartulary.fallow_static_summary.v1";
+const fallowStaticSummarySchemaID = "cartulary.fallow_static_summary.v2";
 const agentFinalizeSummarySchemaID = "cartulary.agent_finalize_summary.v3";
 const testSupportInventorySchemaID = "cartulary.test_support_inventory.v1";
 const projectionProviderManifestSchemaID =
@@ -641,7 +641,7 @@ const toolRunCountKeys = new Set([
   "non_test_failed",
   "packages",
 ]);
-const toolRunPhaseAccountingKeys = new Set([
+const toolRunStepAccountingKeys = new Set([
   "authoritative",
   "support",
   "raw",
@@ -2850,7 +2850,7 @@ function validateToolRunSummaryShape(file) {
   validateNonNegativeIntegerObject(
     summary.step_accounting,
     `${file}.step_accounting`,
-    toolRunPhaseAccountingKeys,
+    toolRunStepAccountingKeys,
   );
   requireNullableEnum(
     summary.failure_class,

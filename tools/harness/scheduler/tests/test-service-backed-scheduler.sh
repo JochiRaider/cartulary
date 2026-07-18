@@ -2405,7 +2405,7 @@ manifest.browser_e2e_batch.stages.push({
   schedule_tags: ["service_backed_full"],
   groups: [
     {
-      name: "missing-phase-map-rows",
+      name: "missing-owner-plan-rows",
       target: "browser-e2e-support",
       kind: "support",
       coverage: "authoritative",

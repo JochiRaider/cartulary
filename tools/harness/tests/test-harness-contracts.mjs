@@ -384,6 +384,19 @@ test("owner slice plan is deterministic and schema-valid for semantic inputs", a
   await validateSchema(first.schema_id, first);
   assert.deepEqual(first.selection.resolved_row_ids, [row.row_id]);
   assert.match(first.source_snapshot_digest, /^sha256:[0-9a-f]{64}$/u);
+
+  const processRow = catalog.rows.find(
+    (entry) => entry.family_id === "module.recovery.process",
+  );
+  assert.ok(processRow);
+  const processPlan = buildOwnerSlicePlan(repoRoot, {
+    ...options,
+    ownerID: processRow.owner_id,
+    dependencyScope: "service_backed",
+    rows: processRow.row_id,
+  });
+  assert.deepEqual(processPlan.work_units[0].runtime_binary_ids, ["operator"]);
+  await validateSchema(processPlan.schema_id, processPlan);
 });
 
 test("runner adapters require one exact terminal observation per selected row", () => {

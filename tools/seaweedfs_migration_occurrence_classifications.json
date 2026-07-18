@@ -8,7 +8,7 @@
         "go.sum"
       ],
       "classification": "sdk_only",
-      "owner": "Phase G dependency-boundary evidence",
+      "owner": "Release dependency-boundary evidence",
       "rationale": "Retained Go module and checksum rows for the generic S3-compatible client SDK and its transitive implementation dependencies."
     },
     {
@@ -46,7 +46,7 @@
         "internal/modules/recovery/**"
       ],
       "classification": "migration_source",
-      "owner": "Phase F migration-source evidence",
+      "owner": "Object-store migration-source evidence",
       "rationale": "Retained source-backend labels identify the legacy source side of the migration and are not default runtime service references."
     },
     {

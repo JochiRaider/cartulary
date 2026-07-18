@@ -45,18 +45,18 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 			},
 		}
 
-		harness := startServer(t, "phase-d-object-store-upload-outage", failingStore)
+		harness := startServer(t, "object-store-upload-outage", failingStore)
 		login := loginLocalUserNoMFA(t, harness, admin.email, admin.password)
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-			"client_txn_id": "txn-phase-d-object-store-upload-incident",
-			"incident_key":  "phase-d-object-store-upload",
-			"title":         "Phase D object-store upload outage",
+			"client_txn_id": "txn-object-store-upload-incident",
+			"incident_key":  "object-store-upload",
+			"title":         "Object-store upload outage",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
 		createResp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 			"incident_id":       incidentID.String(),
-			"client_txn_id":     "txn-phase-d-object-store-upload-blob",
+			"client_txn_id":     "txn-object-store-upload-blob",
 			"byte_size":         4,
 			"filename_hint":     "outage.txt",
 			"content_type_hint": "text/plain",
@@ -108,12 +108,12 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 			},
 		}
 
-		harness := startServer(t, "phase-d-object-store-preview-capability", failingStore)
+		harness := startServer(t, "object-store-preview-capability", failingStore)
 		login := loginLocalUserNoMFA(t, harness, admin.email, admin.password)
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-			"client_txn_id": "txn-phase-d-object-store-preview-incident",
-			"incident_key":  "phase-d-object-store-preview",
-			"title":         "Phase D object-store preview outage",
+			"client_txn_id": "txn-object-store-preview-incident",
+			"incident_key":  "object-store-preview",
+			"title":         "Object-store preview outage",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 		recordID := uuid.New()
@@ -142,17 +142,17 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 			t.Fatalf("create filesystem object store: %v", err)
 		}
 		recordingStore := &overrideObjectStore{Store: baseStore}
-		harness := startServer(t, "phase-g-object-key-issue-invalid", recordingStore)
+		harness := startServer(t, "object-key-issue-invalid", recordingStore)
 		login := loginLocalUserNoMFA(t, harness, admin.email, admin.password)
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-			"client_txn_id": "txn-phase-g-object-key-issue-incident",
-			"incident_key":  "phase-g-object-key-issue",
-			"title":         "Phase G object key issue",
+			"client_txn_id": "txn-object-key-issue-incident",
+			"incident_key":  "object-key-issue",
+			"title":         "Object key issue",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 		recordID := uuid.New()
 		seedEvidenceRecord(t, harness, incidentID, admin.userID, recordID)
-		attachData := attachUploadedBlob(t, harness, login, incidentID, recordID, []byte("invalid key issue"), "txn-phase-g-object-key-issue-blob", "txn-phase-g-object-key-issue-attach")
+		attachData := attachUploadedBlob(t, harness, login, incidentID, recordID, []byte("invalid key issue"), "txn-object-key-issue-blob", "txn-object-key-issue-attach")
 		objectBlobID := workbookscenariotest.MustUUID(t, attachData["object_blob_id"].(string))
 		malformedKey := "objects/not-canonical"
 		updateBlobStorageKey(t, harness, objectBlobID, malformedKey)
@@ -172,17 +172,17 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 			t.Fatalf("create filesystem object store: %v", err)
 		}
 		recordingStore := &overrideObjectStore{Store: baseStore}
-		harness := startServer(t, "phase-g-object-key-redeem-invalid", recordingStore)
+		harness := startServer(t, "object-key-redeem-invalid", recordingStore)
 		login := loginLocalUserNoMFA(t, harness, admin.email, admin.password)
 		incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-			"client_txn_id": "txn-phase-g-object-key-redeem-incident",
-			"incident_key":  "phase-g-object-key-redeem",
-			"title":         "Phase G object key redeem",
+			"client_txn_id": "txn-object-key-redeem-incident",
+			"incident_key":  "object-key-redeem",
+			"title":         "Object key redeem",
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 		recordID := uuid.New()
 		seedEvidenceRecord(t, harness, incidentID, admin.userID, recordID)
-		attachData := attachUploadedBlob(t, harness, login, incidentID, recordID, []byte("invalid key redeem"), "txn-phase-g-object-key-redeem-blob", "txn-phase-g-object-key-redeem-attach")
+		attachData := attachUploadedBlob(t, harness, login, incidentID, recordID, []byte("invalid key redeem"), "txn-object-key-redeem-blob", "txn-object-key-redeem-attach")
 		objectBlobID := workbookscenariotest.MustUUID(t, attachData["object_blob_id"].(string))
 		handle := issueEvidenceHandle(t, harness, login, recordID, "download-handle")
 		mismatchedKey, err := blobref.ObjectBlobStorageKey(incidentID, uuid.New())
@@ -201,19 +201,19 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 	})
 }
 
-func TestPhaseG_PublicEvidenceResponsesDoNotLeakObjectStoreIdentifiers(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase-g-evidence-redaction")
+func TestPublicEvidenceResponsesDoNotLeakObjectStoreIdentifiers(t *testing.T) {
+	harness := workbookscenariotest.StartServer(t, "evidence-redaction")
 	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
-		"client_txn_id": "txn-phase-g-redaction-incident",
-		"incident_key":  "phase-g-redaction",
-		"title":         "Phase G evidence redaction",
+		"client_txn_id": "txn-evidence-redaction-incident",
+		"incident_key":  "evidence-redaction",
+		"title":         "Evidence redaction",
 	})
 	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 	recordID := uuid.New()
 	seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
 
-	payload := []byte("phase g public evidence response body")
+	payload := []byte("public evidence response body")
 	attachData := attachUploadedBlobWithMetadata(
 		t,
 		harness,
@@ -221,10 +221,10 @@ func TestPhaseG_PublicEvidenceResponsesDoNotLeakObjectStoreIdentifiers(t *testin
 		incidentID,
 		recordID,
 		payload,
-		"phase-g.txt",
+		"evidence-redaction.txt",
 		"text/plain",
-		"txn-phase-g-redaction-blob",
-		"txn-phase-g-redaction-attach",
+		"txn-evidence-redaction-blob",
+		"txn-evidence-redaction-attach",
 	)
 	objectBlobID := workbookscenariotest.MustUUID(t, attachData["object_blob_id"].(string))
 	storageKey := "incidents/" + incidentID.String() + "/object-blobs/" + objectBlobID.String()
@@ -245,7 +245,7 @@ func TestPhaseG_PublicEvidenceResponsesDoNotLeakObjectStoreIdentifiers(t *testin
 
 	createResp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 		"incident_id":       incidentID.String(),
-		"client_txn_id":     "txn-phase-g-redaction-extra-blob",
+		"client_txn_id":     "txn-evidence-redaction-extra-blob",
 		"byte_size":         1,
 		"filename_hint":     "extra.txt",
 		"content_type_hint": "text/plain",

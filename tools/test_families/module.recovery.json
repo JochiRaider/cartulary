@@ -74,7 +74,7 @@
       "evidence_class": "integration",
       "runtime_profile_id": "default",
       "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_group_clone",
+      "fixture_profile_id": "postgres_template_clone",
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active"
@@ -97,7 +97,7 @@
       "evidence_class": "integration",
       "runtime_profile_id": "default",
       "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_group_clone",
+      "fixture_profile_id": "postgres_template_clone",
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active"
@@ -120,7 +120,7 @@
       "evidence_class": "integration",
       "runtime_profile_id": "default",
       "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_group_clone",
+      "fixture_profile_id": "postgres_template_clone",
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active"

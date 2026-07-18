@@ -28,7 +28,7 @@ const (
 	ObjectStoreMigrationProbeSchemaID      = "cartulary.object_store_migration_target_probe.v1"
 
 	ObjectStoreMigrationValidationSchemaVersion = "1.0.0"
-	ObjectStoreMigrationToolVersion             = "cartulary-object-store-migration/2026-06-phase-f"
+	ObjectStoreMigrationToolVersion             = "cartulary-object-store-migration/2026-07-owner-cutover"
 
 	ObjectStoreBackendMinIOS3 = "minio_s3"
 )

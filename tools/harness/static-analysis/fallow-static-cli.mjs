@@ -27,7 +27,7 @@ import {
 } from "./fallow-reachability.mjs";
 
 const target = "frontend-fallow-static";
-const fallowSummarySchemaID = "cartulary.fallow_static_summary.v1";
+const fallowSummarySchemaID = "cartulary.fallow_static_summary.v2";
 const fallowScript = path.join(repoRoot, "node_modules", "fallow", "bin", "fallow");
 const configPath = path.join(repoRoot, ".fallowrc.json");
 const reachabilityOwnerPath = path.join(repoRoot, defaultFallowReachabilityOwnerPath);
@@ -448,7 +448,7 @@ function main() {
       schema_id: fallowSummarySchemaID,
       target,
       generated_at: nowUTC(),
-      mode: "phase_a_report",
+      mode: "static_reachability_report",
       config: {
         path: repoRel(resolvedConfig),
         static_layer: "open",

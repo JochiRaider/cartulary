@@ -32,7 +32,7 @@ const generatedPolicyPath = "tools/generated_artifact_policy.json";
 const defaultClassificationPath =
   "tools/seaweedfs_migration_occurrence_classifications.json";
 const defaultReleaseArtifactDir = ".cartulary/release-artifacts";
-const phaseArtifactSubdir = "seaweedfs";
+const releaseArtifactSubdir = "seaweedfs";
 const seaweedfsCompatibilityTarget = "seaweedfs-compatibility";
 const seaweedfsCompatibilityReportName = "object-store-compatibility-report.json";
 const targetSummaryName = "tool-run-summary.json";
@@ -51,7 +51,7 @@ const seaweedfsCompatibilityCaseIds = Object.freeze(
 );
 const migrationPassArtifactSubdir =
   "seaweedfs-migration-preservation/object-store-migration/pass";
-const phaseEBackupRestoreSubdir = "phase-e-backup-restore";
+const backupRestoreSubdir = "backup-restore";
 const migrationSubdir = "object-store-migration";
 const objectStoreThreatPolicyPath =
   "contracts/object-store/release-threat-policy.v1.json";
@@ -788,7 +788,7 @@ function defaultCompatibilityReportPath() {
       seaweedfsCompatibilityReportName,
     );
   }
-  return path.join(defaultReleaseArtifactDir, phaseArtifactSubdir, seaweedfsCompatibilityReportName);
+  return path.join(defaultReleaseArtifactDir, releaseArtifactSubdir, seaweedfsCompatibilityReportName);
 }
 
 function expectedCurrentCompatibilityReportPath({ currentResultsDir, currentRunId }) {
@@ -895,7 +895,7 @@ function validateCurrentCompatibilitySource({
     });
   }
   if (
-    displayReportPath === path.join(defaultReleaseArtifactDir, phaseArtifactSubdir, seaweedfsCompatibilityReportName)
+    displayReportPath === path.join(defaultReleaseArtifactDir, releaseArtifactSubdir, seaweedfsCompatibilityReportName)
   ) {
     findings.push({
       check_id: "compatibility-stable-report-source",
@@ -1315,14 +1315,14 @@ function currentBackendProcessArtifactPaths(migrationPassDir) {
   }
   const runRoot = path.dirname(migrationTargetRoot);
   const backendProcessRoot = path.join(runRoot, "backend-process");
-  const phaseERoot = path.join(backendProcessRoot, phaseEBackupRestoreSubdir);
-  const phaseFRoot = path.join(migrationTargetRoot, migrationSubdir);
+  const backupRestoreRoot = path.join(backendProcessRoot, backupRestoreSubdir);
+  const migrationRoot = path.join(migrationTargetRoot, migrationSubdir);
   return [
-    path.join(phaseERoot, "object-store-backup-manifest.json"),
-    path.join(phaseERoot, "object-store-backup-summary.json"),
-    path.join(phaseERoot, "restore-verification.json"),
+    path.join(backupRestoreRoot, "object-store-backup-manifest.json"),
+    path.join(backupRestoreRoot, "object-store-backup-summary.json"),
+    path.join(backupRestoreRoot, "restore-verification.json"),
     ...["pass", "mismatch"].flatMap((caseName) => {
-      const caseRoot = path.join(phaseFRoot, caseName);
+      const caseRoot = path.join(migrationRoot, caseName);
       return [
         path.join(caseRoot, "migration-run.json"),
         path.join(caseRoot, "copy-ledger.json"),
@@ -1343,7 +1343,7 @@ function migrationPassDirHasRequiredArtifacts(candidate) {
 }
 
 function redactionScanPaths({
-  phaseArtifactPaths = [],
+  selectedArtifactPaths = [],
   compatibilityReportPath = null,
   migrationPassDir = null,
   requireBackendProcessArtifacts = false,
@@ -1351,7 +1351,7 @@ function redactionScanPaths({
   const includeBackendProcessArtifacts =
     migrationPassDir && (requireBackendProcessArtifacts || migrationPassDirHasRequiredArtifacts(migrationPassDir));
   const paths = [
-    ...phaseArtifactPaths,
+    ...selectedArtifactPaths,
     ...(compatibilityReportPath ? [compatibilityReportPath] : []),
     ...(includeBackendProcessArtifacts ? currentBackendProcessArtifactPaths(migrationPassDir) : []),
   ].map(displayPath);
@@ -1393,13 +1393,13 @@ function findPublicRawStorageFieldFindings({ rel, value, trail = [] }) {
 function buildRedactionLeakageScan({
   generatedAt,
   repoCommitValue,
-  phaseArtifactPaths,
+  selectedArtifactPaths,
   compatibilityReportPath = null,
   migrationPassDir = null,
   requireBackendProcessArtifacts = false,
 }) {
   const paths = redactionScanPaths({
-    phaseArtifactPaths,
+    selectedArtifactPaths,
     compatibilityReportPath,
     migrationPassDir,
     requireBackendProcessArtifacts,
@@ -1537,20 +1537,20 @@ function buildReleaseGateSummary({
     artifactRef(pathMap, "release-gate-summary.json"),
     artifactRef(pathMap, "redaction-leakage-scan.json"),
   ]);
-  const phaseGRowsPass = releaseGateRows
+  const releaseRowsPass = releaseGateRows
     .filter((row) => row !== "SWFS-AC-024")
     .every((row) => claims.find((claim) => claim.row === row)?.status === "claimable");
   return {
-    schema_id: "cartulary.seaweedfs_release_gate_summary.v1",
+    schema_id: "cartulary.seaweedfs_release_gate_summary.v2",
     generated_at: generatedAt,
     repo_commit: repoCommitValue,
-    phase_g_result: phaseGRowsPass && aggregateChecksPass ? "pass" : "fail",
-    release_gate_result: blockingRows.length === 0 && phaseGRowsPass && aggregateChecksPass ? "pass" : "blocked",
+    evidence_result: releaseRowsPass && aggregateChecksPass ? "pass" : "fail",
+    release_gate_result: blockingRows.length === 0 && releaseRowsPass && aggregateChecksPass ? "pass" : "blocked",
     blocking_rows: blockingRows,
     blocking_checks: blockingChecks,
     claims,
     artifacts: pathMap,
-    result: phaseGRowsPass && aggregateChecksPass ? "pass" : "fail",
+    result: releaseRowsPass && aggregateChecksPass ? "pass" : "fail",
   };
 }
 
@@ -1575,7 +1575,7 @@ function parseArgs(argv) {
     classificationPath: process.env.SEAWEEDFS_OCCURRENCE_CLASSIFICATIONS ?? defaultClassificationPath,
     outputDir:
       process.env.SEAWEEDFS_RELEASE_ARTIFACT_DIR ??
-      path.join(process.env.RELEASE_ARTIFACT_DIR ?? defaultReleaseArtifactDir, phaseArtifactSubdir),
+      path.join(process.env.RELEASE_ARTIFACT_DIR ?? defaultReleaseArtifactDir, releaseArtifactSubdir),
     sbomPath: process.env.SBOM_ARTIFACT ?? path.join(defaultReleaseArtifactDir, "sbom.cyclonedx.json"),
     licensePath: process.env.LICENSE_REPORT_ARTIFACT ?? path.join(defaultReleaseArtifactDir, "license-report.json"),
     compatibilityReportPath: defaultCompatibilityReportPath(),
@@ -1634,9 +1634,9 @@ function materializeArtifacts({ outputDir, runId, artifacts }) {
   return { runDir: relPath(runDir), pathMap };
 }
 
-export function generatePhaseGEvidence({
+export function generateReleaseEvidence({
   classificationPath = defaultClassificationPath,
-  outputDir = path.join(defaultReleaseArtifactDir, phaseArtifactSubdir),
+  outputDir = path.join(defaultReleaseArtifactDir, releaseArtifactSubdir),
   sbomPath = path.join(defaultReleaseArtifactDir, "sbom.cyclonedx.json"),
   licensePath = path.join(defaultReleaseArtifactDir, "license-report.json"),
   compatibilityReportPath = defaultCompatibilityReportPath(),
@@ -1716,7 +1716,7 @@ export function generatePhaseGEvidence({
   const redaction = buildRedactionLeakageScan({
     generatedAt,
     repoCommitValue: commit,
-    phaseArtifactPaths: Object.values(materialized.pathMap),
+    selectedArtifactPaths: Object.values(materialized.pathMap),
     compatibilityReportPath,
     migrationPassDir,
     requireBackendProcessArtifacts: enforceReleaseGate,
@@ -1786,7 +1786,7 @@ export function generatePhaseGEvidence({
 function main() {
   try {
     const args = parseArgs(process.argv.slice(2));
-    const result = generatePhaseGEvidence({
+    const result = generateReleaseEvidence({
       classificationPath: args.classificationPath,
       outputDir: args.outputDir,
       sbomPath: args.sbomPath,
@@ -1798,9 +1798,9 @@ function main() {
     });
     const summary = result.artifacts.summary;
     console.log(
-      `seaweedfs release evidence: phase_g=${summary.phase_g_result} release_gate=${summary.release_gate_result} run_dir=${result.run_dir}`,
+      `seaweedfs release evidence: evidence=${summary.evidence_result} release_gate=${summary.release_gate_result} run_dir=${result.run_dir}`,
     );
-    if (summary.phase_g_result !== "pass") {
+    if (summary.evidence_result !== "pass") {
       process.exitCode = 1;
       return;
     }

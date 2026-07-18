@@ -861,7 +861,7 @@ func (r *probeRunner) compatibilityCases() []compatibilityCase {
 		status, ok := r.compatStatus[cases[idx].CaseID]
 		if !ok {
 			status = "not_run"
-			reason := "phase_d_evidence_not_retained"
+			reason := "compatibility_evidence_not_retained"
 			cases[idx].ReasonCode = &reason
 		}
 		if cases[idx].CaseID == "SWFS-COMP-008" && status == "not_run" {

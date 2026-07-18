@@ -96,7 +96,7 @@ func TestSupportObjectStoreBackup_CaptureSeaweedFSS3BackupArtifactsFromObjectSto
 	t.Cleanup(func() {
 		_ = store.Close()
 	})
-	payload := []byte("phase e object backup bytes")
+	payload := []byte("object-store backup bytes")
 	if err := store.PutObject(ctx, "objects/proof.txt", bytes.NewReader(payload), int64(len(payload)), "text/plain"); err != nil {
 		t.Fatalf("put object: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestSupportObjectStoreBackup_CaptureSeaweedFSS3BackupArtifactsFromObjectSto
 	artifacts, err := recovery.CaptureSeaweedFSS3ObjectStoreBackupArtifacts(ctx, store, recovery.ObjectStoreBackupCaptureParams{
 		BackupSetID:        backupSetID,
 		ConsistencyPointAt: time.Date(2026, 6, 3, 15, 0, 0, 0, time.UTC),
-		Bucket:             "phase-e-bucket",
+		Bucket:             "backup-restore-bucket",
 		BlobObjectIDsByStorageRef: map[string]uuid.UUID{
 			"objects/proof.txt": objectBlobID,
 		},

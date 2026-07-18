@@ -1,6 +1,11 @@
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
+import { loadExecutionTopology } from "../generated-artifacts/execution-topology.mjs";
+import {
+  runtimeBinaryAbsoluteEnvForIDs,
+  runtimeBinaryProducerTargetsForIDs,
+} from "../runtime-binary-registry.mjs";
 import { runNormalizedSchedule } from "../scheduler/scheduler-runner.mjs";
 import {
   resolveSchedulerResourceLimits,
@@ -91,6 +96,40 @@ function genericWorkUnits(root, plan, planPath, targetDir) {
     delete readinessEnv[name];
   }
   const units = [];
+  const topology = loadExecutionTopology({ root });
+  const runtimeBinaryIDs = [...new Set(plan.work_units.flatMap((unit) =>
+    unit.runtime_binary_ids,
+  ))].sort();
+  const runtimeReadinessID = "readiness.owner_runtime_binaries";
+  if (runtimeBinaryIDs.length > 0) {
+    const producerTargets = runtimeBinaryProducerTargetsForIDs(
+      topology.runtimeBinaries,
+      runtimeBinaryIDs,
+      "owner slice runtime binaries",
+    );
+    units.push({
+      id: runtimeReadinessID,
+      label: "owner runtime binary readiness",
+      kind: "readiness",
+      class: "build_artifact",
+      target: "owner-runtime-binary-readiness",
+      aggregateTarget: plan.target,
+      needs: [],
+      completionKeys: [runtimeReadinessID],
+      failureKeys: [runtimeReadinessID],
+      resourceClaims: new Map([["go_cpu", 1], ["go_io", 1]]),
+      priority: 1,
+      weightMs: 1,
+      order: units.length,
+      timeoutMs: 600_000,
+      countInTotal: false,
+      command: {
+        command: process.env.MAKE || "make",
+        args: ["--silent", "--no-print-directory", ...producerTargets],
+        env: readinessEnv,
+      },
+    });
+  }
   if (needsBrowserReadiness) {
     units.push({
       id: browserReadinessID,
@@ -105,7 +144,7 @@ function genericWorkUnits(root, plan, planPath, targetDir) {
       resourceClaims: new Map([["process", 1]]),
       priority: 1,
       weightMs: 1,
-      order: 0,
+      order: units.length,
       timeoutMs: 600_000,
       countInTotal: false,
       command: {
@@ -132,6 +171,7 @@ function genericWorkUnits(root, plan, planPath, targetDir) {
     needs: [
       ...unit.dependencies,
       ...(unit.runner === "playwright" ? [browserReadinessID] : []),
+      ...(unit.runtime_binary_ids.length > 0 ? [runtimeReadinessID] : []),
     ],
     completionKeys: [unit.work_unit_id],
     failureKeys: [unit.work_unit_id],
@@ -153,6 +193,11 @@ function genericWorkUnits(root, plan, planPath, targetDir) {
         ...process.env,
         CARTULARY_TEST_OWNER: plan.owner_id,
         CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+        ...runtimeBinaryAbsoluteEnvForIDs(
+          topology.runtimeBinaries,
+          unit.runtime_binary_ids,
+          { repoRoot: root, label: `${unit.work_unit_id} runtime binaries` },
+        ),
         ...(unit.runner === "playwright" ? {
           PATH: `${path.join(root, "tmp", "node-runtime", "bin")}:${process.env.PATH ?? ""}`,
           NODE_RUNTIME_DIR: path.join(root, "tmp", "node-runtime"),

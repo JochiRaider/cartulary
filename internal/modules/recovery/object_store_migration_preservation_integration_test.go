@@ -111,11 +111,11 @@ func newMigrationPreservationFixture(t testing.TB, name string) migrationPreserv
 	t.Cleanup(pool.Close)
 	actorID := seedMigrationPreservationUser(t, database.DSN)
 	blobs := []migrationPreservationBlob{
-		seedMigrationPreservationBlob(t, database.DSN, actorID, []byte("phase f migration object")),
+		seedMigrationPreservationBlob(t, database.DSN, actorID, []byte("object-store migration object")),
 		seedMigrationPreservationBlob(t, database.DSN, actorID, []byte{}),
 	}
 
-	bucket := "phase-f-migration-" + name
+	bucket := "object-store-migration-" + name
 	if err := sourceHarness.CreateBucket(ctx, bucket); err != nil {
 		t.Fatalf("create source bucket: %v", err)
 	}
@@ -381,7 +381,7 @@ func seedMigrationPreservationBlob(t testing.TB, dsn string, actorID uuid.UUID, 
 	incidentID, recordID, blobID := uuid.New(), uuid.New(), uuid.New()
 	storageKey := blobref.MustObjectBlobStorageKey(incidentID, blobID)
 	sha := fmt.Sprintf("%x", sha256.Sum256(body))
-	if _, err := db.Exec(`INSERT INTO incidents (id, incident_key, incident_key_canonical, title, status, created_by_user_id, updated_by_user_id, created_at, updated_at) VALUES ($1, $2, $2, 'Migration preservation fixture', 'active', $3, $3, $4, $4)`, incidentID, "phase-f-"+blobID.String(), actorID, now); err != nil {
+	if _, err := db.Exec(`INSERT INTO incidents (id, incident_key, incident_key_canonical, title, status, created_by_user_id, updated_by_user_id, created_at, updated_at) VALUES ($1, $2, $2, 'Migration preservation fixture', 'active', $3, $3, $4, $4)`, incidentID, "object-store-migration-"+blobID.String(), actorID, now); err != nil {
 		t.Fatalf("insert migration incident: %v", err)
 	}
 	if _, err := db.Exec(`INSERT INTO records (record_id, incident_id, record_type, created_by_user_id, created_at, updated_by_user_id, updated_at, row_version) VALUES ($1, $2, 'evidence', $3, $4, $3, $4, 1)`, recordID, incidentID, actorID, now); err != nil {

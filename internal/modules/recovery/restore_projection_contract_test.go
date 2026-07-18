@@ -103,13 +103,13 @@ func newRestoreProjectionContractFixture(t *testing.T, ctx context.Context, pref
 	t.Helper()
 
 	postgresHarness := pgtest.Start(t)
-	sourceDB := postgresHarness.PrepareGroupDatabaseT(t, prefix+"-source", prefix+"-source")
+	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, prefix+"-source")
 	sourcePool, err := pgxpool.New(ctx, sourceDB.DSN)
 	if err != nil {
 		t.Fatalf("open source postgres fixture: %v", err)
 	}
 	t.Cleanup(sourcePool.Close)
-	targetDB := postgresHarness.PrepareGroupDatabaseT(t, prefix+"-target", prefix+"-target")
+	targetDB := postgresHarness.PrepareIsolatedDatabaseT(t, prefix+"-target")
 	targetPool, err := pgxpool.New(ctx, targetDB.DSN)
 	if err != nil {
 		t.Fatalf("open target postgres fixture: %v", err)

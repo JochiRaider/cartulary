@@ -460,7 +460,7 @@ assert.equal(missingMigration.result, "fail");
 const redactionMissingCurrent = buildRedactionLeakageScan({
   generatedAt: "2026-06-04T00:00:00.000Z",
   repoCommitValue: "abc123",
-  phaseArtifactPaths: [".cartulary/release-artifacts/seaweedfs/fixture/migration-preservation-evidence.json"],
+  selectedArtifactPaths: [".cartulary/release-artifacts/seaweedfs/fixture/migration-preservation-evidence.json"],
   compatibilityReportPath: currentCompatibilityReportPath,
   migrationPassDir: ".cartulary/test-results/fixture/seaweedfs-migration-preservation/object-store-migration/pass",
   requireBackendProcessArtifacts: true,
@@ -474,7 +474,7 @@ assert.equal(
 );
 assert.equal(
   redactionMissingCurrent.scanned_artifacts.some((artifact) =>
-    artifact.path.endsWith("/backend-process/phase-e-backup-restore/object-store-backup-manifest.json"),
+    artifact.path.endsWith("/backend-process/backup-restore/object-store-backup-manifest.json"),
   ),
   true,
 );
@@ -492,7 +492,7 @@ try {
   const rawPublicScan = buildRedactionLeakageScan({
     generatedAt: "2026-06-04T00:00:00.000Z",
     repoCommitValue: "abc123",
-    phaseArtifactPaths: [rawPublicArtifact],
+    selectedArtifactPaths: [rawPublicArtifact],
   });
   assert.equal(rawPublicScan.result, "fail");
   assert.equal(
@@ -523,7 +523,7 @@ function assertSwfsAc024SummaryInvariant(summary) {
   const noBlockingRows = summary.blocking_rows.length === 0;
   const noBlockingChecks = summary.blocking_checks.length === 0;
   const aggregatePasses =
-    summary.phase_g_result === "pass" && summary.release_gate_result === "pass";
+    summary.evidence_result === "pass" && summary.release_gate_result === "pass";
   assert.equal(claimable, aggregatePasses && noBlockingRows && noBlockingChecks);
 }
 
@@ -573,7 +573,7 @@ const redactionBlockedSummary = buildReleaseGateSummary({
     redaction: { result: "fail" },
   },
 });
-assert.equal(redactionBlockedSummary.phase_g_result, "fail");
+assert.equal(redactionBlockedSummary.evidence_result, "fail");
 assert.equal(redactionBlockedSummary.release_gate_result, "blocked");
 assert.deepEqual(redactionBlockedSummary.blocking_rows, []);
 assert.equal(redactionBlockedSummary.blocking_checks.length, 1);

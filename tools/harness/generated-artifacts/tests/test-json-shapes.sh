@@ -569,10 +569,10 @@ write_valid_fallow_static_summary() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.fallow_static_summary.v1",
+  "schema_id": "cartulary.fallow_static_summary.v2",
   "target": "frontend-fallow-static",
   "generated_at": "2026-01-01T00:00:00Z",
-  "mode": "phase_a_report",
+  "mode": "static_reachability_report",
   "config": {
     "path": ".fallowrc.json",
     "static_layer": "open",

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.fallow_static_summary.v1",
+  "$id": "cartulary.fallow_static_summary.v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -18,10 +18,10 @@
     "extensions"
   ],
   "properties": {
-    "schema_id": { "const": "cartulary.fallow_static_summary.v1" },
+    "schema_id": { "const": "cartulary.fallow_static_summary.v2" },
     "target": { "const": "frontend-fallow-static" },
     "generated_at": { "type": "string", "minLength": 1, "format": "date-time" },
-    "mode": { "enum": ["phase_a_report"] },
+    "mode": { "const": "static_reachability_report" },
     "config": {
       "type": "object",
       "additionalProperties": false,

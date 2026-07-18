@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 
 import { loadOwnerAccountingSelection } from "../evidence-accounting/catalog-accounting.mjs";
+import { loadExecutionTopology } from "../generated-artifacts/execution-topology.mjs";
 import { loadTestCatalog } from "../test-catalog/test-catalog.mjs";
 import { semanticJSONDigest } from "../test-catalog/semantic-json.mjs";
 import { buildSourceSnapshot } from "./source-snapshot.mjs";
@@ -97,6 +98,7 @@ export function resolveOwnerSliceSelection(root, options) {
     usage(error.message);
   }
   const catalog = loadTestCatalog(root);
+  const topology = loadExecutionTopology({ root });
   let selectedRows = accounting.selected_rows.map((rowID) => catalog.rowByID.get(rowID));
   if (options.dependencyScope === "service_backed") {
     const nonService = selectedRows.filter((row) => {
@@ -134,6 +136,9 @@ export function resolveOwnerSliceSelection(root, options) {
     rows.sort((left, right) => asciiCompare(left.row_id, right.row_id));
     const runtime = profileByID(catalog, "runtime_profiles", rows[0].runtime_profile_id);
     const resource = profileByID(catalog, "resource_profiles", rows[0].resource_profile_id);
+    const runtimeBinaryIDs = [...new Set(rows.flatMap((row) =>
+      topology.goTargets.runtimeBinariesByFamily.get(row.family_id) ?? [],
+    ))].sort(asciiCompare);
     return {
       work_unit_id: unitID(key, rows.map((row) => row.row_id)),
       runner: rows[0].runner,
@@ -143,6 +148,7 @@ export function resolveOwnerSliceSelection(root, options) {
       resource_profile_id: rows[0].resource_profile_id,
       fixture_profile_id: rows[0].fixture_profile_id,
       managed_service_ids: [...runtime.managed_service_ids],
+      runtime_binary_ids: runtimeBinaryIDs,
       resource_claims: resource.resource_claims,
       dependencies: [],
       expected_artifacts: ["cartulary.test_evidence_accounting.v1"],
@@ -224,7 +230,7 @@ export function buildOwnerSlicePlan(root, options) {
     finalizers,
   });
   return {
-    schema_id: "cartulary.test_slice_plan.v1",
+    schema_id: "cartulary.test_slice_plan.v2",
     command_id: options.commandID,
     target: options.target,
     run_id: options.runID,

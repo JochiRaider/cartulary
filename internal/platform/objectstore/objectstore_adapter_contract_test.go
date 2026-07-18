@@ -66,12 +66,12 @@ func requireObjectStoreAdapterRetryAlgorithm(t *testing.T) {
 	restore := objectstore.SetRetryBackoffForTest(0)
 	defer restore()
 
-	const bucket = "phase-d-retry"
+	const bucket = "object-store-retry"
 	var mu sync.Mutex
 	headAttempts := map[string]int{}
 	putAttempts := map[string]int{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		bucketMatched, key := phaseDS3Key(r, bucket)
+		bucketMatched, key := adapterContractS3Key(r, bucket)
 		switch {
 		case r.Method == http.MethodHead && bucketMatched && key == "":
 			w.WriteHeader(http.StatusOK)
@@ -113,8 +113,8 @@ func requireObjectStoreAdapterRetryAlgorithm(t *testing.T) {
 
 	store, err := objectstore.SetupWithEnv(context.Background(), managedObjectStoreConfig(t), map[string]string{
 		"CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT":          strings.TrimPrefix(server.URL, "http://"),
-		"CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID":     "phase-d-access",
-		"CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY": "phase-d-secret",
+		"CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID":     "object-store-access",
+		"CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY": "object-store-secret",
 		"CARTULARY_S3_OBJECT_PRIMARY_SECURE":            "false",
 		"CARTULARY_S3_OBJECT_PRIMARY_BUCKET":            bucket,
 	})
@@ -211,7 +211,7 @@ func writeS3Error(w http.ResponseWriter, status int, code string) {
 	_, _ = fmt.Fprintf(w, "<Error><Code>%s</Code><Message>%s</Message></Error>", code, code)
 }
 
-func phaseDS3Key(r *http.Request, bucket string) (bool, string) {
+func adapterContractS3Key(r *http.Request, bucket string) (bool, string) {
 	host := r.Host
 	if colon := strings.LastIndex(host, ":"); colon >= 0 {
 		host = host[:colon]
