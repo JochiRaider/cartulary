@@ -3,11 +3,23 @@
   "owner_id": "package.view_contracts",
   "verifications": [
     {
+      "verification_id": "package.view_contracts.verification.behavior_contract",
+      "behavior_class": "architecture",
+      "profile": "support",
+      "requirement": "package.view_contracts frontend postconditions remain exact across retained selectors and declared execution profiles.",
+      "evidence_kinds": [
+        "vitest"
+      ],
+      "status": "active"
+    },
+    {
       "verification_id": "package.view_contracts.verification.shared_contract",
       "behavior_class": "architecture",
       "profile": "support",
       "requirement": "Shared view contracts retain closed stable types and deterministic helpers at the package boundary.",
-      "evidence_kinds": ["vitest"],
+      "evidence_kinds": [
+        "vitest"
+      ],
       "status": "active"
     }
   ]

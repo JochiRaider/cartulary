@@ -96,10 +96,7 @@ import { AccountSettings } from "./pages/accountSettings";
 import { AuthGateway } from "./pages/authGateway";
 import { openIncidentControls } from "./pages/deploymentAdministration";
 import { IncidentDirectory } from "./pages/incidentDirectory";
-import {
-  p1AccessibilityScenarioTitles,
-  scenarioTitlesForAccessibilityRow,
-} from "./support/accessibility/phaseMap";
+import { scenarioTitlesForAccessibilityRow } from "./support/accessibility/phaseMap";
 import { csrfHeaders } from "./support/auth/browserSession";
 import {
   createLocalUser as createAuthLocalUser,
@@ -199,15 +196,26 @@ type Phase1A11yAppLocalTestId = string & {
   readonly [phase1A11yAppLocalTestIdBrand]: "Phase1A11yAppLocalTestId";
 };
 
-const p2AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
-  "FE-A11Y-P2-01",
-) as [string];
-const p3AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
-  "FE-A11Y-P3-01",
-) as [string];
-const p4AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
-  "FE-A11Y-P4-01",
-) as [string];
+const p1AccessibilityScenarioTitles = [
+  "FE-A11Y-P1-01 deferred session loading exposes progress and keeps recovery controls keyboard reachable",
+  "FE-A11Y-P1-01 anonymous login after initial session_required reaches login controls and authenticated landing",
+  "FE-A11Y-P1-01 mfa_required challenge is keyboard reachable, visibly focused, named, and safely announced",
+  "FE-A11Y-P1-01 mfa_setup_required enrollment is keyboard reachable and public errors hide private setup diagnostics",
+  "FE-A11Y-P1-01 authenticated landing exposes account, admin, incident, retry, and visible incident controls",
+  "FE-A11Y-P1-01 incident empty, list, selected, stale-selection, and incident-error states expose keyboard recovery",
+  "FE-A11Y-P1-01 forbidden access-denied public envelope is announced and exposes recovery without private diagnostics",
+  "FE-A11Y-P1-01 revoked session after prior authentication announces session end and supports re-authentication",
+  "FE-A11Y-P1-01 generic public error envelope renders safe diagnostics and keyboard error recovery",
+] as const;
+const p2AccessibilityScenarioTitles = [
+  "FE-A11Y-P2-01 Verify shell regions, tabs, switchers, menus, inspector controls, and status strip are keyboard reachable, visibly focused, and named.",
+] as const;
+const p3AccessibilityScenarioTitles = [
+  "FE-A11Y-P3-01 Verify grid cells, editors, group rows, active cell, edit mode, disabled/read-only state, and blocked actions are keyboard accessible and announced without color-only signals.",
+] as const;
+const p4AccessibilityScenarioTitles = [
+  "FE-A11Y-P4-01 Verify grid navigation, edit entry/exit, paste feedback, validation feedback, save-state communication, and Esc priority are keyboard and screen-reader safe.",
+] as const;
 const p5AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
   "FE-A11Y-P5-01",
 ) as [string];

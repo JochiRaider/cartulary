@@ -34,6 +34,37 @@
       "status": "active"
     },
     {
+      "row_id": "module.savedviews.browser.verify_saved_views_appear_only_under_the_active_69995294db",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase2.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_0d79b0d588a9"
+        ],
+        "titles": [
+          "FE-E-P2-01 Verify saved views appear only under the active surface's view selector and system views open inside the same workbook shell."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.savedviews.browser_stateful.browser_saved_view_query_layout_state_user_home_cb9c681674",
       "owner_id": "module.savedviews",
       "family_id": "module.savedviews.browser_stateful",

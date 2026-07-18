@@ -1,0 +1,48 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "harness.generated_artifacts",
+  "rows": [
+    {
+      "row_id": "harness.generated_artifacts.support.enforce_generated_protocol_policy_and_detect_gen_1a1797e3f6",
+      "owner_id": "harness.generated_artifacts",
+      "family_id": "harness.generated_artifacts.support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.generated_artifacts.verification.behavior_contract"
+      ],
+      "runner": "shell",
+      "selector": {
+        "command_id": "cartulary.harness.command.generated_artifact_policy_check.v1"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "harness.generated_artifacts.support.enforce_generated_protocol_policy_and_detect_gen_49d1469511",
+      "owner_id": "harness.generated_artifacts",
+      "family_id": "harness.generated_artifacts.support",
+      "collaborator_ids": [
+        "web.design"
+      ],
+      "verification_ids": [
+        "harness.generated_artifacts.verification.behavior_contract"
+      ],
+      "runner": "shell",
+      "selector": {
+        "command_id": "cartulary.harness.command.generate_drift.v1"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

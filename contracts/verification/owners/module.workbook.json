@@ -6,7 +6,7 @@
       "verification_id": "module.workbook.verification.behavior_contract",
       "behavior_class": "product",
       "profile": "base",
-      "requirement": "workbook registry, mutation, query, and interaction postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
+      "requirement": "module.workbook frontend postconditions remain exact across retained selectors and declared execution profiles.",
       "evidence_kinds": [
         "go_test",
         "playwright",

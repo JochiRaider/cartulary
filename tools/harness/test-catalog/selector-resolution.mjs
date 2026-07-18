@@ -58,7 +58,7 @@ function containedFile(root, relativePath, approvedRoots, label) {
   return { lexical, source: readFileSync(lexical, "utf8") };
 }
 
-function staticString(node, ts) {
+function staticString(node, ts, bindings = new Map(), seen = new Set()) {
   while (
     ts.isAsExpression(node) ||
     ts.isTypeAssertionExpression(node) ||
@@ -69,18 +69,35 @@ function staticString(node, ts) {
   if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
     return node.text;
   }
+  if (ts.isIdentifier(node) && bindings.has(node.text) && !seen.has(node.text)) {
+    return staticString(
+      bindings.get(node.text),
+      ts,
+      bindings,
+      new Set([...seen, node.text]),
+    );
+  }
+  if (ts.isElementAccessExpression(node)) {
+    const collection = staticValue(node.expression, ts, bindings, seen);
+    const index = node.argumentExpression
+      ? staticValue(node.argumentExpression, ts, bindings, seen)
+      : undefined;
+    if (Array.isArray(collection) && Number.isInteger(index)) {
+      return typeof collection[index] === "string" ? collection[index] : null;
+    }
+  }
   if (
     ts.isBinaryExpression(node) &&
     node.operatorToken.kind === ts.SyntaxKind.PlusToken
   ) {
-    const left = staticString(node.left, ts);
-    const right = staticString(node.right, ts);
+    const left = staticString(node.left, ts, bindings, seen);
+    const right = staticString(node.right, ts, bindings, seen);
     return left === null || right === null ? null : left + right;
   }
   return null;
 }
 
-function staticValue(node, ts) {
+function staticValue(node, ts, bindings = new Map(), seen = new Set()) {
   while (
     ts.isAsExpression(node) ||
     ts.isTypeAssertionExpression(node) ||
@@ -88,7 +105,15 @@ function staticValue(node, ts) {
   ) {
     node = node.expression;
   }
-  const string = staticString(node, ts);
+  if (ts.isIdentifier(node) && bindings.has(node.text) && !seen.has(node.text)) {
+    return staticValue(
+      bindings.get(node.text),
+      ts,
+      bindings,
+      new Set([...seen, node.text]),
+    );
+  }
+  const string = staticString(node, ts, bindings, seen);
   if (string !== null) return string;
   if (ts.isNumericLiteral(node)) return Number(node.text);
   if (
@@ -101,7 +126,7 @@ function staticValue(node, ts) {
   if (node.kind === ts.SyntaxKind.FalseKeyword) return false;
   if (node.kind === ts.SyntaxKind.NullKeyword) return null;
   if (ts.isArrayLiteralExpression(node)) {
-    return node.elements.map((element) => staticValue(element, ts));
+    return node.elements.map((element) => staticValue(element, ts, bindings, seen));
   }
   if (ts.isObjectLiteralExpression(node)) {
     const result = {};
@@ -111,7 +136,7 @@ function staticValue(node, ts) {
         ? property.name.text
         : property.name && staticString(property.name, ts);
       if (key === null) return undefined;
-      const value = staticValue(property.initializer, ts);
+      const value = staticValue(property.initializer, ts, bindings, seen);
       if (value !== undefined) result[key] = value;
     }
     return result;
@@ -144,7 +169,7 @@ function formatEachTitle(template, row, index) {
   return result;
 }
 
-function expandedEachTitles(expression, template, ts) {
+function expandedEachTitles(expression, template, ts, bindings) {
   if (!ts.isCallExpression(expression)) return null;
   const name = calleeName(expression.expression, ts);
   if (!name.endsWith(".each") || expression.arguments.length !== 1) return null;
@@ -155,7 +180,7 @@ function expandedEachTitles(expression, template, ts) {
     ts.isParenthesizedExpression(dataset)
   ) dataset = dataset.expression;
   if (!ts.isArrayLiteralExpression(dataset)) return null;
-  const rows = dataset.elements.map((element) => staticValue(element, ts));
+  const rows = dataset.elements.map((element) => staticValue(element, ts, bindings));
   if (rows.includes(undefined)) return null;
   return rows.map((row, index) => formatEachTitle(template, row, index));
 }
@@ -183,6 +208,18 @@ function testTitles(root, file, source) {
   const ts = requireFromWeb("typescript");
   const scriptKind = file.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
   const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, scriptKind);
+  const bindings = new Map();
+  function collectBindings(node) {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer
+    ) {
+      bindings.set(node.name.text, node.initializer);
+    }
+    ts.forEachChild(node, collectBindings);
+  }
+  collectBindings(sourceFile);
   const matches = new Map();
   let testIdentity = 0;
 
@@ -196,7 +233,9 @@ function testTitles(root, file, source) {
       const name = calleeName(node.expression, ts);
       const base = name.split(".")[0];
       const segments = name.split(".");
-      const title = node.arguments[0] ? staticString(node.arguments[0], ts) : null;
+      const title = node.arguments[0]
+        ? staticString(node.arguments[0], ts, bindings)
+        : null;
       if (segments.some((segment) => ["describe", "suite"].includes(segment)) && title !== null) {
         const callback = [...node.arguments].reverse().find(
           (argument) => ts.isArrowFunction(argument) || ts.isFunctionExpression(argument),
@@ -211,7 +250,7 @@ function testTitles(root, file, source) {
         !segments.some((segment) => ["describe", "suite"].includes(segment)) &&
         title !== null
       ) {
-        const expanded = expandedEachTitles(node.expression, title, ts) ?? [title];
+        const expanded = expandedEachTitles(node.expression, title, ts, bindings) ?? [title];
         for (const expandedTitle of expanded) {
           const fullTitle = [...ancestors, expandedTitle].join(" ");
           const identity = testIdentity;
@@ -231,6 +270,11 @@ function testTitles(root, file, source) {
   );
   sourceTitleCache.set(cacheKey, counts);
   return counts;
+}
+
+export function collectSourceTestTitleCounts({ root, file, approvedRoots }) {
+  const { source } = containedFile(root, file, approvedRoots, `${file}.title_discovery`);
+  return new Map(testTitles(root, file, source));
 }
 
 function packageDirectory(root, packagePath, approvedRoots, label) {

@@ -3,11 +3,23 @@
   "owner_id": "package.protocol_ts",
   "verifications": [
     {
+      "verification_id": "package.protocol_ts.verification.behavior_contract",
+      "behavior_class": "architecture",
+      "profile": "support",
+      "requirement": "package.protocol_ts frontend postconditions remain exact across retained selectors and declared execution profiles.",
+      "evidence_kinds": [
+        "vitest"
+      ],
+      "status": "active"
+    },
+    {
       "verification_id": "package.protocol_ts.verification.shared_contract",
       "behavior_class": "architecture",
       "profile": "support",
       "requirement": "The TypeScript protocol facade decodes closed generated contracts without widening wire shapes or exposing unsafe payload detail.",
-      "evidence_kinds": ["vitest"],
+      "evidence_kinds": [
+        "vitest"
+      ],
       "status": "active"
     }
   ]

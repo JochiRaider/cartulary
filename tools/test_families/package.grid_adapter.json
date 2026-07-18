@@ -3,6 +3,130 @@
   "owner_id": "package.grid_adapter",
   "rows": [
     {
+      "row_id": "package.grid_adapter.accessibility.verify_grid_cells_editors_group_rows_active_cell_3156bd379d",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "package.grid_adapter.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_9cb8459f8063"
+        ],
+        "titles": [
+          "FE-A11Y-P3-01 Verify grid cells, editors, group rows, active cell, edit mode, disabled/read-only state, and blocked actions are keyboard accessible and announced without color-only signals."
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    },
+    {
+      "row_id": "package.grid_adapter.frontend_unit.fail_before_mutation_capable_rendering_when_data_3a49635f8c",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.frontend_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/core.test.ts",
+        "titles": [
+          "FE-U-P3-01 Reject unsafe record identity and keep presentation rows from mutation-capable anchors."
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.grid_adapter.frontend_unit.translate_vendor_row_column_coordinates_to_recor_652aef8a27",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.frontend_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/core.test.ts",
+        "titles": [
+          "FE-U-P3-02 Translate vendor row and column coordinates to stable record_id and field_key anchors."
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.grid_adapter.frontend_unit.verify_editability_derives_from_explicit_editor_b4d5d35a4f",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.frontend_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/core.test.ts",
+        "titles": [
+          "FE-U-P3-03 Resolve grid editability from explicit editor adapters and contract writeability only."
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.grid_adapter.frontend_unit.verify_renderer_editor_registry_precedence_deter_869e70b60f",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.frontend_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/core.test.ts",
+        "titles": [
+          "FE-U-P3-04 Resolve renderers and editors deterministically and clean adapter-owned resources."
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "package.grid_adapter.regression.core_builds_one_group_bucket_per_normalized_comm_ba814e2f02",
       "owner_id": "package.grid_adapter",
       "family_id": "package.grid_adapter.regression",
@@ -507,6 +631,39 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "package.grid_adapter.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_7cccaae77bac"
+        ],
+        "titles": [
+          "FE-V-P3-01 Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures."
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
       "status": "active"
     }
   ]

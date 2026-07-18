@@ -3,6 +3,36 @@
   "owner_id": "package.view_contracts",
   "rows": [
     {
+      "row_id": "package.view_contracts.frontend_unit.verify_view_schema_adapters_key_editable_and_que_52bafc21a9",
+      "owner_id": "package.view_contracts",
+      "family_id": "package.view_contracts.frontend_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.view_contracts.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/view-contracts/src/index.test.ts",
+        "titles": [
+          "FE-U-P0-02 fails deterministically for duplicate and missing field_key inputs",
+          "FE-U-P0-02 fails deterministically for unknown field_key references",
+          "FE-U-P0-02 keeps field identity and capabilities stable when labels change",
+          "FE-U-P0-02 keeps field identity stable when fields and visible columns reorder",
+          "FE-U-P0-02 resolves editable, queryable, and synthetic fields by field_key",
+          "FE-U-P0-02 selects generated contracts by view_schema_id, not display title",
+          "FE-U-P0-02 treats duplicate labels as display-only with distinct field_key identities",
+          "FE-U-P0-02 visibleFields fails deterministically when default-visible keys are unresolved"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "package.view_contracts.regression.index_suite_7e2dba7451",
       "owner_id": "package.view_contracts",
       "family_id": "package.view_contracts.regression",

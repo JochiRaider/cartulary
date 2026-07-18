@@ -7,7 +7,20 @@
       "behavior_class": "architecture",
       "profile": "support",
       "requirement": "The shared grid adapter preserves deterministic row, selection, presentation, editing, and accessibility behavior across consumers.",
-      "evidence_kinds": ["vitest"],
+      "evidence_kinds": [
+        "vitest"
+      ],
+      "status": "active"
+    },
+    {
+      "verification_id": "package.grid_adapter.verification.behavior_contract",
+      "behavior_class": "architecture",
+      "profile": "support",
+      "requirement": "package.grid_adapter frontend postconditions remain exact across retained selectors and declared execution profiles.",
+      "evidence_kinds": [
+        "playwright",
+        "vitest"
+      ],
       "status": "active"
     }
   ]

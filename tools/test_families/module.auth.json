@@ -3,6 +3,54 @@
   "owner_id": "module.auth",
   "rows": [
     {
+      "row_id": "module.auth.accessibility.verify_session_mfa_incident_forbidden_loading_an_e8f5d5f3a9",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_24af174d2595",
+          "scenario_518ccc2daf28",
+          "scenario_6b62ae5a8f33",
+          "scenario_7e9876d4d78d",
+          "scenario_9e9180c613d0",
+          "scenario_b631edcb35d1",
+          "scenario_c05759d45cdc",
+          "scenario_d9203af9002f",
+          "scenario_fcec515eb61b"
+        ],
+        "titles": [
+          "FE-A11Y-P1-01 anonymous login after initial session_required reaches login controls and authenticated landing",
+          "FE-A11Y-P1-01 authenticated landing exposes account, admin, incident, retry, and visible incident controls",
+          "FE-A11Y-P1-01 deferred session loading exposes progress and keeps recovery controls keyboard reachable",
+          "FE-A11Y-P1-01 forbidden access-denied public envelope is announced and exposes recovery without private diagnostics",
+          "FE-A11Y-P1-01 generic public error envelope renders safe diagnostics and keyboard error recovery",
+          "FE-A11Y-P1-01 incident empty, list, selected, stale-selection, and incident-error states expose keyboard recovery",
+          "FE-A11Y-P1-01 mfa_required challenge is keyboard reachable, visibly focused, named, and safely announced",
+          "FE-A11Y-P1-01 mfa_setup_required enrollment is keyboard reachable and public errors hide private setup diagnostics",
+          "FE-A11Y-P1-01 revoked session after prior authentication announces session end and supports re-authentication"
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    },
+    {
       "row_id": "module.auth.browser.a_reviewer_visible_incident_edit_control_fails_w_b6248bf4c8",
       "owner_id": "module.auth",
       "family_id": "module.auth.browser",
@@ -313,6 +361,37 @@
       "status": "active"
     },
     {
+      "row_id": "module.auth.browser.verify_ordinary_login_incident_directory_entry_o_d66ea23dc1",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase1.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_33e24429c797"
+        ],
+        "titles": [
+          "FE-E-P1-01 Verify ordinary login, incident entry, and current-role refresh stay on public browser routes."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.auth.browser_stateful.browser_deployment_user_administration_works_on_d6d7ff0b86",
       "owner_id": "module.auth",
       "family_id": "module.auth.browser_stateful",
@@ -521,6 +600,89 @@
         "titles": [
           "Phase 1 U-1-14 ordinary shell blocks authenticated bootstrap until credential state loads and renders credential public errors without private details",
           "Phase 1 U-1-14 ordinary shell keeps the anonymous login surface, sends the login request, refreshes session and credential state after success, and keeps deployment-user controls denied for non-admin sessions"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.frontend_integration.verify_api_client_requests_stay_under_api_v1_pre_7388943255",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.frontend_integration",
+      "collaborator_ids": [
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/services/browserApi.test.ts",
+        "titles": [
+          "FE-I-P1-01 route-boundary CSRF headers follow cookie-backed mutating request rules"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.frontend_integration.verify_api_client_requests_stay_under_api_v1_pre_752a6fcc0e",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.frontend_integration",
+      "collaborator_ids": [
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/App.phase1.test.tsx",
+        "titles": [
+          "FE-I-P1-01 route-boundary account password and TOTP errors render public envelopes without private details",
+          "FE-I-P1-01 route-boundary auth login errors render public envelopes without private details",
+          "FE-I-P1-01 route-boundary bootstrap TOTP complete errors render public envelopes without private details",
+          "FE-I-P1-01 route-boundary credential-state errors render public envelopes on landing and account surfaces without private details",
+          "FE-I-P1-01 route-boundary deployment-admin load and action errors render public envelopes without private details",
+          "FE-I-P1-01 route-boundary incident landing uses /api/v1/incidents with closed create bodies and public errors",
+          "FE-I-P1-01 route-boundary logout failures render public envelopes without ending the visible session",
+          "FE-I-P1-01 route-boundary session TOTP complete errors render public envelopes without private details"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.frontend_integration.verify_api_client_requests_stay_under_api_v1_pre_e3b9506c1e",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.frontend_integration",
+      "collaborator_ids": [
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/api/appShellClient.routeBoundary.test.ts",
+        "titles": [
+          "FE-I-P1-01 route-boundary bootstrap token authorization is limited to TOTP begin and complete",
+          "FE-I-P1-01 route-boundary client helpers keep auth and account requests under /api/v1/ with route-specific cookie-backed CSRF and closed bodies"
         ]
       },
       "evidence_class": "unit",
@@ -1103,6 +1265,39 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.visual.capture_the_anonymous_auth_gateway_across_initia_755030aa99",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_b04591a66827"
+        ],
+        "titles": [
+          "FE-V-P1-01 Capture auth gateway initial, focused, loading, invalid credentials, MFA required, invalid MFA, MFA setup required, service unavailable, mobile, reduced-motion, and 200%-zoom states."
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
       "status": "active"
     }
   ]

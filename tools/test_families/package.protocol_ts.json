@@ -70,6 +70,34 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active"
+    },
+    {
+      "row_id": "package.protocol_ts.frontend_unit.verify_generated_protocol_exports_and_frontend_c_f780588cd1",
+      "owner_id": "package.protocol_ts",
+      "family_id": "package.protocol_ts.frontend_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.protocol_ts.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/protocol-ts/src/index.test.ts",
+        "titles": [
+          "anchors account preference protocol facade types to generated OpenAPI schema names and routes",
+          "exposes error and reason-code registries through facade helpers",
+          "exposes extension registry profiles through facade helpers",
+          "exposes generated artifact families through stable facade helpers",
+          "exposes stable current-profile view schema identifiers",
+          "requires and parses known contract artifacts through the facade"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
     }
   ]
 }

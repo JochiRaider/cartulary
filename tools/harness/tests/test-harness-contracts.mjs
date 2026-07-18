@@ -200,7 +200,7 @@ test("owner catalog closes identities, selectors, profiles, and semantic digests
   const catalog = loadTestCatalog(repoRoot);
   const crosswalk = readJSON("tools/test_migration_crosswalk.json");
   const authorizedRowCount =
-    crosswalk.dispositions.filter((entry) => entry.disposition !== "deleted").length +
+    crosswalk.dispositions.filter((entry) => entry.disposition === "migrated").length +
     crosswalk.new_rows.length;
   assert.equal(catalog.summary.status, "pass");
   assert.equal(catalog.summary.owner_count, catalog.registry.owners.length);
@@ -232,7 +232,7 @@ test("backend owner migration reconciles every frozen row and support selector",
   assert.equal(summary.support_population, 37);
   assert.equal(summary.support_selector_atoms, 118);
   assert.equal(summary.backend_catalog_rows, 493);
-  assert.deepEqual(summary.remaining_pending_by_source, { frontend_phase_maps: 87 });
+  assert.equal(summary.remaining_pending_by_source.backend_phase_maps ?? 0, 0);
   assert.deepEqual(summary.counts_by_runner, { go: 335, playwright: 92, vitest: 29 });
 });
 

@@ -12,7 +12,7 @@
 | Baseline worktree | Clean |
 | Tracker state | `IN_PROGRESS` — WS-05 frontend row migration |
 | Active start | Clean tree at `5eb409a19104134552341f2b2fdee318ef5e39f6` |
-| Active tasks | T-023 |
+| Active tasks | T-024 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -706,8 +706,8 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-020 | Migrate phase5–phase8 backend rows | WS-04 | DONE | T-015 | 86 dispositions, 6 support rows, catalog/migration checks, and focused tests | Rows have terminal dispositions. |
 | T-021 | Migrate phase9–phase12 backend rows | WS-04 | DONE | T-015 | 207 dispositions, 7 support rows, catalog/migration checks, and focused tests | Rows have terminal dispositions. |
 | T-022 | Reconcile all 456 backend rows | WS-04 | DONE | T-019,T-020,T-021 | 456-row/550-selector reconciliation report and 37-row/118-selector support report | Count and selector coverage close. |
-| T-023 | Migrate FE-P0–FE-P4 rows | WS-05 | IN_PROGRESS | T-015 | Crosswalk/browser tests | Rows have terminal dispositions. |
-| T-024 | Migrate FE-P5–FE-P8 rows | WS-05 | TODO | T-015 | Crosswalk/browser tests | Rows have terminal dispositions. |
+| T-023 | Migrate FE-P0–FE-P4 rows | WS-05 | DONE | T-015 | 35 dispositions, exact selector reconciliation, catalog and frontend tests | Rows have terminal dispositions. |
+| T-024 | Migrate FE-P5–FE-P8 rows | WS-05 | IN_PROGRESS | T-015 | Crosswalk/browser tests | Rows have terminal dispositions. |
 | T-025 | Migrate FE-P9–FE-P12 rows | WS-05 | TODO | T-015 | Crosswalk/browser tests | Rows have terminal dispositions. |
 | T-026 | Remove frontend guide/cumulative accounting | WS-05 | TODO | T-023,T-024,T-025 | Accounting tests | One owner accounting model remains. |
 | T-027 | Reconcile all 87 frontend rows | WS-05 | TODO | T-026 | Reconciliation report | Count and selector coverage close. |
@@ -972,6 +972,20 @@ Each entry must include:
 - Skipped checks: owner slice commands do not exist until WS-07, and browser-stage execution, semantic renames, broad `make check`, finalization, and release checks remain assigned to WS-06 through WS-11. Exact Playwright resolution is complete, but current runtime evidence is not misrepresented as final v2 closure evidence.
 - Next safe task: create a tracker-only checkpoint marking WS-05 and T-023 through T-027 `IN_PROGRESS`, then migrate FE-P0 through FE-P4 rows without reopening backend ownership or activating WS-06 concurrently.
 - Rollback boundary: revert the complete WS-04 sequence from `fb4c1e69` through this completion checkpoint, including backend verification contracts, owner manifests, baseline selector correction, crosswalk dispositions/authorizations, migration/reconciliation tools, selector resolution, and focused tests. Never restore individual phase readers or keep a partial backend owner population.
+
+#### 2026-07-18 — WS-05 FE-P0–FE-P4 owner-slice checkpoint
+
+- Branch/commit at start: `revision/grid-adapter`; WS-05 was activated by tracker checkpoint `1ada8275a48794593f90ce6881c79663bbf515de` from the clean completed-WS-04 tree `5eb409a19104134552341f2b2fdee318ef5e39f6`. This entry closes T-023 before FE-P5–FE-P8 changes begin.
+- Workstream/task state: WS-05 is the only `IN_PROGRESS` workstream. T-023 is `DONE`, T-024 is the sole active task, and T-025 through T-027 remain `TODO`.
+- Reconciliation result: all 35 FE-P0–FE-P4 baseline rows have terminal dispositions: 29 `migrated`, five `consolidated`, and one `deleted`. Multi-file Vitest identities are split into exact file/title rows with nine explicit new-row authorizations. The slice preserves 107 legacy title atoms and five supported shell-target claims; six duplicate title atoms consolidate into existing backend owner rows, while three unique shell commands and 101 unique title selectors add 104 live selector identities.
+- Structural decisions: generated-protocol, view-contract, selector-contract, grid-adapter, auth, workbook, saved-view, and architecture behavior is assigned to its durable owner rather than a frontend namespace. Existing auth unit, auth browser-support, Timeline browser-support, import-boundary, and generate-drift evidence is consolidated rather than double-executed. `FE-S-P0-03` is deleted as obsolete because its only behavior was phase-ledger completion accounting. The supported generated-policy, generated-drift, and frontend import-boundary commands are represented once as exact shell rows.
+- Accessibility decoupling: FE-P1 through FE-P4 accessibility scenarios now obtain exact titles from test-local constants rather than reading frontend phase maps at Playwright startup. The resolver evaluates safe local static constants and array indexing, treats describe blocks as ancestry, and still requires each leaf/full title to identify one executable test.
+- Crosswalk/catalog totals: before this slice, 87 frontend identities were pending, 461 authoritative dispositions and 278 new rows were recorded. After this slice, 52 frontend identities remain pending, 496 authoritative dispositions and 287 new rows are recorded. The catalog contains 45 owners, 150 families, 777 rows, and 1,291 exact selectors with digest `sha256:7939b389dee5181c85094dac51ff2cf9902accff78a7cc28c8bb71a725307fa4`.
+- Passed validation: exact legacy-title and shell-command reconciliation, catalog/migration schema/cardinality/provenance/authorization checks, delivery-phase row-ID scan, `make format` at `.cartulary/test-results/20260718T011616Z-p36598`, `make harness-contract` with 60 passing tests at `.cartulary/test-results/20260718T011723Z-p43319`, `make json-shape-check` at `.cartulary/test-results/20260718T011637Z-p39247`, `make frontend-typecheck` at `.cartulary/test-results/20260718T011637Z-p39237`, `make frontend-unit` at `.cartulary/test-results/20260718T011637Z-p39222`, `make frontend-import-boundary-check` at `.cartulary/test-results/20260718T011723Z-p43334`, `make lint-scripts`, and `git diff --check`.
+- Resolved validation failure: the first harness-contract run at `.cartulary/test-results/20260718T011637Z-p39224` correctly exposed migration-test assumptions that counted consolidated dispositions as independent catalog authorizations and expected all 87 frontend keys to remain pending. The tests now count only migrated/new authorizations and require zero backend pending keys; the corrected rerun passed.
+- Skipped checks: FE-P5–FE-P12 rows, generic evidence accounting/audit replacement, final frontend reconciliation, semantic source renames, owner commands, browser-stage execution, broad `make check`, finalization, and release checks remain assigned to T-024 onward. Exact selector resolution is not represented as final browser runtime evidence.
+- Next safe task: T-024 only. Replace FE-P5 through FE-P8 accessibility title reads, migrate those 24 rows, reconcile exact title/file selectors and the existing FE-B-P8 support overlap, then checkpoint the tracker before T-025.
+- Rollback boundary: revert the complete T-023 slice—verification contracts, owner manifests, shell rows, accessibility title decoupling, crosswalk dispositions/authorizations, frontend migration builder, selector resolver, tests, and this tracker entry—together. Do not restore phase-ledger completion as a compatibility row.
 
 ## 17. First-resumer checklist
 

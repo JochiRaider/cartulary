@@ -17,6 +17,11 @@
       "status": "active"
     },
     {
+      "owner_id": "harness.generated_artifacts",
+      "manifest_path": "tools/test_families/harness.generated_artifacts.json",
+      "status": "active"
+    },
+    {
       "owner_id": "module.assessments",
       "manifest_path": "tools/test_families/module.assessments.json",
       "status": "active"

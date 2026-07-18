@@ -6,7 +6,7 @@
       "verification_id": "module.auth.verification.behavior_contract",
       "behavior_class": "security",
       "profile": "base",
-      "requirement": "authentication, session, credential, and authorization postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
+      "requirement": "module.auth frontend postconditions remain exact across retained selectors and declared execution profiles.",
       "evidence_kinds": [
         "go_test",
         "playwright",

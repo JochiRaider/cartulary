@@ -313,13 +313,25 @@ if (process.argv.includes("--check")) {
     const catalog = loadTestCatalog(root);
     const authorizedRows = new Map();
     for (const entry of [
-      ...currentCrosswalk.dispositions.filter((item) => item.disposition !== "deleted"),
+      ...currentCrosswalk.dispositions.filter((item) => item.disposition === "migrated"),
       ...currentCrosswalk.new_rows,
     ]) {
       if (authorizedRows.has(entry.row_id)) {
         fail(`test migration crosswalk authorizes duplicate row ${entry.row_id}`);
       }
       authorizedRows.set(entry.row_id, entry);
+    }
+    for (const entry of currentCrosswalk.dispositions.filter((item) => item.disposition === "consolidated")) {
+      if (entry.row_id !== entry.surviving_row_id) {
+        fail(`consolidated row ${entry.legacy_row_id} must identify its surviving row consistently`);
+      }
+      const survivor = authorizedRows.get(entry.surviving_row_id);
+      if (!survivor) {
+        fail(`consolidated row ${entry.legacy_row_id} references unauthorized survivor ${entry.surviving_row_id}`);
+      }
+      if (survivor.owner_id !== entry.owner_id || canonical(survivor.verification_ids) !== canonical(entry.verification_ids)) {
+        fail(`consolidated row ${entry.legacy_row_id} differs from survivor authorization`);
+      }
     }
     for (const row of catalog.rows) {
       const authorization = authorizedRows.get(row.row_id);

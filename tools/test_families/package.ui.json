@@ -95,6 +95,35 @@
       "status": "active"
     },
     {
+      "row_id": "package.ui.frontend_unit.verify_stable_selector_and_test_id_builders_deri_9f7de0ca7e",
+      "owner_id": "package.ui",
+      "family_id": "package.ui.frontend_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.ui.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/ui-contracts/src/index.test.ts",
+        "titles": [
+          "builds stable System views switcher selectors from closed groups and view_schema_id",
+          "derives row and row-action selectors from record_id",
+          "derives row-history items and actions from stable history identity rather than render index",
+          "derives surface selectors from view_schema_id instead of visible titles",
+          "keeps visible field labels and display names out of cell selectors",
+          "returns deterministic selectors for identical stable identifiers",
+          "validates closed-vocabulary-derived selector tokens"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "package.ui.regression.index_suite_96dd807938",
       "owner_id": "package.ui",
       "family_id": "package.ui.regression",

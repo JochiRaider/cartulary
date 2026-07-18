@@ -163,6 +163,26 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active"
+    },
+    {
+      "row_id": "web.architecture.support.enforce_frontend_import_boundaries_apps_web_must_cc56151788",
+      "owner_id": "web.architecture",
+      "family_id": "web.architecture.support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.architecture.verification.behavior_contract"
+      ],
+      "runner": "shell",
+      "selector": {
+        "command_id": "cartulary.harness.command.frontend_import_boundary_check.v1"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
     }
   ]
 }

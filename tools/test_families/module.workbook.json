@@ -3,6 +3,70 @@
   "owner_id": "module.workbook",
   "rows": [
     {
+      "row_id": "module.workbook.accessibility.verify_grid_navigation_edit_entry_exit_paste_fee_3de2b0afac",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_5039de8a2f57"
+        ],
+        "titles": [
+          "FE-A11Y-P4-01 Verify grid navigation, edit entry/exit, paste feedback, validation feedback, save-state communication, and Esc priority are keyboard and screen-reader safe."
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.accessibility.verify_shell_regions_tabs_switchers_menus_inspec_c481421159",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_e7bdba6c9e86"
+        ],
+        "titles": [
+          "FE-A11Y-P2-01 Verify shell regions, tabs, switchers, menus, inspector controls, and status strip are keyboard reachable, visibly focused, and named."
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    },
+    {
       "row_id": "module.workbook.browser.browser_startup_honors_explicit_sheet_home_defau_ee3b02ee01",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.browser",
@@ -344,6 +408,132 @@
       "status": "active"
     },
     {
+      "row_id": "module.workbook.browser.verify_continuous_workbook_shell_composition_top_96ea2f5084",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase2.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_c94e91b52ee4"
+        ],
+        "titles": [
+          "FE-B-P2-01 updates workbook density from Account Settings while the workbook remains open"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.browser.verify_system_views_switcher_keyboard_entry_rovi_90a2f62956",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase2.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_6eefe430b65c"
+        ],
+        "titles": [
+          "FE-B-P2-02 Verify System views switcher keyboard entry, roving focus, selection, dismissal, and focus restoration."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.browser.verify_timeline_query_response_rows_render_full_bffd82f340",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/frontend.phase4.timeline-query.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_67f1be5bf312"
+        ],
+        "titles": [
+          "FE-I-P4-01 Verify Timeline query response rows render full view_row_v1 cells and preserve row identity through create, patch, validation error, and refresh."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.browser_stateful.verify_timeline_public_mutations_remount_safe_tr_84f645d6c5",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/frontend.phase4.public-route.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "scenario_481272c41da9",
+          "scenario_da2d76b86dc8"
+        ],
+        "titles": [
+          "FE-E-P4-01 Recover Timeline client transaction blockers through remount-safe IDs, retry, discard, and same-field resolver handoff.",
+          "FE-E-P4-01 Verify rough Timeline row creation, inline edit, paste, pending save, refresh, and replay through /api/v1/ route contracts."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.workbook.browser_support.verify_browser_command_helpers_for_sort_filter_g_cfa68b33e4",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.browser_support",
@@ -524,6 +714,312 @@
           "Phase 9 U-9-GRID-01 keeps vendor selection separate until translated by the adapter contract",
           "Phase 9 U-9-GRID-01 resolves Arrow, Tab, Enter, and Shift+Enter navigation through adapter anchors",
           "Phase 9 U-9-GRID-01 resolves vendor coordinates to stable record_id and field_key anchors"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.frontend_integration.verify_sparse_patches_preserve_unchanged_row_obj_eff6a3a987",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend_integration",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/utils/workbookRowReconciliation.test.ts",
+        "titles": [
+          "FE-I-P3-01 Verify sparse patches preserve unchanged row object references and intentionally replace changed rows by record_id."
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.frontend_unit.verify_built_in_tabs_and_required_system_view_gr_62b3572a99",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend_unit",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/workbookDensity.test.ts",
+        "titles": [
+          "keeps Core null defaults while letting explicit account density override every workbook surface"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.frontend_unit.verify_built_in_tabs_and_required_system_view_gr_ff22a35e97",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend_unit",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/workbookSurfaceRegistry.test.ts",
+        "titles": [
+          "FE-U-P2-02 exposes required reference-pack keys from view contracts",
+          "FE-U-P2-02 groups System views by stable group tokens and registry-backed IDs",
+          "FE-U-P2-02 keeps optional standardized surfaces additive after required surfaces",
+          "FE-U-P2-02 registers built-in and system workbook surfaces by stable IDs",
+          "FE-U-P2-02 remains keyed by stable IDs when registry labels are relabeled",
+          "FE-U-P2-02 tolerates absent optional standardized surfaces while requiring required surfaces"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.frontend_unit.verify_save_state_presentation_derives_one_prima_36510f67fb",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend_unit",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/utils/workbookPendingQueue.test.ts",
+        "titles": [
+          "FE-U-P4-02 derives exactly one primary save-state label for every Table C input condition",
+          "FE-U-P4-02 keeps failure, overflow, validation, and replay details as same-surface secondary status messages",
+          "FE-U-P4-02 preserves same-field conflict anchors by record_id, field_key, and base_row_version"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.frontend_unit.verify_save_state_presentation_derives_one_prima_cad2a59be9",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend_unit",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase4.saveState.test.tsx",
+        "titles": [
+          "FE-U-P4-02 renders derived secondary save-state detail inside the workbook status strip"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.frontend_unit.verify_startup_surface_resolution_order_explicit_3db34a3795",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend_unit",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/workbookStartup.test.ts",
+        "titles": [
+          "FE-U-P2-01 applies selected saved-view identity without collapsing base view_schema_id",
+          "FE-U-P2-01 preserves extension workspace identity with no base schema or saved view",
+          "FE-U-P2-01 preserves required-reference-pack unavailable startup reasons",
+          "FE-U-P2-01 rejects backend startup selections with non-standardized view_schema_id",
+          "FE-U-P2-01 rejects unsupported startup sheet_ref kinds at the frontend boundary",
+          "FE-U-P2-01 resolves workbook startup fallback order by stable sheet_ref identity",
+          "FE-U-P2-01 skips or clears invalid startup pointers without failing workbook open",
+          "FE-U-P2-01 treats deleted saved-view pointers as unavailable saved views"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.frontend_unit.verify_sync_engine_pending_queue_orders_creates_16d9b2afa3",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend_unit",
+      "collaborator_ids": [
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/services/clientTransactionId.test.ts",
+        "titles": [
+          "FE-U-P4-01 fails locally when Web Crypto is unavailable",
+          "FE-U-P4-01 retains the prefix and uses the platform UUID generator",
+          "FE-U-P4-01 uses RFC 4122 v4 formatting with secure random bytes as fallback"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.frontend_unit.verify_sync_engine_pending_queue_orders_creates_8992eb8931",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend_unit",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase4.actionSequencing.test.tsx",
+        "titles": [
+          "FE-U-P4-01 keeps action result row versions ahead of stale projection reloads",
+          "FE-U-P4-01 sends Timeline actions with the current row version after earlier workbook mutations",
+          "FE-U-P4-01 waits for a pending material autosave before supersede dispatch"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.frontend_unit.verify_sync_engine_pending_queue_orders_creates_8c99e88779",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend_unit",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/utils/workbookPendingQueue.test.ts",
+        "titles": [
+          "FE-U-P4-01 admits row-create, row-patch, and paste-derived replay units with route-scoped mutation identity",
+          "FE-U-P4-01 applies successful replay without retargeting by visible row order or labels",
+          "FE-U-P4-01 coalesces only same-draft creates and contiguous same-record patches",
+          "FE-U-P4-01 discards exactly the halted blocker and resumes later FIFO work",
+          "FE-U-P4-01 halts non-retryable public failures with Table G anchors and queued units behind the blocker",
+          "FE-U-P4-01 keeps pending queues isolated by incident and client instance scope",
+          "FE-U-P4-01 preserves FIFO replay order and refuses the 65th non-coalescible unit without eviction",
+          "FE-U-P4-01 preserves same-runtime retryable failures and does not survive a new page instance",
+          "FE-U-P4-01 rejects invalid recovery transitions without changing queue state",
+          "FE-U-P4-01 rekeys only a client transaction blocker and preserves FIFO intent"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.frontend_unit.verify_sync_engine_pending_queue_orders_creates_999bdc7b60",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend_unit",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
+        "titles": [
+          "FE-U-P4-01 discards a blocked edit locally without issuing another mutation",
+          "FE-U-P4-01 drives WorkbookShell admission, coalescing, and save-state from the shared pending queue model",
+          "FE-U-P4-01 drives WorkbookShell retry and success settlement from the shared pending queue model",
+          "FE-U-P4-01 drives WorkbookShell terminal halt presentation from the shared pending queue model",
+          "FE-U-P4-01 recovers a Timeline client transaction conflict with a fresh opaque request ID"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.frontend_unit.verify_sync_engine_pending_queue_orders_creates_f313f22abb",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend_unit",
+      "collaborator_ids": [
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/services/clientTransactionIdPolicy.test.ts",
+        "titles": [
+          "FE-U-P4-01 keeps browser mutation IDs independent of counters, clocks, and insecure randomness"
         ]
       },
       "evidence_class": "unit",
@@ -1199,6 +1695,72 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.visual.capture_default_timeline_workbook_shell_with_vie_c06bbcbee0",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_e6ffdeb2d292"
+        ],
+        "titles": [
+          "FE-V-P2-01 Capture Default Timeline workbook shell with view-bar query controls, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip."
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_79fa228c8b2e"
+        ],
+        "titles": [
+          "FE-V-P4-01 Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures."
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
       "status": "active"
     },
     {

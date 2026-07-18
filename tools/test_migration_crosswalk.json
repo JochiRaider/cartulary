@@ -5,10 +5,6 @@
   "pending_baseline_keys": [
     {
       "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-A11Y-P1-01"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
       "legacy_row_id": "FE-A11Y-P10-01"
     },
     {
@@ -18,18 +14,6 @@
     {
       "source_registry_id": "frontend_phase_maps",
       "legacy_row_id": "FE-A11Y-P12-01"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-A11Y-P2-01"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-A11Y-P3-01"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-A11Y-P4-01"
     },
     {
       "source_registry_id": "frontend_phase_maps",
@@ -73,23 +57,7 @@
     },
     {
       "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-B-P2-01"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-B-P2-02"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-B-P3-01"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
       "legacy_row_id": "FE-B-P8-01"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-E-P1-01"
     },
     {
       "source_registry_id": "frontend_phase_maps",
@@ -98,14 +66,6 @@
     {
       "source_registry_id": "frontend_phase_maps",
       "legacy_row_id": "FE-E-P12-01"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-E-P2-01"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-E-P4-01"
     },
     {
       "source_registry_id": "frontend_phase_maps",
@@ -137,19 +97,7 @@
     },
     {
       "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-I-P1-01"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
       "legacy_row_id": "FE-I-P12-01"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-I-P3-01"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-I-P4-01"
     },
     {
       "source_registry_id": "frontend_phase_maps",
@@ -173,26 +121,6 @@
     },
     {
       "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-S-P0-01"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-S-P0-02"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-S-P0-03"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-S-P0-04"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-S-P1-01"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
       "legacy_row_id": "FE-S-P11-01"
     },
     {
@@ -205,63 +133,11 @@
     },
     {
       "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-S-P3-01"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-U-P0-01"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-U-P0-02"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-U-P0-03"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-U-P1-01"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
       "legacy_row_id": "FE-U-P10-01"
     },
     {
       "source_registry_id": "frontend_phase_maps",
       "legacy_row_id": "FE-U-P12-01"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-U-P2-01"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-U-P2-02"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-U-P3-01"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-U-P3-02"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-U-P3-03"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-U-P3-04"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-U-P4-01"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-U-P4-02"
     },
     {
       "source_registry_id": "frontend_phase_maps",
@@ -297,10 +173,6 @@
     },
     {
       "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-V-P1-01"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
       "legacy_row_id": "FE-V-P10-01"
     },
     {
@@ -318,18 +190,6 @@
     {
       "source_registry_id": "frontend_phase_maps",
       "legacy_row_id": "FE-V-P12-01"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-V-P2-01"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-V-P3-01"
-    },
-    {
-      "source_registry_id": "frontend_phase_maps",
-      "legacy_row_id": "FE-V-P4-01"
     },
     {
       "source_registry_id": "frontend_phase_maps",
@@ -8918,6 +8778,716 @@
       }
     },
     {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-A11Y-P1-01",
+      "disposition": "migrated",
+      "owner_id": "module.auth",
+      "row_id": "module.auth.accessibility.verify_session_mfa_incident_forbidden_loading_an_e8f5d5f3a9",
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.design",
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "module.auth",
+        "governing_requirement": "Verify session, MFA, incident, forbidden, loading, and error states have keyboard-reachable controls, visible focus, and screen-reader-safe labels.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p1_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-A11Y-P2-01",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.accessibility.verify_shell_regions_tabs_switchers_menus_inspec_c481421159",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.design",
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "Verify shell regions, tabs, switchers, menus, inspector controls, and status strip are keyboard reachable, visibly focused, and named.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p2_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-A11Y-P3-01",
+      "disposition": "migrated",
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.accessibility.verify_grid_cells_editors_group_rows_active_cell_3156bd379d",
+      "verification_ids": [
+        "package.grid_adapter.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.design",
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "package.grid_adapter",
+        "governing_requirement": "Verify grid cells, editors, group rows, active cell, edit mode, disabled/read-only state, and blocked actions are keyboard accessible and announced without color-only signals.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p3_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-A11Y-P4-01",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.accessibility.verify_grid_navigation_edit_entry_exit_paste_fee_3de2b0afac",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.design",
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "Verify grid navigation, edit entry/exit, paste feedback, validation feedback, save-state communication, and Esc priority are keyboard and screen-reader safe.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p4_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-B-P2-01",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.browser.verify_continuous_workbook_shell_composition_top_96ea2f5084",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "Verify continuous workbook shell composition: top bar, tab bar, System views, compact sheet toolbar, grid-first active surface slot, explicit collapsed-inspector default, and status strip slots stay in one shell while incident controls remain reachable only through the explicit secondary control surface.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p2_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-B-P2-02",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.browser.verify_system_views_switcher_keyboard_entry_rovi_90a2f62956",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "Verify System views switcher keyboard entry, roving focus, selection, dismissal, and focus restoration.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p2_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-B-P3-01",
+      "disposition": "consolidated",
+      "owner_id": "module.timeline",
+      "row_id": "module.timeline.browser_support.verify_one_click_focused_editing_rejected_transi_0e2d9a8f10",
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "review": {
+        "governing_owner": "module.timeline",
+        "governing_requirement": "Verify one-click focused editing, rejected-transition retention, sort, filter, group, paste, exact-range pointer and keyboard fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p3_test_map.json owner-slice adjudication"
+      },
+      "surviving_row_id": "module.timeline.browser_support.verify_one_click_focused_editing_rejected_transi_0e2d9a8f10",
+      "assertion_preservation_evidence": "All exact legacy selectors are retained by existing owner rows: module.timeline.browser_support.verify_one_click_focused_editing_rejected_transi_0e2d9a8f10"
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-E-P1-01",
+      "disposition": "migrated",
+      "owner_id": "module.auth",
+      "row_id": "module.auth.browser.verify_ordinary_login_incident_directory_entry_o_d66ea23dc1",
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "review": {
+        "governing_owner": "module.auth",
+        "governing_requirement": "Verify ordinary login, incident directory entry/opening, and current-role refresh after a membership change stay on public browser routes.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p1_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-E-P2-01",
+      "disposition": "migrated",
+      "owner_id": "module.savedviews",
+      "row_id": "module.savedviews.browser.verify_saved_views_appear_only_under_the_active_69995294db",
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "review": {
+        "governing_owner": "module.savedviews",
+        "governing_requirement": "Verify saved views appear only under the active surface's view selector, never as primary tabs; contract-backed system views stay in the same shell with view_schema sheet refs; saved views including scope=system remain distinct saved-view objects selected by saved_view sheet refs; and saved-view selection queries/renders through the base view_schema_id.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p2_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-E-P4-01",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.browser_stateful.verify_timeline_public_mutations_remount_safe_tr_84f645d6c5",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "Verify Timeline public mutations, remount-safe transaction IDs, and blocked-edit recovery through retry, discard, and same-field resolver handoff.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p4_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-I-P1-01",
+      "disposition": "migrated",
+      "owner_id": "module.auth",
+      "row_id": "module.auth.frontend_integration.verify_api_client_requests_stay_under_api_v1_pre_752a6fcc0e",
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "web.application"
+      ],
+      "review": {
+        "governing_owner": "module.auth",
+        "governing_requirement": "Verify API client requests stay under /api/v1/, preserve server-managed session behavior, and reject private server-detail dependencies in rendered errors.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p1_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-I-P3-01",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.frontend_integration.verify_sparse_patches_preserve_unchanged_row_obj_eff6a3a987",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "Verify sparse patches preserve unchanged row object references and intentionally replace changed rows by record_id.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p3_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-I-P4-01",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.browser.verify_timeline_query_response_rows_render_full_bffd82f340",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "Verify Timeline query response rows render full view_row_v1 cells and preserve row identity through create, patch, validation error, and refresh.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p4_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-S-P0-01",
+      "disposition": "migrated",
+      "owner_id": "harness.generated_artifacts",
+      "row_id": "harness.generated_artifacts.support.enforce_generated_protocol_policy_and_detect_gen_1a1797e3f6",
+      "verification_ids": [
+        "harness.generated_artifacts.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "harness.generated_artifacts",
+        "governing_requirement": "Enforce generated protocol policy and detect generated contract drift.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p0_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-S-P0-02",
+      "disposition": "migrated",
+      "owner_id": "web.architecture",
+      "row_id": "web.architecture.support.enforce_frontend_import_boundaries_apps_web_must_cc56151788",
+      "verification_ids": [
+        "web.architecture.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "web.architecture",
+        "governing_requirement": "Enforce frontend import boundaries: /apps/web must consume /packages/grid-adapter and must not import react-data-grid directly.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p0_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-S-P0-03",
+      "disposition": "deleted",
+      "reason": "obsolete",
+      "review": {
+        "governing_owner": "harness.test_catalog",
+        "governing_requirement": "Record frontend phase rows in a scheduler-enforced manifest or ledger before claiming phase-enforced completion.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p0_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-S-P0-04",
+      "disposition": "consolidated",
+      "owner_id": "harness.generated_artifacts",
+      "row_id": "harness.generated_artifacts.support.enforce_generated_protocol_policy_and_detect_gen_49d1469511",
+      "verification_ids": [
+        "harness.generated_artifacts.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "web.design"
+      ],
+      "review": {
+        "governing_owner": "harness.generated_artifacts",
+        "governing_requirement": "Validate docs/design.md token front matter and generated @cartulary/ui-contracts token artifacts without treating design tokens as product-conformance behavior.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p0_test_map.json owner-slice adjudication"
+      },
+      "surviving_row_id": "harness.generated_artifacts.support.enforce_generated_protocol_policy_and_detect_gen_49d1469511",
+      "assertion_preservation_evidence": "All exact legacy selectors are retained by existing owner rows: harness.generated_artifacts.support.enforce_generated_protocol_policy_and_detect_gen_49d1469511"
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-S-P1-01",
+      "disposition": "consolidated",
+      "owner_id": "module.auth",
+      "row_id": "module.auth.browser_support.supplemental_browser_verifies_ordinary_shell_sel_f8a9da1957",
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "review": {
+        "governing_owner": "module.auth",
+        "governing_requirement": "Verify bootstrap route selectors and error-state selectors use stable test-id builders.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p1_test_map.json owner-slice adjudication"
+      },
+      "surviving_row_id": "module.auth.browser_support.supplemental_browser_verifies_ordinary_shell_sel_f8a9da1957",
+      "assertion_preservation_evidence": "All exact legacy selectors are retained by existing owner rows: module.auth.browser_support.supplemental_browser_verifies_ordinary_shell_sel_f8a9da1957"
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-S-P3-01",
+      "disposition": "consolidated",
+      "owner_id": "web.architecture",
+      "row_id": "web.architecture.support.enforce_frontend_import_boundaries_apps_web_must_cc56151788",
+      "verification_ids": [
+        "web.architecture.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "web.architecture",
+        "governing_requirement": "Enforce direct RDG import containment and single stylesheet ownership in /packages/grid-adapter.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p3_test_map.json owner-slice adjudication"
+      },
+      "surviving_row_id": "web.architecture.support.enforce_frontend_import_boundaries_apps_web_must_cc56151788",
+      "assertion_preservation_evidence": "All exact legacy selectors are retained by existing owner rows: web.architecture.support.enforce_frontend_import_boundaries_apps_web_must_cc56151788"
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-U-P0-01",
+      "disposition": "migrated",
+      "owner_id": "package.protocol_ts",
+      "row_id": "package.protocol_ts.frontend_unit.verify_generated_protocol_exports_and_frontend_c_f780588cd1",
+      "verification_ids": [
+        "package.protocol_ts.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "package.protocol_ts",
+        "governing_requirement": "Verify generated protocol exports and frontend contract facades expose stable identifiers without hand-editing generated code.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p0_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-U-P0-02",
+      "disposition": "migrated",
+      "owner_id": "package.view_contracts",
+      "row_id": "package.view_contracts.frontend_unit.verify_view_schema_adapters_key_editable_and_que_52bafc21a9",
+      "verification_ids": [
+        "package.view_contracts.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "package.view_contracts",
+        "governing_requirement": "Verify view-schema adapters key editable and queryable fields by field_key, not labels, indexes, or visible column order.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p0_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-U-P0-03",
+      "disposition": "migrated",
+      "owner_id": "package.ui",
+      "row_id": "package.ui.frontend_unit.verify_stable_selector_and_test_id_builders_deri_9f7de0ca7e",
+      "verification_ids": [
+        "package.ui.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "package.ui",
+        "governing_requirement": "Verify stable selector and test-id builders derive identifiers from stable IDs, including row-history history_item_ref, registry-backed view_schema_id values, and selector-relevant closed vocabularies rather than visible labels.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p0_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-U-P1-01",
+      "disposition": "consolidated",
+      "owner_id": "module.auth",
+      "row_id": "module.auth.frontend.the_ordinary_account_security_panel_issues_totp_c01d03e02c",
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "web.application"
+      ],
+      "review": {
+        "governing_owner": "module.auth",
+        "governing_requirement": "Verify app bootstrap state distinguishes unauthenticated, MFA-required, authenticated, forbidden, revoked, loading, and public error-envelope states.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p1_test_map.json owner-slice adjudication"
+      },
+      "surviving_row_id": "module.auth.frontend.the_ordinary_account_security_panel_issues_totp_c01d03e02c",
+      "assertion_preservation_evidence": "All exact legacy selectors are retained by existing owner rows: module.auth.frontend.the_ordinary_account_security_panel_issues_totp_c01d03e02c, module.auth.frontend.the_ordinary_deployment_admin_panel_sends_create_615ead62f4, module.auth.frontend.the_ordinary_login_shell_consumes_mfa_setup_requ_c161bc9e87, module.auth.frontend.the_ordinary_shell_starts_anonymous_sends_the_lo_4713643923"
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-U-P2-01",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.frontend_unit.verify_startup_surface_resolution_order_explicit_3db34a3795",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "Verify startup-surface resolution order: explicit launch surface, user preference, incident default, Timeline fallback, with invalid pointers clearing and falling through.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p2_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-U-P2-02",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.frontend_unit.verify_built_in_tabs_and_required_system_view_gr_62b3572a99",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "Verify built-in tabs and required system-view groups are registered by stable surface IDs, not visible labels.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p2_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-U-P3-01",
+      "disposition": "migrated",
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.frontend_unit.fail_before_mutation_capable_rendering_when_data_3a49635f8c",
+      "verification_ids": [
+        "package.grid_adapter.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "package.grid_adapter",
+        "governing_requirement": "Fail before mutation-capable rendering when data rows have missing or duplicate record_id; verify group/loading/spacer/presentation rows cannot emit write events.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p3_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-U-P3-02",
+      "disposition": "migrated",
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.frontend_unit.translate_vendor_row_column_coordinates_to_recor_652aef8a27",
+      "verification_ids": [
+        "package.grid_adapter.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "package.grid_adapter",
+        "governing_requirement": "Translate vendor row/column coordinates to record_id + field_key for single-click edit, copy, paste, fill-down, selection, focus, and anchor assertions.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p3_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-U-P3-03",
+      "disposition": "migrated",
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.frontend_unit.verify_editability_derives_from_explicit_editor_b4d5d35a4f",
+      "verification_ids": [
+        "package.grid_adapter.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "package.grid_adapter",
+        "governing_requirement": "Verify editability derives from explicit editor adapters and contract writeability; editable=true alone never enters edit mode.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p3_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-U-P3-04",
+      "disposition": "migrated",
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.frontend_unit.verify_renderer_editor_registry_precedence_deter_869e70b60f",
+      "verification_ids": [
+        "package.grid_adapter.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "package.grid_adapter",
+        "governing_requirement": "Verify renderer/editor registry precedence, deterministic fallback, and lifecycle cleanup for subscriptions, portals, observers, timers, and row references.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p3_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-U-P4-01",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.frontend_unit.verify_sync_engine_pending_queue_orders_creates_16d9b2afa3",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "web.application"
+      ],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "Verify sync-engine pending queue orders creates, patches, paste batches, row-versioned actions, retries, success, validation failures, and replay by stable mutation identifiers.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p4_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-U-P4-02",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.frontend_unit.verify_save_state_presentation_derives_one_prima_cad2a59be9",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "Verify save-state presentation derives one primary label and one same-surface secondary message from pending, saved, failed, and conflict states.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p4_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-V-P1-01",
+      "disposition": "migrated",
+      "owner_id": "module.auth",
+      "row_id": "module.auth.visual.capture_the_anonymous_auth_gateway_across_initia_755030aa99",
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "module.auth",
+        "governing_requirement": "Capture the anonymous auth gateway across initial, focus, submitting, invalid credentials, MFA, setup-required, service-failure, mobile, reduced-motion, and 200%-zoom visual states.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p1_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-V-P2-01",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.visual.capture_default_timeline_workbook_shell_with_vie_c06bbcbee0",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "Capture Default Timeline workbook shell with view-bar query controls, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p2_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-V-P3-01",
+      "disposition": "migrated",
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
+      "verification_ids": [
+        "package.grid_adapter.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "package.grid_adapter",
+        "governing_requirement": "Capture test-only grid-adapter support specimens for frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query; this row does not satisfy the default Timeline shell fixture.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p3_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "frontend_phase_maps",
+      "legacy_row_id": "FE-V-P4-01",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures.",
+        "review_revision": "1ada8275a487",
+        "owner_review_evidence": "WS-05 tools/frontend_phase_maps/fe_p4_test_map.json owner-slice adjudication"
+      }
+    },
+    {
       "source_registry_id": "graph_projection_subsystem",
       "legacy_row_id": "GP-BINDING-001",
       "disposition": "migrated",
@@ -10724,6 +11294,30 @@
       "provenance": "vitest:017 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
     },
     {
+      "owner_id": "harness.generated_artifacts",
+      "row_id": "harness.generated_artifacts.support.enforce_generated_protocol_policy_and_detect_gen_49d1469511",
+      "verification_ids": [
+        "harness.generated_artifacts.verification.behavior_contract"
+      ],
+      "provenance": "frontend:FE-S-P0-01 split target generate-drift"
+    },
+    {
+      "owner_id": "module.auth",
+      "row_id": "module.auth.frontend_integration.verify_api_client_requests_stay_under_api_v1_pre_7388943255",
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "provenance": "frontend:FE-I-P1-01 split file apps/web/src/services/browserApi.test.ts"
+    },
+    {
+      "owner_id": "module.auth",
+      "row_id": "module.auth.frontend_integration.verify_api_client_requests_stay_under_api_v1_pre_e3b9506c1e",
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "provenance": "frontend:FE-I-P1-01 split file apps/web/src/app/api/appShellClient.routeBoundary.test.ts"
+    },
+    {
       "owner_id": "module.auth",
       "row_id": "module.auth.support_integration.user_list_continuation_uses_live_rows_7ed03d0063",
       "verification_ids": [
@@ -10930,6 +11524,54 @@
         "module.timeline.verification.behavior_contract"
       ],
       "provenance": "phase3:support:003 frozen backend support candidate; exact package/test selectors retained"
+    },
+    {
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.frontend_unit.verify_built_in_tabs_and_required_system_view_gr_ff22a35e97",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "provenance": "frontend:FE-U-P2-02 split file apps/web/src/workbook/models/workbookSurfaceRegistry.test.ts"
+    },
+    {
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.frontend_unit.verify_save_state_presentation_derives_one_prima_36510f67fb",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "provenance": "frontend:FE-U-P4-02 split file apps/web/src/workbook/utils/workbookPendingQueue.test.ts"
+    },
+    {
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.frontend_unit.verify_sync_engine_pending_queue_orders_creates_8992eb8931",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "provenance": "frontend:FE-U-P4-01 split file apps/web/src/workbook/WorkbookShell.phase4.actionSequencing.test.tsx"
+    },
+    {
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.frontend_unit.verify_sync_engine_pending_queue_orders_creates_8c99e88779",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "provenance": "frontend:FE-U-P4-01 split file apps/web/src/workbook/utils/workbookPendingQueue.test.ts"
+    },
+    {
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.frontend_unit.verify_sync_engine_pending_queue_orders_creates_999bdc7b60",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "provenance": "frontend:FE-U-P4-01 split file apps/web/src/workbook/WorkbookShell.phase6.test.tsx"
+    },
+    {
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.frontend_unit.verify_sync_engine_pending_queue_orders_creates_f313f22abb",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "provenance": "frontend:FE-U-P4-01 split file apps/web/src/services/clientTransactionIdPolicy.test.ts"
     },
     {
       "owner_id": "module.workbook",
