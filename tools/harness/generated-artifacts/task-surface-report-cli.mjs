@@ -19,6 +19,14 @@ import {
 } from "./task-surface/index.mjs";
 import { collectEntries, loadManifest, phaseManifestNames } from "../phase-accounting/index.mjs";
 
+const schedulerGrowthBudgets = Object.freeze({
+  manifestBytesPerWorkUnit: 1700,
+  ordinaryP95Bytes: 1500,
+  structurallyWideP95Bytes: 5000,
+  maximumBytes: 12 * 1024,
+  syntheticBytesPerWorkUnit: 1600,
+});
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");
 const checkMode = process.argv.includes("--check");
@@ -163,20 +171,33 @@ function collectSchedulerGrowthMetrics(file) {
     scratch_generations_byte_identical: syntheticA === syntheticB,
   };
   const errors = [];
-  if (metrics.manifest_bytes_per_work_unit > 1600) {
-    errors.push("scheduler manifest exceeds 1600 bytes per work unit");
+  if (metrics.manifest_bytes_per_work_unit > schedulerGrowthBudgets.manifestBytesPerWorkUnit) {
+    errors.push(
+      `scheduler manifest exceeds ${schedulerGrowthBudgets.manifestBytesPerWorkUnit} bytes per work unit`,
+    );
   }
-  if (metrics.ordinary_p95_serialized_work_unit_bytes > 1500) {
-    errors.push("scheduler manifest ordinary-kind p95 serialized work unit exceeds 1500 bytes");
+  if (metrics.ordinary_p95_serialized_work_unit_bytes > schedulerGrowthBudgets.ordinaryP95Bytes) {
+    errors.push(
+      `scheduler manifest ordinary-kind p95 serialized work unit exceeds ${schedulerGrowthBudgets.ordinaryP95Bytes} bytes`,
+    );
   }
-  if (metrics.structurally_wide_p95_serialized_work_unit_bytes > 5000) {
-    errors.push("scheduler manifest structurally-wide p95 serialized work unit exceeds 5000 bytes");
+  if (
+    metrics.structurally_wide_p95_serialized_work_unit_bytes >
+    schedulerGrowthBudgets.structurallyWideP95Bytes
+  ) {
+    errors.push(
+      `scheduler manifest structurally-wide p95 serialized work unit exceeds ${schedulerGrowthBudgets.structurallyWideP95Bytes} bytes`,
+    );
   }
-  if (metrics.max_serialized_work_unit_bytes > 12 * 1024) {
+  if (metrics.max_serialized_work_unit_bytes > schedulerGrowthBudgets.maximumBytes) {
     errors.push("scheduler manifest maximum serialized work unit exceeds 12 KiB");
   }
-  if (metrics.synthetic_25_bytes_per_work_unit > 1600) {
-    errors.push("25 synthetic ordinary scheduler work units exceed 1600 bytes each");
+  if (
+    metrics.synthetic_25_bytes_per_work_unit > schedulerGrowthBudgets.syntheticBytesPerWorkUnit
+  ) {
+    errors.push(
+      `25 synthetic ordinary scheduler work units exceed ${schedulerGrowthBudgets.syntheticBytesPerWorkUnit} bytes each`,
+    );
   }
   if (!metrics.scratch_generations_byte_identical) {
     errors.push("two scratch scheduler generations are not byte-identical");

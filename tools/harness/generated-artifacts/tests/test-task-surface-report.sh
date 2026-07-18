@@ -173,8 +173,8 @@ assert.deepEqual(
 );
 assert.deepEqual(
   manifest.targets.find((target) => target.name === "task-guide").input_contract.inputs.map((input) => input.name),
-  ["ROLE", "PHASE", "PHASE_NAMESPACE", "JSON"],
-  "task-guide input contract must include phase namespace",
+  ["ROLE", "OWNER", "JSON"],
+  "task-guide input contract must include the owner selector",
 );
 assert.deepEqual(
   manifest.targets.map((target) => target.name).filter((target) => !manifest.make_recipes[target]),

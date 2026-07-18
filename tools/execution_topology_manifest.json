@@ -644,7 +644,7 @@
         ],
         "make_prerequisite_policy": "skip"
       },
-      "phase-map-check": {
+      "test-catalog-check": {
         "schedules": [
           "check"
         ],

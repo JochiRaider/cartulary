@@ -77,7 +77,7 @@ const expectedMakeEnvVars = {
     "CARTULARY_TEST_RESULTS_DIR",
     "CARTULARY_TEST_RUN_ID",
   ],
-  "explain-phase": ["PHASE", "PHASE_NAMESPACE", "JSON"],
+  "explain-test-owner": ["OWNER", "JSON"],
   "explain-run": ["RESULTS_DIR", "RUN_ID", "TARGET", "DETAIL"],
   "explain-target": ["TARGET", "DETAIL", "JSON"],
   "fixture-report": [
@@ -119,38 +119,24 @@ const expectedMakeEnvVars = {
     "RESULTS_DIR",
     "HARNESS_SMOKE_DURATION_BASELINE",
   ],
-  "phase-slice": [
-    "PHASE",
-    "PHASE_NAMESPACE",
+  "test-evidence-audit": [
+    "OWNER",
+    "EVIDENCE_ROOTS_FILE",
+    "CARTULARY_TEST_RESULTS_DIR",
+    "CARTULARY_TEST_RUN_ID",
+  ],
+  "test-slice": [
+    "OWNER",
     "ROWS",
     "VITEST_MAX_WORKERS",
     "PLAYWRIGHT_WORKERS",
     "JSON",
     "MAKE",
-    "TEST_OUTPUT_SCRIPT",
+    "GO",
+    "PNPM",
+    "TEST_SERVICES_BIN",
     "CARTULARY_TEST_RESULTS_DIR",
     "CARTULARY_TEST_RUN_ID",
-    "TEST_SERVICES_BIN",
-    "NODE_BIN",
-    "NODE_RUNTIME_DIR",
-    "PNPM",
-    "SERVER_BIN",
-    "MIGRATE_BIN",
-    "GO",
-    "GO_CACHE_DIR",
-    "GO_MOD_CACHE_DIR",
-    "GO_TEST_SERVICE_PACKAGE_PARALLELISM",
-    "BACKEND_STORE_GO_TEST_P",
-    "BACKEND_INTEGRATION_GO_TEST_P",
-    "BACKEND_INTEGRATION_SHARD_JOBS",
-    "BROWSER_E2E_FUNCTIONAL_SHARDS",
-    "TASK_SURFACE_MANIFEST",
-    "SCHEDULER_MANIFEST",
-    "BROWSER_E2E_BATCH_MANIFEST",
-    "CARTULARY_RUNNER_SCRIPT",
-    "RUN_PHASE_SCRIPT",
-    "RUN_GO_TARGET_SCRIPT",
-    "RUN_SERVICE_BACKED_SCHEDULE_SCRIPT",
   ],
   "scheduler-event-order-drift": [
     "RESULTS_DIR",
@@ -176,51 +162,29 @@ const expectedMakeEnvVars = {
     "RESULTS_DIR",
     "SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE",
   ],
-  "service-backed-slice": [
-    "PHASE",
-    "PHASE_NAMESPACE",
+  "service-backed-test-slice": [
+    "OWNER",
     "ROWS",
     "VITEST_MAX_WORKERS",
     "PLAYWRIGHT_WORKERS",
     "JSON",
     "MAKE",
-    "TEST_OUTPUT_SCRIPT",
+    "GO",
+    "PNPM",
+    "TEST_SERVICES_BIN",
     "CARTULARY_TEST_RESULTS_DIR",
     "CARTULARY_TEST_RUN_ID",
-    "TEST_SERVICES_BIN",
-    "NODE_BIN",
-    "NODE_RUNTIME_DIR",
-    "PNPM",
-    "SERVER_BIN",
-    "MIGRATE_BIN",
-    "GO",
-    "GO_CACHE_DIR",
-    "GO_MOD_CACHE_DIR",
-    "GO_TEST_SERVICE_PACKAGE_PARALLELISM",
-    "BACKEND_STORE_GO_TEST_P",
-    "BACKEND_INTEGRATION_GO_TEST_P",
-    "BACKEND_INTEGRATION_SHARD_JOBS",
-    "BROWSER_E2E_FUNCTIONAL_SHARDS",
-    "TASK_SURFACE_MANIFEST",
-    "SCHEDULER_MANIFEST",
-    "BROWSER_E2E_BATCH_MANIFEST",
-    "CARTULARY_RUNNER_SCRIPT",
-    "RUN_PHASE_SCRIPT",
-    "RUN_GO_TARGET_SCRIPT",
-    "RUN_SERVICE_BACKED_SCHEDULE_SCRIPT",
   ],
   "target-plan": ["TARGET"],
   "target-plan-json": ["TARGET"],
-  "task-guide": ["ROLE", "PHASE", "PHASE_NAMESPACE", "JSON", "CARTULARY_TEST_RESULTS_DIR"],
+  "task-guide": ["ROLE", "OWNER", "JSON"],
   "task-surface-report": ["TASK_SURFACE_REPORT_ARGS"],
 };
 assertList("registered make node tools", makeNodeToolNames(), Object.keys(expectedMakeEnvVars).sort());
 for (const [name, expected] of Object.entries(expectedMakeEnvVars)) {
   assertList(`${name} Make env vars`, makeNodeToolMakeEnvVars(name), expected);
 }
-assertList("task-guide runtime env", makeNodeToolRuntimeEnvVars("task-guide"), [
-  "CARTULARY_TEST_RESULTS_DIR",
-]);
+assertList("task-guide runtime env", makeNodeToolRuntimeEnvVars("task-guide"), []);
 assertList("frontend-fallow-static runtime env", makeNodeToolRuntimeEnvVars("frontend-fallow-static"), [
   "CARTULARY_TEST_RESULTS_DIR",
   "CARTULARY_TEST_RUN_ID",
@@ -228,97 +192,75 @@ assertList("frontend-fallow-static runtime env", makeNodeToolRuntimeEnvVars("fro
   "NODE_RUNTIME_DIR",
   "PNPM",
 ]);
-assertList("phase-slice runtime env", makeNodeToolRuntimeEnvVars("phase-slice"), [
+assertList("test-slice runtime env", makeNodeToolRuntimeEnvVars("test-slice"), [
   "MAKE",
-  "TEST_OUTPUT_SCRIPT",
+  "GO",
+  "PNPM",
+  "TEST_SERVICES_BIN",
   "CARTULARY_TEST_RESULTS_DIR",
   "CARTULARY_TEST_RUN_ID",
-  "TEST_SERVICES_BIN",
-  "NODE_BIN",
-  "NODE_RUNTIME_DIR",
-  "PNPM",
-  "SERVER_BIN",
-  "MIGRATE_BIN",
-  "GO",
-  "GO_CACHE_DIR",
-  "GO_MOD_CACHE_DIR",
-  "GO_TEST_SERVICE_PACKAGE_PARALLELISM",
-  "BACKEND_STORE_GO_TEST_P",
-  "BACKEND_INTEGRATION_GO_TEST_P",
-  "BACKEND_INTEGRATION_SHARD_JOBS",
-  "PLAYWRIGHT_WORKERS",
-  "BROWSER_E2E_FUNCTIONAL_SHARDS",
-  "VITEST_MAX_WORKERS",
-  "TASK_SURFACE_MANIFEST",
-  "SCHEDULER_MANIFEST",
-  "BROWSER_E2E_BATCH_MANIFEST",
-  "CARTULARY_RUNNER_SCRIPT",
-  "RUN_PHASE_SCRIPT",
-  "RUN_GO_TARGET_SCRIPT",
-  "RUN_SERVICE_BACKED_SCHEDULE_SCRIPT",
 ]);
-assertArgs("task-guide", { ROLE: "feature-dev", PHASE: "phase4", JSON: "1" }, [
+assertArgs("task-guide", { ROLE: "module-author", OWNER: "module.networkflow", JSON: "1" }, [
+  "--mode",
+  "task-guide",
+  "--owner",
+  "module.networkflow",
   "--role",
-  "feature-dev",
-  "--phase",
-  "phase4",
+  "module-author",
   "--json",
 ]);
-assertArgs("task-guide", { ROLE: "feature-dev", PHASE: "FE-P3", PHASE_NAMESPACE: "frontend", JSON: "1" }, [
-  "--role",
-  "feature-dev",
-  "--phase",
-  "FE-P3",
-  "--phase-namespace",
-  "frontend",
+assertArgs("test-slice", { OWNER: "platform.config", JSON: "1" }, [
+  "--target",
+  "test-slice",
+  "--owner",
+  "platform.config",
+  "--vitest-workers",
+  "4",
+  "--playwright-workers",
+  "3",
   "--json",
 ]);
-assertArgs("phase-slice", { PHASE: "phase4" }, [
-  "--phase",
-  "phase4",
-  "--mode",
-  "phase",
-]);
-assertArgs("phase-slice", { PHASE: "phase4", JSON: "1" }, [
-  "--phase",
-  "phase4",
-  "--mode",
-  "phase",
-  "--json",
-]);
-assertArgs("phase-slice", { PHASE: "FE-P3", PHASE_NAMESPACE: "frontend" }, [
-  "--phase",
-  "FE-P3",
-  "--mode",
-  "phase",
-  "--phase-namespace",
-  "frontend",
-]);
-assertArgs("phase-slice", { PHASE: "FE-P5", PHASE_NAMESPACE: "frontend", ROWS: "FE-I-P5-01" }, [
-  "--phase",
-  "FE-P5",
-  "--mode",
-  "phase",
-  "--phase-namespace",
-  "frontend",
+assertArgs("test-slice", {
+  OWNER: "platform.config",
+  ROWS: "platform.config.unit.load_valid_config_7c88e29f29",
+  CARTULARY_MAKE_INPUT_SOURCES: "ROWS=cli",
+}, [
+  "--target",
+  "test-slice",
+  "--owner",
+  "platform.config",
   "--rows",
-  "FE-I-P5-01",
+  "platform.config.unit.load_valid_config_7c88e29f29",
+  "--vitest-workers",
+  "4",
+  "--playwright-workers",
+  "3",
 ]);
-assertArgs("service-backed-slice", { PHASE: "phase4" }, [
-  "--phase",
-  "phase4",
-  "--mode",
-  "service-backed",
+assertArgs("service-backed-test-slice", { OWNER: "module.networkflow" }, [
+  "--target",
+  "service-backed-test-slice",
+  "--owner",
+  "module.networkflow",
+  "--vitest-workers",
+  "4",
+  "--playwright-workers",
+  "3",
 ]);
-assertArgs("service-backed-slice", { PHASE: "FE-P5", PHASE_NAMESPACE: "frontend", ROWS: "FE-I-P5-01" }, [
-  "--phase",
-  "FE-P5",
+assertArgs("explain-test-owner", { OWNER: "module.networkflow", JSON: "1" }, [
   "--mode",
-  "service-backed",
-  "--phase-namespace",
-  "frontend",
-  "--rows",
-  "FE-I-P5-01",
+  "explain",
+  "--owner",
+  "module.networkflow",
+  "--json",
+]);
+assertArgs("test-evidence-audit", {
+  OWNER: "module.networkflow",
+  EVIDENCE_ROOTS_FILE: "/tmp/evidence-roots.json",
+}, [
+  "--owner",
+  "module.networkflow",
+  "--evidence-roots-file",
+  "/tmp/evidence-roots.json",
 ]);
 assertArgs("explain-target", { TARGET: "backend-store" }, [
   "--target",
@@ -465,8 +407,15 @@ assertArgs("target-plan", { PHASE: "phase4", TARGET: "backend-store", RESULTS_DI
   "backend-store",
 ]);
 assertUsage("explain-run", {}, "make explain-run RESULTS_DIR=<root|run-dir>");
-assertUsage("phase-slice", {}, "make phase-slice PHASE=<phaseN|FE-PN>");
-assertUsage("service-backed-slice", {}, "make service-backed-slice PHASE=<phaseN|FE-PN>");
+for (const retiredName of [
+  "explain-phase",
+  "frontend-evidence-audit",
+  "owner-task-guide",
+  "phase-slice",
+  "service-backed-slice",
+]) {
+  assert(!makeNodeToolNames().includes(retiredName), `${retiredName} must not remain registered`);
+}
 assertUsage("go-test-duration-baselines", {}, "make go-test-duration-baselines RESULTS_DIR=<successful results dir> [PRUNE_OBSERVED_PACKAGES=1 requires full service-backed]");
 assertUsage("browser-e2e-duration-baselines", {}, "make browser-e2e-duration-baselines RESULTS_DIR=<successful browser results dir>");
 assertUsage("harness-smoke-duration-baselines", {}, "make harness-smoke-duration-baselines RESULTS_DIR=<successful harness results dir>");
@@ -494,17 +443,14 @@ assert(!("TASK_SURFACE_MANIFEST" in targetPlanChildEnv), "target-plan child env 
 assert(!("TARGET" in targetPlanChildEnv), "target-plan child env must not expose TARGET after args are built");
 
 const taskGuideChildEnv = buildMakeNodeToolChildEnv("task-guide", {
-  CARTULARY_TEST_RESULTS_DIR: "/tmp/results",
   JSON: "1",
+  OWNER: "module.networkflow",
   PHASE: "phase4",
   PHASE_NAMESPACE: "frontend",
-  ROLE: "feature-dev",
+  ROLE: "module-author",
 });
-assert(
-  taskGuideChildEnv.CARTULARY_TEST_RESULTS_DIR === "/tmp/results",
-  "task-guide child env must keep result-root runtime env",
-);
 assert(!("JSON" in taskGuideChildEnv), "task-guide child env must not expose JSON after args are built");
+assert(!("OWNER" in taskGuideChildEnv), "task-guide child env must not expose OWNER after args are built");
 assert(!("PHASE" in taskGuideChildEnv), "task-guide child env must not expose PHASE after args are built");
 assert(!("PHASE_NAMESPACE" in taskGuideChildEnv), "task-guide child env must not expose PHASE_NAMESPACE after args are built");
 assert(!("ROLE" in taskGuideChildEnv), "task-guide child env must not expose ROLE after args are built");
@@ -531,41 +477,50 @@ assert(fallowChildEnv.PNPM === "/tmp/pnpm", "frontend-fallow-static child env mu
 assert(!("JSON" in fallowChildEnv), "frontend-fallow-static child env must not expose JSON");
 assert(!("PHASE" in fallowChildEnv), "frontend-fallow-static child env must not expose PHASE");
 
-const phaseSliceChildEnv = buildMakeNodeToolChildEnv("phase-slice", {
+const testSliceChildEnv = buildMakeNodeToolChildEnv("test-slice", {
   CARTULARY_TEST_RESULTS_DIR: "/tmp/results",
   CARTULARY_TEST_RUN_ID: "run-a",
-  CARTULARY_MAKE_INPUT_SOURCES: "PHASE=cli ROWS=unset",
+  CARTULARY_MAKE_INPUT_SOURCES: "OWNER=cli ROWS=cli",
+  GO: "go",
   MAKE: "make",
+  OWNER: "module.networkflow",
   PHASE: "phase4",
-  ROWS: "FE-I-P5-01",
+  PNPM: "pnpm",
+  ROWS: "module.networkflow.unit.example_0123456789",
   TARGET: "backend-store",
-  TEST_OUTPUT_SCRIPT: "/tmp/test-output.mjs",
+  TEST_SERVICES_BIN: "/tmp/test-services",
   VITEST_FLAGS: "apps/web/src/one.test.tsx",
 });
-assert(phaseSliceChildEnv.MAKE === "make", "phase-slice child env must keep MAKE");
+assert(testSliceChildEnv.MAKE === "make", "test-slice child env must keep MAKE");
+assert(testSliceChildEnv.GO === "go", "test-slice child env must keep GO");
+assert(testSliceChildEnv.PNPM === "pnpm", "test-slice child env must keep PNPM");
 assert(
-  phaseSliceChildEnv.TEST_OUTPUT_SCRIPT === "/tmp/test-output.mjs",
-  "phase-slice child env must keep TEST_OUTPUT_SCRIPT",
+  testSliceChildEnv.TEST_SERVICES_BIN === "/tmp/test-services",
+  "test-slice child env must keep TEST_SERVICES_BIN",
 );
 assert(
-  phaseSliceChildEnv.CARTULARY_TEST_RUN_ID === "run-a",
-  "phase-slice child env must keep CARTULARY_TEST_RUN_ID",
+  testSliceChildEnv.CARTULARY_TEST_RUN_ID === "run-a",
+  "test-slice child env must keep CARTULARY_TEST_RUN_ID",
 );
-assert(!("PHASE" in phaseSliceChildEnv), "phase-slice child env must not expose PHASE after args are built");
-assert(!("ROWS" in phaseSliceChildEnv), "phase-slice child env must not expose ROWS after args are built");
-assert(!("TARGET" in phaseSliceChildEnv), "phase-slice child env must not expose unrelated TARGET");
-assert(!("VITEST_FLAGS" in phaseSliceChildEnv), "phase-slice child env must not expose retired VITEST_FLAGS");
+assert(!("OWNER" in testSliceChildEnv), "test-slice child env must not expose OWNER after args are built");
+assert(!("PHASE" in testSliceChildEnv), "test-slice child env must not expose retired PHASE");
+assert(!("ROWS" in testSliceChildEnv), "test-slice child env must not expose ROWS after args are built");
+assert(!("TARGET" in testSliceChildEnv), "test-slice child env must not expose unrelated TARGET");
+assert(!("VITEST_FLAGS" in testSliceChildEnv), "test-slice child env must not expose retired VITEST_FLAGS");
 assert(
-  !("CARTULARY_MAKE_INPUT_SOURCES" in phaseSliceChildEnv),
-  "phase-slice child env must consume Make source transport at the public wrapper boundary",
+  !("CARTULARY_MAKE_INPUT_SOURCES" in testSliceChildEnv),
+  "test-slice child env must consume Make source transport at the public wrapper boundary",
 );
 EOF
 
 set +e
-missing_phase_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/execution/run-make-node-tool-cli.mjs" explain-phase 2>&1)"
-missing_phase_status=$?
+retired_tool_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/execution/run-make-node-tool-cli.mjs" explain-phase 2>&1)"
+retired_tool_status=$?
 set -e
-if [[ "$missing_phase_status" -ne 2 ]]; then
-  fail "missing phase launcher validation should exit 2"
+if [[ "$retired_tool_status" -ne 2 ]]; then
+  fail "retired make node tool should exit 2"
 fi
-assert_contains "$missing_phase_output" "usage: make explain-phase PHASE=<phaseN|FE-PN>" "missing phase launcher usage"
+assert_contains "$retired_tool_output" "usage: run-make-node-tool.mjs" "retired make node tool diagnostic"
+if [[ "$retired_tool_output" == *"|explain-phase|"* ]]; then
+  fail "retired make node tool usage must not advertise explain-phase"
+fi

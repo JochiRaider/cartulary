@@ -209,6 +209,15 @@ const nonCanonicalPublicMakeVariables = Object.freeze([
   "STATICCHECK_CHECKS",
   "VITEST_FLAGS",
 ]);
+const retiredPublicMakeVariables = Object.freeze([
+  "BROWSER_A11Y_RESULTS_DIR",
+  "BROWSER_MEASUREMENT_RESULTS_DIR",
+  "BROWSER_SUPPORT_RESULTS_DIR",
+  "BROWSER_VISUAL_RESULTS_DIR",
+  "CHECK_RESULTS_DIR",
+  "PHASE",
+  "PHASE_NAMESPACE",
+]);
 const makeInputSourcesEnv = "CARTULARY_MAKE_INPUT_SOURCES";
 const makeCommandLineOrigins = new Set(["cli"]);
 const makeEnvironmentOrigins = new Set(["env"]);
@@ -706,6 +715,7 @@ function publicInputNames(manifest) {
   const names = new Set([
     ...restrictedInternalMakeVariables,
     ...nonCanonicalPublicMakeVariables,
+    ...retiredPublicMakeVariables,
   ]);
   for (const entry of manifest.targets ?? []) {
     if (entry?.target_class !== "public") {
@@ -810,6 +820,27 @@ function validateTargetInputValue(name, value, input, manifest) {
       );
     }
     return value;
+  }
+  if (input.type === "owner_id") {
+    if (!/^(?:module|platform|app|web|package|harness)\.[a-z][a-z0-9_]{0,62}$/u.test(value)) {
+      throw new HarnessConfigError(`${name} must be an owner ID`, {
+        reason: input.invalid_reason,
+      });
+    }
+    return value;
+  }
+  if (input.type === "row_ids") {
+    const rowIDPattern = /^(?:module|platform|app|web|package|harness)\.[a-z][a-z0-9_]{0,62}\.[a-z][a-z0-9_]{0,62}\.[a-z][a-z0-9_]{0,127}_[0-9a-f]{10}$/u;
+    const tokens = value.split(",").map((token) => token.trim());
+    if (
+      tokens.some((token) => token === "" || !rowIDPattern.test(token)) ||
+      new Set(tokens).size !== tokens.length
+    ) {
+      throw new HarnessConfigError(`${name} must contain unique owner row IDs`, {
+        reason: input.invalid_reason,
+      });
+    }
+    return tokens.join(",");
   }
   if (input.type === "phase_namespace") {
     if (!["base", "frontend"].includes(value)) {

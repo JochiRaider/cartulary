@@ -38,18 +38,19 @@
   deployable-shape \
   standup-package-smoke \
   standup-operational-recovery-smoke \
-  phase-map-check \
+  test-catalog-check \
   phase-ledgers \
   phase-ledger-drift \
   phase-schedules \
   phase-schedule-drift \
   agent-finalize \
-  frontend-evidence-audit \
+  test-evidence-audit \
   benchmark-claim-check \
   task-surface-report \
   task-guide \
-  phase-slice \
-  service-backed-slice \
+  test-slice \
+  service-backed-test-slice \
+  graph-projection-fixture-candidate \
   backend-unit \
   backend-store \
   backend-integration \
@@ -60,7 +61,7 @@
   target-plan-json \
   fixture-report \
   explain-run \
-  explain-phase \
+  explain-test-owner \
   explain-target \
   go-test-duration-baselines \
   go-test-duration-baseline-coverage \
@@ -148,7 +149,7 @@ TASK_SURFACE_HELP_LINES := \
 	'' \
 	'compact:' \
 	'  make help                           print the compact workflow task surface' \
-	'  make task-guide                     recommend targets by role, phase, services, and artifacts' \
+	'  make task-guide                     recommend exact owner verification by module-author role' \
 	'  make doctor                         verify required local tools and versions' \
 	'  make bootstrap                      install pinned tools and frontend/browser dependencies' \
 	'  make db-up                          start local Postgres and SeaweedFS S3, then initialize the default object-store bucket' \
@@ -199,10 +200,10 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'' \
 	'fast verification:' \
 	'  make test-fast                      run the narrower local verification loop' \
-	'  make phase-slice' \
-	'                                      PHASE=phaseN run the selected phase manifest-row slice' \
-	'  make service-backed-slice' \
-	'                                      PHASE=phaseN run the selected phase service-backed manifest-row slice' \
+	'  make test-slice' \
+	'                                      OWNER=<owner-id> [ROWS=<row-id,...>] run the selected owner test slice' \
+	'  make service-backed-test-slice' \
+	'                                      OWNER=<owner-id> [ROWS=<row-id,...>] run the selected owner service-backed slice' \
 	'  make backend-unit                   run pure backend unit evidence' \
 	'  make backend-store                  run service-backed store-domain evidence' \
 	'  make backend-integration            run backend integration evidence' \
@@ -236,13 +237,13 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'' \
 	'investigate a run:' \
 	'  make task-guide' \
-	'                                      ROLE=feature-dev PHASE=phase2 recommend what to run' \
+	'                                      ROLE=module-author OWNER=<owner-id> recommend what to run' \
 	'  make task-surface-report            print the root Make task-surface inventory' \
 	'  make target-plan' \
 	'                                      TARGET=backend-unit explain backend Go execution families; use explain-target for Make targets' \
 	'  make target-plan-json               emit deterministic backend target plan JSON' \
-	'  make explain-phase' \
-	'                                      PHASE=phase2 explain phase evidence and target coverage' \
+	'  make explain-test-owner' \
+	'                                      OWNER=<owner-id> explain owner evidence and target coverage' \
 	'  make explain-target' \
 	'                                      TARGET=backend-store DETAIL=rows explain one target' \
 	'  make explain-run' \
@@ -262,8 +263,8 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make phase-schedules                regenerate committed phase-derived schedules' \
 	'  make phase-schedule-drift           fail on phase-derived schedule drift' \
 	'  make agent-finalize                 refresh and validate harness-maintenance artifacts before verification' \
-	'  make frontend-evidence-audit' \
-	'                                      PHASE_NAMESPACE=frontend PHASE=FE-P8 CHECK_RESULTS_DIR=<root> [BROWSER_SUPPORT_RESULTS_DIR=<root>] [BROWSER_VISUAL_RESULTS_DIR=<root>] [BROWSER_A11Y_RESULTS_DIR=<root>] audit frontend phase closure across retained broad and explicit browser evidence roots' \
+	'  make test-evidence-audit' \
+	'                                      OWNER=<owner-id> EVIDENCE_ROOTS_FILE=<path> audit exact compatible evidence roots for one owner' \
 	'  make benchmark-claim-check          validate retained Core 05 benchmark claim artifacts' \
 	'  make go-test-duration-baselines' \
 	'                                      RESULTS_DIR=<dir> refresh Go test duration baselines' \
@@ -496,10 +497,10 @@ standup-operational-recovery-smoke:
 	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_PHASE_SCRIPT) "standup-operational-recovery-smoke" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) ./tools/release-evidence/check-standup-operational-recovery-smoke.sh
 	$(call RUN_TARGET_SUMMARY,standup-operational-recovery-smoke,pass)
 
-phase-map-check: export CARTULARY_TEST_TARGET ?= phase-map-check
-phase-map-check: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-phase-map-check: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)$(RUN_PHASE_SCRIPT) "phase-map-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" NODE_BIN="$(NODE_BIN)" ./tools/harness/phase-accounting/check-phase-maps.sh
+test-catalog-check: export CARTULARY_TEST_TARGET ?= test-catalog-check
+test-catalog-check: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+test-catalog-check: $(NODE_BIN)
+	$(Q)$(RUN_PHASE_SCRIPT) "test-catalog-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) ./tools/harness/test-catalog/catalog-check.mjs
 
 phase-ledgers: export CARTULARY_TEST_TARGET ?= phase-ledgers
 phase-ledgers:
@@ -534,15 +535,10 @@ agent-finalize:
 	$(Q)ALLOW_OLDER_RESULTS_DIR="$(ALLOW_OLDER_RESULTS_DIR)" RESULTS_DIR="$(RESULTS_DIR)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,ALLOW_OLDER_RESULTS_DIR RESULTS_DIR)" $(RUN_PHASE_SCRIPT) "agent-finalize" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) ALLOW_OLDER_RESULTS_DIR="$(ALLOW_OLDER_RESULTS_DIR)" RESULTS_DIR="$(RESULTS_DIR)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,ALLOW_OLDER_RESULTS_DIR RESULTS_DIR)" MAKE="$(MAKE)" $(NODE_BIN) \
 	  ./tools/harness/finalization/agent-finalize-cli.mjs
 
-frontend-evidence-audit: export CARTULARY_TEST_TARGET ?= frontend-evidence-audit
-frontend-evidence-audit:
+test-evidence-audit:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,frontend-evidence-audit)
-	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP); fi
-	$(Q)BROWSER_A11Y_RESULTS_DIR="$(BROWSER_A11Y_RESULTS_DIR)" BROWSER_MEASUREMENT_RESULTS_DIR="$(BROWSER_MEASUREMENT_RESULTS_DIR)" BROWSER_SUPPORT_RESULTS_DIR="$(BROWSER_SUPPORT_RESULTS_DIR)" BROWSER_VISUAL_RESULTS_DIR="$(BROWSER_VISUAL_RESULTS_DIR)" CHECK_RESULTS_DIR="$(CHECK_RESULTS_DIR)" PHASE="$(PHASE)" PHASE_NAMESPACE="$(PHASE_NAMESPACE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,BROWSER_A11Y_RESULTS_DIR BROWSER_MEASUREMENT_RESULTS_DIR BROWSER_SUPPORT_RESULTS_DIR \
-	  BROWSER_VISUAL_RESULTS_DIR CHECK_RESULTS_DIR PHASE PHASE_NAMESPACE)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_PHASE_SCRIPT) "frontend-evidence-audit" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) BROWSER_A11Y_RESULTS_DIR="$(BROWSER_A11Y_RESULTS_DIR)" BROWSER_MEASUREMENT_RESULTS_DIR="$(BROWSER_MEASUREMENT_RESULTS_DIR)" BROWSER_SUPPORT_RESULTS_DIR="$(BROWSER_SUPPORT_RESULTS_DIR)" BROWSER_VISUAL_RESULTS_DIR="$(BROWSER_VISUAL_RESULTS_DIR)" CHECK_RESULTS_DIR="$(CHECK_RESULTS_DIR)" \
-	  PHASE="$(PHASE)" PHASE_NAMESPACE="$(PHASE_NAMESPACE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,BROWSER_A11Y_RESULTS_DIR BROWSER_MEASUREMENT_RESULTS_DIR BROWSER_SUPPORT_RESULTS_DIR BROWSER_VISUAL_RESULTS_DIR CHECK_RESULTS_DIR PHASE PHASE_NAMESPACE)" $(NODE_BIN) ./tools/harness/phase-accounting/frontend-evidence-audit-cli.mjs
-	$(call RUN_TARGET_SUMMARY,frontend-evidence-audit,pass)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-evidence-audit)
+	$(Q)$(call RUN_MAKE_NODE_TOOL,test-evidence-audit,OWNER="$(OWNER)" EVIDENCE_ROOTS_FILE="$(EVIDENCE_ROOTS_FILE)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
 
 benchmark-claim-check: export CARTULARY_TEST_TARGET ?= benchmark-claim-check
 benchmark-claim-check:
@@ -555,20 +551,23 @@ task-surface-report:
 	$(Q)$(call RUN_MAKE_NODE_TOOL,task-surface-report,TASK_SURFACE_REPORT_ARGS="$(TASK_SURFACE_REPORT_ARGS)")
 
 task-guide:
+	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,task-guide)
-	$(Q)$(call RUN_MAKE_NODE_TOOL,task-guide,ROLE="$(ROLE)" PHASE="$(PHASE)" PHASE_NAMESPACE="$(PHASE_NAMESPACE)" JSON="$(JSON)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)")
+	$(Q)$(call RUN_MAKE_NODE_TOOL,task-guide,ROLE="$(ROLE)" OWNER="$(OWNER)" JSON="$(JSON)")
 
-phase-slice:
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,phase-slice)
-	$(Q)$(call RUN_MAKE_NODE_TOOL,phase-slice,PHASE="$(PHASE)" PHASE_NAMESPACE="$(PHASE_NAMESPACE)" ROWS="$(ROWS)" VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" PLAYWRIGHT_WORKERS="$(PLAYWRIGHT_WORKERS)" JSON="$(JSON)" MAKE="$(MAKE)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" NODE_BIN="$(NODE_BIN)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" PNPM="$(PNPM)" \
-	  SERVER_BIN="$(SERVER_BIN)" MIGRATE_BIN="$(MIGRATE_BIN)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TEST_SERVICE_PACKAGE_PARALLELISM="$(GO_TEST_SERVICE_PACKAGE_PARALLELISM)" BACKEND_STORE_GO_TEST_P="$(BACKEND_STORE_GO_TEST_P)" BACKEND_INTEGRATION_GO_TEST_P="$(BACKEND_INTEGRATION_GO_TEST_P)" BACKEND_INTEGRATION_SHARD_JOBS="$(BACKEND_INTEGRATION_SHARD_JOBS)" BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" \
-	  TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" SCHEDULER_MANIFEST="$(TASK_SURFACE_CANONICAL_SCHEDULER_MANIFEST)" BROWSER_E2E_BATCH_MANIFEST="$(BROWSER_E2E_BATCH_MANIFEST)" CARTULARY_RUNNER_SCRIPT="$(CARTULARY_RUNNER_SCRIPT)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" RUN_GO_TARGET_SCRIPT="$(RUN_GO_TARGET_SCRIPT)" RUN_SERVICE_BACKED_SCHEDULE_SCRIPT="$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT)")
+test-slice:
+	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-slice)
+	$(Q)$(call RUN_MAKE_NODE_TOOL,test-slice,OWNER="$(OWNER)" ROWS="$(ROWS)" VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" PLAYWRIGHT_WORKERS="$(PLAYWRIGHT_WORKERS)" JSON="$(JSON)" MAKE="$(MAKE)" GO="$(GO)" PNPM="$(PNPM)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
 
-service-backed-slice:
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,service-backed-slice)
-	$(Q)$(call RUN_MAKE_NODE_TOOL,service-backed-slice,PHASE="$(PHASE)" PHASE_NAMESPACE="$(PHASE_NAMESPACE)" ROWS="$(ROWS)" VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" PLAYWRIGHT_WORKERS="$(PLAYWRIGHT_WORKERS)" JSON="$(JSON)" MAKE="$(MAKE)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" NODE_BIN="$(NODE_BIN)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" \
-	  PNPM="$(PNPM)" SERVER_BIN="$(SERVER_BIN)" MIGRATE_BIN="$(MIGRATE_BIN)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TEST_SERVICE_PACKAGE_PARALLELISM="$(GO_TEST_SERVICE_PACKAGE_PARALLELISM)" BACKEND_STORE_GO_TEST_P="$(BACKEND_STORE_GO_TEST_P)" BACKEND_INTEGRATION_GO_TEST_P="$(BACKEND_INTEGRATION_GO_TEST_P)" BACKEND_INTEGRATION_SHARD_JOBS="$(BACKEND_INTEGRATION_SHARD_JOBS)" BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" \
-	  TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" SCHEDULER_MANIFEST="$(TASK_SURFACE_CANONICAL_SCHEDULER_MANIFEST)" BROWSER_E2E_BATCH_MANIFEST="$(BROWSER_E2E_BATCH_MANIFEST)" CARTULARY_RUNNER_SCRIPT="$(CARTULARY_RUNNER_SCRIPT)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" RUN_GO_TARGET_SCRIPT="$(RUN_GO_TARGET_SCRIPT)" RUN_SERVICE_BACKED_SCHEDULE_SCRIPT="$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT)")
+service-backed-test-slice:
+	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,service-backed-test-slice)
+	$(Q)$(call RUN_MAKE_NODE_TOOL,service-backed-test-slice,OWNER="$(OWNER)" ROWS="$(ROWS)" VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" PLAYWRIGHT_WORKERS="$(PLAYWRIGHT_WORKERS)" JSON="$(JSON)" MAKE="$(MAKE)" GO="$(GO)" PNPM="$(PNPM)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
+
+graph-projection-fixture-candidate: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+graph-projection-fixture-candidate:
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" FIXTURE="$(FIXTURE)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" bash ./tools/harness/execution/run-graph-projection-fixture-candidate.sh
 
 backend-unit: export CARTULARY_TEST_TARGET ?= backend-unit
 backend-unit:
@@ -619,9 +618,10 @@ explain-run:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,explain-run)
 	$(Q)$(call RUN_MAKE_NODE_TOOL,explain-run,RESULTS_DIR="$(RESULTS_DIR)" RUN_ID="$(RUN_ID)" TARGET="$(TARGET)" DETAIL="$(DETAIL)")
 
-explain-phase:
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,explain-phase)
-	$(Q)$(call RUN_MAKE_NODE_TOOL,explain-phase,PHASE="$(PHASE)" PHASE_NAMESPACE="$(PHASE_NAMESPACE)" JSON="$(JSON)")
+explain-test-owner:
+	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,explain-test-owner)
+	$(Q)$(call RUN_MAKE_NODE_TOOL,explain-test-owner,OWNER="$(OWNER)" JSON="$(JSON)")
 
 explain-target:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,explain-target)

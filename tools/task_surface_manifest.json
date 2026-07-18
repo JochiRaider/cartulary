@@ -8,7 +8,7 @@
       },
       {
         "target": "task-guide",
-        "description": "recommend targets by role, phase, services, and artifacts"
+        "description": "recommend exact owner verification by module-author role"
       },
       {
         "target": "doctor",
@@ -147,14 +147,14 @@
           "description": "run the narrower local verification loop"
         },
         {
-          "target": "phase-slice",
-          "usage": "PHASE=phaseN",
-          "description": "run the selected phase manifest-row slice"
+          "target": "test-slice",
+          "usage": "OWNER=<owner-id> [ROWS=<row-id,...>]",
+          "description": "run the selected owner test slice"
         },
         {
-          "target": "service-backed-slice",
-          "usage": "PHASE=phaseN",
-          "description": "run the selected phase service-backed manifest-row slice"
+          "target": "service-backed-test-slice",
+          "usage": "OWNER=<owner-id> [ROWS=<row-id,...>]",
+          "description": "run the selected owner service-backed slice"
         },
         {
           "target": "backend-unit",
@@ -280,7 +280,7 @@
       "entries": [
         {
           "target": "task-guide",
-          "usage": "ROLE=feature-dev PHASE=phase2",
+          "usage": "ROLE=module-author OWNER=<owner-id>",
           "description": "recommend what to run"
         },
         {
@@ -297,9 +297,9 @@
           "description": "emit deterministic backend target plan JSON"
         },
         {
-          "target": "explain-phase",
-          "usage": "PHASE=phase2",
-          "description": "explain phase evidence and target coverage"
+          "target": "explain-test-owner",
+          "usage": "OWNER=<owner-id>",
+          "description": "explain owner evidence and target coverage"
         },
         {
           "target": "explain-target",
@@ -362,9 +362,9 @@
           "description": "refresh and validate harness-maintenance artifacts before verification"
         },
         {
-          "target": "frontend-evidence-audit",
-          "usage": "PHASE_NAMESPACE=frontend PHASE=FE-P8 CHECK_RESULTS_DIR=<root> [BROWSER_SUPPORT_RESULTS_DIR=<root>] [BROWSER_VISUAL_RESULTS_DIR=<root>] [BROWSER_A11Y_RESULTS_DIR=<root>]",
-          "description": "audit frontend phase closure across retained broad and explicit browser evidence roots"
+          "target": "test-evidence-audit",
+          "usage": "OWNER=<owner-id> EVIDENCE_ROOTS_FILE=<path>",
+          "description": "audit exact compatible evidence roots for one owner"
         },
         {
           "target": "benchmark-claim-check",
@@ -1340,21 +1340,16 @@
       "test_target": "self",
       "success_summary": true
     },
-    "phase-map-check": {
+    "test-catalog-check": {
       "prerequisites": [
-        "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)"
+        "$(NODE_BIN)"
       ],
       "type": "phase_command",
       "mode": "run_phase",
-      "phase_label": "phase-map-check",
-      "env": {
-        "PATH": "$(NODE_RUNTIME_DIR)/bin:$$PATH",
-        "COREPACK_HOME": "$(NODE_RUNTIME_DIR)/corepack",
-        "NODE_BIN": "$(NODE_BIN)"
-      },
+      "phase_label": "test-catalog-check",
       "command": [
-        "./tools/harness/phase-accounting/check-phase-maps.sh"
+        "$(NODE_BIN)",
+        "./tools/harness/test-catalog/catalog-check.mjs"
       ],
       "test_target": "self"
     },
@@ -1443,20 +1438,11 @@
       ],
       "test_target": "self"
     },
-    "frontend-evidence-audit": {
+    "test-evidence-audit": {
+      "type": "owner_command",
       "prerequisites": [
-        "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)"
-      ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "frontend-evidence-audit",
-      "command": [
-        "$(NODE_BIN)",
-        "./tools/harness/phase-accounting/frontend-evidence-audit-cli.mjs"
-      ],
-      "test_target": "self",
-      "success_summary": true
+        "$(NODE_BIN)"
+      ]
     },
     "benchmark-claim-check": {
       "prerequisites": [
@@ -1477,16 +1463,38 @@
       "prerequisites": []
     },
     "task-guide": {
-      "type": "node_tool",
-      "prerequisites": []
+      "type": "owner_command",
+      "prerequisites": [
+        "$(NODE_BIN)"
+      ]
     },
-    "phase-slice": {
-      "type": "node_tool",
-      "prerequisites": []
+    "test-slice": {
+      "type": "owner_command",
+      "prerequisites": [
+        "$(NODE_BIN)"
+      ]
     },
-    "service-backed-slice": {
-      "type": "node_tool",
-      "prerequisites": []
+    "service-backed-test-slice": {
+      "type": "owner_command",
+      "prerequisites": [
+        "$(NODE_BIN)"
+      ]
+    },
+    "graph-projection-fixture-candidate": {
+      "prerequisites": [],
+      "type": "phase_command",
+      "mode": "command",
+      "env": {
+        "CARTULARY_TEST_RESULTS_DIR": "$(CARTULARY_TEST_RESULTS_DIR)",
+        "FIXTURE": "$(FIXTURE)",
+        "GO": "$(GO)",
+        "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+        "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)"
+      },
+      "command": [
+        "bash",
+        "./tools/harness/execution/run-graph-projection-fixture-candidate.sh"
+      ]
     },
     "backend-unit": {
       "type": "go_target",
@@ -1567,9 +1575,11 @@
       "type": "node_tool",
       "prerequisites": []
     },
-    "explain-phase": {
-      "type": "node_tool",
-      "prerequisites": []
+    "explain-test-owner": {
+      "type": "owner_command",
+      "prerequisites": [
+        "$(NODE_BIN)"
+      ]
     },
     "explain-target": {
       "type": "node_tool",
@@ -4423,11 +4433,12 @@
       "lifecycle_state": "public_active"
     },
     {
-      "name": "phase-map-check",
+      "name": "test-catalog-check",
       "backing_scripts": [
-        "tools/harness/phase-accounting/check-phase-maps.sh"
+        "tools/harness/test-catalog/catalog-check.mjs",
+        "tools/harness/test-catalog/test-catalog.mjs"
       ],
-      "target_class": "internal_helper",
+      "target_class": "check_internal",
       "default_inclusion_sets": [
         "check"
       ],
@@ -4760,11 +4771,10 @@
       }
     },
     {
-      "name": "frontend-evidence-audit",
+      "name": "test-evidence-audit",
       "backing_scripts": [
-        "tools/harness/phase-accounting/frontend-evidence-audit-cli.mjs",
-        "tools/harness/phase-accounting/frontend-phase-manifest.mjs",
-        "tools/harness/phase-accounting/frontend-row-accounting.mjs"
+        "tools/harness/evidence-accounting/evidence-audit-cli.mjs",
+        "tools/harness/evidence-accounting/owner-evidence.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -4784,7 +4794,7 @@
         "raw_stream_policy": "never_default",
         "summary_schema": "cartulary.tool_run_summary.v4"
       },
-      "command_id": "cartulary.harness.command.frontend_evidence_audit.v1",
+      "command_id": "cartulary.harness.command.test_evidence_audit.v1",
       "semantic_behaviors": [
         {
           "behavior": "evidence_normalization",
@@ -4813,7 +4823,7 @@
         "undeclared_inherited_env": "ignore",
         "inputs": [
           {
-            "name": "PHASE_NAMESPACE",
+            "name": "OWNER",
             "binding": "make_variable",
             "allowed_sources": [
               "make_command_line",
@@ -4821,16 +4831,16 @@
               "makefile_default"
             ],
             "required": true,
-            "type": "phase_namespace",
+            "type": "owner_id",
             "default": null,
             "empty_string": "invalid",
             "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
-            "child_forwarding": "runtime_env"
+            "child_forwarding": "argv"
           },
           {
-            "name": "PHASE",
+            "name": "EVIDENCE_ROOTS_FILE",
             "binding": "make_variable",
             "allowed_sources": [
               "make_command_line",
@@ -4838,98 +4848,13 @@
               "makefile_default"
             ],
             "required": true,
-            "type": "phase_id",
+            "type": "path",
             "default": null,
             "empty_string": "invalid",
-            "normalization": "trim",
-            "invalid_reason": "usage_error",
-            "summary_emission": "value",
-            "child_forwarding": "runtime_env"
-          },
-          {
-            "name": "CHECK_RESULTS_DIR",
-            "binding": "make_variable",
-            "allowed_sources": [
-              "make_command_line",
-              "environment",
-              "makefile_default"
-            ],
-            "required": false,
-            "type": "result_selector",
-            "default": null,
-            "empty_string": "omitted",
             "normalization": "path_token",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
-            "child_forwarding": "runtime_env"
-          },
-          {
-            "name": "BROWSER_SUPPORT_RESULTS_DIR",
-            "binding": "make_variable",
-            "allowed_sources": [
-              "make_command_line",
-              "environment",
-              "makefile_default"
-            ],
-            "required": false,
-            "type": "result_selector",
-            "default": null,
-            "empty_string": "omitted",
-            "normalization": "path_token",
-            "invalid_reason": "usage_error",
-            "summary_emission": "value",
-            "child_forwarding": "runtime_env"
-          },
-          {
-            "name": "BROWSER_VISUAL_RESULTS_DIR",
-            "binding": "make_variable",
-            "allowed_sources": [
-              "make_command_line",
-              "environment",
-              "makefile_default"
-            ],
-            "required": false,
-            "type": "result_selector",
-            "default": null,
-            "empty_string": "omitted",
-            "normalization": "path_token",
-            "invalid_reason": "usage_error",
-            "summary_emission": "value",
-            "child_forwarding": "runtime_env"
-          },
-          {
-            "name": "BROWSER_A11Y_RESULTS_DIR",
-            "binding": "make_variable",
-            "allowed_sources": [
-              "make_command_line",
-              "environment",
-              "makefile_default"
-            ],
-            "required": false,
-            "type": "result_selector",
-            "default": null,
-            "empty_string": "omitted",
-            "normalization": "path_token",
-            "invalid_reason": "usage_error",
-            "summary_emission": "value",
-            "child_forwarding": "runtime_env"
-          },
-          {
-            "name": "BROWSER_MEASUREMENT_RESULTS_DIR",
-            "binding": "make_variable",
-            "allowed_sources": [
-              "make_command_line",
-              "environment",
-              "makefile_default"
-            ],
-            "required": false,
-            "type": "result_selector",
-            "default": null,
-            "empty_string": "omitted",
-            "normalization": "path_token",
-            "invalid_reason": "usage_error",
-            "summary_emission": "value",
-            "child_forwarding": "runtime_env"
+            "child_forwarding": "argv"
           }
         ]
       }
@@ -5063,8 +4988,8 @@
     {
       "name": "task-guide",
       "backing_scripts": [
-        "tools/harness/diagnostics/task-guide-cli.mjs",
-        "tools/harness/diagnostics/task-guidance.mjs"
+        "tools/harness/diagnostics/owner-diagnostics-cli.mjs",
+        "tools/harness/diagnostics/owner-diagnostics.mjs"
       ],
       "output_policy": {
         "output_class": "human_summary",
@@ -5084,7 +5009,7 @@
         "raw_stream_policy": "explicit_detail_only",
         "summary_schema": null
       },
-      "command_id": "cartulary.harness.command.task_guide.v1",
+      "command_id": "cartulary.harness.command.task_guide.v2",
       "semantic_behaviors": [
         {
           "behavior": "diagnostic_synthesis",
@@ -5115,51 +5040,30 @@
               "environment",
               "makefile_default"
             ],
-            "required": false,
+            "required": true,
             "type": "enum",
             "default": null,
-            "empty_string": "omitted",
+            "empty_string": "invalid",
             "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "argv",
             "values": [
-              "local-dev",
-              "feature-dev",
-              "phase-author",
-              "ci-investigator",
-              "release"
+              "module-author"
             ]
           },
           {
-            "name": "PHASE",
+            "name": "OWNER",
             "binding": "make_variable",
             "allowed_sources": [
               "make_command_line",
               "environment",
               "makefile_default"
             ],
-            "required": false,
-            "type": "phase_id",
+            "required": true,
+            "type": "owner_id",
             "default": null,
-            "empty_string": "omitted",
-            "normalization": "trim",
-            "invalid_reason": "usage_error",
-            "summary_emission": "value",
-            "child_forwarding": "argv"
-          },
-          {
-            "name": "PHASE_NAMESPACE",
-            "binding": "make_variable",
-            "allowed_sources": [
-              "make_command_line",
-              "environment",
-              "makefile_default"
-            ],
-            "required": false,
-            "type": "phase_namespace",
-            "default": "base",
-            "empty_string": "omitted",
+            "empty_string": "invalid",
             "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
@@ -5186,12 +5090,12 @@
       }
     },
     {
-      "name": "phase-slice",
+      "name": "test-slice",
       "backing_scripts": [
-        "tools/harness/phase-accounting/phase-slice-cli.mjs",
-        "tools/harness/phase-accounting/phase-slice-plan.mjs",
-        "tools/harness/phase-accounting/frontend-phase-slice-plan.mjs",
-        "tools/harness/diagnostics/task-guidance.mjs"
+        "tools/harness/owner-slice/owner-slice-cli.mjs",
+        "tools/harness/owner-slice/plan.mjs",
+        "tools/harness/owner-slice/scheduler.mjs",
+        "tools/harness/owner-slice/execution.mjs"
       ],
       "output_policy": {
         "output_class": "scheduler_summary_with_artifacts",
@@ -5211,7 +5115,7 @@
         "raw_stream_policy": "never_default",
         "summary_schema": "cartulary.tool_run_summary.v4"
       },
-      "command_id": "cartulary.harness.command.phase_slice.v1",
+      "command_id": "cartulary.harness.command.test_slice.v1",
       "semantic_behaviors": [
         {
           "behavior": "scheduler_orchestration",
@@ -5231,7 +5135,7 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "phase_service_slices",
+      "family_id": "test_owner_slices",
       "side_effects": [
         {
           "class": "retained_artifacts",
@@ -5267,7 +5171,7 @@
         "undeclared_inherited_env": "ignore",
         "inputs": [
           {
-            "name": "PHASE",
+            "name": "OWNER",
             "binding": "make_variable",
             "allowed_sources": [
               "make_command_line",
@@ -5275,26 +5179,9 @@
               "makefile_default"
             ],
             "required": true,
-            "type": "phase_id",
+            "type": "owner_id",
             "default": null,
             "empty_string": "invalid",
-            "normalization": "trim",
-            "invalid_reason": "usage_error",
-            "summary_emission": "value",
-            "child_forwarding": "argv"
-          },
-          {
-            "name": "PHASE_NAMESPACE",
-            "binding": "make_variable",
-            "allowed_sources": [
-              "make_command_line",
-              "environment",
-              "makefile_default"
-            ],
-            "required": false,
-            "type": "phase_namespace",
-            "default": "base",
-            "empty_string": "omitted",
             "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
@@ -5309,9 +5196,9 @@
               "makefile_default"
             ],
             "required": false,
-            "type": "phase_row_ids",
+            "type": "row_ids",
             "default": null,
-            "empty_string": "omitted",
+            "empty_string": "invalid",
             "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
@@ -5376,12 +5263,12 @@
       }
     },
     {
-      "name": "service-backed-slice",
+      "name": "service-backed-test-slice",
       "backing_scripts": [
-        "tools/harness/phase-accounting/phase-slice-cli.mjs",
-        "tools/harness/phase-accounting/phase-slice-plan.mjs",
-        "tools/harness/phase-accounting/frontend-phase-slice-plan.mjs",
-        "tools/harness/diagnostics/task-guidance.mjs"
+        "tools/harness/owner-slice/owner-slice-cli.mjs",
+        "tools/harness/owner-slice/plan.mjs",
+        "tools/harness/owner-slice/scheduler.mjs",
+        "tools/harness/owner-slice/execution.mjs"
       ],
       "output_policy": {
         "output_class": "scheduler_summary_with_artifacts",
@@ -5401,7 +5288,7 @@
         "raw_stream_policy": "never_default",
         "summary_schema": "cartulary.tool_run_summary.v4"
       },
-      "command_id": "cartulary.harness.command.service_backed_slice.v1",
+      "command_id": "cartulary.harness.command.service_backed_test_slice.v1",
       "semantic_behaviors": [
         {
           "behavior": "scheduler_orchestration",
@@ -5421,7 +5308,7 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "phase_service_slices",
+      "family_id": "test_owner_slices",
       "side_effects": [
         {
           "class": "retained_artifacts",
@@ -5457,7 +5344,7 @@
         "undeclared_inherited_env": "ignore",
         "inputs": [
           {
-            "name": "PHASE",
+            "name": "OWNER",
             "binding": "make_variable",
             "allowed_sources": [
               "make_command_line",
@@ -5465,26 +5352,9 @@
               "makefile_default"
             ],
             "required": true,
-            "type": "phase_id",
+            "type": "owner_id",
             "default": null,
             "empty_string": "invalid",
-            "normalization": "trim",
-            "invalid_reason": "usage_error",
-            "summary_emission": "value",
-            "child_forwarding": "argv"
-          },
-          {
-            "name": "PHASE_NAMESPACE",
-            "binding": "make_variable",
-            "allowed_sources": [
-              "make_command_line",
-              "environment",
-              "makefile_default"
-            ],
-            "required": false,
-            "type": "phase_namespace",
-            "default": "base",
-            "empty_string": "omitted",
             "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
@@ -5499,9 +5369,9 @@
               "makefile_default"
             ],
             "required": false,
-            "type": "phase_row_ids",
+            "type": "row_ids",
             "default": null,
-            "empty_string": "omitted",
+            "empty_string": "invalid",
             "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
@@ -5564,6 +5434,16 @@
           }
         ]
       }
+    },
+    {
+      "name": "graph-projection-fixture-candidate",
+      "backing_scripts": [
+        "tools/harness/execution/run-graph-projection-fixture-candidate.sh",
+        "internal/modules/graphprojection/conformance_fixture_candidate_test.go"
+      ],
+      "target_class": "internal_helper",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "candidate_child"
     },
     {
       "name": "backend-unit",
@@ -6362,10 +6242,10 @@
       }
     },
     {
-      "name": "explain-phase",
+      "name": "explain-test-owner",
       "backing_scripts": [
-        "tools/harness/diagnostics/explain-phase-cli.mjs",
-        "tools/harness/diagnostics/task-guidance.mjs"
+        "tools/harness/diagnostics/owner-diagnostics-cli.mjs",
+        "tools/harness/diagnostics/owner-diagnostics.mjs"
       ],
       "output_policy": {
         "output_class": "human_summary",
@@ -6385,7 +6265,7 @@
         "raw_stream_policy": "explicit_detail_only",
         "summary_schema": null
       },
-      "command_id": "cartulary.harness.command.explain_phase.v1",
+      "command_id": "cartulary.harness.command.explain_test_owner.v1",
       "semantic_behaviors": [
         {
           "behavior": "diagnostic_synthesis",
@@ -6409,7 +6289,7 @@
         "undeclared_inherited_env": "ignore",
         "inputs": [
           {
-            "name": "PHASE",
+            "name": "OWNER",
             "binding": "make_variable",
             "allowed_sources": [
               "make_command_line",
@@ -6417,26 +6297,9 @@
               "makefile_default"
             ],
             "required": true,
-            "type": "phase_id",
+            "type": "owner_id",
             "default": null,
             "empty_string": "invalid",
-            "normalization": "trim",
-            "invalid_reason": "usage_error",
-            "summary_emission": "value",
-            "child_forwarding": "argv"
-          },
-          {
-            "name": "PHASE_NAMESPACE",
-            "binding": "make_variable",
-            "allowed_sources": [
-              "make_command_line",
-              "environment",
-              "makefile_default"
-            ],
-            "required": false,
-            "type": "phase_namespace",
-            "default": "base",
-            "empty_string": "omitted",
             "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
@@ -10692,7 +10555,6 @@
         "harness-smoke-execution-topology",
         "harness-smoke-task-surface-report",
         "harness-smoke-agent-finalize",
-        "harness-smoke-frontend-evidence-audit",
         "harness-smoke-run-make-sequence-fast",
         "harness-smoke-cartulary-runner-service-backed-target",
         "harness-smoke-toolchain-pins",
@@ -10715,9 +10577,6 @@
         "harness-smoke-seaweedfs-release-evidence",
         "harness-smoke-benchmark-claim-check",
         "harness-smoke-make-node-tools",
-        "harness-smoke-guidance-core",
-        "harness-smoke-guidance-matrix",
-        "harness-smoke-phase-slice",
         "harness-smoke-go-test-duration-baselines",
         "harness-smoke-service-backed-make-target-duration-baselines",
         "harness-smoke-harness-duration-baselines",
@@ -10764,7 +10623,6 @@
         "harness-smoke-execution-topology",
         "harness-smoke-task-surface-report",
         "harness-smoke-agent-finalize",
-        "harness-smoke-frontend-evidence-audit",
         "harness-smoke-run-make-sequence-fast",
         "harness-smoke-cartulary-runner-service-backed-target",
         "harness-smoke-toolchain-pins",
@@ -10787,9 +10645,6 @@
         "harness-smoke-seaweedfs-release-evidence",
         "harness-smoke-benchmark-claim-check",
         "harness-smoke-make-node-tools",
-        "harness-smoke-guidance-core",
-        "harness-smoke-guidance-matrix",
-        "harness-smoke-phase-slice",
         "harness-smoke-go-test-duration-baselines",
         "harness-smoke-service-backed-make-target-duration-baselines",
         "harness-smoke-harness-duration-baselines",
@@ -10991,13 +10846,6 @@
       ]
     },
     {
-      "name": "harness-smoke-frontend-evidence-audit",
-      "backing_scripts": [
-        "tools/harness/phase-accounting/tests/test-frontend-evidence-audit.sh",
-        "tools/harness/phase-accounting/frontend-evidence-audit-cli.mjs"
-      ]
-    },
-    {
       "name": "harness-smoke-make-node-tools",
       "backing_scripts": [
         "tools/harness/tests/test-make-node-tools.sh",
@@ -11012,35 +10860,6 @@
         "tools/harness/generated-artifacts/tests/test-execution-topology.sh",
         "tools/harness/generated-artifacts/execution-topology.mjs",
         "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs"
-      ]
-    },
-    {
-      "name": "harness-smoke-guidance-core",
-      "backing_scripts": [
-        "tools/harness/diagnostics/tests/test-task-guidance.mjs"
-      ],
-      "command": [
-        "$(NODE_BIN)",
-        "tools/harness/diagnostics/tests/test-task-guidance.mjs",
-        "core"
-      ]
-    },
-    {
-      "name": "harness-smoke-guidance-matrix",
-      "backing_scripts": [
-        "tools/harness/diagnostics/tests/test-task-guidance.mjs"
-      ],
-      "command": [
-        "$(NODE_BIN)",
-        "tools/harness/diagnostics/tests/test-task-guidance.mjs",
-        "matrix"
-      ]
-    },
-    {
-      "name": "harness-smoke-phase-slice",
-      "backing_scripts": [
-        "tools/harness/phase-accounting/tests/test-run-phase-slice.sh",
-        "tools/harness/phase-accounting/phase-slice-cli.mjs"
       ]
     },
     {

@@ -44,6 +44,15 @@ export const nonCanonicalPublicMakeVariables = Object.freeze([
   "STATICCHECK_CHECKS",
   "VITEST_FLAGS",
 ]);
+export const retiredPublicMakeVariables = Object.freeze([
+  "BROWSER_A11Y_RESULTS_DIR",
+  "BROWSER_MEASUREMENT_RESULTS_DIR",
+  "BROWSER_SUPPORT_RESULTS_DIR",
+  "BROWSER_VISUAL_RESULTS_DIR",
+  "CHECK_RESULTS_DIR",
+  "PHASE",
+  "PHASE_NAMESPACE",
+]);
 
 export function resolveRepoPath(value) {
   return path.isAbsolute(value) ? value : path.join(repoRoot, value);

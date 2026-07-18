@@ -259,7 +259,13 @@ write_valid_browser_batch() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.browser_e2e_batch_manifest.v5",
+  "schema_id": "cartulary.browser_e2e_batch_manifest.v6",
+  "runtime_profiles": [
+    {
+      "id": "default",
+      "kind": "default"
+    }
+  ],
   "stages": [
     {
       "name": "functional",
@@ -1720,8 +1726,8 @@ const mutations = {
   "check-schedule-missing-make-prerequisite-policy": (fixture) => {
     delete fixture.schedules[0].work_units[0].make_prerequisite_policy;
   },
-  "check-schedule-unsupported-timeout-seconds": (fixture) => {
-    fixture.schedules[0].work_units[0].timeout_seconds = 1;
+  "check-schedule-invalid-timeout-seconds": (fixture) => {
+    fixture.schedules[0].work_units[0].timeout_seconds = 0;
   },
   "check-schedule-browser-worker-overlap": (fixture) => {
     fixture.schedules[0].work_units = [
@@ -2265,11 +2271,11 @@ mutate_json_fixture check-schedule-missing-make-prerequisite-policy "$missing_ch
 missing_check_make_prerequisite_policy_output="$(assert_fails "missing scheduler make prerequisite policy" run_shape_check scheduler-manifest "$missing_check_make_prerequisite_policy")"
 assert_contains "$missing_check_make_prerequisite_policy_output" "make_prerequisite_policy is required for make_target work units" "missing scheduler make prerequisite policy"
 
-unsupported_timeout_seconds="$tmp_dir/check_schedule_unsupported_timeout_seconds.json"
-write_valid_check_schedule "$unsupported_timeout_seconds"
-mutate_json_fixture check-schedule-unsupported-timeout-seconds "$unsupported_timeout_seconds"
-unsupported_timeout_seconds_output="$(assert_fails "unsupported scheduler timeout seconds" run_shape_check scheduler-manifest "$unsupported_timeout_seconds")"
-assert_contains "$unsupported_timeout_seconds_output" "unknown key timeout_seconds" "unsupported scheduler timeout seconds"
+invalid_timeout_seconds="$tmp_dir/check_schedule_invalid_timeout_seconds.json"
+write_valid_check_schedule "$invalid_timeout_seconds"
+mutate_json_fixture check-schedule-invalid-timeout-seconds "$invalid_timeout_seconds"
+invalid_timeout_seconds_output="$(assert_fails "invalid scheduler timeout seconds" run_shape_check scheduler-manifest "$invalid_timeout_seconds")"
+assert_contains "$invalid_timeout_seconds_output" "timeout_seconds must be >= 1" "invalid scheduler timeout seconds"
 
 browser_worker_overlap="$tmp_dir/check_schedule_browser_worker_overlap.json"
 write_valid_check_schedule "$browser_worker_overlap"

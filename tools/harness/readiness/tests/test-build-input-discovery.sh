@@ -47,7 +47,7 @@ cd "$ROOT_DIR"
 
 normal_output="$("$SCRIPT" cmd/server internal/app)"
 assert_contains "$normal_output" "cmd/server/main.go" "server discovery"
-assert_contains "$normal_output" "internal/app/runtime.go" "app discovery"
+assert_contains "$normal_output" "internal/app/server/runtime.go" "app facade discovery"
 
 if "$SCRIPT" cmd/server "$tmp_dir/missing-root" >"$tmp_dir/missing.stdout" 2>"$tmp_dir/missing.stderr"; then
   fail "missing root discovery unexpectedly succeeded"

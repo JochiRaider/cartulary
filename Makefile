@@ -242,34 +242,6 @@ FORCE:
 include tools/task_surface.runtime.generated.mk
 include tools/task_surface.generated.mk
 
-# Owner-first targets remain hidden from generated help until the WS-09
-# task-surface cutover. Their command contracts and execution are live so the
-# owner scheduler and diagnostics can be validated before v1 is retired.
-.PHONY: test-slice service-backed-test-slice explain-test-owner owner-task-guide test-evidence-audit
-
-test-slice:
-	$(Q)$(call RUN_MAKE_NODE_TOOL,test-slice,OWNER="$(OWNER)" ROWS="$(ROWS)" VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" PLAYWRIGHT_WORKERS="$(PLAYWRIGHT_WORKERS)" JSON="$(JSON)" MAKE="$(MAKE)" GO="$(GO)" PNPM="$(PNPM)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
-
-service-backed-test-slice:
-	$(Q)$(call RUN_MAKE_NODE_TOOL,service-backed-test-slice,OWNER="$(OWNER)" ROWS="$(ROWS)" VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" PLAYWRIGHT_WORKERS="$(PLAYWRIGHT_WORKERS)" JSON="$(JSON)" MAKE="$(MAKE)" GO="$(GO)" PNPM="$(PNPM)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
-
-explain-test-owner:
-	$(Q)$(call RUN_MAKE_NODE_TOOL,explain-test-owner,OWNER="$(OWNER)" JSON="$(JSON)")
-
-# This validation-only name avoids overriding the v1 generated task-guide
-# recipe before WS-09. It is deleted when task-guide v2 becomes public.
-owner-task-guide:
-	$(Q)$(call RUN_MAKE_NODE_TOOL,owner-task-guide,ROLE="$(ROLE)" OWNER="$(OWNER)" JSON="$(JSON)")
-
-test-evidence-audit:
-	$(Q)$(call RUN_MAKE_NODE_TOOL,test-evidence-audit,OWNER="$(OWNER)" EVIDENCE_ROOTS_FILE="$(EVIDENCE_ROOTS_FILE)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
-
-.PHONY: graph-projection-fixture-candidate
-graph-projection-fixture-candidate:
-	@test -n "$(FIXTURE)" || { echo "FIXTURE=GP-FIX-NNN is required" >&2; exit 2; }
-	@case "$(FIXTURE)" in GP-FIX-[0-9][0-9][0-9]) ;; *) echo "invalid FIXTURE=$(FIXTURE)" >&2; exit 2;; esac
-	@GRAPH_PROJECTION_FIXTURE="$(FIXTURE)" $(GO_ENV) $(GO) test ./internal/modules/graphprojection -run '^TestGraphProjectionFixtureCandidate$$' -count=1
-
 $(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT): $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(CYCLONEDX_GOMOD_BIN) $(SYFT_BIN) tools/release-evidence/generate-sbom-license-evidence.mjs tools/release-evidence/validate-cyclonedx.mjs go.mod go.sum package.json pnpm-lock.yaml pnpm-workspace.yaml docker-compose.dev.yml $(wildcard apps/web/package.json packages/*/package.json)
 	$(Q)mkdir -p $(RELEASE_ARTIFACT_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(Q)CARTULARY_TEST_TARGET=release-evidence CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_PHASE_SCRIPT) "generate SBOM/license evidence" -- env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" NODE_BIN="$(NODE_BIN)" PNPM="$(PNPM)" CYCLONEDX_GOMOD_BIN="$(CYCLONEDX_GOMOD_BIN)" SYFT_BIN="$(SYFT_BIN)" RELEASE_ARTIFACT_DIR="$(RELEASE_ARTIFACT_DIR)" LICENSE_REPORT_ARTIFACT="$(LICENSE_REPORT_ARTIFACT)" SBOM_ARTIFACT="$(SBOM_ARTIFACT)" $(NODE_BIN) ./tools/release-evidence/generate-sbom-license-evidence.mjs

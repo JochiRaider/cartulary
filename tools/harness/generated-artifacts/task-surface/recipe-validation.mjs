@@ -19,6 +19,13 @@ const makePrerequisitePattern = /^[A-Za-z0-9_.$()/:,/-]+$/;
 const makeValuePattern = /^[A-Za-z0-9_.$()/:,;="' -]+$/;
 const makeTokenPattern = /^[A-Za-z0-9_.$()/:,="./ -]+$/;
 const repoJSONPathPattern = /^[A-Za-z0-9_./-]+\.json$/;
+const ownerCommandTargets = new Set([
+  "explain-test-owner",
+  "service-backed-test-slice",
+  "task-guide",
+  "test-evidence-audit",
+  "test-slice",
+]);
 
 const makeRecipeValidators = Object.freeze({
   artifact_binding: validateArtifactBindingRecipe,
@@ -33,6 +40,7 @@ const makeRecipeValidators = Object.freeze({
   service_backed_schedule: validateServiceBackedScheduleRecipe,
   browser_batch: validateBrowserBatchRecipe,
   phase_command: validatePhaseCommandRecipe,
+  owner_command: validateOwnerCommandRecipe,
   summary_target: validateSummaryTargetRecipe,
   node_tool: validateNodeToolRecipe,
 });
@@ -51,8 +59,8 @@ function recipeCanProduceArtifactPolicy(target, recipe, artifactPolicy) {
     return (
       recipe.type === "check_schedule" ||
       recipe.type === "service_backed_schedule" ||
-      (recipe.type === "node_tool" &&
-        ["phase-slice", "service-backed-slice"].includes(target))
+      (recipe.type === "owner_command" &&
+        ["test-slice", "service-backed-test-slice"].includes(target))
     );
   }
   if (artifactPolicy === "tool_run_summary") {
@@ -64,6 +72,7 @@ function recipeCanProduceArtifactPolicy(target, recipe, artifactPolicy) {
       recipe.type === "service_backed_target" ||
       recipe.type === "browser_batch" ||
       recipe.type === "summary_target" ||
+      recipe.type === "owner_command" ||
       recipe.type === "phase_command"
     );
   }
@@ -209,6 +218,7 @@ function recipeRequiresNodeRuntime(recipe) {
       "check_schedule",
       "go_target",
       "make_node_tool",
+      "owner_command",
       "service_backed_schedule",
       "service_backed_target",
       "summary_target",
@@ -414,6 +424,13 @@ function validateNodeToolRecipe({ errors, target, label, helpers }) {
   if (!helpers.hasMakeNodeTool(target)) {
     errors.push(`${label} has no tools/harness/command-surface/make-node-tools.mjs registry entry`);
   }
+}
+
+function validateOwnerCommandRecipe({ errors, target, label, helpers }) {
+  if (!ownerCommandTargets.has(target)) {
+    errors.push(`${label} target is not in the closed owner command family`);
+  }
+  validateNodeToolRecipe({ errors, target, label, helpers });
 }
 
 function validateMakeAssignmentMap(

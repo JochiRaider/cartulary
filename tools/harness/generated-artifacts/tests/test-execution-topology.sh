@@ -359,7 +359,7 @@ const unknownRecipeType = taskSurfaceFixture();
 unknownRecipeType.make_recipes.help.type = "future_recipe";
 assert.match(
   taskSurfaceErrors(unknownRecipeType),
-  /make_recipes\.help\.type must be one of artifact_binding, aggregate, readiness_projection, cleanup, print_help, sequence, check_schedule, go_target, service_backed_target, service_backed_schedule, browser_batch, phase_command, summary_target, node_tool/,
+  /make_recipes\.help\.type must be one of artifact_binding, aggregate, readiness_projection, cleanup, print_help, sequence, check_schedule, go_target, service_backed_target, service_backed_schedule, browser_batch, phase_command, owner_command, summary_target, node_tool/,
   "task-surface validation must reject unknown Make recipe types with the registry order",
 );
 
@@ -590,7 +590,7 @@ const expectedCheckWorkUnitPriorities = [
   ["lint-markdown", 12875],
   ["lint-shell", 12850],
   ["phase-test-name-check", 12000],
-  ["phase-map-check", 11500],
+  ["test-catalog-check", 11500],
   ["go-test-duration-baseline-coverage", 11400],
   ["phase-ledger-drift", 11300],
   ["phase-schedule-drift", 11200],

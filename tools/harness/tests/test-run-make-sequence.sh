@@ -466,7 +466,7 @@ assert_contains "${run_harness_smoke_execution_block}" '$(RUN_HARNESS_SMOKE_SCRI
 assert_contains "${run_harness_smoke_full_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier full --jobs "$(HARNESS_SMOKE_JOBS)"' "run-harness-smoke-full manifest runner"
 assert_contains "${check_harness_smoke_block}" "run-harness-smoke-fast" "check-harness-smoke fast tier invocation"
 assert_contains "${check_harness_smoke_block}" "--projection check-harness-smoke" "check-harness-smoke summary projection"
-assert_contains "${task_guide_node_tool_line}" '$(call RUN_MAKE_NODE_TOOL,task-guide,ROLE="$(ROLE)" PHASE="$(PHASE)" PHASE_NAMESPACE="$(PHASE_NAMESPACE)" JSON="$(JSON)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)")' "task-guide node-tool scoped env"
+assert_contains "${task_guide_node_tool_line}" '$(call RUN_MAKE_NODE_TOOL,task-guide,ROLE="$(ROLE)" OWNER="$(OWNER)" JSON="$(JSON)")' "task-guide node-tool scoped env"
 assert_not_contains "${task_guide_node_tool_line}" 'BASELINE_FILE="$(BASELINE_FILE)"' "task-guide omits unrelated baseline env"
 assert_contains "${target_plan_node_tool_line}" '$(call RUN_MAKE_NODE_TOOL,target-plan,TARGET="$(TARGET)")' "target-plan node-tool scoped env"
 assert_not_contains "${target_plan_node_tool_line}" 'PHASE="$(PHASE)"' "target-plan omits phase env"

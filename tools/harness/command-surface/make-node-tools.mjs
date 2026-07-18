@@ -4,11 +4,18 @@ import path from "node:path";
 const defaultResultsRoot = ".cartulary/test-results";
 const defaultTaskSurfaceManifest = "tools/task_surface_manifest.json";
 const retiredPublicPassthroughEnvNames = Object.freeze([
+  "BROWSER_A11Y_RESULTS_DIR",
+  "BROWSER_MEASUREMENT_RESULTS_DIR",
+  "BROWSER_SUPPORT_RESULTS_DIR",
+  "BROWSER_VISUAL_RESULTS_DIR",
   "CARTULARY_EXECUTION_TOPOLOGY_MANIFEST",
   "CARTULARY_FIXTURE_THRESHOLD_MS",
   "CARTULARY_FIXTURE_TOP",
   "CARTULARY_TASK_SURFACE_MANIFEST",
+  "CHECK_RESULTS_DIR",
   "EXECUTION_TOPOLOGY_MANIFEST",
+  "PHASE",
+  "PHASE_NAMESPACE",
   "SCHEDULER_MANIFEST",
   "TASK_SURFACE_MANIFEST",
   "VITEST_FLAGS",
@@ -92,36 +99,6 @@ export class UsageError extends Error {
   }
 }
 
-const phaseSliceRuntimeEnv = [
-  "MAKE",
-  "TEST_OUTPUT_SCRIPT",
-  "CARTULARY_TEST_RESULTS_DIR",
-  "CARTULARY_TEST_RUN_ID",
-  "TEST_SERVICES_BIN",
-  "NODE_BIN",
-  "NODE_RUNTIME_DIR",
-  "PNPM",
-  "SERVER_BIN",
-  "MIGRATE_BIN",
-  "GO",
-  "GO_CACHE_DIR",
-  "GO_MOD_CACHE_DIR",
-  "GO_TEST_SERVICE_PACKAGE_PARALLELISM",
-  "BACKEND_STORE_GO_TEST_P",
-  "BACKEND_INTEGRATION_GO_TEST_P",
-  "BACKEND_INTEGRATION_SHARD_JOBS",
-  "PLAYWRIGHT_WORKERS",
-  "BROWSER_E2E_FUNCTIONAL_SHARDS",
-  "VITEST_MAX_WORKERS",
-  "TASK_SURFACE_MANIFEST",
-  "SCHEDULER_MANIFEST",
-  "BROWSER_E2E_BATCH_MANIFEST",
-  "CARTULARY_RUNNER_SCRIPT",
-  "RUN_PHASE_SCRIPT",
-  "RUN_GO_TARGET_SCRIPT",
-  "RUN_SERVICE_BACKED_SCHEDULE_SCRIPT",
-];
-
 const ownerSliceRuntimeEnv = [
   "MAKE",
   "GO",
@@ -174,7 +151,7 @@ export const makeNodeTools = {
   "test-slice": ownerSliceTool("test-slice"),
   "service-backed-test-slice": ownerSliceTool("service-backed-test-slice"),
   "explain-test-owner": ownerDiagnosticTool("explain", "explain-test-owner"),
-  "owner-task-guide": ownerDiagnosticTool("task-guide", "owner-task-guide"),
+  "task-guide": ownerDiagnosticTool("task-guide", "task-guide"),
   "test-evidence-audit": {
     inputs: ["OWNER", "EVIDENCE_ROOTS_FILE"],
     runtimeEnv: ["CARTULARY_TEST_RESULTS_DIR", "CARTULARY_TEST_RUN_ID"],
@@ -195,52 +172,6 @@ export const makeNodeTools = {
     usage: "usage: make task-surface-report [TASK_SURFACE_REPORT_ARGS=--all]",
     buildArgs(env) {
       return splitPassthrough(value(env, "TASK_SURFACE_REPORT_ARGS"), "TASK_SURFACE_REPORT_ARGS");
-    },
-  },
-  "task-guide": {
-    inputs: ["ROLE", "PHASE", "PHASE_NAMESPACE", "JSON"],
-    runtimeEnv: ["CARTULARY_TEST_RESULTS_DIR"],
-    script: "./tools/harness/diagnostics/task-guide-cli.mjs",
-    usage: "usage: make task-guide [ROLE=<role>] [PHASE=phaseN] [PHASE_NAMESPACE=base|frontend] [JSON=1]",
-    buildArgs(env) {
-      const args = [];
-      optionalFlag(args, env, "ROLE", "--role");
-      optionalFlag(args, env, "PHASE", "--phase");
-      optionalFlag(args, env, "PHASE_NAMESPACE", "--phase-namespace");
-      jsonFlag(args, env);
-      return args;
-    },
-  },
-  "phase-slice": {
-    inputs: ["PHASE", "PHASE_NAMESPACE", "ROWS", "JSON"],
-    runtimeEnv: phaseSliceRuntimeEnv,
-    script: "./tools/harness/phase-accounting/phase-slice-cli.mjs",
-    usage: "usage: make phase-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend] [ROWS=<phase-row-id,...>]",
-    buildArgs(env) {
-      if (!hasValue(env, "PHASE")) {
-        throw new UsageError("PHASE is required", "usage: make phase-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend] [ROWS=<phase-row-id,...>]");
-      }
-      const args = ["--phase", value(env, "PHASE"), "--mode", "phase"];
-      optionalFlag(args, env, "PHASE_NAMESPACE", "--phase-namespace");
-      optionalFlag(args, env, "ROWS", "--rows");
-      jsonFlag(args, env);
-      return args;
-    },
-  },
-  "service-backed-slice": {
-    inputs: ["PHASE", "PHASE_NAMESPACE", "ROWS", "JSON"],
-    runtimeEnv: phaseSliceRuntimeEnv,
-    script: "./tools/harness/phase-accounting/phase-slice-cli.mjs",
-    usage: "usage: make service-backed-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend] [ROWS=<phase-row-id,...>]",
-    buildArgs(env) {
-      if (!hasValue(env, "PHASE")) {
-        throw new UsageError("PHASE is required", "usage: make service-backed-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend] [ROWS=<phase-row-id,...>]");
-      }
-      const args = ["--phase", value(env, "PHASE"), "--mode", "service-backed"];
-      optionalFlag(args, env, "PHASE_NAMESPACE", "--phase-namespace");
-      optionalFlag(args, env, "ROWS", "--rows");
-      jsonFlag(args, env);
-      return args;
     },
   },
   "target-plan": {
@@ -292,20 +223,6 @@ export const makeNodeTools = {
       const args = ["--detail", value(env, "DETAIL") || "summary"];
       optionalFlag(args, env, "RUN_ID", "--run-id");
       optionalFlag(args, env, "TARGET", "--target");
-      return args;
-    },
-  },
-  "explain-phase": {
-    inputs: ["PHASE", "PHASE_NAMESPACE", "JSON"],
-    script: "./tools/harness/diagnostics/explain-phase-cli.mjs",
-    usage: "usage: make explain-phase PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend]",
-    buildArgs(env) {
-      if (!hasValue(env, "PHASE")) {
-        throw new UsageError("PHASE is required", "usage: make explain-phase PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend]");
-      }
-      const args = ["--phase", value(env, "PHASE")];
-      optionalFlag(args, env, "PHASE_NAMESPACE", "--phase-namespace");
-      jsonFlag(args, env);
       return args;
     },
   },

@@ -75,6 +75,7 @@ const browserGroupKinds = new Set([
   "measurement",
   "visual",
   "a11y",
+  "duration_balanced_specs",
 ]);
 const serviceGeneratedKeys = new Set([
   "generator",

@@ -35,7 +35,7 @@ const validFamilyIDs = new Set([
   "bootstrap_toolchain",
   "local_services_dev",
   "generated_drift",
-  "phase_service_slices",
+  "test_owner_slices",
   "backend_frontend_leaf_tests",
   "browser_e2e",
   "aggregates_gates",
@@ -152,7 +152,7 @@ const helpDescriptionIndent = " ".repeat(
 );
 const makeVariablePattern = /^[A-Z][A-Z0-9_]*$/;
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
-const commandIDPattern = /^cartulary\.harness\.command\.[a-z][a-z0-9_]*\.v1$/;
+const commandIDPattern = /^cartulary\.harness\.command\.[a-z][a-z0-9_]*\.v[1-9][0-9]*$/;
 const ownerSectionPattern = /^Section (?:[1-9]|1[0-9])(?:\.[0-9]+)?$/;
 const makePrerequisitePattern = /^[A-Za-z0-9_.$()/:,/-]+$/;
 const makeValuePattern = /^[A-Za-z0-9_.$()/:,;="' -]+$/;
@@ -559,7 +559,7 @@ function validatePublicCommandIdentity(errors, entry, commandIDs) {
   }
   if (!commandIDPattern.test(entry.command_id)) {
     errors.push(
-      `${entry.name}.command_id must match cartulary.harness.command.<name>.v1`,
+      `${entry.name}.command_id must match cartulary.harness.command.<name>.vN`,
     );
   }
   const previousTarget = commandIDs.get(entry.command_id);

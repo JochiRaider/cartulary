@@ -1,7 +1,7 @@
 import { makeNodeToolResultDirMakeEnvVars, makeNodeToolRuntimeEnvVars } from "../../command-surface/make-node-tools.mjs";
 import { resourceOverrideEnvVariablesForScheduler } from "../../scheduler/scheduler-resources.mjs";
 import {
-  canonicalInternalMakeValues, compactHelpEntries, harnessCheckEntryMap, harnessCheckEntries, harnessTierChecks, helpTiers, makeIdentifier, makeRecipeEntries, nonCanonicalPublicMakeVariables, restrictedInternalMakeVariables, sequenceDefinition, targetEntries, targetEntryMap,
+  canonicalInternalMakeValues, compactHelpEntries, harnessCheckEntryMap, harnessCheckEntries, harnessTierChecks, helpTiers, makeIdentifier, makeRecipeEntries, nonCanonicalPublicMakeVariables, restrictedInternalMakeVariables, retiredPublicMakeVariables, sequenceDefinition, targetEntries, targetEntryMap,
 } from "./model.mjs";
 
 const helpTargetColumnWidth = 30;
@@ -317,7 +317,7 @@ function renderMakeRecipe(recipe, manifest) {
       `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} ${env.join(" ")} $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) summary-target --target ${recipe.target} --child-target ${recipe.child_target} --status ${status} --phase-label "${phaseLabel}"${projection}`,
     ];
   }
-  if (recipe.type === "node_tool") {
+  if (recipe.type === "node_tool" || recipe.type === "owner_command") {
     const env = uniqueValues([
       ...inputEntriesForTarget(entry),
       ...makeNodeToolResultDirMakeEnvVars(recipe.target),
@@ -422,6 +422,7 @@ function publicMakeInputNames(manifest) {
   const names = new Set([
     ...restrictedInternalMakeVariables,
     ...nonCanonicalPublicMakeVariables,
+    ...retiredPublicMakeVariables,
   ]);
   for (const entry of targetEntries(manifest ?? { targets: [] })) {
     if (entry.target_class !== "public") {

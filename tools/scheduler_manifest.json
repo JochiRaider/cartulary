@@ -5164,7 +5164,7 @@
           }
         },
         {
-          "target": "phase-map-check",
+          "target": "test-catalog-check",
           "priority": 11500,
           "weight_ms": 10000,
           "needs": [
@@ -5177,7 +5177,7 @@
           "make_jobs": "host_cpu",
           "command": {
             "type": "make_target",
-            "target": "phase-map-check"
+            "target": "test-catalog-check"
           }
         },
         {

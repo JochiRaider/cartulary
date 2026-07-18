@@ -135,8 +135,8 @@ assert_equals "$(cat "${govuln_db_stderr}")" "" "declared GOVULNCHECK_DB preflig
 declared_stdout="${tmp_dir}/declared.stdout"
 declared_stderr="${tmp_dir}/declared.stderr"
 declared_status="$(
-  run_make_capture "${declared_stdout}" "${declared_stderr}" make --no-print-directory task-guide PHASE_NAMESPACE=frontend PHASE=FE-P3
+  run_make_capture "${declared_stdout}" "${declared_stderr}" make --no-print-directory task-guide ROLE=module-author OWNER=module.networkflow
 )"
 assert_equals "${declared_status}" "0" "declared target-local input status"
-assert_contains "$(cat "${declared_stdout}")" "phase_namespace=frontend" "declared phase namespace output"
+assert_contains "$(cat "${declared_stdout}")" "owner module.networkflow" "declared owner output"
 assert_not_contains "$(cat "${declared_stderr}")" "[FAIL]" "declared target-local input stderr"

@@ -2777,7 +2777,7 @@ test("machine task-surface owner defines public output classes and side effects"
     .join("\n")}\n`;
   assert.equal(
     createHash("sha256").update(publicIdentityBytes).digest("hex"),
-    "157dfee4eb4b394b4dc5b2bba30e6990449fb6556c799709a6a233f503b47370",
+    "a76a8ec1e117efcb19913875097808af8d44bbf30ae45312116e473b602a4efa",
     "public target and command ID inventory changed; revise the authored owner and this explicit compatibility digest together",
   );
   for (const target of publicTargets) {
@@ -2828,6 +2828,55 @@ test("retired task-surface compatibility cannot be reintroduced", () => {
   ]) {
     assert.equal(existsSync(path.join(repoRoot, file)), false, `${file} must remain retired`);
   }
+});
+
+test("owner task surface exposes only the v2 command family and private catalog check", () => {
+  const { taskSurface } = renderedArtifacts();
+  const targets = new Map(taskSurface.targets.map((entry) => [entry.name, entry]));
+  const expected = new Map([
+    ["explain-test-owner", ["OWNER", "JSON"]],
+    ["service-backed-test-slice", ["OWNER", "ROWS", "VITEST_MAX_WORKERS", "PLAYWRIGHT_WORKERS", "JSON"]],
+    ["task-guide", ["ROLE", "OWNER", "JSON"]],
+    ["test-evidence-audit", ["OWNER", "EVIDENCE_ROOTS_FILE"]],
+    ["test-slice", ["OWNER", "ROWS", "VITEST_MAX_WORKERS", "PLAYWRIGHT_WORKERS", "JSON"]],
+  ]);
+  for (const [name, inputNames] of expected) {
+    const target = targets.get(name);
+    assert.ok(target, `${name} must be generated from the task-surface owner`);
+    assert.equal(target.target_class, "public", `${name} must remain public`);
+    assert.deepEqual(
+      target.input_contract.inputs.map((input) => input.name),
+      inputNames,
+      `${name} must expose only its v2 inputs`,
+    );
+    assert.equal(
+      taskSurface.make_recipes[name]?.type,
+      "owner_command",
+      `${name} must use the generated owner-command recipe`,
+    );
+  }
+  for (const retired of [
+    "explain-phase",
+    "frontend-evidence-audit",
+    "owner-task-guide",
+    "phase-map-check",
+    "phase-slice",
+    "service-backed-slice",
+  ]) {
+    assert.equal(targets.has(retired), false, `${retired} must not remain a target`);
+    assert.equal(
+      Object.hasOwn(taskSurface.make_recipes, retired),
+      false,
+      `${retired} must not remain a generated recipe`,
+    );
+  }
+  const catalogCheck = targets.get("test-catalog-check");
+  assert.equal(catalogCheck?.target_class, "check_internal", "catalog check must be private");
+  assert.deepEqual(
+    catalogCheck?.default_inclusion_sets,
+    ["check"],
+    "private catalog check must remain in default check",
+  );
 });
 
 test("machine task-surface owner defines public target input contracts", () => {
@@ -3271,7 +3320,7 @@ test("public targets declare command identity and semantic value", () => {
   for (const target of publicTargets) {
     assert.match(
       target.command_id,
-      /^cartulary\.harness\.command\.[a-z][a-z0-9_]*\.v1$/,
+      /^cartulary\.harness\.command\.[a-z][a-z0-9_]*\.v[1-9][0-9]*$/,
       `${target.name} must declare stable command_id`,
     );
     assert.ok(!commandIDs.has(target.command_id), `${target.name} command_id must be unique`);
@@ -3329,7 +3378,7 @@ test("public targets declare command identity and semantic value", () => {
       browserBatchManifest: browserBatch,
       serviceBackedScheduleManifest: serviceBacked,
     }).join("\n"),
-    /help\.command_id must match cartulary\.harness\.command\.<name>\.v1/,
+    /help\.command_id must match cartulary\.harness\.command\.<name>\.vN/,
   );
 
   const missingSemantic = structuredClone(taskSurface);

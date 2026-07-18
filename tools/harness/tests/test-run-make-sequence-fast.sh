@@ -807,12 +807,19 @@ for (const target of ["harness-smoke-run-make-sequence", "harness-smoke-run-go-t
     fail(`${target} must stay in extended harness smoke`);
   }
 }
-for (const target of ["harness-smoke-guidance-core", "harness-smoke-run-phase", "harness-smoke-check-scheduler"]) {
+for (const target of ["harness-smoke-make-node-tools", "harness-smoke-run-phase", "harness-smoke-check-scheduler"]) {
   if (tierMembership.get(target) !== "extended") {
     fail(`${target} must stay in extended harness smoke`);
   }
 }
-for (const retired of ["harness-smoke-run-go-target-fast", "harness-smoke-service-backed-scheduler-fast"]) {
+for (const retired of [
+  "harness-smoke-frontend-evidence-audit",
+  "harness-smoke-guidance-core",
+  "harness-smoke-guidance-matrix",
+  "harness-smoke-phase-slice",
+  "harness-smoke-run-go-target-fast",
+  "harness-smoke-service-backed-scheduler-fast",
+]) {
   if (manifest.harness_checks.some((check) => check.name === retired) || tierMembership.has(retired)) {
     fail(`${retired} must be retired from harness smoke`);
   }

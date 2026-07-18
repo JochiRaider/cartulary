@@ -9,6 +9,7 @@ const validInputSources = new Set([
 const validInputTypes = new Set([
   "enum",
   "exact_1_bool",
+  "owner_id",
   "phase_row_ids",
   "path",
   "phase_id",
@@ -16,6 +17,7 @@ const validInputTypes = new Set([
   "positive_decimal",
   "positive_integer",
   "result_selector",
+  "row_ids",
   "run_id",
   "task_surface_report_args",
   "target_name",
@@ -164,4 +166,3 @@ export function validatePublicInputContract(errors, entry) {
     }
   }
 }
-
