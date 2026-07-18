@@ -10,9 +10,9 @@
 | Baseline branch | `revision/grid-adapter` |
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
-| Tracker state | `READY` — WS-06 complete; WS-07 not started |
-| Active start | None; last completed checkpoint started from clean tree at `86fc4b877464` |
-| Active tasks | None |
+| Tracker state | `IN_PROGRESS` — WS-07 owner slice and evidence APIs |
+| Active start | Clean tree at `ddfd2afa` |
+| Active tasks | T-032 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -493,7 +493,7 @@ WS-06 closure is recorded in `tools/delivery_identity_followup_ledger.json`. It 
 | WS-04 | Migrate backend rows | DONE | WS-03 | 456 backend dispositions and focused tests | Revert complete owner slices, never individual aliases. |
 | WS-05 | Migrate frontend rows | DONE | WS-03 | 87 frontend dispositions and browser accounting tests | Revert complete owner slices with fixture metadata. |
 | WS-06 | Rename tests, symbols, fixtures, and goldens | DONE | WS-04, WS-05 | Semantic scan, visual digest report, and production follow-up closure ledger | Revert complete rename slices; no duplicate old/new tests. |
-| WS-07 | Replace slice, audit, schema, and artifact APIs | TODO | WS-03–WS-06 | Successor CLI contract/smoke tests | Revert the whole interface checkpoint before atomic cutover. |
+| WS-07 | Replace slice, audit, schema, and artifact APIs | IN_PROGRESS | WS-03–WS-06 | Successor CLI contract/smoke tests | Revert the whole interface checkpoint before atomic cutover. |
 | WS-08 | Migrate browser stages and scheduler topology | TODO | WS-05, WS-07 | Owner-based DAG, lifecycle, and browser tests | Revert authored topology and generated outputs together. |
 | WS-09 | Update task surface, generation, finalization, and baselines | TODO | WS-07, WS-08 | Generated surface/drift and fresh baseline plan | Revert owner inputs plus regenerated outputs together. |
 | WS-10 | Atomic deletion and hard cutover | TODO | WS-02–WS-09 | Deletion manifest and zero-reference scans | Revert the entire cutover commit; never add shims. |
@@ -717,7 +717,7 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-029 | Rename Vitest/Playwright identities | WS-06 | DONE | T-022,T-027 | 53 path renames; semantic source/catalog scan; frontend and harness gates | No delivery-phase frontend test identity remains. |
 | T-030 | Rename fixtures/scenarios/goldens | WS-06 | DONE | T-027 | 56 visual and 15 diagnostic golden moves, digest report, and 29-scenario visual run | Paths are semantic and bytes preserved. |
 | T-031 | Close production follow-up classifications | WS-06 | DONE | T-007,T-028,T-029 | 16-path/2-symbol/4-protocol follow-up ledger and zero-match scan | Every remaining match has owner/disposition. |
-| T-032 | Implement owner-slice planning/execution | WS-07 | TODO | T-015,T-022,T-027 | CLI/smoke tests | Both successor slice targets work. |
+| T-032 | Implement owner-slice planning/execution | WS-07 | IN_PROGRESS | T-015,T-022,T-027 | CLI/smoke tests | Both successor slice targets work. |
 | T-033 | Implement owner diagnostics/task guide | WS-07 | TODO | T-032 | Text/JSON contract tests | Commands report exact owner topology. |
 | T-034 | Implement owner evidence accounting/audit | WS-07 | TODO | T-032 | Audit fixtures | Fresh compatible evidence reconciles. |
 | T-035 | Replace schemas and artifact identities | WS-07 | TODO | T-032,T-034 | Schema attachment/drift checks | No successor artifact uses delivery phase identity. |
@@ -1104,6 +1104,12 @@ Each entry must include:
 - Skipped checks: the public `test-catalog-check` target does not exist before T-032/T-035, so the attempted target failed with Make usage status and the catalog’s checked CLI supplied the T-031 structural evidence. Owner commands, owner artifacts, and their public smoke tests begin in WS-07; broad `make check`, finalization, and release checks remain WS-11.
 - Next safe task: create a tracker-only checkpoint marking WS-07 and T-032 `IN_PROGRESS`, then implement owner-slice planning and execution from the unified catalog without starting WS-08 or exposing a compatibility alias.
 - Rollback boundary: revert this complete T-031 checkpoint, including semantic production/helper paths, regenerated SQL descendants, selector facade removal, exact consumer updates, follow-up ledger/schema/checker, semantic policy fixtures, and tracker evidence. Never restore delivery-phase aliases or let a retained product protocol identifier become a test selector.
+
+#### 2026-07-18 — WS-07 activation checkpoint
+
+- Branch/commit at start: `revision/grid-adapter` at clean WS-06 closure checkpoint `ddfd2afa`. WS-07 is the only `IN_PROGRESS` workstream and T-032 is the sole active task; T-033 through T-035 remain `TODO`.
+- Active scope: implement catalog-native `test-slice OWNER=<owner-id> [ROWS=...]` and `service-backed-test-slice OWNER=<owner-id> [ROWS=...]` planning/execution with exact selection, usage, JSON, service-backed, cancellation, cleanup, and failure-normalization fixtures. This checkpoint does not activate diagnostics, evidence audit, artifact replacement, browser topology, or public task-surface retirement assigned to later tasks.
+- Rollback boundary: revert the complete T-032 implementation checkpoint before activating T-033. Do not add phase aliases, translated plans, old-catalog readers, or fallback selection.
 
 ## 17. First-resumer checklist
 
