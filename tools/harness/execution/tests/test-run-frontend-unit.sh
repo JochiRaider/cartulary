@@ -198,7 +198,7 @@ const assertion = (title, status) => ({
         ? [
             `Error: STACK_TRACE_ERROR
     at task (file:///tmp/vitest/chunk-artifact.js:1784:27)
-    at ${path.join(root, "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx")}:56:3`,
+    at ${path.join(root, "apps/web/src/workbook/WorkbookShell.grid.test.tsx")}:56:3`,
           ]
         : ["frontend unit smoke failure"],
   meta: {},
@@ -265,12 +265,12 @@ for (const entry of (frontendRegistry.phases ?? [])) {
   }
   }
 }
-byFile.set(path.join(root, "apps/web/src/app/App.phase1.test.tsx"), [
-  ...(byFile.get(path.join(root, "apps/web/src/app/App.phase1.test.tsx")) ?? []),
+byFile.set(path.join(root, "apps/web/src/app/App.auth.test.tsx"), [
+  ...(byFile.get(path.join(root, "apps/web/src/app/App.auth.test.tsx")) ?? []),
   ...frontendPhaseEntries,
 ]);
 
-byFile.set(path.join(root, "apps/web/src/app/App.phase1.support.test.tsx"), [
+byFile.set(path.join(root, "apps/web/src/app/App.auth.support.test.tsx"), [
   assertion("Phase 1 support smoke keeps ordinary shell helpers stable", "passed"),
 ]);
 byFile.set(path.join(root, "apps/web/src/Unmapped.frontend-unit.test.tsx"), [
@@ -830,7 +830,7 @@ const dossier = summaries
 if (!dossier) {
   throw new Error("stack failure summary must include fallback STACK_TRACE_ERROR diagnostic");
 }
-if (!String(dossier.message).includes("first_app_frame=apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx:56")) {
+if (!String(dossier.message).includes("first_app_frame=apps/web/src/workbook/WorkbookShell.grid.test.tsx:56")) {
   throw new Error(`stack failure summary did not include first app frame: ${dossier.message}`);
 }
 if (!(dossier.diagnostic_tags ?? []).includes("vitest_stack_trace_error")) {

@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { mapWorkbookKeyboardCommand } from "./workbookKeyboard";
 
-describe("Phase 9 U-9-01 keyboard command contract", () => {
-  it("Phase 9 U-9-01 maps required workbook keys without hidden paste macro behavior", () => {
+describe("keyboard command contract", () => {
+  it("maps required workbook keys without hidden paste macro behavior", () => {
     for (const key of ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]) {
       expect(mapWorkbookKeyboardCommand({ key })).toEqual({
         intent: { key, shiftKey: false },
@@ -59,7 +59,7 @@ describe("Phase 9 U-9-01 keyboard command contract", () => {
     ).toEqual({ kind: "close-inspector", preventDefault: true });
   });
 
-  it("Phase 9 U-9-01 fails closed when optional shortcut actions are unavailable", () => {
+  it("fails closed when optional shortcut actions are unavailable", () => {
     expect(mapWorkbookKeyboardCommand({ key: "k", ctrlKey: true })).toEqual({
       kind: "none",
       preventDefault: false,

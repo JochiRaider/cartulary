@@ -6,8 +6,8 @@ import {
   summarizeEvidenceLifecycleCounts,
 } from "./evidenceLifecycleViewModel";
 
-describe("FE-U-P6-01 evidence lifecycle view models", () => {
-  it("FE-U-P6-01 distinguishes requested, pending upload, available, and preview-blocked states", () => {
+describe("evidence lifecycle view models", () => {
+  it("distinguishes requested, pending upload, available, and preview-blocked states", () => {
     const requested = buildEvidenceLifecycleViewModel({
       evidenceLifecycleState: "requested",
       objectBlobUploadState: "pending",
@@ -68,7 +68,7 @@ describe("FE-U-P6-01 evidence lifecycle view models", () => {
     });
   });
 
-  it("FE-U-P6-01 keeps failed, blocked, inconsistent, and public-error rendering inputs distinct", () => {
+  it("keeps failed, blocked, inconsistent, and public-error rendering inputs distinct", () => {
     const failed = buildEvidenceLifecycleViewModel({
       evidenceLifecycleState: "available",
       objectBlobUploadState: "failed",
@@ -145,7 +145,7 @@ describe("FE-U-P6-01 evidence lifecycle view models", () => {
     });
   });
 
-  it("FE-U-P6-01 counts only available and preview-blocked evidence as attached", () => {
+  it("counts only available and preview-blocked evidence as attached", () => {
     const viewModels = [
       buildEvidenceLifecycleViewModel({
         evidenceLifecycleState: "available",
@@ -209,7 +209,7 @@ describe("FE-U-P6-01 evidence lifecycle view models", () => {
     });
   });
 
-  it("FE-U-P6-01 derives count-display states and detects inconsistent projections", () => {
+  it("derives count-display states and detects inconsistent projections", () => {
     expect(
       buildEvidenceCountDisplayViewModel({
         projectedCount: null,

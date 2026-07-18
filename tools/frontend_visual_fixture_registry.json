@@ -15,7 +15,7 @@
         "FE-V-P2-01",
         "FE-V-P9-01"
       ],
-      "playwright_scenario_title": "FE-V-P2-01 Capture Default Timeline workbook shell with view-bar query controls, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip.",
+      "playwright_scenario_title": "Capture Default Timeline workbook shell with view-bar query controls, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p2-01-default-timeline-workbook-shell-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p2-01-default-timeline-workbook-shell-linux.png",
@@ -69,7 +69,7 @@
       "owner_row_ids": [
         "FE-V-P5-01"
       ],
-      "playwright_scenario_title": "FE-V-P5-01 Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution metadata fixtures.",
+      "playwright_scenario_title": "Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution metadata fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p5-01-mention-chip-states-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p5-01-mention-chip-states-linux.png"
@@ -118,7 +118,7 @@
       "owner_row_ids": [
         "FE-V-P7-01"
       ],
-      "playwright_scenario_title": "FE-V-P7-01 Capture same-field conflict resolver.",
+      "playwright_scenario_title": "Capture same-field conflict resolver.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-conflict-resolver-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-conflict-resolver-linux.png",
@@ -170,7 +170,7 @@
       "owner_row_ids": [
         "FE-V-P7-01"
       ],
-      "playwright_scenario_title": "FE-V-P7-01 Capture row-gutter and cell presence markers.",
+      "playwright_scenario_title": "Capture row-gutter and cell presence markers.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-presence-markers-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-presence-markers-linux.png",
@@ -220,7 +220,7 @@
       "owner_row_ids": [
         "FE-V-P6-01"
       ],
-      "playwright_scenario_title": "FE-V-P6-01 Capture evidence count, affordance, available, requested, pending, blocked, failed, inconsistent, preview, and download-handle state fixtures.",
+      "playwright_scenario_title": "Capture evidence count, affordance, available, requested, pending, blocked, failed, inconsistent, preview, and download-handle state fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p6-01-evidence-affordance-states-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p6-01-evidence-affordance-states-linux.png",
@@ -270,7 +270,7 @@
       "owner_row_ids": [
         "FE-V-P8-01"
       ],
-      "playwright_scenario_title": "FE-V-P8-01 Capture saved-view selector, active chips, grouped result, group row, default/startup state indicator, and empty successful query fixtures.",
+      "playwright_scenario_title": "Capture saved-view selector, active chips, grouped result, group row, default/startup state indicator, and empty successful query fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p8-01-saved-view-query-controls-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p8-01-saved-view-query-controls-linux.png"
@@ -370,7 +370,7 @@
         "FE-V-P4-01",
         "FE-V-P7-01"
       ],
-      "playwright_scenario_title": "FE-V-P7-01 Capture conflict save-state strip.",
+      "playwright_scenario_title": "Capture conflict save-state strip.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-conflict-strip-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-conflict-strip-linux.png",
@@ -432,7 +432,7 @@
         "FE-V-P3-01",
         "FE-V-P10-01"
       ],
-      "playwright_scenario_title": "FE-V-P3-01 Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
+      "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png"
@@ -483,7 +483,7 @@
         "FE-V-P3-01",
         "FE-V-P10-01"
       ],
-      "playwright_scenario_title": "FE-V-P3-01 Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
+      "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png"
@@ -534,7 +534,7 @@
         "FE-V-P3-01",
         "FE-V-P10-01"
       ],
-      "playwright_scenario_title": "FE-V-P3-01 Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
+      "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png"
@@ -587,7 +587,7 @@
         "FE-V-P4-01",
         "FE-V-P10-01"
       ],
-      "playwright_scenario_title": "FE-V-P4-01 Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures.",
+      "playwright_scenario_title": "Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-active-edit-cell-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-active-edit-cell-linux.png",
@@ -642,7 +642,7 @@
         "FE-V-P8-01",
         "FE-V-P10-01"
       ],
-      "playwright_scenario_title": "FE-V-P3-01 Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
+      "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png"
@@ -691,7 +691,7 @@
       "owner_row_ids": [
         "FE-V-P11-03"
       ],
-      "playwright_scenario_title": "FE-V-P11-03 Capture exposed dark_graphite token and theme states with deterministic density, color, component, focus, and semantic-state samples.",
+      "playwright_scenario_title": "Capture exposed dark_graphite token and theme states with deterministic density, color, component, focus, and semantic-state samples.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p11-03-exposed-theme-states-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p11-03-exposed-theme-states-linux.png"
@@ -741,7 +741,7 @@
         "FE-V-P4-01",
         "FE-V-P8-01"
       ],
-      "playwright_scenario_title": "FE-V-P4-01 Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures.",
+      "playwright_scenario_title": "Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-empty-timeline-query-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-empty-timeline-query-linux.png",
@@ -1076,7 +1076,7 @@
       "status": "current",
       "owner_phase_ids": ["FE-P12"],
       "owner_row_ids": ["FE-V-P12-01"],
-      "playwright_scenario_title": "FE-V-P12-01 Capture claimed Network Analysis accepted inspector, rejected diagnostics, and graph contributor drawer at the deterministic desktop viewport.",
+      "playwright_scenario_title": "Capture claimed Network Analysis accepted inspector, rejected diagnostics, and graph contributor drawer at the deterministic desktop viewport.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p12-01-network-analysis-accepted-inspector-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p12-01-network-analysis-accepted-inspector-linux.png",

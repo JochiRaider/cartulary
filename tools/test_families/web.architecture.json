@@ -14,7 +14,7 @@
       "selector": {
         "file": "apps/web/src/testing/selectorContractPolicy.test.ts",
         "titles": [
-          "selector contract policy classifies Phase 1 cross-boundary selector families as shared-builder owned"
+          "selector contract policy classifies authentication cross-boundary selector families as shared-builder owned"
         ]
       },
       "evidence_class": "static",

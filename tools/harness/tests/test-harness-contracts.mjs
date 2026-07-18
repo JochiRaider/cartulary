@@ -376,7 +376,7 @@ test("runner selector resolvers preserve exact closed shapes across all runners"
           project_id: "chromium",
           stage: "visual",
           scenario_ids: ["timeline_default_viewport"],
-          titles: ["V-3-GRID-01 captures the Timeline default viewport with stable row version and save-state strip"],
+          titles: ["captures the Timeline default viewport with stable row version and save-state strip"],
         },
       },
       expected: ["playwright:chromium:visual:timeline_default_viewport"],

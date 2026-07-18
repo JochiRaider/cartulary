@@ -1373,7 +1373,7 @@ describe("Incident landing", () => {
     }
   });
 
-  it("Phase 2 U-2-11 ordinary landing shell creates an incident, refreshes session-visible membership, routes to the workbook by incident_id, and falls back when a stale incident selection is no longer visible", async () => {
+  it("ordinary landing shell creates an incident, refreshes session-visible membership, routes to the workbook by incident_id, and falls back when a stale incident selection is no longer visible", async () => {
     let created = false;
     installLandingShellFetch(fetchMock, {
       session: () =>

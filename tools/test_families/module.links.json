@@ -15,14 +15,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase9.sentinel.spec.ts",
+        "file": "apps/web/e2e/sentinel.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_f62103626873"
         ],
         "titles": [
-          "Phase 9 E-9-03 Notes tab creates artifact-backed linked notes"
+          "Notes tab creates artifact-backed linked notes"
         ]
       },
       "evidence_class": "browser",

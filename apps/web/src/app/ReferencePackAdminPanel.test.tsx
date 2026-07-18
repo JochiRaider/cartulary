@@ -32,7 +32,7 @@ describe("ReferencePackAdminPanel", () => {
     vi.unstubAllGlobals();
   });
 
-  it("Phase 11 U-11-REFERENCE-PACK-04 hides deployment Reference Pack controls from non-admin sessions", () => {
+  it("hides deployment Reference Pack controls from non-admin sessions", () => {
     render(<ReferencePackAdminPanel session={session(false)} />);
     expect(
       screen.getByTestId(referencePackAdminPanelTestId()).textContent,
@@ -40,7 +40,7 @@ describe("ReferencePackAdminPanel", () => {
     expect(screen.queryByTestId(referencePackFileInputTestId())).toBeNull();
   });
 
-  it("Phase 11 U-11-REFERENCE-PACK-06 shows job progress and cancel controls for deployment-admin Reference Pack work", async () => {
+  it("shows job progress and cancel controls for deployment-admin Reference Pack work", async () => {
     fetchMock.mockImplementation((input, init) => {
       const url = String(input);
       const method = (init?.method ?? "GET").toUpperCase();

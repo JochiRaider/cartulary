@@ -118,9 +118,9 @@ import {
   type EvidenceUploadOptions,
 } from "./support/evidence/fixtures";
 import {
-  importPhase12NetworkFlowCSV,
+  importNetworkFlowCSV,
+  networkFlowMinimalCSV,
   openClaimedNetworkAnalysis,
-  phase12NetworkFlowMinimalCSV,
 } from "./support/extensions/network_flow_activity/workspace";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
@@ -482,7 +482,7 @@ function releaseAuthVisualStep(release: (() => void) | null) {
 }
 
 test.describe("FE-P1 auth gateway visual readiness", () => {
-  test("FE-V-P1-01 Capture auth gateway initial, focused, loading, invalid credentials, MFA required, invalid MFA, MFA setup required, service unavailable, mobile, reduced-motion, and 200%-zoom states.", async ({
+  test("Capture auth gateway initial, focused, loading, invalid credentials, MFA required, invalid MFA, MFA setup required, service unavailable, mobile, reduced-motion, and 200%-zoom states.", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -616,7 +616,7 @@ test.describe("FE-P1 auth gateway visual readiness", () => {
 });
 
 test.describe("FE-P2 workbook visual readiness", () => {
-  test("FE-V-P2-01 Capture Default Timeline workbook shell with view-bar query controls, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip.", async ({
+  test("Capture Default Timeline workbook shell with view-bar query controls, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip.", async ({
     page,
   }) => {
     test.setTimeout(120_000);
@@ -1000,8 +1000,8 @@ test.describe("FE-P2 workbook visual readiness", () => {
   });
 });
 
-test.describe("Phase 3 workbook visual evidence", () => {
-  test("V-3-GRID-01 captures the Timeline default viewport with stable row version and save-state strip", async ({
+test.describe("workbook visual evidence", () => {
+  test("captures the Timeline default viewport with stable row version and save-state strip", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -1044,7 +1044,7 @@ test.describe("Phase 3 workbook visual evidence", () => {
     });
   });
 
-  test("V-3-GRID-02 captures Timeline edit save-state visuals for active cell syncing saved and conflict states", async ({
+  test("captures Timeline edit save-state visuals for active cell syncing saved and conflict states", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -1177,7 +1177,7 @@ test.describe("Phase 3 workbook visual evidence", () => {
     }
   });
 
-  test("V-3-GRID-03 captures Timeline grouped rows and currently exposed grid chrome", async ({
+  test("captures Timeline grouped rows and currently exposed grid chrome", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -1253,7 +1253,7 @@ test.describe("Phase 3 workbook visual evidence", () => {
 });
 
 test.describe("FE-P3 visual readiness", () => {
-  test("FE-V-P3-01 Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.", async ({
+  test("Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -1296,7 +1296,7 @@ test.describe("FE-P3 visual readiness", () => {
 });
 
 test.describe("FE-P4 visual readiness", () => {
-  test("FE-V-P4-01 Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures.", async ({
+  test("Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures.", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -1449,7 +1449,7 @@ test.describe("FE-P4 visual readiness", () => {
 });
 
 test.describe("FE-P5 workbook visual readiness", () => {
-  test("FE-V-P5-01 Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution metadata fixtures.", async ({
+  test("Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution metadata fixtures.", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -1573,8 +1573,8 @@ test.describe("FE-P5 workbook visual readiness", () => {
   });
 });
 
-test.describe("Phase 4 workbook visual evidence", () => {
-  test("V-4-GRID-01 captures Timeline unresolved and resolved mention chips in the workbook grid", async ({
+test.describe("workbook visual evidence", () => {
+  test("captures Timeline unresolved and resolved mention chips in the workbook grid", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -1639,7 +1639,7 @@ test.describe("Phase 4 workbook visual evidence", () => {
     );
   });
 
-  test("V-4-GRID-02 captures Evidence access affordances on the required Evidence surface", async ({
+  test("captures Evidence access affordances on the required Evidence surface", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -1692,7 +1692,7 @@ test.describe("Phase 4 workbook visual evidence", () => {
     );
   });
 
-  test("V-4-GRID-03 captures Task Requests system view fields through the generic workbook grid", async ({
+  test("captures Task Requests system view fields through the generic workbook grid", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -1744,8 +1744,8 @@ test.describe("Phase 4 workbook visual evidence", () => {
   });
 });
 
-test.describe("Phase 5 workbook visual evidence", () => {
-  test("V-5-GRID-01 captures requested and available Evidence states on the required Evidence surface", async ({
+test.describe("workbook visual evidence", () => {
+  test("captures requested and available Evidence states on the required Evidence surface", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -1821,7 +1821,7 @@ test.describe("Phase 5 workbook visual evidence", () => {
     );
   });
 
-  test("V-5-GRID-02 captures blocked preview feedback and Timeline evidence badges", async ({
+  test("captures blocked preview feedback and Timeline evidence badges", async ({
     page,
   }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -1912,7 +1912,7 @@ test.describe("Phase 5 workbook visual evidence", () => {
 });
 
 test.describe("FE-P6 visual readiness", () => {
-  test("FE-V-P6-01 Capture evidence count, affordance, available, requested, pending, blocked, failed, inconsistent, preview, and download-handle state fixtures.", async ({
+  test("Capture evidence count, affordance, available, requested, pending, blocked, failed, inconsistent, preview, and download-handle state fixtures.", async ({
     page,
   }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -2176,7 +2176,7 @@ test.describe("FE-P6 visual readiness", () => {
 });
 
 test.describe("FE-P7 workbook visual readiness", () => {
-  test("FE-V-P7-01 Capture row-gutter and cell presence markers.", async ({
+  test("Capture row-gutter and cell presence markers.", async ({
     browser,
     page,
     sessionTracker,
@@ -2274,7 +2274,7 @@ test.describe("FE-P7 workbook visual readiness", () => {
     }
   });
 
-  test("FE-V-P7-01 Capture same-field conflict resolver.", async ({ page }) => {
+  test("Capture same-field conflict resolver.", async ({ page }) => {
     const fixture = await prepareFeP7ConflictVisual(page, {
       incidentKeyPrefix: "FEVP701RESOLVE",
       title: "FE-P7 visual conflict resolver",
@@ -2310,7 +2310,7 @@ test.describe("FE-P7 workbook visual readiness", () => {
     }
   });
 
-  test("FE-V-P7-01 Capture conflict save-state strip.", async ({ page }) => {
+  test("Capture conflict save-state strip.", async ({ page }) => {
     const fixture = await prepareFeP7ConflictVisual(page, {
       incidentKeyPrefix: "FEVP701CONFLICTSTRIP",
       title: "FE-P7 visual conflict strip",
@@ -2328,7 +2328,7 @@ test.describe("FE-P7 workbook visual readiness", () => {
     }
   });
 
-  test("FE-V-P7-01 Capture recovered saved-state strip.", async ({ page }) => {
+  test("Capture recovered saved-state strip.", async ({ page }) => {
     const fixture = await prepareFeP7ConflictVisual(page, {
       incidentKeyPrefix: "FEVP701RECOVERED",
       title: "FE-P7 visual recovered strip",
@@ -2346,9 +2346,7 @@ test.describe("FE-P7 workbook visual readiness", () => {
     }
   });
 
-  test("FE-V-P7-01 Capture reset/invalidate refresh strip.", async ({
-    page,
-  }) => {
+  test("Capture reset/invalidate refresh strip.", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
@@ -2381,7 +2379,7 @@ test.describe("FE-P7 workbook visual readiness", () => {
 });
 
 test.describe("FE-P8 workbook visual readiness", () => {
-  test("FE-V-P8-01 Capture saved-view selector, active chips, grouped result, group row, default/startup state indicator, and empty successful query fixtures.", async ({
+  test("Capture saved-view selector, active chips, grouped result, group row, default/startup state indicator, and empty successful query fixtures.", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -2511,7 +2509,7 @@ test.describe("FE-P8 workbook visual readiness", () => {
 });
 
 test.describe("FE-P9 workbook visual readiness", () => {
-  test("FE-V-P9-01 Capture inspector Details, Relationships, Evidence, History, rollback preview, destructive confirmation, and public error fixtures.", async ({
+  test("Capture inspector Details, Relationships, Evidence, History, rollback preview, destructive confirmation, and public error fixtures.", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -2906,8 +2904,8 @@ async function driveFeP7InvalidateRefreshVisual({
   ).toHaveText("Invalidate visual base", { timeout: 10_000 });
 }
 
-test.describe("Phase 6 workbook visual evidence", () => {
-  test("V-6-GRID-01 regresses Phase 6 row-gutter and same-cell presence markers", async ({
+test.describe("workbook visual evidence", () => {
+  test("regresses collaboration row-gutter and same-cell presence markers", async ({
     browser,
     page,
     sessionTracker,
@@ -3014,7 +3012,7 @@ test.describe("Phase 6 workbook visual evidence", () => {
     }
   });
 
-  test("V-6-GRID-02 regresses Phase 6 same-field conflict marker resolver and Conflict strip", async ({
+  test("regresses collaboration same-field conflict marker resolver and Conflict strip", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -3060,7 +3058,7 @@ test.describe("Phase 6 workbook visual evidence", () => {
     }
   });
 
-  test("V-6-GRID-03 regresses Phase 6 pending-queue save-state transitions", async ({
+  test("regresses collaboration pending-queue save-state transitions", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -3159,7 +3157,7 @@ test.describe("Phase 6 workbook visual evidence", () => {
 });
 
 test.describe("FE-P10 workbook visual readiness", () => {
-  test("FE-V-P10-01 Capture Task Requests or Decisions, Parties link state, Communications Log, Handoff, Status Review, Lesson, keyboard focus, frozen column, resize handle, and fill-down fixtures.", async ({
+  test("Capture Task Requests or Decisions, Parties link state, Communications Log, Handoff, Status Review, Lesson, keyboard focus, frozen column, resize handle, and fill-down fixtures.", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -3421,7 +3419,7 @@ test.describe("FE-P10 workbook visual readiness", () => {
 });
 
 test.describe("FE-P11 visual readiness", () => {
-  test("FE-V-P11-01 Run the owned-stack Playwright visual suite with deterministic seed data, viewport, zoom, fixture ordering, dynamic masks, scroll anchors, focus/editor state, inspector state, and post-scroll settle behavior.", async ({
+  test("Run the owned-stack Playwright visual suite with deterministic seed data, viewport, zoom, fixture ordering, dynamic masks, scroll anchors, focus/editor state, inspector state, and post-scroll settle behavior.", async ({
     browserName: _browserName,
   }, testInfo) => {
     const registry = loadFrontendVisualFixtureRegistry();
@@ -3471,7 +3469,7 @@ test.describe("FE-P11 visual readiness", () => {
     });
   });
 
-  test("FE-V-P11-02 Ensure the visual fixture matrix includes default Timeline workbook shell, unresolved/resolved entity state, same-field conflict, row-gutter presence, evidence affordance, grouped result, Task Requests or Decisions, save-state strip, frozen column, resize handle, fill-down handle, edit cell, group outline row, exposed theme states, and empty successful query.", async ({
+  test("Ensure the visual fixture matrix includes default Timeline workbook shell, unresolved/resolved entity state, same-field conflict, row-gutter presence, evidence affordance, grouped result, Task Requests or Decisions, save-state strip, frozen column, resize handle, fill-down handle, edit cell, group outline row, exposed theme states, and empty successful query.", async ({
     browserName: _browserName,
   }, testInfo) => {
     const registry = loadFrontendVisualFixtureRegistry();
@@ -3522,7 +3520,7 @@ test.describe("FE-P11 visual readiness", () => {
     });
   });
 
-  test("FE-V-P11-03 Capture exposed dark_graphite token and theme states with deterministic density, color, component, focus, and semantic-state samples.", async ({
+  test("Capture exposed dark_graphite token and theme states with deterministic density, color, component, focus, and semantic-state samples.", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
@@ -5594,15 +5592,15 @@ if (
   (process.env.CARTULARY_BROWSER_RUNTIME_PROFILE_ID ?? "default") ===
   "network_flow_claimed"
 ) {
-  test("FE-V-P12-01 Capture claimed Network Analysis accepted inspector, rejected diagnostics, and graph contributor drawer at the deterministic desktop viewport.", async ({
+  test("Capture claimed Network Analysis accepted inspector, rejected diagnostics, and graph contributor drawer at the deterministic desktop viewport.", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openClaimedNetworkAnalysis(page, "FEP12VISUAL");
-    const fixture = readFileSync(phase12NetworkFlowMinimalCSV, "utf8");
+    const fixture = readFileSync(networkFlowMinimalCSV, "utf8");
     const lines = fixture.trimEnd().split("\n");
     const invalidRow = lines.at(-1)?.replace("192.0.2.10", "not-an-ip") ?? "";
-    await importPhase12NetworkFlowCSV(page, {
+    await importNetworkFlowCSV(page, {
       displayName: "visual-flow",
       file: {
         name: "visual-flow.csv",

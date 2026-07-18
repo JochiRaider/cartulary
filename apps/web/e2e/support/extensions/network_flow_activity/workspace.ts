@@ -9,14 +9,14 @@ import { expect, type Page } from "@playwright/test";
 import { createIncident } from "../../incidents/fixtures";
 import { uniqueIncidentKey } from "../../runtime/fixtureIdentity";
 
-export const phase12NetworkFlowMinimalCSV = fileURLToPath(
+export const networkFlowMinimalCSV = fileURLToPath(
   new URL(
     "../../../../../../fixtures/network-flow/NF-FIX-001-cisco-sna-minimal/source/cisco-sna-minimal.csv",
     import.meta.url,
   ),
 );
 
-export async function openPhase12Incident(
+export async function openNetworkFlowIncident(
   page: Page,
   prefix: string,
 ): Promise<string> {
@@ -34,8 +34,8 @@ export async function openClaimedNetworkAnalysis(
   page: Page,
   prefix: string,
 ): Promise<string> {
-  expectPhase12RuntimeProfile("network_flow_claimed");
-  const incidentId = await openPhase12Incident(page, prefix);
+  expectNetworkFlowRuntimeProfile("network_flow_claimed");
+  const incidentId = await openNetworkFlowIncident(page, prefix);
   const tab = page.getByTestId(networkAnalysisTestId("tab"));
   await expect(tab).toBeVisible();
   await tab.click();
@@ -45,7 +45,7 @@ export async function openClaimedNetworkAnalysis(
   return incidentId;
 }
 
-export async function importPhase12NetworkFlowCSV(
+export async function importNetworkFlowCSV(
   page: Page,
   options: {
     displayName: string;
@@ -54,7 +54,7 @@ export async function importPhase12NetworkFlowCSV(
 ) {
   await page
     .getByTestId(networkAnalysisTestId("import-input"))
-    .setInputFiles(options.file ?? phase12NetworkFlowMinimalCSV);
+    .setInputFiles(options.file ?? networkFlowMinimalCSV);
   const dialog = page.getByTestId(networkAnalysisTestId("mapping-dialog"));
   await expect(dialog).toBeVisible();
   await page
@@ -74,7 +74,7 @@ export async function importPhase12NetworkFlowCSV(
   ).toBeVisible();
 }
 
-export function expectPhase12RuntimeProfile(
+export function expectNetworkFlowRuntimeProfile(
   expected: "default" | "network_flow_claimed",
 ) {
   expect(process.env.CARTULARY_BROWSER_RUNTIME_PROFILE_ID ?? "default").toBe(

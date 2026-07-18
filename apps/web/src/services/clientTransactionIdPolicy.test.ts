@@ -22,7 +22,7 @@ function authoredProductionFiles(directory: string): string[] {
 }
 
 describe("client transaction identifier source policy", () => {
-  it("FE-U-P4-01 keeps browser mutation IDs independent of counters, clocks, and insecure randomness", () => {
+  it("keeps browser mutation IDs independent of counters, clocks, and insecure randomness", () => {
     const violations: string[] = [];
     for (const file of authoredProductionFiles(sourceRoot)) {
       const source = readFileSync(file, "utf8");

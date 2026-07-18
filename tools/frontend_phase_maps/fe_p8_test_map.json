@@ -94,11 +94,11 @@
         }
       ],
       "scenario_titles": [
-        "FE-U-P8-01 compiles query requests with schema field keys and capability metadata",
-        "FE-U-P8-01 serializes saved-view query_json with canonical empty arrays and omitted inactive grouping",
-        "FE-U-P8-01 serializes saved-view layout_json as portable schema field-key state",
-        "FE-U-P8-01 renders active filter chips and grouping controls by field key",
-        "FE-U-P8-01 keeps grouped presentation rows out of mutation-capable anchors"
+        "compiles query requests with schema field keys and capability metadata",
+        "serializes saved-view query_json with canonical empty arrays and omitted inactive grouping",
+        "serializes saved-view layout_json as portable schema field-key state",
+        "renders active filter chips and grouping controls by field key",
+        "keeps grouped presentation rows out of mutation-capable anchors"
       ],
       "claim_status": "implemented",
       "claim": {
@@ -184,7 +184,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-I-P8-01 Verify saved-view create/update/select/default UI uses active surface scope and public saved-view/workbook-preference contracts."
+        "Verify saved-view create/update/select/default UI uses active surface scope and public saved-view/workbook-preference contracts."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -277,7 +277,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-B-P8-01 Verify browser command helpers for sort, filter, group, active chips, layout persistence, group expand-collapse, and startup/default surface UI."
+        "Verify browser command helpers for sort, filter, group, active chips, layout persistence, group expand-collapse, and startup/default surface UI."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -391,7 +391,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-E-P8-01 Verify saved-view persistence, default/startup surface persistence, and query replay through /api/v1/ after reload."
+        "Verify saved-view persistence, default/startup surface persistence, and query replay through /api/v1/ after reload."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -461,7 +461,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-V-P8-01 Capture saved-view selector, active chips, grouped result, group row, default/startup state indicator, and empty successful query fixtures."
+        "Capture saved-view selector, active chips, grouped result, group row, default/startup state indicator, and empty successful query fixtures."
       ],
       "claim_status": "implemented",
       "claim": {

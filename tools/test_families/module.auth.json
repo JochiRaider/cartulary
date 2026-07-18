@@ -63,14 +63,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase1.spec.ts",
+        "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_5ef1cd3e0693"
         ],
         "titles": [
-          "E-1-11 observes current-role authorization on a stale reviewer edit through the public incident error envelope"
+          "observes current-role authorization on a stale reviewer edit through the public incident error envelope"
         ]
       },
       "evidence_class": "browser",
@@ -94,14 +94,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase11.enterprise-auth.spec.ts",
+        "file": "apps/web/e2e/enterprise-auth.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_02fe0e4bde6a"
         ],
         "titles": [
-          "E-11-03 handles enterprise session root landing for zero, one, multiple, and disappearing incidents"
+          "handles enterprise session root landing for zero, one, multiple, and disappearing incidents"
         ]
       },
       "evidence_class": "browser",
@@ -125,14 +125,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase1.spec.ts",
+        "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_c7f14407afc1"
         ],
         "titles": [
-          "E-1-01 signs in as a local user and inspects the ordinary session surface"
+          "signs in as a local user and inspects the ordinary session surface"
         ]
       },
       "evidence_class": "browser",
@@ -156,14 +156,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase1.spec.ts",
+        "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_cc16b99b2c52"
         ],
         "titles": [
-          "E-1-12 returns a revoked target browser to login and allows re-authentication with unchanged incident membership"
+          "returns a revoked target browser to login and allows re-authentication with unchanged incident membership"
         ]
       },
       "evidence_class": "browser",
@@ -187,14 +187,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase1.spec.ts",
+        "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_7e6b57505f04"
         ],
         "titles": [
-          "E-1-03 rejects invalid credentials without issuing a session cookie"
+          "rejects invalid credentials without issuing a session cookie"
         ]
       },
       "evidence_class": "browser",
@@ -218,14 +218,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase11.enterprise-auth.spec.ts",
+        "file": "apps/web/e2e/enterprise-auth.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_e98566e9f12d"
         ],
         "titles": [
-          "E-11-02 shows enterprise providers and begins provider sign-in from the anonymous shell"
+          "shows enterprise providers and begins provider sign-in from the anonymous shell"
         ]
       },
       "evidence_class": "browser",
@@ -249,14 +249,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase1.spec.ts",
+        "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_cfbe8ddd183f"
         ],
         "titles": [
-          "E-1-07 requires the current password and current TOTP code, revokes the session immediately, and requires re-login with the new password"
+          "requires the current password and current TOTP code, revokes the session immediately, and requires re-login with the new password"
         ]
       },
       "evidence_class": "browser",
@@ -280,14 +280,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase1.spec.ts",
+        "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_596fa0c2ad25"
         ],
         "titles": [
-          "E-1-06 follows the bootstrap-token enrollment sequence on the ordinary login shell and proves completion alone issues no session"
+          "follows the bootstrap-token enrollment sequence on the ordinary login shell and proves completion alone issues no session"
         ]
       },
       "evidence_class": "browser",
@@ -311,14 +311,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase1.spec.ts",
+        "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_f4f986e5e279"
         ],
         "titles": [
-          "E-1-02 requires MFA on the ordinary login surface, rejects wrong codes, and accepts a valid TOTP code"
+          "requires MFA on the ordinary login surface, rejects wrong codes, and accepts a valid TOTP code"
         ]
       },
       "evidence_class": "browser",
@@ -342,14 +342,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase1.spec.ts",
+        "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_55fc11b5a1fc"
         ],
         "titles": [
-          "E-1-08 keeps deployment-user administration on deployment-admin sessions and hides it from an incident admin on the ordinary shell"
+          "keeps deployment-user administration on deployment-admin sessions and hides it from an incident admin on the ordinary shell"
         ]
       },
       "evidence_class": "browser",
@@ -373,14 +373,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase1.spec.ts",
+        "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_33e24429c797"
         ],
         "titles": [
-          "FE-E-P1-01 Verify ordinary login, incident entry, and current-role refresh stay on public browser routes."
+          "Verify ordinary login, incident entry, and current-role refresh stay on public browser routes."
         ]
       },
       "evidence_class": "browser",
@@ -404,14 +404,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase1.spec.ts",
+        "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
           "scenario_e2a04c9d54c7"
         ],
         "titles": [
-          "E-1-05 lets deployment admins create and patch users, rejects stale versions, and shows the last-admin guard on the ordinary shell"
+          "lets deployment admins create and patch users, rejects stale versions, and shows the last-admin guard on the ordinary shell"
         ]
       },
       "evidence_class": "browser",
@@ -435,14 +435,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase1.clock.spec.ts",
+        "file": "apps/web/e2e/clock.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
           "scenario_0098c4cf976a"
         ],
         "titles": [
-          "E-1-04 advances the shared clock past idle expiry and requires a fresh login afterwards"
+          "advances the shared clock past idle expiry and requires a fresh login afterwards"
         ]
       },
       "evidence_class": "browser",
@@ -466,14 +466,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase1.support.spec.ts",
+        "file": "apps/web/e2e/auth.support.spec.ts",
         "project_id": "chromium",
         "stage": "support",
         "scenario_ids": [
           "scenario_3925df4ef78d"
         ],
         "titles": [
-          "FE-S-P1-01 Verify bootstrap route selectors and error-state selectors use stable test-id builders."
+          "Verify bootstrap route selectors and error-state selectors use stable test-id builders."
         ]
       },
       "evidence_class": "browser",
@@ -496,9 +496,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/app/App.phase1.test.tsx",
+        "file": "apps/web/src/app/App.auth.test.tsx",
         "titles": [
-          "Phase 11 U-11-ENTERPRISE-AUTH-01 enterprise auth discovery renders provider sign-in and begins with a relative return_to"
+          "enterprise auth discovery renders provider sign-in and begins with a relative return_to"
         ]
       },
       "evidence_class": "unit",
@@ -521,9 +521,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/app/App.phase1.test.tsx",
+        "file": "apps/web/src/app/App.auth.test.tsx",
         "titles": [
-          "Phase 1 U-1-16 ordinary account-security controls issue password-change and totp-enrollment requests, surface failures on the shell, and refresh back to anonymous state after success"
+          "ordinary account-security controls issue password-change and totp-enrollment requests, surface failures on the shell, and refresh back to anonymous state after success"
         ]
       },
       "evidence_class": "unit",
@@ -546,9 +546,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/app/App.phase1.test.tsx",
+        "file": "apps/web/src/app/App.auth.test.tsx",
         "titles": [
-          "Phase 1 U-1-17 ordinary deployment-admin controls create and load users, send versioned patch requests, and surface user_version_conflict plus last_deployment_admin on the shell"
+          "ordinary deployment-admin controls create and load users, send versioned patch requests, and surface user_version_conflict plus last_deployment_admin on the shell"
         ]
       },
       "evidence_class": "unit",
@@ -571,9 +571,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/app/App.phase1.test.tsx",
+        "file": "apps/web/src/app/App.auth.test.tsx",
         "titles": [
-          "Phase 1 U-1-15 ordinary shell follows mfa_setup_required through totp begin and complete, sends bootstrap-token requests, and proves completion alone does not issue a session"
+          "ordinary shell follows mfa_setup_required through totp begin and complete, sends bootstrap-token requests, and proves completion alone does not issue a session"
         ]
       },
       "evidence_class": "unit",
@@ -596,10 +596,10 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/app/App.phase1.test.tsx",
+        "file": "apps/web/src/app/App.auth.test.tsx",
         "titles": [
-          "Phase 1 U-1-14 ordinary shell blocks authenticated bootstrap until credential state loads and renders credential public errors without private details",
-          "Phase 1 U-1-14 ordinary shell keeps the anonymous login surface, sends the login request, refreshes session and credential state after success, and keeps deployment-user controls denied for non-admin sessions"
+          "ordinary shell blocks authenticated bootstrap until credential state loads and renders credential public errors without private details",
+          "ordinary shell keeps the anonymous login surface, sends the login request, refreshes session and credential state after success, and keeps deployment-user controls denied for non-admin sessions"
         ]
       },
       "evidence_class": "unit",
@@ -624,7 +624,7 @@
       "selector": {
         "file": "apps/web/src/services/browserApi.test.ts",
         "titles": [
-          "FE-I-P1-01 route-boundary CSRF headers follow cookie-backed mutating request rules"
+          "route-boundary CSRF headers follow cookie-backed mutating request rules"
         ]
       },
       "evidence_class": "unit",
@@ -647,16 +647,16 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/app/App.phase1.test.tsx",
+        "file": "apps/web/src/app/App.auth.test.tsx",
         "titles": [
-          "FE-I-P1-01 route-boundary account password and TOTP errors render public envelopes without private details",
-          "FE-I-P1-01 route-boundary auth login errors render public envelopes without private details",
-          "FE-I-P1-01 route-boundary bootstrap TOTP complete errors render public envelopes without private details",
-          "FE-I-P1-01 route-boundary credential-state errors render public envelopes on landing and account surfaces without private details",
-          "FE-I-P1-01 route-boundary deployment-admin load and action errors render public envelopes without private details",
-          "FE-I-P1-01 route-boundary incident landing uses /api/v1/incidents with closed create bodies and public errors",
-          "FE-I-P1-01 route-boundary logout failures render public envelopes without ending the visible session",
-          "FE-I-P1-01 route-boundary session TOTP complete errors render public envelopes without private details"
+          "route-boundary account password and TOTP errors render public envelopes without private details",
+          "route-boundary auth login errors render public envelopes without private details",
+          "route-boundary bootstrap TOTP complete errors render public envelopes without private details",
+          "route-boundary credential-state errors render public envelopes on landing and account surfaces without private details",
+          "route-boundary deployment-admin load and action errors render public envelopes without private details",
+          "route-boundary incident landing uses /api/v1/incidents with closed create bodies and public errors",
+          "route-boundary logout failures render public envelopes without ending the visible session",
+          "route-boundary session TOTP complete errors render public envelopes without private details"
         ]
       },
       "evidence_class": "unit",
@@ -681,8 +681,8 @@
       "selector": {
         "file": "apps/web/src/app/api/appShellClient.routeBoundary.test.ts",
         "titles": [
-          "FE-I-P1-01 route-boundary bootstrap token authorization is limited to TOTP begin and complete",
-          "FE-I-P1-01 route-boundary client helpers keep auth and account requests under /api/v1/ with route-specific cookie-backed CSRF and closed bodies"
+          "route-boundary bootstrap token authorization is limited to TOTP begin and complete",
+          "route-boundary client helpers keep auth and account requests under /api/v1/ with route-specific cookie-backed CSRF and closed bodies"
         ]
       },
       "evidence_class": "unit",
@@ -1289,7 +1289,7 @@
           "scenario_b04591a66827"
         ],
         "titles": [
-          "FE-V-P1-01 Capture auth gateway initial, focused, loading, invalid credentials, MFA required, invalid MFA, MFA setup required, service unavailable, mobile, reduced-motion, and 200%-zoom states."
+          "Capture auth gateway initial, focused, loading, invalid credentials, MFA required, invalid MFA, MFA setup required, service unavailable, mobile, reduced-motion, and 200%-zoom states."
         ]
       },
       "evidence_class": "visual",

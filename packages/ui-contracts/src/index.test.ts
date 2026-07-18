@@ -642,7 +642,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     ).toThrow("Invalid feature_group_key selector token: Create task");
   });
 
-  it("derives stable Phase 6 collaboration and status selectors", () => {
+  it("derives stable collaboration collaboration and status selectors", () => {
     expect(
       conflictMarkerTestId("record-1", "timeline.activity_synopsis_text"),
     ).toBe("conflict-marker-record-1-timeline.activity_synopsis_text");
@@ -1161,7 +1161,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     );
   });
 
-  it("provides stable Phase 1 bootstrap, landing, session, admin, and error selectors", () => {
+  it("provides stable authentication bootstrap, landing, session, admin, and error selectors", () => {
     expectSelectorCases(phase1AuthTestId, [
       ["shell", "auth-shell"],
       ["shell-message", "auth-shell-message"],
@@ -1329,7 +1329,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     );
   });
 
-  it("keeps Phase 1 selector identity on semantic state and stable field identifiers", () => {
+  it("keeps authentication selector identity on semantic state and stable field identifiers", () => {
     const renamedSession = {
       displayLabel: "Current operator",
       field: "session-user-id" as const,
@@ -1365,7 +1365,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     );
   });
 
-  it("rejects invalid Phase 1 selector vocabularies", () => {
+  it("rejects invalid authentication selector vocabularies", () => {
     expect(() => phase1AuthTestId("username" as never)).toThrow(
       "Invalid phase1 auth selector token: username",
     );

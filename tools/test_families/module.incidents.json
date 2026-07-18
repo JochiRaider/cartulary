@@ -15,14 +15,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase1.spec.ts",
+        "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_cb4fe9d1ef4c"
         ],
         "titles": [
-          "E-1-10 clears a stale selected incident after membership removal while preserving the account session"
+          "clears a stale selected incident after membership removal while preserving the account session"
         ]
       },
       "evidence_class": "browser",
@@ -46,14 +46,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase2.spec.ts",
+        "file": "apps/web/e2e/incident-administration.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_40fddb90fe45"
         ],
         "titles": [
-          "E-2-03 lets incident admins manage memberships and hides those controls from non-admin members on the ordinary shell"
+          "lets incident admins manage memberships and hides those controls from non-admin members on the ordinary shell"
         ]
       },
       "evidence_class": "browser",
@@ -77,14 +77,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase2.spec.ts",
+        "file": "apps/web/e2e/incident-administration.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_e4bfa26e46dc"
         ],
         "titles": [
-          "E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface"
+          "creates an incident, bootstraps the creator as admin, and lands on the workbook surface"
         ]
       },
       "evidence_class": "browser",
@@ -108,14 +108,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase1.spec.ts",
+        "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_d218b2939740"
         ],
         "titles": [
-          "E-1-09 creates an incident from the landing screen, lists it, and opens the workbook as incident admin"
+          "creates an incident from the landing screen, lists it, and opens the workbook as incident admin"
         ]
       },
       "evidence_class": "browser",
@@ -139,14 +139,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase2.spec.ts",
+        "file": "apps/web/e2e/incident-administration.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_7caf936917c3"
         ],
         "titles": [
-          "E-2-02 shows incident discovery, raw querystring deep-link retrieval, and promoted-field-only patching on the ordinary incident shell"
+          "shows incident discovery, raw querystring deep-link retrieval, and promoted-field-only patching on the ordinary incident shell"
         ]
       },
       "evidence_class": "browser",
@@ -170,7 +170,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase2.support.spec.ts",
+        "file": "apps/web/e2e/incident.support.spec.ts",
         "project_id": "chromium",
         "stage": "support",
         "scenario_ids": [
@@ -201,7 +201,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase2.support.spec.ts",
+        "file": "apps/web/e2e/incident.support.spec.ts",
         "project_id": "chromium",
         "stage": "support",
         "scenario_ids": [
@@ -232,7 +232,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase2.support.spec.ts",
+        "file": "apps/web/e2e/incident.support.spec.ts",
         "project_id": "chromium",
         "stage": "support",
         "scenario_ids": [
@@ -264,7 +264,7 @@
       "selector": {
         "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
         "titles": [
-          "Phase 2 U-2-13 ordinary incident shell issues membership create, patch, and delete requests with versioned payloads and refreshes session role after each mutation"
+          "ordinary incident shell issues membership create, patch, and delete requests with versioned payloads and refreshes session role after each mutation"
         ]
       },
       "evidence_class": "unit",
@@ -289,7 +289,7 @@
       "selector": {
         "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
         "titles": [
-          "Phase 2 U-2-12 ordinary incident shell gates promoted-field controls by incident role, hides membership-admin controls from non-admin members, and returns to landing when incident access is lost"
+          "ordinary incident shell gates promoted-field controls by incident role, hides membership-admin controls from non-admin members, and returns to landing when incident access is lost"
         ]
       },
       "evidence_class": "unit",
@@ -314,7 +314,7 @@
       "selector": {
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
-          "Phase 2 U-2-11 ordinary landing shell creates an incident, refreshes session-visible membership, routes to the workbook by incident_id, and falls back when a stale incident selection is no longer visible"
+          "ordinary landing shell creates an incident, refreshes session-visible membership, routes to the workbook by incident_id, and falls back when a stale incident selection is no longer visible"
         ]
       },
       "evidence_class": "unit",

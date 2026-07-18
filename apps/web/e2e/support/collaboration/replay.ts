@@ -121,7 +121,7 @@ export async function openIncidentAsTrackedUserReady(
   return { acceptedSocket, page, socketMonitor };
 }
 
-export type Phase6RecoveryScenario = {
+export type SessionRecoveryScenario = {
   createdBy: string;
   incidentKeyPrefix: string;
   localValues?: readonly string[];
@@ -365,7 +365,7 @@ export async function exerciseRevokedPendingReplay({
   scenario,
   sessionTracker,
   triggerRevocation,
-}: Phase6RecoveryScenario) {
+}: SessionRecoveryScenario) {
   const replayValues = localValues ?? [
     `Phase 6 ${createdBy} ${scenario} first local`,
     `Phase 6 ${createdBy} ${scenario} second local`,

@@ -67,9 +67,9 @@ describe("Network Flow frontend boundary policy", () => {
     }
   });
 
-  it("rejects synthetic markup in authoritative Phase 12 Network Flow browser evidence", () => {
+  it("rejects synthetic markup in authoritative Network Flow browser evidence", () => {
     const evidence = readFileSync(
-      path.resolve(webSourceDirectory, "../e2e/phase12.network-flow.spec.ts"),
+      path.resolve(webSourceDirectory, "../e2e/network-flow.spec.ts"),
       "utf8",
     );
     expect(evidence).not.toContain("page.setContent");

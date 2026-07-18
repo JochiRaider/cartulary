@@ -211,14 +211,14 @@
         }
       ],
       "scenario_titles": [
-        "FE-U-P0-02 selects generated contracts by view_schema_id, not display title",
-        "FE-U-P0-02 keeps field identity and capabilities stable when labels change",
-        "FE-U-P0-02 treats duplicate labels as display-only with distinct field_key identities",
-        "FE-U-P0-02 keeps field identity stable when fields and visible columns reorder",
-        "FE-U-P0-02 resolves editable, queryable, and synthetic fields by field_key",
-        "FE-U-P0-02 fails deterministically for duplicate and missing field_key inputs",
-        "FE-U-P0-02 fails deterministically for unknown field_key references",
-        "FE-U-P0-02 visibleFields fails deterministically when default-visible keys are unresolved"
+        "selects generated contracts by view_schema_id, not display title",
+        "keeps field identity and capabilities stable when labels change",
+        "treats duplicate labels as display-only with distinct field_key identities",
+        "keeps field identity stable when fields and visible columns reorder",
+        "resolves editable, queryable, and synthetic fields by field_key",
+        "fails deterministically for duplicate and missing field_key inputs",
+        "fails deterministically for unknown field_key references",
+        "visibleFields fails deterministically when default-visible keys are unresolved"
       ],
       "claim_status": "implemented",
       "claim": {

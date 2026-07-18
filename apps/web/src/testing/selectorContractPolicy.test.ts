@@ -534,8 +534,8 @@ describe("selector contract policy", () => {
     expect(violations).toEqual([]);
   });
 
-  it("classifies Phase 1 cross-boundary selector families as shared-builder owned", () => {
-    const sharedPhase1Selectors = [
+  it("classifies authentication cross-boundary selector families as shared-builder owned", () => {
+    const sharedSelectors = [
       "account-session-user-id",
       "account-error-public",
       "admin-create-user",
@@ -551,7 +551,7 @@ describe("selector contract policy", () => {
       "workbook-loading",
     ];
 
-    for (const token of sharedPhase1Selectors) {
+    for (const token of sharedSelectors) {
       expect(sharedBuilderOwns(token), token).toBe(true);
       expect(appLocalOwnershipFor(token), token).toBeNull();
     }

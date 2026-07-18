@@ -61,7 +61,7 @@ describe("Assessment workbook surface", () => {
     vi.unstubAllGlobals();
   });
 
-  it("Phase 4 U-4-WB-01 maps band-first assessment create payloads without submitting the derived band", () => {
+  it("maps band-first assessment create payloads without submitting the derived band", () => {
     expect(confidenceScoreFromBand("unset")).toBeNull();
     expect(confidenceScoreFromBand("low")).toBe(25);
     expect(confidenceScoreFromBand("medium")).toBe(55);
@@ -101,7 +101,7 @@ describe("Assessment workbook surface", () => {
     expect(payload).not.toHaveProperty("assessment.confidence_band");
   });
 
-  it("Phase 4 U-4-WB-02 submits assessment creates through the workbook UI", async () => {
+  it("submits assessment creates through the workbook UI", async () => {
     const createdRows: Array<Record<string, unknown>> = [];
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init) => {
       const url = String(input);

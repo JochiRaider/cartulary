@@ -449,7 +449,7 @@ CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
   "$node_cmd" "$PLANNER" plan --frontend-row-ids FE-I-P5-01 --baseline-file "$tmp_dir/baseline.json" --max-shards 3 >"$tmp_dir/frontend-row-plan.json"
 assert_equals "$(json_field "$tmp_dir/frontend-row-plan.json" "entry_count")" "1" "frontend selected-row plan keeps only selected row"
 assert_equals "$(json_field "$tmp_dir/frontend-row-plan.json" "entries.0.id")" "FE-I-P5-01" "frontend selected-row plan records FE row id"
-assert_equals "$(json_field "$tmp_dir/frontend-row-plan.json" "entries.0.file")" "apps/web/e2e/frontend.phase5.grid-provenance.spec.ts" "frontend selected-row plan records FE row file"
+assert_equals "$(json_field "$tmp_dir/frontend-row-plan.json" "entries.0.file")" "apps/web/e2e/grid-provenance.spec.ts" "frontend selected-row plan records FE row file"
 assert_equals "$(json_field "$tmp_dir/frontend-row-plan.json" "shards.0.entries.0.id")" "FE-I-P5-01" "frontend selected-row shard records FE row id"
 set +e
 unknown_frontend_row_output="$(

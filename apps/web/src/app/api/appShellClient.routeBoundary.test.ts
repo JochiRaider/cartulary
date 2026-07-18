@@ -42,7 +42,7 @@ describe("App-shell API route boundaries", () => {
     vi.unstubAllGlobals();
   });
 
-  it("FE-I-P1-01 route-boundary client helpers keep auth and account requests under /api/v1/ with route-specific cookie-backed CSRF and closed bodies", async () => {
+  it("route-boundary client helpers keep auth and account requests under /api/v1/ with route-specific cookie-backed CSRF and closed bodies", async () => {
     cookieValue = "cartulary_csrf=session-csrf";
 
     await loadSession();
@@ -302,7 +302,7 @@ describe("App-shell API route boundaries", () => {
     }
   });
 
-  it("FE-I-P1-01 route-boundary bootstrap token authorization is limited to TOTP begin and complete", async () => {
+  it("route-boundary bootstrap token authorization is limited to TOTP begin and complete", async () => {
     cookieValue = "cartulary_csrf=session-csrf";
 
     await beginTotpEnrollment({

@@ -293,7 +293,7 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/app/App.phase1.test.tsx",
+      "file": "apps/web/src/app/App.auth.test.tsx",
       "title": "keeps deployment-admin target actions disabled until a target load completes and leaves version-conflict status stable",
       "coverage": "support",
       "reason": "Residual deployment-admin shell state handling remains intentional product regression coverage outside the Phase 1 authoritative row inventory. Ownership is now explicit in the unified test catalog."
@@ -524,7 +524,7 @@
     {
       "target": "frontend-unit",
       "file": "apps/web/src/testing/selectorContractPolicy.test.ts",
-      "title": "classifies Phase 1 cross-boundary selector families as shared-builder owned",
+      "title": "classifies authentication cross-boundary selector families as shared-builder owned",
       "coverage": "tooling_support",
       "reason": "Shared selector and workbook test helper checks support the frontend harness without claiming product conformance rows."
     },
@@ -883,7 +883,7 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.autosave.test.tsx",
       "title": "commits Enter from the current editor value when row state is stale",
       "coverage": "support",
       "reason": "Residual Phase 3 workbook autosave, stale-query, and draft-continuity checks remain product regression coverage outside row evidence. Ownership is now explicit in the unified test catalog.",
@@ -891,7 +891,7 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.autosave.test.tsx",
       "title": "commits paste completion from the current editor value when row state is stale",
       "coverage": "support",
       "reason": "Residual Phase 3 workbook autosave, stale-query, and draft-continuity checks remain product regression coverage outside row evidence. Ownership is now explicit in the unified test catalog.",
@@ -899,7 +899,7 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.autosave.test.tsx",
       "title": "commits Tab from the current editor value when row state is stale",
       "coverage": "support",
       "reason": "Residual Phase 3 workbook autosave, stale-query, and draft-continuity checks remain product regression coverage outside row evidence. Ownership is now explicit in the unified test catalog.",
@@ -907,49 +907,49 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.autosave.test.tsx",
       "title": "queues a follow-up scalar save when the logical payload changes while a prior save is pending",
       "coverage": "support",
       "reason": "Residual Phase 3 workbook autosave assertion not claimed by an authoritative phase row remains product regression coverage. Ownership is now explicit in the unified test catalog."
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.autosave.test.tsx",
       "title": "suppresses duplicate pending scalar saves that only differ by client_txn_id",
       "coverage": "support",
       "reason": "Residual Phase 3 workbook autosave assertion not claimed by an authoritative phase row remains product regression coverage. Ownership is now explicit in the unified test catalog."
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
       "title": "classifies committed Timeline row freshness by record_id and row_version",
       "coverage": "support",
       "reason": "Residual Phase 3 workbook freshness helper coverage remains product regression coverage outside the authoritative phase row inventory. Ownership is now explicit in the unified test catalog."
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
       "title": "ignores stale query errors after a newer committed row response",
       "coverage": "support",
       "reason": "Residual Phase 3 stale query error regression coverage remains product regression coverage outside the authoritative phase row inventory. Ownership is now explicit in the unified test catalog."
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
       "title": "ignores stale sparse live row patches after a newer committed row is accepted",
       "coverage": "support",
       "reason": "Residual Phase 3 stale live patch regression coverage remains product regression coverage outside the authoritative phase row inventory. Ownership is now explicit in the unified test catalog."
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
       "title": "keeps accepted committed row state across stale invalidation queries and replay responses",
       "coverage": "support",
       "reason": "Residual Phase 3 stale query and replay regression coverage remains product regression coverage outside the authoritative phase row inventory. Ownership is now explicit in the unified test catalog."
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
       "title": "keeps Timeline controls mounted while a sorted query refresh is pending",
       "coverage": "support",
       "reason": "Residual Phase 3 workbook autosave, stale-query, and draft-continuity checks remain product regression coverage outside row evidence. Ownership is now explicit in the unified test catalog.",
@@ -957,7 +957,7 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
       "title": "preserves an in-flight draft create across unrelated projection refresh",
       "coverage": "support",
       "reason": "Residual Phase 3 workbook autosave, stale-query, and draft-continuity checks remain product regression coverage outside row evidence. Ownership is now explicit in the unified test catalog.",
@@ -965,7 +965,7 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
       "title": "preserves draft row edits across projection refresh before create commit",
       "coverage": "support",
       "reason": "Residual Phase 3 workbook autosave, stale-query, and draft-continuity checks remain product regression coverage outside row evidence. Ownership is now explicit in the unified test catalog.",
@@ -973,7 +973,7 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
       "title": "surfaces a sorted query refresh failure without unmounting Timeline controls",
       "coverage": "support",
       "reason": "Residual Phase 3 workbook autosave, stale-query, and draft-continuity checks remain product regression coverage outside row evidence. Ownership is now explicit in the unified test catalog.",
@@ -981,47 +981,47 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
-      "title": "Phase 6 applies sparse live patches by record_id without moving an active cell draft",
+      "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
+      "title": "applies sparse live patches by record_id without moving an active cell draft",
       "coverage": "support",
       "reason": "Phase 6 resolver, live-patch, and presence component checks are intentional support coverage outside row closure.",
       "phase": "phase6"
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
-      "title": "Phase 6 presence indicators render from keyed socket state without changing save-state",
+      "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
+      "title": "presence indicators render from keyed socket state without changing save-state",
       "coverage": "support",
       "reason": "Phase 6 resolver, live-patch, and presence component checks are intentional support coverage outside row closure.",
       "phase": "phase6"
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
-      "title": "Phase 6 resolver keep-saved action submits an explicit outcome and applies returned row state",
+      "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
+      "title": "resolver keep-saved action submits an explicit outcome and applies returned row state",
       "coverage": "support",
       "reason": "Phase 6 resolver, live-patch, and presence component checks are intentional support coverage outside row closure.",
       "phase": "phase6"
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
-      "title": "Phase 6 resolver merged-value action submits an explicit outcome and applies returned row state",
+      "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
+      "title": "resolver merged-value action submits an explicit outcome and applies returned row state",
       "coverage": "support",
       "reason": "Phase 6 resolver, live-patch, and presence component checks are intentional support coverage outside row closure.",
       "phase": "phase6"
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
-      "title": "Phase 6 resolver use-unsaved action submits an explicit outcome and applies returned row state",
+      "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
+      "title": "resolver use-unsaved action submits an explicit outcome and applies returned row state",
       "coverage": "support",
       "reason": "Phase 6 resolver, live-patch, and presence component checks are intentional support coverage outside row closure.",
       "phase": "phase6"
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
       "title": "builds rollback targets only from advertised server actions and selectors",
       "coverage": "support",
       "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
@@ -1029,7 +1029,7 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
       "title": "clears stale rollback previews when open history retargets",
       "coverage": "support",
       "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
@@ -1037,7 +1037,7 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
       "title": "fails closed for duplicate history_item_ref",
       "coverage": "support",
       "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
@@ -1045,7 +1045,7 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
       "title": "fails closed for invalid revision_no",
       "coverage": "support",
       "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
@@ -1053,7 +1053,7 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
       "title": "fails closed for missing history_entry rollback selector",
       "coverage": "support",
       "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
@@ -1061,7 +1061,7 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
       "title": "fails closed for missing history_item_ref",
       "coverage": "support",
       "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
@@ -1069,7 +1069,7 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
       "title": "fails closed for non-canonical action order",
       "coverage": "support",
       "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
@@ -1077,7 +1077,7 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
       "title": "fails closed for non-string history_item_ref",
       "coverage": "support",
       "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
@@ -1085,7 +1085,7 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
       "title": "keeps workbook continuity through ordinary remove and invalidate socket updates",
       "coverage": "support",
       "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
@@ -1093,7 +1093,7 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
       "title": "opens row-centric history from a selected workbook row and renders server metadata only",
       "coverage": "support",
       "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
@@ -1101,7 +1101,7 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
       "title": "retargets open row history to the newly selected inspector row",
       "coverage": "support",
       "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
@@ -1109,7 +1109,7 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
       "title": "submits single-entry rollback with only the server-provided history selector",
       "coverage": "support",
       "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
@@ -1117,7 +1117,7 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
       "title": "uses active and tombstone row versions for delete and restore controls",
       "coverage": "support",
       "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
@@ -1125,7 +1125,7 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase8.query.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.query.test.tsx",
       "title": "normalizes saved-view query_json and layout_json back to portable field-key state",
       "coverage": "support",
       "reason": "Phase 8 query-control helper behavior supports browser-owned and backend-owned query semantics without becoming row evidence.",
@@ -1133,7 +1133,7 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase8.query.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.query.test.tsx",
       "title": "Notes full_text controls submit the exact-token operator",
       "coverage": "support",
       "reason": "Phase 8 query-control helper behavior supports browser-owned and backend-owned query semantics without becoming row evidence.",
@@ -1141,7 +1141,7 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase9.inspector.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.inspector.test.tsx",
       "title": "keeps the Timeline inspector unmounted until explicit activation",
       "coverage": "support",
       "reason": "Residual Phase 9 inspector presentation checks remain product regression coverage outside authoritative row evidence. Ownership is now explicit in the unified test catalog.",
@@ -1149,7 +1149,7 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase9.inspector.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.inspector.test.tsx",
       "title": "renders Timeline collection cells compactly until inline edit activation",
       "coverage": "support",
       "reason": "Residual Phase 9 inspector presentation checks remain product regression coverage outside authoritative row evidence. Ownership is now explicit in the unified test catalog.",
@@ -1157,7 +1157,7 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
       "title": "dispatches multi-row CSV pasted into the draft Time cell as create-row targets",
       "coverage": "support",
       "reason": "Phase 9 grid-anchor shell checks are intentional support coverage for keyboard and paste integration.",
@@ -1165,7 +1165,7 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
       "title": "dispatches single-line CSV pasted into the draft Time cell as a create-row paste",
       "coverage": "support",
       "reason": "Phase 9 grid-anchor shell checks are intentional support coverage for keyboard and paste integration.",
@@ -1173,40 +1173,40 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
-      "title": "Phase 9 grid anchor shell support retains edge anchors and preserves drafts across valid focus movement",
+      "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
+      "title": "grid anchor shell support retains edge anchors and preserves drafts across valid focus movement",
       "coverage": "support",
       "reason": "Phase 9 grid-anchor shell checks are intentional support coverage for keyboard and paste integration.",
       "phase": "phase9"
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
-      "title": "Phase 9 grid anchor shell support commits drafts before Enter navigation and retains edge Shift+Enter targets",
+      "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
+      "title": "grid anchor shell support commits drafts before Enter navigation and retains edge Shift+Enter targets",
       "coverage": "support",
       "reason": "Phase 9 grid-anchor shell checks are intentional support coverage for keyboard and paste integration.",
       "phase": "phase9"
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
-      "title": "Phase 9 grid anchor shell support fails closed for unavailable shortcuts without row mutation",
+      "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
+      "title": "grid anchor shell support fails closed for unavailable shortcuts without row mutation",
       "coverage": "support",
       "reason": "Phase 9 grid-anchor shell checks are intentional support coverage for keyboard and paste integration.",
       "phase": "phase9"
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
-      "title": "Phase 9 grid anchor shell support updates Cartulary anchors by record_id and field_key during keyboard navigation",
+      "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
+      "title": "grid anchor shell support updates Cartulary anchors by record_id and field_key during keyboard navigation",
       "coverage": "support",
       "reason": "Phase 9 grid-anchor shell checks are intentional support coverage for keyboard and paste integration.",
       "phase": "phase9"
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
-      "title": "Phase 9 grid anchor shell support updates Cartulary anchors for Enter and Shift+Enter while Tab exits",
+      "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
+      "title": "grid anchor shell support updates Cartulary anchors for Enter and Shift+Enter while Tab exits",
       "coverage": "support",
       "reason": "Phase 9 grid-anchor shell checks are intentional support coverage for keyboard and paste integration.",
       "phase": "phase9"

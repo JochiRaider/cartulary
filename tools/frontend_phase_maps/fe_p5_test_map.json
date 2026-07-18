@@ -71,7 +71,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-U-P5-01 preserves closed mention chip states by stable identifiers and field keys"
+        "preserves closed mention chip states by stable identifiers and field keys"
       ],
       "claim_status": "implemented",
       "claim": {
@@ -203,7 +203,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-I-P5-01 Verify Hosts, Identities, and Notes grids render contract-derived columns and preserve mention/entity provenance through edit and refresh."
+        "Verify Hosts, Identities, and Notes grids render contract-derived columns and preserve mention/entity provenance through edit and refresh."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -323,7 +323,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-E-P5-01 Verify manual mention resolution, dismissal, auto-resolution disclosure, and undo through public mutation routes and refreshed rows."
+        "Verify manual mention resolution, dismissal, auto-resolution disclosure, and undo through public mutation routes and refreshed rows."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -389,7 +389,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-V-P5-01 Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution metadata fixtures."
+        "Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution metadata fixtures."
       ],
       "claim_status": "implemented",
       "claim": {

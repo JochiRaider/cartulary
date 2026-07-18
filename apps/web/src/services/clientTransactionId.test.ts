@@ -8,7 +8,7 @@ const uuidV4Pattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
 describe("createClientTransactionId", () => {
-  it("FE-U-P4-01 retains the prefix and uses the platform UUID generator", () => {
+  it("retains the prefix and uses the platform UUID generator", () => {
     const randomUUID = vi.fn(() => "123e4567-e89b-42d3-a456-426614174000");
     const provider = {
       getRandomValues: vi.fn(),
@@ -21,7 +21,7 @@ describe("createClientTransactionId", () => {
     expect(randomUUID).toHaveBeenCalledOnce();
   });
 
-  it("FE-U-P4-01 uses RFC 4122 v4 formatting with secure random bytes as fallback", () => {
+  it("uses RFC 4122 v4 formatting with secure random bytes as fallback", () => {
     let seed = 0;
     const provider = {
       getRandomValues: <T extends ArrayBufferView | null>(array: T): T => {
@@ -43,7 +43,7 @@ describe("createClientTransactionId", () => {
     expect(second).not.toBe(first);
   });
 
-  it("FE-U-P4-01 fails locally when Web Crypto is unavailable", () => {
+  it("fails locally when Web Crypto is unavailable", () => {
     const originalCrypto = globalThis.crypto;
     Object.defineProperty(globalThis, "crypto", {
       configurable: true,

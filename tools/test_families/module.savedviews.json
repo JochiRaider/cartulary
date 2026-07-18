@@ -47,14 +47,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase8.workbook.spec.ts",
+        "file": "apps/web/e2e/workbook.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_60428a3dde9b"
         ],
         "titles": [
-          "E-8-01 saved-view route foundation persists canonical state while browser lifecycle affordances remain pending"
+          "saved-view route foundation persists canonical state while browser lifecycle affordances remain pending"
         ]
       },
       "evidence_class": "browser",
@@ -78,14 +78,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase8.workbook.spec.ts",
+        "file": "apps/web/e2e/workbook.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_88d9a3172ec4"
         ],
         "titles": [
-          "FE-I-P8-01 Verify saved-view create/update/select/default UI uses active surface scope and public saved-view/workbook-preference contracts."
+          "Verify saved-view create/update/select/default UI uses active surface scope and public saved-view/workbook-preference contracts."
         ]
       },
       "evidence_class": "browser",
@@ -109,14 +109,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase2.spec.ts",
+        "file": "apps/web/e2e/incident-administration.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_0d79b0d588a9"
         ],
         "titles": [
-          "FE-E-P2-01 Verify saved views appear only under the active surface's view selector and system views open inside the same workbook shell."
+          "Verify saved views appear only under the active surface's view selector and system views open inside the same workbook shell."
         ]
       },
       "evidence_class": "browser",
@@ -140,14 +140,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase8.workbook.spec.ts",
+        "file": "apps/web/e2e/workbook.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
           "scenario_8b50a0edbc62"
         ],
         "titles": [
-          "E-8-05 verifies saved-view persistence, default/startup surface persistence, and query replay through /api/v1/ after reload"
+          "verifies saved-view persistence, default/startup surface persistence, and query replay through /api/v1/ after reload"
         ]
       },
       "evidence_class": "browser",
@@ -171,14 +171,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase8.workbook.spec.ts",
+        "file": "apps/web/e2e/workbook.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
           "scenario_7aae6dfe7464"
         ],
         "titles": [
-          "FE-E-P8-01 Verify saved-view persistence, default/startup surface persistence, and query replay through /api/v1/ after reload."
+          "Verify saved-view persistence, default/startup surface persistence, and query replay through /api/v1/ after reload."
         ]
       },
       "evidence_class": "browser",
@@ -307,7 +307,7 @@
           "scenario_5974e42bb8fb"
         ],
         "titles": [
-          "FE-V-P8-01 Capture saved-view selector, active chips, grouped result, group row, default/startup state indicator, and empty successful query fixtures."
+          "Capture saved-view selector, active chips, grouped result, group row, default/startup state indicator, and empty successful query fixtures."
         ]
       },
       "evidence_class": "visual",

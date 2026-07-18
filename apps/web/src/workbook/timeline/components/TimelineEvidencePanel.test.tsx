@@ -50,7 +50,7 @@ describe("TimelineEvidencePanel", () => {
     cleanup();
   });
 
-  it("FE-U-P9-02 does not render draft rows as row-bound inspector evidence", () => {
+  it("does not render draft rows as row-bound inspector evidence", () => {
     render(
       <TimelineEvidencePanel
         countDisplay={{ displayCount: "0", stateKey: "empty" }}
@@ -67,7 +67,7 @@ describe("TimelineEvidencePanel", () => {
     ).toBeNull();
   });
 
-  it("FE-U-P9-02 uses row-specific file inputs for committed row evidence", () => {
+  it("uses row-specific file inputs for committed row evidence", () => {
     render(
       <TimelineEvidencePanel
         countDisplay={{ displayCount: "1", stateKey: "attached" }}

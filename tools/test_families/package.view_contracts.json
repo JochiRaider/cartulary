@@ -14,14 +14,14 @@
       "selector": {
         "file": "packages/view-contracts/src/index.test.ts",
         "titles": [
-          "FE-U-P0-02 fails deterministically for duplicate and missing field_key inputs",
-          "FE-U-P0-02 fails deterministically for unknown field_key references",
-          "FE-U-P0-02 keeps field identity and capabilities stable when labels change",
-          "FE-U-P0-02 keeps field identity stable when fields and visible columns reorder",
-          "FE-U-P0-02 resolves editable, queryable, and synthetic fields by field_key",
-          "FE-U-P0-02 selects generated contracts by view_schema_id, not display title",
-          "FE-U-P0-02 treats duplicate labels as display-only with distinct field_key identities",
-          "FE-U-P0-02 visibleFields fails deterministically when default-visible keys are unresolved"
+          "fails deterministically for duplicate and missing field_key inputs",
+          "fails deterministically for unknown field_key references",
+          "keeps field identity and capabilities stable when labels change",
+          "keeps field identity stable when fields and visible columns reorder",
+          "resolves editable, queryable, and synthetic fields by field_key",
+          "selects generated contracts by view_schema_id, not display title",
+          "treats duplicate labels as display-only with distinct field_key identities",
+          "visibleFields fails deterministically when default-visible keys are unresolved"
         ]
       },
       "evidence_class": "unit",
@@ -44,15 +44,7 @@
       "selector": {
         "file": "packages/view-contracts/src/index.test.ts",
         "titles": [
-          "FE-U-P0-02 view-schema field-key adapter contract FE-U-P0-02 fails deterministically for duplicate and missing field_key inputs",
-          "FE-U-P0-02 view-schema field-key adapter contract FE-U-P0-02 fails deterministically for unknown field_key references",
-          "FE-U-P0-02 view-schema field-key adapter contract FE-U-P0-02 keeps field identity and capabilities stable when labels change",
-          "FE-U-P0-02 view-schema field-key adapter contract FE-U-P0-02 keeps field identity stable when fields and visible columns reorder",
-          "FE-U-P0-02 view-schema field-key adapter contract FE-U-P0-02 resolves editable, queryable, and synthetic fields by field_key",
-          "FE-U-P0-02 view-schema field-key adapter contract FE-U-P0-02 selects generated contracts by view_schema_id, not display title",
-          "FE-U-P0-02 view-schema field-key adapter contract FE-U-P0-02 treats duplicate labels as display-only with distinct field_key identities",
-          "FE-U-P0-02 view-schema field-key adapter contract FE-U-P0-02 visibleFields fails deterministically when default-visible keys are unresolved",
-          "view-contracts FE-U-P9-03 Verify inspector panels and feature groups render from active config keys and reject unknown panel IDs, route owners, result behaviors, disabled tokens, duplicate keys, missing required keys, and extra current-profile keys before rendering.",
+          "view-contracts Verify inspector panels and feature groups render from active config keys and reject unknown panel IDs, route owners, result behaviors, disabled tokens, duplicate keys, missing required keys, and extra current-profile keys before rendering.",
           "view-contracts enforces conditional full-row group_values and sparse patch group_values",
           "view-contracts exposes inspector config by stable view_schema_id and semantic keys",
           "view-contracts exposes mutation metadata needed by workbook controls",
@@ -63,7 +55,15 @@
           "view-contracts parses sortable, filterable, and inline-create metadata",
           "view-contracts rejects missing and undeclared feature groups for current-profile surfaces",
           "view-contracts resolves header sort keys and field capabilities from contract metadata",
-          "view-contracts returns the contract-default visible field order"
+          "view-contracts returns the contract-default visible field order",
+          "view-schema field-key adapter contract fails deterministically for duplicate and missing field_key inputs",
+          "view-schema field-key adapter contract fails deterministically for unknown field_key references",
+          "view-schema field-key adapter contract keeps field identity and capabilities stable when labels change",
+          "view-schema field-key adapter contract keeps field identity stable when fields and visible columns reorder",
+          "view-schema field-key adapter contract resolves editable, queryable, and synthetic fields by field_key",
+          "view-schema field-key adapter contract selects generated contracts by view_schema_id, not display title",
+          "view-schema field-key adapter contract treats duplicate labels as display-only with distinct field_key identities",
+          "view-schema field-key adapter contract visibleFields fails deterministically when default-visible keys are unresolved"
         ]
       },
       "evidence_class": "unit",

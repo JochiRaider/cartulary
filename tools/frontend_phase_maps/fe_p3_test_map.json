@@ -85,7 +85,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-U-P3-01 Reject unsafe record identity and keep presentation rows from mutation-capable anchors."
+        "Reject unsafe record identity and keep presentation rows from mutation-capable anchors."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -191,7 +191,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-U-P3-02 Translate vendor row and column coordinates to stable record_id and field_key anchors."
+        "Translate vendor row and column coordinates to stable record_id and field_key anchors."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -299,7 +299,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-U-P3-03 Resolve grid editability from explicit editor adapters and contract writeability only."
+        "Resolve grid editability from explicit editor adapters and contract writeability only."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -363,7 +363,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-U-P3-04 Resolve renderers and editors deterministically and clean adapter-owned resources."
+        "Resolve renderers and editors deterministically and clean adapter-owned resources."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -468,7 +468,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-I-P3-01 Verify sparse patches preserve unchanged row object references and intentionally replace changed rows by record_id."
+        "Verify sparse patches preserve unchanged row object references and intentionally replace changed rows by record_id."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -569,7 +569,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-B-P3-01 Verify one-click focused editing, rejected-transition retention, sort, filter, group, paste, exact-range fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers."
+        "Verify one-click focused editing, rejected-transition retention, sort, filter, group, paste, exact-range fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -640,7 +640,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-V-P3-01 Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures."
+        "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures."
       ],
       "claim_status": "implemented",
       "claim": {

@@ -65,9 +65,9 @@ entrypoints, and app-shell tests. It should not own workbook internals.
 | `app/routeState.ts` | Pure app-route parsing and history URL construction helpers. |
 | `app/useAppRouteRuntime.ts` | React hook for route state, popstate handling, and history writes. |
 | `app/App.landing.test.tsx` | Landing-surface tests for app startup and landing interactions. |
-| `app/App.phase1.support.test.tsx` | Support tests for Phase 1 app harness behavior. |
-| `app/App.phase1.test.tsx` | Phase 1 app behavior tests for auth/account/route readiness. |
-| `app/App.test.tsx` | General app-shell behavior tests. |
+| `app/App.auth.support.test.tsx` | Support tests for Phase 1 app harness behavior. |
+| `app/App.auth.test.tsx` | Phase 1 app behavior tests for auth/account/route readiness. |
+| `app/App.timeline-invalidation.support.test.tsx` | General app-shell behavior tests. |
 | `app/IncidentAdminPanel.test.tsx` | Incident administration panel tests. |
 | `app/ReferencePackAdminPanel.test.tsx` | Reference-pack administration panel tests. |
 | `app/api/appShellClient.routeBoundary.test.ts` | Route-boundary tests for app-shell client helpers. |
@@ -178,21 +178,21 @@ internals.
 | --- | --- |
 | `workbook/WorkbookShell.tsx` | Workbook shell coordinator. Composes surfaces, saved-view/query controls, incident controls, generic surfaces, assessment/entity support, and Timeline entrypoints. |
 | `workbook/WorkbookShell.assessments.test.tsx` | Assessment workbook behavior tests. |
-| `workbook/WorkbookShell.phase3.autosave.test.tsx` | Phase 3 autosave and pending-save characterization. |
-| `workbook/WorkbookShell.phase3.grid.test.tsx` | Phase 3 grid/create behavior characterization. |
-| `workbook/WorkbookShell.phase3.payload.test.tsx` | Phase 3 request payload characterization. |
-| `workbook/WorkbookShell.phase4.actionSequencing.test.tsx` | Phase 4 action sequencing tests. |
-| `workbook/WorkbookShell.phase4.saveState.test.tsx` | Phase 4 save-state tests. |
-| `workbook/WorkbookShell.phase4.support.test.tsx` | Phase 4 support tests for Timeline/workbook interactions. |
-| `workbook/WorkbookShell.phase4.timelineQuery.test.tsx` | Timeline query and view-row normalization tests. |
-| `workbook/WorkbookShell.phase5.gridProvenance.test.tsx` | Grid provenance and contract-row tests for Phase 5 surfaces. |
-| `workbook/WorkbookShell.phase5.mentionChips.test.ts` | Mention chip model tests. |
-| `workbook/WorkbookShell.phase5.test.tsx` | Phase 5 workbook/evidence behavior tests. |
-| `workbook/WorkbookShell.phase6.test.tsx` | Phase 6 collaboration/session and pending behavior tests. |
-| `workbook/WorkbookShell.phase7.test.tsx` | Phase 7 history and inspector behavior tests. |
-| `workbook/WorkbookShell.phase8.query.test.tsx` | Phase 8 saved-view/query behavior tests. |
-| `workbook/WorkbookShell.phase9.inspector.test.tsx` | Phase 9 inspector and row-local action tests. |
-| `workbook/WorkbookShell.phase9.sentinel.test.tsx` | Phase 9 sentinel, focus, and continuity tests. |
+| `workbook/WorkbookShell.autosave.test.tsx` | Phase 3 autosave and pending-save characterization. |
+| `workbook/WorkbookShell.grid.test.tsx` | Phase 3 grid/create behavior characterization. |
+| `workbook/WorkbookShell.payload.test.tsx` | Phase 3 request payload characterization. |
+| `workbook/WorkbookShell.actionSequencing.test.tsx` | Phase 4 action sequencing tests. |
+| `workbook/WorkbookShell.saveState.test.tsx` | Phase 4 save-state tests. |
+| `workbook/WorkbookShell.support.test.tsx` | Phase 4 support tests for Timeline/workbook interactions. |
+| `workbook/WorkbookShell.timelineQuery.test.tsx` | Timeline query and view-row normalization tests. |
+| `workbook/WorkbookShell.gridProvenance.test.tsx` | Grid provenance and contract-row tests for Phase 5 surfaces. |
+| `workbook/WorkbookShell.mentionChips.test.ts` | Mention chip model tests. |
+| `workbook/WorkbookShell.evidence.test.tsx` | Phase 5 workbook/evidence behavior tests. |
+| `workbook/WorkbookShell.collaboration.test.tsx` | Phase 6 collaboration/session and pending behavior tests. |
+| `workbook/WorkbookShell.history.test.tsx` | Phase 7 history and inspector behavior tests. |
+| `workbook/WorkbookShell.query.test.tsx` | Phase 8 saved-view/query behavior tests. |
+| `workbook/WorkbookShell.inspector.test.tsx` | Phase 9 inspector and row-local action tests. |
+| `workbook/WorkbookShell.sentinel.test.tsx` | Phase 9 sentinel, focus, and continuity tests. |
 | `workbook/WorkbookShell.surfaces.test.tsx` | Multi-surface workbook shell tests. |
 
 ### `workbook/components/`
@@ -435,7 +435,7 @@ under `timeline/` and not broad enough for `shared/`.
 | `workbook/utils/workbookPresence.ts` | Presence input/type helpers and presence matching helpers. |
 | `workbook/utils/workbookStyles.ts` | Shared workbook style primitives. |
 | `workbook/utils/workbookValueFormat.ts` | Grid/workbook value formatting helpers. |
-| `workbook/utils/GridAdapter.phase9.anchor.test.ts` | Phase 9 grid-adapter anchor behavior tests. |
+| `workbook/utils/GridAdapter.anchor.test.ts` | Phase 9 grid-adapter anchor behavior tests. |
 | `workbook/utils/workbookClipboard.test.ts` | Tests for clipboard helpers. |
 | `workbook/utils/workbookContinuity.test.ts` | Tests for continuity helpers. |
 | `workbook/utils/workbookKeyboard.test.ts` | Tests for keyboard command mapping. |

@@ -21,6 +21,14 @@ function asciiCompare(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
+function semanticFrontendTitle(title) {
+  return title
+    .replace(/^support\s+Phase\s+\d+\s+/iu, "support ")
+    .replace(/^Phase\s+\d+\s+/iu, "")
+    .replace(/^Sprint\s+\d+\s+/iu, "")
+    .replace(/^(?:FE-[A-Z]+-P\d+(?:-[A-Z0-9]+)*|[UIEV]-\d+(?:-[A-Z0-9]+)+)\s+/iu, "");
+}
+
 function sorted(values) {
   return [...values].sort(asciiCompare);
 }
@@ -156,7 +164,7 @@ for (const frozen of frontendBaseline) {
   const ownerID = expectedOwner(phase, legacy);
   increment(dispositionCounts, disposition.disposition);
   increment(runnerCounts, frozen.runner);
-  const titles = frozen.selector.scenario_titles ?? [];
+  const titles = (frozen.selector.scenario_titles ?? []).map(semanticFrontendTitle);
   const commands = frozen.selector.command_ids ?? [];
   legacyTitleAtoms += titles.length;
   legacyCommandAtoms += commands.length;

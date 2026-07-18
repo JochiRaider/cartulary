@@ -48,7 +48,7 @@ describe("NetworkAnalysisWorkspace", () => {
     vi.restoreAllMocks();
   });
 
-  it("FE-I-P12-01 Verify production Network Flow grids, read-only behavior, stable references, virtualization, and adapter boundaries compose through semantic identities.", async () => {
+  it("Verify production Network Flow grids, read-only behavior, stable references, virtualization, and adapter boundaries compose through semantic identities.", async () => {
     const decodedGraph = networkFlowDecoders.graphQueryResult.decode(
       graphResource(),
     );

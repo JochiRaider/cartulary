@@ -102,7 +102,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-U-P10-01 Verify coordination and review system-view registrations, field mappings, and closed vocabulary options use stable IDs and contract metadata."
+        "Verify coordination and review system-view registrations, field mappings, and closed vocabulary options use stable IDs and contract metadata."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -192,7 +192,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-B-P10-01 Verify Task Requests, Decisions, Parties, Communications Log, Handoff, Status Review, and Lesson open inside the same workbook shell and retain view controls."
+        "Verify Task Requests, Decisions, Parties, Communications Log, Handoff, Status Review, and Lesson open inside the same workbook shell and retain view controls."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -296,7 +296,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-B-P10-02 Verify full keyboard/clipboard contract: one-click edit, copy, paste, exact-range fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder."
+        "Verify full keyboard/clipboard contract: one-click edit, copy, paste, exact-range fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -443,7 +443,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-E-P10-01 Verify coordination rows can be queried and edited through public view/row mutation contracts with current-role authorization."
+        "Verify coordination rows can be queried and edited through public view/row mutation contracts with current-role authorization."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -511,7 +511,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-V-P10-01 Capture Task Requests or Decisions, Parties link state, Communications Log, Handoff, Status Review, Lesson, keyboard focus, frozen column, resize handle, and fill-down fixtures."
+        "Capture Task Requests or Decisions, Parties link state, Communications Log, Handoff, Status Review, Lesson, keyboard focus, frozen column, resize handle, and fill-down fixtures."
       ],
       "claim_status": "implemented",
       "claim": {

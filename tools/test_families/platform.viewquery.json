@@ -15,14 +15,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase8.workbook.spec.ts",
+        "file": "apps/web/e2e/workbook.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_08519aefd1a5"
         ],
         "titles": [
-          "E-8-04 browser Notes full_text and prefix queries remain exact"
+          "browser Notes full_text and prefix queries remain exact"
         ]
       },
       "evidence_class": "browser",
@@ -46,14 +46,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase8.workbook.spec.ts",
+        "file": "apps/web/e2e/workbook.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_f49858a0432d"
         ],
         "titles": [
-          "E-8-03 browser Timeline sort, filter, and group controls submit stable query keys"
+          "browser Timeline sort, filter, and group controls submit stable query keys"
         ]
       },
       "evidence_class": "browser",
@@ -76,11 +76,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase8.query.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.query.test.tsx",
         "titles": [
-          "Phase 8 U-8-GRID-01 drops non-discovery keys before building query request bodies",
-          "Phase 8 U-8-GRID-01 emits stable schema keys for sort, filter, and group query controls",
-          "Phase 8 U-8-GRID-01 renders group headers as presentation-only rows"
+          "drops non-discovery keys before building query request bodies",
+          "emits stable schema keys for sort, filter, and group query controls",
+          "renders group headers as presentation-only rows"
         ]
       },
       "evidence_class": "unit",
@@ -103,13 +103,13 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase8.query.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.query.test.tsx",
         "titles": [
-          "FE-U-P8-01 compiles query requests with schema field keys and capability metadata",
-          "FE-U-P8-01 keeps grouped presentation rows out of mutation-capable anchors",
-          "FE-U-P8-01 renders active filter chips and grouping controls by field key",
-          "FE-U-P8-01 serializes saved-view layout_json as portable schema field-key state",
-          "FE-U-P8-01 serializes saved-view query_json with canonical empty arrays and omitted inactive grouping"
+          "compiles query requests with schema field keys and capability metadata",
+          "keeps grouped presentation rows out of mutation-capable anchors",
+          "renders active filter chips and grouping controls by field key",
+          "serializes saved-view layout_json as portable schema field-key state",
+          "serializes saved-view query_json with canonical empty arrays and omitted inactive grouping"
         ]
       },
       "evidence_class": "unit",

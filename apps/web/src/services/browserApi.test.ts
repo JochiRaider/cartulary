@@ -92,7 +92,7 @@ describe("fetchJSON", () => {
     expect(cookieSpy).not.toHaveBeenCalled();
   });
 
-  it("FE-I-P1-01 route-boundary CSRF headers follow cookie-backed mutating request rules", async () => {
+  it("route-boundary CSRF headers follow cookie-backed mutating request rules", async () => {
     const cookieSpy = vi
       .spyOn(document, "cookie", "get")
       .mockReturnValue("cartulary_csrf=test-csrf");

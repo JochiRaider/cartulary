@@ -42,8 +42,8 @@
         "exact_selectors": [
           {
             "kind": "browser",
-            "file": "apps/web/e2e/phase12.network-flow.spec.ts",
-            "title": "E-12-NFAC001-01 Network Flow unclaimed workspace remains unavailable"
+            "file": "apps/web/e2e/network-flow.spec.ts",
+            "title": "Network Flow unclaimed workspace remains unavailable"
           }
         ],
         "supplemental_fixture_ids": []
@@ -60,8 +60,8 @@
         "exact_selectors": [
           {
             "kind": "browser",
-            "file": "apps/web/e2e/phase12.network-flow.spec.ts",
-            "title": "E-12-NFAC002-02 Network Analysis claimed empty state exposes import entry"
+            "file": "apps/web/e2e/network-flow.spec.ts",
+            "title": "Network Analysis claimed empty state exposes import entry"
           }
         ],
         "supplemental_fixture_ids": []
@@ -141,8 +141,8 @@
         "exact_selectors": [
           {
             "kind": "browser",
-            "file": "apps/web/e2e/phase12.network-flow.spec.ts",
-            "title": "E-12-NFAC006-06 Network Analysis import creates one inner table tab"
+            "file": "apps/web/e2e/network-flow.spec.ts",
+            "title": "Network Analysis import creates one inner table tab"
           }
         ],
         "supplemental_fixture_ids": [
@@ -490,8 +490,8 @@
         "exact_selectors": [
           {
             "kind": "browser",
-            "file": "apps/web/e2e/phase12.network-flow.spec.ts",
-            "title": "E-12-NFAC023-23 Network Analysis soft delete removes active table tab"
+            "file": "apps/web/e2e/network-flow.spec.ts",
+            "title": "Network Analysis soft delete removes active table tab"
           }
         ],
         "supplemental_fixture_ids": [
@@ -618,8 +618,8 @@
         "exact_selectors": [
           {
             "kind": "browser",
-            "file": "apps/web/e2e/phase12.network-flow.spec.ts",
-            "title": "E-12-NFAC029-29 Network Analysis graph mode exposes table selection controls"
+            "file": "apps/web/e2e/network-flow.spec.ts",
+            "title": "Network Analysis graph mode exposes table selection controls"
           }
         ],
         "supplemental_fixture_ids": [
@@ -638,8 +638,8 @@
         "exact_selectors": [
           {
             "kind": "browser",
-            "file": "apps/web/e2e/phase12.network-flow.spec.ts",
-            "title": "E-12-NFAC030-30 Network Analysis table graph defaults to active-table scope"
+            "file": "apps/web/e2e/network-flow.spec.ts",
+            "title": "Network Analysis table graph defaults to active-table scope"
           }
         ],
         "supplemental_fixture_ids": [
@@ -763,8 +763,8 @@
         "exact_selectors": [
           {
             "kind": "browser",
-            "file": "apps/web/e2e/phase12.network-flow.spec.ts",
-            "title": "E-12-NFAC036-36 Network Analysis vertex selection uses stable graph identity"
+            "file": "apps/web/e2e/network-flow.spec.ts",
+            "title": "Network Analysis vertex selection uses stable graph identity"
           }
         ],
         "supplemental_fixture_ids": [
@@ -783,8 +783,8 @@
         "exact_selectors": [
           {
             "kind": "browser",
-            "file": "apps/web/e2e/phase12.network-flow.spec.ts",
-            "title": "E-12-NFAC037-37 Network Analysis edge selection opens ordered contributor drawer"
+            "file": "apps/web/e2e/network-flow.spec.ts",
+            "title": "Network Analysis edge selection opens ordered contributor drawer"
           }
         ],
         "supplemental_fixture_ids": [
@@ -1053,8 +1053,8 @@
         "exact_selectors": [
           {
             "kind": "browser",
-            "file": "apps/web/e2e/measurement/phase12_network_flow_grid.spec.ts",
-            "title": "E-12-NFAC050-50 measures bounded Network Flow production-grid virtualization without a timing claim"
+            "file": "apps/web/e2e/measurement/network-flow-grid.spec.ts",
+            "title": "measures bounded Network Flow production-grid virtualization without a timing claim"
           }
         ],
         "supplemental_fixture_ids": [
@@ -1546,8 +1546,8 @@
         "exact_selectors": [
           {
             "kind": "browser",
-            "file": "apps/web/e2e/phase12.network-flow.spec.ts",
-            "title": "E-12-NFAC074-74 Network Analysis alias collision requires explicit approval"
+            "file": "apps/web/e2e/network-flow.spec.ts",
+            "title": "Network Analysis alias collision requires explicit approval"
           }
         ],
         "supplemental_fixture_ids": [

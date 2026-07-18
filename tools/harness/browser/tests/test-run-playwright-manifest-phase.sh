@@ -82,7 +82,7 @@ mkdir -p "$(dirname "$output_file")"
 
 if [[ " $* " == *" --list "* ]]; then
   cat >"$output_file" <<'JSON'
-{"suites":[{"specs":[{"title":"E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface","tests":[{"results":[],"status":"skipped"}],"file":"phase2.spec.ts"},{"title":"E-2-02 shows incident discovery, raw querystring deep-link retrieval, and promoted-field-only patching on the ordinary incident shell","tests":[{"results":[],"status":"skipped"}],"file":"phase2.spec.ts"},{"title":"E-2-03 lets incident admins manage memberships and hides those controls from non-admin members on the ordinary shell","tests":[{"results":[],"status":"skipped"}],"file":"phase2.spec.ts"}],"suites":[]}],"errors":[]}
+{"suites":[{"specs":[{"title":"creates an incident, bootstraps the creator as admin, and lands on the workbook surface","tests":[{"results":[],"status":"skipped"}],"file":"incident-administration.spec.ts"},{"title":"shows incident discovery, raw querystring deep-link retrieval, and promoted-field-only patching on the ordinary incident shell","tests":[{"results":[],"status":"skipped"}],"file":"incident-administration.spec.ts"},{"title":"lets incident admins manage memberships and hides those controls from non-admin members on the ordinary shell","tests":[{"results":[],"status":"skipped"}],"file":"incident-administration.spec.ts"}],"suites":[]}],"errors":[]}
 JSON
   exit 0
 fi
@@ -90,23 +90,23 @@ fi
 case "${FAKE_PLAYWRIGHT_MODE:-success}" in
   success)
     cat >"$output_file" <<'JSON'
-{"suites":[{"specs":[{"title":"E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface","file":"phase2.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"E-2-02 shows incident discovery, raw querystring deep-link retrieval, and promoted-field-only patching on the ordinary incident shell","file":"phase2.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"E-2-03 lets incident admins manage memberships and hides those controls from non-admin members on the ordinary shell","file":"phase2.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]}],"suites":[]}],"errors":[]}
+{"suites":[{"specs":[{"title":"creates an incident, bootstraps the creator as admin, and lands on the workbook surface","file":"incident-administration.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"shows incident discovery, raw querystring deep-link retrieval, and promoted-field-only patching on the ordinary incident shell","file":"incident-administration.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"lets incident admins manage memberships and hides those controls from non-admin members on the ordinary shell","file":"incident-administration.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]}],"suites":[]}],"errors":[]}
 JSON
     ;;
   support_success)
     cat >"$output_file" <<'JSON'
-{"suites":[{"specs":[{"title":"FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers.","file":"phase3.support.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"support Phase 3 keeps a pending edit anchored to its record under sort, filter, group, and live invalidation","file":"phase3.support.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"support Phase 3 keeps repeated scalar grid edits out of the RDG measured-width crash path","file":"phase3.support.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder.","file":"phase9.keyboard.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]}],"suites":[]}],"errors":[]}
+{"suites":[{"specs":[{"title":"FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers.","file":"timeline.support.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"support keeps a pending edit anchored to its record under sort, filter, group, and live invalidation","file":"timeline.support.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"support keeps repeated scalar grid edits out of the RDG measured-width crash path","file":"timeline.support.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder.","file":"keyboard.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]}],"suites":[]}],"errors":[]}
 JSON
     ;;
   failure)
     cat >"$output_file" <<'JSON'
-{"suites":[{"specs":[{"title":"E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface","file":"phase2.spec.ts","tests":[{"results":[{"status":"failed","retry":0,"attachments":[],"error":{"message":"playwright assertion failed"}}]}]}],"suites":[]}],"errors":[]}
+{"suites":[{"specs":[{"title":"creates an incident, bootstraps the creator as admin, and lands on the workbook surface","file":"incident-administration.spec.ts","tests":[{"results":[{"status":"failed","retry":0,"attachments":[],"error":{"message":"playwright assertion failed"}}]}]}],"suites":[]}],"errors":[]}
 JSON
     exit 1
     ;;
   mismatch)
     cat >"$output_file" <<'JSON'
-{"suites":[{"specs":[{"title":"E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface","file":"phase2.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]}],"suites":[]}],"errors":[]}
+{"suites":[{"specs":[{"title":"creates an incident, bootstraps the creator as admin, and lands on the workbook surface","file":"incident-administration.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]}],"suites":[]}],"errors":[]}
 JSON
     ;;
   *)

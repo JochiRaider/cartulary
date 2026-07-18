@@ -142,7 +142,7 @@ import {
   type EvidenceUploadOptions,
 } from "./support/evidence/fixtures";
 import {
-  importPhase12NetworkFlowCSV,
+  importNetworkFlowCSV,
   openClaimedNetworkAnalysis,
 } from "./support/extensions/network_flow_activity/workspace";
 import { createIncident } from "./support/incidents/fixtures";
@@ -171,7 +171,7 @@ type IncidentMembershipRecord = {
   user_id: string;
 };
 
-type Phase9A11yHistoryItem = {
+type A11yHistoryItem = {
   available_rollback_actions: Array<
     "history_entry" | "change_set" | "row_restore"
   >;
@@ -179,8 +179,8 @@ type Phase9A11yHistoryItem = {
   history_item_ref: string;
 };
 
-type Phase9A11yHistoryData = {
-  items: Phase9A11yHistoryItem[];
+type A11yHistoryData = {
+  items: A11yHistoryItem[];
 };
 
 type ViewRow = {
@@ -189,10 +189,10 @@ type ViewRow = {
   row_version: number;
 };
 
-declare const phase1A11yAppLocalTestIdBrand: unique symbol;
+declare const A11yAppLocalTestIdBrand: unique symbol;
 
-type Phase1A11yAppLocalTestId = string & {
-  readonly [phase1A11yAppLocalTestIdBrand]: "Phase1A11yAppLocalTestId";
+type AuthA11yAppLocalTestId = string & {
+  readonly [A11yAppLocalTestIdBrand]: "AuthA11yAppLocalTestId";
 };
 
 const p1AccessibilityScenarioTitles = [
@@ -296,13 +296,13 @@ if (p11AccessibilityScenarioTitles.length !== 1) {
   );
 }
 
-const phase1A11yAppLocalSelectors = Object.freeze({
+const A11yAppLocalSelectors = Object.freeze({
   incidentPatchButton: {
     owner: "apps/web incident administration",
     reason:
       "Incident patch controls are app-local to the incident admin panel until later incident-surface selector promotion.",
     scope: "FE-P1 selected-incident accessibility recovery path",
-    testId: "incident-patch-button" as Phase1A11yAppLocalTestId,
+    testId: "incident-patch-button" as AuthA11yAppLocalTestId,
   },
 });
 
@@ -970,7 +970,7 @@ async function openA11ySystemSurface(
   ).toBeVisible();
 }
 
-function phase9A11yAttachedEvidencePayload(recordId: string) {
+function A11yAttachedEvidencePayload(recordId: string) {
   return {
     kind: "collection_actions_v1",
     actions: [
@@ -982,9 +982,9 @@ function phase9A11yAttachedEvidencePayload(recordId: string) {
   };
 }
 
-function phase9A11yHistoryActionTestId(
-  item: Phase9A11yHistoryItem,
-  action: Phase9A11yHistoryItem["available_rollback_actions"][number],
+function A11yHistoryActionTestId(
+  item: A11yHistoryItem,
+  action: A11yHistoryItem["available_rollback_actions"][number],
 ) {
   return rowHistoryActionTestId({
     action,
@@ -992,9 +992,9 @@ function phase9A11yHistoryActionTestId(
   });
 }
 
-function phase9A11yRollbackAnchor(
-  item: Phase9A11yHistoryItem,
-  action: Phase9A11yHistoryItem["available_rollback_actions"][number],
+function A11yRollbackAnchor(
+  item: A11yHistoryItem,
+  action: A11yHistoryItem["available_rollback_actions"][number],
 ) {
   return {
     action,
@@ -1002,7 +1002,7 @@ function phase9A11yRollbackAnchor(
   };
 }
 
-function requirePhase9A11yHistoryEntryAction(history: Phase9A11yHistoryData) {
+function requireA11yHistoryEntryAction(history: A11yHistoryData) {
   const item =
     history.items.find(
       (candidate) =>
@@ -1016,13 +1016,13 @@ function requirePhase9A11yHistoryEntryAction(history: Phase9A11yHistoryData) {
   return item;
 }
 
-async function fetchPhase9A11yRecordHistory(page: Page, recordId: string) {
+async function fetchA11yRecordHistory(page: Page, recordId: string) {
   const response = await page.request.get(
     `${apiBase}/api/v1/records/${recordId}/history`,
     { headers: await csrfHeaders(page) },
   );
   expect(response.ok()).toBeTruthy();
-  return ((await response.json()) as { data: Phase9A11yHistoryData }).data;
+  return ((await response.json()) as { data: A11yHistoryData }).data;
 }
 
 async function expectP1SurfaceA11y(
@@ -1046,10 +1046,10 @@ async function expectP1SurfaceA11y(
   ]);
 }
 
-function phase1A11yAppLocalTestId(
-  key: keyof typeof phase1A11yAppLocalSelectors,
-): Phase1A11yAppLocalTestId {
-  const entry = phase1A11yAppLocalSelectors[key];
+function authA11yAppLocalTestId(
+  key: keyof typeof A11yAppLocalSelectors,
+): AuthA11yAppLocalTestId {
+  const entry = A11yAppLocalSelectors[key];
   if (
     entry.owner.trim() === "" ||
     entry.reason.trim() === "" ||
@@ -1508,7 +1508,7 @@ if (
     page,
   }) => {
     await openClaimedNetworkAnalysis(page, "FEP12A11Y");
-    await importPhase12NetworkFlowCSV(page, { displayName: "accessible-flow" });
+    await importNetworkFlowCSV(page, { displayName: "accessible-flow" });
 
     const workspace = page.getByTestId(networkAnalysisTestId("workspace"));
     await expect(workspace).toHaveAttribute(
@@ -2797,7 +2797,7 @@ test.describe("FE-P9 accessibility readiness", () => {
       base_row_version: row.row_version,
       changes: [
         {
-          action_payload: phase9A11yAttachedEvidencePayload(evidence.record_id),
+          action_payload: A11yAttachedEvidencePayload(evidence.record_id),
           field_key: "timeline.attached_evidence_ids",
         },
       ],
@@ -2808,12 +2808,9 @@ test.describe("FE-P9 accessibility readiness", () => {
       collectionItems(linkedRow, hostRefsFieldKey),
       "FE-A11Y-P9 host",
     );
-    const history = await fetchPhase9A11yRecordHistory(page, row.record_id);
-    const rollbackItem = requirePhase9A11yHistoryEntryAction(history);
-    const rollbackAnchor = phase9A11yRollbackAnchor(
-      rollbackItem,
-      "history_entry",
-    );
+    const history = await fetchA11yRecordHistory(page, row.record_id);
+    const rollbackItem = requireA11yHistoryEntryAction(history);
+    const rollbackAnchor = A11yRollbackAnchor(rollbackItem, "history_entry");
 
     await page.goto(`/?incident_id=${incidentId}`);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
@@ -2861,7 +2858,7 @@ test.describe("FE-P9 accessibility readiness", () => {
     await openHistory.press("Enter");
     await expect(page.getByTestId(rowHistoryPanelTestId())).toBeVisible();
     const rollbackAction = page.getByTestId(
-      phase9A11yHistoryActionTestId(rollbackItem, "history_entry"),
+      A11yHistoryActionTestId(rollbackItem, "history_entry"),
     );
     await expectVisibleFocus(rollbackAction);
     await rollbackAction.press("Enter");
@@ -2927,7 +2924,7 @@ test.describe("FE-P9 accessibility readiness", () => {
       }),
       relationshipChipTestId(String(hostItem.item_ref)),
       rowHistoryOpenButtonTestId(row.record_id),
-      phase9A11yHistoryActionTestId(rollbackItem, "history_entry"),
+      A11yHistoryActionTestId(rollbackItem, "history_entry"),
       rowHistoryRollbackConfirmButtonTestId(rollbackAnchor),
       rowHistoryRollbackCancelButtonTestId(rollbackAnchor),
       rowHistoryMessageTestId(),
@@ -3751,7 +3748,7 @@ test.describe("FE-P1 accessibility readiness", () => {
       await openIncidentControls(page, "incident-fields");
       await expectStatusRole(page.getByTestId(incidentControlsStatusTestId()));
       await expectVisibleFocus(
-        page.getByTestId(phase1A11yAppLocalTestId("incidentPatchButton")),
+        page.getByTestId(authA11yAppLocalTestId("incidentPatchButton")),
       );
       await expectP1SurfaceA11y(page, {
         focusTestId: phase1RouteTestId("workbook-current-user"),

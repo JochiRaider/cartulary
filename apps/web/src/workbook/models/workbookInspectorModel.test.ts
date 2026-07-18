@@ -39,7 +39,7 @@ function timelineRow(
 }
 
 describe("workbookInspectorModel", () => {
-  it("FE-U-P9-02 selects config from immutable view_schema_id and starts closed", () => {
+  it("selects config from immutable view_schema_id and starts closed", () => {
     const timeline = requireViewContract("cartulary.view.timeline.v2");
     const config = selectInspectorConfig(timeline);
     const state = initialWorkbookInspectorState(config);
@@ -51,7 +51,7 @@ describe("workbookInspectorModel", () => {
     expect(inspectorNoRowState(config)).toBe("no_row_selected");
   });
 
-  it("FE-U-P9-02 keeps saved-view inheritance tied to the base view_schema_id", () => {
+  it("keeps saved-view inheritance tied to the base view_schema_id", () => {
     const baseContract = requireViewContract("cartulary.view.timeline.v2");
     const savedView = {
       saved_view_id: "saved-1",
@@ -63,7 +63,7 @@ describe("workbookInspectorModel", () => {
     );
   });
 
-  it("FE-U-P9-02 Verify active view_schema_id selects inspector_config_v1, saved views inherit immutable view_schema_id config, no-row state is no_row_selected, and stale row-bound inspector state invalidates across row, row-version, authorization, incident-lifecycle, delete, merge, hard refresh, and surface changes.", () => {
+  it("Verify active view_schema_id selects inspector_config_v1, saved views inherit immutable view_schema_id config, no-row state is no_row_selected, and stale row-bound inspector state invalidates across row, row-version, authorization, incident-lifecycle, delete, merge, hard refresh, and surface changes.", () => {
     const timeline = requireViewContract("cartulary.view.timeline.v2");
     const hosts = requireViewContract("cartulary.view.hosts.v1");
     const timelineConfig = selectInspectorConfig(timeline);
@@ -166,7 +166,7 @@ describe("workbookInspectorModel", () => {
     });
   });
 
-  it("FE-U-P9-02 filters panels and feature groups by declared semantic config", () => {
+  it("filters panels and feature groups by declared semantic config", () => {
     const config = selectInspectorConfig(
       requireViewContract("cartulary.view.hosts.v1"),
     );
@@ -192,7 +192,7 @@ describe("workbookInspectorModel", () => {
     ]);
   });
 
-  it("FE-U-P9-02 clears stale row-bound state before retargeting to a new row", () => {
+  it("clears stale row-bound state before retargeting to a new row", () => {
     const config = selectInspectorConfig(
       requireViewContract("cartulary.view.timeline.v2"),
     );
@@ -223,7 +223,7 @@ describe("workbookInspectorModel", () => {
     expect(retargeted.workflowFormKey).toBeNull();
   });
 
-  it("FE-U-P9-02 invalidates destructive, preview, merge, and workflow state on lifecycle triggers", () => {
+  it("invalidates destructive, preview, merge, and workflow state on lifecycle triggers", () => {
     const config = selectInspectorConfig(
       requireViewContract("cartulary.view.timeline.v2"),
     );
@@ -256,7 +256,7 @@ describe("workbookInspectorModel", () => {
     }
   });
 
-  it("FE-U-P9-02 defaults closed and clears stale state on hard refresh and active surface switch", () => {
+  it("defaults closed and clears stale state on hard refresh and active surface switch", () => {
     const timelineConfig = selectInspectorConfig(
       requireViewContract("cartulary.view.timeline.v2"),
     );

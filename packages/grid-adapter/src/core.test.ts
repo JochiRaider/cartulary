@@ -474,7 +474,7 @@ describe("grid Cartulary anchors", () => {
     { fieldKey: "state", label: "State", renderCell: () => null },
   ] as const;
 
-  it("FE-U-P3-01 Reject unsafe record identity and keep presentation rows from mutation-capable anchors.", () => {
+  it("Reject unsafe record identity and keep presentation rows from mutation-capable anchors.", () => {
     expect(() =>
       assertGridRows([gridRow("record-1", "open"), gridRow(" ", "open")]),
     ).toThrow(/invalid semantic identity/i);
@@ -536,7 +536,7 @@ describe("grid Cartulary anchors", () => {
     ).toBeNull();
   });
 
-  it("FE-U-P3-02 Translate vendor row and column coordinates to stable record_id and field_key anchors.", () => {
+  it("Translate vendor row and column coordinates to stable record_id and field_key anchors.", () => {
     const rows = [
       gridRow("record-3", "closed"),
       gridRow("record-1", "open"),
@@ -636,7 +636,7 @@ describe("grid Cartulary anchors", () => {
     ).toBeNull();
   });
 
-  it("FE-U-P3-03 Resolve grid editability from explicit editor adapters and contract writeability only.", () => {
+  it("Resolve grid editability from explicit editor adapters and contract writeability only.", () => {
     const writableColumn = {
       contractWritable: true,
       fieldKey: "summary",
@@ -678,7 +678,7 @@ describe("grid Cartulary anchors", () => {
     expect(isGridColumnEditable(vendorEditableColumn)).toBe(false);
   });
 
-  it("FE-U-P3-04 Resolve renderers and editors deterministically and clean adapter-owned resources.", () => {
+  it("Resolve renderers and editors deterministically and clean adapter-owned resources.", () => {
     const renderCell = ({ row }: { readonly row: HarnessRow }) => row.label;
     const editor = {
       commit: async () => ({ kind: "accepted" as const }),

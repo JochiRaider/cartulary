@@ -97,10 +97,10 @@
         }
       ],
       "scenario_titles": [
-        "FE-U-P6-01 distinguishes requested, pending upload, available, and preview-blocked states",
-        "FE-U-P6-01 keeps failed, blocked, inconsistent, and public-error rendering inputs distinct",
-        "FE-U-P6-01 counts only available and preview-blocked evidence as attached",
-        "FE-U-P6-01 derives count-display states and detects inconsistent projections"
+        "distinguishes requested, pending upload, available, and preview-blocked states",
+        "keeps failed, blocked, inconsistent, and public-error rendering inputs distinct",
+        "counts only available and preview-blocked evidence as attached",
+        "derives count-display states and detects inconsistent projections"
       ],
       "claim_status": "implemented",
       "claim": {
@@ -203,7 +203,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-I-P6-01 Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths."
+        "Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -324,7 +324,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-E-P6-01 Verify evidence attach, preview, download, blocked preview, and authorization denial through same-origin public handles."
+        "Verify evidence attach, preview, download, blocked preview, and authorization denial through same-origin public handles."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -390,7 +390,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-V-P6-01 Capture evidence count, affordance, available, requested, pending, blocked, failed, inconsistent, preview, and download-handle state fixtures."
+        "Capture evidence count, affordance, available, requested, pending, blocked, failed, inconsistent, preview, and download-handle state fixtures."
       ],
       "claim_status": "implemented",
       "claim": {

@@ -18,7 +18,7 @@
           "Network Flow frontend boundary policy keeps Network Flow wire decoding behind the generated contract adapter",
           "Network Flow frontend boundary policy keeps runtime schema compilation and projection adapter input out of the browser",
           "Network Flow frontend boundary policy keeps the grid vendor and raw coordinate handles outside Network Flow consumers",
-          "Network Flow frontend boundary policy rejects synthetic markup in authoritative Phase 12 Network Flow browser evidence"
+          "Network Flow frontend boundary policy rejects synthetic markup in authoritative Network Flow browser evidence"
         ]
       },
       "evidence_class": "static",
@@ -553,7 +553,7 @@
       "selector": {
         "file": "apps/web/src/networkFlow/networkFlowPresentation.test.tsx",
         "titles": [
-          "Network Flow presentation metadata FE-U-P12-01 Verify Network Analysis presentation, query, layout, lifecycle, and reconciliation units use extension-owned semantic contracts.",
+          "Network Flow presentation metadata Verify Network Analysis presentation, query, layout, lifecycle, and reconciliation units use extension-owned semantic contracts.",
           "Network Flow presentation metadata groups contributors by workspace table order without changing server order within a group",
           "Network Flow presentation metadata keeps display formatting separate from canonical clipboard scalars",
           "Network Flow presentation metadata localizes registered diagnostics and safely falls back to the server message",

@@ -284,7 +284,7 @@ if (project === "support") {
       }
       const failed =
         mode === "support-failure" &&
-        supportFile === "phase3.support.spec.ts" &&
+        supportFile === "timeline.support.spec.ts" &&
         match[1].includes("sort, filter, group");
       specs.push({
         title: match[1],
@@ -366,19 +366,19 @@ for (const line of functional) {
     throw new Error(`expected functional shard worker_count=2, got ${line}`);
   }
 }
-if (!functional.some((line) => line.includes("phase4.workbook.generic.spec.ts"))) {
-  throw new Error("expected a functional shard containing phase4.workbook.generic.spec.ts");
+if (!functional.some((line) => line.includes("workbook.generic.spec.ts"))) {
+  throw new Error("expected a functional shard containing workbook.generic.spec.ts");
 }
-if (!functional.some((line) => line.includes("phase4.mentions.resolve.spec.ts"))) {
-  throw new Error("expected a functional shard containing phase4.mentions.resolve.spec.ts");
+if (!functional.some((line) => line.includes("mentions.resolve.spec.ts"))) {
+  throw new Error("expected a functional shard containing mentions.resolve.spec.ts");
 }
 if (functional.some((line) =>
-  line.includes("phase4.autoresolve.spec.ts") &&
-  line.includes("phase4.mentions.lifecycle.spec.ts") &&
-  line.includes("phase4.mentions.resolve.spec.ts") &&
-  line.includes("phase4.merge.spec.ts") &&
-  line.includes("phase4.workbook.assessments.spec.ts") &&
-  line.includes("phase4.workbook.generic.spec.ts")
+  line.includes("autoresolve.spec.ts") &&
+  line.includes("mentions.lifecycle.spec.ts") &&
+  line.includes("mentions.resolve.spec.ts") &&
+  line.includes("merge.spec.ts") &&
+  line.includes("workbook.assessments.spec.ts") &&
+  line.includes("workbook.generic.spec.ts")
 )) {
   throw new Error("phase4 entries were not split across duration-balanced shards");
 }
@@ -408,10 +408,10 @@ const [timingPath] = process.argv.slice(2);
 const timing = JSON.parse(fs.readFileSync(timingPath, "utf8"));
 const files = new Set((timing.files ?? []).map((entry) => entry.file));
 for (const file of [
-  "apps/web/e2e/frontend.phase4.public-route.spec.ts",
-  "apps/web/e2e/frontend.phase4.timeline-query.spec.ts",
-  "apps/web/e2e/phase4.mentions.resolve.spec.ts",
-  "apps/web/e2e/phase4.workbook.generic.spec.ts",
+  "apps/web/e2e/timeline-public-route.spec.ts",
+  "apps/web/e2e/timeline-query.spec.ts",
+  "apps/web/e2e/mentions.resolve.spec.ts",
+  "apps/web/e2e/workbook.generic.spec.ts",
 ]) {
   if (!files.has(file)) {
     throw new Error(`phase4 timing must include ${file}`);
@@ -626,7 +626,7 @@ selected_frontend_multititle_shard_output="$(
 assert_empty "$selected_frontend_multititle_shard_output" "playwright selected frontend multi-title shard success"
 selected_frontend_multititle_log="$(cat "$selected_frontend_multititle_shard_invocations")"
 assert_contains "$selected_frontend_multititle_log" "project=functional" "selected frontend multi-title shard functional invocation"
-assert_contains "$selected_frontend_multititle_log" "phase1.spec.ts" "selected frontend multi-title shard file"
+assert_contains "$selected_frontend_multititle_log" "auth-and-incident-directory.spec.ts" "selected frontend multi-title shard file"
 assert_not_contains "$selected_frontend_multititle_log" "selected_ids=FE-E-P1-01" "selected frontend multi-title shard uses selected-tests artifact instead of selected ids env"
 selected_frontend_multititle_root="$tmp_dir/results/batch-selected-frontend-multititle-shard/browser-e2e-webserver-backed"
 selected_frontend_multititle_phase_dir="$selected_frontend_multititle_root/browser-e2e-functional-phase1-authoritative-browser-functional-shard-01"
@@ -646,7 +646,7 @@ const selected = selection.selected_tests ?? [];
 if (selected.length <= 0 || selected.length >= 10) {
   throw new Error(`selected frontend multi-title shard must carry a strict title subset, got ${selected.length}`);
 }
-if (!selected.every((entry) => entry.id === "FE-E-P1-01" && entry.file === "e2e/phase1.spec.ts")) {
+if (!selected.every((entry) => entry.id === "FE-E-P1-01" && entry.file === "e2e/auth-and-incident-directory.spec.ts")) {
   throw new Error(`selected frontend multi-title shard leaked unexpected selected tests: ${JSON.stringify(selected)}`);
 }
 const titles = new Set(selected.map((entry) => entry.title));
@@ -673,8 +673,8 @@ phase_filter_output="$(
     "$HELPER" webserver-backed -- "$fake_playwright"
 )"
 assert_empty "$phase_filter_output" "playwright webserver batch phase-filter success"
-assert_contains "$(cat "$phase_filter_invocations")" "phase4.workbook.generic.spec.ts" "phase-filter functional shard includes phase4 file"
-assert_not_contains "$(cat "$phase_filter_invocations")" "phase2.spec.ts" "phase-filter functional shard excludes phase2 file"
+assert_contains "$(cat "$phase_filter_invocations")" "workbook.generic.spec.ts" "phase-filter functional shard includes phase4 file"
+assert_not_contains "$(cat "$phase_filter_invocations")" "incident-administration.spec.ts" "phase-filter functional shard excludes phase2 file"
 phase_filter_root="$tmp_dir/results/batch-phase-filter/adhoc"
 phase_filter_phase4_summary="$phase_filter_root/browser-e2e-functional-phase4-authoritative/phase-summary.json"
 assert_equals "$(json_field "$phase_filter_phase4_summary" "status")" "pass" "phase-filter phase4 functional status"
@@ -704,7 +704,7 @@ selected_frontend_output="$(
 assert_empty "$selected_frontend_output" "playwright webserver selected frontend row success"
 selected_frontend_log="$(cat "$selected_frontend_invocations")"
 assert_contains "$selected_frontend_log" "project=functional" "selected frontend row functional invocation"
-assert_contains "$selected_frontend_log" "frontend.phase5.grid-provenance.spec.ts" "selected frontend row functional file"
+assert_contains "$selected_frontend_log" "grid-provenance.spec.ts" "selected frontend row functional file"
 assert_not_contains "$selected_frontend_log" "selected_ids=FE-I-P5-01" "selected frontend row uses selected-tests artifact instead of selected ids env"
 assert_not_contains "$selected_frontend_log" "project=support" "selected frontend row omits broad support project"
 selected_frontend_root="$tmp_dir/results/batch-selected-frontend-row/browser-e2e-webserver-backed"

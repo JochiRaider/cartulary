@@ -606,6 +606,31 @@
       "status": "active"
     },
     {
+      "row_id": "web.workbook.regression.timelineworkbook_websocket_invalidation_focus_continuity",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "web.collaboration"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/App.timeline-invalidation.support.test.tsx",
+        "titles": [
+          "Timeline workbook suppresses self-originated websocket invalidations without refocusing the draft row"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "web.workbook.regression.useworkbookprojectionrefreshcontroller_suite_5bad71bbc5",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -1078,9 +1103,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.autosave.test.tsx",
         "titles": [
-          "Phase 3 Timeline workbook autosave coverage commits Enter from the current editor value when row state is stale"
+          "Timeline workbook autosave coverage commits Enter from the current editor value when row state is stale"
         ]
       },
       "evidence_class": "unit",
@@ -1101,9 +1126,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.autosave.test.tsx",
         "titles": [
-          "Phase 3 Timeline workbook autosave coverage commits paste completion from the current editor value when row state is stale"
+          "Timeline workbook autosave coverage commits paste completion from the current editor value when row state is stale"
         ]
       },
       "evidence_class": "unit",
@@ -1124,9 +1149,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.autosave.test.tsx",
         "titles": [
-          "Phase 3 Timeline workbook autosave coverage commits Tab from the current editor value when row state is stale"
+          "Timeline workbook autosave coverage commits Tab from the current editor value when row state is stale"
         ]
       },
       "evidence_class": "unit",
@@ -1147,9 +1172,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.autosave.test.tsx",
         "titles": [
-          "Phase 3 Timeline workbook autosave coverage queues a follow-up scalar save when the logical payload changes while a prior save is pending"
+          "Timeline workbook autosave coverage queues a follow-up scalar save when the logical payload changes while a prior save is pending"
         ]
       },
       "evidence_class": "unit",
@@ -1170,9 +1195,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.autosave.test.tsx",
         "titles": [
-          "Phase 3 Timeline workbook autosave coverage suppresses duplicate pending scalar saves that only differ by client_txn_id"
+          "Timeline workbook autosave coverage suppresses duplicate pending scalar saves that only differ by client_txn_id"
         ]
       },
       "evidence_class": "unit",
@@ -1193,9 +1218,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
         "titles": [
-          "Phase 3 Timeline workbook grid coverage classifies committed Timeline row freshness by record_id and row_version"
+          "Timeline workbook grid coverage classifies committed Timeline row freshness by record_id and row_version"
         ]
       },
       "evidence_class": "unit",
@@ -1216,9 +1241,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
         "titles": [
-          "Phase 3 Timeline workbook grid coverage ignores stale query errors after a newer committed row response"
+          "Timeline workbook grid coverage ignores stale query errors after a newer committed row response"
         ]
       },
       "evidence_class": "unit",
@@ -1239,9 +1264,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
         "titles": [
-          "Phase 3 Timeline workbook grid coverage ignores stale sparse live row patches after a newer committed row is accepted"
+          "Timeline workbook grid coverage ignores stale sparse live row patches after a newer committed row is accepted"
         ]
       },
       "evidence_class": "unit",
@@ -1262,9 +1287,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
         "titles": [
-          "Phase 3 Timeline workbook grid coverage keeps accepted committed row state across stale invalidation queries and replay responses"
+          "Timeline workbook grid coverage keeps accepted committed row state across stale invalidation queries and replay responses"
         ]
       },
       "evidence_class": "unit",
@@ -1285,9 +1310,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
         "titles": [
-          "Phase 3 Timeline workbook grid coverage keeps Timeline controls mounted while a sorted query refresh is pending"
+          "Timeline workbook grid coverage keeps Timeline controls mounted while a sorted query refresh is pending"
         ]
       },
       "evidence_class": "unit",
@@ -1308,9 +1333,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
         "titles": [
-          "Phase 3 Timeline workbook grid coverage preserves an in-flight draft create across unrelated projection refresh"
+          "Timeline workbook grid coverage preserves an in-flight draft create across unrelated projection refresh"
         ]
       },
       "evidence_class": "unit",
@@ -1331,9 +1356,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
         "titles": [
-          "Phase 3 Timeline workbook grid coverage preserves draft row edits across projection refresh before create commit"
+          "Timeline workbook grid coverage preserves draft row edits across projection refresh before create commit"
         ]
       },
       "evidence_class": "unit",
@@ -1354,9 +1379,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
         "titles": [
-          "Phase 3 Timeline workbook grid coverage surfaces a sorted query refresh failure without unmounting Timeline controls"
+          "Timeline workbook grid coverage surfaces a sorted query refresh failure without unmounting Timeline controls"
         ]
       },
       "evidence_class": "unit",
@@ -1377,7 +1402,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase9.inspector.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.inspector.test.tsx",
         "titles": [
           "FE-P9 inspector and row-local action coverage keeps the Timeline inspector unmounted until explicit activation"
         ]
@@ -1400,7 +1425,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase9.inspector.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.inspector.test.tsx",
         "titles": [
           "FE-P9 inspector and row-local action coverage renders Timeline collection cells compactly until inline edit activation"
         ]
@@ -1423,9 +1448,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase8.query.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.query.test.tsx",
         "titles": [
-          "Phase 8 workbook query controls normalizes saved-view query_json and layout_json back to portable field-key state"
+          "workbook query controls normalizes saved-view query_json and layout_json back to portable field-key state"
         ]
       },
       "evidence_class": "unit",
@@ -1446,9 +1471,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase8.query.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.query.test.tsx",
         "titles": [
-          "Phase 8 workbook query controls Notes full_text controls submit the exact-token operator"
+          "workbook query controls Notes full_text controls submit the exact-token operator"
         ]
       },
       "evidence_class": "unit",
@@ -1469,9 +1494,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
         "titles": [
-          "Phase 9 Sprint 1 keyboard and grid anchor coverage dispatches multi-row CSV pasted into the draft Time cell as create-row targets"
+          "keyboard and grid anchor coverage dispatches multi-row CSV pasted into the draft Time cell as create-row targets"
         ]
       },
       "evidence_class": "unit",
@@ -1492,9 +1517,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
         "titles": [
-          "Phase 9 Sprint 1 keyboard and grid anchor coverage dispatches single-line CSV pasted into the draft Time cell as a create-row paste"
+          "keyboard and grid anchor coverage dispatches single-line CSV pasted into the draft Time cell as a create-row paste"
         ]
       },
       "evidence_class": "unit",
@@ -1515,9 +1540,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
         "titles": [
-          "Phase 9 Sprint 1 keyboard and grid anchor coverage Phase 9 grid anchor shell support updates Cartulary anchors by record_id and field_key during keyboard navigation"
+          "keyboard and grid anchor coverage grid anchor shell support updates Cartulary anchors by record_id and field_key during keyboard navigation"
         ]
       },
       "evidence_class": "unit",
@@ -1538,9 +1563,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
         "titles": [
-          "Phase 9 Sprint 1 keyboard and grid anchor coverage Phase 9 grid anchor shell support commits drafts before Enter navigation and retains edge Shift+Enter targets"
+          "keyboard and grid anchor coverage grid anchor shell support commits drafts before Enter navigation and retains edge Shift+Enter targets"
         ]
       },
       "evidence_class": "unit",
@@ -1561,9 +1586,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
         "titles": [
-          "Phase 9 Sprint 1 keyboard and grid anchor coverage Phase 9 grid anchor shell support retains edge anchors and preserves drafts across valid focus movement"
+          "keyboard and grid anchor coverage grid anchor shell support retains edge anchors and preserves drafts across valid focus movement"
         ]
       },
       "evidence_class": "unit",
@@ -1584,9 +1609,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
         "titles": [
-          "Phase 9 Sprint 1 keyboard and grid anchor coverage Phase 9 grid anchor shell support updates Cartulary anchors for Enter and Shift+Enter while Tab exits"
+          "keyboard and grid anchor coverage grid anchor shell support updates Cartulary anchors for Enter and Shift+Enter while Tab exits"
         ]
       },
       "evidence_class": "unit",
@@ -1607,9 +1632,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
         "titles": [
-          "Phase 9 Sprint 1 keyboard and grid anchor coverage Phase 9 grid anchor shell support fails closed for unavailable shortcuts without row mutation"
+          "keyboard and grid anchor coverage grid anchor shell support fails closed for unavailable shortcuts without row mutation"
         ]
       },
       "evidence_class": "unit",
@@ -1630,9 +1655,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
         "titles": [
-          "Phase 6 workbook collaboration coverage Phase 6 applies sparse live patches by record_id without moving an active cell draft"
+          "workbook collaboration coverage applies sparse live patches by record_id without moving an active cell draft"
         ]
       },
       "evidence_class": "unit",
@@ -1655,10 +1680,10 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.assessments.test.tsx",
         "titles": [
-          "Assessment workbook surface Phase 4 U-4-WB-01 maps band-first assessment create payloads without submitting the derived band",
-          "Assessment workbook surface Phase 4 U-4-WB-02 submits assessment creates through the workbook UI",
           "Assessment workbook surface ignores superseded assessment query responses after rapid filter changes",
-          "Assessment workbook surface ignores superseded entity query responses after rapid host filters"
+          "Assessment workbook surface ignores superseded entity query responses after rapid host filters",
+          "Assessment workbook surface maps band-first assessment create payloads without submitting the derived band",
+          "Assessment workbook surface submits assessment creates through the workbook UI"
         ]
       },
       "evidence_class": "unit",
@@ -1679,9 +1704,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
-          "Phase 7 workbook history support coverage builds rollback targets only from advertised server actions and selectors"
+          "workbook history support coverage builds rollback targets only from advertised server actions and selectors"
         ]
       },
       "evidence_class": "unit",
@@ -1702,9 +1727,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
-          "Phase 7 workbook history support coverage clears stale rollback previews when open history retargets"
+          "workbook history support coverage clears stale rollback previews when open history retargets"
         ]
       },
       "evidence_class": "unit",
@@ -1725,9 +1750,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
-          "Phase 7 workbook history support coverage fails closed for duplicate history_item_ref"
+          "workbook history support coverage fails closed for duplicate history_item_ref"
         ]
       },
       "evidence_class": "unit",
@@ -1748,9 +1773,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
-          "Phase 7 workbook history support coverage fails closed for invalid revision_no"
+          "workbook history support coverage fails closed for invalid revision_no"
         ]
       },
       "evidence_class": "unit",
@@ -1771,9 +1796,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
-          "Phase 7 workbook history support coverage fails closed for missing history_entry rollback selector"
+          "workbook history support coverage fails closed for missing history_entry rollback selector"
         ]
       },
       "evidence_class": "unit",
@@ -1794,9 +1819,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
-          "Phase 7 workbook history support coverage fails closed for missing history_item_ref"
+          "workbook history support coverage fails closed for missing history_item_ref"
         ]
       },
       "evidence_class": "unit",
@@ -1817,9 +1842,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
-          "Phase 7 workbook history support coverage fails closed for non-canonical action order"
+          "workbook history support coverage fails closed for non-canonical action order"
         ]
       },
       "evidence_class": "unit",
@@ -1840,9 +1865,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
-          "Phase 7 workbook history support coverage fails closed for non-string history_item_ref"
+          "workbook history support coverage fails closed for non-string history_item_ref"
         ]
       },
       "evidence_class": "unit",
@@ -1863,9 +1888,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
-          "Phase 7 workbook history support coverage keeps workbook continuity through ordinary remove and invalidate socket updates"
+          "workbook history support coverage keeps workbook continuity through ordinary remove and invalidate socket updates"
         ]
       },
       "evidence_class": "unit",
@@ -1886,9 +1911,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
-          "Phase 7 workbook history support coverage opens row-centric history from a selected workbook row and renders server metadata only"
+          "workbook history support coverage opens row-centric history from a selected workbook row and renders server metadata only"
         ]
       },
       "evidence_class": "unit",
@@ -1909,9 +1934,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
         "titles": [
-          "Phase 6 workbook collaboration coverage Phase 6 presence indicators render from keyed socket state without changing save-state"
+          "workbook collaboration coverage presence indicators render from keyed socket state without changing save-state"
         ]
       },
       "evidence_class": "unit",
@@ -1932,9 +1957,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
         "titles": [
-          "Phase 6 workbook collaboration coverage Phase 6 resolver keep-saved action submits an explicit outcome and applies returned row state"
+          "workbook collaboration coverage resolver keep-saved action submits an explicit outcome and applies returned row state"
         ]
       },
       "evidence_class": "unit",
@@ -1955,9 +1980,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
         "titles": [
-          "Phase 6 workbook collaboration coverage Phase 6 resolver merged-value action submits an explicit outcome and applies returned row state"
+          "workbook collaboration coverage resolver merged-value action submits an explicit outcome and applies returned row state"
         ]
       },
       "evidence_class": "unit",
@@ -1978,9 +2003,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
         "titles": [
-          "Phase 6 workbook collaboration coverage Phase 6 resolver use-unsaved action submits an explicit outcome and applies returned row state"
+          "workbook collaboration coverage resolver use-unsaved action submits an explicit outcome and applies returned row state"
         ]
       },
       "evidence_class": "unit",
@@ -2001,9 +2026,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
-          "Phase 7 workbook history support coverage retargets open row history to the newly selected inspector row"
+          "workbook history support coverage retargets open row history to the newly selected inspector row"
         ]
       },
       "evidence_class": "unit",
@@ -2024,9 +2049,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
-          "Phase 7 workbook history support coverage submits single-entry rollback with only the server-provided history selector"
+          "workbook history support coverage submits single-entry rollback with only the server-provided history selector"
         ]
       },
       "evidence_class": "unit",
@@ -2049,11 +2074,11 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
         "titles": [
-          "WorkbookShell surface selection FE-I-P6-01 Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths.",
-          "WorkbookShell surface selection FE-I-P8-01 Verify saved-view create/update/select/default UI uses active surface scope and public saved-view/workbook-preference contracts.",
-          "WorkbookShell surface selection Phase 4 U-4-WB-03 issues opaque evidence preview and download handles from the evidence surface",
+          "WorkbookShell surface selection Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths.",
+          "WorkbookShell surface selection Verify saved-view create/update/select/default UI uses active surface scope and public saved-view/workbook-preference contracts.",
           "WorkbookShell surface selection dispatches entity-origin paste through create targets while preserving exact-match reuse results",
           "WorkbookShell surface selection ignores superseded generic surface query responses after rapid filters",
+          "WorkbookShell surface selection issues opaque evidence preview and download handles from the evidence surface",
           "WorkbookShell surface selection keeps a selected saved-view sheet ref distinct from its base view_schema",
           "WorkbookShell surface selection keeps a user-selected system view when a delayed startup response resolves",
           "WorkbookShell surface selection keeps assessment surface access loss routed through the shell access-lost callback",
@@ -2075,8 +2100,8 @@
           "WorkbookShell surface selection surfaces entity merge precondition failures without submitting a second plan",
           "WorkbookShell surface selection surfaces upload failures inline without issuing Timeline patches",
           "WorkbookShell surface selection uses backend startup selection for the initial workbook grid surface",
-          "generic workbook mutation payloads Phase 4 U-4-WB-04 builds required creates with direct values, timestamps, and explicit clears",
-          "generic workbook mutation payloads Phase 4 U-4-WB-05 builds direct clears and typed collection actions"
+          "generic workbook mutation payloads builds direct clears and typed collection actions",
+          "generic workbook mutation payloads builds required creates with direct values, timestamps, and explicit clears"
         ]
       },
       "evidence_class": "unit",
@@ -2097,9 +2122,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
-          "Phase 7 workbook history support coverage uses active and tombstone row versions for delete and restore controls"
+          "workbook history support coverage uses active and tombstone row versions for delete and restore controls"
         ]
       },
       "evidence_class": "unit",

@@ -357,9 +357,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/app/App.phase1.test.tsx",
+        "file": "apps/web/src/app/App.auth.test.tsx",
         "titles": [
-          "Phase 1 ordinary app shell keeps deployment-admin target actions disabled until a target load completes and leaves version-conflict status stable"
+          "ordinary app shell keeps deployment-admin target actions disabled until a target load completes and leaves version-conflict status stable"
         ]
       },
       "evidence_class": "unit",
@@ -982,12 +982,12 @@
         "titles": [
           "apiPath joins a trimmed base with the path",
           "apiPath returns the path unchanged when the base is empty",
-          "fetchJSON FE-I-P1-01 route-boundary CSRF headers follow cookie-backed mutating request rules",
           "fetchJSON adds JSON content type and CSRF header for mutating requests with included credentials",
           "fetchJSON leaves GET requests without JSON content type or CSRF header",
           "fetchJSON omits the CSRF header for mutating requests that do not include credentials",
           "fetchJSON omits the CSRF header when 'the CSRF cookie is absent'",
           "fetchJSON omits the CSRF header when 'the CSRF cookie value is empty'",
+          "fetchJSON route-boundary CSRF headers follow cookie-backed mutating request rules",
           "readCookie decodes the named cookie value",
           "readCookie distinguishes an empty cookie from a missing cookie"
         ]

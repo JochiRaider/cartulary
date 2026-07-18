@@ -41,7 +41,7 @@ function recordChangedPayload(
 }
 
 describe("Timeline collaboration effects", () => {
-  it("FE-U-P7-01 applies row updates and requests stale-row requery without transport state", () => {
+  it("applies row updates and requests stale-row requery without transport state", () => {
     const payload = recordChangedPayload();
     const rowUpdate = reduceTimelineCollaboration(
       createTimelineCollaborationState(),
@@ -62,7 +62,7 @@ describe("Timeline collaboration effects", () => {
     expect(invalidate.effects).toEqual([{ kind: "request_record_refresh" }]);
   });
 
-  it("FE-U-P7-01 pauses feature replay on access loss and resumes only after session establishment", () => {
+  it("pauses feature replay on access loss and resumes only after session establishment", () => {
     const authorizationLoss = reduceTimelineCollaboration(
       createTimelineCollaborationState(),
       { type: "authorization_lost" },

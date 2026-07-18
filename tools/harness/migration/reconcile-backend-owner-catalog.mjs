@@ -227,7 +227,10 @@ for (let phase = 0; phase <= 12; phase += 1) {
     const ownerID = expectedOwner(phase, legacy);
     const familyID = `${ownerID}.${expectedFamily(legacy)}`;
     const verificationIDs = [`${ownerID}.verification.behavior_contract`];
-    const collaborators = expectedCollaborators(legacy, ownerID);
+    const collaborators = expectedCollaborators(
+      { ...legacy, file: frozen.selector?.file ?? legacy.file },
+      ownerID,
+    );
     const fixtureID = expectedFixture(legacy);
     const evidence = expectedEvidence(legacy);
     const runner = legacy.runner === "go_test" || legacy.runner === undefined ? "go" : legacy.runner;

@@ -30,11 +30,11 @@
       "| --- | --- |",
       "| Real runtime and route helpers | Phase 5 initially reuses `internal/modules/workbook/testsupport/scenariotest` for Postgres, object-store services, bootstrap-admin login, incident creation, and HTTP route helpers until Phase 5-specific helper ownership materially diverges. |",
       "| Evidence module helpers | Phase 5 evidence tests own object blob, evidence record, access-handle, and object-store assertions in package-local test files rather than promoting Phase 4 smoke tests. |",
-      "| Workbook and browser helpers | `apps/web/src/workbook/WorkbookShell.phase5.test.tsx` and `apps/web/e2e/phase5.evidence.spec.ts` hold Phase 5 workbook and browser rows for evidence attachment, counts, previews, and requested-evidence flows. |"
+      "| Workbook and browser helpers | `apps/web/src/workbook/WorkbookShell.evidence.test.tsx` and `apps/web/e2e/evidence.spec.ts` hold Phase 5 workbook and browser rows for evidence attachment, counts, previews, and requested-evidence flows. |"
     ],
     "support_only": [
       "`internal/modules/evidence/evidence_integration_test.go` keeps Phase 4 object-blob and evidence-handle route smoke coverage as carryover support for Phase 5 implementation, but authoritative Phase 5 completion claims must live in `phase5_*` rows.",
-      "`apps/web/src/workbook/WorkbookShell.phase4.support.test.tsx` remains Phase 4 support-only workbook helper coverage and must not claim Phase 5 IDs."
+      "`apps/web/src/workbook/WorkbookShell.support.test.tsx` remains Phase 4 support-only workbook helper coverage and must not claim Phase 5 IDs."
     ]
   },
   "expected_ids": [
@@ -66,7 +66,7 @@
   ],
   "forbidden_id_files": [
     "internal/modules/evidence/evidence_integration_test.go",
-    "apps/web/src/workbook/WorkbookShell.phase4.support.test.tsx"
+    "apps/web/src/workbook/WorkbookShell.support.test.tsx"
   ],
   "support_go_targets": [],
   "unit": [
@@ -300,8 +300,8 @@
       "id": "U-5-08",
       "coverage": "authoritative",
       "runner": "vitest",
-      "file": "apps/web/src/workbook/WorkbookShell.phase5.test.tsx",
-      "title": "Phase 5 U-5-08 reflects attached evidence counts on the workbook surface without forcing navigation",
+      "file": "apps/web/src/workbook/WorkbookShell.evidence.test.tsx",
+      "title": "reflects attached evidence counts on the workbook surface without forcing navigation",
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
       "claim": "A workbook invalidation refresh visibly updates Timeline evidence count and `has_evidence` cells without forcing navigation away from the current workbook surface.",
@@ -637,8 +637,8 @@
       "id": "E-5-01",
       "coverage": "authoritative",
       "runner": "playwright",
-      "file": "apps/web/e2e/phase5.evidence.spec.ts",
-      "title": "E-5-01 attaches a screenshot to a selected Timeline row without leaving the workbook surface",
+      "file": "apps/web/e2e/evidence.spec.ts",
+      "title": "attaches a screenshot to a selected Timeline row without leaving the workbook surface",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "An analyst attaches a screenshot to a selected Timeline row without leaving the workbook surface, and the row reflects the new evidence count after commit.",
@@ -658,8 +658,8 @@
       "id": "E-5-02",
       "coverage": "authoritative",
       "runner": "playwright",
-      "file": "apps/web/e2e/phase5.evidence.spec.ts",
-      "title": "E-5-02 persists a screenshot-only Timeline row through the two-step evidence path",
+      "file": "apps/web/e2e/evidence.spec.ts",
+      "title": "persists a screenshot-only Timeline row through the two-step evidence path",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "A screenshot-only Timeline row can be persisted through the two-step evidence path.",
@@ -679,8 +679,8 @@
       "id": "E-5-03",
       "coverage": "authoritative",
       "runner": "playwright",
-      "file": "apps/web/e2e/phase5.evidence.spec.ts",
-      "title": "E-5-03 redeems inline-safe previews and shows explicit blocked-preview outcomes",
+      "file": "apps/web/e2e/evidence.spec.ts",
+      "title": "redeems inline-safe previews and shows explicit blocked-preview outcomes",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "An inline-safe type receives a preview handle and renders through the same-origin redeem path, while unsupported or unsafe types return an explicit blocked-preview outcome.",
@@ -700,8 +700,8 @@
       "id": "E-5-04",
       "coverage": "authoritative",
       "runner": "playwright",
-      "file": "apps/web/e2e/phase5.evidence.spec.ts",
-      "title": "E-5-04 tracks requested evidence before a blob exists and later advances it",
+      "file": "apps/web/e2e/evidence.spec.ts",
+      "title": "tracks requested evidence before a blob exists and later advances it",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "Requested evidence can be tracked before the blob exists, linked to a Timeline row without counting unavailable content, advanced to an available counted state, and preserved across Evidence and Timeline workbook pivots.",
@@ -721,8 +721,8 @@
       "id": "E-5-05",
       "coverage": "authoritative",
       "runner": "playwright",
-      "file": "apps/web/e2e/phase5.evidence.spec.ts",
-      "title": "E-5-05 refreshes a second live workbook from the real evidence attach stream",
+      "file": "apps/web/e2e/evidence.spec.ts",
+      "title": "refreshes a second live workbook from the real evidence attach stream",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "A second live workbook session receives the real `/ws/v1/incidents/{incident_id}` evidence attach event and refreshes Timeline evidence count and flags without navigation.",
@@ -779,7 +779,7 @@
       "coverage": "authoritative",
       "runner": "playwright",
       "file": "apps/web/e2e/workbook.visual.spec.ts",
-      "title": "V-5-GRID-01 captures requested and available Evidence states on the required Evidence surface",
+      "title": "captures requested and available Evidence states on the required Evidence surface",
       "execution_dependency": "browser_visual",
       "evidence_layer": "browser_visual",
       "claim": "The visual harness captures requested evidence and the same row after workbook-surface attach advances it to available.",
@@ -799,7 +799,7 @@
       "coverage": "authoritative",
       "runner": "playwright",
       "file": "apps/web/e2e/workbook.visual.spec.ts",
-      "title": "V-5-GRID-02 captures blocked preview feedback and Timeline evidence badges",
+      "title": "captures blocked preview feedback and Timeline evidence badges",
       "execution_dependency": "browser_visual",
       "evidence_layer": "browser_visual",
       "frontend_fixture_refs": [

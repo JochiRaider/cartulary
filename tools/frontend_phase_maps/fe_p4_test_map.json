@@ -89,28 +89,28 @@
         }
       ],
       "scenario_titles": [
-        "FE-U-P4-01 keeps pending queues isolated by incident and client instance scope",
-        "FE-U-P4-01 admits row-create, row-patch, and paste-derived replay units with route-scoped mutation identity",
-        "FE-U-P4-01 preserves FIFO replay order and refuses the 65th non-coalescible unit without eviction",
-        "FE-U-P4-01 coalesces only same-draft creates and contiguous same-record patches",
-        "FE-U-P4-01 preserves same-runtime retryable failures and does not survive a new page instance",
-        "FE-U-P4-01 halts non-retryable public failures with Table G anchors and queued units behind the blocker",
-        "FE-U-P4-01 applies successful replay without retargeting by visible row order or labels",
-        "FE-U-P4-01 sends Timeline actions with the current row version after earlier workbook mutations",
-        "FE-U-P4-01 waits for a pending material autosave before supersede dispatch",
-        "FE-U-P4-01 keeps action result row versions ahead of stale projection reloads",
-        "FE-U-P4-01 drives WorkbookShell admission, coalescing, and save-state from the shared pending queue model",
-        "FE-U-P4-01 drives WorkbookShell retry and success settlement from the shared pending queue model",
-        "FE-U-P4-01 drives WorkbookShell terminal halt presentation from the shared pending queue model",
-        "FE-U-P4-01 rekeys only a client transaction blocker and preserves FIFO intent",
-        "FE-U-P4-01 rejects invalid recovery transitions without changing queue state",
-        "FE-U-P4-01 discards exactly the halted blocker and resumes later FIFO work",
-        "FE-U-P4-01 recovers a Timeline client transaction conflict with a fresh opaque request ID",
-        "FE-U-P4-01 discards a blocked edit locally without issuing another mutation",
-        "FE-U-P4-01 retains the prefix and uses the platform UUID generator",
-        "FE-U-P4-01 uses RFC 4122 v4 formatting with secure random bytes as fallback",
-        "FE-U-P4-01 fails locally when Web Crypto is unavailable",
-        "FE-U-P4-01 keeps browser mutation IDs independent of counters, clocks, and insecure randomness"
+        "keeps pending queues isolated by incident and client instance scope",
+        "admits row-create, row-patch, and paste-derived replay units with route-scoped mutation identity",
+        "preserves FIFO replay order and refuses the 65th non-coalescible unit without eviction",
+        "coalesces only same-draft creates and contiguous same-record patches",
+        "preserves same-runtime retryable failures and does not survive a new page instance",
+        "halts non-retryable public failures with Table G anchors and queued units behind the blocker",
+        "applies successful replay without retargeting by visible row order or labels",
+        "sends Timeline actions with the current row version after earlier workbook mutations",
+        "waits for a pending material autosave before supersede dispatch",
+        "keeps action result row versions ahead of stale projection reloads",
+        "drives WorkbookShell admission, coalescing, and save-state from the shared pending queue model",
+        "drives WorkbookShell retry and success settlement from the shared pending queue model",
+        "drives WorkbookShell terminal halt presentation from the shared pending queue model",
+        "rekeys only a client transaction blocker and preserves FIFO intent",
+        "rejects invalid recovery transitions without changing queue state",
+        "discards exactly the halted blocker and resumes later FIFO work",
+        "recovers a Timeline client transaction conflict with a fresh opaque request ID",
+        "discards a blocked edit locally without issuing another mutation",
+        "retains the prefix and uses the platform UUID generator",
+        "uses RFC 4122 v4 formatting with secure random bytes as fallback",
+        "fails locally when Web Crypto is unavailable",
+        "keeps browser mutation IDs independent of counters, clocks, and insecure randomness"
       ],
       "claim_status": "implemented",
       "claim": {
@@ -196,10 +196,10 @@
         }
       ],
       "scenario_titles": [
-        "FE-U-P4-02 derives exactly one primary save-state label for every Table C input condition",
-        "FE-U-P4-02 keeps failure, overflow, validation, and replay details as same-surface secondary status messages",
-        "FE-U-P4-02 preserves same-field conflict anchors by record_id, field_key, and base_row_version",
-        "FE-U-P4-02 renders derived secondary save-state detail inside the workbook status strip"
+        "derives exactly one primary save-state label for every Table C input condition",
+        "keeps failure, overflow, validation, and replay details as same-surface secondary status messages",
+        "preserves same-field conflict anchors by record_id, field_key, and base_row_version",
+        "renders derived secondary save-state detail inside the workbook status strip"
       ],
       "claim_status": "implemented",
       "claim": {
@@ -306,7 +306,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-I-P4-01 Verify Timeline query response rows render full view_row_v1 cells and preserve row identity through create, patch, validation error, and refresh."
+        "Verify Timeline query response rows render full view_row_v1 cells and preserve row identity through create, patch, validation error, and refresh."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -433,8 +433,8 @@
         }
       ],
       "scenario_titles": [
-        "FE-E-P4-01 Verify rough Timeline row creation, inline edit, paste, pending save, refresh, and replay through /api/v1/ route contracts.",
-        "FE-E-P4-01 Recover Timeline client transaction blockers through remount-safe IDs, retry, discard, and same-field resolver handoff."
+        "Verify rough Timeline row creation, inline edit, paste, pending save, refresh, and replay through /api/v1/ route contracts.",
+        "Recover Timeline client transaction blockers through remount-safe IDs, retry, discard, and same-field resolver handoff."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -504,7 +504,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-V-P4-01 Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures."
+        "Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures."
       ],
       "claim_status": "implemented",
       "claim": {

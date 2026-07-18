@@ -15,14 +15,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase10.restore.spec.ts",
+        "file": "apps/web/e2e/restore.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_90b26af20a25"
         ],
         "titles": [
-          "Phase 10 E-10-02 restore recovers workbook surface and executes a built-in workbook query"
+          "restore recovers workbook surface and executes a built-in workbook query"
         ]
       },
       "evidence_class": "browser",

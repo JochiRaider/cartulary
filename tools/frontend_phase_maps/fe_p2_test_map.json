@@ -62,14 +62,14 @@
         }
       ],
       "scenario_titles": [
-        "FE-U-P2-01 resolves workbook startup fallback order by stable sheet_ref identity",
-        "FE-U-P2-01 skips or clears invalid startup pointers without failing workbook open",
-        "FE-U-P2-01 rejects unsupported startup sheet_ref kinds at the frontend boundary",
-        "FE-U-P2-01 treats deleted saved-view pointers as unavailable saved views",
-        "FE-U-P2-01 preserves required-reference-pack unavailable startup reasons",
-        "FE-U-P2-01 rejects backend startup selections with non-standardized view_schema_id",
-        "FE-U-P2-01 applies selected saved-view identity without collapsing base view_schema_id",
-        "FE-U-P2-01 preserves extension workspace identity with no base schema or saved view"
+        "resolves workbook startup fallback order by stable sheet_ref identity",
+        "skips or clears invalid startup pointers without failing workbook open",
+        "rejects unsupported startup sheet_ref kinds at the frontend boundary",
+        "treats deleted saved-view pointers as unavailable saved views",
+        "preserves required-reference-pack unavailable startup reasons",
+        "rejects backend startup selections with non-standardized view_schema_id",
+        "applies selected saved-view identity without collapsing base view_schema_id",
+        "preserves extension workspace identity with no base schema or saved view"
       ],
       "claim_status": "implemented",
       "claim": {
@@ -162,12 +162,12 @@
         }
       ],
       "scenario_titles": [
-        "FE-U-P2-02 registers built-in and system workbook surfaces by stable IDs",
-        "FE-U-P2-02 keeps optional standardized surfaces additive after required surfaces",
-        "FE-U-P2-02 remains keyed by stable IDs when registry labels are relabeled",
-        "FE-U-P2-02 tolerates absent optional standardized surfaces while requiring required surfaces",
-        "FE-U-P2-02 exposes required reference-pack keys from view contracts",
-        "FE-U-P2-02 groups System views by stable group tokens and registry-backed IDs",
+        "registers built-in and system workbook surfaces by stable IDs",
+        "keeps optional standardized surfaces additive after required surfaces",
+        "remains keyed by stable IDs when registry labels are relabeled",
+        "tolerates absent optional standardized surfaces while requiring required surfaces",
+        "exposes required reference-pack keys from view contracts",
+        "groups System views by stable group tokens and registry-backed IDs",
         "keeps Core null defaults while letting explicit account density override every workbook surface"
       ],
       "claim_status": "implemented",
@@ -254,7 +254,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-B-P2-01 updates workbook density from Account Settings while the workbook remains open"
+        "updates workbook density from Account Settings while the workbook remains open"
       ],
       "claim_status": "implemented",
       "claim": {
@@ -343,7 +343,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-B-P2-02 Verify System views switcher keyboard entry, roving focus, selection, dismissal, and focus restoration."
+        "Verify System views switcher keyboard entry, roving focus, selection, dismissal, and focus restoration."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -428,7 +428,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-E-P2-01 Verify saved views appear only under the active surface's view selector and system views open inside the same workbook shell."
+        "Verify saved views appear only under the active surface's view selector and system views open inside the same workbook shell."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -512,7 +512,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-V-P2-01 Capture Default Timeline workbook shell with view-bar query controls, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip."
+        "Capture Default Timeline workbook shell with view-bar query controls, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip."
       ],
       "claim_status": "implemented",
       "claim": {

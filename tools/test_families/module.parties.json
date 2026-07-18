@@ -15,14 +15,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase9.sentinel.spec.ts",
+        "file": "apps/web/e2e/sentinel.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_a6b7a1ab6d8c"
         ],
         "titles": [
-          "Phase 9 E-9-04 Party create and link preserve raw text on the workbook surface"
+          "Party create and link preserve raw text on the workbook surface"
         ]
       },
       "evidence_class": "browser",

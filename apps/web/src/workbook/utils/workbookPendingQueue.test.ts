@@ -167,8 +167,8 @@ function expectCorePrimaryLabel(label: string) {
   expect(forbiddenPrimarySaveStateLabels).not.toContain(label);
 }
 
-describe("FE-U-P4-01 pending queue unit model", () => {
-  it("FE-U-P4-01 keeps pending queues isolated by incident and client instance scope", () => {
+describe("pending queue unit model", () => {
+  it("keeps pending queues isolated by incident and client instance scope", () => {
     const queue = createQueue();
     const otherClientQueue = new WorkbookPendingQueueModel({
       incidentId,
@@ -219,7 +219,7 @@ describe("FE-U-P4-01 pending queue unit model", () => {
     expect(foreignIncidentAdmission.preserveVisibleEditAsUnsaved).toBe(false);
   });
 
-  it("FE-U-P4-01 admits row-create, row-patch, and paste-derived replay units with route-scoped mutation identity", () => {
+  it("admits row-create, row-patch, and paste-derived replay units with route-scoped mutation identity", () => {
     const queue = createQueue();
 
     const createAdmission = expectAccepted(
@@ -316,7 +316,7 @@ describe("FE-U-P4-01 pending queue unit model", () => {
     ]);
   });
 
-  it("FE-U-P4-01 preserves FIFO replay order and refuses the 65th non-coalescible unit without eviction", () => {
+  it("preserves FIFO replay order and refuses the 65th non-coalescible unit without eviction", () => {
     const apiQueue = createQueue();
     expectAccepted(
       apiQueue.admit(
@@ -448,7 +448,7 @@ describe("FE-U-P4-01 pending queue unit model", () => {
     expect(queue.snapshot().units).toHaveLength(0);
   });
 
-  it("FE-U-P4-01 coalesces only same-draft creates and contiguous same-record patches", () => {
+  it("coalesces only same-draft creates and contiguous same-record patches", () => {
     const createQueueModel = createQueue();
     const createFirst = expectAccepted(
       createQueueModel.admit(
@@ -605,7 +605,7 @@ describe("FE-U-P4-01 pending queue unit model", () => {
     }
   });
 
-  it("FE-U-P4-01 preserves same-runtime retryable failures and does not survive a new page instance", () => {
+  it("preserves same-runtime retryable failures and does not survive a new page instance", () => {
     const retryQueue = createQueue();
     expectAccepted(
       retryQueue.admit(
@@ -748,7 +748,7 @@ describe("FE-U-P4-01 pending queue unit model", () => {
     );
   });
 
-  it("FE-U-P4-01 halts non-retryable public failures with Table G anchors and queued units behind the blocker", () => {
+  it("halts non-retryable public failures with Table G anchors and queued units behind the blocker", () => {
     const validationQueue = createQueue();
     expectAccepted(
       validationQueue.admit(
@@ -1036,7 +1036,7 @@ describe("FE-U-P4-01 pending queue unit model", () => {
     ).toEqual(["txn-details-only-same-field"]);
   });
 
-  it("FE-U-P4-01 rekeys only a client transaction blocker and preserves FIFO intent", () => {
+  it("rekeys only a client transaction blocker and preserves FIFO intent", () => {
     const queue = createQueue();
     const blocker = expectAccepted(
       queue.admit(
@@ -1096,7 +1096,7 @@ describe("FE-U-P4-01 pending queue unit model", () => {
     expect(queue.dispatchNext()?.unit.id).toBe(blocker.id);
   });
 
-  it("FE-U-P4-01 rejects invalid recovery transitions without changing queue state", () => {
+  it("rejects invalid recovery transitions without changing queue state", () => {
     const queue = createQueue();
     const blocker = expectAccepted(
       queue.admit(
@@ -1161,7 +1161,7 @@ describe("FE-U-P4-01 pending queue unit model", () => {
     );
   });
 
-  it("FE-U-P4-01 discards exactly the halted blocker and resumes later FIFO work", () => {
+  it("discards exactly the halted blocker and resumes later FIFO work", () => {
     const queue = createQueue();
     const blocker = expectAccepted(
       queue.admit(
@@ -1205,7 +1205,7 @@ describe("FE-U-P4-01 pending queue unit model", () => {
     expect(queue.dispatchNext()?.unit.clientTxnId).toBe("txn-later");
   });
 
-  it("FE-U-P4-01 applies successful replay without retargeting by visible row order or labels", () => {
+  it("applies successful replay without retargeting by visible row order or labels", () => {
     const queue = createQueue();
     expectAccepted(
       queue.admit(
@@ -1266,8 +1266,8 @@ describe("FE-U-P4-01 pending queue unit model", () => {
   });
 });
 
-describe("FE-U-P4-02 save-state unit model", () => {
-  it("FE-U-P4-02 derives exactly one primary save-state label for every Table C input condition", () => {
+describe("save-state unit model", () => {
+  it("derives exactly one primary save-state label for every Table C input condition", () => {
     const sameFieldConflict = {
       key: "record-conflict:timeline.activity_synopsis_text",
       conflict_token: "conflict-token",
@@ -1390,7 +1390,7 @@ describe("FE-U-P4-02 save-state unit model", () => {
     }
   });
 
-  it("FE-U-P4-02 keeps failure, overflow, validation, and replay details as same-surface secondary status messages", () => {
+  it("keeps failure, overflow, validation, and replay details as same-surface secondary status messages", () => {
     const overflowPresentation = deriveWorkbookSaveState({
       queuedCount: pendingReplayCapacity,
       inFlightCount: 0,
@@ -1475,7 +1475,7 @@ describe("FE-U-P4-02 save-state unit model", () => {
     }
   });
 
-  it("FE-U-P4-02 preserves same-field conflict anchors by record_id, field_key, and base_row_version", () => {
+  it("preserves same-field conflict anchors by record_id, field_key, and base_row_version", () => {
     const sameFieldQueue = createQueue();
     expectAccepted(
       sameFieldQueue.admit(
@@ -1644,8 +1644,8 @@ describe("FE-U-P4-02 save-state unit model", () => {
   });
 });
 
-describe("FE-U-P7-02 conflict anchoring and resolver state unit model", () => {
-  it("FE-U-P7-02 keeps same-field conflict queue identity separate from pending replay and visible order", () => {
+describe("conflict anchoring and resolver state unit model", () => {
+  it("keeps same-field conflict queue identity separate from pending replay and visible order", () => {
     const queue = createQueue();
     expectAccepted(
       queue.admit(
@@ -1738,7 +1738,7 @@ describe("FE-U-P7-02 conflict anchoring and resolver state unit model", () => {
     expect(queue.dispatchNext()?.unit.clientTxnId).toBe("txn-behind-conflict");
   });
 
-  it("FE-U-P7-02 derives save-state conflict anchors from record_id field_key and base_row_version", () => {
+  it("derives save-state conflict anchors from record_id field_key and base_row_version", () => {
     const presentation = deriveWorkbookSaveState({
       queuedCount: 5,
       inFlightCount: 1,

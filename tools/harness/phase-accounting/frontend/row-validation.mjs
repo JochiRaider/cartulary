@@ -163,9 +163,12 @@ export function validateFrontendBrowserScenarioTitleOwnership(
         `${label}.scenario_titles duplicates frontend browser title owned by ${existingOwner}`,
       );
     }
-    if (!title.startsWith(`${row.id} `)) {
+    if (
+      /^(?:FE-[A-Z]+-P\d+(?:-[A-Z0-9]+)*|[UIEV]-\d+(?:-[A-Z0-9]+)+)\s+/u.test(title)
+      || /^(?:support\s+)?(?:Phase|Sprint)\s+\d+\s+/iu.test(title)
+    ) {
       throw new Error(
-        `${label}.scenario_titles must use FE-owned titles prefixed by ${row.id}`,
+        `${label}.scenario_titles must use semantic titles without delivery or legacy row prefixes`,
       );
     }
     titleOwners.set(title, row.id);

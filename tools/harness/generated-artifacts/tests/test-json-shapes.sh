@@ -1136,13 +1136,13 @@ write_valid_frontend_row_accounting() {
   "target_status": "pass",
   "scenario_results": [
     {
-      "scenario_title": "FE-B-P2-02 Verify System views switcher keyboard entry, roving focus, selection, dismissal, and focus restoration.",
+      "scenario_title": "Verify System views switcher keyboard entry, roving focus, selection, dismissal, and focus restoration.",
       "status": "passed",
       "row_ids": [
         "FE-B-P2-02"
       ],
       "source_files": [
-        "apps/web/e2e/phase2.spec.ts"
+        "apps/web/e2e/incident-administration.spec.ts"
       ]
     }
   ],
@@ -1155,7 +1155,7 @@ write_valid_frontend_row_accounting() {
       "target_mapping_status": "mapped",
       "closure_status": "closed",
       "closing_scenario_titles": [
-        "FE-B-P2-02 Verify System views switcher keyboard entry, roving focus, selection, dismissal, and focus restoration."
+        "Verify System views switcher keyboard entry, roving focus, selection, dismissal, and focus restoration."
       ],
       "failure_reason": ""
     }
@@ -2120,7 +2120,7 @@ if (!row) {
   throw new Error("FE-E-P9-03 row not found");
 }
 row.scenario_titles = [
-  "Phase 9 E-9-TASKDECISION-06 Task Request and Decision workbook workflows stay native",
+  "Task Request and Decision workbook workflows stay native",
 ];
 fs.writeFileSync(file, `${JSON.stringify(manifest, null, 2)}\n`);
 JS

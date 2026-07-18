@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { reconcileWorkbookRecordRows } from "./workbookRowReconciliation";
 
 describe("workbook row reconciliation", () => {
-  it("FE-I-P3-01 Verify sparse patches preserve unchanged row object references and intentionally replace changed rows by record_id.", () => {
+  it("Verify sparse patches preserve unchanged row object references and intentionally replace changed rows by record_id.", () => {
     const stable = { recordId: "record-1", state: "open" };
     const changed = { recordId: "record-2", state: "open" };
     const removed = { recordId: "record-3", state: "closed" };

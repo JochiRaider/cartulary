@@ -47,14 +47,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase12.network-flow.spec.ts",
+        "file": "apps/web/e2e/network-flow.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_32f21e7c47e9"
         ],
         "titles": [
-          "E-12-NFAC074-74 Network Analysis alias collision requires explicit approval"
+          "Network Analysis alias collision requires explicit approval"
         ]
       },
       "evidence_class": "browser",
@@ -78,14 +78,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase12.network-flow.spec.ts",
+        "file": "apps/web/e2e/network-flow.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_396a51f27193"
         ],
         "titles": [
-          "E-12-NFAC030-30 Network Analysis table graph defaults to active-table scope"
+          "Network Analysis table graph defaults to active-table scope"
         ]
       },
       "evidence_class": "browser",
@@ -109,14 +109,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase12.network-flow.spec.ts",
+        "file": "apps/web/e2e/network-flow.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_429d6ff99362"
         ],
         "titles": [
-          "E-12-NFAC006-06 Network Analysis import creates one inner table tab"
+          "Network Analysis import creates one inner table tab"
         ]
       },
       "evidence_class": "browser",
@@ -140,14 +140,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase12.network-flow.spec.ts",
+        "file": "apps/web/e2e/network-flow.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_368d1b7e1dcb"
         ],
         "titles": [
-          "E-12-NFAC037-37 Network Analysis edge selection opens ordered contributor drawer"
+          "Network Analysis edge selection opens ordered contributor drawer"
         ]
       },
       "evidence_class": "browser",
@@ -171,14 +171,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase12.network-flow.spec.ts",
+        "file": "apps/web/e2e/network-flow.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_c143b423357e"
         ],
         "titles": [
-          "E-12-NFAC036-36 Network Analysis vertex selection uses stable graph identity"
+          "Network Analysis vertex selection uses stable graph identity"
         ]
       },
       "evidence_class": "browser",
@@ -202,14 +202,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase12.network-flow.spec.ts",
+        "file": "apps/web/e2e/network-flow.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_3559c123fc3f"
         ],
         "titles": [
-          "E-12-NFAC023-23 Network Analysis soft delete removes active table tab"
+          "Network Analysis soft delete removes active table tab"
         ]
       },
       "evidence_class": "browser",
@@ -233,14 +233,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase12.network-flow.spec.ts",
+        "file": "apps/web/e2e/network-flow.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_7a5ac8be6018"
         ],
         "titles": [
-          "E-12-NFAC029-29 Network Analysis graph mode exposes table selection controls"
+          "Network Analysis graph mode exposes table selection controls"
         ]
       },
       "evidence_class": "browser",
@@ -264,14 +264,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase12.network-flow.spec.ts",
+        "file": "apps/web/e2e/network-flow.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_9dde84bda799"
         ],
         "titles": [
-          "E-12-NFAC002-02 Network Analysis claimed empty state exposes import entry"
+          "Network Analysis claimed empty state exposes import entry"
         ]
       },
       "evidence_class": "browser",
@@ -295,14 +295,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase12.network-flow.spec.ts",
+        "file": "apps/web/e2e/network-flow.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_b8fb14ec924c"
         ],
         "titles": [
-          "E-12-NFAC001-01 Network Flow unclaimed workspace remains unavailable"
+          "Network Flow unclaimed workspace remains unavailable"
         ]
       },
       "evidence_class": "browser",
@@ -326,14 +326,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase12.network-flow.spec.ts",
+        "file": "apps/web/e2e/network-flow.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_9c96df451116"
         ],
         "titles": [
-          "FE-B-P12-01 Verify claimed Network Analysis discovery, import, mapping approval, semantic grids, graph, contributors, and lifecycle controls through the real application."
+          "Verify claimed Network Analysis discovery, import, mapping approval, semantic grids, graph, contributors, and lifecycle controls through the real application."
         ]
       },
       "evidence_class": "browser",
@@ -357,14 +357,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase12.network-flow.spec.ts",
+        "file": "apps/web/e2e/network-flow.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
           "scenario_e792040be39e"
         ],
         "titles": [
-          "FE-E-P12-01 Verify Network Analysis clears protected grid, inspector, graph, contributor, and selection state after lifecycle loss and refetches after recovery."
+          "Verify Network Analysis clears protected grid, inspector, graph, contributor, and selection state after lifecycle loss and refetches after recovery."
         ]
       },
       "evidence_class": "browser",
@@ -389,7 +389,7 @@
       "selector": {
         "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "titles": [
-          "FE-I-P12-01 Verify production Network Flow grids, read-only behavior, stable references, virtualization, and adapter boundaries compose through semantic identities."
+          "Verify production Network Flow grids, read-only behavior, stable references, virtualization, and adapter boundaries compose through semantic identities."
         ]
       },
       "evidence_class": "unit",
@@ -414,7 +414,7 @@
       "selector": {
         "file": "apps/web/src/networkFlow/networkFlowPresentation.test.tsx",
         "titles": [
-          "FE-U-P12-01 Verify Network Analysis presentation, query, layout, lifecycle, and reconciliation units use extension-owned semantic contracts."
+          "Verify Network Analysis presentation, query, layout, lifecycle, and reconciliation units use extension-owned semantic contracts."
         ]
       },
       "evidence_class": "unit",
@@ -438,14 +438,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/measurement/phase12_network_flow_grid.spec.ts",
+        "file": "apps/web/e2e/measurement/network-flow-grid.spec.ts",
         "project_id": "chromium",
         "stage": "measurement",
         "scenario_ids": [
           "scenario_4111b955f263"
         ],
         "titles": [
-          "FE-B-P12-02 Measure the 1000-resource all-column production Network Flow grid envelope as informative implementation evidence."
+          "Measure the 1000-resource all-column production Network Flow grid envelope as informative implementation evidence."
         ]
       },
       "evidence_class": "measurement",
@@ -469,14 +469,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/measurement/phase12_network_flow_grid.spec.ts",
+        "file": "apps/web/e2e/measurement/network-flow-grid.spec.ts",
         "project_id": "chromium",
         "stage": "measurement",
         "scenario_ids": [
           "scenario_ff5eb836c81f"
         ],
         "titles": [
-          "E-12-NFAC050-50 measures bounded Network Flow production-grid virtualization without a timing claim"
+          "measures bounded Network Flow production-grid virtualization without a timing claim"
         ]
       },
       "evidence_class": "measurement",
@@ -2854,7 +2854,7 @@
           "scenario_252dd2b0ff55"
         ],
         "titles": [
-          "FE-V-P12-01 Capture claimed Network Analysis accepted inspector, rejected diagnostics, and graph contributor drawer at the deterministic desktop viewport."
+          "Capture claimed Network Analysis accepted inspector, rejected diagnostics, and graph contributor drawer at the deterministic desktop viewport."
         ]
       },
       "evidence_class": "visual",

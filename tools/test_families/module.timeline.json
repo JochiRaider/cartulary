@@ -15,14 +15,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase3.spec.ts",
+        "file": "apps/web/e2e/timeline-workbook.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_78d2b7279147"
         ],
         "titles": [
-          "E-3-03 drives review, demotion, and supersede through the visible workbook surface"
+          "drives review, demotion, and supersede through the visible workbook surface"
         ]
       },
       "evidence_class": "browser",
@@ -46,14 +46,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase3.spec.ts",
+        "file": "apps/web/e2e/timeline-workbook.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_36acd54e3d8c"
         ],
         "titles": [
-          "E-3-01 creates a Timeline row in-grid and continues editing on the draft row"
+          "creates a Timeline row in-grid and continues editing on the draft row"
         ]
       },
       "evidence_class": "browser",
@@ -77,14 +77,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase3.spec.ts",
+        "file": "apps/web/e2e/timeline-workbook.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_d844d91c9de8"
         ],
         "titles": [
-          "E-3-04 uses a disclosed hybrid replay harness to prove replay avoids duplicate history and visible invalidation"
+          "uses a disclosed hybrid replay harness to prove replay avoids duplicate history and visible invalidation"
         ]
       },
       "evidence_class": "browser",
@@ -108,14 +108,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase3.support.spec.ts",
+        "file": "apps/web/e2e/timeline.support.spec.ts",
         "project_id": "chromium",
         "stage": "support",
         "scenario_ids": [
           "scenario_e25a0fbe37ac"
         ],
         "titles": [
-          "support Phase 3 keeps a pending edit anchored to its record under sort, filter, group, and live invalidation"
+          "support keeps a pending edit anchored to its record under sort, filter, group, and live invalidation"
         ]
       },
       "evidence_class": "browser",
@@ -139,14 +139,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase3.support.spec.ts",
+        "file": "apps/web/e2e/timeline.support.spec.ts",
         "project_id": "chromium",
         "stage": "support",
         "scenario_ids": [
           "scenario_2b65ef8dfbae"
         ],
         "titles": [
-          "support Phase 3 keeps repeated scalar grid edits out of the RDG measured-width crash path"
+          "support keeps repeated scalar grid edits out of the RDG measured-width crash path"
         ]
       },
       "evidence_class": "browser",
@@ -170,14 +170,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase9.keyboard.spec.ts",
+        "file": "apps/web/e2e/keyboard.spec.ts",
         "project_id": "chromium",
         "stage": "support",
         "scenario_ids": [
           "scenario_620d7dcfdda8"
         ],
         "titles": [
-          "FE-B-P10-02 Verify full keyboard/clipboard contract: one-click edit, copy, paste, exact-range fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder."
+          "Verify full keyboard/clipboard contract: one-click edit, copy, paste, exact-range fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder."
         ]
       },
       "evidence_class": "browser",
@@ -201,14 +201,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase3.support.spec.ts",
+        "file": "apps/web/e2e/timeline.support.spec.ts",
         "project_id": "chromium",
         "stage": "support",
         "scenario_ids": [
           "scenario_43b01a263473"
         ],
         "titles": [
-          "FE-B-P3-01 Verify one-click focused editing, rejected-transition retention, sort, filter, group, paste, exact-range fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers."
+          "Verify one-click focused editing, rejected-transition retention, sort, filter, group, paste, exact-range fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers."
         ]
       },
       "evidence_class": "browser",
@@ -231,9 +231,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
         "titles": [
-          "Phase 3 U-3-GRID-01 binds Timeline grid columns from the active view_schema and commits writable cells by field_key"
+          "binds Timeline grid columns from the active view_schema and commits writable cells by field_key"
         ]
       },
       "evidence_class": "unit",
@@ -256,9 +256,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
         "titles": [
-          "Phase 3 U-3-GRID-02 binds saved rows by record_id and row_version instead of visible row index"
+          "binds saved rows by record_id and row_version instead of visible row index"
         ]
       },
       "evidence_class": "unit",
@@ -281,9 +281,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
         "titles": [
-          "Phase 3 U-3-GRID-03 keeps sorted and filtered local edits bound to the original record_id, base_row_version, and field_key"
+          "keeps sorted and filtered local edits bound to the original record_id, base_row_version, and field_key"
         ]
       },
       "evidence_class": "unit",
@@ -306,9 +306,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase3.payload.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.payload.test.tsx",
         "titles": [
-          "Phase 3 U-3-13 creates an explicit blank Timeline row with only client_txn_id and suppresses duplicate pending submits"
+          "creates an explicit blank Timeline row with only client_txn_id and suppresses duplicate pending submits"
         ]
       },
       "evidence_class": "unit",
@@ -331,13 +331,13 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.autosave.test.tsx",
         "titles": [
-          "Phase 3 U-3-05 autosaves Enter without a Save button and keeps exact save-state labels",
-          "Phase 3 U-3-05 autosaves Tab without a Save button and keeps exact save-state labels",
-          "Phase 3 U-3-05 autosaves blur without a Save button and keeps exact save-state labels",
-          "Phase 3 U-3-05 autosaves paste completion without a Save button and keeps exact save-state labels",
-          "Phase 3 U-3-05 reports Conflict after autosave failure and preserves local editor value"
+          "autosaves Enter without a Save button and keeps exact save-state labels",
+          "autosaves Tab without a Save button and keeps exact save-state labels",
+          "autosaves blur without a Save button and keeps exact save-state labels",
+          "autosaves paste completion without a Save button and keeps exact save-state labels",
+          "reports Conflict after autosave failure and preserves local editor value"
         ]
       },
       "evidence_class": "unit",
@@ -360,9 +360,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase3.payload.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.payload.test.tsx",
         "titles": [
-          "Phase 3 U-3-12 builds zero-field Timeline create payloads only for explicit blank-row creation"
+          "builds zero-field Timeline create payloads only for explicit blank-row creation"
         ]
       },
       "evidence_class": "unit",
@@ -593,14 +593,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/measurement/phase3_measurement.spec.ts",
+        "file": "apps/web/e2e/measurement/timeline-grid.spec.ts",
         "project_id": "chromium",
         "stage": "measurement",
         "scenario_ids": [
           "scenario_c9749616e90f"
         ],
         "titles": [
-          "E-3-02 measures user-visible typing_ack and blank-row-create completion within the Phase 3 envelope"
+          "measures user-visible typing_ack and blank-row-create completion within the Timeline envelope"
         ]
       },
       "evidence_class": "measurement",
@@ -1168,7 +1168,7 @@
           "scenario_b058629ebe04"
         ],
         "titles": [
-          "V-3-GRID-03 captures Timeline grouped rows and currently exposed grid chrome"
+          "captures Timeline grouped rows and currently exposed grid chrome"
         ]
       },
       "evidence_class": "visual",
@@ -1201,7 +1201,7 @@
           "scenario_5f3469f1fe3b"
         ],
         "titles": [
-          "V-3-GRID-01 captures the Timeline default viewport with stable row version and save-state strip"
+          "captures the Timeline default viewport with stable row version and save-state strip"
         ]
       },
       "evidence_class": "visual",
@@ -1234,7 +1234,7 @@
           "scenario_65b64494c412"
         ],
         "titles": [
-          "V-3-GRID-02 captures Timeline edit save-state visuals for active cell syncing saved and conflict states"
+          "captures Timeline edit save-state visuals for active cell syncing saved and conflict states"
         ]
       },
       "evidence_class": "visual",

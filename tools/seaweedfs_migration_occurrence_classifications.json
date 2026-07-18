@@ -129,7 +129,7 @@
     {
       "id": "frontend-raw-storage-leakage-guards",
       "path_globs": [
-      "apps/web/e2e/phase6.evidence-integration.spec.ts",
+      "apps/web/e2e/evidence-integration.spec.ts",
       "apps/web/src/services/workbookEvidence.test.ts",
       "apps/web/src/services/workbookEvidence.ts",
       "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",

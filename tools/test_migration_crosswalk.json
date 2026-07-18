@@ -13831,6 +13831,14 @@
     },
     {
       "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.timelineworkbook_websocket_invalidation_focus_continuity",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "migration-accounting-gap:T-029; pre-existing executable assertion previously classified only by a delivery-shaped title prefix, now assigned an exact semantic selector and reviewed owner"
+    },
+    {
+      "owner_id": "web.workbook",
       "row_id": "web.workbook.regression.useworkbookprojectionrefreshcontroller_suite_5bad71bbc5",
       "verification_ids": [
         "web.workbook.verification.frontend_regression"

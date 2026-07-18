@@ -429,7 +429,7 @@ describe("view-contracts", () => {
     ).toBe(undefined);
   });
 
-  it("FE-U-P9-03 Verify inspector panels and feature groups render from active config keys and reject unknown panel IDs, route owners, result behaviors, disabled tokens, duplicate keys, missing required keys, and extra current-profile keys before rendering.", () => {
+  it("Verify inspector panels and feature groups render from active config keys and reject unknown panel IDs, route owners, result behaviors, disabled tokens, duplicate keys, missing required keys, and extra current-profile keys before rendering.", () => {
     const tooManyFeatureGroups = Array.from({ length: 65 }, (_, index) => ({
       ...fixtureRawContract().inspector_config.feature_groups[0],
       feature_group_key: `details.read_${index}`,
@@ -720,8 +720,8 @@ describe("view-contracts", () => {
   });
 });
 
-describe("FE-U-P0-02 view-schema field-key adapter contract", () => {
-  it("FE-U-P0-02 selects generated contracts by view_schema_id, not display title", () => {
+describe("view-schema field-key adapter contract", () => {
+  it("selects generated contracts by view_schema_id, not display title", () => {
     const timeline = requireViewContract("cartulary.view.timeline.v2");
 
     expect(timeline.viewSchemaId).toBe("cartulary.view.timeline.v2");
@@ -729,7 +729,7 @@ describe("FE-U-P0-02 view-schema field-key adapter contract", () => {
     expect(getViewContract("Timeline")).toBeUndefined();
   });
 
-  it("FE-U-P0-02 keeps field identity and capabilities stable when labels change", () => {
+  it("keeps field identity and capabilities stable when labels change", () => {
     const first = parseFixture();
     const relabeled = parseFixture({
       ...fixtureRawContract(),
@@ -782,7 +782,7 @@ describe("FE-U-P0-02 view-schema field-key adapter contract", () => {
     });
   });
 
-  it("FE-U-P0-02 treats duplicate labels as display-only with distinct field_key identities", () => {
+  it("treats duplicate labels as display-only with distinct field_key identities", () => {
     const duplicateLabels = parseFixture({
       ...fixtureRawContract(),
       fields: [
@@ -835,7 +835,7 @@ describe("FE-U-P0-02 view-schema field-key adapter contract", () => {
     });
   });
 
-  it("FE-U-P0-02 keeps field identity stable when fields and visible columns reorder", () => {
+  it("keeps field identity stable when fields and visible columns reorder", () => {
     const base = parseFixture();
     const reordered = parseFixture({
       ...fixtureRawContract(),
@@ -857,7 +857,7 @@ describe("FE-U-P0-02 view-schema field-key adapter contract", () => {
     ).toEqual(new Set(["fixture.editable", "fixture.queryable"]));
   });
 
-  it("FE-U-P0-02 resolves editable, queryable, and synthetic fields by field_key", () => {
+  it("resolves editable, queryable, and synthetic fields by field_key", () => {
     const contract = parseFixture();
 
     expect(fieldCapability(contract, "fixture.editable")).toEqual({
@@ -890,7 +890,7 @@ describe("FE-U-P0-02 view-schema field-key adapter contract", () => {
     });
   });
 
-  it("FE-U-P0-02 fails deterministically for duplicate and missing field_key inputs", () => {
+  it("fails deterministically for duplicate and missing field_key inputs", () => {
     expectInvariantFailure(
       {
         ...fixtureRawContract(),
@@ -932,7 +932,7 @@ describe("FE-U-P0-02 view-schema field-key adapter contract", () => {
     );
   });
 
-  it("FE-U-P0-02 fails deterministically for unknown field_key references", () => {
+  it("fails deterministically for unknown field_key references", () => {
     const cases: ReadonlyArray<{
       readonly pattern: RegExp;
       readonly raw: unknown;
@@ -993,7 +993,7 @@ describe("FE-U-P0-02 view-schema field-key adapter contract", () => {
     }
   });
 
-  it("FE-U-P0-02 visibleFields fails deterministically when default-visible keys are unresolved", () => {
+  it("visibleFields fails deterministically when default-visible keys are unresolved", () => {
     const contract = parseFixture();
     const brokenContract: ViewContract = {
       ...contract,

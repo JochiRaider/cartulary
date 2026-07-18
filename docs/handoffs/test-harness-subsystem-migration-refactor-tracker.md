@@ -12,7 +12,7 @@
 | Baseline worktree | Clean |
 | Tracker state | `IN_PROGRESS` — WS-06 semantic source and fixture names |
 | Active start | Clean tree at `4cf06958b46649f76d79f1232379beb2738dc201` |
-| Active tasks | T-029 |
+| Active tasks | T-030 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -712,8 +712,8 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-026 | Remove frontend guide/cumulative accounting | WS-05 | DONE | T-023,T-024,T-025 | Catalog-native owner accounting projection and negative tests | One successor owner accounting model remains. |
 | T-027 | Reconcile all 87 frontend rows | WS-05 | DONE | T-026 | 87-row/216-atom reconciliation report | Count and selector coverage close. |
 | T-028 | Rename Go test identities | WS-06 | DONE | T-022 | 102 path, 632 test-entry, and 333 helper-declaration renames; catalog reconciliation; semantic scan; 1,295-test fast suite | No delivery-phase Go test identity remains. |
-| T-029 | Rename Vitest/Playwright identities | WS-06 | IN_PROGRESS | T-022,T-027 | Semantic scan and frontend tests | No delivery-phase frontend test identity remains. |
-| T-030 | Rename fixtures/scenarios/goldens | WS-06 | TODO | T-027 | Digest comparison and browser tests | Paths are semantic and bytes preserved. |
+| T-029 | Rename Vitest/Playwright identities | WS-06 | DONE | T-022,T-027 | 53 path renames; semantic source/catalog scan; frontend and harness gates | No delivery-phase frontend test identity remains. |
+| T-030 | Rename fixtures/scenarios/goldens | WS-06 | IN_PROGRESS | T-027 | Digest comparison and browser tests | Paths are semantic and bytes preserved. |
 | T-031 | Close production follow-up classifications | WS-06 | TODO | T-007,T-028,T-029 | Follow-up ledger | Every remaining match has owner/disposition. |
 | T-032 | Implement owner-slice planning/execution | WS-07 | TODO | T-015,T-022,T-027 | CLI/smoke tests | Both successor slice targets work. |
 | T-033 | Implement owner diagnostics/task guide | WS-07 | TODO | T-032 | Text/JSON contract tests | Commands report exact owner topology. |
@@ -1063,6 +1063,18 @@ Each entry must include:
 - Skipped checks: frontend unit/typecheck and browser stages are reserved for T-029/T-030; the full semantic repository scan and production classifications are T-031; owner commands do not exist until WS-07; broad `make check`, finalization, and release checks remain WS-11.
 - Next safe task: T-029 only. Rename Vitest and Playwright files, suites, titles, helpers, and exact catalog/transition selectors in closed frontend-owner slices, then run frontend and semantic validation before activating T-030.
 - Rollback boundary: revert this complete T-028 checkpoint, including source moves, Go declarations, catalog and transitional selectors, semantic policy, generated schedule outputs, and ledger references. Never restore duplicate old/new files or the former requirement that executable names carry delivery-row IDs.
+
+#### 2026-07-18 — T-029 semantic frontend identity checkpoint
+
+- Branch/commit at start: `revision/grid-adapter` at clean T-028 checkpoint `16835f3361f80f84f74237cac67f500bc7deac9b`. This entry closes T-029; T-030 becomes the sole active task while WS-06 remains the only active workstream.
+- Rename result: 53 Vitest/Playwright test paths moved to semantic filenames, including functional, support, accessibility, visual, and measurement surfaces. The migration rewrote 403 distinct delivery-shaped or legacy title identities and 29 helper/type declarations, updated exact source references, and preserved dotted `.support.` filenames where support-stage discovery depends on that semantic role. Its check mode is idempotent and explicitly excludes caches such as `.tsbuildinfo`.
+- Catalog and accounting result: all 548 authoritative identities and 265 frozen auxiliary dispositions remain terminal. A previously executable Timeline WebSocket assertion was found to have depended only on the v1 `Phase 3 support` title heuristic; it is now the explicitly authorized `web.workbook.regression.timelineworkbook_websocket_invalidation_focus_continuity` row with `web.collaboration` as collaborator and an exact `.support.` selector. The catalog therefore contains 46 owners, 169 families, 833 rows, and 1,377 exact selectors: 377 Go, 143 Playwright, three shell, and 310 Vitest rows. Catalog digest is `sha256:e54272a89ceec50eeb2b6a1ef32413d66c94220d938e50eaa2a29215530d1981`; verification digest remains `sha256:6c4b33052cf1c0646066c9420dcb4c137807f7ffc5d7fafe3f49f8d0d58e8e57`.
+- Structural result: the semantic-identity policy rejects delivery-shaped frontend test paths, declarations, direct suite/test titles, and catalog selectors. Transitional frontend maps, ledgers, registry digests, duration inputs, and phase schedules were updated atomically for pre-cutover validation; this does not authorize retaining those v1 inputs after WS-10. Freshness regeneration uses the declared phase-accounting facade rather than a private import.
+- Passed validation: idempotent frontend migration dry run; direct semantic identity scan; complete baseline/crosswalk authorization check; backend and frontend reconciliation; `make format` at `.cartulary/test-results/20260718T022915Z-p56351`; `make frontend-unit` with 600 tests and zero unmapped entries at `.cartulary/test-results/20260718T022623Z-p47724`; `make frontend-typecheck` at `.cartulary/test-results/20260718T022724Z-p52496`; `make frontend-import-boundary-check` at `.cartulary/test-results/20260718T022727Z-p52972`; `make lint-biome` at `.cartulary/test-results/20260718T022633Z-p49144`; `make json-shape-check` at `.cartulary/test-results/20260718T022626Z-p48243`; final `make harness-contract` with 63 passing tests at `.cartulary/test-results/20260718T022720Z-p52149`; `make phase-ledger-drift` at `.cartulary/test-results/20260718T022730Z-p53489`; and `make phase-schedule-drift` at `.cartulary/test-results/20260718T022800Z-p54841`.
+- Resolved failures: focused runs exposed a stale relative test filename, one implicit support-title accounting dependency, support-file stage misclassification, stale frontend manifest/freshness digests, a local helper collision, and a private phase-accounting import. Exact semantic references, an owner-qualified catalog row, dotted support filenames, deterministic digest regeneration, the `editExtendedSurfaceCell` helper, and facade-only access resolved them without a catch-all classification or compatibility alias.
+- Skipped checks: fixture/scenario/golden renames and browser runtime gates are T-030; the complete repository semantic classification and production follow-up ledger are T-031; owner commands begin in WS-07; broad `make check`, finalization, and release checks remain WS-11.
+- Next safe task: T-030 only. Rename delivery-shaped fixture/scenario/artifact/golden identities, update exact consumers, prove all 56 frozen golden byte digests are unchanged by path moves, and run the applicable browser/harness gates before activating T-031.
+- Rollback boundary: revert this complete T-029 checkpoint, including 53 file moves, titles/helpers, catalog/crosswalk authorization, transitional map/ledger/registry/topology updates, semantic policy, and focused tests. Never restore title inference, duplicate old/new test files, or the former delivery-shaped selectors.
 
 ## 17. First-resumer checklist
 

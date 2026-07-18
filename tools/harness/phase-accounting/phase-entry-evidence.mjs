@@ -143,26 +143,16 @@ export function authoritativeEvidenceNameViolations(manifest, { phase = manifest
     }
     const fragments = rowIDFragments(entry.id);
     for (const name of entryEvidenceNames(entry)) {
-      if (entry.runner === "go_test") {
-        if (
-          /(?:phase|sprint)[ _.-]?\d+/iu.test(name)
-          || fragments.some((fragment) => name.includes(fragment))
-        ) {
-          invalid.push({
-            file: entry.file,
-            phase,
-            symbol: name,
-            reason: "Go evidence names must be semantic and must not include delivery or legacy row identities",
-          });
-        }
-        continue;
-      }
-      if (!fragments.some((fragment) => name.includes(fragment))) {
+      if (
+        /(?:phase|sprint)[ _.-]?\d+/iu.test(name)
+        || fragments.some((fragment) => name.includes(fragment))
+        || /^FE-[A-Z]+-P\d+(?:-[A-Z0-9]+)*\s+/u.test(name)
+      ) {
         invalid.push({
           file: entry.file,
           phase,
           symbol: name,
-          reason: `authoritative evidence for ${entry.id} must include ${fragments.join(" or ")}`,
+          reason: "evidence names must be semantic and must not include delivery or legacy row identities",
         });
       }
     }

@@ -15,14 +15,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase9.sentinel.spec.ts",
+        "file": "apps/web/e2e/sentinel.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_dcc404e895e3"
         ],
         "titles": [
-          "Phase 9 E-9-TASKDECISION-06 Task Request and Decision workbook workflows stay native"
+          "Task Request and Decision workbook workflows stay native"
         ]
       },
       "evidence_class": "browser",

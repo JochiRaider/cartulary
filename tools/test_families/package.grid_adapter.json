@@ -46,7 +46,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
-          "FE-U-P3-01 Reject unsafe record identity and keep presentation rows from mutation-capable anchors."
+          "Reject unsafe record identity and keep presentation rows from mutation-capable anchors."
         ]
       },
       "evidence_class": "unit",
@@ -69,7 +69,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
-          "FE-U-P3-02 Translate vendor row and column coordinates to stable record_id and field_key anchors."
+          "Translate vendor row and column coordinates to stable record_id and field_key anchors."
         ]
       },
       "evidence_class": "unit",
@@ -92,7 +92,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
-          "FE-U-P3-03 Resolve grid editability from explicit editor adapters and contract writeability only."
+          "Resolve grid editability from explicit editor adapters and contract writeability only."
         ]
       },
       "evidence_class": "unit",
@@ -115,7 +115,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
-          "FE-U-P3-04 Resolve renderers and editors deterministically and clean adapter-owned resources."
+          "Resolve renderers and editors deterministically and clean adapter-owned resources."
         ]
       },
       "evidence_class": "unit",
@@ -655,7 +655,7 @@
           "scenario_7cccaae77bac"
         ],
         "titles": [
-          "FE-V-P3-01 Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures."
+          "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures."
         ]
       },
       "evidence_class": "visual",

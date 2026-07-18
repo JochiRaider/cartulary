@@ -15,14 +15,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase9.sentinel.spec.ts",
+        "file": "apps/web/e2e/sentinel.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_d0318fd0a1b5"
         ],
         "titles": [
-          "Phase 9 E-9-05 assessment workflow keeps invalid timestamp drafts local"
+          "assessment workflow keeps invalid timestamp drafts local"
         ]
       },
       "evidence_class": "browser",
@@ -46,14 +46,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase4.workbook.assessments.spec.ts",
+        "file": "apps/web/e2e/workbook.assessments.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_b9a4639a67f6"
         ],
         "titles": [
-          "E-4-05 creates append-only assessment history through the workbook UI"
+          "creates append-only assessment history through the workbook UI"
         ]
       },
       "evidence_class": "browser",
@@ -78,7 +78,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.assessments.test.tsx",
         "titles": [
-          "Phase 4 U-4-WB-02 submits assessment creates through the workbook UI"
+          "submits assessment creates through the workbook UI"
         ]
       },
       "evidence_class": "unit",
@@ -103,7 +103,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.assessments.test.tsx",
         "titles": [
-          "Phase 4 U-4-WB-01 maps band-first assessment create payloads without submitting the derived band"
+          "maps band-first assessment create payloads without submitting the derived band"
         ]
       },
       "evidence_class": "unit",

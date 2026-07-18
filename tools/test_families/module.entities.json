@@ -47,14 +47,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase4.mentions.lifecycle.spec.ts",
+        "file": "apps/web/e2e/mentions.lifecycle.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_77d448b3a470"
         ],
         "titles": [
-          "E-4-02 dismisses and ordinarily restores a mention without relinking"
+          "dismisses and ordinarily restores a mention without relinking"
         ]
       },
       "evidence_class": "browser",
@@ -78,14 +78,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase4.merge.spec.ts",
+        "file": "apps/web/e2e/merge.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_24cc83be636c"
         ],
         "titles": [
-          "E-4-03 merges duplicate entities from the inspector and preserves survivor identity"
+          "merges duplicate entities from the inspector and preserves survivor identity"
         ]
       },
       "evidence_class": "browser",
@@ -109,14 +109,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase4.mentions.resolve.spec.ts",
+        "file": "apps/web/e2e/mentions.resolve.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_5497d6dba304"
         ],
         "titles": [
-          "E-4-01 resolves and creates entities from Timeline mentions in the inspector"
+          "resolves and creates entities from Timeline mentions in the inspector"
         ]
       },
       "evidence_class": "browser",
@@ -140,14 +140,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase4.autoresolve.spec.ts",
+        "file": "apps/web/e2e/autoresolve.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_2ae41b62a854"
         ],
         "titles": [
-          "E-4-04 auto-resolves only eligible exact-match Timeline tokens"
+          "auto-resolves only eligible exact-match Timeline tokens"
         ]
       },
       "evidence_class": "browser",
@@ -171,14 +171,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/frontend.phase5.grid-provenance.spec.ts",
+        "file": "apps/web/e2e/grid-provenance.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_758c83271311"
         ],
         "titles": [
-          "FE-I-P5-01 Verify Hosts, Identities, and Notes grids render contract-derived columns and preserve mention/entity provenance through edit and refresh."
+          "Verify Hosts, Identities, and Notes grids render contract-derived columns and preserve mention/entity provenance through edit and refresh."
         ]
       },
       "evidence_class": "browser",
@@ -202,14 +202,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/frontend.phase5.mention-lifecycle.spec.ts",
+        "file": "apps/web/e2e/mention-lifecycle.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
           "scenario_44ab7ce702f1"
         ],
         "titles": [
-          "FE-E-P5-01 Verify manual mention resolution, dismissal, auto-resolution disclosure, and undo through public mutation routes and refreshed rows."
+          "Verify manual mention resolution, dismissal, auto-resolution disclosure, and undo through public mutation routes and refreshed rows."
         ]
       },
       "evidence_class": "browser",
@@ -232,9 +232,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase5.mentionChips.test.ts",
+        "file": "apps/web/src/workbook/WorkbookShell.mentionChips.test.ts",
         "titles": [
-          "FE-U-P5-01 preserves closed mention chip states by stable identifiers and field keys"
+          "preserves closed mention chip states by stable identifiers and field keys"
         ]
       },
       "evidence_class": "unit",
@@ -503,7 +503,7 @@
           "scenario_7795c5381ab3"
         ],
         "titles": [
-          "FE-V-P5-01 Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution metadata fixtures."
+          "Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution metadata fixtures."
         ]
       },
       "evidence_class": "visual",
@@ -536,7 +536,7 @@
           "scenario_4447178c020a"
         ],
         "titles": [
-          "V-4-GRID-01 captures Timeline unresolved and resolved mention chips in the workbook grid"
+          "captures Timeline unresolved and resolved mention chips in the workbook grid"
         ]
       },
       "evidence_class": "visual",

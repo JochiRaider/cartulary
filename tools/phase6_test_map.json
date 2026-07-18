@@ -33,8 +33,8 @@
       "| Machine-readable ownership | `shared_harnesses[]` records support-owned §14 harness coverage separately from authoritative Phase 6 row completion. |",
       "| Workbook route conformance | `internal/modules/workbook/testsupport/routetest.WorkbookRouteInventory()` enumerates Phase 6 workbook create, patch, and conflict-resolve route requirements; `internal/modules/workbook/shared_harness_test.go` probes envelope, authorization re-derivation, replay/divergent replay, closed vocabulary, writable-string normalization, field-key conformance, attribution, and replay-stability behavior through the real HTTP surface. |",
       "| Incident WebSocket lifecycle | `internal/modules/collaboration/testsupport/incidentwstest.SocketEventInventory()` is inventory only; `internal/modules/collaboration/shared_harness_test.go` asserts that the required lifecycle obligations map to behavior-level tests, while lifecycle conformance proof lives in `internal/modules/collaboration/socket_test.go`, `internal/modules/collaboration/integration_test.go`, `internal/platform/ws/presence_transport_test.go`, and `internal/modules/collaboration/testsupport/incidentwstest`. Revocation-source conformance is supplemental support evidence and must not widen `I-6-01`. |",
-      "| Grid and browser-command anchors | `packages/test-utils/src/index.ts`, `packages/test-utils/src/index.test.ts`, `packages/grid-adapter/src/index.test.tsx`, `packages/ui-contracts/src/index.test.ts`, `apps/web/e2e/phase6.collaboration.spec.ts`, and `apps/web/e2e/workbook.visual.spec.ts` support current Phase 6 sort/filter/group/scroll/autosave command anchors and geometric marker anchoring; paste, fill-down, and group expand/collapse helpers are active FE-P3 support, while column resize remains support/design measurement unless an owner spec adopts it. |",
-      "| Workbook resolver helpers | `apps/web/src/workbook/WorkbookShell.phase6.test.tsx` holds Phase 6 resolver, save-state, and pending-queue component rows until the UI is split into smaller owner components. |"
+      "| Grid and browser-command anchors | `packages/test-utils/src/index.ts`, `packages/test-utils/src/index.test.ts`, `packages/grid-adapter/src/index.test.tsx`, `packages/ui-contracts/src/index.test.ts`, `apps/web/e2e/collaboration.spec.ts`, and `apps/web/e2e/workbook.visual.spec.ts` support current Phase 6 sort/filter/group/scroll/autosave command anchors and geometric marker anchoring; paste, fill-down, and group expand/collapse helpers are active FE-P3 support, while column resize remains support/design measurement unless an owner spec adopts it. |",
+      "| Workbook resolver helpers | `apps/web/src/workbook/WorkbookShell.collaboration.test.tsx` holds Phase 6 resolver, save-state, and pending-queue component rows until the UI is split into smaller owner components. |"
     ],
     "support_only": [
       "`internal/modules/auth/integration_test.go` keeps Phase 1 session revocation socket coverage as carryover support for Phase 6 implementation, but authoritative Phase 6 completion claims must live in `phase6_*` rows.",
@@ -42,7 +42,7 @@
       "`internal/modules/revisions/conflicttokens/conflict_token_test.go` keeps revisions-owned support coverage for conflict-token round trips, tamper rejection, and invalid-claim rejection. These tests run under `TestSupportPhase6_ConflictTokenCodec*` and do not replace `U-6-*` or `I-6-*` rows.",
       "`internal/modules/workbook/shared_harness_test.go`, `internal/modules/collaboration/shared_harness_test.go`, `internal/modules/collaboration/integration_test.go::TestIncidentSocketRevocationSources`, and `internal/platform/ws/presence_transport_test.go` are Phase 6 support evidence for shared harness inventory, socket lifecycle evidence indexing, real-socket revocation-source conformance, and low-level socket behavior; inventory-only rows must not claim `U-6-*` or `I-6-*` identifiers.",
       "`internal/modules/workbook/workbook_mutation_integration_test.go` keeps existing workbook mutation conflict coverage as carryover support for Phase 6 implementation, but authoritative Phase 6 completion claims must live in `phase6_*` rows.",
-      "`apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx` keeps Phase 3 autosave and conflict UI coverage as carryover support for Phase 6 implementation, but authoritative Phase 6 completion claims must live in `phase6_*` rows."
+      "`apps/web/src/workbook/WorkbookShell.autosave.test.tsx` keeps Phase 3 autosave and conflict UI coverage as carryover support for Phase 6 implementation, but authoritative Phase 6 completion claims must live in `phase6_*` rows."
     ]
   },
   "shared_harnesses": [
@@ -103,7 +103,7 @@
       "evidence": [
         "packages/grid-adapter/src/index.test.tsx",
         "packages/ui-contracts/src/index.test.ts",
-        "apps/web/e2e/phase6.collaboration.spec.ts",
+        "apps/web/e2e/collaboration.spec.ts",
         "apps/web/e2e/workbook.visual.spec.ts"
       ],
       "notes": [
@@ -138,7 +138,7 @@
     "internal/modules/auth/integration_test.go",
     "internal/modules/timeline/timeline_event_integration_test.go",
     "internal/modules/workbook/workbook_mutation_integration_test.go",
-    "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx"
+    "apps/web/src/workbook/WorkbookShell.autosave.test.tsx"
   ],
   "support_go_targets": [
     {
@@ -403,8 +403,8 @@
       "id": "U-6-05",
       "coverage": "authoritative",
       "runner": "vitest",
-      "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
-      "title": "Phase 6 U-6-05 keeps the grid visible, conflict unresolved, and focus bound to the same cell",
+      "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
+      "title": "keeps the grid visible, conflict unresolved, and focus bound to the same cell",
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
       "claim": "The resolver keeps the grid visible, leaves conflict state unresolved until explicit action, and returns focus to the same cell after resolution or clear.",
@@ -525,13 +525,13 @@
       "id": "U-6-09",
       "coverage": "authoritative",
       "runner": "vitest",
-      "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
       "titles": [
-        "Phase 6 U-6-09 keeps save-state labels and pending queue replay bounded and explicit",
-        "Phase 6 U-6-09 does not coalesce non-contiguous same-record pending patches",
-        "Phase 6 U-6-09 exposes the browser-runtime pending queue capacity as exactly 64 replay units",
-        "Phase 6 U-6-09 preserves queued work through session revocation and resumes after re-authentication",
-        "Phase 6 U-6-09 moves a blocking same-field conflict out of the pending queue and retains its editor"
+        "keeps save-state labels and pending queue replay bounded and explicit",
+        "does not coalesce non-contiguous same-record pending patches",
+        "exposes the browser-runtime pending queue capacity as exactly 64 replay units",
+        "preserves queued work through session revocation and resumes after re-authentication",
+        "moves a blocking same-field conflict out of the pending queue and retains its editor"
       ],
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
@@ -687,8 +687,8 @@
       "id": "E-6-01",
       "coverage": "authoritative",
       "runner": "playwright",
-      "file": "apps/web/e2e/phase6.collaboration.spec.ts",
-      "title": "E-6-01 shows two analysts each other's workbook presence within the expected interaction window",
+      "file": "apps/web/e2e/collaboration.spec.ts",
+      "title": "shows two analysts each other's workbook presence within the expected interaction window",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "Two analysts on the same incident see each other's presence on the workbook surface within the expected interaction window after both browser sockets have reached the accepted `hello_ack` state, with the browser row retaining a timing artifact for the 1-second presence validation.",
@@ -708,8 +708,8 @@
       "id": "E-6-02",
       "coverage": "authoritative",
       "runner": "playwright",
-      "file": "apps/web/e2e/phase6.collaboration.spec.ts",
-      "title": "E-6-02 auto-merges different-field concurrent edits and requires explicit same-field resolution",
+      "file": "apps/web/e2e/collaboration.spec.ts",
+      "title": "auto-merges different-field concurrent edits and requires explicit same-field resolution",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "Concurrent edits to different fields on the same row auto-merge, while concurrent edits to the same field open the same-surface resolver and require explicit analyst resolution.",
@@ -729,8 +729,8 @@
       "id": "E-6-03",
       "coverage": "authoritative",
       "runner": "playwright",
-      "file": "apps/web/e2e/phase6.session-recovery.spec.ts",
-      "title": "E-6-03 preserves unsaved local work after socket revocation and re-authentication",
+      "file": "apps/web/e2e/session-recovery.spec.ts",
+      "title": "preserves unsaved local work after socket revocation and re-authentication",
       "execution_dependency": "browser_stateful",
       "evidence_layer": "browser",
       "claim": "Deterministic route-owned browser revocation sources, including admin revoke-all, current-session logout, and shared-clock idle expiry, emit `session_revoked` on an established browser socket, close that socket, and preserve unsaved local work for explicit recovery and FIFO replay after re-authentication.",
@@ -750,8 +750,8 @@
       "id": "E-6-04",
       "coverage": "authoritative",
       "runner": "playwright",
-      "file": "apps/web/e2e/phase6.collaboration.spec.ts",
-      "title": "E-6-04 keeps live updates conflict markers and presence markers anchored to record_id and field_key",
+      "file": "apps/web/e2e/collaboration.spec.ts",
+      "title": "keeps live updates conflict markers and presence markers anchored to record_id and field_key",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "Live updates never retarget pending local edits from implemented browser command surfaces, same-field conflict markers, row-gutter presence markers, or same-cell presence markers away from the bound `record_id` and `field_key` during sorting, filtering, grouping, virtual scrolling, or live row patch.",
@@ -771,8 +771,8 @@
       "id": "E-6-05",
       "coverage": "authoritative",
       "runner": "playwright",
-      "file": "apps/web/e2e/phase6.collaboration.spec.ts",
-      "title": "E-6-05 replays queued unsent writes after re-authentication without silent reload restore",
+      "file": "apps/web/e2e/collaboration.spec.ts",
+      "title": "replays queued unsent writes after re-authentication without silent reload restore",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "Within one browser runtime, queued unsent writes survive transient transport loss, real HTTP auth failure, or session revocation; replay in FIFO order after recovery or re-authentication; halt on the first real same-field conflict without applying later queued writes; and are never silently restored after a full reload.",
@@ -795,7 +795,7 @@
       "coverage": "authoritative",
       "runner": "playwright",
       "file": "apps/web/e2e/workbook.visual.spec.ts",
-      "title": "V-6-GRID-01 regresses Phase 6 row-gutter and same-cell presence markers",
+      "title": "regresses collaboration row-gutter and same-cell presence markers",
       "execution_dependency": "browser_visual",
       "evidence_layer": "browser_visual",
       "frontend_fixture_refs": [
@@ -818,7 +818,7 @@
       "coverage": "authoritative",
       "runner": "playwright",
       "file": "apps/web/e2e/workbook.visual.spec.ts",
-      "title": "V-6-GRID-02 regresses Phase 6 same-field conflict marker resolver and Conflict strip",
+      "title": "regresses collaboration same-field conflict marker resolver and Conflict strip",
       "execution_dependency": "browser_visual",
       "evidence_layer": "browser_visual",
       "frontend_fixture_refs": [
@@ -842,7 +842,7 @@
       "coverage": "authoritative",
       "runner": "playwright",
       "file": "apps/web/e2e/workbook.visual.spec.ts",
-      "title": "V-6-GRID-03 regresses Phase 6 pending-queue save-state transitions",
+      "title": "regresses collaboration pending-queue save-state transitions",
       "execution_dependency": "browser_visual",
       "evidence_layer": "browser_visual",
       "frontend_fixture_refs": [

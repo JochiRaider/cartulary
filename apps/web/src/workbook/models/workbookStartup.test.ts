@@ -33,7 +33,7 @@ function extensionWorkspaceRef(): WorkbookSheetRef {
 }
 
 describe("workbook startup model", () => {
-  it("FE-U-P2-01 resolves workbook startup fallback order by stable sheet_ref identity", () => {
+  it("resolves workbook startup fallback order by stable sheet_ref identity", () => {
     const explicit = resolveWorkbookStartupFallback({
       default: {
         sheetRef: viewSchemaRef(evidenceViewSchemaId),
@@ -94,7 +94,7 @@ describe("workbook startup model", () => {
     });
   });
 
-  it("FE-U-P2-01 skips or clears invalid startup pointers without failing workbook open", () => {
+  it("skips or clears invalid startup pointers without failing workbook open", () => {
     const defaultAfterInvalid = resolveWorkbookStartupFallback({
       default: {
         sheetRef: viewSchemaRef(taskRequestsViewSchemaId),
@@ -177,7 +177,7 @@ describe("workbook startup model", () => {
     );
   });
 
-  it("FE-U-P2-01 rejects unsupported startup sheet_ref kinds at the frontend boundary", () => {
+  it("rejects unsupported startup sheet_ref kinds at the frontend boundary", () => {
     expect(
       workbookStartupQueryFromURLParams(
         new URLSearchParams({
@@ -225,7 +225,7 @@ describe("workbook startup model", () => {
     ]);
   });
 
-  it("FE-U-P2-01 treats deleted saved-view pointers as unavailable saved views", () => {
+  it("treats deleted saved-view pointers as unavailable saved views", () => {
     const deletedSavedView = resolveWorkbookStartupFallback({
       default: {
         invalidReasonCode: "saved_view_not_found",
@@ -250,7 +250,7 @@ describe("workbook startup model", () => {
     ]);
   });
 
-  it("FE-U-P2-01 preserves required-reference-pack unavailable startup reasons", () => {
+  it("preserves required-reference-pack unavailable startup reasons", () => {
     const packUnavailable = resolveWorkbookStartupFallback({
       home: {
         invalidReasonCode: "required_reference_pack_unavailable",
@@ -274,7 +274,7 @@ describe("workbook startup model", () => {
     ]);
   });
 
-  it("FE-U-P2-01 rejects backend startup selections with non-standardized view_schema_id", () => {
+  it("rejects backend startup selections with non-standardized view_schema_id", () => {
     expect(
       normalizeWorkbookStartupSelection({
         cleared_pointers: [],
@@ -292,7 +292,7 @@ describe("workbook startup model", () => {
     ).toBeNull();
   });
 
-  it("FE-U-P2-01 applies selected saved-view identity without collapsing base view_schema_id", () => {
+  it("applies selected saved-view identity without collapsing base view_schema_id", () => {
     const selected = normalizeWorkbookStartupSelection({
       cleared_pointers: [],
       default_sheet_ref: null,
@@ -324,7 +324,7 @@ describe("workbook startup model", () => {
     });
   });
 
-  it("FE-U-P2-01 preserves extension workspace identity with no base schema or saved view", () => {
+  it("preserves extension workspace identity with no base schema or saved view", () => {
     const selected = normalizeWorkbookStartupSelection({
       cleared_pointers: [],
       default_sheet_ref: null,

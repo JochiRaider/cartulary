@@ -14,10 +14,10 @@
       "selector": {
         "file": "apps/web/src/collaboration/IncidentCollaborationSession.test.tsx",
         "titles": [
-          "IncidentCollaborationSession FE-U-P7-01 builds hello and resume session messages from socket resume state",
-          "IncidentCollaborationSession FE-U-P7-01 ignores duplicate stream sequences and refreshes on sequence gaps",
-          "IncidentCollaborationSession FE-U-P7-01 keeps replayable events unsynchronized until the owner completes reset",
-          "IncidentCollaborationSession FE-U-P7-01 suppresses reconnect and clears connection state after revocation"
+          "IncidentCollaborationSession builds hello and resume session messages from socket resume state",
+          "IncidentCollaborationSession ignores duplicate stream sequences and refreshes on sequence gaps",
+          "IncidentCollaborationSession keeps replayable events unsynchronized until the owner completes reset",
+          "IncidentCollaborationSession suppresses reconnect and clears connection state after revocation"
         ]
       },
       "evidence_class": "unit",

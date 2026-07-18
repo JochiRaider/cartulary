@@ -28,7 +28,7 @@ import {
 } from "./workbookSurfaceRegistry";
 
 describe("workbook surface registry", () => {
-  it("FE-U-P2-02 registers built-in and system workbook surfaces by stable IDs", () => {
+  it("registers built-in and system workbook surfaces by stable IDs", () => {
     const builtIns = listBuiltInWorkbookSurfaceRegistryEntries();
     expect(builtIns.map((entry) => entry.viewSchemaId)).toEqual([
       ...requiredBuiltInWorkbookSurfaceIds,
@@ -57,7 +57,7 @@ describe("workbook surface registry", () => {
     }
   });
 
-  it("FE-U-P2-02 keeps optional standardized surfaces additive after required surfaces", () => {
+  it("keeps optional standardized surfaces additive after required surfaces", () => {
     const entries = listWorkbookSurfaceRegistryEntries();
     const ids = entries.map((entry) => entry.viewSchemaId);
     const requiredIds = [
@@ -90,7 +90,7 @@ describe("workbook surface registry", () => {
     expect(shuffled.map((entry) => entry.viewSchemaId)).toEqual(ids);
   });
 
-  it("FE-U-P2-02 groups System views by stable group tokens and registry-backed IDs", () => {
+  it("groups System views by stable group tokens and registry-backed IDs", () => {
     const groups = listSystemWorkbookSurfaceGroups();
 
     expect(groups.map((group) => group.token)).toEqual([
@@ -135,7 +135,7 @@ describe("workbook surface registry", () => {
     ]);
   });
 
-  it("FE-U-P2-02 remains keyed by stable IDs when registry labels are relabeled", () => {
+  it("remains keyed by stable IDs when registry labels are relabeled", () => {
     const entries = listWorkbookSurfaceRegistryEntries();
     const relabeledContracts = entries.map((entry) => ({
       ...entry.contract,
@@ -155,7 +155,7 @@ describe("workbook surface registry", () => {
     );
   });
 
-  it("FE-U-P2-02 tolerates absent optional standardized surfaces while requiring required surfaces", () => {
+  it("tolerates absent optional standardized surfaces while requiring required surfaces", () => {
     const entries = listWorkbookSurfaceRegistryEntries();
     const requiredIds = [
       ...requiredBuiltInWorkbookSurfaceIds,
@@ -187,7 +187,7 @@ describe("workbook surface registry", () => {
     ).toThrow(/Missing workbook surface contract/);
   });
 
-  it("FE-U-P2-02 exposes required reference-pack keys from view contracts", () => {
+  it("exposes required reference-pack keys from view contracts", () => {
     const entries = listWorkbookSurfaceRegistryEntries();
     const packBoundContracts = entries.map((entry) =>
       entry.viewSchemaId === findingsViewSchemaId
@@ -206,7 +206,7 @@ describe("workbook surface registry", () => {
     );
   });
 
-  it("FE-U-P10-01 Verify coordination and review system-view registrations, field mappings, and closed vocabulary options use stable IDs and contract metadata.", () => {
+  it("Verify coordination and review system-view registrations, field mappings, and closed vocabulary options use stable IDs and contract metadata.", () => {
     const expectedSurfaces = [
       {
         viewSchemaId: taskRequestsViewSchemaId,

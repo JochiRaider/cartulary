@@ -1404,7 +1404,7 @@ describe("WorkbookShell surface selection", () => {
     );
   });
 
-  it("FE-I-P8-01 Verify saved-view create/update/select/default UI uses active surface scope and public saved-view/workbook-preference contracts.", async () => {
+  it("Verify saved-view create/update/select/default UI uses active surface scope and public saved-view/workbook-preference contracts.", async () => {
     const systemSavedViewId = "22222222-2222-4222-8222-222222222222";
     timelineRows = [timelineRow("timeline-1", 1, "Selected row", 0)];
     savedViews = [
@@ -2456,7 +2456,7 @@ describe("WorkbookShell surface selection", () => {
     });
   });
 
-  it("Phase 4 U-4-WB-03 issues opaque evidence preview and download handles from the evidence surface", async () => {
+  it("issues opaque evidence preview and download handles from the evidence surface", async () => {
     evidenceRows = [
       {
         record_id: "evidence-1",
@@ -2517,7 +2517,7 @@ describe("WorkbookShell surface selection", () => {
     );
   });
 
-  it("FE-I-P6-01 Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths.", async () => {
+  it("Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths.", async () => {
     evidenceRows = [
       evidenceStateRow("evidence-attach", 4, "Attach target", {
         lifecycleState: "available",
@@ -3380,7 +3380,7 @@ function applyEntityClipboardPaste(
 }
 
 describe("generic workbook mutation payloads", () => {
-  it("Phase 4 U-4-WB-04 builds required creates with direct values, timestamps, and explicit clears", () => {
+  it("builds required creates with direct values, timestamps, and explicit clears", () => {
     const evidence = requireViewContract(evidenceViewSchemaId);
 
     expect(
@@ -3404,7 +3404,7 @@ describe("generic workbook mutation payloads", () => {
     });
   });
 
-  it("Phase 4 U-4-WB-05 builds direct clears and typed collection actions", () => {
+  it("builds direct clears and typed collection actions", () => {
     const evidence = requireViewContract(evidenceViewSchemaId);
     const notes = requireViewContract("cartulary.view.notes.v1");
     const commLog = requireViewContract("cartulary.view.comm_log.v1");

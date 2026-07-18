@@ -76,16 +76,16 @@
         }
       ],
       "scenario_titles": [
-    "FE-U-P7-01 applies row updates and requests stale-row requery without transport state",
-    "FE-U-P7-01 pauses feature replay on access loss and resumes only after session establishment",
-    "FE-U-P7-01 ignores duplicate stream sequences and refreshes on sequence gaps",
-    "FE-U-P7-01 keeps replayable events unsynchronized until the owner completes reset",
-    "FE-U-P7-01 suppresses reconnect and clears connection state after revocation",
-        "FE-U-P7-01 builds default timeline presence payloads for WebSocket session establishment",
-        "FE-U-P7-01 includes field_key only for editing presence payloads",
-        "FE-U-P7-01 builds presence_update messages without changing event names",
-        "FE-U-P7-01 builds hello and resume session messages from socket resume state",
-        "FE-U-P7-01 transmits extension workspace presence without record or field anchors"
+    "applies row updates and requests stale-row requery without transport state",
+    "pauses feature replay on access loss and resumes only after session establishment",
+    "ignores duplicate stream sequences and refreshes on sequence gaps",
+    "keeps replayable events unsynchronized until the owner completes reset",
+    "suppresses reconnect and clears connection state after revocation",
+        "builds default timeline presence payloads for WebSocket session establishment",
+        "includes field_key only for editing presence payloads",
+        "builds presence_update messages without changing event names",
+        "builds hello and resume session messages from socket resume state",
+        "transmits extension workspace presence without record or field anchors"
       ],
       "claim_status": "implemented",
       "claim": {
@@ -176,12 +176,12 @@
         }
       ],
       "scenario_titles": [
-        "FE-U-P7-02 keeps same-field conflict queue identity separate from pending replay and visible order",
-        "FE-U-P7-02 derives save-state conflict anchors from record_id field_key and base_row_version",
-        "FE-U-P7-02 keeps resolver state anchored to stable row and field identities across refresh and reorder",
-        "FE-U-P7-02 preserves resolver draft and focus when a stale conflict token refreshes the same anchor",
-        "FE-U-P7-02 keeps resolver keyboard focus non-destructive and cancellation preserves conflict draft",
-        "FE-U-P7-02 routes a same-field conflict from transaction recovery into the normal resolver"
+        "keeps same-field conflict queue identity separate from pending replay and visible order",
+        "derives save-state conflict anchors from record_id field_key and base_row_version",
+        "keeps resolver state anchored to stable row and field identities across refresh and reorder",
+        "preserves resolver draft and focus when a stale conflict token refreshes the same anchor",
+        "keeps resolver keyboard focus non-destructive and cancellation preserves conflict draft",
+        "routes a same-field conflict from transaction recovery into the normal resolver"
       ],
       "claim_status": "implemented",
       "claim": {
@@ -297,7 +297,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-I-P7-01 Verify conflict resolver actions submit public mutations and refresh rows without losing focus or pending queue ordering."
+        "Verify conflict resolver actions submit public mutations and refresh rows without losing focus or pending queue ordering."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -435,7 +435,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-E-P7-01 Verify multi-client live row update, presence anchoring, reset/invalidate handling, stale-row requery, and same-field conflict resolver through /ws/v1/ and /api/v1/."
+        "Verify multi-client live row update, presence anchoring, reset/invalidate handling, stale-row requery, and same-field conflict resolver through /ws/v1/ and /api/v1/."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -503,11 +503,11 @@
         }
       ],
       "scenario_titles": [
-        "FE-V-P7-01 Capture row-gutter and cell presence markers.",
-        "FE-V-P7-01 Capture same-field conflict resolver.",
-        "FE-V-P7-01 Capture conflict save-state strip.",
-        "FE-V-P7-01 Capture recovered saved-state strip.",
-        "FE-V-P7-01 Capture reset/invalidate refresh strip."
+        "Capture row-gutter and cell presence markers.",
+        "Capture same-field conflict resolver.",
+        "Capture conflict save-state strip.",
+        "Capture recovered saved-state strip.",
+        "Capture reset/invalidate refresh strip."
       ],
       "claim_status": "implemented",
       "claim": {

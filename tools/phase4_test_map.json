@@ -15,7 +15,7 @@
       "`tools/execution_topology_manifest.json` owns browser batch grouping and renders `tools/browser_e2e_batch_manifest.json` for Phase 4: `browser-e2e-webserver-backed` carries authoritative `E-4-*` rows through duration-balanced Playwright manifest-entry shards for `test` and `check`, while direct `browser-e2e-webserver-backed` and helper-only `browser-e2e-functional` select the same rows through manifest-driven `browser_functional` shard planning. `browser-e2e-visual` carries authoritative `V-4-*` visual rows through `browser_visual`."
     ],
     "support_execution_extras": [
-      "`apps/web/src/workbook/WorkbookShell.phase4.support.test.tsx` runs through `frontend-unit` and is forbidden from claiming `U-4-*`, `I-4-*`, or `E-4-*` identifiers."
+      "`apps/web/src/workbook/WorkbookShell.support.test.tsx` runs through `frontend-unit` and is forbidden from claiming `U-4-*`, `I-4-*`, or `E-4-*` identifiers."
     ],
     "sections": {
       "unit": "Unit",
@@ -33,7 +33,7 @@
     ],
     "support_only": [
       "`internal/modules/entities/support_integration_test.go` consumes the centralized Phase 4 route-family inventory through `TestSurfaceEnvelope`, `..._CSRFProtection`, `..._ReplayAndDivergentConflict`, `..._AuthorizationReDerivation`, `..._DefaultQueryMetaAndFieldKeyConformance`, and `..._ProjectionAndWebsocketConsequences`. These tests are diagnostic smoke coverage for mention, merge, entity-origin, indicator, Timeline, object-blob, evidence-handle, Parties, assessment, coordination, and generic workbook routes; authoritative completion claims must live in the owned `I-4-*` rows.",
-      "`apps/web/src/workbook/WorkbookShell.phase4.support.test.tsx` keeps mocked helper and component regression coverage for Phase 4 workbook chips, payload builders, inspector mention derivation, and auto-resolution notices. It remains support-only and is not completion evidence for Phase 4."
+      "`apps/web/src/workbook/WorkbookShell.support.test.tsx` keeps mocked helper and component regression coverage for Phase 4 workbook chips, payload builders, inspector mention derivation, and auto-resolution notices. It remains support-only and is not completion evidence for Phase 4."
     ]
   },
   "expected_ids": [
@@ -76,7 +76,7 @@
   ],
   "forbidden_id_files": [
     "internal/modules/entities/support_integration_test.go",
-    "apps/web/src/workbook/WorkbookShell.phase4.support.test.tsx"
+    "apps/web/src/workbook/WorkbookShell.support.test.tsx"
   ],
   "support_go_targets": [
     {
@@ -476,7 +476,7 @@
       "coverage": "authoritative",
       "runner": "vitest",
       "file": "apps/web/src/workbook/WorkbookShell.assessments.test.tsx",
-      "title": "Phase 4 U-4-WB-01 maps band-first assessment create payloads without submitting the derived band",
+      "title": "maps band-first assessment create payloads without submitting the derived band",
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
       "claim": "The workbook assessment payload builder maps band-first UI state to the owned create contract, deduplicates support refs, and does not submit derived confidence-band fields.",
@@ -496,7 +496,7 @@
       "coverage": "authoritative",
       "runner": "vitest",
       "file": "apps/web/src/workbook/WorkbookShell.assessments.test.tsx",
-      "title": "Phase 4 U-4-WB-02 submits assessment creates through the workbook UI",
+      "title": "submits assessment creates through the workbook UI",
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
       "claim": "The ordinary workbook assessment panel submits the Phase 4 create route payload through app-level UI controls and renders the returned assessment grid row.",
@@ -516,7 +516,7 @@
       "coverage": "authoritative",
       "runner": "vitest",
       "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
-      "title": "Phase 4 U-4-WB-03 issues opaque evidence preview and download handles from the evidence surface",
+      "title": "issues opaque evidence preview and download handles from the evidence surface",
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
       "claim": "The ordinary Evidence workbook surface issues preview and download handle requests with the required empty-object body and consumes opaque returned hrefs rather than deriving object storage access.",
@@ -536,7 +536,7 @@
       "coverage": "authoritative",
       "runner": "vitest",
       "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
-      "title": "Phase 4 U-4-WB-04 builds required creates with direct values, timestamps, and explicit clears",
+      "title": "builds required creates with direct values, timestamps, and explicit clears",
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
       "claim": "The generic workbook mutation builder emits create payloads for required Phase 4 surfaces with trimmed direct values, timestamp fields, and explicit null clears.",
@@ -556,7 +556,7 @@
       "coverage": "authoritative",
       "runner": "vitest",
       "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
-      "title": "Phase 4 U-4-WB-05 builds direct clears and typed collection actions",
+      "title": "builds direct clears and typed collection actions",
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
       "claim": "The generic workbook mutation builder maps direct clears plus token, party, record, and risk collection edits to typed Phase 4 collection action payloads.",
@@ -1014,8 +1014,8 @@
       "id": "E-4-01",
       "coverage": "authoritative",
       "runner": "playwright",
-      "file": "apps/web/e2e/phase4.mentions.resolve.spec.ts",
-      "title": "E-4-01 resolves and creates entities from Timeline mentions in the inspector",
+      "file": "apps/web/e2e/mentions.resolve.spec.ts",
+      "title": "resolves and creates entities from Timeline mentions in the inspector",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "The browser inspector resolves existing entities and creates new entities from Timeline mentions through the real end-user flow.",
@@ -1035,8 +1035,8 @@
       "id": "E-4-02",
       "coverage": "authoritative",
       "runner": "playwright",
-      "file": "apps/web/e2e/phase4.mentions.lifecycle.spec.ts",
-      "title": "E-4-02 dismisses and ordinarily restores a mention without relinking",
+      "file": "apps/web/e2e/mentions.lifecycle.spec.ts",
+      "title": "dismisses and ordinarily restores a mention without relinking",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "The browser inspector dismisses a mention and restores it to unresolved state without silently relinking it.",
@@ -1056,8 +1056,8 @@
       "id": "E-4-03",
       "coverage": "authoritative",
       "runner": "playwright",
-      "file": "apps/web/e2e/phase4.merge.spec.ts",
-      "title": "E-4-03 merges duplicate entities from the inspector and preserves survivor identity",
+      "file": "apps/web/e2e/merge.spec.ts",
+      "title": "merges duplicate entities from the inspector and preserves survivor identity",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "The browser inspector merges duplicate entities through the end-user flow while preserving the survivor identity in the UI.",
@@ -1077,8 +1077,8 @@
       "id": "E-4-04",
       "coverage": "authoritative",
       "runner": "playwright",
-      "file": "apps/web/e2e/phase4.autoresolve.spec.ts",
-      "title": "E-4-04 auto-resolves only eligible exact-match Timeline tokens",
+      "file": "apps/web/e2e/autoresolve.spec.ts",
+      "title": "auto-resolves only eligible exact-match Timeline tokens",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "The browser workbook shows auto-resolution only for eligible exact-match Timeline tokens and leaves ineligible tokens unresolved.",
@@ -1098,8 +1098,8 @@
       "id": "E-4-05",
       "coverage": "authoritative",
       "runner": "playwright",
-      "file": "apps/web/e2e/phase4.workbook.assessments.spec.ts",
-      "title": "E-4-05 creates append-only assessment history through the workbook UI",
+      "file": "apps/web/e2e/workbook.assessments.spec.ts",
+      "title": "creates append-only assessment history through the workbook UI",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "The browser workbook drives the Assessments surface through ordinary user controls with band-first confidence, rationale, support refs, default ordering, and state or confidence filters.",
@@ -1119,8 +1119,8 @@
       "id": "E-4-06",
       "coverage": "authoritative",
       "runner": "playwright",
-      "file": "apps/web/e2e/phase4.workbook.generic.spec.ts",
-      "title": "E-4-06 creates and edits required workbook mutation surfaces through typed generic controls",
+      "file": "apps/web/e2e/workbook.generic.spec.ts",
+      "title": "creates and edits required workbook mutation surfaces through typed generic controls",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "The browser workbook exercises Parties, Notes, Task Requests, Decisions, Evidence, Communications Log, Handoff, Status Review, and Lesson surfaces through real typed controls, including direct values, reference selectors, collection actions, and visible required-field validation.",
@@ -1143,7 +1143,7 @@
       "coverage": "authoritative",
       "runner": "playwright",
       "file": "apps/web/e2e/workbook.visual.spec.ts",
-      "title": "V-4-GRID-01 captures Timeline unresolved and resolved mention chips in the workbook grid",
+      "title": "captures Timeline unresolved and resolved mention chips in the workbook grid",
       "execution_dependency": "browser_visual",
       "evidence_layer": "browser_visual",
       "fixture_refs": [
@@ -1166,7 +1166,7 @@
       "coverage": "authoritative",
       "runner": "playwright",
       "file": "apps/web/e2e/workbook.visual.spec.ts",
-      "title": "V-4-GRID-02 captures Evidence access affordances on the required Evidence surface",
+      "title": "captures Evidence access affordances on the required Evidence surface",
       "execution_dependency": "browser_visual",
       "evidence_layer": "browser_visual",
       "fixture_refs": [
@@ -1189,7 +1189,7 @@
       "coverage": "authoritative",
       "runner": "playwright",
       "file": "apps/web/e2e/workbook.visual.spec.ts",
-      "title": "V-4-GRID-03 captures Task Requests system view fields through the generic workbook grid",
+      "title": "captures Task Requests system view fields through the generic workbook grid",
       "execution_dependency": "browser_visual",
       "evidence_layer": "browser_visual",
       "fixture_refs": [

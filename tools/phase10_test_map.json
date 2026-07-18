@@ -64,7 +64,7 @@
     "internal/platform/objectstore/objectstore_test.go",
     "internal/platform/postgres/postgres_test.go",
     "internal/modules/evidence/integration_test.go",
-    "apps/web/e2e/phase9.sentinel.spec.ts"
+    "apps/web/e2e/sentinel.spec.ts"
   ],
   "support_go_targets": [
     {
@@ -417,8 +417,8 @@
       "id": "E-10-02",
       "coverage": "authoritative",
       "runner": "playwright",
-      "file": "apps/web/e2e/phase10.restore.spec.ts",
-      "title": "Phase 10 E-10-02 restore recovers workbook surface and executes a built-in workbook query",
+      "file": "apps/web/e2e/restore.spec.ts",
+      "title": "restore recovers workbook surface and executes a built-in workbook query",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser_functional",
       "claim_status": "implemented",

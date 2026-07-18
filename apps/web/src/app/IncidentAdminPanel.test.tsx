@@ -37,7 +37,7 @@ describe("IncidentAdminPanel", () => {
     vi.unstubAllGlobals();
   });
 
-  it("Phase 2 U-2-12 ordinary incident shell gates promoted-field controls by incident role, hides membership-admin controls from non-admin members, and returns to landing when incident access is lost", async () => {
+  it("ordinary incident shell gates promoted-field controls by incident role, hides membership-admin controls from non-admin members, and returns to landing when incident access is lost", async () => {
     const onIncidentAccessLost = vi.fn();
     const memberships = [
       membershipRecord("user-1", "Operator", "admin", 1),
@@ -554,7 +554,7 @@ describe("IncidentAdminPanel", () => {
     );
   });
 
-  it("Phase 2 U-2-13 ordinary incident shell issues membership create, patch, and delete requests with versioned payloads and refreshes session role after each mutation", async () => {
+  it("ordinary incident shell issues membership create, patch, and delete requests with versioned payloads and refreshes session role after each mutation", async () => {
     const onSessionRoleChange = vi.fn().mockResolvedValue(undefined);
     const requests: Array<{
       method: string;

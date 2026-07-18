@@ -15,14 +15,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase7.history.spec.ts",
+        "file": "apps/web/e2e/history.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_76e6eb6120a5"
         ],
         "titles": [
-          "E-7-05 rolls back a merge change set from row history"
+          "rolls back a merge change set from row history"
         ]
       },
       "evidence_class": "browser",
@@ -46,14 +46,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase7.history.spec.ts",
+        "file": "apps/web/e2e/history.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_4af12debc37a"
         ],
         "titles": [
-          "E-7-04 whole-row restore appends a new attributed revision"
+          "whole-row restore appends a new attributed revision"
         ]
       },
       "evidence_class": "browser",
@@ -77,14 +77,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase7.history.spec.ts",
+        "file": "apps/web/e2e/history.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_c15441519d46"
         ],
         "titles": [
-          "E-7-01 opens row history from the workbook surface with legal rollback actions"
+          "opens row history from the workbook surface with legal rollback actions"
         ]
       },
       "evidence_class": "browser",
@@ -108,14 +108,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase7.history.spec.ts",
+        "file": "apps/web/e2e/history.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_c92538e96508"
         ],
         "titles": [
-          "E-7-03 soft-deletes and restores a row with tombstone concurrency"
+          "soft-deletes and restores a row with tombstone concurrency"
         ]
       },
       "evidence_class": "browser",
@@ -139,14 +139,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase7.history.spec.ts",
+        "file": "apps/web/e2e/history.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_420ccbb4d88e"
         ],
         "titles": [
-          "E-7-02 rolls back one attached-evidence mutation without reverting later unrelated edits"
+          "rolls back one attached-evidence mutation without reverting later unrelated edits"
         ]
       },
       "evidence_class": "browser",
@@ -170,14 +170,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase9.inspector-actions.spec.ts",
+        "file": "apps/web/e2e/inspector-actions.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_1afda9077225"
         ],
         "titles": [
-          "FE-I-P9-01 Verify history and rollback preview/action use public route contracts, preserve retained history, and render public error envelopes."
+          "Verify history and rollback preview/action use public route contracts, preserve retained history, and render public error envelopes."
         ]
       },
       "evidence_class": "browser",
@@ -201,14 +201,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase9.inspector-actions.spec.ts",
+        "file": "apps/web/e2e/inspector-actions.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
           "scenario_f6ab1b570c93"
         ],
         "titles": [
-          "FE-E-P9-01 Verify inspector Details, Relationships, Evidence, History, rollback, and destructive-action authorization through public browser routes."
+          "Verify inspector Details, Relationships, Evidence, History, rollback, and destructive-action authorization through public browser routes."
         ]
       },
       "evidence_class": "browser",

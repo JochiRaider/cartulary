@@ -15,14 +15,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase11.reference-pack.spec.ts",
+        "file": "apps/web/e2e/reference-pack.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_448f02eff5ba"
         ],
         "titles": [
-          "E-11-01 shows Reference Pack progress and cancel controls without blocking landing interaction"
+          "shows Reference Pack progress and cancel controls without blocking landing interaction"
         ]
       },
       "evidence_class": "browser",
@@ -47,7 +47,7 @@
       "selector": {
         "file": "apps/web/src/app/ReferencePackAdminPanel.test.tsx",
         "titles": [
-          "Phase 11 U-11-REFERENCE-PACK-06 shows job progress and cancel controls for deployment-admin Reference Pack work"
+          "shows job progress and cancel controls for deployment-admin Reference Pack work"
         ]
       },
       "evidence_class": "unit",
@@ -72,7 +72,7 @@
       "selector": {
         "file": "apps/web/src/app/ReferencePackAdminPanel.test.tsx",
         "titles": [
-          "Phase 11 U-11-REFERENCE-PACK-04 hides deployment Reference Pack controls from non-admin sessions"
+          "hides deployment Reference Pack controls from non-admin sessions"
         ]
       },
       "evidence_class": "unit",

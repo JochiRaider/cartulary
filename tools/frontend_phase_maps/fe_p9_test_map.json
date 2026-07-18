@@ -99,7 +99,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-U-P9-01 Verify inspector selection, tab state, details, relationships, evidence, and history anchors are record_id based and survive row refresh."
+        "Verify inspector selection, tab state, details, relationships, evidence, and history anchors are record_id based and survive row refresh."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -181,17 +181,17 @@
         }
       ],
       "scenario_titles": [
-        "FE-U-P9-02 Verify active view_schema_id selects inspector_config_v1, saved views inherit immutable view_schema_id config, no-row state is no_row_selected, and stale row-bound inspector state invalidates across row, row-version, authorization, incident-lifecycle, delete, merge, hard refresh, and surface changes.",
-        "FE-U-P9-02 closes the Timeline inspector when the active sheet identity changes",
-        "FE-U-P9-02 renders the configured no-row state when no saved row is selected",
-        "FE-U-P9-02 does not render draft rows as row-bound inspector evidence",
-        "FE-U-P9-02 uses row-specific file inputs for committed row evidence",
-        "FE-U-P9-02 selects config from immutable view_schema_id and starts closed",
-        "FE-U-P9-02 keeps saved-view inheritance tied to the base view_schema_id",
-        "FE-U-P9-02 filters panels and feature groups by declared semantic config",
-        "FE-U-P9-02 clears stale row-bound state before retargeting to a new row",
-        "FE-U-P9-02 invalidates destructive, preview, merge, and workflow state on lifecycle triggers",
-        "FE-U-P9-02 defaults closed and clears stale state on hard refresh and active surface switch"
+        "Verify active view_schema_id selects inspector_config_v1, saved views inherit immutable view_schema_id config, no-row state is no_row_selected, and stale row-bound inspector state invalidates across row, row-version, authorization, incident-lifecycle, delete, merge, hard refresh, and surface changes.",
+        "closes the Timeline inspector when the active sheet identity changes",
+        "renders the configured no-row state when no saved row is selected",
+        "does not render draft rows as row-bound inspector evidence",
+        "uses row-specific file inputs for committed row evidence",
+        "selects config from immutable view_schema_id and starts closed",
+        "keeps saved-view inheritance tied to the base view_schema_id",
+        "filters panels and feature groups by declared semantic config",
+        "clears stale row-bound state before retargeting to a new row",
+        "invalidates destructive, preview, merge, and workflow state on lifecycle triggers",
+        "defaults closed and clears stale state on hard refresh and active surface switch"
       ],
       "claim_status": "implemented",
       "claim": {
@@ -269,7 +269,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-U-P9-03 Verify inspector panels and feature groups render from active config keys and reject unknown panel IDs, route owners, result behaviors, disabled tokens, duplicate keys, missing required keys, and extra current-profile keys before rendering.",
+        "Verify inspector panels and feature groups render from active config keys and reject unknown panel IDs, route owners, result behaviors, disabled tokens, duplicate keys, missing required keys, and extra current-profile keys before rendering.",
         "creates a related Task Request from the Timeline inspector using emitted seed bindings",
         "creates related Evidence from the Timeline inspector and links it back through the Timeline patch route"
       ],
@@ -382,7 +382,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-I-P9-01 Verify history and rollback preview/action use public route contracts, preserve retained history, and render public error envelopes."
+        "Verify history and rollback preview/action use public route contracts, preserve retained history, and render public error envelopes."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -533,7 +533,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-E-P9-01 Verify inspector Details, Relationships, Evidence, History, rollback, and destructive-action authorization through public browser routes."
+        "Verify inspector Details, Relationships, Evidence, History, rollback, and destructive-action authorization through public browser routes."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -637,7 +637,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-E-P9-02 Verify default-closed inspector state, no-row state, surface switch config changes, saved-view switch over the same view_schema_id keeps the same config, closed incident read-only behavior, server-denied action behavior, and Timeline create/edit/paste without opening the inspector."
+        "Verify default-closed inspector state, no-row state, surface switch config changes, saved-view switch over the same view_schema_id keeps the same config, closed incident read-only behavior, server-denied action behavior, and Timeline create/edit/paste without opening the inspector."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -715,7 +715,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-E-P9-03 Verify Timeline inspector Workflow create-related actions stay in the workbook shell."
+        "Verify Timeline inspector Workflow create-related actions stay in the workbook shell."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -784,7 +784,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-V-P9-01 Capture inspector Details, Relationships, Evidence, History, rollback preview, destructive confirmation, and public error fixtures."
+        "Capture inspector Details, Relationships, Evidence, History, rollback preview, destructive confirmation, and public error fixtures."
       ],
       "claim_status": "implemented",
       "claim": {

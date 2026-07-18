@@ -599,10 +599,10 @@
               "phase6"
             ],
             "entry_ids": [
-              "E-1-01",
-              "E-1-02",
               "E-1-06",
               "E-1-08",
+              "E-1-02",
+              "E-1-01",
               "E-3-01",
               "E-3-03",
               "E-3-04",
@@ -613,7 +613,7 @@
             ],
             "runtime_profile_id": "default",
             "env": {
-              "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-01,E-1-02,E-1-06,E-1-08,E-3-01,E-3-03,E-3-04,E-4-03,E-5-01,E-5-02,E-6-04",
+              "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-06,E-1-08,E-1-02,E-1-01,E-3-01,E-3-03,E-3-04,E-4-03,E-5-01,E-5-02,E-6-04",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE": "disabled",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE": "base",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE": "phase6"
@@ -627,7 +627,7 @@
           },
           "env": {
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
-            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-01,E-1-02,E-1-06,E-1-08,E-3-01,E-3-03,E-3-04,E-4-03,E-5-01,E-5-02,E-6-04",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-06,E-1-08,E-1-02,E-1-01,E-3-01,E-3-03,E-3-04,E-4-03,E-5-01,E-5-02,E-6-04",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE": "phase6",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE": "base",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE": "disabled",
@@ -690,18 +690,18 @@
               "E-1-09",
               "E-4-01",
               "E-5-03",
-              "E-5-04",
               "E-5-05",
-              "E-7-02",
+              "E-5-04",
               "E-7-05",
-              "E-9-GRIDANCHORS-01",
+              "E-7-02",
               "E-9-GRIDIDENTITY-01",
-              "E-9-08",
-              "E-9-COORDINATION-06"
+              "E-9-GRIDANCHORS-01",
+              "E-9-COORDINATION-06",
+              "E-9-08"
             ],
             "runtime_profile_id": "default",
             "env": {
-              "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-09,E-4-01,E-5-03,E-5-04,E-5-05,E-7-02,E-7-05,E-9-GRIDANCHORS-01,E-9-GRIDIDENTITY-01,E-9-08,E-9-COORDINATION-06",
+              "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-09,E-4-01,E-5-03,E-5-05,E-5-04,E-7-05,E-7-02,E-9-GRIDIDENTITY-01,E-9-GRIDANCHORS-01,E-9-COORDINATION-06,E-9-08",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE": "disabled",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE": "base",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE": "phase9"
@@ -715,7 +715,7 @@
           },
           "env": {
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
-            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-09,E-4-01,E-5-03,E-5-04,E-5-05,E-7-02,E-7-05,E-9-GRIDANCHORS-01,E-9-GRIDIDENTITY-01,E-9-08,E-9-COORDINATION-06",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-09,E-4-01,E-5-03,E-5-05,E-5-04,E-7-05,E-7-02,E-9-GRIDIDENTITY-01,E-9-GRIDANCHORS-01,E-9-COORDINATION-06,E-9-08",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE": "phase9",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE": "base",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE": "disabled",
@@ -775,19 +775,19 @@
             ],
             "entry_ids": [
               "E-4-05",
-              "E-6-01",
               "E-6-05",
-              "E-9-01",
+              "E-6-01",
               "E-9-GRIDHOST-01",
-              "E-9-04",
+              "E-9-01",
               "E-9-05",
               "E-9-07",
+              "E-9-04",
               "E-9-PASTE-02",
               "E-11-01"
             ],
             "runtime_profile_id": "default",
             "env": {
-              "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-4-05,E-6-01,E-6-05,E-9-01,E-9-GRIDHOST-01,E-9-04,E-9-05,E-9-07,E-9-PASTE-02,E-11-01",
+              "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-4-05,E-6-05,E-6-01,E-9-GRIDHOST-01,E-9-01,E-9-05,E-9-07,E-9-04,E-9-PASTE-02,E-11-01",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE": "disabled",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE": "base",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE": "phase11"
@@ -801,7 +801,7 @@
           },
           "env": {
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
-            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-4-05,E-6-01,E-6-05,E-9-01,E-9-GRIDHOST-01,E-9-04,E-9-05,E-9-07,E-9-PASTE-02,E-11-01",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-4-05,E-6-05,E-6-01,E-9-GRIDHOST-01,E-9-01,E-9-05,E-9-07,E-9-04,E-9-PASTE-02,E-11-01",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE": "phase11",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE": "base",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE": "disabled",
@@ -864,17 +864,17 @@
               "E-2-03",
               "FE-B-P2-01",
               "E-4-04",
-              "E-8-01",
               "E-8-03",
-              "E-9-03",
+              "E-8-01",
               "E-9-CONFLICT-02",
+              "E-9-03",
               "E-9-TASKDECISION-06",
-              "E-11-02",
-              "E-11-03"
+              "E-11-03",
+              "E-11-02"
             ],
             "runtime_profile_id": "default",
             "env": {
-              "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-2-03,FE-B-P2-01,E-4-04,E-8-01,E-8-03,E-9-03,E-9-CONFLICT-02,E-9-TASKDECISION-06,E-11-02,E-11-03",
+              "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-2-03,FE-B-P2-01,E-4-04,E-8-03,E-8-01,E-9-CONFLICT-02,E-9-03,E-9-TASKDECISION-06,E-11-03,E-11-02",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE": "selected_rows",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE": "frontend",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE": "FE-P2",
@@ -889,7 +889,7 @@
           },
           "env": {
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
-            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-2-03,FE-B-P2-01,E-4-04,E-8-01,E-8-03,E-9-03,E-9-CONFLICT-02,E-9-TASKDECISION-06,E-11-02,E-11-03",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-2-03,FE-B-P2-01,E-4-04,E-8-03,E-8-01,E-9-CONFLICT-02,E-9-03,E-9-TASKDECISION-06,E-11-03,E-11-02",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE": "FE-P2",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE": "frontend",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_ROW_IDS": "FE-B-P2-01",
@@ -949,20 +949,20 @@
               "phase8"
             ],
             "entry_ids": [
-              "E-1-03",
               "E-1-10",
               "E-1-11",
+              "E-1-03",
               "FE-E-P1-01",
               "E-2-02",
               "FE-B-P2-02",
               "E-4-02",
               "E-4-06",
-              "E-8-02",
-              "E-8-04"
+              "E-8-04",
+              "E-8-02"
             ],
             "runtime_profile_id": "default",
             "env": {
-              "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-03,E-1-10,E-1-11,FE-E-P1-01,E-2-02,FE-B-P2-02,E-4-02,E-4-06,E-8-02,E-8-04",
+              "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-10,E-1-11,E-1-03,FE-E-P1-01,E-2-02,FE-B-P2-02,E-4-02,E-4-06,E-8-04,E-8-02",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE": "selected_rows",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE": "frontend",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE": "FE-P2",
@@ -977,7 +977,7 @@
           },
           "env": {
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
-            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-03,E-1-10,E-1-11,FE-E-P1-01,E-2-02,FE-B-P2-02,E-4-02,E-4-06,E-8-02,E-8-04",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-10,E-1-11,E-1-03,FE-E-P1-01,E-2-02,FE-B-P2-02,E-4-02,E-4-06,E-8-04,E-8-02",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE": "FE-P2",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE": "frontend",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_ROW_IDS": "FE-E-P1-01,FE-B-P2-02",
@@ -6202,15 +6202,15 @@
             ],
             "entry_ids": [
               "E-1-11",
+              "E-4-01",
               "FE-E-P4-01",
               "FE-I-P4-01",
-              "E-4-01",
               "FE-E-P5-01",
               "E-7-01",
               "E-7-04",
-              "E-9-04",
               "E-9-05",
               "E-9-COORDINATION-06",
+              "E-9-04",
               "E-11-01",
               "E-12-NFAC001-01"
             ],
@@ -6278,15 +6278,15 @@
               "phase10"
             ],
             "entry_ids": [
+              "E-1-09",
               "E-1-06",
               "E-1-07",
-              "E-1-09",
               "FE-E-P7-01",
               "E-7-03",
               "E-8-03",
               "FE-B-P8-01",
-              "FE-E-P8-01",
               "FE-I-P8-01",
+              "FE-E-P8-01",
               "FE-E-P9-02",
               "FE-I-P9-01",
               "FE-E-P10-01",
@@ -6357,18 +6357,18 @@
               "phase9"
             ],
             "entry_ids": [
-              "E-1-02",
               "E-1-08",
+              "E-1-02",
               "E-3-01",
               "E-3-03",
               "E-3-04",
               "E-4-04",
-              "FE-I-P5-01",
               "E-5-03",
               "E-5-04",
+              "FE-I-P5-01",
+              "E-8-04",
               "E-8-01",
               "E-8-02",
-              "E-8-04",
               "FE-E-P9-01"
             ],
             "runtime_profile_id": "default",
@@ -6442,10 +6442,10 @@
               "E-5-01",
               "E-5-02",
               "E-5-05",
-              "E-6-01",
               "E-6-02",
               "E-6-04",
               "E-6-05",
+              "E-6-01",
               "E-9-07",
               "E-9-PASTE-02"
             ],
@@ -6516,19 +6516,19 @@
             "entry_ids": [
               "E-4-05",
               "E-4-06",
-              "FE-E-P6-01",
               "FE-I-P6-01",
+              "FE-E-P6-01",
               "FE-I-P7-01",
-              "E-9-01",
               "E-9-GRIDHOST-01",
               "E-9-GRIDIDENTITY-01",
-              "E-9-08",
+              "E-9-01",
               "E-9-CONFLICT-02",
+              "E-9-08",
               "E-9-TASKDECISION-06",
               "FE-B-P10-02",
               "FE-B-P10-01",
-              "E-11-02",
-              "E-11-03"
+              "E-11-03",
+              "E-11-02"
             ],
             "runtime_profile_id": "default",
             "priority": 36000,
@@ -6594,21 +6594,21 @@
               "phase9"
             ],
             "entry_ids": [
-              "E-1-01",
-              "E-1-03",
               "E-1-10",
+              "E-1-03",
               "E-1-12",
+              "E-1-01",
               "FE-E-P1-01",
               "E-2-01",
               "E-2-03",
-              "FE-B-P2-02",
               "FE-E-P2-01",
+              "FE-B-P2-02",
               "FE-E-P4-01",
-              "E-7-02",
               "E-7-05",
+              "E-7-02",
               "E-9-GRIDANCHORS-01",
-              "FE-E-P9-03",
-              "E-9-03"
+              "E-9-03",
+              "FE-E-P9-03"
             ],
             "runtime_profile_id": "default",
             "priority": 36000,
@@ -7823,14 +7823,14 @@
               "phase12"
             ],
             "entry_ids": [
+              "E-12-NFAC074-74",
               "E-12-NFAC002-02",
+              "E-12-NFAC037-37",
+              "E-12-NFAC029-29",
               "E-12-NFAC006-06",
               "E-12-NFAC023-23",
-              "E-12-NFAC029-29",
               "E-12-NFAC030-30",
-              "E-12-NFAC036-36",
-              "E-12-NFAC037-37",
-              "E-12-NFAC074-74"
+              "E-12-NFAC036-36"
             ],
             "runtime_profile_id": "network_flow_claimed",
             "browser_session_group": "browser-functional-network-flow-claimed",
@@ -17830,10 +17830,10 @@
               "phase6"
             ],
             "entry_ids": [
-              "E-1-01",
-              "E-1-02",
               "E-1-06",
               "E-1-08",
+              "E-1-02",
+              "E-1-01",
               "E-3-01",
               "E-3-03",
               "E-3-04",
@@ -17844,7 +17844,7 @@
             ],
             "runtime_profile_id": "default",
             "env": {
-              "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-01,E-1-02,E-1-06,E-1-08,E-3-01,E-3-03,E-3-04,E-4-03,E-5-01,E-5-02,E-6-04",
+              "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-06,E-1-08,E-1-02,E-1-01,E-3-01,E-3-03,E-3-04,E-4-03,E-5-01,E-5-02,E-6-04",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE": "disabled",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE": "base",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE": "phase6"
@@ -17858,7 +17858,7 @@
           },
           "env": {
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
-            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-01,E-1-02,E-1-06,E-1-08,E-3-01,E-3-03,E-3-04,E-4-03,E-5-01,E-5-02,E-6-04",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-06,E-1-08,E-1-02,E-1-01,E-3-01,E-3-03,E-3-04,E-4-03,E-5-01,E-5-02,E-6-04",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE": "phase6",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE": "base",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE": "disabled",
@@ -17919,18 +17919,18 @@
               "E-1-09",
               "E-4-01",
               "E-5-03",
-              "E-5-04",
               "E-5-05",
-              "E-7-02",
+              "E-5-04",
               "E-7-05",
-              "E-9-GRIDANCHORS-01",
+              "E-7-02",
               "E-9-GRIDIDENTITY-01",
-              "E-9-08",
-              "E-9-COORDINATION-06"
+              "E-9-GRIDANCHORS-01",
+              "E-9-COORDINATION-06",
+              "E-9-08"
             ],
             "runtime_profile_id": "default",
             "env": {
-              "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-09,E-4-01,E-5-03,E-5-04,E-5-05,E-7-02,E-7-05,E-9-GRIDANCHORS-01,E-9-GRIDIDENTITY-01,E-9-08,E-9-COORDINATION-06",
+              "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-09,E-4-01,E-5-03,E-5-05,E-5-04,E-7-05,E-7-02,E-9-GRIDIDENTITY-01,E-9-GRIDANCHORS-01,E-9-COORDINATION-06,E-9-08",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE": "disabled",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE": "base",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE": "phase9"
@@ -17944,7 +17944,7 @@
           },
           "env": {
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
-            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-09,E-4-01,E-5-03,E-5-04,E-5-05,E-7-02,E-7-05,E-9-GRIDANCHORS-01,E-9-GRIDIDENTITY-01,E-9-08,E-9-COORDINATION-06",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-09,E-4-01,E-5-03,E-5-05,E-5-04,E-7-05,E-7-02,E-9-GRIDIDENTITY-01,E-9-GRIDANCHORS-01,E-9-COORDINATION-06,E-9-08",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE": "phase9",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE": "base",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE": "disabled",
@@ -18002,19 +18002,19 @@
             ],
             "entry_ids": [
               "E-4-05",
-              "E-6-01",
               "E-6-05",
-              "E-9-01",
+              "E-6-01",
               "E-9-GRIDHOST-01",
-              "E-9-04",
+              "E-9-01",
               "E-9-05",
               "E-9-07",
+              "E-9-04",
               "E-9-PASTE-02",
               "E-11-01"
             ],
             "runtime_profile_id": "default",
             "env": {
-              "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-4-05,E-6-01,E-6-05,E-9-01,E-9-GRIDHOST-01,E-9-04,E-9-05,E-9-07,E-9-PASTE-02,E-11-01",
+              "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-4-05,E-6-05,E-6-01,E-9-GRIDHOST-01,E-9-01,E-9-05,E-9-07,E-9-04,E-9-PASTE-02,E-11-01",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE": "disabled",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE": "base",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE": "phase11"
@@ -18028,7 +18028,7 @@
           },
           "env": {
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
-            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-4-05,E-6-01,E-6-05,E-9-01,E-9-GRIDHOST-01,E-9-04,E-9-05,E-9-07,E-9-PASTE-02,E-11-01",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-4-05,E-6-05,E-6-01,E-9-GRIDHOST-01,E-9-01,E-9-05,E-9-07,E-9-04,E-9-PASTE-02,E-11-01",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE": "phase11",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE": "base",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE": "disabled",
@@ -18089,17 +18089,17 @@
               "E-2-03",
               "FE-B-P2-01",
               "E-4-04",
-              "E-8-01",
               "E-8-03",
-              "E-9-03",
+              "E-8-01",
               "E-9-CONFLICT-02",
+              "E-9-03",
               "E-9-TASKDECISION-06",
-              "E-11-02",
-              "E-11-03"
+              "E-11-03",
+              "E-11-02"
             ],
             "runtime_profile_id": "default",
             "env": {
-              "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-2-03,FE-B-P2-01,E-4-04,E-8-01,E-8-03,E-9-03,E-9-CONFLICT-02,E-9-TASKDECISION-06,E-11-02,E-11-03",
+              "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-2-03,FE-B-P2-01,E-4-04,E-8-03,E-8-01,E-9-CONFLICT-02,E-9-03,E-9-TASKDECISION-06,E-11-03,E-11-02",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE": "selected_rows",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE": "frontend",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE": "FE-P2",
@@ -18114,7 +18114,7 @@
           },
           "env": {
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
-            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-2-03,FE-B-P2-01,E-4-04,E-8-01,E-8-03,E-9-03,E-9-CONFLICT-02,E-9-TASKDECISION-06,E-11-02,E-11-03",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-2-03,FE-B-P2-01,E-4-04,E-8-03,E-8-01,E-9-CONFLICT-02,E-9-03,E-9-TASKDECISION-06,E-11-03,E-11-02",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE": "FE-P2",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE": "frontend",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_ROW_IDS": "FE-B-P2-01",
@@ -18172,20 +18172,20 @@
               "phase8"
             ],
             "entry_ids": [
-              "E-1-03",
               "E-1-10",
               "E-1-11",
+              "E-1-03",
               "FE-E-P1-01",
               "E-2-02",
               "FE-B-P2-02",
               "E-4-02",
               "E-4-06",
-              "E-8-02",
-              "E-8-04"
+              "E-8-04",
+              "E-8-02"
             ],
             "runtime_profile_id": "default",
             "env": {
-              "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-03,E-1-10,E-1-11,FE-E-P1-01,E-2-02,FE-B-P2-02,E-4-02,E-4-06,E-8-02,E-8-04",
+              "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-10,E-1-11,E-1-03,FE-E-P1-01,E-2-02,FE-B-P2-02,E-4-02,E-4-06,E-8-04,E-8-02",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE": "selected_rows",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE": "frontend",
               "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE": "FE-P2",
@@ -18200,7 +18200,7 @@
           },
           "env": {
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
-            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-03,E-1-10,E-1-11,FE-E-P1-01,E-2-02,FE-B-P2-02,E-4-02,E-4-06,E-8-02,E-8-04",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-10,E-1-11,E-1-03,FE-E-P1-01,E-2-02,FE-B-P2-02,E-4-02,E-4-06,E-8-04,E-8-02",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE": "FE-P2",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE": "frontend",
             "CARTULARY_FRONTEND_ROW_ACCOUNTING_ROW_IDS": "FE-E-P1-01,FE-B-P2-02",

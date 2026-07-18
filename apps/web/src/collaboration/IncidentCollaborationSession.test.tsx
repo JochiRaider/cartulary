@@ -93,7 +93,7 @@ describe("IncidentCollaborationSession", () => {
     vi.unstubAllGlobals();
   });
 
-  it("FE-U-P7-01 ignores duplicate stream sequences and refreshes on sequence gaps", () => {
+  it("ignores duplicate stream sequences and refreshes on sequence gaps", () => {
     vi.stubGlobal("WebSocket", FakeWebSocket);
     const onEvent = vi.fn();
     const view = render(
@@ -215,7 +215,7 @@ describe("IncidentCollaborationSession", () => {
     });
   });
 
-  it("FE-U-P7-01 builds hello and resume session messages from socket resume state", () => {
+  it("builds hello and resume session messages from socket resume state", () => {
     vi.useFakeTimers();
     vi.stubGlobal("WebSocket", FakeWebSocket);
     const onEvent = vi.fn();
@@ -294,7 +294,7 @@ describe("IncidentCollaborationSession", () => {
     });
   });
 
-  it("FE-U-P7-01 keeps replayable events unsynchronized until the owner completes reset", () => {
+  it("keeps replayable events unsynchronized until the owner completes reset", () => {
     vi.stubGlobal("WebSocket", FakeWebSocket);
     const onEvent = vi.fn();
     render(
@@ -374,7 +374,7 @@ describe("IncidentCollaborationSession", () => {
     expect(screen.getByRole("button").textContent).toBe("connected");
   });
 
-  it("FE-U-P7-01 suppresses reconnect and clears connection state after revocation", () => {
+  it("suppresses reconnect and clears connection state after revocation", () => {
     vi.useFakeTimers();
     vi.stubGlobal("WebSocket", FakeWebSocket);
     const onEvent = vi.fn();

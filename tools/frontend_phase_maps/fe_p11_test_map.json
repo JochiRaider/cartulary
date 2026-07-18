@@ -49,7 +49,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-V-P11-01 Run the owned-stack Playwright visual suite with deterministic seed data, viewport, zoom, fixture ordering, dynamic masks, scroll anchors, focus/editor state, inspector state, and post-scroll settle behavior."
+        "Run the owned-stack Playwright visual suite with deterministic seed data, viewport, zoom, fixture ordering, dynamic masks, scroll anchors, focus/editor state, inspector state, and post-scroll settle behavior."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -113,7 +113,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-V-P11-02 Ensure the visual fixture matrix includes default Timeline workbook shell, unresolved/resolved entity state, same-field conflict, row-gutter presence, evidence affordance, grouped result, Task Requests or Decisions, save-state strip, frozen column, resize handle, fill-down handle, edit cell, group outline row, exposed theme states, and empty successful query."
+        "Ensure the visual fixture matrix includes default Timeline workbook shell, unresolved/resolved entity state, same-field conflict, row-gutter presence, evidence affordance, grouped result, Task Requests or Decisions, save-state strip, frozen column, resize handle, fill-down handle, edit cell, group outline row, exposed theme states, and empty successful query."
       ],
       "claim_status": "implemented",
       "claim": {
@@ -183,7 +183,7 @@
         }
       ],
       "scenario_titles": [
-        "FE-V-P11-03 Capture exposed dark_graphite token and theme states with deterministic density, color, component, focus, and semantic-state samples."
+        "Capture exposed dark_graphite token and theme states with deterministic density, color, component, focus, and semantic-state samples."
       ],
       "claim_status": "implemented",
       "claim": {

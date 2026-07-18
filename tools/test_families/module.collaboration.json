@@ -47,14 +47,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase6.collaboration.spec.ts",
+        "file": "apps/web/e2e/collaboration.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_dad2a534f922"
         ],
         "titles": [
-          "E-6-02 auto-merges different-field concurrent edits and requires explicit same-field resolution"
+          "auto-merges different-field concurrent edits and requires explicit same-field resolution"
         ]
       },
       "evidence_class": "browser",
@@ -78,14 +78,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase6.collaboration.spec.ts",
+        "file": "apps/web/e2e/collaboration.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_7425a87e156f"
         ],
         "titles": [
-          "E-6-04 keeps live updates conflict markers and presence markers anchored to record_id and field_key"
+          "keeps live updates conflict markers and presence markers anchored to record_id and field_key"
         ]
       },
       "evidence_class": "browser",
@@ -109,14 +109,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase6.collaboration.spec.ts",
+        "file": "apps/web/e2e/collaboration.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_2b3d2fb7de3e"
         ],
         "titles": [
-          "E-6-01 shows two analysts each other's workbook presence within the expected interaction window"
+          "shows two analysts each other's workbook presence within the expected interaction window"
         ]
       },
       "evidence_class": "browser",
@@ -140,14 +140,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase6.collaboration.spec.ts",
+        "file": "apps/web/e2e/collaboration.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_e36420c2e84a"
         ],
         "titles": [
-          "FE-I-P7-01 Verify conflict resolver actions submit public mutations and refresh rows without losing focus or pending queue ordering."
+          "Verify conflict resolver actions submit public mutations and refresh rows without losing focus or pending queue ordering."
         ]
       },
       "evidence_class": "browser",
@@ -171,14 +171,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase6.collaboration.spec.ts",
+        "file": "apps/web/e2e/collaboration.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_0d3a0e21429c"
         ],
         "titles": [
-          "E-6-05 replays queued unsent writes after re-authentication without silent reload restore"
+          "replays queued unsent writes after re-authentication without silent reload restore"
         ]
       },
       "evidence_class": "browser",
@@ -202,14 +202,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase6.session-recovery.spec.ts",
+        "file": "apps/web/e2e/session-recovery.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
           "scenario_f645b23950cc"
         ],
         "titles": [
-          "E-6-03 preserves unsaved local work after socket revocation and re-authentication"
+          "preserves unsaved local work after socket revocation and re-authentication"
         ]
       },
       "evidence_class": "browser",
@@ -233,14 +233,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase6.collaboration.spec.ts",
+        "file": "apps/web/e2e/collaboration.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
           "scenario_cd147372eead"
         ],
         "titles": [
-          "FE-E-P7-01 Verify multi-client live row update, presence anchoring, reset/invalidate handling, stale-row requery, and same-field conflict resolver through /ws/v1/ and /api/v1/."
+          "Verify multi-client live row update, presence anchoring, reset/invalidate handling, stale-row requery, and same-field conflict resolver through /ws/v1/ and /api/v1/."
         ]
       },
       "evidence_class": "browser",
@@ -263,13 +263,13 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
         "titles": [
-          "Phase 6 U-6-09 does not coalesce non-contiguous same-record pending patches",
-          "Phase 6 U-6-09 exposes the browser-runtime pending queue capacity as exactly 64 replay units",
-          "Phase 6 U-6-09 keeps save-state labels and pending queue replay bounded and explicit",
-          "Phase 6 U-6-09 moves a blocking same-field conflict out of the pending queue and retains its editor",
-          "Phase 6 U-6-09 preserves queued work through session revocation and resumes after re-authentication"
+          "does not coalesce non-contiguous same-record pending patches",
+          "exposes the browser-runtime pending queue capacity as exactly 64 replay units",
+          "keeps save-state labels and pending queue replay bounded and explicit",
+          "moves a blocking same-field conflict out of the pending queue and retains its editor",
+          "preserves queued work through session revocation and resumes after re-authentication"
         ]
       },
       "evidence_class": "unit",
@@ -292,9 +292,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
         "titles": [
-          "Phase 6 U-6-05 keeps the grid visible, conflict unresolved, and focus bound to the same cell"
+          "keeps the grid visible, conflict unresolved, and focus bound to the same cell"
         ]
       },
       "evidence_class": "unit",
@@ -319,8 +319,8 @@
       "selector": {
         "file": "apps/web/src/workbook/utils/workbookPendingQueue.test.ts",
         "titles": [
-          "FE-U-P7-02 derives save-state conflict anchors from record_id field_key and base_row_version",
-          "FE-U-P7-02 keeps same-field conflict queue identity separate from pending replay and visible order"
+          "derives save-state conflict anchors from record_id field_key and base_row_version",
+          "keeps same-field conflict queue identity separate from pending replay and visible order"
         ]
       },
       "evidence_class": "unit",
@@ -343,11 +343,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
-          "FE-U-P7-02 keeps resolver keyboard focus non-destructive and cancellation preserves conflict draft",
-          "FE-U-P7-02 keeps resolver state anchored to stable row and field identities across refresh and reorder",
-          "FE-U-P7-02 preserves resolver draft and focus when a stale conflict token refreshes the same anchor"
+          "keeps resolver keyboard focus non-destructive and cancellation preserves conflict draft",
+          "keeps resolver state anchored to stable row and field identities across refresh and reorder",
+          "preserves resolver draft and focus when a stale conflict token refreshes the same anchor"
         ]
       },
       "evidence_class": "unit",
@@ -370,9 +370,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
         "titles": [
-          "FE-U-P7-02 routes a same-field conflict from transaction recovery into the normal resolver"
+          "routes a same-field conflict from transaction recovery into the normal resolver"
         ]
       },
       "evidence_class": "unit",
@@ -397,10 +397,10 @@
       "selector": {
         "file": "apps/web/src/collaboration/IncidentCollaborationSession.test.tsx",
         "titles": [
-          "FE-U-P7-01 builds hello and resume session messages from socket resume state",
-          "FE-U-P7-01 ignores duplicate stream sequences and refreshes on sequence gaps",
-          "FE-U-P7-01 keeps replayable events unsynchronized until the owner completes reset",
-          "FE-U-P7-01 suppresses reconnect and clears connection state after revocation"
+          "builds hello and resume session messages from socket resume state",
+          "ignores duplicate stream sequences and refreshes on sequence gaps",
+          "keeps replayable events unsynchronized until the owner completes reset",
+          "suppresses reconnect and clears connection state after revocation"
         ]
       },
       "evidence_class": "unit",
@@ -425,10 +425,10 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/services/workbookCollaborationMessages.test.ts",
         "titles": [
-          "FE-U-P7-01 builds default timeline presence payloads for WebSocket session establishment",
-          "FE-U-P7-01 builds presence_update messages without changing event names",
-          "FE-U-P7-01 includes field_key only for editing presence payloads",
-          "FE-U-P7-01 transmits extension workspace presence without record or field anchors"
+          "builds default timeline presence payloads for WebSocket session establishment",
+          "builds presence_update messages without changing event names",
+          "includes field_key only for editing presence payloads",
+          "transmits extension workspace presence without record or field anchors"
         ]
       },
       "evidence_class": "unit",
@@ -453,8 +453,8 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/services/timelineCollaborationEffects.test.ts",
         "titles": [
-          "FE-U-P7-01 applies row updates and requests stale-row requery without transport state",
-          "FE-U-P7-01 pauses feature replay on access loss and resumes only after session establishment"
+          "applies row updates and requests stale-row requery without transport state",
+          "pauses feature replay on access loss and resumes only after session establishment"
         ]
       },
       "evidence_class": "unit",
@@ -654,11 +654,11 @@
           "scenario_f710780a7d03"
         ],
         "titles": [
-          "FE-V-P7-01 Capture conflict save-state strip.",
-          "FE-V-P7-01 Capture recovered saved-state strip.",
-          "FE-V-P7-01 Capture reset/invalidate refresh strip.",
-          "FE-V-P7-01 Capture row-gutter and cell presence markers.",
-          "FE-V-P7-01 Capture same-field conflict resolver."
+          "Capture conflict save-state strip.",
+          "Capture recovered saved-state strip.",
+          "Capture reset/invalidate refresh strip.",
+          "Capture row-gutter and cell presence markers.",
+          "Capture same-field conflict resolver."
         ]
       },
       "evidence_class": "visual",
@@ -691,7 +691,7 @@
           "scenario_4f30b3239772"
         ],
         "titles": [
-          "V-6-GRID-01 regresses Phase 6 row-gutter and same-cell presence markers"
+          "regresses collaboration row-gutter and same-cell presence markers"
         ]
       },
       "evidence_class": "visual",
@@ -724,7 +724,7 @@
           "scenario_62a496085448"
         ],
         "titles": [
-          "V-6-GRID-02 regresses Phase 6 same-field conflict marker resolver and Conflict strip"
+          "regresses collaboration same-field conflict marker resolver and Conflict strip"
         ]
       },
       "evidence_class": "visual",
@@ -757,7 +757,7 @@
           "scenario_9cc4be31d2aa"
         ],
         "titles": [
-          "V-6-GRID-03 regresses Phase 6 pending-queue save-state transitions"
+          "regresses collaboration pending-queue save-state transitions"
         ]
       },
       "evidence_class": "visual",

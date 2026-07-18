@@ -175,14 +175,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase8.workbook.spec.ts",
+        "file": "apps/web/e2e/workbook.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_778d73d03d30"
         ],
         "titles": [
-          "E-8-02 workbook startup falls back to Timeline for an unsupported explicit sheet"
+          "workbook startup falls back to Timeline for an unsupported explicit sheet"
         ]
       },
       "evidence_class": "browser",
@@ -206,14 +206,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase9.keyboard.spec.ts",
+        "file": "apps/web/e2e/keyboard.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_d0d28ac7c1b0"
         ],
         "titles": [
-          "Phase 9 E-9-GRIDHOST-01 Host entity-origin clipboard paste reuses exact matches and creates stubs"
+          "Host entity-origin clipboard paste reuses exact matches and creates stubs"
         ]
       },
       "evidence_class": "browser",
@@ -237,14 +237,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase9.keyboard.spec.ts",
+        "file": "apps/web/e2e/keyboard.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_40ecc28a4bd1"
         ],
         "titles": [
-          "Phase 9 E-9-GRIDIDENTITY-01 Identity entity-origin clipboard paste reuses exact matches and creates stubs"
+          "Identity entity-origin clipboard paste reuses exact matches and creates stubs"
         ]
       },
       "evidence_class": "browser",
@@ -268,14 +268,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase9.sentinel.spec.ts",
+        "file": "apps/web/e2e/sentinel.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_ae2c87691cbc"
         ],
         "titles": [
-          "Phase 9 E-9-PASTE-02 pastes a representative 20x5 Timeline clipboard range"
+          "pastes a representative 20x5 Timeline clipboard range"
         ]
       },
       "evidence_class": "browser",
@@ -299,14 +299,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase9.sentinel.spec.ts",
+        "file": "apps/web/e2e/sentinel.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_0f02accb760d"
         ],
         "titles": [
-          "Phase 9 E-9-CONFLICT-02 groups paste conflicts and preserves selection continuity"
+          "groups paste conflicts and preserves selection continuity"
         ]
       },
       "evidence_class": "browser",
@@ -330,14 +330,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase9.sentinel.spec.ts",
+        "file": "apps/web/e2e/sentinel.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_2571753f57ba"
         ],
         "titles": [
-          "Phase 9 E-9-08 required registry identities stay canonical with optional additions"
+          "required registry identities stay canonical with optional additions"
         ]
       },
       "evidence_class": "browser",
@@ -361,14 +361,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase9.keyboard.spec.ts",
+        "file": "apps/web/e2e/keyboard.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_5064a4a72805"
         ],
         "titles": [
-          "Phase 9 E-9-01 keyboard shortcuts keep workbook grid anchors without module switching"
+          "keyboard shortcuts keep workbook grid anchors without module switching"
         ]
       },
       "evidence_class": "browser",
@@ -392,14 +392,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase9.sentinel.spec.ts",
+        "file": "apps/web/e2e/sentinel.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_232a6cc1e0a2"
         ],
         "titles": [
-          "Phase 9 E-9-07 optional standardized surfaces are workbook-native when exposed"
+          "optional standardized surfaces are workbook-native when exposed"
         ]
       },
       "evidence_class": "browser",
@@ -423,14 +423,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase4.workbook.generic.spec.ts",
+        "file": "apps/web/e2e/workbook.generic.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_781fdfd60e45"
         ],
         "titles": [
-          "E-4-06 creates and edits required workbook mutation surfaces through typed generic controls"
+          "creates and edits required workbook mutation surfaces through typed generic controls"
         ]
       },
       "evidence_class": "browser",
@@ -454,14 +454,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase9.sentinel.spec.ts",
+        "file": "apps/web/e2e/sentinel.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_c004d0cd59e0"
         ],
         "titles": [
-          "Phase 9 E-9-COORDINATION-06 coordination workbook workflows stay native"
+          "coordination workbook workflows stay native"
         ]
       },
       "evidence_class": "browser",
@@ -485,14 +485,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase9.keyboard.spec.ts",
+        "file": "apps/web/e2e/keyboard.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_c8a0a1a1c058"
         ],
         "titles": [
-          "Phase 9 E-9-GRIDANCHORS-01 shared grid keyboard anchors stay stable across workbook cells"
+          "shared grid keyboard anchors stay stable across workbook cells"
         ]
       },
       "evidence_class": "browser",
@@ -516,14 +516,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase8.workbook.spec.ts",
+        "file": "apps/web/e2e/workbook.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_a7bb9697017f"
         ],
         "titles": [
-          "FE-B-P8-01 Verify browser command helpers for sort, filter, group, active chips, layout persistence, group expand-collapse, and startup/default surface UI."
+          "Verify browser command helpers for sort, filter, group, active chips, layout persistence, group expand-collapse, and startup/default surface UI."
         ]
       },
       "evidence_class": "browser",
@@ -547,14 +547,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase2.spec.ts",
+        "file": "apps/web/e2e/incident-administration.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_c94e91b52ee4"
         ],
         "titles": [
-          "FE-B-P2-01 updates workbook density from Account Settings while the workbook remains open"
+          "updates workbook density from Account Settings while the workbook remains open"
         ]
       },
       "evidence_class": "browser",
@@ -578,14 +578,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase2.spec.ts",
+        "file": "apps/web/e2e/incident-administration.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_6eefe430b65c"
         ],
         "titles": [
-          "FE-B-P2-02 Verify System views switcher keyboard entry, roving focus, selection, dismissal, and focus restoration."
+          "Verify System views switcher keyboard entry, roving focus, selection, dismissal, and focus restoration."
         ]
       },
       "evidence_class": "browser",
@@ -609,14 +609,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase9.sentinel.spec.ts",
+        "file": "apps/web/e2e/sentinel.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_1970643f92da"
         ],
         "titles": [
-          "FE-B-P10-01 Verify Task Requests, Decisions, Parties, Communications Log, Handoff, Status Review, and Lesson open inside the same workbook shell and retain view controls."
+          "Verify Task Requests, Decisions, Parties, Communications Log, Handoff, Status Review, and Lesson open inside the same workbook shell and retain view controls."
         ]
       },
       "evidence_class": "browser",
@@ -640,14 +640,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/frontend.phase4.timeline-query.spec.ts",
+        "file": "apps/web/e2e/timeline-query.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
           "scenario_67f1be5bf312"
         ],
         "titles": [
-          "FE-I-P4-01 Verify Timeline query response rows render full view_row_v1 cells and preserve row identity through create, patch, validation error, and refresh."
+          "Verify Timeline query response rows render full view_row_v1 cells and preserve row identity through create, patch, validation error, and refresh."
         ]
       },
       "evidence_class": "browser",
@@ -671,14 +671,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/frontend.phase10.public-route.spec.ts",
+        "file": "apps/web/e2e/coordination-public-route.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
           "scenario_3ce32677f203"
         ],
         "titles": [
-          "FE-E-P10-01 Verify coordination rows can be queried and edited through public view/row mutation contracts with current-role authorization."
+          "Verify coordination rows can be queried and edited through public view/row mutation contracts with current-role authorization."
         ]
       },
       "evidence_class": "browser",
@@ -702,14 +702,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase9.inspector-actions.spec.ts",
+        "file": "apps/web/e2e/inspector-actions.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
           "scenario_4a5b3aa5b794"
         ],
         "titles": [
-          "FE-E-P9-02 Verify default-closed inspector state, no-row state, surface switch config changes, saved-view switch over the same view_schema_id keeps the same config, closed incident read-only behavior, server-denied action behavior, and Timeline create/edit/paste without opening the inspector."
+          "Verify default-closed inspector state, no-row state, surface switch config changes, saved-view switch over the same view_schema_id keeps the same config, closed incident read-only behavior, server-denied action behavior, and Timeline create/edit/paste without opening the inspector."
         ]
       },
       "evidence_class": "browser",
@@ -733,14 +733,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase9.sentinel.spec.ts",
+        "file": "apps/web/e2e/sentinel.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
           "scenario_0ba7e464f395"
         ],
         "titles": [
-          "FE-E-P9-03 Verify Timeline inspector Workflow create-related actions stay in the workbook shell."
+          "Verify Timeline inspector Workflow create-related actions stay in the workbook shell."
         ]
       },
       "evidence_class": "browser",
@@ -764,7 +764,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/frontend.phase4.public-route.spec.ts",
+        "file": "apps/web/e2e/timeline-public-route.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -772,8 +772,8 @@
           "scenario_da2d76b86dc8"
         ],
         "titles": [
-          "FE-E-P4-01 Recover Timeline client transaction blockers through remount-safe IDs, retry, discard, and same-field resolver handoff.",
-          "FE-E-P4-01 Verify rough Timeline row creation, inline edit, paste, pending save, refresh, and replay through /api/v1/ route contracts."
+          "Recover Timeline client transaction blockers through remount-safe IDs, retry, discard, and same-field resolver handoff.",
+          "Verify rough Timeline row creation, inline edit, paste, pending save, refresh, and replay through /api/v1/ route contracts."
         ]
       },
       "evidence_class": "browser",
@@ -797,14 +797,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/phase8.workbook.support.spec.ts",
+        "file": "apps/web/e2e/workbook.support.spec.ts",
         "project_id": "chromium",
         "stage": "support",
         "scenario_ids": [
           "scenario_e13e94f34a49"
         ],
         "titles": [
-          "FE-B-P8-01 Verify browser command helpers for sort, filter, group, active chips, layout persistence, group expand-collapse, and startup/default surface UI."
+          "Verify browser command helpers for sort, filter, group, active chips, layout persistence, group expand-collapse, and startup/default surface UI."
         ]
       },
       "evidence_class": "browser",
@@ -829,8 +829,8 @@
       "selector": {
         "file": "apps/web/src/workbook/utils/workbookKeyboard.test.ts",
         "titles": [
-          "Phase 9 U-9-01 fails closed when optional shortcut actions are unavailable",
-          "Phase 9 U-9-01 maps required workbook keys without hidden paste macro behavior"
+          "fails closed when optional shortcut actions are unavailable",
+          "maps required workbook keys without hidden paste macro behavior"
         ]
       },
       "evidence_class": "unit",
@@ -853,15 +853,15 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
         "titles": [
-          "Phase 9 I-9-GRID-01 dispatches one versioned multi-row tag command from Timeline selection",
-          "Phase 9 I-9-GRID-01 maps filtered overflow to explicit create-row anchors",
-          "Phase 9 I-9-GRID-01 rejects group and presentation-only paste anchors",
-          "Phase 9 I-9-GRID-01 rendered paste dispatch uses stable anchors and quote-aware dimensions",
-          "Phase 9 I-9-GRID-01 requires a Cartulary anchor instead of vendor coordinates alone",
-          "Phase 9 I-9-GRID-01 targets sorted paste rows by stable visible record identities",
-          "Phase 9 I-9-GRID-01 treats single-line comma clipboard text as scalar paste input"
+          "dispatches one versioned multi-row tag command from Timeline selection",
+          "maps filtered overflow to explicit create-row anchors",
+          "rejects group and presentation-only paste anchors",
+          "rendered paste dispatch uses stable anchors and quote-aware dimensions",
+          "requires a Cartulary anchor instead of vendor coordinates alone",
+          "targets sorted paste rows by stable visible record identities",
+          "treats single-line comma clipboard text as scalar paste input"
         ]
       },
       "evidence_class": "unit",
@@ -884,9 +884,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
         "titles": [
-          "Phase 9 I-9-SUPPORT-01 registers grouped paste conflicts without losing selection continuity"
+          "registers grouped paste conflicts without losing selection continuity"
         ]
       },
       "evidence_class": "unit",
@@ -911,7 +911,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
         "titles": [
-          "Phase 4 U-4-WB-04 builds required creates with direct values, timestamps, and explicit clears"
+          "builds required creates with direct values, timestamps, and explicit clears"
         ]
       },
       "evidence_class": "unit",
@@ -936,7 +936,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
         "titles": [
-          "Phase 4 U-4-WB-05 builds direct clears and typed collection actions"
+          "builds direct clears and typed collection actions"
         ]
       },
       "evidence_class": "unit",
@@ -959,12 +959,12 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/utils/GridAdapter.phase9.anchor.test.ts",
+        "file": "apps/web/src/workbook/utils/GridAdapter.anchor.test.ts",
         "titles": [
-          "Phase 9 U-9-GRID-01 clears invalid row, field, group row, and recordless draft targets",
-          "Phase 9 U-9-GRID-01 keeps vendor selection separate until translated by the adapter contract",
-          "Phase 9 U-9-GRID-01 resolves Arrow, Tab, Enter, and Shift+Enter navigation through adapter anchors",
-          "Phase 9 U-9-GRID-01 resolves vendor coordinates to stable record_id and field_key anchors"
+          "clears invalid row, field, group row, and recordless draft targets",
+          "keeps vendor selection separate until translated by the adapter contract",
+          "resolves Arrow, Tab, Enter, and Shift+Enter navigation through adapter anchors",
+          "resolves vendor coordinates to stable record_id and field_key anchors"
         ]
       },
       "evidence_class": "unit",
@@ -989,7 +989,7 @@
       "selector": {
         "file": "apps/web/src/workbook/utils/workbookRowReconciliation.test.ts",
         "titles": [
-          "FE-I-P3-01 Verify sparse patches preserve unchanged row object references and intentionally replace changed rows by record_id."
+          "Verify sparse patches preserve unchanged row object references and intentionally replace changed rows by record_id."
         ]
       },
       "evidence_class": "unit",
@@ -1014,8 +1014,8 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/components/TimelineEvidencePanel.test.tsx",
         "titles": [
-          "FE-U-P9-02 does not render draft rows as row-bound inspector evidence",
-          "FE-U-P9-02 uses row-specific file inputs for committed row evidence"
+          "does not render draft rows as row-bound inspector evidence",
+          "uses row-specific file inputs for committed row evidence"
         ]
       },
       "evidence_class": "unit",
@@ -1040,13 +1040,13 @@
       "selector": {
         "file": "apps/web/src/workbook/models/workbookInspectorModel.test.ts",
         "titles": [
-          "FE-U-P9-02 Verify active view_schema_id selects inspector_config_v1, saved views inherit immutable view_schema_id config, no-row state is no_row_selected, and stale row-bound inspector state invalidates across row, row-version, authorization, incident-lifecycle, delete, merge, hard refresh, and surface changes.",
-          "FE-U-P9-02 clears stale row-bound state before retargeting to a new row",
-          "FE-U-P9-02 defaults closed and clears stale state on hard refresh and active surface switch",
-          "FE-U-P9-02 filters panels and feature groups by declared semantic config",
-          "FE-U-P9-02 invalidates destructive, preview, merge, and workflow state on lifecycle triggers",
-          "FE-U-P9-02 keeps saved-view inheritance tied to the base view_schema_id",
-          "FE-U-P9-02 selects config from immutable view_schema_id and starts closed"
+          "Verify active view_schema_id selects inspector_config_v1, saved views inherit immutable view_schema_id config, no-row state is no_row_selected, and stale row-bound inspector state invalidates across row, row-version, authorization, incident-lifecycle, delete, merge, hard refresh, and surface changes.",
+          "clears stale row-bound state before retargeting to a new row",
+          "defaults closed and clears stale state on hard refresh and active surface switch",
+          "filters panels and feature groups by declared semantic config",
+          "invalidates destructive, preview, merge, and workflow state on lifecycle triggers",
+          "keeps saved-view inheritance tied to the base view_schema_id",
+          "selects config from immutable view_schema_id and starts closed"
         ]
       },
       "evidence_class": "unit",
@@ -1069,10 +1069,10 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase9.inspector.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.inspector.test.tsx",
         "titles": [
-          "FE-U-P9-02 closes the Timeline inspector when the active sheet identity changes",
-          "FE-U-P9-02 renders the configured no-row state when no saved row is selected"
+          "closes the Timeline inspector when the active sheet identity changes",
+          "renders the configured no-row state when no saved row is selected"
         ]
       },
       "evidence_class": "unit",
@@ -1122,12 +1122,12 @@
       "selector": {
         "file": "apps/web/src/workbook/models/workbookSurfaceRegistry.test.ts",
         "titles": [
-          "FE-U-P2-02 exposes required reference-pack keys from view contracts",
-          "FE-U-P2-02 groups System views by stable group tokens and registry-backed IDs",
-          "FE-U-P2-02 keeps optional standardized surfaces additive after required surfaces",
-          "FE-U-P2-02 registers built-in and system workbook surfaces by stable IDs",
-          "FE-U-P2-02 remains keyed by stable IDs when registry labels are relabeled",
-          "FE-U-P2-02 tolerates absent optional standardized surfaces while requiring required surfaces"
+          "exposes required reference-pack keys from view contracts",
+          "groups System views by stable group tokens and registry-backed IDs",
+          "keeps optional standardized surfaces additive after required surfaces",
+          "registers built-in and system workbook surfaces by stable IDs",
+          "remains keyed by stable IDs when registry labels are relabeled",
+          "tolerates absent optional standardized surfaces while requiring required surfaces"
         ]
       },
       "evidence_class": "unit",
@@ -1152,7 +1152,7 @@
       "selector": {
         "file": "apps/web/src/workbook/models/workbookSurfaceRegistry.test.ts",
         "titles": [
-          "FE-U-P10-01 Verify coordination and review system-view registrations, field mappings, and closed vocabulary options use stable IDs and contract metadata."
+          "Verify coordination and review system-view registrations, field mappings, and closed vocabulary options use stable IDs and contract metadata."
         ]
       },
       "evidence_class": "unit",
@@ -1177,7 +1177,7 @@
       "selector": {
         "file": "packages/view-contracts/src/index.test.ts",
         "titles": [
-          "FE-U-P9-03 Verify inspector panels and feature groups render from active config keys and reject unknown panel IDs, route owners, result behaviors, disabled tokens, duplicate keys, missing required keys, and extra current-profile keys before rendering."
+          "Verify inspector panels and feature groups render from active config keys and reject unknown panel IDs, route owners, result behaviors, disabled tokens, duplicate keys, missing required keys, and extra current-profile keys before rendering."
         ]
       },
       "evidence_class": "unit",
@@ -1200,7 +1200,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase9.inspector.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.inspector.test.tsx",
         "titles": [
           "creates a related Task Request from the Timeline inspector using emitted seed bindings",
           "creates related Evidence from the Timeline inspector and links it back through the Timeline patch route"
@@ -1226,9 +1226,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase9.inspector.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.inspector.test.tsx",
         "titles": [
-          "FE-U-P9-01 Verify inspector selection, tab state, details, relationships, evidence, and history anchors are record_id based and survive row refresh."
+          "Verify inspector selection, tab state, details, relationships, evidence, and history anchors are record_id based and survive row refresh."
         ]
       },
       "evidence_class": "unit",
@@ -1253,9 +1253,9 @@
       "selector": {
         "file": "apps/web/src/workbook/utils/workbookPendingQueue.test.ts",
         "titles": [
-          "FE-U-P4-02 derives exactly one primary save-state label for every Table C input condition",
-          "FE-U-P4-02 keeps failure, overflow, validation, and replay details as same-surface secondary status messages",
-          "FE-U-P4-02 preserves same-field conflict anchors by record_id, field_key, and base_row_version"
+          "derives exactly one primary save-state label for every Table C input condition",
+          "keeps failure, overflow, validation, and replay details as same-surface secondary status messages",
+          "preserves same-field conflict anchors by record_id, field_key, and base_row_version"
         ]
       },
       "evidence_class": "unit",
@@ -1278,9 +1278,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase4.saveState.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.saveState.test.tsx",
         "titles": [
-          "FE-U-P4-02 renders derived secondary save-state detail inside the workbook status strip"
+          "renders derived secondary save-state detail inside the workbook status strip"
         ]
       },
       "evidence_class": "unit",
@@ -1305,14 +1305,14 @@
       "selector": {
         "file": "apps/web/src/workbook/models/workbookStartup.test.ts",
         "titles": [
-          "FE-U-P2-01 applies selected saved-view identity without collapsing base view_schema_id",
-          "FE-U-P2-01 preserves extension workspace identity with no base schema or saved view",
-          "FE-U-P2-01 preserves required-reference-pack unavailable startup reasons",
-          "FE-U-P2-01 rejects backend startup selections with non-standardized view_schema_id",
-          "FE-U-P2-01 rejects unsupported startup sheet_ref kinds at the frontend boundary",
-          "FE-U-P2-01 resolves workbook startup fallback order by stable sheet_ref identity",
-          "FE-U-P2-01 skips or clears invalid startup pointers without failing workbook open",
-          "FE-U-P2-01 treats deleted saved-view pointers as unavailable saved views"
+          "applies selected saved-view identity without collapsing base view_schema_id",
+          "preserves extension workspace identity with no base schema or saved view",
+          "preserves required-reference-pack unavailable startup reasons",
+          "rejects backend startup selections with non-standardized view_schema_id",
+          "rejects unsupported startup sheet_ref kinds at the frontend boundary",
+          "resolves workbook startup fallback order by stable sheet_ref identity",
+          "skips or clears invalid startup pointers without failing workbook open",
+          "treats deleted saved-view pointers as unavailable saved views"
         ]
       },
       "evidence_class": "unit",
@@ -1337,9 +1337,9 @@
       "selector": {
         "file": "apps/web/src/services/clientTransactionId.test.ts",
         "titles": [
-          "FE-U-P4-01 fails locally when Web Crypto is unavailable",
-          "FE-U-P4-01 retains the prefix and uses the platform UUID generator",
-          "FE-U-P4-01 uses RFC 4122 v4 formatting with secure random bytes as fallback"
+          "fails locally when Web Crypto is unavailable",
+          "retains the prefix and uses the platform UUID generator",
+          "uses RFC 4122 v4 formatting with secure random bytes as fallback"
         ]
       },
       "evidence_class": "unit",
@@ -1362,11 +1362,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase4.actionSequencing.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.actionSequencing.test.tsx",
         "titles": [
-          "FE-U-P4-01 keeps action result row versions ahead of stale projection reloads",
-          "FE-U-P4-01 sends Timeline actions with the current row version after earlier workbook mutations",
-          "FE-U-P4-01 waits for a pending material autosave before supersede dispatch"
+          "keeps action result row versions ahead of stale projection reloads",
+          "sends Timeline actions with the current row version after earlier workbook mutations",
+          "waits for a pending material autosave before supersede dispatch"
         ]
       },
       "evidence_class": "unit",
@@ -1391,16 +1391,16 @@
       "selector": {
         "file": "apps/web/src/workbook/utils/workbookPendingQueue.test.ts",
         "titles": [
-          "FE-U-P4-01 admits row-create, row-patch, and paste-derived replay units with route-scoped mutation identity",
-          "FE-U-P4-01 applies successful replay without retargeting by visible row order or labels",
-          "FE-U-P4-01 coalesces only same-draft creates and contiguous same-record patches",
-          "FE-U-P4-01 discards exactly the halted blocker and resumes later FIFO work",
-          "FE-U-P4-01 halts non-retryable public failures with Table G anchors and queued units behind the blocker",
-          "FE-U-P4-01 keeps pending queues isolated by incident and client instance scope",
-          "FE-U-P4-01 preserves FIFO replay order and refuses the 65th non-coalescible unit without eviction",
-          "FE-U-P4-01 preserves same-runtime retryable failures and does not survive a new page instance",
-          "FE-U-P4-01 rejects invalid recovery transitions without changing queue state",
-          "FE-U-P4-01 rekeys only a client transaction blocker and preserves FIFO intent"
+          "admits row-create, row-patch, and paste-derived replay units with route-scoped mutation identity",
+          "applies successful replay without retargeting by visible row order or labels",
+          "coalesces only same-draft creates and contiguous same-record patches",
+          "discards exactly the halted blocker and resumes later FIFO work",
+          "halts non-retryable public failures with Table G anchors and queued units behind the blocker",
+          "keeps pending queues isolated by incident and client instance scope",
+          "preserves FIFO replay order and refuses the 65th non-coalescible unit without eviction",
+          "preserves same-runtime retryable failures and does not survive a new page instance",
+          "rejects invalid recovery transitions without changing queue state",
+          "rekeys only a client transaction blocker and preserves FIFO intent"
         ]
       },
       "evidence_class": "unit",
@@ -1423,13 +1423,13 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
+        "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
         "titles": [
-          "FE-U-P4-01 discards a blocked edit locally without issuing another mutation",
-          "FE-U-P4-01 drives WorkbookShell admission, coalescing, and save-state from the shared pending queue model",
-          "FE-U-P4-01 drives WorkbookShell retry and success settlement from the shared pending queue model",
-          "FE-U-P4-01 drives WorkbookShell terminal halt presentation from the shared pending queue model",
-          "FE-U-P4-01 recovers a Timeline client transaction conflict with a fresh opaque request ID"
+          "discards a blocked edit locally without issuing another mutation",
+          "drives WorkbookShell admission, coalescing, and save-state from the shared pending queue model",
+          "drives WorkbookShell retry and success settlement from the shared pending queue model",
+          "drives WorkbookShell terminal halt presentation from the shared pending queue model",
+          "recovers a Timeline client transaction conflict with a fresh opaque request ID"
         ]
       },
       "evidence_class": "unit",
@@ -1454,7 +1454,7 @@
       "selector": {
         "file": "apps/web/src/services/clientTransactionIdPolicy.test.ts",
         "titles": [
-          "FE-U-P4-01 keeps browser mutation IDs independent of counters, clocks, and insecure randomness"
+          "keeps browser mutation IDs independent of counters, clocks, and insecure randomness"
         ]
       },
       "evidence_class": "unit",
@@ -2154,7 +2154,7 @@
           "scenario_e6ffdeb2d292"
         ],
         "titles": [
-          "FE-V-P2-01 Capture Default Timeline workbook shell with view-bar query controls, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip."
+          "Capture Default Timeline workbook shell with view-bar query controls, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip."
         ]
       },
       "evidence_class": "visual",
@@ -2187,7 +2187,7 @@
           "scenario_cb54783764e3"
         ],
         "titles": [
-          "FE-V-P9-01 Capture inspector Details, Relationships, Evidence, History, rollback preview, destructive confirmation, and public error fixtures."
+          "Capture inspector Details, Relationships, Evidence, History, rollback preview, destructive confirmation, and public error fixtures."
         ]
       },
       "evidence_class": "visual",
@@ -2220,7 +2220,7 @@
           "scenario_79fa228c8b2e"
         ],
         "titles": [
-          "FE-V-P4-01 Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures."
+          "Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures."
         ]
       },
       "evidence_class": "visual",
@@ -2253,7 +2253,7 @@
           "scenario_2ad2818dac42"
         ],
         "titles": [
-          "FE-V-P10-01 Capture Task Requests or Decisions, Parties link state, Communications Log, Handoff, Status Review, Lesson, keyboard focus, frozen column, resize handle, and fill-down fixtures."
+          "Capture Task Requests or Decisions, Parties link state, Communications Log, Handoff, Status Review, Lesson, keyboard focus, frozen column, resize handle, and fill-down fixtures."
         ]
       },
       "evidence_class": "visual",
@@ -2286,7 +2286,7 @@
           "scenario_5d80d611a0a5"
         ],
         "titles": [
-          "V-4-GRID-03 captures Task Requests system view fields through the generic workbook grid"
+          "captures Task Requests system view fields through the generic workbook grid"
         ]
       },
       "evidence_class": "visual",
