@@ -35,7 +35,7 @@ test("restore recovers workbook surface and executes a built-in workbook query",
     const incidentId = target.ready.incident_id;
     const summary = target.ready.timeline_summary;
     expect(target.ready.schema_id).toBe(
-      "cartulary.phase10.browser_restore_target.v1",
+      "cartulary.restore.browser_restore_target.v1",
     );
     expect(target.ready.backup_set_id).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u,
@@ -103,7 +103,7 @@ async function startRestoreTarget(runtimeRoot: string): Promise<{
   const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
   const child = spawn(
     "go",
-    ["run", "./tools/phase10browserrestore", "--runtime-root", runtimeRoot],
+    ["run", "./tools/recoverybrowserrestore", "--runtime-root", runtimeRoot],
     {
       cwd: repoRoot,
       env: process.env,
@@ -116,7 +116,7 @@ async function startRestoreTarget(runtimeRoot: string): Promise<{
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       child.kill("SIGTERM");
-      reject(new Error(`phase10 restore target timed out\n${stderr}`));
+      reject(new Error(`restore restore target timed out\n${stderr}`));
     }, 90_000);
 
     child.stderr.on("data", (chunk: Buffer) => {
@@ -139,7 +139,7 @@ async function startRestoreTarget(runtimeRoot: string): Promise<{
         child.kill("SIGTERM");
         reject(
           new Error(
-            `decode phase10 restore target ready payload: ${String(error)}\nstdout=${stdout}\nstderr=${stderr}`,
+            `decode restore restore target ready payload: ${String(error)}\nstdout=${stdout}\nstderr=${stderr}`,
           ),
         );
       }
@@ -151,7 +151,7 @@ async function startRestoreTarget(runtimeRoot: string): Promise<{
       }
       reject(
         new Error(
-          `phase10 restore target exited before ready code=${code} signal=${signal}\nstderr=${stderr}`,
+          `restore restore target exited before ready code=${code} signal=${signal}\nstderr=${stderr}`,
         ),
       );
     });

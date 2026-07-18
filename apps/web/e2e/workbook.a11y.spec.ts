@@ -9,6 +9,9 @@ import {
   scrollGridTargetIntoView,
 } from "@cartulary/test-utils/grid";
 import {
+  accountTestId,
+  appRouteTestId,
+  authTestId,
   autoResolutionNoticeTestId,
   autoResolutionUndoButtonTestId,
   cellPresenceMarkerTestId,
@@ -28,6 +31,7 @@ import {
   gridShellTestId,
   gridSortHeaderTestId,
   incidentControlsStatusTestId,
+  incidentLandingTestId,
   landingIncidentCardTestId,
   mentionDismissButtonTestId,
   mentionItemTestId,
@@ -40,12 +44,8 @@ import {
   pendingQueueNoticeTestId,
   pendingQueueRecoveryPanelTestId,
   pendingQueueRetryButtonTestId,
-  phase1AccountTestId,
-  phase1AuthTestId,
-  phase1ErrorCodeTestId,
-  phase1ErrorSummaryTestIds,
-  phase1LandingTestId,
-  phase1RouteTestId,
+  publicErrorCodeTestId,
+  publicErrorSummaryTestIds,
   relationshipChipTestId,
   relationshipItemsTestId,
   rowCellTestId,
@@ -3464,30 +3464,30 @@ test.describe("FE-P1 accessibility readiness", () => {
     await new AuthGateway(page).goto();
     await heldSession.waitForHit;
 
-    await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+    await expect(page.getByTestId(authTestId("shell"))).toHaveAttribute(
       "data-bootstrap-state",
       "loading",
     );
-    await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+    await expect(page.getByTestId(authTestId("shell"))).toHaveAttribute(
       "aria-busy",
       "true",
     );
-    await expectStatusRole(page.getByTestId(phase1AuthTestId("status")));
-    await expect(page.getByTestId(phase1AuthTestId("status"))).toContainText(
+    await expectStatusRole(page.getByTestId(authTestId("status")));
+    await expect(page.getByTestId(authTestId("status"))).toContainText(
       "Checking current session",
     );
     await expectP1SurfaceA11y(page, {
-      focusTestId: phase1AuthTestId("login-submit"),
+      focusTestId: authTestId("login-submit"),
       tabStops: [
-        phase1AuthTestId("login-username"),
-        phase1AuthTestId("login-password"),
-        phase1AuthTestId("login-submit"),
+        authTestId("login-username"),
+        authTestId("login-password"),
+        authTestId("login-submit"),
       ],
     });
 
     try {
       heldSession.release();
-      await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+      await expect(page.getByTestId(authTestId("shell"))).toHaveAttribute(
         "data-bootstrap-state",
         "anonymous",
       );
@@ -3510,34 +3510,34 @@ test.describe("FE-P1 accessibility readiness", () => {
 
       await clearBrowserSession(page);
       await new AuthGateway(page).goto();
-      await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+      await expect(page.getByTestId(authTestId("shell"))).toHaveAttribute(
         "data-bootstrap-state",
         "anonymous",
       );
       await expectP1SurfaceA11y(page, {
-        focusTestId: phase1AuthTestId("login-username"),
+        focusTestId: authTestId("login-username"),
         tabStops: [
-          phase1AuthTestId("login-username"),
-          phase1AuthTestId("login-password"),
-          phase1AuthTestId("login-submit"),
+          authTestId("login-username"),
+          authTestId("login-password"),
+          authTestId("login-submit"),
         ],
       });
 
       await new AuthGateway(page).login(email, password);
       await expect(
-        page.getByTestId(phase1LandingTestId("shell")),
+        page.getByTestId(incidentLandingTestId("shell")),
       ).toBeVisible();
       await expectVisibleFocus(
-        page.getByTestId(phase1LandingTestId("refresh")),
+        page.getByTestId(incidentLandingTestId("refresh")),
       );
-      await expectStatusRole(page.getByTestId(phase1LandingTestId("status")));
+      await expectStatusRole(page.getByTestId(incidentLandingTestId("status")));
       await expectP1SurfaceA11y(page, {
-        focusTestId: phase1LandingTestId("refresh"),
+        focusTestId: incidentLandingTestId("refresh"),
         tabStops: [
-          phase1LandingTestId("search"),
-          phase1LandingTestId("status-filter"),
-          phase1LandingTestId("refresh"),
-          phase1LandingTestId("create-open-button"),
+          incidentLandingTestId("search"),
+          incidentLandingTestId("status-filter"),
+          incidentLandingTestId("refresh"),
+          incidentLandingTestId("create-open-button"),
         ],
       });
       await sessionTracker.captureCurrentSession(page, {
@@ -3565,25 +3565,25 @@ test.describe("FE-P1 accessibility readiness", () => {
       await clearBrowserSession(page);
       await new AuthGateway(page).goto();
       await new AuthGateway(page).login(email, password);
-      await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+      await expect(page.getByTestId(authTestId("shell"))).toHaveAttribute(
         "data-bootstrap-state",
         "mfa_required",
       );
-      await expectStatusRole(page.getByTestId(phase1AuthTestId("status")));
-      await expect(page.getByTestId(phase1AuthTestId("status"))).toContainText(
+      await expectStatusRole(page.getByTestId(authTestId("status")));
+      await expect(page.getByTestId(authTestId("status"))).toContainText(
         "Authenticator code",
       );
       await expectNoPrivateDiagnostics(
-        page.getByTestId(phase1ErrorSummaryTestIds("auth").container),
+        page.getByTestId(publicErrorSummaryTestIds("auth").container),
       );
       expect(await hasSessionCookie(page)).toBeFalsy();
       await expectP1SurfaceA11y(page, {
-        focusTestId: phase1AuthTestId("login-totp-code"),
+        focusTestId: authTestId("login-totp-code"),
         tabStops: [
-          phase1AuthTestId("login-username"),
-          phase1AuthTestId("login-password"),
-          phase1AuthTestId("login-totp-code"),
-          phase1AuthTestId("login-submit"),
+          authTestId("login-username"),
+          authTestId("login-password"),
+          authTestId("login-totp-code"),
+          authTestId("login-submit"),
         ],
       });
 
@@ -3593,7 +3593,7 @@ test.describe("FE-P1 accessibility readiness", () => {
         generateTotpCode(secretBase32),
       );
       await expect(
-        page.getByTestId(phase1LandingTestId("current-user")),
+        page.getByTestId(incidentLandingTestId("current-user")),
       ).toContainText("A11Y P1 MFA");
       await sessionTracker.captureCurrentSession(page, {
         createdBy: "phase1 accessibility",
@@ -3619,37 +3619,37 @@ test.describe("FE-P1 accessibility readiness", () => {
       await clearBrowserSession(page);
       await new AuthGateway(page).goto();
       await new AuthGateway(page).login(email, password);
-      await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+      await expect(page.getByTestId(authTestId("shell"))).toHaveAttribute(
         "data-bootstrap-state",
         "mfa_setup_required",
       );
-      await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
+      await expect(page.getByTestId(publicErrorCodeTestId("auth"))).toHaveText(
         "Authenticator setup is required before sign-in.",
       );
-      await expect(
-        page.getByTestId(phase1AuthTestId("bootstrap-token")),
-      ).toHaveText("Stored for TOTP setup requests.");
+      await expect(page.getByTestId(authTestId("bootstrap-token"))).toHaveText(
+        "Stored for TOTP setup requests.",
+      );
       await expectNoPrivateDiagnostics(
-        page.getByTestId(phase1ErrorSummaryTestIds("auth").container),
+        page.getByTestId(publicErrorSummaryTestIds("auth").container),
       );
       await expectP1SurfaceA11y(page, {
-        focusTestId: phase1AuthTestId("bootstrap-begin"),
+        focusTestId: authTestId("bootstrap-begin"),
         tabStops: [
-          phase1AuthTestId("bootstrap-begin"),
-          phase1AuthTestId("bootstrap-complete-code"),
+          authTestId("bootstrap-begin"),
+          authTestId("bootstrap-complete-code"),
         ],
       });
 
       await new AuthGateway(page).beginBootstrapEnrollment();
-      await expectStatusRole(page.getByTestId(phase1AuthTestId("status")));
+      await expectStatusRole(page.getByTestId(authTestId("status")));
       const secretBase32 = await new AuthGateway(page).requireText(
-        phase1AuthTestId("bootstrap-secret-base32"),
+        authTestId("bootstrap-secret-base32"),
       );
       await expectP1SurfaceA11y(page, {
-        focusTestId: phase1AuthTestId("bootstrap-complete-code"),
+        focusTestId: authTestId("bootstrap-complete-code"),
         tabStops: [
-          phase1AuthTestId("bootstrap-complete-code"),
-          phase1AuthTestId("bootstrap-complete"),
+          authTestId("bootstrap-complete-code"),
+          authTestId("bootstrap-complete"),
         ],
       });
       await new AuthGateway(page).completeBootstrapEnrollment(
@@ -3672,21 +3672,23 @@ test.describe("FE-P1 accessibility readiness", () => {
     );
 
     await new IncidentDirectory(page).goto();
-    await expect(page.getByTestId(phase1LandingTestId("shell"))).toBeVisible();
+    await expect(
+      page.getByTestId(incidentLandingTestId("shell")),
+    ).toBeVisible();
     await expect(
       page.getByTestId(landingIncidentCardTestId(incidentId)),
     ).toBeVisible();
     await expectVisibleFocus(
-      page.getByTestId(phase1LandingTestId("create-open-button")),
+      page.getByTestId(incidentLandingTestId("create-open-button")),
     );
-    await expectStatusRole(page.getByTestId(phase1LandingTestId("status")));
+    await expectStatusRole(page.getByTestId(incidentLandingTestId("status")));
     await expectP1SurfaceA11y(page, {
-      focusTestId: phase1LandingTestId("create-open-button"),
+      focusTestId: incidentLandingTestId("create-open-button"),
       tabStops: [
-        phase1LandingTestId("search"),
-        phase1LandingTestId("status-filter"),
-        phase1LandingTestId("refresh"),
-        phase1LandingTestId("create-open-button"),
+        incidentLandingTestId("search"),
+        incidentLandingTestId("status-filter"),
+        incidentLandingTestId("refresh"),
+        incidentLandingTestId("create-open-button"),
       ],
     });
   });
@@ -3707,9 +3709,9 @@ test.describe("FE-P1 accessibility readiness", () => {
       await new AuthGateway(page).goto();
       await new AuthGateway(page).login(email, password);
       await expect(
-        page.getByTestId(phase1LandingTestId("empty-state")),
+        page.getByTestId(incidentLandingTestId("empty-state")),
       ).toContainText("No incidents are visible");
-      await expectStatusRole(page.getByTestId(phase1LandingTestId("status")));
+      await expectStatusRole(page.getByTestId(incidentLandingTestId("status")));
 
       const selectedIncidentId = await createIncidentWithRequest(
         workerAdminRequest,
@@ -3751,8 +3753,8 @@ test.describe("FE-P1 accessibility readiness", () => {
         page.getByTestId(authA11yAppLocalTestId("incidentPatchButton")),
       );
       await expectP1SurfaceA11y(page, {
-        focusTestId: phase1RouteTestId("workbook-current-user"),
-        tabStops: [phase1RouteTestId("workbook-current-user")],
+        focusTestId: appRouteTestId("workbook-current-user"),
+        tabStops: [appRouteTestId("workbook-current-user")],
       });
 
       await new IncidentDirectory(page).open();
@@ -3805,7 +3807,7 @@ test.describe("FE-P1 accessibility readiness", () => {
         page.getByTestId("incident-admin-error-code"),
       );
       await expectVisibleFocus(
-        page.getByTestId(phase1RouteTestId("workbook-current-user")),
+        page.getByTestId(appRouteTestId("workbook-current-user")),
       );
       await sessionTracker.captureCurrentSession(page, {
         createdBy: "phase1 accessibility",
@@ -3835,27 +3837,31 @@ test.describe("FE-P1 accessibility readiness", () => {
 
     await page.route(routePattern, routeHandler);
     await page.goto("/");
-    await expect(page.getByTestId(phase1LandingTestId("shell"))).toBeVisible();
     await expect(
-      page.getByTestId(phase1LandingTestId("shell")),
+      page.getByTestId(incidentLandingTestId("shell")),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId(incidentLandingTestId("shell")),
     ).toHaveAttribute("data-bootstrap-state", "forbidden");
-    await expectStatusRole(page.getByTestId(phase1LandingTestId("status")));
-    await expectAlertRole(page.getByTestId(phase1ErrorCodeTestId("landing")));
-    await expect(page.getByTestId(phase1ErrorCodeTestId("landing"))).toHaveText(
+    await expectStatusRole(page.getByTestId(incidentLandingTestId("status")));
+    await expectAlertRole(page.getByTestId(publicErrorCodeTestId("landing")));
+    await expect(page.getByTestId(publicErrorCodeTestId("landing"))).toHaveText(
       "authorization_denied",
     );
     await expectNoPrivateDiagnostics(
-      page.getByTestId(phase1ErrorSummaryTestIds("landing").container),
+      page.getByTestId(publicErrorSummaryTestIds("landing").container),
     );
-    await expectVisibleFocus(page.getByTestId(phase1LandingTestId("refresh")));
+    await expectVisibleFocus(
+      page.getByTestId(incidentLandingTestId("refresh")),
+    );
     await expectP1SurfaceA11y(page, {
-      focusTestId: phase1LandingTestId("refresh"),
-      tabStops: [phase1LandingTestId("refresh")],
+      focusTestId: incidentLandingTestId("refresh"),
+      tabStops: [incidentLandingTestId("refresh")],
     });
 
     await safeUnroute(page, routePattern, routeHandler);
-    await page.getByTestId(phase1LandingTestId("refresh")).click();
-    await expect(page.getByTestId(phase1ErrorCodeTestId("landing"))).toHaveText(
+    await page.getByTestId(incidentLandingTestId("refresh")).click();
+    await expect(page.getByTestId(publicErrorCodeTestId("landing"))).toHaveText(
       "",
     );
   });
@@ -3883,7 +3889,7 @@ test.describe("FE-P1 accessibility readiness", () => {
       await new AuthGateway(page).login(email, password);
       await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
       await expect(
-        page.getByTestId(phase1RouteTestId("workbook-current-user")),
+        page.getByTestId(appRouteTestId("workbook-current-user")),
       ).toContainText("A11Y P1 Revoked");
       await sessionTracker.captureCurrentSession(page, {
         createdBy: "phase1 accessibility",
@@ -3899,26 +3905,26 @@ test.describe("FE-P1 accessibility readiness", () => {
       );
       await page.getByLabel("Account and application navigation").click();
       await page.getByRole("menuitem", { name: "Incidents" }).click();
-      await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+      await expect(page.getByTestId(authTestId("shell"))).toHaveAttribute(
         "data-bootstrap-state",
         "revoked",
       );
-      await expect(
-        page.getByTestId(phase1AuthTestId("shell-message")),
-      ).toContainText("Sign in again");
+      await expect(page.getByTestId(authTestId("shell-message"))).toContainText(
+        "Sign in again",
+      );
       await expectP1SurfaceA11y(page, {
-        focusTestId: phase1AuthTestId("login-submit"),
+        focusTestId: authTestId("login-submit"),
         tabStops: [
-          phase1AuthTestId("login-username"),
-          phase1AuthTestId("login-password"),
-          phase1AuthTestId("login-submit"),
+          authTestId("login-username"),
+          authTestId("login-password"),
+          authTestId("login-submit"),
         ],
       });
 
       await new AuthGateway(page).login(email, password);
       await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
       await expect(
-        page.getByTestId(phase1RouteTestId("workbook-current-user")),
+        page.getByTestId(appRouteTestId("workbook-current-user")),
       ).toContainText("A11Y P1 Revoked");
       await sessionTracker.captureCurrentSession(page, {
         createdBy: "phase1 accessibility",
@@ -3946,40 +3952,35 @@ test.describe("FE-P1 accessibility readiness", () => {
     await page.route(routePattern, routeHandler);
     await page.goto("/");
     await new AccountSettings(page).open("account-security");
-    await page.getByTestId(phase1AccountTestId("refresh-state")).focus();
-    await expectVisibleFocus(
-      page.getByTestId(phase1AccountTestId("refresh-state")),
-    );
-    await expect(page.getByTestId(phase1ErrorCodeTestId("account"))).toHaveText(
+    await page.getByTestId(accountTestId("refresh-state")).focus();
+    await expectVisibleFocus(page.getByTestId(accountTestId("refresh-state")));
+    await expect(page.getByTestId(publicErrorCodeTestId("account"))).toHaveText(
       "credential_state_unavailable",
     );
-    await expectAlertRole(page.getByTestId(phase1ErrorCodeTestId("account")));
+    await expectAlertRole(page.getByTestId(publicErrorCodeTestId("account")));
     await expectAlertRole(
-      page.getByTestId(phase1ErrorSummaryTestIds("account").container),
+      page.getByTestId(publicErrorSummaryTestIds("account").container),
     );
     await expect(
-      page.getByTestId(phase1ErrorSummaryTestIds("account").message),
+      page.getByTestId(publicErrorSummaryTestIds("account").message),
     ).toHaveText("Request failed.");
     await expect(
-      page.getByTestId(phase1ErrorSummaryTestIds("account").details),
+      page.getByTestId(publicErrorSummaryTestIds("account").details),
     ).toContainText("Reason: temporary_failure");
     await expect(
-      page.getByTestId(phase1ErrorSummaryTestIds("account").details),
+      page.getByTestId(publicErrorSummaryTestIds("account").details),
     ).toContainText("Field: credential_state");
     await expectNoPrivateDiagnostics(
-      page.getByTestId(phase1ErrorSummaryTestIds("account").container),
+      page.getByTestId(publicErrorSummaryTestIds("account").container),
     );
     await expectP1SurfaceA11y(page, {
-      focusTestId: phase1AccountTestId("refresh-state"),
-      tabStops: [
-        phase1AccountTestId("refresh-state"),
-        phase1AccountTestId("logout"),
-      ],
+      focusTestId: accountTestId("refresh-state"),
+      tabStops: [accountTestId("refresh-state"), accountTestId("logout")],
     });
 
     await safeUnroute(page, routePattern, routeHandler);
-    await page.getByTestId(phase1AccountTestId("refresh-state")).click();
-    await expect(page.getByTestId(phase1AccountTestId("status"))).toHaveText(
+    await page.getByTestId(accountTestId("refresh-state")).click();
+    await expect(page.getByTestId(accountTestId("status"))).toHaveText(
       "Refreshed account security.",
     );
   });

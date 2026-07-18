@@ -55,8 +55,8 @@ entrypoints, and app-shell tests. It should not own workbook internals.
 | `app/IncidentLanding.tsx` | Incident directory landing panel, search/filter controls, and create-incident dialog. |
 | `app/LandingAdminDisplay.tsx` | Shared display helpers for landing/admin panels. |
 | `app/LandingAdminLayout.tsx` | Landing and deployment-administration shell layout plus the account/application menu. |
-| `app/debug/Phase1Harness.tsx` | Phase 1 debug harness entrypoint for auth, account, and route readiness scenarios. |
-| `app/debug/Phase2Harness.tsx` | Phase 2 debug harness entrypoint for incident setup and preference scenarios. |
+| `app/debug/AuthenticationDebugHarness.tsx` | Authentication debug harness entrypoint for auth, account, and route readiness scenarios. |
+| `app/debug/IncidentDirectoryDebugHarness.tsx` | Incident-directory debug harness entrypoint for incident setup and preference scenarios. |
 | `app/referencePackAdminClient.ts` | Reference-pack administration HTTP client helpers. |
 | `app/referencePackAdminModel.ts` | Reference-pack administration resource, query, paging, and session-shape types. |
 | `app/ReferencePackAdminPanel.tsx` | Reference-pack administration panel UI for import, reload, cancellation, and job-status controls. |

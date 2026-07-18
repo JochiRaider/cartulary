@@ -245,7 +245,7 @@ INSERT INTO import_sessions (
     session_status, discovery_job_id, created_at, updated_at
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'created', $13, $14, $14)
-`, sessionID, params.Request.IncidentID, params.ActorUserID, params.Request.ClientTxnID, params.Request.AssistantProfile, params.SourceFileKind, params.OriginalFilename, params.SourceContentSHA256, params.SourceMediaType, params.SourceByteSize, ParserProfilePhase2WorkbookImport, ParserVersionPhase11, jobID, params.Now.UTC()); err != nil {
+`, sessionID, params.Request.IncidentID, params.ActorUserID, params.Request.ClientTxnID, params.Request.AssistantProfile, params.SourceFileKind, params.OriginalFilename, params.SourceContentSHA256, params.SourceMediaType, params.SourceByteSize, ParserProfileWorkbookImport, ParserVersionWorkbookImport, jobID, params.Now.UTC()); err != nil {
 		return CreateAcceptedSessionResult{}, err
 	}
 	previewRows, err := json.Marshal(params.Unit.PreviewRows)

@@ -83,7 +83,7 @@
       "selector": {
         "file": "apps/web/src/testing/selectorContractPolicy.test.ts",
         "titles": [
-          "selector contract policy rejects raw FE-P1 selector literals at helper-level selector sinks"
+          "selector contract policy rejects raw authentication selector literals at helper-level selector sinks"
         ]
       },
       "evidence_class": "static",

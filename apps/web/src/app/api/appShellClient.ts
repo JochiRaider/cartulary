@@ -384,7 +384,8 @@ export function beginTotpEnrollment(options: {
     authMode: options.authMode,
     bootstrapToken: options.bootstrapToken,
     body: {
-      client_txn_id: options.clientTxnId ?? clientTxnID("phase1-ui-totp-begin"),
+      client_txn_id:
+        options.clientTxnId ?? clientTxnID("authentication-ui-totp-begin"),
       ...(options.authMode === "session"
         ? {
             current_password: options.currentPassword ?? "",
@@ -412,7 +413,7 @@ export function completeTotpEnrollment(options: {
     bootstrapToken: options.bootstrapToken,
     body: {
       client_txn_id:
-        options.clientTxnId ?? clientTxnID("phase1-ui-totp-complete"),
+        options.clientTxnId ?? clientTxnID("authentication-ui-totp-complete"),
       enrollment_id: options.enrollmentId,
       code: options.code,
     },
@@ -434,7 +435,7 @@ export function changePassword(options: {
     method: "POST",
     body: JSON.stringify({
       client_txn_id:
-        options.clientTxnId ?? clientTxnID("phase1-ui-password-change"),
+        options.clientTxnId ?? clientTxnID("authentication-ui-password-change"),
       current_password: options.currentPassword,
       new_password: options.newPassword,
       second_factor: secondFactorPayload(options.secondFactorCode ?? ""),
@@ -457,7 +458,7 @@ export function createLocalUser(options: {
       method: "POST",
       body: JSON.stringify({
         client_txn_id:
-          options.clientTxnId ?? clientTxnID("phase1-ui-user-create"),
+          options.clientTxnId ?? clientTxnID("authentication-ui-user-create"),
         auth_kind: "local",
         email: options.email,
         display_name: options.displayName,
@@ -557,7 +558,8 @@ export function createEnterpriseAuthBinding(options: {
       body: JSON.stringify({
         base_user_version: options.baseUserVersion,
         client_txn_id:
-          options.clientTxnId ?? clientTxnID("phase1-ui-auth-binding-create"),
+          options.clientTxnId ??
+          clientTxnID("authentication-ui-auth-binding-create"),
         provider_key: options.providerKey,
         provider_subject: options.providerSubject,
         reason: options.reason,
@@ -585,7 +587,8 @@ export function rotateEnterpriseAuthBinding(options: {
       body: JSON.stringify({
         base_user_version: options.baseUserVersion,
         client_txn_id:
-          options.clientTxnId ?? clientTxnID("phase1-ui-auth-binding-rotate"),
+          options.clientTxnId ??
+          clientTxnID("authentication-ui-auth-binding-rotate"),
         new_provider_subject: options.newProviderSubject,
         reason: options.reason,
       }),
@@ -611,7 +614,8 @@ export function retireEnterpriseAuthBinding(options: {
       body: JSON.stringify({
         base_user_version: options.baseUserVersion,
         client_txn_id:
-          options.clientTxnId ?? clientTxnID("phase1-ui-auth-binding-retire"),
+          options.clientTxnId ??
+          clientTxnID("authentication-ui-auth-binding-retire"),
         reason: options.reason,
       }),
     },
@@ -633,7 +637,8 @@ export function adminResetPassword(options: {
       body: JSON.stringify({
         base_user_version: options.baseUserVersion,
         client_txn_id:
-          options.clientTxnId ?? clientTxnID("phase1-ui-password-reset"),
+          options.clientTxnId ??
+          clientTxnID("authentication-ui-password-reset"),
         new_password: options.newPassword,
         reason: options.reason,
       }),
@@ -655,7 +660,7 @@ export function adminResetTotp(options: {
       body: JSON.stringify({
         base_user_version: options.baseUserVersion,
         client_txn_id:
-          options.clientTxnId ?? clientTxnID("phase1-ui-totp-reset"),
+          options.clientTxnId ?? clientTxnID("authentication-ui-totp-reset"),
         reason: options.reason,
       }),
     },
@@ -677,7 +682,7 @@ export function adminRevokeAllSessions(options: {
       method: "POST",
       body: JSON.stringify({
         client_txn_id:
-          options.clientTxnId ?? clientTxnID("phase1-ui-revoke-all"),
+          options.clientTxnId ?? clientTxnID("authentication-ui-revoke-all"),
         reason: options.reason,
       }),
     },

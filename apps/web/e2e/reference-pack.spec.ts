@@ -1,5 +1,5 @@
 import {
-  phase1LandingTestId,
+  incidentLandingTestId,
   referencePackAdminPanelTestId,
   referencePackCancelButtonTestId,
   referencePackJobStatusTestId,
@@ -71,15 +71,15 @@ test("shows Reference Pack progress and cancel controls without blocking landing
   );
 
   await new IncidentDirectory(page).open();
-  await page.getByTestId(phase1LandingTestId("create-open-button")).click();
+  await page.getByTestId(incidentLandingTestId("create-open-button")).click();
   await expect(
-    page.getByTestId(phase1LandingTestId("incident-key")),
+    page.getByTestId(incidentLandingTestId("incident-key")),
   ).toBeVisible();
   await page
-    .getByTestId(phase1LandingTestId("incident-key"))
+    .getByTestId(incidentLandingTestId("incident-key"))
     .fill("IR-E-11-01");
   await expect(
-    page.getByTestId(phase1LandingTestId("incident-key")),
+    page.getByTestId(incidentLandingTestId("incident-key")),
   ).toHaveValue("IR-E-11-01");
   await page.getByRole("button", { name: "Close new incident" }).click();
 

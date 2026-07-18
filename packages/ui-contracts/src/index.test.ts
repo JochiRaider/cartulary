@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import * as uiContracts from "./index";
 import {
   accountTestId,
   appRouteTestId,
@@ -13,6 +14,13 @@ import {
   currentIncidentRoleTestId,
   dataTestIdPrefixSelector,
   dataTestIdSelector,
+  debugIncidentRowTestId,
+  debugMembershipDeleteButtonTestId,
+  debugMembershipPatchButtonTestId,
+  debugMembershipRoleInputTestId,
+  debugMembershipRowTestId,
+  debugMembershipVersionTestId,
+  debugSelectIncidentButtonTestId,
   deploymentAdminTestId,
   deploymentUserRowTestId,
   draftCellTestId,
@@ -92,20 +100,6 @@ import {
   pendingQueueNoticeTestId,
   pendingQueueRecoveryPanelTestId,
   pendingQueueRetryButtonTestId,
-  phase1AccountTestId,
-  phase1AdminTestId,
-  phase1AuthTestId,
-  phase1ErrorCodeTestId,
-  phase1ErrorSummaryTestIds,
-  phase1LandingTestId,
-  phase1RouteTestId,
-  phase2IncidentRowTestId,
-  phase2MembershipDeleteButtonTestId,
-  phase2MembershipPatchButtonTestId,
-  phase2MembershipRoleInputTestId,
-  phase2MembershipRowTestId,
-  phase2MembershipVersionTestId,
-  phase2SelectIncidentButtonTestId,
   publicErrorCodeTestId,
   publicErrorSummaryTestIds,
   referencePackAdminPanelTestId,
@@ -1131,20 +1125,20 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
         ["roleDisplay", "incident-membership-role-user-2"],
       ],
     );
-    expect(phase2IncidentRowTestId("incident-2")).toBe(
+    expect(debugIncidentRowTestId("incident-2")).toBe(
       "incident-row-incident-2",
     );
-    expect(phase2SelectIncidentButtonTestId("incident-2")).toBe(
+    expect(debugSelectIncidentButtonTestId("incident-2")).toBe(
       "select-incident-incident-2",
     );
     expectSelectorCases<"delete" | "patch" | "roleInput" | "row" | "version">(
       (control) => {
         const testIdFor = {
-          row: phase2MembershipRowTestId,
-          roleInput: phase2MembershipRoleInputTestId,
-          version: phase2MembershipVersionTestId,
-          patch: phase2MembershipPatchButtonTestId,
-          delete: phase2MembershipDeleteButtonTestId,
+          row: debugMembershipRowTestId,
+          roleInput: debugMembershipRoleInputTestId,
+          version: debugMembershipVersionTestId,
+          patch: debugMembershipPatchButtonTestId,
+          delete: debugMembershipDeleteButtonTestId,
         }[control];
         return testIdFor("user-2");
       },
@@ -1162,7 +1156,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
   });
 
   it("provides stable authentication bootstrap, landing, session, admin, and error selectors", () => {
-    expectSelectorCases(phase1AuthTestId, [
+    expectSelectorCases(authTestId, [
       ["shell", "auth-shell"],
       ["shell-message", "auth-shell-message"],
       ["status", "auth-status"],
@@ -1178,7 +1172,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       ["bootstrap-complete", "auth-bootstrap-complete"],
     ]);
 
-    expectSelectorCases(phase1LandingTestId, [
+    expectSelectorCases(incidentLandingTestId, [
       ["shell", "incident-landing"],
       ["current-user", "landing-current-user"],
       ["refresh", "landing-refresh"],
@@ -1209,7 +1203,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       "deployment-user-row-user%3A1",
     );
 
-    expectSelectorCases(phase1RouteTestId, [
+    expectSelectorCases(appRouteTestId, [
       ["app-shell", "app-shell"],
       ["workbook-current-user", "workbook-current-user"],
       ["workbook-loading", "workbook-loading"],
@@ -1217,7 +1211,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       ["debug-harness-shell", "debug-harness-shell"],
     ]);
 
-    expectSelectorCases(phase1AccountTestId, [
+    expectSelectorCases(accountTestId, [
       ["refresh-state", "account-refresh-state"],
       ["logout", "account-logout"],
       ["session-user-id", "account-session-user-id"],
@@ -1254,7 +1248,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       ["status", "account-status"],
     ]);
 
-    expectSelectorCases(phase1AdminTestId, [
+    expectSelectorCases(deploymentAdminTestId, [
       ["access-note", "admin-access-note"],
       ["create-email", "admin-create-email"],
       ["create-display-name", "admin-create-display-name"],
@@ -1285,48 +1279,51 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       ["status", "admin-status"],
     ]);
 
-    expect(phase1ErrorCodeTestId("auth")).toBe("auth-error-code");
-    expect(phase1ErrorSummaryTestIds("auth")).toEqual({
+    expect(publicErrorCodeTestId("auth")).toBe("auth-error-code");
+    expect(publicErrorSummaryTestIds("auth")).toEqual({
       container: "auth-error-public",
       details: "auth-error-details",
       message: "auth-error-message",
     });
-    expect(phase1ErrorCodeTestId("account")).toBe("account-error-code");
-    expect(phase1ErrorSummaryTestIds("account")).toEqual({
+    expect(publicErrorCodeTestId("account")).toBe("account-error-code");
+    expect(publicErrorSummaryTestIds("account")).toEqual({
       container: "account-error-public",
       details: "account-error-details",
       message: "account-error-message",
     });
-    expect(phase1ErrorCodeTestId("admin")).toBe("admin-error-code");
-    expect(phase1ErrorSummaryTestIds("admin")).toEqual({
+    expect(publicErrorCodeTestId("admin")).toBe("admin-error-code");
+    expect(publicErrorSummaryTestIds("admin")).toEqual({
       container: "admin-error-public",
       details: "admin-error-details",
       message: "admin-error-message",
     });
-    expect(phase1ErrorCodeTestId("landing")).toBe("landing-error-code");
-    expect(phase1ErrorSummaryTestIds("landing")).toEqual({
+    expect(publicErrorCodeTestId("landing")).toBe("landing-error-code");
+    expect(publicErrorSummaryTestIds("landing")).toEqual({
       container: "landing-error-public",
       details: "landing-error-details",
       message: "landing-error-message",
     });
   });
 
-  it("keeps semantic selector helpers byte-identical to phase evidence aliases", () => {
-    expect(authTestId("login-submit")).toBe(phase1AuthTestId("login-submit"));
-    expect(accountTestId("profile-save")).toBe(
-      phase1AccountTestId("profile-save"),
-    );
-    expect(deploymentAdminTestId("create-user")).toBe(
-      phase1AdminTestId("create-user"),
-    );
-    expect(incidentLandingTestId("incident-list")).toBe(
-      phase1LandingTestId("incident-list"),
-    );
-    expect(appRouteTestId("app-shell")).toBe(phase1RouteTestId("app-shell"));
-    expect(publicErrorCodeTestId("auth")).toBe(phase1ErrorCodeTestId("auth"));
-    expect(publicErrorSummaryTestIds("landing")).toEqual(
-      phase1ErrorSummaryTestIds("landing"),
-    );
+  it("does not export delivery-phase selector aliases", () => {
+    for (const alias of [
+      "phase1AccountTestId",
+      "phase1AdminTestId",
+      "phase1AuthTestId",
+      "phase1ErrorCodeTestId",
+      "phase1ErrorSummaryTestIds",
+      "phase1LandingTestId",
+      "phase1RouteTestId",
+      "phase2IncidentRowTestId",
+      "phase2MembershipDeleteButtonTestId",
+      "phase2MembershipPatchButtonTestId",
+      "phase2MembershipRoleInputTestId",
+      "phase2MembershipRowTestId",
+      "phase2MembershipVersionTestId",
+      "phase2SelectIncidentButtonTestId",
+    ]) {
+      expect(alias in uiContracts, alias).toBe(false);
+    }
   });
 
   it("keeps authentication selector identity on semantic state and stable field identifiers", () => {
@@ -1343,17 +1340,17 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       { field: "login-username" as const, label: "Email address" },
     ];
 
-    expect(phase1AccountTestId(renamedSession.field)).toBe(
-      phase1AccountTestId(relabeledSession.field),
+    expect(accountTestId(renamedSession.field)).toBe(
+      accountTestId(relabeledSession.field),
     );
     expect(
-      phase1AuthTestId(
+      authTestId(
         authControls.find((control) => control.label === "Email address")
           ?.field ?? "login-password",
       ),
     ).toBe("auth-login-username");
     expect(
-      phase1AuthTestId(
+      authTestId(
         [...authControls]
           .reverse()
           .find((control) => control.field === "login-username")?.field ??
@@ -1366,17 +1363,17 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
   });
 
   it("rejects invalid authentication selector vocabularies", () => {
-    expect(() => phase1AuthTestId("username" as never)).toThrow(
-      "Invalid phase1 auth selector token: username",
+    expect(() => authTestId("username" as never)).toThrow(
+      "Invalid auth selector token: username",
     );
-    expect(() => phase1AccountTestId("user-id" as never)).toThrow(
-      "Invalid phase1 account selector token: user-id",
+    expect(() => accountTestId("user-id" as never)).toThrow(
+      "Invalid account selector token: user-id",
     );
-    expect(() => phase1AdminTestId("target-user" as never)).toThrow(
-      "Invalid phase1 admin selector token: target-user",
+    expect(() => deploymentAdminTestId("target-user" as never)).toThrow(
+      "Invalid deployment admin selector token: target-user",
     );
-    expect(() => phase1LandingTestId("incident-card" as never)).toThrow(
-      "Invalid phase1 landing selector token: incident-card",
+    expect(() => incidentLandingTestId("incident-card" as never)).toThrow(
+      "Invalid incident landing selector token: incident-card",
     );
     expect(() => landingAdminShellTestId("tabs" as never)).toThrow(
       "Invalid landing admin shell selector token: tabs",
@@ -1384,11 +1381,11 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(() => landingAdminMenuItemTestId("users" as never)).toThrow(
       "Invalid landing admin panel token: users",
     );
-    expect(() => phase1RouteTestId("shell" as never)).toThrow(
-      "Invalid phase1 route selector token: shell",
+    expect(() => appRouteTestId("shell" as never)).toThrow(
+      "Invalid app route selector token: shell",
     );
-    expect(() => phase1ErrorCodeTestId("session" as never)).toThrow(
-      "Invalid phase1 error surface selector token: session",
+    expect(() => publicErrorCodeTestId("session" as never)).toThrow(
+      "Invalid public error surface selector token: session",
     );
   });
 

@@ -538,7 +538,7 @@
     {
       "target": "frontend-unit",
       "file": "apps/web/src/testing/selectorContractPolicy.test.ts",
-      "title": "rejects raw FE-P1 selector literals at helper-level selector sinks",
+      "title": "rejects raw authentication selector literals at helper-level selector sinks",
       "coverage": "tooling_support",
       "reason": "Shared selector and workbook test helper checks support the frontend harness without claiming product conformance rows."
     },
@@ -1610,7 +1610,7 @@
     {
       "target": "frontend-unit",
       "file": "packages/ui-contracts/src/index.test.ts",
-      "title": "keeps semantic selector helpers byte-identical to phase evidence aliases",
+      "title": "does not export delivery-phase selector aliases",
       "coverage": "tooling_support",
       "reason": "Semantic selector alias equivalence is production/test boundary support and does not add a product conformance claim."
     },

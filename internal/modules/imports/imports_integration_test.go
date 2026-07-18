@@ -109,7 +109,7 @@ func TestExtensionImportUploadExactReplayAndReadResources(t *testing.T) {
 	if session["source_file_kind"] != imports.SourceFileKindCSV || session["original_filename"] != "first.csv" || session["session_status"] != "discovered" {
 		t.Fatalf("unexpected import session resource: %#v", session)
 	}
-	if session["parser_profile_id"] != imports.ParserProfilePhase2WorkbookImport || session["parser_version"] != imports.ParserVersionPhase11 {
+	if session["parser_profile_id"] != imports.ParserProfileWorkbookImport || session["parser_version"] != imports.ParserVersionWorkbookImport {
 		t.Fatalf("unexpected parser provenance: %#v", session)
 	}
 
@@ -748,8 +748,8 @@ func requireTimelineImportRawCapture(t testing.TB, db *sql.DB, recordID string, 
 		"import_session_id":     sessionID,
 		"import_unit_id":        unitID,
 		"source_file_kind":      imports.SourceFileKindCSV,
-		"parser_profile_id":     imports.ParserProfilePhase2WorkbookImport,
-		"parser_version":        imports.ParserVersionPhase11,
+		"parser_profile_id":     imports.ParserProfileWorkbookImport,
+		"parser_version":        imports.ParserVersionWorkbookImport,
 		"locator_kind":          "csv_file",
 		"locator":               "file",
 		"source_rect_a1":        sourceRect,

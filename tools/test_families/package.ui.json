@@ -83,7 +83,7 @@
       "selector": {
         "file": "packages/ui-contracts/src/index.test.ts",
         "titles": [
-          "@cartulary/ui-contracts workbook row selectors keeps semantic selector helpers byte-identical to phase evidence aliases"
+          "@cartulary/ui-contracts workbook row selectors does not export delivery-phase selector aliases"
         ]
       },
       "evidence_class": "static",

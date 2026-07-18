@@ -1,4 +1,4 @@
-import { phase1AccountTestId, phase1AuthTestId } from "@cartulary/ui-contracts";
+import { accountTestId, authTestId } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { AccountSettings } from "./pages/accountSettings";
@@ -35,9 +35,7 @@ test("advances the shared clock past idle expiry and requires a fresh login afte
   await new AuthGateway(page).goto();
   await new AuthGateway(page).login(email, password);
   await new AccountSettings(page).open("account-security");
-  await expect(
-    page.getByTestId(phase1AccountTestId("refresh-state")),
-  ).toBeVisible();
+  await expect(page.getByTestId(accountTestId("refresh-state"))).toBeVisible();
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
     email,
@@ -60,18 +58,14 @@ test("advances the shared clock past idle expiry and requires a fresh login afte
       new AccountSettings(page).refresh(),
     ]);
     expect(sessionResponse.status()).toBe(401);
-    await expect(
-      page.getByTestId(phase1AuthTestId("login-username")),
-    ).toBeVisible();
+    await expect(page.getByTestId(authTestId("login-username"))).toBeVisible();
   } finally {
     await testClock.reset();
   }
 
   await new AuthGateway(page).login(email, password);
   await new AccountSettings(page).open("account-security");
-  await expect(
-    page.getByTestId(phase1AccountTestId("refresh-state")),
-  ).toBeVisible();
+  await expect(page.getByTestId(accountTestId("refresh-state"))).toBeVisible();
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
     email,

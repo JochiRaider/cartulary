@@ -57,16 +57,18 @@ const appLocalSelectorOwnership = [
     owner: "apps/web incident administration",
     pattern: /^incident-(?:admin|summary|pref|patch|lifecycle|close|reopen)-/u,
     reason:
-      "Incident admin selectors are app-local to the incident admin panel and phase 2 coverage.",
-    scope: "apps/web IncidentAdminPanel and phase2 browser coverage",
+      "Incident admin selectors are app-local to the incident admin panel and incident-directory coverage.",
+    scope:
+      "apps/web IncidentAdminPanel and incident-directory browser coverage",
   },
   {
     owner: "apps/web phase harnesses",
     pattern:
-      /^(?:phase1-|phase2-|session-|create-|probe-|current-incident-(?:id|key|title|version)$|patch-|incident-discovery$|default-workbook-pref$|user-workbook-pref$|membership-|reload-extensions$|extensions-list$|last-)/u,
+      /^(?:authentication-debug-|incident-directory-debug-|session-|create-|probe-|current-incident-(?:id|key|title|version)$|patch-|incident-discovery$|default-workbook-pref$|user-workbook-pref$|membership-|reload-extensions$|extensions-list$|last-)/u,
     reason:
       "Debug phase harness selectors are retained app-local harness controls, not shared product selectors.",
-    scope: "apps/web Phase1Harness, Phase2Harness, and phase support specs",
+    scope:
+      "apps/web AuthenticationDebugHarness, IncidentDirectoryDebugHarness, and phase support specs",
   },
   {
     owner: "apps/web timeline workbook surface",
@@ -79,7 +81,7 @@ const appLocalSelectorOwnership = [
   {
     owner: "apps/web row fixture controls",
     pattern:
-      /^(?:row-record-1-(?:mark-reviewed|replacement-id|supersede)|phase8-row-record-[12])$/u,
+      /^(?:row-record-1-(?:mark-reviewed|replacement-id|supersede)|saved-view-row-record-[12])$/u,
     reason:
       "These fixed row selector literals target a unit-test fixture; variable row selector construction remains builder-owned.",
     scope: "apps/web Timeline autosave unit fixture",
@@ -96,13 +98,14 @@ const appLocalSelectorOwnership = [
     pattern: /^(?:conflict-|paste-conflict-)/u,
     reason:
       "Conflict resolver selectors are retained app-local controls until the FE-P7 conflict surface is promoted.",
-    scope: "apps/web WorkbookShell conflict resolver and phase 6/9 coverage",
+    scope:
+      "apps/web WorkbookShell conflict resolver and collaboration and inspector coverage",
   },
   {
     owner: "apps/web entity merge and inspector controls",
     pattern: /^(?:merge-|host-inspector$|identity-inspector$)/u,
     reason:
-      "Entity merge selectors are app-local workflow controls for existing phase 4 coverage.",
+      "Entity merge selectors are app-local workflow controls for existing entity workflow coverage.",
     scope: "apps/web entity inspector merge controls and browser specs",
   },
   {
@@ -117,13 +120,13 @@ const appLocalSelectorOwnership = [
     pattern: /^generic-/u,
     reason:
       "Generic system-view mutation selectors are app-local controls until reusable builders are introduced per surface.",
-    scope: "apps/web generic mutation UI and phase 9 coverage",
+    scope: "apps/web generic mutation UI and workbook-inspector coverage",
   },
   {
     owner: "apps/web coordination controls",
     pattern: /^(?:party-link-|task-lifecycle-|decision-supersede-)/u,
     reason:
-      "Coordination workflow selectors are app-local controls for current phase 9 browser coverage.",
+      "Coordination workflow selectors are app-local controls for current workbook-inspector browser coverage.",
     scope: "apps/web coordination generic mutation controls",
   },
   {
@@ -177,24 +180,24 @@ const callSelectorSinks = [
   },
   {
     argumentIndex: 0,
-    kind: "Phase1Page.requireText literal",
+    kind: "AuthGateway.requireText literal",
     names: ["requireText"],
   },
   {
     argumentIndex: 0,
-    kind: "Phase1Page.setCheckbox literal",
+    kind: "AuthGateway.setCheckbox literal",
     names: ["setCheckbox"],
   },
 ] as const;
 
 const objectSelectorSinks = [
   {
-    kind: "P1 accessibility focusTestId literal",
+    kind: "Authentication accessibility focusTestId literal",
     mode: "single",
     name: "focusTestId",
   },
   {
-    kind: "P1 accessibility tabStops literal",
+    kind: "Authentication accessibility tabStops literal",
     mode: "array",
     name: "tabStops",
   },
@@ -556,7 +559,7 @@ describe("selector contract policy", () => {
       expect(appLocalOwnershipFor(token), token).toBeNull();
     }
 
-    expect(appLocalOwnershipFor("phase1-debug-request")).not.toBeNull();
+    expect(appLocalOwnershipFor("authentication-debug-request")).not.toBeNull();
     expect(appLocalOwnershipFor("incident-patch-button")).not.toBeNull();
     expect(appLocalOwnershipFor("workbook-focus-anchor")).not.toBeNull();
   });
@@ -577,12 +580,12 @@ describe("selector contract policy", () => {
     expect(violations).toEqual([]);
   });
 
-  it("rejects raw FE-P1 selector literals at helper-level selector sinks", () => {
+  it("rejects raw authentication selector literals at helper-level selector sinks", () => {
     const violations = collectSelectorPolicyViolations(
       "apps/web/e2e/raw-helper-fixture.ts",
       `
-        phase1.requireText("auth-bootstrap-secret-base32");
-        phase1.setCheckbox("admin-patch-is-active", false);
+        authGateway.requireText("auth-bootstrap-secret-base32");
+        authGateway.setCheckbox("admin-patch-is-active", false);
         await expectP1SurfaceA11y(page, {
           focusTestId: "auth-login-submit",
           tabStops: ["landing-refresh"],
@@ -592,16 +595,16 @@ describe("selector contract policy", () => {
 
     expect(violations).toEqual([
       expect.stringContaining(
-        'Phase1Page.requireText literal for shared selector "auth-bootstrap-secret-base32"',
+        'AuthGateway.requireText literal for shared selector "auth-bootstrap-secret-base32"',
       ),
       expect.stringContaining(
-        'Phase1Page.setCheckbox literal for shared selector "admin-patch-is-active"',
+        'AuthGateway.setCheckbox literal for shared selector "admin-patch-is-active"',
       ),
       expect.stringContaining(
-        'P1 accessibility focusTestId literal for shared selector "auth-login-submit"',
+        'Authentication accessibility focusTestId literal for shared selector "auth-login-submit"',
       ),
       expect.stringContaining(
-        'P1 accessibility tabStops literal for shared selector "landing-refresh"',
+        'Authentication accessibility tabStops literal for shared selector "landing-refresh"',
       ),
     ]);
   });

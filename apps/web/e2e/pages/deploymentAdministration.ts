@@ -1,4 +1,5 @@
 import {
+  deploymentAdminTestId,
   deploymentUserRowTestId,
   type IncidentControlsSection,
   incidentControlsMenuItemTestId,
@@ -8,7 +9,6 @@ import {
   incidentControlsTriggerTestId,
   type LandingAdminPanelToken,
   landingAdminMenuItemTestId,
-  phase1AdminTestId,
   type StableTestId,
 } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
@@ -78,31 +78,33 @@ export class DeploymentAdministration {
     password: string;
   }) {
     await this.selectPanel("deployment-users");
-    await this.page.getByTestId(phase1AdminTestId("create-user")).click();
+    await this.page.getByTestId(deploymentAdminTestId("create-user")).click();
     await this.page
-      .getByTestId(phase1AdminTestId("create-email"))
+      .getByTestId(deploymentAdminTestId("create-email"))
       .fill(options.email);
     await this.page
-      .getByTestId(phase1AdminTestId("create-display-name"))
+      .getByTestId(deploymentAdminTestId("create-display-name"))
       .fill(options.displayName);
     await this.page
-      .getByTestId(phase1AdminTestId("create-password"))
+      .getByTestId(deploymentAdminTestId("create-password"))
       .fill(options.password);
     await this.setCheckbox(
-      phase1AdminTestId("create-mfa-required"),
+      deploymentAdminTestId("create-mfa-required"),
       options.mfaRequired ?? true,
     );
     await this.setCheckbox(
-      phase1AdminTestId("create-is-deployment-admin"),
+      deploymentAdminTestId("create-is-deployment-admin"),
       options.isDeploymentAdmin ?? false,
     );
-    await this.page.getByTestId(phase1AdminTestId("create-user")).click();
+    await this.page.getByTestId(deploymentAdminTestId("create-user")).click();
   }
 
   async loadTargetUser(userId: string) {
     await this.selectPanel("deployment-users");
     const targetPath = `/api/v1/users/${userId}`;
-    const userFilter = this.page.getByTestId(phase1AdminTestId("user-filter"));
+    const userFilter = this.page.getByTestId(
+      deploymentAdminTestId("user-filter"),
+    );
     const previousFilter = await userFilter.inputValue();
     const listResponsePromise =
       previousFilter === userId
@@ -131,14 +133,14 @@ export class DeploymentAdministration {
     ]);
     expect(response.ok()).toBeTruthy();
     await expect(
-      this.page.getByTestId(phase1AdminTestId("target-user-id")),
+      this.page.getByTestId(deploymentAdminTestId("target-user-id")),
     ).toHaveText(userId);
     await expect
       .poll(
         async () =>
           (
             await this.page
-              .getByTestId(phase1AdminTestId("target-user-version"))
+              .getByTestId(deploymentAdminTestId("target-user-version"))
               .textContent()
           )?.trim() ?? "",
       )
@@ -146,7 +148,7 @@ export class DeploymentAdministration {
   }
 
   async patchTargetUser() {
-    await this.page.getByTestId(phase1AdminTestId("patch-user")).click();
+    await this.page.getByTestId(deploymentAdminTestId("patch-user")).click();
   }
 
   async setCheckbox(testId: StableTestId, checked: boolean) {

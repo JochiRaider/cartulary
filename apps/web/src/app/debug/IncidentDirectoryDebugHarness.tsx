@@ -1,12 +1,12 @@
 import {
+  debugIncidentRowTestId,
+  debugMembershipDeleteButtonTestId,
+  debugMembershipPatchButtonTestId,
+  debugMembershipRoleInputTestId,
+  debugMembershipRowTestId,
+  debugMembershipVersionTestId,
+  debugSelectIncidentButtonTestId,
   extensionProfileRowTestId,
-  phase2IncidentRowTestId,
-  phase2MembershipDeleteButtonTestId,
-  phase2MembershipPatchButtonTestId,
-  phase2MembershipRoleInputTestId,
-  phase2MembershipRowTestId,
-  phase2MembershipVersionTestId,
-  phase2SelectIncidentButtonTestId,
 } from "@cartulary/ui-contracts";
 import { type CSSProperties, useCallback, useEffect, useState } from "react";
 import {
@@ -76,7 +76,11 @@ function prettyJSON(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
-export function Phase2Harness({ apiBase }: { apiBase?: string }) {
+export function IncidentDirectoryDebugHarness({
+  apiBase,
+}: {
+  apiBase?: string;
+}) {
   const [session, setSession] = useState<SessionData | null>(null);
   const [sessionError, setSessionError] = useState<APIError | null>(null);
   const [incidents, setIncidents] = useState<IncidentData[]>([]);
@@ -259,7 +263,7 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
       {
         method: "POST",
         body: JSON.stringify({
-          client_txn_id: clientTxnID("phase2-ui-create"),
+          client_txn_id: clientTxnID("incident-directory-debug-ui-create"),
           incident_key: createIncidentKey,
           title: createIncidentTitle,
         }),
@@ -322,7 +326,7 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
       {
         method: "POST",
         body: JSON.stringify({
-          client_txn_id: clientTxnID("phase2-ui-membership"),
+          client_txn_id: clientTxnID("incident-directory-debug-ui-membership"),
           email: membershipEmail,
           role: membershipRole,
         }),
@@ -418,7 +422,7 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
     <section style={shellStyle}>
       <header style={sectionHeaderStyle}>
         <div>
-          <p style={eyebrowStyle}>Phase 2 Harness</p>
+          <p style={eyebrowStyle}>Incident Directory Harness</p>
           <h1 style={headlineStyle}>Incident control envelope</h1>
           <p style={bodyStyle}>
             Browser-visible create, discovery, patch, membership admin, workbook
@@ -427,7 +431,9 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
         </div>
         <div style={statusCardStyle}>
           <span style={labelStyle}>Status</span>
-          <strong data-testid="phase2-status">{statusText}</strong>
+          <strong data-testid="incident-directory-debug-status">
+            {statusText}
+          </strong>
         </div>
       </header>
 
@@ -511,7 +517,9 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
                 {
                   method: "POST",
                   body: JSON.stringify({
-                    client_txn_id: clientTxnID("phase2-ui-invalid-create"),
+                    client_txn_id: clientTxnID(
+                      "incident-directory-debug-ui-invalid-create",
+                    ),
                     incident_key: "IR-PROBE-CREATE",
                     title: "Invalid",
                     initial_memberships: [],
@@ -534,7 +542,7 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
                   method: "POST",
                   body: JSON.stringify({
                     client_txn_id: clientTxnID(
-                      "phase2-ui-invalid-create-unknown",
+                      "incident-directory-debug-ui-invalid-create-unknown",
                     ),
                     incident_key: "IR-PROBE-CREATE",
                     title: "Invalid",
@@ -568,7 +576,7 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
               {incidents.map((incident) => (
                 <tr key={incident.incident_id}>
                   <td
-                    data-testid={phase2IncidentRowTestId(incident.incident_id)}
+                    data-testid={debugIncidentRowTestId(incident.incident_id)}
                   >
                     {incident.incident_key}
                   </td>
@@ -576,7 +584,7 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
                   <td>{incident.incident_version}</td>
                   <td>
                     <button
-                      data-testid={phase2SelectIncidentButtonTestId(
+                      data-testid={debugSelectIncidentButtonTestId(
                         incident.incident_id,
                       )}
                       style={secondaryButtonStyle}
@@ -782,7 +790,7 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
                   {memberships.map((membership) => (
                     <tr key={membership.user_id}>
                       <td
-                        data-testid={phase2MembershipRowTestId(
+                        data-testid={debugMembershipRowTestId(
                           membership.user_id,
                         )}
                       >
@@ -790,7 +798,7 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
                       </td>
                       <td>
                         <select
-                          data-testid={phase2MembershipRoleInputTestId(
+                          data-testid={debugMembershipRoleInputTestId(
                             membership.user_id,
                           )}
                           style={inputStyle}
@@ -812,7 +820,7 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
                         </select>
                       </td>
                       <td
-                        data-testid={phase2MembershipVersionTestId(
+                        data-testid={debugMembershipVersionTestId(
                           membership.user_id,
                         )}
                       >
@@ -820,7 +828,7 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
                       </td>
                       <td style={actionRowStyle}>
                         <button
-                          data-testid={phase2MembershipPatchButtonTestId(
+                          data-testid={debugMembershipPatchButtonTestId(
                             membership.user_id,
                           )}
                           style={secondaryButtonStyle}
@@ -832,7 +840,7 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
                           Patch
                         </button>
                         <button
-                          data-testid={phase2MembershipDeleteButtonTestId(
+                          data-testid={debugMembershipDeleteButtonTestId(
                             membership.user_id,
                           )}
                           style={dangerButtonStyle}

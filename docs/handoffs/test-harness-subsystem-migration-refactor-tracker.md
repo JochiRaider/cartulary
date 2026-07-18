@@ -10,9 +10,9 @@
 | Baseline branch | `revision/grid-adapter` |
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
-| Tracker state | `IN_PROGRESS` — WS-06 semantic source and fixture names |
-| Active start | Clean tree at `4cf06958b46649f76d79f1232379beb2738dc201` |
-| Active tasks | T-030 |
+| Tracker state | `READY` — WS-06 complete; WS-07 not started |
+| Active start | None; last completed checkpoint started from clean tree at `86fc4b877464` |
+| Active tasks | None |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -478,6 +478,8 @@ WS-00 records delivery-phase-shaped authored production paths and symbols withou
 
 These follow-ups do not block harness completion unless the old production identity remains part of a live test row, public harness interface, selector, artifact identity, or generated topology.
 
+WS-06 closure is recorded in `tools/delivery_identity_followup_ledger.json`. It gives all 13 frozen follow-ups, three additional live helper paths, two symbols, and four retained product protocol identifiers explicit owner dispositions. The executable closure check requires every renamed path to be absent, every semantic replacement to exist, every retained protocol identifier to resolve exactly once without entering catalog selectors, and the repository path scan to contain no unclassified delivery-shaped identity.
+
 ## 11. Dependency-ordered workstreams
 
 ### 11.1 Workstream summary
@@ -490,7 +492,7 @@ These follow-ups do not block harness completion unless the old production ident
 | WS-03 | Build unified test catalog | DONE | WS-01, WS-02 | Registry/manifests loader and catalog checks | Revert catalog stack; old catalog remains authoritative only before cutover. |
 | WS-04 | Migrate backend rows | DONE | WS-03 | 456 backend dispositions and focused tests | Revert complete owner slices, never individual aliases. |
 | WS-05 | Migrate frontend rows | DONE | WS-03 | 87 frontend dispositions and browser accounting tests | Revert complete owner slices with fixture metadata. |
-| WS-06 | Rename tests, symbols, fixtures, and goldens | IN_PROGRESS | WS-04, WS-05 | Semantic scan and visual digest report | Revert complete rename slices; no duplicate old/new tests. |
+| WS-06 | Rename tests, symbols, fixtures, and goldens | DONE | WS-04, WS-05 | Semantic scan, visual digest report, and production follow-up closure ledger | Revert complete rename slices; no duplicate old/new tests. |
 | WS-07 | Replace slice, audit, schema, and artifact APIs | TODO | WS-03–WS-06 | Successor CLI contract/smoke tests | Revert the whole interface checkpoint before atomic cutover. |
 | WS-08 | Migrate browser stages and scheduler topology | TODO | WS-05, WS-07 | Owner-based DAG, lifecycle, and browser tests | Revert authored topology and generated outputs together. |
 | WS-09 | Update task surface, generation, finalization, and baselines | TODO | WS-07, WS-08 | Generated surface/drift and fresh baseline plan | Revert owner inputs plus regenerated outputs together. |
@@ -714,7 +716,7 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-028 | Rename Go test identities | WS-06 | DONE | T-022 | 102 path, 632 test-entry, and 333 helper-declaration renames; catalog reconciliation; semantic scan; 1,295-test fast suite | No delivery-phase Go test identity remains. |
 | T-029 | Rename Vitest/Playwright identities | WS-06 | DONE | T-022,T-027 | 53 path renames; semantic source/catalog scan; frontend and harness gates | No delivery-phase frontend test identity remains. |
 | T-030 | Rename fixtures/scenarios/goldens | WS-06 | DONE | T-027 | 56 visual and 15 diagnostic golden moves, digest report, and 29-scenario visual run | Paths are semantic and bytes preserved. |
-| T-031 | Close production follow-up classifications | WS-06 | IN_PROGRESS | T-007,T-028,T-029 | Follow-up ledger | Every remaining match has owner/disposition. |
+| T-031 | Close production follow-up classifications | WS-06 | DONE | T-007,T-028,T-029 | 16-path/2-symbol/4-protocol follow-up ledger and zero-match scan | Every remaining match has owner/disposition. |
 | T-032 | Implement owner-slice planning/execution | WS-07 | TODO | T-015,T-022,T-027 | CLI/smoke tests | Both successor slice targets work. |
 | T-033 | Implement owner diagnostics/task guide | WS-07 | TODO | T-032 | Text/JSON contract tests | Commands report exact owner topology. |
 | T-034 | Implement owner evidence accounting/audit | WS-07 | TODO | T-032 | Audit fixtures | Fresh compatible evidence reconciles. |
@@ -1088,6 +1090,20 @@ Each entry must include:
 - Skipped checks: the complete repository semantic classification and production follow-up ledger are T-031; owner commands begin in WS-07; broad `make check`, finalization, and release checks remain WS-11.
 - Next safe task: T-031 only. Reconcile the 13 frozen production-source follow-ups, populate reviewed semantic allow rules only for legitimate product/runtime phases or execution steps, strengthen the repository scan and negative fixtures, and close WS-06 before activating WS-07.
 - Rollback boundary: revert this complete T-030 checkpoint, including semantic fixture IDs and paths, exact consumers, visual registry/schema simplification, all 71 golden moves, generated transitional outputs, semantic policy, and tracker evidence. Never restore missing placeholder fixtures or change golden bytes to make a rename pass.
+
+#### 2026-07-18 — T-031 and WS-06 semantic identity closure checkpoint
+
+- Branch/commit at start: `revision/grid-adapter` at clean T-030 checkpoint `86fc4b877464`. This entry closes T-031 and WS-06; no workstream or task remains active until a separate tracker checkpoint starts WS-07.
+- Production-path result: the 13 frozen SQL/query, module, and generated descendants now use semantic incident, recovery, reporting, saved-view, timeline, and workbook-startup filenames. The additional authentication and incident-directory debug harnesses and recovery browser-restore helper are semantic paths as well. Generated SQL descendants were changed only by `make generate` at `.cartulary/test-results/20260718T025500Z-p12537`.
+- Selector-contract result: delivery-phase UI-selector aliases were removed instead of retained. Application, Vitest, and Playwright consumers use the semantic authentication, account, deployment-administration, incident-directory, app-route, and public-error helpers directly. Debug selector IDs, transaction prefixes, fixture row IDs, policy-test titles, catalog selectors, and transitional accounting classifications changed atomically.
+- Follow-up result: `tools/delivery_identity_followup_ledger.json` and its migration-only schema close 16 path dispositions, two symbol dispositions, and four retained product protocol identifiers with explicit owners and reasons. The retained identifiers are persisted product/import formats, not harness identities; the closure checker proves that each occurs exactly once in its owner source and never appears in an owner-catalog selector. No legitimate numbered product phase or execution-step identity required an allowlist entry, so `tools/delivery_phase_semantic_allowlist.json` remains closed and empty.
+- Policy result: the semantic identity checker validates allowlist shape, owner existence, ordering, uniqueness, and exact candidate resolution, and scans live helper/production identity paths and declarations in addition to tests and catalog selectors. Harness contract fixtures cover exact legitimate matches plus unmatched, duplicate, line-number, and unknown-owner rejection. The closure scan reports zero unclassified delivery-shaped paths.
+- Reconciliation result: all 548 authoritative dispositions and 265 auxiliary dispositions remain terminal. The catalog remains 46 owners, 169 families, 833 rows, and 1,377 exact selectors with digest `sha256:8e065437a6f7c03ceb4c7b3a752b0cedf3cf34c767ee098581b1bca5f9cc4aa8`; no owner, family, row, selector, or verification population changed.
+- Passed validation: migration baseline/crosswalk check; delivery-identity follow-up closure; direct semantic identity and catalog checks; `make format` at `.cartulary/test-results/20260718T030541Z-p99542`; final `make json-shape-check` at `.cartulary/test-results/20260718T030544Z-p2151`; `make frontend-unit` with 649 tests and zero unmapped entries at `.cartulary/test-results/20260718T030846Z-p10247`; `make harness-contract` at `.cartulary/test-results/20260718T030918Z-p12815`; `make test-fast` with 1,295 tests at `.cartulary/test-results/20260718T030935Z-p13723`; `make frontend-typecheck` at `.cartulary/test-results/20260718T031134Z-p55032`; `make frontend-import-boundary-check` at `.cartulary/test-results/20260718T031134Z-p55047`; `make lint-biome` at `.cartulary/test-results/20260718T031134Z-p55068`; `make generate-drift` at `.cartulary/test-results/20260718T031134Z-p55087`; `make generated-artifact-policy-check` at `.cartulary/test-results/20260718T031158Z-p58267`; `make phase-ledger-drift` at `.cartulary/test-results/20260718T031158Z-p58234`; `make phase-schedule-drift` at `.cartulary/test-results/20260718T031158Z-p58255`; `make browser-e2e-stateful` with 25 tests at `.cartulary/test-results/20260718T031222Z-p59447`; and final script/shell/Markdown lint plus staged diff checks.
+- Resolved failures: initial shape, type, and unit runs identified stale renamed imports/catalog titles; exact semantic references resolved them. Two later frontend runs identified exact transitional accounting titles still using the former wording; the residual dossier named both entries, and exact classification updates restored zero-unmapped accounting without a catch-all. One concurrently executed harness-contract run timed out during SeaweedFS readiness; the isolated rerun passed. These were migration-related reference updates except the concurrency-sensitive service-readiness failure.
+- Skipped checks: the public `test-catalog-check` target does not exist before T-032/T-035, so the attempted target failed with Make usage status and the catalog’s checked CLI supplied the T-031 structural evidence. Owner commands, owner artifacts, and their public smoke tests begin in WS-07; broad `make check`, finalization, and release checks remain WS-11.
+- Next safe task: create a tracker-only checkpoint marking WS-07 and T-032 `IN_PROGRESS`, then implement owner-slice planning and execution from the unified catalog without starting WS-08 or exposing a compatibility alias.
+- Rollback boundary: revert this complete T-031 checkpoint, including semantic production/helper paths, regenerated SQL descendants, selector facade removal, exact consumer updates, follow-up ledger/schema/checker, semantic policy fixtures, and tracker evidence. Never restore delivery-phase aliases or let a retained product protocol identifier become a test selector.
 
 ## 17. First-resumer checklist
 

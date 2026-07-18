@@ -1,6 +1,6 @@
 import {
+  accountTestId,
   type LandingAdminPanelToken,
-  phase1AccountTestId,
 } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 
@@ -23,10 +23,10 @@ export class AccountSettings {
           : "Security";
     const expectedControl =
       panel === "account-profile"
-        ? phase1AccountTestId("profile-email")
+        ? accountTestId("profile-email")
         : panel === "account-appearance"
-          ? phase1AccountTestId("appearance-density-mode")
-          : phase1AccountTestId("refresh-state");
+          ? accountTestId("appearance-density-mode")
+          : accountTestId("refresh-state");
     const expectedControlLocator = this.page.getByTestId(expectedControl);
     try {
       await expect(expectedControlLocator).toBeVisible({ timeout: 500 });
@@ -55,7 +55,7 @@ export class AccountSettings {
 
   async refresh() {
     await this.open("account-security");
-    await this.page.getByTestId(phase1AccountTestId("refresh-state")).click();
+    await this.page.getByTestId(accountTestId("refresh-state")).click();
   }
 
   async changePassword(
@@ -65,14 +65,14 @@ export class AccountSettings {
   ) {
     await this.open("account-security");
     await this.page
-      .getByTestId(phase1AccountTestId("password-current"))
+      .getByTestId(accountTestId("password-current"))
       .fill(currentPassword);
     await this.page
-      .getByTestId(phase1AccountTestId("password-next"))
+      .getByTestId(accountTestId("password-next"))
       .fill(nextPassword);
     await this.page
-      .getByTestId(phase1AccountTestId("password-factor-code"))
+      .getByTestId(accountTestId("password-factor-code"))
       .fill(factorCode);
-    await this.page.getByTestId(phase1AccountTestId("password-change")).click();
+    await this.page.getByTestId(accountTestId("password-change")).click();
   }
 }

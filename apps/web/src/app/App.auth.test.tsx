@@ -1,13 +1,13 @@
 import {
+  accountTestId,
+  appRouteTestId,
+  authTestId,
+  deploymentAdminTestId,
   deploymentUserRowTestId,
+  incidentLandingTestId,
   landingAdminMenuItemTestId,
-  phase1AccountTestId,
-  phase1AdminTestId,
-  phase1AuthTestId,
-  phase1ErrorCodeTestId,
-  phase1ErrorSummaryTestIds,
-  phase1LandingTestId,
-  phase1RouteTestId,
+  publicErrorCodeTestId,
+  publicErrorSummaryTestIds,
 } from "@cartulary/ui-contracts";
 import {
   cleanup,
@@ -97,11 +97,11 @@ describe("ordinary app shell", () => {
     renderApp();
 
     expect(
-      (await screen.findByTestId(phase1AuthTestId("shell"))).getAttribute(
+      (await screen.findByTestId(authTestId("shell"))).getAttribute(
         "data-bootstrap-state",
       ),
     ).toBe("loading");
-    expect(screen.getByTestId(phase1AuthTestId("status")).textContent).toBe(
+    expect(screen.getByTestId(authTestId("status")).textContent).toBe(
       "Checking current session...",
     );
     pendingInitialSession.resolve(
@@ -111,46 +111,46 @@ describe("ordinary app shell", () => {
     );
 
     expect(
-      await screen.findByTestId(phase1AuthTestId("login-username")),
+      await screen.findByTestId(authTestId("login-username")),
     ).toBeTruthy();
     expect(
       screen
-        .getByTestId(phase1AuthTestId("shell"))
+        .getByTestId(authTestId("shell"))
         .getAttribute("data-bootstrap-state"),
     ).toBe("anonymous");
     expect(
-      screen.getByTestId(phase1AuthTestId("shell-message")).textContent,
+      screen.getByTestId(authTestId("shell-message")).textContent,
     ).toContain("Use your deployment account.");
-    expect(
-      screen.queryByTestId(phase1AuthTestId("login-totp-code")),
-    ).toBeNull();
-    fireEvent.change(screen.getByTestId(phase1AuthTestId("login-username")), {
+    expect(screen.queryByTestId(authTestId("login-totp-code"))).toBeNull();
+    fireEvent.change(screen.getByTestId(authTestId("login-username")), {
       target: { value: "operator@example.test" },
     });
-    fireEvent.change(screen.getByTestId(phase1AuthTestId("login-password")), {
+    fireEvent.change(screen.getByTestId(authTestId("login-password")), {
       target: { value: "OperatorPass1!" },
     });
-    fireEvent.click(screen.getByTestId(phase1AuthTestId("login-submit")));
+    fireEvent.click(screen.getByTestId(authTestId("login-submit")));
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1LandingTestId("current-user")).textContent,
+        screen.getByTestId(incidentLandingTestId("current-user")).textContent,
       ).toContain("Authentication Operator");
     });
     expect(
       screen
-        .getByTestId(phase1RouteTestId("app-shell"))
+        .getByTestId(appRouteTestId("app-shell"))
         .getAttribute("data-bootstrap-state"),
     ).toBe("authenticated");
     await openAccountSecurity();
-    expect(screen.getByTestId(phase1AccountTestId("logout")).textContent).toBe(
+    expect(screen.getByTestId(accountTestId("logout")).textContent).toBe(
       "Sign out",
     );
     expect(screen.queryByText("Incident memberships")).toBe(null);
     expect(
       screen.queryByTestId(landingAdminMenuItemTestId("deployment-users")),
     ).toBe(null);
-    expect(screen.queryByTestId(phase1AdminTestId("access-note"))).toBe(null);
+    expect(screen.queryByTestId(deploymentAdminTestId("access-note"))).toBe(
+      null,
+    );
     const loginRequest = requireJSONRequest(
       fetchMock,
       "/api/v1/auth/login",
@@ -198,7 +198,7 @@ describe("ordinary app shell", () => {
       renderApp();
 
       const providerButton = await screen.findByTestId(
-        phase1AuthTestId("enterprise-provider-button"),
+        authTestId("enterprise-provider-button"),
       );
       expect(providerButton.textContent).toBe("Corporate OIDC");
       fireEvent.click(providerButton);
@@ -238,25 +238,25 @@ describe("ordinary app shell", () => {
 
     renderApp();
 
-    await screen.findByTestId(phase1LandingTestId("current-user"));
+    await screen.findByTestId(incidentLandingTestId("current-user"));
     expect(
       screen
-        .getByTestId(phase1RouteTestId("app-shell"))
+        .getByTestId(appRouteTestId("app-shell"))
         .getAttribute("data-bootstrap-state"),
     ).toBe("public_error_envelope");
     expect(
-      screen.getByTestId(phase1LandingTestId("current-user")).textContent,
+      screen.getByTestId(incidentLandingTestId("current-user")).textContent,
     ).toContain("Authentication Operator");
     expect(
-      screen.getByTestId(phase1ErrorCodeTestId("landing")).textContent,
+      screen.getByTestId(publicErrorCodeTestId("landing")).textContent,
     ).toBe("credential_bootstrap_rejected");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("landing").details)
+      screen.getByTestId(publicErrorSummaryTestIds("landing").details)
         .textContent,
     ).toContain("Reason: not_allowed_for_route");
     await openAccountSecurity();
     expect(
-      screen.getByTestId(phase1ErrorCodeTestId("account")).textContent,
+      screen.getByTestId(publicErrorCodeTestId("account")).textContent,
     ).toBe("credential_bootstrap_rejected");
     const credentialErrorText = document.body.textContent ?? "";
     expect(credentialErrorText).not.toContain(
@@ -288,29 +288,29 @@ describe("ordinary app shell", () => {
 
     renderApp();
 
-    await screen.findByTestId(phase1AuthTestId("login-username"));
-    fireEvent.change(screen.getByTestId(phase1AuthTestId("login-username")), {
+    await screen.findByTestId(authTestId("login-username"));
+    fireEvent.change(screen.getByTestId(authTestId("login-username")), {
       target: { value: "operator@example.test" },
     });
-    fireEvent.change(screen.getByTestId(phase1AuthTestId("login-password")), {
+    fireEvent.change(screen.getByTestId(authTestId("login-password")), {
       target: { value: "OperatorPass1!" },
     });
-    fireEvent.click(screen.getByTestId(phase1AuthTestId("login-submit")));
+    fireEvent.click(screen.getByTestId(authTestId("login-submit")));
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1ErrorCodeTestId("auth")).textContent,
+        screen.getByTestId(publicErrorCodeTestId("auth")).textContent,
       ).toBe("Sign-in request could not be completed.");
     });
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("auth").message).textContent,
+      screen.getByTestId(publicErrorSummaryTestIds("auth").message).textContent,
     ).toBe("Sign-in request could not be completed.");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("auth").details).textContent,
+      screen.getByTestId(publicErrorSummaryTestIds("auth").details).textContent,
     ).toBe("");
     expect(
       screen
-        .getByTestId(phase1ErrorCodeTestId("auth"))
+        .getByTestId(publicErrorCodeTestId("auth"))
         .getAttribute("data-error-code"),
     ).toBe("invalid_auth_request");
     expectPrivateErrorProbeNotRendered();
@@ -333,25 +333,25 @@ describe("ordinary app shell", () => {
 
     renderApp();
 
-    await screen.findByTestId(phase1LandingTestId("current-user"));
+    await screen.findByTestId(incidentLandingTestId("current-user"));
     expect(
       screen
-        .getByTestId(phase1RouteTestId("app-shell"))
+        .getByTestId(appRouteTestId("app-shell"))
         .getAttribute("data-bootstrap-state"),
     ).toBe("public_error_envelope");
     expect(
-      screen.getByTestId(phase1ErrorCodeTestId("landing")).textContent,
+      screen.getByTestId(publicErrorCodeTestId("landing")).textContent,
     ).toBe("credential_bootstrap_rejected");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("landing").message)
+      screen.getByTestId(publicErrorSummaryTestIds("landing").message)
         .textContent,
     ).toBe("Credential bootstrap rejected.");
     await openAccountSecurity();
     expect(
-      screen.getByTestId(phase1ErrorCodeTestId("account")).textContent,
+      screen.getByTestId(publicErrorCodeTestId("account")).textContent,
     ).toBe("credential_bootstrap_rejected");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("account").details)
+      screen.getByTestId(publicErrorSummaryTestIds("account").details)
         .textContent,
     ).toContain("Reason: not_allowed_for_route");
     expectPrivateErrorProbeNotRendered();
@@ -422,31 +422,29 @@ describe("ordinary app shell", () => {
 
     renderApp();
 
-    await screen.findByTestId(phase1AuthTestId("login-username"));
-    fireEvent.change(screen.getByTestId(phase1AuthTestId("login-username")), {
+    await screen.findByTestId(authTestId("login-username"));
+    fireEvent.change(screen.getByTestId(authTestId("login-username")), {
       target: { value: "bootstrap@example.test" },
     });
-    fireEvent.change(screen.getByTestId(phase1AuthTestId("login-password")), {
+    fireEvent.change(screen.getByTestId(authTestId("login-password")), {
       target: { value: "BootstrapPass1!" },
     });
-    fireEvent.click(screen.getByTestId(phase1AuthTestId("login-submit")));
+    fireEvent.click(screen.getByTestId(authTestId("login-submit")));
 
     await waitFor(() => {
       expect(
         screen
-          .getByTestId(phase1AuthTestId("shell"))
+          .getByTestId(authTestId("shell"))
           .getAttribute("data-bootstrap-state"),
       ).toBe("mfa_required");
     });
-    expect(
-      screen.getByTestId(phase1AuthTestId("login-totp-code")),
-    ).toBeTruthy();
-    expect(screen.getByTestId(phase1ErrorCodeTestId("auth")).textContent).toBe(
+    expect(screen.getByTestId(authTestId("login-totp-code"))).toBeTruthy();
+    expect(screen.getByTestId(publicErrorCodeTestId("auth")).textContent).toBe(
       "",
     );
     expect(
       screen
-        .getByTestId(phase1AuthTestId("shell"))
+        .getByTestId(authTestId("shell"))
         .getAttribute("data-bootstrap-state"),
     ).toBe("mfa_required");
     expect(document.body.textContent ?? "").not.toContain(
@@ -456,32 +454,32 @@ describe("ordinary app shell", () => {
       "otpauth://mfa-required-private",
     );
 
-    fireEvent.change(screen.getByTestId(phase1AuthTestId("login-totp-code")), {
+    fireEvent.change(screen.getByTestId(authTestId("login-totp-code")), {
       target: { value: "111111" },
     });
-    fireEvent.click(screen.getByTestId(phase1AuthTestId("login-submit")));
+    fireEvent.click(screen.getByTestId(authTestId("login-submit")));
 
     await waitFor(() => {
       expect(
         screen
-          .getByTestId(phase1AuthTestId("shell"))
+          .getByTestId(authTestId("shell"))
           .getAttribute("data-bootstrap-state"),
       ).toBe("mfa_setup_required");
     });
     expect(
       screen
-        .getByTestId(phase1AuthTestId("shell"))
+        .getByTestId(authTestId("shell"))
         .getAttribute("data-bootstrap-state"),
     ).toBe("mfa_setup_required");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("auth").message).textContent,
+      screen.getByTestId(publicErrorSummaryTestIds("auth").message).textContent,
     ).toBe("Authenticator setup is required before sign-in.");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("auth").details).textContent,
+      screen.getByTestId(publicErrorSummaryTestIds("auth").details).textContent,
     ).toBe("");
-    expect(
-      screen.getByTestId(phase1AuthTestId("bootstrap-token")).textContent,
-    ).toBe("Stored for TOTP setup requests.");
+    expect(screen.getByTestId(authTestId("bootstrap-token")).textContent).toBe(
+      "Stored for TOTP setup requests.",
+    );
     const preBeginText = document.body.textContent ?? "";
     expect(preBeginText).not.toContain("bootstrap-token-123");
     expect(preBeginText).not.toContain("ERRORSECRETBASE32");
@@ -490,26 +488,23 @@ describe("ordinary app shell", () => {
     expect(preBeginText).not.toContain("/var/lib/cartulary");
     expect(preBeginText).not.toContain("private stack");
 
-    fireEvent.click(screen.getByTestId(phase1AuthTestId("bootstrap-begin")));
+    fireEvent.click(screen.getByTestId(authTestId("bootstrap-begin")));
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1AuthTestId("bootstrap-secret-base32"))
-          .textContent,
+        screen.getByTestId(authTestId("bootstrap-secret-base32")).textContent,
       ).toBe("JBSWY3DPEHPK3PXP");
     });
 
     fireEvent.change(
-      screen.getByTestId(phase1AuthTestId("bootstrap-complete-code")),
+      screen.getByTestId(authTestId("bootstrap-complete-code")),
       {
         target: { value: "123456" },
       },
     );
-    fireEvent.click(screen.getByTestId(phase1AuthTestId("bootstrap-complete")));
+    fireEvent.click(screen.getByTestId(authTestId("bootstrap-complete")));
 
     await waitFor(() => {
-      expect(screen.getByTestId(phase1AuthTestId("status")).textContent).toBe(
-        "",
-      );
+      expect(screen.getByTestId(authTestId("status")).textContent).toBe("");
     });
     expect(document.body.textContent ?? "").toContain(
       "Authenticator setup is complete. Sign in again.",
@@ -542,7 +537,7 @@ describe("ordinary app shell", () => {
       findFetchCalls(fetchMock, "/api/v1/auth/session", "GET"),
     ).toHaveLength(1);
     expect(
-      screen.queryByTestId(phase1LandingTestId("current-user")),
+      screen.queryByTestId(incidentLandingTestId("current-user")),
     ).toBeNull();
     await expectStableFetchCount(fetchMock, 6);
   });
@@ -603,75 +598,63 @@ describe("ordinary app shell", () => {
     await openAccountSecurity();
 
     fireEvent.change(
-      screen.getByTestId(phase1AccountTestId("totp-current-password")),
+      screen.getByTestId(accountTestId("totp-current-password")),
       {
         target: { value: "Current Authentication Password!" },
       },
     );
-    fireEvent.change(
-      screen.getByTestId(phase1AccountTestId("totp-current-factor")),
-      {
-        target: { value: "111111" },
-      },
-    );
-    fireEvent.click(screen.getByTestId(phase1AccountTestId("totp-begin")));
+    fireEvent.change(screen.getByTestId(accountTestId("totp-current-factor")), {
+      target: { value: "111111" },
+    });
+    fireEvent.click(screen.getByTestId(accountTestId("totp-begin")));
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1ErrorCodeTestId("account")).textContent,
+        screen.getByTestId(publicErrorCodeTestId("account")).textContent,
       ).toBe("invalid_second_factor");
     });
-    expect(screen.getByTestId(phase1AccountTestId("status")).textContent).toBe(
+    expect(screen.getByTestId(accountTestId("status")).textContent).toBe(
       "TOTP begin failed",
     );
 
-    fireEvent.change(
-      screen.getByTestId(phase1AccountTestId("totp-current-factor")),
-      {
-        target: { value: "222222" },
-      },
-    );
-    fireEvent.click(screen.getByTestId(phase1AccountTestId("totp-begin")));
+    fireEvent.change(screen.getByTestId(accountTestId("totp-current-factor")), {
+      target: { value: "222222" },
+    });
+    fireEvent.click(screen.getByTestId(accountTestId("totp-begin")));
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1AccountTestId("totp-secret-base32"))
-          .textContent,
+        screen.getByTestId(accountTestId("totp-secret-base32")).textContent,
       ).toBe("JBSWY3DPEHPK3PXP");
     });
 
-    fireEvent.change(
-      screen.getByTestId(phase1AccountTestId("password-current")),
-      {
-        target: { value: "Current Authentication Password!" },
-      },
-    );
-    fireEvent.change(screen.getByTestId(phase1AccountTestId("password-next")), {
+    fireEvent.change(screen.getByTestId(accountTestId("password-current")), {
+      target: { value: "Current Authentication Password!" },
+    });
+    fireEvent.change(screen.getByTestId(accountTestId("password-next")), {
       target: { value: "Replacement Authentication Password!" },
     });
     fireEvent.change(
-      screen.getByTestId(phase1AccountTestId("password-factor-code")),
+      screen.getByTestId(accountTestId("password-factor-code")),
       {
         target: { value: "654321" },
       },
     );
-    fireEvent.click(screen.getByTestId(phase1AccountTestId("password-change")));
+    fireEvent.click(screen.getByTestId(accountTestId("password-change")));
 
     await waitFor(() => {
-      expect(
-        screen.getByTestId(phase1AuthTestId("login-username")),
-      ).toBeTruthy();
+      expect(screen.getByTestId(authTestId("login-username"))).toBeTruthy();
     });
     expect(
       screen
-        .getByTestId(phase1AuthTestId("shell"))
+        .getByTestId(authTestId("shell"))
         .getAttribute("data-bootstrap-state"),
     ).toBe("revoked");
-    expect(screen.getByTestId(phase1ErrorCodeTestId("auth")).textContent).toBe(
+    expect(screen.getByTestId(publicErrorCodeTestId("auth")).textContent).toBe(
       "Sign in again to continue.",
     );
     expect(
-      screen.getByTestId(phase1AuthTestId("shell-message")).textContent,
+      screen.getByTestId(authTestId("shell-message")).textContent,
     ).toContain("Password changed. Sign in again.");
 
     const totpBeginRequests = findFetchCalls(
@@ -780,70 +763,64 @@ describe("ordinary app shell", () => {
     await openAccountSecurity();
 
     fireEvent.change(
-      screen.getByTestId(phase1AccountTestId("totp-current-password")),
+      screen.getByTestId(accountTestId("totp-current-password")),
       {
         target: { value: "Current Authentication Password!" },
       },
     );
-    fireEvent.change(
-      screen.getByTestId(phase1AccountTestId("totp-current-factor")),
-      {
-        target: { value: "111111" },
-      },
-    );
-    fireEvent.click(screen.getByTestId(phase1AccountTestId("totp-begin")));
+    fireEvent.change(screen.getByTestId(accountTestId("totp-current-factor")), {
+      target: { value: "111111" },
+    });
+    fireEvent.click(screen.getByTestId(accountTestId("totp-begin")));
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1ErrorCodeTestId("account")).textContent,
+        screen.getByTestId(publicErrorCodeTestId("account")).textContent,
       ).toBe("invalid_second_factor");
     });
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("account").message)
+      screen.getByTestId(publicErrorSummaryTestIds("account").message)
         .textContent,
     ).toBe("Second factor rejected.");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("account").details)
+      screen.getByTestId(publicErrorSummaryTestIds("account").details)
         .textContent,
     ).toContain("Reason: totp_code_invalid");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("account").details)
+      screen.getByTestId(publicErrorSummaryTestIds("account").details)
         .textContent,
     ).toContain("Field: second_factor.assertion.code");
     expectPrivateErrorProbeNotRendered();
 
-    fireEvent.change(
-      screen.getByTestId(phase1AccountTestId("password-current")),
-      {
-        target: { value: "Wrong Current Authentication Password!" },
-      },
-    );
-    fireEvent.change(screen.getByTestId(phase1AccountTestId("password-next")), {
+    fireEvent.change(screen.getByTestId(accountTestId("password-current")), {
+      target: { value: "Wrong Current Authentication Password!" },
+    });
+    fireEvent.change(screen.getByTestId(accountTestId("password-next")), {
       target: { value: "Replacement Authentication Password!" },
     });
     fireEvent.change(
-      screen.getByTestId(phase1AccountTestId("password-factor-code")),
+      screen.getByTestId(accountTestId("password-factor-code")),
       {
         target: { value: "654321" },
       },
     );
-    fireEvent.click(screen.getByTestId(phase1AccountTestId("password-change")));
+    fireEvent.click(screen.getByTestId(accountTestId("password-change")));
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1ErrorCodeTestId("account")).textContent,
+        screen.getByTestId(publicErrorCodeTestId("account")).textContent,
       ).toBe("invalid_current_password");
     });
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("account").message)
+      screen.getByTestId(publicErrorSummaryTestIds("account").message)
         .textContent,
     ).toBe("Current password rejected.");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("account").details)
+      screen.getByTestId(publicErrorSummaryTestIds("account").details)
         .textContent,
     ).toContain("Reason: password_mismatch");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("account").details)
+      screen.getByTestId(publicErrorSummaryTestIds("account").details)
         .textContent,
     ).toContain("Field: current_password");
     expectPrivateErrorProbeNotRendered();
@@ -873,28 +850,28 @@ describe("ordinary app shell", () => {
     renderApp();
 
     await openAccountSecurity();
-    fireEvent.click(screen.getByTestId(phase1AccountTestId("logout")));
+    fireEvent.click(screen.getByTestId(accountTestId("logout")));
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1ErrorCodeTestId("account")).textContent,
+        screen.getByTestId(publicErrorCodeTestId("account")).textContent,
       ).toBe("csrf_verification_failed");
     });
-    expect(screen.getByTestId(phase1AccountTestId("status")).textContent).toBe(
+    expect(screen.getByTestId(accountTestId("status")).textContent).toBe(
       "Sign out failed",
     );
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("account").message)
+      screen.getByTestId(publicErrorSummaryTestIds("account").message)
         .textContent,
     ).toBe("Sign out request failed.");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("account").details)
+      screen.getByTestId(publicErrorSummaryTestIds("account").details)
         .textContent,
     ).toContain("Reason: csrf_token_missing");
-    expect(screen.getByTestId(phase1AccountTestId("logout")).textContent).toBe(
+    expect(screen.getByTestId(accountTestId("logout")).textContent).toBe(
       "Sign out",
     );
-    expect(screen.queryByTestId(phase1AuthTestId("login-username"))).toBeNull();
+    expect(screen.queryByTestId(authTestId("login-username"))).toBeNull();
     expectPrivateErrorProbeNotRendered();
     await expectStableFetchCount(fetchMock, 9);
   });
@@ -959,59 +936,58 @@ describe("ordinary app shell", () => {
 
     renderApp();
 
-    await screen.findByTestId(phase1AuthTestId("login-username"));
-    fireEvent.change(screen.getByTestId(phase1AuthTestId("login-username")), {
+    await screen.findByTestId(authTestId("login-username"));
+    fireEvent.change(screen.getByTestId(authTestId("login-username")), {
       target: { value: "bootstrap@example.test" },
     });
-    fireEvent.change(screen.getByTestId(phase1AuthTestId("login-password")), {
+    fireEvent.change(screen.getByTestId(authTestId("login-password")), {
       target: { value: "BootstrapPass1!" },
     });
-    fireEvent.click(screen.getByTestId(phase1AuthTestId("login-submit")));
+    fireEvent.click(screen.getByTestId(authTestId("login-submit")));
 
     await waitFor(() => {
       expect(
         screen
-          .getByTestId(phase1AuthTestId("shell"))
+          .getByTestId(authTestId("shell"))
           .getAttribute("data-bootstrap-state"),
       ).toBe("mfa_setup_required");
     });
-    fireEvent.click(screen.getByTestId(phase1AuthTestId("bootstrap-begin")));
+    fireEvent.click(screen.getByTestId(authTestId("bootstrap-begin")));
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1AuthTestId("bootstrap-secret-base32"))
-          .textContent,
+        screen.getByTestId(authTestId("bootstrap-secret-base32")).textContent,
       ).toBe("JBSWY3DPEHPK3PXP");
     });
 
     fireEvent.change(
-      screen.getByTestId(phase1AuthTestId("bootstrap-complete-code")),
+      screen.getByTestId(authTestId("bootstrap-complete-code")),
       {
         target: { value: "000000" },
       },
     );
-    fireEvent.click(screen.getByTestId(phase1AuthTestId("bootstrap-complete")));
+    fireEvent.click(screen.getByTestId(authTestId("bootstrap-complete")));
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1ErrorCodeTestId("auth")).textContent,
+        screen.getByTestId(publicErrorCodeTestId("auth")).textContent,
       ).toBe("The verification code is incorrect or expired.");
     });
-    expect(screen.getByTestId(phase1AuthTestId("status")).textContent).toBe(
+    expect(screen.getByTestId(authTestId("status")).textContent).toBe(
       "Authenticator setup required.",
     );
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("auth").message).textContent,
+      screen.getByTestId(publicErrorSummaryTestIds("auth").message).textContent,
     ).toBe("The verification code is incorrect or expired.");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("auth").details).textContent,
+      screen.getByTestId(publicErrorSummaryTestIds("auth").details).textContent,
     ).toBe("");
     expect(
       screen
-        .getByTestId(phase1ErrorCodeTestId("auth"))
+        .getByTestId(publicErrorCodeTestId("auth"))
         .getAttribute("data-error-code"),
     ).toBe("invalid_second_factor");
     expect(
-      screen.queryByTestId(phase1LandingTestId("current-user")),
+      screen.queryByTestId(incidentLandingTestId("current-user")),
     ).toBeNull();
     expectPrivateErrorProbeNotRendered();
     await expectStableFetchCount(fetchMock, 5);
@@ -1063,51 +1039,44 @@ describe("ordinary app shell", () => {
 
     await openAccountSecurity();
     fireEvent.change(
-      screen.getByTestId(phase1AccountTestId("totp-current-password")),
+      screen.getByTestId(accountTestId("totp-current-password")),
       {
         target: { value: "Current Authentication Password!" },
       },
     );
-    fireEvent.change(
-      screen.getByTestId(phase1AccountTestId("totp-current-factor")),
-      {
-        target: { value: "111111" },
-      },
-    );
-    fireEvent.click(screen.getByTestId(phase1AccountTestId("totp-begin")));
+    fireEvent.change(screen.getByTestId(accountTestId("totp-current-factor")), {
+      target: { value: "111111" },
+    });
+    fireEvent.click(screen.getByTestId(accountTestId("totp-begin")));
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1AccountTestId("totp-enrollment-id"))
-          .textContent,
+        screen.getByTestId(accountTestId("totp-enrollment-id")).textContent,
       ).toBe("replacement-enrollment-1");
     });
-    fireEvent.change(
-      screen.getByTestId(phase1AccountTestId("totp-complete-code")),
-      {
-        target: { value: "000000" },
-      },
-    );
-    fireEvent.click(screen.getByTestId(phase1AccountTestId("totp-complete")));
+    fireEvent.change(screen.getByTestId(accountTestId("totp-complete-code")), {
+      target: { value: "000000" },
+    });
+    fireEvent.click(screen.getByTestId(accountTestId("totp-complete")));
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1ErrorCodeTestId("account")).textContent,
+        screen.getByTestId(publicErrorCodeTestId("account")).textContent,
       ).toBe("invalid_second_factor");
     });
-    expect(screen.getByTestId(phase1AccountTestId("status")).textContent).toBe(
+    expect(screen.getByTestId(accountTestId("status")).textContent).toBe(
       "TOTP complete failed",
     );
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("account").message)
+      screen.getByTestId(publicErrorSummaryTestIds("account").message)
         .textContent,
     ).toBe("Replacement TOTP completion failed.");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("account").details)
+      screen.getByTestId(publicErrorSummaryTestIds("account").details)
         .textContent,
     ).toContain("Reason: totp_code_invalid");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("account").details)
+      screen.getByTestId(publicErrorSummaryTestIds("account").details)
         .textContent,
     ).toContain("Field: code");
     expectPrivateErrorProbeNotRendered();
@@ -1117,7 +1086,7 @@ describe("ordinary app shell", () => {
   it("ordinary deployment-admin controls create and load users, send versioned patch requests, and surface user_version_conflict plus last_deployment_admin on the shell", async () => {
     const createdUser = userResource({
       user_id: "user-2",
-      email: "phase1-admin@example.test",
+      email: "authentication-debug-admin@example.test",
       display_name: "Authentication Admin Target",
       user_version: 1,
     });
@@ -1211,27 +1180,27 @@ describe("ordinary app shell", () => {
 
     renderApp();
 
-    await screen.findByTestId(phase1LandingTestId("current-user"));
+    await screen.findByTestId(incidentLandingTestId("current-user"));
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1ErrorCodeTestId("landing")).textContent,
+        screen.getByTestId(publicErrorCodeTestId("landing")).textContent,
       ).toBe("authorization_denied");
     });
     expect(
       screen
-        .getByTestId(phase1LandingTestId("shell"))
+        .getByTestId(incidentLandingTestId("shell"))
         .getAttribute("data-bootstrap-state"),
     ).toBe("forbidden");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("landing").message)
+      screen.getByTestId(publicErrorSummaryTestIds("landing").message)
         .textContent,
     ).toBe("Membership required.");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("landing").details)
+      screen.getByTestId(publicErrorSummaryTestIds("landing").details)
         .textContent,
     ).toContain("Reason: incident_membership_required");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("landing").details)
+      screen.getByTestId(publicErrorSummaryTestIds("landing").details)
         .textContent,
     ).toContain("Required role: viewer");
     const forbiddenText = document.body.textContent ?? "";
@@ -1240,35 +1209,41 @@ describe("ordinary app shell", () => {
     expect(forbiddenText).not.toContain("select * from sessions");
     expect(forbiddenText).not.toContain("forbidden-bootstrap-token");
     await openDeploymentAdministration();
-    fireEvent.click(screen.getByTestId(phase1AdminTestId("create-user")));
-    fireEvent.change(screen.getByTestId(phase1AdminTestId("create-email")), {
-      target: { value: createdUser.email },
-    });
+    fireEvent.click(screen.getByTestId(deploymentAdminTestId("create-user")));
     fireEvent.change(
-      screen.getByTestId(phase1AdminTestId("create-display-name")),
+      screen.getByTestId(deploymentAdminTestId("create-email")),
+      {
+        target: { value: createdUser.email },
+      },
+    );
+    fireEvent.change(
+      screen.getByTestId(deploymentAdminTestId("create-display-name")),
       {
         target: { value: createdUser.display_name },
       },
     );
-    fireEvent.change(screen.getByTestId(phase1AdminTestId("create-password")), {
-      target: { value: "CreatedPass1!" },
-    });
-    fireEvent.click(screen.getByTestId(phase1AdminTestId("create-user")));
+    fireEvent.change(
+      screen.getByTestId(deploymentAdminTestId("create-password")),
+      {
+        target: { value: "CreatedPass1!" },
+      },
+    );
+    fireEvent.click(screen.getByTestId(deploymentAdminTestId("create-user")));
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1AdminTestId("target-user-version"))
+        screen.getByTestId(deploymentAdminTestId("target-user-version"))
           .textContent,
       ).toBe("1");
     });
-    expect(screen.getByTestId(phase1AdminTestId("status")).textContent).toBe(
-      "Created local user",
-    );
+    expect(
+      screen.getByTestId(deploymentAdminTestId("status")).textContent,
+    ).toBe("Created local user");
     await waitFor(() => {
       expect(
         (
           screen.getByTestId(
-            phase1AdminTestId("patch-user"),
+            deploymentAdminTestId("patch-user"),
           ) as HTMLButtonElement
         ).disabled,
       ).toBe(false);
@@ -1282,18 +1257,18 @@ describe("ordinary app shell", () => {
     expect(createRequest.body).toEqual({
       client_txn_id: expect.any(String),
       auth_kind: "local",
-      email: "phase1-admin@example.test",
+      email: "authentication-debug-admin@example.test",
       display_name: "Authentication Admin Target",
       initial_password: "CreatedPass1!",
       mfa_required: true,
       is_deployment_admin: false,
     });
 
-    fireEvent.click(screen.getByTestId(phase1AdminTestId("patch-user")));
+    fireEvent.click(screen.getByTestId(deploymentAdminTestId("patch-user")));
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1ErrorCodeTestId("admin")).textContent,
+        screen.getByTestId(publicErrorCodeTestId("admin")).textContent,
       ).toBe("user_version_conflict");
     });
     const patchConflictRequest = requireJSONRequest(
@@ -1304,7 +1279,7 @@ describe("ordinary app shell", () => {
     expect(patchConflictRequest.body).toEqual({
       base_user_version: 1,
       display_name: "Authentication Admin Target",
-      email: "phase1-admin@example.test",
+      email: "authentication-debug-admin@example.test",
       mfa_required: true,
       is_active: true,
       is_deployment_admin: false,
@@ -1315,7 +1290,7 @@ describe("ordinary app shell", () => {
     );
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1AdminTestId("target-user-version"))
+        screen.getByTestId(deploymentAdminTestId("target-user-version"))
           .textContent,
       ).toBe("9");
     });
@@ -1323,19 +1298,19 @@ describe("ordinary app shell", () => {
       expect(
         (
           screen.getByTestId(
-            phase1AdminTestId("patch-user"),
+            deploymentAdminTestId("patch-user"),
           ) as HTMLButtonElement
         ).disabled,
       ).toBe(false);
     });
     fireEvent.click(
-      screen.getByTestId(phase1AdminTestId("patch-is-deployment-admin")),
+      screen.getByTestId(deploymentAdminTestId("patch-is-deployment-admin")),
     );
-    fireEvent.click(screen.getByTestId(phase1AdminTestId("patch-user")));
+    fireEvent.click(screen.getByTestId(deploymentAdminTestId("patch-user")));
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1ErrorCodeTestId("admin")).textContent,
+        screen.getByTestId(publicErrorCodeTestId("admin")).textContent,
       ).toBe("last_deployment_admin");
     });
     const lastAdminPatchRequest = requireJSONRequest(
@@ -1351,9 +1326,9 @@ describe("ordinary app shell", () => {
       is_active: true,
       is_deployment_admin: false,
     });
-    expect(screen.getByTestId(phase1AdminTestId("status")).textContent).toBe(
-      "Patch local user failed",
-    );
+    expect(
+      screen.getByTestId(deploymentAdminTestId("status")).textContent,
+    ).toBe("Patch local user failed");
     expect(findFetchCalls(fetchMock, "/api/v1/users", "POST")).toHaveLength(1);
     expect(
       findFetchCalls(fetchMock, "/api/v1/users/user-2", "PATCH"),
@@ -1423,10 +1398,12 @@ describe("ordinary app shell", () => {
 
     renderApp();
 
-    await screen.findByTestId(phase1LandingTestId("current-user"));
+    await screen.findByTestId(incidentLandingTestId("current-user"));
     await openDeploymentAdministration();
-    expect(screen.queryByTestId(phase1AdminTestId("patch-user"))).toBe(null);
-    expect(screen.queryByTestId(phase1AdminTestId("password-reset"))).toBe(
+    expect(screen.queryByTestId(deploymentAdminTestId("patch-user"))).toBe(
+      null,
+    );
+    expect(screen.queryByTestId(deploymentAdminTestId("password-reset"))).toBe(
       null,
     );
 
@@ -1434,13 +1411,15 @@ describe("ordinary app shell", () => {
       await screen.findByTestId(deploymentUserRowTestId("user-2")),
     );
     await waitFor(() => {
-      expect(screen.getByTestId(phase1AdminTestId("status")).textContent).toBe(
-        "Loading target user",
-      );
+      expect(
+        screen.getByTestId(deploymentAdminTestId("status")).textContent,
+      ).toBe("Loading target user");
     });
 
-    expect(screen.queryByTestId(phase1AdminTestId("patch-user"))).toBe(null);
-    expect(screen.queryByTestId(phase1AdminTestId("password-reset"))).toBe(
+    expect(screen.queryByTestId(deploymentAdminTestId("patch-user"))).toBe(
+      null,
+    );
+    expect(screen.queryByTestId(deploymentAdminTestId("password-reset"))).toBe(
       null,
     );
     expect(
@@ -1453,28 +1432,31 @@ describe("ordinary app shell", () => {
     pendingLoad.resolve(jsonResponse({ data: loadedUser }));
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1AdminTestId("target-user-version"))
+        screen.getByTestId(deploymentAdminTestId("target-user-version"))
           .textContent,
       ).toBe("7");
     });
-    expect(screen.getByTestId(phase1AdminTestId("status")).textContent).toBe(
-      "Loaded target user",
-    );
     expect(
-      (screen.getByTestId(phase1AdminTestId("patch-user")) as HTMLButtonElement)
-        .disabled,
+      screen.getByTestId(deploymentAdminTestId("status")).textContent,
+    ).toBe("Loaded target user");
+    expect(
+      (
+        screen.getByTestId(
+          deploymentAdminTestId("patch-user"),
+        ) as HTMLButtonElement
+      ).disabled,
     ).toBe(false);
 
-    fireEvent.click(screen.getByTestId(phase1AdminTestId("patch-user")));
+    fireEvent.click(screen.getByTestId(deploymentAdminTestId("patch-user")));
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1ErrorCodeTestId("admin")).textContent,
+        screen.getByTestId(publicErrorCodeTestId("admin")).textContent,
       ).toBe("user_version_conflict");
     });
-    expect(screen.getByTestId(phase1AdminTestId("status")).textContent).toBe(
-      "Patch local user failed",
-    );
+    expect(
+      screen.getByTestId(deploymentAdminTestId("status")).textContent,
+    ).toBe("Patch local user failed");
     const patchRequest = requireJSONRequest(
       fetchMock,
       "/api/v1/users/user-2",
@@ -1487,9 +1469,9 @@ describe("ordinary app shell", () => {
     expect(
       findFetchCalls(fetchMock, "/api/v1/users/user-2", "GET"),
     ).toHaveLength(1);
-    expect(screen.getByTestId(phase1AdminTestId("status")).textContent).toBe(
-      "Patch local user failed",
-    );
+    expect(
+      screen.getByTestId(deploymentAdminTestId("status")).textContent,
+    ).toBe("Patch local user failed");
   });
 
   it("route-boundary deployment-admin load and action errors render public envelopes without private details", async () => {
@@ -1611,38 +1593,44 @@ describe("ordinary app shell", () => {
 
     renderApp();
 
-    await screen.findByTestId(phase1LandingTestId("current-user"));
+    await screen.findByTestId(incidentLandingTestId("current-user"));
     await openDeploymentAdministration();
-    fireEvent.click(screen.getByTestId(phase1AdminTestId("create-user")));
-    fireEvent.change(screen.getByTestId(phase1AdminTestId("create-email")), {
-      target: { value: "invalid-admin-target@example.test" },
-    });
+    fireEvent.click(screen.getByTestId(deploymentAdminTestId("create-user")));
     fireEvent.change(
-      screen.getByTestId(phase1AdminTestId("create-display-name")),
+      screen.getByTestId(deploymentAdminTestId("create-email")),
+      {
+        target: { value: "invalid-admin-target@example.test" },
+      },
+    );
+    fireEvent.change(
+      screen.getByTestId(deploymentAdminTestId("create-display-name")),
       {
         target: { value: "Invalid Admin Target" },
       },
     );
-    fireEvent.change(screen.getByTestId(phase1AdminTestId("create-password")), {
-      target: { value: "AdminCreatePass1!" },
-    });
-    fireEvent.click(screen.getByTestId(phase1AdminTestId("create-user")));
+    fireEvent.change(
+      screen.getByTestId(deploymentAdminTestId("create-password")),
+      {
+        target: { value: "AdminCreatePass1!" },
+      },
+    );
+    fireEvent.click(screen.getByTestId(deploymentAdminTestId("create-user")));
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1ErrorCodeTestId("admin")).textContent,
+        screen.getByTestId(publicErrorCodeTestId("admin")).textContent,
       ).toBe("invalid_user_create");
     });
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("admin").message)
+      screen.getByTestId(publicErrorSummaryTestIds("admin").message)
         .textContent,
     ).toBe("User create request is invalid.");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("admin").details)
+      screen.getByTestId(publicErrorSummaryTestIds("admin").details)
         .textContent,
     ).toContain("Reason: email_not_allowed");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("admin").details)
+      screen.getByTestId(publicErrorSummaryTestIds("admin").details)
         .textContent,
     ).toContain("Field: email");
     expectPrivateErrorProbeNotRendered();
@@ -1654,140 +1642,149 @@ describe("ordinary app shell", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1ErrorCodeTestId("admin")).textContent,
+        screen.getByTestId(publicErrorCodeTestId("admin")).textContent,
       ).toBe("user_not_found");
     });
-    expect(screen.getByTestId(phase1AdminTestId("status")).textContent).toBe(
-      "Load target user failed",
-    );
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("admin").message)
+      screen.getByTestId(deploymentAdminTestId("status")).textContent,
+    ).toBe("Load target user failed");
+    expect(
+      screen.getByTestId(publicErrorSummaryTestIds("admin").message)
         .textContent,
     ).toBe("Target user was not found.");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("admin").details)
+      screen.getByTestId(publicErrorSummaryTestIds("admin").details)
         .textContent,
     ).toContain("Reason: target_not_visible");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("admin").details)
+      screen.getByTestId(publicErrorSummaryTestIds("admin").details)
         .textContent,
     ).toContain("Field: user_id");
-    expect(screen.queryByTestId(phase1AdminTestId("target-user-id"))).toBe(
+    expect(screen.queryByTestId(deploymentAdminTestId("target-user-id"))).toBe(
       null,
     );
-    expect(screen.queryByTestId(phase1AdminTestId("target-user-version"))).toBe(
+    expect(
+      screen.queryByTestId(deploymentAdminTestId("target-user-version")),
+    ).toBe(null);
+    expect(screen.queryByTestId(deploymentAdminTestId("patch-user"))).toBe(
       null,
     );
-    expect(screen.queryByTestId(phase1AdminTestId("patch-user"))).toBe(null);
     expectPrivateErrorProbeNotRendered();
 
     fireEvent.click(screen.getByTestId(deploymentUserRowTestId("user-2")));
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1AdminTestId("target-user-version"))
+        screen.getByTestId(deploymentAdminTestId("target-user-version"))
           .textContent,
       ).toBe("7");
     });
-    fireEvent.click(screen.getByTestId(phase1AdminTestId("patch-user")));
+    fireEvent.click(screen.getByTestId(deploymentAdminTestId("patch-user")));
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1ErrorCodeTestId("admin")).textContent,
+        screen.getByTestId(publicErrorCodeTestId("admin")).textContent,
       ).toBe("invalid_user_patch");
     });
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("admin").message)
+      screen.getByTestId(publicErrorSummaryTestIds("admin").message)
         .textContent,
     ).toBe("User patch request is invalid.");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("admin").details)
+      screen.getByTestId(publicErrorSummaryTestIds("admin").details)
         .textContent,
     ).toContain("Reason: display_name_invalid");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("admin").details)
+      screen.getByTestId(publicErrorSummaryTestIds("admin").details)
         .textContent,
     ).toContain("Field: display_name");
     expectPrivateErrorProbeNotRendered();
 
-    fireEvent.click(screen.getByTestId(phase1AdminTestId("password-reset")));
-    fireEvent.change(screen.getByTestId(phase1AdminTestId("new-password")), {
-      target: { value: "AdminResetPass1!" },
-    });
-    fireEvent.change(screen.getByTestId(phase1AdminTestId("reason")), {
+    fireEvent.click(
+      screen.getByTestId(deploymentAdminTestId("password-reset")),
+    );
+    fireEvent.change(
+      screen.getByTestId(deploymentAdminTestId("new-password")),
+      {
+        target: { value: "AdminResetPass1!" },
+      },
+    );
+    fireEvent.change(screen.getByTestId(deploymentAdminTestId("reason")), {
       target: { value: "row-owned public error check" },
     });
-    fireEvent.click(screen.getByTestId(phase1AdminTestId("password-reset")));
+    fireEvent.click(
+      screen.getByTestId(deploymentAdminTestId("password-reset")),
+    );
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1ErrorCodeTestId("admin")).textContent,
+        screen.getByTestId(publicErrorCodeTestId("admin")).textContent,
       ).toBe("user_version_conflict");
     });
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("admin").message)
+      screen.getByTestId(publicErrorSummaryTestIds("admin").message)
         .textContent,
     ).toBe("User version conflict.");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("admin").details)
+      screen.getByTestId(publicErrorSummaryTestIds("admin").details)
         .textContent,
     ).toContain("Reason: stale_user_version");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("admin").details)
+      screen.getByTestId(publicErrorSummaryTestIds("admin").details)
         .textContent,
     ).toContain("Field: base_user_version");
     expectPrivateErrorProbeNotRendered();
 
     fireEvent.click(screen.getByLabelText("Close credential action"));
-    fireEvent.click(screen.getByTestId(phase1AdminTestId("totp-reset")));
-    fireEvent.change(screen.getByTestId(phase1AdminTestId("reason")), {
+    fireEvent.click(screen.getByTestId(deploymentAdminTestId("totp-reset")));
+    fireEvent.change(screen.getByTestId(deploymentAdminTestId("reason")), {
       target: { value: "row-owned public error check" },
     });
-    fireEvent.click(screen.getByTestId(phase1AdminTestId("totp-reset")));
+    fireEvent.click(screen.getByTestId(deploymentAdminTestId("totp-reset")));
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1ErrorCodeTestId("admin")).textContent,
+        screen.getByTestId(publicErrorCodeTestId("admin")).textContent,
       ).toBe("invalid_mutation_payload");
     });
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("admin").message)
+      screen.getByTestId(publicErrorSummaryTestIds("admin").message)
         .textContent,
     ).toBe("TOTP reset request is invalid.");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("admin").details)
+      screen.getByTestId(publicErrorSummaryTestIds("admin").details)
         .textContent,
     ).toContain("Reason: totp_reset_invalid_1");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("admin").details)
+      screen.getByTestId(publicErrorSummaryTestIds("admin").details)
         .textContent,
     ).toContain("Field: reason");
     expectPrivateErrorProbeNotRendered();
 
     fireEvent.click(screen.getByLabelText("Close credential action"));
-    fireEvent.click(screen.getByTestId(phase1AdminTestId("revoke-all")));
-    fireEvent.change(screen.getByTestId(phase1AdminTestId("reason")), {
+    fireEvent.click(screen.getByTestId(deploymentAdminTestId("revoke-all")));
+    fireEvent.change(screen.getByTestId(deploymentAdminTestId("reason")), {
       target: { value: "row-owned public error check" },
     });
-    fireEvent.click(screen.getByTestId(phase1AdminTestId("revoke-all")));
+    fireEvent.click(screen.getByTestId(deploymentAdminTestId("revoke-all")));
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1ErrorCodeTestId("admin")).textContent,
+        screen.getByTestId(publicErrorCodeTestId("admin")).textContent,
       ).toBe("authorization_denied");
     });
-    expect(screen.getByTestId(phase1AdminTestId("status")).textContent).toBe(
-      "Revoke-all failed",
-    );
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("admin").message)
+      screen.getByTestId(deploymentAdminTestId("status")).textContent,
+    ).toBe("Revoke-all failed");
+    expect(
+      screen.getByTestId(publicErrorSummaryTestIds("admin").message)
         .textContent,
     ).toBe("Revoke-all request is denied.");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("admin").details)
+      screen.getByTestId(publicErrorSummaryTestIds("admin").details)
         .textContent,
     ).toContain("Reason: deployment_admin_required");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("admin").details)
+      screen.getByTestId(publicErrorSummaryTestIds("admin").details)
         .textContent,
     ).toContain("Required role: deployment_admin");
     expectPrivateErrorProbeNotRendered();
@@ -1853,7 +1850,7 @@ describe("ordinary app shell", () => {
 
     renderApp();
 
-    await screen.findByTestId(phase1LandingTestId("current-user"));
+    await screen.findByTestId(incidentLandingTestId("current-user"));
     expect(
       findFetchCalls(fetchMock, "/api/v1/auth/session", "GET"),
     ).toHaveLength(1);
@@ -1878,24 +1875,27 @@ describe("ordinary app shell", () => {
     }
 
     fireEvent.click(
-      screen.getByTestId(phase1LandingTestId("create-open-button")),
+      screen.getByTestId(incidentLandingTestId("create-open-button")),
     );
-    fireEvent.change(screen.getByTestId(phase1LandingTestId("incident-key")), {
-      target: { value: "IR-2026-003" },
-    });
     fireEvent.change(
-      screen.getByTestId(phase1LandingTestId("incident-title")),
+      screen.getByTestId(incidentLandingTestId("incident-key")),
+      {
+        target: { value: "IR-2026-003" },
+      },
+    );
+    fireEvent.change(
+      screen.getByTestId(incidentLandingTestId("incident-title")),
       {
         target: { value: "Authentication boundary incident" },
       },
     );
     fireEvent.click(
-      screen.getByTestId(phase1LandingTestId("create-submit-button")),
+      screen.getByTestId(incidentLandingTestId("create-submit-button")),
     );
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1ErrorCodeTestId("landing")).textContent,
+        screen.getByTestId(publicErrorCodeTestId("landing")).textContent,
       ).toBe("invalid_incident_create");
     });
 
@@ -1924,15 +1924,15 @@ describe("ordinary app shell", () => {
     }
 
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("landing").message)
+      screen.getByTestId(publicErrorSummaryTestIds("landing").message)
         .textContent,
     ).toBe("Incident create request is invalid.");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("landing").details)
+      screen.getByTestId(publicErrorSummaryTestIds("landing").details)
         .textContent,
     ).toContain("Reason: unknown_field");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("landing").details)
+      screen.getByTestId(publicErrorSummaryTestIds("landing").details)
         .textContent,
     ).toContain("Field: debug_field");
     const renderedText = document.body.textContent ?? "";
@@ -1959,7 +1959,7 @@ async function openAccountSecurity() {
   );
   fireEvent.click(screen.getByRole("menuitem", { name: "Account settings" }));
   fireEvent.click(screen.getByRole("tab", { name: "Security" }));
-  await screen.findByTestId(phase1AccountTestId("password-current"));
+  await screen.findByTestId(accountTestId("password-current"));
 }
 
 async function openDeploymentAdministration() {

@@ -47,7 +47,7 @@ func TestProjectionProviderSQLSourceOwnership(t *testing.T) {
 	}
 
 	sources := []providerSQLSource{
-		{path: "db/queries/timeline_phase3.sql", section: "ListTimelineProjectionSourceRows", provider: "timeline"},
+		{path: "db/queries/timeline.sql", section: "ListTimelineProjectionSourceRows", provider: "timeline"},
 		{path: "internal/modules/entities/hostidentity/projectionprovider/provider.go", provider: "host"},
 		{path: "internal/modules/entities/hostidentity/projectionprovider/provider.go", provider: "identity"},
 		{path: "internal/modules/indicators/projectionprovider/provider.go", provider: "indicator"},

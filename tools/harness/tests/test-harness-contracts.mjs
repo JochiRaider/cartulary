@@ -76,6 +76,7 @@ import { loadTestCatalog } from "../test-catalog/test-catalog.mjs";
 import { parseStrictJSON, semanticJSONDigest } from "../test-catalog/semantic-json.mjs";
 import { collectTestCatalogImportViolations } from "../test-catalog/import-boundary.mjs";
 import { resolveRowSelector } from "../test-catalog/selector-resolution.mjs";
+import { validateSemanticIdentities } from "../test-catalog/semantic-identity-check-cli.mjs";
 import {
   accountingRowsForTarget,
   evidenceTargetForCatalogRow,
@@ -527,6 +528,82 @@ test("semantic JSON rejects ambiguous encodings and ignores display metadata", (
     semanticJSONDigest({ owner_id: "module.fixture", status: "active" }),
     semanticJSONDigest({ status: "active", owner_id: "module.fixture" }),
   );
+});
+
+test("semantic allowlist accepts one exact owned product-phase identity", () => {
+  const root = mkdtempSync(path.join(repoRoot, "tmp", "semantic-allowlist."));
+  try {
+    writeFixtureFile(root, "internal/fixture/phase2_test.go", "package fixture\n\nfunc TestProductStage(t *testing.T) {}\n");
+    writeJSONFile(path.join(root, "tools/test_catalog_owner.json"), {
+      schema_id: "cartulary.test_owner_registry.v1",
+      owners: [{ owner_id: "module.fixture", manifest_path: "tools/test_families/module.fixture.json", status: "active" }],
+    });
+    writeJSONFile(path.join(root, "tools/delivery_phase_semantic_allowlist.json"), {
+      schema_id: "cartulary.delivery_phase_semantic_allowlist.v1",
+      allowlist: [{
+        location: "internal/fixture/phase2_test.go",
+        locator_kind: "filename",
+        locator: "phase2_test.go",
+        classification: "product_phase",
+        owner_id: "module.fixture",
+        reason: "Fixture models an owner-defined numbered product stage.",
+      }],
+    });
+    assert.deepEqual(validateSemanticIdentities(root), []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("semantic allowlist rejects unmatched, duplicate, line-number, and unknown-owner entries", () => {
+  const cases = [
+    {
+      name: "unmatched",
+      mutate(entries) { entries[0].locator = "phase3_test.go"; },
+      pattern: /must match exactly one identity/iu,
+    },
+    {
+      name: "duplicate",
+      mutate(entries) { entries.push({ ...entries[0] }); },
+      pattern: /ASCII-sorted and duplicate-free/iu,
+    },
+    {
+      name: "line-number",
+      mutate(entries) { entries[0].location = "internal/fixture/phase2_test.go:12"; },
+      pattern: /must not be line-number-only/iu,
+    },
+    {
+      name: "unknown-owner",
+      mutate(entries) { entries[0].owner_id = "module.unknown"; },
+      pattern: /unknown semantic allowlist owner/iu,
+    },
+  ];
+  for (const fixtureCase of cases) {
+    const root = mkdtempSync(path.join(repoRoot, "tmp", `semantic-allowlist-${fixtureCase.name}.`));
+    try {
+      writeFixtureFile(root, "internal/fixture/phase2_test.go", "package fixture\n\nfunc TestProductStage(t *testing.T) {}\n");
+      writeJSONFile(path.join(root, "tools/test_catalog_owner.json"), {
+        schema_id: "cartulary.test_owner_registry.v1",
+        owners: [{ owner_id: "module.fixture", manifest_path: "tools/test_families/module.fixture.json", status: "active" }],
+      });
+      const entries = [{
+        location: "internal/fixture/phase2_test.go",
+        locator_kind: "filename",
+        locator: "phase2_test.go",
+        classification: "product_phase",
+        owner_id: "module.fixture",
+        reason: "Fixture models an owner-defined numbered product stage.",
+      }];
+      fixtureCase.mutate(entries);
+      writeJSONFile(path.join(root, "tools/delivery_phase_semantic_allowlist.json"), {
+        schema_id: "cartulary.delivery_phase_semantic_allowlist.v1",
+        allowlist: entries,
+      });
+      assert.throws(() => validateSemanticIdentities(root), fixtureCase.pattern, fixtureCase.name);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
 });
 
 test("test catalog implementation cannot depend on execution or accounting layers", () => {

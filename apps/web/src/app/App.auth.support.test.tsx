@@ -1,12 +1,12 @@
 import {
+  accountTestId,
+  appRouteTestId,
+  authTestId,
+  deploymentAdminTestId,
   deploymentUserRowTestId,
-  phase1AccountTestId,
-  phase1AdminTestId,
-  phase1AuthTestId,
-  phase1ErrorCodeTestId,
-  phase1ErrorSummaryTestIds,
-  phase1LandingTestId,
-  phase1RouteTestId,
+  incidentLandingTestId,
+  publicErrorCodeTestId,
+  publicErrorSummaryTestIds,
 } from "@cartulary/ui-contracts";
 import {
   cleanup,
@@ -78,14 +78,14 @@ describe("ordinary shell support", () => {
     render(<AppRoot />);
 
     expect(
-      await screen.findByTestId(phase1AuthTestId("login-username")),
+      await screen.findByTestId(authTestId("login-username")),
     ).toBeTruthy();
     expect(
-      screen.getByTestId(phase1AuthTestId("shell-message")).textContent,
+      screen.getByTestId(authTestId("shell-message")).textContent,
     ).toContain("Use your deployment account.");
     expect(
       screen
-        .getByTestId(phase1AuthTestId("shell"))
+        .getByTestId(authTestId("shell"))
         .getAttribute("data-bootstrap-state"),
     ).toBe("anonymous");
     await waitFor(() => {
@@ -104,23 +104,23 @@ describe("ordinary shell support", () => {
 
     render(<AppRoot />);
 
-    expect(
-      await screen.findByTestId(phase1RouteTestId("app-shell")),
-    ).toBeTruthy();
-    expect(screen.getByTestId(phase1LandingTestId("shell"))).toBeTruthy();
-    expect(screen.getByTestId(phase1LandingTestId("status"))).toBeTruthy();
+    expect(await screen.findByTestId(appRouteTestId("app-shell"))).toBeTruthy();
+    expect(screen.getByTestId(incidentLandingTestId("shell"))).toBeTruthy();
+    expect(screen.getByTestId(incidentLandingTestId("status"))).toBeTruthy();
     await openAccountSecurity();
-    expect(
-      screen.getByTestId(phase1AccountTestId("logout")).textContent,
-    ).not.toBe("");
+    expect(screen.getByTestId(accountTestId("logout")).textContent).not.toBe(
+      "",
+    );
     expect(screen.queryByText("Incident memberships")).toBe(null);
-    expect(screen.queryByTestId(phase1AdminTestId("access-note"))).toBe(null);
-    expect(screen.getByTestId(phase1ErrorCodeTestId("landing"))).toBeTruthy();
+    expect(screen.queryByTestId(deploymentAdminTestId("access-note"))).toBe(
+      null,
+    );
+    expect(screen.getByTestId(publicErrorCodeTestId("landing"))).toBeTruthy();
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("landing").container),
+      screen.getByTestId(publicErrorSummaryTestIds("landing").container),
     ).toBeTruthy();
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("account").message),
+      screen.getByTestId(publicErrorSummaryTestIds("account").message),
     ).toBeTruthy();
 
     cleanup();
@@ -130,13 +130,13 @@ describe("ordinary shell support", () => {
     render(<AppRoot />);
 
     expect(
-      await screen.findByTestId(phase1AuthTestId("login-username")),
+      await screen.findByTestId(authTestId("login-username")),
     ).toBeTruthy();
-    expect(screen.getByTestId(phase1AuthTestId("shell-message"))).toBeTruthy();
-    expect(screen.getByTestId(phase1AuthTestId("status"))).toBeTruthy();
-    expect(screen.getByTestId(phase1ErrorCodeTestId("auth"))).toBeTruthy();
+    expect(screen.getByTestId(authTestId("shell-message"))).toBeTruthy();
+    expect(screen.getByTestId(authTestId("status"))).toBeTruthy();
+    expect(screen.getByTestId(publicErrorCodeTestId("auth"))).toBeTruthy();
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("auth").container),
+      screen.getByTestId(publicErrorSummaryTestIds("auth").container),
     ).toBeTruthy();
   });
 
@@ -197,9 +197,9 @@ describe("ordinary shell support", () => {
       await screen.findByTestId(deploymentUserRowTestId("user-alpha")),
     ).toBeTruthy();
     expect(
-      screen.getByTestId(phase1AdminTestId("status")).textContent?.trim(),
+      screen.getByTestId(deploymentAdminTestId("status")).textContent?.trim(),
     ).not.toBe("");
-    const userFilter = screen.getByTestId(phase1AdminTestId("user-filter"));
+    const userFilter = screen.getByTestId(deploymentAdminTestId("user-filter"));
     fireEvent.change(userFilter, {
       target: { value: "bravo" },
     });
@@ -216,7 +216,7 @@ describe("ordinary shell support", () => {
     fireEvent.click(bravoRow);
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1AdminTestId("target-user-id")).textContent,
+        screen.getByTestId(deploymentAdminTestId("target-user-id")).textContent,
       ).toBe("user-bravo");
     });
 
@@ -225,7 +225,9 @@ describe("ordinary shell support", () => {
     });
     fireEvent.keyDown(userFilter, { key: "Enter" });
     await screen.findByTestId(deploymentUserRowTestId("user-alpha"));
-    fireEvent.click(screen.getByTestId(phase1AdminTestId("load-more-users")));
+    fireEvent.click(
+      screen.getByTestId(deploymentAdminTestId("load-more-users")),
+    );
     expect(
       await screen.findByTestId(deploymentUserRowTestId("user-charlie")),
     ).toBeTruthy();
@@ -249,28 +251,30 @@ describe("ordinary shell support", () => {
     );
 
     for (const testId of [
-      phase1AccountTestId("refresh-state"),
-      phase1AccountTestId("logout"),
-      phase1AccountTestId("password-current"),
-      phase1AccountTestId("password-next"),
-      phase1AccountTestId("password-change"),
-      phase1AccountTestId("totp-begin"),
-      phase1AccountTestId("status"),
-      phase1AdminTestId("create-user"),
-      phase1AdminTestId("user-filter"),
-      phase1AdminTestId("user-list"),
-      phase1AdminTestId("status"),
+      accountTestId("refresh-state"),
+      accountTestId("logout"),
+      accountTestId("password-current"),
+      accountTestId("password-next"),
+      accountTestId("password-change"),
+      accountTestId("totp-begin"),
+      accountTestId("status"),
+      deploymentAdminTestId("create-user"),
+      deploymentAdminTestId("user-filter"),
+      deploymentAdminTestId("user-list"),
+      deploymentAdminTestId("status"),
     ]) {
       expect(screen.getByTestId(testId)).toBeTruthy();
     }
-    expect(screen.queryByTestId(phase1AdminTestId("patch-email"))).toBe(null);
-    expect(screen.queryByTestId(phase1AdminTestId("reason"))).toBe(null);
+    expect(screen.queryByTestId(deploymentAdminTestId("patch-email"))).toBe(
+      null,
+    );
+    expect(screen.queryByTestId(deploymentAdminTestId("reason"))).toBe(null);
 
-    fireEvent.click(screen.getByTestId(phase1AdminTestId("create-user")));
+    fireEvent.click(screen.getByTestId(deploymentAdminTestId("create-user")));
     for (const testId of [
-      phase1AdminTestId("create-email"),
-      phase1AdminTestId("create-display-name"),
-      phase1AdminTestId("create-user"),
+      deploymentAdminTestId("create-email"),
+      deploymentAdminTestId("create-display-name"),
+      deploymentAdminTestId("create-user"),
     ]) {
       expect(screen.getByTestId(testId)).toBeTruthy();
     }
@@ -382,9 +386,9 @@ describe("ordinary shell support", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Create binding" }));
     await waitFor(() => {
-      expect(screen.getByTestId(phase1AdminTestId("status")).textContent).toBe(
-        "Created enterprise auth binding",
-      );
+      expect(
+        screen.getByTestId(deploymentAdminTestId("status")).textContent,
+      ).toBe("Created enterprise auth binding");
     });
 
     fireEvent.change(screen.getByLabelText("New provider subject"), {
@@ -399,16 +403,16 @@ describe("ordinary shell support", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Rotate subject" }));
     await waitFor(() => {
-      expect(screen.getByTestId(phase1AdminTestId("status")).textContent).toBe(
-        "Rotated enterprise auth binding",
-      );
+      expect(
+        screen.getByTestId(deploymentAdminTestId("status")).textContent,
+      ).toBe("Rotated enterprise auth binding");
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Retire binding" }));
     await waitFor(() => {
-      expect(screen.getByTestId(phase1AdminTestId("status")).textContent).toBe(
-        "Retired enterprise auth binding",
-      );
+      expect(
+        screen.getByTestId(deploymentAdminTestId("status")).textContent,
+      ).toBe("Retired enterprise auth binding");
     });
 
     expect(
@@ -453,7 +457,7 @@ async function openAccountSecurity() {
   );
   fireEvent.click(screen.getByRole("menuitem", { name: "Account settings" }));
   fireEvent.click(screen.getByRole("tab", { name: "Security" }));
-  await screen.findByTestId(phase1AccountTestId("password-current"));
+  await screen.findByTestId(accountTestId("password-current"));
 }
 
 function installAnonymousSessionRequiredFetch(

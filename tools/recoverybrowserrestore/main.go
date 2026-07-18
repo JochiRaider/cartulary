@@ -34,8 +34,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-const readySchemaID = "cartulary.phase10.browser_restore_target.v1"
-const phase10BrowserRecoveryMasterKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+const readySchemaID = "cartulary.restore.browser_restore_target.v1"
+const restoreBrowserRecoveryMasterKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
 
 type readyPayload struct {
 	SchemaID            string                            `json:"schema_id"`
@@ -60,7 +60,7 @@ type seededSource struct {
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Fprintf(os.Stderr, "phase10 browser restore target: %v\n", err)
+		fmt.Fprintf(os.Stderr, "restore browser restore target: %v\n", err)
 		os.Exit(1)
 	}
 }
@@ -86,14 +86,14 @@ func run() error {
 		return err
 	}
 
-	sourceRoot := filepath.Join(runtimeRoot, "phase10-browser-restore-source")
+	sourceRoot := filepath.Join(runtimeRoot, "restore-browser-restore-source")
 	if err := os.RemoveAll(sourceRoot); err != nil {
 		return fmt.Errorf("reset source root: %w", err)
 	}
 	if err := os.MkdirAll(sourceRoot, 0o700); err != nil {
 		return fmt.Errorf("create source root: %w", err)
 	}
-	sourceName := "cartulary_phase10_browser_source_" + safeSuffix(time.Now().UTC().Format("20060102150405.000000000"))
+	sourceName := "cartulary_restore_browser_source_" + safeSuffix(time.Now().UTC().Format("20060102150405.000000000"))
 	sourceDSN, err := createAndMigrateDB(ctx, baseDSN, sourceName)
 	if err != nil {
 		return err
@@ -115,8 +115,8 @@ func run() error {
 	}
 	defer sourceObjectStore.Close()
 
-	const sourceAdminEmail = "phase10-browser-admin@example.test"
-	const sourceAdminPassword = "Phase10BrowserAdmin1!"
+	const sourceAdminEmail = "restore-browser-admin@example.test"
+	const sourceAdminPassword = "RestoreBrowserAdmin1!"
 	if err := seedDeploymentAdmin(ctx, sourcePool, sourceAdminEmail, sourceAdminPassword); err != nil {
 		return err
 	}
@@ -143,7 +143,7 @@ func run() error {
 		return err
 	}
 
-	backupRoot := filepath.Join(runtimeRoot, "phase10-browser-restore-backup")
+	backupRoot := filepath.Join(runtimeRoot, "restore-browser-restore-backup")
 	if err := os.RemoveAll(backupRoot); err != nil {
 		return fmt.Errorf("reset backup root: %w", err)
 	}
@@ -166,7 +166,7 @@ func run() error {
 	objectArtifacts, err := recovery.CaptureSeaweedFSS3ObjectStoreBackupArtifacts(ctx, sourceObjectStore, recovery.ObjectStoreBackupCaptureParams{
 		BackupSetID:               backupSetID,
 		ConsistencyPointAt:        now,
-		Bucket:                    "phase10-browser-restore-source",
+		Bucket:                    "restore-browser-restore-source",
 		BlobObjectIDsByStorageRef: blobIndex,
 	})
 	if err != nil {
@@ -186,14 +186,14 @@ func run() error {
 		return fmt.Errorf("capture retained backup set: %w", err)
 	}
 
-	targetRoot := filepath.Join(runtimeRoot, "phase10-browser-restore-target")
+	targetRoot := filepath.Join(runtimeRoot, "restore-browser-restore-target")
 	if err := os.RemoveAll(targetRoot); err != nil {
 		return fmt.Errorf("reset target root: %w", err)
 	}
 	if err := os.MkdirAll(targetRoot, 0o700); err != nil {
 		return fmt.Errorf("create target root: %w", err)
 	}
-	targetName := "cartulary_phase10_browser_" + safeSuffix(time.Now().UTC().Format("20060102150405.000000000"))
+	targetName := "cartulary_restore_browser_" + safeSuffix(time.Now().UTC().Format("20060102150405.000000000"))
 	targetDSN, err := createAndMigrateDB(ctx, baseDSN, targetName)
 	if err != nil {
 		return err
@@ -321,7 +321,7 @@ func startRuntimeServer(handler http.Handler) (*http.Server, string, error) {
 	go func() {
 		err := server.Serve(listener)
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			fmt.Fprintf(os.Stderr, "phase10 browser source server: %v\n", err)
+			fmt.Fprintf(os.Stderr, "restore browser source server: %v\n", err)
 		}
 	}()
 	return server, "http://" + listener.Addr().String(), nil
@@ -332,7 +332,7 @@ func encryptedBackupStorage(root string) (recovery.BackupStorage, error) {
 	if err != nil {
 		return nil, err
 	}
-	key, err := recovery.ParseRecoveryEncryptionKey(phase10BrowserRecoveryMasterKey)
+	key, err := recovery.ParseRecoveryEncryptionKey(restoreBrowserRecoveryMasterKey)
 	if err != nil {
 		return nil, err
 	}
@@ -347,7 +347,7 @@ func seedDeploymentAdmin(ctx context.Context, pool *pgxpool.Pool, email string, 
 	if _, err := pool.Exec(ctx, `
 INSERT INTO users (email, display_name, password_hash, mfa_required, is_active, is_deployment_admin)
 VALUES ($1, $2, $3, false, true, true)
-`, email, "Phase 10 Browser Admin", hash); err != nil {
+`, email, "Recovery Browser Admin", hash); err != nil {
 		return fmt.Errorf("seed source deployment admin: %w", err)
 	}
 	return nil
@@ -365,11 +365,11 @@ func seedSourceDeployment(ctx context.Context, origin string, adminEmail string,
 	}
 
 	suffix := safeSuffix(time.Now().UTC().Format("20060102150405.000000000"))
-	summary := "Phase 10 restored timeline " + suffix
+	summary := "Recovery restored timeline " + suffix
 	incident, err := doSourceJSON(ctx, client, http.MethodPost, origin+"/api/v1/incidents", csrf, map[string]any{
-		"client_txn_id": "txn-phase10-browser-incident-" + suffix,
-		"incident_key":  "IR-PHASE10-BROWSER-" + suffix,
-		"title":         "Phase 10 restored workbook evidence",
+		"client_txn_id": "txn-restore-browser-incident-" + suffix,
+		"incident_key":  "IR-RESTORE-BROWSER-" + suffix,
+		"title":         "Recovery restored workbook evidence",
 	})
 	if err != nil {
 		return seededSource{}, fmt.Errorf("create source incident: %w", err)
@@ -379,13 +379,13 @@ func seedSourceDeployment(ctx context.Context, origin string, adminEmail string,
 		return seededSource{}, err
 	}
 
-	userEmail := "phase10-browser-restored-" + suffix + "@example.test"
-	userPassword := "Phase10BrowserUser1!"
+	userEmail := "restore-browser-restored-" + suffix + "@example.test"
+	userPassword := "RestoreBrowserUser1!"
 	if _, err := doSourceJSON(ctx, client, http.MethodPost, origin+"/api/v1/users", csrf, map[string]any{
-		"client_txn_id":       "txn-phase10-browser-user-" + suffix,
+		"client_txn_id":       "txn-restore-browser-user-" + suffix,
 		"auth_kind":           "local",
 		"email":               userEmail,
-		"display_name":        "Phase 10 Restored User",
+		"display_name":        "Recovery Restored User",
 		"initial_password":    userPassword,
 		"mfa_required":        false,
 		"is_deployment_admin": false,
@@ -393,14 +393,14 @@ func seedSourceDeployment(ctx context.Context, origin string, adminEmail string,
 		return seededSource{}, fmt.Errorf("create source restored user: %w", err)
 	}
 	if _, err := doSourceJSON(ctx, client, http.MethodPost, origin+"/api/v1/incidents/"+url.PathEscape(incidentID)+"/memberships", csrf, map[string]any{
-		"client_txn_id": "txn-phase10-browser-membership-" + suffix,
+		"client_txn_id": "txn-restore-browser-membership-" + suffix,
 		"email":         userEmail,
 		"role":          "editor",
 	}); err != nil {
 		return seededSource{}, fmt.Errorf("create source membership: %w", err)
 	}
 	if _, err := doSourceJSON(ctx, client, http.MethodPost, origin+"/api/v1/incidents/"+url.PathEscape(incidentID)+"/views/cartulary.view.timeline.v2/rows", csrf, map[string]any{
-		"client_txn_id":                   "txn-phase10-browser-row-" + suffix,
+		"client_txn_id":                   "txn-restore-browser-row-" + suffix,
 		"timeline.activity_synopsis_text": summary,
 	}); err != nil {
 		return seededSource{}, fmt.Errorf("create source timeline row: %w", err)

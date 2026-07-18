@@ -1,19 +1,19 @@
 import {
+  accountTestId,
+  appRouteTestId,
+  authTestId,
   currentIncidentRoleTestId,
+  deploymentAdminTestId,
   deploymentUserRowTestId,
   incidentControlsMenuItemTestId,
   incidentControlsMenuTestId,
   incidentControlsTriggerTestId,
+  incidentLandingTestId,
   landingAdminMenuItemTestId,
   landingAdminPanelTestId,
   landingAdminShellTestId,
   landingIncidentCardTestId,
   landingIncidentOpenButtonTestId,
-  phase1AccountTestId,
-  phase1AdminTestId,
-  phase1AuthTestId,
-  phase1LandingTestId,
-  phase1RouteTestId,
   referencePackAdminPanelTestId,
   referencePackRowTestId,
 } from "@cartulary/ui-contracts";
@@ -152,12 +152,16 @@ vi.mock("../workbook/WorkbookShell", async () => {
   };
 });
 
-vi.mock("./debug/Phase1Harness", () => ({
-  Phase1Harness: () => <section data-testid="mock-phase1-harness" />,
+vi.mock("./debug/AuthenticationDebugHarness", () => ({
+  AuthenticationDebugHarness: () => (
+    <section data-testid="mock-authentication-harness" />
+  ),
 }));
 
-vi.mock("./debug/Phase2Harness", () => ({
-  Phase2Harness: () => <section data-testid="mock-phase2-harness" />,
+vi.mock("./debug/IncidentDirectoryDebugHarness", () => ({
+  IncidentDirectoryDebugHarness: () => (
+    <section data-testid="mock-incident-directory-harness" />
+  ),
 }));
 
 import {
@@ -227,21 +231,19 @@ describe("Incident landing", () => {
         onOpenAccountSettings={openAccountSettings}
         onOpenDeploymentAdministration={openDeploymentAdministration}
         onOpenIncidentDirectory={openIncidentDirectory}
-        triggerTestId={phase1RouteTestId("workbook-current-user")}
+        triggerTestId={appRouteTestId("workbook-current-user")}
       />,
     );
 
-    const trigger = screen.getByTestId(
-      phase1RouteTestId("workbook-current-user"),
-    );
+    const trigger = screen.getByTestId(appRouteTestId("workbook-current-user"));
     fireEvent.click(trigger);
 
     expect(screen.getByTestId(currentIncidentRoleTestId()).textContent).toBe(
       "Current incident role: admin",
     );
-    expect(screen.getByTestId(phase1LandingTestId("return")).textContent).toBe(
-      "Incidents",
-    );
+    expect(
+      screen.getByTestId(incidentLandingTestId("return")).textContent,
+    ).toBe("Incidents");
     expect(
       screen.getByRole("menuitem", { name: "Deployment administration" }),
     ).toBeTruthy();
@@ -258,7 +260,7 @@ describe("Incident landing", () => {
     expect(screen.queryByTestId(incidentControlsMenuTestId())).toBe(null);
 
     fireEvent.click(trigger);
-    fireEvent.click(screen.getByTestId(phase1LandingTestId("return")));
+    fireEvent.click(screen.getByTestId(incidentLandingTestId("return")));
     expect(openIncidentDirectory).toHaveBeenCalledTimes(1);
     expect(openAccountSettings).not.toHaveBeenCalled();
     expect(openDeploymentAdministration).not.toHaveBeenCalled();
@@ -275,7 +277,7 @@ describe("Incident landing", () => {
     renderApp();
 
     expect(
-      await screen.findByTestId(phase1LandingTestId("empty-state")),
+      await screen.findByTestId(incidentLandingTestId("empty-state")),
     ).toBeTruthy();
     expect(screen.getByText("Visible incidents")).toBeTruthy();
     expect(screen.queryByText("Workbook access")).toBe(null);
@@ -309,10 +311,10 @@ describe("Incident landing", () => {
     ).toBe(null);
     expect(screen.queryByText("Open selected")).toBe(null);
     expect(
-      screen.getByTestId(phase1LandingTestId("incidents-count")).textContent,
+      screen.getByTestId(incidentLandingTestId("incidents-count")).textContent,
     ).toBe("0 loaded");
     expect(
-      screen.getByTestId(phase1LandingTestId("current-user")).textContent,
+      screen.getByTestId(incidentLandingTestId("current-user")).textContent,
     ).toBe("Bootstrap Admin");
     expect(
       findFetchCalls(fetchMock, "/api/v1/auth/session", "GET"),
@@ -380,10 +382,10 @@ describe("Incident landing", () => {
     fireEvent.click(
       screen.getByLabelText("Account and application navigation"),
     );
-    fireEvent.click(screen.getByTestId(phase1LandingTestId("return")));
+    fireEvent.click(screen.getByTestId(incidentLandingTestId("return")));
 
     expect(
-      await screen.findByTestId(phase1LandingTestId("incident-list")),
+      await screen.findByTestId(incidentLandingTestId("incident-list")),
     ).toBeTruthy();
     expect(
       screen.getByTestId(landingIncidentOpenButtonTestId("incident-one")),
@@ -423,7 +425,7 @@ describe("Incident landing", () => {
     expect(
       await screen.findByTestId(landingAdminMenuItemTestId("deployment-users")),
     ).toBeTruthy();
-    expect(screen.queryByTestId(phase1LandingTestId("shell"))).toBe(null);
+    expect(screen.queryByTestId(incidentLandingTestId("shell"))).toBe(null);
     expect(
       screen.queryByTestId(landingAdminMenuItemTestId("reference-packs")),
     ).toBe(null);
@@ -782,7 +784,7 @@ describe("Incident landing", () => {
     renderApp();
 
     expect(
-      await screen.findByTestId(phase1LandingTestId("empty-state")),
+      await screen.findByTestId(incidentLandingTestId("empty-state")),
     ).toBeTruthy();
     expect(window.location.pathname).toBe("/");
     expect(
@@ -826,28 +828,28 @@ describe("Incident landing", () => {
 
     renderApp();
 
-    await screen.findByTestId(phase1LandingTestId("empty-state"));
+    await screen.findByTestId(incidentLandingTestId("empty-state"));
     fireEvent.click(
       screen.getByLabelText("Account and application navigation"),
     );
     expect(screen.queryByText("Deployment administration")).toBe(null);
     fireEvent.click(screen.getByRole("menuitem", { name: "Account settings" }));
     expect(
-      await screen.findByTestId(phase1AccountTestId("profile-email")),
+      await screen.findByTestId(accountTestId("profile-email")),
     ).toBeTruthy();
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1AccountTestId("profile-email")).textContent,
+        screen.getByTestId(accountTestId("profile-email")).textContent,
       ).toBe("operator@example.test");
     });
     expect(
-      screen.getByTestId(phase1AccountTestId("profile-display-name")),
+      screen.getByTestId(accountTestId("profile-display-name")),
     ).toBeTruthy();
     expect(screen.queryByText("MFA required")).toBe(null);
 
     fireEvent.click(screen.getByRole("tab", { name: "Appearance" }));
     const densityMode = await screen.findByTestId(
-      phase1AccountTestId("appearance-density-mode"),
+      accountTestId("appearance-density-mode"),
     );
     expect(
       Array.from((densityMode as HTMLSelectElement).options).map(
@@ -856,10 +858,8 @@ describe("Incident landing", () => {
     ).toEqual(["Use surface default", "Compact", "Default", "Comfortable"]);
 
     fireEvent.click(screen.getByRole("tab", { name: "Security" }));
-    expect(
-      screen.getByTestId(phase1AccountTestId("refresh-state")),
-    ).toBeTruthy();
-    expect(screen.getByTestId(phase1AccountTestId("logout"))).toBeTruthy();
+    expect(screen.getByTestId(accountTestId("refresh-state"))).toBeTruthy();
+    expect(screen.getByTestId(accountTestId("logout"))).toBeTruthy();
     expect(document.body.textContent ?? "").not.toContain("MFA required");
     expect(document.body.textContent ?? "").not.toContain(
       "Incident memberships",
@@ -872,7 +872,9 @@ describe("Incident landing", () => {
     expect(
       screen.queryByTestId(landingAdminMenuItemTestId("deployment-users")),
     ).toBe(null);
-    expect(screen.queryByTestId(phase1AdminTestId("patch-user"))).toBe(null);
+    expect(screen.queryByTestId(deploymentAdminTestId("patch-user"))).toBe(
+      null,
+    );
   });
 
   it("updates the open workbook density after saving account appearance", async () => {
@@ -940,12 +942,12 @@ describe("Incident landing", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "Account settings" }));
     fireEvent.click(screen.getByRole("tab", { name: "Appearance" }));
     fireEvent.change(
-      await screen.findByTestId(phase1AccountTestId("appearance-density-mode")),
+      await screen.findByTestId(accountTestId("appearance-density-mode")),
       {
         target: { value: "compact" },
       },
     );
-    fireEvent.click(screen.getByTestId(phase1AccountTestId("appearance-save")));
+    fireEvent.click(screen.getByTestId(accountTestId("appearance-save")));
 
     await waitFor(() => {
       expect(screen.getByTestId("mock-workbook-density").textContent).toBe(
@@ -1010,32 +1012,40 @@ describe("Incident landing", () => {
 
     renderApp();
 
-    await screen.findByTestId(phase1LandingTestId("empty-state"));
+    await screen.findByTestId(incidentLandingTestId("empty-state"));
     await openDeploymentAdministration();
-    expect(screen.queryByTestId(phase1AdminTestId("patch-user"))).toBe(null);
+    expect(screen.queryByTestId(deploymentAdminTestId("patch-user"))).toBe(
+      null,
+    );
     const userRow = await screen.findByTestId(
       deploymentUserRowTestId("user-2"),
     );
     fireEvent.click(userRow);
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1AdminTestId("target-user-id")).textContent,
+        screen.getByTestId(deploymentAdminTestId("target-user-id")).textContent,
       ).toBe("user-2");
     });
     expect(
-      (screen.getByTestId(phase1AdminTestId("patch-user")) as HTMLButtonElement)
-        .disabled,
-    ).toBe(false);
-    expect(
       (
         screen.getByTestId(
-          phase1AdminTestId("password-reset"),
+          deploymentAdminTestId("patch-user"),
         ) as HTMLButtonElement
       ).disabled,
     ).toBe(false);
     expect(
-      (screen.getByTestId(phase1AdminTestId("revoke-all")) as HTMLButtonElement)
-        .disabled,
+      (
+        screen.getByTestId(
+          deploymentAdminTestId("password-reset"),
+        ) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+    expect(
+      (
+        screen.getByTestId(
+          deploymentAdminTestId("revoke-all"),
+        ) as HTMLButtonElement
+      ).disabled,
     ).toBe(false);
   });
 
@@ -1053,10 +1063,10 @@ describe("Incident landing", () => {
     renderApp();
 
     expect(
-      await screen.findByTestId(phase1LandingTestId("incident-list")),
+      await screen.findByTestId(incidentLandingTestId("incident-list")),
     ).toBeTruthy();
     expect(
-      screen.getByTestId(phase1LandingTestId("incidents-count")).textContent,
+      screen.getByTestId(incidentLandingTestId("incidents-count")).textContent,
     ).toBe("2 loaded");
     expect(
       screen.getByTestId(landingIncidentCardTestId("incident-1")).textContent,
@@ -1121,7 +1131,7 @@ describe("Incident landing", () => {
     renderApp();
 
     await screen.findByTestId(landingIncidentCardTestId("incident-alpha"));
-    const search = screen.getByTestId(phase1LandingTestId("search"));
+    const search = screen.getByTestId(incidentLandingTestId("search"));
     fireEvent.change(search, { target: { value: "phish" } });
     fireEvent.keyDown(search, { key: "Enter" });
 
@@ -1134,7 +1144,7 @@ describe("Incident landing", () => {
       screen.getByTestId(landingIncidentCardTestId("incident-alpha")),
     ).toBeTruthy();
     expect(
-      screen.getByTestId(phase1LandingTestId("loading")).textContent,
+      screen.getByTestId(incidentLandingTestId("loading")).textContent,
     ).toContain("Searching visible incidents");
 
     fireEvent.change(search, { target: { value: "malware" } });
@@ -1192,7 +1202,7 @@ describe("Incident landing", () => {
       screen.queryByTestId(landingIncidentCardTestId("incident-101")),
     ).toBe(null);
     expect(
-      screen.getByTestId(phase1LandingTestId("incidents-count")).textContent,
+      screen.getByTestId(incidentLandingTestId("incidents-count")).textContent,
     ).toBe("100 loaded +");
 
     fireEvent.click(
@@ -1203,7 +1213,7 @@ describe("Incident landing", () => {
       await screen.findByTestId(landingIncidentCardTestId("incident-101")),
     ).toBeTruthy();
     expect(
-      screen.getByTestId(phase1LandingTestId("incidents-count")).textContent,
+      screen.getByTestId(incidentLandingTestId("incidents-count")).textContent,
     ).toBe("101 loaded");
   });
 
@@ -1229,11 +1239,14 @@ describe("Incident landing", () => {
     renderApp();
 
     await screen.findByTestId(landingIncidentCardTestId("incident-active-1"));
-    const search = screen.getByTestId(phase1LandingTestId("search"));
+    const search = screen.getByTestId(incidentLandingTestId("search"));
     fireEvent.change(search, { target: { value: "Closed" } });
-    fireEvent.change(screen.getByTestId(phase1LandingTestId("status-filter")), {
-      target: { value: "closed" },
-    });
+    fireEvent.change(
+      screen.getByTestId(incidentLandingTestId("status-filter")),
+      {
+        target: { value: "closed" },
+      },
+    );
     fireEvent.keyDown(search, { key: "Enter" });
 
     await screen.findByTestId(landingIncidentCardTestId("incident-closed-100"));
@@ -1306,49 +1319,52 @@ describe("Incident landing", () => {
 
     renderApp();
 
-    await screen.findByTestId(phase1LandingTestId("empty-state"));
+    await screen.findByTestId(incidentLandingTestId("empty-state"));
     fireEvent.click(
-      screen.getByTestId(phase1LandingTestId("create-open-button")),
+      screen.getByTestId(incidentLandingTestId("create-open-button")),
     );
-    fireEvent.change(screen.getByTestId(phase1LandingTestId("incident-key")), {
-      target: { value: "IR-401" },
-    });
     fireEvent.change(
-      screen.getByTestId(phase1LandingTestId("incident-title")),
+      screen.getByTestId(incidentLandingTestId("incident-key")),
+      {
+        target: { value: "IR-401" },
+      },
+    );
+    fireEvent.change(
+      screen.getByTestId(incidentLandingTestId("incident-title")),
       {
         target: { value: "Created with metadata" },
       },
     );
     fireEvent.click(screen.getByText("More details"));
     fireEvent.change(
-      screen.getByTestId(phase1LandingTestId("create-description")),
+      screen.getByTestId(incidentLandingTestId("create-description")),
       {
         target: { value: "Initial notes" },
       },
     );
     fireEvent.change(
-      screen.getByTestId(phase1LandingTestId("create-severity")),
+      screen.getByTestId(incidentLandingTestId("create-severity")),
       {
         target: { value: "high" },
       },
     );
-    fireEvent.change(screen.getByTestId(phase1LandingTestId("create-tlp")), {
+    fireEvent.change(screen.getByTestId(incidentLandingTestId("create-tlp")), {
       target: { value: "TLP:AMBER" },
     });
     fireEvent.change(
-      screen.getByTestId(phase1LandingTestId("create-current-phase")),
+      screen.getByTestId(incidentLandingTestId("create-current-phase")),
       {
         target: { value: "triage" },
       },
     );
     fireEvent.change(
-      screen.getByTestId(phase1LandingTestId("create-external-case")),
+      screen.getByTestId(incidentLandingTestId("create-external-case")),
       {
         target: { value: "CASE-401" },
       },
     );
     fireEvent.click(
-      screen.getByTestId(phase1LandingTestId("create-submit-button")),
+      screen.getByTestId(incidentLandingTestId("create-submit-button")),
     );
 
     expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
@@ -1404,21 +1420,24 @@ describe("Incident landing", () => {
 
     renderApp();
 
-    await screen.findByTestId(phase1LandingTestId("empty-state"));
+    await screen.findByTestId(incidentLandingTestId("empty-state"));
     fireEvent.click(
-      screen.getByTestId(phase1LandingTestId("create-open-button")),
+      screen.getByTestId(incidentLandingTestId("create-open-button")),
     );
-    fireEvent.change(screen.getByTestId(phase1LandingTestId("incident-key")), {
-      target: { value: "IR-203" },
-    });
     fireEvent.change(
-      screen.getByTestId(phase1LandingTestId("incident-title")),
+      screen.getByTestId(incidentLandingTestId("incident-key")),
+      {
+        target: { value: "IR-203" },
+      },
+    );
+    fireEvent.change(
+      screen.getByTestId(incidentLandingTestId("incident-title")),
       {
         target: { value: "Created Incident" },
       },
     );
     fireEvent.click(
-      screen.getByTestId(phase1LandingTestId("create-submit-button")),
+      screen.getByTestId(incidentLandingTestId("create-submit-button")),
     );
 
     expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
@@ -1445,13 +1464,13 @@ describe("Incident landing", () => {
     renderApp();
 
     expect(
-      await screen.findByTestId(phase1LandingTestId("incident-list")),
+      await screen.findByTestId(incidentLandingTestId("incident-list")),
     ).toBeTruthy();
     expect(
       screen.getByTestId(landingIncidentOpenButtonTestId("incident-live")),
     ).toBeTruthy();
     expect(
-      screen.getByTestId(phase1LandingTestId("status")).textContent?.trim(),
+      screen.getByTestId(incidentLandingTestId("status")).textContent?.trim(),
     ).not.toBe("");
     expect(window.location.search).not.toContain("incident_id=");
   });
@@ -1477,7 +1496,7 @@ describe("Incident landing", () => {
     expect(screen.getByTestId("mock-workbook-incident").textContent).toBe(
       "incident-5",
     );
-    const appShell = screen.getByTestId(phase1RouteTestId("app-shell"));
+    const appShell = screen.getByTestId(appRouteTestId("app-shell"));
     expect(appShell.style.blockSize).toBe("var(--ct-app-viewport-block-size)");
     expect(appShell.style.overflow).toBe("hidden");
     expect(["0", "0px"]).toContain(appShell.style.minBlockSize);
@@ -1533,7 +1552,7 @@ describe("Incident landing", () => {
     window.history.replaceState({ cartularyIncidentDirectory: true }, "", "/");
     fireEvent.popState(window);
     expect(
-      await screen.findByTestId(phase1LandingTestId("incident-list")),
+      await screen.findByTestId(incidentLandingTestId("incident-list")),
     ).toBeTruthy();
     expect(screen.queryByTestId("mock-workbook")).toBe(null);
     expect(
@@ -1607,11 +1626,11 @@ describe("Incident landing", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1LandingTestId("empty-state")),
+        screen.getByTestId(incidentLandingTestId("empty-state")),
       ).toBeTruthy();
     });
     expect(
-      screen.getByTestId(phase1LandingTestId("status")).textContent?.trim(),
+      screen.getByTestId(incidentLandingTestId("status")).textContent?.trim(),
     ).not.toBe("");
     expect(window.location.search).not.toContain("incident_id=");
     await expectStableFetchCount(fetchMock, 20);
@@ -1668,7 +1687,7 @@ describe("Incident landing", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
-    expect(screen.getByTestId(phase1AuthTestId("status")).textContent).toBe(
+    expect(screen.getByTestId(authTestId("status")).textContent).toBe(
       "Checking current session...",
     );
 
@@ -1677,7 +1696,7 @@ describe("Incident landing", () => {
 
     expect(await screen.findByText("Debug harness shell")).toBeTruthy();
     expect(
-      await screen.findByTestId(phase1RouteTestId("debug-harness-shell")),
+      await screen.findByTestId(appRouteTestId("debug-harness-shell")),
     ).toBeTruthy();
     await waitFor(() => {
       expect(abortedSignals).toHaveLength(1);
@@ -1688,10 +1707,10 @@ describe("Incident landing", () => {
     fireEvent.popState(window);
 
     expect(
-      await screen.findByTestId(phase1LandingTestId("empty-state")),
+      await screen.findByTestId(incidentLandingTestId("empty-state")),
     ).toBeTruthy();
     expect(
-      screen.getByTestId(phase1LandingTestId("current-user")).textContent,
+      screen.getByTestId(incidentLandingTestId("current-user")).textContent,
     ).toBe("Operator");
     await expectStableFetchCount(fetchMock, 7);
   });
@@ -1708,10 +1727,10 @@ describe("Incident landing", () => {
 
     expect(await screen.findByText("Debug harness shell")).toBeTruthy();
     expect(
-      await screen.findByTestId(phase1RouteTestId("debug-harness-shell")),
+      await screen.findByTestId(appRouteTestId("debug-harness-shell")),
     ).toBeTruthy();
-    expect(screen.getByTestId("mock-phase1-harness")).toBeTruthy();
-    expect(screen.getByTestId("mock-phase2-harness")).toBeTruthy();
+    expect(screen.getByTestId("mock-authentication-harness")).toBeTruthy();
+    expect(screen.getByTestId("mock-incident-directory-harness")).toBeTruthy();
     await expectStableFetchCount(fetchMock, 0);
   });
 });

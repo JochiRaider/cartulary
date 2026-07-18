@@ -1,4 +1,4 @@
-import { phase1AuthTestId, type StableTestId } from "@cartulary/ui-contracts";
+import { authTestId, type StableTestId } from "@cartulary/ui-contracts";
 import type { Locator, Page } from "@playwright/test";
 
 import { expect } from "@playwright/test";
@@ -7,15 +7,15 @@ export class AuthGateway {
   constructor(private readonly page: Page) {}
 
   get loginUsername(): Locator {
-    return this.page.getByTestId(phase1AuthTestId("login-username"));
+    return this.page.getByTestId(authTestId("login-username"));
   }
 
   get loginPassword(): Locator {
-    return this.page.getByTestId(phase1AuthTestId("login-password"));
+    return this.page.getByTestId(authTestId("login-password"));
   }
 
   get loginTotpCode(): Locator {
-    return this.page.getByTestId(phase1AuthTestId("login-totp-code"));
+    return this.page.getByTestId(authTestId("login-totp-code"));
   }
 
   async goto() {
@@ -27,12 +27,12 @@ export class AuthGateway {
     await this.loginPassword.fill(password);
     if (totpCode !== "") {
       if (!(await this.loginTotpCode.isVisible())) {
-        await this.page.getByTestId(phase1AuthTestId("login-submit")).click();
+        await this.page.getByTestId(authTestId("login-submit")).click();
         await expect(this.loginTotpCode).toBeVisible();
       }
       await this.loginTotpCode.fill(totpCode);
     }
-    await this.page.getByTestId(phase1AuthTestId("login-submit")).click();
+    await this.page.getByTestId(authTestId("login-submit")).click();
   }
 
   async requireText(testId: StableTestId) {
@@ -48,13 +48,13 @@ export class AuthGateway {
   }
 
   async beginBootstrapEnrollment() {
-    await this.page.getByTestId(phase1AuthTestId("bootstrap-begin")).click();
+    await this.page.getByTestId(authTestId("bootstrap-begin")).click();
   }
 
   async completeBootstrapEnrollment(code: string) {
     await this.page
-      .getByTestId(phase1AuthTestId("bootstrap-complete-code"))
+      .getByTestId(authTestId("bootstrap-complete-code"))
       .fill(code);
-    await this.page.getByTestId(phase1AuthTestId("bootstrap-complete")).click();
+    await this.page.getByTestId(authTestId("bootstrap-complete")).click();
   }
 }

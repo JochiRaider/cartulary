@@ -19,9 +19,9 @@ import (
 const (
 	ProfileID = "import"
 
-	AssistantProfilePhase2WorkbookImport = "phase2_workbook_import_v1"
-	ParserProfilePhase2WorkbookImport    = "cartulary.import.phase2_workbook_import.v1"
-	ParserVersionPhase11                 = "phase11_import_adapter_v1"
+	AssistantProfileWorkbookImport = "phase2_workbook_import_v1"
+	ParserProfileWorkbookImport    = "cartulary.import.phase2_workbook_import.v1"
+	ParserVersionWorkbookImport    = "phase11_import_adapter_v1"
 
 	SourceFileKindCSV  = "csv"
 	SourceFileKindXLSX = "xlsx"
@@ -147,7 +147,7 @@ func DecodeCreateSessionMetadata(envelope httpapi.UploadEnvelope) (CreateSession
 	} else if err := json.Unmarshal(value, &request.ClientTxnID); err != nil || strings.TrimSpace(request.ClientTxnID) == "" {
 		return CreateSessionRequest{}, invalidImportRequest("client_txn_id", "missing_required_field")
 	}
-	request.AssistantProfile = AssistantProfilePhase2WorkbookImport
+	request.AssistantProfile = AssistantProfileWorkbookImport
 	if value, ok := envelope.Metadata["assistant_profile"]; ok {
 		if bytesEqualJSONNull(value) {
 			return CreateSessionRequest{}, invalidImportRequest("assistant_profile", "field_not_nullable")
@@ -156,7 +156,7 @@ func DecodeCreateSessionMetadata(envelope httpapi.UploadEnvelope) (CreateSession
 		if err := json.Unmarshal(value, &profile); err != nil {
 			return CreateSessionRequest{}, invalidImportRequest("assistant_profile", "invalid_value")
 		}
-		if profile != AssistantProfilePhase2WorkbookImport {
+		if profile != AssistantProfileWorkbookImport {
 			return CreateSessionRequest{}, invalidImportRequest("assistant_profile", "unsupported_assistant_profile")
 		}
 		request.AssistantProfile = profile

@@ -24,8 +24,8 @@ import {
   incidentControlsMenuTestId,
   incidentControlsPanelTestId,
   incidentControlsTriggerTestId,
+  incidentLandingTestId,
   incidentMembershipCreateButtonTestId,
-  phase1LandingTestId,
   rowCellTestId,
   rowInspectButtonTestId,
   savedViewActionMenuTestId,
@@ -136,7 +136,7 @@ function TestAccountApplicationMenu({
             Current incident role: {currentIncidentRole || "viewer"}
           </div>
           <button
-            data-testid={phase1LandingTestId("return")}
+            data-testid={incidentLandingTestId("return")}
             role="menuitem"
             type="button"
           >
@@ -767,14 +767,14 @@ describe("WorkbookShell surface selection", () => {
     const accountTrigger = screen.getByTestId(testAccountMenuTriggerTestId);
     expect(screen.queryByTestId(currentIncidentRoleTestId())).toBeNull();
     expect(screen.queryByTestId(incidentControlsTriggerTestId())).toBeNull();
-    expect(screen.queryByTestId(phase1LandingTestId("return"))).toBeNull();
+    expect(screen.queryByTestId(incidentLandingTestId("return"))).toBeNull();
     expect(screen.queryByTestId(incidentControlsPanelTestId())).toBeNull();
 
     fireEvent.click(accountTrigger);
     expect(screen.getByTestId(currentIncidentRoleTestId()).textContent).toBe(
       "Current incident role: viewer",
     );
-    expect(screen.getByTestId(phase1LandingTestId("return"))).toBeTruthy();
+    expect(screen.getByTestId(incidentLandingTestId("return"))).toBeTruthy();
     const trigger = screen.getByTestId(incidentControlsTriggerTestId());
     expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
     expect(trigger.getAttribute("data-active-section")).toBe("summary");

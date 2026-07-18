@@ -1,10 +1,12 @@
 import { scrollGridCellIntoView } from "@cartulary/test-utils/grid";
 import {
+  accountTestId,
   currentIncidentRoleTestId,
   dataTestIdSelector,
   genericCreateFieldTestId,
   gridShellTestId,
   incidentControlsPanelTestId,
+  incidentLandingTestId,
   incidentMembershipAdminNoteTestId,
   incidentMembershipCreateButtonTestId,
   incidentMembershipDeleteButtonTestId,
@@ -17,8 +19,6 @@ import {
   incidentMembershipVersionTestId,
   landingIncidentCardTestId,
   landingIncidentOpenButtonTestId,
-  phase1AccountTestId,
-  phase1LandingTestId,
   rowCellTestId,
   savedViewFamilySelector,
   savedViewOptionTestId,
@@ -368,9 +368,9 @@ test("updates workbook density from Account Settings while the workbook remains 
 
     await new AccountSettings(page).open("account-appearance");
     const densitySelect = page.getByTestId(
-      phase1AccountTestId("appearance-density-mode"),
+      accountTestId("appearance-density-mode"),
     );
-    const saveButton = page.getByTestId(phase1AccountTestId("appearance-save"));
+    const saveButton = page.getByTestId(accountTestId("appearance-save"));
 
     await densitySelect.selectOption("comfortable");
     await saveButton.click();
@@ -739,7 +739,7 @@ test("shows incident discovery, raw querystring deep-link retrieval, and promote
   ).toHaveText("CASE-E202-PRIMARY");
 
   await page.getByLabel("Account and application navigation").click();
-  await page.getByTestId(phase1LandingTestId("return")).click();
+  await page.getByTestId(incidentLandingTestId("return")).click();
   await expect(
     page.getByTestId(landingIncidentCardTestId(incidentId)),
   ).toContainText("containment");

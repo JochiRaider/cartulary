@@ -1,5 +1,5 @@
 import { parseContractArtifact } from "@cartulary/protocol-ts";
-import { phase1LandingTestId } from "@cartulary/ui-contracts";
+import { incidentLandingTestId } from "@cartulary/ui-contracts";
 import type { APIResponse } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
@@ -118,7 +118,7 @@ test("supports zero-membership extension discovery and singleton pagination reje
   });
   await page.goto("/");
   await expect(
-    page.getByTestId(phase1LandingTestId("empty-state")),
+    page.getByTestId(incidentLandingTestId("empty-state")),
   ).toBeVisible();
 
   const extensionsResponse = await page.request.get(
@@ -176,7 +176,7 @@ test("supports reserved-family dispatch precedence probes while ordinary base an
   });
   await page.goto("/");
   await expect(
-    page.getByTestId(phase1LandingTestId("empty-state")),
+    page.getByTestId(incidentLandingTestId("empty-state")),
   ).toBeVisible();
 
   const readyResponse = await page.request.get(`${apiBase}/readyz`);

@@ -37,7 +37,7 @@ function prettyJSON(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
-export function Phase1Harness({ apiBase }: { apiBase?: string }) {
+export function AuthenticationDebugHarness({ apiBase }: { apiBase?: string }) {
   const [statusText, setStatusText] = useState("Ready");
   const [lastError, setLastError] = useState<APIError | null>(null);
   const [lastProbe, setLastProbe] = useState<ProbeResult | null>(null);
@@ -82,7 +82,9 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
   const [patchIsActive, setPatchIsActive] = useState(true);
   const [patchIsDeploymentAdmin, setPatchIsDeploymentAdmin] = useState(false);
   const [adminNewPassword, setAdminNewPassword] = useState("");
-  const [adminReason, setAdminReason] = useState("phase1 harness action");
+  const [adminReason, setAdminReason] = useState(
+    "authentication debug harness action",
+  );
   const [selectedUser, setSelectedUser] = useState<UserResource | null>(null);
   const [targetAdminOperation, setTargetAdminOperation] =
     useState<TargetAdminOperation | null>(null);
@@ -556,7 +558,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
     <section style={shellStyle}>
       <header style={sectionHeaderStyle}>
         <div>
-          <p style={eyebrowStyle}>Phase 1 Harness</p>
+          <p style={eyebrowStyle}>Authentication Harness</p>
           <h1 style={headlineStyle}>
             Authentication, sessions, and local admin
           </h1>
@@ -568,7 +570,9 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
         </div>
         <div style={statusCardStyle}>
           <span style={labelStyle}>Status</span>
-          <strong data-testid="phase1-status">{statusText}</strong>
+          <strong data-testid="authentication-debug-status">
+            {statusText}
+          </strong>
         </div>
       </header>
 
@@ -576,7 +580,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
         <h2 style={subheadStyle}>Login</h2>
         <div style={formRowStyle}>
           <input
-            data-testid="phase1-login-username"
+            data-testid="authentication-debug-login-username"
             placeholder="user@example.test"
             style={inputStyle}
             type="text"
@@ -586,7 +590,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
             }}
           />
           <input
-            data-testid="phase1-login-password"
+            data-testid="authentication-debug-login-password"
             placeholder="Password"
             style={inputStyle}
             type="password"
@@ -596,7 +600,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
             }}
           />
           <input
-            data-testid="phase1-login-totp-code"
+            data-testid="authentication-debug-login-totp-code"
             placeholder="123456"
             style={narrowInputStyle}
             type="text"
@@ -606,7 +610,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
             }}
           />
           <button
-            data-testid="phase1-login"
+            data-testid="authentication-debug-login"
             style={buttonStyle}
             type="button"
             onClick={() => {
@@ -616,7 +620,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
             Sign in
           </button>
           <button
-            data-testid="phase1-logout"
+            data-testid="authentication-debug-logout"
             style={secondaryButtonStyle}
             type="button"
             onClick={() => {
@@ -629,13 +633,16 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
         <div style={detailGridStyle}>
           <div>
             <span style={labelStyle}>Bootstrap token</span>
-            <div data-testid="phase1-bootstrap-token" style={monoTextStyle}>
+            <div
+              data-testid="authentication-debug-bootstrap-token"
+              style={monoTextStyle}
+            >
               {bootstrapToken || ""}
             </div>
           </div>
           <div>
             <span style={labelStyle}>Last error</span>
-            <div data-testid="phase1-last-error-code">
+            <div data-testid="authentication-debug-last-error-code">
               {lastError?.code ?? ""}
             </div>
           </div>
@@ -646,7 +653,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
         <h2 style={subheadStyle}>Session</h2>
         <div style={formRowStyle}>
           <button
-            data-testid="phase1-refresh-session"
+            data-testid="authentication-debug-refresh-session"
             style={secondaryButtonStyle}
             type="button"
             onClick={() => {
@@ -660,56 +667,59 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
           <div style={gridStyle}>
             <div>
               <span style={labelStyle}>User ID</span>
-              <div data-testid="phase1-session-user-id" style={monoTextStyle}>
+              <div
+                data-testid="authentication-debug-session-user-id"
+                style={monoTextStyle}
+              >
                 {session.user_id}
               </div>
             </div>
             <div>
               <span style={labelStyle}>Provider</span>
-              <div data-testid="phase1-session-provider-type">
+              <div data-testid="authentication-debug-session-provider-type">
                 {session.provider_type}
               </div>
             </div>
             <div>
               <span style={labelStyle}>MFA State</span>
-              <div data-testid="phase1-session-mfa-state">
+              <div data-testid="authentication-debug-session-mfa-state">
                 {session.mfa_state}
               </div>
             </div>
             <div>
               <span style={labelStyle}>Deployment Admin</span>
-              <div data-testid="phase1-session-is-deployment-admin">
+              <div data-testid="authentication-debug-session-is-deployment-admin">
                 {String(session.is_deployment_admin)}
               </div>
             </div>
             <div>
               <span style={labelStyle}>Authenticated At</span>
-              <div data-testid="phase1-session-authenticated-at">
+              <div data-testid="authentication-debug-session-authenticated-at">
                 {session.authenticated_at}
               </div>
             </div>
             <div>
               <span style={labelStyle}>Idle Expires At</span>
-              <div data-testid="phase1-session-idle-expires-at">
+              <div data-testid="authentication-debug-session-idle-expires-at">
                 {session.idle_expires_at}
               </div>
             </div>
             <div>
               <span style={labelStyle}>Absolute Expires At</span>
-              <div data-testid="phase1-session-absolute-expires-at">
+              <div data-testid="authentication-debug-session-absolute-expires-at">
                 {session.absolute_expires_at}
               </div>
             </div>
             <div>
               <span style={labelStyle}>Session Expires At</span>
-              <div data-testid="phase1-session-session-expires-at">
+              <div data-testid="authentication-debug-session-session-expires-at">
                 {session.session_expires_at}
               </div>
             </div>
             <div style={wideCellStyle}>
               <span style={labelStyle}>Memberships</span>
               <ul
-                data-testid="phase1-session-memberships"
+                data-testid="authentication-debug-session-memberships"
                 style={plainListStyle}
               >
                 {session.memberships.map((membership) => (
@@ -721,7 +731,10 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
             </div>
           </div>
         ) : (
-          <p data-testid="phase1-session-error-code" style={bodyStyle}>
+          <p
+            data-testid="authentication-debug-session-error-code"
+            style={bodyStyle}
+          >
             {sessionError?.code ?? "No active session"}
           </p>
         )}
@@ -731,7 +744,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
         <h2 style={subheadStyle}>Credential State</h2>
         <div style={formRowStyle}>
           <button
-            data-testid="phase1-refresh-credential-state"
+            data-testid="authentication-debug-refresh-credential-state"
             style={secondaryButtonStyle}
             type="button"
             onClick={() => {
@@ -746,7 +759,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
             <div>
               <span style={labelStyle}>User ID</span>
               <div
-                data-testid="phase1-credential-user-id"
+                data-testid="authentication-debug-credential-user-id"
                 style={monoTextStyle}
               >
                 {credentialState.user_id}
@@ -754,37 +767,40 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
             </div>
             <div>
               <span style={labelStyle}>Auth Kind</span>
-              <div data-testid="phase1-credential-auth-kind">
+              <div data-testid="authentication-debug-credential-auth-kind">
                 {credentialState.auth_kind}
               </div>
             </div>
             <div>
               <span style={labelStyle}>Recovery Model</span>
-              <div data-testid="phase1-credential-recovery-model">
+              <div data-testid="authentication-debug-credential-recovery-model">
                 {credentialState.recovery_model}
               </div>
             </div>
             <div>
               <span style={labelStyle}>Password Changed At</span>
-              <div data-testid="phase1-credential-password-changed-at">
+              <div data-testid="authentication-debug-credential-password-changed-at">
                 {credentialState.password_changed_at ?? ""}
               </div>
             </div>
             <div>
               <span style={labelStyle}>TOTP State</span>
-              <div data-testid="phase1-credential-totp-state">
+              <div data-testid="authentication-debug-credential-totp-state">
                 {credentialState.totp.state}
               </div>
             </div>
             <div>
               <span style={labelStyle}>Pending Expires At</span>
-              <div data-testid="phase1-credential-pending-expires-at">
+              <div data-testid="authentication-debug-credential-pending-expires-at">
                 {credentialState.totp.pending_expires_at ?? ""}
               </div>
             </div>
           </div>
         ) : (
-          <p data-testid="phase1-credential-error-code" style={bodyStyle}>
+          <p
+            data-testid="authentication-debug-credential-error-code"
+            style={bodyStyle}
+          >
             {credentialStateError?.code ?? "No credential state available"}
           </p>
         )}
@@ -796,7 +812,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
           <label style={labelBlockStyle}>
             <span style={labelStyle}>Auth mode</span>
             <select
-              data-testid="phase1-totp-auth-mode"
+              data-testid="authentication-debug-totp-auth-mode"
               style={selectStyle}
               value={totpAuthMode}
               onChange={(event) => {
@@ -810,7 +826,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
             </select>
           </label>
           <input
-            data-testid="phase1-totp-current-password"
+            data-testid="authentication-debug-totp-current-password"
             placeholder="Current password"
             style={inputStyle}
             type="password"
@@ -820,7 +836,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
             }}
           />
           <input
-            data-testid="phase1-totp-current-factor"
+            data-testid="authentication-debug-totp-current-factor"
             placeholder="Current TOTP"
             style={narrowInputStyle}
             type="text"
@@ -830,7 +846,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
             }}
           />
           <button
-            data-testid="phase1-totp-begin"
+            data-testid="authentication-debug-totp-begin"
             style={buttonStyle}
             type="button"
             onClick={() => {
@@ -843,20 +859,26 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
         <div style={detailGridStyle}>
           <div>
             <span style={labelStyle}>Enrollment ID</span>
-            <div data-testid="phase1-totp-enrollment-id" style={monoTextStyle}>
+            <div
+              data-testid="authentication-debug-totp-enrollment-id"
+              style={monoTextStyle}
+            >
               {totpEnrollmentId}
             </div>
           </div>
           <div>
             <span style={labelStyle}>Secret Base32</span>
-            <div data-testid="phase1-totp-secret-base32" style={monoTextStyle}>
+            <div
+              data-testid="authentication-debug-totp-secret-base32"
+              style={monoTextStyle}
+            >
               {totpSecretBase32}
             </div>
           </div>
         </div>
         <div style={formRowStyle}>
           <input
-            data-testid="phase1-totp-complete-code"
+            data-testid="authentication-debug-totp-complete-code"
             placeholder="123456"
             style={narrowInputStyle}
             type="text"
@@ -866,7 +888,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
             }}
           />
           <button
-            data-testid="phase1-totp-complete"
+            data-testid="authentication-debug-totp-complete"
             style={buttonStyle}
             type="button"
             onClick={() => {
@@ -882,7 +904,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
         <h2 style={subheadStyle}>Password Change</h2>
         <div style={formRowStyle}>
           <input
-            data-testid="phase1-password-current"
+            data-testid="authentication-debug-password-current"
             placeholder="Current password"
             style={inputStyle}
             type="password"
@@ -892,7 +914,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
             }}
           />
           <input
-            data-testid="phase1-password-next"
+            data-testid="authentication-debug-password-next"
             placeholder="New password"
             style={inputStyle}
             type="password"
@@ -902,7 +924,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
             }}
           />
           <input
-            data-testid="phase1-password-factor-code"
+            data-testid="authentication-debug-password-factor-code"
             placeholder="123456"
             style={narrowInputStyle}
             type="text"
@@ -912,7 +934,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
             }}
           />
           <button
-            data-testid="phase1-password-change"
+            data-testid="authentication-debug-password-change"
             style={buttonStyle}
             type="button"
             onClick={() => {
@@ -931,7 +953,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
             <span style={labelStyle}>Create local user</span>
             <div style={stackStyle}>
               <input
-                data-testid="phase1-admin-create-email"
+                data-testid="authentication-debug-admin-create-email"
                 disabled={targetOperationPending}
                 placeholder="new.user@example.test"
                 style={inputStyle}
@@ -942,7 +964,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
                 }}
               />
               <input
-                data-testid="phase1-admin-create-display-name"
+                data-testid="authentication-debug-admin-create-display-name"
                 disabled={targetOperationPending}
                 placeholder="Display name"
                 style={inputStyle}
@@ -953,7 +975,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
                 }}
               />
               <input
-                data-testid="phase1-admin-create-password"
+                data-testid="authentication-debug-admin-create-password"
                 disabled={targetOperationPending}
                 placeholder="Initial password"
                 style={inputStyle}
@@ -965,7 +987,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
               />
               <label style={checkboxStyle}>
                 <input
-                  data-testid="phase1-admin-create-mfa-required"
+                  data-testid="authentication-debug-admin-create-mfa-required"
                   checked={createMFARequired}
                   disabled={targetOperationPending}
                   type="checkbox"
@@ -977,7 +999,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
               </label>
               <label style={checkboxStyle}>
                 <input
-                  data-testid="phase1-admin-create-is-deployment-admin"
+                  data-testid="authentication-debug-admin-create-is-deployment-admin"
                   checked={createIsDeploymentAdmin}
                   disabled={targetOperationPending}
                   type="checkbox"
@@ -988,7 +1010,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
                 Deployment admin
               </label>
               <button
-                data-testid="phase1-admin-create-user"
+                data-testid="authentication-debug-admin-create-user"
                 disabled={targetOperationPending}
                 style={buttonStyle}
                 type="button"
@@ -1005,7 +1027,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
             <span style={labelStyle}>Target user</span>
             <div style={stackStyle}>
               <input
-                data-testid="phase1-admin-target-user-id-input"
+                data-testid="authentication-debug-admin-target-user-id-input"
                 disabled={targetOperationPending}
                 placeholder="Target user UUID"
                 style={inputStyle}
@@ -1016,7 +1038,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
                 }}
               />
               <button
-                data-testid="phase1-admin-load-user"
+                data-testid="authentication-debug-admin-load-user"
                 disabled={!canLoadTargetUser}
                 style={secondaryButtonStyle}
                 type="button"
@@ -1027,18 +1049,18 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
                 Load user
               </button>
               <div
-                data-testid="phase1-admin-target-user-id"
+                data-testid="authentication-debug-admin-target-user-id"
                 style={monoTextStyle}
               >
                 {selectedUser?.user_id ?? ""}
               </div>
-              <div data-testid="phase1-admin-target-user-version">
+              <div data-testid="authentication-debug-admin-target-user-version">
                 {selectedUser?.user_version ?? ""}
               </div>
-              <div data-testid="phase1-admin-target-is-active">
+              <div data-testid="authentication-debug-admin-target-is-active">
                 {selectedUser ? String(selectedUser.is_active) : ""}
               </div>
-              <div data-testid="phase1-admin-target-is-deployment-admin">
+              <div data-testid="authentication-debug-admin-target-is-deployment-admin">
                 {selectedUser ? String(selectedUser.is_deployment_admin) : ""}
               </div>
             </div>
@@ -1048,7 +1070,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
             <span style={labelStyle}>Patch target user</span>
             <div style={stackStyle}>
               <input
-                data-testid="phase1-admin-patch-base-version"
+                data-testid="authentication-debug-admin-patch-base-version"
                 disabled={!canSubmitTargetAction}
                 placeholder="Base user version"
                 style={narrowInputStyle}
@@ -1059,7 +1081,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
                 }}
               />
               <input
-                data-testid="phase1-admin-patch-display-name"
+                data-testid="authentication-debug-admin-patch-display-name"
                 disabled={!canSubmitTargetAction}
                 placeholder="Display name"
                 style={inputStyle}
@@ -1071,7 +1093,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
               />
               <label style={checkboxStyle}>
                 <input
-                  data-testid="phase1-admin-patch-mfa-required"
+                  data-testid="authentication-debug-admin-patch-mfa-required"
                   checked={patchMFARequired}
                   disabled={!canSubmitTargetAction}
                   type="checkbox"
@@ -1083,7 +1105,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
               </label>
               <label style={checkboxStyle}>
                 <input
-                  data-testid="phase1-admin-patch-is-active"
+                  data-testid="authentication-debug-admin-patch-is-active"
                   checked={patchIsActive}
                   disabled={!canSubmitTargetAction}
                   type="checkbox"
@@ -1095,7 +1117,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
               </label>
               <label style={checkboxStyle}>
                 <input
-                  data-testid="phase1-admin-patch-is-deployment-admin"
+                  data-testid="authentication-debug-admin-patch-is-deployment-admin"
                   checked={patchIsDeploymentAdmin}
                   disabled={!canSubmitTargetAction}
                   type="checkbox"
@@ -1106,7 +1128,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
                 Deployment admin
               </label>
               <button
-                data-testid="phase1-admin-patch-user"
+                data-testid="authentication-debug-admin-patch-user"
                 disabled={!canSubmitVersionedTargetAction}
                 style={buttonStyle}
                 type="button"
@@ -1123,7 +1145,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
             <span style={labelStyle}>Credential actions</span>
             <div style={stackStyle}>
               <input
-                data-testid="phase1-admin-new-password"
+                data-testid="authentication-debug-admin-new-password"
                 placeholder="Replacement password"
                 style={inputStyle}
                 type="password"
@@ -1133,7 +1155,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
                 }}
               />
               <input
-                data-testid="phase1-admin-reason"
+                data-testid="authentication-debug-admin-reason"
                 placeholder="Reason"
                 style={inputStyle}
                 type="text"
@@ -1144,7 +1166,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
               />
               <div style={formRowStyle}>
                 <button
-                  data-testid="phase1-admin-password-reset"
+                  data-testid="authentication-debug-admin-password-reset"
                   disabled={!canSubmitVersionedTargetAction}
                   style={buttonStyle}
                   type="button"
@@ -1155,7 +1177,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
                   Password reset
                 </button>
                 <button
-                  data-testid="phase1-admin-totp-reset"
+                  data-testid="authentication-debug-admin-totp-reset"
                   disabled={!canSubmitVersionedTargetAction}
                   style={secondaryButtonStyle}
                   type="button"
@@ -1166,7 +1188,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
                   TOTP reset
                 </button>
                 <button
-                  data-testid="phase1-admin-revoke-all"
+                  data-testid="authentication-debug-admin-revoke-all"
                   disabled={!canSubmitTargetAction}
                   style={secondaryButtonStyle}
                   type="button"
@@ -1187,18 +1209,24 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
         <div style={detailGridStyle}>
           <div>
             <span style={labelStyle}>HTTP Status</span>
-            <div data-testid="phase1-last-http-status">
+            <div data-testid="authentication-debug-last-http-status">
               {lastProbe?.status ?? ""}
             </div>
           </div>
           <div>
             <span style={labelStyle}>Error Details</span>
-            <pre data-testid="phase1-last-error-details" style={codeBlockStyle}>
+            <pre
+              data-testid="authentication-debug-last-error-details"
+              style={codeBlockStyle}
+            >
               {prettyJSON(lastError?.details ?? {})}
             </pre>
           </div>
         </div>
-        <pre data-testid="phase1-last-response" style={codeBlockStyle}>
+        <pre
+          data-testid="authentication-debug-last-response"
+          style={codeBlockStyle}
+        >
           {prettyJSON(lastProbe?.body ?? {})}
         </pre>
       </section>

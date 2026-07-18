@@ -102,12 +102,9 @@ export const workbookInspectorPanelIds = [
   "workflow",
 ] as const satisfies readonly WorkbookInspectorPanelId[];
 
-export type Phase1ErrorSurface = "account" | "admin" | "auth" | "landing";
+export type PublicErrorSurface = "account" | "admin" | "auth" | "landing";
 
-/** Durable product-facing alias. Phase1ErrorSurface is retained for evidence code. */
-export type PublicErrorSurface = Phase1ErrorSurface;
-
-export type Phase1AuthSelector =
+export type AuthSelector =
   | "bootstrap-begin"
   | "bootstrap-complete"
   | "bootstrap-complete-code"
@@ -124,10 +121,7 @@ export type Phase1AuthSelector =
   | "shell-message"
   | "status";
 
-/** Durable product-facing alias. Phase1AuthSelector is retained for evidence code. */
-export type AuthSelector = Phase1AuthSelector;
-
-export type Phase1AccountSelector =
+export type AccountSelector =
   | "appearance-density-mode"
   | "appearance-save"
   | "profile-display-name"
@@ -162,10 +156,7 @@ export type Phase1AccountSelector =
   | "totp-enrollment-id"
   | "totp-secret-base32";
 
-/** Durable product-facing alias. Phase1AccountSelector is retained for evidence code. */
-export type AccountSelector = Phase1AccountSelector;
-
-export type Phase1AdminSelector =
+export type DeploymentAdminSelector =
   | "access-note"
   | "create-display-name"
   | "create-email"
@@ -198,10 +189,7 @@ export type Phase1AdminSelector =
   | "user-is-deployment-admin-filter"
   | "user-list";
 
-/** Durable product-facing alias. Phase1AdminSelector is retained for evidence code. */
-export type DeploymentAdminSelector = Phase1AdminSelector;
-
-export type Phase1LandingSelector =
+export type IncidentLandingSelector =
   | "create-current-phase"
   | "create-description"
   | "create-external-case"
@@ -222,9 +210,6 @@ export type Phase1LandingSelector =
   | "shell"
   | "status-filter"
   | "status";
-
-/** Durable product-facing alias. Phase1LandingSelector is retained for evidence code. */
-export type IncidentLandingSelector = Phase1LandingSelector;
 
 export type LandingAdminPanelToken =
   | "account-appearance"
@@ -268,15 +253,12 @@ export const incidentControlsSections = [
   "membership-audit",
 ] as const satisfies readonly IncidentControlsSection[];
 
-export type Phase1RouteSelector =
+export type AppRouteSelector =
   | "app-shell"
   | "debug-harness-loading"
   | "debug-harness-shell"
   | "workbook-current-user"
   | "workbook-loading";
-
-/** Durable product-facing alias. Phase1RouteSelector is retained for evidence code. */
-export type AppRouteSelector = Phase1RouteSelector;
 
 export type WorkbookShellSlot =
   | "inspector"
@@ -374,14 +356,11 @@ export const systemViewSwitcherGroupTokens = [
   "optional-artifact-surfaces",
 ] as const satisfies readonly SystemViewSwitcherGroupToken[];
 
-export type Phase1ErrorSummaryTestIds = {
+export type PublicErrorSummaryTestIds = {
   readonly container: StableTestId;
   readonly details: StableTestId;
   readonly message: StableTestId;
 };
-
-/** Durable product-facing alias. Phase1ErrorSummaryTestIds is retained for evidence code. */
-export type PublicErrorSummaryTestIds = Phase1ErrorSummaryTestIds;
 
 export type RowHistoryItemAnchor = {
   readonly historyItemRef: string;
@@ -399,7 +378,7 @@ const registeredViewSchemaIds = Object.freeze(
   new Set(listViewSchemaRegistryEntries().map((entry) => entry.view_schema_id)),
 );
 
-const phase1AuthTestIds = Object.freeze({
+const authTestIds = Object.freeze({
   "bootstrap-begin": "auth-bootstrap-begin",
   "bootstrap-complete": "auth-bootstrap-complete",
   "bootstrap-complete-code": "auth-bootstrap-complete-code",
@@ -415,9 +394,9 @@ const phase1AuthTestIds = Object.freeze({
   shell: "auth-shell",
   "shell-message": "auth-shell-message",
   status: "auth-status",
-} satisfies Record<Phase1AuthSelector, string>);
+} satisfies Record<AuthSelector, string>);
 
-const phase1AccountTestIds = Object.freeze({
+const accountTestIds = Object.freeze({
   "appearance-density-mode": "account-appearance-density-mode",
   "appearance-save": "account-appearance-save",
   "credential-auth-kind": "account-credential-auth-kind",
@@ -451,9 +430,9 @@ const phase1AccountTestIds = Object.freeze({
   "totp-current-password": "account-totp-current-password",
   "totp-enrollment-id": "account-totp-enrollment-id",
   "totp-secret-base32": "account-totp-secret-base32",
-} satisfies Record<Phase1AccountSelector, string>);
+} satisfies Record<AccountSelector, string>);
 
-const phase1AdminTestIds = Object.freeze({
+const deploymentAdminTestIds = Object.freeze({
   "access-note": "admin-access-note",
   "create-display-name": "admin-create-display-name",
   "create-email": "admin-create-email",
@@ -485,9 +464,9 @@ const phase1AdminTestIds = Object.freeze({
   "user-is-active-filter": "admin-user-is-active-filter",
   "user-is-deployment-admin-filter": "admin-user-is-deployment-admin-filter",
   "user-list": "admin-user-list",
-} satisfies Record<Phase1AdminSelector, string>);
+} satisfies Record<DeploymentAdminSelector, string>);
 
-const phase1LandingTestIds = Object.freeze({
+const incidentLandingTestIds = Object.freeze({
   "create-current-phase": "landing-create-current-phase",
   "create-description": "landing-create-description",
   "create-external-case": "landing-create-external-case",
@@ -508,7 +487,7 @@ const phase1LandingTestIds = Object.freeze({
   shell: "incident-landing",
   "status-filter": "landing-status-filter",
   status: "landing-status",
-} satisfies Record<Phase1LandingSelector, string>);
+} satisfies Record<IncidentLandingSelector, string>);
 
 const landingAdminShellTestIds = Object.freeze({
   menu: "landing-admin-menu",
@@ -520,65 +499,45 @@ const landingAdminPanelTokenSet = Object.freeze(
   new Set<LandingAdminPanelToken>(landingAdminPanelTokens),
 );
 
-const phase1RouteTestIds = Object.freeze({
+const appRouteTestIds = Object.freeze({
   "app-shell": "app-shell",
   "debug-harness-loading": "debug-harness-loading",
   "debug-harness-shell": "debug-harness-shell",
   "workbook-current-user": "workbook-current-user",
   "workbook-loading": "workbook-loading",
-} satisfies Record<Phase1RouteSelector, string>);
+} satisfies Record<AppRouteSelector, string>);
 
-const phase1ErrorSurfaces = Object.freeze(
-  new Set<Phase1ErrorSurface>(["account", "admin", "auth", "landing"]),
+const publicErrorSurfaces = Object.freeze(
+  new Set<PublicErrorSurface>(["account", "admin", "auth", "landing"]),
 );
 
 export function authTestId(selector: AuthSelector): StableTestId {
-  return phase1SelectorTestId(
-    phase1AuthTestIds,
-    selector,
-    "phase1 auth selector",
-  );
+  return semanticSelectorTestId(authTestIds, selector, "auth selector");
 }
-
-/** @deprecated Evidence compatibility alias; production code should use authTestId. */
-export const phase1AuthTestId = authTestId;
 
 export function accountTestId(selector: AccountSelector): StableTestId {
-  return phase1SelectorTestId(
-    phase1AccountTestIds,
-    selector,
-    "phase1 account selector",
-  );
+  return semanticSelectorTestId(accountTestIds, selector, "account selector");
 }
-
-/** @deprecated Evidence compatibility alias; production code should use accountTestId. */
-export const phase1AccountTestId = accountTestId;
 
 export function deploymentAdminTestId(
   selector: DeploymentAdminSelector,
 ): StableTestId {
-  return phase1SelectorTestId(
-    phase1AdminTestIds,
+  return semanticSelectorTestId(
+    deploymentAdminTestIds,
     selector,
-    "phase1 admin selector",
+    "deployment admin selector",
   );
 }
-
-/** @deprecated Evidence compatibility alias; production code should use deploymentAdminTestId. */
-export const phase1AdminTestId = deploymentAdminTestId;
 
 export function incidentLandingTestId(
   selector: IncidentLandingSelector,
 ): StableTestId {
-  return phase1SelectorTestId(
-    phase1LandingTestIds,
+  return semanticSelectorTestId(
+    incidentLandingTestIds,
     selector,
-    "phase1 landing selector",
+    "incident landing selector",
   );
 }
-
-/** @deprecated Evidence compatibility alias; production code should use incidentLandingTestId. */
-export const phase1LandingTestId = incidentLandingTestId;
 
 export function landingAdminShellTestId(
   selector: LandingAdminShellSelector,
@@ -605,38 +564,29 @@ export function landingAdminPanelTestId(
 }
 
 export function appRouteTestId(selector: AppRouteSelector): StableTestId {
-  return phase1SelectorTestId(
-    phase1RouteTestIds,
+  return semanticSelectorTestId(
+    appRouteTestIds,
     selector,
-    "phase1 route selector",
+    "app route selector",
   );
 }
-
-/** @deprecated Evidence compatibility alias; production code should use appRouteTestId. */
-export const phase1RouteTestId = appRouteTestId;
 
 export function publicErrorCodeTestId(
   surface: PublicErrorSurface,
 ): StableTestId {
-  return stableTestId(`${requirePhase1ErrorSurface(surface)}-error-code`);
+  return stableTestId(`${requirePublicErrorSurface(surface)}-error-code`);
 }
-
-/** @deprecated Evidence compatibility alias; production code should use publicErrorCodeTestId. */
-export const phase1ErrorCodeTestId = publicErrorCodeTestId;
 
 export function publicErrorSummaryTestIds(
   surface: PublicErrorSurface,
 ): PublicErrorSummaryTestIds {
-  const prefix = requirePhase1ErrorSurface(surface);
+  const prefix = requirePublicErrorSurface(surface);
   return {
     container: stableTestId(`${prefix}-error-public`),
     details: stableTestId(`${prefix}-error-details`),
     message: stableTestId(`${prefix}-error-message`),
   };
 }
-
-/** @deprecated Evidence compatibility alias; production code should use publicErrorSummaryTestIds. */
-export const phase1ErrorSummaryTestIds = publicErrorSummaryTestIds;
 
 export function gridShellTestId(viewSchemaId: WorkbookSurface): string {
   return viewFirstTestId(viewSchemaId, "grid-shell");
@@ -1026,32 +976,32 @@ export function incidentMembershipRoleDisplayTestId(userId: string): string {
   return incidentMembershipControlTestId("roleDisplay", userId);
 }
 
-export function phase2IncidentRowTestId(incidentId: string): string {
+export function debugIncidentRowTestId(incidentId: string): string {
   return encodedTestId("incident-row", incidentId, "incident_id");
 }
 
-export function phase2SelectIncidentButtonTestId(incidentId: string): string {
+export function debugSelectIncidentButtonTestId(incidentId: string): string {
   return encodedTestId("select-incident", incidentId, "incident_id");
 }
 
-export function phase2MembershipRowTestId(userId: string): string {
-  return phase2MembershipControlTestId("row", userId);
+export function debugMembershipRowTestId(userId: string): string {
+  return debugMembershipControlTestId("row", userId);
 }
 
-export function phase2MembershipRoleInputTestId(userId: string): string {
-  return phase2MembershipControlTestId("roleInput", userId);
+export function debugMembershipRoleInputTestId(userId: string): string {
+  return debugMembershipControlTestId("roleInput", userId);
 }
 
-export function phase2MembershipVersionTestId(userId: string): string {
-  return phase2MembershipControlTestId("version", userId);
+export function debugMembershipVersionTestId(userId: string): string {
+  return debugMembershipControlTestId("version", userId);
 }
 
-export function phase2MembershipPatchButtonTestId(userId: string): string {
-  return phase2MembershipControlTestId("patch", userId);
+export function debugMembershipPatchButtonTestId(userId: string): string {
+  return debugMembershipControlTestId("patch", userId);
 }
 
-export function phase2MembershipDeleteButtonTestId(userId: string): string {
-  return phase2MembershipControlTestId("delete", userId);
+export function debugMembershipDeleteButtonTestId(userId: string): string {
+  return debugMembershipControlTestId("delete", userId);
 }
 
 export function extensionProfileRowTestId(profileId: string): string {
@@ -1838,7 +1788,7 @@ function stableSelectorTokenTestId<T extends string>(
   return stableTestId(requireSelectorToken(tokens, value, label));
 }
 
-function phase1SelectorTestId<T extends string>(
+function semanticSelectorTestId<T extends string>(
   tokens: Readonly<Record<T, string>>,
   value: T,
   label: string,
@@ -1895,7 +1845,7 @@ function incidentMembershipControlTestId(
   return userScopedTestId(incidentMembershipControlPrefixes[control], userId);
 }
 
-const phase2MembershipControlPrefixes = {
+const debugMembershipControlPrefixes = {
   row: "membership-row",
   roleInput: "membership-role-input",
   version: "membership-version",
@@ -1903,13 +1853,13 @@ const phase2MembershipControlPrefixes = {
   delete: "delete-membership",
 } as const;
 
-type Phase2MembershipControl = keyof typeof phase2MembershipControlPrefixes;
+type DebugMembershipControl = keyof typeof debugMembershipControlPrefixes;
 
-function phase2MembershipControlTestId(
-  control: Phase2MembershipControl,
+function debugMembershipControlTestId(
+  control: DebugMembershipControl,
   userId: string,
 ): string {
-  return userScopedTestId(phase2MembershipControlPrefixes[control], userId);
+  return userScopedTestId(debugMembershipControlPrefixes[control], userId);
 }
 
 function stableEncodedTestId(
@@ -2045,13 +1995,13 @@ function requireWorkbookInspectorPanelId(
   );
 }
 
-function requirePhase1ErrorSurface(
-  value: Phase1ErrorSurface,
-): Phase1ErrorSurface {
-  if (phase1ErrorSurfaces.has(value)) {
+function requirePublicErrorSurface(
+  value: PublicErrorSurface,
+): PublicErrorSurface {
+  if (publicErrorSurfaces.has(value)) {
     return value;
   }
-  throw new Error(`Invalid phase1 error surface selector token: ${value}`);
+  throw new Error(`Invalid public error surface selector token: ${value}`);
 }
 
 function cssAttributeValue(value: string): string {

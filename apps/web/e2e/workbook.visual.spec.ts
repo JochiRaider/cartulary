@@ -10,6 +10,7 @@ import {
 } from "@cartulary/test-utils/grid";
 import { assertMarkerAnchoredToGridTarget } from "@cartulary/test-utils/visual";
 import {
+  authTestId,
   cartularyDefaultThemeId,
   cellPresenceMarkerTestId,
   dataTestIdPrefixSelector,
@@ -39,8 +40,7 @@ import {
   pendingQueueDiscardButtonTestId,
   pendingQueueNoticeTestId,
   pendingQueueRecoveryPanelTestId,
-  phase1AuthTestId,
-  phase1ErrorCodeTestId,
+  publicErrorCodeTestId,
   relationshipChipTestId,
   relationshipItemsTestId,
   rowCellTestId,
@@ -536,7 +536,7 @@ test.describe("FE-P1 auth gateway visual readiness", () => {
     });
 
     await page.goto("/");
-    await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+    await expect(page.getByTestId(authTestId("shell"))).toHaveAttribute(
       "data-bootstrap-state",
       "loading",
     );
@@ -544,44 +544,44 @@ test.describe("FE-P1 auth gateway visual readiness", () => {
     sessionPending = false;
     releaseAuthVisualStep(releaseSession);
 
-    await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+    await expect(page.getByTestId(authTestId("shell"))).toHaveAttribute(
       "data-bootstrap-state",
       "anonymous",
     );
-    await expect(
-      page.getByTestId(phase1AuthTestId("login-totp-code")),
-    ).toHaveCount(0);
+    await expect(page.getByTestId(authTestId("login-totp-code"))).toHaveCount(
+      0,
+    );
     await assertAuthGatewayVisual(page, "auth-initial");
 
-    await page.getByTestId(phase1AuthTestId("login-username")).focus();
+    await page.getByTestId(authTestId("login-username")).focus();
     await assertAuthGatewayVisual(page, "auth-focused");
 
     await fillAuthVisualCredentials(page);
     loginMode = "pending";
     pendingLoginResult = "invalid_credentials";
-    await page.getByTestId(phase1AuthTestId("login-submit")).click();
-    await expect(page.getByTestId(phase1AuthTestId("login-submit"))).toHaveText(
+    await page.getByTestId(authTestId("login-submit")).click();
+    await expect(page.getByTestId(authTestId("login-submit"))).toHaveText(
       "Signing in...",
     );
     await assertAuthGatewayVisual(page, "auth-submitting");
     releaseAuthVisualStep(releaseLogin);
-    await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
+    await expect(page.getByTestId(publicErrorCodeTestId("auth"))).toHaveText(
       "Email or password is incorrect.",
     );
     await assertAuthGatewayVisual(page, "auth-invalid-credentials");
 
     loginMode = "mfa_required";
-    await page.getByTestId(phase1AuthTestId("login-submit")).click();
-    await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+    await page.getByTestId(authTestId("login-submit")).click();
+    await expect(page.getByTestId(authTestId("shell"))).toHaveAttribute(
       "data-bootstrap-state",
       "mfa_required",
     );
     await assertAuthGatewayVisual(page, "auth-mfa-required");
 
     loginMode = "invalid_mfa";
-    await page.getByTestId(phase1AuthTestId("login-totp-code")).fill("000000");
-    await page.getByTestId(phase1AuthTestId("login-submit")).click();
-    await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
+    await page.getByTestId(authTestId("login-totp-code")).fill("000000");
+    await page.getByTestId(authTestId("login-submit")).click();
+    await expect(page.getByTestId(publicErrorCodeTestId("auth"))).toHaveText(
       "The verification code is incorrect or expired.",
     );
     await assertAuthGatewayVisual(page, "auth-invalid-mfa");
@@ -589,8 +589,8 @@ test.describe("FE-P1 auth gateway visual readiness", () => {
     loginMode = "mfa_setup_required";
     await page.reload();
     await fillAuthVisualCredentials(page);
-    await page.getByTestId(phase1AuthTestId("login-submit")).click();
-    await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+    await page.getByTestId(authTestId("login-submit")).click();
+    await expect(page.getByTestId(authTestId("shell"))).toHaveAttribute(
       "data-bootstrap-state",
       "mfa_setup_required",
     );
@@ -599,15 +599,15 @@ test.describe("FE-P1 auth gateway visual readiness", () => {
     loginMode = "service_unavailable";
     await page.reload();
     await fillAuthVisualCredentials(page);
-    await page.getByTestId(phase1AuthTestId("login-submit")).click();
-    await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
+    await page.getByTestId(authTestId("login-submit")).click();
+    await expect(page.getByTestId(publicErrorCodeTestId("auth"))).toHaveText(
       "Authentication is temporarily unavailable. Try again.",
     );
     await assertAuthGatewayVisual(page, "auth-service-unavailable");
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload();
-    await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+    await expect(page.getByTestId(authTestId("shell"))).toHaveAttribute(
       "data-bootstrap-state",
       "anonymous",
     );
@@ -3763,11 +3763,9 @@ async function assertStatusStripVisualRegression(page: Page, name: string) {
 
 async function fillAuthVisualCredentials(page: Page) {
   await page
-    .getByTestId(phase1AuthTestId("login-username"))
+    .getByTestId(authTestId("login-username"))
     .fill("visual.operator@example.test");
-  await page
-    .getByTestId(phase1AuthTestId("login-password"))
-    .fill("VisualPass1!");
+  await page.getByTestId(authTestId("login-password")).fill("VisualPass1!");
 }
 
 async function fulfillAuthVisualJSON(

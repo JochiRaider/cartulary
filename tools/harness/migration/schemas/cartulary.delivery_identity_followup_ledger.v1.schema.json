@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.delivery_identity_followup_ledger.v1",
+  "title": "Cartulary delivery identity follow-up ledger v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "status",
+    "baseline_digest",
+    "path_dispositions",
+    "symbol_dispositions",
+    "retained_protocol_identifiers"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.delivery_identity_followup_ledger.v1" },
+    "status": { "const": "complete" },
+    "baseline_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "path_dispositions": {
+      "type": "array",
+      "minItems": 16,
+      "items": { "$ref": "#/$defs/pathDisposition" }
+    },
+    "symbol_dispositions": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "$ref": "#/$defs/symbolDisposition" }
+    },
+    "retained_protocol_identifiers": {
+      "type": "array",
+      "minItems": 4,
+      "items": { "$ref": "#/$defs/retainedProtocolIdentifier" }
+    }
+  },
+  "$defs": {
+    "ownerId": {
+      "type": "string",
+      "pattern": "^(?:module|platform|app|web|package|harness)\\.[a-z][a-z0-9_]{0,62}$"
+    },
+    "relativePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    },
+    "pathDisposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["legacy_path", "semantic_path", "owner_id", "disposition", "generated"],
+      "properties": {
+        "legacy_path": { "$ref": "#/$defs/relativePath" },
+        "semantic_path": { "$ref": "#/$defs/relativePath" },
+        "owner_id": { "$ref": "#/$defs/ownerId" },
+        "disposition": { "const": "renamed" },
+        "generated": { "type": "boolean" }
+      }
+    },
+    "symbolDisposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["location", "legacy_locator", "semantic_locator", "owner_id", "disposition", "reason"],
+      "properties": {
+        "location": { "$ref": "#/$defs/relativePath" },
+        "legacy_locator": { "type": "string", "minLength": 1 },
+        "semantic_locator": { "type": "string", "minLength": 1 },
+        "owner_id": { "$ref": "#/$defs/ownerId" },
+        "disposition": { "enum": ["removed_alias_family", "renamed"] },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "retainedProtocolIdentifier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["location", "locator", "owner_id", "disposition", "reason", "harness_selector_use"],
+      "properties": {
+        "location": { "$ref": "#/$defs/relativePath" },
+        "locator": { "type": "string", "minLength": 1 },
+        "owner_id": { "$ref": "#/$defs/ownerId" },
+        "disposition": { "const": "retained_product_protocol" },
+        "reason": { "type": "string", "minLength": 1 },
+        "harness_selector_use": { "const": false }
+      }
+    }
+  }
+}

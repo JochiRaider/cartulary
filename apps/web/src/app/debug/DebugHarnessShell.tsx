@@ -1,7 +1,7 @@
-import { phase1RouteTestId } from "@cartulary/ui-contracts";
+import { appRouteTestId } from "@cartulary/ui-contracts";
 import { NetworkFlowGridLoadFeature } from "../../workbook/features/NetworkFlowFeature";
-import { Phase1Harness } from "./Phase1Harness";
-import { Phase2Harness } from "./Phase2Harness";
+import { AuthenticationDebugHarness } from "./AuthenticationDebugHarness";
+import { IncidentDirectoryDebugHarness } from "./IncidentDirectoryDebugHarness";
 
 export function DebugHarnessShell() {
   if (
@@ -13,10 +13,10 @@ export function DebugHarnessShell() {
   return (
     <section
       aria-label="Debug harness controls"
-      data-testid={phase1RouteTestId("debug-harness-shell")}
+      data-testid={appRouteTestId("debug-harness-shell")}
     >
-      <Phase1Harness />
-      <Phase2Harness />
+      <AuthenticationDebugHarness />
+      <IncidentDirectoryDebugHarness />
     </section>
   );
 }

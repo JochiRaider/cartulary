@@ -1259,9 +1259,9 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
             <p style={landingEyebrowStyle}>Cartulary</p>
             <h1 style={landingHeadlineStyle}>Debug harness shell</h1>
             <p style={landingBodyStyle}>
-              Phase 1 and Phase 2 harness controls now live behind the explicit
-              `?debug=harness` flag so the default root path can behave like the
-              real incident landing.
+              Authentication and incident-directory harness controls now live
+              behind the explicit `?debug=harness` flag so the default root path
+              can behave like the real incident landing.
             </p>
           </div>
 

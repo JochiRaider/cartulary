@@ -1,7 +1,7 @@
 import {
+  incidentLandingTestId,
   landingIncidentCardTestId,
   landingIncidentOpenButtonTestId,
-  phase1LandingTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import type { Browser, Page } from "@playwright/test";
@@ -72,7 +72,7 @@ export class IncidentDirectory {
 
   async open() {
     await this.closeAccountSettingsIfOpen();
-    const landingShell = this.page.getByTestId(phase1LandingTestId("shell"));
+    const landingShell = this.page.getByTestId(incidentLandingTestId("shell"));
     if (await this.isOpen()) {
       return;
     }
@@ -108,15 +108,15 @@ export class IncidentDirectory {
 
   async refresh() {
     await this.closeAccountSettingsIfOpen();
-    await this.page.getByTestId(phase1LandingTestId("refresh")).click();
+    await this.page.getByTestId(incidentLandingTestId("refresh")).click();
   }
 
   async createAndOpenIncident(incidentKey: string, title: string) {
     const createOpenButton = this.page.getByTestId(
-      phase1LandingTestId("create-open-button"),
+      incidentLandingTestId("create-open-button"),
     );
     const incidentKeyInput = this.page.getByTestId(
-      phase1LandingTestId("incident-key"),
+      incidentLandingTestId("incident-key"),
     );
     let lastOpenError: unknown = null;
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -136,10 +136,10 @@ export class IncidentDirectory {
     }
     await incidentKeyInput.fill(incidentKey);
     await this.page
-      .getByTestId(phase1LandingTestId("incident-title"))
+      .getByTestId(incidentLandingTestId("incident-title"))
       .fill(title);
     await this.page
-      .getByTestId(phase1LandingTestId("create-submit-button"))
+      .getByTestId(incidentLandingTestId("create-submit-button"))
       .click();
     await expect(this.page).toHaveURL(/incident_id=/);
     const openedIncidentId = new URL(this.page.url()).searchParams.get(
@@ -195,7 +195,7 @@ export class IncidentDirectory {
   }
 
   private async isOpen() {
-    const landingShell = this.page.getByTestId(phase1LandingTestId("shell"));
+    const landingShell = this.page.getByTestId(incidentLandingTestId("shell"));
     if (!(await landingShell.isVisible().catch(() => false))) {
       return false;
     }

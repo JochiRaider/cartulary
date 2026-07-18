@@ -1,4 +1,4 @@
-import { phase1RouteTestId, saveStateTestId } from "@cartulary/ui-contracts";
+import { appRouteTestId, saveStateTestId } from "@cartulary/ui-contracts";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -31,7 +31,7 @@ describe("vendored font role activation", () => {
 
     render(<App readingProfile="hyperlegible" themeId="dark_graphite" />);
 
-    const shell = await screen.findByTestId(phase1RouteTestId("app-shell"));
+    const shell = await screen.findByTestId(appRouteTestId("app-shell"));
     expect(shell.getAttribute("data-reading-profile")).toBe("hyperlegible");
     expect(shell.style.fontFamily).toBe(
       "var(--ct-typography-accessible-reading-fontFamily)",

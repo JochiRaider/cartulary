@@ -1,7 +1,7 @@
 import {
+  authTestId,
+  incidentLandingTestId,
   landingIncidentCardTestId,
-  phase1AuthTestId,
-  phase1LandingTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 
@@ -85,7 +85,7 @@ test("shows enterprise providers and begins provider sign-in from the anonymous 
 
     await page.goto("/");
     const providerButton = page.getByTestId(
-      phase1AuthTestId("enterprise-provider-button"),
+      authTestId("enterprise-provider-button"),
     );
     await expect(providerButton).toBeVisible();
     await expect(providerButton).toContainText("Corporate OIDC");
@@ -181,7 +181,7 @@ test("handles enterprise session root landing for zero, one, multiple, and disap
 
   await page.goto("/");
   await expect(
-    page.getByTestId(phase1LandingTestId("empty-state")),
+    page.getByTestId(incidentLandingTestId("empty-state")),
   ).toBeVisible();
   await expect(page).not.toHaveURL(/incident_id=/);
 
@@ -200,7 +200,7 @@ test("handles enterprise session root landing for zero, one, multiple, and disap
     page.getByTestId(landingIncidentCardTestId(multipleIncidentB)),
   ).toBeVisible();
   await expect(
-    page.getByTestId(phase1LandingTestId("incidents-count")),
+    page.getByTestId(incidentLandingTestId("incidents-count")),
   ).toHaveText("2 loaded");
   await expect(page).not.toHaveURL(/incident_id=/);
 
@@ -241,6 +241,6 @@ test("handles enterprise session root landing for zero, one, multiple, and disap
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page).not.toHaveURL(/incident_id=/);
   await expect(
-    page.getByTestId(phase1LandingTestId("empty-state")),
+    page.getByTestId(incidentLandingTestId("empty-state")),
   ).toBeVisible();
 });

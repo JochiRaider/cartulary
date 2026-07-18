@@ -534,7 +534,7 @@ describe("workbook query controls", () => {
           state: "rough",
           summary: "Alpha",
         },
-        testId: "phase8-row-record-1",
+        testId: "saved-view-row-record-1",
       },
       {
         kind: "data",
@@ -547,7 +547,7 @@ describe("workbook query controls", () => {
           state: "reviewed",
           summary: "Beta",
         },
-        testId: "phase8-row-record-2",
+        testId: "saved-view-row-record-2",
       },
     ];
     const columns: readonly GridColumn<HarnessRow>[] = [
@@ -613,7 +613,7 @@ describe("workbook query controls", () => {
     expect(groupHeader?.querySelector("[data-grid-field-key]")).toBeNull();
     expect(
       container
-        .querySelector(dataTestIdSelector("phase8-row-record-1"))
+        .querySelector(dataTestIdSelector("saved-view-row-record-1"))
         ?.getAttribute("data-grid-record-id"),
     ).toBe("record-1");
   });
@@ -638,7 +638,7 @@ describe("workbook query controls", () => {
           state: "rough",
           summary: "Alpha",
         },
-        testId: "phase8-row-record-1",
+        testId: "saved-view-row-record-1",
       },
       {
         kind: "data",
@@ -651,7 +651,7 @@ describe("workbook query controls", () => {
           state: "reviewed",
           summary: "Beta",
         },
-        testId: "phase8-row-record-2",
+        testId: "saved-view-row-record-2",
       },
     ];
     const columns: readonly GridColumn<HarnessRow>[] = [
@@ -717,7 +717,7 @@ describe("workbook query controls", () => {
     ).toBeNull();
     expect(
       container
-        .querySelector(dataTestIdSelector("phase8-row-record-1"))
+        .querySelector(dataTestIdSelector("saved-view-row-record-1"))
         ?.getAttribute("data-grid-record-id"),
     ).toBe("record-1");
   });
