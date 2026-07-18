@@ -35,6 +35,7 @@
     { "key": "static_analysis_security_findings", "boundary_group": "static_analysis", "paths": ["tools/harness/static-analysis/govulncheck-findings.mjs"], "allowed_consumers": [] },
     { "key": "test_catalog", "boundary_group": "test_catalog", "paths": ["tools/harness/test-catalog/index.mjs"], "allowed_consumers": [] },
     { "key": "test_output_frontend_indexing", "boundary_group": "test_output", "paths": ["tools/harness/output/test-output/frontend-indexes.mjs", "tools/harness/output/test-output/frontend-row-evidence.mjs"], "allowed_consumers": [] },
+    { "key": "test_slice_planning", "boundary_group": "scheduler", "paths": ["tools/harness/owner-slice/index.mjs"], "allowed_consumers": [] },
     { "key": "vitest_execution_diagnostics", "boundary_group": "test_output", "paths": ["tools/harness/diagnostics/vitest-failure-details.mjs"], "allowed_consumers": [] },
     { "key": "web_build_artifact", "boundary_group": "readiness", "paths": ["tools/harness/readiness/build-web-artifact.sh", "tools/harness/readiness/embed-web-assets.sh"], "allowed_consumers": [] }
   ]

@@ -13,6 +13,14 @@ const playwrightTargets = Object.freeze({
   webserver_backed: "browser-e2e-webserver-backed",
 });
 
+function goTargetForFamily(familyID) {
+  const family = String(familyID).split(".").at(-1);
+  if (["engine", "fixtures", "support_unit", "unit"].includes(family)) return "backend-unit";
+  if (family === "store") return "backend-store";
+  if (family === "process") return "backend-process";
+  return "backend-integration";
+}
+
 function asciiCompare(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
 }
@@ -48,6 +56,7 @@ function profileByID(profiles, key, id) {
 }
 
 export function evidenceTargetForCatalogRow(row, { commandTargetByID = new Map() } = {}) {
+  if (row.runner === "go") return goTargetForFamily(row.family_id);
   if (row.runner === "vitest") return "frontend-unit";
   if (row.runner === "playwright") {
     const target = playwrightTargets[row.selector.stage];

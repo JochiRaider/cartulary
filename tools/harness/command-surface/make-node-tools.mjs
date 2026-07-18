@@ -66,6 +66,24 @@ function splitPassthrough(valueToSplit, name) {
   return raw.split(/\s+/).filter(Boolean);
 }
 
+function inputSourceMap(env) {
+  return new Map(
+    String(env.CARTULARY_MAKE_INPUT_SOURCES ?? "")
+      .split(/\s+/u)
+      .filter(Boolean)
+      .map((entry) => {
+        const separator = entry.indexOf("=");
+        return separator === -1
+          ? [entry, "unset"]
+          : [entry.slice(0, separator), entry.slice(separator + 1)];
+      }),
+  );
+}
+
+function inputWasProvided(metadata, name) {
+  return new Set(["cli", "env", "file"]).has(metadata.inputSources.get(name));
+}
+
 export class UsageError extends Error {
   constructor(message, usage) {
     super(message);
@@ -104,7 +122,40 @@ const phaseSliceRuntimeEnv = [
   "RUN_SERVICE_BACKED_SCHEDULE_SCRIPT",
 ];
 
+const ownerSliceRuntimeEnv = [
+  "MAKE",
+  "GO",
+  "PNPM",
+  "TEST_SERVICES_BIN",
+  "CARTULARY_TEST_RESULTS_DIR",
+  "CARTULARY_TEST_RUN_ID",
+];
+
+function ownerSliceTool(target) {
+  return {
+    inputs: ["OWNER", "ROWS", "VITEST_MAX_WORKERS", "PLAYWRIGHT_WORKERS", "JSON"],
+    runtimeEnv: ownerSliceRuntimeEnv,
+    script: "./tools/harness/owner-slice/owner-slice-cli.mjs",
+    usage: `usage: make ${target} OWNER=<owner-id> [ROWS=<row-id,...>] [VITEST_MAX_WORKERS=<1..16>] [PLAYWRIGHT_WORKERS=<1..16>] [JSON=1]`,
+    buildArgs(env, metadata) {
+      const args = ["--target", target, "--owner", value(env, "OWNER")];
+      if (inputWasProvided(metadata, "ROWS")) args.push("--rows", value(env, "ROWS"));
+      args.push(
+        "--vitest-workers",
+        value(env, "VITEST_MAX_WORKERS") || "4",
+        "--playwright-workers",
+        value(env, "PLAYWRIGHT_WORKERS") || "3",
+      );
+      if (value(env, "JSON") === "1") args.push("--json");
+      else if (value(env, "JSON") !== "") args.push("--json-value", value(env, "JSON"));
+      return args;
+    },
+  };
+}
+
 export const makeNodeTools = {
+  "test-slice": ownerSliceTool("test-slice"),
+  "service-backed-test-slice": ownerSliceTool("service-backed-test-slice"),
   "task-surface-report": {
     inputs: ["TASK_SURFACE_REPORT_ARGS"],
     script: "./tools/harness/generated-artifacts/task-surface-report-cli.mjs",
@@ -533,7 +584,9 @@ export function buildMakeNodeToolInvocation(name, env = process.env) {
   const tool = makeNodeTool(name);
   const declaredInputs = contractInputNames(name, env);
 
-  const args = tool.buildArgs(scopedEnv(env, declaredInputs, name));
+  const args = tool.buildArgs(scopedEnv(env, declaredInputs, name), {
+    inputSources: inputSourceMap(env),
+  });
   if (tool.resultDir) {
     const resultsDir = resultDirForMode(
       scopedEnv(env, resultDirMakeEnvVars(tool.resultDir), `${name} result-dir`),

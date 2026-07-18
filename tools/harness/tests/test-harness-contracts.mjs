@@ -86,6 +86,11 @@ import {
   assertDocumentationAccessAllowed,
   scanDocumentationReadSource,
 } from "../test-catalog/documentation-boundary.mjs";
+import {
+  buildOwnerSlicePlan,
+  OwnerSliceUsageError,
+  resolveOwnerSliceSelection,
+} from "../owner-slice/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");
@@ -254,7 +259,98 @@ test("owner evidence accounting projects exact catalog rows without delivery met
     readJSON("tools/task_surface_manifest.json").targets.map((entry) => [entry.command_id, entry.name]),
   );
   assert.notEqual(evidenceTargetForCatalogRow(shellRow, { commandTargetByID: commandTargets }), "");
-  assert.equal(evidenceTargetForCatalogRow(goRow, { commandTargetByID: commandTargets }), "");
+  assert.notEqual(evidenceTargetForCatalogRow(goRow, { commandTargetByID: commandTargets }), "");
+});
+
+test("owner slice selection is exact, owner-qualified, and independent of default-check filtering", () => {
+  const catalog = loadTestCatalog(repoRoot);
+  const ownerRows = catalog.rows.filter((row) => row.owner_id === "platform.config");
+  const exactRow = ownerRows.find((row) => row.runner === "go");
+  assert.ok(exactRow);
+
+  const omitted = resolveOwnerSliceSelection(repoRoot, {
+    ownerID: "platform.config",
+    dependencyScope: "all",
+    rowsProvided: false,
+  });
+  assert.deepEqual(omitted.selection.resolved_row_ids, ownerRows.map((row) => row.row_id).sort());
+  assert.equal(omitted.selection.selection_mode, "default_owner");
+  assert.equal(omitted.selection.completion_scope, "full_owner");
+
+  const exact = resolveOwnerSliceSelection(repoRoot, {
+    ownerID: "platform.config",
+    dependencyScope: "all",
+    rows: exactRow.row_id,
+    rowsProvided: true,
+  });
+  assert.deepEqual(exact.selection.requested_row_ids, [exactRow.row_id]);
+  assert.deepEqual(exact.selection.resolved_row_ids, [exactRow.row_id]);
+  assert.equal(exact.selection.selection_mode, "exact_rows");
+  assert.equal(exact.selection.completion_scope, "selected_subset");
+  assert.equal(exact.workUnits.length, 1);
+});
+
+test("owner slice input and service-backed selection fail closed before planning", () => {
+  const catalog = loadTestCatalog(repoRoot);
+  const nonServiceRow = catalog.rows.find((row) => row.owner_id === "platform.config");
+  const serviceOwner = catalog.rows.find((row) => row.runtime_profile_id === "default")?.owner_id;
+  assert.ok(nonServiceRow);
+  assert.ok(serviceOwner);
+
+  const serviceSelection = resolveOwnerSliceSelection(repoRoot, {
+    ownerID: serviceOwner,
+    dependencyScope: "service_backed",
+    rowsProvided: false,
+  });
+  assert.ok(serviceSelection.rows.length > 0);
+  assert.ok(serviceSelection.workUnits.every((unit) => unit.managed_service_ids.length > 0));
+
+  for (const options of [
+    { ownerID: "", dependencyScope: "all", rowsProvided: false },
+    { ownerID: "unknown.owner", dependencyScope: "all", rowsProvided: false },
+    { ownerID: "platform.config", dependencyScope: "all", rows: "", rowsProvided: true },
+    {
+      ownerID: "platform.config",
+      dependencyScope: "all",
+      rows: `${nonServiceRow.row_id},${nonServiceRow.row_id}`,
+      rowsProvided: true,
+    },
+    {
+      ownerID: "platform.config",
+      dependencyScope: "service_backed",
+      rows: nonServiceRow.row_id,
+      rowsProvided: true,
+    },
+    { ownerID: "platform.config", dependencyScope: "all", rowsProvided: false, vitestWorkers: "17" },
+    { ownerID: "platform.config", dependencyScope: "all", rowsProvided: false, jsonValue: "true" },
+  ]) {
+    assert.throws(
+      () => resolveOwnerSliceSelection(repoRoot, options),
+      (error) => error instanceof OwnerSliceUsageError && error.exitCode === 2,
+    );
+  }
+});
+
+test("owner slice plan is deterministic and schema-valid for semantic inputs", async () => {
+  const catalog = loadTestCatalog(repoRoot);
+  const row = catalog.rows.find((entry) => entry.owner_id === "platform.config" && entry.runner === "go");
+  assert.ok(row);
+  const options = {
+    ownerID: row.owner_id,
+    dependencyScope: "all",
+    rows: row.row_id,
+    rowsProvided: true,
+    target: "test-slice",
+    commandID: "cartulary.harness.command.test_slice.v1",
+    runID: "fixture-run",
+    timestamp: "2026-07-18T00:00:00.000Z",
+  };
+  const first = buildOwnerSlicePlan(repoRoot, options);
+  const second = buildOwnerSlicePlan(repoRoot, options);
+  assert.deepEqual(first, second);
+  await validateSchema(first.schema_id, first);
+  assert.deepEqual(first.selection.resolved_row_ids, [row.row_id]);
+  assert.match(first.source_snapshot_digest, /^sha256:[0-9a-f]{64}$/u);
 });
 
 test("owner evidence accounting rejects duplicate, foreign, and target-incompatible rows", () => {
@@ -3412,7 +3508,7 @@ test("harness import boundary consumes the authored helper ownership registry", 
   const helperOwnership = loadHarnessHelperOwnership(repoRoot);
   const authoredOwnerFacadePaths = ownerFacadePathLists(helperOwnership);
   const report = collectHarnessImportBoundaryViolations(repoRoot);
-  assert.equal(helperOwnership.facades.length, 36);
+  assert.equal(helperOwnership.facades.length, 37);
   assert.deepEqual(
     Object.keys(report.owner_facades).sort(),
     Object.keys(authoredOwnerFacadePaths).sort(),

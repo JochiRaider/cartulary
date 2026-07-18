@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test_slice_scheduler_summary.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "command_id",
+    "run_id",
+    "owner_id",
+    "selected_rows",
+    "source_snapshot_digest",
+    "catalog_semantic_digest",
+    "verification_semantic_digest",
+    "runtime_profile_digest",
+    "resource_profile_digest",
+    "fixture_profile_digest",
+    "target",
+    "status",
+    "started_at",
+    "finished_at",
+    "duration_ms",
+    "selection",
+    "counts",
+    "unused_inputs",
+    "work_units",
+    "artifacts"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.test_slice_scheduler_summary.v1" },
+    "command_id": { "enum": ["cartulary.harness.command.test_slice.v1", "cartulary.harness.command.service_backed_test_slice.v1"] },
+    "run_id": { "type": "string", "minLength": 1 },
+    "owner_id": { "$ref": "cartulary.test_family_manifest.v1#/$defs/owner_id" },
+    "selected_rows": { "$ref": "cartulary.test_slice_plan.v1#/$defs/row_ids" },
+    "source_snapshot_digest": { "$ref": "cartulary.test_slice_plan.v1#/$defs/digest" },
+    "catalog_semantic_digest": { "$ref": "cartulary.test_slice_plan.v1#/$defs/digest" },
+    "verification_semantic_digest": { "$ref": "cartulary.test_slice_plan.v1#/$defs/digest" },
+    "runtime_profile_digest": { "$ref": "cartulary.test_slice_plan.v1#/$defs/digest" },
+    "resource_profile_digest": { "$ref": "cartulary.test_slice_plan.v1#/$defs/digest" },
+    "fixture_profile_digest": { "$ref": "cartulary.test_slice_plan.v1#/$defs/digest" },
+    "target": { "enum": ["test-slice", "service-backed-test-slice"] },
+    "status": { "enum": ["pass", "fail"] },
+    "started_at": { "$ref": "cartulary.test_slice_plan.v1#/$defs/timestamp" },
+    "finished_at": { "$ref": "cartulary.test_slice_plan.v1#/$defs/timestamp" },
+    "duration_ms": { "type": "integer", "minimum": 0 },
+    "selection": { "$ref": "cartulary.test_slice_plan.v1#/$defs/selection" },
+    "counts": { "$ref": "#/$defs/counts" },
+    "unused_inputs": { "$ref": "cartulary.test_slice_plan.v1#/$defs/unique_strings" },
+    "work_units": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/work_unit_result" } },
+    "artifacts": { "$ref": "#/$defs/artifacts" }
+  },
+  "$defs": {
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selected", "passed", "failed", "infrastructure_failed", "skipped_dependency", "cancelled", "skipped_authorized"],
+      "properties": {
+        "selected": { "type": "integer", "minimum": 1 },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "infrastructure_failed": { "type": "integer", "minimum": 0 },
+        "skipped_dependency": { "type": "integer", "minimum": 0 },
+        "cancelled": { "type": "integer", "minimum": 0 },
+        "skipped_authorized": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "work_unit_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["work_unit_id", "runner", "target_name", "row_ids", "terminal_state", "exit_code", "duration_ms", "failure_reason"],
+      "properties": {
+        "work_unit_id": { "type": "string", "pattern": "^unit\\.[a-z0-9_]+\\.[0-9a-f]{12}$" },
+        "runner": { "enum": ["go", "vitest", "playwright", "shell"] },
+        "target_name": { "type": "string", "minLength": 1 },
+        "row_ids": { "$ref": "cartulary.test_slice_plan.v1#/$defs/row_ids" },
+        "terminal_state": { "enum": ["passed", "failed", "infrastructure_failed", "skipped_dependency", "cancelled", "skipped_authorized"] },
+        "exit_code": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "failure_reason": { "type": ["string", "null"] }
+      }
+    },
+    "log_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["work_unit_id", "stdout_path", "stderr_path"],
+      "properties": {
+        "work_unit_id": { "type": "string", "pattern": "^unit\\.[a-z0-9_]+\\.[0-9a-f]{12}$" },
+        "stdout_path": { "type": "string", "minLength": 1 },
+        "stderr_path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan", "scheduler_summary", "work_unit_logs"],
+      "properties": {
+        "plan": { "type": "string", "minLength": 1 },
+        "scheduler_summary": { "type": "string", "minLength": 1 },
+        "work_unit_logs": { "type": "array", "items": { "$ref": "#/$defs/log_ref" } }
+      }
+    }
+  }
+}

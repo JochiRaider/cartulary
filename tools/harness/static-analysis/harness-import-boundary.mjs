@@ -45,6 +45,12 @@ const knownHarnessOwnerRoots = new Set([
   "test-support",
   "tests",
 ]);
+for (const paths of Object.values(ownerFacadePaths)) {
+  for (const facadePath of paths) {
+    const ownerRoot = facadePath.split("/")[2];
+    if (ownerRoot) knownHarnessOwnerRoots.add(ownerRoot);
+  }
+}
 const executionSubsystems = new Set(["backend", "browser", "frontend", "scheduler"]);
 const backendOwnerFacadePaths = new Set(ownerFacadePaths.backend ?? []);
 const frontendOwnerFacadePaths = new Set(ownerFacadePaths.frontend ?? []);

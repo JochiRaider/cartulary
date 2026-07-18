@@ -12,7 +12,7 @@
 | Baseline worktree | Clean |
 | Tracker state | `IN_PROGRESS` — WS-07 owner slice and evidence APIs |
 | Active start | Clean tree at `ddfd2afa` |
-| Active tasks | T-032 |
+| Active tasks | T-033 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -717,8 +717,8 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-029 | Rename Vitest/Playwright identities | WS-06 | DONE | T-022,T-027 | 53 path renames; semantic source/catalog scan; frontend and harness gates | No delivery-phase frontend test identity remains. |
 | T-030 | Rename fixtures/scenarios/goldens | WS-06 | DONE | T-027 | 56 visual and 15 diagnostic golden moves, digest report, and 29-scenario visual run | Paths are semantic and bytes preserved. |
 | T-031 | Close production follow-up classifications | WS-06 | DONE | T-007,T-028,T-029 | 16-path/2-symbol/4-protocol follow-up ledger and zero-match scan | Every remaining match has owner/disposition. |
-| T-032 | Implement owner-slice planning/execution | WS-07 | IN_PROGRESS | T-015,T-022,T-027 | CLI/smoke tests | Both successor slice targets work. |
-| T-033 | Implement owner diagnostics/task guide | WS-07 | TODO | T-032 | Text/JSON contract tests | Commands report exact owner topology. |
+| T-032 | Implement owner-slice planning/execution | WS-07 | DONE | T-015,T-022,T-027 | Deterministic plan contracts, exact Go/Vitest execution, managed-service smoke, and fail-closed selection fixtures | Both successor slice targets work. |
+| T-033 | Implement owner diagnostics/task guide | WS-07 | IN_PROGRESS | T-032 | Text/JSON contract tests | Commands report exact owner topology. |
 | T-034 | Implement owner evidence accounting/audit | WS-07 | TODO | T-032 | Audit fixtures | Fresh compatible evidence reconciles. |
 | T-035 | Replace schemas and artifact identities | WS-07 | TODO | T-032,T-034 | Schema attachment/drift checks | No successor artifact uses delivery phase identity. |
 | T-036 | Migrate browser stages/runtime profiles | WS-08 | TODO | T-027,T-032 | Browser plan tests | Selection derives from catalog resources. |
@@ -1110,6 +1110,20 @@ Each entry must include:
 - Branch/commit at start: `revision/grid-adapter` at clean WS-06 closure checkpoint `ddfd2afa`. WS-07 is the only `IN_PROGRESS` workstream and T-032 is the sole active task; T-033 through T-035 remain `TODO`.
 - Active scope: implement catalog-native `test-slice OWNER=<owner-id> [ROWS=...]` and `service-backed-test-slice OWNER=<owner-id> [ROWS=...]` planning/execution with exact selection, usage, JSON, service-backed, cancellation, cleanup, and failure-normalization fixtures. This checkpoint does not activate diagnostics, evidence audit, artifact replacement, browser topology, or public task-surface retirement assigned to later tasks.
 - Rollback boundary: revert the complete T-032 implementation checkpoint before activating T-033. Do not add phase aliases, translated plans, old-catalog readers, or fallback selection.
+
+#### 2026-07-18 — T-032 owner-slice planning and execution checkpoint
+
+- Branch/commit at start: `revision/grid-adapter` at clean WS-07 activation checkpoint `743fd3f5`. T-032 is `DONE`, T-033 becomes the sole active task, and WS-07 remains the only `IN_PROGRESS` workstream.
+- Selection result: both successor commands resolve only the unified owner catalog. Omitted `ROWS` selects the complete active owner inventory for `test-slice` and the runtime-profile service-backed subset for `service-backed-test-slice`; explicit selection is owner-qualified, sorted, duplicate-free, non-empty, and all-or-nothing. `default_check` is absent from slice narrowing. Missing, malformed, blank, duplicate, unknown, cross-owner, zero-row, and explicit non-service selections fail with usage exit `2` before a result directory is created.
+- Plan result: `cartulary.test_slice_plan.v1` is a closed attached schema carrying the exact selection, semantic source/catalog/verification/profile digests, normalized rows, deterministic runner/profile work units, resource claims, dependencies, finalizers, expected artifacts, and unused worker inputs. The source snapshot hashes every tracked and non-ignored untracked regular file or symlink without following links. Identical semantic inputs produce byte-identical plans apart from caller-supplied run/time identity.
+- Execution result: exact Go tests are selected by package and escaped test-name alternation, exact Vitest cases by file and escaped title alternation, shell rows by their registered command target, and managed-service work through the owned test-services lifecycle. Runner arguments are passed without shell interpretation and retained work-unit logs are redacted. Playwright rows remain plan-valid but cannot execute through a phase fallback; their catalog-native stage executor is the explicit WS-08/T-036 dependency.
+- Boundary result: the new owner-slice facade is registered in helper ownership under the scheduler boundary. Top-level harness-root recognition now derives owner roots from that registry, preventing a second hard-coded ownership list. Go evidence-target routing is semantic-family based, so owner accounting no longer leaves Go rows targetless.
+- Behavioral evidence: exact one-row `platform.config` Go execution passed at `.cartulary/test-results/20260718T032638Z-p13940`; omitted-row JSON execution selected and passed all seven owner rows, including non-default rows, at `.cartulary/test-results/20260718T032649Z-p14986`; an exact `package.protocol_ts` Vitest row passed at `.cartulary/test-results/20260718T033242Z-p82534`; and an exact managed-service `module.assessments` row passed at `.cartulary/test-results/20260718T032922Z-p26441`. Target-local JSON emitted exactly one `cartulary.test_slice_scheduler_summary.v1` object, and an explicit empty `ROWS=` fixture exited `2` with no retained run directory.
+- Passed validation: `make format` at `.cartulary/test-results/20260718T032853Z-p23077`; `make harness-contract` with 68 tests at `.cartulary/test-results/20260718T033255Z-p82912`; `make test-fast` with 1,295 tests at `.cartulary/test-results/20260718T032951Z-p34701`; final `make json-shape-check` at `.cartulary/test-results/20260718T033255Z-p82928`; `make generate-drift` at `.cartulary/test-results/20260718T033204Z-p75812`; `make generated-artifact-policy-check` at `.cartulary/test-results/20260718T033255Z-p82888`; and script/Biome lint plus staged diff checks.
+- Resolved failures: schema attachment and helper-facade arrays initially violated required ASCII ordering, and the import boundary initially treated the new facade directory as unknown. Sorting the owner inputs and deriving known roots from registered facades resolved those migration-related failures without an exception. No product assertion failed.
+- Skipped checks: Playwright owner execution is assigned to WS-08, full per-row terminal accounting and audit are T-034, complete artifact/schema replacement is T-035, generated public help/input ownership is WS-09, and broad `make check`, finalization, and release validation remain WS-11.
+- Next safe task: T-033 only. Implement read-only `explain-test-owner` and `task-guide ROLE=module-author OWNER=...` from the same catalog/plan topology with exact human/JSON contracts and no retained artifacts.
+- Rollback boundary: revert the complete T-032 checkpoint, including hidden pre-cutover Make entrypoints, command dispatch, selection/planning/execution facade, source snapshot, schemas/attachments, evidence-target routing, boundary ownership, tests, and tracker evidence. Never replace it with a translated phase plan or target-wide over-selection.
 
 ## 17. First-resumer checklist
 

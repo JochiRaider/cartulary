@@ -242,6 +242,17 @@ FORCE:
 include tools/task_surface.runtime.generated.mk
 include tools/task_surface.generated.mk
 
+# Owner-first slice targets remain hidden from generated help until the WS-09
+# task-surface cutover. Their command contracts and execution are live so the
+# owner scheduler can be validated before the v1 surface is retired atomically.
+.PHONY: test-slice service-backed-test-slice
+
+test-slice:
+	$(Q)$(call RUN_MAKE_NODE_TOOL,test-slice,OWNER="$(OWNER)" ROWS="$(ROWS)" VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" PLAYWRIGHT_WORKERS="$(PLAYWRIGHT_WORKERS)" JSON="$(JSON)" MAKE="$(MAKE)" GO="$(GO)" PNPM="$(PNPM)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
+
+service-backed-test-slice:
+	$(Q)$(call RUN_MAKE_NODE_TOOL,service-backed-test-slice,OWNER="$(OWNER)" ROWS="$(ROWS)" VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" PLAYWRIGHT_WORKERS="$(PLAYWRIGHT_WORKERS)" JSON="$(JSON)" MAKE="$(MAKE)" GO="$(GO)" PNPM="$(PNPM)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
+
 .PHONY: graph-projection-fixture-candidate
 graph-projection-fixture-candidate:
 	@test -n "$(FIXTURE)" || { echo "FIXTURE=GP-FIX-NNN is required" >&2; exit 2; }
