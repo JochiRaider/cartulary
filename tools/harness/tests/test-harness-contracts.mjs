@@ -305,6 +305,37 @@ test("backend owner migration reconciles every frozen row and support selector",
   assert.deepEqual(summary.counts_by_runner, { go: 335, playwright: 92, vitest: 29 });
 });
 
+test("frontend owner migration reconciles every frozen row and selector atom", () => {
+  const result = spawnSync(
+    process.execPath,
+    [path.join(repoRoot, "tools/harness/migration/reconcile-frontend-owner-catalog.mjs")],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  const summary = JSON.parse(result.stdout);
+  assert.equal(summary.schema_id, "cartulary.test_frontend_reconciliation_summary.v1");
+  assert.equal(summary.status, "pass");
+  assert.equal(summary.authoritative_population, 87);
+  assert.equal(summary.authoritative_title_atoms, 193);
+  assert.equal(summary.resolved_title_selectors, 194);
+  assert.equal(summary.authoritative_command_atoms, 23);
+  assert.equal(summary.resolved_command_selectors, 7);
+  assert.equal(summary.referenced_catalog_rows, 101);
+  assert.equal(summary.split_row_authorizations, 16);
+  assert.equal(summary.total_terminal_dispositions, 548);
+  assert.equal(summary.remaining_pending, 0);
+  assert.deepEqual(summary.counts_by_disposition, {
+    consolidated: 6,
+    deleted: 4,
+    migrated: 77,
+  });
+  assert.deepEqual(summary.counts_by_runner, {
+    playwright: 56,
+    shell: 6,
+    vitest: 25,
+  });
+});
+
 test("runner selector resolvers preserve exact closed shapes across all runners", () => {
   const runnerRegistry = readJSON("tools/test_runner_registry.json");
   const runnerByID = new Map(runnerRegistry.runners.map((entry) => [entry.runner, entry]));

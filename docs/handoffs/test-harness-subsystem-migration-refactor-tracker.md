@@ -10,9 +10,9 @@
 | Baseline branch | `revision/grid-adapter` |
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
-| Tracker state | `IN_PROGRESS` — WS-05 frontend row migration |
-| Active start | Clean tree at `5eb409a19104134552341f2b2fdee318ef5e39f6` |
-| Active tasks | T-027 |
+| Tracker state | `READY` — WS-05 complete; WS-06 not started |
+| Active start | None; awaiting the WS-06 tracker activation checkpoint |
+| Active tasks | None |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -489,7 +489,7 @@ These follow-ups do not block harness completion unless the old production ident
 | WS-02 | Create machine verification owners and remove documentation parsing | DONE | WS-01 | Schema-valid contracts and decoupling ledger closure | Revert an owner contract and its consumers together. |
 | WS-03 | Build unified test catalog | DONE | WS-01, WS-02 | Registry/manifests loader and catalog checks | Revert catalog stack; old catalog remains authoritative only before cutover. |
 | WS-04 | Migrate backend rows | DONE | WS-03 | 456 backend dispositions and focused tests | Revert complete owner slices, never individual aliases. |
-| WS-05 | Migrate frontend rows | IN_PROGRESS | WS-03 | 87 frontend dispositions and browser accounting tests | Revert complete owner slices with fixture metadata. |
+| WS-05 | Migrate frontend rows | DONE | WS-03 | 87 frontend dispositions and browser accounting tests | Revert complete owner slices with fixture metadata. |
 | WS-06 | Rename tests, symbols, fixtures, and goldens | TODO | WS-04, WS-05 | Semantic scan and visual digest report | Revert complete rename slices; no duplicate old/new tests. |
 | WS-07 | Replace slice, audit, schema, and artifact APIs | TODO | WS-03–WS-06 | Successor CLI contract/smoke tests | Revert the whole interface checkpoint before atomic cutover. |
 | WS-08 | Migrate browser stages and scheduler topology | TODO | WS-05, WS-07 | Owner-based DAG, lifecycle, and browser tests | Revert authored topology and generated outputs together. |
@@ -710,7 +710,7 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-024 | Migrate FE-P5–FE-P8 rows | WS-05 | DONE | T-015 | 22 dispositions, 47 exact title selectors, catalog and frontend tests | Rows have terminal dispositions. |
 | T-025 | Migrate FE-P9–FE-P12 rows | WS-05 | DONE | T-015 | 30 dispositions, 39 exact title atoms, catalog and frontend tests | Rows have terminal dispositions. |
 | T-026 | Remove frontend guide/cumulative accounting | WS-05 | DONE | T-023,T-024,T-025 | Catalog-native owner accounting projection and negative tests | One successor owner accounting model remains. |
-| T-027 | Reconcile all 87 frontend rows | WS-05 | IN_PROGRESS | T-026 | Reconciliation report | Count and selector coverage close. |
+| T-027 | Reconcile all 87 frontend rows | WS-05 | DONE | T-026 | 87-row/216-atom reconciliation report | Count and selector coverage close. |
 | T-028 | Rename Go test identities | WS-06 | TODO | T-022 | Semantic scan and Go tests | No delivery-phase Go test identity remains. |
 | T-029 | Rename Vitest/Playwright identities | WS-06 | TODO | T-022,T-027 | Semantic scan and frontend tests | No delivery-phase frontend test identity remains. |
 | T-030 | Rename fixtures/scenarios/goldens | WS-06 | TODO | T-027 | Digest comparison and browser tests | Paths are semantic and bytes preserved. |
@@ -1029,6 +1029,20 @@ Each entry must include:
 - Skipped checks: final evidence-accounting/audit schemas and retained artifact integration are owned by T-034/T-035; public command cutover by T-039; v1 reader deletion by T-043/T-046; final browser-stage runtime, broad `make check`, finalization, and release checks remain later workstream gates. No v1 artifact is represented as successor evidence.
 - Next safe task: T-027 only. Independently reconcile all 87 frontend baseline identities, terminal dispositions, exact source selectors, catalog rows, owners, verifications, profiles, and the 548-row crosswalk closure before closing WS-05.
 - Rollback boundary: revert the evidence-accounting owner root, helper ownership/schema enum, import-boundary registration, focused tests, and this tracker entry together. Do not move accounting into the catalog owner or restore documentation-derived selection in the successor path.
+
+#### 2026-07-18 — WS-05 frontend reconciliation and workstream completion
+
+- Branch/commit at start: `revision/grid-adapter` at clean T-026 checkpoint `fc6937c62775997387b97b6f0822607bc7af6fb5`. This entry closes T-027 and WS-05; WS-06 remains `TODO` and has not started.
+- Workstream/task state: WS-05 and T-023 through T-027 are `DONE`. No workstream or task is active until a separate tracker activation checkpoint starts WS-06.
+- Independent reconciliation result: the source-to-catalog reconciler proves all 87 frozen frontend identities have one terminal reviewed disposition: 77 migrated, six consolidated, and four deleted. All 193 unique legacy title atoms are retained by exact catalog selectors; they resolve 194 times because `FE-B-P8-01` intentionally has separate webserver-backed and support executions. All 23 command atoms are terminally adjudicated: seven resolve once through registered shell rows and 16 belong to the four explicitly deleted phase-ledger/release-composition rows.
+- Catalog authorization and selector closure: the frontend migration authorizes 16 additional split rows and references 101 distinct live catalog rows after consolidation and exact duplicate execution are included. Every retained row is authorized by a migrated baseline identity or explicit new-row provenance, every exact selector resolves through the unified loader, every consolidated survivor remains independently authorized, and no frontend baseline key remains pending. The complete crosswalk has exactly 548 terminal authoritative dispositions and 265 terminal auxiliary dispositions.
+- Semantic preservation: reconciliation independently checks durable owner, owner-local verification, runner, exact title/command coverage, evidence class, Playwright stage, runtime/resource/fixture profile, default-check posture, claim posture, and delivery-neutral row IDs. The frozen runner split remains 56 Playwright, 25 Vitest, and six shell identities. Direct retained row references comprise 13 accessibility, 26 browser, one measurement, seven static, 43 unit, and 14 visual records; repeated references are expected where consolidated identities share a survivor.
+- Owner reference totals: `harness.generated_artifacts=4`, `module.auth=11`, `module.collaboration=10`, `module.entities=5`, `module.evidence=5`, `module.networkflow=7`, `module.revisions=2`, `module.savedviews=5`, `module.timeline=2`, `module.workbook=36`, `package.grid_adapter=6`, `package.protocol_ts=1`, `package.ui=1`, `package.view_contracts=1`, `platform.viewquery=1`, `web.architecture=3`, and `web.design=4`. These are reconciled row references rather than unique catalog-owner populations.
+- Final WS-05 catalog state: 46 owners, 169 families, 832 rows, and 1,376 exact selectors; 377 Go, 143 Playwright, three shell, and 309 Vitest rows. Catalog digest is `sha256:a96f2dc00d868302e0c208958b14ed6d38a5b50ade29abd17148a946ebf7e733`; verification digest is `sha256:6c4b33052cf1c0646066c9420dcb4c137807f7ffc5d7fafe3f49f8d0d58e8e57`.
+- Passed validation: reproducible `cartulary.test_frontend_reconciliation_summary.v1`; complete migration baseline/crosswalk schema, cardinality, authorization, and catalog parity checks; `make format` at `.cartulary/test-results/20260718T014440Z-p98836`; `make harness-contract` with 63 passing tests at `.cartulary/test-results/20260718T014449Z-p1580`; `make json-shape-check` at `.cartulary/test-results/20260718T014449Z-p1598`; `make frontend-typecheck` at `.cartulary/test-results/20260718T014449Z-p1657`; `make frontend-unit` at `.cartulary/test-results/20260718T014449Z-p1584`; `make lint-scripts` at `.cartulary/test-results/20260718T014449Z-p1630`; and `git diff --check`.
+- Skipped checks: owner-slice commands do not exist until WS-07; semantic filenames/titles/goldens are WS-06; browser-stage runtime execution and topology are WS-08; broad `make check`, finalization, and release checks are WS-11. Exact selector/profile reconciliation is not represented as final browser runtime evidence.
+- Next safe task: create a tracker-only checkpoint marking WS-06 and T-028 through T-031 `IN_PROGRESS`, then perform semantic renames in complete backend, frontend, and fixture/golden slices without starting WS-07 concurrently.
+- Rollback boundary: revert the complete WS-05 sequence from `013e7a54` through this completion checkpoint, including frontend owner manifests, verification-kind changes, title decoupling, accounting core, crosswalk dispositions/authorizations, migration/reconciliation tools, and focused tests. Never restore documentation-driven activation or a separate frontend ownership namespace.
 
 ## 17. First-resumer checklist
 
