@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -8,6 +9,7 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const baselinePath = path.join(root, "tools/test_migration_baseline.json");
 const crosswalkPath = path.join(root, "tools/test_migration_crosswalk.json");
+const requireFromRoot = createRequire(path.join(root, "package.json"));
 
 function fail(message) {
   throw new Error(message);
@@ -45,6 +47,15 @@ function writeJson(file, value) {
 
 function jsonValue(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function validateMigrationArtifact(schemaName, value) {
+  const Ajv2020 = requireFromRoot("ajv/dist/2020").default;
+  const schema = json(`tools/harness/migration/schemas/${schemaName}.schema.json`);
+  const validator = new Ajv2020({ allErrors: true, strict: false }).compile(schema);
+  if (!validator(value)) {
+    fail(`${schemaName} validation failed: ${JSON.stringify(validator.errors)}`);
+  }
 }
 
 function goSelector(row) {
@@ -238,12 +249,77 @@ const crosswalk = jsonValue({
 
 if (process.argv.includes("--check")) {
   if (!existsSync(baselinePath) || !existsSync(crosswalkPath)) fail("migration baseline or crosswalk is missing");
-  if (canonical(json("tools/test_migration_baseline.json")) !== canonical(baseline)) fail("test migration baseline drift");
+  const storedBaseline = json("tools/test_migration_baseline.json");
   const currentCrosswalk = json("tools/test_migration_crosswalk.json");
-  if (currentCrosswalk.baseline_digest !== baselineDigest) fail("test migration crosswalk baseline digest drift");
+  validateMigrationArtifact("cartulary.test_migration_baseline.v1", storedBaseline);
+  validateMigrationArtifact("cartulary.test_migration_crosswalk.v1", currentCrosswalk);
+  const storedBaselineDigest = digest(storedBaseline);
+  const migrationStarted =
+    currentCrosswalk.dispositions.length > 0 ||
+    currentCrosswalk.auxiliary_dispositions.length > 0 ||
+    currentCrosswalk.new_rows.length > 0;
+  if (!migrationStarted && canonical(storedBaseline) !== canonical(baseline)) {
+    fail("test migration baseline drift");
+  }
+  if (currentCrosswalk.baseline_digest !== storedBaselineDigest) {
+    fail("test migration crosswalk baseline digest drift");
+  }
   const represented = currentCrosswalk.pending_baseline_keys.length + currentCrosswalk.dispositions.length;
   if (represented !== 548) fail(`crosswalk represents ${represented}/548 baseline identities`);
-  process.stdout.write(`${JSON.stringify({ schema_id: "cartulary.test_migration_baseline_check.v1", status: "passed", authoritative_population: 548, backend_support: 37, vitest_classifications: 228, vitest_unowned: classifications.filter((row) => row.classification === "unowned_regression").length })}\n`);
+  const frozenKeys = new Set(
+    storedBaseline.identities.map((entry) => `${entry.source_registry_id}\0${entry.legacy_row_id}`),
+  );
+  const representedKeys = [
+    ...currentCrosswalk.pending_baseline_keys,
+    ...currentCrosswalk.dispositions,
+  ].map((entry) => `${entry.source_registry_id}\0${entry.legacy_row_id}`);
+  if (new Set(representedKeys).size !== representedKeys.length) {
+    fail("test migration crosswalk represents a baseline identity more than once");
+  }
+  if (representedKeys.some((key) => !frozenKeys.has(key))) {
+    fail("test migration crosswalk contains an unknown baseline identity");
+  }
+  const frozenAuxiliaryIDs = new Set(
+    Object.values(storedBaseline.auxiliary_candidates)
+      .flat()
+      .map((entry) => entry.candidate_id),
+  );
+  const auxiliaryIDs = currentCrosswalk.auxiliary_dispositions.map((entry) => entry.candidate_id);
+  if (new Set(auxiliaryIDs).size !== auxiliaryIDs.length) {
+    fail("test migration crosswalk contains a duplicate auxiliary disposition");
+  }
+  if (auxiliaryIDs.some((candidateID) => !frozenAuxiliaryIDs.has(candidateID))) {
+    fail("test migration crosswalk contains an unknown auxiliary candidate");
+  }
+  if (migrationStarted && existsSync(path.join(root, "tools/test_catalog_owner.json"))) {
+    const { loadTestCatalog } = await import("../test-catalog/test-catalog.mjs");
+    const catalog = loadTestCatalog(root);
+    const authorizedRows = new Map();
+    for (const entry of [
+      ...currentCrosswalk.dispositions.filter((item) => item.disposition !== "deleted"),
+      ...currentCrosswalk.new_rows,
+    ]) {
+      if (authorizedRows.has(entry.row_id)) {
+        fail(`test migration crosswalk authorizes duplicate row ${entry.row_id}`);
+      }
+      authorizedRows.set(entry.row_id, entry);
+    }
+    for (const row of catalog.rows) {
+      const authorization = authorizedRows.get(row.row_id);
+      if (!authorization) fail(`catalog row ${row.row_id} has no migration authorization`);
+      if (authorization.owner_id !== row.owner_id) {
+        fail(`catalog row ${row.row_id} owner differs from migration authorization`);
+      }
+      if (canonical(authorization.verification_ids) !== canonical(row.verification_ids)) {
+        fail(`catalog row ${row.row_id} verifications differ from migration authorization`);
+      }
+      authorizedRows.delete(row.row_id);
+    }
+    if (authorizedRows.size > 0) {
+      fail(`migration authorization has no catalog row: ${[...authorizedRows.keys()][0]}`);
+    }
+  }
+  process.stdout.write(`${JSON.stringify({ schema_id: "cartulary.test_migration_baseline_check.v1", status: "passed", authoritative_population: 548, pending: currentCrosswalk.pending_baseline_keys.length, dispositions: currentCrosswalk.dispositions.length, backend_support: storedBaseline.auxiliary_candidates.backend_support.length, vitest_classifications: storedBaseline.auxiliary_candidates.vitest_classifications.length, auxiliary_dispositions: auxiliaryIDs.length })}\n`);
 } else {
   writeJson(baselinePath, baseline);
   writeJson(crosswalkPath, crosswalk);

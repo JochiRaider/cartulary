@@ -1,0 +1,168 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "web.architecture",
+  "rows": [
+    {
+      "row_id": "web.architecture.boundary_support.selectorcontractpolicy_classifies__cross_boundar_db0c1cde0b",
+      "owner_id": "web.architecture",
+      "family_id": "web.architecture.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.architecture.verification.test_boundaries"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/testing/selectorContractPolicy.test.ts",
+        "titles": [
+          "selector contract policy classifies Phase 1 cross-boundary selector families as shared-builder owned"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.architecture.boundary_support.selectorcontractpolicy_keeps_cross_boundary_sele_61868c7039",
+      "owner_id": "web.architecture",
+      "family_id": "web.architecture.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.architecture.verification.test_boundaries"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/testing/selectorContractPolicy.test.ts",
+        "titles": [
+          "selector contract policy keeps cross-boundary selector templates behind shared builders"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.architecture.boundary_support.selectorcontractpolicy_keeps_phase_named_selecto_a659d356ed",
+      "owner_id": "web.architecture",
+      "family_id": "web.architecture.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.architecture.verification.test_boundaries"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/testing/selectorContractPolicy.test.ts",
+        "titles": [
+          "selector contract policy keeps phase-named selector helpers out of production modules"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.architecture.boundary_support.selectorcontractpolicy_rejects_raw__selector_lit_e8f92512d1",
+      "owner_id": "web.architecture",
+      "family_id": "web.architecture.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.architecture.verification.test_boundaries"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/testing/selectorContractPolicy.test.ts",
+        "titles": [
+          "selector contract policy rejects raw FE-P1 selector literals at helper-level selector sinks"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.architecture.boundary_support.timelineworkbooktestsupport_replaces_controlled_77b04cd969",
+      "owner_id": "web.architecture",
+      "family_id": "web.architecture.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.architecture.verification.test_boundaries"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/testing/timelineWorkbookTestSupport.test.tsx",
+        "titles": [
+          "timeline workbook test support replaces controlled input values without interleaving with the existing value"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.architecture.boundary_support.timelineworkbooktestsupport_waits_for_delayed_wo_8de9145b31",
+      "owner_id": "web.architecture",
+      "family_id": "web.architecture.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.architecture.verification.test_boundaries"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/testing/timelineWorkbookTestSupport.test.tsx",
+        "titles": [
+          "timeline workbook test support waits for delayed workbook row identity with the shared bounded helper"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.architecture.boundary_support.transportboundarypolicy_suite_aab5aaaedb",
+      "owner_id": "web.architecture",
+      "family_id": "web.architecture.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.architecture.verification.test_boundaries"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/testing/transportBoundaryPolicy.test.ts",
+        "titles": [
+          "frontend transport boundary policy allows raw fetch only in the shared transport and presigned upload adapter",
+          "frontend transport boundary policy keeps the raw upload call constrained to the server-issued target"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

@@ -25,7 +25,7 @@
     }
   },
   "$defs": {
-    "ownerId": { "type": "string", "pattern": "^(?:module|platform|app|web|package|harness)\\.[a-z][a-z0-9_]{0,62}$", "maxLength": 191 },
+    "ownerId": { "type": "string", "pattern": "^(?:module|platform|app|web|package|harness)\\.(?!phase[0-9]+$|fe_p[0-9]+$)[a-z][a-z0-9_]{0,62}$", "maxLength": 191 },
     "strings": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
   }
 }

@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:b78d6533876c6f998054679e1f6cbe432f5b7b59328c019e6222269b793adfce",
+  "input_digest": "sha256:dfc90d00cb6204b91b7c80bf3e0650233bf8ad20cd0b3b3dff993973288fa8bc",
   "inputs": [
     {
       "path": "tools/browser_e2e_duration_baselines.json",
@@ -12,7 +12,7 @@
     {
       "path": "tools/execution_topology_manifest.json",
       "role": "execution_topology",
-      "hash": "sha256:c00f7f28992bb63f660411c5ea7c9a115ad692721af9f3c66ffde55f2db602e0"
+      "hash": "sha256:398d74c6a04e8a1759691d4c2a74a0032ee2eeab42f8a828be868aeab4794bf4"
     },
     {
       "path": "tools/go_test_duration_baselines.json",
@@ -210,6 +210,26 @@
       "hash": "sha256:8bc5e39913fe4c160ce55ee593fd495ac926bd69e7d6b8627d516c45beb304bb"
     },
     {
+      "path": "tools/harness/execution/runners/go.mjs",
+      "role": "renderer_source",
+      "hash": "sha256:b1708b5242a138830842df91b7dae97210594d45aa066563ef5eca60a1c15957"
+    },
+    {
+      "path": "tools/harness/execution/runners/playwright.mjs",
+      "role": "renderer_source",
+      "hash": "sha256:4c8f742c0a557b95a138e3ecc98c1de1bacdfa8d6cae3cf6f880e5e62158a71c"
+    },
+    {
+      "path": "tools/harness/execution/runners/shell.mjs",
+      "role": "renderer_source",
+      "hash": "sha256:3d057b1e16be52a8ea62004ec50f77729e2257048f32749c56cf29a96fb84ed1"
+    },
+    {
+      "path": "tools/harness/execution/runners/vitest.mjs",
+      "role": "renderer_source",
+      "hash": "sha256:d10f2c062c343fa674dd0f2d4e42ab7fe5ea0b108071fbf1d193e34cadcbb822"
+    },
+    {
       "path": "tools/harness/execution/service-backed/index.mjs",
       "role": "renderer_source",
       "hash": "sha256:eefbf7e2a605b1b56ebddee4de2d47e65147ce21df77707d5fdda5abd0b73a56"
@@ -262,7 +282,7 @@
     {
       "path": "tools/harness/generated-artifacts/check-json-shapes.mjs",
       "role": "renderer_source",
-      "hash": "sha256:5d092241dbdccbe1274586d894f4556ed86a1a992c329f8042a434bb710256d4"
+      "hash": "sha256:7eb0cb94473bb5312d74b19d52e893decf40a3934934e4c968c2f92a3d241c0a"
     },
     {
       "path": "tools/harness/generated-artifacts/check-phase-ledger-drift.mjs",

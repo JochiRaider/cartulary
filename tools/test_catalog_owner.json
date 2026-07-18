@@ -1,0 +1,65 @@
+{
+  "schema_id": "cartulary.test_owner_registry.v1",
+  "owners": [
+    {
+      "owner_id": "harness.browser",
+      "manifest_path": "tools/test_families/harness.browser.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.graphprojection",
+      "manifest_path": "tools/test_families/module.graphprojection.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "package.grid_adapter",
+      "manifest_path": "tools/test_families/package.grid_adapter.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "package.protocol_ts",
+      "manifest_path": "tools/test_families/package.protocol_ts.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "package.test_utils",
+      "manifest_path": "tools/test_families/package.test_utils.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "package.ui",
+      "manifest_path": "tools/test_families/package.ui.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "package.view_contracts",
+      "manifest_path": "tools/test_families/package.view_contracts.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "web.application",
+      "manifest_path": "tools/test_families/web.application.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "web.architecture",
+      "manifest_path": "tools/test_families/web.architecture.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "web.collaboration",
+      "manifest_path": "tools/test_families/web.collaboration.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "manifest_path": "tools/test_families/web.networkflow.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "web.workbook",
+      "manifest_path": "tools/test_families/web.workbook.json",
+      "status": "active"
+    }
+  ]
+}

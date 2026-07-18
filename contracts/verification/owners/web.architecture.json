@@ -10,6 +10,14 @@
       "evidence_kinds": ["static_check"],
       "public_target": "frontend-import-boundary-check",
       "status": "active"
+    },
+    {
+      "verification_id": "web.architecture.verification.test_boundaries",
+      "behavior_class": "architecture",
+      "profile": "support",
+      "requirement": "Frontend structural policy tests preserve transport, selector, telemetry, and module import ownership boundaries.",
+      "evidence_kinds": ["vitest"],
+      "status": "active"
     }
   ]
 }

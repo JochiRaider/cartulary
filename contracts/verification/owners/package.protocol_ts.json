@@ -1,0 +1,14 @@
+{
+  "schema_id": "cartulary.verification_contract.v1",
+  "owner_id": "package.protocol_ts",
+  "verifications": [
+    {
+      "verification_id": "package.protocol_ts.verification.shared_contract",
+      "behavior_class": "architecture",
+      "profile": "support",
+      "requirement": "The TypeScript protocol facade decodes closed generated contracts without widening wire shapes or exposing unsafe payload detail.",
+      "evidence_kinds": ["vitest"],
+      "status": "active"
+    }
+  ]
+}

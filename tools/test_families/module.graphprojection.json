@@ -1,0 +1,160 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "module.graphprojection",
+  "rows": [
+    {
+      "row_id": "module.graphprojection.engine.canonical_behavior",
+      "owner_id": "module.graphprojection",
+      "family_id": "module.graphprojection.engine",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.graphprojection.verification.engine_and_storage"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/graphprojection",
+        "tests": [
+          "TestAdmissionAndNormalization",
+          "TestAdmissionRejectsInvalidGraphViewID",
+          "TestCanonicalDigestAndIDs",
+          "TestCanonicalJSON",
+          "TestConformanceMatrixDoesNotOverclaimUnexecutableFixtures",
+          "TestDuplicateObjectMembersRejected",
+          "TestFailedRunInspectionShape",
+          "TestFilterTruthTable",
+          "TestGPFIX014CanonicalJSONString",
+          "TestGPFIX015IntegerLexicalBoundaries",
+          "TestGPFIX016TimestampCalendarValidity",
+          "TestGPFIX017IdentifierUnicodeWhitespace",
+          "TestGPFIX022MinimalGraphDigestTranscript",
+          "TestGPFIX023HostGraphDigestTranscript",
+          "TestGPFIX036DistinctSortedArrayCanonicalOrder",
+          "TestGraphProjectionErrorEnvelopesAreClosedAndOrdered",
+          "TestGraphProjectionFacadeDoesNotImportPostgreSQL",
+          "TestGraphProjectionInboundConsumersUseApprovedFacades",
+          "TestGraphProjectionProductionImportBoundaries",
+          "TestNoPublicGraphProjectionRoutes",
+          "TestOperationErrorsDoNotEchoSourceAuthoredValues",
+          "TestProjectDirectReverseAndAggregation",
+          "TestProjectEphemeralReturnsFullNonRetainedResult",
+          "TestProjectionCancellationNonceAndOutputValidationBoundaries",
+          "TestProjectionRunInspectionDoesNotExposeRetainedInternals",
+          "TestScalarAndFieldPathValidation",
+          "TestStoreSQLStaysWithinGraphProjectionTables",
+          "TestValidationRegistryRejectsInvalidConstructionAndHashesRequiredDetailsOnly",
+          "TestWorkbookProjectionsAndPublicRoutesDoNotImportGraphProjection"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.graphprojection.fixtures.fixture_verifier",
+      "owner_id": "module.graphprojection",
+      "family_id": "module.graphprojection.fixtures",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.graphprojection.verification.engine_and_storage"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/graphprojection/fixturetest",
+        "tests": [
+          "TestContainedPathRejectsTraversal",
+          "TestLoadRejectsUnsafeAndCorruptArtifacts",
+          "TestVerifyExecutesAndRejectsSemanticMismatch"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.graphprojection.storage.lifecycle",
+      "owner_id": "module.graphprojection",
+      "family_id": "module.graphprojection.storage",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.graphprojection.verification.engine_and_storage"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/graphprojection",
+        "tests": [
+          "TestListGraphViewsPagination",
+          "TestQueryLifecycleStateMatrix",
+          "TestRetentionCountZeroExpiresReplacedRun",
+          "TestServiceLifecycleFacadeAndDirectQueries",
+          "TestStoreLifecycleRetentionAndInvalidation",
+          "TestStorePreAdmissionFailureTouchesNoState",
+          "TestTraverseDeterminism"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.graphprojection.storage.migration_reset",
+      "owner_id": "module.graphprojection",
+      "family_id": "module.graphprojection.storage",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.graphprojection.verification.engine_and_storage"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/postgres",
+        "tests": [
+          "TestGraphProjectionMigration32BlocksReferencedDerivedState",
+          "TestGraphProjectionMigration32ResetsUnreferencedDerivedState"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_io_heavy",
+      "fixture_profile_id": "postgres_migration_scratch",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.graphprojection.storage.transaction_binding",
+      "owner_id": "module.graphprojection",
+      "family_id": "module.graphprojection.storage",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.graphprojection.verification.engine_and_storage"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/graphprojection/postgresbinding",
+        "tests": [
+          "TestReaderSeesProjectionBindingInsideCallerTransaction"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

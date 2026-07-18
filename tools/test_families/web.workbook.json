@@ -1,0 +1,2298 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "web.workbook",
+  "rows": [
+    {
+      "row_id": "web.workbook.boundary_support.timelinecontrollerboundarypolicy_suite_0d3042d183",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/timelineControllerBoundaryPolicy.test.ts",
+        "titles": [
+          "Timeline controller boundary policy composes every capability family through an explicit controller",
+          "Timeline controller boundary policy keeps socket lifecycle and private resume state outside Timeline",
+          "Timeline controller boundary policy prevents capability controllers from importing sibling controllers"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.boundary_support.workbooksurfaceownershippolicy_suite_85a208f2dd",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/policies/workbookSurfaceOwnershipPolicy.test.ts",
+        "titles": [
+          "workbook surface ownership policy assigns every registration to one declared bounded-context owner",
+          "workbook surface ownership policy keeps domain workflow branches out of the common contract surface",
+          "workbook surface ownership policy keeps owner policy definitions pure and transport-free"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.boundary_support.workbooksurfaceregistration_suite_95c45285ef",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/workbookSurfaceRegistration.test.ts",
+        "titles": [
+          "WorkbookSurfaceRegistration fails registry construction for duplicate and missing owners",
+          "WorkbookSurfaceRegistration registers every exposed schema exactly once and excludes extension workspaces"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.assessmentworkbookmodel_keeps_assessment_column_e8493a2ec0",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/assessmentWorkbookModel.test.ts",
+        "titles": [
+          "assessmentWorkbookModel keeps assessment column widths and support labels stable"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.assessmentworkbookmodel_uses_contract_enum_defau_90b00dd470",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/assessmentWorkbookModel.test.ts",
+        "titles": [
+          "assessmentWorkbookModel uses contract enum defaults for new assessment drafts"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.entityworkbookmodel_builds_merge_plans_without_c_6b84a1bd7f",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/entityWorkbookModel.test.ts",
+        "titles": [
+          "entityWorkbookModel builds merge plans without changing case-insensitive duplicate semantics"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.entityworkbookmodel_keeps_entity_grouping_and_co_e1f047591a",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/entityWorkbookModel.test.ts",
+        "titles": [
+          "entityWorkbookModel keeps entity grouping and column widths contract-key based"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.entityworkbookmodel_normalizes_host_and_identity_49cffbeb47",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/entityWorkbookModel.test.ts",
+        "titles": [
+          "entityWorkbookModel normalizes host and identity rows with label fallbacks, aliases, identifiers, and counts"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.entityworkbookmodel_promotes_loser_identifiers_o_9a58390ae8",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/entityWorkbookModel.test.ts",
+        "titles": [
+          "entityWorkbookModel promotes loser identifiers only when the survivor canonical field is empty"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.genericworkbookmodel_builds_generic_creates_with_07b632b33d",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
+        "titles": [
+          "genericWorkbookModel builds generic creates with omitted fields, trims, explicit clears, and minimum checks"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.genericworkbookmodel_builds_reference_labels_par_d7a60a5cfd",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
+        "titles": [
+          "genericWorkbookModel builds reference labels, party-link pairs, and collection item view models"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.genericworkbookmodel_builds_typed_direct_and_col_47a2b0a177",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
+        "titles": [
+          "genericWorkbookModel builds typed direct and collection patch changes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.genericworkbookmodel_keeps_display_labels_widths_f5fc467962",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
+        "titles": [
+          "genericWorkbookModel keeps display labels, widths, and minimum messages contract-driven"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.genericworkbookmodel_keeps_multiline_detection_p_2f6d03b150",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
+        "titles": [
+          "genericWorkbookModel keeps multiline detection, party email extraction, and mutation error parsing stable"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.genericworkbookmodel_rejects_invalid_number_and_b57ee8a070",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
+        "titles": [
+          "genericWorkbookModel rejects invalid number and boolean direct payload values"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.genericworkbookmodel_seeds_owner_defaults_and_kn_82f50ea384",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
+        "titles": [
+          "genericWorkbookModel seeds owner defaults and known generic create minimums"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.genericworkbookmodel_uses_contract_create_minima_3376430d26",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
+        "titles": [
+          "genericWorkbookModel uses contract create minima and canonical alias actions for entity sheets"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.referencequerybroker_suite_7bd36b209a",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/services/referenceQueryBroker.test.ts",
+        "titles": [
+          "ReferenceQueryBroker deduplicates only in-flight incident/authorization queries and rejects obsolete consumers"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.timelineconflictmodel_parses_same_field_conflict_5af4f29cce",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/timelineConflictModel.test.ts",
+        "titles": [
+          "timelineConflictModel parses same-field conflict envelopes without optional metadata loss"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.timelineconflictmodel_rejects_empty_string_ident_daa1b29fdf",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/timelineConflictModel.test.ts",
+        "titles": [
+          "timelineConflictModel rejects empty string identity fields for pending queue admission"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.timelineconflictmodel_rejects_missing_malformed_5a87856d3b",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/timelineConflictModel.test.ts",
+        "titles": [
+          "timelineConflictModel rejects missing, malformed, and incomplete conflict envelopes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.timelinerowsmodel_classifies_stale_row_version_u_790e759153",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/timelineRowsModel.test.ts",
+        "titles": [
+          "timelineRowsModel classifies stale row-version updates only when durable identity is comparable"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.timelineviewportcontinuitymodel_builds_stable_se_6a2b4a7870",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/timelineViewportContinuityModel.test.ts",
+        "titles": [
+          "timelineViewportContinuityModel builds stable semantic catalog keys independent of list identity and order"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.timelineviewportcontinuitymodel_holds_an_entity_a89a871505",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/timelineViewportContinuityModel.test.ts",
+        "titles": [
+          "timelineViewportContinuityModel holds an entity refresh barrier until refresh settlement and catalog progress"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.timelineviewportcontinuitymodel_lets_terminal_re_a5ad50e640",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/timelineViewportContinuityModel.test.ts",
+        "titles": [
+          "timelineViewportContinuityModel lets terminal refresh failures release continuity to row-local fallback restoration"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.timelineviewportcontinuitymodel_settles_when_the_f3dc6de742",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/timelineViewportContinuityModel.test.ts",
+        "titles": [
+          "timelineViewportContinuityModel settles when the expected create-from-mention entity becomes visible"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.useworkbookprojectionrefreshcontroller_suite_5bad71bbc5",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/hooks/useWorkbookProjectionRefreshController.test.tsx",
+        "titles": [
+          "useWorkbookProjectionRefreshController separates initial session/entity loading from sheet projection refresh"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.useworkbookquerycontroller_suite_203a4e98cc",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/hooks/useWorkbookQueryController.test.tsx",
+        "titles": [
+          "useWorkbookQueryController keeps query state isolated by exact view_schema_id"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.useworkbooksavedviewcontroller_suite_d3f1a57e5d",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/hooks/useWorkbookSavedViewController.test.tsx",
+        "titles": [
+          "useWorkbookSavedViewController owns saved-view loading and query/identity precedence"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.useworkbookstartupcontroller_suite_d6a9bfa13c",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/hooks/useWorkbookStartupController.test.tsx",
+        "titles": [
+          "useWorkbookStartupController owns selection identity, focus intent, versioning, and URL history"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookclipboard_computes_dimensions_without_en_f2276c30d5",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/utils/workbookClipboard.test.ts",
+        "titles": [
+          "workbookClipboard computes dimensions without enforcing an implementation-local maximum"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookclipboard_keeps_scalar_comma_text_out_of_692613d25d",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/utils/workbookClipboard.test.ts",
+        "titles": [
+          "workbookClipboard keeps scalar comma text out of interactive tabular dispatch"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookclipboard_parses_empty_crlf_tabular_and_d03ce98969",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/utils/workbookClipboard.test.ts",
+        "titles": [
+          "workbookClipboard parses empty, CRLF, tabular, and comma-delimited payloads"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookclipboard_preserves_quote_aware_parser_b_e4b0e7c6d5",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/utils/workbookClipboard.test.ts",
+        "titles": [
+          "workbookClipboard preserves quote-aware parser behavior used by Timeline and Shell paste dimensions"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookcontinuity_suite_b9660fc216",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/utils/workbookContinuity.test.ts",
+        "titles": [
+          "workbookContinuity adds the minimum extra scroll needed when anchor restoration would clip the row",
+          "workbookContinuity adds the minimum horizontal and vertical deltas when anchor restoration would clip both axes",
+          "workbookContinuity applies only the vertical delta needed to restore the preserved anchor",
+          "workbookContinuity bases visibility repair on the actual clamped scroll after restoring the preserved scroll",
+          "workbookContinuity captures and restores an unchanged anchor without moving the grid",
+          "workbookContinuity preserves horizontal scroll until the focused element would be clipped"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookquery_suite_904073db6c",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/workbookQuery.test.ts",
+        "titles": [
+          "workbookQuery builds tag and boolean filters from the client-local draft state",
+          "workbookQuery describes filter chip labels from contract metadata",
+          "workbookQuery initializes filter drafts from the contract and resolves input modes",
+          "workbookQuery keeps a full semantic layout permutation while compiling visible columns",
+          "workbookQuery prepends group-by sorting when the user sort does not already cluster grouped rows",
+          "workbookQuery rejects structural layout keys and out-of-range widths",
+          "workbookQuery supports ordered additive sort cycles and enforces the owner limit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookreferenceoptions_detects_fields_that_use_f53f0c2290",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/workbookReferenceOptions.test.ts",
+        "titles": [
+          "workbookReferenceOptions detects fields that use reference choices and leaves scalar fields free text"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookreferenceoptions_returns_same_incident_r_d82be79429",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/workbookReferenceOptions.test.ts",
+        "titles": [
+          "workbookReferenceOptions returns same-incident reference buckets without relabeling or deduping identities"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookresponsivelayout_suite_a0a25d1b52",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/workbookResponsiveLayout.test.ts",
+        "titles": [
+          "workbook responsive layout model keeps wide chrome in base mode across short heights at 1280 CSS px",
+          "workbook responsive layout model keeps wide chrome in base mode across short heights at 1440 CSS px",
+          "workbook responsive layout model selects block mode from height 639",
+          "workbook responsive layout model selects block mode from height 640",
+          "workbook responsive layout model selects block mode from height 719",
+          "workbook responsive layout model selects block mode from height 720",
+          "workbook responsive layout model selects block mode from height 900",
+          "workbook responsive layout model selects block mode from height NaN",
+          "workbook responsive layout model selects chrome mode from width 1023",
+          "workbook responsive layout model selects chrome mode from width 1024",
+          "workbook responsive layout model selects chrome mode from width 1279",
+          "workbook responsive layout model selects chrome mode from width 1280",
+          "workbook responsive layout model selects chrome mode from width 1440",
+          "workbook responsive layout model selects chrome mode from width 767",
+          "workbook responsive layout model selects chrome mode from width 768",
+          "workbook responsive layout model selects chrome mode from width NaN"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbooksavedviewruntime_derives_runtime_query_s_8d12bb6335",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/workbookSavedViewRuntime.test.ts",
+        "titles": [
+          "workbookSavedViewRuntime derives runtime query state from saved-view query_json without mutating identity"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbooksavedviewruntime_preserves_saved_view_sh_74cf2043e6",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/workbookSavedViewRuntime.test.ts",
+        "titles": [
+          "workbookSavedViewRuntime preserves saved-view sheet_ref and base view_schema identity separately"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbooksavedviewruntime_upserts_saved_views_by_760e4374bd",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/workbookSavedViewRuntime.test.ts",
+        "titles": [
+          "workbookSavedViewRuntime upserts saved views by identity and keeps display-name ordering"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbooksavedviews_canonicalizes_saved_view_quer_52267a6bc5",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/workbookSavedViews.test.ts",
+        "titles": [
+          "workbookSavedViews canonicalizes saved-view query and layout JSON through the workbook contract"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbooksavedviews_keeps_system_saved_views_immu_52a88fe2c1",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/workbookSavedViews.test.ts",
+        "titles": [
+          "workbookSavedViews keeps system saved views immutable while allowing admins and owners to mutate user views"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbooksavedviews_normalizes_saved_views_withou_6129a2ea1c",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/workbookSavedViews.test.ts",
+        "titles": [
+          "workbookSavedViews normalizes saved views without collapsing saved-view identity into view_schema_id"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell__autosave_commits_enter_from_the_c_6dfe4292ef",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx",
+        "titles": [
+          "Phase 3 Timeline workbook autosave coverage commits Enter from the current editor value when row state is stale"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell__autosave_commits_paste_completion_cd8925ff7b",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx",
+        "titles": [
+          "Phase 3 Timeline workbook autosave coverage commits paste completion from the current editor value when row state is stale"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell__autosave_commits_tab_from_the_cur_f5c4976958",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx",
+        "titles": [
+          "Phase 3 Timeline workbook autosave coverage commits Tab from the current editor value when row state is stale"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell__autosave_queues_a_follow_up_scala_3b8fa7ce27",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx",
+        "titles": [
+          "Phase 3 Timeline workbook autosave coverage queues a follow-up scalar save when the logical payload changes while a prior save is pending"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell__autosave_suppresses_duplicate_pen_293b7b0803",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx",
+        "titles": [
+          "Phase 3 Timeline workbook autosave coverage suppresses duplicate pending scalar saves that only differ by client_txn_id"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell__grid_classifies_committed_timelin_01835ba458",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+        "titles": [
+          "Phase 3 Timeline workbook grid coverage classifies committed Timeline row freshness by record_id and row_version"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell__grid_ignores_stale_query_errors_a_4d300e6079",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+        "titles": [
+          "Phase 3 Timeline workbook grid coverage ignores stale query errors after a newer committed row response"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell__grid_ignores_stale_sparse_live_ro_e56dac92a4",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+        "titles": [
+          "Phase 3 Timeline workbook grid coverage ignores stale sparse live row patches after a newer committed row is accepted"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell__grid_keeps_accepted_committed_row_32313ff66a",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+        "titles": [
+          "Phase 3 Timeline workbook grid coverage keeps accepted committed row state across stale invalidation queries and replay responses"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell__grid_keeps_timeline_controls_moun_9b84a35d5e",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+        "titles": [
+          "Phase 3 Timeline workbook grid coverage keeps Timeline controls mounted while a sorted query refresh is pending"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell__grid_preserves_an_in_flight_draft_d12ffd720f",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+        "titles": [
+          "Phase 3 Timeline workbook grid coverage preserves an in-flight draft create across unrelated projection refresh"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell__grid_preserves_draft_row_edits_ac_cd490037ce",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+        "titles": [
+          "Phase 3 Timeline workbook grid coverage preserves draft row edits across projection refresh before create commit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell__grid_surfaces_a_sorted_query_refr_a68f37f8fa",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+        "titles": [
+          "Phase 3 Timeline workbook grid coverage surfaces a sorted query refresh failure without unmounting Timeline controls"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell__inspector_keeps_the_timeline_insp_b0ac344c3e",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase9.inspector.test.tsx",
+        "titles": [
+          "FE-P9 inspector and row-local action coverage keeps the Timeline inspector unmounted until explicit activation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell__inspector_renders_timeline_collec_062be27af9",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase9.inspector.test.tsx",
+        "titles": [
+          "FE-P9 inspector and row-local action coverage renders Timeline collection cells compactly until inline edit activation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell__query_normalizes_saved_view_query_22724faeb7",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase8.query.test.tsx",
+        "titles": [
+          "Phase 8 workbook query controls normalizes saved-view query_json and layout_json back to portable field-key state"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell__query_notes_full_text_controls_su_889a129c8b",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase8.query.test.tsx",
+        "titles": [
+          "Phase 8 workbook query controls Notes full_text controls submit the exact-token operator"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell__sentinel_dispatches_multi_row_csv_e8a865bdb6",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+        "titles": [
+          "Phase 9 Sprint 1 keyboard and grid anchor coverage dispatches multi-row CSV pasted into the draft Time cell as create-row targets"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell__sentinel_dispatches_single_line_c_b77f93e4f3",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+        "titles": [
+          "Phase 9 Sprint 1 keyboard and grid anchor coverage dispatches single-line CSV pasted into the draft Time cell as a create-row paste"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell__sentinel_grid_anchor_shell_suppor_09dddf7118",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+        "titles": [
+          "Phase 9 Sprint 1 keyboard and grid anchor coverage Phase 9 grid anchor shell support updates Cartulary anchors by record_id and field_key during keyboard navigation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell__sentinel_grid_anchor_shell_suppor_142198eb98",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+        "titles": [
+          "Phase 9 Sprint 1 keyboard and grid anchor coverage Phase 9 grid anchor shell support commits drafts before Enter navigation and retains edge Shift+Enter targets"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell__sentinel_grid_anchor_shell_suppor_2cc21bb934",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+        "titles": [
+          "Phase 9 Sprint 1 keyboard and grid anchor coverage Phase 9 grid anchor shell support retains edge anchors and preserves drafts across valid focus movement"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell__sentinel_grid_anchor_shell_suppor_428c33b58f",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+        "titles": [
+          "Phase 9 Sprint 1 keyboard and grid anchor coverage Phase 9 grid anchor shell support updates Cartulary anchors for Enter and Shift+Enter while Tab exits"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell__sentinel_grid_anchor_shell_suppor_fa4f66986b",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+        "titles": [
+          "Phase 9 Sprint 1 keyboard and grid anchor coverage Phase 9 grid anchor shell support fails closed for unavailable shortcuts without row mutation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell_applies_sparse_live_patches_by_rec_51f241e023",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
+        "titles": [
+          "Phase 6 workbook collaboration coverage Phase 6 applies sparse live patches by record_id without moving an active cell draft"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell_assessments_suite_f2e4a841a2",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.assessments.test.tsx",
+        "titles": [
+          "Assessment workbook surface Phase 4 U-4-WB-01 maps band-first assessment create payloads without submitting the derived band",
+          "Assessment workbook surface Phase 4 U-4-WB-02 submits assessment creates through the workbook UI",
+          "Assessment workbook surface ignores superseded assessment query responses after rapid filter changes",
+          "Assessment workbook surface ignores superseded entity query responses after rapid host filters"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell_builds_rollback_targets_only_from_3a8ffdc380",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "titles": [
+          "Phase 7 workbook history support coverage builds rollback targets only from advertised server actions and selectors"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell_clears_stale_rollback_previews_whe_595a6c8feb",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "titles": [
+          "Phase 7 workbook history support coverage clears stale rollback previews when open history retargets"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell_fails_closed_for_duplicate_history_fe4dcb2962",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "titles": [
+          "Phase 7 workbook history support coverage fails closed for duplicate history_item_ref"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell_fails_closed_for_invalid_revision_26fb9af612",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "titles": [
+          "Phase 7 workbook history support coverage fails closed for invalid revision_no"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell_fails_closed_for_missing_history_e_3ccf7a9cc9",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "titles": [
+          "Phase 7 workbook history support coverage fails closed for missing history_entry rollback selector"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell_fails_closed_for_missing_history_i_355e381c10",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "titles": [
+          "Phase 7 workbook history support coverage fails closed for missing history_item_ref"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell_fails_closed_for_non_canonical_act_eb7cabaa5c",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "titles": [
+          "Phase 7 workbook history support coverage fails closed for non-canonical action order"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell_fails_closed_for_non_string_histor_13966ebe51",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "titles": [
+          "Phase 7 workbook history support coverage fails closed for non-string history_item_ref"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell_keeps_workbook_continuity_through_d12cc5e7b3",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "titles": [
+          "Phase 7 workbook history support coverage keeps workbook continuity through ordinary remove and invalidate socket updates"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell_opens_row_centric_history_from_a_s_cba1ffd5ef",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "titles": [
+          "Phase 7 workbook history support coverage opens row-centric history from a selected workbook row and renders server metadata only"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell_presence_indicators_render_from_ke_10dbb35d28",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
+        "titles": [
+          "Phase 6 workbook collaboration coverage Phase 6 presence indicators render from keyed socket state without changing save-state"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell_resolver_keep_saved_action_submits_2d011ebd3f",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
+        "titles": [
+          "Phase 6 workbook collaboration coverage Phase 6 resolver keep-saved action submits an explicit outcome and applies returned row state"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell_resolver_merged_value_action_submi_5d8f831f1e",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
+        "titles": [
+          "Phase 6 workbook collaboration coverage Phase 6 resolver merged-value action submits an explicit outcome and applies returned row state"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell_resolver_use_unsaved_action_submit_f7537f46a6",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
+        "titles": [
+          "Phase 6 workbook collaboration coverage Phase 6 resolver use-unsaved action submits an explicit outcome and applies returned row state"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell_retargets_open_row_history_to_the_0fdff31336",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "titles": [
+          "Phase 7 workbook history support coverage retargets open row history to the newly selected inspector row"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell_submits_single_entry_rollback_with_cbbdfae367",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "titles": [
+          "Phase 7 workbook history support coverage submits single-entry rollback with only the server-provided history selector"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell_surfaces_suite_668e482b1e",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
+        "titles": [
+          "WorkbookShell surface selection FE-I-P6-01 Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths.",
+          "WorkbookShell surface selection FE-I-P8-01 Verify saved-view create/update/select/default UI uses active surface scope and public saved-view/workbook-preference contracts.",
+          "WorkbookShell surface selection Phase 4 U-4-WB-03 issues opaque evidence preview and download handles from the evidence surface",
+          "WorkbookShell surface selection dispatches entity-origin paste through create targets while preserving exact-match reuse results",
+          "WorkbookShell surface selection ignores superseded generic surface query responses after rapid filters",
+          "WorkbookShell surface selection keeps a selected saved-view sheet ref distinct from its base view_schema",
+          "WorkbookShell surface selection keeps a user-selected system view when a delayed startup response resolves",
+          "WorkbookShell surface selection keeps assessment surface access loss routed through the shell access-lost callback",
+          "WorkbookShell surface selection keeps closed incidents readable while disabling grid mutation entry points",
+          "WorkbookShell surface selection keeps entity merge review, confirmation, and dependent Timeline preview bound to stable record ids",
+          "WorkbookShell surface selection keeps entity surface access loss routed through the shell access-lost callback",
+          "WorkbookShell surface selection keeps failed generic party-link mutations in Conflict",
+          "WorkbookShell surface selection keeps generic surface access loss routed through the shell access-lost callback",
+          "WorkbookShell surface selection keeps party-link mutations syncing until workbook and references refresh",
+          "WorkbookShell surface selection loads a direct Status Review URL with the active surface query result",
+          "WorkbookShell surface selection opens incident controls from a menu into a bounded drawer without mounting all controls from the trigger",
+          "WorkbookShell surface selection orchestrates selected Timeline evidence attachment inline",
+          "WorkbookShell surface selection passes invalid explicit base surfaces to backend startup fallback",
+          "WorkbookShell surface selection rejects generic query envelopes from a different view_schema_id",
+          "WorkbookShell surface selection renders saved views only in the active surface selector and preserves selected saved-view identity",
+          "WorkbookShell surface selection retains accepted generic rows and marks them stale when refresh fails",
+          "WorkbookShell surface selection selects required built-in and system view surfaces by view_schema_id",
+          "WorkbookShell surface selection submits physical alias add/remove actions and restores inspector focus after authoritative refresh",
+          "WorkbookShell surface selection surfaces entity merge precondition failures without submitting a second plan",
+          "WorkbookShell surface selection surfaces upload failures inline without issuing Timeline patches",
+          "WorkbookShell surface selection uses backend startup selection for the initial workbook grid surface",
+          "generic workbook mutation payloads Phase 4 U-4-WB-04 builds required creates with direct values, timestamps, and explicit clears",
+          "generic workbook mutation payloads Phase 4 U-4-WB-05 builds direct clears and typed collection actions"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookshell_uses_active_and_tombstone_row_vers_51c826c113",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "titles": [
+          "Phase 7 workbook history support coverage uses active and tombstone row versions for delete and restore controls"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbooktimelinemodel_builds_scalar_collection_e_13cb3751a8",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/workbookTimelineModel.test.ts",
+        "titles": [
+          "workbookTimelineModel builds scalar, collection, evidence, and replay payloads"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbooktimelinemodel_expands_timeline_columns_o_8ef6ed0f85",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/workbookTimelineModel.test.ts",
+        "titles": [
+          "workbookTimelineModel expands Timeline columns only when the shell has surplus width"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbooktimelinemodel_exposes_timeline_bindings_b089b28e02",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/workbookTimelineModel.test.ts",
+        "titles": [
+          "workbookTimelineModel exposes Timeline bindings and focus keys without component-local field maps"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbooktimelinemodel_normalizes_rows_tag_collec_b5c8ae26ab",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/workbookTimelineModel.test.ts",
+        "titles": [
+          "workbookTimelineModel normalizes rows, tag collections, grouping, and sparse live patches"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbooktimelinemodel_uses_the_full_measured_tim_732e6ba772",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/workbookTimelineModel.test.ts",
+        "titles": [
+          "workbookTimelineModel uses the full measured Timeline grid width when distributing surplus pixels"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookvalueformat_joins_collection_display_tex_08561e78ac",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/utils/workbookValueFormat.test.ts",
+        "titles": [
+          "workbookValueFormat.stringifyGridValue joins collection display text without inventing labels"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookvalueformat_keeps_unsupported_and_omitte_4bca3a1bba",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/utils/workbookValueFormat.test.ts",
+        "titles": [
+          "workbookValueFormat.stringifyGridValue keeps unsupported and omitted values empty"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookvalueformat_preserves_primitive_display_b7f897b061",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/utils/workbookValueFormat.test.ts",
+        "titles": [
+          "workbookValueFormat.stringifyGridValue preserves primitive display strings from duplicate grid helpers"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

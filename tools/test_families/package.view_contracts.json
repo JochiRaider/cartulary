@@ -1,0 +1,48 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "package.view_contracts",
+  "rows": [
+    {
+      "row_id": "package.view_contracts.regression.index_suite_7e2dba7451",
+      "owner_id": "package.view_contracts",
+      "family_id": "package.view_contracts.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.view_contracts.verification.shared_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/view-contracts/src/index.test.ts",
+        "titles": [
+          "FE-U-P0-02 view-schema field-key adapter contract FE-U-P0-02 fails deterministically for duplicate and missing field_key inputs",
+          "FE-U-P0-02 view-schema field-key adapter contract FE-U-P0-02 fails deterministically for unknown field_key references",
+          "FE-U-P0-02 view-schema field-key adapter contract FE-U-P0-02 keeps field identity and capabilities stable when labels change",
+          "FE-U-P0-02 view-schema field-key adapter contract FE-U-P0-02 keeps field identity stable when fields and visible columns reorder",
+          "FE-U-P0-02 view-schema field-key adapter contract FE-U-P0-02 resolves editable, queryable, and synthetic fields by field_key",
+          "FE-U-P0-02 view-schema field-key adapter contract FE-U-P0-02 selects generated contracts by view_schema_id, not display title",
+          "FE-U-P0-02 view-schema field-key adapter contract FE-U-P0-02 treats duplicate labels as display-only with distinct field_key identities",
+          "FE-U-P0-02 view-schema field-key adapter contract FE-U-P0-02 visibleFields fails deterministically when default-visible keys are unresolved",
+          "view-contracts FE-U-P9-03 Verify inspector panels and feature groups render from active config keys and reject unknown panel IDs, route owners, result behaviors, disabled tokens, duplicate keys, missing required keys, and extra current-profile keys before rendering.",
+          "view-contracts enforces conditional full-row group_values and sparse patch group_values",
+          "view-contracts exposes inspector config by stable view_schema_id and semantic keys",
+          "view-contracts exposes mutation metadata needed by workbook controls",
+          "view-contracts exposes required reference-pack metadata from view contracts",
+          "view-contracts exposes synthetic filter predicates as filter-only fields",
+          "view-contracts joins workbook identity and status metadata in Core 01 Table 7.4-A order",
+          "view-contracts parses enum values for contract-backed controls",
+          "view-contracts parses sortable, filterable, and inline-create metadata",
+          "view-contracts rejects missing and undeclared feature groups for current-profile surfaces",
+          "view-contracts resolves header sort keys and field capabilities from contract metadata",
+          "view-contracts returns the contract-default visible field order"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

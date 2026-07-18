@@ -1,0 +1,14 @@
+{
+  "schema_id": "cartulary.verification_contract.v1",
+  "owner_id": "package.view_contracts",
+  "verifications": [
+    {
+      "verification_id": "package.view_contracts.verification.shared_contract",
+      "behavior_class": "architecture",
+      "profile": "support",
+      "requirement": "Shared view contracts retain closed stable types and deterministic helpers at the package boundary.",
+      "evidence_kinds": ["vitest"],
+      "status": "active"
+    }
+  ]
+}

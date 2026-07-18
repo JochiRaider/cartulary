@@ -1,0 +1,14 @@
+{
+  "schema_id": "cartulary.verification_contract.v1",
+  "owner_id": "web.collaboration",
+  "verifications": [
+    {
+      "verification_id": "web.collaboration.verification.session_regression",
+      "behavior_class": "product",
+      "profile": "base",
+      "requirement": "Frontend collaboration sessions preserve supported connection, lifecycle, reconciliation, and failure behavior.",
+      "evidence_kinds": ["vitest"],
+      "status": "active"
+    }
+  ]
+}

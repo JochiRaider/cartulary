@@ -1,0 +1,53 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "package.test_utils",
+  "rows": [
+    {
+      "row_id": "package.test_utils.boundary_support.index_suite_466a5263a0",
+      "owner_id": "package.test_utils",
+      "family_id": "package.test_utils.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.test_utils.verification.shared_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/test-utils/src/index.test.ts",
+        "titles": [
+          "@cartulary/test-utils grid continuity allows visibility-preserving continuity when scroll changes by default",
+          "@cartulary/test-utils grid continuity fails when exact horizontal scroll is required and scrollLeft changed",
+          "@cartulary/test-utils grid continuity fails when exact vertical scroll is required and scrollTop changed under fake timers",
+          "@cartulary/test-utils grid continuity retries until the preserved vertical scroll converges",
+          "@cartulary/test-utils marker anchoring fails when marker is visible in a different field cell",
+          "@cartulary/test-utils marker anchoring fails when marker is visible in a different row",
+          "@cartulary/test-utils marker anchoring fails when visible marker geometry is detached from the target cell",
+          "@cartulary/test-utils marker anchoring passes row-gutter markers only when vertically aligned to the intended row",
+          "@cartulary/test-utils marker anchoring passes when same-cell marker geometry is inside the target field cell",
+          "@cartulary/test-utils selector choreography asserts group rows remain presentation-only",
+          "@cartulary/test-utils selector choreography formats paste matrix text",
+          "@cartulary/test-utils selector choreography returns row-cell anchors from the shared selector builder",
+          "@cartulary/test-utils selector choreography targets sort, filter, and grouping controls through shared builders",
+          "@cartulary/test-utils selector choreography toggles group outline expansion by aria state",
+          "@cartulary/test-utils virtualized grid targeting aligns an already-visible target before returning the existing scroll position",
+          "@cartulary/test-utils virtualized grid targeting extends the scan when the grid scroll range grows during scanning",
+          "@cartulary/test-utils virtualized grid targeting fails explicitly when the grid shell has no owned scrollport",
+          "@cartulary/test-utils virtualized grid targeting finishes a scan through the bottom offset after the deadline has expired",
+          "@cartulary/test-utils virtualized grid targeting recomputes scan offsets after an initially non-scrollable grid hydrates",
+          "@cartulary/test-utils virtualized grid targeting returns the final scroll snapshot after target alignment",
+          "@cartulary/test-utils virtualized grid targeting scans grid offsets until a virtualized target is mounted",
+          "@cartulary/test-utils virtualized grid targeting scrolls the explicit grid scrollport when the outer shell is also scrollable",
+          "@cartulary/test-utils virtualized grid targeting targets a row cell by stable record id and cell key",
+          "@cartulary/test-utils virtualized grid targeting throws diagnostics when the target never becomes visible",
+          "@cartulary/test-utils virtualized grid targeting waits for target hydration when the grid never needs a scroll range"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

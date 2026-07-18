@@ -1,0 +1,32 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "web.collaboration",
+  "rows": [
+    {
+      "row_id": "web.collaboration.regression.incidentcollaborationsession_suite_6b9c4a2c72",
+      "owner_id": "web.collaboration",
+      "family_id": "web.collaboration.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.collaboration.verification.session_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/collaboration/IncidentCollaborationSession.test.tsx",
+        "titles": [
+          "IncidentCollaborationSession FE-U-P7-01 builds hello and resume session messages from socket resume state",
+          "IncidentCollaborationSession FE-U-P7-01 ignores duplicate stream sequences and refreshes on sequence gaps",
+          "IncidentCollaborationSession FE-U-P7-01 keeps replayable events unsynchronized until the owner completes reset",
+          "IncidentCollaborationSession FE-U-P7-01 suppresses reconnect and clears connection state after revocation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

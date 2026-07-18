@@ -66,6 +66,8 @@ import {
 } from "./task-surface/index.mjs";
 import { quickCheckRenderIndex } from "./render-execution-topology-artifacts.mjs";
 import { validateVerificationContracts } from "../test-catalog/verification-contracts.mjs";
+import { validateTestCatalog } from "../test-catalog/test-catalog.mjs";
+import { validateTestCatalogImportBoundary } from "../test-catalog/import-boundary.mjs";
 import { scanExecutableDocumentationReads } from "../test-catalog/documentation-boundary.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -122,6 +124,9 @@ const manifestRelativePathPattern =
   /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))(?!.*\/\/)[A-Za-z0-9._@+-]+(?:\/[A-Za-z0-9._@+-]+)*$/;
 const topologyTopLevelKeys = new Set([
   "schema_id",
+  "runtime_profiles",
+  "resource_profiles",
+  "fixture_profiles",
   "generated_outputs",
   "runtime_binaries",
   "execution_dependencies",
@@ -4391,6 +4396,8 @@ function validateAll(root) {
   validateSchemaAttachmentPolicy(root);
   validateHarnessHelperOwnership(root);
   validateVerificationContracts(root);
+  validateTestCatalog(root);
+  validateTestCatalogImportBoundary(root);
   scanExecutableDocumentationReads(root);
   validatePhaseRegistryShape(repoFile(root, "tools/phase_registry.json"));
   validatePhaseRegistry(root);

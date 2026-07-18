@@ -1,0 +1,14 @@
+{
+  "schema_id": "cartulary.verification_contract.v1",
+  "owner_id": "package.test_utils",
+  "verifications": [
+    {
+      "verification_id": "package.test_utils.verification.shared_contract",
+      "behavior_class": "harness",
+      "profile": "support",
+      "requirement": "Shared frontend test utilities preserve deterministic isolated setup and public helper behavior.",
+      "evidence_kinds": ["vitest"],
+      "status": "active"
+    }
+  ]
+}

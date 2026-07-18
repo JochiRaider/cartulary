@@ -1,0 +1,142 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "package.ui",
+  "rows": [
+    {
+      "row_id": "package.ui.boundary_support.design_tokens_exposes_explicit_font_role_tokens_55f6ac41b0",
+      "owner_id": "package.ui",
+      "family_id": "package.ui.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.ui.verification.shared_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/ui-contracts/src/design-tokens.test.ts",
+        "titles": [
+          "Cartulary design token exports exposes explicit font role tokens without changing the default UI or mono stacks"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.ui.boundary_support.design_tokens_exposes_the_adopted_default_theme_4f6994fbc4",
+      "owner_id": "package.ui",
+      "family_id": "package.ui.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.ui.verification.shared_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/ui-contracts/src/design-tokens.test.ts",
+        "titles": [
+          "Cartulary design token exports exposes the adopted default theme as generated presentation tokens"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.ui.boundary_support.design_tokens_renders_css_variables_without_unre_7aba7b88a9",
+      "owner_id": "package.ui",
+      "family_id": "package.ui.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.ui.verification.shared_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/ui-contracts/src/design-tokens.test.ts",
+        "titles": [
+          "Cartulary design token exports renders CSS variables without unresolved object values"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.ui.boundary_support.index_keeps_semantic_selector_helpers_byte_ident_953f0cffc5",
+      "owner_id": "package.ui",
+      "family_id": "package.ui.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.ui.verification.shared_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/ui-contracts/src/index.test.ts",
+        "titles": [
+          "@cartulary/ui-contracts workbook row selectors keeps semantic selector helpers byte-identical to phase evidence aliases"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.ui.regression.index_suite_96dd807938",
+      "owner_id": "package.ui",
+      "family_id": "package.ui.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.ui.verification.shared_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/ui-contracts/src/index.test.ts",
+        "titles": [
+          "@cartulary/ui-contracts workbook row selectors builds escaped data-testid selectors and timeline editor test ids",
+          "@cartulary/ui-contracts workbook row selectors builds stable System views switcher selectors from closed groups and view_schema_id",
+          "@cartulary/ui-contracts workbook row selectors derives inspector field ids from the stable row cell id",
+          "@cartulary/ui-contracts workbook row selectors derives item-ref selectors without using item display text or fixture order",
+          "@cartulary/ui-contracts workbook row selectors derives row and row-action selectors from record_id",
+          "@cartulary/ui-contracts workbook row selectors derives row-history items and actions from stable history identity rather than render index",
+          "@cartulary/ui-contracts workbook row selectors derives sheet toolbar, inspector, draft row, and row menu selectors from stable workbook ids",
+          "@cartulary/ui-contracts workbook row selectors derives stable Phase 6 collaboration and status selectors",
+          "@cartulary/ui-contracts workbook row selectors derives surface selectors from view_schema_id instead of visible titles",
+          "@cartulary/ui-contracts workbook row selectors fails closed for System views switcher group and option selector inputs",
+          "@cartulary/ui-contracts workbook row selectors keeps Phase 1 selector identity on semantic state and stable field identifiers",
+          "@cartulary/ui-contracts workbook row selectors keeps tab, field, column, row, and fixture reordering out of selector identity",
+          "@cartulary/ui-contracts workbook row selectors keeps visible field labels and display names out of cell selectors",
+          "@cartulary/ui-contracts workbook row selectors provides shared builders for app shell and incident membership selectors",
+          "@cartulary/ui-contracts workbook row selectors provides shared builders for workbook action families",
+          "@cartulary/ui-contracts workbook row selectors provides stable Phase 1 bootstrap, landing, session, admin, and error selectors",
+          "@cartulary/ui-contracts workbook row selectors rejects invalid Phase 1 selector vocabularies",
+          "@cartulary/ui-contracts workbook row selectors rejects malformed stable IDs and keeps selector segments collision-resistant",
+          "@cartulary/ui-contracts workbook row selectors returns deterministic selectors for identical stable identifiers",
+          "@cartulary/ui-contracts workbook row selectors targets saved and draft workbook rows when scoped through the grid shell",
+          "@cartulary/ui-contracts workbook row selectors validates closed-vocabulary-derived selector tokens",
+          "@cartulary/ui-contracts workbook row selectors validates view_schema_id selectors against the generated registry"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

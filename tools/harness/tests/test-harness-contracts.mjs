@@ -72,6 +72,10 @@ import { schedulerSummaryLine } from "../scheduler/scheduler-reporting.mjs";
 import { validateSchedulerResourceRegistrySemantics } from "../scheduler/scheduler-resources.mjs";
 import { resolveRetainedLogArtifacts } from "../diagnostics/retained-artifact-resolver.mjs";
 import { loadVerificationContracts } from "../test-catalog/verification-contracts.mjs";
+import { loadTestCatalog } from "../test-catalog/test-catalog.mjs";
+import { parseStrictJSON, semanticJSONDigest } from "../test-catalog/semantic-json.mjs";
+import { collectTestCatalogImportViolations } from "../test-catalog/import-boundary.mjs";
+import { resolveRowSelector } from "../test-catalog/selector-resolution.mjs";
 import {
   assertDocumentationAccessAllowed,
   scanDocumentationReadSource,
@@ -94,6 +98,330 @@ function writeFixtureFile(root, relativePath, content) {
   mkdirSync(path.dirname(file), { recursive: true });
   writeFileSync(file, content);
 }
+
+function writeOwnerCatalogFixture(root, mutate = () => {}) {
+  const verificationRegistry = {
+    schema_id: "cartulary.verification_registry.v1",
+    owners: [
+      {
+        owner_id: "module.fixture",
+        contract_path: "contracts/verification/owners/module.fixture.json",
+        status: "active",
+      },
+    ],
+  };
+  const verificationContract = {
+    schema_id: "cartulary.verification_contract.v1",
+    owner_id: "module.fixture",
+    verifications: [
+      {
+        verification_id: "module.fixture.verification.behavior",
+        behavior_class: "product",
+        profile: "base",
+        requirement: "Fixture-owned behavior remains exact.",
+        evidence_kinds: ["go_test"],
+        status: "active",
+      },
+    ],
+  };
+  const ownerRegistry = {
+    schema_id: "cartulary.test_owner_registry.v1",
+    owners: [
+      {
+        owner_id: "module.fixture",
+        manifest_path: "tools/test_families/module.fixture.json",
+        status: "active",
+      },
+    ],
+  };
+  const row = {
+    row_id: "module.fixture.behavior.owned",
+    owner_id: "module.fixture",
+    family_id: "module.fixture.behavior",
+    collaborator_ids: [],
+    verification_ids: ["module.fixture.verification.behavior"],
+    runner: "go",
+    selector: { package: "./internal/fixture", tests: ["TestOwned"] },
+    evidence_class: "unit",
+    runtime_profile_id: "none",
+    resource_profile_id: "go_balanced",
+    fixture_profile_id: "none",
+    default_check: true,
+    claim_posture: "implementation",
+    status: "active",
+  };
+  const familyManifest = {
+    schema_id: "cartulary.test_family_manifest.v1",
+    owner_id: "module.fixture",
+    rows: [row],
+  };
+  const runnerRegistry = readJSON("tools/test_runner_registry.json");
+  const topology = readJSON("tools/execution_topology_manifest.json");
+  const schedulerResources = readJSON("tools/scheduler_resource_registry.json");
+  const fixture = {
+    verificationRegistry,
+    verificationContract,
+    ownerRegistry,
+    familyManifest,
+    runnerRegistry,
+    topology: {
+      schema_id: topology.schema_id,
+      runtime_profiles: topology.runtime_profiles,
+      resource_profiles: topology.resource_profiles,
+      fixture_profiles: topology.fixture_profiles,
+    },
+    schedulerResources,
+    taskSurface: { targets: [] },
+  };
+  mutate(fixture);
+  writeJSONFile(path.join(root, "contracts/verification/registry.json"), fixture.verificationRegistry);
+  writeJSONFile(
+    path.join(root, "contracts/verification/owners/module.fixture.json"),
+    fixture.verificationContract,
+  );
+  writeJSONFile(path.join(root, "tools/test_catalog_owner.json"), fixture.ownerRegistry);
+  writeJSONFile(
+    path.join(root, "tools/test_families/module.fixture.json"),
+    fixture.familyManifest,
+  );
+  writeJSONFile(path.join(root, "tools/test_runner_registry.json"), fixture.runnerRegistry);
+  writeJSONFile(path.join(root, "tools/execution_topology_manifest.json"), fixture.topology);
+  writeJSONFile(path.join(root, "tools/scheduler_resource_registry.json"), fixture.schedulerResources);
+  writeJSONFile(path.join(root, "tools/task_surface_manifest.json"), fixture.taskSurface);
+  for (const runner of fixture.runnerRegistry.runners) {
+    writeFixtureFile(root, runner.adapter_path, "export const fixture = true;\n");
+  }
+  writeFixtureFile(root, "cmd/fixture.txt", "fixture\n");
+  writeFixtureFile(root, "internal/fixture/owned_test.go", "package fixture\n\nfunc TestOwned(t *testing.T) {}\n");
+  return fixture;
+}
+
+test("owner catalog closes identities, selectors, profiles, and semantic digests", () => {
+  const catalog = loadTestCatalog(repoRoot);
+  assert.equal(catalog.summary.status, "pass");
+  assert.equal(catalog.summary.owner_count, 12);
+  assert.equal(catalog.summary.row_count, 246);
+  assert.equal(catalog.summary.runner_counts.go, 5);
+  assert.equal(catalog.summary.runner_counts.vitest, 241);
+  assert.match(catalog.semantic_digest, /^sha256:[0-9a-f]{64}$/u);
+  assert.match(catalog.verification.semantic_digest, /^sha256:[0-9a-f]{64}$/u);
+  assert.ok(
+    catalog.rowByID.has("module.graphprojection.engine.canonical_behavior"),
+    "Graph Projection must be absorbed by the unified catalog",
+  );
+});
+
+test("runner selector resolvers preserve exact closed shapes across all runners", () => {
+  const runnerRegistry = readJSON("tools/test_runner_registry.json");
+  const runnerByID = new Map(runnerRegistry.runners.map((entry) => [entry.runner, entry]));
+  const commandIDs = new Set(
+    readJSON("tools/task_surface_manifest.json").targets.map((entry) => entry.command_id),
+  );
+  const fixtures = [
+    {
+      row: {
+        row_id: "module.fixture.behavior.go",
+        runner: "go",
+        selector: {
+          package: "./internal/modules/graphprojection/fixturetest",
+          tests: ["TestContainedPathRejectsTraversal"],
+        },
+      },
+      expected: ["go:./internal/modules/graphprojection/fixturetest:TestContainedPathRejectsTraversal"],
+    },
+    {
+      row: {
+        row_id: "web.fixture.behavior.vitest",
+        runner: "vitest",
+        selector: {
+          file: "apps/web/src/networkFlow/networkFlowClient.test.ts",
+          titles: ["networkFlowClient route identity uses extension workspace route state for Network Analysis"],
+        },
+      },
+      expected: [
+        "vitest:apps/web/src/networkFlow/networkFlowClient.test.ts:networkFlowClient route identity uses extension workspace route state for Network Analysis",
+      ],
+    },
+    {
+      row: {
+        row_id: "web.fixture.behavior.playwright",
+        runner: "playwright",
+        selector: {
+          file: "apps/web/e2e/phase4.merge.spec.ts",
+          project_id: "chromium",
+          stage: "stateful",
+          scenario_ids: ["merge_survivor_identity"],
+          titles: ["E-4-03 merges duplicate entities from the inspector and preserves survivor identity"],
+        },
+      },
+      expected: ["playwright:chromium:stateful:merge_survivor_identity"],
+    },
+    {
+      row: {
+        row_id: "harness.fixture.behavior.shell",
+        runner: "shell",
+        selector: { command_id: "cartulary.harness.command.help.v1" },
+      },
+      expected: ["shell:cartulary.harness.command.help.v1"],
+    },
+  ];
+  for (const fixture of fixtures) {
+    assert.deepEqual(
+      resolveRowSelector({
+        root: repoRoot,
+        row: fixture.row,
+        runner: runnerByID.get(fixture.row.runner),
+        taskSurfaceCommandIDs: commandIDs,
+      }),
+      fixture.expected,
+    );
+  }
+});
+
+test("owner catalog rejects structural, reference, selector, and path ambiguity", () => {
+  const cases = [
+    {
+      name: "zero-row owner",
+      mutate: ({ familyManifest }) => { familyManifest.rows = []; },
+      pattern: /must NOT have fewer than 1 items|must not be empty/iu,
+    },
+    {
+      name: "duplicate owner",
+      mutate: ({ ownerRegistry }) => { ownerRegistry.owners.push(structuredClone(ownerRegistry.owners[0])); },
+      pattern: /must not contain duplicates/iu,
+    },
+    {
+      name: "delivery-phase row ID",
+      mutate: ({ familyManifest }) => { familyManifest.rows[0].row_id = "module.fixture.phase7.owned"; },
+      pattern: /must match pattern|row_id/iu,
+    },
+    {
+      name: "unresolved verification",
+      mutate: ({ familyManifest }) => {
+        familyManifest.rows[0].verification_ids = ["module.fixture.verification.missing"];
+      },
+      pattern: /references unknown/iu,
+    },
+    {
+      name: "unresolved collaborator",
+      mutate: ({ familyManifest }) => { familyManifest.rows[0].collaborator_ids = ["module.missing"]; },
+      pattern: /collaborator_ids references unknown/iu,
+    },
+    {
+      name: "unknown profile",
+      mutate: ({ familyManifest }) => { familyManifest.rows[0].runtime_profile_id = "unknown"; },
+      pattern: /must be equal to one of the allowed values|runtime_profile_id/iu,
+    },
+    {
+      name: "mutated profile definition",
+      mutate: ({ topology }) => { topology.resource_profiles[1].resource_claims.go_cpu = 2; },
+      pattern: /closed profile definitions/iu,
+    },
+    {
+      name: "zero-match selector",
+      mutate: ({ familyManifest }) => { familyManifest.rows[0].selector.tests = ["TestMissing"]; },
+      pattern: /must resolve exactly once/iu,
+    },
+    {
+      name: "multiple-match selector",
+      mutate: () => {},
+      setup: (root) => {
+        writeFixtureFile(root, "internal/fixture/duplicate_test.go", "package fixture\n\nfunc TestOwned(t *testing.T) {}\n");
+      },
+      pattern: /must resolve exactly once/iu,
+    },
+    {
+      name: "overlapping selector",
+      mutate: ({ familyManifest }) => {
+        const duplicate = structuredClone(familyManifest.rows[0]);
+        duplicate.row_id = "module.fixture.behavior.overlap";
+        familyManifest.rows.push(duplicate);
+        familyManifest.rows.sort((left, right) => left.row_id.localeCompare(right.row_id));
+      },
+      pattern: /selector overlaps/iu,
+    },
+    {
+      name: "glob selector",
+      mutate: ({ familyManifest }) => { familyManifest.rows[0].selector.package = "./internal/*"; },
+      pattern: /must match pattern|exact repository package/iu,
+    },
+    {
+      name: "traversal selector",
+      mutate: ({ familyManifest }) => { familyManifest.rows[0].selector.package = "./internal/other/../fixture"; },
+      pattern: /traversal|normalization drift/iu,
+    },
+    {
+      name: "regex selector",
+      mutate: ({ familyManifest }) => { familyManifest.rows[0].selector.tests = ["/Test.*/"]; },
+      pattern: /must match pattern|must resolve exactly once/iu,
+    },
+    {
+      name: "unsupported runner",
+      mutate: ({ familyManifest }) => { familyManifest.rows[0].runner = "python"; },
+      pattern: /must be equal to one of the allowed values|unsupported/iu,
+    },
+    {
+      name: "runner adapter mismatch",
+      mutate: ({ runnerRegistry }) => {
+        runnerRegistry.runners.find((entry) => entry.runner === "go").adapter_path =
+          "tools/harness/execution/runners/shell.mjs";
+      },
+      pattern: /closed runner definition/iu,
+    },
+  ];
+  for (const fixtureCase of cases) {
+    const root = mkdtempSync(path.join(repoRoot, "tmp", "owner-catalog."));
+    try {
+      writeOwnerCatalogFixture(root, fixtureCase.mutate);
+      fixtureCase.setup?.(root);
+      assert.throws(() => loadTestCatalog(root), fixtureCase.pattern, fixtureCase.name);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+});
+
+test("owner catalog rejects symlinked selector roots", () => {
+  const root = mkdtempSync(path.join(repoRoot, "tmp", "owner-catalog-symlink."));
+  try {
+    writeOwnerCatalogFixture(root);
+    writeFixtureFile(root, "internal/fixture-real/owned_test.go", "package fixture\n\nfunc TestOwned(t *testing.T) {}\n");
+    rmSync(path.join(root, "internal/fixture"), { recursive: true, force: true });
+    symlinkSync(path.join(root, "internal/fixture-real"), path.join(root, "internal/fixture"));
+    assert.throws(() => loadTestCatalog(root), /symbolic link|non-symlink directory/iu);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("semantic JSON rejects ambiguous encodings and ignores display metadata", () => {
+  assert.throws(() => parseStrictJSON('{"a":1,"a":2}', "fixture"), /duplicate object member/iu);
+  assert.throws(() => parseStrictJSON('{"a":-0}', "fixture"), /negative zero/iu);
+  assert.throws(() => parseStrictJSON('{"a":9007199254740992}', "fixture"), /interoperable range/iu);
+  assert.equal(
+    semanticJSONDigest({ owner_id: "module.fixture", status: "active" }),
+    semanticJSONDigest({ status: "active", owner_id: "module.fixture" }),
+  );
+});
+
+test("test catalog implementation cannot depend on execution or accounting layers", () => {
+  const root = mkdtempSync(path.join(repoRoot, "tmp", "owner-catalog-imports."));
+  try {
+    writeFixtureFile(
+      root,
+      "tools/harness/test-catalog/invalid.mjs",
+      'import "../scheduler/scheduler-resources.mjs";\n',
+    );
+    assert.deepEqual(collectTestCatalogImportViolations(root), [
+      {
+        file: "tools/harness/test-catalog/invalid.mjs",
+        specifier: "../scheduler/scheduler-resources.mjs",
+      },
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test("documentation boundary rejects direct, computed, and symlinked reads", () => {
   const documentationDir = ["do", "cs"].join("");
@@ -2882,7 +3210,7 @@ test("harness import boundary consumes the authored helper ownership registry", 
   const helperOwnership = loadHarnessHelperOwnership(repoRoot);
   const authoredOwnerFacadePaths = ownerFacadePathLists(helperOwnership);
   const report = collectHarnessImportBoundaryViolations(repoRoot);
-  assert.equal(helperOwnership.facades.length, 34);
+  assert.equal(helperOwnership.facades.length, 35);
   assert.deepEqual(
     Object.keys(report.owner_facades).sort(),
     Object.keys(authoredOwnerFacadePaths).sort(),

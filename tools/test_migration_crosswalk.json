@@ -2174,29 +2174,3400 @@
     {
       "source_registry_id": "frontend_phase_maps",
       "legacy_row_id": "FE-V-P9-01"
-    },
-    {
-      "source_registry_id": "graph_projection_subsystem",
-      "legacy_row_id": "GP-BINDING-001"
-    },
-    {
-      "source_registry_id": "graph_projection_subsystem",
-      "legacy_row_id": "GP-MIGRATION-001"
-    },
-    {
-      "source_registry_id": "graph_projection_subsystem",
-      "legacy_row_id": "GP-STORE-001"
-    },
-    {
-      "source_registry_id": "graph_projection_subsystem",
-      "legacy_row_id": "GP-UNIT-001"
-    },
-    {
-      "source_registry_id": "graph_projection_subsystem",
-      "legacy_row_id": "GP-UNIT-002"
     }
   ],
-  "dispositions": [],
-  "auxiliary_dispositions": [],
-  "new_rows": []
+  "dispositions": [
+    {
+      "source_registry_id": "graph_projection_subsystem",
+      "legacy_row_id": "GP-BINDING-001",
+      "disposition": "migrated",
+      "owner_id": "module.graphprojection",
+      "row_id": "module.graphprojection.storage.transaction_binding",
+      "verification_ids": [
+        "module.graphprojection.verification.engine_and_storage"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.graphprojection",
+        "governing_requirement": "Adopted Graph Projection behavior and boundary postconditions",
+        "review_revision": "b0ae8400",
+        "owner_review_evidence": "WS-03 T-016 Graph Projection owner absorption"
+      }
+    },
+    {
+      "source_registry_id": "graph_projection_subsystem",
+      "legacy_row_id": "GP-MIGRATION-001",
+      "disposition": "migrated",
+      "owner_id": "module.graphprojection",
+      "row_id": "module.graphprojection.storage.migration_reset",
+      "verification_ids": [
+        "module.graphprojection.verification.engine_and_storage"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "review": {
+        "governing_owner": "module.graphprojection",
+        "governing_requirement": "Adopted Graph Projection behavior and boundary postconditions",
+        "review_revision": "b0ae8400",
+        "owner_review_evidence": "WS-03 T-016 Graph Projection owner absorption"
+      }
+    },
+    {
+      "source_registry_id": "graph_projection_subsystem",
+      "legacy_row_id": "GP-STORE-001",
+      "disposition": "migrated",
+      "owner_id": "module.graphprojection",
+      "row_id": "module.graphprojection.storage.lifecycle",
+      "verification_ids": [
+        "module.graphprojection.verification.engine_and_storage"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.graphprojection",
+        "governing_requirement": "Adopted Graph Projection behavior and boundary postconditions",
+        "review_revision": "b0ae8400",
+        "owner_review_evidence": "WS-03 T-016 Graph Projection owner absorption"
+      }
+    },
+    {
+      "source_registry_id": "graph_projection_subsystem",
+      "legacy_row_id": "GP-UNIT-001",
+      "disposition": "migrated",
+      "owner_id": "module.graphprojection",
+      "row_id": "module.graphprojection.engine.canonical_behavior",
+      "verification_ids": [
+        "module.graphprojection.verification.engine_and_storage"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.graphprojection",
+        "governing_requirement": "Adopted Graph Projection behavior and boundary postconditions",
+        "review_revision": "b0ae8400",
+        "owner_review_evidence": "WS-03 T-016 Graph Projection owner absorption"
+      }
+    },
+    {
+      "source_registry_id": "graph_projection_subsystem",
+      "legacy_row_id": "GP-UNIT-002",
+      "disposition": "migrated",
+      "owner_id": "module.graphprojection",
+      "row_id": "module.graphprojection.fixtures.fixture_verifier",
+      "verification_ids": [
+        "module.graphprojection.verification.engine_and_storage"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.graphprojection",
+        "governing_requirement": "Adopted Graph Projection behavior and boundary postconditions",
+        "review_revision": "b0ae8400",
+        "owner_review_evidence": "WS-03 T-016 Graph Projection owner absorption"
+      }
+    }
+  ],
+  "auxiliary_dispositions": [
+    {
+      "candidate_id": "vitest:001",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:002",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:003",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:004",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:005",
+      "disposition": "retained",
+      "reason": "Retained as 4 exact owner-catalog rows; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:006",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:007",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:008",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:009",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:010",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:011",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:012",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:013",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:014",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:015",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:016",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:017",
+      "disposition": "retained",
+      "reason": "Retained as 13 exact owner-catalog rows; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:018",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:019",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:020",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:021",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:022",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:023",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:024",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:025",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:026",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:027",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:028",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:029",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:030",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:031",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:032",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:033",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:034",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:035",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:036",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:037",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:038",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:039",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:040",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:041",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:042",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:043",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:044",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:045",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:046",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:047",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:048",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:049",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:050",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:051",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:052",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:053",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:054",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:055",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:056",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:057",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:058",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:059",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:060",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:061",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:062",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:063",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:064",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:065",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:066",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:067",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:068",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:069",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:070",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:071",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:072",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:073",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:074",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:075",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:076",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:077",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:078",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:079",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:080",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:081",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:082",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:083",
+      "disposition": "deleted",
+      "reason": "The absent Unmapped file is a deliberate legacy accounting fixture, not production evidence.",
+      "owner_review_evidence": "WS-03 T-017 explicit non-production deletion"
+    },
+    {
+      "candidate_id": "vitest:084",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:085",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:086",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:087",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:088",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:089",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:090",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:091",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:092",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:093",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:094",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:095",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:096",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:097",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:098",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:099",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:100",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:101",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:102",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:103",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:104",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:105",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:106",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:107",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:108",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:109",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:110",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:111",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:112",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:113",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:114",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:115",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:116",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:117",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:118",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:119",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:120",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:121",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:122",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:123",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:124",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:125",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:126",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:127",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:128",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:129",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:130",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:131",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:132",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:133",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:134",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:135",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:136",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:137",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:138",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:139",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:140",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:141",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:142",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:143",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:144",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:145",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:146",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:147",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:148",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:149",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:150",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:151",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:152",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:153",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:154",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:155",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:156",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:157",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:158",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:159",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:160",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:161",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:162",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:163",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:164",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:165",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:166",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:167",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:168",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:169",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:170",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:171",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:172",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:173",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:174",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:175",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:176",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:177",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:178",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:179",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:180",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:181",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:182",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:183",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:184",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:185",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:186",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:187",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:188",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:189",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:190",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:191",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:192",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:193",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:194",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:195",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:196",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:197",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:198",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:199",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:200",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:201",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:202",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:203",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:204",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:205",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:206",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:207",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:208",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:209",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:210",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:211",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:212",
+      "disposition": "deleted",
+      "reason": "The classified title has no executable assertion and describes compile-time typing already enforced by frontend typecheck.",
+      "owner_review_evidence": "WS-03 T-017 explicit obsolete duplicate deletion"
+    },
+    {
+      "candidate_id": "vitest:213",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:214",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:215",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:216",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:217",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:218",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:219",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:220",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:221",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:222",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:223",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:224",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:225",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:226",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:227",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    },
+    {
+      "candidate_id": "vitest:228",
+      "disposition": "retained",
+      "reason": "Retained as 1 exact owner-catalog row; glob and catch-all ownership are removed.",
+      "owner_review_evidence": "WS-03 T-017 durable owner adjudication"
+    }
+  ],
+  "new_rows": [
+    {
+      "owner_id": "harness.browser",
+      "row_id": "harness.browser.boundary_support.architecturepolicy_suite_4e0bacb131",
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "provenance": "vitest:017 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "harness.browser",
+      "row_id": "harness.browser.boundary_support.cleanup_suite_9036a615b1",
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "provenance": "vitest:017 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "harness.browser",
+      "row_id": "harness.browser.boundary_support.fixtureidentity_suite_827c446bfe",
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "provenance": "vitest:017 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "harness.browser",
+      "row_id": "harness.browser.boundary_support.fixtures_suite_b570a8a829",
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "provenance": "vitest:016 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "harness.browser",
+      "row_id": "harness.browser.boundary_support.harnessstate_suite_a4c7c5d935",
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "provenance": "vitest:017 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "harness.browser",
+      "row_id": "harness.browser.boundary_support.incidentsocket_suite_6db375c4ec",
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "provenance": "vitest:017 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "harness.browser",
+      "row_id": "harness.browser.boundary_support.mentions_suite_e2e13939bd",
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "provenance": "vitest:017 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "harness.browser",
+      "row_id": "harness.browser.boundary_support.mutationanchors_suite_ba8fab1244",
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "provenance": "vitest:017 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "harness.browser",
+      "row_id": "harness.browser.boundary_support.ownercharacterization_suite_3242ca020b",
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "provenance": "vitest:017 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "harness.browser",
+      "row_id": "harness.browser.boundary_support.publicjsonclient_suite_a3aedb76f9",
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "provenance": "vitest:017 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "harness.browser",
+      "row_id": "harness.browser.boundary_support.savedviews_suite_79e8036a1a",
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "provenance": "vitest:017 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "harness.browser",
+      "row_id": "harness.browser.boundary_support.sessions_suite_4d7bc21669",
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "provenance": "vitest:017 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "harness.browser",
+      "row_id": "harness.browser.boundary_support.testcontrolclient_suite_f60081d8f5",
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "provenance": "vitest:017 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "harness.browser",
+      "row_id": "harness.browser.boundary_support.timingsupport_dom_suite_6614d14ea5",
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "provenance": "vitest:017 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.regression.core_builds_one_group_bucket_per_normalized_comm_ba814e2f02",
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "provenance": "vitest:173 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.regression.core_clears_anchors_for_invalid_row_field_group_a1ceaa23dc",
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "provenance": "vitest:174 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.regression.core_creates_an_unassigned_group_when_empty_labe_5bd9483098",
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "provenance": "vitest:175 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.regression.core_does_not_treat_vendor_selection_changes_alo_e3405c5d7a",
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "provenance": "vitest:176 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.regression.core_keeps_recordless_draft_rows_outside_grouped_6ef906adea",
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "provenance": "vitest:177 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.regression.core_maps_filtered_overflow_to_explicit_create_r_e4b08f0386",
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "provenance": "vitest:178 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.regression.core_maps_rows_directly_to_data_presentation_row_8f047d4faa",
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "provenance": "vitest:179 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.regression.core_merges_owner_state_with_adapter_derived_con_f37c0f4dca",
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "provenance": "vitest:180 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.regression.core_normalizes_committed_empty_group_labels_to_9d131706c0",
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "provenance": "vitest:181 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.regression.core_orders_invalid_pending_active_selected_read_cd0d921838",
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "provenance": "vitest:182 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.regression.core_rejects_duplicate_extension_identities_and_7d5d2cedee",
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "provenance": "vitest:185 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.regression.core_rejects_group_and_presentation_only_paste_a_f51e06013b",
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "provenance": "vitest:183 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.regression.core_requires_a_cartulary_anchor_instead_of_vend_6ccefa24e2",
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "provenance": "vitest:184 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.regression.core_resolves_extension_anchors_ranges_grouping_b260d43ca7",
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "provenance": "vitest:186 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.regression.core_resolves_the_design_priority_while_retainin_2a42c990b3",
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "provenance": "vitest:187 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.regression.core_supports_semantic_page_row_edge_and_grid_ed_67abf2c145",
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "provenance": "vitest:189 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.regression.core_targets_sorted_paste_rows_by_stable_visible_6e95f39b53",
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "provenance": "vitest:188 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.regression.core_translates_valid_presentation_coordinates_i_00d120407c",
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "provenance": "vitest:190 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.regression.core_trims_labels_before_comparing_groups_and_ge_29b2b26405",
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "provenance": "vitest:191 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.regression.core_updates_anchors_for_keyboard_navigation_and_e40887173d",
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "provenance": "vitest:192 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.grid_adapter",
+      "row_id": "package.grid_adapter.regression.index_suite_d804ef9789",
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "provenance": "vitest:193 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.protocol_ts",
+      "row_id": "package.protocol_ts.boundary_support.index_anchors_evidence_protocol_facade_types_to_c902d238a7",
+      "verification_ids": [
+        "package.protocol_ts.verification.shared_contract"
+      ],
+      "provenance": "vitest:221 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.protocol_ts",
+      "row_id": "package.protocol_ts.boundary_support.index_decodes_exact_network_flow_contracts_witho_8fee657f09",
+      "verification_ids": [
+        "package.protocol_ts.verification.shared_contract"
+      ],
+      "provenance": "vitest:219 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.protocol_ts",
+      "row_id": "package.protocol_ts.boundary_support.index_decodes_the_core_extension_discovery_envel_395cae3896",
+      "verification_ids": [
+        "package.protocol_ts.verification.shared_contract"
+      ],
+      "provenance": "vitest:220 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.test_utils",
+      "row_id": "package.test_utils.boundary_support.index_suite_466a5263a0",
+      "verification_ids": [
+        "package.test_utils.verification.shared_contract"
+      ],
+      "provenance": "vitest:222 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.ui",
+      "row_id": "package.ui.boundary_support.design_tokens_exposes_explicit_font_role_tokens_55f6ac41b0",
+      "verification_ids": [
+        "package.ui.verification.shared_contract"
+      ],
+      "provenance": "vitest:223 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.ui",
+      "row_id": "package.ui.boundary_support.design_tokens_exposes_the_adopted_default_theme_4f6994fbc4",
+      "verification_ids": [
+        "package.ui.verification.shared_contract"
+      ],
+      "provenance": "vitest:224 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.ui",
+      "row_id": "package.ui.boundary_support.design_tokens_renders_css_variables_without_unre_7aba7b88a9",
+      "verification_ids": [
+        "package.ui.verification.shared_contract"
+      ],
+      "provenance": "vitest:225 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.ui",
+      "row_id": "package.ui.boundary_support.index_keeps_semantic_selector_helpers_byte_ident_953f0cffc5",
+      "verification_ids": [
+        "package.ui.verification.shared_contract"
+      ],
+      "provenance": "vitest:226 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.ui",
+      "row_id": "package.ui.regression.index_suite_96dd807938",
+      "verification_ids": [
+        "package.ui.verification.shared_contract"
+      ],
+      "provenance": "vitest:227 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "package.view_contracts",
+      "row_id": "package.view_contracts.regression.index_suite_7e2dba7451",
+      "verification_ids": [
+        "package.view_contracts.verification.shared_contract"
+      ],
+      "provenance": "vitest:228 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.boundary_support.fontbundle_documents_selector_active_and_staged_70333d6d14",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:046 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.boundary_support.fontbundle_rejects_badbytes_fixture_03561b325d",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:047 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.boundary_support.fontbundle_rejects_badhash_fixture_c2828b74a4",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:048 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.boundary_support.fontbundle_rejects_deadfontvariable_fixture_d471c1cde8",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:049 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.boundary_support.fontbundle_rejects_localsource_fixture_f0fb62c775",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:050 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.boundary_support.fontbundle_rejects_missingactivationmetadata_fix_a3dc6be288",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:051 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.boundary_support.fontbundle_rejects_missingcssfontreference_fixtu_626ad10c4f",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:052 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.boundary_support.fontbundle_rejects_missinglicense_fixture_4238ff678c",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:053 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.boundary_support.fontbundle_rejects_missingnotice_fixture_70096761eb",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:054 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.boundary_support.fontbundle_rejects_remotefont_fixture_d7ff3e8bb9",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:055 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.boundary_support.fontbundle_rejects_undocumentedstagedfamily_fixt_90a16a1129",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:056 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.boundary_support.fontbundle_validates_the_checked_in_manifest_che_678e7b75c8",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:057 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.boundary_support.fontroles_activates_the_internal_hyperlegible_re_c7a714e67d",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:058 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.boundary_support.fontroles_marks_compact_workbook_metadata_for_th_09d32fe3de",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:059 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.boundary_support.otelboundary_keeps_browser_state_from_creating_t_f4f164609b",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:066 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_keeps_deployment_admin_target_actions_disabl_fe7a9b4dad",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:045 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_aborts_an_in_flight_refresh_when_ent_edd84babb6",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:018 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_cancels_an_in_flight_shell_refresh_w_fe9dfe2c0f",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:019 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_enables_deployment_user_panel_target_6c817cd44b",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:020 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_gates_reference_pack_deployment_admi_7458db98a0",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:024 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_keeps_explicit_incident_directory_na_c4fd880324",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:032 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_keeps_reference_pack_deployment_admi_b4a4a26ac5",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:026 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_keeps_reference_pack_deployment_admi_bceb75097a",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:025 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_loads_additional_visible_incident_ro_2fa528a47a",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:021 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_loads_administrative_audit_directly_05f95750af",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:023 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_loads_deployment_administration_as_a_da43cd0d07",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:022 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_loads_more_incidents_against_the_acc_b90340dbf9",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:027 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_loads_the_debug_harness_directly_wit_c28623539a",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:043 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_opens_account_settings_from_the_acco_12ecd21c1b",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:028 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_opens_an_imported_incident_from_term_9c4fade7a5",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:030 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_opens_the_workbook_automatically_whe_140b142d0d",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:031 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_passes_workbook_incident_controls_th_f0ff8ac3c4",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:036 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_preserves_incident_route_and_manual_f0a9a82316",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:035 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_renders_one_or_many_visible_incident_051ab11a17",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:033 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_renders_the_workbook_directly_from_a_01556a05ba",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:034 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_renders_workbook_role_incidents_and_1cbdc6683c",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:037 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_returns_non_admin_direct_deployment_864cb3c9ed",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:038 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_returns_to_the_landing_screen_when_w_2ee7e4975a",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:039 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_searches_visible_incidents_through_t_ad3cb27e31",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:040 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_sends_only_declared_optional_metadat_b495ab9b03",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:041 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_shows_the_zero_incident_landing_stat_a8e598f1a9",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:042 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.app_landing_updates_the_open_workbook_density_af_106cb2cb56",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:029 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.browserapi_suite_96242311a1",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:068 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.importcoordinator_suite_fd42b7df92",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:006 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.incidentadminpanel_keeps_incident_summary_visibl_d7a6f59072",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:060 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.incidentadminpanel_keeps_membership_audit_placem_0b30c15d7e",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:061 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.incidentadminpanel_keeps_readiness_on_the_curren_35921ed917",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:062 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.incidentadminpanel_patches_required_incident_met_bd946d6caa",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:063 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.incidentadminpanel_renders_null_and_view_schema_b2a93c36b5",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:064 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.incidentadminpanel_renders_saved_view_workbook_p_8cc7f20d33",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:065 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.referencepackadminpanel_discards_stale_reference_4aefb31c15",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:067 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.routestate_suite_375a237e22",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:044 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.workbookapi_adds_the_timing_debug_header_only_fo_d76ad3c9b9",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:069 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.workbookapi_keeps_latest_query_requests_exclusiv_b04e61e6c5",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:070 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.workbookapi_keeps_public_error_parsing_and_incid_52c47314e4",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:071 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.workbookapi_preserves_workbookshell_json_and_csr_45bb12bec4",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:072 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.workbookevidence_accepts_only_public_evidence_ha_4ba022c249",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:073 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.workbookevidence_creates_an_object_blob_uploads_d64df134bd",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:074 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.workbookevidence_keeps_raw_storage_details_out_o_68c8061c4e",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:075 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.application",
+      "row_id": "web.application.regression.workbookevidence_maps_blocking_evidence_messages_e6bbbb4235",
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "provenance": "vitest:076 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.architecture",
+      "row_id": "web.architecture.boundary_support.selectorcontractpolicy_classifies__cross_boundar_db0c1cde0b",
+      "verification_ids": [
+        "web.architecture.verification.test_boundaries"
+      ],
+      "provenance": "vitest:078 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.architecture",
+      "row_id": "web.architecture.boundary_support.selectorcontractpolicy_keeps_cross_boundary_sele_61868c7039",
+      "verification_ids": [
+        "web.architecture.verification.test_boundaries"
+      ],
+      "provenance": "vitest:079 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.architecture",
+      "row_id": "web.architecture.boundary_support.selectorcontractpolicy_keeps_phase_named_selecto_a659d356ed",
+      "verification_ids": [
+        "web.architecture.verification.test_boundaries"
+      ],
+      "provenance": "vitest:077 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.architecture",
+      "row_id": "web.architecture.boundary_support.selectorcontractpolicy_rejects_raw__selector_lit_e8f92512d1",
+      "verification_ids": [
+        "web.architecture.verification.test_boundaries"
+      ],
+      "provenance": "vitest:080 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.architecture",
+      "row_id": "web.architecture.boundary_support.timelineworkbooktestsupport_replaces_controlled_77b04cd969",
+      "verification_ids": [
+        "web.architecture.verification.test_boundaries"
+      ],
+      "provenance": "vitest:081 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.architecture",
+      "row_id": "web.architecture.boundary_support.timelineworkbooktestsupport_waits_for_delayed_wo_8de9145b31",
+      "verification_ids": [
+        "web.architecture.verification.test_boundaries"
+      ],
+      "provenance": "vitest:082 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.architecture",
+      "row_id": "web.architecture.boundary_support.transportboundarypolicy_suite_aab5aaaedb",
+      "verification_ids": [
+        "web.architecture.verification.test_boundaries"
+      ],
+      "provenance": "vitest:001 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.collaboration",
+      "row_id": "web.collaboration.regression.incidentcollaborationsession_suite_6b9c4a2c72",
+      "verification_ids": [
+        "web.collaboration.verification.session_regression"
+      ],
+      "provenance": "vitest:013 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.boundary_support.networkflowboundarypolicy_suite_6f1f265586",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:002 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkanalysisworkspace_clears_protected_data_i_eaa7eef8ae",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:199 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkanalysisworkspace_clears_table_scoped_sta_4ce4a111f2",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:200 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkanalysisworkspace_enforces_the_viewer_edi_3fd452e838",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:195 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkanalysisworkspace_keeps_the_import_entry_5fb0310ae5",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:194 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkanalysisworkspace_previews_an_ordinal_awa_07f315d42a",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:202 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkanalysisworkspace_refreshes_table_metadat_20159fd951",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:198 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkanalysisworkspace_removes_mutation_surfac_5007c81f80",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:196 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkanalysisworkspace_renames_by_stable_table_860bb787a3",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:197 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkanalysisworkspace_renders_rejected_diagno_b512f0748b",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:201 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkanalysisworkspace_supports_keyboard_table_054e6e4ff9",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:203 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkflowclient_requires_a_claimed_profile_and_65c861c0d2",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:211 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkflowclient_uses_extension_workspace_route_9bb2fadacc",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:210 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkflowcollaborationinterpreter_admits_only_5a57dc4e3c",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:213 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkflowcontroller_clears_all_table_state_whe_f8e4dfa97e",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:216 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkflowcontroller_preserves_selection_on_ref_31d35066ee",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:214 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkflowcontroller_preserves_table_identity_o_b7a9b004a8",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:215 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkflowerrors_suite_08956c54be",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:010 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkflowimportmodel_suite_12249943c5",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:007 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkflowindicatorlinkmodel_accepts_the_active_696bb36228",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:208 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkflowindicatorlinkmodel_compiles_a_same_va_85200de10e",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:207 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkflowindicatorlinkmodel_compiles_one_activ_a7580fde22",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:206 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkflowindicatorlinkmodel_rejects_mixed_valu_8ebb38270c",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:209 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkflowpresentation_suite_ad52825df6",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:009 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkflowquerymodel_suite_a62cc77196",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:008 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkflowsemanticgrid_restores_semantic_focus_5fbb80e46c",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:204 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.networkflowsemanticgrid_supports_keyboard_column_9fbd5af078",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:205 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.usenetworkflowextensionevents_deduplicates_chang_833a3ccd56",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:217 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.usenetworkflowextensionevents_maps_incident_clos_fd1f06b3ef",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:218 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.usenetworkflowgridlayout_suite_7c663dc67a",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:012 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "row_id": "web.networkflow.regression.usenetworkflowpagedquery_suite_7dc8b8d06a",
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "provenance": "vitest:011 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.boundary_support.timelinecontrollerboundarypolicy_suite_0d3042d183",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:003 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.boundary_support.workbooksurfaceownershippolicy_suite_85a208f2dd",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:004 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.boundary_support.workbooksurfaceregistration_suite_95c45285ef",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:014 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.assessmentworkbookmodel_keeps_assessment_column_e8493a2ec0",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:084 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.assessmentworkbookmodel_uses_contract_enum_defau_90b00dd470",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:085 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.entityworkbookmodel_builds_merge_plans_without_c_6b84a1bd7f",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:086 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.entityworkbookmodel_keeps_entity_grouping_and_co_e1f047591a",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:087 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.entityworkbookmodel_normalizes_host_and_identity_49cffbeb47",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:088 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.entityworkbookmodel_promotes_loser_identifiers_o_9a58390ae8",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:089 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.genericworkbookmodel_builds_generic_creates_with_07b632b33d",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:090 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.genericworkbookmodel_builds_reference_labels_par_d7a60a5cfd",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:091 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.genericworkbookmodel_builds_typed_direct_and_col_47a2b0a177",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:092 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.genericworkbookmodel_keeps_display_labels_widths_f5fc467962",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:093 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.genericworkbookmodel_keeps_multiline_detection_p_2f6d03b150",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:094 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.genericworkbookmodel_rejects_invalid_number_and_b57ee8a070",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:095 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.genericworkbookmodel_seeds_owner_defaults_and_kn_82f50ea384",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:096 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.genericworkbookmodel_uses_contract_create_minima_3376430d26",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:097 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.referencequerybroker_suite_7bd36b209a",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:015 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.timelineconflictmodel_parses_same_field_conflict_5af4f29cce",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:108 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.timelineconflictmodel_rejects_empty_string_ident_daa1b29fdf",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:109 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.timelineconflictmodel_rejects_missing_malformed_5a87856d3b",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:110 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.timelinerowsmodel_classifies_stale_row_version_u_790e759153",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:111 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.timelineviewportcontinuitymodel_builds_stable_se_6a2b4a7870",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:112 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.timelineviewportcontinuitymodel_holds_an_entity_a89a871505",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:113 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.timelineviewportcontinuitymodel_lets_terminal_re_a5ad50e640",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:114 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.timelineviewportcontinuitymodel_settles_when_the_f3dc6de742",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:115 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.useworkbookprojectionrefreshcontroller_suite_5bad71bbc5",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:005 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.useworkbookquerycontroller_suite_203a4e98cc",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:005 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.useworkbooksavedviewcontroller_suite_d3f1a57e5d",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:005 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.useworkbookstartupcontroller_suite_d6a9bfa13c",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:005 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookclipboard_computes_dimensions_without_en_f2276c30d5",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:121 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookclipboard_keeps_scalar_comma_text_out_of_692613d25d",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:122 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookclipboard_parses_empty_crlf_tabular_and_d03ce98969",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:123 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookclipboard_preserves_quote_aware_parser_b_e4b0e7c6d5",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:124 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookcontinuity_suite_b9660fc216",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:125 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookquery_suite_904073db6c",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:098 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookreferenceoptions_detects_fields_that_use_f53f0c2290",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:100 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookreferenceoptions_returns_same_incident_r_d82be79429",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:101 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookresponsivelayout_suite_a0a25d1b52",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:099 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbooksavedviewruntime_derives_runtime_query_s_8d12bb6335",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:102 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbooksavedviewruntime_preserves_saved_view_sh_74cf2043e6",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:103 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbooksavedviewruntime_upserts_saved_views_by_760e4374bd",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:104 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbooksavedviews_canonicalizes_saved_view_quer_52267a6bc5",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:105 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbooksavedviews_keeps_system_saved_views_immu_52a88fe2c1",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:106 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbooksavedviews_normalizes_saved_views_withou_6129a2ea1c",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:107 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell__autosave_commits_enter_from_the_c_6dfe4292ef",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:130 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell__autosave_commits_paste_completion_cd8925ff7b",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:131 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell__autosave_commits_tab_from_the_cur_f5c4976958",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:132 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell__autosave_queues_a_follow_up_scala_3b8fa7ce27",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:133 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell__autosave_suppresses_duplicate_pen_293b7b0803",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:134 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell__grid_classifies_committed_timelin_01835ba458",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:135 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell__grid_ignores_stale_query_errors_a_4d300e6079",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:136 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell__grid_ignores_stale_sparse_live_ro_e56dac92a4",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:137 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell__grid_keeps_accepted_committed_row_32313ff66a",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:138 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell__grid_keeps_timeline_controls_moun_9b84a35d5e",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:139 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell__grid_preserves_an_in_flight_draft_d12ffd720f",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:140 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell__grid_preserves_draft_row_edits_ac_cd490037ce",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:141 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell__grid_surfaces_a_sorted_query_refr_a68f37f8fa",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:142 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell__inspector_keeps_the_timeline_insp_b0ac344c3e",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:163 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell__inspector_renders_timeline_collec_062be27af9",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:164 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell__query_normalizes_saved_view_query_22724faeb7",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:161 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell__query_notes_full_text_controls_su_889a129c8b",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:162 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell__sentinel_dispatches_multi_row_csv_e8a865bdb6",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:165 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell__sentinel_dispatches_single_line_c_b77f93e4f3",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:166 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell__sentinel_grid_anchor_shell_suppor_09dddf7118",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:170 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell__sentinel_grid_anchor_shell_suppor_142198eb98",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:168 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell__sentinel_grid_anchor_shell_suppor_2cc21bb934",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:167 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell__sentinel_grid_anchor_shell_suppor_428c33b58f",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:171 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell__sentinel_grid_anchor_shell_suppor_fa4f66986b",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:169 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell_applies_sparse_live_patches_by_rec_51f241e023",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:143 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell_assessments_suite_f2e4a841a2",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:129 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell_builds_rollback_targets_only_from_3a8ffdc380",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:148 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell_clears_stale_rollback_previews_whe_595a6c8feb",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:149 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell_fails_closed_for_duplicate_history_fe4dcb2962",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:150 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell_fails_closed_for_invalid_revision_26fb9af612",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:151 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell_fails_closed_for_missing_history_e_3ccf7a9cc9",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:152 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell_fails_closed_for_missing_history_i_355e381c10",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:153 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell_fails_closed_for_non_canonical_act_eb7cabaa5c",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:154 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell_fails_closed_for_non_string_histor_13966ebe51",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:155 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell_keeps_workbook_continuity_through_d12cc5e7b3",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:156 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell_opens_row_centric_history_from_a_s_cba1ffd5ef",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:157 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell_presence_indicators_render_from_ke_10dbb35d28",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:144 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell_resolver_keep_saved_action_submits_2d011ebd3f",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:145 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell_resolver_merged_value_action_submi_5d8f831f1e",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:146 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell_resolver_use_unsaved_action_submit_f7537f46a6",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:147 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell_retargets_open_row_history_to_the_0fdff31336",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:158 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell_submits_single_entry_rollback_with_cbbdfae367",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:159 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell_surfaces_suite_668e482b1e",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:172 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookshell_uses_active_and_tombstone_row_vers_51c826c113",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:160 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbooktimelinemodel_builds_scalar_collection_e_13cb3751a8",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:116 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbooktimelinemodel_expands_timeline_columns_o_8ef6ed0f85",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:117 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbooktimelinemodel_exposes_timeline_bindings_b089b28e02",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:118 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbooktimelinemodel_normalizes_rows_tag_collec_b5c8ae26ab",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:119 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbooktimelinemodel_uses_the_full_measured_tim_732e6ba772",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:120 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookvalueformat_joins_collection_display_tex_08561e78ac",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:126 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookvalueformat_keeps_unsupported_and_omitte_4bca3a1bba",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:127 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    },
+    {
+      "owner_id": "web.workbook",
+      "row_id": "web.workbook.regression.workbookvalueformat_preserves_primitive_display_b7f897b061",
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "provenance": "vitest:128 frozen Vitest classification; exact file/title selectors from .cartulary/test-results/20260718T000159Z-p12196/frontend-unit/raw/frontend-unit/runner.json"
+    }
+  ]
 }

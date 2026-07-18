@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test_catalog_check_summary.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "status", "owner_count", "family_count", "row_count", "selector_count", "runner_counts", "catalog_semantic_digest", "verification_semantic_digest"],
+  "properties": {
+    "schema_id": { "const": "cartulary.test_catalog_check_summary.v1" },
+    "status": { "const": "pass" },
+    "owner_count": { "type": "integer", "minimum": 1 },
+    "family_count": { "type": "integer", "minimum": 1 },
+    "row_count": { "type": "integer", "minimum": 1 },
+    "selector_count": { "type": "integer", "minimum": 1 },
+    "runner_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["go", "vitest", "playwright", "shell"],
+      "properties": {
+        "go": { "type": "integer", "minimum": 0 },
+        "vitest": { "type": "integer", "minimum": 0 },
+        "playwright": { "type": "integer", "minimum": 0 },
+        "shell": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "catalog_semantic_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "verification_semantic_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

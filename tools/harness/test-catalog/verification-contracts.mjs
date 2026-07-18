@@ -1,8 +1,8 @@
-import { createHash } from "node:crypto";
 import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 
 import { validateSchemaSync } from "../contract/index.mjs";
+import { parseStrictJSON, semanticJSONDigest } from "./semantic-json.mjs";
 
 const registrySchemaID = "cartulary.verification_registry.v1";
 const contractSchemaID = "cartulary.verification_contract.v1";
@@ -10,11 +10,11 @@ const registryPath = "contracts/verification/registry.json";
 const contractRootPath = "contracts/verification/owners";
 
 function readJSON(file) {
-  return JSON.parse(readFileSync(file, "utf8"));
+  return parseStrictJSON(readFileSync(file, "utf8"), file);
 }
 
 function assertSortedUnique(values, label) {
-  const sorted = [...values].sort((left, right) => left.localeCompare(right));
+  const sorted = [...values].sort((left, right) => left < right ? -1 : left > right ? 1 : 0);
   if (JSON.stringify(values) !== JSON.stringify(sorted)) {
     throw new Error(`${label} must be ASCII-sorted`);
   }
@@ -135,7 +135,7 @@ export function loadVerificationContracts(root) {
     contracts.push(contract);
   }
 
-  const semanticBytes = `${JSON.stringify({
+  const semanticDigest = semanticJSONDigest({
     schema_id: registry.schema_id,
     owners: registry.owners.map((owner, index) => ({
       owner_id: owner.owner_id,
@@ -143,12 +143,12 @@ export function loadVerificationContracts(root) {
       status: owner.status,
       contract: semanticContract(contracts[index]),
     })),
-  })}\n`;
+  });
   return {
     registry,
     contracts,
     verificationByID,
-    semantic_digest: createHash("sha256").update(semanticBytes).digest("hex"),
+    semantic_digest: semanticDigest,
   };
 }
 

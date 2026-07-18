@@ -1,0 +1,742 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "web.networkflow",
+  "rows": [
+    {
+      "row_id": "web.networkflow.boundary_support.networkflowboundarypolicy_suite_6f1f265586",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/networkFlowBoundaryPolicy.test.ts",
+        "titles": [
+          "Network Flow frontend boundary policy composes each capability through a dedicated workspace controller",
+          "Network Flow frontend boundary policy keeps Network Flow wire decoding behind the generated contract adapter",
+          "Network Flow frontend boundary policy keeps runtime schema compilation and projection adapter input out of the browser",
+          "Network Flow frontend boundary policy keeps the grid vendor and raw coordinate handles outside Network Flow consumers",
+          "Network Flow frontend boundary policy rejects synthetic markup in authoritative Phase 12 Network Flow browser evidence"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkanalysisworkspace_clears_protected_data_i_eaa7eef8ae",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
+        "titles": [
+          "NetworkAnalysisWorkspace clears protected data immediately when authorization is lost"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkanalysisworkspace_clears_table_scoped_sta_4ce4a111f2",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
+        "titles": [
+          "NetworkAnalysisWorkspace clears table-scoped state when the active table becomes inactive"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkanalysisworkspace_enforces_the_viewer_edi_3fd452e838",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
+        "titles": [
+          "NetworkAnalysisWorkspace enforces the viewer, editor, reviewer, and admin command matrix"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkanalysisworkspace_keeps_the_import_entry_5fb0310ae5",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
+        "titles": [
+          "NetworkAnalysisWorkspace keeps the import entry role-gated"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkanalysisworkspace_previews_an_ordinal_awa_07f315d42a",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
+        "titles": [
+          "NetworkAnalysisWorkspace previews an ordinal-aware mapping and selects the returned table resource"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkanalysisworkspace_refreshes_table_metadat_20159fd951",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
+        "titles": [
+          "NetworkAnalysisWorkspace refreshes table metadata after a rename version conflict before retry"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkanalysisworkspace_removes_mutation_surfac_5007c81f80",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
+        "titles": [
+          "NetworkAnalysisWorkspace removes mutation surfaces immediately when the role is downgraded"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkanalysisworkspace_renames_by_stable_table_860bb787a3",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
+        "titles": [
+          "NetworkAnalysisWorkspace renames by stable table identity and soft-deletes only after exact confirmation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkanalysisworkspace_renders_rejected_diagno_b512f0748b",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
+        "titles": [
+          "NetworkAnalysisWorkspace renders rejected diagnostics through the semantic grid and applies owner filters"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkanalysisworkspace_supports_keyboard_table_054e6e4ff9",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
+        "titles": [
+          "NetworkAnalysisWorkspace supports keyboard table navigation and restores focus from lifecycle dialogs"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkflowclient_requires_a_claimed_profile_and_65c861c0d2",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/networkFlowClient.test.ts",
+        "titles": [
+          "networkFlowClient route identity requires a claimed profile and a supported compiled contract major"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkflowclient_uses_extension_workspace_route_9bb2fadacc",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/networkFlowClient.test.ts",
+        "titles": [
+          "networkFlowClient route identity uses extension workspace route state for Network Analysis"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkflowcollaborationinterpreter_admits_only_5a57dc4e3c",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/networkFlowCollaborationInterpreter.test.ts",
+        "titles": [
+          "interpretNetworkFlowCollaborationMessage admits only closed Network Flow table changes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkflowcontroller_clears_all_table_state_whe_f8e4dfa97e",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/networkFlowController.test.ts",
+        "titles": [
+          "networkFlowControllerReducer clears all table state when authorization is lost"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkflowcontroller_preserves_selection_on_ref_31d35066ee",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/networkFlowController.test.ts",
+        "titles": [
+          "networkFlowControllerReducer preserves selection on refresh and advances it on deletion"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkflowcontroller_preserves_table_identity_o_b7a9b004a8",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/networkFlowController.test.ts",
+        "titles": [
+          "networkFlowControllerReducer preserves table identity on rename and selects next then previous on deletion"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkflowerrors_suite_08956c54be",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/networkFlowErrors.test.ts",
+        "titles": [
+          "Network Flow structured errors classifies lifecycle and hidden-resource failures for fail-closed clearing",
+          "Network Flow structured errors falls back to status-safe text when the server message is unsafe",
+          "Network Flow structured errors preserves status, code, reason, field, retry action, and a safe message",
+          "Network Flow structured errors uses exact structured authorization signals instead of message substrings"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkflowimportmodel_suite_12249943c5",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/networkFlowImportModel.test.ts",
+        "titles": [
+          "Network Flow import mapping model accounts for ignored columns only through an explicit choice or ignore policy",
+          "Network Flow import mapping model builds mappings from generated transforms without a compatibility schema_id",
+          "Network Flow import mapping model keeps duplicate aliases distinct and blocks preview until every collision is explicit",
+          "Network Flow import mapping model requires distinct ordinal-aware NetFlow uptime timestamp inputs"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkflowindicatorlinkmodel_accepts_the_active_696bb36228",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/networkFlowIndicatorLinkModel.test.ts",
+        "titles": [
+          "networkFlowIndicatorLinkModel accepts the active cell anywhere inside its same-field semantic range"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkflowindicatorlinkmodel_compiles_a_same_va_85200de10e",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/networkFlowIndicatorLinkModel.test.ts",
+        "titles": [
+          "networkFlowIndicatorLinkModel compiles a same-value IP range to ordered owner row refs"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkflowindicatorlinkmodel_compiles_one_activ_a7580fde22",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/networkFlowIndicatorLinkModel.test.ts",
+        "titles": [
+          "networkFlowIndicatorLinkModel compiles one active IP cell to its immutable owner row identity"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkflowindicatorlinkmodel_rejects_mixed_valu_8ebb38270c",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/networkFlowIndicatorLinkModel.test.ts",
+        "titles": [
+          "networkFlowIndicatorLinkModel rejects mixed values, mixed fields, non-owner anchors, and ranges over the owner limit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkflowpresentation_suite_ad52825df6",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/networkFlowPresentation.test.tsx",
+        "titles": [
+          "Network Flow presentation metadata FE-U-P12-01 Verify Network Analysis presentation, query, layout, lifecycle, and reconciliation units use extension-owned semantic contracts.",
+          "Network Flow presentation metadata groups contributors by workspace table order without changing server order within a group",
+          "Network Flow presentation metadata keeps display formatting separate from canonical clipboard scalars",
+          "Network Flow presentation metadata localizes registered diagnostics and safely falls back to the server message",
+          "Network Flow presentation metadata reuses grid-row wrappers only for unchanged owner objects and derived metadata",
+          "Network Flow presentation metadata uses extension resource identities for accepted and diagnostic rows"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkflowquerymodel_suite_a62cc77196",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/networkFlowQueryModel.test.ts",
+        "titles": [
+          "Network Flow query model compiles only registered diagnostic query members and omits limit",
+          "Network Flow query model emits exact continuation bodies without initial query members",
+          "Network Flow query model omits limit on initial queries and compiles endpoint, ordered multi-sort, and overlap time filters",
+          "Network Flow query model preserves server order while reusing only unchanged rows and dropping removed rows",
+          "Network Flow query model reconciles rejected diagnostics and contributors at their owner identities",
+          "Network Flow query model reuses owner-identified row references only when every contract field is equal"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkflowsemanticgrid_restores_semantic_focus_5fbb80e46c",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/NetworkFlowSemanticGrid.test.tsx",
+        "titles": [
+          "NetworkFlowSemanticGrid accessibility restores semantic focus to the same field in the nearest replacement row and then the grid root"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.networkflowsemanticgrid_supports_keyboard_column_9fbd5af078",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/NetworkFlowSemanticGrid.test.tsx",
+        "titles": [
+          "NetworkFlowSemanticGrid accessibility supports keyboard column reordering with a polite semantic announcement"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.usenetworkflowextensionevents_deduplicates_chang_833a3ccd56",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/useNetworkFlowExtensionEvents.test.tsx",
+        "titles": [
+          "useNetworkFlowExtensionEvents deduplicates changes and resumes after reconnect"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.usenetworkflowextensionevents_maps_incident_clos_fd1f06b3ef",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/useNetworkFlowExtensionEvents.test.tsx",
+        "titles": [
+          "useNetworkFlowExtensionEvents maps incident closure to a fail-closed workspace removal"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.usenetworkflowgridlayout_suite_7c663dc67a",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/useNetworkFlowGridLayout.test.tsx",
+        "titles": [
+          "useNetworkFlowGridLayout keeps show, move, and resize state for the mounted session and resets explicitly",
+          "useNetworkFlowGridLayout persists layout across component remounts in one browser session"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.networkflow.regression.usenetworkflowpagedquery_suite_7dc8b8d06a",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/useNetworkFlowPagedQuery.test.tsx",
+        "titles": [
+          "useNetworkFlowPagedQuery aborts superseded requests and rejects late responses after a query change",
+          "useNetworkFlowPagedQuery discards an invalid cursor and explains the automatic page-one restart",
+          "useNetworkFlowPagedQuery uses exact next continuations and replays the request that produced the previous page"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "package.protocol_ts",
+  "rows": [
+    {
+      "row_id": "package.protocol_ts.boundary_support.index_anchors_evidence_protocol_facade_types_to_c902d238a7",
+      "owner_id": "package.protocol_ts",
+      "family_id": "package.protocol_ts.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.protocol_ts.verification.shared_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/protocol-ts/src/index.test.ts",
+        "titles": [
+          "@cartulary/protocol-ts facade anchors evidence protocol facade types to generated OpenAPI schema names"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.protocol_ts.boundary_support.index_decodes_exact_network_flow_contracts_witho_8fee657f09",
+      "owner_id": "package.protocol_ts",
+      "family_id": "package.protocol_ts.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.protocol_ts.verification.shared_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/protocol-ts/src/index.test.ts",
+        "titles": [
+          "@cartulary/protocol-ts facade decodes exact Network Flow contracts without exposing payload data on failure"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.protocol_ts.boundary_support.index_decodes_the_core_extension_discovery_envel_395cae3896",
+      "owner_id": "package.protocol_ts",
+      "family_id": "package.protocol_ts.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.protocol_ts.verification.shared_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/protocol-ts/src/index.test.ts",
+        "titles": [
+          "@cartulary/protocol-ts facade decodes the Core extension discovery envelope at the transport boundary"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

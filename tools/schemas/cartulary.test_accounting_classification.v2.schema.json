@@ -34,8 +34,7 @@
         "authoritative",
         "support",
         "raw",
-        "tooling_support",
-        "unowned_regression"
+        "tooling_support"
       ]
     },
     "phase": {

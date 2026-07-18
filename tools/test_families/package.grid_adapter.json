@@ -1,0 +1,513 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "package.grid_adapter",
+  "rows": [
+    {
+      "row_id": "package.grid_adapter.regression.core_builds_one_group_bucket_per_normalized_comm_ba814e2f02",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/core.test.ts",
+        "titles": [
+          "grid presentation rows builds one group bucket per normalized committed label"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.grid_adapter.regression.core_clears_anchors_for_invalid_row_field_group_a1ceaa23dc",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/core.test.ts",
+        "titles": [
+          "grid Cartulary anchors clears anchors for invalid row, field, group, and recordless targets"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.grid_adapter.regression.core_creates_an_unassigned_group_when_empty_labe_5bd9483098",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/core.test.ts",
+        "titles": [
+          "grid presentation rows creates an unassigned group when empty labels follow a non-empty group"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.grid_adapter.regression.core_does_not_treat_vendor_selection_changes_alo_e3405c5d7a",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/core.test.ts",
+        "titles": [
+          "grid Cartulary anchors does not treat vendor selection changes alone as anchor updates"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.grid_adapter.regression.core_keeps_recordless_draft_rows_outside_grouped_6ef906adea",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/core.test.ts",
+        "titles": [
+          "grid presentation rows keeps recordless draft rows outside grouped committed result buckets"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.grid_adapter.regression.core_maps_filtered_overflow_to_explicit_create_r_e4b08f0386",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/core.test.ts",
+        "titles": [
+          "grid Cartulary anchors maps filtered overflow to explicit create-row anchors"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.grid_adapter.regression.core_maps_rows_directly_to_data_presentation_row_8f047d4faa",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/core.test.ts",
+        "titles": [
+          "grid presentation rows maps rows directly to data presentation rows without grouping"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.grid_adapter.regression.core_merges_owner_state_with_adapter_derived_con_f37c0f4dca",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/core.test.ts",
+        "titles": [
+          "semantic grid state precedence merges owner state with adapter-derived context without weakening state"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.grid_adapter.regression.core_normalizes_committed_empty_group_labels_to_9d131706c0",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/core.test.ts",
+        "titles": [
+          "grid presentation rows normalizes committed empty group labels to the unassigned group without test IDs"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.grid_adapter.regression.core_orders_invalid_pending_active_selected_read_cd0d921838",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/core.test.ts",
+        "titles": [
+          "semantic grid state precedence orders invalid, pending, active, selected, read-only, and saved states"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.grid_adapter.regression.core_rejects_duplicate_extension_identities_and_7d5d2cedee",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/core.test.ts",
+        "titles": [
+          "extension grid semantic identities rejects duplicate extension identities and all mutation target compilation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.grid_adapter.regression.core_rejects_group_and_presentation_only_paste_a_f51e06013b",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/core.test.ts",
+        "titles": [
+          "grid Cartulary anchors rejects group and presentation-only paste anchors"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.grid_adapter.regression.core_requires_a_cartulary_anchor_instead_of_vend_6ccefa24e2",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/core.test.ts",
+        "titles": [
+          "grid Cartulary anchors requires a Cartulary anchor instead of vendor coordinates alone"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.grid_adapter.regression.core_resolves_extension_anchors_ranges_grouping_b260d43ca7",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/core.test.ts",
+        "titles": [
+          "extension grid semantic identities resolves extension anchors, ranges, grouping, and navigation without Core aliases"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.grid_adapter.regression.core_resolves_the_design_priority_while_retainin_2a42c990b3",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/core.test.ts",
+        "titles": [
+          "semantic grid state precedence resolves the design priority while retaining declared co-displays"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.grid_adapter.regression.core_supports_semantic_page_row_edge_and_grid_ed_67abf2c145",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/core.test.ts",
+        "titles": [
+          "grid Cartulary anchors supports semantic page, row-edge, and grid-edge navigation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.grid_adapter.regression.core_targets_sorted_paste_rows_by_stable_visible_6e95f39b53",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/core.test.ts",
+        "titles": [
+          "grid Cartulary anchors targets sorted paste rows by stable visible record identities"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.grid_adapter.regression.core_translates_valid_presentation_coordinates_i_00d120407c",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/core.test.ts",
+        "titles": [
+          "grid Cartulary anchors translates valid presentation coordinates into stable record_id and field_key anchors"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.grid_adapter.regression.core_trims_labels_before_comparing_groups_and_ge_29b2b26405",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/core.test.ts",
+        "titles": [
+          "grid presentation rows trims labels before comparing groups and generating keys"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.grid_adapter.regression.core_updates_anchors_for_keyboard_navigation_and_e40887173d",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/core.test.ts",
+        "titles": [
+          "grid Cartulary anchors updates anchors for keyboard navigation and clears on presentation-only targets"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.grid_adapter.regression.index_suite_d804ef9789",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/index.test.tsx",
+        "titles": [
+          "grid-adapter can fill available inline space on demand",
+          "grid-adapter compiles semantic row and cell state into private classes, markers, and ARIA",
+          "grid-adapter does not republish an unchanged semantic anchor when the active record updates",
+          "grid-adapter fails closed when untyped callers attach Core mutation capabilities to extension grids",
+          "grid-adapter groups extension resources in the live grid without changing their identities",
+          "grid-adapter keeps RDG row identity stable across reorder, sort, rerender, and editable cells",
+          "grid-adapter keeps a rejected inter-cell transition on its semantic draft and opens the destination only after acceptance",
+          "grid-adapter keeps editable cells mounted across repeated parent renders with an actions column",
+          "grid-adapter keeps embedded actions independent and routes labeled pointer and keyboard fill through semantic targets",
+          "grid-adapter keeps grouped editable draft cells stable across repeated local edits",
+          "grid-adapter keeps inspector context distinct from opt-in record selection",
+          "grid-adapter keeps standalone block sizing by default and supports shell-owned fill block sizing",
+          "grid-adapter keeps the bottom create draft recordless and usable with zero committed rows",
+          "grid-adapter owns semantic navigation, range extension, keyboard entry, cancellation, and grid exit",
+          "grid-adapter preserves typed bucket order, scoped expansion, and draft exclusion",
+          "grid-adapter rejects missing and duplicate saved record identities",
+          "grid-adapter renders data and actions columns without freezing implementation geometry",
+          "grid-adapter renders semantic data states without manufacturing rows and keeps interaction mode independent",
+          "grid-adapter renders stable semantic row attributes, sort translation, and presentation-only group rows",
+          "grid-adapter renders the production DataGrid with bounded fixed-height row output",
+          "grid-adapter renders, selects, and focuses extension resources without Core identities",
+          "grid-adapter retains semantic editor drafts for validation outcomes and closes only after acceptance",
+          "grid-adapter selects density token variables explicitly for every supported mode",
+          "grid-adapter survives jsdom layout measurement when row pending state rerenders the RDG grid",
+          "grid-adapter translates live cell events and the restricted handle through semantic coordinates"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

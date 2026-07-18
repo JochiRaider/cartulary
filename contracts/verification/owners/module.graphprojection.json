@@ -1,0 +1,15 @@
+{
+  "schema_id": "cartulary.verification_contract.v1",
+  "owner_id": "module.graphprojection",
+  "verifications": [
+    {
+      "verification_id": "module.graphprojection.verification.engine_and_storage",
+      "behavior_class": "product",
+      "profile": "base",
+      "requirement": "Graph Projection engine, fixtures, persistence, migration, and binding behavior preserve canonical projection semantics and safe ownership boundaries.",
+      "evidence_kinds": ["go_test"],
+      "status": "active",
+      "documentation_refs": ["docs/graph_projection_nlspec.md"]
+    }
+  ]
+}

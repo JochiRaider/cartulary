@@ -1,0 +1,14 @@
+{
+  "schema_id": "cartulary.verification_contract.v1",
+  "owner_id": "package.grid_adapter",
+  "verifications": [
+    {
+      "verification_id": "package.grid_adapter.verification.adapter_contract",
+      "behavior_class": "architecture",
+      "profile": "support",
+      "requirement": "The shared grid adapter preserves deterministic row, selection, presentation, editing, and accessibility behavior across consumers.",
+      "evidence_kinds": ["vitest"],
+      "status": "active"
+    }
+  ]
+}

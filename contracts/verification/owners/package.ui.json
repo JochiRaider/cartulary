@@ -10,6 +10,14 @@
       "evidence_kinds": ["static_check"],
       "public_target": "generate-drift",
       "status": "active"
+    },
+    {
+      "verification_id": "package.ui.verification.shared_contract",
+      "behavior_class": "architecture",
+      "profile": "support",
+      "requirement": "Shared UI contracts preserve generated token, selector, and presentation helper behavior without delivery-phase aliases.",
+      "evidence_kinds": ["vitest"],
+      "status": "active"
     }
   ]
 }

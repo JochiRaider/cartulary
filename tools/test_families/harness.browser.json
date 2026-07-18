@@ -1,0 +1,372 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "harness.browser",
+  "rows": [
+    {
+      "row_id": "harness.browser.boundary_support.architecturepolicy_suite_4e0bacb131",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/runtime/architecturePolicy.test.ts",
+        "titles": [
+          "web E2E semantic support policy keeps E2E consumers on contract and package facades",
+          "web E2E semantic support policy keeps application routes and payload semantics out of test-utils",
+          "web E2E semantic support policy keeps phase and catch-all names out of semantic support",
+          "web E2E semantic support policy removes legacy root support implementations"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "harness.browser.boundary_support.cleanup_suite_9036a615b1",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/runtime/cleanup.test.ts",
+        "titles": [
+          "OwnedSessionTracker aggregates failures without exposing identities, cookies, or dependency errors",
+          "OwnedSessionTracker consumes cleanup after failure so repeated invocation is a no-op",
+          "OwnedSessionTracker creates alias contexts without registering additional sessions",
+          "OwnedSessionTracker deduplicates repeated registration of the same session cookie",
+          "OwnedSessionTracker does not register or revoke borrowed sessions",
+          "OwnedSessionTracker fails cleanup when revocation verification fails",
+          "OwnedSessionTracker revokes each owned user once and verifies every tracked snapshot",
+          "buildWorkerAdminBlueprints creates one distinct admin blueprint per parallel index"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "harness.browser.boundary_support.fixtureidentity_suite_827c446bfe",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/runtime/fixtureIdentity.test.ts",
+        "titles": [
+          "fixture identity derives email and incident identities from the injected clock",
+          "fixture identity supports deterministic transaction identifiers"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "harness.browser.boundary_support.fixtures_suite_b570a8a829",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/fixtures.test.ts",
+        "titles": [
+          "workerAdminIndexForParallelIndex accepts scheduled worker ranges inside the provisioned slot pool",
+          "workerAdminIndexForParallelIndex keeps the direct isolated Playwright default at worker-admin slot zero",
+          "workerAdminIndexForParallelIndex rejects invalid scheduled offsets before product tests run",
+          "workerAdminIndexForParallelIndex rejects scheduled worker ranges outside the provisioned slot pool",
+          "workerAdminIndexForParallelIndex requires scheduled browser groups to declare a worker count",
+          "workerAdminIndexForParallelIndex requires scheduled browser groups to declare an offset",
+          "workerAdminIndexForParallelIndex uses an explicit direct offset without requiring a worker count"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "harness.browser.boundary_support.harnessstate_suite_a4c7c5d935",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/runtime/harnessState.test.ts",
+        "titles": [
+          "harnessState falls back to tmpdir paths when shared state is not configured",
+          "harnessState uses the configured shared-state directory in external-server mode"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "harness.browser.boundary_support.incidentsocket_suite_6db375c4ec",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/transport/incidentSocket.test.ts",
+        "titles": [
+          "incident socket transport decodes typed protocol envelopes without accepting malformed frames",
+          "incident socket transport retains unrelated ordered events while satisfying a semantic wait"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "harness.browser.boundary_support.mentions_suite_e2e13939bd",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/entities/mentions.test.ts",
+        "titles": [
+          "mention collection envelopes preserves the collection-actions item envelope",
+          "mention collection envelopes reports the exact raw-text lookup that failed",
+          "mention collection envelopes treats omitted, scalar, array, and malformed item payloads as empty"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "harness.browser.boundary_support.mutationanchors_suite_ba8fab1244",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/workbook/mutationAnchors.test.ts",
+        "titles": [
+          "workbook row mutation support posts the stable fill-down envelope through the same-origin page context",
+          "workbook row mutation support requires an exact record, field, and optionally supplied value anchor",
+          "workbook row mutation support uses the request context as the explicit fallback and preserves omitted CSRF headers"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "harness.browser.boundary_support.ownercharacterization_suite_3242ca020b",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/runtime/ownerCharacterization.test.ts",
+        "titles": [
+          "ordinary measurement helpers computes p95 without letting one isolated outlier define a 25-sample run",
+          "ordinary measurement helpers keeps the p95 gate strict when two samples exceed the envelope",
+          "ordinary measurement helpers parses Server-Timing diagnostics while preserving raw metric entries",
+          "ordinary measurement helpers rejects p95 calculations below the ordinary measurement sample floor",
+          "reconcileSuiteAdminTotpState enrolls a new suite-admin secret when the backend requires TOTP setup",
+          "reconcileSuiteAdminTotpState fails explicitly when shared harness state is missing for an active MFA setup",
+          "reconcileSuiteAdminTotpState reuses the stored suite-admin secret when it still authenticates",
+          "verifyOwnedHarnessRuntime fails before admin login when the identity endpoint is not the harness-owned runtime",
+          "verifyOwnedHarnessRuntime skips the identity probe when the owned-stack token file is not configured",
+          "verifyOwnedHarnessRuntime verifies the token-protected harness identity before suite admin login"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "harness.browser.boundary_support.publicjsonclient_suite_a3aedb76f9",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/transport/publicJsonClient.test.ts",
+        "titles": [
+          "public JSON transport binds relative paths to an explicitly approved request origin",
+          "public JSON transport preserves body omission and rejects absolute or protocol-relative paths",
+          "public JSON transport preserves non-2xx JSON envelopes, status, and headers"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "harness.browser.boundary_support.savedviews_suite_79e8036a1a",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/workbook/savedViews.test.ts",
+        "titles": [
+          "saved-view workbook support fails before waiting when request interception is unavailable",
+          "saved-view workbook support matches the exact preference route and preserves request/response envelopes",
+          "saved-view workbook support selects by stable ID and reads identity from data attributes"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "harness.browser.boundary_support.sessions_suite_4d7bc21669",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/auth/sessions.test.ts",
+        "titles": [
+          "reconcileWorkerAdminManifest rediscovers deterministic worker-admin users when local manifest state is missing",
+          "reconcileWorkerAdminManifest resets the canonical password when a reused worker-admin user can no longer log in",
+          "reconcileWorkerAdminManifest reuses the same worker-admin accounts across sequential invocations",
+          "reconcileWorkerAdminManifest trusts existing shared-harness manifest passwords without creating probe sessions",
+          "withOnlyActiveDeploymentAdmin restores demoted admins after a guarded block fails",
+          "withOnlyActiveDeploymentAdmin temporarily demotes active deployment admins except the retained admin"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "harness.browser.boundary_support.testcontrolclient_suite_f60081d8f5",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/transport/testControlClient.test.ts",
+        "titles": [
+          "test-control transport rejects public, cross-origin, and traversal-shaped paths before mutation",
+          "test-control transport requires a token and approved exact origin before issuing a request",
+          "test-control transport sends privileged authorization only through the control facade"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "harness.browser.boundary_support.timingsupport_dom_suite_6614d14ea5",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/runtime/timingSupport.dom.test.ts",
+        "titles": [
+          "committed row measurement predicates matches only visible committed rows with stable record and row version",
+          "committed row measurement predicates rejects draft rows, missing versions, and mismatched summaries"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

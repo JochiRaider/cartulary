@@ -1,5 +1,109 @@
 {
   "schema_id": "cartulary.execution_topology.v4",
+  "runtime_profiles": [
+    {
+      "id": "default",
+      "managed_service_ids": ["object_store", "postgres"],
+      "browser_capable": true,
+      "startup_contract": "ordinary_unclaimed_configuration"
+    },
+    {
+      "id": "network_flow_claimed",
+      "managed_service_ids": ["object_store", "postgres"],
+      "browser_capable": true,
+      "startup_contract": "network_flow_claimed_configuration"
+    },
+    {
+      "id": "none",
+      "managed_service_ids": [],
+      "browser_capable": false,
+      "startup_contract": "no_managed_runtime"
+    }
+  ],
+  "resource_profiles": [
+    {
+      "id": "browser_exclusive",
+      "resource_claims": { "browser_stack": 1, "process": 1 }
+    },
+    {
+      "id": "go_balanced",
+      "resource_claims": { "go_cpu": 1, "go_io": 1, "process": 1 }
+    },
+    {
+      "id": "go_clone_heavy",
+      "resource_claims": { "go_cpu": 1, "go_io": 1, "postgres": 1, "postgres_clone": 1, "process": 1 }
+    },
+    {
+      "id": "go_cpu_heavy",
+      "resource_claims": { "go_cpu": 2, "go_io": 1, "process": 1 }
+    },
+    {
+      "id": "go_io_heavy",
+      "resource_claims": { "go_cpu": 1, "go_io": 2, "process": 1 }
+    },
+    {
+      "id": "go_reset_heavy",
+      "resource_claims": { "go_cpu": 1, "go_io": 1, "postgres": 1, "postgres_reset": 1, "process": 1 }
+    },
+    {
+      "id": "go_transaction_heavy",
+      "resource_claims": { "go_cpu": 1, "go_io": 1, "postgres": 1, "process": 1 }
+    },
+    {
+      "id": "none",
+      "resource_claims": {}
+    }
+  ],
+  "fixture_profiles": [
+    {
+      "id": "none",
+      "fixture_kind": "none",
+      "isolation_scope": "none",
+      "budget": {}
+    },
+    {
+      "id": "object_store_isolated",
+      "fixture_kind": "object_store",
+      "isolation_scope": "row",
+      "budget": { "max_buckets_or_prefixes": 1 }
+    },
+    {
+      "id": "postgres_group_clone",
+      "fixture_kind": "postgres",
+      "isolation_scope": "execution_group",
+      "budget": { "max_group_clones": 1 }
+    },
+    {
+      "id": "postgres_migration_scratch",
+      "fixture_kind": "postgres",
+      "isolation_scope": "row",
+      "budget": { "max_migration_scratch": 2 }
+    },
+    {
+      "id": "postgres_package_reset",
+      "fixture_kind": "postgres",
+      "isolation_scope": "package",
+      "budget": { "max_resets": 4 }
+    },
+    {
+      "id": "postgres_template_clone",
+      "fixture_kind": "postgres",
+      "isolation_scope": "package",
+      "budget": { "max_template_clones": 20 }
+    },
+    {
+      "id": "postgres_transaction",
+      "fixture_kind": "postgres",
+      "isolation_scope": "row",
+      "budget": { "max_transactions": 32 }
+    },
+    {
+      "id": "service_stack",
+      "fixture_kind": "managed_services",
+      "isolation_scope": "execution_group",
+      "budget": { "max_stacks": 1 }
+    }
+  ],
   "generated_outputs": {
     "task_surface_manifest": "tools/task_surface_manifest.json",
     "task_surface_make": "tools/task_surface.generated.mk",

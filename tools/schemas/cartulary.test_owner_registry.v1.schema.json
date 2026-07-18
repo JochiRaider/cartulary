@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test_owner_registry.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "owners"],
+  "properties": {
+    "schema_id": { "const": "cartulary.test_owner_registry.v1" },
+    "owners": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["owner_id", "manifest_path", "status"],
+        "properties": {
+          "owner_id": { "$ref": "#/$defs/owner_id" },
+          "manifest_path": {
+            "type": "string",
+            "pattern": "^tools/test_families/(?:module|platform|app|web|package|harness)\\.[a-z][a-z0-9_]{0,62}\\.json$"
+          },
+          "status": { "const": "active" },
+          "display_name": { "type": "string", "minLength": 1, "maxLength": 120 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "owner_id": {
+      "type": "string",
+      "maxLength": 191,
+      "pattern": "^(?:module|platform|app|web|package|harness)\\.(?!phase[0-9]+$|fe_p[0-9]+$)[a-z][a-z0-9_]{0,62}$"
+    }
+  }
+}

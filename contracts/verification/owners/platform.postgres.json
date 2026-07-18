@@ -1,0 +1,14 @@
+{
+  "schema_id": "cartulary.verification_contract.v1",
+  "owner_id": "platform.postgres",
+  "verifications": [
+    {
+      "verification_id": "platform.postgres.verification.migration_mechanics",
+      "behavior_class": "architecture",
+      "profile": "support",
+      "requirement": "PostgreSQL migration and fixture mechanics preserve safe transactional and scratch-database isolation for owning modules.",
+      "evidence_kinds": ["go_test"],
+      "status": "active"
+    }
+  ]
+}

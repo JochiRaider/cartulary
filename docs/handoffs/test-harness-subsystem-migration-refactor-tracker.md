@@ -10,9 +10,9 @@
 | Baseline branch | `revision/grid-adapter` |
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
-| Tracker state | `IN_PROGRESS` — WS-03 unified test catalog |
-| Active start | Clean tree at `a5db27faf1b75e29f880fe80fee965f0346d3cae` |
-| Active tasks | T-014, T-015, T-016, T-017, T-018 |
+| Tracker state | `READY` — WS-03 complete; WS-04 not started |
+| Active start | None; the next workstream requires a separate tracker checkpoint |
+| Active tasks | None |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -487,7 +487,7 @@ These follow-ups do not block harness completion unless the old production ident
 | WS-00 | Freeze baseline and build migration crosswalk | DONE | None | `tools/test_migration_baseline.json`; `tools/test_migration_crosswalk.json` | Revert inventory-only commit. |
 | WS-01 | Revise owner contracts and repository procedure | DONE | WS-00 | Adopted harness contract and command-policy review | Revert contract commit before implementation consumers land. |
 | WS-02 | Create machine verification owners and remove documentation parsing | DONE | WS-01 | Schema-valid contracts and decoupling ledger closure | Revert an owner contract and its consumers together. |
-| WS-03 | Build unified test catalog | IN_PROGRESS | WS-01, WS-02 | Registry/manifests loader and catalog checks | Revert catalog stack; old catalog remains authoritative only before cutover. |
+| WS-03 | Build unified test catalog | DONE | WS-01, WS-02 | Registry/manifests loader and catalog checks | Revert catalog stack; old catalog remains authoritative only before cutover. |
 | WS-04 | Migrate backend rows | TODO | WS-03 | 456 backend dispositions and focused tests | Revert complete owner slices, never individual aliases. |
 | WS-05 | Migrate frontend rows | TODO | WS-03 | 87 frontend dispositions and browser accounting tests | Revert complete owner slices with fixture metadata. |
 | WS-06 | Rename tests, symbols, fixtures, and goldens | TODO | WS-04, WS-05 | Semantic scan and visual digest report | Revert complete rename slices; no duplicate old/new tests. |
@@ -697,11 +697,11 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-011 | Migrate harness executable requirements | WS-02 | DONE | T-010 | Focused harness tests | Harness tests consume machine owners only. |
 | T-012 | Migrate product/tool documentation readers | WS-02 | DONE | T-010 | Per-owner tests and scan | Section 6 is closed. |
 | T-013 | Add no-document-read guard | WS-02 | DONE | T-011,T-012 | Negative fixtures | Unauthorized doc reads fail deterministically. |
-| T-014 | Add owner registry and family schemas | WS-03 | IN_PROGRESS | T-010 | JSON shape evidence | Owner/family files validate. |
-| T-015 | Implement unified catalog loader and validator | WS-03 | IN_PROGRESS | T-014 | Unit/smoke tests | Invalid references/selectors are rejected. |
-| T-016 | Absorb Graph Projection subsystem map | WS-03 | IN_PROGRESS | T-015 | Crosswalk/catalog evidence | No special subsystem path needed. |
-| T-017 | Eliminate `unowned_regression` | WS-03 | IN_PROGRESS | T-015 | Classification reconciliation | Every retained support row has an owner. |
-| T-018 | Add module-family import guardrails | WS-03 | IN_PROGRESS | T-015 | Boundary tests | Dependency direction is enforced. |
+| T-014 | Add owner registry and family schemas | WS-03 | DONE | T-010 | JSON shape evidence | Owner/family files validate. |
+| T-015 | Implement unified catalog loader and validator | WS-03 | DONE | T-014 | Unit/smoke tests | Invalid references/selectors are rejected. |
+| T-016 | Absorb Graph Projection subsystem map | WS-03 | DONE | T-015 | Crosswalk/catalog evidence | No special subsystem path needed. |
+| T-017 | Eliminate `unowned_regression` | WS-03 | DONE | T-015 | Classification reconciliation | Every retained support row has an owner. |
+| T-018 | Add module-family import guardrails | WS-03 | DONE | T-015 | Boundary tests | Dependency direction is enforced. |
 | T-019 | Migrate phase0–phase4 backend rows | WS-04 | TODO | T-015 | Crosswalk/focused tests | Rows have terminal dispositions. |
 | T-020 | Migrate phase5–phase8 backend rows | WS-04 | TODO | T-015 | Crosswalk/focused tests | Rows have terminal dispositions. |
 | T-021 | Migrate phase9–phase12 backend rows | WS-04 | TODO | T-015 | Crosswalk/focused tests | Rows have terminal dispositions. |
@@ -908,6 +908,22 @@ Each entry must include:
 - Skipped checks: owner-catalog negative fixtures, owner slices, browser stages, broad `make check`, finalization, and release check remain inapplicable until WS-03 through WS-10 complete the catalog, command, topology, and hard-cutover work. No historical phase run is accepted as v2 closure evidence.
 - Next safe task: WS-03/T-014 through T-018. Mark only WS-03 `IN_PROGRESS`, then add the owner/family/runner/profile registries and unified loader before adjudicating any backend or frontend row.
 - Rollback boundary: revert the WS-02 verification-owner contracts, migrated consumers, schemas, fixtures, and generated projections as one checkpoint. Do not restore individual documentation readers or retain a machine contract without its consumer validation.
+
+#### 2026-07-18 — WS-03 unified owner-catalog checkpoint
+
+- Branch/commit at start: `revision/grid-adapter` at tracker checkpoint `b0ae8400197a`; the implementation began from the clean completed-WS-02 tree `a5db27faf1b75e29f880fe80fee965f0346d3cae`. This entry closes the dirty WS-03 implementation tree before its cohesive commit; WS-04 has not started.
+- Workstream/task state: WS-03 and T-014 through T-018 are `DONE`. The next workstream remains unstarted so there is no overlap between catalog construction and backend adjudication.
+- Authored catalog contracts: added the owner registry, 12 owner manifests, runner registry, four runner-adapter contracts, exact runtime/resource/fixture profiles, four registered schemas, closed catalog loader, strict semantic JSON digesting, exact Go/Vitest/Playwright/shell selector resolution, private catalog-check CLI, and catalog import-direction enforcement. Display and documentation metadata are excluded from semantic identity.
+- Ownership result: the active v2 catalog contains 12 owners, 18 families, 246 rows, and 519 exact selectors. Five Graph Projection rows are owned by `module.graphprojection`; 241 exact Vitest rows are assigned to module, web, package, architecture, or harness boundaries without a frontend or catch-all namespace. No catalog row ID contains a delivery-phase segment.
+- Auxiliary adjudication: all 228 frozen Vitest candidates have a terminal auxiliary disposition. 226 candidates are retained and exact pattern expansion produces 241 non-overlapping rows. `vitest:212` is deleted because its classified title has no executable assertion and duplicates compile-time type enforcement; the absent `vitest:083` Unmapped fixture is deleted as non-production. The active classification schema and file contain zero `unowned_regression` values. All 37 frozen backend support candidates remain intentionally pending for WS-04 owner adjudication.
+- Crosswalk totals: before this slice, 548 authoritative identities were pending with zero dispositions and no authorized new rows. After this slice, 543 authoritative identities remain pending, all five Graph Projection identities have reviewed `migrated` dispositions, 228 Vitest auxiliary dispositions are recorded, and 241 new catalog rows carry frozen-candidate provenance. The migration check proves every one of the 246 live catalog rows has exactly one disposition or new-row authorization.
+- Structural controls: catalog validation rejects duplicate or zero-row owners, delivery-phase IDs, unresolved and cross-owner verifications, unresolved collaborators, unknown or mutated profiles, unsupported or mismatched runners, unordered references, zero/multiple/overlapping selectors, traversal, symlink components, globs, regex-like selectors, unknown shell commands, and unregistered manifests. Runner characterization covers all four closed selector kinds. Catalog code may import only its own layer and the generic contract layer; execution, accounting, scheduler, browser, and diagnostics dependencies are rejected.
+- Generated output: `tools/execution_topology_render_index.json` was regenerated through Make after the authored topology and runner-adapter inputs changed. Transitional v1 phase-schedule generation remains branch-local deletion inventory for WS-09/WS-10 and is not accepted as a v2 compatibility path.
+- Passed validation: migration baseline/crosswalk schema, cardinality, provenance, and catalog-authorization check; catalog check summary `sha256:7dad0a3da49268a9f050bd423addf6a08d6533ec512a43c5f2d8f336eb868a1c`; `make format` at `.cartulary/test-results/20260718T003118Z-p95288`; `make generate` at `.cartulary/test-results/20260718T003322Z-p1135`; transitional `make phase-schedules` at `.cartulary/test-results/20260718T003558Z-p8102`; `make harness-contract` with 59 passing tests at `.cartulary/test-results/20260718T003540Z-p7160`; `make json-shape-check` at `.cartulary/test-results/20260718T003603Z-p8376`; `make generate-drift` at `.cartulary/test-results/20260718T003603Z-p8371`; `make generated-artifact-policy-check` at `.cartulary/test-results/20260718T003338Z-p2780`; and `make test-fast` with 1,307 passing tests at `.cartulary/test-results/20260718T003616Z-p10815`. `make lint-scripts` and `git diff --check` also passed.
+- Resolved migration-related failures: schema-attachment ordering was corrected; the helper-ownership schema gained the `test_catalog` boundary; parameterized Vitest titles are statically expanded for `%` and named-object cases; title-specific and file-wide classifications are partitioned without selector overlap; a stale classified Network Flow title and the non-production Unmapped fixture received explicit deletions; and the migration validator now treats the frozen baseline as immutable after dispositions begin while continuing to reject cardinality, schema, authorization, and provenance drift.
+- Skipped checks: backend owner slices, frontend authoritative-row slices, browser stages, semantic source renames, broad `make check`, finalization, and release check remain assigned to WS-04 through WS-11. The legacy Graph subsystem file and v1 catalogs remain only as isolated-branch rollback/reconciliation inputs until their atomic WS-10 deletion; no successor reader consumes them.
+- Next safe task: create a tracker-only checkpoint marking WS-04/T-019 through T-022 `IN_PROGRESS`, then migrate backend rows in complete owner slices. Start with phase0 through phase4 identities plus the implicated frozen backend support candidates, update the crosswalk after each owner slice, and never begin WS-05 concurrently.
+- Rollback boundary: revert the complete WS-03 catalog stack, owner contracts, auxiliary reconciliation, generated topology index, tests, and this tracker checkpoint together. Do not preserve a partial registry, runner, or manifest subset and do not restore `unowned_regression` as a fallback owner.
 
 ## 17. First-resumer checklist
 
