@@ -3,6 +3,38 @@
   "owner_id": "module.entities",
   "rows": [
     {
+      "row_id": "module.entities.accessibility.verify_mention_chip_states_and_manual_resolution_e5964739d3",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_7a764f9f68ea"
+        ],
+        "titles": [
+          "FE-A11Y-P5-01 Verify mention chip states and manual-resolution controls have accessible names, visible focus, and non-color-only distinction."
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    },
+    {
       "row_id": "module.entities.browser.the_browser_inspector_dismisses_a_mention_and_re_6150fd43cd",
       "owner_id": "module.entities",
       "family_id": "module.entities.browser",
@@ -123,6 +155,93 @@
       "resource_profile_id": "browser_exclusive",
       "fixture_profile_id": "service_stack",
       "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.entities.browser.verify_hosts_identities_and_notes_grids_render_c_7531b57a50",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/frontend.phase5.grid-provenance.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_758c83271311"
+        ],
+        "titles": [
+          "FE-I-P5-01 Verify Hosts, Identities, and Notes grids render contract-derived columns and preserve mention/entity provenance through edit and refresh."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.entities.browser_stateful.verify_manual_mention_resolution_dismissal_auto_dfa355e592",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/frontend.phase5.mention-lifecycle.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "scenario_44ab7ce702f1"
+        ],
+        "titles": [
+          "FE-E-P5-01 Verify manual mention resolution, dismissal, auto-resolution disclosure, and undo through public mutation routes and refreshed rows."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.entities.frontend_unit.verify_mention_chip_view_models_preserve_unresol_7b3b773609",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.frontend_unit",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase5.mentionChips.test.ts",
+        "titles": [
+          "FE-U-P5-01 preserves closed mention chip states by stable identifiers and field keys"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": false,
       "claim_posture": "implementation",
       "status": "active"
     },
@@ -360,6 +479,39 @@
       "fixture_profile_id": "postgres_template_clone",
       "default_check": false,
       "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.entities.visual.capture_unresolved_token_resolved_chip_auto_reso_d3b74bd9d7",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_7795c5381ab3"
+        ],
+        "titles": [
+          "FE-V-P5-01 Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution metadata fixtures."
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
       "status": "active"
     },
     {

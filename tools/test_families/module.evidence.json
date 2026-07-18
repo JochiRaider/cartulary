@@ -3,6 +3,38 @@
   "owner_id": "module.evidence",
   "rows": [
     {
+      "row_id": "module.evidence.accessibility.verify_evidence_icon_buttons_blocked_states_erro_0ec80f90e2",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_bd0842a0bd8b"
+        ],
+        "titles": [
+          "FE-A11Y-P6-01 Verify evidence icon buttons, blocked states, error states, preview controls, and download controls have names, focus, contrast, and non-color-only distinctions."
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    },
+    {
       "row_id": "module.evidence.browser.a_screenshot_only_timeline_row_can_be_persisted_d7d7f91ff4",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.browser",
@@ -158,6 +190,68 @@
       "status": "active"
     },
     {
+      "row_id": "module.evidence.browser.verify_attach_flow_uses_generated_protocol_types_7a778c9178",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase6.evidence-integration.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_28278e6a7554"
+        ],
+        "titles": [
+          "FE-I-P6-01 Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.evidence.browser_stateful.verify_evidence_attach_preview_download_blocked_b2c37d6c7b",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase6.evidence-integration.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "scenario_3bf2f954a282"
+        ],
+        "titles": [
+          "FE-E-P6-01 Verify evidence attach, preview, download, blocked preview, and authorization denial through same-origin public handles."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.evidence.frontend.a_workbook_invalidation_refresh_visibly_updates_fd7a0de472",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.frontend",
@@ -204,6 +298,34 @@
       "resource_profile_id": "none",
       "fixture_profile_id": "none",
       "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.evidence.frontend_unit.verify_evidence_state_view_models_cover_requeste_634061c1db",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.frontend_unit",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/evidenceLifecycleViewModel.test.ts",
+        "titles": [
+          "FE-U-P6-01 counts only available and preview-blocked evidence as attached",
+          "FE-U-P6-01 derives count-display states and detects inconsistent projections",
+          "FE-U-P6-01 distinguishes requested, pending upload, available, and preview-blocked states",
+          "FE-U-P6-01 keeps failed, blocked, inconsistent, and public-error rendering inputs distinct"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": false,
       "claim_posture": "implementation",
       "status": "active"
     },
@@ -645,6 +767,39 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.evidence.visual.capture_evidence_count_affordance_available_requ_cfada809e4",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_2bff3f0ed45f"
+        ],
+        "titles": [
+          "FE-V-P6-01 Capture evidence count, affordance, available, requested, pending, blocked, failed, inconsistent, preview, and download-handle state fixtures."
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
       "status": "active"
     },
     {

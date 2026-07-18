@@ -9,7 +9,8 @@
       "requirement": "entity, mention, resolution, and merge postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
       "evidence_kinds": [
         "go_test",
-        "playwright"
+        "playwright",
+        "vitest"
       ],
       "status": "active"
     }

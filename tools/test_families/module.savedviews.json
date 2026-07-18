@@ -3,6 +3,38 @@
   "owner_id": "module.savedviews",
   "rows": [
     {
+      "row_id": "module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_49ef3edfd325"
+        ],
+        "titles": [
+          "FE-A11Y-P8-01 Verify sort, filter, group, saved-view menu, active chips, group expand-collapse, and default/startup controls are keyboard reachable and announced."
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    },
+    {
       "row_id": "module.savedviews.browser.the_browser_authenticated_public_saved_view_list_3ccd8d0d58",
       "owner_id": "module.savedviews",
       "family_id": "module.savedviews.browser",
@@ -30,6 +62,37 @@
       "resource_profile_id": "browser_exclusive",
       "fixture_profile_id": "service_stack",
       "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.savedviews.browser.verify_saved_view_create_update_select_default_u_ce0bb1647d",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase8.workbook.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_88d9a3172ec4"
+        ],
+        "titles": [
+          "FE-I-P8-01 Verify saved-view create/update/select/default UI uses active surface scope and public saved-view/workbook-preference contracts."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
       "claim_posture": "implementation",
       "status": "active"
     },
@@ -92,6 +155,37 @@
       "resource_profile_id": "browser_exclusive",
       "fixture_profile_id": "service_stack",
       "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.savedviews.browser_stateful.verify_saved_view_persistence_default_startup_su_3fd1edb0fd",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase8.workbook.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "scenario_7aae6dfe7464"
+        ],
+        "titles": [
+          "FE-E-P8-01 Verify saved-view persistence, default/startup surface persistence, and query replay through /api/v1/ after reload."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
       "claim_posture": "implementation",
       "status": "active"
     },
@@ -189,6 +283,39 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.savedviews.visual.capture_saved_view_selector_active_chips_grouped_3da7859cdc",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_5974e42bb8fb"
+        ],
+        "titles": [
+          "FE-V-P8-01 Capture saved-view selector, active chips, grouped result, group row, default/startup state indicator, and empty successful query fixtures."
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
       "status": "active"
     }
   ]

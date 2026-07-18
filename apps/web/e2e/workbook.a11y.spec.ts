@@ -216,18 +216,18 @@ const p3AccessibilityScenarioTitles = [
 const p4AccessibilityScenarioTitles = [
   "FE-A11Y-P4-01 Verify grid navigation, edit entry/exit, paste feedback, validation feedback, save-state communication, and Esc priority are keyboard and screen-reader safe.",
 ] as const;
-const p5AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
-  "FE-A11Y-P5-01",
-) as [string];
-const p6AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
-  "FE-A11Y-P6-01",
-) as [string];
-const p7AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
-  "FE-A11Y-P7-01",
-) as [string];
-const p8AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
-  "FE-A11Y-P8-01",
-) as [string];
+const p5AccessibilityScenarioTitles = [
+  "FE-A11Y-P5-01 Verify mention chip states and manual-resolution controls have accessible names, visible focus, and non-color-only distinction.",
+] as const;
+const p6AccessibilityScenarioTitles = [
+  "FE-A11Y-P6-01 Verify evidence icon buttons, blocked states, error states, preview controls, and download controls have names, focus, contrast, and non-color-only distinctions.",
+] as const;
+const p7AccessibilityScenarioTitles = [
+  "FE-A11Y-P7-01 Verify conflict state, resolver controls, presence hint, stale-row notice, and save-state conflict communicate state by accessible name/state, not color alone.",
+] as const;
+const p8AccessibilityScenarioTitles = [
+  "FE-A11Y-P8-01 Verify sort, filter, group, saved-view menu, active chips, group expand-collapse, and default/startup controls are keyboard reachable and announced.",
+] as const;
 const p9AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
   "FE-A11Y-P9-01",
 ) as [string];

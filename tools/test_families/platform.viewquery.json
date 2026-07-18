@@ -92,6 +92,35 @@
       "status": "active"
     },
     {
+      "row_id": "platform.viewquery.frontend_unit.compile_sort_filter_group_layout_and_active_chip_b59bab4f62",
+      "owner_id": "platform.viewquery",
+      "family_id": "platform.viewquery.frontend_unit",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "platform.viewquery.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase8.query.test.tsx",
+        "titles": [
+          "FE-U-P8-01 compiles query requests with schema field keys and capability metadata",
+          "FE-U-P8-01 keeps grouped presentation rows out of mutation-capable anchors",
+          "FE-U-P8-01 renders active filter chips and grouping controls by field key",
+          "FE-U-P8-01 serializes saved-view layout_json as portable schema field-key state",
+          "FE-U-P8-01 serializes saved-view query_json with canonical empty arrays and omitted inactive grouping"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "platform.viewquery.unit.sort_and_filter_ceilings_canonical_normalization_4ca84c1e10",
       "owner_id": "platform.viewquery",
       "family_id": "platform.viewquery.unit",

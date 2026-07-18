@@ -3,6 +3,38 @@
   "owner_id": "module.collaboration",
   "rows": [
     {
+      "row_id": "module.collaboration.accessibility.verify_conflict_state_resolver_controls_presence_2ec686e8dd",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_187908558ca0"
+        ],
+        "titles": [
+          "FE-A11Y-P7-01 Verify conflict state, resolver controls, presence hint, stale-row notice, and save-state conflict communicate state by accessible name/state, not color alone."
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    },
+    {
       "row_id": "module.collaboration.browser.concurrent_edits_to_different_fields_on_the_same_7ee5cad0ab",
       "owner_id": "module.collaboration",
       "family_id": "module.collaboration.browser",
@@ -96,6 +128,37 @@
       "status": "active"
     },
     {
+      "row_id": "module.collaboration.browser.verify_conflict_resolver_actions_submit_public_m_0c77fae932",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.collaboration"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase6.collaboration.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_e36420c2e84a"
+        ],
+        "titles": [
+          "FE-I-P7-01 Verify conflict resolver actions submit public mutations and refresh rows without losing focus or pending queue ordering."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.collaboration.browser.within_one_browser_runtime_queued_unsent_writes_3efbd48054",
       "owner_id": "module.collaboration",
       "family_id": "module.collaboration.browser",
@@ -158,6 +221,37 @@
       "status": "active"
     },
     {
+      "row_id": "module.collaboration.browser_stateful.verify_multi_client_live_row_update_presence_anc_4c65a275c1",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.collaboration"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase6.collaboration.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "scenario_cd147372eead"
+        ],
+        "titles": [
+          "FE-E-P7-01 Verify multi-client live row update, presence anchoring, reset/invalidate handling, stale-row requery, and same-field conflict resolver through /ws/v1/ and /api/v1/."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.collaboration.frontend.save_state_labels_use_only_syncing_saved_and_con_b9c4789169",
       "owner_id": "module.collaboration",
       "family_id": "module.collaboration.frontend",
@@ -208,6 +302,166 @@
       "resource_profile_id": "none",
       "fixture_profile_id": "none",
       "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.frontend_unit.verify_same_field_conflict_anchors_conflict_queu_2fb0a37e0b",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.frontend_unit",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/utils/workbookPendingQueue.test.ts",
+        "titles": [
+          "FE-U-P7-02 derives save-state conflict anchors from record_id field_key and base_row_version",
+          "FE-U-P7-02 keeps same-field conflict queue identity separate from pending replay and visible order"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.frontend_unit.verify_same_field_conflict_anchors_conflict_queu_8bcc6e7d75",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.frontend_unit",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+        "titles": [
+          "FE-U-P7-02 keeps resolver keyboard focus non-destructive and cancellation preserves conflict draft",
+          "FE-U-P7-02 keeps resolver state anchored to stable row and field identities across refresh and reorder",
+          "FE-U-P7-02 preserves resolver draft and focus when a stale conflict token refreshes the same anchor"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.frontend_unit.verify_same_field_conflict_anchors_conflict_queu_e44b13cfa1",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.frontend_unit",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
+        "titles": [
+          "FE-U-P7-02 routes a same-field conflict from transaction recovery into the normal resolver"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.frontend_unit.verify_web_socket_collaboration_message_helpers_39079d3c85",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.frontend_unit",
+      "collaborator_ids": [
+        "web.collaboration"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/collaboration/IncidentCollaborationSession.test.tsx",
+        "titles": [
+          "FE-U-P7-01 builds hello and resume session messages from socket resume state",
+          "FE-U-P7-01 ignores duplicate stream sequences and refreshes on sequence gaps",
+          "FE-U-P7-01 keeps replayable events unsynchronized until the owner completes reset",
+          "FE-U-P7-01 suppresses reconnect and clears connection state after revocation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.frontend_unit.verify_web_socket_collaboration_message_helpers_41074df88b",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.frontend_unit",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/services/workbookCollaborationMessages.test.ts",
+        "titles": [
+          "FE-U-P7-01 builds default timeline presence payloads for WebSocket session establishment",
+          "FE-U-P7-01 builds presence_update messages without changing event names",
+          "FE-U-P7-01 includes field_key only for editing presence payloads",
+          "FE-U-P7-01 transmits extension workspace presence without record or field anchors"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.frontend_unit.verify_web_socket_collaboration_message_helpers_4f4949391b",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.frontend_unit",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/services/timelineCollaborationEffects.test.ts",
+        "titles": [
+          "FE-U-P7-01 applies row updates and requests stale-row requery without transport state",
+          "FE-U-P7-01 pauses feature replay on access loss and resumes only after session establishment"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": false,
       "claim_posture": "implementation",
       "status": "active"
     },
@@ -372,6 +626,47 @@
       "fixture_profile_id": "none",
       "default_check": false,
       "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.visual.capture_presence_markers_same_field_conflict_res_f0a62c52a1",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_17057218b346",
+          "scenario_5ce84d0e223d",
+          "scenario_773c6f3a0557",
+          "scenario_cf84e01ddcab",
+          "scenario_f710780a7d03"
+        ],
+        "titles": [
+          "FE-V-P7-01 Capture conflict save-state strip.",
+          "FE-V-P7-01 Capture recovered saved-state strip.",
+          "FE-V-P7-01 Capture reset/invalidate refresh strip.",
+          "FE-V-P7-01 Capture row-gutter and cell presence markers.",
+          "FE-V-P7-01 Capture same-field conflict resolver."
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
       "status": "active"
     },
     {

@@ -408,6 +408,37 @@
       "status": "active"
     },
     {
+      "row_id": "module.workbook.browser.verify_browser_command_helpers_for_sort_filter_g_8f8dc4efe2",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase8.workbook.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_a7bb9697017f"
+        ],
+        "titles": [
+          "FE-B-P8-01 Verify browser command helpers for sort, filter, group, active chips, layout persistence, group expand-collapse, and startup/default surface UI."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.workbook.browser.verify_continuous_workbook_shell_composition_top_96ea2f5084",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.browser",

@@ -89,12 +89,12 @@ function titlesForFile(runner, file) {
   return titleIndex.get(key);
 }
 
-function resolveTitle(runner, title) {
+function resolveTitleFiles(runner, title) {
   const matches = runnerFiles[runner].filter((file) => (titlesForFile(runner, file).get(title) ?? 0) === 1);
-  if (matches.length !== 1) {
-    throw new Error(`${runner} title ${JSON.stringify(title)} resolves in ${matches.length} files: ${matches.join(", ")}`);
+  if (matches.length === 0) {
+    throw new Error(`${runner} title ${JSON.stringify(title)} does not resolve in any source file`);
   }
-  return matches[0];
+  return matches;
 }
 
 function rowRunner(row) {
@@ -183,33 +183,33 @@ function rowSegment(sourceKey, statement, file) {
   return `${stem || "behavior"}_${digest}`;
 }
 
-function stageFor(row) {
+function stageFor(row, file) {
   const targets = new Set(row.targets.map((target) => target.target_name));
   if (targets.has("browser-e2e-measurement")) return "measurement";
   if (targets.has("browser-e2e-a11y")) return "accessibility";
   if (targets.has("browser-e2e-visual")) return "visual";
-  if (targets.has("browser-e2e-support")) return "support";
+  if (targets.has("browser-e2e-support") && file.includes(".support.spec.")) return "support";
   if (targets.has("browser-e2e-stateful")) return "stateful";
   return "webserver_backed";
 }
 
-function evidenceClass(row, runner) {
+function evidenceClass(row, runner, file) {
   if (runner === "shell") return "static";
   if (runner === "vitest") return "unit";
-  const stage = stageFor(row);
+  const stage = stageFor(row, file);
   if (stage === "accessibility") return "accessibility";
   if (stage === "visual") return "visual";
   if (stage === "measurement") return "measurement";
   return "browser";
 }
 
-function familySegment(row, runner, evidence) {
+function familySegment(row, runner, evidence, file) {
   if (runner === "shell") return "support";
   if (evidence === "accessibility") return "accessibility";
   if (evidence === "visual") return "visual";
   if (evidence === "measurement") return "measurement";
   if (runner === "playwright") {
-    const stage = stageFor(row);
+    const stage = stageFor(row, file);
     if (stage === "support") return "browser_support";
     return stage === "stateful" ? "browser_stateful" : "browser";
   }
@@ -220,9 +220,9 @@ function familySegment(row, runner, evidence) {
 }
 
 function catalogTitleRow({ phase, legacy, ownerID, runner, file, titles, sourceKey }) {
-  const evidence = evidenceClass(legacy, runner);
-  const familyID = `${ownerID}.${familySegment(legacy, runner, evidence)}`;
-  const stage = runner === "playwright" ? stageFor(legacy) : null;
+  const evidence = evidenceClass(legacy, runner, file);
+  const familyID = `${ownerID}.${familySegment(legacy, runner, evidence, file)}`;
+  const stage = runner === "playwright" ? stageFor(legacy, file) : null;
   const selector = runner === "vitest"
     ? { file, titles }
     : {
@@ -456,14 +456,15 @@ for (const phase of selectedPhases) {
     } else {
       const groups = new Map();
       for (const title of [...new Set(legacy.scenario_titles)].sort(asciiCompare)) {
-        const file = resolveTitle(runner, title);
-        const existing = existingTitleRow(runner, file, title);
-        if (existing) {
-          existingRows.push(existing);
-          continue;
+        for (const file of resolveTitleFiles(runner, title)) {
+          const existing = existingTitleRow(runner, file, title);
+          if (existing) {
+            existingRows.push(existing);
+            continue;
+          }
+          if (!groups.has(file)) groups.set(file, []);
+          groups.get(file).push(title);
         }
-        if (!groups.has(file)) groups.set(file, []);
-        groups.get(file).push(title);
       }
       for (const [index, [file, titles]] of [...groups.entries()].sort(([left], [right]) => asciiCompare(left, right)).entries()) {
         const row = catalogTitleRow({
@@ -535,7 +536,9 @@ for (const [ownerID, evidenceKinds] of evidenceByOwner) {
   contract.verifications = contract.verifications.filter(
     (entry) => entry.verification_id !== `${ownerID}.verification.behavior_contract`,
   );
-  contract.verifications.push(verificationDefinition(ownerID, [...evidenceKinds].sort(asciiCompare)));
+  contract.verifications.push(previous
+    ? { ...previous, evidence_kinds: [...evidenceKinds].sort(asciiCompare) }
+    : verificationDefinition(ownerID, [...evidenceKinds].sort(asciiCompare)));
   contract.verifications.sort((left, right) => asciiCompare(left.verification_id, right.verification_id));
   writeJSON(contractPath, contract);
   verificationOwners.set(ownerID, { owner_id: ownerID, contract_path: contractPath, status: "active" });
