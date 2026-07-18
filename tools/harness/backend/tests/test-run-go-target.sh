@@ -357,7 +357,7 @@ identity_reuse_rejected="$(
   CARTULARY_TEST_RESULTS_DIR="$identity_reuse_results/results" \
   CARTULARY_TEST_RUN_ID="run-a" \
   CARTULARY_TEST_TARGET="backend-integration" \
-    "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-revisions 2>&1
+    "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration module.revisions.integration 2>&1
   printf 'status=%s\n' "$?"
 )"
 assert_contains "$identity_reuse_rejected" "non-empty run root" "public go target rejects unprepared non-empty run root"
@@ -367,7 +367,7 @@ identity_reuse_allowed="$(
   CARTULARY_TEST_RUN_ID="run-a" \
   CARTULARY_TEST_TARGET="backend-integration" \
   CARTULARY_HARNESS_IDENTITY_PREPARED=1 \
-    "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-revisions
+    "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration module.revisions.integration
 )"
 assert_contains "$identity_reuse_allowed" "go test" "public go target prepared identity reuse inspects command"
 
@@ -429,49 +429,48 @@ assert_equals "$(json_field "$reused_window_summary" "end_time")" "2026-01-01T00
 NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_PLAN_COVERAGE_HELPER" --root "$ROOT_DIR" --commands --quiet
 
 phase0_platform_shared_command="$(
-  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support backend-integration-platform
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support platform.postgres.support_integration
 )"
-assert_contains "$phase0_platform_shared_command" "TestSupportPhase0_" "backend-integration phase0 platform support selector"
+assert_contains "$phase0_platform_shared_command" "TestEntityAliasMigration31" "backend-integration platform support selector"
 phase0_platform_authoritative_command="$(
-  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-platform
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration platform.postgres.integration
 )"
-assert_contains "$phase0_platform_authoritative_command" "TestPhase0_SchemaBootstrap" "backend-integration phase0 platform authoritative selector"
-assert_not_contains "$phase0_platform_authoritative_command" "TestPhase0_FirstAdminBootstrap" "backend-integration phase0 platform excludes app selector"
+assert_contains "$phase0_platform_authoritative_command" "TestSchemaBootstrap_Integration" "backend-integration platform authoritative selector"
+assert_not_contains "$phase0_platform_authoritative_command" "TestFirstAdminBootstrap_Integration" "backend-integration platform excludes app selector"
 
 phase0_app_shared_command="$(
-  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-app
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration app.server.integration
 )"
-assert_contains "$phase0_app_shared_command" "TestPhase0_FirstAdminBootstrap" "backend-integration phase0 app selector"
-assert_not_contains "$phase0_app_shared_command" "TestSupportPhase0_" "backend-integration phase0 app excludes platform support selector"
+assert_contains "$phase0_app_shared_command" "TestFirstAdminBootstrap_Integration" "backend-integration app selector"
+assert_not_contains "$phase0_app_shared_command" "TestEntityAliasMigration31" "backend-integration app excludes platform support selector"
 
 phase2_incidents_shared_command="$(
-  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support backend-integration-incidents
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support module.incidents.support_integration
 )"
-assert_contains "$phase2_incidents_shared_command" "TestSupportPhase2_" "backend-integration phase2 incidents support selector"
+assert_contains "$phase2_incidents_shared_command" "TestControlBoundaryIncidentCoreDeploymentAdminWithoutMembershipDenied" "backend-integration incidents support selector"
 phase2_incidents_authoritative_command="$(
-  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-incidents
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration module.incidents.integration
 )"
-assert_contains "$phase2_incidents_authoritative_command" "TestPhase2_I_2_01" "backend-integration phase2 incidents authoritative selector"
+assert_contains "$phase2_incidents_authoritative_command" "TestIncidentCreatePersistsBootstrapStateAndRollsBackAtomically_Integration" "backend-integration incidents authoritative selector"
 
 phase2_incidents_shard="$(find_planned_shard_for_symbol backend-integration TestIncidentCreatePersistsBootstrapStateAndRollsBackAtomically_Integration)"
 phase2_incidents_shard_command="$(
   NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration "$phase2_incidents_shard"
 )"
-assert_contains "$phase2_incidents_shard_command" "TestPhase2_I_2_01" "backend-integration phase2 incidents planned shard selector"
+assert_contains "$phase2_incidents_shard_command" "TestIncidentCreatePersistsBootstrapStateAndRollsBackAtomically_Integration" "backend-integration incidents planned shard selector"
 
 phase2_incidents_support_shard="$(find_planned_shard_for_symbol backend-integration-support TestControlBoundaryIncidentCoreDeploymentAdminWithoutMembershipDenied)"
 phase2_incidents_support_shard_command="$(
   NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support "$phase2_incidents_support_shard"
 )"
-assert_contains "$phase2_incidents_support_shard_command" "TestSupportPhase2_" "backend-integration support phase2 planned shard selector"
+assert_contains "$phase2_incidents_support_shard_command" "TestControlBoundaryIncidentCoreDeploymentAdminWithoutMembershipDenied" "backend-integration support incidents planned shard selector"
 
-phase10_operator_scn4_shard="$(find_planned_shard_for_symbol backend-process TestCanonicalOperatorRestoreVerifyLatest_Process phase10)"
-phase10_operator_scn4_shard_command="$(
-  CARTULARY_GO_TARGET_PHASE=phase10 NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-process "$phase10_operator_scn4_shard"
+recovery_operator_shard="$(find_planned_shard_for_symbol backend-process TestCanonicalOperatorRestoreVerifyLatest_Process)"
+recovery_operator_shard_command="$(
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-process "$recovery_operator_shard"
 )"
-assert_contains "$phase10_operator_scn4_shard_command" "TestCanonicalOperatorRestoreVerifyLatest_Process" "backend-process phase10 operator scenario shard selector"
-assert_contains "$phase10_operator_scn4_shard_command" "TestCanonicalOperatorRestoreVerifyDue_Process" "backend-process phase10 operator compatible peer scenario batch"
-assert_not_contains "$phase10_operator_scn4_shard_command" "TestCanonicalOperatorBackupCreate_Process" "backend-process phase10 operator batch excludes other deterministic bin"
+assert_contains "$recovery_operator_shard_command" "TestCanonicalOperatorRestoreVerifyLatest_Process" "backend-process recovery operator shard selector"
+assert_contains "$recovery_operator_shard_command" "TestCanonicalOperatorRestoreVerifyDue_Process" "backend-process recovery operator compatible peer batch"
 
 runtime_binary_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-runtime-binary.XXXXXX")"
 cleanup_paths+=("$runtime_binary_results")
@@ -603,20 +602,20 @@ if (mixed.length > 0 || shared.length > 0) {
 EOF
 
 phase4_entities_shared_command="$(
-  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support backend-integration-entities
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support module.entities.support_integration
 )"
-assert_contains "$phase4_entities_shared_command" "TestSupportPhase4Integration_" "backend-integration phase4 entities support selector"
+assert_contains "$phase4_entities_shared_command" "TestAuthorizationReDerivation" "backend-integration entities support selector"
 phase4_entities_authoritative_command="$(
-  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-entities
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration module.entities.integration
 )"
-assert_contains "$phase4_entities_authoritative_command" "TestPhase4_ResolveRoute" "backend-integration phase4 entities authoritative selector"
-assert_not_contains "$phase4_entities_authoritative_command" "TestPhase4_AutoResolutionEligibility" "backend-integration phase4 entities excludes timeline selector"
+assert_contains "$phase4_entities_authoritative_command" "TestResolveRoute_Integration" "backend-integration entities authoritative selector"
+assert_not_contains "$phase4_entities_authoritative_command" "TestAutoResolutionEligibility_Integration" "backend-integration entities excludes timeline selector"
 
 phase4_timeline_shared_command="$(
-  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-timeline
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration module.timeline.integration
 )"
-assert_contains "$phase4_timeline_shared_command" "TestPhase4_AutoResolutionEligibility" "backend-integration phase4 timeline selector"
-assert_not_contains "$phase4_timeline_shared_command" "TestSupportPhase4Integration_" "backend-integration phase4 timeline excludes entities support selector"
+assert_contains "$phase4_timeline_shared_command" "TestAutoResolutionEligibility_Integration" "backend-integration timeline selector"
+assert_not_contains "$phase4_timeline_shared_command" "TestAuthorizationReDerivation" "backend-integration timeline excludes entities support selector"
 
 shared_mismatch_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-shared-mismatch.XXXXXX")"
 cleanup_paths+=("$shared_mismatch_results")
@@ -704,16 +703,16 @@ import { assignExecutionFamily, createGoTargetContext, prepareSharedArtifactDir 
 
 const [root, command] = process.argv.slice(2);
 const ctx = createGoTargetContext({ repoRoot: root });
-const sharedDir = prepareSharedArtifactDir(ctx, "backend-integration-incidents");
+const sharedDir = prepareSharedArtifactDir(ctx, "module.incidents.support_integration");
 mkdirSync(sharedDir, { recursive: true });
 writeFileSync(path.join(sharedDir, "command.txt"), command + "\n");
 writeFileSync(path.join(sharedDir, "complete"), "");
-const result = await assignExecutionFamily(ctx, "backend-integration-support", "backend-integration-incidents");
+const result = await assignExecutionFamily(ctx, "backend-integration-support", "module.incidents.support_integration");
 console.log("dir=" + result.reportDir);
 console.log("usage=" + result.usage);
 EOF_NODE
 )"
-assert_contains "$shared_reuse_output" "$shared_reuse_results/results/shared-reuse/_shared/backend-integration-incidents" "shared reuse dir"
+assert_contains "$shared_reuse_output" "$shared_reuse_results/results/shared-reuse/_shared/module.incidents.support_integration" "shared reuse dir"
 assert_contains "$shared_reuse_output" "usage=reused" "shared reuse usage"
 
 shared_lock_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-shared-lock.XXXXXX")"
@@ -729,20 +728,20 @@ import { acquireSharedReportLock, createGoTargetContext, prepareSharedArtifactDi
 
 const root = process.argv[2];
 const ctx = createGoTargetContext({ repoRoot: root });
-const sharedDir = prepareSharedArtifactDir(ctx, "backend-integration-incidents");
-await acquireSharedReportLock(ctx, sharedDir, "backend-integration-incidents");
+const sharedDir = prepareSharedArtifactDir(ctx, "module.incidents.support_integration");
+await acquireSharedReportLock(ctx, sharedDir, "module.incidents.support_integration");
 console.log("shared=" + readFileSync(path.join(sharedDir, "capture.lock", "shared_report"), "utf8").trim());
 console.log("pid=" + readFileSync(path.join(sharedDir, "capture.lock", "pid"), "utf8").trim());
 releaseSharedReportLock(sharedDir);
 console.log("released=" + (existsSync(path.join(sharedDir, "capture.lock")) ? "no" : "yes"));
 mkdirSync(path.join(sharedDir, "capture.lock"), { recursive: true });
 writeFileSync(path.join(sharedDir, "capture.lock", "pid"), "999999\n");
-await acquireSharedReportLock(ctx, sharedDir, "backend-integration-incidents");
+await acquireSharedReportLock(ctx, sharedDir, "module.incidents.support_integration");
 console.log("stale_pid=" + readFileSync(path.join(sharedDir, "capture.lock", "pid"), "utf8").trim());
 releaseSharedReportLock(sharedDir);
 EOF_NODE
 )"
-assert_contains "$shared_lock_output" "shared=backend-integration-incidents" "shared lock report name"
+assert_contains "$shared_lock_output" "shared=module.incidents.support_integration" "shared lock report name"
 assert_contains "$shared_lock_output" "released=yes" "shared lock release"
 assert_contains "$shared_lock_output" "stale_pid=" "shared lock stale owner replacement"
 
@@ -811,33 +810,22 @@ assert_equals "$(json_field "$missing_metadata_summary" "failures.0.source")" "g
 assert_contains "$(json_field "$missing_metadata_summary" "failures.0.message")" "missing shared report metadata" "missing metadata structured failure message"
 
 backend_unit_aggregates="$("$node_bin" "$ROOT_DIR/tools/harness/backend/target-plan.mjs" list-aggregates backend-unit)"
-assert_contains "$backend_unit_aggregates" "backend-unit-core" "backend-unit core aggregate"
-assert_contains "$backend_unit_aggregates" "backend-unit-auth" "backend-unit auth aggregate"
+assert_contains "$backend_unit_aggregates" "app.server.unit" "backend-unit application aggregate"
+assert_contains "$backend_unit_aggregates" "module.auth.unit" "backend-unit auth aggregate"
 assert_contains "$backend_unit_aggregates" "backend-unit-configtest" "backend-unit configtest aggregate"
 
 backend_store_shards="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" list-shards backend-store)"
-assert_contains "$backend_store_shards" "backend-store-shard-" "backend-store captures planned shards"
-phase4_backend_store_shards="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" --phase phase4 list-shards backend-store)"
-assert_contains "$phase4_backend_store_shards" "phase4-backend-store-shard-" "phase-filtered backend-store shards carry phase prefix"
-phase4_backend_store_first_shard="$(printf '%s\n' "$phase4_backend_store_shards" | head -n 1)"
-phase4_backend_store_shard_target="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" --phase phase4 shard-field backend-store "$phase4_backend_store_first_shard" target)"
-assert_contains "$phase4_backend_store_shard_target" "backend-store" "phase-filtered shard-field keeps shifted field argument"
-phase4_backend_store_aggregate="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" --phase phase4 list-aggregates backend-store | head -n 1)"
-phase4_backend_store_aggregate_phase="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" --phase phase4 aggregate-field backend-store "$phase4_backend_store_aggregate" phase)"
-assert_contains "$phase4_backend_store_aggregate_phase" "phase4" "phase-filtered aggregate-field keeps shifted field argument"
+assert_contains "$backend_store_shards" "module-" "backend-store captures semantic family shards"
 
 backend_integration_shards="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" list-shards backend-integration)"
-assert_contains "$backend_integration_shards" "backend-integration-entities-shard-" "backend-integration captures entity shards"
-assert_contains "$backend_integration_shards" "$phase2_incidents_shard" "backend-integration captures planned phase2 incident shard"
+assert_contains "$backend_integration_shards" "module-entities-integration-shard-" "backend-integration captures semantic entity shards"
+assert_contains "$backend_integration_shards" "$phase2_incidents_shard" "backend-integration captures planned incident shard"
 assert_contains "$backend_integration_shards" "backend-integration-testutil-shard-01" "backend-integration captures raw testutil shard"
-phase4_backend_integration_shards="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" --phase phase4 list-shards backend-integration)"
-assert_contains "$phase4_backend_integration_shards" "phase4-backend-integration-entities-shard-" "phase-filtered backend-integration captures phase4 entities shard"
-assert_not_contains "$phase4_backend_integration_shards" "$phase2_incidents_shard" "phase-filtered backend-integration excludes phase2 shard"
 first_backend_integration_shard="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" list-shards backend-integration | head -n 1)"
 assert_contains "$backend_integration_shards" "$first_backend_integration_shard" "backend-integration weighted shard order starts with heaviest shard"
 
 backend_integration_support_shards="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" list-shards backend-integration-support)"
-assert_contains "$backend_integration_support_shards" "backend-integration-entities-shard-" "backend-integration-support captures entities shards"
+assert_contains "$backend_integration_support_shards" "module-entities-support-integration-shard-" "backend-integration-support captures semantic entities shards"
 assert_not_contains "$backend_integration_support_shards" "backend-integration-testutil" "backend-integration-support skips testutil shard"
 first_backend_integration_support_shard="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" list-shards backend-integration-support | head -n 1)"
 assert_contains "$backend_integration_support_shards" "$first_backend_integration_support_shard" "backend-integration-support weighted shard order starts with heaviest support shard"
@@ -868,6 +856,11 @@ assert_contains "$support_zero_output" "failure: backend-integration support pha
 assert_contains "$support_zero_output" "coverage=support" "support zero-match coverage"
 assert_contains "$support_zero_output" "message=support phase matched zero tests" "support zero-match message"
 
+# The owner catalog is the sole active selector source. Phase-registry fixture
+# coverage below is retained only as deletion inventory for T-044 and is not
+# part of the v2 execution smoke.
+# shellcheck disable=SC2329
+legacy_phase_registry_smoke_deletion_inventory() {
 manifest_smoke_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-support-manifest.XXXXXX")"
 manifest_smoke_root="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-support-manifests.XXXXXX")"
 manifest_smoke_tools="$manifest_smoke_root/tools"
@@ -1317,3 +1310,4 @@ do
     fail "run-go-target smoke must not write synthetic manifests into repo tools/: $synthetic_manifest"
   fi
 done
+}

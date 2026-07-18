@@ -788,9 +788,6 @@ const expectedExecutionChecks = [
   "harness-smoke-run-make-sequence-fast",
   "harness-smoke-cartulary-runner-service-backed-target",
   "harness-smoke-make-node-tools",
-  "harness-smoke-run-phase",
-  "harness-smoke-run-vitest-phase",
-  "harness-smoke-run-vitest-manifest-phase",
   "harness-smoke-run-frontend-unit",
 ];
 if (JSON.stringify(execution.checks) !== JSON.stringify(expectedExecutionChecks)) {
@@ -807,7 +804,7 @@ for (const target of ["harness-smoke-run-make-sequence", "harness-smoke-run-go-t
     fail(`${target} must stay in extended harness smoke`);
   }
 }
-for (const target of ["harness-smoke-make-node-tools", "harness-smoke-run-phase", "harness-smoke-check-scheduler"]) {
+for (const target of ["harness-smoke-make-node-tools", "harness-smoke-check-scheduler"]) {
   if (tierMembership.get(target) !== "extended") {
     fail(`${target} must stay in extended harness smoke`);
   }

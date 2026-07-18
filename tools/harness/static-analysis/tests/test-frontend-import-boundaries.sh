@@ -291,7 +291,7 @@ write_config() {
       "restricted_imports": [
         {
           "kind": "path_prefix",
-          "path": "apps/web/e2e/support/transport/testControl"
+          "path": "apps/web/e2e/support/transport/testControlClient"
         }
       ]
     },

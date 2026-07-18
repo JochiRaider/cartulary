@@ -332,7 +332,7 @@ function validateRenderIndex(index, indexPath) {
     throw new Error(`${repoDisplayPath(indexPath)} must declare schema_id ${renderIndexSchemaID}`);
   }
   if (index.generator_version !== generatorVersion) {
-    throw new Error(`${repoDisplayPath(indexPath)} generator_version is stale; run make phase-schedules`);
+    throw new Error(`${repoDisplayPath(indexPath)} generator_version is stale; run make generate`);
   }
   if (typeof index.input_digest !== "string" || !index.input_digest.startsWith("sha256:")) {
     throw new Error(`${repoDisplayPath(indexPath)} input_digest must be a sha256 digest`);
@@ -369,19 +369,19 @@ export function quickCheckRenderIndex(options = {}) {
   const inputInfo = collectRenderInputs(options);
   const indexPath = renderIndexPath(inputInfo.topologyRaw);
   if (!existsSync(indexPath)) {
-    throw new Error(`${repoDisplayPath(indexPath)} missing; run make phase-schedules`);
+    throw new Error(`${repoDisplayPath(indexPath)} missing; run make generate`);
   }
   const index = readJSON(indexPath);
   validateRenderIndex(index, indexPath);
   const expectedOutputs = expectedRenderedOutputFiles(inputInfo.topologyRaw).sort();
   const indexedOutputs = Object.keys(index.outputs).sort();
   if (JSON.stringify(indexedOutputs) !== JSON.stringify(expectedOutputs)) {
-    throw new Error(`${repoDisplayPath(indexPath)} output set is stale; run make phase-schedules`);
+    throw new Error(`${repoDisplayPath(indexPath)} output set is stale; run make generate`);
   }
   if (index.input_digest !== inputInfo.input_digest) {
     const changes = changedInputs(inputInfo.inputs, index.inputs).slice(0, 5);
     const suffix = changes.length > 0 ? ` (${changes.join(", ")})` : "";
-    throw new Error(`phase schedule inputs are stale${suffix}; run make phase-schedules`);
+    throw new Error(`generated topology inputs are stale${suffix}; run make generate`);
   }
   const staleOutputs = [];
   for (const [file, expectedHash] of Object.entries(index.outputs)) {
@@ -391,7 +391,7 @@ export function quickCheckRenderIndex(options = {}) {
     }
   }
   if (staleOutputs.length > 0) {
-    throw new Error(`${staleOutputs.sort().join(", ")} stale; run make phase-schedules`);
+    throw new Error(`${staleOutputs.sort().join(", ")} stale; run make generate`);
   }
 }
 
@@ -548,7 +548,7 @@ function compareArtifacts(artifacts) {
     }
   }
   if (stale.length > 0) {
-    throw new Error(`${stale.join(", ")} stale; run make phase-schedules`);
+    throw new Error(`${stale.join(", ")} stale; run make generate`);
   }
 }
 
@@ -570,12 +570,12 @@ function writeChangedArtifacts(artifacts) {
 
 function printRenderSummary(changed) {
   if (changed.length === 0) {
-    console.log("phase-schedules: unchanged");
+    console.log("generated-topology: unchanged");
     return;
   }
   const displayed = changed.slice(0, 5);
   const suffix = changed.length > displayed.length ? `, ... +${changed.length - displayed.length} more` : "";
-  console.log(`phase-schedules: updated ${changed.length} files (${displayed.join(", ")}${suffix})`);
+  console.log(`generated-topology: updated ${changed.length} files (${displayed.join(", ")}${suffix})`);
 }
 
 function main() {

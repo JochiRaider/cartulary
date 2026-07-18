@@ -38,8 +38,13 @@ copy_path() {
     exit 1
   fi
 
-  mkdir -p "$(dirname "$destination")"
-  cp -a "$ROOT_DIR/$source" "$destination"
+  if [[ -d "$ROOT_DIR/$source" && ! -L "$ROOT_DIR/$source" ]]; then
+    mkdir -p "$destination"
+    cp -a "$ROOT_DIR/$source/." "$destination/"
+  else
+    mkdir -p "$(dirname "$destination")"
+    cp -a "$ROOT_DIR/$source" "$destination"
+  fi
 }
 
 manifest_values() {
@@ -62,6 +67,77 @@ if (!Array.isArray(values) || values.some((entry) => typeof entry !== "string" |
 }
 for (const value of values) {
   console.log(value);
+}
+NODE
+}
+
+catalog_selector_inputs() {
+  local node_bin="${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}"
+  "$node_bin" - "$ROOT_DIR" <<'NODE'
+const fs = require("node:fs");
+const path = require("node:path");
+
+const [repoRoot] = process.argv.slice(2);
+const ownerRegistry = JSON.parse(
+  fs.readFileSync(path.join(repoRoot, "tools/test_catalog_owner.json"), "utf8"),
+);
+const inputs = new Set();
+for (const owner of ownerRegistry.owners ?? []) {
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(repoRoot, owner.manifest_path), "utf8"),
+  );
+  for (const row of manifest.rows ?? []) {
+    for (const candidate of [row.selector?.file, row.selector?.package]) {
+      if (typeof candidate !== "string" || candidate.trim() === "") continue;
+      const normalized = candidate.trim().replace(/^\.\//u, "");
+      if (
+        path.isAbsolute(normalized) ||
+        normalized === ".." ||
+        normalized.startsWith("../") ||
+        normalized.includes("/../")
+      ) {
+        console.error(`unsafe catalog selector input ${candidate}`);
+        process.exit(11);
+      }
+      inputs.add(normalized);
+    }
+  }
+}
+for (const input of [...inputs].sort((left, right) => left.localeCompare(right))) {
+  console.log(input);
+}
+NODE
+}
+
+task_surface_backing_inputs() {
+  local node_bin="${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}"
+  "$node_bin" - "$ROOT_DIR" <<'NODE'
+const fs = require("node:fs");
+const path = require("node:path");
+
+const [repoRoot] = process.argv.slice(2);
+const owner = JSON.parse(
+  fs.readFileSync(path.join(repoRoot, "tools/task_surface_owner.json"), "utf8"),
+);
+const inputs = new Set();
+for (const entry of [...(owner.targets ?? []), ...(owner.harness_checks ?? [])]) {
+  for (const candidate of entry.backing_scripts ?? []) {
+    if (typeof candidate !== "string" || candidate.trim() === "") continue;
+    const normalized = candidate.trim().replace(/^\.\//u, "");
+    if (
+      path.isAbsolute(normalized) ||
+      normalized === ".." ||
+      normalized.startsWith("../") ||
+      normalized.includes("/../")
+    ) {
+      console.error(`unsafe task-surface backing input ${candidate}`);
+      process.exit(11);
+    }
+    inputs.add(normalized);
+  }
+}
+for (const input of [...inputs].sort((left, right) => left.localeCompare(right))) {
+  console.log(input);
 }
 NODE
 }
@@ -96,6 +172,16 @@ for input in "${scratch_copy_paths[@]}"; do
   copy_path "$input"
 done
 copy_required_make_includes
+
+mapfile -t selector_inputs < <(catalog_selector_inputs)
+for input in "${selector_inputs[@]}"; do
+  copy_path "$input"
+done
+
+mapfile -t task_surface_inputs < <(task_surface_backing_inputs)
+for input in "${task_surface_inputs[@]}"; do
+  copy_path "$input"
+done
 
 for placeholder_dir in "${scratch_placeholder_dirs[@]}"; do
   mkdir -p "$scratch/$placeholder_dir"

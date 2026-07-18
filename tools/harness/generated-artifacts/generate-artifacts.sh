@@ -17,3 +17,6 @@ find internal/gen/sql -maxdepth 1 -type f -name '*.go' -delete
   "${NODE_BIN:?NODE_BIN is required}" ./tools/otel/generate-otel-contracts.mjs --write
 "$RUN_PHASE_SCRIPT" "generate design tokens" -- \
   "${NODE_BIN:?NODE_BIN is required}" ./tools/harness/generated-artifacts/design-tokens/design-token-cli.mjs
+"$RUN_PHASE_SCRIPT" "generate task surface and execution topology" -- \
+  "$NODE_BIN" ./tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs \
+  --topology tools/execution_topology_manifest.json

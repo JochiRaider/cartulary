@@ -5216,24 +5216,6 @@
           }
         },
         {
-          "target": "phase-schedule-drift",
-          "priority": 11200,
-          "weight_ms": 10000,
-          "needs": [
-            "toolchain-drift"
-          ],
-          "make_prerequisite_policy": "skip",
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 1
-          },
-          "make_jobs": "host_cpu",
-          "command": {
-            "type": "make_target",
-            "target": "phase-schedule-drift"
-          }
-        },
-        {
           "target": "service-backed-unit-check",
           "priority": 11100,
           "weight_ms": 10000,

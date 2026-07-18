@@ -1098,7 +1098,7 @@ function main() {
   if (options.check) {
     const existing = readFileSync(outputPath, "utf8");
     if (existing !== rendered) {
-      throw new Error(`${path.relative(repoRoot, outputPath)} is stale; run make phase-schedules`);
+      throw new Error(`${path.relative(repoRoot, outputPath)} is stale; run make generate`);
     }
     return;
   }

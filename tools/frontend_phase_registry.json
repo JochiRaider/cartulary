@@ -375,9 +375,9 @@
       ],
       "row_rollup_state": "active_green",
       "activation_blockers": [],
-      "evidence_freshness_digest": "9ddc6378cf853364f9c080f0691bf03083741c1106d0e8347c64607d89ef1433",
-      "manifest_digest": "f559f1d42b1f40bee0d981e3d142d0f9fb52b3269ad0b032a235ab23ccc2968a",
-      "ledger_digest": "b6040f8c1dd36b0fe164eba2f05877961fa9d3d472fd58a8fad846edaa24cfde",
+      "evidence_freshness_digest": "b4da223bf806e604d6827061452bffeee87dd41a2b5f80c5e7b2ba6e23826f37",
+      "manifest_digest": "6eec53d3f3f28ec8a6a823a0c5e585cb7c736584a5eebc99c09cdfd543510c37",
+      "ledger_digest": "26394b7d58775b0ac8b5540fe457d0e1f7fb9a92f02bfa4efd273de109cc18dc",
       "base_phase_join": "phase11"
     },
     {

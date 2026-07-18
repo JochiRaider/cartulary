@@ -41,8 +41,6 @@
   test-catalog-check \
   phase-ledgers \
   phase-ledger-drift \
-  phase-schedules \
-  phase-schedule-drift \
   agent-finalize \
   test-evidence-audit \
   benchmark-claim-check \
@@ -251,7 +249,7 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make fixture-report' \
 	'                                      RESULTS_DIR=<root|run-dir> report fixture cost hotspots' \
 	'' \
-	'phase maintenance:' \
+	'maintenance:' \
 	'  make generate-drift                 fail on generated artifact drift' \
 	'  make generated-artifact-policy-check' \
 	'                                      fail on generated artifact marker and lint-scope policy drift' \
@@ -260,8 +258,6 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make migration-drift                verify migrations against a scratch database' \
 	'  make phase-ledgers                  regenerate committed phase coverage ledgers' \
 	'  make phase-ledger-drift             fail on phase coverage ledger drift' \
-	'  make phase-schedules                regenerate committed phase-derived schedules' \
-	'  make phase-schedule-drift           fail on phase-derived schedule drift' \
 	'  make agent-finalize                 refresh and validate harness-maintenance artifacts before verification' \
 	'  make test-evidence-audit' \
 	'                                      OWNER=<owner-id> EVIDENCE_ROOTS_FILE=<path> audit exact compatible evidence roots for one owner' \
@@ -515,18 +511,6 @@ phase-ledger-drift:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,phase-ledger-drift)
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP); fi
 	$(Q)$(RUN_PHASE_SCRIPT) "phase-ledger-drift" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" NODE_BIN="$(NODE_BIN)" $(NODE_BIN) ./tools/harness/generated-artifacts/check-phase-ledger-drift.mjs
-
-phase-schedules: export CARTULARY_TEST_TARGET ?= phase-schedules
-phase-schedules:
-	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,phase-schedules)
-	$(Q)$(RUN_PHASE_SCRIPT) "phase-schedules" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) ./tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs --topology "$(TASK_SURFACE_CANONICAL_EXECUTION_TOPOLOGY_MANIFEST)"
-
-phase-schedule-drift: export CARTULARY_TEST_TARGET ?= phase-schedule-drift
-phase-schedule-drift:
-	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,phase-schedule-drift)
-	$(Q)$(RUN_PHASE_SCRIPT) "phase-schedule-drift" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) ./tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs --check --topology "$(TASK_SURFACE_CANONICAL_EXECUTION_TOPOLOGY_MANIFEST)"
 
 agent-finalize: export CARTULARY_TEST_TARGET ?= agent-finalize
 agent-finalize:

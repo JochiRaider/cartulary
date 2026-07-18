@@ -135,7 +135,7 @@ function goShardUnits(workUnits) {
   return (workUnits ?? []).filter((unit) => unit.kind === "go_shard");
 }
 
-function estimateServiceBackedGoCPULimit(workUnits) {
+export function estimateServiceBackedGoCPULimit(workUnits) {
   const units = goShardUnits(workUnits);
   if (units.length === 0) {
     return 1;
@@ -160,7 +160,7 @@ function estimateServiceBackedGoCPULimit(workUnits) {
   );
 }
 
-function estimateServiceBackedGoIOLimit(workUnits, goCPULimit) {
+export function estimateServiceBackedGoIOLimit(workUnits, goCPULimit) {
   const units = goShardUnits(workUnits);
   if (units.length === 0) {
     return 1;

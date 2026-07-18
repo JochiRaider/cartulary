@@ -173,9 +173,11 @@ cat >"$fake_go" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ "${1:-}" == "run" && "${2:-}" == "./tools/contractgen" ]]; then
-  exit 0
-fi
+case "${1:-} ${2:-}" in
+  "run ./tools/contractgen" | \
+  "run ./tools/networkflow-tzdb" | \
+  "run ./tools/networkflow-unicode17") exit 0 ;;
+esac
 
 echo "unexpected go invocation: $*" >&2
 exit 2

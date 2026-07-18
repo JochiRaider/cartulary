@@ -668,18 +668,6 @@
         ],
         "make_prerequisite_policy": "skip"
       },
-      "phase-schedule-drift": {
-        "schedules": [
-          "check"
-        ],
-        "profile": "after_setup_cpu_io",
-        "priority_band": "drift_validation",
-        "order": 100,
-        "needs": [
-          "toolchain-drift"
-        ],
-        "make_prerequisite_policy": "skip"
-      },
       "backend-unit": {
         "schedules": [
           "check"

@@ -319,7 +319,7 @@
       ]
     },
     {
-      "name": "phase maintenance",
+      "name": "maintenance",
       "entries": [
         {
           "target": "generate-drift",
@@ -348,14 +348,6 @@
         {
           "target": "phase-ledger-drift",
           "description": "fail on phase coverage ledger drift"
-        },
-        {
-          "target": "phase-schedules",
-          "description": "regenerate committed phase-derived schedules"
-        },
-        {
-          "target": "phase-schedule-drift",
-          "description": "fail on phase-derived schedule drift"
         },
         {
           "target": "agent-finalize",
@@ -1388,37 +1380,6 @@
       "command": [
         "$(NODE_BIN)",
         "./tools/harness/generated-artifacts/check-phase-ledger-drift.mjs"
-      ],
-      "test_target": "self"
-    },
-    "phase-schedules": {
-      "prerequisites": [
-        "$(NODE_BIN)"
-      ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "phase-schedules",
-      "command": [
-        "$(NODE_BIN)",
-        "./tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
-        "--topology",
-        "\"$(EXECUTION_TOPOLOGY_MANIFEST)\""
-      ],
-      "test_target": "self"
-    },
-    "phase-schedule-drift": {
-      "prerequisites": [
-        "$(NODE_BIN)"
-      ],
-      "type": "phase_command",
-      "mode": "run_phase",
-      "phase_label": "phase-schedule-drift",
-      "command": [
-        "$(NODE_BIN)",
-        "./tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
-        "--check",
-        "--topology",
-        "\"$(EXECUTION_TOPOLOGY_MANIFEST)\""
       ],
       "test_target": "self"
     },
@@ -3807,7 +3768,9 @@
           "file_families": [
             "contract-derived generated code",
             "sqlc generated code",
-            "task-surface generated Make outputs"
+            "task-surface generated Make outputs",
+            "scheduler and browser topology manifests",
+            "execution topology render index"
           ]
         }
       ],
@@ -3820,7 +3783,8 @@
     {
       "name": "generate-artifacts",
       "backing_scripts": [
-        "tools/harness/generated-artifacts/generate-artifacts.sh"
+        "tools/harness/generated-artifacts/generate-artifacts.sh",
+        "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -3829,7 +3793,8 @@
     {
       "name": "generate-drift",
       "backing_scripts": [
-        "tools/harness/generated-artifacts/check-generate-drift.sh"
+        "tools/harness/generated-artifacts/check-generate-drift.sh",
+        "tools/generate_drift_scratch_inputs.json"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -4528,122 +4493,6 @@
         "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.phase_ledger_drift.v1",
-      "semantic_behaviors": [
-        {
-          "behavior": "evidence_normalization",
-          "owner_section": "Section 8"
-        },
-        {
-          "behavior": "failure_normalization",
-          "owner_section": "Section 9"
-        }
-      ],
-      "target_class": "public",
-      "default_inclusion_sets": [
-        "check"
-      ],
-      "lifecycle_state": "public_active",
-      "family_id": "generated_drift",
-      "side_effects": [
-        {
-          "class": "retained_artifacts",
-          "owner_section": "Section 8",
-          "artifact_policy": "tool_run_summary"
-        }
-      ],
-      "input_contract": {
-        "undeclared_make_command_line": "usage_error",
-        "undeclared_inherited_env": "ignore",
-        "inputs": []
-      }
-    },
-    {
-      "name": "phase-schedules",
-      "backing_scripts": [
-        "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs"
-      ],
-      "output_policy": {
-        "output_class": "summary_with_artifacts",
-        "artifact_policy": "tool_run_summary",
-        "success_budget": {
-          "stdout_lines": 2,
-          "stdout_bytes": 600,
-          "stderr_lines": 0,
-          "stderr_bytes": 0
-        },
-        "failure_budget": {
-          "stderr_lines": 35,
-          "stderr_bytes": 6000,
-          "excerpt_lines": 25,
-          "excerpt_bytes": 4096
-        },
-        "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
-      },
-      "command_id": "cartulary.harness.command.phase_schedules.v1",
-      "semantic_behaviors": [
-        {
-          "behavior": "evidence_normalization",
-          "owner_section": "Section 8"
-        },
-        {
-          "behavior": "failure_normalization",
-          "owner_section": "Section 9"
-        }
-      ],
-      "target_class": "public",
-      "default_inclusion_sets": [
-        "helper_only"
-      ],
-      "lifecycle_state": "public_active",
-      "family_id": "generated_drift",
-      "side_effects": [
-        {
-          "class": "retained_artifacts",
-          "owner_section": "Section 8",
-          "artifact_policy": "tool_run_summary"
-        },
-        {
-          "class": "generated_artifacts",
-          "owner_section": "Section 4",
-          "file_families": [
-            "task-surface manifest",
-            "task-surface generated Make output",
-            "scheduler and browser schedule manifests",
-            "execution topology render index"
-          ]
-        }
-      ],
-      "input_contract": {
-        "undeclared_make_command_line": "usage_error",
-        "undeclared_inherited_env": "ignore",
-        "inputs": []
-      }
-    },
-    {
-      "name": "phase-schedule-drift",
-      "backing_scripts": [
-        "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs"
-      ],
-      "output_policy": {
-        "output_class": "summary_with_artifacts",
-        "artifact_policy": "tool_run_summary",
-        "success_budget": {
-          "stdout_lines": 2,
-          "stdout_bytes": 600,
-          "stderr_lines": 0,
-          "stderr_bytes": 0
-        },
-        "failure_budget": {
-          "stderr_lines": 35,
-          "stderr_bytes": 6000,
-          "excerpt_lines": 25,
-          "excerpt_bytes": 4096
-        },
-        "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v4"
-      },
-      "command_id": "cartulary.harness.command.phase_schedule_drift.v1",
       "semantic_behaviors": [
         {
           "behavior": "evidence_normalization",
@@ -10581,18 +10430,11 @@
         "harness-smoke-service-backed-make-target-duration-baselines",
         "harness-smoke-harness-duration-baselines",
         "harness-smoke-browser-shard-plan",
-        "harness-smoke-phase-test-names",
-        "harness-smoke-run-phase",
         "harness-smoke-print-target-plan",
         "harness-smoke-check-scheduler",
         "harness-smoke-service-backed-scheduler-matrix",
         "harness-smoke-run-make-sequence",
         "harness-smoke-run-go-target",
-        "harness-smoke-run-playwright-phase",
-        "harness-smoke-run-playwright-manifest-phase",
-        "harness-smoke-run-playwright-webserver-batch",
-        "harness-smoke-run-vitest-phase",
-        "harness-smoke-run-vitest-manifest-phase",
         "harness-smoke-run-frontend-unit",
         "harness-smoke-frontend-import-boundaries",
         "harness-smoke-fallow-static"
@@ -10603,9 +10445,6 @@
         "harness-smoke-run-make-sequence-fast",
         "harness-smoke-cartulary-runner-service-backed-target",
         "harness-smoke-make-node-tools",
-        "harness-smoke-run-phase",
-        "harness-smoke-run-vitest-phase",
-        "harness-smoke-run-vitest-manifest-phase",
         "harness-smoke-run-frontend-unit"
       ]
     },
@@ -10649,18 +10488,11 @@
         "harness-smoke-service-backed-make-target-duration-baselines",
         "harness-smoke-harness-duration-baselines",
         "harness-smoke-browser-shard-plan",
-        "harness-smoke-phase-test-names",
-        "harness-smoke-run-phase",
         "harness-smoke-print-target-plan",
         "harness-smoke-check-scheduler",
         "harness-smoke-service-backed-scheduler-matrix",
         "harness-smoke-run-make-sequence",
         "harness-smoke-run-go-target",
-        "harness-smoke-run-playwright-phase",
-        "harness-smoke-run-playwright-manifest-phase",
-        "harness-smoke-run-playwright-webserver-batch",
-        "harness-smoke-run-vitest-phase",
-        "harness-smoke-run-vitest-manifest-phase",
         "harness-smoke-run-frontend-unit",
         "harness-smoke-frontend-import-boundaries",
         "harness-smoke-fallow-static",
@@ -10914,7 +10746,6 @@
         "tools/harness/diagnostics/tests/test-target-plan-smoke.sh",
         "tools/harness/backend/tests/test-go-shard-plan-smoke.sh",
         "tools/harness/backend/tests/test-service-go-batching.mjs",
-        "tools/harness/phase-accounting/tests/test-phase-registry-target-plan-smoke.sh",
         "tools/harness/smoke/target-plan-smoke-suite.sh"
       ],
       "command": [

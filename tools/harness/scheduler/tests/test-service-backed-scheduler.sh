@@ -1924,9 +1924,18 @@ dependency_failure_skip_manifest="${dependency_failure_skip_dir}/manifest.json"
 write_manifest "$dependency_failure_skip_manifest" check-service-backed \
   'go_shards|backend-store|0|"postgres": 1, "object_store": 1|backend||' \
   'make_target|browser-e2e-webserver-backed|10|"postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed|backend-store'
+dependency_failure_shard="$(
+  "$NODE_BIN" - "$dependency_failure_skip_manifest" <<'EOF'
+const fs = require("node:fs");
+const manifest = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const shard = manifest.schedules?.[0]?.work_units?.find((unit) => unit.kind === "go_shard")?.shard;
+if (!shard) process.exit(1);
+process.stdout.write(shard);
+EOF
+)"
 set +e
 dependency_failure_skip_output="$(
-  FAKE_GO_FAIL_SHARD=backend-store-shard-01 \
+  FAKE_GO_FAIL_SHARD="$dependency_failure_shard" \
   FAKE_GO_FINALIZER_FAILURE_STATUS=9 \
     run_scheduler "$dependency_failure_skip_dir" "$dependency_failure_skip_manifest" check-service-backed dependency-failure 2>&1
 )"
@@ -2142,16 +2151,25 @@ write_fake_go_target_runner "$failed_shard_dir"
 failed_shard_manifest="${failed_shard_dir}/manifest.json"
 write_manifest "$failed_shard_manifest" test-fast-service-backed \
   'go_shards|backend-store|0|"postgres": 1, "object_store": 1'
+failed_shard_name="$(
+  "$NODE_BIN" - "$failed_shard_manifest" <<'EOF'
+const fs = require("node:fs");
+const manifest = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const shard = manifest.schedules?.[0]?.work_units?.find((unit) => unit.kind === "go_shard")?.shard;
+if (!shard) process.exit(1);
+process.stdout.write(shard);
+EOF
+)"
 set +e
 failed_shard_output="$(
-  FAKE_GO_FAIL_SHARD=backend-store-shard-01 \
+  FAKE_GO_FAIL_SHARD="$failed_shard_name" \
   FAKE_GO_FINALIZER_FAILURE_STATUS=9 \
     run_scheduler "$failed_shard_dir" "$failed_shard_manifest" test-fast-service-backed failed-shard 2>&1
 )"
 failed_shard_status=$?
 set -e
 assert_equals "$failed_shard_status" "1" "failed shard finalizer status"
-assert_contains "$failed_shard_output" "fake shard failure for backend-store-shard-01" "failed shard output"
+assert_contains "$failed_shard_output" "fake shard failure for $failed_shard_name" "failed shard output"
 assert_contains "$failed_shard_output" "[SUMMARY] target=test-fast-service-backed status=fail" "failed shard scheduler summary"
 assert_contains "$failed_shard_output" "finalizer_failures=1" "failed shard scheduler finalizer failure count"
 assert_contains "$failed_shard_output" "[FAIL] target=test-fast-service-backed" "failed shard parent summary"
@@ -2297,24 +2315,18 @@ go_shard_dry_run_output="$(
     run_scheduler "$go_shard_dry_run_dir" "$go_shard_dry_run_manifest" test-fast-service-backed go-shard-dry-run 2>&1
 )"
 expected_go_shard_dry_run_line="$(
-  "$NODE_BIN" - "$ROOT_DIR" <<'EOF'
-const { execFileSync } = require("node:child_process");
-const path = require("node:path");
-const [root] = process.argv.slice(2);
-const plan = JSON.parse(execFileSync(process.execPath, [path.join(root, "tools/harness/backend/go-shard-plan.mjs"), "json"], { encoding: "utf8", cwd: root }));
-const shard = plan.shards.find((candidate) => candidate.name === "backend-store-shard-01");
-if (!shard) {
+  "$NODE_BIN" - "$go_shard_dry_run_manifest" <<'EOF'
+const fs = require("node:fs");
+const manifest = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const shard = manifest.schedules?.[0]?.work_units?.find((unit) => unit.kind === "go_shard");
+if (!shard?.shard) {
   process.exit(1);
 }
-const claimsByProfile = {
-	  balanced: "{go_cpu:1,go_io:1,object_store:1,postgres:1}",
-	  cpu_heavy: "{go_cpu:2,go_io:1,object_store:1,postgres:1}",
-	  io_heavy: "{go_cpu:1,go_io:2,object_store:1,postgres:1}",
-	  reset_heavy: "{go_cpu:1,go_io:2,object_store:1,postgres:1,postgres_reset:1}",
-	  clone_heavy: "{go_cpu:1,go_io:2,object_store:1,postgres:1,postgres_clone:1}",
-  transaction_heavy: "{go_cpu:1,go_io:1,object_store:1,postgres:1}",
-};
-process.stdout.write(`backend-store/${shard.name} type=go_shard class=backend profile=${shard.scheduler_profile} claims=${claimsByProfile[shard.scheduler_profile]}`);
+const claims = Object.entries(shard.resource_claims)
+  .sort(([left], [right]) => left.localeCompare(right))
+  .map(([name, value]) => `${name}:${value}`)
+  .join(",");
+process.stdout.write(`backend-store/${shard.shard} type=go_shard class=backend profile=${shard.scheduler_profile} claims={${claims}}`);
 EOF
 )"
 assert_contains "$go_shard_dry_run_output" "finalizers=1" "go_shards dry-run compact summary"
@@ -2415,13 +2427,19 @@ if (JSON.stringify(actualBrowserTargets) !== JSON.stringify(expectedBrowserTarge
 const webserverSource = (byTarget.get("test-service-backed")?.work_unit_sources ?? []).find(
   (candidate) => candidate.target === "browser-e2e-webserver-backed",
 );
-const functionalShardCount = Math.max(
-  ...((webserverSource?.groups ?? [])
-    .filter((group) => group.kind === "functional_shard")
-    .map((group) => group.shard_count ?? 0)),
-);
-if (functionalShardCount !== 6) {
-  throw new Error(`browser-e2e-webserver-backed functional shard count got ${functionalShardCount}`);
+const webserverGroups = webserverSource?.groups ?? [];
+const selectedWebserverRows = webserverGroups.flatMap((group) => group.selected_row_ids ?? []);
+if (
+  webserverGroups.length === 0 ||
+  webserverGroups.some(
+    (group) =>
+      group.kind !== "duration_balanced_specs" ||
+      !Array.isArray(group.selected_row_ids) ||
+      group.selected_row_ids.length === 0,
+  ) ||
+  new Set(selectedWebserverRows).size !== selectedWebserverRows.length
+) {
+  throw new Error("browser-e2e-webserver-backed groups must close unique semantic row selections");
 }
 if ((webserverSource?.groups ?? []).some((group) => group.priority !== 36000)) {
   throw new Error("browser-e2e-webserver-backed groups must carry critical-path scheduler priority");
@@ -2491,8 +2509,8 @@ manifest.browser_e2e_batch.stages.push({
       name: "missing-phase-map-rows",
       target: "browser-e2e-support",
       kind: "support",
-      coverage: "supplemental",
-      execution_dependency: "browser_measurement",
+      coverage: "authoritative",
+      execution_dependency: "browser_support",
       workers: "default",
     },
   ],
@@ -2509,9 +2527,9 @@ invalid_derivation_output="$(
 invalid_derivation_status=$?
 set -e
 if [[ "$invalid_derivation_status" -eq 0 ]]; then
-  fail "tagged browser schedule stage without matching phase-map rows must fail schedule derivation"
+  fail "tagged browser schedule stage without matching catalog rows must fail schedule derivation"
 fi
-assert_contains "$invalid_derivation_output" "no phase-map Playwright rows" "tagged browser stage without phase-map rows"
+assert_contains "$invalid_derivation_output" "tagged-without-rows" "tagged browser stage without catalog rows"
 
 invalid_resource_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-invalid-resource.XXXXXX")"
 cleanup_paths+=("$invalid_resource_dir")

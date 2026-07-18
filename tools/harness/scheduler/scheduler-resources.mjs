@@ -38,7 +38,7 @@ const templateKeys = new Set(["name", "prefix", "display_name", "schedulers", "d
 const capacityProfileKeys = new Set(["name", "scheduler", "resources"]);
 const forwardingProfileKeys = new Set(["name", "mappings"]);
 const forwardingMappingKeys = new Set(["source_resource", "target_resource", "env_variable"]);
-const checkHostCPUMaxAutoLimit = 256;
+export const checkHostCPUMaxAutoLimit = 256;
 
 let cachedRegistry = null;
 
@@ -515,7 +515,7 @@ export function assertKnownResource(resource, label, { scheduler = null } = {}) 
   return normalized;
 }
 
-function isAutoLimitResource(resource) {
+export function isAutoLimitResource(resource) {
   const descriptor = resourceDescriptor(resource);
   return descriptor ? descriptor.autoPolicy !== null : false;
 }

@@ -2570,9 +2570,6 @@ test("execution harness smoke is a narrow execution-wrapper subset", () => {
     "harness-smoke-run-make-sequence-fast",
     "harness-smoke-cartulary-runner-service-backed-target",
     "harness-smoke-make-node-tools",
-    "harness-smoke-run-phase",
-    "harness-smoke-run-vitest-phase",
-    "harness-smoke-run-vitest-manifest-phase",
     "harness-smoke-run-frontend-unit",
   ];
   assert.deepEqual(manifest.harness_tiers.execution.checks, expectedExecutionChecks);
@@ -2777,7 +2774,7 @@ test("machine task-surface owner defines public output classes and side effects"
     .join("\n")}\n`;
   assert.equal(
     createHash("sha256").update(publicIdentityBytes).digest("hex"),
-    "a76a8ec1e117efcb19913875097808af8d44bbf30ae45312116e473b602a4efa",
+    "4c66406bdde6748a63529003c90f1f03e5b536a418a9276f44c5ac86b79ec3ad",
     "public target and command ID inventory changed; revise the authored owner and this explicit compatibility digest together",
   );
   for (const target of publicTargets) {

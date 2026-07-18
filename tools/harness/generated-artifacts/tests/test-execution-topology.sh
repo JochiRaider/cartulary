@@ -593,7 +593,6 @@ const expectedCheckWorkUnitPriorities = [
   ["test-catalog-check", 11500],
   ["go-test-duration-baseline-coverage", 11400],
   ["phase-ledger-drift", 11300],
-  ["phase-schedule-drift", 11200],
   ["service-backed-unit-check", 11100],
   ["generated-artifact-policy-check", 11050],
   ["generate-drift", 11000],
@@ -904,20 +903,20 @@ const firstRenderOutput = execFileSync(process.execPath, [renderScript, "--topol
 });
 assert.match(
   firstRenderOutput,
-  /phase-schedules: updated 6 files/,
-  "phase-schedules must report updated generated artifacts",
+  /generated-topology: updated 6 files/,
+  "topology generation must report updated generated artifacts",
 );
 assert.doesNotThrow(
   () => topologyRendererModule.quickCheckRenderIndex({ topology: cliRenderTopologyPath }),
-  "phase-schedule drift must pass after rendering generated artifacts",
+  "generated topology drift must pass after rendering generated artifacts",
 );
 const secondRenderOutput = execFileSync(process.execPath, [renderScript, "--topology", cliRenderTopologyPath], {
   encoding: "utf8",
 });
 assert.equal(
   secondRenderOutput.trim(),
-  "phase-schedules: unchanged",
-  "phase-schedules must be idempotent on a second run",
+  "generated-topology: unchanged",
+  "topology generation must be idempotent on a second run",
 );
 
 const renderIndexDir = mkdtempSync(path.join(root, "tmp", "topology-render-index-test-"));
@@ -992,8 +991,8 @@ for (const owner of verificationRegistry.owners) copyCatalogFile(owner.contract_
   writeFileSync(path.join(root, renderArtifacts[0].file), "changed\n");
   assert.throws(
     () => topologyRendererModule.quickCheckRenderIndex({ topology: renderIndexTopologyPath, catalogRoot }),
-    /stale; run make phase-schedules/,
-    "quick phase-schedule drift must reject changed generated outputs by hash",
+    /stale; run make generate/,
+    "quick generated-topology drift must reject changed outputs by hash",
   );
   writeFileSync(path.join(root, renderArtifacts[0].file), renderArtifacts[0].content);
   const changedTopology = {
@@ -1013,8 +1012,8 @@ for (const owner of verificationRegistry.owners) copyCatalogFile(owner.contract_
   writeFileSync(renderIndexTopologyPath, `${JSON.stringify(changedTopology, null, 2)}\n`);
   assert.throws(
     () => topologyRendererModule.quickCheckRenderIndex({ topology: renderIndexTopologyPath, catalogRoot }),
-    /phase schedule inputs are stale.*execution_topology_manifest\.json changed.*run make phase-schedules/,
-    "quick phase-schedule drift must reject changed topology input by digest",
+    /generated topology inputs are stale.*execution_topology_manifest\.json changed.*run make generate/,
+    "quick generated-topology drift must reject changed topology input by digest",
   );
   writeFileSync(renderIndexTopologyPath, `${JSON.stringify(renderIndexTopology, null, 2)}\n`);
   const baselineFixture = JSON.parse(readFileSync(renderIndexBaselinePath, "utf8"));
@@ -1022,8 +1021,8 @@ for (const owner of verificationRegistry.owners) copyCatalogFile(owner.contract_
   writeFileSync(renderIndexBaselinePath, `${JSON.stringify(baselineFixture, null, 2)}\n`);
   assert.throws(
     () => topologyRendererModule.quickCheckRenderIndex({ topology: renderIndexTopologyPath, catalogRoot }),
-    /phase schedule inputs are stale.*service_backed_make_target_duration_baselines\.json changed.*run make phase-schedules/,
-    "quick phase-schedule drift must reject changed duration baselines by digest",
+    /generated topology inputs are stale.*service_backed_make_target_duration_baselines\.json changed.*run make generate/,
+    "quick generated-topology drift must reject changed duration baselines by digest",
   );
   copyFileSync(path.join(root, "tools/service_backed_make_target_duration_baselines.json"), renderIndexBaselinePath);
   const familyFixturePath = path.join(catalogRoot, catalogOwnerRegistry.owners[0].manifest_path);
@@ -1032,7 +1031,7 @@ for (const owner of verificationRegistry.owners) copyCatalogFile(owner.contract_
   writeFileSync(familyFixturePath, `${JSON.stringify(familyFixture, null, 2)}\n`);
   assert.throws(
     () => topologyRendererModule.quickCheckRenderIndex({ topology: renderIndexTopologyPath, catalogRoot }),
-    /phase schedule inputs are stale.*app\.operator\.json changed.*run make phase-schedules/,
+    /generated topology inputs are stale.*app\.operator\.json changed.*run make generate/,
     "quick topology drift must reject changed owner family manifests by digest",
   );
 }
@@ -1137,7 +1136,7 @@ assert.throws(
 );
 
 const duplicateOrderTopology = topologyFixture();
-duplicateOrderTopology.check_schedules.target_profiles["phase-schedule-drift"].order =
+duplicateOrderTopology.check_schedules.target_profiles["service-backed-unit-check"].order =
   0;
 assert.throws(
   () =>

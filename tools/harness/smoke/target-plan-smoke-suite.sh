@@ -128,24 +128,26 @@ cmp -s "$json_a" "$json_b" || fail "target-plan JSON must be deterministic acros
 
 if ! "$NODE_HELPER" - "$json_a" "$ROOT_DIR" <<'EOF'
 const fs = require("node:fs");
-const path = require("node:path");
-const [jsonPath, root] = process.argv.slice(2);
+const [jsonPath] = process.argv.slice(2);
 const rows = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
-const phase10 = JSON.parse(fs.readFileSync(path.join(root, "tools/phase10_test_map.json"), "utf8"));
-const expectedScenarioSymbols = phase10.e2e.find((entry) => entry.id === "E-10-01")?.scenario_symbols ?? {};
-const sortObject = (value) =>
-  Object.fromEntries(Object.entries(value ?? {}).sort(([left], [right]) => left.localeCompare(right)));
-const phase10Operator = rows.find((row) => row.manifest_phase === "phase10" && row.id === "E-10-01");
+const graphUnit = rows.find(
+  (row) =>
+    row.owner_id === "module.graphprojection" &&
+    row.id === "module.graphprojection.engine.canonical_behavior" &&
+    row.target === "backend-unit",
+);
+const graphStore = rows.find(
+  (row) =>
+    row.owner_id === "module.graphprojection" &&
+    row.id === "module.graphprojection.storage.lifecycle" &&
+    row.target === "backend-store",
+);
 if (
-  !phase10Operator ||
-  phase10Operator.primary_evidence_owner !== "E-10-01" ||
-  JSON.stringify(sortObject(phase10Operator.scenario_symbols)) !== JSON.stringify(sortObject(expectedScenarioSymbols))
+  !graphUnit ||
+  !graphStore ||
+  graphUnit.packages?.[0] !== "./internal/modules/graphprojection" ||
+  graphStore.fixture_policy?.postgres !== "transaction"
 ) {
-  process.exit(1);
-}
-const graphUnit = rows.find((row) => row.manifest_phase === "subsystem:graphprojection" && row.id === "GP-UNIT-001" && row.target === "backend-unit");
-const graphStore = rows.find((row) => row.manifest_phase === "subsystem:graphprojection" && row.id === "GP-STORE-001" && row.target === "backend-store");
-if (!graphUnit || !graphStore || graphUnit.packages?.[0] !== "./internal/modules/graphprojection" || graphStore.fixture_policy?.postgres !== "transaction") {
   process.exit(1);
 }
 const storeRows = rows.filter((row) => row.target === "backend-store");
@@ -175,7 +177,7 @@ if (!transactionRows.every((row) => Number.isInteger(row.fixture_budget?.postgre
 }
 EOF
 then
-  fail "target-plan JSON must expose scenario symbols and postgres fixture policies"
+  fail "target-plan JSON must expose semantic catalog identities and postgres fixture policies"
 fi
 fi
 
@@ -270,26 +272,26 @@ backend_process_shard_json="$tmp_dir/go-shard-plan-backend-process.json"
 "$NODE_HELPER" "$SHARD_PLAN_SCRIPT" --json --target backend-process >"$backend_process_shard_json"
 if ! "$NODE_HELPER" - "$backend_process_shard_json" "$ROOT_DIR" <<'EOF'
 const fs = require("node:fs");
-const path = require("node:path");
-const [jsonPath, root] = process.argv.slice(2);
+const [jsonPath] = process.argv.slice(2);
 const plan = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
-const phase10 = JSON.parse(fs.readFileSync(path.join(root, "tools/phase10_test_map.json"), "utf8"));
-const executionFamily = "backend-process-phase10-canonical-operator-recovery";
-const expectedScenarioSymbols = phase10.e2e.find((entry) => entry.id === "E-10-01")?.scenario_symbols ?? {};
-const phase10OperatorShards = plan.shards
+const executionFamily = "module.recovery.process";
+const recoveryShards = plan.shards
   .filter((shard) => shard.aggregate_name === executionFamily)
   .sort((left, right) => left.name.localeCompare(right.name));
-const actual = phase10OperatorShards
-  .flatMap((shard) => shard.items ?? [])
-  .map((item) => [item.scenario_id, item.symbol, item.primary_evidence_owner])
-  .sort(([left], [right]) => left.localeCompare(right));
-const expected = Object.entries(expectedScenarioSymbols)
-  .map(([scenarioID, symbol]) => [scenarioID, symbol, "E-10-01"])
-  .sort(([left], [right]) => left.localeCompare(right));
+const recoveryItems = recoveryShards.flatMap((shard) => shard.items ?? []);
+const expectedRows = [
+  "module.recovery.process.canonical_operator_process_evidence_maps_the_imp_9808fdd4e9",
+  "module.recovery.process.the_standalone_operator_initializes_the_configur_03834eb65a",
+];
+const actualRows = [...new Set(recoveryItems.map((item) => item.id))].sort();
 if (
-  JSON.stringify(actual) !== JSON.stringify(expected) ||
-  phase10OperatorShards.length >= expected.length ||
-  phase10OperatorShards.some(
+  JSON.stringify(actualRows) !== JSON.stringify(expectedRows) ||
+  recoveryItems.length !== 6 ||
+  recoveryItems.some(
+    (item) => item.primary_evidence_owner !== item.id || item.scenario_id !== ""
+  ) ||
+  recoveryShards.length >= recoveryItems.length ||
+  recoveryShards.some(
     (shard) =>
       shard.item_count < 1 ||
       shard.item_count > 8 ||
@@ -301,7 +303,7 @@ if (
 }
 EOF
 then
-  fail "backend-process go shard plan must batch phase10 E-10-01 deterministically with exact scenario evidence"
+  fail "backend-process go shard plan must batch semantic recovery rows deterministically with exact selector evidence"
 fi
 
 backend_store_shard_json="$tmp_dir/go-shard-plan-backend-store.json"
@@ -313,7 +315,7 @@ if (!plan.targets.includes("backend-store") || plan.shards.length === 0) {
   process.exit(1);
 }
 const items = plan.shards.flatMap((shard) => shard.items);
-const validPolicies = new Set(["template_clone", "transaction"]);
+const validPolicies = new Set(["template_clone", "package_reset", "migration_scratch", "transaction", "group_clone"]);
 if (items.length === 0 || !items.every((item) => item.kind === "authoritative" && validPolicies.has(item.postgres_fixture_policy))) {
   process.exit(1);
 }
@@ -346,9 +348,8 @@ if (( default_lines >= detail_lines )); then
 fi
 
 backend_store_detail="$("$NODE_HELPER" "$PLAN_SCRIPT" --detail --target backend-store)"
-for phase in phase1 phase2 phase3 phase4; do
-  assert_contains "$backend_store_detail" "$phase unit authoritative" "backend-store detailed target plan"
-done
+assert_contains "$backend_store_detail" "module.graphprojection.storage.lifecycle:" "backend-store detailed target plan"
+assert_contains "$backend_store_detail" "module.auth.store.one_route_matrix_proves_logout_password_change_t_728b4fb4df:" "backend-store detailed target plan"
 assert_contains "$backend_store_detail" "packages:" "backend-store detail packages"
 
 results_dir="$tmp_dir/results"
@@ -363,7 +364,7 @@ if [[ -d "$results_dir" ]] && [[ -n "$(find "$results_dir" -mindepth 1 -print -q
 fi
 
 make_rows_output="$("$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" explain-target TARGET=backend-store DETAIL=rows)"
-assert_contains "$make_rows_output" "phase1 unit authoritative" "make explain-target row mode"
+assert_contains "$make_rows_output" "module.graphprojection.storage.lifecycle:" "make explain-target row mode"
 
 make_target_plan_json="$tmp_dir/make-target-plan.json"
 "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" target-plan-json >"$make_target_plan_json"
