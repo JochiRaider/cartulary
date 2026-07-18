@@ -10,9 +10,9 @@
 | Baseline branch | `revision/grid-adapter` |
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
-| Tracker state | `CHECKPOINT` — WS-08 complete; WS-09 not activated |
-| Active start | Clean tree at `c134bc5f` |
-| Active tasks | None |
+| Tracker state | `IN_PROGRESS` — WS-09 public surface and finalizer |
+| Active start | Clean tree at `4f210ed4` |
+| Active tasks | T-039 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -495,7 +495,7 @@ WS-06 closure is recorded in `tools/delivery_identity_followup_ledger.json`. It 
 | WS-06 | Rename tests, symbols, fixtures, and goldens | DONE | WS-04, WS-05 | Semantic scan, visual digest report, and production follow-up closure ledger | Revert complete rename slices; no duplicate old/new tests. |
 | WS-07 | Replace slice, audit, schema, and artifact APIs | DONE | WS-03–WS-06 | Successor CLI contract/smoke tests | Revert the whole interface checkpoint before atomic cutover. |
 | WS-08 | Migrate browser stages and scheduler topology | DONE | WS-05, WS-07 | Owner-based DAG, lifecycle, and browser tests | Revert authored topology and generated outputs together. |
-| WS-09 | Update task surface, generation, finalization, and baselines | TODO | WS-07, WS-08 | Generated surface/drift and fresh baseline plan | Revert owner inputs plus regenerated outputs together. |
+| WS-09 | Update task surface, generation, finalization, and baselines | IN_PROGRESS | WS-07, WS-08 | Generated surface/drift and fresh baseline plan | Revert owner inputs plus regenerated outputs together. |
 | WS-10 | Atomic deletion and hard cutover | TODO | WS-02–WS-09 | Deletion manifest and zero-reference scans | Revert the entire cutover commit; never add shims. |
 | WS-11 | Focused and broad verification | TODO | WS-10 | Successful fresh run roots and audit summaries | Forward-fix or revert the full cutover; old evidence is invalid. |
 | WS-12 | Validate and finalize the stable post-cutover handoff | TODO | WS-11 | Authoritative retained-run evidence and handoff log | Reopen tracker if any closure invariant fails. |
@@ -724,7 +724,7 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-036 | Migrate browser stages/runtime profiles | WS-08 | DONE | T-027,T-032 | Catalog-derived v6 topology tests, exact Playwright adapter tests, schema/drift gates, and full stateful runtime/profile evidence | Selection derives from catalog resources. |
 | T-037 | Migrate scheduler DAG and lifecycle | WS-08 | DONE | T-036 | Shared owner/browser scheduler, deterministic digest, FIFO/dependency, timeout/cancellation/signal, finalizer, and failure-precedence tests | Phase ordering has no execution role. |
 | T-038 | Regenerate owner-first topology | WS-08 | DONE | T-037 | Catalog-first target plan, owner-input render index, generation/drift gates, and complete browser matrix | Authored and generated topology agree. |
-| T-039 | Cut task surface to successor targets | WS-09 | TODO | T-032,T-033,T-034 | Help/contract/smoke tests | Removed inputs fail and new targets work. |
+| T-039 | Cut task surface to successor targets | WS-09 | IN_PROGRESS | T-032,T-033,T-034 | Help/contract/smoke tests | Removed inputs fail and new targets work. |
 | T-040 | Fold schedule generation into standard targets | WS-09 | TODO | T-038 | Generate/generate-drift | No public schedule target remains. |
 | T-041 | Replace finalizer and duration baseline flow | WS-09 | TODO | T-034,T-038 | Finalizer tests and refresh plan | Owner summaries drive finalization. |
 | T-042 | Delete ledgers and ledger machinery | WS-10 | TODO | T-039,T-041 | Deletion manifest/zero scan | All 26 and every consumer are gone. |
@@ -1208,6 +1208,14 @@ Each entry must include:
 - Skipped checks: public task-surface retirement and ordinary generation ownership are T-039/T-040; finalizer, release-consumer, and semantic duration-baseline migration are T-041. Broad `make check`, release rehearsal, all-owner audit closure, and final performance evidence remain WS-11/WS-12.
 - Next safe task: create a tracker-only WS-09 activation checkpoint with T-039 as the sole active task, then generate the five public v2 commands and private catalog check from the task-surface owner. Do not begin T-040 or preserve handwritten transitional recipes concurrently.
 - Rollback boundary: revert the complete T-038 checkpoint to `c134bc5f`, including catalog target routing, Graph Projection profile correction, family runtime-binary ownership, catalog-first diagnostics/planning, renderer input ownership, permitted generated outputs, focused tests, Playwright snapshot-path contract, and tracker record. Never restore phase manifests as topology inputs or keep generated owner-first schedules with their authored inputs reverted.
+
+#### 2026-07-18 — WS-09 activation checkpoint
+
+- Branch/commit at start: `revision/grid-adapter` at clean WS-08 closure checkpoint `4f210ed4`. WS-09 is the only `IN_PROGRESS` workstream and T-039 is the sole active task; T-040 and T-041 remain `TODO`.
+- Active scope: make the task-surface owner generate the intended public v2 command family and private catalog check, remove handwritten transitional recipes and retired inputs, and prove help/usage/smoke behavior. This checkpoint does not activate standard generation folding, finalizer/release-consumer migration, or duration-baseline replacement assigned to T-040/T-041.
+- Prerequisites: owner slices, diagnostics, evidence audit, browser stages, generic scheduler lifecycle, and owner-first generated topology are clean and committed. Public task generation must expose those implementations directly; it may not add an alias, phase translation, fixed evidence-root input, or handwritten fallback.
+- Next safe task: T-039 only. Change the task-surface owner and generator to publish `test-slice`, `service-backed-test-slice`, `explain-test-owner`, `task-guide`, and `test-evidence-audit`, retain `test-catalog-check` as private, remove transitional public recipes/inputs, then checkpoint the tracker before T-040.
+- Rollback boundary: revert this tracker-only activation checkpoint to return to the clean WS-08 closure. Do not activate T-040 until the generated public surface and its focused contract/smoke evidence are committed.
 
 ## 17. First-resumer checklist
 
