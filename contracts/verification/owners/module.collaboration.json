@@ -1,0 +1,18 @@
+{
+  "schema_id": "cartulary.verification_contract.v1",
+  "owner_id": "module.collaboration",
+  "verifications": [
+    {
+      "verification_id": "module.collaboration.verification.behavior_contract",
+      "behavior_class": "product",
+      "profile": "base",
+      "requirement": "live collaboration, presence, conflict, and recovery postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
+      "evidence_kinds": [
+        "go_test",
+        "playwright",
+        "vitest"
+      ],
+      "status": "active"
+    }
+  ]
+}

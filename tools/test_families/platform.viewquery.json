@@ -1,0 +1,141 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "platform.viewquery",
+  "rows": [
+    {
+      "row_id": "platform.viewquery.browser.browser_exact_token_full_text_and_strict_prefix_55beeb13a5",
+      "owner_id": "platform.viewquery",
+      "family_id": "platform.viewquery.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "platform.viewquery.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase8.workbook.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_08519aefd1a5"
+        ],
+        "titles": [
+          "E-8-04 browser Notes full_text and prefix queries remain exact"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "platform.viewquery.browser.browser_timeline_sort_filter_and_group_reaches_a_165ffa9afd",
+      "owner_id": "platform.viewquery",
+      "family_id": "platform.viewquery.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "platform.viewquery.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase8.workbook.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_f49858a0432d"
+        ],
+        "titles": [
+          "E-8-03 browser Timeline sort, filter, and group controls submit stable query keys"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "platform.viewquery.frontend.grid_sort_filter_and_group_controls_send_only_st_63c9867421",
+      "owner_id": "platform.viewquery",
+      "family_id": "platform.viewquery.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "platform.viewquery.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase8.query.test.tsx",
+        "titles": [
+          "Phase 8 U-8-GRID-01 drops non-discovery keys before building query request bodies",
+          "Phase 8 U-8-GRID-01 emits stable schema keys for sort, filter, and group query controls",
+          "Phase 8 U-8-GRID-01 renders group headers as presentation-only rows"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "platform.viewquery.unit.sort_and_filter_ceilings_canonical_normalization_4ca84c1e10",
+      "owner_id": "platform.viewquery",
+      "family_id": "platform.viewquery.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.viewquery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/viewquery",
+        "tests": [
+          "TestPhase8_QueryNormalizationMeta_U_8_08"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "platform.viewquery.unit.view_query_filters_sort_and_group_by_accept_stab_0032c0a062",
+      "owner_id": "platform.viewquery",
+      "family_id": "platform.viewquery.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.viewquery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/viewquery",
+        "tests": [
+          "TestPhase8_StableFieldKeysOnly_U_8_06"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

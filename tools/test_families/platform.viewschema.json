@@ -1,0 +1,29 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "platform.viewschema",
+  "rows": [
+    {
+      "row_id": "platform.viewschema.unit.view_schema_discovery_exposes_exact_sorting_and_94fda0d98a",
+      "owner_id": "platform.viewschema",
+      "family_id": "platform.viewschema.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.viewschema.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/viewschema",
+        "tests": [
+          "TestPhase8_ViewSchemaDiscovery_U_8_09"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

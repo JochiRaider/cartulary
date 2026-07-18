@@ -1,0 +1,18 @@
+{
+  "schema_id": "cartulary.verification_contract.v1",
+  "owner_id": "platform.viewquery",
+  "verifications": [
+    {
+      "verification_id": "platform.viewquery.verification.behavior_contract",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "requirement": "view-query parsing and execution boundaries postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
+      "evidence_kinds": [
+        "go_test",
+        "playwright",
+        "vitest"
+      ],
+      "status": "active"
+    }
+  ]
+}

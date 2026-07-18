@@ -1,0 +1,164 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "module.savedviews",
+  "rows": [
+    {
+      "row_id": "module.savedviews.browser.the_browser_authenticated_public_saved_view_list_3ccd8d0d58",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase8.workbook.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_60428a3dde9b"
+        ],
+        "titles": [
+          "E-8-01 saved-view route foundation persists canonical state while browser lifecycle affordances remain pending"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.savedviews.browser_stateful.browser_saved_view_query_layout_state_user_home_cb9c681674",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase8.workbook.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "scenario_8b50a0edbc62"
+        ],
+        "titles": [
+          "E-8-05 verifies saved-view persistence, default/startup surface persistence, and query replay through /api/v1/ after reload"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.savedviews.integration.saved_view_create_update_duplicate_and_delete_pe_5f93d857d3",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/savedviews",
+        "tests": [
+          "TestPhase8_SavedViewLifecyclePersistence_I_8_01"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.savedviews.store.ordinary_saved_view_create_defaults_omitted_scop_c2e245f7d7",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/savedviews",
+        "tests": [
+          "TestPhase8_SavedViewCreateDefaults_U_8_02",
+          "TestPhase8_SavedViewCreateEvolvesAdditiveHiddenFields_U_8_02",
+          "TestPhase8_SavedViewOpenAPICreateInputIsLenient_U_8_02",
+          "TestPhase8_SavedViewSystemFixtureRouteUnavailableByDefault_U_8_02",
+          "TestPhase8_SavedViewSystemFixtureRoute_U_8_02"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.savedviews.store.ordinary_saved_view_patch_enforces_the_mutable_f_9554a5d90f",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/savedviews",
+        "tests": [
+          "TestPhase8_SavedViewPatchContract_U_8_04"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.savedviews.unit.saved_view_scope_vocabulary_is_exactly_private_s_aa8991ad84",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/savedviews",
+        "tests": [
+          "TestPhase8_SavedViewScopeVocabulary_U_8_03"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

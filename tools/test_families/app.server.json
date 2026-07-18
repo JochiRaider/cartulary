@@ -316,6 +316,29 @@
       "status": "active"
     },
     {
+      "row_id": "app.server.process.the_standalone_server_process_can_create_evidenc_4ca93ab308",
+      "owner_id": "app.server",
+      "family_id": "app.server.process",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/serverprocess",
+        "tests": [
+          "TestPhase5_EvidenceUploadAttachProjection_E_5_SMOKE_01_ProcessSmoke"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "app.server.support_unit.server_runner_writes_diagnostics_and_returns_fai_1f2addc1fd",
       "owner_id": "app.server",
       "family_id": "app.server.support_unit",

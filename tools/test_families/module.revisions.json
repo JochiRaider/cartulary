@@ -1,0 +1,486 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "module.revisions",
+  "rows": [
+    {
+      "row_id": "module.revisions.browser.invokes_a_server_supplied_change_set_action_from_a29cde1d94",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase7.history.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_76e6eb6120a5"
+        ],
+        "titles": [
+          "E-7-05 rolls back a merge change set from row history"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.revisions.browser.invokes_a_server_supplied_row_restore_action_fro_99dd1b9c66",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase7.history.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_4af12debc37a"
+        ],
+        "titles": [
+          "E-7-04 whole-row restore appends a new attributed revision"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.revisions.browser.opens_row_history_from_the_selected_timeline_wor_c86aac9897",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase7.history.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_c15441519d46"
+        ],
+        "titles": [
+          "E-7-01 opens row history from the workbook surface with legal rollback actions"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.revisions.browser.soft_deletes_and_restores_a_timeline_row_from_wo_e482d20c32",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase7.history.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_c92538e96508"
+        ],
+        "titles": [
+          "E-7-03 soft-deletes and restores a row with tombstone concurrency"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.revisions.browser.uses_a_server_supplied_history_entry_ref_from_ro_109056553a",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase7.history.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_420ccbb4d88e"
+        ],
+        "titles": [
+          "E-7-02 rolls back one attached-evidence mutation without reverting later unrelated edits"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.revisions.integration.covers_delete_restore_single_entry_rollback_dire_b348439e6d",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestPhase7_DeleteRestoreRollbackAtomicConsequences_I_7_01"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.revisions.integration.covers_stale_restore_plus_stale_or_non_reversibl_637111e642",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestPhase7_StaleRestoreRollbackFailsClosed_I_7_03"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.revisions.integration.history_pagination_remains_bound_to_record_id_re_a92fcdb263",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestPhase7_HistoryPaginationRecordBinding_I_7_02"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.revisions.integration.indicator_observation_create_and_resolution_targ_6249c556e2",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestPhase7_IndicatorChildHistoryRollback_I_7_06"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.revisions.integration.merge_aware_change_set_rollback_restores_survivo_130bd55b07",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestPhase7_MergeChangeSetRollback_I_7_05"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.revisions.integration.retained_history_evidence_for_an_extant_record_r_b590f9c4b1",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestPhase7_RetainedHistoryAcrossRestartAndClosure_I_7_04"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.revisions.store.covers_rollback_route_admission_derived_rollback_c6c889199c",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestPhase7_RollbackSelectorUnion_U_7_05"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.revisions.store.covers_shared_destructive_operation_lock_precede_02f3fc18c4",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestPhase7_DestructiveOperationLocks_U_7_06"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.revisions.store.covers_the_first_class_record_soft_delete_route_30cb39b83e",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestPhase7_DeleteRestoreAdapterMatrix_U_7_03_U_7_04",
+          "TestPhase7_SoftDeleteRoutePreconditions_U_7_03"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.revisions.store.covers_the_restore_route_contract_reviewer_admin_a2df5bc94d",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestPhase7_RestoreTombstonePreconditions_U_7_04"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.revisions.store.get_api_v1_records_record_id_history_returns_the_6962b381cc",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestPhase7_RecordHistoryEnvelope_U_7_01",
+          "TestPhase7_RecordHistoryOpenAPIContract_U_7_01"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.revisions.store.history_entry_ref_is_present_only_for_a_logical_5f0060122a",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestPhase7_HistoryEntryRefStability_U_7_02"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.revisions.store.retained_history_invariants_for_extant_records_r_b40fb75124",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestPhase7_RetainedHistoryInvariants_U_7_07"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.revisions.support_unit.conflict_token_codec_round_trips_and_rejects_tam_b42338f5fa",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions/conflicttokens",
+        "tests": [
+          "TestSupportPhase6_ConflictTokenCodecRejectsInvalidClaims",
+          "TestSupportPhase6_ConflictTokenCodecRoundTripsAndRejectsTampering"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

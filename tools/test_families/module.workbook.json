@@ -3,6 +3,37 @@
   "owner_id": "module.workbook",
   "rows": [
     {
+      "row_id": "module.workbook.browser.browser_startup_honors_explicit_sheet_home_defau_ee3b02ee01",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase8.workbook.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_778d73d03d30"
+        ],
+        "titles": [
+          "E-8-02 workbook startup falls back to Timeline for an unsupported explicit sheet"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.workbook.browser.the_browser_workbook_exercises_parties_notes_tas_8ca985fff2",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.browser",
@@ -30,6 +61,37 @@
       "resource_profile_id": "browser_exclusive",
       "fixture_profile_id": "service_stack",
       "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.browser_support.verify_browser_command_helpers_for_sort_filter_g_cfa68b33e4",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser_support",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase8.workbook.support.spec.ts",
+        "project_id": "chromium",
+        "stage": "support",
+        "scenario_ids": [
+          "scenario_e13e94f34a49"
+        ],
+        "titles": [
+          "FE-B-P8-01 Verify browser command helpers for sort, filter, group, active chips, layout persistence, group expand-collapse, and startup/default surface UI."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
       "claim_posture": "implementation",
       "status": "active"
     },
@@ -107,6 +169,29 @@
       "status": "active"
     },
     {
+      "row_id": "module.workbook.integration.concurrent_edits_to_different_fields_succeed_wit_c3f74ce361",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestPhase6_ConcurrentEditsResolverPath_I_6_03"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.workbook.integration.coordination_collection_fields_round_trip_typed_9c30c3f538",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.integration",
@@ -119,6 +204,55 @@
         "package": "./internal/modules/workbook",
         "tests": [
           "TestPhase4_CoordinationCollections_I_4_COORD_02"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.integration.cursor_pagination_re_derives_live_authorization_2d2231384b",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestPhase8_CursorContinuationRechecksAuthorization_I_8_04",
+          "TestPhase8_CursorContinuationRechecksMembership_I_8_04",
+          "TestPhase8_LiveAuthorizedCursorPagination_I_8_04"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.integration.full_row_and_sparse_patch_wire_families_preserve_32a4ab3be1",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestPhase8_RecordChangedSparsePatchPayloads_U_8_10_AC368",
+          "TestPhase8_RowWireFamilies_U_8_10"
         ]
       },
       "evidence_class": "integration",
@@ -176,6 +310,30 @@
       "status": "active"
     },
     {
+      "row_id": "module.workbook.integration.startup_selection_fallback_behaves_correctly_acr_081544c048",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestPhase8_WorkbookStartupBaseSurfaceDoesNotRequireSavedView_I_8_02",
+          "TestPhase8_WorkbookStartupFallback_I_8_02"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.workbook.integration.the_parties_system_view_is_discoverable_as_a_bas_7c96f60552",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.integration",
@@ -195,6 +353,192 @@
       "resource_profile_id": "go_clone_heavy",
       "fixture_profile_id": "postgres_template_clone",
       "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.store.collection_review_fields_use_collection_value_v1_4efe5fcdae",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestPhase6_CollectionReviewRouteResolve_U_6_04"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.store.every_grid_write_is_anchored_to_the_route_bound_3926ec3df4",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestPhase6_GridWriteConcurrencyRoute_U_6_01"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.store.keep_saved_clears_the_conflict_without_creating_c65a9c3099",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestPhase6_ConflictResolveDurability_U_6_06"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.store.same_field_conflict_transport_uses_409_error_cod_4447ac22bf",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestPhase6_SameFieldConflictHTTP_U_6_02"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.store.text_compare_merge_treats_the_field_as_plain_tex_977f9eb56f",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestPhase6_TextCompareMergeDurability_U_6_03"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.store.workbook_preference_routes_keep_home_sheet_ref_a_72ab108a31",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestPhase8_WorkbookPreferencePointers_U_8_05"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.support_integration.integration_notes_full_text_exact_search_ac185_ed48fdeae3",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.support_integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestSupportPhase8Integration_NotesFullTextExactSearch_AC185",
+          "TestSupportPhase8Integration_PrefixAndNullLastOrdering"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.support_integration.shared_harness_workbook_route_inventory_coverage_3ec58ba4dc",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.support_integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestSupportPhase6SharedHarness_WorkbookRouteConformance",
+          "TestSupportPhase6SharedHarness_WorkbookRouteInventoryCoverage"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
       "claim_posture": "implementation",
       "status": "active"
     },
@@ -242,6 +586,29 @@
       "resource_profile_id": "go_balanced",
       "fixture_profile_id": "none",
       "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.unit.timeline_grouping_permits_only_the_declared_whit_6db1021961",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestPhase8_TimelineGroupingAndWorkbookPresentationOnly_U_8_07"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
       "claim_posture": "implementation",
       "status": "active"
     },

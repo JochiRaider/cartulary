@@ -27,6 +27,11 @@
       "status": "active"
     },
     {
+      "owner_id": "module.collaboration",
+      "manifest_path": "tools/test_families/module.collaboration.json",
+      "status": "active"
+    },
+    {
       "owner_id": "module.entities",
       "manifest_path": "tools/test_families/module.entities.json",
       "status": "active"
@@ -52,8 +57,23 @@
       "status": "active"
     },
     {
+      "owner_id": "module.links",
+      "manifest_path": "tools/test_families/module.links.json",
+      "status": "active"
+    },
+    {
       "owner_id": "module.recovery",
       "manifest_path": "tools/test_families/module.recovery.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.revisions",
+      "manifest_path": "tools/test_families/module.revisions.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.savedviews",
+      "manifest_path": "tools/test_families/module.savedviews.json",
       "status": "active"
     },
     {
@@ -114,6 +134,21 @@
     {
       "owner_id": "platform.postgres",
       "manifest_path": "tools/test_families/platform.postgres.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.viewquery",
+      "manifest_path": "tools/test_families/platform.viewquery.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.viewschema",
+      "manifest_path": "tools/test_families/platform.viewschema.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.ws",
+      "manifest_path": "tools/test_families/platform.ws.json",
       "status": "active"
     },
     {

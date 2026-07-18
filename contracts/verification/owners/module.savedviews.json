@@ -1,0 +1,18 @@
+{
+  "schema_id": "cartulary.verification_contract.v1",
+  "owner_id": "module.savedviews",
+  "verifications": [
+    {
+      "verification_id": "module.savedviews.verification.behavior_contract",
+      "behavior_class": "product",
+      "profile": "base",
+      "requirement": "saved views, query state, and startup selection postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
+      "evidence_kinds": [
+        "go_test",
+        "playwright",
+        "vitest"
+      ],
+      "status": "active"
+    }
+  ]
+}

@@ -77,94 +77,6 @@
     },
     {
       "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "E-5-01"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "E-5-02"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "E-5-03"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "E-5-04"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "E-5-05"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "E-5-SMOKE-01"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "E-6-01"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "E-6-02"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "E-6-03"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "E-6-04"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "E-6-05"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "E-7-01"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "E-7-02"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "E-7-03"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "E-7-04"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "E-7-05"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "E-8-01"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "E-8-02"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "E-8-03"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "E-8-04"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "E-8-05"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "E-8-SUPPORT-01"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
       "legacy_row_id": "E-9-01"
     },
     {
@@ -645,90 +557,6 @@
     },
     {
       "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "I-5-01"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "I-5-02"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "I-5-03"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "I-5-04"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "I-5-05"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "I-5-06"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "I-5-07"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "I-6-01"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "I-6-02"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "I-6-03"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "I-6-04"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "I-7-01"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "I-7-02"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "I-7-03"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "I-7-04"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "I-7-05"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "I-7-06"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "I-8-01"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "I-8-02"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "I-8-03"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "I-8-04"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
       "legacy_row_id": "I-9-01"
     },
     {
@@ -949,158 +777,6 @@
     },
     {
       "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-5-01"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-5-02"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-5-03"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-5-04"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-5-05"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-5-06"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-5-07"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-5-08"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-5-09"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-5-10"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-5-11"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-6-01"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-6-02"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-6-03"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-6-04"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-6-05"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-6-06"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-6-07"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-6-08"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-6-09"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-7-01"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-7-02"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-7-03"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-7-04"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-7-05"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-7-06"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-7-07"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-8-01"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-8-02"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-8-03"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-8-04"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-8-05"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-8-06"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-8-07"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-8-08"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-8-09"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-8-10"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "U-8-GRID-01"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
       "legacy_row_id": "U-9-01"
     },
     {
@@ -1154,26 +830,6 @@
     {
       "source_registry_id": "backend_phase_maps",
       "legacy_row_id": "U-9-GRID-01"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "V-5-GRID-01"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "V-5-GRID-02"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "V-6-GRID-01"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "V-6-GRID-02"
-    },
-    {
-      "source_registry_id": "backend_phase_maps",
-      "legacy_row_id": "V-6-GRID-03"
     },
     {
       "source_registry_id": "frontend_phase_maps",
@@ -2400,6 +2056,465 @@
     },
     {
       "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "E-5-01",
+      "disposition": "migrated",
+      "owner_id": "module.evidence",
+      "row_id": "module.evidence.browser.an_analyst_attaches_a_screenshot_to_a_selected_t_4568508c1b",
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "review": {
+        "governing_owner": "module.evidence",
+        "governing_requirement": "An analyst attaches a screenshot to a selected Timeline row without leaving the workbook surface, and the row reflects the new evidence count after commit.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "E-5-02",
+      "disposition": "migrated",
+      "owner_id": "module.evidence",
+      "row_id": "module.evidence.browser.a_screenshot_only_timeline_row_can_be_persisted_d7d7f91ff4",
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "review": {
+        "governing_owner": "module.evidence",
+        "governing_requirement": "A screenshot-only Timeline row can be persisted through the two-step evidence path.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "E-5-03",
+      "disposition": "migrated",
+      "owner_id": "module.evidence",
+      "row_id": "module.evidence.browser.an_inline_safe_type_receives_a_preview_handle_an_076fefa625",
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "review": {
+        "governing_owner": "module.evidence",
+        "governing_requirement": "An inline-safe type receives a preview handle and renders through the same-origin redeem path, while unsupported or unsafe types return an explicit blocked-preview outcome.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "E-5-04",
+      "disposition": "migrated",
+      "owner_id": "module.evidence",
+      "row_id": "module.evidence.browser.requested_evidence_can_be_tracked_before_the_blo_6a619b85fd",
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "review": {
+        "governing_owner": "module.evidence",
+        "governing_requirement": "Requested evidence can be tracked before the blob exists, linked to a Timeline row without counting unavailable content, advanced to an available counted state, and preserved across Evidence and Timeline workbook pivots.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "E-5-05",
+      "disposition": "migrated",
+      "owner_id": "module.evidence",
+      "row_id": "module.evidence.browser.a_second_live_workbook_session_receives_the_real_194cba3dfb",
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "review": {
+        "governing_owner": "module.evidence",
+        "governing_requirement": "A second live workbook session receives the real `/ws/v1/incidents/{incident_id}` evidence attach event and refreshes Timeline evidence count and flags without navigation.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "E-5-SMOKE-01",
+      "disposition": "migrated",
+      "owner_id": "app.server",
+      "row_id": "app.server.process.the_standalone_server_process_can_create_evidenc_4ca93ab308",
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "app.server",
+        "governing_requirement": "The standalone server process can create evidence, create and upload an object blob, attach it, read workbook projection consequences, and fail closed for requested evidence with no blob.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "E-6-01",
+      "disposition": "migrated",
+      "owner_id": "module.collaboration",
+      "row_id": "module.collaboration.browser.two_analysts_on_the_same_incident_see_each_other_d099712cac",
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.collaboration"
+      ],
+      "review": {
+        "governing_owner": "module.collaboration",
+        "governing_requirement": "Two analysts on the same incident see each other's presence on the workbook surface within the expected interaction window after both browser sockets have reached the accepted `hello_ack` state, with the browser row retaining a timing artifact for the 1-second presence validation.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase6_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "E-6-02",
+      "disposition": "migrated",
+      "owner_id": "module.collaboration",
+      "row_id": "module.collaboration.browser.concurrent_edits_to_different_fields_on_the_same_7ee5cad0ab",
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.collaboration"
+      ],
+      "review": {
+        "governing_owner": "module.collaboration",
+        "governing_requirement": "Concurrent edits to different fields on the same row auto-merge, while concurrent edits to the same field open the same-surface resolver and require explicit analyst resolution.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase6_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "E-6-03",
+      "disposition": "migrated",
+      "owner_id": "module.collaboration",
+      "row_id": "module.collaboration.browser_stateful.deterministic_route_owned_browser_revocation_sou_a134c3e26b",
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.collaboration"
+      ],
+      "review": {
+        "governing_owner": "module.collaboration",
+        "governing_requirement": "Deterministic route-owned browser revocation sources, including admin revoke-all, current-session logout, and shared-clock idle expiry, emit `session_revoked` on an established browser socket, close that socket, and preserve unsaved local work for explicit recovery and FIFO replay after re-authentication.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase6_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "E-6-04",
+      "disposition": "migrated",
+      "owner_id": "module.collaboration",
+      "row_id": "module.collaboration.browser.live_updates_never_retarget_pending_local_edits_11699e9b2d",
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.collaboration"
+      ],
+      "review": {
+        "governing_owner": "module.collaboration",
+        "governing_requirement": "Live updates never retarget pending local edits from implemented browser command surfaces, same-field conflict markers, row-gutter presence markers, or same-cell presence markers away from the bound `record_id` and `field_key` during sorting, filtering, grouping, virtual scrolling, or live row patch.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase6_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "E-6-05",
+      "disposition": "migrated",
+      "owner_id": "module.collaboration",
+      "row_id": "module.collaboration.browser.within_one_browser_runtime_queued_unsent_writes_3efbd48054",
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.collaboration"
+      ],
+      "review": {
+        "governing_owner": "module.collaboration",
+        "governing_requirement": "Within one browser runtime, queued unsent writes survive transient transport loss, real HTTP auth failure, or session revocation; replay in FIFO order after recovery or re-authentication; halt on the first real same-field conflict without applying later queued writes; and are never silently restored after a full reload.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase6_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "E-7-01",
+      "disposition": "migrated",
+      "owner_id": "module.revisions",
+      "row_id": "module.revisions.browser.opens_row_history_from_the_selected_timeline_wor_c86aac9897",
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "review": {
+        "governing_owner": "module.revisions",
+        "governing_requirement": "Sprint 5 opens row history from the selected Timeline workbook row and renders actor, timestamp, operation, diff summary, and legal action controls from server-owned history metadata.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase7_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "E-7-02",
+      "disposition": "migrated",
+      "owner_id": "module.revisions",
+      "row_id": "module.revisions.browser.uses_a_server_supplied_history_entry_ref_from_ro_109056553a",
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "review": {
+        "governing_owner": "module.revisions",
+        "governing_requirement": "Sprint 5 uses a server-supplied `history_entry_ref` from row history to roll back an attached-evidence record-link mutation, proves another client observes an ordinary `record_changed` `invalidate` event for the affected Timeline view, and proves a later unrelated row summary edit remains intact.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase7_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "E-7-03",
+      "disposition": "migrated",
+      "owner_id": "module.revisions",
+      "row_id": "module.revisions.browser.soft_deletes_and_restores_a_timeline_row_from_wo_e482d20c32",
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "review": {
+        "governing_owner": "module.revisions",
+        "governing_requirement": "Sprint 5 soft-deletes and restores a Timeline row from workbook history controls using current and tombstone row versions, while another client observes ordinary `record_changed` `remove` and `invalidate` collaboration messages.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase7_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "E-7-04",
+      "disposition": "migrated",
+      "owner_id": "module.revisions",
+      "row_id": "module.revisions.browser.invokes_a_server_supplied_row_restore_action_fro_99dd1b9c66",
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "review": {
+        "governing_owner": "module.revisions",
+        "governing_requirement": "Sprint 5 invokes a server-supplied `row_restore` action from row history, proves the rollback request uses only `restore_to_revision_no`, verifies the visible Timeline summary returns to the selected historical snapshot, and confirms prior history remains visible after the new attributed revision with actor attribution and timestamp metadata.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase7_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "E-7-05",
+      "disposition": "migrated",
+      "owner_id": "module.revisions",
+      "row_id": "module.revisions.browser.invokes_a_server_supplied_change_set_action_from_a29cde1d94",
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "review": {
+        "governing_owner": "module.revisions",
+        "governing_requirement": "Sprint 5 invokes a server-supplied `change_set` action from survivor host row history after a merge, sends the rollback request through the existing rollback route without an unmerge API, and verifies survivor and loser host rows return to the workbook surface.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase7_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "E-8-01",
+      "disposition": "migrated",
+      "owner_id": "module.savedviews",
+      "row_id": "module.savedviews.browser.the_browser_authenticated_public_saved_view_list_3ccd8d0d58",
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "module.savedviews",
+        "governing_requirement": "The browser-authenticated public saved-view list/create route foundation exists and persists canonical state; full browser lifecycle affordances remain pending.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase8_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "E-8-02",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.browser.browser_startup_honors_explicit_sheet_home_defau_ee3b02ee01",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "Browser startup honors explicit sheet, home, default, and Timeline fallback while clearing invalid pointers.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase8_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "E-8-03",
+      "disposition": "migrated",
+      "owner_id": "platform.viewquery",
+      "row_id": "platform.viewquery.browser.browser_timeline_sort_filter_and_group_reaches_a_165ffa9afd",
+      "verification_ids": [
+        "platform.viewquery.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "platform.viewquery",
+        "governing_requirement": "Browser Timeline sort, filter, and group reaches a stable viewport and deterministic grouping with no writable header rows.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase8_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "E-8-04",
+      "disposition": "migrated",
+      "owner_id": "platform.viewquery",
+      "row_id": "platform.viewquery.browser.browser_exact_token_full_text_and_strict_prefix_55beeb13a5",
+      "verification_ids": [
+        "platform.viewquery.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "platform.viewquery",
+        "governing_requirement": "Browser exact-token full_text and strict prefix behavior do not degrade to fuzzy or relevance-ranked search.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase8_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "E-8-05",
+      "disposition": "migrated",
+      "owner_id": "module.savedviews",
+      "row_id": "module.savedviews.browser_stateful.browser_saved_view_query_layout_state_user_home_cb9c681674",
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "module.savedviews",
+        "governing_requirement": "Browser saved-view query/layout state, user home and incident default sheet preferences, startup selection, and reload query replay persist through public /api/v1 routes.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase8_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "E-8-SUPPORT-01",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.browser_support.verify_browser_command_helpers_for_sort_filter_g_cfa68b33e4",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "Exact executable postconditions retained from E-8-SUPPORT-01",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase8_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
       "legacy_row_id": "I-0-01",
       "disposition": "migrated",
       "owner_id": "platform.postgres",
@@ -3116,6 +3231,384 @@
         "governing_requirement": "The Parties system view is discoverable as a base-profile system view, fetchable by singleton schema route, incident-scoped in query behavior, rejects incomplete creates without partial state, and creates normalized party rows with authoritative replay/history conformance.",
         "review_revision": "212b88e15c95",
         "owner_review_evidence": "WS-04 tools/phase4_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "I-5-01",
+      "disposition": "migrated",
+      "owner_id": "module.evidence",
+      "row_id": "module.evidence.integration.a_real_object_store_upload_can_be_created_throug_9924ede0b0",
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.evidence",
+        "governing_requirement": "A real object-store upload can be created through a blob slot, finalized onto an evidence record, linked to Timeline through the workbook mutation route, and queried through the workbook projection without duplicate attachment rows or links.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "I-5-02",
+      "disposition": "migrated",
+      "owner_id": "module.evidence",
+      "row_id": "module.evidence.integration.expired_slot_replay_returns_the_same_expired_slo_6d29ac9f3a",
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.evidence",
+        "governing_requirement": "Expired-slot replay returns the same expired slot, while a fresh upload target requires a new `client_txn_id`.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "I-5-03",
+      "disposition": "migrated",
+      "owner_id": "module.evidence",
+      "row_id": "module.evidence.integration.a_redeemed_preview_or_download_handle_fails_clos_cbb006eb24",
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.evidence",
+        "governing_requirement": "A redeemed preview or download handle fails closed after logout, membership removal, or evidence/blob state invalidation.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "I-5-04",
+      "disposition": "migrated",
+      "owner_id": "module.evidence",
+      "row_id": "module.evidence.integration.when_quarantine_or_scanning_state_is_present_two_2616373ab6",
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.evidence",
+        "governing_requirement": "When quarantine or scanning state is present, two-step attach semantics remain intact and preview never bypasses the quarantine boundary.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "I-5-05",
+      "disposition": "migrated",
+      "owner_id": "module.evidence",
+      "row_id": "module.evidence.integration.attach_route_validation_authorization_route_owne_7567e19cd9",
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.evidence",
+        "governing_requirement": "Attach route validation, authorization, route-owned error envelopes, and divergent replay rejection occur through the real HTTP surface before object observation mutates state.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "I-5-06",
+      "disposition": "migrated",
+      "owner_id": "module.evidence",
+      "row_id": "module.evidence.integration.attached_evidence_projection_storage_can_be_corr_933714dcfe",
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.evidence",
+        "governing_requirement": "Attached-evidence projection storage can be corrupted and deterministically rebuilt from source without mutating source rows, links, or history, while the public workbook surface preserves correct evidence state.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "I-5-07",
+      "disposition": "migrated",
+      "owner_id": "module.evidence",
+      "row_id": "module.evidence.integration.a_successful_evidence_attach_publishes_canonical_d63a42e346",
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.evidence",
+        "governing_requirement": "A successful evidence attach publishes canonical `record_changed` messages for the Evidence row and affected Timeline evidence projection through the real incident WebSocket emitter.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "I-6-01",
+      "disposition": "migrated",
+      "owner_id": "module.collaboration",
+      "row_id": "module.collaboration.integration.two_real_clients_connect_to_the_same_incident_so_257bcc588c",
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.collaboration",
+        "governing_requirement": "Two real clients connect to the same incident socket, exchange presence snapshots and deltas, and observe deterministic replay ordering within the replay window.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase6_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "I-6-02",
+      "disposition": "migrated",
+      "owner_id": "module.collaboration",
+      "row_id": "module.collaboration.integration.resume_with_a_valid_replay_token_replays_replaya_1826b38095",
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.collaboration",
+        "governing_requirement": "Resume with a valid replay token replays replayable messages only, while presence is rehydrated through the documented presence flow rather than replay.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase6_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "I-6-03",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.integration.concurrent_edits_to_different_fields_succeed_wit_c3f74ce361",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "Concurrent edits to different fields succeed without operator intervention, while concurrent edits to the same field produce the resolver path and preserve both saved and local drafts correctly.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase6_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "I-6-04",
+      "disposition": "migrated",
+      "owner_id": "module.collaboration",
+      "row_id": "module.collaboration.integration.cookie_authenticated_browser_socket_upgrades_rej_73faec66da",
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.collaboration",
+        "governing_requirement": "Cookie-authenticated browser socket upgrades reject untrusted `Origin` values before incident subscription is granted.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase6_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "I-7-01",
+      "disposition": "migrated",
+      "owner_id": "module.revisions",
+      "row_id": "module.revisions.integration.covers_delete_restore_single_entry_rollback_dire_b348439e6d",
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.revisions",
+        "governing_requirement": "Sprint 4 covers delete, restore, single-entry rollback, direct attached-evidence create/delete association rollback, executable whole-change-set rollback for reversible non-merge substrate, and whole-row restore across source rows, projections, history rows, record revisions, affected_record_ids, and ordinary record_changed collaboration events.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase7_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "I-7-02",
+      "disposition": "migrated",
+      "owner_id": "module.revisions",
+      "row_id": "module.revisions.integration.history_pagination_remains_bound_to_record_id_re_a92fcdb263",
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.revisions",
+        "governing_requirement": "History pagination remains bound to `record_id`, rejects cross-record cursor replay, and preserves deterministic item ordering across pages.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase7_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "I-7-03",
+      "disposition": "migrated",
+      "owner_id": "module.revisions",
+      "row_id": "module.revisions.integration.covers_stale_restore_plus_stale_or_non_reversibl_637111e642",
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.revisions",
+        "governing_requirement": "Sprint 4 covers stale restore plus stale or non-reversible single-entry, whole-change-set, and row-restore rollback failure as closed transactions: no envelope/source state, projection, history, idempotency, or collaboration event changes.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase7_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "I-7-04",
+      "disposition": "migrated",
+      "owner_id": "module.revisions",
+      "row_id": "module.revisions.integration.retained_history_evidence_for_an_extant_record_r_b590f9c4b1",
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.revisions",
+        "governing_requirement": "Sprint 4 retained-history evidence for an extant record remains fully paginatable and stable across the explicit restart, incident-closure, and later-change sequence covered by this test, with prior `history_entry_ref` values preserved.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase7_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "I-7-05",
+      "disposition": "migrated",
+      "owner_id": "module.revisions",
+      "row_id": "module.revisions.integration.merge_aware_change_set_rollback_restores_survivo_130bd55b07",
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.revisions",
+        "governing_requirement": "Merge-aware change-set rollback restores survivor and loser entity rows, carried aliases and preserved identifiers, repointed or deduped mentions, links, tags, assessments, projections, canonical affected records, append-only rollback history, idempotent replay, and stale base-version failure through the existing rollback route.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase7_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "I-7-06",
+      "disposition": "migrated",
+      "owner_id": "module.revisions",
+      "row_id": "module.revisions.integration.indicator_observation_create_and_resolution_targ_6249c556e2",
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.revisions",
+        "governing_requirement": "Indicator observation create and resolution targets plus lifecycle-interval create targets are visible from every affected row history, expose stable server-owned single-entry selectors, reverse through the existing rollback route, retain versioned child tombstones or exact prior resolution state, exclude tombstones from active projections, advance every affected record envelope, append inverse history and record revisions, and publish ordinary record_changed events.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase7_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "I-8-01",
+      "disposition": "migrated",
+      "owner_id": "module.savedviews",
+      "row_id": "module.savedviews.integration.saved_view_create_update_duplicate_and_delete_pe_5f93d857d3",
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.savedviews",
+        "governing_requirement": "Saved-view create, update, duplicate, and delete persist normalized state and authorization consequences in the database.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase8_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "I-8-02",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.integration.startup_selection_fallback_behaves_correctly_acr_081544c048",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "Startup selection fallback behaves correctly across valid, missing, hidden, and invalid saved-view refs.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase8_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "I-8-03",
+      "disposition": "migrated",
+      "owner_id": "module.links",
+      "row_id": "module.links.integration.link_and_tag_mutations_atomically_update_project_03f8283906",
+      "verification_ids": [
+        "module.links.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.links",
+        "governing_requirement": "Link and tag mutations atomically update projections, history, and view-query results.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase8_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "I-8-04",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.integration.cursor_pagination_re_derives_live_authorization_2d2231384b",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "Cursor pagination re-derives live authorization, rejects tampering, returns fetch-time payloads, and lets fresh queries evaluate live state.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase8_test_map.json owner-slice adjudication"
       }
     },
     {
@@ -4488,6 +4981,698 @@
     },
     {
       "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-5-01",
+      "disposition": "migrated",
+      "owner_id": "module.evidence",
+      "row_id": "module.evidence.store.post_api_v1_object_blobs_enforces_required_field_6c09c04c66",
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.evidence",
+        "governing_requirement": "`POST /api/v1/object-blobs` enforces required fields, malformed and unknown-member rejection, auth and membership denial, normalized success envelopes, expiry fields, upload targets, and no durable state for rejected requests.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-5-02",
+      "disposition": "migrated",
+      "owner_id": "module.evidence",
+      "row_id": "module.evidence.store.blob_create_idempotency_is_keyed_by_actor_user_i_f161d12732",
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.evidence",
+        "governing_requirement": "Blob-create idempotency is keyed by `(actor_user_id, incident_id, client_txn_id)`, replays the same normalized request to the original slot, and rejects divergent replay with the route-owned conflict.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-5-03",
+      "disposition": "migrated",
+      "owner_id": "module.evidence",
+      "row_id": "module.evidence.store.post_api_v1_evidence_records_record_id_attach_bl_14293e0ccf",
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.evidence",
+        "governing_requirement": "`POST /api/v1/evidence-records/{record_id}/attach-blob` requires `object_blob_id`, `base_row_version`, and `client_txn_id`; the store rejects divergent attach replay and fails closed for pending, failed, missing, expired, incident-mismatched, or contract-mismatched blobs.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-5-04",
+      "disposition": "migrated",
+      "owner_id": "module.evidence",
+      "row_id": "module.evidence.store.evidence_lifecycle_state_remains_separate_from_b_df4f302819",
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.evidence",
+        "governing_requirement": "Evidence lifecycle state remains separate from blob `upload_state`, allowing requested or pending-receipt evidence without a blob and later advancement without unrelated custody-history mutation.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-5-05",
+      "disposition": "migrated",
+      "owner_id": "module.evidence",
+      "row_id": "module.evidence.store.preview_handle_and_download_handle_issuance_rout_e9c8e5a3cd",
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.evidence",
+        "governing_requirement": "Preview-handle and download-handle issuance routes accept only `{}`, reject idempotency members without side effects, return complete same-origin opaque handle metadata, set route-owned expiry and single-use flags, and issue fresh handles on every success.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-5-06",
+      "disposition": "migrated",
+      "owner_id": "module.evidence",
+      "row_id": "module.evidence.store.handle_access_revalidates_current_evidence_blob_7f02f9ebce",
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.evidence",
+        "governing_requirement": "Handle access revalidates current evidence/blob state at the store layer, and preview blocks explicitly for unsupported or unsafe preview conditions.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-5-07",
+      "disposition": "migrated",
+      "owner_id": "module.evidence",
+      "row_id": "module.evidence.store.download_responses_use_authoritative_metadata_fo_a55dbb9aac",
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.evidence",
+        "governing_requirement": "Download responses use authoritative metadata for filename disposition and apply deterministic fallback naming when authoritative names are absent.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-5-08",
+      "disposition": "migrated",
+      "owner_id": "module.evidence",
+      "row_id": "module.evidence.frontend.a_workbook_invalidation_refresh_visibly_updates_fd7a0de472",
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "module.evidence",
+        "governing_requirement": "A workbook invalidation refresh visibly updates Timeline evidence count and `has_evidence` cells without forcing navigation away from the current workbook surface.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-5-09",
+      "disposition": "migrated",
+      "owner_id": "module.evidence",
+      "row_id": "module.evidence.store.blob_create_size_ceilings_reject_oversize_byte_s_9ba60e8bdd",
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.evidence",
+        "governing_requirement": "Blob-create size ceilings reject oversize `byte_size` before slot creation, and configured image and text-inline preview ceilings fail with the route-owned oversized-preview reason while legal downloads remain available.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-5-10",
+      "disposition": "migrated",
+      "owner_id": "module.evidence",
+      "row_id": "module.evidence.unit.evidence_create_attach_preview_issuance_and_rede_cef38b411a",
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.evidence",
+        "governing_requirement": "Evidence create, attach, preview issuance, and redemption use closed public error and reason-code registries, with attach failures owned by `evidence_attach_rejected` and no legacy unregistered attach reasons.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-5-11",
+      "disposition": "migrated",
+      "owner_id": "module.evidence",
+      "row_id": "module.evidence.unit.evidence_and_timeline_evidence_derived_field_key_57b5d6b63a",
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.evidence",
+        "governing_requirement": "Evidence and Timeline evidence-derived field keys are closed over the derived view-schema registry and reject label, storage-name, or non-canonical key fallbacks.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-6-01",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.store.every_grid_write_is_anchored_to_the_route_bound_3926ec3df4",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "Every grid write is anchored to the route-bound `record_id` and includes body-bound `base_row_version` plus changed fields only; different-field concurrent edits auto-rebase, while same-field concurrent edits reject with an explicit conflict payload.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase6_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-6-02",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.store.same_field_conflict_transport_uses_409_error_cod_4447ac22bf",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "Same-field conflict transport uses `409`, `error.code='same_field_conflict'`, and an `error.conflict` object with the required base and current values.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase6_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-6-03",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.store.text_compare_merge_treats_the_field_as_plain_tex_977f9eb56f",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "`text_compare_merge` treats the field as plain text, normalizes line endings only for merge computation, and never silently auto-commits a clean merge suggestion.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase6_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-6-04",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.store.collection_review_fields_use_collection_value_v1_4efe5fcdae",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "`collection_review` fields use `collection_value_v1` in read or conflict payloads and `collection_actions_v1` in explicit resolution writes.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase6_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-6-05",
+      "disposition": "migrated",
+      "owner_id": "module.collaboration",
+      "row_id": "module.collaboration.frontend.the_resolver_keeps_the_grid_visible_leaves_confl_41a75525b7",
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "module.collaboration",
+        "governing_requirement": "The resolver keeps the grid visible, leaves conflict state unresolved until explicit action, and returns focus to the same cell after resolution or clear.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase6_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-6-06",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.store.keep_saved_clears_the_conflict_without_creating_c65a9c3099",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "`keep_saved` clears the conflict without creating a source revision, while `use_unsaved` and `merged_value` create exactly one attributed change set, mutation row, and row revision with idempotent replay.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase6_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-6-07",
+      "disposition": "migrated",
+      "owner_id": "module.collaboration",
+      "row_id": "module.collaboration.store.the_first_application_message_on_the_incident_so_11b91f6bd8",
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.collaboration",
+        "governing_requirement": "The first application message on the incident socket is exactly one of `hello` or `resume`, and resume outside the replay window yields reset behavior rather than partial replay.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase6_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-6-08",
+      "disposition": "migrated",
+      "owner_id": "module.collaboration",
+      "row_id": "module.collaboration.store.presence_payloads_are_incident_scoped_and_epheme_185de72cf2",
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.collaboration",
+        "governing_requirement": "Presence payloads are incident-scoped and ephemeral; heartbeats do not extend idle expiry; `session_revoked` closes the socket with the route-owned reason code set.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase6_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-6-09",
+      "disposition": "migrated",
+      "owner_id": "module.collaboration",
+      "row_id": "module.collaboration.frontend.save_state_labels_use_only_syncing_saved_and_con_b9c4789169",
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "module.collaboration",
+        "governing_requirement": "Save-state labels use only `Syncing`, `Saved`, and `Conflict`; the local pending queue is FIFO, bounded, coalesces only contiguous same-record units, and halts on blocking failures without silently evicting queued work inside one browser runtime.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase6_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-7-01",
+      "disposition": "migrated",
+      "owner_id": "module.revisions",
+      "row_id": "module.revisions.store.get_api_v1_records_record_id_history_returns_the_6962b381cc",
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.revisions",
+        "governing_requirement": "`GET /api/v1/records/{record_id}/history` returns the Phase 7 record-scoped history envelope with newest-first deterministic items, deleted-row tombstone `row_version`, and canonical `available_rollback_actions[]` ordering.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase7_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-7-02",
+      "disposition": "migrated",
+      "owner_id": "module.revisions",
+      "row_id": "module.revisions.store.history_entry_ref_is_present_only_for_a_logical_5f0060122a",
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.revisions",
+        "governing_requirement": "`history_entry_ref` is present only for a logical history item that maps to exactly one reversible mutation target, stays opaque to clients, and remains stable across repeated reads.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase7_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-7-03",
+      "disposition": "migrated",
+      "owner_id": "module.revisions",
+      "row_id": "module.revisions.store.covers_the_first_class_record_soft_delete_route_30cb39b83e",
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.revisions",
+        "governing_requirement": "Sprint 2 covers the first-class record soft-delete route contract, role gates, visibility masking, optimistic concurrency, route-scoped idempotency, deleted-record mutation failure, and explicit adapter matrix.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase7_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-7-04",
+      "disposition": "migrated",
+      "owner_id": "module.revisions",
+      "row_id": "module.revisions.store.covers_the_restore_route_contract_reviewer_admin_a2df5bc94d",
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.revisions",
+        "governing_requirement": "Sprint 2 covers the restore route contract, reviewer/admin role gate, tombstone row-version requirement, active-state projection eligibility, route-scoped idempotency, and append-only delete/restore history.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase7_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-7-05",
+      "disposition": "migrated",
+      "owner_id": "module.revisions",
+      "row_id": "module.revisions.store.covers_rollback_route_admission_derived_rollback_c6c889199c",
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.revisions",
+        "governing_requirement": "Sprint 4 covers rollback route admission, derived rollback reason registries, the closed target selector union, strict request validation, durable `history_entry_ref` resolution, route-scoped idempotency, append-only single-entry rollback, executable whole-change-set rollback for reversible substrate, executable whole-row restore from `record_revisions` snapshots, `entry_requires_change_set`, and executable-only `available_rollback_actions[]` metadata.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase7_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-7-06",
+      "disposition": "migrated",
+      "owner_id": "module.revisions",
+      "row_id": "module.revisions.store.covers_shared_destructive_operation_lock_precede_02f3fc18c4",
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.revisions",
+        "governing_requirement": "Sprint 4 covers shared destructive-operation lock precedence for restore, rollback, row_restore, and merge: protected-set locks are acquired before stale row-version and route-specific precondition evaluation, and released requests fall through to ordinary downstream errors.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase7_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-7-07",
+      "disposition": "migrated",
+      "owner_id": "module.revisions",
+      "row_id": "module.revisions.store.retained_history_invariants_for_extant_records_r_b40fb75124",
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.revisions",
+        "governing_requirement": "Retained-history invariants for extant records remain fully paginatable and preserve issued `history_entry_ref` values across delete or restore cycles, rollback-like later work, incident closure, and no-purge/no-retention-horizon route and configuration checks covered by this test.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase7_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-8-01",
+      "disposition": "migrated",
+      "owner_id": "module.links",
+      "row_id": "module.links.store.typed_links_and_tags_persist_as_structured_rows_8daeea1ad1",
+      "verification_ids": [
+        "module.links.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.links",
+        "governing_requirement": "Typed links and tags persist as structured rows and use the closed base relationship vocabulary.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase8_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-8-02",
+      "disposition": "migrated",
+      "owner_id": "module.savedviews",
+      "row_id": "module.savedviews.store.ordinary_saved_view_create_defaults_omitted_scop_c2e245f7d7",
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.savedviews",
+        "governing_requirement": "Ordinary saved-view create defaults omitted scope to private, evolves additive default-hidden read-only fields during layout normalization, rejects ordinary system create, persists exactly one view_schema_id, harness-owned system fixture creation remains test-route guarded, and OpenAPI documents lenient create input with canonical resource output.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase8_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-8-03",
+      "disposition": "migrated",
+      "owner_id": "module.savedviews",
+      "row_id": "module.savedviews.unit.saved_view_scope_vocabulary_is_exactly_private_s_aa8991ad84",
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.savedviews",
+        "governing_requirement": "Saved-view scope vocabulary is exactly private, shared, and system; obsolete team is rejected.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase8_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-8-04",
+      "disposition": "migrated",
+      "owner_id": "module.savedviews",
+      "row_id": "module.savedviews.store.ordinary_saved_view_patch_enforces_the_mutable_f_9554a5d90f",
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.savedviews",
+        "governing_requirement": "Ordinary saved-view patch enforces the mutable-field contract, rejects immutable mutation, and preserves version and timestamp on no-op patches.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase8_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-8-05",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.store.workbook_preference_routes_keep_home_sheet_ref_a_72ab108a31",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "Workbook preference routes keep home_sheet_ref and default_sheet_ref separate, preserve no-op timestamps, enforce default-pointer admin policy, and clear a hidden saved-view home pointer before startup fallback continues.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase8_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-8-06",
+      "disposition": "migrated",
+      "owner_id": "platform.viewquery",
+      "row_id": "platform.viewquery.unit.view_query_filters_sort_and_group_by_accept_stab_0032c0a062",
+      "verification_ids": [
+        "platform.viewquery.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "platform.viewquery",
+        "governing_requirement": "View-query filters, sort, and group_by accept stable field_key values only and reject invalid operators, argument shapes, duplicate keys, and invalid grouping keys.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase8_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-8-07",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.unit.timeline_grouping_permits_only_the_declared_whit_6db1021961",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "Timeline grouping permits only the declared whitelist and grouped workbook responses serialize only full row resources, never group headers, subtotals, paste targets, writable pseudo-rows, or record_id-bound mutation targets.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase8_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-8-08",
+      "disposition": "migrated",
+      "owner_id": "platform.viewquery",
+      "row_id": "platform.viewquery.unit.sort_and_filter_ceilings_canonical_normalization_4ca84c1e10",
+      "verification_ids": [
+        "platform.viewquery.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "platform.viewquery",
+        "governing_requirement": "Sort and filter ceilings, canonical normalization, meta.query, default-tail expansion, and grouping omission semantics follow the Phase 8 query contract.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase8_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-8-09",
+      "disposition": "migrated",
+      "owner_id": "platform.viewschema",
+      "row_id": "platform.viewschema.unit.view_schema_discovery_exposes_exact_sorting_and_94fda0d98a",
+      "verification_ids": [
+        "platform.viewschema.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "platform.viewschema",
+        "governing_requirement": "View-schema discovery exposes exact sorting and grouping contracts, null-last ordering, and no client-sortable record_id.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase8_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-8-10",
+      "disposition": "migrated",
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.integration.full_row_and_sparse_patch_wire_families_preserve_32a4ab3be1",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [],
+      "review": {
+        "governing_owner": "module.workbook",
+        "governing_requirement": "Full-row and sparse-patch wire families preserve hidden writable fields, authoritative nulls, and canonical changed_field_keys plus affected_views metadata.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase8_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "U-8-GRID-01",
+      "disposition": "migrated",
+      "owner_id": "platform.viewquery",
+      "row_id": "platform.viewquery.frontend.grid_sort_filter_and_group_controls_send_only_st_63c9867421",
+      "verification_ids": [
+        "platform.viewquery.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "platform.viewquery",
+        "governing_requirement": "Grid sort, filter, and group controls send only stable contract keys, drop non-discovery keys before query request construction, keep grouped presentation rows non-mutation-capable, and never send labels, vendor indexes, projection-table names, or storage-table names.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase8_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
       "legacy_row_id": "V-3-GRID-01",
       "disposition": "migrated",
       "owner_id": "module.timeline",
@@ -4622,6 +5807,121 @@
         "governing_requirement": "The visual harness captures a required coordination system view rendered through the same generic workbook grid surface.",
         "review_revision": "212b88e15c95",
         "owner_review_evidence": "WS-04 tools/phase4_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "V-5-GRID-01",
+      "disposition": "migrated",
+      "owner_id": "module.evidence",
+      "row_id": "module.evidence.visual.the_visual_harness_captures_requested_evidence_a_1eb50235af",
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "module.evidence",
+        "governing_requirement": "The visual harness captures requested evidence and the same row after workbook-surface attach advances it to available.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "V-5-GRID-02",
+      "disposition": "migrated",
+      "owner_id": "module.evidence",
+      "row_id": "module.evidence.visual.the_visual_harness_captures_blocked_evidence_acc_779473e830",
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "module.evidence",
+        "governing_requirement": "The visual harness captures blocked evidence access feedback plus Timeline evidence-count and has-evidence badge presentation after browser attach.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase5_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "V-6-GRID-01",
+      "disposition": "migrated",
+      "owner_id": "module.collaboration",
+      "row_id": "module.collaboration.visual.the_visual_harness_asserts_deterministic_timelin_22b64f5dec",
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "module.collaboration",
+        "governing_requirement": "The visual harness asserts deterministic Timeline row-gutter and same-cell presence marker presentation keyed by `record_id` and `field_key` from real browser presence state against a stable screenshot baseline.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase6_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "V-6-GRID-02",
+      "disposition": "migrated",
+      "owner_id": "module.collaboration",
+      "row_id": "module.collaboration.visual.the_visual_harness_asserts_same_field_conflict_m_c472bd3f9c",
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "module.collaboration",
+        "governing_requirement": "The visual harness asserts same-field conflict marker, same-surface resolver, and `Conflict` save-state strip presentation after a real backend `same_field_conflict` against a stable screenshot baseline.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase6_test_map.json owner-slice adjudication"
+      }
+    },
+    {
+      "source_registry_id": "backend_phase_maps",
+      "legacy_row_id": "V-6-GRID-03",
+      "disposition": "migrated",
+      "owner_id": "module.collaboration",
+      "row_id": "module.collaboration.visual.the_visual_harness_asserts_syncing_same_field_co_df11cd99bc",
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "adjudication_rule": "normative_postcondition",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "review": {
+        "governing_owner": "module.collaboration",
+        "governing_requirement": "The visual harness asserts `Syncing`, same-field-conflict `Conflict`, and resolver-recovered `Saved` save-state presentations against stable screenshot baselines.",
+        "review_revision": "fb4c1e69d0b4",
+        "owner_review_evidence": "WS-04 tools/phase6_test_map.json owner-slice adjudication"
       }
     },
     {
@@ -4861,6 +6161,42 @@
       "disposition": "retained",
       "reason": "Retained as exact owner-catalog row platform.postgres.support_integration.entity_alias_migration31_empty_upgrade_c5951bf6f3; support remains explicit-only and owner-accountable.",
       "owner_review_evidence": "WS-04 tools/phase4_test_map.json support adjudication"
+    },
+    {
+      "candidate_id": "phase6:support:001",
+      "disposition": "retained",
+      "reason": "Retained as exact owner-catalog row module.revisions.support_unit.conflict_token_codec_round_trips_and_rejects_tam_b42338f5fa; support remains explicit-only and owner-accountable.",
+      "owner_review_evidence": "WS-04 tools/phase6_test_map.json support adjudication"
+    },
+    {
+      "candidate_id": "phase6:support:002",
+      "disposition": "retained",
+      "reason": "Retained as exact owner-catalog row module.collaboration.support_unit.shared_harness_socket_event_inventory_coverage_77fb9a325e; support remains explicit-only and owner-accountable.",
+      "owner_review_evidence": "WS-04 tools/phase6_test_map.json support adjudication"
+    },
+    {
+      "candidate_id": "phase6:support:003",
+      "disposition": "retained",
+      "reason": "Retained as exact owner-catalog row platform.ws.support_unit.presence_replay_revocation_transport_f9129f9942; support remains explicit-only and owner-accountable.",
+      "owner_review_evidence": "WS-04 tools/phase6_test_map.json support adjudication"
+    },
+    {
+      "candidate_id": "phase6:support:004",
+      "disposition": "retained",
+      "reason": "Retained as exact owner-catalog row module.collaboration.support_integration.incident_socket_revocation_sources_00f908473e; support remains explicit-only and owner-accountable.",
+      "owner_review_evidence": "WS-04 tools/phase6_test_map.json support adjudication"
+    },
+    {
+      "candidate_id": "phase6:support:005",
+      "disposition": "retained",
+      "reason": "Retained as exact owner-catalog row module.workbook.support_integration.shared_harness_workbook_route_inventory_coverage_3ec58ba4dc; support remains explicit-only and owner-accountable.",
+      "owner_review_evidence": "WS-04 tools/phase6_test_map.json support adjudication"
+    },
+    {
+      "candidate_id": "phase8:support:001",
+      "disposition": "retained",
+      "reason": "Retained as exact owner-catalog row module.workbook.support_integration.integration_notes_full_text_exact_search_ac185_ed48fdeae3; support remains explicit-only and owner-accountable.",
+      "owner_review_evidence": "WS-04 tools/phase8_test_map.json support adjudication"
     },
     {
       "candidate_id": "vitest:001",
@@ -6369,6 +7705,22 @@
       "provenance": "phase1:support:001 frozen backend support candidate; exact package/test selectors retained"
     },
     {
+      "owner_id": "module.collaboration",
+      "row_id": "module.collaboration.support_integration.incident_socket_revocation_sources_00f908473e",
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "provenance": "phase6:support:004 frozen backend support candidate; exact package/test selectors retained"
+    },
+    {
+      "owner_id": "module.collaboration",
+      "row_id": "module.collaboration.support_unit.shared_harness_socket_event_inventory_coverage_77fb9a325e",
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "provenance": "phase6:support:002 frozen backend support candidate; exact package/test selectors retained"
+    },
+    {
       "owner_id": "module.entities",
       "row_id": "module.entities.support_integration.integration_entity_create_idempotency_is_actor_s_3c8ed1fe5c",
       "verification_ids": [
@@ -6449,6 +7801,14 @@
       "provenance": "phase2:support:001 frozen backend support candidate; exact package/test selectors retained"
     },
     {
+      "owner_id": "module.revisions",
+      "row_id": "module.revisions.support_unit.conflict_token_codec_round_trips_and_rejects_tam_b42338f5fa",
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "provenance": "phase6:support:001 frozen backend support candidate; exact package/test selectors retained"
+    },
+    {
       "owner_id": "module.timeline",
       "row_id": "module.timeline.support_integration.integration_authorization_matrix_2699762a78",
       "verification_ids": [
@@ -6487,6 +7847,22 @@
         "module.timeline.verification.behavior_contract"
       ],
       "provenance": "phase3:support:003 frozen backend support candidate; exact package/test selectors retained"
+    },
+    {
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.support_integration.integration_notes_full_text_exact_search_ac185_ed48fdeae3",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "provenance": "phase8:support:001 frozen backend support candidate; exact package/test selectors retained"
+    },
+    {
+      "owner_id": "module.workbook",
+      "row_id": "module.workbook.support_integration.shared_harness_workbook_route_inventory_coverage_3ec58ba4dc",
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "provenance": "phase6:support:005 frozen backend support candidate; exact package/test selectors retained"
     },
     {
       "owner_id": "module.workbook",
@@ -6783,6 +8159,14 @@
         "platform.postgres.verification.behavior_contract"
       ],
       "provenance": "phase0:support:001 frozen backend support candidate; exact package/test selectors retained"
+    },
+    {
+      "owner_id": "platform.ws",
+      "row_id": "platform.ws.support_unit.presence_replay_revocation_transport_f9129f9942",
+      "verification_ids": [
+        "platform.ws.verification.behavior_contract"
+      ],
+      "provenance": "phase6:support:003 frozen backend support candidate; exact package/test selectors retained"
     },
     {
       "owner_id": "web.application",

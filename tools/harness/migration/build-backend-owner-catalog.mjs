@@ -89,7 +89,11 @@ function nonGoOwner(phase, row) {
   if (phase === 5) return "module.evidence";
   if (phase === 6) return "module.collaboration";
   if (phase === 7) return "module.revisions";
-  if (phase === 8) return "module.savedviews";
+  if (phase === 8) {
+    if (["U-8-GRID-01", "E-8-03", "E-8-04"].includes(row.id)) return "platform.viewquery";
+    if (["E-8-02", "E-8-SUPPORT-01"].includes(row.id)) return "module.workbook";
+    return "module.savedviews";
+  }
   if (phase === 9) {
     if (row.id === "E-9-03") return "module.links";
     if (row.id === "E-9-04") return "module.parties";

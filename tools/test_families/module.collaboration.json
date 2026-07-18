@@ -1,0 +1,477 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "module.collaboration",
+  "rows": [
+    {
+      "row_id": "module.collaboration.browser.concurrent_edits_to_different_fields_on_the_same_7ee5cad0ab",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.collaboration"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase6.collaboration.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_dad2a534f922"
+        ],
+        "titles": [
+          "E-6-02 auto-merges different-field concurrent edits and requires explicit same-field resolution"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.browser.live_updates_never_retarget_pending_local_edits_11699e9b2d",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.collaboration"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase6.collaboration.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_7425a87e156f"
+        ],
+        "titles": [
+          "E-6-04 keeps live updates conflict markers and presence markers anchored to record_id and field_key"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.browser.two_analysts_on_the_same_incident_see_each_other_d099712cac",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.collaboration"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase6.collaboration.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_2b3d2fb7de3e"
+        ],
+        "titles": [
+          "E-6-01 shows two analysts each other's workbook presence within the expected interaction window"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.browser.within_one_browser_runtime_queued_unsent_writes_3efbd48054",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.collaboration"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase6.collaboration.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_0d3a0e21429c"
+        ],
+        "titles": [
+          "E-6-05 replays queued unsent writes after re-authentication without silent reload restore"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.browser_stateful.deterministic_route_owned_browser_revocation_sou_a134c3e26b",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.collaboration"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/phase6.session-recovery.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "scenario_f645b23950cc"
+        ],
+        "titles": [
+          "E-6-03 preserves unsaved local work after socket revocation and re-authentication"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.frontend.save_state_labels_use_only_syncing_saved_and_con_b9c4789169",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
+        "titles": [
+          "Phase 6 U-6-09 does not coalesce non-contiguous same-record pending patches",
+          "Phase 6 U-6-09 exposes the browser-runtime pending queue capacity as exactly 64 replay units",
+          "Phase 6 U-6-09 keeps save-state labels and pending queue replay bounded and explicit",
+          "Phase 6 U-6-09 moves a blocking same-field conflict out of the pending queue and retains its editor",
+          "Phase 6 U-6-09 preserves queued work through session revocation and resumes after re-authentication"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.frontend.the_resolver_keeps_the_grid_visible_leaves_confl_41a75525b7",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
+        "titles": [
+          "Phase 6 U-6-05 keeps the grid visible, conflict unresolved, and focus bound to the same cell"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.integration.cookie_authenticated_browser_socket_upgrades_rej_73faec66da",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/collaboration",
+        "tests": [
+          "TestPhase6_CookieSocketRejectsUntrustedOrigin_I_6_04"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.integration.resume_with_a_valid_replay_token_replays_replaya_1826b38095",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/collaboration",
+        "tests": [
+          "TestPhase6_ResumeReplaysReplayableMessagesOnly_I_6_02"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.integration.two_real_clients_connect_to_the_same_incident_so_257bcc588c",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/collaboration",
+        "tests": [
+          "TestPhase6_TwoClientsPresenceReplay_I_6_01"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.store.presence_payloads_are_incident_scoped_and_epheme_185de72cf2",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/collaboration",
+        "tests": [
+          "TestPhase6_IncidentSocketHeartbeatIdleExpiry_U_6_08",
+          "TestPhase6_IncidentSocketPresenceScopeEphemeral_U_6_08"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.store.the_first_application_message_on_the_incident_so_11b91f6bd8",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/collaboration",
+        "tests": [
+          "TestPhase6_IncidentSocketHandshakeResume_U_6_07"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.support_integration.incident_socket_revocation_sources_00f908473e",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.support_integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/collaboration",
+        "tests": [
+          "TestSupportPhase6_IncidentSocketRevocationSources"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.support_unit.shared_harness_socket_event_inventory_coverage_77fb9a325e",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/collaboration",
+        "tests": [
+          "TestSupportPhase6SharedHarness_SocketEventInventoryCoverage",
+          "TestSupportPhase6SharedHarness_SocketLifecycleEvidenceIndex"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.visual.the_visual_harness_asserts_deterministic_timelin_22b64f5dec",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_4f30b3239772"
+        ],
+        "titles": [
+          "V-6-GRID-01 regresses Phase 6 row-gutter and same-cell presence markers"
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.visual.the_visual_harness_asserts_same_field_conflict_m_c472bd3f9c",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_62a496085448"
+        ],
+        "titles": [
+          "V-6-GRID-02 regresses Phase 6 same-field conflict marker resolver and Conflict strip"
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.visual.the_visual_harness_asserts_syncing_same_field_co_df11cd99bc",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_9cc4be31d2aa"
+        ],
+        "titles": [
+          "V-6-GRID-03 regresses Phase 6 pending-queue save-state transitions"
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "informative",
+      "status": "active"
+    }
+  ]
+}

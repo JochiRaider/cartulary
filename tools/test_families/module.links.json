@@ -1,0 +1,52 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "module.links",
+  "rows": [
+    {
+      "row_id": "module.links.integration.link_and_tag_mutations_atomically_update_project_03f8283906",
+      "owner_id": "module.links",
+      "family_id": "module.links.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.links.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/links",
+        "tests": [
+          "TestPhase8_LinkTagProjectionHistoryQuery_I_8_03"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.links.store.typed_links_and_tags_persist_as_structured_rows_8daeea1ad1",
+      "owner_id": "module.links",
+      "family_id": "module.links.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.links.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/links",
+        "tests": [
+          "TestPhase8_TypedLinksAndTags_U_8_01"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

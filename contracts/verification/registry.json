@@ -57,6 +57,11 @@
       "status": "active"
     },
     {
+      "owner_id": "module.collaboration",
+      "contract_path": "contracts/verification/owners/module.collaboration.json",
+      "status": "active"
+    },
+    {
       "owner_id": "module.entities",
       "contract_path": "contracts/verification/owners/module.entities.json",
       "status": "active"
@@ -82,6 +87,11 @@
       "status": "active"
     },
     {
+      "owner_id": "module.links",
+      "contract_path": "contracts/verification/owners/module.links.json",
+      "status": "active"
+    },
+    {
       "owner_id": "module.networkflow",
       "contract_path": "contracts/verification/owners/module.networkflow.json",
       "status": "active"
@@ -99,6 +109,16 @@
     {
       "owner_id": "module.reporting",
       "contract_path": "contracts/verification/owners/module.reporting.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.revisions",
+      "contract_path": "contracts/verification/owners/module.revisions.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.savedviews",
+      "contract_path": "contracts/verification/owners/module.savedviews.json",
       "status": "active"
     },
     {
@@ -164,6 +184,21 @@
     {
       "owner_id": "platform.telemetry",
       "contract_path": "contracts/verification/owners/platform.telemetry.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.viewquery",
+      "contract_path": "contracts/verification/owners/platform.viewquery.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.viewschema",
+      "contract_path": "contracts/verification/owners/platform.viewschema.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.ws",
+      "contract_path": "contracts/verification/owners/platform.ws.json",
       "status": "active"
     },
     {
