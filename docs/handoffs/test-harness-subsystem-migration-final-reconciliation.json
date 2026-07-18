@@ -1,15 +1,15 @@
 {
   "schema_id": "cartulary.test_harness_migration_final_reconciliation.v1",
   "status": "complete",
-  "captured_from_commit": "e9342902",
+  "captured_from_commit": "e17a7c36",
   "source_inputs": {
     "baseline_commit": "37cfdd727b3172046fbc3c5194d896a1197a381c",
     "baseline_tree": "a389634ca18596915f84e173be1e25c9bc2d847f",
     "frozen_source_digest": "sha256:99efacaefde40ff6456e68aaba6f12b8c6e509ba9dd9d0866ffa5e30a722065c",
     "crosswalk_baseline_digest": "sha256:0bd5798b9630a1d7a49676dba174b983a781f07d6b4c99ebaeab318f3e9497cd",
-    "catalog_semantic_digest": "sha256:485050c419e2b419855cbfea971ef997b112166f1ff91c63c3caf77ab877d2b8",
+    "catalog_semantic_digest": "sha256:0b438fc9d1811d536fdea5e5299fde3fcd079322ca75a3547c11d7fd84526944",
     "verification_semantic_digest": "sha256:6c4b33052cf1c0646066c9420dcb4c137807f7ffc5d7fafe3f49f8d0d58e8e57",
-    "combined_file_digest": "sha256:570731ce8f4ee09053c670d4e893b1a9f8e9e027362dd57854cedc29c1cd589b",
+    "combined_file_digest": "sha256:c38f5c0a74357c5e80df144f0ebb96e26685410124b63b143caec2b6d34d9d6c",
     "files": [
       {
         "path": "contracts/verification/owners/app.operator.json",
@@ -261,19 +261,19 @@
       },
       {
         "path": "tools/test_families/module.auth.json",
-        "sha256": "sha256:c48f0b84f3e085f80feb85a88ddeb402d1a04f60e75c4dd47aa5ebf2ce55232a"
+        "sha256": "sha256:1708e3715651737b8d85106925472747c4d8aa4b7f222bda776815e9545cfb88"
       },
       {
         "path": "tools/test_families/module.collaboration.json",
-        "sha256": "sha256:138d4a274e43fe6d4402b4f24091ac3c62a6ec630a74e9dc9bc15c1972180e0f"
+        "sha256": "sha256:942b67375cfc0ff9bda8a3e16994102acb0b0fb5978bc96a41493db67b6d0138"
       },
       {
         "path": "tools/test_families/module.entities.json",
-        "sha256": "sha256:a29a049eaa83e9676d89384881aaf881c6f04c897c12f34aa0ff38e72a613014"
+        "sha256": "sha256:5dff5220060e57d9d7b738387493463ceb265d1fd272e5b134a4495409f32889"
       },
       {
         "path": "tools/test_families/module.evidence.json",
-        "sha256": "sha256:863b0bdf4976d7612b606255ce9900f8837f66c9acc2af88af445aa6b28fc639"
+        "sha256": "sha256:8771990f345193bbeadbf5fa187674b22fffb0b34f269f506e4b36c18d2903d6"
       },
       {
         "path": "tools/test_families/module.graphprojection.json",
@@ -305,7 +305,7 @@
       },
       {
         "path": "tools/test_families/module.networkflow.json",
-        "sha256": "sha256:04d05343f97fa55bac9c18e9767d107c4e09562befaa8943b5bd803417a2928b"
+        "sha256": "sha256:4dd51d4a1bc5e866882d9468cc306c7a2e948b994b77c34af1a403705c117ef7"
       },
       {
         "path": "tools/test_families/module.parties.json",
@@ -313,7 +313,7 @@
       },
       {
         "path": "tools/test_families/module.recovery.json",
-        "sha256": "sha256:8e625bb0f597afd1955c62bd60c4f1d447275cf455ea4e511c8fc59b61480571"
+        "sha256": "sha256:dde15f4da3e7f2a0e3ff3186bc95acddb2f79bd2933c1c9eab92fba09f7c84ce"
       },
       {
         "path": "tools/test_families/module.reference_data.json",
@@ -329,7 +329,7 @@
       },
       {
         "path": "tools/test_families/module.savedviews.json",
-        "sha256": "sha256:e37af23c5f525e0e133a1ac2ef7ad95cde511de9ceae4f13fde8a4873ce6a7b4"
+        "sha256": "sha256:c09c0b0686660891e295c762de495db9f3abcf886bf12ed363d8df9e74945912"
       },
       {
         "path": "tools/test_families/module.tabularingest.json",
@@ -345,11 +345,11 @@
       },
       {
         "path": "tools/test_families/module.workbook.json",
-        "sha256": "sha256:4458db91deb921e25f38e9d984b131ed05026b9bb9355907bd831b07c2dac0b3"
+        "sha256": "sha256:e519906184d0e8e258b226f14d22ea0f9bba34e0eab976e83a7ee11ecbef3c2e"
       },
       {
         "path": "tools/test_families/package.grid_adapter.json",
-        "sha256": "sha256:77a2e583b9a909c34bc0902db6475ea2f22d27886e7c63e04e3eb8691122c068"
+        "sha256": "sha256:a0c38ffb0268f2e44fa5f5c1885a86db4aff5558a09b26880c1a385e127a5eb9"
       },
       {
         "path": "tools/test_families/package.protocol_ts.json",
@@ -405,7 +405,7 @@
       },
       {
         "path": "tools/test_families/web.architecture.json",
-        "sha256": "sha256:e4bf5cd7e2fed6e41f5164cecc6915e74755e8661f9158becbe8dddba757adc2"
+        "sha256": "sha256:b15a90d5dd8c1bff5fc2d4ab685eca6b2fb8648adda99439614633509b7b51a1"
       },
       {
         "path": "tools/test_families/web.collaboration.json",
@@ -413,7 +413,7 @@
       },
       {
         "path": "tools/test_families/web.design.json",
-        "sha256": "sha256:c514de17448d6cc723cb6fd5f3f5fa41a9e344ba4ce2bd56b1e38e02273ba329"
+        "sha256": "sha256:f7f1873b9d66526e26f2f0f1e6210df9c7dc29f1b4efea1751acb58c14125203"
       },
       {
         "path": "tools/test_families/web.networkflow.json",
@@ -421,7 +421,7 @@
       },
       {
         "path": "tools/test_families/web.workbook.json",
-        "sha256": "sha256:29f2b25791395ab5d695dd8b4a38c049abda00b081b4d31268a99ed3dc059f26"
+        "sha256": "sha256:d263b82f6b155bb50f0b9cdcdbe682f27b8111851f3d2fd23294dda14baa7f6f"
       },
       {
         "path": "tools/test_migration_baseline.json",
@@ -2505,15 +2505,15 @@
             "scenario_fcec515eb61b"
           ],
           "titles": [
-            "FE-A11Y-P1-01 anonymous login after initial session_required reaches login controls and authenticated landing",
-            "FE-A11Y-P1-01 authenticated landing exposes account, admin, incident, retry, and visible incident controls",
-            "FE-A11Y-P1-01 deferred session loading exposes progress and keeps recovery controls keyboard reachable",
-            "FE-A11Y-P1-01 forbidden access-denied public envelope is announced and exposes recovery without private diagnostics",
-            "FE-A11Y-P1-01 generic public error envelope renders safe diagnostics and keyboard error recovery",
-            "FE-A11Y-P1-01 incident empty, list, selected, stale-selection, and incident-error states expose keyboard recovery",
-            "FE-A11Y-P1-01 mfa_required challenge is keyboard reachable, visibly focused, named, and safely announced",
-            "FE-A11Y-P1-01 mfa_setup_required enrollment is keyboard reachable and public errors hide private setup diagnostics",
-            "FE-A11Y-P1-01 revoked session after prior authentication announces session end and supports re-authentication"
+            "a11y.incident-selection.row-01 anonymous login after initial session_required reaches login controls and authenticated landing",
+            "a11y.incident-selection.row-01 authenticated landing exposes account, admin, incident, retry, and visible incident controls",
+            "a11y.incident-selection.row-01 deferred session loading exposes progress and keeps recovery controls keyboard reachable",
+            "a11y.incident-selection.row-01 forbidden access-denied public envelope is announced and exposes recovery without private diagnostics",
+            "a11y.incident-selection.row-01 generic public error envelope renders safe diagnostics and keyboard error recovery",
+            "a11y.incident-selection.row-01 incident empty, list, selected, stale-selection, and incident-error states expose keyboard recovery",
+            "a11y.incident-selection.row-01 mfa_required challenge is keyboard reachable, visibly focused, named, and safely announced",
+            "a11y.incident-selection.row-01 mfa_setup_required enrollment is keyboard reachable and public errors hide private setup diagnostics",
+            "a11y.incident-selection.row-01 revoked session after prior authentication announces session end and supports re-authentication"
           ]
         },
         "evidence_class": "accessibility",
@@ -4943,7 +4943,7 @@
             "scenario_187908558ca0"
           ],
           "titles": [
-            "FE-A11Y-P7-01 Verify conflict state, resolver controls, presence hint, stale-row notice, and save-state conflict communicate state by accessible name/state, not color alone."
+            "a11y.collaboration.row-01 Verify conflict state, resolver controls, presence hint, stale-row notice, and save-state conflict communicate state by accessible name/state, not color alone."
           ]
         },
         "evidence_class": "accessibility",
@@ -6303,7 +6303,7 @@
             "scenario_7a764f9f68ea"
           ],
           "titles": [
-            "FE-A11Y-P5-01 Verify mention chip states and manual-resolution controls have accessible names, visible focus, and non-color-only distinction."
+            "a11y.entity-linking.row-01 Verify mention chip states and manual-resolution controls have accessible names, visible focus, and non-color-only distinction."
           ]
         },
         "evidence_class": "accessibility",
@@ -7301,7 +7301,7 @@
             "scenario_bd0842a0bd8b"
           ],
           "titles": [
-            "FE-A11Y-P6-01 Verify evidence icon buttons, blocked states, error states, preview controls, and download controls have names, focus, contrast, and non-color-only distinctions."
+            "a11y.evidence-workflow.row-01 Verify evidence icon buttons, blocked states, error states, preview controls, and download controls have names, focus, contrast, and non-color-only distinctions."
           ]
         },
         "evidence_class": "accessibility",
@@ -12380,7 +12380,7 @@
             "scenario_68d87f2255be"
           ],
           "titles": [
-            "FE-A11Y-P12-01 Verify claimed Network Analysis tabs, query controls, semantic grids, inspector, graph, contributor drawer, mapping modal, focus return, names, and ARIA evidence."
+            "a11y.network-analysis.row-01 Verify claimed Network Analysis tabs, query controls, semantic grids, inspector, graph, contributor drawer, mapping modal, focus return, names, and ARIA evidence."
           ]
         },
         "evidence_class": "accessibility",
@@ -18289,7 +18289,7 @@
         "evidence_class": "integration",
         "runtime_profile_id": "default",
         "resource_profile_id": "go_clone_heavy",
-        "fixture_profile_id": "postgres_group_clone",
+        "fixture_profile_id": "postgres_template_clone",
         "default_check": true,
         "claim_posture": "implementation",
         "status": "active"
@@ -18336,7 +18336,7 @@
         "evidence_class": "integration",
         "runtime_profile_id": "default",
         "resource_profile_id": "go_clone_heavy",
-        "fixture_profile_id": "postgres_group_clone",
+        "fixture_profile_id": "postgres_template_clone",
         "default_check": true,
         "claim_posture": "implementation",
         "status": "active"
@@ -18383,7 +18383,7 @@
         "evidence_class": "integration",
         "runtime_profile_id": "default",
         "resource_profile_id": "go_clone_heavy",
-        "fixture_profile_id": "postgres_group_clone",
+        "fixture_profile_id": "postgres_template_clone",
         "default_check": true,
         "claim_posture": "implementation",
         "status": "active"
@@ -20949,7 +20949,7 @@
             "scenario_49ef3edfd325"
           ],
           "titles": [
-            "FE-A11Y-P8-01 Verify sort, filter, group, saved-view menu, active chips, group expand-collapse, and default/startup controls are keyboard reachable and announced."
+            "a11y.saved-view-query.row-01 Verify sort, filter, group, saved-view menu, active chips, group expand-collapse, and default/startup controls are keyboard reachable and announced."
           ]
         },
         "evidence_class": "accessibility",
@@ -24070,7 +24070,7 @@
             "scenario_4970f1b5320f"
           ],
           "titles": [
-            "FE-A11Y-P10-01 Verify coordination surfaces and full keyboard/clipboard controls meet keyboard reachability, focus visibility, accessible-name, ARIA, and non-color-only state expectations."
+            "a11y.coordination-review.row-01 Verify coordination surfaces and full keyboard/clipboard controls meet keyboard reachability, focus visibility, accessible-name, ARIA, and non-color-only state expectations."
           ]
         },
         "evidence_class": "accessibility",
@@ -24126,7 +24126,7 @@
             "scenario_5039de8a2f57"
           ],
           "titles": [
-            "FE-A11Y-P4-01 Verify grid navigation, edit entry/exit, paste feedback, validation feedback, save-state communication, and Esc priority are keyboard and screen-reader safe."
+            "a11y.mutation-lifecycle.row-01 Verify grid navigation, edit entry/exit, paste feedback, validation feedback, save-state communication, and Esc priority are keyboard and screen-reader safe."
           ]
         },
         "evidence_class": "accessibility",
@@ -24182,7 +24182,7 @@
             "scenario_60213d2463bf"
           ],
           "titles": [
-            "FE-A11Y-P9-01 Verify inspector tabs, relationship links, evidence controls, history controls, rollback, destructive actions, and errors are keyboard reachable and announced."
+            "a11y.inspector-history.row-01 Verify inspector tabs, relationship links, evidence controls, history controls, rollback, destructive actions, and errors are keyboard reachable and announced."
           ]
         },
         "evidence_class": "accessibility",
@@ -24238,7 +24238,7 @@
             "scenario_594d53561642"
           ],
           "titles": [
-            "FE-A11Y-P9-02 Verify keyboard open/close, panel navigation, Esc, focus restoration, disabled/blocked states, no-row empty state, and destructive confirmation focus for config-driven inspector behavior."
+            "a11y.inspector-history.row-02 Verify keyboard open/close, panel navigation, Esc, focus restoration, disabled/blocked states, no-row empty state, and destructive confirmation focus for config-driven inspector behavior."
           ]
         },
         "evidence_class": "accessibility",
@@ -24294,7 +24294,7 @@
             "scenario_e7bdba6c9e86"
           ],
           "titles": [
-            "FE-A11Y-P2-01 Verify shell regions, tabs, switchers, menus, inspector controls, and status strip are keyboard reachable, visibly focused, and named."
+            "a11y.workbook-shell.row-01 Verify shell regions, tabs, switchers, menus, inspector controls, and status strip are keyboard reachable, visibly focused, and named."
           ]
         },
         "evidence_class": "accessibility",
@@ -28240,7 +28240,7 @@
             "scenario_9cb8459f8063"
           ],
           "titles": [
-            "FE-A11Y-P3-01 Verify grid cells, editors, group rows, active cell, edit mode, disabled/read-only state, and blocked actions are keyboard accessible and announced without color-only signals."
+            "a11y.grid-interaction.row-01 Verify grid cells, editors, group rows, active cell, edit mode, disabled/read-only state, and blocked actions are keyboard accessible and announced without color-only signals."
           ]
         },
         "evidence_class": "accessibility",
@@ -33425,7 +33425,7 @@
     {
       "disposition": "auxiliary",
       "final_semantic_identity": {
-        "row_id": "web.architecture.boundary_support.selectorcontractpolicy_keeps_phase_named_selecto_a659d356ed",
+        "row_id": "web.architecture.boundary_support.selectorcontractpolicy_keeps_delivery_shaped_selecto_a659d356ed",
         "owner_id": "web.architecture",
         "family_id": "web.architecture.boundary_support",
         "collaborator_ids": [],
@@ -33436,7 +33436,7 @@
         "selector": {
           "file": "apps/web/src/testing/selectorContractPolicy.test.ts",
           "titles": [
-            "selector contract policy keeps phase-named selector helpers out of production modules"
+            "selector contract policy keeps delivery-shaped selector helpers out of production modules"
           ]
         },
         "evidence_class": "static",
@@ -33736,7 +33736,7 @@
             "scenario_ed377773c298"
           ],
           "titles": [
-            "FE-A11Y-P11-01 Verify global accessibility matrix for keyboard access, visible focus, System views, grid navigation/edit entry/exit, Esc, ARIA states, icon-only labels, contrast, and non-color-only empty/loading/error/blocked states."
+            "a11y.design-readiness.row-01 Verify global accessibility matrix for keyboard access, visible focus, System views, grid navigation/edit entry/exit, Esc, ARIA states, icon-only labels, contrast, and non-color-only empty/loading/error/blocked states."
           ]
         },
         "evidence_class": "accessibility",
@@ -37427,7 +37427,7 @@
         "selector": {
           "file": "apps/web/src/workbook/WorkbookShell.inspector.test.tsx",
           "titles": [
-            "FE-P9 inspector and row-local action coverage keeps the Timeline inspector unmounted until explicit activation"
+            "browser.inspector-history inspector and row-local action coverage keeps the Timeline inspector unmounted until explicit activation"
           ]
         },
         "evidence_class": "unit",
@@ -37465,7 +37465,7 @@
         "selector": {
           "file": "apps/web/src/workbook/WorkbookShell.inspector.test.tsx",
           "titles": [
-            "FE-P9 inspector and row-local action coverage renders Timeline collection cells compactly until inline edit activation"
+            "browser.inspector-history inspector and row-local action coverage renders Timeline collection cells compactly until inline edit activation"
           ]
         },
         "evidence_class": "unit",
