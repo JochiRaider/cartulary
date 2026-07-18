@@ -101,6 +101,7 @@ import {
   resolveOwnerSliceSelection,
 } from "../owner-slice/index.mjs";
 import { buildSourceSnapshot } from "../owner-slice/source-snapshot.mjs";
+import { ownerSliceChildEnvironment } from "../owner-slice/scheduler.mjs";
 import { buildModuleAuthorTaskGuide, explainTestOwner } from "../diagnostics/owner-diagnostics.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -469,6 +470,23 @@ test("runner adapters require one exact terminal observation per selected row", 
     )[0].terminal_state,
     "failed",
   );
+});
+
+test("owner slice children cannot inherit selector inputs or Make command-line overrides", () => {
+  const child = ownerSliceChildEnvironment({
+    PATH: "/bin",
+    OWNER: "harness.generated_artifacts",
+    ROWS: "row.one",
+    JSON: "1",
+    PLAYWRIGHT_WORKERS: "7",
+    VITEST_MAX_WORKERS: "8",
+    MAKEFLAGS: " -- OWNER=harness.generated_artifacts",
+    MFLAGS: "--no-print-directory",
+    GNUMAKEFLAGS: "--warn-undefined-variables",
+    MAKEOVERRIDES: "${-*-command-variables-*-}",
+    CARTULARY_TEST_RUN_ID: "parent-run",
+  });
+  assert.deepEqual(child, { PATH: "/bin" });
 });
 
 test("owner accounting closes exact rows and preserves subset completion scope", async () => {

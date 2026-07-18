@@ -15,6 +15,24 @@ import {
 
 const eventSchemaID = "cartulary.scheduler_event.v6";
 const summarySchemaID = "cartulary.service_backed_scheduler_summary.v10";
+const ownerSliceOnlyInputs = Object.freeze([
+  "OWNER",
+  "ROWS",
+  "JSON",
+  "PLAYWRIGHT_WORKERS",
+  "VITEST_MAX_WORKERS",
+  "MAKEFLAGS",
+  "MFLAGS",
+  "GNUMAKEFLAGS",
+  "MAKEOVERRIDES",
+  "CARTULARY_TEST_RUN_ID",
+]);
+
+export function ownerSliceChildEnvironment(environment = process.env) {
+  const child = { ...environment };
+  for (const name of ownerSliceOnlyInputs) delete child[name];
+  return child;
+}
 
 function terminalStateForStatus(status, skipReason = "") {
   if (skipReason === "dependency_failure") return "skipped_dependency";
@@ -82,19 +100,8 @@ function genericWorkUnits(root, plan, planPath, targetDir) {
   mkdirSync(artifactRoot, { recursive: true });
   const browserReadinessID = "readiness.owner_browser_runtime";
   const needsBrowserReadiness = plan.work_units.some((unit) => unit.runner === "playwright");
-  const readinessEnv = { ...process.env, CARTULARY_SUPPRESS_CHILD_SUCCESS: "1" };
-  for (const name of [
-    "OWNER",
-    "ROWS",
-    "JSON",
-    "PLAYWRIGHT_WORKERS",
-    "VITEST_MAX_WORKERS",
-    "MAKEFLAGS",
-    "MFLAGS",
-    "MAKEOVERRIDES",
-  ]) {
-    delete readinessEnv[name];
-  }
+  const childEnv = ownerSliceChildEnvironment();
+  const readinessEnv = { ...childEnv, CARTULARY_SUPPRESS_CHILD_SUCCESS: "1" };
   const units = [];
   const topology = loadExecutionTopology({ root });
   const runtimeBinaryIDs = [...new Set(plan.work_units.flatMap((unit) =>
@@ -190,7 +197,7 @@ function genericWorkUnits(root, plan, planPath, targetDir) {
         "--artifact-root", artifactRoot,
       ],
       env: {
-        ...process.env,
+        ...childEnv,
         CARTULARY_TEST_OWNER: plan.owner_id,
         CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
         ...runtimeBinaryAbsoluteEnvForIDs(
@@ -231,7 +238,7 @@ function genericWorkUnits(root, plan, planPath, targetDir) {
     command: {
       command: node,
       args: [cleanup, "--output", path.join(targetDir, "owner-slice-cleanup.json")],
-      env: process.env,
+      env: childEnv,
     },
   });
   return units;
