@@ -64,7 +64,7 @@
     },
     "fixture_tier_proofs": {
       "type": "array",
-      "items": { "$ref": "cartulary.fixture_tier_proof.v1" }
+      "items": { "$ref": "cartulary.fixture_tier_proof.v2" }
     },
     "slowest_work_units": {
       "type": "array",

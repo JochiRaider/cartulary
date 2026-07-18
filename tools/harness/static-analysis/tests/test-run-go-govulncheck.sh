@@ -211,7 +211,7 @@ assert_contains "$env_output" "GOCACHE=$scratch/go-cache" "govulncheck GOCACHE"
 assert_contains "$env_output" "GOMODCACHE=$scratch/go-mod-cache" "govulncheck GOMODCACHE"
 assert_contains "$env_output" "PATH=$scratch:" "govulncheck PATH includes GO directory"
 
-phase_artifact_dir="$scratch/phase-artifacts"
+step_artifact_dir="$scratch/step-artifacts"
 status=0
 output="$(
   GO="$fake_go" \
@@ -219,7 +219,7 @@ output="$(
     GO_MOD_CACHE_DIR="$scratch/go-mod-cache" \
     GOVULNCHECK_BIN="$fake_govulncheck" \
     GOVULNCHECK_FLAGS="-test -json" \
-    CARTULARY_PHASE_ARTIFACT_DIR="$phase_artifact_dir" \
+    CARTULARY_STEP_ARTIFACT_DIR="$step_artifact_dir" \
     FAKE_GO_LIST_ARGS_LOG="$go_list_args_log" \
     FAKE_GOVULNCHECK_ARGS_LOG="$govulncheck_args_log" \
     FAKE_GOVULNCHECK_ENV_LOG="$govulncheck_env_log" \
@@ -230,12 +230,12 @@ if [[ "$status" -eq 0 ]]; then
   fail "blocking Govulncheck finding: expected wrapper failure"
 fi
 assert_contains "$output" "GO-2099-0001" "blocking Govulncheck raw output"
-findings_json="$(cat "$phase_artifact_dir/govulncheck-findings.json")"
+findings_json="$(cat "$step_artifact_dir/govulncheck-findings.json")"
 assert_contains "$findings_json" '"schema_id": "cartulary.govulncheck_findings.v1"' "Govulncheck findings schema"
 assert_contains "$findings_json" '"blocking_count": 1' "Govulncheck blocking count"
 assert_contains "$findings_json" '"reachability": "symbol"' "Govulncheck symbol reachability"
 
-malformed_artifact_dir="$scratch/malformed-phase-artifacts"
+malformed_artifact_dir="$scratch/malformed-step-artifacts"
 status=0
 output="$(
   GO="$fake_go" \
@@ -243,7 +243,7 @@ output="$(
     GO_MOD_CACHE_DIR="$scratch/go-mod-cache" \
     GOVULNCHECK_BIN="$fake_govulncheck" \
     GOVULNCHECK_FLAGS="-test -json" \
-    CARTULARY_PHASE_ARTIFACT_DIR="$malformed_artifact_dir" \
+    CARTULARY_STEP_ARTIFACT_DIR="$malformed_artifact_dir" \
     FAKE_GO_LIST_ARGS_LOG="$go_list_args_log" \
     FAKE_GOVULNCHECK_ARGS_LOG="$govulncheck_args_log" \
     FAKE_GOVULNCHECK_ENV_LOG="$govulncheck_env_log" \

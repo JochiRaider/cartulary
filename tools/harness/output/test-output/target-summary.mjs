@@ -54,7 +54,7 @@ import {
   targetSummarySchemaID,
   testCoverageBucketSet,
   testCoverageBuckets,
-  validPhaseCountingModes,
+  validStepCountingModes,
 } from "../../contract/test-output-context.mjs";
 import {
   govulncheckArtifactFailure,
@@ -195,8 +195,8 @@ function normalizeAccountingMode(value) {
   return "actual";
 }
 
-function normalizePhaseCountingMode(value) {
-  if (validPhaseCountingModes.has(value)) {
+function normalizeStepCountingMode(value) {
+  if (validStepCountingModes.has(value)) {
     return value;
   }
   return "counted";
@@ -216,10 +216,10 @@ function mergeAccountingModes(target, source) {
   }
 }
 
-function resolveAccountingModes(accountingModes, fallbackActualPhases = 0) {
+function resolveAccountingModes(accountingModes, fallbackActualSteps = 0) {
   const modes = createAccountingModes();
   if (!accountingModes) {
-    modes.actual = clampDurationMs(fallbackActualPhases);
+    modes.actual = clampDurationMs(fallbackActualSteps);
     return modes;
   }
   for (const mode of Object.keys(modes)) {
@@ -358,7 +358,7 @@ function summarizeTargetDir(target) {
           stack.push(next);
           continue;
         }
-        if (entry.isFile() && entry.name === "phase-summary.json") {
+        if (entry.isFile() && entry.name === "step-summary.json") {
           summaries.push(JSON.parse(readFileSync(next, "utf8")));
         }
       }
@@ -373,7 +373,7 @@ function summarizeTargetDir(target) {
     testCoverageBuckets.map((coverage) => [coverage, []]),
   );
   const counts = {
-    phases: summaries.length,
+    steps: summaries.length,
     ...createCounts(),
   };
   let startTime = "";
@@ -387,7 +387,7 @@ function summarizeTargetDir(target) {
 
   for (const summary of summaries) {
     const accountingMode = normalizeAccountingMode(summary.accounting_mode);
-    const countingMode = normalizePhaseCountingMode(
+    const countingMode = normalizeStepCountingMode(
       summary.counting_mode ?? "counted",
     );
     const summaryDurations = readSummaryDurationFields(summary, accountingMode);
@@ -479,7 +479,7 @@ function summarizeTargetDir(target) {
   };
 }
 
-function phaseAlreadyReportedGovulncheckArtifactError(summary = {}) {
+function stepAlreadyReportedGovulncheckArtifactError(summary = {}) {
   return (summary.failures ?? []).some((failure) => {
     if (failure?.failure_reason !== "artifact_error") {
       return false;
@@ -496,7 +496,7 @@ function phaseAlreadyReportedGovulncheckArtifactError(summary = {}) {
   });
 }
 
-function govulncheckRollupFromPhaseSummaries(target, summaries = []) {
+function govulncheckRollupFromStepSummaries(target, summaries = []) {
   const artifacts = [];
   const artifactSet = new Set();
   const failures = [];
@@ -519,11 +519,11 @@ function govulncheckRollupFromPhaseSummaries(target, summaries = []) {
 
       const result = loadGovulncheckFindingsFile(artifactPath);
       if (result.error) {
-        if (!phaseAlreadyReportedGovulncheckArtifactError(summary)) {
+        if (!stepAlreadyReportedGovulncheckArtifactError(summary)) {
           failures.push(
             govulncheckArtifactFailure(artifactPath, result.error, {
               target,
-              phase: summary.phase ?? "",
+              step: summary.step ?? "",
               runner: summary.runner ?? "",
             }),
           );
@@ -580,7 +580,7 @@ function printInventory(targetSummary) {
     const uniqueItems = Array.from(
       new Map(
         items.map((item) => [
-          `${item.coverage}::${item.phase}::${item.id}::${item.package_or_file}::${item.symbol_or_title}`,
+          `${item.coverage}::${item.step}::${item.id}::${item.package_or_file}::${item.symbol_or_title}`,
           item,
         ]),
       ).values(),
@@ -589,13 +589,13 @@ function printInventory(targetSummary) {
       `[INVENTORY] ${targetSummary.target} ${coverage}=${uniqueItems.length}\n`,
     );
     const sorted = [...uniqueItems].sort((left, right) => {
-      const leftKey = `${left.phase}::${left.id}::${left.package_or_file}::${left.symbol_or_title}`;
-      const rightKey = `${right.phase}::${right.id}::${right.package_or_file}::${right.symbol_or_title}`;
+      const leftKey = `${left.step}::${left.id}::${left.package_or_file}::${left.symbol_or_title}`;
+      const rightKey = `${right.step}::${right.id}::${right.package_or_file}::${right.symbol_or_title}`;
       return leftKey.localeCompare(rightKey);
     });
     for (const item of sorted) {
       process.stdout.write(
-        `${coverage} phase=${item.phase || "-"} id=${item.id || "-"} owner=${item.package_or_file} name=${item.symbol_or_title}\n`,
+        `${coverage} step=${item.step || "-"} id=${item.id || "-"} owner=${item.package_or_file} name=${item.symbol_or_title}\n`,
       );
     }
   }
@@ -612,16 +612,12 @@ function parseTargetSummaryArgs(args) {
   const [target, ...rest] = args;
   if (!target) {
     throw new Error(
-      "usage: test-output.mjs target-summary <target> [pass|fail] [--children <target,target,...>] [--projection <target>] [--skipped-from-child <target>] [--skipped-from-scheduler <target>] [--skipped-after-failure <target,target>] [--failed-dependency <target>] [--frontend-row-accounting-scope <active_target|selected_rows|disabled>] [--frontend-row-accounting-phase-namespace <base|frontend>] [--frontend-row-accounting-phase <phaseN|FE-PN>] [--frontend-row-accounting-row-ids <ids>] [--quiet-success] [--quiet-failure] [--suppress-machine-output] [--preserve-existing-tool-summary]",
+      "usage: test-output.mjs target-summary <target> [pass|fail] [--children <target,target,...>] [--projection <target>] [--skipped-from-child <target>] [--skipped-from-scheduler <target>] [--skipped-after-failure <target,target>] [--failed-dependency <target>] [--quiet-success] [--quiet-failure] [--suppress-machine-output] [--preserve-existing-tool-summary]",
     );
   }
 
   let requestedStatus = "pass";
   let projectionTarget = "";
-  let frontendRowAccountingScope = "";
-  let frontendRowAccountingPhaseNamespace = "";
-  let frontendRowAccountingPhase = "";
-  let frontendRowAccountingRowIDs = "";
   let quietSuccess = false;
   let quietFailure = false;
   let suppressMachineOutput = false;
@@ -659,31 +655,6 @@ function parseTargetSummaryArgs(args) {
       if (projectionTarget === "") {
         throw new Error("--projection requires a target name");
       }
-      continue;
-    }
-    if (option === "--frontend-row-accounting-scope") {
-      frontendRowAccountingScope = remaining.shift() ?? "";
-      if (frontendRowAccountingScope === "") {
-        throw new Error("--frontend-row-accounting-scope requires a scope");
-      }
-      continue;
-    }
-    if (option === "--frontend-row-accounting-phase-namespace") {
-      frontendRowAccountingPhaseNamespace = remaining.shift() ?? "";
-      if (frontendRowAccountingPhaseNamespace === "") {
-        throw new Error("--frontend-row-accounting-phase-namespace requires a namespace");
-      }
-      continue;
-    }
-    if (option === "--frontend-row-accounting-phase") {
-      frontendRowAccountingPhase = remaining.shift() ?? "";
-      if (frontendRowAccountingPhase === "") {
-        throw new Error("--frontend-row-accounting-phase requires a phase");
-      }
-      continue;
-    }
-    if (option === "--frontend-row-accounting-row-ids") {
-      frontendRowAccountingRowIDs = remaining.shift() ?? "";
       continue;
     }
     if (option === "--skipped-after-failure") {
@@ -751,12 +722,6 @@ function parseTargetSummaryArgs(args) {
     skippedFromChildTargets,
     skippedFromSchedulerTargets,
     failedDependency,
-    frontendRowAccountingOptions: {
-      mode: frontendRowAccountingScope || undefined,
-      phaseNamespace: frontendRowAccountingPhaseNamespace || undefined,
-      phase: frontendRowAccountingPhase || undefined,
-      rowIDs: frontendRowAccountingRowIDs || undefined,
-    },
     quietSuccess,
     quietFailure,
     suppressMachineOutput,
@@ -906,7 +871,7 @@ function readJsonIfExists(file) {
 
 function normalizeCounts(counts = {}) {
   const normalized = {
-    phases: clampDurationMs(counts.phases ?? 0),
+    steps: clampDurationMs(counts.steps ?? 0),
     tests: clampDurationMs(counts.tests ?? 0),
     failed: clampDurationMs(counts.failed ?? 0),
     non_test: clampDurationMs(counts.non_test ?? 0),
@@ -967,7 +932,7 @@ function sectionFromFlatSummary(summary, fallbackTarget) {
     ...durations,
     accounting_modes: resolveAccountingModes(
       summary?.accounting_modes,
-      counts.phases,
+      counts.steps,
     ),
     counts,
     failure_class: summary?.failure_class ?? failureFields.failure_class,
@@ -1247,14 +1212,14 @@ function writeTargetLine(stream, label, targetSummary) {
         ? children.failed_targets.join(",")
         : "none";
     stream.write(
-      `${label} ${target} kind=aggregate${failureClassField} children=${children.present.length}/${children.expected.length} child_tests=${children.counts.tests} child_failed=${children.counts.failed} failed_children=${failedChildren} slowest_child=${slowestChildField} own_phases=${own.counts.phases} own_tests=${own.counts.tests} own_failed=${own.counts.failed} total_tests=${totals.counts.tests} total_failed=${totals.counts.failed} ${formatDurationFields(totals.wall_duration_ms, totals.executed_duration_ms, totals.logical_duration_ms, totals.critical_path_wall_duration_ms, totals.teardown_duration_ms)} ${formatAccountingModeFields(totals.accounting_modes)} own_fixture_count=${own.fixture.total_count} own_fixture_duration=${formatDuration(own.fixture.total_duration_ms)} child_fixture_count=${children.fixture.total_count} child_fixture_duration=${formatDuration(children.fixture.total_duration_ms)} total_fixture_count=${totals.fixture.total_count} total_fixture_duration=${formatDuration(totals.fixture.total_duration_ms)} slowest_lifecycle_bucket=${formatBucketSummary(totals.slowest_lifecycle_bucket)} artifacts=${targetSummary.own.artifacts.dir}\n`,
+      `${label} ${target} kind=aggregate${failureClassField} children=${children.present.length}/${children.expected.length} child_tests=${children.counts.tests} child_failed=${children.counts.failed} failed_children=${failedChildren} slowest_child=${slowestChildField} own_steps=${own.counts.steps} own_tests=${own.counts.tests} own_failed=${own.counts.failed} total_tests=${totals.counts.tests} total_failed=${totals.counts.failed} ${formatDurationFields(totals.wall_duration_ms, totals.executed_duration_ms, totals.logical_duration_ms, totals.critical_path_wall_duration_ms, totals.teardown_duration_ms)} ${formatAccountingModeFields(totals.accounting_modes)} own_fixture_count=${own.fixture.total_count} own_fixture_duration=${formatDuration(own.fixture.total_duration_ms)} child_fixture_count=${children.fixture.total_count} child_fixture_duration=${formatDuration(children.fixture.total_duration_ms)} total_fixture_count=${totals.fixture.total_count} total_fixture_duration=${formatDuration(totals.fixture.total_duration_ms)} slowest_lifecycle_bucket=${formatBucketSummary(totals.slowest_lifecycle_bucket)} artifacts=${targetSummary.own.artifacts.dir}\n`,
     );
     return;
   }
 
   const totals = targetSummary.totals;
   stream.write(
-    `${label} ${target} kind=leaf${failureClassField} phases=${totals.counts.phases} tests=${totals.counts.tests} failed=${totals.counts.failed} ${formatCoverageCountFields(totals.counts)} packages=${totals.counts.packages} ${formatDurationFields(totals.wall_duration_ms, totals.executed_duration_ms, totals.logical_duration_ms, totals.critical_path_wall_duration_ms, totals.teardown_duration_ms)} ${formatAccountingModeFields(totals.accounting_modes)} fixture_count=${totals.fixture.total_count} fixture_duration=${formatDuration(totals.fixture.total_duration_ms)} slowest_lifecycle_bucket=${formatBucketSummary(totals.slowest_lifecycle_bucket)} artifacts=${targetSummary.own.artifacts.dir}\n`,
+    `${label} ${target} kind=leaf${failureClassField} steps=${totals.counts.steps} tests=${totals.counts.tests} failed=${totals.counts.failed} ${formatCoverageCountFields(totals.counts)} packages=${totals.counts.packages} ${formatDurationFields(totals.wall_duration_ms, totals.executed_duration_ms, totals.logical_duration_ms, totals.critical_path_wall_duration_ms, totals.teardown_duration_ms)} ${formatAccountingModeFields(totals.accounting_modes)} fixture_count=${totals.fixture.total_count} fixture_duration=${formatDuration(totals.fixture.total_duration_ms)} slowest_lifecycle_bucket=${formatBucketSummary(totals.slowest_lifecycle_bucket)} artifacts=${targetSummary.own.artifacts.dir}\n`,
   );
 }
 
@@ -1318,12 +1283,6 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
         path.join(targetArtifactRoot, "target-summary.json"),
       ),
       fileArtifactRef("target_timing", targetSummary.artifacts?.timing_json),
-      targetSummary.artifacts?.frontend_row_accounting
-        ? fileArtifactRef(
-            "frontend_row_accounting",
-            targetSummary.artifacts.frontend_row_accounting,
-          )
-        : null,
       browserArtifacts.stackMetadata
         ? fileArtifactRef("browser_stack", browserArtifacts.stackMetadata)
         : null,
@@ -1388,7 +1347,7 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
           ],
     helperUnits: [],
     counts,
-    phaseAccounting: {
+    stepAccounting: {
       missing: missingChildren.length,
     },
     failureClass: targetSummary.failure_class,
@@ -1672,7 +1631,7 @@ function writeChildTargetLines(
       ? ` failure_class=${child.failure_class}`
       : "";
     stream.write(
-      `[CHILD] ${parentTarget} ${child.target} status=${child.status}${failureClass} phases=${totals.counts?.phases ?? 0} tests=${totals.counts?.tests ?? 0} failed=${totals.counts?.failed ?? 0} ${formatDurationFields(totals.wall_duration_ms, totals.executed_duration_ms, totals.logical_duration_ms, totals.critical_path_wall_duration_ms, totals.teardown_duration_ms)} ${formatAccountingModeFields(totals.accounting_modes)} artifacts=${child.artifacts?.dir ?? ""}\n`,
+      `[CHILD] ${parentTarget} ${child.target} status=${child.status}${failureClass} steps=${totals.counts?.steps ?? 0} tests=${totals.counts?.tests ?? 0} failed=${totals.counts?.failed ?? 0} ${formatDurationFields(totals.wall_duration_ms, totals.executed_duration_ms, totals.logical_duration_ms, totals.critical_path_wall_duration_ms, totals.teardown_duration_ms)} ${formatAccountingModeFields(totals.accounting_modes)} artifacts=${child.artifacts?.dir ?? ""}\n`,
     );
   }
   for (const childTarget of missingChildTargetSummaries) {
@@ -1747,7 +1706,7 @@ export function handleTargetSummary(args) {
     preserveExistingToolSummary,
   } = parseTargetSummaryArgs(args);
   const summary = summarizeTargetDir(target);
-  const securityRollup = govulncheckRollupFromPhaseSummaries(
+  const securityRollup = govulncheckRollupFromStepSummaries(
     target,
     summary.summaries,
   );
@@ -2196,67 +2155,4 @@ export function handleTargetSummary(args) {
     writeSkippedChildTargetLines(process.stderr, target, skippedChildTargets);
   }
   return testAccountingFailures.length > 0 ? 1 : 0;
-}
-
-function createDurationAggregate() {
-  return {
-    phases: 0,
-    ...createCounts(),
-    ...createDurationFields(),
-  };
-}
-
-function countsForJSON(aggregate) {
-  const counts = {
-    phases: aggregate.phases,
-    tests: aggregate.tests,
-    failed: aggregate.failed,
-    non_test: aggregate.non_test,
-    non_test_failed: aggregate.non_test_failed,
-    packages: aggregate.packages,
-  };
-  for (const coverage of testCoverageBuckets) {
-    counts[coverage] = aggregate[coverage];
-    counts[`${coverage}_failed`] = aggregate[`${coverage}_failed`];
-  }
-  return counts;
-}
-
-function findSlowestTarget(targetSummaries) {
-  return targetSummaries.reduce((current, summary) => {
-    const view = targetSummaryAccountingView(summary);
-    const durationMs = clampDurationMs(
-      view.critical_path_wall_duration_ms ??
-        view.wall_duration_ms ??
-        view.logical_duration_ms ??
-        0,
-    );
-    if (!current || durationMs > current.critical_path_wall_duration_ms) {
-      return {
-        target: summary.target,
-        critical_path_wall_duration_ms: durationMs,
-        basis: "critical_path_wall_duration_ms",
-      };
-    }
-    return current;
-  }, null);
-}
-
-function findSlowestLifecycleBucket(targetSummaries) {
-  return targetSummaries.reduce((current, summary) => {
-    const bucket =
-      targetSummaryAccountingView(summary).slowest_lifecycle_bucket;
-    if (!bucket) {
-      return current;
-    }
-    const candidate = {
-      target: summary.target,
-      name: bucket.name,
-      duration_ms: clampDurationMs(bucket.duration_ms ?? 0),
-    };
-    if (!current || candidate.duration_ms > current.duration_ms) {
-      return candidate;
-    }
-    return current;
-  }, null);
 }

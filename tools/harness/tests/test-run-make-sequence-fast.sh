@@ -358,7 +358,7 @@ CARTULARY_TEST_TARGET=alpha \
 CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
 CARTULARY_TEST_RESULTS_DIR="${leaf_budget_dir}/results" \
 CARTULARY_TEST_RUN_ID="leaf-budget" \
-  "${ROOT_DIR}/tools/harness/execution/run-phase.sh" "alpha smoke" -- true \
+  "${ROOT_DIR}/tools/harness/execution/run-step.sh" "alpha smoke" -- true \
   >/dev/null 2>&1
 CARTULARY_OUTPUT_MODE="" \
 CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
@@ -375,7 +375,7 @@ retained_biome_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-retained
 cleanup_paths+=("${retained_biome_dir}")
 cat >"${retained_biome_dir}/Makefile" <<EOF
 lint-biome:
-	@CARTULARY_SUPPRESS_CHILD_SUCCESS=1 CARTULARY_TEST_TARGET=lint-biome CARTULARY_TEST_RESULTS_DIR="${retained_biome_dir}/results" CARTULARY_TEST_RUN_ID=retained-biome "${ROOT_DIR}/tools/harness/execution/run-phase.sh" "lint biome" -- bash -lc 'printf "%s\n" "apps/web/src/example.ts:12:8 lint/style/noNonNullAssertion" "  ! Forbidden non-null assertion."; exit 1'; status=\$\$?; if [ "\$\$status" -eq 0 ]; then CARTULARY_OUTPUT_MODE=quiet CARTULARY_TEST_RESULTS_DIR="${retained_biome_dir}/results" CARTULARY_TEST_RUN_ID=retained-biome "${ROOT_DIR}/tools/harness/output/test-output.sh" target-summary lint-biome pass --quiet-success --suppress-machine-output --preserve-existing-tool-summary; summary_status=\$\$?; else CARTULARY_OUTPUT_MODE=quiet CARTULARY_TEST_RESULTS_DIR="${retained_biome_dir}/results" CARTULARY_TEST_RUN_ID=retained-biome "${ROOT_DIR}/tools/harness/output/test-output.sh" target-summary lint-biome fail --quiet-success --suppress-machine-output --preserve-existing-tool-summary; summary_status=\$\$?; fi; if [ "\$\$summary_status" -ne 0 ]; then exit "\$\$summary_status"; fi; exit "\$\$status"
+	@CARTULARY_SUPPRESS_CHILD_SUCCESS=1 CARTULARY_TEST_TARGET=lint-biome CARTULARY_TEST_RESULTS_DIR="${retained_biome_dir}/results" CARTULARY_TEST_RUN_ID=retained-biome "${ROOT_DIR}/tools/harness/execution/run-step.sh" "lint biome" -- bash -lc 'printf "%s\n" "apps/web/src/example.ts:12:8 lint/style/noNonNullAssertion" "  ! Forbidden non-null assertion."; exit 1'; status=\$\$?; if [ "\$\$status" -eq 0 ]; then CARTULARY_OUTPUT_MODE=quiet CARTULARY_TEST_RESULTS_DIR="${retained_biome_dir}/results" CARTULARY_TEST_RUN_ID=retained-biome "${ROOT_DIR}/tools/harness/output/test-output.sh" target-summary lint-biome pass --quiet-success --suppress-machine-output --preserve-existing-tool-summary; summary_status=\$\$?; else CARTULARY_OUTPUT_MODE=quiet CARTULARY_TEST_RESULTS_DIR="${retained_biome_dir}/results" CARTULARY_TEST_RUN_ID=retained-biome "${ROOT_DIR}/tools/harness/output/test-output.sh" target-summary lint-biome fail --quiet-success --suppress-machine-output --preserve-existing-tool-summary; summary_status=\$\$?; fi; if [ "\$\$summary_status" -ne 0 ]; then exit "\$\$summary_status"; fi; exit "\$\$status"
 EOF
 set +e
 make --no-print-directory -f "${retained_biome_dir}/Makefile" lint-biome \
@@ -400,7 +400,7 @@ CARTULARY_TEST_TARGET=alpha \
 CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
 CARTULARY_TEST_RESULTS_DIR="${suppressed_machine_dir}/results" \
 CARTULARY_TEST_RUN_ID="suppressed-machine" \
-  "${ROOT_DIR}/tools/harness/execution/run-phase.sh" "alpha smoke" -- true \
+  "${ROOT_DIR}/tools/harness/execution/run-step.sh" "alpha smoke" -- true \
   >/dev/null 2>&1
 CARTULARY_OUTPUT_MODE=machine \
 CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
@@ -788,7 +788,6 @@ const expectedExecutionChecks = [
   "harness-smoke-run-make-sequence-fast",
   "harness-smoke-cartulary-runner-service-backed-target",
   "harness-smoke-make-node-tools",
-  "harness-smoke-run-frontend-unit",
 ];
 if (JSON.stringify(execution.checks) !== JSON.stringify(expectedExecutionChecks)) {
   fail(`execution harness tier must be the execution wrapper smoke set, got ${execution.checks.join(",")}`);
@@ -813,7 +812,6 @@ for (const retired of [
   "harness-smoke-frontend-evidence-audit",
   "harness-smoke-guidance-core",
   "harness-smoke-guidance-matrix",
-  "harness-smoke-phase-slice",
   "harness-smoke-run-go-target-fast",
   "harness-smoke-service-backed-scheduler-fast",
 ]) {
@@ -1139,15 +1137,15 @@ try {
 }
 
 assert.throws(
-  () => validateSchemaSync("cartulary.test_phase_summary.v3", {
-    schema_id: "cartulary.test_phase_summary.v3",
+  () => validateSchemaSync("cartulary.test_step_summary.v1", {
+    schema_id: "cartulary.test_step_summary.v1",
   }),
   /validation failed/u,
 );
 
 EOF
 
-assert_equals "$(json_field "${retained_biome_dir}/results/retained-biome/lint-biome/lint-biome/phase-summary.json" "schema_id")" "cartulary.test_phase_summary.v3" "retained biome phase summary schema"
+assert_equals "$(json_field "${retained_biome_dir}/results/retained-biome/lint-biome/lint-biome/step-summary.json" "schema_id")" "cartulary.test_step_summary.v1" "retained biome step summary schema"
 assert_equals "$(json_field "${success_dir}/results/success/smoke/target-summary.json" "schema_id")" "cartulary.test_target_summary.v4" "success target summary schema"
 assert_equals "$(json_field "${machine_dir}/results/machine/run-summary.json" "schema_id")" "cartulary.test_run_summary.v6" "machine run summary schema"
 

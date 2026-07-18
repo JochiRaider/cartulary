@@ -37,7 +37,7 @@ assert_fails_with() {
   assert_contains "$output" "$needle" "$label"
 }
 
-phase_stdout_from_result() {
+step_stdout_from_result() {
   local output="$1"
   local root
   root="$(printf '%s\n' "$output" | sed -n 's/.* run_root=\([^ ]*\) .*/\1/p' | head -n 1)"
@@ -219,7 +219,7 @@ make_update_output="$(
     "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" service-backed-make-target-duration-baselines 2>&1
 )"
 assert_contains "$make_update_output" "[RESULT] target=service-backed-make-target-duration-baselines status=pass" "make baseline update summary"
-assert_contains "$(phase_stdout_from_result "$make_update_output")" "scheduler work-unit duration baselines from 3 successful scheduler artifact(s)" "make baseline update output"
+assert_contains "$(step_stdout_from_result "$make_update_output")" "scheduler work-unit duration baselines from 3 successful scheduler artifact(s)" "make baseline update output"
 
 cat >"$tmp_dir/tolerated-underplanned.json" <<'JSON'
 {

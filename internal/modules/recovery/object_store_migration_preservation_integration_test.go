@@ -331,7 +331,7 @@ func migrationPreservationArtifactsDir(t testing.TB, scenario string) string {
 		root = t.TempDir()
 		runID = "local"
 	}
-	dir := filepath.Join(root, runID, "seaweedfs-migration-preservation", "phase-f-object-store-migration", scenario)
+	dir := filepath.Join(root, runID, "seaweedfs-migration-preservation", "object-store-migration", scenario)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatalf("create migration preservation artifact directory: %v", err)
 	}

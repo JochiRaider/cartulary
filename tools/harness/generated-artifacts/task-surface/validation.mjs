@@ -73,7 +73,7 @@ const validArtifactPolicies = new Set([
   "tool_run_summary",
 ]);
 const validSummarySchemas = new Set([
-  "cartulary.tool_run_summary.v4",
+  "cartulary.tool_run_summary.v5",
   "cartulary.otel_conformance_summary.v1",
 ]);
 const validRawStreamPolicies = new Set([

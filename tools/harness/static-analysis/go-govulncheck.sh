@@ -83,10 +83,10 @@ if [[ "${#packages[@]}" -eq 0 ]]; then
 fi
 
 tmp_dir=""
-if [[ -n "${CARTULARY_PHASE_ARTIFACT_DIR:-}" ]]; then
-  mkdir -p "$CARTULARY_PHASE_ARTIFACT_DIR"
-  raw_output="$CARTULARY_PHASE_ARTIFACT_DIR/govulncheck-output.jsonstream"
-  findings_output="$CARTULARY_PHASE_ARTIFACT_DIR/govulncheck-findings.json"
+if [[ -n "${CARTULARY_STEP_ARTIFACT_DIR:-}" ]]; then
+  mkdir -p "$CARTULARY_STEP_ARTIFACT_DIR"
+  raw_output="$CARTULARY_STEP_ARTIFACT_DIR/govulncheck-output.jsonstream"
+  findings_output="$CARTULARY_STEP_ARTIFACT_DIR/govulncheck-findings.json"
 else
   tmp_dir="$(mktemp -d)"
   raw_output="$tmp_dir/govulncheck-output.jsonstream"

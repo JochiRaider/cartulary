@@ -39,7 +39,7 @@ const makeRecipeValidators = Object.freeze({
   service_backed_target: validateServiceBackedTargetRecipe,
   service_backed_schedule: validateServiceBackedScheduleRecipe,
   browser_batch: validateBrowserBatchRecipe,
-  phase_command: validatePhaseCommandRecipe,
+  step_command: validateStepCommandRecipe,
   owner_command: validateOwnerCommandRecipe,
   summary_target: validateSummaryTargetRecipe,
   node_tool: validateNodeToolRecipe,
@@ -73,7 +73,7 @@ function recipeCanProduceArtifactPolicy(target, recipe, artifactPolicy) {
       recipe.type === "browser_batch" ||
       recipe.type === "summary_target" ||
       recipe.type === "owner_command" ||
-      recipe.type === "phase_command"
+      recipe.type === "step_command"
     );
   }
   return false;
@@ -226,7 +226,7 @@ function recipeRequiresNodeRuntime(recipe) {
   ) {
     return true;
   }
-  if (recipe.type !== "phase_command") {
+  if (recipe.type !== "step_command") {
     return false;
   }
   if (recipe.mode === "node") {
@@ -322,10 +322,10 @@ function validateServiceBackedTargetRecipe({ errors, recipe, label, helpers }) {
 
 function validateServiceBackedScheduleRecipe({ errors, recipe, label }) {
   if (
-    typeof recipe.phase_label !== "string" ||
-    recipe.phase_label.trim() === ""
+    typeof recipe.step_label !== "string" ||
+    recipe.step_label.trim() === ""
   ) {
-    errors.push(`${label}.phase_label must be a non-empty string`);
+    errors.push(`${label}.step_label must be a non-empty string`);
   }
   if (!["test-services"].includes(recipe.service_wrapper)) {
     errors.push(`${label}.service_wrapper must be test-services`);
@@ -350,9 +350,9 @@ function validateBrowserBatchRecipe({ errors, recipe, label }) {
   }
 }
 
-function validatePhaseCommandRecipe({ errors, recipe, label, helpers }) {
-  if (!["run_phase", "node", "command"].includes(recipe.mode)) {
-    errors.push(`${label}.mode must be run_phase, node, or command`);
+function validateStepCommandRecipe({ errors, recipe, label, helpers }) {
+  if (!["run_step", "node", "command"].includes(recipe.mode)) {
+    errors.push(`${label}.mode must be run_step, node, or command`);
   }
   if (recipe.allow_success_log !== undefined) {
     errors.push(`${label}.allow_success_log is obsolete`);
@@ -373,10 +373,10 @@ function validatePhaseCommandRecipe({ errors, recipe, label, helpers }) {
     required: false,
   });
   if (
-    recipe.mode === "run_phase" &&
-    (typeof recipe.phase_label !== "string" || recipe.phase_label.trim() === "")
+    recipe.mode === "run_step" &&
+    (typeof recipe.step_label !== "string" || recipe.step_label.trim() === "")
   ) {
-    errors.push(`${label}.phase_label must be a non-empty string for run_phase`);
+    errors.push(`${label}.step_label must be a non-empty string for run_step`);
   }
   if (recipe.mode === "node") {
     if (
@@ -404,12 +404,12 @@ function validateSummaryTargetRecipe({ errors, recipe, label, targets }) {
     errors.push(`${label}.status must be pass or fail`);
   }
   if (
-    recipe.phase_label !== undefined &&
-    (typeof recipe.phase_label !== "string" ||
-      !makeValuePattern.test(recipe.phase_label) ||
-      recipe.phase_label.trim() === "")
+    recipe.step_label !== undefined &&
+    (typeof recipe.step_label !== "string" ||
+      !makeValuePattern.test(recipe.step_label) ||
+      recipe.step_label.trim() === "")
   ) {
-    errors.push(`${label}.phase_label must be a safe non-empty Make value`);
+    errors.push(`${label}.step_label must be a safe non-empty Make value`);
   }
   if (
     recipe.projection !== undefined &&

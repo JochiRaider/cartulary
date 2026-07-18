@@ -252,9 +252,9 @@ function loadServiceTimingSpans(target) {
   return spans;
 }
 
-function phaseSummaryTimingSpan(summary) {
+function stepSummaryTimingSpan(summary) {
   return {
-    source: "phase",
+    source: "step",
     bucket: normalizeTimingBucket(summary.timing_bucket, summary.runner),
     label: summary.label,
     runner: summary.runner,
@@ -516,7 +516,7 @@ function accountableTargetWallSpan(span) {
   if (!span || span.bucket === "report_collation") {
     return false;
   }
-  if (span.source === "phase") {
+  if (span.source === "step") {
     return normalizeAccountingMode(span.accounting_mode) === "actual";
   }
   return true;
@@ -526,7 +526,7 @@ function summarizeAccountableTargetWindow(spans) {
   let accountableSpans = spans.filter(accountableTargetWallSpan);
   if (accountableSpans.some((span) => span.source === "scheduler")) {
     accountableSpans = accountableSpans.filter(
-      (span) => span.source !== "phase",
+      (span) => span.source !== "step",
     );
   }
   const summedDurationMs = accountableSpans.reduce(
@@ -560,16 +560,16 @@ function summarizeAccountableTargetWindow(spans) {
 export function summarizeTargetTiming(
   target,
   targetDir,
-  phaseSummaries,
+  stepSummaries,
   status,
   reportCollationSpan,
   lifecycleSpans = lifecycleTimingSpans(target, targetDir),
 ) {
   const buckets = new Map();
-  const phaseSpans = phaseSummaries.map((summary) =>
-    phaseSummaryTimingSpan(summary),
+  const stepSpans = stepSummaries.map((summary) =>
+    stepSummaryTimingSpan(summary),
   );
-  for (const span of phaseSpans) {
+  for (const span of stepSpans) {
     addTimingSpanToBuckets(buckets, span);
   }
   for (const span of lifecycleSpans) {
@@ -577,7 +577,7 @@ export function summarizeTargetTiming(
   }
   addTimingSpanToBuckets(buckets, reportCollationSpan);
   const accountableWindow = summarizeAccountableTargetWindow([
-    ...phaseSpans,
+    ...stepSpans,
     ...lifecycleSpans,
   ]);
   const summaryWindow = {

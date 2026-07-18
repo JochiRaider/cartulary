@@ -45,7 +45,7 @@ export function createRunnerContext(options = {}) {
     goModCacheDir: process.env.GO_MOD_CACHE_DIR || "/tmp/cartulary-go-mod",
     makeBin: process.env.MAKE_BIN || process.env.MAKE || "make",
     runnerScript: envPath("CARTULARY_RUNNER_SCRIPT", "tools/harness/execution/cartulary-runner-cli.mjs", repoRoot),
-    runPhaseScript: envPath("RUN_PHASE_SCRIPT", "tools/harness/execution/run-phase.sh", repoRoot),
+    runStepScript: envPath("RUN_STEP_SCRIPT", "tools/harness/execution/run-step.sh", repoRoot),
     runGoTargetScript: envPath("RUN_GO_TARGET_SCRIPT", "tools/harness/backend/go-target-runner.mjs", repoRoot),
     serviceBackedScheduleScript: envPath(
       "RUN_SERVICE_BACKED_SCHEDULE_SCRIPT",

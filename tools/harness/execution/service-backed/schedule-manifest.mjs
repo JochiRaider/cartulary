@@ -54,11 +54,9 @@ const serviceBrowserGroupKeys = new Set([
   "shard_name",
   "shard_index",
   "shard_count",
-  "phases",
   "entry_ids",
   "env",
   "workers",
-  "selected_phase",
   "selected_row_ids",
   "browser_session_group",
   "browser_session_isolation_reason",
@@ -219,9 +217,6 @@ export function validateServiceBackedScheduleManifestShape(
                 }
                 if (group.workers !== undefined) {
                   requireString(group.workers, `${groupLabel}.workers`);
-                }
-                if (group.selected_phase !== undefined) {
-                  requireString(group.selected_phase, `${groupLabel}.selected_phase`);
                 }
                 if (group.selected_row_ids !== undefined) {
                   requireStringArray(group.selected_row_ids, `${groupLabel}.selected_row_ids`, {

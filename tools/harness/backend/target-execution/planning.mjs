@@ -14,22 +14,22 @@ import { compareStrings } from "./util.mjs";
 
 function targetRows(ctx) {
   if (!ctx.targetPlanRows) {
-    const phaseRows = collectTargetPlanRows(ctx.repoRoot).filter((row) => {
-      if (!ctx.phaseSelection) {
+    const ownerRows = collectTargetPlanRows(ctx.repoRoot).filter((row) => {
+      if (!ctx.ownerSelection) {
         return true;
       }
-      return row.manifest_phase === ctx.phaseSelection;
+      return row.owner_id === ctx.ownerSelection;
     });
-    if (ctx.phaseRowIDs.length === 0) {
-      ctx.targetPlanRows = phaseRows;
+    if (ctx.ownerRowIDs.length === 0) {
+      ctx.targetPlanRows = ownerRows;
     } else {
-      const selectedIDs = new Set(ctx.phaseRowIDs);
+      const selectedIDs = new Set(ctx.ownerRowIDs);
       const selectedTargets = new Set(
-        phaseRows
+        ownerRows
           .filter((row) => selectedIDs.has(row.id))
           .map((row) => row.target),
       );
-      ctx.targetPlanRows = phaseRows.filter(
+      ctx.targetPlanRows = ownerRows.filter(
         (row) =>
           selectedIDs.has(row.id) ||
           (row.support_only === true && selectedTargets.has(row.target)),
@@ -42,7 +42,7 @@ function targetRows(ctx) {
 function shardPlan(ctx) {
   if (!ctx.shardPlan) {
     ctx.shardPlan = collectGoShardPlanFromRows(ctx.repoRoot, targetRows(ctx), {
-      phase: ctx.phaseSelection,
+      owner: ctx.ownerSelection,
     });
   }
   return ctx.shardPlan;

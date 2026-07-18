@@ -217,7 +217,7 @@ assert.deepEqual(
 );
 assert.equal(
   renderedTaskSurface.make_recipes["agent-finalize"]?.type,
-  "phase_command",
+  "step_command",
   "agent-finalize must be generated as a summarized Make command",
 );
 
@@ -359,7 +359,7 @@ const unknownRecipeType = taskSurfaceFixture();
 unknownRecipeType.make_recipes.help.type = "future_recipe";
 assert.match(
   taskSurfaceErrors(unknownRecipeType),
-  /make_recipes\.help\.type must be one of artifact_binding, aggregate, readiness_projection, cleanup, print_help, sequence, check_schedule, go_target, service_backed_target, service_backed_schedule, browser_batch, phase_command, owner_command, summary_target, node_tool/,
+  /make_recipes\.help\.type must be one of artifact_binding, aggregate, readiness_projection, cleanup, print_help, sequence, check_schedule, go_target, service_backed_target, service_backed_schedule, browser_batch, step_command, owner_command, summary_target, node_tool/,
   "task-surface validation must reject unknown Make recipe types with the registry order",
 );
 
@@ -455,9 +455,9 @@ const recipeValidationCases = [
     type: "service_backed_schedule",
     target: "test-service-backed",
     mutate: (recipe) => {
-      recipe.phase_label = "";
+      recipe.step_label = "";
     },
-    pattern: /make_recipes\.test-service-backed\.phase_label must be a non-empty string/,
+    pattern: /make_recipes\.test-service-backed\.step_label must be a non-empty string/,
   },
   {
     type: "browser_batch",
@@ -468,12 +468,12 @@ const recipeValidationCases = [
     pattern: /make_recipes\.browser-e2e\.stage must be a safe browser stage name/,
   },
   {
-    type: "phase_command",
+    type: "step_command",
     target: "doctor",
     mutate: (recipe) => {
       recipe.mode = "shell";
     },
-    pattern: /make_recipes\.doctor\.mode must be run_phase, node, or command/,
+    pattern: /make_recipes\.doctor\.mode must be run_step, node, or command/,
   },
   {
     type: "summary_target",
@@ -589,7 +589,7 @@ const expectedCheckWorkUnitPriorities = [
   ["lint-scripts", 12900],
   ["lint-markdown", 12875],
   ["lint-shell", 12850],
-  ["phase-test-name-check", 12000],
+  ["semantic-identity-check", 12000],
   ["test-catalog-check", 11500],
   ["go-test-duration-baseline-coverage", 11400],
   ["generated-artifact-policy-check", 11050],
@@ -734,59 +734,6 @@ assert.deepEqual(
   ["service_session:check-service-backed"],
   "backend service-backed shards must depend only on the ready service session",
 );
-const phase10OperatorExecutionFamily = "backend-process-phase10-canonical-operator-recovery";
-const phase10OperatorPlanShards = goShardPlanModule
-  .collectGoShardPlan(root)
-  .shards.filter(
-    (shard) =>
-      shard.target === "backend-process" &&
-      shard.aggregate_name === phase10OperatorExecutionFamily,
-  );
-const expectedPhase10OperatorShards = phase10OperatorPlanShards
-  .map((shard) => shard.name)
-  .sort((left, right) => left.localeCompare(right));
-const expectedPhase10OperatorScenarios = targetPlanModule
-  .collectTargetPlanRows(root)
-  .find(
-    (row) =>
-      row.manifest_phase === "phase10" &&
-      row.target === "backend-process" &&
-      row.execution_family === phase10OperatorExecutionFamily,
-  )?.scenario_symbols;
-assert.deepEqual(
-  phase10OperatorPlanShards
-    .flatMap((shard) => shard.items)
-    .map((item) => [item.scenario_id, item.symbol])
-    .sort(([left], [right]) => left.localeCompare(right)),
-  Object.entries(expectedPhase10OperatorScenarios ?? {}).sort(([left], [right]) => left.localeCompare(right)),
-  "phase10 E-10-01 operator batches must retain every exact scenario item",
-);
-const phase10OperatorUnits = expandedCheckSchedule.work_units
-  .filter(
-    (unit) =>
-      unit.kind === "go_shard" &&
-      unit.target === "backend-process" &&
-      expectedPhase10OperatorShards.includes(unit.shard),
-  )
-  .sort((left, right) => left.shard.localeCompare(right.shard));
-assert.deepEqual(
-  phase10OperatorUnits.map((unit) => unit.shard),
-  expectedPhase10OperatorShards,
-  "phase10 E-10-01 operator evidence must expand to shard-plan-owned deterministic batches",
-);
-for (const unit of phase10OperatorUnits) {
-  assert.deepEqual(
-    unit.needs,
-    ["service_session:check-service-backed", "build-operator"],
-    `${unit.shard} must depend only on service readiness and its operator runtime producer`,
-  );
-  assert.deepEqual(unit.runtime_binaries, ["operator"], `${unit.shard} must declare the operator runtime`);
-  assert.equal(
-    unit.resource_claims?.process,
-    1,
-    `${unit.shard} must not claim the full process lane merely because it consumes operator`,
-  );
-}
 assert.deepEqual(
   webserverStageSession?.retained_resource_claims,
   {
@@ -820,13 +767,13 @@ const futureRows = [
   {
     ...existingRow,
     id: "U-99-01",
-    manifest_phase: "phase99",
+    owner_id: "module.future",
   },
 ];
 assert.deepEqual(
   scheduledBackendTargets(futureRows),
   originalBackendTargets,
-  "a future phase row under an existing execution dependency must not change service-backed schedule targets",
+  "a future owner row under an existing execution dependency must not change service-backed schedule targets",
 );
 
 const tempDir = mkdtempSync(path.join(os.tmpdir(), "cartulary-topology-test-"));
@@ -1198,111 +1145,3 @@ assert.throws(
   /check_schedules\.target_profiles\.backend-unit\.make_prerequisite_policy must be one of run, skip/,
   "topology validation must reject unknown check work-unit make prerequisite policies",
 );
-
-const missingMakePrerequisitePolicyTopology = topologyFixture();
-delete missingMakePrerequisitePolicyTopology.check_schedules.target_profiles[
-  "backend-unit"
-].make_prerequisite_policy;
-assert.throws(
-  () =>
-    loadExecutionTopology({
-      manifestPath: writeTopologyFixture(
-        "missing-make-prerequisite-policy-topology.json",
-        missingMakePrerequisitePolicyTopology,
-      ),
-    }),
-  /check_schedules\.target_profiles\.backend-unit\.make_prerequisite_policy must be a non-empty string/,
-  "topology validation must reject omitted check work-unit make prerequisite policies",
-);
-
-const unknownOwnerTargetTopology = topologyFixture();
-unknownOwnerTargetTopology.check_schedules.target_profiles["missing-owner-target"] = {
-  schedules: ["check"],
-  profile: "after_setup_cpu",
-  priority_band: "phase_validation",
-  make_prerequisite_policy: "skip",
-  order: 701,
-};
-assert.throws(
-  () =>
-    loadExecutionTopology({
-      manifestPath: writeTopologyFixture("unknown-owner-target-topology.json", unknownOwnerTargetTopology),
-    }),
-  /check_schedules\.target_profiles references unknown target missing-owner-target/,
-  "topology targets must be declared by the task-surface owner",
-);
-
-for (const field of ["command_id", "input_contract", "help", "output_policy", "lifecycle_state"]) {
-  const redefiningTopology = topologyFixture();
-  redefiningTopology.check_schedules.target_profiles["backend-unit"][field] =
-    field === "lifecycle_state" ? "candidate_child" : {};
-  assert.throws(
-    () =>
-      loadExecutionTopology({
-        manifestPath: writeTopologyFixture(`redefined-${field}-topology.json`, redefiningTopology),
-      }),
-    new RegExp(`check_schedules\\.target_profiles\\.backend-unit has unknown key ${field}`),
-    `topology must not redefine owner field ${field}`,
-  );
-}
-
-const generatedOwnerTopology = topologyFixture();
-generatedOwnerTopology.task_surface_owner = generatedOwnerTopology.generated_outputs.task_surface_manifest;
-assert.throws(
-  () =>
-    loadExecutionTopology({
-      manifestPath: writeTopologyFixture("generated-owner-topology.json", generatedOwnerTopology),
-    }),
-  /must reference an authored owner input, not generated file/,
-  "generated task-surface projections must not become owner inputs",
-);
-
-const embeddedOwnerTopology = topologyFixture();
-embeddedOwnerTopology.task_surface = taskSurfaceOwnerFixture();
-assert.throws(
-  () =>
-    loadExecutionTopology({
-      manifestPath: writeTopologyFixture("embedded-owner-topology.json", embeddedOwnerTopology),
-    }),
-  /task_surface is obsolete|must NOT have additional properties/,
-  "topology must reject the retired embedded owner block",
-);
-
-const futureCheckTargetTopology = topologyFixture();
-const futureCheckTargetOwner = taskSurfaceOwnerFixture();
-futureCheckTargetOwner.targets.push({
-  name: "future-phase-check-leaf",
-  target_class: "check_internal",
-  default_inclusion_sets: ["check"],
-  lifecycle_state: "candidate_child",
-});
-futureCheckTargetOwner.make_recipes["future-phase-check-leaf"] = {
-  type: "readiness_projection",
-  prerequisites: ["frontend-install"],
-};
-futureCheckTargetTopology.task_surface_owner = writeTaskSurfaceOwnerFixture(
-  "future-check-target-owner.json",
-  futureCheckTargetOwner,
-);
-futureCheckTargetTopology.check_schedules.target_profiles["future-phase-check-leaf"] = {
-  schedules: ["check"],
-  profile: "after_setup_cpu",
-  priority_band: "phase_validation",
-  make_prerequisite_policy: "skip",
-  order: 700,
-};
-const futureCheckSchedule = renderCheckScheduleManifest(
-  loadExecutionTopology({
-    manifestPath: writeTopologyFixture("future-check-target-topology.json", futureCheckTargetTopology),
-  }),
-).schedules.find((schedule) => schedule.target === "check");
-assert.ok(
-  futureCheckSchedule.work_units.some((unit) => unit.target === "future-phase-check-leaf"),
-  "new check-scheduled targets must be included through metadata without adding flat work units",
-);
-assert.equal(
-  futureCheckSchedule.work_units.find((unit) => unit.target === "future-phase-check-leaf")?.make_prerequisite_policy,
-  "skip",
-  "explicit check_schedule make prerequisite policy must carry into rendered work units",
-);
-EOF

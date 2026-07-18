@@ -91,8 +91,8 @@ export function createGoTargetContext(options = {}) {
       repoRoot,
       env.TEST_OUTPUT_SCRIPT || path.join("tools", "harness", "output", "test-output.mjs"),
     ),
-    phaseSelection: env.CARTULARY_GO_TARGET_PHASE || "",
-    phaseRowIDs: String(env.CARTULARY_GO_TARGET_ROW_IDS || "")
+    ownerSelection: env.CARTULARY_GO_TARGET_OWNER || "",
+    selectedRowIDs: String(env.CARTULARY_GO_TARGET_ROW_IDS || "")
       .split(",")
       .map((value) => value.trim())
       .filter(Boolean),
@@ -109,8 +109,8 @@ export function targetDir(ctx) {
   return dir;
 }
 
-export function preparePhaseArtifactDir(ctx, label) {
-  const slug = slugifyLabel(label) || "phase";
+export function prepareStepArtifactDir(ctx, label) {
+  const slug = slugifyLabel(label) || "step";
   const dir = path.join(targetDir(ctx), slug);
   secureMkdir(dir);
   return dir;

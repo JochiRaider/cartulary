@@ -60,7 +60,6 @@ trap 'rm -rf "${tmp_dir}"' EXIT
 success_stdout="${tmp_dir}/target-plan.stdout"
 success_stderr="${tmp_dir}/target-plan.stderr"
 success_status="$(
-  PHASE=phase4 \
   DETAIL=logs \
   TASK_SURFACE_MANIFEST=/tmp/cartulary-ignored-task-surface.json \
     run_make_capture "${success_stdout}" "${success_stderr}" make --no-print-directory target-plan
@@ -90,10 +89,10 @@ assert_equals "$(cat "${make_target_stderr}")" "" "target-plan public Make targe
 wrong_target_stdout="${tmp_dir}/wrong-target.stdout"
 wrong_target_stderr="${tmp_dir}/wrong-target.stderr"
 wrong_target_status="$(
-  run_make_capture "${wrong_target_stdout}" "${wrong_target_stderr}" make --no-print-directory target-plan PHASE=phase4
+  run_make_capture "${wrong_target_stdout}" "${wrong_target_stderr}" make --no-print-directory target-plan UNDECLARED_INPUT=unexpected
 )"
 assert_equals "${wrong_target_status}" "2" "wrong-target Make variable status"
-assert_contains "$(cat "${wrong_target_stderr}")" "PHASE is not declared for target target-plan" "wrong-target Make variable diagnostic"
+assert_contains "$(cat "${wrong_target_stderr}")" "UNDECLARED_INPUT is not declared for target target-plan" "wrong-target Make variable diagnostic"
 assert_equals "$(cat "${wrong_target_stdout}")" "" "wrong-target Make variable stdout"
 
 internal_stdout="${tmp_dir}/internal.stdout"

@@ -18,7 +18,7 @@ const coverageBuckets = [
   "unowned_regression",
   "unmapped",
 ];
-const toolRunSummarySchemaID = "cartulary.tool_run_summary.v4";
+const toolRunSummarySchemaID = "cartulary.tool_run_summary.v5";
 
 function usage() {
   process.stderr.write(
@@ -271,7 +271,7 @@ function writeBrowserStartupDiagnostics(runDir, toolSummary) {
     ? ` failure_class=${summary.failure_class} reason=${summary.failure_reason ?? "unknown_failure"}`
     : "";
   process.stdout.write(
-    `[BROWSER-STARTUP] status=${summary.status} phase=${summary.startup_phase} frontend_mode=${summary.frontend_mode} command_kind=${summary.frontend_command_kind}${failure} message=${summary.message ?? ""} artifacts=${configured.path}\n`,
+    `[BROWSER-STARTUP] status=${summary.status} step=${summary.startup_step} frontend_mode=${summary.frontend_mode} command_kind=${summary.frontend_command_kind}${failure} message=${summary.message ?? ""} artifacts=${configured.path}\n`,
   );
 }
 
@@ -352,35 +352,6 @@ function writeTargetSummary(runDir, targetSummary) {
     `[TARGET] ${targetSummary.target} status=${targetSummary.status}${failureClassField(targetSummary)} kind=${targetSummary.kind ?? "leaf"} tests=${c.tests ?? 0} failed=${c.failed ?? 0} ${coverageCounts(totals)} duration=${duration(totals)}${childFields} artifacts=${targetSummary.own?.artifacts?.dir ?? relToRepo(path.join(runDir, targetSummary.target))}\n`,
   );
   writeFailureHeadline(targetSummary.target, targetSummary);
-  writeFrontendRowAccountingDigest(targetSummary);
-}
-
-function writeFrontendRowAccountingDigest(targetSummary) {
-  const configured =
-    targetSummary.artifacts?.frontend_row_accounting ??
-    targetSummary.own?.artifacts?.frontend_row_accounting ??
-    "";
-  if (!configured) {
-    return;
-  }
-  const file = absoluteArtifactPath(configured);
-  if (!existsSync(file)) {
-    process.stdout.write(
-      `[FRONTEND-ROWS] missing target=${targetSummary.target} artifacts=${configured}\n`,
-    );
-    return;
-  }
-  const accounting = readJSON(file);
-  const blockers = failureLabels(targetSummary).join(";") || "none";
-  for (const row of accounting.row_results ?? []) {
-    const passed = row.closing_scenario_titles ?? [];
-    if (row.failure_reason !== "target_failed" || passed.length === 0) {
-      continue;
-    }
-    process.stdout.write(
-      `[FRONTEND-ROW-BLOCKED] target=${targetSummary.target} row=${row.row_id} phase=${row.phase_id} closure=${row.closure_status} reason=${row.failure_reason} passed_scenarios=${passed.length} blocker=${blockers} artifacts=${configured}\n`,
-    );
-  }
 }
 
 function writeSchedulerSummary(summary) {
@@ -449,10 +420,10 @@ function writeHelperLines(runSummary, target = "") {
     ]),
   );
   for (const helper of helpers) {
-    const phaseSummaries = helper.phase_summaries ?? [];
-    const failed = phaseSummaries.some((summary) => summary.status && summary.status !== "pass");
+    const stepSummaries = helper.step_summaries ?? [];
+    const failed = stepSummaries.some((summary) => summary.status && summary.status !== "pass");
     process.stdout.write(
-      `[HELPER] ${helper.target} status=${failed ? "fail" : "pass"} phases=${phaseSummaries.length} latest=${helper.latest || "none"}\n`,
+      `[HELPER] ${helper.target} status=${failed ? "fail" : "pass"} steps=${stepSummaries.length} latest=${helper.latest || "none"}\n`,
     );
     const sameRunRef = sameRunRefs.get(helper.target);
     const sameRunRefPath = helper.same_run_artifact_ref || sameRunRef?.artifact || "";
@@ -469,9 +440,9 @@ function writeHelperLines(runSummary, target = "") {
         );
       }
     }
-    for (const phase of phaseSummaries) {
+    for (const step of stepSummaries) {
       process.stdout.write(
-        `[HELPER-PHASE] ${helper.target} label=${phase.label || "unknown"} status=${phase.status || "unknown"} artifact=${phase.artifact} runner_json=${phase.runner_json || "none"} stdout_log=${phase.stdout_log || "none"} stderr_log=${phase.stderr_log || "none"}\n`,
+        `[HELPER-STEP] ${helper.target} label=${step.label || "unknown"} status=${step.status || "unknown"} artifact=${step.artifact} runner_json=${step.runner_json || "none"} stdout_log=${step.stdout_log || "none"} stderr_log=${step.stderr_log || "none"}\n`,
       );
     }
   }
@@ -578,9 +549,9 @@ function writeLogs(runDir, target, runSummary) {
     }
   }
   for (const helper of helperArtifacts(runSummary, target)) {
-    for (const phase of helper.phase_summaries ?? []) {
-      wrote = writeLogFile(target, phase.stdout_log) || wrote;
-      wrote = writeLogFile(target, phase.stderr_log) || wrote;
+    for (const step of helper.step_summaries ?? []) {
+      wrote = writeLogFile(target, step.stdout_log) || wrote;
+      wrote = writeLogFile(target, step.stderr_log) || wrote;
     }
   }
   if (!wrote) {
@@ -643,7 +614,7 @@ function ownerSource(item) {
     return "execution_topology";
   }
   if (item.id) {
-    return String(item.id).startsWith("FE-") ? "frontend_phase_map" : "phase_map";
+    return String(item.id).startsWith("FE-") ? "frontend_step_map" : "step_map";
   }
   if (item.coverage === "tooling_support" || item.coverage === "unowned_regression" || item.coverage === "support") {
     return "classification_manifest";

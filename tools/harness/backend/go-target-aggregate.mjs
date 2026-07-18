@@ -132,7 +132,7 @@ function aggregateKey(row) {
   if (row.support_only) {
     return [
       "support",
-      row.manifest_phase,
+      row.owner_id,
       row.execution_dependency,
       row.execution_family,
       row.execution_label,
@@ -140,7 +140,7 @@ function aggregateKey(row) {
   }
   return [
     "manifest",
-    row.manifest_phase,
+    row.owner_id,
     row.section,
     row.coverage,
     row.execution_dependency,
@@ -162,7 +162,7 @@ export function collectAggregateEmissions(rows) {
               ? "support"
               : "manifest",
         label: row.execution_label,
-        phase: row.manifest_phase,
+        owner: row.owner_id,
         section: row.section,
         coverage: row.coverage,
         execution_dependency: row.execution_dependency,

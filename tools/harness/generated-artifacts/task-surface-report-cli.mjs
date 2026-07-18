@@ -375,7 +375,7 @@ function validateTaskSurface({
 
   for (const helper of collectRetiredRootRunnerHelpers(authoredMake)) {
     errors.push(
-      `Makefile must not define retired runner-specific helper ${helper.name} on line ${helper.line}; use generic RUN_PHASE or script-local helpers`,
+      `Makefile must not define retired runner-specific helper ${helper.name} on line ${helper.line}; use generic RUN_STEP or script-local helpers`,
     );
   }
   for (const violation of collectForbiddenMakeOwnership(authoredMake)) {

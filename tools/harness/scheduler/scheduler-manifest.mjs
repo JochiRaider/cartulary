@@ -540,7 +540,7 @@ export async function loadSchedulerManifest(file, { repoRoot, schemaID = schedul
   const manifestPath = path.isAbsolute(file) ? file : path.join(repoRoot, file);
   const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
   if (manifest.schema_id !== schemaID) {
-    throw new Error(`${manifestPath} must declare schema_id ${schemaID}; run make phase-schedules to regenerate the normalized scheduler manifest`);
+    throw new Error(`${manifestPath} must declare schema_id ${schemaID}; run make generate to regenerate the normalized scheduler manifest`);
   }
   if (!Array.isArray(manifest.schedules)) {
     throw new Error(`${manifestPath} must declare schedules[]`);

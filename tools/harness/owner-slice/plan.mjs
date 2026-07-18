@@ -198,7 +198,7 @@ export function buildOwnerSlicePlan(root, options) {
     "cartulary.test_evidence_accounting.v1",
     "cartulary.test_owner_summary.v1",
     "cartulary.test_slice_scheduler_summary.v1",
-    "cartulary.tool_run_summary.v4",
+    "cartulary.tool_run_summary.v5",
   ];
   const planSemanticDigest = semanticJSONDigest({
     command_id: options.commandID,

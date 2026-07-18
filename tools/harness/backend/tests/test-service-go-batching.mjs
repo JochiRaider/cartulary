@@ -18,7 +18,7 @@ function row(index, overrides = {}) {
     service_backed: true,
     runner_family: "go_test",
     id: `U-SYN-${String(index).padStart(3, "0")}`,
-    manifest_phase: "phase9",
+    owner_id: "module.recovery",
     section: "unit",
     coverage: "authoritative",
     execution_dependency: "backend_store",

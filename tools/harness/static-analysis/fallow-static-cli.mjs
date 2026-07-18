@@ -256,7 +256,7 @@ function makeToolSummary({ identity, status, startedAt, durationMs, summaryArtif
     warnings,
     rerunCommands: [`make ${target}`],
   });
-  validateSchemaSync("cartulary.tool_run_summary.v4", summary);
+  validateSchemaSync("cartulary.tool_run_summary.v5", summary);
   secureWriteFile(toolSummaryPath(targetRoot), `${JSON.stringify(summary, null, 2)}\n`);
   return summary;
 }

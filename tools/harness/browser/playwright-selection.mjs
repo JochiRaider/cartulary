@@ -41,13 +41,6 @@ function normalizePlaywrightSelectionReportFile(file) {
   return normalizePlaywrightFile(normalized);
 }
 
-function frontendPhaseFromRowID(rowID) {
-  const match = /^FE-(?:U|I|B|E|V|A11Y|S)-P([0-9]+)-[0-9]{2}$/u.exec(
-    rowID,
-  );
-  return match ? `FE-P${match[1]}` : "";
-}
-
 export function readPlaywrightSelectionReport(root, reportFile, scope = null) {
   if (!reportFile || !existsSync(reportFile)) {
     return null;
@@ -59,14 +52,14 @@ export function readPlaywrightSelectionReport(root, reportFile, scope = null) {
     return selectionReportCache.get(cacheKey);
   }
   const report = JSON.parse(readFileSync(reportFile, "utf8"));
-  if (report.schema_id !== "cartulary.playwright_manifest_selection.v1") {
+  if (report.schema_id !== "cartulary.playwright_catalog_selection.v1") {
     selectionReportCache.set(cacheKey, null);
     return null;
   }
   if (scope) {
-    if (report.phase !== scope.phase) {
+    if (report.step !== scope.step) {
       throw new Error(
-        `${relToRoot(root, reportFile)} phase ${report.phase} does not match ${scope.phase}`,
+        `${relToRoot(root, reportFile)} step ${report.step} does not match ${scope.step}`,
       );
     }
     if (report.coverage !== scope.coverage) {
@@ -102,7 +95,7 @@ export function readPlaywrightSelectionReport(root, reportFile, scope = null) {
       coverage: test.coverage ?? scope?.coverage ?? "authoritative",
       execution_dependency:
         test.execution_dependency ?? scope?.executionDependency ?? "",
-      phase: frontendPhaseFromRowID(test.id) || scope?.phase || report.phase,
+      step: scope?.step || report.step,
     });
   }
   const selection = { report, tests };
@@ -121,7 +114,7 @@ export function selectedPlaywrightEntriesFromReport(
   }
   return selection.tests.map((test) => ({
     id: test.id,
-    phase: scope.phase,
+    step: scope.step,
     runner: "playwright",
     file: test.file,
     title: test.title,

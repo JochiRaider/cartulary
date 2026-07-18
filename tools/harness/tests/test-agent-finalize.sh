@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 NODE_BIN="${NODE_BIN:-node}"
 SCRIPT="$ROOT_DIR/tools/harness/finalization/agent-finalize-cli.mjs"
-RUN_PHASE="$ROOT_DIR/tools/harness/execution/run-phase.sh"
+RUN_STEP="$ROOT_DIR/tools/harness/execution/run-step.sh"
 TMP_DIR="$(mktemp -d "$ROOT_DIR/tmp/agent-finalize-test.XXXXXX")"
 
 cleanup() {
@@ -274,7 +274,7 @@ assert_invalid_results_dir() {
   set +e
   CARTULARY_TEST_RESULTS_DIR="$scenario_dir/results" \
   CARTULARY_TEST_RUN_ID="$label" \
-  CARTULARY_PHASE_ARTIFACT_DIR="$scenario_dir/results/$label/agent-finalize/agent-finalize" \
+  CARTULARY_STEP_ARTIFACT_DIR="$scenario_dir/results/$label/agent-finalize/agent-finalize" \
   CARTULARY_AGENT_FINALIZE_DISABLE_ACTION_CACHE=1 \
   MAKE="$scenario_make" \
   FAKE_MAKE_LOG="$scenario_log" \
@@ -304,7 +304,7 @@ success_log="$success_dir/make.log"
 write_fake_make "$success_make"
 CARTULARY_TEST_RESULTS_DIR="$success_dir/results" \
 CARTULARY_TEST_RUN_ID="success" \
-CARTULARY_PHASE_ARTIFACT_DIR="$success_dir/results/success/agent-finalize/agent-finalize" \
+CARTULARY_STEP_ARTIFACT_DIR="$success_dir/results/success/agent-finalize/agent-finalize" \
 CARTULARY_AGENT_FINALIZE_DISABLE_ACTION_CACHE=1 \
 MAKE="$success_make" \
 FAKE_MAKE_LOG="$success_log" \
@@ -330,7 +330,7 @@ cache_first_log="$cache_first/make.log"
 write_fake_make "$cache_first_make"
 CARTULARY_TEST_RESULTS_DIR="$cache_first/results" \
 CARTULARY_TEST_RUN_ID="cache-first" \
-CARTULARY_PHASE_ARTIFACT_DIR="$cache_first/results/cache-first/agent-finalize/agent-finalize" \
+CARTULARY_STEP_ARTIFACT_DIR="$cache_first/results/cache-first/agent-finalize/agent-finalize" \
 CARTULARY_AGENT_FINALIZE_ACTION_CACHE_DIR="$cache_dir" \
 CARTULARY_AGENT_FINALIZE_TEST_CACHE_INPUT="stable" \
 CARTULARY_AGENT_FINALIZE_TEST_CACHE_OUTPUT="$cache_output" \
@@ -347,7 +347,7 @@ mkdir -p "$cache_second"
 cache_second_log="$cache_second/make.log"
 CARTULARY_TEST_RESULTS_DIR="$cache_second/results" \
 CARTULARY_TEST_RUN_ID="cache-second" \
-CARTULARY_PHASE_ARTIFACT_DIR="$cache_second/results/cache-second/agent-finalize/agent-finalize" \
+CARTULARY_STEP_ARTIFACT_DIR="$cache_second/results/cache-second/agent-finalize/agent-finalize" \
 CARTULARY_AGENT_FINALIZE_ACTION_CACHE_DIR="$cache_dir" \
 CARTULARY_AGENT_FINALIZE_TEST_CACHE_INPUT="stable" \
 CARTULARY_AGENT_FINALIZE_TEST_CACHE_OUTPUT="$cache_output" \
@@ -369,7 +369,7 @@ cache_disabled_log="$cache_disabled/make.log"
 write_fake_make "$cache_disabled_make"
 CARTULARY_TEST_RESULTS_DIR="$cache_disabled/results" \
 CARTULARY_TEST_RUN_ID="cache-disabled" \
-CARTULARY_PHASE_ARTIFACT_DIR="$cache_disabled/results/cache-disabled/agent-finalize/agent-finalize" \
+CARTULARY_STEP_ARTIFACT_DIR="$cache_disabled/results/cache-disabled/agent-finalize/agent-finalize" \
 CARTULARY_AGENT_FINALIZE_ACTION_CACHE_DIR="$cache_dir" \
 CARTULARY_AGENT_FINALIZE_DISABLE_ACTION_CACHE=1 \
 CARTULARY_AGENT_FINALIZE_TEST_CACHE_INPUT="stable" \
@@ -389,7 +389,7 @@ cache_changed_log="$cache_changed/make.log"
 write_fake_make "$cache_changed_make"
 CARTULARY_TEST_RESULTS_DIR="$cache_changed/results" \
 CARTULARY_TEST_RUN_ID="cache-input-changed" \
-CARTULARY_PHASE_ARTIFACT_DIR="$cache_changed/results/cache-input-changed/agent-finalize/agent-finalize" \
+CARTULARY_STEP_ARTIFACT_DIR="$cache_changed/results/cache-input-changed/agent-finalize/agent-finalize" \
 CARTULARY_AGENT_FINALIZE_ACTION_CACHE_DIR="$cache_dir" \
 CARTULARY_AGENT_FINALIZE_TEST_CACHE_INPUT="changed" \
 CARTULARY_AGENT_FINALIZE_TEST_CACHE_OUTPUT="$cache_output" \
@@ -409,7 +409,7 @@ cache_output_missing_log="$cache_output_missing/make.log"
 write_fake_make "$cache_output_missing_make"
 CARTULARY_TEST_RESULTS_DIR="$cache_output_missing/results" \
 CARTULARY_TEST_RUN_ID="cache-output-missing" \
-CARTULARY_PHASE_ARTIFACT_DIR="$cache_output_missing/results/cache-output-missing/agent-finalize/agent-finalize" \
+CARTULARY_STEP_ARTIFACT_DIR="$cache_output_missing/results/cache-output-missing/agent-finalize/agent-finalize" \
 CARTULARY_AGENT_FINALIZE_ACTION_CACHE_DIR="$cache_dir" \
 CARTULARY_AGENT_FINALIZE_TEST_CACHE_INPUT="stable" \
 CARTULARY_AGENT_FINALIZE_TEST_CACHE_OUTPUT="$cache_output" \
@@ -428,7 +428,7 @@ cache_corrupt_seed_make="$cache_corrupt_seed/fake-make"
 write_fake_make "$cache_corrupt_seed_make"
 CARTULARY_TEST_RESULTS_DIR="$cache_corrupt_seed/results" \
 CARTULARY_TEST_RUN_ID="cache-corrupt-seed" \
-CARTULARY_PHASE_ARTIFACT_DIR="$cache_corrupt_seed/results/cache-corrupt-seed/agent-finalize/agent-finalize" \
+CARTULARY_STEP_ARTIFACT_DIR="$cache_corrupt_seed/results/cache-corrupt-seed/agent-finalize/agent-finalize" \
 CARTULARY_AGENT_FINALIZE_ACTION_CACHE_DIR="$cache_dir" \
 CARTULARY_AGENT_FINALIZE_TEST_CACHE_INPUT="corrupt" \
 CARTULARY_AGENT_FINALIZE_TEST_CACHE_OUTPUT="$cache_output" \
@@ -444,7 +444,7 @@ mkdir -p "$cache_corrupt"
 cache_corrupt_log="$cache_corrupt/make.log"
 CARTULARY_TEST_RESULTS_DIR="$cache_corrupt/results" \
 CARTULARY_TEST_RUN_ID="cache-corrupt" \
-CARTULARY_PHASE_ARTIFACT_DIR="$cache_corrupt/results/cache-corrupt/agent-finalize/agent-finalize" \
+CARTULARY_STEP_ARTIFACT_DIR="$cache_corrupt/results/cache-corrupt/agent-finalize/agent-finalize" \
 CARTULARY_AGENT_FINALIZE_ACTION_CACHE_DIR="$cache_dir" \
 CARTULARY_AGENT_FINALIZE_TEST_CACHE_INPUT="corrupt" \
 CARTULARY_AGENT_FINALIZE_TEST_CACHE_OUTPUT="$cache_output" \
@@ -466,7 +466,7 @@ results_env_log="$results_dir/make-env.log"
 write_fake_make "$results_make"
 CARTULARY_TEST_RESULTS_DIR="$results_dir/results" \
 CARTULARY_TEST_RUN_ID="with-results" \
-CARTULARY_PHASE_ARTIFACT_DIR="$results_dir/results/with-results/agent-finalize/agent-finalize" \
+CARTULARY_STEP_ARTIFACT_DIR="$results_dir/results/with-results/agent-finalize/agent-finalize" \
 CARTULARY_AGENT_FINALIZE_DISABLE_ACTION_CACHE=1 \
 MAKE="$results_make" \
 FAKE_MAKE_LOG="$results_log" \
@@ -510,7 +510,7 @@ older_override_log="$older_override_dir/make.log"
 write_fake_make "$older_override_make"
 CARTULARY_TEST_RESULTS_DIR="$older_override_dir/results" \
 CARTULARY_TEST_RUN_ID="older-override" \
-CARTULARY_PHASE_ARTIFACT_DIR="$older_override_dir/results/older-override/agent-finalize/agent-finalize" \
+CARTULARY_STEP_ARTIFACT_DIR="$older_override_dir/results/older-override/agent-finalize/agent-finalize" \
 CARTULARY_AGENT_FINALIZE_DISABLE_ACTION_CACHE=1 \
 MAKE="$older_override_make" \
 FAKE_MAKE_LOG="$older_override_log" \
@@ -627,7 +627,7 @@ write_fake_make "$failure_make"
 set +e
 CARTULARY_TEST_RESULTS_DIR="$failure_dir/results" \
 CARTULARY_TEST_RUN_ID="child-fail" \
-CARTULARY_PHASE_ARTIFACT_DIR="$failure_dir/results/child-fail/agent-finalize/agent-finalize" \
+CARTULARY_STEP_ARTIFACT_DIR="$failure_dir/results/child-fail/agent-finalize/agent-finalize" \
 CARTULARY_AGENT_FINALIZE_DISABLE_ACTION_CACHE=1 \
 MAKE="$failure_make" \
 FAKE_MAKE_LOG="$failure_log" \
@@ -658,7 +658,7 @@ write_fake_make "$rollback_make"
 set +e
 CARTULARY_TEST_RESULTS_DIR="$rollback_dir/results" \
 CARTULARY_TEST_RUN_ID="rollback" \
-CARTULARY_PHASE_ARTIFACT_DIR="$rollback_dir/results/rollback/agent-finalize/agent-finalize" \
+CARTULARY_STEP_ARTIFACT_DIR="$rollback_dir/results/rollback/agent-finalize/agent-finalize" \
 CARTULARY_AGENT_FINALIZE_DISABLE_ACTION_CACHE=1 \
 MAKE="$rollback_make" \
 FAKE_MAKE_LOG="$rollback_log" \
@@ -696,7 +696,7 @@ write_fake_make "$wrapper_make"
   MAKE="$wrapper_make" \
   FAKE_MAKE_LOG="$wrapper_log" \
   RESULTS_DIR="" \
-    "$RUN_PHASE" "agent-finalize" -- "$NODE_BIN" "$SCRIPT"
+    "$RUN_STEP" "agent-finalize" -- "$NODE_BIN" "$SCRIPT"
 ) >"$wrapper_dir/stdout.log" 2>"$wrapper_dir/stderr.log"
 wrapper_output="$(cat "$wrapper_dir/stdout.log")"
 assert_contains "$wrapper_output" "[FINALIZE] generated=" "wrapper summary finalize line"
@@ -718,7 +718,7 @@ write_fake_make "$machine_make"
   MAKE="$machine_make" \
   FAKE_MAKE_LOG="$machine_log" \
   RESULTS_DIR="" \
-    "$RUN_PHASE" "agent-finalize" -- "$NODE_BIN" "$SCRIPT"
+    "$RUN_STEP" "agent-finalize" -- "$NODE_BIN" "$SCRIPT"
 ) >"$machine_dir/stdout.log" 2>"$machine_dir/stderr.log"
 assert_equals "$(cat "$machine_dir/stderr.log")" "" "machine stderr"
 machine_stdout="$(cat "$machine_dir/stdout.log")"

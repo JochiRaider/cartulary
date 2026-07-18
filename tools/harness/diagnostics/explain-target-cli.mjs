@@ -2,7 +2,7 @@
 
 import {
   allTargetNames,
-  formatPhaseCoverage,
+  formatStepCoverage,
   formatRequirements,
   targetGuidance,
 } from "./task-guidance.mjs";
@@ -141,7 +141,7 @@ function renderSummary(guidance) {
     ...renderSchedulerPathLines(guidance),
     `latest_artifact: ${guidance.artifact.latest?.path ?? "none"}`,
     ...renderExpectedArtifactLines(guidance),
-    `phase_coverage: ${formatPhaseCoverage(guidance.phase_coverage)}`,
+    `step_coverage: ${formatStepCoverage(guidance.step_coverage)}`,
   ];
 }
 
@@ -153,7 +153,7 @@ function renderRows(guidance) {
     return lines;
   }
   for (const row of rows) {
-    const phase = row.manifest_phase ?? row.phase ?? "raw";
+    const step = row.manifest_step ?? row.step ?? "raw";
     const coverage = row.coverage ?? "raw";
     const section = row.section ?? "";
     const dependency = row.execution_dependency || "none";
@@ -161,7 +161,7 @@ function renderRows(guidance) {
     const packages = row.packages?.join(",") || row.package || "";
     const file = row.file ? ` file=${row.file}` : "";
     lines.push(
-      `  - ${row.id}: ${phase} ${section} ${coverage} dependency=${dependency} runner=${runner} packages=${packages}${file}`,
+      `  - ${row.id}: ${step} ${section} ${coverage} dependency=${dependency} runner=${runner} packages=${packages}${file}`,
     );
   }
   return lines;

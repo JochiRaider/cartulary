@@ -86,9 +86,6 @@ function browserGroupSelectionEnv(group) {
     CARTULARY_BROWSER_RUNTIME_PROFILE_ID:
       String(group.runtime_profile_id ?? "default").trim() || "default",
   };
-  if (typeof group.selected_phase === "string" && group.selected_phase.trim() !== "") {
-    env.CARTULARY_BROWSER_SELECTED_PHASE = group.selected_phase.trim();
-  }
   if (Array.isArray(group.selected_row_ids) && group.selected_row_ids.length > 0) {
     env.CARTULARY_BROWSER_SELECTED_ROW_IDS = group.selected_row_ids.join(",");
   }

@@ -142,13 +142,13 @@ prepare_runtime_root() {
   TARGET_ARTIFACT_DIR="${CARTULARY_WEB_E2E_ARTIFACT_DIR:-}"
   if [[ -z "${TARGET_ARTIFACT_DIR}" && -n "${CARTULARY_TEST_TARGET:-}" ]]; then
     if [[ -n "${CARTULARY_BROWSER_SESSION_GROUP:-}" ]]; then
-      session_artifact_suffix="-$(slugify_phase_label "${CARTULARY_BROWSER_SESSION_GROUP}")"
+      session_artifact_suffix="-$(slugify_step_label "${CARTULARY_BROWSER_SESSION_GROUP}")"
     fi
     TARGET_ARTIFACT_DIR="$(ensure_target_artifact_dir)/owned-stack${session_artifact_suffix}"
   fi
 
   if [[ -n "${TARGET_ARTIFACT_DIR}" ]]; then
-    phase_secure_mkdir "${TARGET_ARTIFACT_DIR}"
+    step_secure_mkdir "${TARGET_ARTIFACT_DIR}"
     RUNTIME_ROOT_BASE="${TARGET_ARTIFACT_DIR}/runtime-root"
     SERVER_LOG="${TARGET_ARTIFACT_DIR}/server.log"
     WEB_LOG="${TARGET_ARTIFACT_DIR}/web.log"
@@ -174,7 +174,7 @@ prepare_runtime_root() {
   TEST_SERVICES_METADATA_FILE="${RUNTIME_ROOT_BASE}/test-services-web-e2e.json"
   TEST_ROUTE_TOKEN_FILE="${RUNTIME_ROOT_BASE}/test-route-token"
 
-  phase_secure_mkdir \
+  step_secure_mkdir \
     "${RUNTIME_ROOT_BASE}/database-storage" \
     "${RUNTIME_ROOT_BASE}/object-storage" \
     "${PLAYWRIGHT_STATE_DIR}" \
@@ -225,7 +225,7 @@ prepare_runtime_profile() {
 write_stack_metadata() {
   local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
 
-  phase_secure_mkdir "$(dirname "${STACK_ENV_FILE}")"
+  step_secure_mkdir "$(dirname "${STACK_ENV_FILE}")"
   cat >"${STACK_ENV_FILE}" <<EOF
 CARTULARY_WEB_E2E_API_ORIGIN=${API_ORIGIN}
 CARTULARY_WEB_E2E_PUBLIC_ORIGIN=${PUBLIC_ORIGIN}
@@ -355,7 +355,7 @@ EOF
 
 write_startup_diagnostics() {
   local status="$1"
-  local phase="$2"
+  local step="$2"
   local failure_class="${3:-}"
   local failure_reason="${4:-}"
   local message="${5:-}"
@@ -368,10 +368,10 @@ write_startup_diagnostics() {
     node_bin="node"
   fi
 
-  phase_secure_mkdir "$(dirname "${STARTUP_DIAGNOSTIC_FILE}")"
+  step_secure_mkdir "$(dirname "${STARTUP_DIAGNOSTIC_FILE}")"
   CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS="${STARTUP_DIAGNOSTIC_FILE}" \
   CARTULARY_WEB_E2E_DIAGNOSTIC_STATUS="${status}" \
-  CARTULARY_WEB_E2E_DIAGNOSTIC_PHASE="${phase}" \
+  CARTULARY_WEB_E2E_DIAGNOSTIC_STEP="${step}" \
   CARTULARY_WEB_E2E_DIAGNOSTIC_FAILURE_CLASS="${failure_class}" \
   CARTULARY_WEB_E2E_DIAGNOSTIC_FAILURE_REASON="${failure_reason}" \
   CARTULARY_WEB_E2E_DIAGNOSTIC_MESSAGE="${message}" \
@@ -409,7 +409,7 @@ const payload = {
   generated_at: new Date().toISOString(),
   target: stringOrUndefined(process.env.CARTULARY_TEST_TARGET),
   status: process.env.CARTULARY_WEB_E2E_DIAGNOSTIC_STATUS,
-  startup_phase: process.env.CARTULARY_WEB_E2E_DIAGNOSTIC_PHASE,
+  startup_step: process.env.CARTULARY_WEB_E2E_DIAGNOSTIC_STEP,
   frontend_mode: process.env.CARTULARY_WEB_E2E_FRONTEND_MODE,
   frontend_command_kind: process.env.CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND,
   api_origin: stringOrUndefined(process.env.CARTULARY_WEB_E2E_API_ORIGIN),
@@ -691,8 +691,8 @@ cleanup() {
   local step_status=0
   local step_span_status="pass"
 
-  step_start_time="$(phase_now_utc)"
-  step_start_ms="$(phase_now_monotonic_ms)"
+  step_start_time="$(step_now_utc)"
+  step_start_ms="$(step_now_monotonic_ms)"
 
   if [[ -n "${CHILD_PGID:-}" ]]; then
     stop_process_group "${CHILD_PGID}" || cleanup_status=$?
@@ -701,9 +701,9 @@ cleanup() {
   stop_owned_process_group "${SERVER_PGID:-}" "${BACKEND_PORT:-8080}" "backend" || cleanup_status=$?
   release_port_leases || cleanup_status=$?
 
-  step_end_time="$(phase_now_utc)"
-  step_end_ms="$(phase_now_monotonic_ms)"
-  step_duration_ms="$(phase_elapsed_ms "${step_start_ms}" "${step_end_ms}")"
+  step_end_time="$(step_now_utc)"
+  step_end_ms="$(step_now_monotonic_ms)"
+  step_duration_ms="$(step_elapsed_ms "${step_start_ms}" "${step_end_ms}")"
   if [[ "${cleanup_status}" -ne 0 ]]; then
     step_span_status="fail"
   fi
@@ -714,13 +714,13 @@ cleanup() {
       "${TEST_SERVICES_BIN}" cleanup-web-e2e --metadata-file "${TEST_SERVICES_METADATA_FILE}" || cleanup_status=$?
     fi
   else
-    step_start_time="$(phase_now_utc)"
-    step_start_ms="$(phase_now_monotonic_ms)"
+    step_start_time="$(step_now_utc)"
+    step_start_ms="$(step_now_monotonic_ms)"
     step_status=0
     cleanup_standalone_database || step_status=$?
-    step_end_time="$(phase_now_utc)"
-    step_end_ms="$(phase_now_monotonic_ms)"
-    step_duration_ms="$(phase_elapsed_ms "${step_start_ms}" "${step_end_ms}")"
+    step_end_time="$(step_now_utc)"
+    step_end_ms="$(step_now_monotonic_ms)"
+    step_duration_ms="$(step_elapsed_ms "${step_start_ms}" "${step_end_ms}")"
     step_span_status="pass"
     if [[ "${step_status}" -ne 0 ]]; then
       step_span_status="fail"
@@ -730,13 +730,13 @@ cleanup() {
   fi
   remove_retained_secret_material || cleanup_status=$?
   if [[ "${KEEP_RUNTIME_ROOT}" -ne 1 ]]; then
-    step_start_time="$(phase_now_utc)"
-    step_start_ms="$(phase_now_monotonic_ms)"
+    step_start_time="$(step_now_utc)"
+    step_start_ms="$(step_now_monotonic_ms)"
     step_status=0
     rm -rf "${RUNTIME_ROOT_BASE}" || step_status=$?
-    step_end_time="$(phase_now_utc)"
-    step_end_ms="$(phase_now_monotonic_ms)"
-    step_duration_ms="$(phase_elapsed_ms "${step_start_ms}" "${step_end_ms}")"
+    step_end_time="$(step_now_utc)"
+    step_end_ms="$(step_now_monotonic_ms)"
+    step_duration_ms="$(step_elapsed_ms "${step_start_ms}" "${step_end_ms}")"
     step_span_status="pass"
     if [[ "${step_status}" -ne 0 ]]; then
       step_span_status="fail"
@@ -770,7 +770,7 @@ write_session_files() {
     node_bin="node"
   fi
 
-  phase_secure_mkdir "$(dirname "${SESSION_ENV_FILE}")" "$(dirname "${SESSION_LEASE_FILE}")"
+  step_secure_mkdir "$(dirname "${SESSION_ENV_FILE}")" "$(dirname "${SESSION_LEASE_FILE}")"
   CARTULARY_WEB_E2E_SESSION_ENV_FILE="${SESSION_ENV_FILE}" \
   CARTULARY_WEB_E2E_SESSION_LEASE_FILE="${SESSION_LEASE_FILE}" \
   CARTULARY_WEB_E2E_API_ORIGIN="${API_ORIGIN}" \
@@ -1130,7 +1130,7 @@ browser_wait_backend_ready() {
       fi
       BACKEND_IDENTITY_STATUS="pass"
       BACKEND_IDENTITY_SERVER_PID="${identity_pid}"
-      BACKEND_READY_AT="$(phase_now_utc)"
+      BACKEND_READY_AT="$(step_now_utc)"
       write_stack_metadata
       return 0
     fi
@@ -1165,7 +1165,7 @@ browser_wait_frontend_ready() {
         return 1
       fi
       FRONTEND_OWNERSHIP_STATUS="pass"
-      FRONTEND_READY_AT="$(phase_now_utc)"
+      FRONTEND_READY_AT="$(step_now_utc)"
       write_stack_metadata
       write_startup_diagnostics "pass" "frontend_readiness" "" "" "frontend ready at ${PUBLIC_ORIGIN}" || true
       return 0
@@ -1282,7 +1282,7 @@ browser_verify_frontend_ready() {
   fi
   if port_owned_by_process_group "${FRONTEND_PORT}" "${VITE_PGID}" && curl -fsS "${PUBLIC_ORIGIN}" >/dev/null 2>&1; then
     FRONTEND_OWNERSHIP_STATUS="pass"
-    FRONTEND_READY_AT="${FRONTEND_READY_AT:-$(phase_now_utc)}"
+    FRONTEND_READY_AT="${FRONTEND_READY_AT:-$(step_now_utc)}"
     write_stack_metadata
     write_startup_diagnostics "pass" "frontend_readiness" "" "" "frontend ready at ${PUBLIC_ORIGIN}" || true
     return 0
@@ -1375,14 +1375,14 @@ main() {
     return 1
   fi
 
-  CARTULARY_PHASE_TIMING_BUCKET=setup run_phase_command "browser-e2e allocate ports" resolve_owned_stack_ports
-  CARTULARY_PHASE_TIMING_BUCKET=setup run_phase_command "browser-e2e prepare test route token" prepare_test_route_token
+  CARTULARY_STEP_TIMING_BUCKET=setup run_step_command "browser-e2e allocate ports" resolve_owned_stack_ports
+  CARTULARY_STEP_TIMING_BUCKET=setup run_step_command "browser-e2e prepare test route token" prepare_test_route_token
   run_timing_span "setup" "browser-e2e write stack metadata" write_stack_metadata
-  CARTULARY_PHASE_TIMING_BUCKET=frontend_startup run_phase_command "browser-e2e validate frontend preview artifact" require_frontend_preview_artifacts
-  CARTULARY_PHASE_TIMING_BUCKET=frontend_startup run_phase_command "browser-e2e startup frontend ready" start_frontend_preview_ready_with_retry "${pnpm_bin}"
+  CARTULARY_STEP_TIMING_BUCKET=frontend_startup run_step_command "browser-e2e validate frontend preview artifact" require_frontend_preview_artifacts
+  CARTULARY_STEP_TIMING_BUCKET=frontend_startup run_step_command "browser-e2e startup frontend ready" start_frontend_preview_ready_with_retry "${pnpm_bin}"
 
-  CARTULARY_PHASE_TIMING_BUCKET=service_wait run_phase_command "browser-e2e startup services" browser_start_services
-  CARTULARY_PHASE_TIMING_BUCKET=migration run_phase_command "browser-e2e startup database" browser_prepare_database
+  CARTULARY_STEP_TIMING_BUCKET=service_wait run_step_command "browser-e2e startup services" browser_start_services
+  CARTULARY_STEP_TIMING_BUCKET=migration run_step_command "browser-e2e startup database" browser_prepare_database
 
   local -a server_command=()
   resolve_runtime_command server_command "backend" "${SERVER_HARNESS_BIN}"
@@ -1429,8 +1429,8 @@ main() {
     "${backend_listen_command[@]}"
   write_stack_metadata
 
-  CARTULARY_PHASE_TIMING_BUCKET=server_startup run_phase_command "browser-e2e startup backend ready" browser_wait_backend_ready
-  CARTULARY_PHASE_TIMING_BUCKET=frontend_startup run_phase_command "browser-e2e verify frontend ready" browser_verify_frontend_ready
+  CARTULARY_STEP_TIMING_BUCKET=server_startup run_step_command "browser-e2e startup backend ready" browser_wait_backend_ready
+  CARTULARY_STEP_TIMING_BUCKET=frontend_startup run_step_command "browser-e2e verify frontend ready" browser_verify_frontend_ready
 
   if [[ "${SESSION_MODE}" == "start" ]]; then
     run_timing_span "setup" "browser-e2e write session lease" write_session_files

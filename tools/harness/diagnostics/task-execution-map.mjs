@@ -12,10 +12,6 @@ import {
   loadExecutionTopology,
   renderBrowserBatchManifest,
 } from "../generated-artifacts/execution-topology.mjs";
-import {
-  activePhaseStatus,
-  phaseRegistryEntry,
-} from "../phase-accounting/index.mjs";
 import { findTargetDescriptor } from "../backend/backend-target-plan.mjs";
 import { loadTestCatalog, targetForCatalogRow } from "../test-catalog/index.mjs";
 import {
@@ -26,7 +22,7 @@ import {
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
 const taskExecutionMapSchemaID = "cartulary.task_execution_map.v1";
-const executionPhaseRowsCache = new Map();
+const executionOwnerRowsCache = new Map();
 const taskSurfaceCache = new Map();
 const schedulerManifestCache = new Map();
 const browserStagesCache = new Map();
@@ -54,9 +50,9 @@ function uniqueSorted(values) {
   return Array.from(new Set(values.filter((value) => value !== ""))).sort(compareStrings);
 }
 
-export function collectExecutionPhaseRows(root = repoRoot) {
+export function collectExecutionOwnerRows(root = repoRoot) {
   const cacheKey = cacheKeyForRoot(root);
-  const cached = executionPhaseRowsCache.get(cacheKey);
+  const cached = executionOwnerRowsCache.get(cacheKey);
   if (cached) {
     return cached;
   }
@@ -71,7 +67,7 @@ export function collectExecutionPhaseRows(root = repoRoot) {
       const target = targetForCatalogRow(entry, { commandTargetByID });
       return {
         id: entry.row_id,
-        phase: entry.owner_id,
+        owner: entry.owner_id,
         section: entry.family_id,
         coverage: "authoritative",
         claim_status: entry.status,
@@ -89,12 +85,12 @@ export function collectExecutionPhaseRows(root = repoRoot) {
       };
     });
   const result = rows.sort((left, right) => (
-    compareStrings(left.phase, right.phase) ||
+    compareStrings(left.owner, right.owner) ||
     compareStrings(left.target, right.target) ||
     compareStrings(left.section, right.section) ||
     compareStrings(left.id, right.id)
   ));
-  executionPhaseRowsCache.set(cacheKey, result);
+  executionOwnerRowsCache.set(cacheKey, result);
   return result;
 }
 
@@ -124,7 +120,7 @@ export function summarizeExecutionRows(rows) {
   const counts = sectionCounts(rows);
   return {
     ...counts,
-    phases: uniqueSorted(rows.map((row) => row.phase)),
+    owners: uniqueSorted(rows.map((row) => row.owner)),
     execution_dependencies: uniqueSorted(rows.map((row) => row.execution_dependency))
       .sort(compareExecutionDependencies),
     runners: uniqueSorted(rows.map((row) => row.runner)),
@@ -230,7 +226,7 @@ export function serviceRequirementsForTarget(target, targetRows = [], declaredRe
   return Array.from(requirements);
 }
 
-function phaseRowsForTarget(target, rows) {
+function ownerRowsForTarget(target, rows) {
   if (target === "test-fast") {
     return rows.filter((row) => row.coverage !== "raw" && !row.target.startsWith("browser-e2e"));
   }
@@ -421,25 +417,25 @@ function browserBatchSummary(target, root = repoRoot) {
   return result;
 }
 
-function phaseSchedulerSummary(target) {
-  if (target !== "phase-slice" && target !== "service-backed-slice") {
+function ownerSchedulerSummary(target) {
+  if (target !== "owner-slice" && target !== "service-backed-slice") {
     return [];
   }
   return [{
-    kind: "phase_scheduler",
-    id: `phase-scheduler:${target}`,
-    label: "phase scheduler",
+    kind: "owner_scheduler",
+    id: `owner-scheduler:${target}`,
+    label: "owner scheduler",
     target,
-    scheduler: "phase-scheduler",
+    scheduler: "owner-scheduler",
     detail: target === "service-backed-slice"
-      ? "selected phase service-backed manifest-row slice"
-      : "selected phase manifest-row slice",
+      ? "selected owner service-backed manifest-row slice"
+      : "selected owner manifest-row slice",
   }];
 }
 
 function targetWorkUnitSummary(target, manifest, root = repoRoot) {
   const summaries = [
-    ...phaseSchedulerSummary(target),
+    ...ownerSchedulerSummary(target),
     ...directRecipeSummary(target, manifest),
     ...checkScheduleSummary(target, root),
     ...serviceBackedScheduleSummary(target, root),
@@ -477,7 +473,7 @@ function targetNode(target, {
   includeArtifacts = true,
 } = {}) {
   const { manifest, targets } = loadTaskSurface(root);
-  const targetRows = rows ?? phaseRowsForTarget(target, collectExecutionPhaseRows(root));
+  const targetRows = rows ?? ownerRowsForTarget(target, collectExecutionOwnerRows(root));
   const entry = targets.get(target);
   const coverage = coverageOverride ?? summarizeExecutionRows(targetRows);
   const artifacts = includeArtifacts
@@ -527,7 +523,7 @@ function sectionCoverage(children) {
   }
   return {
     ...counts,
-    phases: uniqueSorted(summaries.flatMap((summary) => summary.phases ?? [])),
+    owners: uniqueSorted(summaries.flatMap((summary) => summary.owners ?? [])),
     execution_dependencies: uniqueSorted(
       summaries.flatMap((summary) => summary.execution_dependencies ?? []),
     ).sort(compareExecutionDependencies),
@@ -552,7 +548,7 @@ function makeSectionNode(id, label, children) {
   };
 }
 
-function comparePhaseTargetNodes(left, right) {
+function compareOwnerTargetNodes(left, right) {
   const leftDependency = left.execution_dependencies[0] ?? "";
   const rightDependency = right.execution_dependencies[0] ?? "";
   return compareExecutionDependencies(leftDependency, rightDependency) || compareStrings(left.id, right.id);
@@ -565,93 +561,9 @@ export function targetExecutionMap(target, { root = repoRoot, includeArtifacts =
   };
 }
 
-export function phaseExecutionMap(phase, { root = repoRoot } = {}) {
-  const registryEntry = phaseRegistryEntry(root, phase);
-  if (!registryEntry) {
-    return null;
-  }
-  const executable = registryEntry.status === activePhaseStatus;
-  const rows = executable
-    ? collectExecutionPhaseRows(root).filter((row) => row.phase === phase)
-    : [];
-  const rowsByTarget = new Map();
-  for (const row of rows) {
-    if (!rowsByTarget.has(row.target)) {
-      rowsByTarget.set(row.target, []);
-    }
-    rowsByTarget.get(row.target).push(row);
-  }
-
-  const publicChildren = [];
-  const supportChildren = [];
-  const { targets } = loadTaskSurface(root);
-  for (const [target, targetRows] of rowsByTarget.entries()) {
-    const classification = targets.get(target)?.target_class ?? null;
-    const publicRows = targetRows.filter((row) => classification === "public" && row.coverage !== "support");
-    const supportRows = targetRows.filter((row) => classification !== "public" || row.coverage === "support");
-    if (publicRows.length > 0) {
-      publicChildren.push(targetNodeForRows(target, publicRows, { root }));
-    }
-    if (supportRows.length > 0) {
-      supportChildren.push(targetNodeForRows(target, supportRows, { root }));
-    }
-  }
-  publicChildren.sort(comparePhaseTargetNodes);
-  supportChildren.sort(comparePhaseTargetNodes);
-
-  const sections = [
-    makeSectionNode("public-evidence", "public evidence", publicChildren),
-    makeSectionNode("support-internal-evidence", "support/internal evidence", supportChildren),
-  ].filter((section) => section.children.length > 0);
-
-  return {
-    schema_id: taskExecutionMapSchemaID,
-    kind: "phase",
-    id: phase,
-    label: phase,
-    target_class: registryEntry.status,
-    coverage: summarizeExecutionRows(rows),
-    services: uniqueSorted(sections.flatMap((section) => section.services ?? [])),
-    execution_dependencies: uniqueSorted(sections.flatMap((section) => section.execution_dependencies ?? []))
-      .sort(compareExecutionDependencies),
-    work_unit_summary: [],
-    artifacts: {
-      manifest: registryEntry.manifest_path,
-      ledger: registryEntry.ledger_path,
-    },
-    children: sections,
-  };
-}
-
-export function phaseSliceExecutionMap(phase, { root = repoRoot, serviceBackedOnly = false } = {}) {
-  const map = phaseExecutionMap(phase, { root });
-  if (!map || !serviceBackedOnly) {
-    return map;
-  }
-  const serviceSections = map.children
-    .map((section) => ({
-      ...section,
-      children: section.children.filter((child) =>
-        child.execution_dependencies.some((dependency) => executionDependencyInfo(dependency)?.service_backed === true),
-      ),
-    }))
-    .filter((section) => section.children.length > 0)
-    .map((section) => makeSectionNode(section.id, section.label, section.children));
-  return {
-    ...map,
-    id: `${phase}:service-backed`,
-    label: `${phase} service-backed`,
-    coverage: sectionCoverage(serviceSections),
-    services: uniqueSorted(serviceSections.flatMap((section) => section.services ?? [])),
-    execution_dependencies: uniqueSorted(serviceSections.flatMap((section) => section.execution_dependencies ?? []))
-      .sort(compareExecutionDependencies),
-    children: serviceSections,
-  };
-}
-
 export function executionSummary(executionMap) {
   const units = executionMap?.work_unit_summary ?? [];
-  if (executionMap?.kind === "phase") {
+  if (executionMap?.kind === "owner") {
     const sections = (executionMap.children ?? []).map((section) => {
       const count = section.children?.length ?? 0;
       const noun = count === 1 ? "target" : "targets";

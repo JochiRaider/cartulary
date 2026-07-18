@@ -59,7 +59,7 @@ import { createPlanFromEntries } from "./tools/harness/browser/browser-shard-pla
 const entries = [
   {
     id: "module.fixture.browser.alpha_one",
-    phase: "webserver_backed",
+    stage: "webserver_backed",
     file: "apps/web/e2e/alpha.spec.ts",
     title: "alpha one",
     titles: ["alpha one"],
@@ -67,7 +67,7 @@ const entries = [
   },
   {
     id: "module.fixture.browser.alpha_two",
-    phase: "webserver_backed",
+    stage: "webserver_backed",
     file: "apps/web/e2e/alpha.spec.ts",
     title: "alpha two",
     titles: ["alpha two"],
@@ -75,7 +75,7 @@ const entries = [
   },
   {
     id: "module.fixture.browser.beta",
-    phase: "webserver_backed",
+    stage: "webserver_backed",
     file: "apps/web/e2e/beta.spec.ts",
     title: "beta primary",
     titles: ["beta primary", "beta secondary"],
@@ -127,7 +127,7 @@ legacy_output="$({ BASELINE_FILE="$legacy_baseline" "$NODE_BIN" --input-type=mod
 import { createPlanFromEntries } from "./tools/harness/browser/browser-shard-plan.mjs";
 const entries = [{
   id: "module.fixture.browser.alpha_one",
-  phase: "webserver_backed",
+  stage: "webserver_backed",
   file: "apps/web/e2e/alpha.spec.ts",
   title: "alpha one",
   titles: ["alpha one"],

@@ -12,7 +12,7 @@ function indexRows(root, runner) {
     for (const title of row.selector.titles) {
       byTitle.set(title, {
         coverage: "authoritative",
-        phase: row.owner_id,
+        owner_id: row.owner_id,
         id: row.row_id,
         evidence_class: row.evidence_class,
       });

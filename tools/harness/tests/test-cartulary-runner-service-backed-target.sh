@@ -93,18 +93,18 @@ exec "$@"
 EOF
 chmod +x "$fake_test_services"
 
-fake_run_phase="$tmp_dir/fake-run-phase.sh"
+fake_run_phase="$tmp_dir/fake-run-step.sh"
 cat >"$fake_run_phase" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
 label="${1:-}"
 if [[ "${2:-}" != "--" ]]; then
-  echo "unexpected run-phase invocation: $*" >&2
+  echo "unexpected run-step invocation: $*" >&2
   exit 2
 fi
 shift 2
-printf 'phase-label=%s\n' "$label" >>"${FAKE_WRAPPER_LOG:?}"
+printf 'step-label=%s\n' "$label" >>"${FAKE_WRAPPER_LOG:?}"
 exec "$@"
 EOF
 chmod +x "$fake_run_phase"
@@ -178,12 +178,12 @@ run_case() {
     MAKE="fake-make" \
     NODE_BIN="$node_bin" \
     TEST_SERVICES_BIN="$fake_test_services" \
-    RUN_PHASE_SCRIPT="$fake_run_phase" \
+    RUN_STEP_SCRIPT="$fake_run_phase" \
     RUN_SERVICE_BACKED_SCHEDULE_SCRIPT="$fake_scheduler" \
     TEST_OUTPUT_SCRIPT="$fake_test_output" \
     TASK_SURFACE_MANIFEST="$ROOT_DIR/tools/task_surface_manifest.json" \
     SCHEDULER_MANIFEST="$ROOT_DIR/tools/scheduler_manifest.json" \
-      "$node_bin" "$HELPER" service-backed-target --target test-service-backed --phase-label "test service-backed" --service-wrapper test-services \
+      "$node_bin" "$HELPER" service-backed-target --target test-service-backed --step-label "test service-backed" --service-wrapper test-services \
       2>&1
   )"
   status=$?
@@ -192,7 +192,7 @@ run_case() {
   assert_equals "$status" "$expected_status" "$name exit status"
   assert_equals "$output" "" "$name output"
   assert_contains "$(cat "$log_file")" "test-services $fake_run_phase" "$name service wrapper"
-  assert_contains "$(cat "$log_file")" "phase-label=test service-backed" "$name phase label"
+  assert_contains "$(cat "$log_file")" "step-label=test service-backed" "$name step label"
   assert_contains "$(cat "$log_file")" "scheduler args=--target test-service-backed --manifest $ROOT_DIR/tools/scheduler_manifest.json --defer-summary" "$name scheduler args"
 }
 
@@ -248,12 +248,12 @@ summary_pass_output="$(
   FAKE_SUMMARY_MAKE_LOG="$summary_pass_log" \
   MAKE_BIN="$summary_make" \
   NODE_BIN="$node_bin" \
-  RUN_PHASE_SCRIPT="$ROOT_DIR/tools/harness/execution/run-phase.sh" \
+  RUN_STEP_SCRIPT="$ROOT_DIR/tools/harness/execution/run-step.sh" \
   TEST_OUTPUT_SCRIPT="$ROOT_DIR/tools/harness/output/test-output.sh" \
   TASK_SURFACE_MANIFEST="$ROOT_DIR/tools/task_surface_manifest.json" \
   CARTULARY_TEST_RESULTS_DIR="$summary_pass_results" \
   CARTULARY_TEST_RUN_ID="summary-pass" \
-    "$node_bin" "$HELPER" summary-target --target check-summary-pass --child-target child-pass --status pass --phase-label "summary pass child" \
+    "$node_bin" "$HELPER" summary-target --target check-summary-pass --child-target child-pass --status pass --step-label "summary pass child" \
     2>&1
 )"
 assert_contains "$summary_pass_output" "[RESULT] target=check-summary-pass status=pass" "summary pass output"
@@ -272,12 +272,12 @@ summary_fail_output="$(
   FAKE_SUMMARY_MAKE_LOG="$summary_fail_log" \
   MAKE_BIN="$summary_make" \
   NODE_BIN="$node_bin" \
-  RUN_PHASE_SCRIPT="$ROOT_DIR/tools/harness/execution/run-phase.sh" \
+  RUN_STEP_SCRIPT="$ROOT_DIR/tools/harness/execution/run-step.sh" \
   TEST_OUTPUT_SCRIPT="$ROOT_DIR/tools/harness/output/test-output.sh" \
   TASK_SURFACE_MANIFEST="$ROOT_DIR/tools/task_surface_manifest.json" \
   CARTULARY_TEST_RESULTS_DIR="$summary_fail_results" \
   CARTULARY_TEST_RUN_ID="summary-fail" \
-    "$node_bin" "$HELPER" summary-target --target check-summary-fail --child-target child-fail --status pass --phase-label "summary fail child" \
+    "$node_bin" "$HELPER" summary-target --target check-summary-fail --child-target child-fail --status pass --step-label "summary fail child" \
     2>&1
 )"
 summary_fail_status=$?
@@ -286,12 +286,12 @@ assert_equals "$summary_fail_status" "1" "summary child failure exit status"
 assert_contains "$summary_fail_output" "[FAIL] target=check-summary-fail" "summary fail output"
 assert_json_field_equals "$summary_fail_results/summary-fail/check-summary-fail/target-summary.json" "status" "fail" "summary fail status"
 
-projection_run_phase="$tmp_dir/projection-run-phase.sh"
+projection_run_phase="$tmp_dir/projection-run-step.sh"
 cat >"$projection_run_phase" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 if [[ "${2:-}" != "--" ]]; then
-  echo "unexpected projection run-phase invocation: $*" >&2
+  echo "unexpected projection run-step invocation: $*" >&2
   exit 2
 fi
 shift 2
@@ -313,9 +313,9 @@ projection_log="$tmp_dir/projection.log"
 FAKE_PROJECTION_LOG="$projection_log" \
 MAKE_BIN="$summary_make" \
 NODE_BIN="$node_bin" \
-RUN_PHASE_SCRIPT="$projection_run_phase" \
+RUN_STEP_SCRIPT="$projection_run_phase" \
 TEST_OUTPUT_SCRIPT="$projection_test_output" \
 TASK_SURFACE_MANIFEST="$ROOT_DIR/tools/task_surface_manifest.json" \
-  "$node_bin" "$HELPER" summary-target --target check-summary-projection --child-target child-pass --status pass --phase-label "summary projection child" --projection check-harness-smoke
+  "$node_bin" "$HELPER" summary-target --target check-summary-projection --child-target child-pass --status pass --step-label "summary projection child" --projection check-harness-smoke
 assert_contains "$(cat "$projection_log")" "projection child=child-pass target=check-summary-projection" "summary projection child"
 assert_contains "$(cat "$projection_log")" "projection-summary args=target-summary check-summary-projection pass --projection check-harness-smoke --skipped-from-child child-pass" "summary projection args"

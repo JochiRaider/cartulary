@@ -1,21 +1,5 @@
 import path from "node:path";
 
-const browserKindScripts = new Map([
-  ["stateful", "run-browser-e2e-stateful.sh"],
-  ["stateful_partition", "run-browser-e2e-stateful.sh"],
-  ["measurement", "run-browser-e2e-measurement.sh"],
-  ["a11y", "run-browser-e2e-a11y.sh"],
-  ["visual", "run-browser-e2e-visual.sh"],
-]);
-
-function browserHarnessScript(repoRoot, scriptName) {
-  return path.join(repoRoot, "tools", "harness", "browser", scriptName);
-}
-
-function webserverBatchScript(repoRoot) {
-  return browserHarnessScript(repoRoot, "run-playwright-webserver-batch.sh");
-}
-
 export function browserStageSessionKey(target) {
   return `browser_stage_session:${target}`;
 }
@@ -24,29 +8,10 @@ export function browserGroupCompletionKey(groupID) {
   return `browser_group:${groupID}`;
 }
 
-function playwrightWebserverArgs(pnpmBin) {
-  return [
-    "--",
-    pnpmBin,
-    "--dir",
-    "apps/web",
-    "exec",
-    "playwright",
-    "test",
-    "--config",
-    "playwright.webserver-backed.config.ts",
-  ];
-}
-
-function browserShardField(group, camelName, snakeName) {
-  return group[camelName] ?? group[snakeName];
-}
-
 export function browserGroupCommand({
   browserGroupRunner,
   env,
   group,
-  pnpmBin,
   repoRoot,
   scriptEnv = {},
 }) {
@@ -58,36 +23,24 @@ export function browserGroupCommand({
     };
   }
 
-  if (group.kind === "functional_shard") {
-    return {
-      command: webserverBatchScript(repoRoot),
-      args: [
-        "functional-shard",
-        browserShardField(group, "shardName", "shard_name"),
-        String(browserShardField(group, "shardIndex", "shard_index")),
-        String(browserShardField(group, "shardCount", "shard_count")),
-        ...playwrightWebserverArgs(pnpmBin),
-      ],
-      env,
-    };
+  const node = env.NODE_BIN || process.execPath;
+  const stage = env.CARTULARY_BROWSER_STAGE;
+  const groupName = group.name ?? env.CARTULARY_BROWSER_GROUP_NAME;
+  if (!stage || !groupName) {
+    throw new Error("catalog browser group execution requires stage and group identities");
   }
-
-  if (group.kind === "support") {
-    return {
-      command: webserverBatchScript(repoRoot),
-      args: ["support", ...playwrightWebserverArgs(pnpmBin)],
-      env,
-    };
-  }
-
-  const script = browserKindScripts.get(group.kind);
-  if (!script) {
-    throw new Error(`unsupported browser group kind ${group.kind}`);
-  }
-
   return {
-    command: browserHarnessScript(repoRoot, script),
-    args: [],
+    command: node,
+    args: [
+      path.join(repoRoot, "tools", "harness", "browser", "browser-catalog-group-cli.mjs"),
+      "--manifest",
+      env.BROWSER_E2E_BATCH_MANIFEST ||
+        path.join(repoRoot, "tools", "browser_e2e_batch_manifest.json"),
+      "--stage",
+      stage,
+      "--group",
+      groupName,
+    ],
     env: {
       ...env,
       ...scriptEnv,

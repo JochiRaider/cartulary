@@ -232,7 +232,7 @@ export function collectHarnessTargetPlanRows(root = repoRoot) {
       });
     });
   return [
-    ...collectBackendTargetPlanRows(root).map(({ manifest_phase: _retiredPhase, ...row }) => ({
+    ...collectBackendTargetPlanRows(root).map((row) => ({
       source_family: "backend",
       ...row,
       ...projectionFields(taskTargets, row.target),

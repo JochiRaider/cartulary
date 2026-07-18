@@ -90,9 +90,9 @@ shellcheck_bin="$(resolve_shellcheck_bin "$SHELLCHECK_BIN")"
 shell_files=()
 mapfile -d '' -t shell_files < <(discover_shell_files)
 inventory_artifact=""
-if [[ -n "${CARTULARY_PHASE_ARTIFACT_DIR:-}" ]]; then
-  mkdir -p "$CARTULARY_PHASE_ARTIFACT_DIR"
-  inventory_artifact="${CARTULARY_PHASE_ARTIFACT_DIR}/shellcheck-inventory.txt"
+if [[ -n "${CARTULARY_STEP_ARTIFACT_DIR:-}" ]]; then
+  mkdir -p "$CARTULARY_STEP_ARTIFACT_DIR"
+  inventory_artifact="${CARTULARY_STEP_ARTIFACT_DIR}/shellcheck-inventory.txt"
 fi
 
 if [[ "${#shell_files[@]}" -eq 0 ]]; then

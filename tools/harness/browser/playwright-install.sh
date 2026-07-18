@@ -2,7 +2,7 @@
 set -euo pipefail
 
 stamp="${PLAYWRIGHT_INSTALL_STAMP:?PLAYWRIGHT_INSTALL_STAMP is required}"
-run_phase="${RUN_PHASE_SCRIPT:?RUN_PHASE_SCRIPT is required}"
+run_step="${RUN_STEP_SCRIPT:?RUN_STEP_SCRIPT is required}"
 node_runtime_dir="${NODE_RUNTIME_DIR:?NODE_RUNTIME_DIR is required}"
 node_bin="${NODE_BIN:?NODE_BIN is required}"
 pnpm="${PNPM:?PNPM is required}"
@@ -181,12 +181,12 @@ if [[ "${CARTULARY_PLAYWRIGHT_INSTALL_CHILD:-0}" == "1" ]]; then
 fi
 
 mkdir -p "$(dirname "$stamp")"
-"$run_phase" "playwright-install" -- \
+"$run_step" "playwright-install" -- \
   env PATH="${node_runtime_dir}/bin:${PATH}" \
     COREPACK_HOME="${node_runtime_dir}/corepack" \
     CARTULARY_PLAYWRIGHT_INSTALL_CHILD=1 \
     PLAYWRIGHT_INSTALL_STAMP="$stamp" \
-    RUN_PHASE_SCRIPT="$run_phase" \
+    RUN_STEP_SCRIPT="$run_step" \
     NODE_RUNTIME_DIR="$node_runtime_dir" \
     NODE_BIN="$node_bin" \
     PNPM="$pnpm" \

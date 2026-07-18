@@ -5147,7 +5147,7 @@
           }
         },
         {
-          "target": "phase-test-name-check",
+          "target": "semantic-identity-check",
           "priority": 12000,
           "weight_ms": 10000,
           "needs": [
@@ -5160,7 +5160,7 @@
           "make_jobs": "host_cpu",
           "command": {
             "type": "make_target",
-            "target": "phase-test-name-check"
+            "target": "semantic-identity-check"
           }
         },
         {

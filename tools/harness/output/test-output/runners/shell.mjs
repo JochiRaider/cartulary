@@ -17,9 +17,9 @@ import {
   testCoverageBuckets,
 } from "../../../contract/test-output-context.mjs";
 import {
-  createBasePhaseContext,
-  writePhaseArtifacts,
-} from "../phase-artifacts.mjs";
+  createBaseStepContext,
+  writeStepArtifacts,
+} from "../step-artifacts.mjs";
 import { loadGovulncheckFindingsFile } from "../security-diagnostics.mjs";
 
 function normalizePath(value) {
@@ -93,19 +93,19 @@ function removeEmptyArtifact(file) {
   }
 }
 
-function inferPhaseFromText(value) {
+function inferStepFromText(value) {
   if (!value) {
     return "";
   }
   const patterns = [
-    /\bphase(?:\s|_|-)?(\d+)\b/i,
+    /\bstep(?:\s|_|-)?(\d+)\b/i,
     /\b[UIE][-_](\d+)-\d+\b/,
     /\b[UIE]_(\d+)_\d+\b/,
   ];
   for (const pattern of patterns) {
     const match = value.match(pattern);
     if (match) {
-      return `phase${match[1]}`;
+      return `step${match[1]}`;
     }
   }
   return "";
@@ -210,20 +210,20 @@ function printBlock(header, fields) {
   process.stderr.write(`${lines.join("\n")}\n`);
 }
 
-function showPhaseDetailOutput(context) {
+function showStepDetailOutput(context) {
   return verboseOutput() || context.target === "adhoc";
 }
 
-function finalizeShellPhase(context, stdoutLog, stderrLog, details) {
+function finalizeShellStep(context, stdoutLog, stderrLog, details) {
   removeEmptyArtifact(stdoutLog);
   removeEmptyArtifact(stderrLog);
 
   const releaseReadinessEvidence = path.join(
-    path.dirname(context.phaseDir),
+    path.dirname(context.stepDir),
     "release-readiness-evidence.json",
   );
 
-  writePhaseArtifacts(context, {
+  writeStepArtifacts(context, {
     ...details,
     artifacts: {
       stdout_log: existsSync(stdoutLog) ? stdoutLog : "",
@@ -238,7 +238,7 @@ function finalizeShellPhase(context, stdoutLog, stderrLog, details) {
     return 0;
   }
 
-  if (showPhaseDetailOutput(context)) {
+  if (showStepDetailOutput(context)) {
     for (const dossier of details.dossiers) {
       printBlock(`failure: ${context.label}`, dossier);
     }
@@ -248,7 +248,7 @@ function finalizeShellPhase(context, stdoutLog, stderrLog, details) {
 
 function browserStartupDiagnosticFailureDetails(context) {
   const startupDiagnostics = path.join(
-    path.dirname(context.phaseDir),
+    path.dirname(context.stepDir),
     "owned-stack",
     "startup-diagnostics.json",
   );
@@ -384,7 +384,7 @@ function govulncheckFindingsPath(context) {
   ) {
     return "";
   }
-  return path.join(context.phaseDir, "govulncheck-findings.json");
+  return path.join(context.stepDir, "govulncheck-findings.json");
 }
 
 function readGovulncheckFindings(context) {
@@ -507,15 +507,15 @@ function isBiomeShellFailure(context, text) {
   );
 }
 
-export function handleShellPhase() {
-  const context = createBasePhaseContext("shell");
-  const stdoutLog = requiredEnv("CARTULARY_PHASE_STDOUT_LOG");
-  const stderrLog = requiredEnv("CARTULARY_PHASE_STDERR_LOG");
+export function handleShellStep() {
+  const context = createBaseStepContext("shell");
+  const stdoutLog = requiredEnv("CARTULARY_STEP_STDOUT_LOG");
+  const stderrLog = requiredEnv("CARTULARY_STEP_STDERR_LOG");
 
   if (context.exitStatus === 0) {
-    return finalizeShellPhase(context, stdoutLog, stderrLog, {
+    return finalizeShellStep(context, stdoutLog, stderrLog, {
       status: "pass",
-      phase: inferPhaseFromText(context.label),
+      step: inferStepFromText(context.label),
       counts: {
         ...createCounts(),
       },
@@ -535,7 +535,7 @@ export function handleShellPhase() {
     firstActionableLine(stderrLines) ||
     firstActionableLine(stdoutLines) ||
     `command exited with status ${context.exitStatus}`;
-  const failureNote = optionalEnv("CARTULARY_PHASE_FAILURE_NOTE");
+  const failureNote = optionalEnv("CARTULARY_STEP_FAILURE_NOTE");
   const message =
     failureNote === ""
       ? messageBase
@@ -546,9 +546,9 @@ export function handleShellPhase() {
     stderrLines,
     message,
   );
-  return finalizeShellPhase(context, stdoutLog, stderrLog, {
+  return finalizeShellStep(context, stdoutLog, stderrLog, {
     status: "fail",
-    phase: inferPhaseFromText(context.label),
+    step: inferStepFromText(context.label),
     counts: {
       ...createCounts(),
       failed: 1,
@@ -562,7 +562,7 @@ export function handleShellPhase() {
         failure_class: failureDetails.failure_class,
         failure_reason: failureDetails.failure_reason,
         coverage: "non_test",
-        phase: inferPhaseFromText(context.label),
+        step: inferStepFromText(context.label),
         id: "",
         runner: "shell",
         package_or_file: "(shell command)",

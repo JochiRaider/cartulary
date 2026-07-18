@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.tool_run_summary.v5",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "target",
+    "command",
+    "status",
+    "exit_code",
+    "started_at",
+    "completed_at",
+    "duration_ms",
+    "output_mode",
+    "result_root",
+    "run_id",
+    "run_root",
+    "summary_artifacts",
+    "log_artifacts",
+    "work_units",
+    "evidence_targets",
+    "helper_units",
+    "counts",
+    "step_accounting",
+    "failure_class",
+    "failure_reason",
+    "failures",
+    "slowest",
+    "warnings",
+    "rerun_commands",
+    "scheduler_timing",
+    "extensions"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.tool_run_summary.v5" },
+    "target": { "type": "string", "minLength": 1 },
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cwd", "argv", "make_target", "env"],
+      "properties": {
+        "cwd": { "type": "string" },
+        "argv": { "type": "array", "items": { "type": "string" } },
+        "make_target": { "type": ["string", "null"] },
+        "env": { "type": "object" }
+      }
+    },
+    "status": { "enum": ["pass", "fail"] },
+    "exit_code": { "type": "integer" },
+    "started_at": { "type": "string", "minLength": 1, "format": "date-time" },
+    "completed_at": { "type": "string", "minLength": 1, "format": "date-time" },
+    "duration_ms": { "type": "integer", "minimum": 0 },
+    "output_mode": { "enum": ["quiet", "summary", "ci", "verbose", "debug", "machine"] },
+    "result_root": { "type": "string" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "run_root": { "type": "string" },
+    "summary_artifacts": { "type": "array", "items": { "$ref": "#/$defs/artifact" } },
+    "log_artifacts": { "type": "array", "items": { "$ref": "#/$defs/artifact" } },
+    "work_units": { "type": "array", "items": { "$ref": "#/$defs/work_unit" } },
+    "evidence_targets": { "type": "array", "items": { "$ref": "#/$defs/target_ref" } },
+    "helper_units": { "type": "array", "items": { "$ref": "#/$defs/target_ref" } },
+    "counts": { "$ref": "#/$defs/counts" },
+    "step_accounting": { "$ref": "#/$defs/step_accounting" },
+    "failure_class": {
+      "enum": [null, "product", "security", "config", "infra", "harness", "artifact", "timing", "interrupted", "unknown"]
+    },
+    "failure_reason": {
+      "enum": [
+        null,
+        "usage_error",
+        "configuration_error",
+        "preflight_error",
+        "service_start_error",
+        "service_readiness_timeout",
+        "fixture_error",
+        "resource_conflict",
+        "test_assertion_failure",
+        "security_finding",
+        "child_target_failure",
+        "tool_diagnostic_failure",
+        "scheduler_accounting_error",
+        "test_accounting_unmapped",
+        "artifact_error",
+        "cleanup_error",
+        "duration_baseline_drift",
+        "timeout_failure",
+        "cancelled_or_interrupted",
+        "unknown_failure"
+      ]
+    },
+    "failures": { "type": "array", "items": { "type": "object" } },
+    "slowest": { "type": "array", "items": { "$ref": "#/$defs/slowest" } },
+    "warnings": { "type": "array", "items": { "type": "object" } },
+    "rerun_commands": { "type": "array", "items": { "type": "string" } },
+    "scheduler_timing": { "$ref": "cartulary.harness.defs.v1#/$defs/free_object" },
+    "extensions": { "$ref": "cartulary.harness.defs.v1#/$defs/extensions" }
+  },
+  "$defs": {
+    "non_negative_integer": { "type": "integer", "minimum": 0 },
+    "artifact": {
+      "$ref": "cartulary.harness_artifact_ref.v1#/$defs/artifact_ref"
+    },
+    "work_unit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "completed", "total", "status"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "completed": { "$ref": "#/$defs/non_negative_integer" },
+        "total": { "$ref": "#/$defs/non_negative_integer" },
+        "aborted_after": { "type": "string" },
+        "status": { "type": "string", "minLength": 1 }
+      }
+    },
+    "target_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target"],
+      "properties": {
+        "target": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "minLength": 1 },
+        "run_root": { "type": "string" }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["steps", "tests", "failed", "non_test", "non_test_failed", "packages"],
+      "properties": {
+        "steps": { "$ref": "#/$defs/non_negative_integer" },
+        "tests": { "$ref": "#/$defs/non_negative_integer" },
+        "failed": { "$ref": "#/$defs/non_negative_integer" },
+        "non_test": { "$ref": "#/$defs/non_negative_integer" },
+        "non_test_failed": { "$ref": "#/$defs/non_negative_integer" },
+        "packages": { "$ref": "#/$defs/non_negative_integer" }
+      }
+    },
+    "step_accounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authoritative",
+        "support",
+        "raw",
+        "tooling_support",
+        "unowned_regression",
+        "unmapped",
+        "authoritative_failed",
+        "support_failed",
+        "raw_failed",
+        "tooling_support_failed",
+        "unowned_regression_failed",
+        "unmapped_failed",
+        "missing"
+      ],
+      "properties": {
+        "authoritative": { "$ref": "#/$defs/non_negative_integer" },
+        "support": { "$ref": "#/$defs/non_negative_integer" },
+        "raw": { "$ref": "#/$defs/non_negative_integer" },
+        "tooling_support": { "$ref": "#/$defs/non_negative_integer" },
+        "unowned_regression": { "$ref": "#/$defs/non_negative_integer" },
+        "unmapped": { "$ref": "#/$defs/non_negative_integer" },
+        "authoritative_failed": { "$ref": "#/$defs/non_negative_integer" },
+        "support_failed": { "$ref": "#/$defs/non_negative_integer" },
+        "raw_failed": { "$ref": "#/$defs/non_negative_integer" },
+        "tooling_support_failed": { "$ref": "#/$defs/non_negative_integer" },
+        "unowned_regression_failed": { "$ref": "#/$defs/non_negative_integer" },
+        "unmapped_failed": { "$ref": "#/$defs/non_negative_integer" },
+        "missing": { "$ref": "#/$defs/non_negative_integer" }
+      }
+    },
+    "slowest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "duration_ms", "kind"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "duration_ms": { "$ref": "#/$defs/non_negative_integer" },
+        "kind": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

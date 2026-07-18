@@ -71,7 +71,7 @@ export function renderTaskSurfaceMakeRuntime(manifest) {
     "TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV = $(foreach name,$(TASK_SURFACE_PUBLIC_INPUT_NAMES),-u $(name))",
     'TASK_SURFACE_RUN_ENV = NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)"',
     'TASK_SURFACE_GO_ENV = GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" NODE_BIN="$(NODE_BIN)"',
-    'TASK_SURFACE_SERVICE_SCHEDULE_ENV = $(TASK_SURFACE_RUN_ENV) TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" RUN_SERVICE_BACKED_SCHEDULE_SCRIPT="$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT)" SCHEDULER_MANIFEST="$(TASK_SURFACE_CANONICAL_SCHEDULER_MANIFEST)" CARTULARY_RUNNER_SCRIPT="$(CARTULARY_RUNNER_SCRIPT)"',
+    'TASK_SURFACE_SERVICE_SCHEDULE_ENV = $(TASK_SURFACE_RUN_ENV) TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" RUN_SERVICE_BACKED_SCHEDULE_SCRIPT="$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT)" SCHEDULER_MANIFEST="$(TASK_SURFACE_CANONICAL_SCHEDULER_MANIFEST)" CARTULARY_RUNNER_SCRIPT="$(CARTULARY_RUNNER_SCRIPT)"',
     'RUN_MAKE_NODE_TOOL = env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PUBLIC_INPUT_NAMES))" NODE_BIN="$(NODE_BIN)" $(2) ./tools/harness/execution/run-make-node-tool.sh $(1)',
     'RUN_PUBLIC_PREFLIGHT = env CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PUBLIC_INPUT_NAMES))" $(RUN_HARNESS_PREFLIGHT) $(1)',
     "RUN_TARGET_SUMMARY_COMMAND = env $(TASK_SURFACE_RUN_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) target-summary $(1) $(2) $(3)",
@@ -87,7 +87,7 @@ export function taskSurfaceMakeDensity(manifest) {
   const runtime = renderTaskSurfaceMakeRuntime(manifest);
   const syntheticManifest = structuredClone(manifest);
   for (let index = 1; index <= 25; index += 1) {
-    const target = `synthetic-phase-target-${String(index).padStart(2, "0")}`;
+    const target = `synthetic-step-target-${String(index).padStart(2, "0")}`;
     syntheticManifest.targets.push({
       name: target,
       target_class: "internal_helper",
@@ -152,7 +152,7 @@ function sequenceProducedSummaryTargets(manifest) {
 }
 
 function shouldEmitRetainedTargetSummary(recipe, entry, manifest) {
-  if (entry?.output_policy?.summary_schema !== "cartulary.tool_run_summary.v4") {
+  if (entry?.output_policy?.summary_schema !== "cartulary.tool_run_summary.v5") {
     return false;
   }
   return sequenceProducedSummaryTargets(manifest).has(recipe.target);
@@ -176,7 +176,7 @@ function renderMakeRecipe(recipe, manifest) {
   const prefix = renderRecipePrefix(recipe, entry);
   if (["artifact_binding", "aggregate", "readiness_projection"].includes(recipe.type)) {
     const lines = [...prefix, header, ...publicPrelude, ...prerequisitePrelude];
-    if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v4") {
+    if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v5") {
       lines.push(`\t$(call RUN_TARGET_SUMMARY,${recipe.target},pass)`);
     }
     return lines;
@@ -263,7 +263,7 @@ function renderMakeRecipe(recipe, manifest) {
       header,
       ...publicPrelude,
       ...prerequisitePrelude,
-      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} $(TASK_SURFACE_SERVICE_SCHEDULE_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) service-backed-target --target ${recipe.target} --phase-label "${recipe.phase_label}" --service-wrapper ${recipe.service_wrapper}`,
+      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} $(TASK_SURFACE_SERVICE_SCHEDULE_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) service-backed-target --target ${recipe.target} --step-label "${recipe.step_label}" --service-wrapper ${recipe.service_wrapper}`,
     ];
   }
   if (recipe.type === "browser_batch") {
@@ -279,16 +279,16 @@ function renderMakeRecipe(recipe, manifest) {
       `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=${recipe.workers} BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" ${wrapper}./tools/harness/browser/run-browser-e2e-target.sh ${recipe.stage}`,
     ];
   }
-  if (recipe.type === "phase_command") {
+  if (recipe.type === "step_command") {
     const emitsRetainedTargetSummary =
-      recipe.mode === "run_phase" &&
+      recipe.mode === "run_step" &&
       shouldEmitRetainedTargetSummary(recipe, entry, manifest);
     const lines = [
       ...prefix,
       header,
       ...publicPrelude,
       ...prerequisitePrelude,
-      ...renderPhaseCommandRecipe(recipe, entry, manifest),
+      ...renderStepCommandRecipe(recipe, entry, manifest),
     ];
     if (recipe.success_summary === true && !emitsRetainedTargetSummary) {
       lines.push(`\t$(call RUN_TARGET_SUMMARY,${recipe.target},pass)`);
@@ -297,8 +297,8 @@ function renderMakeRecipe(recipe, manifest) {
   }
   if (recipe.type === "summary_target") {
     const status = recipe.status ?? "pass";
-    const phaseLabel =
-      recipe.phase_label ?? `${recipe.target} child ${recipe.child_target}`;
+    const stepLabel =
+      recipe.step_label ?? `${recipe.target} child ${recipe.child_target}`;
     const projection = recipe.projection
       ? ` --projection ${recipe.projection}`
       : "";
@@ -307,14 +307,14 @@ function renderMakeRecipe(recipe, manifest) {
       'NODE_BIN="$(NODE_BIN)"',
       'TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)"',
       'TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)"',
-      'RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)"',
+      'RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)"',
     ];
     return [
       ...prefix,
       header,
       ...publicPrelude,
       ...prerequisitePrelude,
-      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} ${env.join(" ")} $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) summary-target --target ${recipe.target} --child-target ${recipe.child_target} --status ${status} --phase-label "${phaseLabel}"${projection}`,
+      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} ${env.join(" ")} $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) summary-target --target ${recipe.target} --child-target ${recipe.child_target} --status ${status} --step-label "${stepLabel}"${projection}`,
     ];
   }
   if (recipe.type === "node_tool" || recipe.type === "owner_command") {
@@ -492,7 +492,7 @@ function envCommandPrefixForTarget(entry = null, manifest = null, env = []) {
     .join(" ");
 }
 
-function renderPhaseCommandRecipe(recipe, entry = null, manifest = null) {
+function renderStepCommandRecipe(recipe, entry = null, manifest = null) {
   const forwardedEnv = runtimeForwardedInputEnvEntries(entry);
   const env = [
     ...forwardedEnv,
@@ -504,39 +504,39 @@ function renderPhaseCommandRecipe(recipe, entry = null, manifest = null) {
   const args = (recipe.args ?? []).map(normalizeInternalMakeReferences).join(" ");
   const argsSuffix = args ? ` ${args}` : "";
   const command = (recipe.command ?? []).map(normalizeInternalMakeReferences).join(" ");
-  if (recipe.mode === "run_phase") {
+  if (recipe.mode === "run_step") {
     const runnerEnv = [...forwardedEnv];
     if (recipe.success_summary === true) {
       runnerEnv.push("CARTULARY_SUPPRESS_CHILD_SUCCESS=1");
     }
     if (recipe.failure_note) {
-      runnerEnv.push(`CARTULARY_PHASE_FAILURE_NOTE="${recipe.failure_note}"`);
+      runnerEnv.push(`CARTULARY_STEP_FAILURE_NOTE="${recipe.failure_note}"`);
     }
     const runnerPrefix = runnerEnv.length > 0 ? `${runnerEnv.join(" ")} ` : "";
     const childPrefix = `${envCommandPrefixForTarget(entry, manifest, env)} `;
     if (shouldEmitRetainedTargetSummary(recipe, entry, manifest)) {
       return [
-        `\t$(Q)${runnerPrefix}$(RUN_PHASE_SCRIPT) "${recipe.phase_label}" -- ${childPrefix}${command}${argsSuffix}; status=$$?; if [ "$$status" -eq 0 ]; then $(call RUN_RETAINED_TARGET_SUMMARY,${recipe.target},pass); summary_status=$$?; else $(call RUN_RETAINED_TARGET_SUMMARY,${recipe.target},fail); summary_status=$$?; fi; if [ "$$summary_status" -ne 0 ]; then exit "$$summary_status"; fi; exit "$$status"`,
+        `\t$(Q)${runnerPrefix}$(RUN_STEP_SCRIPT) "${recipe.step_label}" -- ${childPrefix}${command}${argsSuffix}; status=$$?; if [ "$$status" -eq 0 ]; then $(call RUN_RETAINED_TARGET_SUMMARY,${recipe.target},pass); summary_status=$$?; else $(call RUN_RETAINED_TARGET_SUMMARY,${recipe.target},fail); summary_status=$$?; fi; if [ "$$summary_status" -ne 0 ]; then exit "$$summary_status"; fi; exit "$$status"`,
       ];
     }
     return [
-      `\t$(Q)${runnerPrefix}$(RUN_PHASE_SCRIPT) "${recipe.phase_label}" -- ${childPrefix}${command}${argsSuffix}`,
+      `\t$(Q)${runnerPrefix}$(RUN_STEP_SCRIPT) "${recipe.step_label}" -- ${childPrefix}${command}${argsSuffix}`,
     ];
   }
   if (recipe.mode === "node") {
     return [`\t$(Q)${envPrefix}$(NODE_BIN) ${normalizeInternalMakeReferences(recipe.script)}${argsSuffix}`];
   }
   if (recipe.mode === "command") {
-    if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v4") {
+    if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v5") {
       const childPrefix = `${envCommandPrefixForTarget(entry, manifest, env)} `;
       const testTarget = `CARTULARY_TEST_TARGET="$\${CARTULARY_TEST_TARGET:-${recipe.target}}"`;
       return [
-        `\t$(Q)${testTarget} $(RUN_PHASE_SCRIPT) "${recipe.target}" -- ${childPrefix}${command}${argsSuffix}`,
+        `\t$(Q)${testTarget} $(RUN_STEP_SCRIPT) "${recipe.target}" -- ${childPrefix}${command}${argsSuffix}`,
       ];
     }
     return [`\t$(Q)${envPrefix}${command}${argsSuffix}`];
   }
-  throw new Error(`unsupported phase command mode ${recipe.mode}`);
+  throw new Error(`unsupported step command mode ${recipe.mode}`);
 }
 
 export function helpLines(manifest) {

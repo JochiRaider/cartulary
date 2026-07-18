@@ -166,10 +166,7 @@ async function runWrapped(target, invocation) {
   const stderrFile = quietLikeOutput()
     ? writeIfNonEmpty(stderrLog, child.stderr ?? "")
     : null;
-  const outputText = `${child.stdout ?? ""}\n${child.stderr ?? ""}`;
-  const plannedPhaseNonExecutable =
-    status !== 0 && /phase phase[0-9]+ is planned and is not executable/.test(outputText);
-  const usageFailure = status === 2 || plannedPhaseNonExecutable;
+  const usageFailure = status === 2;
   const fallbackFailureClass = usageFailure
     ? "config"
     : classifyExecutionFailure(target, target, invocation.script);

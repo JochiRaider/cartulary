@@ -31,11 +31,6 @@ import {
   renderTaskSurfaceMake,
 } from "../generated-artifacts/index.mjs";
 import {
-  collectPlaywrightTitleObservationsForTarget,
-  collectVitestTitleObservations,
-  frontendScenarioStatus,
-} from "../output/test-output/frontend-row-evidence.mjs";
-import {
   fileArtifactRef,
   buildToolRunSummary,
   machineOutput,
@@ -517,12 +512,6 @@ test("owner accounting closes exact rows and preserves subset completion scope",
   assert.equal(summary.primary_failure, null);
   await validateSchema(accounting.schema_id, accounting);
   await validateSchema(summary.schema_id, summary);
-  await assert.rejects(
-    validateSchema("cartulary.test_evidence_accounting.v1", {
-      ...accounting,
-      schema_id: "cartulary.frontend_row_accounting.v5",
-    }),
-  );
   assert.throws(
     () => buildTestEvidenceAccounting(plan, { ...execution, row_results: [] }, logs, accounting.started_at, accounting.finished_at),
     /do not exactly match/u,
@@ -642,7 +631,7 @@ test("owner evidence audit accepts exact target partitions and rejects duplicate
           "utf8",
         ),
       ).schema_id,
-      "cartulary.tool_run_summary.v4",
+      "cartulary.tool_run_summary.v5",
     );
 
     const first = entries[0];
@@ -893,7 +882,7 @@ test("owner catalog rejects structural, reference, selector, and path ambiguity"
     },
     {
       name: "delivery-phase row ID",
-      mutate: ({ familyManifest }) => { familyManifest.rows[0].row_id = "module.fixture.phase7.owned"; },
+      mutate: ({ familyManifest }) => { familyManifest.rows[0].row_id = "module.fixture.semantic.owned"; },
       pattern: /must match pattern|row_id/iu,
     },
     {
@@ -1015,7 +1004,7 @@ test("semantic JSON rejects ambiguous encodings and ignores display metadata", (
 test("semantic allowlist accepts one exact owned product-phase identity", () => {
   const root = mkdtempSync(path.join(repoRoot, "tmp", "semantic-allowlist."));
   try {
-    writeFixtureFile(root, "internal/fixture/phase2_test.go", "package fixture\n\nfunc TestProductStage(t *testing.T) {}\n");
+    writeFixtureFile(root, "internal/fixture/semantic_test.go", "package fixture\n\nfunc TestProductStage(t *testing.T) {}\n");
     writeJSONFile(path.join(root, "tools/test_catalog_owner.json"), {
       schema_id: "cartulary.test_owner_registry.v1",
       owners: [{ owner_id: "module.fixture", manifest_path: "tools/test_families/module.fixture.json", status: "active" }],
@@ -1023,9 +1012,9 @@ test("semantic allowlist accepts one exact owned product-phase identity", () => 
     writeJSONFile(path.join(root, "tools/delivery_phase_semantic_allowlist.json"), {
       schema_id: "cartulary.delivery_phase_semantic_allowlist.v1",
       allowlist: [{
-        location: "internal/fixture/phase2_test.go",
+        location: "internal/fixture/semantic_test.go",
         locator_kind: "filename",
-        locator: "phase2_test.go",
+        locator: "semantic_test.go",
         classification: "product_phase",
         owner_id: "module.fixture",
         reason: "Fixture models an owner-defined numbered product stage.",
@@ -1041,7 +1030,7 @@ test("semantic allowlist rejects unmatched, duplicate, line-number, and unknown-
   const cases = [
     {
       name: "unmatched",
-      mutate(entries) { entries[0].locator = "phase3_test.go"; },
+      mutate(entries) { entries[0].locator = "alternate_test.go"; },
       pattern: /must match exactly one identity/iu,
     },
     {
@@ -1051,7 +1040,7 @@ test("semantic allowlist rejects unmatched, duplicate, line-number, and unknown-
     },
     {
       name: "line-number",
-      mutate(entries) { entries[0].location = "internal/fixture/phase2_test.go:12"; },
+      mutate(entries) { entries[0].location = "internal/fixture/semantic_test.go:12"; },
       pattern: /must not be line-number-only/iu,
     },
     {
@@ -1063,15 +1052,15 @@ test("semantic allowlist rejects unmatched, duplicate, line-number, and unknown-
   for (const fixtureCase of cases) {
     const root = mkdtempSync(path.join(repoRoot, "tmp", `semantic-allowlist-${fixtureCase.name}.`));
     try {
-      writeFixtureFile(root, "internal/fixture/phase2_test.go", "package fixture\n\nfunc TestProductStage(t *testing.T) {}\n");
+      writeFixtureFile(root, "internal/fixture/semantic_test.go", "package fixture\n\nfunc TestProductStage(t *testing.T) {}\n");
       writeJSONFile(path.join(root, "tools/test_catalog_owner.json"), {
         schema_id: "cartulary.test_owner_registry.v1",
         owners: [{ owner_id: "module.fixture", manifest_path: "tools/test_families/module.fixture.json", status: "active" }],
       });
       const entries = [{
-        location: "internal/fixture/phase2_test.go",
+        location: "internal/fixture/semantic_test.go",
         locator_kind: "filename",
-        locator: "phase2_test.go",
+        locator: "semantic_test.go",
         classification: "product_phase",
         owner_id: "module.fixture",
         reason: "Fixture models an owner-defined numbered product stage.",
@@ -1975,131 +1964,12 @@ test("test clock-control schema is closed and mode-scoped", async () => {
   );
 });
 
-test("frontend phase-accounting facade does not re-export test-output indexes", () => {
-  const facade = readFileSync(
-    path.join(repoRoot, "tools/harness/phase-accounting/frontend/index.mjs"),
-    "utf8",
-  );
-  assert.doesNotMatch(facade, /output\/test-output\/frontend-indexes/);
-});
-
-test("frontend row evidence normalizes runner observations before accounting", () => {
-  const root = mkdtempSync(path.join(repoRoot, "tmp", "frontend-row-evidence."));
-  try {
-    const vitestRunner = path.join(root, "vitest-runner.json");
-    writeFileSync(
-      vitestRunner,
-      JSON.stringify({
-        testResults: [
-          {
-            name: path.join(
-              repoRoot,
-              "apps/web/src/workbook/WorkbookShell.phase8.test.tsx",
-            ),
-            assertionResults: [
-              {
-                title: "FE-U-P8-01 renders timeline rows",
-                status: "passed",
-              },
-              {
-                title: "FE-U-P8-02 persists timeline edits",
-                status: "failed",
-              },
-            ],
-          },
-        ],
-      }),
-    );
-
-    const vitestObservations = collectVitestTitleObservations(vitestRunner);
-    assert.deepEqual(
-      vitestObservations.get("FE-U-P8-01 renders timeline rows"),
-      [
-        {
-          file: "apps/web/src/workbook/WorkbookShell.phase8.test.tsx",
-          status: "passed",
-        },
-      ],
-    );
-    assert.equal(
-      frontendScenarioStatus(
-        vitestObservations.get("FE-U-P8-02 persists timeline edits"),
-      ),
-      "failed",
-    );
-
-    const playwrightTargetDir = path.join(root, "browser-e2e-visual");
-    mkdirSync(path.join(playwrightTargetDir, "visual"), { recursive: true });
-    writeFileSync(
-      path.join(playwrightTargetDir, "visual", "phase-summary.json"),
-      JSON.stringify({
-        inventory: [
-          {
-            symbol_or_title: "FE-V-P8-01 keeps workbook visual baseline",
-            package_or_file: "workbook.visual.spec.ts",
-          },
-        ],
-        failures: [
-          {
-            symbol_or_title: "FE-V-P8-02 reports visual diff",
-            package_or_file: "apps/web/e2e/workbook.visual.spec.ts",
-          },
-        ],
-      }),
-    );
-
-    const playwrightObservations =
-      collectPlaywrightTitleObservationsForTarget(playwrightTargetDir);
-    assert.deepEqual(
-      playwrightObservations.get("FE-V-P8-01 keeps workbook visual baseline"),
-      [
-        {
-          file: "apps/web/e2e/workbook.visual.spec.ts",
-          status: "passed",
-        },
-      ],
-    );
-    assert.deepEqual(
-      playwrightObservations.get("FE-V-P8-02 reports visual diff"),
-      [
-        {
-          file: "apps/web/e2e/workbook.visual.spec.ts",
-          status: "failed",
-        },
-      ],
-    );
-
-    assert.equal(frontendScenarioStatus([]), "missing");
-    assert.equal(
-      frontendScenarioStatus([
-        { file: "apps/web/e2e/a.spec.ts", status: "skipped" },
-      ]),
-      "skipped",
-    );
-    assert.equal(
-      frontendScenarioStatus([
-        { file: "apps/web/e2e/a.spec.ts", status: "unknown" },
-      ]),
-      "unknown",
-    );
-    assert.equal(
-      frontendScenarioStatus([
-        { file: "apps/web/e2e/a.spec.ts", status: "passed" },
-        { file: "apps/web/e2e/b.spec.ts", status: "failed" },
-      ]),
-      "failed",
-    );
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
-function runVitestPhaseSummaryFixture({ root, runnerJSON, sidecarJSON = "" }) {
-  const phaseDir = path.join(root, sidecarJSON ? "phase-sidecar" : "phase-fallback");
+function runVitestStepSummaryFixture({ root, runnerJSON, sidecarJSON = "" }) {
+  const stepDir = path.join(root, sidecarJSON ? "step-sidecar" : "step-fallback");
   const resultsDir = path.relative(repoRoot, path.join(root, "results"));
   const result = spawnSync(
     process.execPath,
-    [path.join(repoRoot, "tools/harness/output/test-output.mjs"), "vitest-phase"],
+    [path.join(repoRoot, "tools/harness/output/test-output.mjs"), "vitest-step"],
     {
       cwd: repoRoot,
       encoding: "utf8",
@@ -2108,19 +1978,19 @@ function runVitestPhaseSummaryFixture({ root, runnerJSON, sidecarJSON = "" }) {
         CARTULARY_TEST_RESULTS_DIR: resultsDir,
         CARTULARY_TEST_RUN_ID: "vitest-sidecar-fixture",
         CARTULARY_TEST_TARGET: "frontend-unit",
-        CARTULARY_PHASE_DIR: phaseDir,
-        CARTULARY_PHASE_LABEL: "frontend-unit vitest",
-        CARTULARY_PHASE_COMMAND: "pnpm --dir apps/web exec vitest run",
-        CARTULARY_PHASE_START_TIME: "2026-01-01T00:00:00.000Z",
-        CARTULARY_PHASE_END_TIME: "2026-01-01T00:00:01.000Z",
-        CARTULARY_PHASE_LOGICAL_DURATION_MS: "1000",
-        CARTULARY_PHASE_EXECUTED_DURATION_MS: "1000",
-        CARTULARY_PHASE_EXIT_STATUS: "1",
-        CARTULARY_PHASE_RUNNER_LOG: runnerJSON,
-        CARTULARY_PHASE_STDOUT_LOG: path.join(root, "stdout.log"),
-        CARTULARY_PHASE_STDERR_LOG: path.join(root, "stderr.log"),
+        CARTULARY_STEP_DIR: stepDir,
+        CARTULARY_STEP_LABEL: "frontend-unit vitest",
+        CARTULARY_STEP_COMMAND: "pnpm --dir apps/web exec vitest run",
+        CARTULARY_STEP_START_TIME: "2026-01-01T00:00:00.000Z",
+        CARTULARY_STEP_END_TIME: "2026-01-01T00:00:01.000Z",
+        CARTULARY_STEP_LOGICAL_DURATION_MS: "1000",
+        CARTULARY_STEP_EXECUTED_DURATION_MS: "1000",
+        CARTULARY_STEP_EXIT_STATUS: "1",
+        CARTULARY_STEP_RUNNER_LOG: runnerJSON,
+        CARTULARY_STEP_STDOUT_LOG: path.join(root, "stdout.log"),
+        CARTULARY_STEP_STDERR_LOG: path.join(root, "stderr.log"),
         ...(sidecarJSON
-          ? { CARTULARY_PHASE_VITEST_FAILURE_DETAILS: sidecarJSON }
+          ? { CARTULARY_STEP_VITEST_FAILURE_DETAILS: sidecarJSON }
           : {}),
       },
     },
@@ -2128,10 +1998,10 @@ function runVitestPhaseSummaryFixture({ root, runnerJSON, sidecarJSON = "" }) {
   assert.equal(
     result.status,
     1,
-    `vitest phase fixture should fail for the synthetic assertion: ${result.stderr}${result.stdout}`,
+    `vitest step fixture should fail for the synthetic assertion: ${result.stderr}${result.stdout}`,
   );
   return JSON.parse(
-    readFileSync(path.join(phaseDir, "phase-summary.json"), "utf8"),
+    readFileSync(path.join(stepDir, "step-summary.json"), "utf8"),
   );
 }
 
@@ -2244,7 +2114,7 @@ test("Vitest failure sidecar overrides STACK_TRACE_ERROR summary fallback", () =
       }),
     );
 
-    const sidecarSummary = runVitestPhaseSummaryFixture({
+    const sidecarSummary = runVitestStepSummaryFixture({
       root,
       runnerJSON,
       sidecarJSON,
@@ -2265,7 +2135,7 @@ test("Vitest failure sidecar overrides STACK_TRACE_ERROR summary fallback", () =
       "sidecar-backed failures must retain the sidecar artifact ref",
     );
 
-    const fallbackSummary = runVitestPhaseSummaryFixture({
+    const fallbackSummary = runVitestStepSummaryFixture({
       root,
       runnerJSON,
     });
@@ -2532,7 +2402,7 @@ test("execution harness smoke is a narrow execution-wrapper subset", () => {
   assert.deepEqual(target?.default_inclusion_sets, []);
 });
 
-test("check scheduler restores node packages before run-phase validation", () => {
+test("check scheduler restores node packages before run-step validation", () => {
   const { checkSchedule, taskSurface } = renderedArtifacts();
   const schedule = checkSchedule.schedules.find(
     (entry) => entry.target === "check",
@@ -2566,7 +2436,7 @@ test("check scheduler restores node packages before run-phase validation", () =>
   assert.deepEqual(
     checkFrontendInstall.needs ?? [],
     [],
-    "check-frontend-install must be able to run before run-phase children",
+    "check-frontend-install must be able to run before run-step children",
   );
   assert.ok(toolchainDrift, "check schedule must include toolchain-drift");
   assert.ok(
@@ -2684,7 +2554,7 @@ test("generated task surface and Make wrapper keep harness projection wiring", (
     const entry = targetEntries.get(target);
     if (
       recipe?.mode !== "run_phase" ||
-      entry?.output_policy?.summary_schema !== "cartulary.tool_run_summary.v4"
+      entry?.output_policy?.summary_schema !== "cartulary.tool_run_summary.v5"
     ) {
       continue;
     }
@@ -2745,38 +2615,6 @@ test("machine task-surface owner defines public output classes and side effects"
   }
 });
 
-test("retired task-surface compatibility cannot be reintroduced", () => {
-  const retiredOriginPrefix = "CARTULARY_MAKE_" + "ORIGIN_";
-  const retiredDurationField = "CARTULARY_PHASE_" + "DURATION_MS";
-  for (const file of [
-    "tools/harness/contract/harness-contract.mjs",
-    "tools/harness/execution/run-make-node-tool-cli.mjs",
-    "tools/harness/finalization/agent-finalize-cli.mjs",
-    "tools/harness/generated-artifacts/task-surface/make-renderer.mjs",
-  ]) {
-    const content = readFileSync(path.join(repoRoot, file), "utf8");
-    assert.ok(!content.includes(retiredOriginPrefix), `${file} must not restore per-input origins`);
-  }
-  for (const file of [
-    "tools/harness/output/test-output/phase-artifacts.mjs",
-    "tools/harness/backend/run-go-phase.sh",
-    "tools/harness/browser/run-playwright-phase.sh",
-    "tools/harness/execution/run-vitest-phase.sh",
-  ]) {
-    const content = readFileSync(path.join(repoRoot, file), "utf8");
-    assert.ok(!content.includes(retiredDurationField), `${file} must not restore generic duration fallback`);
-  }
-  for (const file of [
-    "tools/schemas/cartulary.phase_slice_plan.v1.schema.json",
-    "tools/schemas/cartulary.scheduler_pressure_summary.v1.schema.json",
-    "tools/schemas/cartulary.scheduler_pressure_summary.v2.schema.json",
-    "tools/schemas/cartulary.scheduler_pressure_summary.v3.schema.json",
-    "tools/harness/generated-artifacts/task-surface.mjs",
-  ]) {
-    assert.equal(existsSync(path.join(repoRoot, file)), false, `${file} must remain retired`);
-  }
-});
-
 test("owner task surface exposes only the v2 command family and private catalog check", () => {
   const { taskSurface } = renderedArtifacts();
   const targets = new Map(taskSurface.targets.map((entry) => [entry.name, entry]));
@@ -2800,21 +2638,6 @@ test("owner task surface exposes only the v2 command family and private catalog 
       taskSurface.make_recipes[name]?.type,
       "owner_command",
       `${name} must use the generated owner-command recipe`,
-    );
-  }
-  for (const retired of [
-    "explain-phase",
-    "frontend-evidence-audit",
-    "owner-task-guide",
-    "phase-map-check",
-    "phase-slice",
-    "service-backed-slice",
-  ]) {
-    assert.equal(targets.has(retired), false, `${retired} must not remain a target`);
-    assert.equal(
-      Object.hasOwn(taskSurface.make_recipes, retired),
-      false,
-      `${retired} must not remain a generated recipe`,
     );
   }
   const catalogCheck = targets.get("test-catalog-check");
@@ -3168,7 +2991,7 @@ test("scheduler FIFO reservations prevent resource leapfrogging", () => {
   );
 });
 
-test("catalog browser scheduler digest is deterministic and phase-independent", () => {
+test("catalog browser scheduler digest is deterministic and delivery-independent", () => {
   const manifest = path.join(repoRoot, "tools", "browser_e2e_batch_manifest.json");
   const stage = resolveBrowserBatchStage(manifest, "stateful");
   const first = buildBrowserStageSchedule(stage, manifest);
@@ -3522,8 +3345,8 @@ test("public non-interactive wrappers run preflight before child work", () => {
 
 test("per-target input contract rejects misplaced Make variables and ignores ambient env", () => {
   for (const [sources, message] of [
-    ["PHASE=command-line", /contains invalid source token/],
-    ["PHASE=cli PHASE=env", /contains duplicate PHASE/],
+    ["UNDECLARED_INPUT=command-line", /contains invalid source token/],
+    ["UNDECLARED_INPUT=cli UNDECLARED_INPUT=env", /contains duplicate UNDECLARED_INPUT/],
     ["NOT_A_PUBLIC_INPUT=cli", /contains unknown input NOT_A_PUBLIC_INPUT/],
   ]) {
     assert.throws(
@@ -3537,18 +3360,18 @@ test("per-target input contract rejects misplaced Make variables and ignores amb
   assert.throws(
     () =>
       preflightPublicTarget("target-plan", {
-        PHASE: "phase4",
-        CARTULARY_MAKE_INPUT_SOURCES: "PHASE=cli",
+        UNDECLARED_INPUT: "unexpected",
+        CARTULARY_MAKE_INPUT_SOURCES: "UNDECLARED_INPUT=cli",
       }),
     (error) =>
       error instanceof HarnessConfigError &&
       error.failure_reason === "usage_error" &&
-      /PHASE is not declared for target target-plan/.test(error.message),
+      /UNDECLARED_INPUT is not declared for target target-plan/.test(error.message),
   );
   assert.doesNotThrow(() =>
     preflightPublicTarget("target-plan", {
-      PHASE: "phase4",
-      CARTULARY_MAKE_INPUT_SOURCES: "PHASE=env",
+      UNDECLARED_INPUT: "unexpected",
+      CARTULARY_MAKE_INPUT_SOURCES: "UNDECLARED_INPUT=env",
     }),
   );
   assert.throws(
@@ -3807,8 +3630,6 @@ test("default check service-backed browser work uses declared session groups", (
       .map(([, rowIDs]) => rowIDs),
   );
   for (const unit of statefulBrowserGroups) {
-    assert.equal(unit.env?.CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE, undefined);
-    assert.equal(unit.env?.CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE, undefined);
     assert.ok(unit.browser_group.selected_row_ids.every((rowID) => catalogByID.get(rowID)?.default_check));
   }
   assertBrowserWorkerSlots(
@@ -4252,521 +4073,6 @@ test("harness import boundary rejects unknown top-level owner roots", () => {
           violation.rule === "forbidden_unknown_harness_owner_root" &&
           violation.source === "tools/harness/mystery",
       ),
-    );
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
-test("harness import boundary rejects legacy planning imports and cycles", () => {
-  const root = mkdtempSync(path.join(repoRoot, "tmp", "harness-boundary."));
-  try {
-    writeFixtureFile(
-      root,
-      "tools/harness/backend/backend-shard-plan.mjs",
-      `${fixtureImport("../backend/go-shard-plan.mjs")}export const backendShardPlan = true;\n`,
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/backend/backend-target-plan.mjs",
-      "export const backendTargetPlan = true;\n",
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/backend/backend-duration-accounting.mjs",
-      "export const backendDurationAccounting = true;\n",
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/backend/target-execution/cli.mjs",
-      "export const backendTargetExecutionCli = true;\n",
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/backend/backend-target-execution.mjs",
-      fixtureExportFrom("backendTargetExecutionCli", "./target-execution/cli.mjs"),
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/phase-accounting/phase-manifest.mjs",
-      "export const phaseManifest = true;\n",
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/phase-accounting/phase-registry.mjs",
-      "export const phaseRegistry = true;\n",
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/phase-accounting/frontend/phase-artifacts.mjs",
-      "export const frontendPhaseValidation = true;\n",
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/phase-accounting/frontend-phase-manifest.mjs",
-      fixtureExportFrom("frontendPhaseValidation", "./frontend/phase-artifacts.mjs"),
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/phase-accounting/frontend-row-accounting.mjs",
-      "export const frontendRowAccounting = true;\n",
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/phase-accounting/frontend-readiness.mjs",
-      "export const frontendReadiness = true;\n",
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/execution/summary-topology.mjs",
-      "export const summaryTopology = true;\n",
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/backend/target-plan.mjs",
-      "export const targetPlan = true;\n",
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/backend/go-shard-plan.mjs",
-      `export async function inspect() { return ${fixtureDynamicImport("./target-plan.mjs")}; }\n`,
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/backend/go-target-runner.mjs",
-      `${fixtureImport("./backend-target-plan.mjs")}export const runner = true;\n`,
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/browser/browser-shard-plan.mjs",
-      `export async function inspect() { return ${fixtureDynamicImport("../phase-accounting/phase-manifest.mjs")}; }\n`,
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/browser/browser-batch-manifest.mjs",
-      "export const browserBatchManifest = true;\n",
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/browser/browser-duration-accounting.mjs",
-      "export const browserDurationAccounting = true;\n",
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/browser/browser-duration-discovery.mjs",
-      "export const privateBrowserDurationDiscovery = true;\n",
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/scheduler/adapters/browser.mjs",
-      [
-        fixtureExportFrom("browserBatchManifest", "../../browser/browser-batch-manifest.mjs").trimEnd(),
-        fixtureExportFrom(
-          "privateBrowserDurationDiscovery",
-          "../../browser/browser-duration-discovery.mjs",
-        ).trimEnd(),
-        "",
-      ].join("\n"),
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/phase-accounting/phase-slice-plan.mjs",
-      [
-        fixtureExportFrom("browserSchedulerAdapter", "../scheduler/adapters/browser.mjs").trimEnd(),
-        fixtureExportFrom("backendShardPlan", "../backend/backend-shard-plan.mjs").trimEnd(),
-        "",
-      ].join("\n"),
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/execution/service-backed/schedule-planning.mjs",
-      [
-        fixtureExportFrom("backendShardPlan", "../../backend/backend-shard-plan.mjs").trimEnd(),
-        fixtureExportFrom("browserSchedulerAdapter", "../../scheduler/adapters/browser.mjs").trimEnd(),
-        "",
-      ].join("\n"),
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/duration-accounting/index.mjs",
-      "export const durationAccounting = true;\n",
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/scheduler/scheduler/event-order.mjs",
-      "export const schedulerEventOrder = true;\n",
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/scheduler/phase-slice-execution.mjs",
-      "export const phaseSliceExecution = true;\n",
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/output/test-output/frontend-row-evidence.mjs",
-      "export const frontendRowEvidence = true;\n",
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/generated-artifacts/duration-facade.mjs",
-      fixtureExportFrom(
-        "backendDurationAccounting",
-        "../backend/backend-duration-accounting.mjs",
-      ),
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/generated-artifacts/browser-duration-facade.mjs",
-      fixtureExportFrom(
-        "browserDurationAccounting",
-        "../browser/browser-duration-accounting.mjs",
-      ),
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/diagnostics/execution-facade.mjs",
-      fixtureExportFrom(
-        "backendTargetExecutionCli",
-        "../backend/backend-target-execution.mjs",
-      ),
-    );
-
-    const clean = collectHarnessImportBoundaryViolations(root);
-    assert.deepEqual(clean.violations, []);
-    assert.deepEqual(clean.forbidden_sccs, []);
-    assert.ok(
-      clean.owner_facades.scheduler.includes("tools/harness/scheduler/scheduler-runner.mjs"),
-      "scheduler runner facade must be classified",
-    );
-    assert.ok(
-      clean.owner_facades.scheduler.includes(
-        "tools/harness/scheduler/scheduler-family-contract.mjs",
-      ),
-      "scheduler family facade must be classified",
-    );
-    assert.ok(
-      clean.owner_facades.scheduler.includes("tools/harness/scheduler/scheduler-manifest.mjs"),
-      "scheduler manifest facade must be classified",
-    );
-    assert.ok(
-      clean.owner_facades.scheduler.includes("tools/harness/scheduler/scheduler-resources.mjs"),
-      "scheduler resources facade must be classified",
-    );
-    assert.ok(
-      clean.owner_facades.scheduler.includes(
-        "tools/harness/scheduler/scheduler-resource-policy.mjs",
-      ),
-      "scheduler resource policy facade must be classified",
-    );
-    assert.ok(
-      clean.owner_facades.scheduler.includes("tools/harness/scheduler/scheduler-reporting.mjs"),
-      "scheduler reporting facade must be classified",
-    );
-    assert.ok(
-      clean.owner_facades.scheduler.includes("tools/harness/scheduler/process-executor.mjs"),
-      "scheduler process adapter facade must be classified",
-    );
-    assert.ok(
-      clean.owner_facades.scheduler.includes("tools/harness/scheduler/scheduler-runtime.mjs"),
-      "scheduler runtime facade must be classified",
-    );
-    assert.ok(
-      clean.owner_facades.scheduler.includes(
-        "tools/harness/scheduler/phase-slice-execution.mjs",
-      ),
-      "phase-slice scheduler execution facade must be classified",
-    );
-    assert.ok(
-      clean.owner_facades.test_output.includes(
-        "tools/harness/output/test-output/frontend-row-evidence.mjs",
-      ),
-      "frontend row evidence test-output facade must be classified",
-    );
-    assert.ok(
-      clean.owner_facades.test_output.includes(
-        "tools/harness/output/test-output/frontend-indexes.mjs",
-      ),
-      "frontend manifest test-output index facade must be classified",
-    );
-    assert.ok(
-      clean.owner_facades.browser.includes(
-        "tools/harness/browser/browser-lifecycle-adapter.sh",
-      ),
-      "browser lifecycle adapter facade must be classified",
-    );
-    assert.ok(
-      clean.owner_facades.phase_accounting.includes(
-        "tools/harness/phase-accounting/index.mjs",
-      ),
-      "phase-accounting index facade must be classified",
-    );
-    assert.ok(
-      clean.owner_facades.phase_accounting.includes(
-        "tools/harness/phase-accounting/phase-slice-plan.mjs",
-      ),
-      "phase-slice planning facade must be classified",
-    );
-    for (const phaseAccountingFacade of [
-      "tools/harness/phase-accounting/phase-manifest.mjs",
-      "tools/harness/phase-accounting/phase-registry.mjs",
-      "tools/harness/phase-accounting/frontend-phase-manifest.mjs",
-      "tools/harness/phase-accounting/frontend-row-accounting.mjs",
-      "tools/harness/phase-accounting/frontend-readiness.mjs",
-    ]) {
-      assert.ok(
-        clean.owner_facades.phase_accounting.includes(phaseAccountingFacade),
-        `${phaseAccountingFacade} must be classified as a phase-accounting facade`,
-      );
-    }
-    assert.ok(
-      clean.owner_facades.service_backed_execution.includes(
-        "tools/harness/execution/service-backed/index.mjs",
-      ),
-      "service-backed schedule planning index facade must be classified",
-    );
-    assert.ok(
-      clean.owner_facades.service_backed_execution.includes(
-        "tools/harness/execution/service-backed/schedule-planning.mjs",
-      ),
-      "service-backed schedule planning facade must be classified",
-    );
-    assert.ok(
-      clean.owner_facades.execution_runtime.includes(
-        "tools/harness/execution/phase-runtime.sh",
-      ),
-      "phase execution runtime facade must be classified",
-    );
-    assert.ok(
-      clean.owner_facades.command_surface.includes(
-        "tools/harness/command-surface/make-node-tools.mjs",
-      ),
-      "Make-node command-surface facade must be classified",
-    );
-    assert.ok(
-      clean.owner_facades.generated_artifacts.includes(
-        "tools/harness/generated-artifacts/index.mjs",
-      ),
-      "generated-artifacts facade must be classified",
-    );
-    assert.ok(
-      clean.owner_facades.readiness.includes(
-        "tools/harness/readiness/cache-policy.sh",
-      ),
-      "readiness cache policy facade must be classified",
-    );
-    assert.ok(
-      clean.owner_facades.duration_accounting.includes("tools/harness/duration-accounting/index.mjs"),
-      "duration accounting facade must be classified",
-    );
-    assert.ok(
-      clean.owner_facades.scheduler_diagnostics.includes(
-        "tools/harness/diagnostics/scheduler-event-order-drift-cli.mjs",
-      ),
-      "scheduler event drift facade must be classified",
-    );
-    assert.ok(
-      clean.owner_facades.scheduler_diagnostics.includes(
-        "tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs",
-      ),
-      "scheduler summary timing drift facade must be classified",
-    );
-    assert.ok(
-      !clean.owner_facades.scheduler.includes(
-        "tools/harness/phase-accounting/phase-slice-plan.mjs",
-      ),
-      "phase-slice planning facade must not remain in scheduler bucket",
-    );
-    assert.ok(
-      !clean.owner_facades.scheduler.includes(
-        "tools/harness/execution/service-backed/schedule-planning.mjs",
-      ),
-      "service-backed planning facade must not remain in scheduler bucket",
-    );
-    assert.ok(
-      !clean.owner_facades.scheduler.includes(
-        "tools/harness/scheduler/scheduler/event-order.mjs",
-      ),
-      "scheduler event drift facade must not remain in scheduler bucket",
-    );
-    assert.ok(
-      !clean.owner_facades.scheduler.includes(
-        "tools/harness/scheduler/scheduler/summary-timing-drift.mjs",
-      ),
-      "scheduler summary timing drift facade must not remain in scheduler bucket",
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/backend/direct-target-plan.mjs",
-      `${fixtureImport(legacyPlanningImport("target-plan.mjs"))}export const directTargetPlan = true;\n`,
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/browser/direct-phase-manifest.mjs",
-      `${fixtureImport(legacyPlanningImport("phase-manifest.mjs"))}export const directPhaseManifest = true;\n`,
-    );
-    const direct = collectHarnessImportBoundaryViolations(root);
-    const directSources = new Set(
-      direct.violations
-        .filter((violation) => violation.rule === "forbidden_planning_import")
-        .map((violation) => violation.source),
-    );
-    assert.ok(directSources.has("tools/harness/backend/direct-target-plan.mjs"));
-    assert.ok(directSources.has("tools/harness/browser/direct-phase-manifest.mjs"));
-
-    writeFixtureFile(
-      root,
-      "tools/harness/scheduler/direct-backend-target-plan.mjs",
-      `${fixtureImport("../backend/target-plan.mjs")}export const directBackendTargetPlan = true;\n`,
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/generated-artifacts/direct-legacy-duration.mjs",
-      `${fixtureImport("../backend/duration/baselines.mjs")}export const directLegacyDuration = true;\n`,
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/generated-artifacts/direct-legacy-scheduler-phase-slice.mjs",
-      `${fixtureImport("../scheduler/phase-slice-plan.mjs")}export const directLegacySchedulerPhaseSlice = true;\n`,
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/generated-artifacts/direct-legacy-execution-runtime.mjs",
-      `${fixtureImport("../execution/run-phase-common.sh")}export const directLegacyExecutionRuntime = true;\n`,
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/generated-artifacts/direct-legacy-execution-runtime-source.sh",
-      '#!/usr/bin/env bash\nsource "${ROOT_DIR}/tools/harness/execution/run-phase-common.sh"\n',
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/generated-artifacts/direct-legacy-make-node-tools.mjs",
-      `${fixtureImport("../execution/make-node-tools.mjs")}export const directLegacyMakeNodeTools = true;\n`,
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/diagnostics/direct-go-target-runner.mjs",
-      `${fixtureImport("../backend/go-target-runner.mjs")}export const directGoTargetRunner = true;\n`,
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/scheduler/direct-target-execution-helper.mjs",
-      `${fixtureImport("../backend/target-execution/cli.mjs")}export const directTargetExecutionHelper = true;\n`,
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/scheduler/direct-browser-batch.mjs",
-      `${fixtureImport("../browser/browser-batch-manifest.mjs")}export const directBrowserBatch = true;\n`,
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/generated-artifacts/direct-browser-duration-discovery.mjs",
-      `${fixtureImport("../browser/browser-duration-discovery.mjs")}export const directBrowserDurationDiscovery = true;\n`,
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/diagnostics/direct-frontend-evidence.mjs",
-      `${fixtureImport("../frontend/evidence/index.mjs")}export const directFrontendEvidence = true;\n`,
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/diagnostics/direct-frontend-phase-validation.mjs",
-      `${fixtureImport("../phase-accounting/frontend/phase-artifacts.mjs")}export const directFrontendPhaseValidation = true;\n`,
-    );
-    const backendBoundary = collectHarnessImportBoundaryViolations(root);
-    assert.ok(
-      backendBoundary.violations.some(
-        (violation) =>
-          violation.rule === "forbidden_private_backend_import" &&
-          violation.source === "tools/harness/scheduler/direct-backend-target-plan.mjs" &&
-          violation.target === "tools/harness/backend/target-plan.mjs",
-      ),
-      "non-owner target-plan import must be reported",
-    );
-    assert.ok(
-      backendBoundary.violations.some(
-        (violation) =>
-          violation.rule === "forbidden_private_backend_import" &&
-          violation.source === "tools/harness/generated-artifacts/direct-legacy-duration.mjs" &&
-          violation.target === "tools/harness/backend/duration/baselines.mjs",
-      ),
-      "cross-owner private backend import must be reported without historical tombstones",
-    );
-    assert.ok(
-      backendBoundary.violations.some(
-        (violation) =>
-          violation.rule === "forbidden_private_backend_import" &&
-          violation.source === "tools/harness/diagnostics/direct-go-target-runner.mjs" &&
-          violation.target === "tools/harness/backend/go-target-runner.mjs",
-      ),
-      "non-owner runner import must be reported",
-    );
-    assert.ok(
-      backendBoundary.violations.some(
-        (violation) =>
-          violation.rule === "forbidden_private_backend_import" &&
-          violation.source === "tools/harness/scheduler/direct-target-execution-helper.mjs" &&
-          violation.target === "tools/harness/backend/target-execution/cli.mjs",
-      ),
-      "non-owner target-execution helper import must be reported",
-    );
-    assert.ok(
-      backendBoundary.violations.some(
-        (violation) =>
-          violation.rule === "forbidden_scheduler_private_browser_import" &&
-          violation.source === "tools/harness/scheduler/direct-browser-batch.mjs" &&
-          violation.target === "tools/harness/browser/browser-batch-manifest.mjs",
-      ),
-      "scheduler must use browser adapter rather than direct browser helper imports",
-    );
-    assert.ok(
-      backendBoundary.violations.some(
-        (violation) =>
-          violation.rule === "forbidden_private_browser_import" &&
-          violation.source ===
-            "tools/harness/generated-artifacts/direct-browser-duration-discovery.mjs" &&
-          violation.target === "tools/harness/browser/browser-duration-discovery.mjs",
-      ),
-      "non-owner browser duration discovery import must be reported",
-    );
-    assert.ok(
-      backendBoundary.violations.some(
-        (violation) =>
-          violation.rule === "forbidden_private_frontend_catch_all_import" &&
-          violation.source === "tools/harness/diagnostics/direct-frontend-evidence.mjs" &&
-          violation.target === "tools/harness/frontend/evidence/index.mjs",
-      ),
-      "frontend catch-all helper import must be reported by the semantic boundary",
-    );
-    assert.ok(
-      backendBoundary.violations.some(
-        (violation) =>
-          violation.rule === "forbidden_private_phase_accounting_import" &&
-          violation.source ===
-            "tools/harness/diagnostics/direct-frontend-phase-validation.mjs" &&
-          violation.target === "tools/harness/phase-accounting/frontend/phase-artifacts.mjs",
-      ),
-      "non-owner phase-accounting private import must be reported",
-    );
-
-    writeFixtureFile(
-      root,
-      legacyPlanningPath("cycle.mjs"),
-      `${fixtureImport("../backend/cycle.mjs")}export const cyclePlanning = true;\n`,
-    );
-    writeFixtureFile(
-      root,
-      "tools/harness/backend/cycle.mjs",
-      `${fixtureImport(legacyPlanningImport("cycle.mjs"))}export const cycleBackend = true;\n`,
-    );
-    const cyclic = collectHarnessImportBoundaryViolations(root);
-    assert.ok(
-      cyclic.forbidden_sccs.some(
-        (scc) =>
-          scc.files.includes("tools/harness/backend/cycle.mjs") &&
-          scc.files.includes(legacyPlanningPath("cycle.mjs")),
-      ),
-      "forbidden backend/planning cycle must be reported",
     );
   } finally {
     rmSync(root, { recursive: true, force: true });

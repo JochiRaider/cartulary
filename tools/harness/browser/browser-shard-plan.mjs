@@ -39,7 +39,6 @@ function usage() {
     [
       "usage:",
       "  browser-shard-plan.mjs plan [--baseline-file <path>] [--min-shards <n>] [--max-shards <n>] [--frontend-row-ids <ids>] [--entry-ids <ids>] [--runtime-profile-id <id>] [--single-shard-name <name>]",
-      "  browser-shard-plan.mjs selected-tests <plan-file> <phase> [<shard-name>]",
       "  browser-shard-plan.mjs merge-reports <output-report> <input-report...>",
       "  browser-shard-plan.mjs update-baselines [--baseline-file <path>] <results-dir>",
       "  browser-shard-plan.mjs check-baseline-drift [--baseline-file <path>] <results-dir>",
@@ -146,8 +145,8 @@ function readBaselineDocument(file, { allowMissing = true } = {}) {
 }
 
 function compareEntries(left, right) {
-  if (left.phase !== right.phase) {
-    return left.phase.localeCompare(right.phase, undefined, { numeric: true });
+  if (left.stage !== right.stage) {
+    return left.stage.localeCompare(right.stage, undefined, { numeric: true });
   }
   if (left.file !== right.file) {
     return left.file.localeCompare(right.file);
@@ -248,7 +247,7 @@ export function createPlanFromEntries({
   baselineFile,
   minShards = 1,
   maxShards,
-  phase = "",
+  stage = "",
   frontendRowIDs = new Set(),
   selectedEntryIDs = new Set(),
   runtimeProfileID = "default",
@@ -275,8 +274,8 @@ export function createPlanFromEntries({
     }))
     .sort(compareEntries);
   if (entries.length === 0) {
-    let message = phase
-      ? `no authoritative browser_functional Playwright rows found for ${phase}`
+    let message = stage
+      ? `no authoritative browser_functional Playwright rows found for ${stage}`
       : "no authoritative browser_functional Playwright rows found";
     if (frontendRowIDs.size > 0) {
       message = `no browser_functional Playwright rows found for selected frontend row id(s): ${[...frontendRowIDs].sort().join(",")}`;
@@ -302,7 +301,7 @@ export function createPlanFromEntries({
       files.length * baseline.fileOverheadMs;
     return {
       schema_id: shardPlanSchemaID,
-      phase,
+      stage,
       generated_at: new Date().toISOString(),
       baseline_file: path.relative(repoRoot, baselineFile),
       min_shards: minShards,
@@ -322,7 +321,7 @@ export function createPlanFromEntries({
           entry_count: singleShardEntries.length,
           file_count: files.length,
           files,
-          phases: [...new Set(singleShardEntries.map((entry) => entry.phase))].sort((left, right) =>
+          stages: [...new Set(singleShardEntries.map((entry) => entry.stage))].sort((left, right) =>
             left.localeCompare(right, undefined, { numeric: true }),
           ),
           grep: exactAlternationRegex(
@@ -330,7 +329,7 @@ export function createPlanFromEntries({
           ),
           entries: singleShardEntries.map((entry) => ({
             id: entry.id,
-            phase: entry.phase,
+            stage: entry.stage,
             file: entry.file,
             title: entry.title,
             titles: entry.titles ?? [entry.title],
@@ -350,7 +349,7 @@ export function createPlanFromEntries({
     name: `${shardNamePrefix}-shard-${String(index + 1).padStart(2, "0")}`,
     weight_ms: 0,
     files: new Set(),
-    phases: new Set(),
+    stages: new Set(),
     entries: [],
   }));
 
@@ -373,13 +372,13 @@ export function createPlanFromEntries({
       )[0];
     shard.weight_ms += entry.weight_ms + (shard.files.has(entry.file) ? 0 : baseline.fileOverheadMs);
     shard.files.add(entry.file);
-    shard.phases.add(entry.phase);
+    shard.stages.add(entry.stage);
     shard.entries.push(entry);
   }
 
   return {
     schema_id: shardPlanSchemaID,
-    phase,
+    stage,
     generated_at: new Date().toISOString(),
     baseline_file: path.relative(repoRoot, baselineFile),
     min_shards: minShards,
@@ -400,7 +399,7 @@ export function createPlanFromEntries({
         entry_count: shardEntries.length,
         file_count: shard.files.size,
         files: [...shard.files].sort(),
-        phases: [...shard.phases].sort((left, right) =>
+        stages: [...shard.stages].sort((left, right) =>
           left.localeCompare(right, undefined, { numeric: true }),
         ),
         grep: exactAlternationRegex(
@@ -408,7 +407,7 @@ export function createPlanFromEntries({
         ),
         entries: shardEntries.map((entry) => ({
           id: entry.id,
-          phase: entry.phase,
+          stage: entry.stage,
           file: entry.file,
           title: entry.title,
           titles: entry.titles ?? [entry.title],
@@ -424,7 +423,7 @@ export function createPlan(options) {
     return createPlanFromEntries(options);
   }
   throw new Error(
-    "createPlan requires explicit baselineEntries and selectedEntries; use tools/harness/browser/browser-duration-accounting.mjs when phase discovery is needed",
+    "createPlan requires explicit baselineEntries and selectedEntries; use tools/harness/browser/browser-duration-accounting.mjs when catalog discovery is needed",
   );
 }
 
@@ -439,70 +438,11 @@ function exactAlternationRegex(values) {
   return `(?:${values.map(escapeRegex).join("|")})`;
 }
 
-function normalizeSelectionReportFile(file) {
-  const normalized = normalizeManifestFile(file);
-  if (!normalized.startsWith("apps/web/")) {
-    throw new Error(`Playwright shard entry file must live under apps/web/: ${file}`);
-  }
-  return normalized.slice("apps/web/".length);
-}
-
-function selectedTestsReport(planFile, phase, shardName = "") {
-  const plan = readJSON(planFile);
-  if (plan.schema_id !== shardPlanSchemaID) {
-    throw new Error(
-      `${path.relative(repoRoot, planFile)} must declare schema_id ${shardPlanSchemaID}`,
-    );
-  }
-  if (!/^phase[0-9]+$/.test(phase)) {
-    throw new Error(`selected-tests phase must be phaseN, got ${phase}`);
-  }
-  const sourceEntries = [];
-  if (shardName) {
-    const shard = (plan.shards ?? []).find((entry) => entry.name === shardName);
-    if (!shard) {
-      throw new Error(`missing shard ${shardName}`);
-    }
-    sourceEntries.push(...(shard.entries ?? []));
-  } else {
-    sourceEntries.push(...(plan.entries ?? []));
-  }
-  const selectedTests = sourceEntries
-    .filter((entry) => entry.phase === phase)
-    .flatMap((entry) =>
-      (entry.titles ?? [entry.title]).map((title) => ({
-        id: entry.id,
-        file: normalizeSelectionReportFile(entry.file),
-        title,
-        coverage: "authoritative",
-        execution_dependency: "browser_functional",
-      })),
-    )
-    .sort((left, right) => {
-      if (left.file !== right.file) {
-        return left.file.localeCompare(right.file);
-      }
-      if (left.title !== right.title) {
-        return left.title.localeCompare(right.title);
-      }
-      return left.id.localeCompare(right.id, undefined, { numeric: true });
-    });
-  return {
-    schema_id: "cartulary.playwright_manifest_selection.v1",
-    phase,
-    coverage: "authoritative",
-    execution_dependency: "browser_functional",
-    expected_count: selectedTests.length,
-    selected_tests: selectedTests,
-  };
-}
-
 function parsePlanArgs(argv) {
   const options = {
     baselineFile: defaultBaselineFile,
     maxShards: 1,
     minShards: 1,
-    phase: "",
     frontendRowIDs: new Set(),
     selectedEntryIDs: new Set(),
     singleShardName: "",
@@ -530,14 +470,6 @@ function parsePlanArgs(argv) {
       options.minShards = Number.parseInt(argv[index + 1] ?? "", 10);
       index += 1;
       if (!Number.isInteger(options.minShards) || options.minShards < 1) {
-        usage();
-      }
-      continue;
-    }
-    if (arg === "--phase") {
-      options.phase = argv[index + 1] ?? "";
-      index += 1;
-      if (!/^phase[0-9]+$/.test(options.phase)) {
         usage();
       }
       continue;
@@ -683,7 +615,7 @@ function collectObservedBrowserEntryDurations(
         const currentObserved = observed.get(row.row_id);
         const normalized = {
           id: row.row_id,
-          phase: active.phase,
+          stage: active.stage,
           file: active.file,
           title: active.title,
           duration_ms: durationMs,
@@ -971,20 +903,6 @@ async function main(argv) {
       const options = parsePlanArgs(rest);
       process.stdout.write(
         `${JSON.stringify(createDiscoveredPlan(options), null, 2)}\n`,
-      );
-      return;
-    }
-    case "selected-tests": {
-      const [planFile, phase, shardName = ""] = rest;
-      if (!planFile || !phase || rest.length > 3) {
-        usage();
-      }
-      process.stdout.write(
-        `${JSON.stringify(
-          selectedTestsReport(resolvePath(planFile), phase, shardName),
-          null,
-          2,
-        )}\n`,
       );
       return;
     }

@@ -290,8 +290,8 @@ function runRootAbs() {
 }
 
 function targetDirAbs() {
-  if (process.env.CARTULARY_PHASE_ARTIFACT_DIR) {
-    return path.dirname(path.resolve(process.env.CARTULARY_PHASE_ARTIFACT_DIR));
+  if (process.env.CARTULARY_STEP_ARTIFACT_DIR) {
+    return path.dirname(path.resolve(process.env.CARTULARY_STEP_ARTIFACT_DIR));
   }
   return path.join(runRootAbs(), target);
 }
@@ -304,7 +304,7 @@ function childSummaryPath(childTarget) {
   return path.join(runRootAbs(), childTarget, "tool-run-summary.json");
 }
 
-function childPhaseDir(childTarget) {
+function childStepDir(childTarget) {
   return path.join(runRootAbs(), childTarget, childTarget);
 }
 
@@ -646,8 +646,8 @@ function runMakeSubstep(definition, substep) {
   });
   const completedAt = now();
   const summaryFile = childSummaryPath(definition.target);
-  const stdoutLog = path.join(childPhaseDir(definition.target), "stdout.log");
-  const stderrLog = path.join(childPhaseDir(definition.target), "stderr.log");
+  const stdoutLog = path.join(childStepDir(definition.target), "stdout.log");
+  const stderrLog = path.join(childStepDir(definition.target), "stderr.log");
   substep.started_at = startedAt;
   substep.completed_at = completedAt;
   substep.duration_ms = durationMs(startedMs);

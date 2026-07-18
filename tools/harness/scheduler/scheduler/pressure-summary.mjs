@@ -56,15 +56,15 @@ function uniqueSorted(values) {
   );
 }
 
-function phaseNamesFromRows(rows) {
-  return uniqueSorted(rows.map((row) => row.manifest_phase ?? ""));
+function ownerNamesFromRows(rows) {
+  return uniqueSorted(rows.map((row) => row.owner_id ?? ""));
 }
 
 function shardIndex(root) {
   const rows = collectTargetPlanRows(root);
   const plans = [collectGoShardPlanFromRows(root, rows)];
-  for (const phase of phaseNamesFromRows(rows)) {
-    plans.push(collectGoShardPlanFromRows(root, rows, { phase }));
+  for (const owner of ownerNamesFromRows(rows)) {
+    plans.push(collectGoShardPlanFromRows(root, rows, { owner }));
   }
   const index = new Map();
   for (const plan of plans) {
@@ -119,7 +119,7 @@ function proofSort(left, right) {
 function fixtureTierProofSort(left, right) {
   return (
     left.target.localeCompare(right.target) ||
-    left.phase.localeCompare(right.phase) ||
+    left.owner_id.localeCompare(right.owner_id) ||
     left.row_id.localeCompare(right.row_id) ||
     left.execution_family.localeCompare(right.execution_family) ||
     (left.symbol ?? "").localeCompare(right.symbol ?? "") ||
@@ -265,8 +265,8 @@ function fixtureTierProofForItem(item, target, rowID, executionFamily, fixturePo
   if (!fixturePolicy || fixturePolicy === "none") {
     return null;
   }
-  const phase = item.manifest_phase ?? "";
-  if (!phase) {
+  const ownerID = item.owner_id ?? "";
+  if (!ownerID) {
     return null;
   }
   const proof = item.postgres_fixture_proof ?? {};
@@ -281,9 +281,9 @@ function fixtureTierProofForItem(item, target, rowID, executionFamily, fixturePo
   const dirtyTables = proof.dirty_tables ?? item.postgres_fixture_budget?.dirty_tables ?? [];
   const observedSurfaces = observedSurfacesForItem(item, fixturePolicy);
   return {
-    schema_id: "cartulary.fixture_tier_proof.v1",
+    schema_id: "cartulary.fixture_tier_proof.v2",
     target,
-    phase,
+    owner_id: ownerID,
     row_id: rowID,
     execution_family: executionFamily,
     ...(item.symbol ? { symbol: item.symbol } : {}),
@@ -345,7 +345,7 @@ function buildFixturePressureAggregates(reporter) {
       if (tierProof) {
         const tierProofKey = [
           tierProof.target,
-          tierProof.phase,
+          tierProof.owner_id,
           tierProof.row_id,
           tierProof.execution_family,
           tierProof.symbol ?? "",

@@ -13,7 +13,7 @@ import {
   loadManifestIndex as loadManifestIndexAdapter,
   packageMatchesPattern,
   selectGoManifestEntries as selectGoManifestEntriesAdapter,
-} from "../phase-manifest-adapter.mjs";
+} from "../catalog-manifest-adapter.mjs";
 import { verboseOutput } from "../../tool-output.mjs";
 import {
   testAccountingClassificationSchemaID,
@@ -21,9 +21,9 @@ import {
   testCoverageBuckets,
 } from "../../../contract/test-output-context.mjs";
 import {
-  createBasePhaseContext,
-  writePhaseArtifacts,
-} from "../phase-artifacts.mjs";
+  createBaseStepContext,
+  writeStepArtifacts,
+} from "../step-artifacts.mjs";
 
 let cachedGoModulePath;
 
@@ -213,7 +213,7 @@ function normalizeAccountingRule(rule, label, scope) {
   return {
     ...rule,
     coverage,
-    phase: typeof rule.phase === "string" ? rule.phase : "",
+    step: typeof rule.step === "string" ? rule.step : "",
     reason: rule.reason.trim(),
   };
 }
@@ -303,14 +303,14 @@ function ruleTargetMatches(rule) {
   return typeof rule.target !== "string" || rule.target === target;
 }
 
-function accountingOverrideClassification(owner, phase = "") {
+function accountingOverrideClassification(owner, step = "") {
   const override = optionalEnv("CARTULARY_ACCOUNTING_COVERAGE");
   if (override === "") {
     return null;
   }
   return {
     coverage: normalizeTestCoverage(override),
-    phase,
+    step,
     id: "",
     owner,
   };
@@ -320,7 +320,7 @@ function accountingManifestClassification(
   runner,
   owner,
   title = "",
-  fallbackPhase = "",
+  fallbackStep = "",
 ) {
   const manifest = loadTestAccountingClassification();
   const rules = manifest[runner] ?? [];
@@ -349,7 +349,7 @@ function accountingManifestClassification(
     }
     return {
       coverage: rule.coverage,
-      phase: rule.phase || fallbackPhase,
+      step: rule.step || fallbackStep,
       id: "",
       owner,
     };
@@ -357,19 +357,19 @@ function accountingManifestClassification(
   return null;
 }
 
-function inferPhaseFromText(value) {
+function inferStepFromText(value) {
   if (!value) {
     return "";
   }
   const patterns = [
-    /\bphase(?:\s|_|-)?(\d+)\b/i,
+    /\bstep(?:\s|_|-)?(\d+)\b/i,
     /\b[UIE][-_](\d+)-\d+\b/,
     /\b[UIE]_(\d+)_\d+\b/,
   ];
   for (const pattern of patterns) {
     const match = value.match(pattern);
     if (match) {
-      return `phase${match[1]}`;
+      return `step${match[1]}`;
     }
   }
   return "";
@@ -416,14 +416,14 @@ function printBlock(header, fields) {
   process.stderr.write(`${lines.join("\n")}\n`);
 }
 
-function showPhaseDetailOutput(context) {
+function showStepDetailOutput(context) {
   return verboseOutput() || context.target === "adhoc";
 }
 
-function createInventoryItem({ coverage, phase, id, owner, name }) {
+function createInventoryItem({ coverage, step, id, owner, name }) {
   return {
     coverage,
-    phase,
+    step,
     id: id ?? "",
     package_or_file: owner,
     symbol_or_title: name,
@@ -442,7 +442,7 @@ function readGoEvents(logFile) {
   return events;
 }
 
-function classifyGoTest(importPath, testName, phaseLabel) {
+function classifyGoTest(importPath, testName, stepLabel) {
   const manifestIndex = loadManifestIndex();
   const authoritative = manifestIndex.authoritativeGo.get(
     `${importPath}::${testName}`,
@@ -451,27 +451,27 @@ function classifyGoTest(importPath, testName, phaseLabel) {
   if (authoritative) {
     return {
       coverage: "authoritative",
-      phase: authoritative.phase,
+      step: authoritative.step,
       id: authoritative.id,
       owner: authoritative.package,
     };
   }
 
-  const inferredPhase =
-    inferPhaseFromText(testName) || inferPhaseFromText(phaseLabel);
-  const override = accountingOverrideClassification(owner, inferredPhase);
+  const inferredStep =
+    inferStepFromText(testName) || inferStepFromText(stepLabel);
+  const override = accountingOverrideClassification(owner, inferredStep);
   if (override) {
     return override;
   }
   const support =
-    /^TestSupportPhase\d+_/.test(testName) ||
+    /^TestSupportStep\d+_/.test(testName) ||
     /ProcessSmoke/.test(testName) ||
-    /\bsupport\b/i.test(phaseLabel) ||
-    /\bsmoke\b/i.test(phaseLabel);
+    /\bsupport\b/i.test(stepLabel) ||
+    /\bsmoke\b/i.test(stepLabel);
   if (support) {
     return {
       coverage: "support",
-      phase: inferredPhase,
+      step: inferredStep,
       id: "",
       owner,
     };
@@ -482,42 +482,42 @@ function classifyGoTest(importPath, testName, phaseLabel) {
       "go_tests",
       owner,
       testName,
-      inferredPhase,
+      inferredStep,
     ) ?? {
       coverage: "unmapped",
-      phase: inferredPhase,
+      step: inferredStep,
       id: "",
       owner,
     }
   );
 }
 
-function classifyGoPackageFailure(importPath, phaseLabel) {
+function classifyGoPackageFailure(importPath, stepLabel) {
   const owner = toRepoRelativePackage(importPath);
-  const manifestPhase = optionalEnv("CARTULARY_MANIFEST_PHASE");
+  const catalogStep = optionalEnv("CARTULARY_CATALOG_OWNER_ID");
   const manifestCoverage = optionalEnv("CARTULARY_MANIFEST_COVERAGE");
-  if (manifestPhase !== "" && manifestCoverage !== "") {
+  if (catalogStep !== "" && manifestCoverage !== "") {
     return {
       coverage: normalizeTestCoverage(
         manifestCoverage === "supplemental" ? "support" : manifestCoverage,
       ),
-      phase: manifestPhase,
+      step: catalogStep,
       id: "",
       owner,
     };
   }
 
-  const inferredPhase = inferPhaseFromText(phaseLabel);
-  const override = accountingOverrideClassification(owner, inferredPhase);
+  const inferredStep = inferStepFromText(stepLabel);
+  const override = accountingOverrideClassification(owner, inferredStep);
   if (override) {
     return override;
   }
   const support =
-    /\bsupport\b/i.test(phaseLabel) || /\bsmoke\b/i.test(phaseLabel);
+    /\bsupport\b/i.test(stepLabel) || /\bsmoke\b/i.test(stepLabel);
   if (support) {
     return {
       coverage: "support",
-      phase: inferredPhase,
+      step: inferredStep,
       id: "",
       owner,
     };
@@ -527,22 +527,22 @@ function classifyGoPackageFailure(importPath, phaseLabel) {
       "go_packages",
       owner,
       "",
-      inferredPhase,
+      inferredStep,
     ) ?? {
       coverage: "unmapped",
-      phase: inferredPhase,
+      step: inferredStep,
       id: "",
       owner,
     }
   );
 }
 
-function createGoSelection({ manifestAware }) {
+function createGoSelection({ catalogAware }) {
   const packagePatterns = optionalLines("CARTULARY_GO_PACKAGE_PATTERNS");
   const reportSlice = optionalEnv("CARTULARY_REPORT_SLICE") === "1";
 
-  if (manifestAware && reportSlice) {
-    const phase = requiredEnv("CARTULARY_MANIFEST_PHASE");
+  if (catalogAware && reportSlice) {
+    const step = requiredEnv("CARTULARY_CATALOG_OWNER_ID");
     const section = requiredEnv("CARTULARY_MANIFEST_SECTION");
     const coverage = requiredEnv("CARTULARY_MANIFEST_COVERAGE");
     const executionDependency = optionalEnv(
@@ -550,7 +550,7 @@ function createGoSelection({ manifestAware }) {
     );
     const executionFamily = optionalEnv("CARTULARY_EXECUTION_FAMILY");
     const entries = selectGoManifestEntries(
-      phase,
+      step,
       section,
       coverage,
       executionDependency,
@@ -605,7 +605,7 @@ function createGoSelection({ manifestAware }) {
   };
 }
 
-function summarizeGoRun(logFile, phaseLabel, exitStatus, selection = null) {
+function summarizeGoRun(logFile, stepLabel, exitStatus, selection = null) {
   const events = readGoEvents(logFile);
   const topLevel = new Map();
   const packageOutputs = new Map();
@@ -674,7 +674,7 @@ function summarizeGoRun(logFile, phaseLabel, exitStatus, selection = null) {
     const classification = classifyGoTest(
       testCase.package,
       testCase.test,
-      phaseLabel,
+      stepLabel,
     );
     const owner = classification.owner;
     owners.add(owner);
@@ -701,7 +701,7 @@ function summarizeGoRun(logFile, phaseLabel, exitStatus, selection = null) {
       addCoverageFailureCount(counts, classification.coverage);
       dossiers.push({
         coverage: classification.coverage,
-        phase: classification.phase,
+        step: classification.step,
         id: classification.id,
         runner: "go_test",
         package_or_file: owner,
@@ -720,7 +720,7 @@ function summarizeGoRun(logFile, phaseLabel, exitStatus, selection = null) {
     if (selection && !selection.matchesPackage(pkg)) {
       continue;
     }
-    const classification = classifyGoPackageFailure(pkg, phaseLabel);
+    const classification = classifyGoPackageFailure(pkg, stepLabel);
     const owner = classification.owner;
     owners.add(owner);
     if (
@@ -734,7 +734,7 @@ function summarizeGoRun(logFile, phaseLabel, exitStatus, selection = null) {
     addCoverageFailureCount(counts, classification.coverage);
     dossiers.push({
       coverage: classification.coverage,
-      phase: classification.phase,
+      step: classification.step,
       id: "",
       runner: "go_test",
       package_or_file: owner,
@@ -755,24 +755,24 @@ function summarizeGoRun(logFile, phaseLabel, exitStatus, selection = null) {
     const coverage =
       coverageOverride !== ""
         ? normalizeTestCoverage(coverageOverride)
-        : /\bsupport\b/i.test(phaseLabel)
+        : /\bsupport\b/i.test(stepLabel)
           ? "support"
           : "unmapped";
     const message =
       passedCount === 0 && skippedCount === 0 && incompleteCount === 0
         ? coverage === "support"
-          ? "support phase matched zero tests"
-          : "phase matched zero tests"
+          ? "support step matched zero tests"
+          : "step matched zero tests"
         : `go test inventory requires top-level pass: skipped=${skippedCount} incomplete=${incompleteCount}`;
     dossiers.push({
       coverage,
-      phase: inferPhaseFromText(phaseLabel),
+      step: inferStepFromText(stepLabel),
       id: "",
       runner: "go_test",
-      package_or_file: "(phase selection)",
+      package_or_file: "(step selection)",
       symbol_or_title: "(top-level selection)",
       message,
-      reproduce: requiredEnv("CARTULARY_PHASE_COMMAND"),
+      reproduce: requiredEnv("CARTULARY_STEP_COMMAND"),
       raw: relToRepo(logFile),
     });
     counts.failed += 1;
@@ -793,7 +793,7 @@ function summarizeGoRun(logFile, phaseLabel, exitStatus, selection = null) {
       .map((entry) =>
         createInventoryItem({
           coverage: entry.classification.coverage,
-          phase: entry.classification.phase,
+          step: entry.classification.step,
           id: entry.classification.id,
           owner: entry.owner,
           name: entry.name,
@@ -804,7 +804,7 @@ function summarizeGoRun(logFile, phaseLabel, exitStatus, selection = null) {
 }
 
 function selectGoManifestEntries(
-  phase,
+  step,
   section,
   coverage,
   executionDependency,
@@ -812,7 +812,7 @@ function selectGoManifestEntries(
   packagePatterns,
 ) {
   return selectGoManifestEntriesAdapter(repoRoot, {
-    phase,
+    step,
     section,
     coverage,
     executionDependency,
@@ -822,7 +822,7 @@ function selectGoManifestEntries(
 }
 
 function evaluateGoManifest(summary) {
-  const phase = requiredEnv("CARTULARY_MANIFEST_PHASE");
+  const step = requiredEnv("CARTULARY_CATALOG_OWNER_ID");
   const section = requiredEnv("CARTULARY_MANIFEST_SECTION");
   const coverage = requiredEnv("CARTULARY_MANIFEST_COVERAGE");
   const executionDependency = optionalEnv(
@@ -834,7 +834,7 @@ function evaluateGoManifest(summary) {
     optionalLines("CARTULARY_MANIFEST_SELECTED_IDS"),
   );
   const entries = selectGoManifestEntries(
-    phase,
+    step,
     section,
     coverage,
     executionDependency,
@@ -879,26 +879,26 @@ function evaluateGoManifest(summary) {
     unexpectedIDs.push(item.id);
   }
   return {
-    phase,
+    step,
     missingIDs: [...new Set(missingIDs)].sort(),
     unexpectedIDs: [...new Set(unexpectedIDs)].sort(),
     forbiddenIDFiles: Array.from(
-      loadManifestIndex().forbiddenFilesByPhase.get(phase) ?? [],
+      loadManifestIndex().forbiddenFilesByStep.get(step) ?? [],
     ).sort(),
   };
 }
 
-export function handleGoPhase({ manifestAware }) {
-  const context = createBasePhaseContext("go_test");
-  const runnerLog = requiredEnv("CARTULARY_PHASE_RUNNER_LOG");
-  const stderrLog = optionalEnv("CARTULARY_PHASE_STDERR_LOG");
+export function handleGoStep({ catalogAware }) {
+  const context = createBaseStepContext("go_test");
+  const runnerLog = requiredEnv("CARTULARY_STEP_RUNNER_LOG");
+  const stderrLog = optionalEnv("CARTULARY_STEP_STDERR_LOG");
   removeEmptyArtifact(stderrLog);
 
   const summary = summarizeGoRun(
     runnerLog,
     context.label,
     context.exitStatus,
-    createGoSelection({ manifestAware }),
+    createGoSelection({ catalogAware }),
   );
   let status =
     context.exitStatus === 0 && summary.dossiers.length === 0 ? "pass" : "fail";
@@ -906,7 +906,7 @@ export function handleGoPhase({ manifestAware }) {
   let manifestSummary = null;
 
   if (
-    manifestAware &&
+    catalogAware &&
     context.exitStatus === 0 &&
     summary.dossiers.length === 0
   ) {
@@ -929,9 +929,9 @@ export function handleGoPhase({ manifestAware }) {
     }
   }
 
-  writePhaseArtifacts(context, {
+  writeStepArtifacts(context, {
     status,
-    phase: inferPhaseFromText(context.label),
+    step: inferStepFromText(context.label),
     counts: summary.counts,
     owners: summary.owners,
     inventory: summary.inventory,
@@ -949,7 +949,7 @@ export function handleGoPhase({ manifestAware }) {
   }
 
   if (manifestMismatch) {
-    if (showPhaseDetailOutput(context)) {
+    if (showStepDetailOutput(context)) {
       printBlock(`manifest mismatch: ${context.label}`, {
         missing_ids: renderList(manifestMismatch.missing_ids),
         unexpected_ids: renderList(manifestMismatch.unexpected_ids),
@@ -960,7 +960,7 @@ export function handleGoPhase({ manifestAware }) {
     return 1;
   }
 
-  if (showPhaseDetailOutput(context)) {
+  if (showStepDetailOutput(context)) {
     for (const dossier of summary.dossiers) {
       printBlock(`failure: ${context.label}`, {
         ...dossier,

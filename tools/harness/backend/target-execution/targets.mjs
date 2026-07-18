@@ -18,7 +18,7 @@ import {
   finishTarget,
   resolveFinalizerEmitJobs,
   runBounded,
-  writeFinalizerFailurePhase,
+  writeFinalizerFailureStep,
   writeTargetTimingSpan,
 } from "./summary-emission.mjs";
 import {
@@ -80,7 +80,7 @@ export async function finalizeScheduledShards(
           validationWindow,
           "fail",
         );
-        writeFinalizerFailurePhase(ctx, {
+        writeFinalizerFailureStep(ctx, {
           target,
           label: `validate ${target}:selected-shards`,
           commandArgs: finalizerCommandArgs,
@@ -133,7 +133,7 @@ export async function finalizeScheduledShards(
         aggregateWindow,
         "fail",
       );
-      writeFinalizerFailurePhase(ctx, {
+      writeFinalizerFailureStep(ctx, {
         target,
         label: `collate ${target}:${aggregate.name}`,
         commandArgs: finalizerCommandArgs,

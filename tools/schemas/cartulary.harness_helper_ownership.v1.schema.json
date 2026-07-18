@@ -20,7 +20,7 @@
       "properties": {
         "key": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
         "boundary_group": {
-          "enum": ["backend", "browser", "command_surface", "duration_accounting", "evidence_accounting", "execution_runtime", "frontend", "generated_artifacts", "output", "phase_accounting", "readiness", "scheduler", "scheduler_diagnostics", "service_backed_execution", "static_analysis", "test_catalog", "test_output"]
+          "enum": ["backend", "browser", "command_surface", "duration_accounting", "evidence_accounting", "execution_runtime", "frontend", "generated_artifacts", "output", "readiness", "scheduler", "scheduler_diagnostics", "service_backed_execution", "static_analysis", "test_catalog", "test_output"]
         },
         "paths": {
           "type": "array",

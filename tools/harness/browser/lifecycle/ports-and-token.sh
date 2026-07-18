@@ -112,7 +112,7 @@ reserve_port_lease() {
 
   lease_root="$(port_lease_root)"
   lease_dir="$(port_lease_dir "${port}")"
-  phase_secure_mkdir "${lease_root}"
+  step_secure_mkdir "${lease_root}"
 
   if ! mkdir "${lease_dir}" 2>/dev/null; then
     if [[ -f "${lease_dir}/pid" ]]; then
@@ -131,7 +131,7 @@ reserve_port_lease() {
     printf 'name=%s\n' "${name}"
     printf 'port=%s\n' "${port}"
     printf 'target=%s\n' "${CARTULARY_TEST_TARGET:-}"
-    printf 'created_at=%s\n' "$(phase_now_utc)"
+    printf 'created_at=%s\n' "$(step_now_utc)"
   } >"${lease_dir}/metadata"
   track_port_lease_dir "${lease_dir}"
 }

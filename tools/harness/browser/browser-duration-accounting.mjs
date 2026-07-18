@@ -18,8 +18,8 @@ function normalizeManifestFile(file) {
 }
 
 function compareEntries(left, right) {
-  if (left.phase !== right.phase) {
-    return left.phase.localeCompare(right.phase);
+  if (left.stage !== right.stage) {
+    return left.stage.localeCompare(right.stage);
   }
   if (left.file !== right.file) {
     return left.file.localeCompare(right.file);
@@ -33,7 +33,7 @@ function compareEntries(left, right) {
 function browserEntry(row) {
   return {
     id: row.row_id,
-    phase: row.selector.stage,
+    stage: row.selector.stage,
     file: normalizeManifestFile(row.selector.file),
     title: row.selector.titles[0],
     titles: [...row.selector.titles],
@@ -58,11 +58,11 @@ export function browserDurationBaselineEntries(root = repoRoot) {
 
 export function selectedEntriesForPlan(
   root = repoRoot,
-  { phase = "", frontendRowIDs = new Set(), defaultCheckOnly = false } = {},
+  { stage = "", frontendRowIDs = new Set(), defaultCheckOnly = false } = {},
 ) {
-  if (phase || frontendRowIDs.size > 0) {
+  if (stage || frontendRowIDs.size > 0) {
     throw new Error(
-      "phase and frontend-row browser selection are retired; select semantic catalog rows",
+      "stage and frontend-row browser selection are retired; select semantic catalog rows",
     );
   }
   return browserRows(root)

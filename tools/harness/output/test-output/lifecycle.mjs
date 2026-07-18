@@ -110,7 +110,7 @@ export function handleTargetStart(args) {
   const [target] = options.positional;
   if (!target) {
     throw new Error(
-      "usage: test-output.mjs target-start <target> [--children <a,b>] [--service-backed <0|1>] [--expected-phases <n>] [--expected-tests <n>] [--force]",
+      "usage: test-output.mjs target-start <target> [--children <a,b>] [--service-backed <0|1>] [--expected-steps <n>] [--expected-tests <n>] [--force]",
     );
   }
   if (!shouldEmitLifecycle(options)) {
@@ -122,10 +122,10 @@ export function handleTargetStart(args) {
     options.service_backed === undefined
       ? stats.serviceBacked
       : options.service_backed === "1" || options.service_backed === "true";
-  const expectedPhases =
-    options.expected_phases === undefined
-      ? stats.expectedPhases
-      : parseNonNegativeInteger(options.expected_phases, "expected-phases");
+  const expectedSteps =
+    options.expected_steps === undefined
+      ? stats.expectedSteps
+      : parseNonNegativeInteger(options.expected_steps, "expected-steps");
   const expectedTests =
     options.expected_tests === undefined
       ? stats.expectedTests
@@ -133,7 +133,7 @@ export function handleTargetStart(args) {
   const childField =
     children.length > 0 ? ` children=${children.join(",")}` : "";
   process.stdout.write(
-    `[TARGET] start ${target} service_backed=${serviceBacked ? 1 : 0} expected_phases=${expectedPhases} expected_tests=${expectedTests}${childField}\n`,
+    `[TARGET] start ${target} service_backed=${serviceBacked ? 1 : 0} expected_steps=${expectedSteps} expected_tests=${expectedTests}${childField}\n`,
   );
   return 0;
 }

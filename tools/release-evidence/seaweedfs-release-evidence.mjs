@@ -50,9 +50,9 @@ const seaweedfsCompatibilityCaseIds = Object.freeze(
   Array.from({ length: 14 }, (_, index) => `SWFS-COMP-${String(index + 1).padStart(3, "0")}`),
 );
 const migrationPassArtifactSubdir =
-  "seaweedfs-migration-preservation/phase-f-object-store-migration/pass";
+  "seaweedfs-migration-preservation/object-store-migration/pass";
 const phaseEBackupRestoreSubdir = "phase-e-backup-restore";
-const phaseFMigrationSubdir = "phase-f-object-store-migration";
+const migrationSubdir = "object-store-migration";
 const objectStoreThreatPolicyPath =
   "contracts/object-store/release-threat-policy.v1.json";
 const allowedClassifications = new Set([
@@ -1100,7 +1100,7 @@ function buildMigrationPreservationEvidence({
   const targetSummary = targetSummaryPath
     ? readArtifactJSON({
         artifactPath: targetSummaryPath,
-        schemaID: "cartulary.tool_run_summary.v4",
+        schemaID: "cartulary.tool_run_summary.v5",
         findings,
       })
     : null;
@@ -1316,7 +1316,7 @@ function currentBackendProcessArtifactPaths(migrationPassDir) {
   const runRoot = path.dirname(migrationTargetRoot);
   const backendProcessRoot = path.join(runRoot, "backend-process");
   const phaseERoot = path.join(backendProcessRoot, phaseEBackupRestoreSubdir);
-  const phaseFRoot = path.join(migrationTargetRoot, phaseFMigrationSubdir);
+  const phaseFRoot = path.join(migrationTargetRoot, migrationSubdir);
   return [
     path.join(phaseERoot, "object-store-backup-manifest.json"),
     path.join(phaseERoot, "object-store-backup-summary.json"),

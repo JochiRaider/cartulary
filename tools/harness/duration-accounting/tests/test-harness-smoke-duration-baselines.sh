@@ -39,7 +39,7 @@ assert_fails_with() {
   assert_contains "$output" "$needle" "$label"
 }
 
-phase_stdout_from_result() {
+step_stdout_from_result() {
   local output="$1"
   local root
   root="$(printf '%s\n' "$output" | sed -n 's/.* run_root=\([^ ]*\) .*/\1/p' | head -n 1)"

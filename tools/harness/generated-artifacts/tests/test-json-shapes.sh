@@ -73,62 +73,6 @@ run_schema_validation() {
     validate-schema "$schema_id" "$file"
 }
 
-run_accessibility_summary_writer() {
-  (
-    cd "$ROOT_DIR"
-    "$NODE_BIN" tools/harness/browser/accessibility-summary-cli.mjs "$@"
-  )
-}
-
-write_valid_phase_map() {
-  local file="$1"
-
-  cat >"$file" <<'JSON'
-{
-  "schema_id": "cartulary.phase_test_map.v2",
-  "phase": "phase9",
-  "note": "Synthetic shape fixture.",
-  "ledger": {
-    "title": "Phase 9 Coverage Ledger",
-    "notes": "Synthetic shape fixture.",
-    "authoritative_execution": "make phase-slice PHASE=phase9",
-    "support_execution_extras": [],
-    "sections": [],
-    "shared_harness": [],
-    "support_only": []
-  },
-  "expected_ids": ["U-P9-001"],
-  "forbidden_id_files": [],
-  "support_go_targets": [],
-  "unit": [],
-  "integration": [],
-  "e2e": []
-}
-JSON
-}
-
-write_valid_phase_registry() {
-  local file="$1"
-
-  cat >"$file" <<'JSON'
-{
-  "schema_id": "cartulary.phase_registry.v1",
-  "phases": [
-    {
-      "phase": "phase9",
-      "order": 9,
-      "status": "planned",
-      "label": "Phase 9",
-      "manifest_path": "tools/phase9_test_map.json",
-      "ledger_path": "docs/testing/phase9_coverage_ledger.md",
-      "scope": "Synthetic shape fixture.",
-      "normative_owners": "docs/spec/00_document_set_status_and_precedence.md"
-    }
-  ]
-}
-JSON
-}
-
 write_valid_execution_topology() {
   local file="$1"
 
@@ -490,7 +434,7 @@ write_valid_tool_run_summary() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v4",
+  "schema_id": "cartulary.tool_run_summary.v5",
   "target": "json-shape-check",
   "command": {
     "cwd": "/repo",
@@ -520,14 +464,14 @@ write_valid_tool_run_summary() {
   "evidence_targets": [],
   "helper_units": [],
   "counts": {
-    "phases": 0,
+    "steps": 0,
     "tests": 0,
     "failed": 0,
     "non_test": 0,
     "non_test_failed": 0,
     "packages": 0
   },
-  "phase_accounting": {
+  "step_accounting": {
     "authoritative": 0,
     "support": 0,
     "raw": 0,
@@ -777,7 +721,7 @@ write_valid_scheduler_pressure_summary() {
     {
       "target": "backend-store",
       "row_id": "U-9-08",
-      "execution_family": "phase9_coordination",
+      "execution_family": "graph_projection_coordination",
       "fixture_class": "transaction_or_shared_postgres",
       "work_unit_count": 1,
       "duration_ms": 25
@@ -786,7 +730,7 @@ write_valid_scheduler_pressure_summary() {
   "execution_family_fixture_pressure": [
     {
       "target": "backend-store",
-      "execution_family": "phase9_coordination",
+      "execution_family": "graph_projection_coordination",
       "fixture_class": "transaction_or_shared_postgres",
       "work_unit_count": 1,
       "duration_ms": 25
@@ -796,28 +740,28 @@ write_valid_scheduler_pressure_summary() {
     {
       "target": "backend-store",
       "row_id": "U-9-08",
-      "execution_family": "phase9_coordination",
+      "execution_family": "graph_projection_coordination",
       "symbol": "TestCoordinationProjectionSortFilterGroup_Unit",
       "fixture_policy": "transaction",
       "proof_kind": "transaction",
       "proof_status": "accepted",
-      "proof_ref": "phase-map:U-9-08",
+      "proof_ref": "catalog-row:module.graphprojection.storage.lifecycle",
       "reason": "Store-layer symbol uses rollback-scoped StartStore fixture.",
       "dirty_tables": []
     }
   ],
   "fixture_tier_proofs": [
     {
-      "schema_id": "cartulary.fixture_tier_proof.v1",
+      "schema_id": "cartulary.fixture_tier_proof.v2",
       "target": "backend-store",
-      "phase": "phase9",
+      "owner_id": "module.graphprojection",
       "row_id": "U-9-08",
-      "execution_family": "phase9_coordination",
+      "execution_family": "graph_projection_coordination",
       "symbol": "TestCoordinationProjectionSortFilterGroup_Unit",
       "effective_fixture_policy": "transaction",
       "proof_kind": "transaction",
       "proof_status": "accepted",
-      "proof_ref": "phase-map:U-9-08",
+      "proof_ref": "catalog-row:module.graphprojection.storage.lifecycle",
       "reason": "Store-layer symbol uses rollback-scoped StartStore fixture.",
       "execution_boundary": "rollback_transaction",
       "observed_surfaces": {
@@ -884,11 +828,11 @@ write_valid_fixture_tier_proof() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.fixture_tier_proof.v1",
+  "schema_id": "cartulary.fixture_tier_proof.v2",
   "target": "backend-integration",
-  "phase": "phase11",
+  "owner_id": "module.recovery",
   "row_id": "I-11-IMPORT-01",
-  "execution_family": "backend-integration-phase11-import-negative",
+  "execution_family": "backend_integration_import_boundary_negative",
   "symbol": "TestPhase11_I_11_IMPORT_01_InvalidRequestHasNoDurableRows",
   "effective_fixture_policy": "template_clone",
   "proof_kind": "template_clone",
@@ -916,247 +860,6 @@ write_valid_fixture_tier_proof() {
     "object_store": "none"
   },
   "final_verdict": "retained"
-}
-JSON
-}
-
-write_valid_phase_slice_plan() {
-  local file="$1"
-
-  cat >"$file" <<'JSON'
-{
-  "schema_id": "cartulary.phase_slice_plan.v2",
-  "phase_namespace": "base",
-  "target": "phase-slice",
-  "phase": "phase4",
-  "selection": {
-    "mode": "default",
-    "phase_span": "exact_phase",
-    "dependency_scope": "all",
-    "completion_scope": "full_phase",
-    "requested_row_ids": [],
-    "resolved_row_ids": ["I-04-01"]
-  },
-  "mode": "phase",
-  "service_backed_only": false,
-  "no_op": false,
-  "phase_claim_status": "complete",
-  "claim_status_counts": {
-    "implemented": 1,
-    "blocked": 0,
-    "not_applicable": 0,
-    "unspecified": 0
-  },
-  "row_groups": [
-    {
-      "runner": "go_test",
-      "execution_dependency": "backend_store",
-      "target": "backend-store",
-      "execution_family": "backend-store",
-      "coverage": "authoritative",
-      "row_count": 1,
-      "ids": ["I-04-01"]
-    }
-  ],
-  "service_requirements": ["object_store", "postgres"],
-  "child_targets": [
-    {
-      "target": "backend-store",
-      "row_count": 1,
-      "ids": ["I-04-01"]
-    }
-  ],
-  "child_target_names": ["backend-store"],
-  "runtime_binaries": [],
-  "resource_limits": {
-    "go_cpu": 4,
-    "go_io": 6,
-    "object_store": 32,
-    "postgres": 32,
-    "postgres_reset": 1
-  },
-  "work_units": [
-    {
-      "id": "backend-store:phase4-backend-store",
-      "label": "backend-store/phase4-backend-store",
-      "kind": "go_shard",
-      "type": "go_shard",
-      "class": "backend",
-      "target": "backend-store",
-      "aggregateTarget": "backend-store",
-      "group": "backend-store",
-      "needs": [],
-      "completionKeys": ["go_shard:phase4-backend-store"],
-      "failureKeys": ["go_shard:phase4-backend-store"],
-      "weight_ms": 1000,
-      "resource_claims": {
-        "go_cpu": 1,
-        "go_io": 1,
-        "object_store": 1,
-        "postgres": 1
-      }
-    }
-  ],
-  "total_work_units": 1,
-  "finalizer_count": 0
-}
-JSON
-}
-
-write_valid_frontend_accessibility_summary_v2() {
-  local file="$1"
-
-  cat >"$file" <<'JSON'
-{
-  "schema_id": "cartulary.frontend_accessibility_summary.v3",
-  "status": "pass",
-  "phase_rows": [
-    {
-      "row_id": "FE-A11Y-P1-01",
-      "phase_id": "FE-P1",
-      "evidence_class": "design_direction",
-      "claim_status": "implemented",
-      "targets": [
-        {
-          "target_name": "browser-e2e-a11y",
-          "command_id": "cartulary.harness.command.browser_e2e_a11y.v1",
-          "evidence_role": "primary",
-          "required_for_closure": true,
-          "frontend_row_accounting_required": true,
-          "scenario_title_required": true
-        }
-      ]
-    }
-  ],
-  "scenarios": [
-    {
-      "row_id": "FE-A11Y-P1-01",
-      "title": "implemented scenario passes",
-      "status": "pass"
-    },
-    {
-      "row_id": "FE-A11Y-P1-01",
-      "title": "implemented scenario can fail",
-      "status": "fail"
-    },
-    {
-      "row_id": "FE-A11Y-P1-01",
-      "title": "implemented scenario can be missing",
-      "status": "missing"
-    },
-    {
-      "row_id": "FE-A11Y-P1-01",
-      "title": "implemented scenario can be skipped",
-      "status": "skipped"
-    }
-  ],
-  "keyboard_matrix": [
-    {
-      "row_id": "FE-A11Y-P1-01",
-      "title": "implemented scenario passes",
-      "result": "pass",
-      "coverage": "keyboard"
-    }
-  ],
-  "state_communication_checks": [
-    {
-      "row_id": "FE-A11Y-P1-01",
-      "title": "implemented scenario passes",
-      "result": "pass",
-      "coverage": "state"
-    }
-  ],
-  "contrast_checks": [
-    {
-      "row_id": "FE-A11Y-P1-01",
-      "title": "implemented scenario passes",
-      "result": "pass",
-      "coverage": "contrast",
-      "target": "auth-login-submit",
-      "ratio": 7.2,
-      "threshold": 4.5,
-      "foreground": "rgb(248, 250, 252)",
-      "background": "rgb(15, 23, 42)"
-    }
-  ],
-  "violations": [],
-  "artifact_refs": [
-    {
-      "role": "playwright_phase",
-      "path_kind": "directory",
-      "path": "browser-e2e-a11y/browser-e2e-a11y-accessibility"
-    }
-  ]
-}
-JSON
-}
-
-write_valid_frontend_row_accounting() {
-  local file="$1"
-
-  cat >"$file" <<'JSON'
-{
-  "schema_id": "cartulary.frontend_row_accounting.v5",
-  "target_name": "browser-e2e-webserver-backed",
-  "command_id": "cartulary.harness.command.browser_e2e_webserver_backed.v1",
-  "phase_namespace": "frontend",
-  "accounting_scope": {
-    "mode": "selected_rows",
-    "invocation_kind": "frontend_phase_slice",
-    "phase_namespace": "frontend",
-    "phase": "FE-P2",
-    "selection_policy": "frontend_rows_through_selected_phase",
-    "selected_row_ids": [
-      "FE-B-P2-02"
-    ]
-  },
-  "registry_ref": "tools/frontend_phase_registry.json",
-  "registry_digest": "0000000000000000000000000000000000000000000000000000000000000000",
-  "guide_ref": "harness.evidence_accounting.verification.semantic_evidence_identity",
-  "guide_digest": "1111111111111111111111111111111111111111111111111111111111111111",
-  "phase_map_refs": [
-    "tools/frontend_phase_maps/fe_p2_test_map.json"
-  ],
-  "phase_map_digests": [
-    "2222222222222222222222222222222222222222222222222222222222222222"
-  ],
-  "run_root": ".cartulary/test-results/run",
-  "target_status": "pass",
-  "scenario_results": [
-    {
-      "scenario_title": "Verify System views switcher keyboard entry, roving focus, selection, dismissal, and focus restoration.",
-      "status": "passed",
-      "row_ids": [
-        "FE-B-P2-02"
-      ],
-      "source_files": [
-        "apps/web/e2e/incident-administration.spec.ts"
-      ]
-    }
-  ],
-  "row_results": [
-    {
-      "row_id": "FE-B-P2-02",
-      "phase_id": "FE-P2",
-      "evidence_class": "product_conformance",
-      "claim_status_at_run": "implemented",
-      "target_mapping_status": "mapped",
-      "closure_status": "closed",
-      "closing_scenario_titles": [
-        "Verify System views switcher keyboard entry, roving focus, selection, dismissal, and focus restoration."
-      ],
-      "failure_reason": ""
-    }
-  ],
-  "rollup": {
-    "implemented": 1,
-    "blocked": 0,
-    "missing": 0,
-    "stale": 0,
-    "not_applicable": 0,
-    "closed": 1,
-    "failed": 0
-  }
 }
 JSON
 }
@@ -1195,9 +898,9 @@ write_valid_release_readiness_evidence() {
       "status": "passed"
     },
     {
-      "evidence_id": "frontend-row:FE-V-P8-01:browser-e2e-visual",
+      "evidence_id": "owner-partition:browser-e2e-visual:web.workbook",
       "source_target": "browser-e2e-visual",
-      "schema_id": "cartulary.frontend_row_accounting.v5",
+      "schema_id": "cartulary.test_owner_summary.v1",
       "owner_refs": [
         "harness.evidence_accounting.verification.semantic_evidence_identity"
       ],
@@ -1208,10 +911,10 @@ write_valid_release_readiness_evidence() {
       "run_root": ".cartulary/test-results/run",
       "artifact_refs": [
         {
-          "role": "frontend_row_accounting",
+          "role": "test_owner_summary",
           "path_kind": "file",
           "format": "json",
-          "path": "browser-e2e-visual/frontend-row-accounting.json"
+          "path": "browser-e2e-visual/owners/web.workbook/test-owner-summary.json"
         }
       ],
       "source_refs": [],
@@ -1373,19 +1076,19 @@ write_valid_same_run_helper_artifact_ref() {
   "scheduler_reused": false,
   "declared_inputs": [
     {
-      "role": "phase_summary",
+      "role": "step_summary",
       "path_kind": "file",
       "format": "json",
-      "path": "helper-target/helper-target/phase-summary.json",
+      "path": "helper-target/helper-target/step-summary.json",
       "sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
     }
   ],
   "producer_artifacts": [
     {
-      "role": "phase_summary",
+      "role": "step_summary",
       "path_kind": "file",
       "format": "json",
-      "path": "helper-target/helper-target/phase-summary.json",
+      "path": "helper-target/helper-target/step-summary.json",
       "sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
     },
     {
@@ -1636,46 +1339,19 @@ const mutations = {
   "fixture-tier-proof-missing-reset-surface": (fixture) => {
     delete fixture.reset_surface;
   },
-  "phase-slice-plan-unknown-key": (fixture) => {
-    fixture.legacy_key = true;
-  },
-  "phase-slice-plan-missing-work-units": (fixture) => {
-    delete fixture.work_units;
-  },
-  "phase-slice-plan-missing-selection": (fixture) => {
-    delete fixture.selection;
-  },
-  "phase-slice-plan-exact-full-completion": (fixture) => {
-    fixture.selection.mode = "exact_rows";
-    fixture.selection.requested_row_ids = ["I-04-01"];
-  },
-  "frontend-a11y-summary-invalid-status": (fixture) => {
-    fixture.scenarios[0].status = "ok";
-  },
-  "frontend-a11y-summary-unknown-key": (fixture) => {
-    fixture.scenarios[0].legacy_key = true;
-  },
-  "frontend-a11y-summary-missing-required": (fixture) => {
-    delete fixture.contrast_checks[0].ratio;
-  },
-  "frontend-a11y-summary-blocked-row": (fixture) => {
-    fixture.phase_rows[0].claim_status = "blocked";
-  },
-  "frontend-a11y-preflight-invalid-claim-status": (fixture) => {
-    fixture.phase_rows[0].claim_status = "stale";
-  },
-  "frontend-row-accounting-unknown-key": (fixture) => {
-    fixture.row_results[0].legacy_key = true;
-  },
-  "frontend-row-accounting-invalid-closure": (fixture) => {
-    fixture.row_results[0].closure_status = "complete";
-  },
-  "frontend-row-accounting-invalid-scenario-status": (fixture) => {
-    fixture.scenario_results[0].status = "pass";
-  },
-  "frontend-row-accounting-invalid-scope": (fixture) => {
-    fixture.accounting_scope.mode = "phase";
-  },
+
+
+
+
+
+
+
+
+
+
+
+
+
   "release-readiness-missing-effect": (fixture) => {
     delete fixture.evidence_records[0].conformance_effect;
   },
@@ -1876,15 +1552,9 @@ const mutations = {
   "execution-topology-duplicate-target": (fixture) => {
     fixture.targets.push({ ...fixture.targets.find((target) => target.name === "backend-unit") });
   },
-  "phase-map-missing-unit": (fixture) => {
-    delete fixture.unit;
-  },
-  "phase-map-unknown-legacy-key": (fixture) => {
-    fixture.legacy_manifest_key = true;
-  },
-  "phase-registry-schema-v0": (fixture) => {
-    fixture.schema_id = "cartulary.phase_registry.v0";
-  },
+
+
+
 };
 
 const applyMutation = mutations[mutation];
@@ -1900,12 +1570,6 @@ JS
 mkdir -p "$ROOT_DIR/tmp"
 tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/json-shapes.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
-
-phase_registry="$tmp_dir/phase_registry.json"
-write_valid_phase_registry "$phase_registry"
-assert_contains "$(assert_passes "valid phase registry" run_shape_check phase-registry "$phase_registry")" \
-  "json shape check passed" \
-  "valid phase registry"
 
 service_scheduler_summary="$tmp_dir/service-scheduler-summary.json"
 write_minimal_scheduler_summary "$service_scheduler_summary" "cartulary.service_backed_scheduler_summary.v10"
@@ -1937,120 +1601,21 @@ assert_contains "$scheduler_pressure_missing_required_output" "must have require
 fixture_tier_proof="$tmp_dir/fixture-tier-proof.json"
 write_valid_fixture_tier_proof "$fixture_tier_proof"
 assert_passes "fixture tier proof validates exact schema" \
-  run_schema_validation cartulary.fixture_tier_proof.v1 "$fixture_tier_proof" >/dev/null
+  run_schema_validation cartulary.fixture_tier_proof.v2 "$fixture_tier_proof" >/dev/null
 
 fixture_tier_proof_unknown_key="$tmp_dir/fixture-tier-proof-unknown-key.json"
 write_valid_fixture_tier_proof "$fixture_tier_proof_unknown_key"
 mutate_json_fixture fixture-tier-proof-unknown-key "$fixture_tier_proof_unknown_key"
 fixture_tier_proof_unknown_key_output="$(assert_fails "fixture tier proof rejects unknown keys" \
-  run_schema_validation cartulary.fixture_tier_proof.v1 "$fixture_tier_proof_unknown_key")"
+  run_schema_validation cartulary.fixture_tier_proof.v2 "$fixture_tier_proof_unknown_key")"
 assert_contains "$fixture_tier_proof_unknown_key_output" "must NOT have additional properties" "fixture tier proof unknown key"
 
 fixture_tier_proof_missing_reset="$tmp_dir/fixture-tier-proof-missing-reset-surface.json"
 write_valid_fixture_tier_proof "$fixture_tier_proof_missing_reset"
 mutate_json_fixture fixture-tier-proof-missing-reset-surface "$fixture_tier_proof_missing_reset"
 fixture_tier_proof_missing_reset_output="$(assert_fails "fixture tier proof rejects missing reset surface" \
-  run_schema_validation cartulary.fixture_tier_proof.v1 "$fixture_tier_proof_missing_reset")"
+  run_schema_validation cartulary.fixture_tier_proof.v2 "$fixture_tier_proof_missing_reset")"
 assert_contains "$fixture_tier_proof_missing_reset_output" "must have required property 'reset_surface'" "fixture tier proof missing reset surface"
-
-phase_slice_plan="$tmp_dir/phase-slice-plan.json"
-write_valid_phase_slice_plan "$phase_slice_plan"
-assert_passes "phase slice plan validates exact schema" \
-  run_schema_validation cartulary.phase_slice_plan.v2 "$phase_slice_plan" >/dev/null
-
-phase_slice_plan_unknown_key="$tmp_dir/phase-slice-plan-unknown-key.json"
-write_valid_phase_slice_plan "$phase_slice_plan_unknown_key"
-mutate_json_fixture phase-slice-plan-unknown-key "$phase_slice_plan_unknown_key"
-phase_slice_plan_unknown_key_output="$(assert_fails "phase slice plan rejects unknown top-level keys" \
-  run_schema_validation cartulary.phase_slice_plan.v2 "$phase_slice_plan_unknown_key")"
-assert_contains "$phase_slice_plan_unknown_key_output" "must NOT have additional properties" "phase slice plan unknown top-level key"
-
-phase_slice_plan_missing_work_units="$tmp_dir/phase-slice-plan-missing-work-units.json"
-write_valid_phase_slice_plan "$phase_slice_plan_missing_work_units"
-mutate_json_fixture phase-slice-plan-missing-work-units "$phase_slice_plan_missing_work_units"
-phase_slice_plan_missing_work_units_output="$(assert_fails "phase slice plan rejects missing work_units" \
-  run_schema_validation cartulary.phase_slice_plan.v2 "$phase_slice_plan_missing_work_units")"
-assert_contains "$phase_slice_plan_missing_work_units_output" "must have required property 'work_units'" "phase slice plan missing work_units"
-
-phase_slice_plan_missing_selection="$tmp_dir/phase-slice-plan-missing-selection.json"
-write_valid_phase_slice_plan "$phase_slice_plan_missing_selection"
-mutate_json_fixture phase-slice-plan-missing-selection "$phase_slice_plan_missing_selection"
-phase_slice_plan_missing_selection_output="$(assert_fails "phase slice plan requires selection metadata" \
-  run_schema_validation cartulary.phase_slice_plan.v2 "$phase_slice_plan_missing_selection")"
-assert_contains "$phase_slice_plan_missing_selection_output" "must have required property 'selection'" "phase slice plan missing selection"
-
-phase_slice_plan_exact_full_completion="$tmp_dir/phase-slice-plan-exact-full-completion.json"
-write_valid_phase_slice_plan "$phase_slice_plan_exact_full_completion"
-mutate_json_fixture phase-slice-plan-exact-full-completion "$phase_slice_plan_exact_full_completion"
-phase_slice_plan_exact_full_completion_output="$(assert_fails "phase slice plan rejects full-phase exact selection" \
-  run_schema_validation cartulary.phase_slice_plan.v2 "$phase_slice_plan_exact_full_completion")"
-assert_contains "$phase_slice_plan_exact_full_completion_output" "must be equal to constant" "phase slice plan exact selection completion scope"
-
-frontend_a11y_summary="$tmp_dir/frontend-accessibility-summary-v2.json"
-write_valid_frontend_accessibility_summary_v2 "$frontend_a11y_summary"
-assert_passes "frontend accessibility summary v2 validates exact schema" \
-  run_schema_validation cartulary.frontend_accessibility_summary.v3 "$frontend_a11y_summary" >/dev/null
-
-frontend_a11y_bad_status="$tmp_dir/frontend-accessibility-summary-v2-bad-status.json"
-write_valid_frontend_accessibility_summary_v2 "$frontend_a11y_bad_status"
-mutate_json_fixture frontend-a11y-summary-invalid-status "$frontend_a11y_bad_status"
-frontend_a11y_bad_status_output="$(assert_fails "frontend accessibility summary rejects invalid scenario status" \
-  run_schema_validation cartulary.frontend_accessibility_summary.v3 "$frontend_a11y_bad_status")"
-assert_contains "$frontend_a11y_bad_status_output" "must be equal to one of the allowed values" "frontend accessibility invalid scenario status"
-
-frontend_a11y_unknown_key="$tmp_dir/frontend-accessibility-summary-v2-unknown-key.json"
-write_valid_frontend_accessibility_summary_v2 "$frontend_a11y_unknown_key"
-mutate_json_fixture frontend-a11y-summary-unknown-key "$frontend_a11y_unknown_key"
-frontend_a11y_unknown_key_output="$(assert_fails "frontend accessibility summary rejects unknown keys" \
-  run_schema_validation cartulary.frontend_accessibility_summary.v3 "$frontend_a11y_unknown_key")"
-assert_contains "$frontend_a11y_unknown_key_output" "must NOT have additional properties" "frontend accessibility unknown key"
-
-frontend_a11y_missing_required="$tmp_dir/frontend-accessibility-summary-v2-missing-required.json"
-write_valid_frontend_accessibility_summary_v2 "$frontend_a11y_missing_required"
-mutate_json_fixture frontend-a11y-summary-missing-required "$frontend_a11y_missing_required"
-frontend_a11y_missing_required_output="$(assert_fails "frontend accessibility summary rejects missing required fields" \
-  run_schema_validation cartulary.frontend_accessibility_summary.v3 "$frontend_a11y_missing_required")"
-assert_contains "$frontend_a11y_missing_required_output" "must have required property 'ratio'" "frontend accessibility missing required"
-
-frontend_a11y_blocked_row="$tmp_dir/frontend-accessibility-summary-v2-blocked-row.json"
-write_valid_frontend_accessibility_summary_v2 "$frontend_a11y_blocked_row"
-mutate_json_fixture frontend-a11y-summary-blocked-row "$frontend_a11y_blocked_row"
-frontend_a11y_blocked_row_output="$(assert_fails "frontend accessibility summary rejects blocked rows" \
-  run_schema_validation cartulary.frontend_accessibility_summary.v3 "$frontend_a11y_blocked_row")"
-assert_contains "$frontend_a11y_blocked_row_output" "must be equal to constant" "frontend accessibility blocked row"
-
-frontend_row_accounting="$tmp_dir/frontend-row-accounting.json"
-write_valid_frontend_row_accounting "$frontend_row_accounting"
-assert_passes "frontend row accounting validates exact schema" \
-  run_schema_validation cartulary.frontend_row_accounting.v5 "$frontend_row_accounting" >/dev/null
-
-frontend_row_accounting_unknown_key="$tmp_dir/frontend-row-accounting-unknown-key.json"
-write_valid_frontend_row_accounting "$frontend_row_accounting_unknown_key"
-mutate_json_fixture frontend-row-accounting-unknown-key "$frontend_row_accounting_unknown_key"
-frontend_row_accounting_unknown_key_output="$(assert_fails "frontend row accounting rejects unknown row keys" \
-  run_schema_validation cartulary.frontend_row_accounting.v5 "$frontend_row_accounting_unknown_key")"
-assert_contains "$frontend_row_accounting_unknown_key_output" "must NOT have additional properties" "frontend row accounting unknown key"
-
-frontend_row_accounting_bad_closure="$tmp_dir/frontend-row-accounting-bad-closure.json"
-write_valid_frontend_row_accounting "$frontend_row_accounting_bad_closure"
-mutate_json_fixture frontend-row-accounting-invalid-closure "$frontend_row_accounting_bad_closure"
-frontend_row_accounting_bad_closure_output="$(assert_fails "frontend row accounting rejects invalid closure status" \
-  run_schema_validation cartulary.frontend_row_accounting.v5 "$frontend_row_accounting_bad_closure")"
-assert_contains "$frontend_row_accounting_bad_closure_output" "must be equal to one of the allowed values" "frontend row accounting invalid closure"
-
-frontend_row_accounting_bad_scenario="$tmp_dir/frontend-row-accounting-bad-scenario.json"
-write_valid_frontend_row_accounting "$frontend_row_accounting_bad_scenario"
-mutate_json_fixture frontend-row-accounting-invalid-scenario-status "$frontend_row_accounting_bad_scenario"
-frontend_row_accounting_bad_scenario_output="$(assert_fails "frontend row accounting rejects invalid scenario status" \
-  run_schema_validation cartulary.frontend_row_accounting.v5 "$frontend_row_accounting_bad_scenario")"
-assert_contains "$frontend_row_accounting_bad_scenario_output" "must be equal to one of the allowed values" "frontend row accounting invalid scenario"
-
-frontend_row_accounting_bad_scope="$tmp_dir/frontend-row-accounting-bad-scope.json"
-write_valid_frontend_row_accounting "$frontend_row_accounting_bad_scope"
-mutate_json_fixture frontend-row-accounting-invalid-scope "$frontend_row_accounting_bad_scope"
-frontend_row_accounting_bad_scope_output="$(assert_fails "frontend row accounting rejects invalid scope" \
-  run_schema_validation cartulary.frontend_row_accounting.v5 "$frontend_row_accounting_bad_scope")"
-assert_contains "$frontend_row_accounting_bad_scope_output" "must be equal to one of the allowed values" "frontend row accounting invalid scope"
 
 release_readiness_evidence="$tmp_dir/release-readiness-evidence.json"
 write_valid_release_readiness_evidence "$release_readiness_evidence"
@@ -2077,77 +1642,6 @@ mutate_json_fixture release-readiness-ambiguous-visual-conformance "$release_rea
 release_readiness_ambiguous_visual_output="$(assert_fails "release readiness evidence rejects ambiguous visual conformance effect" \
   run_schema_validation cartulary.release_readiness_evidence.v2 "$release_readiness_ambiguous_visual")"
 assert_contains "$release_readiness_ambiguous_visual_output" "must be equal to one of the allowed values" "release readiness ambiguous visual conformance"
-
-frontend_a11y_writer_missing="$tmp_dir/frontend-accessibility-summary-writer-missing.json"
-frontend_a11y_writer_missing_output="$(assert_fails "frontend accessibility summary writer rejects missing implemented evidence" \
-  run_accessibility_summary_writer --output "$frontend_a11y_writer_missing" --status pass)"
-assert_contains "$frontend_a11y_writer_missing_output" "frontend accessibility summary failed: frontend accessibility summary status is fail" "frontend accessibility writer missing evidence"
-
-bad_schema_registry="$tmp_dir/phase_registry_bad_schema.json"
-write_valid_phase_registry "$bad_schema_registry"
-mutate_json_fixture phase-registry-schema-v0 "$bad_schema_registry"
-bad_schema_output="$(assert_fails "malformed registry schema_id" run_shape_check phase-registry "$bad_schema_registry")"
-assert_contains "$bad_schema_output" "must declare schema_id cartulary.phase_registry.v1" "malformed schema_id"
-
-duplicate_phase_registry="$tmp_dir/phase_registry_duplicate_phase.json"
-cat >"$duplicate_phase_registry" <<'JSON'
-{
-  "schema_id": "cartulary.phase_registry.v1",
-  "phases": [
-    {
-      "phase": "phase9",
-      "order": 9,
-      "status": "planned",
-      "label": "Phase 9",
-      "manifest_path": "tools/phase9_test_map.json",
-      "ledger_path": "docs/testing/phase9_coverage_ledger.md",
-      "scope": "Synthetic shape fixture.",
-      "normative_owners": "docs/spec/00_document_set_status_and_precedence.md"
-    },
-    {
-      "phase": "phase9",
-      "order": 10,
-      "status": "planned",
-      "label": "Phase 9 Duplicate",
-      "manifest_path": "tools/phase9_test_map.json",
-      "ledger_path": "docs/testing/phase9_coverage_ledger.md",
-      "scope": "Synthetic shape fixture.",
-      "normative_owners": "docs/spec/00_document_set_status_and_precedence.md"
-    }
-  ]
-}
-JSON
-duplicate_phase_output="$(assert_fails "duplicate phase identifiers" run_shape_check phase-registry "$duplicate_phase_registry")"
-assert_contains "$duplicate_phase_output" "phases.phase contains duplicate phase9" "duplicate phase identifiers"
-
-duplicate_member_registry="$tmp_dir/phase_registry_duplicate_member.json"
-cat >"$duplicate_member_registry" <<'JSON'
-{
-  "schema_id": "cartulary.phase_registry.v1",
-  "schema_id": "cartulary.phase_registry.v1",
-  "phases": []
-}
-JSON
-duplicate_member_output="$(assert_fails "duplicate JSON object member" run_shape_check phase-registry "$duplicate_member_registry")"
-assert_contains "$duplicate_member_output" "duplicate object member \"schema_id\"" "duplicate JSON object member"
-
-phase_map="$tmp_dir/phase9_test_map.json"
-write_valid_phase_map "$phase_map"
-assert_contains "$(assert_passes "valid phase map" run_shape_check phase-map "$phase_map")" \
-  "json shape check passed" \
-  "valid phase map"
-
-unknown_phase_key="$tmp_dir/phase9_test_map_unknown_key.json"
-write_valid_phase_map "$unknown_phase_key"
-mutate_json_fixture phase-map-unknown-legacy-key "$unknown_phase_key"
-unknown_key_output="$(assert_fails "unknown phase manifest key" run_shape_check phase-map "$unknown_phase_key")"
-assert_contains "$unknown_key_output" "unknown key legacy_manifest_key" "unknown manifest key"
-
-missing_section="$tmp_dir/phase9_test_map_missing_unit.json"
-write_valid_phase_map "$missing_section"
-mutate_json_fixture phase-map-missing-unit "$missing_section"
-missing_section_output="$(assert_fails "missing phase manifest section" run_shape_check phase-map "$missing_section")"
-assert_contains "$missing_section_output" ".unit is required" "missing manifest section"
 
 duplicate_target_owner="$tmp_dir/task_surface_owner_duplicate_target.json"
 cp "$ROOT_DIR/tools/task_surface_owner.json" "$duplicate_target_owner"

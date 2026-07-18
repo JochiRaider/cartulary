@@ -218,7 +218,6 @@ function collectRendererSourceInputs(inputs, seen) {
   ];
   const legacySourceNames = new Set([
     "browser-duration-accounting.mjs",
-    "phase-slice-execution.mjs",
     "task-surface-report-cli.mjs",
   ]);
   const isProductionModule = (candidate) =>

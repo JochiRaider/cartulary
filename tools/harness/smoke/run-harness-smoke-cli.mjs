@@ -126,9 +126,9 @@ function verboseOutput() {
 }
 
 async function runCheck(check) {
-  const runPhase =
-    process.env.RUN_PHASE_SCRIPT ??
-    path.join(repoRoot, "tools", "harness", "execution", "run-phase.sh");
+  const runStep =
+    process.env.RUN_STEP_SCRIPT ??
+    path.join(repoRoot, "tools", "harness", "execution", "run-step.sh");
   const command = resolveCheckCommand(check);
   const env = {
     ...process.env,
@@ -136,7 +136,7 @@ async function runCheck(check) {
     CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
   };
   const status = await runCommand(
-    runPhase,
+    runStep,
     [
       check.name,
       "--",

@@ -402,20 +402,11 @@ assertArgs("task-surface-report", { TASK_SURFACE_REPORT_ARGS: "--check --all" },
   "--check",
   "--all",
 ]);
-assertArgs("target-plan", { PHASE: "phase4", TARGET: "backend-store", RESULTS_DIR: "/tmp/results" }, [
+assertArgs("target-plan", { TARGET: "backend-store", RESULTS_DIR: "/tmp/results" }, [
   "--target",
   "backend-store",
 ]);
 assertUsage("explain-run", {}, "make explain-run RESULTS_DIR=<root|run-dir>");
-for (const retiredName of [
-  "explain-phase",
-  "frontend-evidence-audit",
-  "owner-task-guide",
-  "phase-slice",
-  "service-backed-slice",
-]) {
-  assert(!makeNodeToolNames().includes(retiredName), `${retiredName} must not remain registered`);
-}
 assertUsage("go-test-duration-baselines", {}, "make go-test-duration-baselines RESULTS_DIR=<successful results dir> [PRUNE_OBSERVED_PACKAGES=1 requires full service-backed]");
 assertUsage("browser-e2e-duration-baselines", {}, "make browser-e2e-duration-baselines RESULTS_DIR=<successful browser results dir>");
 assertUsage("harness-smoke-duration-baselines", {}, "make harness-smoke-duration-baselines RESULTS_DIR=<successful harness results dir>");
@@ -431,13 +422,11 @@ try {
 
 const targetPlanChildEnv = buildMakeNodeToolChildEnv("target-plan", {
   PATH: "/bin",
-  PHASE: "phase4",
   RESULTS_DIR: "/tmp/results",
   TASK_SURFACE_MANIFEST: "/tmp/task-surface.json",
   TARGET: "backend-store",
 });
 assert(targetPlanChildEnv.PATH === "/bin", "child env must preserve unrelated runtime env");
-assert(!("PHASE" in targetPlanChildEnv), "target-plan child env must not expose undeclared PHASE");
 assert(!("RESULTS_DIR" in targetPlanChildEnv), "target-plan child env must not expose undeclared RESULTS_DIR");
 assert(!("TASK_SURFACE_MANIFEST" in targetPlanChildEnv), "target-plan child env must not expose internal manifest override");
 assert(!("TARGET" in targetPlanChildEnv), "target-plan child env must not expose TARGET after args are built");
@@ -445,14 +434,10 @@ assert(!("TARGET" in targetPlanChildEnv), "target-plan child env must not expose
 const taskGuideChildEnv = buildMakeNodeToolChildEnv("task-guide", {
   JSON: "1",
   OWNER: "module.networkflow",
-  PHASE: "phase4",
-  PHASE_NAMESPACE: "frontend",
   ROLE: "module-author",
 });
 assert(!("JSON" in taskGuideChildEnv), "task-guide child env must not expose JSON after args are built");
 assert(!("OWNER" in taskGuideChildEnv), "task-guide child env must not expose OWNER after args are built");
-assert(!("PHASE" in taskGuideChildEnv), "task-guide child env must not expose PHASE after args are built");
-assert(!("PHASE_NAMESPACE" in taskGuideChildEnv), "task-guide child env must not expose PHASE_NAMESPACE after args are built");
 assert(!("ROLE" in taskGuideChildEnv), "task-guide child env must not expose ROLE after args are built");
 
 const fallowChildEnv = buildMakeNodeToolChildEnv("frontend-fallow-static", {
@@ -461,7 +446,6 @@ const fallowChildEnv = buildMakeNodeToolChildEnv("frontend-fallow-static", {
   JSON: "1",
   NODE_BIN: "/tmp/node",
   NODE_RUNTIME_DIR: "/tmp/node-runtime",
-  PHASE: "phase4",
   PNPM: "/tmp/pnpm",
 });
 assert(
@@ -475,7 +459,6 @@ assert(
 assert(fallowChildEnv.NODE_BIN === "/tmp/node", "frontend-fallow-static child env must keep NODE_BIN");
 assert(fallowChildEnv.PNPM === "/tmp/pnpm", "frontend-fallow-static child env must keep PNPM");
 assert(!("JSON" in fallowChildEnv), "frontend-fallow-static child env must not expose JSON");
-assert(!("PHASE" in fallowChildEnv), "frontend-fallow-static child env must not expose PHASE");
 
 const testSliceChildEnv = buildMakeNodeToolChildEnv("test-slice", {
   CARTULARY_TEST_RESULTS_DIR: "/tmp/results",
@@ -484,7 +467,6 @@ const testSliceChildEnv = buildMakeNodeToolChildEnv("test-slice", {
   GO: "go",
   MAKE: "make",
   OWNER: "module.networkflow",
-  PHASE: "phase4",
   PNPM: "pnpm",
   ROWS: "module.networkflow.unit.example_0123456789",
   TARGET: "backend-store",
@@ -503,7 +485,6 @@ assert(
   "test-slice child env must keep CARTULARY_TEST_RUN_ID",
 );
 assert(!("OWNER" in testSliceChildEnv), "test-slice child env must not expose OWNER after args are built");
-assert(!("PHASE" in testSliceChildEnv), "test-slice child env must not expose retired PHASE");
 assert(!("ROWS" in testSliceChildEnv), "test-slice child env must not expose ROWS after args are built");
 assert(!("TARGET" in testSliceChildEnv), "test-slice child env must not expose unrelated TARGET");
 assert(!("VITEST_FLAGS" in testSliceChildEnv), "test-slice child env must not expose retired VITEST_FLAGS");
@@ -513,14 +494,4 @@ assert(
 );
 EOF
 
-set +e
-retired_tool_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/execution/run-make-node-tool-cli.mjs" explain-phase 2>&1)"
-retired_tool_status=$?
-set -e
-if [[ "$retired_tool_status" -ne 2 ]]; then
-  fail "retired make node tool should exit 2"
-fi
-assert_contains "$retired_tool_output" "usage: run-make-node-tool.mjs" "retired make node tool diagnostic"
-if [[ "$retired_tool_output" == *"|explain-phase|"* ]]; then
-  fail "retired make node tool usage must not advertise explain-phase"
-fi
+printf 'make node tool smoke passed\n'

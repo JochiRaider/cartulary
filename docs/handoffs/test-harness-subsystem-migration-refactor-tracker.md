@@ -12,7 +12,7 @@
 | Baseline worktree | Clean |
 | Tracker state | `IN_PROGRESS` — WS-10 atomic retirement |
 | Active start | T-043 closure checkpoint based on clean T-042 commit `e81adf0b` |
-| Active tasks | T-044 |
+| Active tasks | T-045 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -729,8 +729,8 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-041 | Replace finalizer and duration baseline flow | WS-09 | DONE | T-034,T-038 | Finalizer tests and refresh plan | Owner summaries drive finalization. |
 | T-042 | Delete ledgers and ledger machinery | WS-10 | DONE | T-039,T-041 | 26-file/4-module deletion manifest, surface negatives, zero-reference classification, and focused/extended gates | All 26 and every operational consumer are gone; registry metadata is T-043 deletion inventory. |
 | T-043 | Delete phase/subsystem registries and maps | WS-10 | DONE | T-016,T-022,T-027,T-039 | 31-input deletion manifest, active-consumer cutover, public broad-runner checks, and zero-reference classification | Unified catalog is sole owner. |
-| T-044 | Delete phase-accounting and compatibility code | WS-10 | IN_PROGRESS | T-035,T-037,T-043 | Boundary and zero-reference scans | No old reader or shim remains. |
-| T-045 | Regenerate all permitted outputs | WS-10 | TODO | T-042,T-043,T-044 | Generated drift checks | Clean owner-first generated tree. |
+| T-044 | Delete phase-accounting and compatibility code | WS-10 | DONE | T-035,T-037,T-043 | Boundary and zero-reference scans | No old reader or shim remains. |
+| T-045 | Regenerate all permitted outputs | WS-10 | IN_PROGRESS | T-042,T-043,T-044 | Generated drift checks | Clean owner-first generated tree. |
 | T-045A | Prove atomic v2 parity and retirement | WS-10 | TODO | T-050 | NLSpec/schema/task-surface/topology parity and zero-reference report | v2 is complete and no v1 alias, reader, writer, catalog, or artifact identity is active. |
 | T-046 | Run focused verification matrix | WS-11 | TODO | T-045A | Command results/run roots | All focused gates pass. |
 | T-047 | Run agent finalization and first warm check | WS-11 | TODO | T-046 | Successful warm run root | Fresh broad evidence exists. |
@@ -1293,6 +1293,18 @@ Each entry must include:
 - Skipped/remaining checks: the complete extended smoke was not represented as green because `harness-smoke-run-frontend-unit` still asserts deleted phase-registry/frontend-row artifacts. That compatibility smoke, its phase-selected cases, and the old phase-accounting schemas/readers are the explicit T-044 deletion/replacement scope. Browser modes, `make test-fast`, broad `make check`, finalization, and release remain later WS-11 gates.
 - Next safe task: T-044 only. Delete the phase-accounting readers/schemas, phase-specific schedulers and command aliases, old artifact writers, compatibility smokes/fixtures, environment identities, and remaining live phase-shaped output contracts; replace any retained generic behavior at its semantic owner, then prove boundary and zero-reference closure before T-045 regeneration.
 - Rollback boundary: revert this complete T-043 checkpoint to `e81adf0b`, including all 31 authored registry/map/policy deletions, the obsolete service check, catalog-derived consumer replacements, generated projections, guide/test updates, and this tracker record. Never restore one registry/map as a temporary fix or retain a fallback reader beside the catalog.
+
+#### 2026-07-18 — T-044 phase-accounting and compatibility-code retirement checkpoint
+
+- Branch/commit at start: `revision/grid-adapter` at clean T-043 checkpoint `398ed6fa`. T-044 is `DONE`; T-045 is now the sole active task and WS-10 remains the only active workstream.
+- Deletion result: the complete `tools/harness/phase-accounting` tree, phase-slice scheduler, phase diagnostic CLI, phase-manifest Go/Vitest/Playwright adapters, phase-selected browser wrappers, old frontend row-accounting writer/auditor, obsolete accessibility aggregator, and their compatibility smokes and schemas are deleted. No runtime converter, fallback reader, dual writer, alias, or historical-artifact discovery path was retained.
+- Successor runtime result: generic execution now uses step-owned runtime, artifact, Go, Vitest, Playwright, and shell adapters with `step-summary.json`/`cartulary.test_step_summary.v1`. Tool summaries use the atomic `cartulary.tool_run_summary.v5` `step_accounting` contract, and fixture-tier proofs use `cartulary.fixture_tier_proof.v2` with `owner_id`. Browser groups invoke the catalog-derived group runner, and the visual-update path selects semantic manifest groups without delivery-stage translation.
+- Surface and ownership result: the authored task surface uses `step_command`/`run_step`, publishes `semantic-identity-check`, drops compatibility smokes and deleted backing scripts, and routes app-local browser scripts back through public Make targets. Scheduler pressure, failure taxonomy, finalizer child artifacts, runner composition, task diagnostics, helper ownership, schema attachments, and browser lifecycle helpers now use owner/step vocabulary and current contracts.
+- Zero-reference result: exact references to every deleted implementation path are absent from authored runtime code and task ownership. The semantic identity scan and its negative smoke pass. Remaining delivery-shaped tokens are confined to explicit rejection/scanner policy, immutable migration-history validation, normative retirement text, or the temporary migration/reconciliation inputs reserved for T-050; none is a reader or execution authority.
+- Focused validation: JSON syntax for all changed owner/schema inputs, JavaScript syntax for every changed `.mjs`, shell syntax for every changed `.sh`, `git diff --check`, direct `semantic-identity-check-cli.mjs`, and `test-semantic-identity-check.sh` all passed. The first `make json-shape-check` and `test-run-step.sh` attempts stopped before child validation because the intentionally stale generated execution topology still names `phase-test-name-check`; that is the exact T-045 regeneration dependency, not an accepted post-regeneration failure.
+- Skipped/remaining checks: generated-topology-dependent step-runner, task-surface, schema, scheduler, and extended harness replays are deferred only to the immediately active T-045 regeneration checkpoint. Product suites, browser execution, broad checks, owner audits, finalization, release rehearsal, and performance windows remain WS-11/WS-12 scope.
+- Next safe task: T-045 only. Run ordinary Make generation from the stabilized authored owners, repair any generator or contract defect without restoring a compatibility identity, then prove generated drift, JSON shapes, generated-root policy, and focused successor smokes before recording the generated-tree checkpoint.
+- Rollback boundary: revert the complete T-044 checkpoint to `398ed6fa`, including all compatibility deletions, generic step-runtime/schema replacements, authored task/scheduler ownership changes, NLSpec version updates, package/browser routing, tests, and this tracker record. Never restore an individual phase reader, schema, alias, or smoke beside the owner-first runtime.
 
 ## 17. First-resumer checklist
 

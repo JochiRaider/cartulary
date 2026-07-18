@@ -155,7 +155,7 @@ fake_shellcheck="$(make_fake_shellcheck "$inventory_repo")"
 args_log="$inventory_repo/shellcheck-args.log"
 inventory_output="$(
   CARTULARY_SHELLCHECK_ROOT="$inventory_repo" \
-  CARTULARY_PHASE_ARTIFACT_DIR="" \
+  CARTULARY_STEP_ARTIFACT_DIR="" \
   SHELLCHECK_BIN="$fake_shellcheck" \
   FAKE_SHELLCHECK_ARGS_LOG="$args_log" \
     "$SCRIPT" 2>&1
@@ -169,7 +169,7 @@ artifact_dir="$(cartulary_harness_mktemp_dir lint-shell-artifacts.XXXXXX)"
 cleanup_paths+=("$artifact_dir")
 artifact_output="$(
   CARTULARY_SHELLCHECK_ROOT="$inventory_repo" \
-  CARTULARY_PHASE_ARTIFACT_DIR="$artifact_dir" \
+  CARTULARY_STEP_ARTIFACT_DIR="$artifact_dir" \
   SHELLCHECK_BIN="$fake_shellcheck" \
   FAKE_SHELLCHECK_ARGS_LOG="$args_log" \
     "$SCRIPT" 2>&1
@@ -183,7 +183,7 @@ printf '%s\n' '#!/usr/bin/env python3' 'print("not shell")' >"$empty_repo/script
 track_all "$empty_repo"
 empty_output="$(
   CARTULARY_SHELLCHECK_ROOT="$empty_repo" \
-  CARTULARY_PHASE_ARTIFACT_DIR="" \
+  CARTULARY_STEP_ARTIFACT_DIR="" \
   SHELLCHECK_BIN="$empty_repo/missing-shellcheck" \
     "$SCRIPT" 2>&1
 )"

@@ -395,7 +395,7 @@ try {
 const migration = buildMigrationPreservationEvidence({
   repoCommitValue: "abc123",
   generatedAt: "2026-06-04T00:00:00.000Z",
-  migrationPassDir: ".cartulary/test-results/fixture/seaweedfs-migration-preservation/phase-f-object-store-migration/pass",
+  migrationPassDir: ".cartulary/test-results/fixture/seaweedfs-migration-preservation/object-store-migration/pass",
   validation: {
     schema_id: "cartulary.object_store_migration_validation.v1",
     result: "pass",
@@ -453,7 +453,7 @@ assert.match(migration.preservation_checks.source_bucket_ref.sha256, /^[a-f0-9]{
 const missingMigration = buildMigrationPreservationEvidence({
   repoCommitValue: "abc123",
   generatedAt: "2026-06-04T00:00:00.000Z",
-  migrationPassDir: ".cartulary/test-results/missing/seaweedfs-migration-preservation/phase-f-object-store-migration/pass",
+  migrationPassDir: ".cartulary/test-results/missing/seaweedfs-migration-preservation/object-store-migration/pass",
 });
 assert.equal(missingMigration.result, "fail");
 
@@ -462,7 +462,7 @@ const redactionMissingCurrent = buildRedactionLeakageScan({
   repoCommitValue: "abc123",
   phaseArtifactPaths: [".cartulary/release-artifacts/seaweedfs/fixture/migration-preservation-evidence.json"],
   compatibilityReportPath: currentCompatibilityReportPath,
-  migrationPassDir: ".cartulary/test-results/fixture/seaweedfs-migration-preservation/phase-f-object-store-migration/pass",
+  migrationPassDir: ".cartulary/test-results/fixture/seaweedfs-migration-preservation/object-store-migration/pass",
   requireBackendProcessArtifacts: true,
 });
 assert.equal(redactionMissingCurrent.result, "fail");
@@ -480,7 +480,7 @@ assert.equal(
 );
 assert.equal(
   redactionMissingCurrent.scanned_artifacts.some((artifact) =>
-    artifact.path.endsWith("/seaweedfs-migration-preservation/phase-f-object-store-migration/mismatch/target-probe.json"),
+    artifact.path.endsWith("/seaweedfs-migration-preservation/object-store-migration/mismatch/target-probe.json"),
   ),
   true,
 );

@@ -165,10 +165,10 @@ function mergeAccountingModes(target, source) {
   }
 }
 
-function resolveAccountingModes(accountingModes, fallbackActualPhases = 0) {
+function resolveAccountingModes(accountingModes, fallbackActualSteps = 0) {
   const modes = createAccountingModes();
   if (!accountingModes) {
-    modes.actual = clampDurationMs(fallbackActualPhases);
+    modes.actual = clampDurationMs(fallbackActualSteps);
     return modes;
   }
   for (const mode of Object.keys(modes)) {
@@ -299,7 +299,7 @@ function addSchedulerAccountingDurations(target, accounting) {
 
 function normalizeCounts(counts = {}) {
   const normalized = {
-    phases: clampDurationMs(counts.phases ?? 0),
+    steps: clampDurationMs(counts.steps ?? 0),
     tests: clampDurationMs(counts.tests ?? 0),
     failed: clampDurationMs(counts.failed ?? 0),
     non_test: clampDurationMs(counts.non_test ?? 0),
@@ -440,7 +440,7 @@ function parseRunSummaryArgs(args) {
 
 function createDurationAggregate() {
   return {
-    phases: 0,
+    steps: 0,
     ...createCounts(),
     ...createDurationFields(),
   };
@@ -452,13 +452,13 @@ function addSummaryToAggregate(aggregate, accountingModes, summary) {
   addDurationFields(aggregate, view);
   mergeAccountingModes(
     accountingModes,
-    resolveAccountingModes(view.accounting_modes, view.counts?.phases ?? 0),
+    resolveAccountingModes(view.accounting_modes, view.counts?.steps ?? 0),
   );
 }
 
 function countsForJSON(aggregate) {
   const counts = {
-    phases: aggregate.phases,
+    steps: aggregate.steps,
     tests: aggregate.tests,
     failed: aggregate.failed,
     non_test: aggregate.non_test,
@@ -513,7 +513,7 @@ function summarizeTargetSummaries(
     aggregate.failed === 0 &&
     recordsMissingTargetFailures
   ) {
-    aggregate.phases += 1;
+    aggregate.steps += 1;
     aggregate.failed += 1;
     aggregate.non_test += 1;
     aggregate.non_test_failed += 1;
@@ -525,7 +525,7 @@ function summarizeTargetSummaries(
     !recordsMissingTargetFailures
   ) {
     if (aggregate.failed === 0) {
-      aggregate.phases += 1;
+      aggregate.steps += 1;
       aggregate.failed += 1;
       aggregate.non_test += 1;
       aggregate.non_test_failed += 1;
@@ -719,7 +719,7 @@ function runToolSummary(runSummary, summaryJsonPath) {
       target: name,
     })),
     counts: runSummary.counts,
-    phaseAccounting: {
+    stepAccounting: {
       missing: runSummary.summary_targets?.missing?.length ?? 0,
     },
     failureClass: runSummary.failure_class,

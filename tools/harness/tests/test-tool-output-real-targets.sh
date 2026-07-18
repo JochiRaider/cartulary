@@ -101,7 +101,7 @@ const addSummaryRefs = (summaryPath, runRootPath) => {
   }
   seenSummaries.add(summaryPath);
   const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
-  if (summary.schema_id !== "cartulary.tool_run_summary.v4") {
+  if (summary.schema_id !== "cartulary.tool_run_summary.v5") {
     throw new Error(`${targetName}: unexpected schema ${summary.schema_id}`);
   }
   if (summary.target !== targetName || summary.status !== "pass") {
@@ -170,22 +170,7 @@ for (const artifact of refs) {
     throw new Error(`${targetName}: artifact ${artifact.role} missing at ${artifact.path}`);
   }
 }
-if (["phase-slice", "service-backed-slice"].includes(targetName)) {
-  if (!primarySummary) {
-    throw new Error(`${targetName}: missing primary summary`);
-  }
-  const totalWork = (primarySummary.work_units ?? []).reduce((sum, unit) => sum + (unit.total ?? 0), 0);
-  const totalCount =
-    (primarySummary.counts?.tests ?? 0) +
-    (primarySummary.counts?.non_test ?? 0) +
-    (primarySummary.counts?.packages ?? 0);
-  if (totalWork <= 0) {
-    throw new Error(`${targetName}: expected nonzero work unit data`);
-  }
-  if (totalCount <= 0) {
-    throw new Error(`${targetName}: expected nonzero count data`);
-  }
-}
+
 EOF
 }
 
@@ -215,7 +200,7 @@ if (lines.length !== 1) {
 }
 const summary = JSON.parse(lines[0]);
 if (
-  summary.schema_id !== "cartulary.tool_run_summary.v4" ||
+  summary.schema_id !== "cartulary.tool_run_summary.v5" ||
   summary.target !== targetName ||
   summary.status !== "pass"
 ) {
@@ -253,15 +238,13 @@ if (!stderr.includes("TARGET must name a declared target")) {
 EOF
 }
 
-run_target json-shape-check json-shape-check tool_run_summary phase_summary
+run_target json-shape-check json-shape-check tool_run_summary step_summary
 # lint-shell is covered by harness-smoke-lint-shell; in summary mode its success
 # output is retained in artifacts and does not emit a standalone [RESULT] line.
 run_target backend-unit backend-unit tool_run_summary target_summary target_timing
 run_machine_target backend-unit backend-unit-machine
 run_target lint lint tool_run_summary run_summary
 run_target build build tool_run_summary target_summary target_timing
-RUN_TARGET_MAKE_ARGS="PHASE=phase0" run_target phase-slice phase-slice-phase0 tool_run_summary target_summary target_timing scheduler_summary scheduler_events scheduler_progress scheduler_logs
-RUN_TARGET_MAKE_ARGS="PHASE=phase0" run_target service-backed-slice service-backed-slice-phase0 tool_run_summary target_summary target_timing scheduler_summary scheduler_events scheduler_progress scheduler_logs
 run_machine_target build build-machine
 run_target test-fast test-fast tool_run_summary run_summary
 run_target check check tool_run_summary target_summary scheduler_summary scheduler_events scheduler_progress scheduler_logs

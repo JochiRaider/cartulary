@@ -24,7 +24,6 @@
         "child_target_failure",
         "tool_diagnostic_failure",
         "scheduler_accounting_error",
-        "frontend_row_accounting",
         "test_accounting_unmapped",
         "artifact_error",
         "cleanup_error",

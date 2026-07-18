@@ -9,12 +9,12 @@ import {
 } from "../../contract/index.mjs";
 import { testCoverageBuckets } from "../../contract/test-output-context.mjs";
 import {
-  preparePhaseArtifactDir,
+  prepareStepArtifactDir,
   targetDir,
 } from "./context.mjs";
 import { renderCommand } from "./command.mjs";
 import { rowsForAggregate } from "./planning.mjs";
-import { loadPhaseWindow } from "./reports.mjs";
+import { loadStepWindow } from "./reports.mjs";
 import {
   captureFinish,
   nowUTC,
@@ -63,7 +63,7 @@ async function emitTargetTimingSpan(
     CARTULARY_TIMING_END_TIME: window.endTime,
     CARTULARY_TIMING_DURATION_MS: String(window.durationMs),
     CARTULARY_TIMING_STATUS: status,
-    CARTULARY_PHASE_EXIT_STATUS: String(exitStatus),
+    CARTULARY_STEP_EXIT_STATUS: String(exitStatus),
   });
 }
 
@@ -121,7 +121,7 @@ function finalizerErrorClassification(error) {
   };
 }
 
-export function writeFinalizerFailurePhase(
+export function writeFinalizerFailureStep(
   ctx,
   {
     target,
@@ -139,7 +139,7 @@ export function writeFinalizerFailurePhase(
     return;
   }
   const { failureClass, failureReason } = finalizerErrorClassification(error);
-  const phaseDir = preparePhaseArtifactDir(ctx, label);
+  const stepDir = prepareStepArtifactDir(ctx, label);
   const counts = createNonTestFailureCounts();
   const failureClasses = createFailureClassCounts();
   failureClasses[failureClass] = 1;
@@ -164,15 +164,15 @@ export function writeFinalizerFailurePhase(
     shard_names: shardNames,
   };
   secureWriteFile(
-    path.join(phaseDir, "phase-summary.json"),
+    path.join(stepDir, "step-summary.json"),
     `${JSON.stringify(
       {
-        schema_id: "cartulary.test_phase_summary.v3",
+        schema_id: "cartulary.test_step_summary.v3",
         label,
         target: ctx.testTarget,
         runner: "go-shard-finalizer",
         status: "fail",
-        phase: "go-shard-finalize",
+        step: "go-shard-finalize",
         command: renderCommand(commandArgs),
         start_time: window.startTime,
         end_time: window.endTime,
@@ -274,7 +274,7 @@ export async function finishTarget(ctx, status) {
   return status;
 }
 
-async function emitReportPhaseSummary(
+async function emitReportStepSummary(
   ctx,
   helperCommand,
   label,
@@ -282,24 +282,24 @@ async function emitReportPhaseSummary(
   mode,
   extraEnv = {},
 ) {
-  const phase = loadPhaseWindow(reportDir, mode);
-  const phaseDir = preparePhaseArtifactDir(ctx, label);
+  const step = loadStepWindow(reportDir, mode);
+  const stepDir = prepareStepArtifactDir(ctx, label);
   return await runHelper(ctx, [helperCommand], {
     CARTULARY_TEST_TARGET: ctx.testTarget,
     CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
-    CARTULARY_PHASE_LABEL: label,
-    CARTULARY_PHASE_DIR: phaseDir,
-    CARTULARY_PHASE_COMMAND: phase.command,
-    CARTULARY_PHASE_START_TIME: phase.startTime,
-    CARTULARY_PHASE_END_TIME: phase.endTime,
-    CARTULARY_PHASE_LOGICAL_DURATION_MS: String(phase.durationMs),
-    CARTULARY_PHASE_EXECUTED_DURATION_MS: String(phase.durationMs),
-    CARTULARY_PHASE_WALL_DURATION_MS: String(phase.wallDurationMs),
-    CARTULARY_PHASE_EXIT_STATUS: String(phase.exitStatus),
+    CARTULARY_STEP_LABEL: label,
+    CARTULARY_STEP_DIR: stepDir,
+    CARTULARY_STEP_COMMAND: step.command,
+    CARTULARY_STEP_START_TIME: step.startTime,
+    CARTULARY_STEP_END_TIME: step.endTime,
+    CARTULARY_STEP_LOGICAL_DURATION_MS: String(step.durationMs),
+    CARTULARY_STEP_EXECUTED_DURATION_MS: String(step.durationMs),
+    CARTULARY_STEP_WALL_DURATION_MS: String(step.wallDurationMs),
+    CARTULARY_STEP_EXIT_STATUS: String(step.exitStatus),
     CARTULARY_REPORT_SLICE: "1",
-    CARTULARY_PHASE_ACCOUNTING_MODE: mode,
-    CARTULARY_PHASE_RUNNER_LOG: path.join(reportDir, "runner.jsonl"),
-    CARTULARY_PHASE_STDERR_LOG: path.join(reportDir, "stderr.log"),
+    CARTULARY_STEP_ACCOUNTING_MODE: mode,
+    CARTULARY_STEP_RUNNER_LOG: path.join(reportDir, "runner.jsonl"),
+    CARTULARY_STEP_STDERR_LOG: path.join(reportDir, "stderr.log"),
     ...extraEnv,
   });
 }
@@ -308,7 +308,7 @@ function packagePatternsEnv(packages) {
   return packages.join("\n");
 }
 
-async function emitGoRawPhase(
+async function emitGoRawStep(
   ctx,
   label,
   mode,
@@ -317,19 +317,19 @@ async function emitGoRawPhase(
   packages,
   coverage,
 ) {
-  return await emitReportPhaseSummary(ctx, "go-phase", label, reportDir, mode, {
+  return await emitReportStepSummary(ctx, "go-step", label, reportDir, mode, {
     CARTULARY_GO_TEST_REGEX: regex,
     CARTULARY_ACCOUNTING_COVERAGE: coverage,
     CARTULARY_GO_PACKAGE_PATTERNS: packagePatternsEnv(packages),
   });
 }
 
-async function emitGoManifestPhase(
+async function emitGoCatalogStep(
   ctx,
   label,
   mode,
   reportDir,
-  manifestPhase,
+  ownerID,
   section,
   coverage,
   executionDependency,
@@ -337,14 +337,14 @@ async function emitGoManifestPhase(
   packages,
   selectedIDs = [],
 ) {
-  return await emitReportPhaseSummary(
+  return await emitReportStepSummary(
     ctx,
-    "go-manifest-phase",
+    "go-catalog-step",
     label,
     reportDir,
     mode,
     {
-      CARTULARY_MANIFEST_PHASE: manifestPhase,
+      CARTULARY_CATALOG_OWNER_ID: ownerID,
       CARTULARY_MANIFEST_SECTION: section,
       CARTULARY_MANIFEST_COVERAGE: coverage,
       CARTULARY_MANIFEST_EXECUTION_DEPENDENCY: executionDependency,
@@ -373,21 +373,21 @@ export async function emitExecutionFamily(
     const emissionUsage = index === 0 ? usage : "derived";
     let result = 0;
     if (emission.mode === "manifest") {
-      result = await emitGoManifestPhase(
+      result = await emitGoCatalogStep(
         ctx,
         emission.label,
         emissionUsage,
         reportDir,
-        emission.phase,
+        emission.owner_id,
         emission.section,
         emission.coverage,
         emission.execution_dependency,
         family,
         emission.packages,
-        rows === null || ctx.phaseRowIDs.length > 0 ? emission.ids ?? [] : [],
+        rows === null || ctx.selectedRowIDs.length > 0 ? emission.ids ?? [] : [],
       );
     } else if (emission.mode === "support") {
-      result = await emitGoRawPhase(
+      result = await emitGoRawStep(
         ctx,
         emission.label,
         emissionUsage,
@@ -397,7 +397,7 @@ export async function emitExecutionFamily(
         "support",
       );
     } else if (emission.mode === "raw") {
-      result = await emitGoRawPhase(
+      result = await emitGoRawStep(
         ctx,
         emission.label,
         emissionUsage,

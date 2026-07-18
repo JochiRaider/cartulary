@@ -217,17 +217,6 @@ assert_equals "$(json_field "$pass_artifact" 'value.status')" "pass" "passing re
 assert_equals "$(json_field "$pass_artifact" 'value.evidence_records.some((record) => record.evidence_id.startsWith("owner-partition:browser-e2e-visual:") && record.status === "passed")')" "true" "visual owner partitions close from accounting"
 assert_equals "$(json_field "$pass_artifact" 'value.evidence_records.some((record) => record.claim_publication_effect === "claim_publication_evidence")')" "false" "no release record is claim publication evidence"
 
-legacy_results="$tmp_dir/legacy-results"
-legacy_run_id="legacy-run"
-legacy_run_root="$legacy_results/$legacy_run_id"
-write_required_target_summaries "$legacy_run_root"
-write_required_owner_shards "$legacy_run_root"
-mkdir -p "$legacy_run_root/browser-e2e-visual"
-printf '{"schema_id":"cartulary.frontend_row_accounting.v5"}\n' >"$legacy_run_root/browser-e2e-visual/frontend-row-accounting.json"
-run_release_readiness "$legacy_results" "$legacy_run_id" >/dev/null
-legacy_artifact="$legacy_run_root/release-readiness-evidence/release-readiness-evidence.json"
-assert_equals "$(json_field "$legacy_artifact" 'value.evidence_records.some((record) => record.schema_id.startsWith("cartulary.frontend_row_accounting"))')" "false" "legacy frontend accounting is not ingested"
-
 missing_owner_results="$tmp_dir/missing-owner-results"
 missing_owner_run_id="missing-owner-run"
 missing_owner_run_root="$missing_owner_results/$missing_owner_run_id"

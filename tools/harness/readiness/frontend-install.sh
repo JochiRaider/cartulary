@@ -2,7 +2,7 @@
 set -euo pipefail
 
 stamp="${FRONTEND_INSTALL_STAMP:?FRONTEND_INSTALL_STAMP is required}"
-run_phase="${RUN_PHASE_SCRIPT:?RUN_PHASE_SCRIPT is required}"
+run_step="${RUN_STEP_SCRIPT:?RUN_STEP_SCRIPT is required}"
 pnpm="${PNPM:?PNPM is required}"
 
 expected_store_dir=".pnpm-store"
@@ -62,7 +62,7 @@ fi
 mkdir -p "$(dirname "$stamp")"
 CARTULARY_TEST_TARGET="${CARTULARY_TEST_TARGET:-frontend-install}" \
   CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
-  "$run_phase" "frontend install" -- \
+  "$run_step" "frontend install" -- \
   bash "$script_path" --run-install
 printf 'node_path=%s\nnode_version=v%s\npnpm_path=%s\npnpm_version=%s\npnpm_store_dir=%s\n' \
   "${NODE_BIN:?NODE_BIN is required}" \

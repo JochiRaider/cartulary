@@ -162,7 +162,7 @@ export function createAggregateReport(
   return { reportDir: outputDir, usage };
 }
 
-export function loadPhaseWindow(reportDir, mode) {
+export function loadStepWindow(reportDir, mode) {
   const command = readFileSync(
     path.join(reportDir, "command.txt"),
     "utf8",

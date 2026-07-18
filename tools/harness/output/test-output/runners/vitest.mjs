@@ -18,7 +18,7 @@ import {
   selectPlaywrightEntries,
   selectVitestManifestEntries as selectVitestManifestEntriesAdapter,
   vitestEntryTitles,
-} from "../phase-manifest-adapter.mjs";
+} from "../catalog-manifest-adapter.mjs";
 import { selectedPlaywrightEntriesFromReport as selectedPlaywrightEntriesFromReportAdapter } from "../playwright-artifacts.mjs";
 import { verboseOutput } from "../../tool-output.mjs";
 import {
@@ -28,9 +28,9 @@ import {
   vitestFailureDetailsSchemaID,
 } from "../../../contract/test-output-context.mjs";
 import {
-  createBasePhaseContext,
-  writePhaseArtifacts,
-} from "../phase-artifacts.mjs";
+  createBaseStepContext,
+  writeStepArtifacts,
+} from "../step-artifacts.mjs";
 
 let cachedGoModulePath;
 
@@ -206,7 +206,7 @@ function normalizeAccountingRule(rule, label, scope) {
   return {
     ...rule,
     coverage,
-    phase: typeof rule.phase === "string" ? rule.phase : "",
+    step: typeof rule.step === "string" ? rule.step : "",
     reason: rule.reason.trim(),
   };
 }
@@ -300,7 +300,7 @@ function accountingManifestClassification(
   runner,
   owner,
   title = "",
-  fallbackPhase = "",
+  fallbackStep = "",
 ) {
   const manifest = loadTestAccountingClassification();
   const rules = manifest[runner] ?? [];
@@ -329,7 +329,7 @@ function accountingManifestClassification(
     }
     return {
       coverage: rule.coverage,
-      phase: rule.phase || fallbackPhase,
+      step: rule.step || fallbackStep,
       id: "",
       owner,
     };
@@ -337,19 +337,19 @@ function accountingManifestClassification(
   return null;
 }
 
-function inferPhaseFromText(value) {
+function inferStepFromText(value) {
   if (!value) {
     return "";
   }
   const patterns = [
-    /\bphase(?:\s|_|-)?(\d+)\b/i,
+    /\bstep(?:\s|_|-)?(\d+)\b/i,
     /\b[UIE][-_](\d+)-\d+\b/,
     /\b[UIE]_(\d+)_\d+\b/,
   ];
   for (const pattern of patterns) {
     const match = value.match(pattern);
     if (match) {
-      return `phase${match[1]}`;
+      return `step${match[1]}`;
     }
   }
   return "";
@@ -364,7 +364,7 @@ function claimsConformanceRowTitle(value) {
 }
 
 function supportNamedTitle(value) {
-  return /^Phase\s+\d+\s+support\b/i.test(value);
+  return /^Step\s+\d+\s+support\b/i.test(value);
 }
 
 function renderList(values) {
@@ -382,21 +382,21 @@ function printBlock(header, fields) {
   process.stderr.write(`${lines.join("\n")}\n`);
 }
 
-function showPhaseDetailOutput(context) {
+function showStepDetailOutput(context) {
   return verboseOutput() || context.target === "adhoc";
 }
 
-function createInventoryItem({ coverage, phase, id, owner, name }) {
+function createInventoryItem({ coverage, step, id, owner, name }) {
   return {
     coverage,
-    phase,
+    step,
     id: id ?? "",
     package_or_file: owner,
     symbol_or_title: name,
   };
 }
 
-function classifyVitestCase(ownerPath, title, phaseLabel) {
+function classifyVitestCase(ownerPath, title, stepLabel) {
   const manifestFile = vitestOwnerToSelectionFile(ownerPath);
   const manifested = loadManifestIndex().manifestVitest.get(
     `${manifestFile}::${title}`,
@@ -404,7 +404,7 @@ function classifyVitestCase(ownerPath, title, phaseLabel) {
   if (manifested && manifested.coverage !== "authoritative") {
     return {
       coverage: "support",
-      phase: manifested.phase,
+      step: manifested.step,
       id: manifested.id,
       owner: ownerPath,
     };
@@ -415,7 +415,7 @@ function classifyVitestCase(ownerPath, title, phaseLabel) {
   if (authoritative) {
     return {
       coverage: "authoritative",
-      phase: authoritative.phase,
+      step: authoritative.step,
       id: authoritative.id,
       owner: ownerPath,
     };
@@ -424,19 +424,19 @@ function classifyVitestCase(ownerPath, title, phaseLabel) {
   if (frontendManifested) {
     return {
       coverage: frontendManifested.coverage,
-      phase: frontendManifested.phase,
+      step: frontendManifested.step,
       id: frontendManifested.id,
       owner: ownerPath,
     };
   }
-  const inferredPhase =
-    inferPhaseFromText(ownerPath) ||
-    inferPhaseFromText(title) ||
-    inferPhaseFromText(phaseLabel);
+  const inferredStep =
+    inferStepFromText(ownerPath) ||
+    inferStepFromText(title) ||
+    inferStepFromText(stepLabel);
   if (claimsConformanceRowTitle(title)) {
     return {
       coverage: "unmapped",
-      phase: inferredPhase,
+      step: inferredStep,
       id: "",
       owner: ownerPath,
     };
@@ -446,13 +446,13 @@ function classifyVitestCase(ownerPath, title, phaseLabel) {
     supportNamedTitle(title) ||
     isForbiddenFile(
       ownerPath,
-      inferPhaseFromText(ownerPath) || inferPhaseFromText(title),
+      inferStepFromText(ownerPath) || inferStepFromText(title),
     ) ||
-    /\bsupport\b/i.test(phaseLabel);
+    /\bsupport\b/i.test(stepLabel);
   if (support) {
     return {
       coverage: "support",
-      phase: inferredPhase,
+      step: inferredStep,
       id: "",
       owner: ownerPath,
     };
@@ -462,10 +462,10 @@ function classifyVitestCase(ownerPath, title, phaseLabel) {
       "vitest",
       ownerPath,
       title,
-      inferredPhase,
+      inferredStep,
     ) ?? {
       coverage: "unmapped",
-      phase: inferredPhase,
+      step: inferredStep,
       id: "",
       owner: ownerPath,
     }
@@ -517,7 +517,7 @@ function renderVitestReproduceCommand(ownerPath, title = "") {
 
 function readManifestScopeEnv() {
   return {
-    phase: requiredEnv("CARTULARY_MANIFEST_PHASE"),
+    step: requiredEnv("CARTULARY_CATALOG_OWNER_ID"),
     coverage: requiredEnv("CARTULARY_MANIFEST_COVERAGE"),
     executionDependency: optionalEnv("CARTULARY_MANIFEST_EXECUTION_DEPENDENCY"),
   };
@@ -529,7 +529,7 @@ function manifestCoverageToInventoryCoverage(coverage) {
 
 function evaluateFlatTitleManifest(
   summary,
-  { phase, entries, inventoryCoverage },
+  { step, entries, inventoryCoverage },
 ) {
   const executedKeys = new Set(
     summary.inventory
@@ -568,19 +568,19 @@ function evaluateFlatTitleManifest(
     .sort();
 
   return {
-    phase,
+    step,
     missingIDs,
     unexpectedIDs,
     forbiddenIDFiles: Array.from(
-      loadManifestIndex().forbiddenFilesByPhase.get(phase) ?? [],
+      loadManifestIndex().forbiddenFilesByStep.get(step) ?? [],
     ).sort(),
   };
 }
 
-function finalizeManifestAwareRunnerPhase(
+function finalizeManifestAwareRunnerStep(
   context,
   {
-    manifestAware,
+    catalogAware,
     runner,
     section = "",
     summary,
@@ -589,21 +589,21 @@ function finalizeManifestAwareRunnerPhase(
     manifestMismatchArtifacts = () => ({}),
     manifestMismatchDetailFields = () => ({}),
     failureDetailFields = (dossier) => dossier,
-    extraWritePhaseDetails = {},
+    extraWriteStepDetails = {},
   },
 ) {
   let status = selectedSlicePassed ? "pass" : "fail";
   let manifestSummary = null;
   let manifestMismatch = null;
-  let phaseCounts = summary.counts;
-  let phaseDossiers = summary.dossiers;
+  let stepCounts = summary.counts;
+  let stepDossiers = summary.dossiers;
   const emptySelectionAllowed =
     runner === "vitest" &&
     optionalEnv("CARTULARY_VITEST_ALLOW_EMPTY_SELECTION") === "1" &&
     (summary.counts?.tests ?? 0) === 0 &&
     summary.dossiers.length === 0;
 
-  if (manifestAware && selectedSlicePassed && !emptySelectionAllowed) {
+  if (catalogAware && selectedSlicePassed && !emptySelectionAllowed) {
     const scope = readManifestScopeEnv();
     const selectedIDs =
       runner === "playwright"
@@ -620,7 +620,7 @@ function finalizeManifestAwareRunnerPhase(
       selectedPlaywrightEntries ??
       (runner === "playwright"
         ? selectPlaywrightEntries(
-            scope.phase,
+            scope.step,
             scope.coverage,
             scope.executionDependency,
           )
@@ -631,7 +631,7 @@ function finalizeManifestAwareRunnerPhase(
           })
       ).filter((entry) => selectedIDs.size === 0 || selectedIDs.has(entry.id));
     const verification = evaluateFlatTitleManifest(summary, {
-      phase: scope.phase,
+      step: scope.step,
       entries,
       inventoryCoverage: manifestCoverageToInventoryCoverage(scope.coverage),
     });
@@ -653,20 +653,20 @@ function finalizeManifestAwareRunnerPhase(
     }
   }
 
-  if (status === "fail" && !manifestMismatch && phaseDossiers.length === 0) {
-    phaseCounts = {
+  if (status === "fail" && !manifestMismatch && stepDossiers.length === 0) {
+    stepCounts = {
       ...createCounts(),
-      ...(phaseCounts ?? {}),
-      failed: (phaseCounts?.failed ?? 0) + 1,
-      non_test: (phaseCounts?.non_test ?? 0) + 1,
-      non_test_failed: (phaseCounts?.non_test_failed ?? 0) + 1,
+      ...(stepCounts ?? {}),
+      failed: (stepCounts?.failed ?? 0) + 1,
+      non_test: (stepCounts?.non_test ?? 0) + 1,
+      non_test_failed: (stepCounts?.non_test_failed ?? 0) + 1,
     };
-    phaseDossiers = [
+    stepDossiers = [
       {
         failure_class: "harness",
         failure_reason: "tool_diagnostic_failure",
         coverage: "non_test",
-        phase: inferPhaseFromText(context.label),
+        step: inferStepFromText(context.label),
         id: "",
         runner,
         package_or_file: `(${runner} runner)`,
@@ -678,14 +678,14 @@ function finalizeManifestAwareRunnerPhase(
     ];
   }
 
-  writePhaseArtifacts(context, {
+  writeStepArtifacts(context, {
     status,
-    phase: inferPhaseFromText(context.label),
-    counts: phaseCounts,
+    step: inferStepFromText(context.label),
+    counts: stepCounts,
     owners: summary.owners,
     inventory: summary.inventory,
-    dossiers: phaseDossiers,
-    ...extraWritePhaseDetails,
+    dossiers: stepDossiers,
+    ...extraWriteStepDetails,
     manifestSummary,
     manifestMismatch,
     artifacts,
@@ -695,7 +695,7 @@ function finalizeManifestAwareRunnerPhase(
     return 0;
   }
   if (manifestMismatch) {
-    if (showPhaseDetailOutput(context)) {
+    if (showStepDetailOutput(context)) {
       printBlock(`manifest mismatch: ${context.label}`, {
         missing_ids: renderList(manifestMismatch.missing_ids),
         unexpected_ids: renderList(manifestMismatch.unexpected_ids),
@@ -705,21 +705,21 @@ function finalizeManifestAwareRunnerPhase(
     }
     return 1;
   }
-  if (showPhaseDetailOutput(context)) {
-    for (const dossier of phaseDossiers) {
+  if (showStepDetailOutput(context)) {
+    for (const dossier of stepDossiers) {
       printBlock(`failure: ${context.label}`, failureDetailFields(dossier));
     }
   }
   return 1;
 }
 
-function createVitestSelection({ manifestAware }) {
+function createVitestSelection({ catalogAware }) {
   const reportSlice = optionalEnv("CARTULARY_REPORT_SLICE") === "1";
 
-  if (manifestAware && reportSlice) {
-    const { phase, coverage, executionDependency } = readManifestScopeEnv();
+  if (catalogAware && reportSlice) {
+    const { step, coverage, executionDependency } = readManifestScopeEnv();
     const entries = selectVitestManifestEntries(
-      phase,
+      step,
       coverage,
       executionDependency,
     );
@@ -746,7 +746,7 @@ function createVitestSelection({ manifestAware }) {
         }
         return {
           coverage,
-          phase,
+          step,
           id: "",
           owner: ownerPath,
         };
@@ -859,10 +859,10 @@ function appendVitestFileResults(value, fileResults, visited) {
   }
 }
 
-function findVitestAuthoritativeFileEntry(ownerPath, phaseLabel) {
+function findVitestAuthoritativeFileEntry(ownerPath, stepLabel) {
   const manifestFile = vitestOwnerToSelectionFile(ownerPath);
-  const inferredPhase =
-    inferPhaseFromText(ownerPath) || inferPhaseFromText(phaseLabel);
+  const inferredStep =
+    inferStepFromText(ownerPath) || inferStepFromText(stepLabel);
   let fallback = null;
 
   for (const entry of loadManifestIndex().authoritativeVitest.values()) {
@@ -872,7 +872,7 @@ function findVitestAuthoritativeFileEntry(ownerPath, phaseLabel) {
     if (!fallback) {
       fallback = entry;
     }
-    if (inferredPhase && entry.phase === inferredPhase) {
+    if (inferredStep && entry.step === inferredStep) {
       return entry;
     }
   }
@@ -880,32 +880,32 @@ function findVitestAuthoritativeFileEntry(ownerPath, phaseLabel) {
   return fallback;
 }
 
-function classifyVitestFileFailure(ownerPath, phaseLabel, selection = null) {
+function classifyVitestFileFailure(ownerPath, stepLabel, selection = null) {
   const selected = selection?.classifyFileFailure?.(ownerPath);
   if (selected) {
     return selected;
   }
 
-  const authoritative = findVitestAuthoritativeFileEntry(ownerPath, phaseLabel);
+  const authoritative = findVitestAuthoritativeFileEntry(ownerPath, stepLabel);
   if (authoritative) {
     return {
       coverage: "authoritative",
-      phase: authoritative.phase,
+      step: authoritative.step,
       id: "",
       owner: ownerPath,
     };
   }
 
-  const inferredPhase =
-    inferPhaseFromText(ownerPath) || inferPhaseFromText(phaseLabel);
+  const inferredStep =
+    inferStepFromText(ownerPath) || inferStepFromText(stepLabel);
   const support =
     ownerPath.includes(".support.") ||
-    isForbiddenFile(ownerPath, inferredPhase) ||
-    /\bsupport\b/i.test(phaseLabel);
+    isForbiddenFile(ownerPath, inferredStep) ||
+    /\bsupport\b/i.test(stepLabel);
   if (support) {
     return {
       coverage: "support",
-      phase: inferredPhase,
+      step: inferredStep,
       id: "",
       owner: ownerPath,
     };
@@ -915,10 +915,10 @@ function classifyVitestFileFailure(ownerPath, phaseLabel, selection = null) {
       "vitest",
       ownerPath,
       "",
-      inferredPhase,
+      inferredStep,
     ) ?? {
       coverage: "unmapped",
-      phase: inferredPhase,
+      step: inferredStep,
       id: "",
       owner: ownerPath,
     }
@@ -1078,7 +1078,7 @@ function summarizeVitestFailureMessage({
 
 function summarizeVitestRun(
   reportFile,
-  phaseLabel,
+  stepLabel,
   selection = null,
   rawFiles = [reportFile],
   failureDetailsFile = "",
@@ -1104,7 +1104,7 @@ function summarizeVitestRun(
       }
       const classification = classifyVitestFileFailure(
         ownerPath,
-        phaseLabel,
+        stepLabel,
         selection,
       );
       owners.add(classification.owner);
@@ -1119,7 +1119,7 @@ function summarizeVitestRun(
       const sidecarMessage = sidecarFailure?.message ?? "";
       dossiers.push({
         coverage: classification.coverage,
-        phase: classification.phase,
+        step: classification.step,
         id: classification.id,
         runner: "vitest",
         package_or_file: classification.owner,
@@ -1151,7 +1151,7 @@ function summarizeVitestRun(
       const classification = classifyVitestCase(
         ownerPath,
         assertion.title ?? "",
-        phaseLabel,
+        stepLabel,
       );
       owners.add(classification.owner);
       counts.tests += 1;
@@ -1160,7 +1160,7 @@ function summarizeVitestRun(
         inventory.push(
           createInventoryItem({
             coverage: classification.coverage,
-            phase: classification.phase,
+            step: classification.step,
             id: classification.id,
             owner: classification.owner,
             name: assertion.title ?? "(missing title)",
@@ -1182,7 +1182,7 @@ function summarizeVitestRun(
       const sidecarMessage = sidecarFailure?.message ?? "";
       dossiers.push({
         coverage: classification.coverage,
-        phase: classification.phase,
+        step: classification.step,
         id: classification.id,
         runner: "vitest",
         package_or_file: classification.owner,
@@ -1216,13 +1216,13 @@ function summarizeVitestRun(
   ) {
     dossiers.push({
       coverage: "unmapped",
-      phase: inferPhaseFromText(phaseLabel),
+      step: inferStepFromText(stepLabel),
       id: "",
       runner: "vitest",
       package_or_file: "(vitest selection)",
       symbol_or_title: "(vitest selection)",
-      message: "phase matched zero tests",
-      reproduce: requiredEnv("CARTULARY_PHASE_COMMAND"),
+      message: "step matched zero tests",
+      reproduce: requiredEnv("CARTULARY_STEP_COMMAND"),
       raw: rawArtifacts,
     });
     counts.failed += 1;
@@ -1240,9 +1240,9 @@ function summarizeVitestRun(
   };
 }
 
-function selectVitestManifestEntries(phase, coverage, executionDependency) {
+function selectVitestManifestEntries(step, coverage, executionDependency) {
   return selectVitestManifestEntriesAdapter(repoRoot, {
-    phase,
+    step,
     coverage,
     executionDependency,
   });
@@ -1255,15 +1255,15 @@ function collectVitestManifestEntries(coverage, executionDependency) {
   });
 }
 
-export function handleVitestPhase({ manifestAware }) {
-  const context = createBasePhaseContext("vitest");
-  const reportFile = requiredEnv("CARTULARY_PHASE_RUNNER_LOG");
-  const stderrLog = optionalEnv("CARTULARY_PHASE_STDERR_LOG");
-  const stdoutLog = optionalEnv("CARTULARY_PHASE_STDOUT_LOG");
-  const watchdogLog = optionalEnv("CARTULARY_PHASE_WATCHDOG_LOG");
-  const interruptSignal = optionalEnv("CARTULARY_PHASE_INTERRUPT_SIGNAL");
+export function handleVitestStep({ catalogAware }) {
+  const context = createBaseStepContext("vitest");
+  const reportFile = requiredEnv("CARTULARY_STEP_RUNNER_LOG");
+  const stderrLog = optionalEnv("CARTULARY_STEP_STDERR_LOG");
+  const stdoutLog = optionalEnv("CARTULARY_STEP_STDOUT_LOG");
+  const watchdogLog = optionalEnv("CARTULARY_STEP_WATCHDOG_LOG");
+  const interruptSignal = optionalEnv("CARTULARY_STEP_INTERRUPT_SIGNAL");
   const failureDetailsLog = optionalEnv(
-    "CARTULARY_PHASE_VITEST_FAILURE_DETAILS",
+    "CARTULARY_STEP_VITEST_FAILURE_DETAILS",
   );
   removeEmptyArtifact(stderrLog);
   removeEmptyArtifact(stdoutLog);
@@ -1293,7 +1293,7 @@ export function handleVitestPhase({ manifestAware }) {
       failure_class: interrupted ? "interrupted" : "artifact",
       failure_reason: interrupted ? "cancelled_or_interrupted" : undefined,
       coverage: "non_test",
-      phase: inferPhaseFromText(context.label),
+      step: inferStepFromText(context.label),
       id: "",
       runner: "vitest",
       package_or_file: "(vitest runner)",
@@ -1302,9 +1302,9 @@ export function handleVitestPhase({ manifestAware }) {
       reproduce: context.command,
       raw: renderRawList([watchdogLog, stdoutLog, stderrLog]),
     };
-    writePhaseArtifacts(context, {
+    writeStepArtifacts(context, {
       status: "fail",
-      phase: inferPhaseFromText(context.label),
+      step: inferStepFromText(context.label),
       counts,
       owners: [],
       inventory: [],
@@ -1319,16 +1319,16 @@ export function handleVitestPhase({ manifestAware }) {
           : "",
       },
     });
-    if (showPhaseDetailOutput(context)) {
+    if (showStepDetailOutput(context)) {
       printBlock(`failure: ${context.label}`, dossier);
     }
     return 1;
   }
 
   if (context.countingMode === "none") {
-    writePhaseArtifacts(context, {
+    writeStepArtifacts(context, {
       status: "pass",
-      phase: inferPhaseFromText(context.label),
+      step: inferStepFromText(context.label),
       counts: createCounts(),
       owners: [],
       inventory: [],
@@ -1349,7 +1349,7 @@ export function handleVitestPhase({ manifestAware }) {
   const summary = summarizeVitestRun(
     reportFile,
     context.label,
-    createVitestSelection({ manifestAware }),
+    createVitestSelection({ catalogAware }),
     [reportFile, failureDetailsLog, stdoutLog, stderrLog],
     failureDetailsLog,
   );
@@ -1357,8 +1357,8 @@ export function handleVitestPhase({ manifestAware }) {
     summary.dossiers.length === 0 &&
     (context.exitStatus === 0 || optionalEnv("CARTULARY_REPORT_SLICE") === "1");
 
-  return finalizeManifestAwareRunnerPhase(context, {
-    manifestAware,
+  return finalizeManifestAwareRunnerStep(context, {
+    catalogAware,
     runner: "vitest",
     summary,
     selectedSlicePassed,
@@ -1384,11 +1384,11 @@ export function handleVitestPhase({ manifestAware }) {
   });
 }
 
-function isForbiddenFile(file, phase) {
-  if (!phase) {
+function isForbiddenFile(file, step) {
+  if (!step) {
     return false;
   }
-  const files = loadManifestIndex().forbiddenFilesByPhase.get(phase);
+  const files = loadManifestIndex().forbiddenFilesByStep.get(step);
   return files ? files.has(file) : false;
 }
 

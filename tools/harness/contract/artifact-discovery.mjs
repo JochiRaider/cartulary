@@ -61,7 +61,7 @@ function artifactRecord(file, kind, runID, root) {
   };
 }
 
-function walkPhaseSummaries(targetDir) {
+function walkStepSummaries(targetDir) {
   if (!existsSync(targetDir)) {
     return [];
   }
@@ -75,7 +75,7 @@ function walkPhaseSummaries(targetDir) {
         stack.push(next);
         continue;
       }
-      if (entry.isFile() && entry.name === "phase-summary.json") {
+      if (entry.isFile() && entry.name === "step-summary.json") {
         files.push(next);
       }
     }
@@ -114,7 +114,7 @@ function expectedTargetArtifacts(target, { root = repoRoot } = {}) {
     );
   }
   if (!["sequence", "check_schedule", "service_backed_schedule"].includes(recipeType)) {
-    expected.push(relToRepo(path.join(resultsRoot, "<run-id>", target, "<phase-label>", "phase-summary.json"), root));
+    expected.push(relToRepo(path.join(resultsRoot, "<run-id>", target, "<step-label>", "step-summary.json"), root));
   }
   if (targetHasRunSummary(target, recipe)) {
     expected.push(relToRepo(path.join(resultsRoot, "<run-id>", "run-summary.json"), root));
@@ -162,11 +162,11 @@ function targetArtifactCandidates(target, { root = repoRoot } = {}) {
         candidates.push(artifactRecord(runSummary, "run_summary", runID, root));
       }
     }
-    for (const phaseSummary of walkPhaseSummaries(targetDir)) {
-      const summary = safeReadJSON(phaseSummary);
+    for (const stepSummary of walkStepSummaries(targetDir)) {
+      const summary = safeReadJSON(stepSummary);
       if (summary?.target === target) {
         candidates.push({
-          ...artifactRecord(phaseSummary, "phase_summary", runID, root),
+          ...artifactRecord(stepSummary, "step_summary", runID, root),
           label: summary.label ?? "",
           status: summary.status ?? "",
         });
@@ -197,7 +197,7 @@ export function helperArtifactReferences(helperTargets, { root = repoRoot, runId
   return helperTargets
     .map((target) => {
       const targetDir = path.join(resultsRoot, currentRunID, target);
-      const phaseSummaries = walkPhaseSummaries(targetDir)
+      const stepSummaries = walkStepSummaries(targetDir)
         .map((file) => {
           const summary = safeReadJSON(file);
           if (summary?.target !== target) {
@@ -216,9 +216,9 @@ export function helperArtifactReferences(helperTargets, { root = repoRoot, runId
         .sort((left, right) => left.artifact.localeCompare(right.artifact));
       return {
         target,
-        latest: phaseSummaries.at(-1)?.artifact ?? "",
-        phase_summaries: phaseSummaries,
+        latest: stepSummaries.at(-1)?.artifact ?? "",
+        step_summaries: stepSummaries,
       };
     })
-    .filter((entry) => entry.phase_summaries.length > 0);
+    .filter((entry) => entry.step_summaries.length > 0);
 }

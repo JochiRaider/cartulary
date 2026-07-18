@@ -20,7 +20,6 @@
       "tools/harness/generated-artifacts/database-contract-drift/migration-history-cli.mjs",
       "tools/harness/generated-artifacts/design-tokens/design-token-cli.mjs",
       "tools/harness/output/test-output.mjs",
-      "tools/harness/phase-accounting/phase-map-check-cli.mjs",
       "tools/harness/readiness/diagnose-inotify.mjs",
       "tools/harness/static-analysis/font-bundle-check-cli.mjs",
       "tools/harness/static-analysis/govulncheck-findings.mjs",

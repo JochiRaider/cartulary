@@ -14,13 +14,13 @@ export function targetStartStats(root, target, children = []) {
   const descriptor = findTargetDescriptor(target, root);
   const serviceBacked =
     descriptor?.serviceBacked ?? rows.some((row) => row.service_backed);
-  const manifestPhases = new Set(
-    rows.map((row) => row.manifest_phase).filter(Boolean),
+  const owners = new Set(
+    rows.map((row) => row.owner_id).filter(Boolean),
   );
-  const rawRows = rows.filter((row) => row.manifest_phase === "").length;
+  const unownedRows = rows.filter((row) => row.owner_id === "").length;
   return {
     serviceBacked,
-    expectedPhases: manifestPhases.size + rawRows,
+    expectedSteps: owners.size + unownedRows,
     expectedTests: rows.length,
   };
 }

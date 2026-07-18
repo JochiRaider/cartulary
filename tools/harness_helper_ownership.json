@@ -1,44 +1,291 @@
 {
   "schema_id": "cartulary.harness_helper_ownership.v1",
   "facades": [
-    { "key": "backend_duration_accounting", "boundary_group": "backend", "paths": ["tools/harness/backend/backend-duration-accounting.mjs"], "allowed_consumers": [] },
-    { "key": "backend_shard_plan", "boundary_group": "backend", "paths": ["tools/harness/backend/backend-shard-plan.mjs"], "allowed_consumers": [] },
-    { "key": "backend_target_execution", "boundary_group": "backend", "paths": ["tools/harness/backend/backend-target-execution.mjs"], "allowed_consumers": [] },
-    { "key": "backend_target_plan", "boundary_group": "backend", "paths": ["tools/harness/backend/backend-target-plan.mjs"], "allowed_consumers": [] },
-    { "key": "browser_accessibility_evidence", "boundary_group": "browser", "paths": ["tools/harness/browser/accessibility-summary-cli.mjs"], "allowed_consumers": [] },
-    { "key": "browser_batch_manifest", "boundary_group": "browser", "paths": ["tools/harness/browser/browser-batch-manifest.mjs"], "allowed_consumers": [] },
-    { "key": "browser_duration_accounting", "boundary_group": "browser", "paths": ["tools/harness/browser/browser-duration-accounting.mjs"], "allowed_consumers": [] },
-    { "key": "browser_lifecycle_adapter", "boundary_group": "browser", "paths": ["tools/harness/browser/browser-lifecycle-adapter.sh"], "allowed_consumers": [] },
-    { "key": "browser_owner_facade", "boundary_group": "browser", "paths": ["tools/harness/browser/index.mjs"], "allowed_consumers": [] },
-    { "key": "browser_playwright_execution", "boundary_group": "browser", "paths": ["tools/harness/output/test-output/playwright-artifacts.mjs"], "allowed_consumers": [] },
-    { "key": "browser_scheduler_adapter", "boundary_group": "browser", "paths": ["tools/harness/scheduler/adapters/browser.mjs"], "allowed_consumers": ["tools/harness/generated-artifacts/render-service-backed-schedule-manifest.mjs", "tools/harness/output/test-output/playwright-artifacts.mjs", "tools/harness/scheduler/adapters/browser.mjs"] },
-    { "key": "browser_target_execution", "boundary_group": "browser", "paths": ["tools/harness/browser/run-browser-e2e-target.sh"], "allowed_consumers": [] },
-    { "key": "browser_visual_update_helper", "boundary_group": "browser", "paths": ["tools/harness/browser/run-browser-e2e-visual-update.sh"], "allowed_consumers": [] },
-    { "key": "command_surface_node_tool_dispatch", "boundary_group": "command_surface", "paths": ["tools/harness/command-surface/make-node-tools.mjs"], "allowed_consumers": [] },
-    { "key": "database_contract_drift", "boundary_group": "generated_artifacts", "paths": ["tools/harness/generated-artifacts/database-contract-drift/index.mjs"], "allowed_consumers": [] },
-    { "key": "design_token_generation", "boundary_group": "generated_artifacts", "paths": ["tools/harness/generated-artifacts/design-tokens/index.mjs"], "allowed_consumers": [] },
-    { "key": "evidence_accounting", "boundary_group": "evidence_accounting", "paths": ["tools/harness/evidence-accounting/index.mjs"], "allowed_consumers": [] },
-    { "key": "font_asset_validation", "boundary_group": "static_analysis", "paths": ["tools/harness/static-analysis/font-bundle-check-cli.mjs"], "allowed_consumers": [] },
-    { "key": "frontend_evidence_audit", "boundary_group": "phase_accounting", "paths": ["tools/harness/phase-accounting/frontend-evidence-audit-cli.mjs"], "allowed_consumers": [] },
-    { "key": "frontend_phase_accounting", "boundary_group": "phase_accounting", "paths": ["tools/harness/phase-accounting/frontend/index.mjs", "tools/harness/phase-accounting/frontend-phase-manifest.mjs", "tools/harness/phase-accounting/frontend-readiness.mjs", "tools/harness/phase-accounting/index.mjs", "tools/harness/phase-accounting/phase-manifest.mjs", "tools/harness/phase-accounting/phase-registry.mjs"], "allowed_consumers": [] },
-    { "key": "frontend_row_accounting", "boundary_group": "phase_accounting", "paths": ["tools/harness/phase-accounting/frontend-row-accounting.mjs"], "allowed_consumers": [] },
-    { "key": "frontend_target_execution", "boundary_group": "frontend", "paths": ["tools/harness/execution/run-frontend-unit.sh"], "allowed_consumers": [] },
-    { "key": "frontend_toolchain_readiness", "boundary_group": "readiness", "paths": ["tools/harness/readiness/cache-policy.sh", "tools/harness/readiness/frontend-install.sh", "tools/harness/readiness/frontend-toolchain.sh"], "allowed_consumers": [] },
-    { "key": "generated_artifact_surface", "boundary_group": "generated_artifacts", "paths": ["tools/harness/generated-artifacts/index.mjs"], "allowed_consumers": [] },
-    { "key": "owner_diagnostics", "boundary_group": "scheduler_diagnostics", "paths": ["tools/harness/diagnostics/owner-diagnostics.mjs"], "allowed_consumers": [] },
-    { "key": "phase_execution_runtime", "boundary_group": "execution_runtime", "paths": ["tools/harness/execution/phase-runtime.sh"], "allowed_consumers": [] },
-    { "key": "phase_slice_planning", "boundary_group": "phase_accounting", "paths": ["tools/harness/phase-accounting/phase-slice-plan.mjs"], "allowed_consumers": [] },
-    { "key": "scheduler_contract_helpers", "boundary_group": "scheduler", "paths": ["tools/harness/scheduler/scheduler-family-contract.mjs", "tools/harness/scheduler/scheduler-manifest.mjs", "tools/harness/scheduler/scheduler-reporting.mjs", "tools/harness/scheduler/scheduler-resource-policy.mjs", "tools/harness/scheduler/scheduler-resources.mjs"], "allowed_consumers": [] },
-    { "key": "scheduler_duration_accounting", "boundary_group": "duration_accounting", "paths": ["tools/harness/duration-accounting/index.mjs"], "allowed_consumers": [] },
-    { "key": "scheduler_evidence_drift", "boundary_group": "scheduler_diagnostics", "paths": ["tools/harness/diagnostics/scheduler-event-order-drift-cli.mjs", "tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs"], "allowed_consumers": [] },
-    { "key": "scheduler_execution_core", "boundary_group": "scheduler", "paths": ["tools/harness/scheduler/phase-slice-execution.mjs", "tools/harness/scheduler/scheduler-runner.mjs", "tools/harness/scheduler/scheduler-runtime.mjs"], "allowed_consumers": [] },
-    { "key": "scheduler_process_execution", "boundary_group": "scheduler", "paths": ["tools/harness/scheduler/process-executor.mjs"], "allowed_consumers": [] },
-    { "key": "service_backed_schedule_planning", "boundary_group": "service_backed_execution", "paths": ["tools/harness/execution/service-backed/index.mjs", "tools/harness/execution/service-backed/schedule-planning.mjs"], "allowed_consumers": [] },
-    { "key": "static_analysis_security_findings", "boundary_group": "static_analysis", "paths": ["tools/harness/static-analysis/govulncheck-findings.mjs"], "allowed_consumers": [] },
-    { "key": "test_catalog", "boundary_group": "test_catalog", "paths": ["tools/harness/test-catalog/index.mjs"], "allowed_consumers": [] },
-    { "key": "test_output_frontend_indexing", "boundary_group": "test_output", "paths": ["tools/harness/output/test-output/frontend-indexes.mjs", "tools/harness/output/test-output/frontend-row-evidence.mjs"], "allowed_consumers": [] },
-    { "key": "test_slice_planning", "boundary_group": "scheduler", "paths": ["tools/harness/owner-slice/index.mjs"], "allowed_consumers": [] },
-    { "key": "vitest_execution_diagnostics", "boundary_group": "test_output", "paths": ["tools/harness/diagnostics/vitest-failure-details.mjs"], "allowed_consumers": [] },
-    { "key": "web_build_artifact", "boundary_group": "readiness", "paths": ["tools/harness/readiness/build-web-artifact.sh", "tools/harness/readiness/embed-web-assets.sh"], "allowed_consumers": [] }
+    {
+      "key": "backend_duration_accounting",
+      "boundary_group": "backend",
+      "paths": [
+        "tools/harness/backend/backend-duration-accounting.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "backend_shard_plan",
+      "boundary_group": "backend",
+      "paths": [
+        "tools/harness/backend/backend-shard-plan.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "backend_target_execution",
+      "boundary_group": "backend",
+      "paths": [
+        "tools/harness/backend/backend-target-execution.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "backend_target_plan",
+      "boundary_group": "backend",
+      "paths": [
+        "tools/harness/backend/backend-target-plan.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "browser_batch_manifest",
+      "boundary_group": "browser",
+      "paths": [
+        "tools/harness/browser/browser-batch-manifest.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "browser_duration_accounting",
+      "boundary_group": "browser",
+      "paths": [
+        "tools/harness/browser/browser-duration-accounting.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "browser_lifecycle_adapter",
+      "boundary_group": "browser",
+      "paths": [
+        "tools/harness/browser/browser-lifecycle-adapter.sh"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "browser_owner_facade",
+      "boundary_group": "browser",
+      "paths": [
+        "tools/harness/browser/index.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "browser_playwright_execution",
+      "boundary_group": "browser",
+      "paths": [
+        "tools/harness/output/test-output/playwright-artifacts.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "browser_scheduler_adapter",
+      "boundary_group": "browser",
+      "paths": [
+        "tools/harness/scheduler/adapters/browser.mjs"
+      ],
+      "allowed_consumers": [
+        "tools/harness/generated-artifacts/render-service-backed-schedule-manifest.mjs",
+        "tools/harness/output/test-output/playwright-artifacts.mjs",
+        "tools/harness/scheduler/adapters/browser.mjs"
+      ]
+    },
+    {
+      "key": "browser_target_execution",
+      "boundary_group": "browser",
+      "paths": [
+        "tools/harness/browser/run-browser-e2e-target.sh"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "browser_visual_update_helper",
+      "boundary_group": "browser",
+      "paths": [
+        "tools/harness/browser/run-browser-e2e-visual-update.sh"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "command_surface_node_tool_dispatch",
+      "boundary_group": "command_surface",
+      "paths": [
+        "tools/harness/command-surface/make-node-tools.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "database_contract_drift",
+      "boundary_group": "generated_artifacts",
+      "paths": [
+        "tools/harness/generated-artifacts/database-contract-drift/index.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "design_token_generation",
+      "boundary_group": "generated_artifacts",
+      "paths": [
+        "tools/harness/generated-artifacts/design-tokens/index.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "evidence_accounting",
+      "boundary_group": "evidence_accounting",
+      "paths": [
+        "tools/harness/evidence-accounting/index.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "font_asset_validation",
+      "boundary_group": "static_analysis",
+      "paths": [
+        "tools/harness/static-analysis/font-bundle-check-cli.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "frontend_target_execution",
+      "boundary_group": "frontend",
+      "paths": [
+        "tools/harness/execution/run-frontend-unit.sh"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "frontend_toolchain_readiness",
+      "boundary_group": "readiness",
+      "paths": [
+        "tools/harness/readiness/cache-policy.sh",
+        "tools/harness/readiness/frontend-install.sh",
+        "tools/harness/readiness/frontend-toolchain.sh"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "generated_artifact_surface",
+      "boundary_group": "generated_artifacts",
+      "paths": [
+        "tools/harness/generated-artifacts/index.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "owner_diagnostics",
+      "boundary_group": "scheduler_diagnostics",
+      "paths": [
+        "tools/harness/diagnostics/owner-diagnostics.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "step_execution_runtime",
+      "boundary_group": "execution_runtime",
+      "paths": [
+        "tools/harness/execution/step-runtime.sh"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "scheduler_contract_helpers",
+      "boundary_group": "scheduler",
+      "paths": [
+        "tools/harness/scheduler/scheduler-family-contract.mjs",
+        "tools/harness/scheduler/scheduler-manifest.mjs",
+        "tools/harness/scheduler/scheduler-reporting.mjs",
+        "tools/harness/scheduler/scheduler-resource-policy.mjs",
+        "tools/harness/scheduler/scheduler-resources.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "scheduler_duration_accounting",
+      "boundary_group": "duration_accounting",
+      "paths": [
+        "tools/harness/duration-accounting/index.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "scheduler_evidence_drift",
+      "boundary_group": "scheduler_diagnostics",
+      "paths": [
+        "tools/harness/diagnostics/scheduler-event-order-drift-cli.mjs",
+        "tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "scheduler_execution_core",
+      "boundary_group": "scheduler",
+      "paths": [
+        "tools/harness/scheduler/scheduler-runner.mjs",
+        "tools/harness/scheduler/scheduler-runtime.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "scheduler_process_execution",
+      "boundary_group": "scheduler",
+      "paths": [
+        "tools/harness/scheduler/process-executor.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "service_backed_schedule_planning",
+      "boundary_group": "service_backed_execution",
+      "paths": [
+        "tools/harness/execution/service-backed/index.mjs",
+        "tools/harness/execution/service-backed/schedule-planning.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "static_analysis_security_findings",
+      "boundary_group": "static_analysis",
+      "paths": [
+        "tools/harness/static-analysis/govulncheck-findings.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "test_catalog",
+      "boundary_group": "test_catalog",
+      "paths": [
+        "tools/harness/test-catalog/index.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "test_output_frontend_indexing",
+      "boundary_group": "test_output",
+      "paths": [
+        "tools/harness/output/test-output/frontend-indexes.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "test_slice_planning",
+      "boundary_group": "scheduler",
+      "paths": [
+        "tools/harness/owner-slice/index.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "vitest_execution_diagnostics",
+      "boundary_group": "test_output",
+      "paths": [
+        "tools/harness/diagnostics/vitest-failure-details.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
+      "key": "web_build_artifact",
+      "boundary_group": "readiness",
+      "paths": [
+        "tools/harness/readiness/build-web-artifact.sh",
+        "tools/harness/readiness/embed-web-assets.sh"
+      ],
+      "allowed_consumers": []
+    }
   ]
 }

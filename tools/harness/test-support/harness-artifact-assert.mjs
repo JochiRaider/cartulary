@@ -5,13 +5,13 @@ import path from "node:path";
 
 function usage() {
   return [
-    "usage: harness-artifact-assert.mjs --results-root <dir> --run-id <id> --target <target> --needle <text> --label <label> [--phase-label <label>] [--repo-root <dir>]",
+    "usage: harness-artifact-assert.mjs --results-root <dir> --run-id <id> --target <target> --needle <text> --label <label> [--step-label <label>] [--repo-root <dir>]",
   ].join("\n");
 }
 
 function parseArgs(argv) {
   const options = {
-    phaseLabel: "",
+    stepLabel: "",
     repoRoot: process.cwd(),
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -30,8 +30,8 @@ function parseArgs(argv) {
         options.target = value;
         index += 1;
         break;
-      case "--phase-label":
-        options.phaseLabel = value;
+      case "--step-label":
+        options.stepLabel = value;
         index += 1;
         break;
       case "--needle":
@@ -65,7 +65,7 @@ function resolvePath(repoRoot, file) {
   return path.isAbsolute(file) ? file : path.join(repoRoot, file);
 }
 
-function collectPhaseSummaries(targetDir) {
+function collectStepSummaries(targetDir) {
   const summaries = [];
   if (!existsSync(targetDir)) {
     return summaries;
@@ -79,7 +79,7 @@ function collectPhaseSummaries(targetDir) {
         stack.push(next);
         continue;
       }
-      if (entry.isFile() && entry.name === "phase-summary.json") {
+      if (entry.isFile() && entry.name === "step-summary.json") {
         summaries.push(next);
       }
     }
@@ -93,7 +93,7 @@ function readSummary(file) {
     return JSON.parse(readFileSync(file, "utf8"));
   } catch (error) {
     throw new Error(
-      `failed to read phase summary ${file}: ${error instanceof Error ? error.message : String(error)}`,
+      `failed to read step summary ${file}: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
 }
@@ -108,10 +108,10 @@ function assertArtifactContains(options) {
   const repoRoot = path.resolve(options.repoRoot);
   const resultsRoot = resolvePath(repoRoot, options.resultsRoot);
   const targetDir = path.join(resultsRoot, options.runId, options.target);
-  const summaryFiles = collectPhaseSummaries(targetDir);
+  const summaryFiles = collectStepSummaries(targetDir);
   if (summaryFiles.length === 0) {
     throw new Error(
-      `${options.label}: no phase summaries found for target ${options.target} under ${targetDir}`,
+      `${options.label}: no step summaries found for target ${options.target} under ${targetDir}`,
     );
   }
 
@@ -119,8 +119,8 @@ function assertArtifactContains(options) {
     file,
     summary: readSummary(file),
   }));
-  const matchingSummaries = options.phaseLabel
-    ? summaries.filter(({ summary }) => summary.label === options.phaseLabel)
+  const matchingSummaries = options.stepLabel
+    ? summaries.filter(({ summary }) => summary.label === options.stepLabel)
     : summaries;
   if (matchingSummaries.length === 0) {
     const available = summaries
@@ -128,7 +128,7 @@ function assertArtifactContains(options) {
       .filter(Boolean)
       .join(", ");
     throw new Error(
-      `${options.label}: no phase summary matched phase label ${JSON.stringify(options.phaseLabel)}; available labels: ${available || "(none)"}`,
+      `${options.label}: no step summary matched step label ${JSON.stringify(options.stepLabel)}; available labels: ${available || "(none)"}`,
     );
   }
 

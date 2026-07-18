@@ -8,15 +8,6 @@ import {
   loadBrowserBatchManifest,
   validateBrowserBatchManifestShape,
 } from "../browser/browser-batch-manifest.mjs";
-import {
-  activePhaseRegistryEntries,
-  loadPhasePolicyExceptions,
-  phaseRegistrySchemaID,
-  validateFrontendPhaseArtifacts,
-  validateManifest as validatePhaseManifestSemantics,
-  validatePhaseManifestShapeFile,
-  validatePhaseRegistry,
-} from "../phase-accounting/index.mjs";
 import { validateSchemaSync } from "../contract/index.mjs";
 import {
   executionTopologySchemaID,
@@ -72,7 +63,6 @@ import { scanExecutableDocumentationReads } from "../test-catalog/documentation-
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
-const phasePolicyExceptionsSchemaID = "cartulary.phase_policy_exceptions.v1";
 const generatedArtifactPolicySchemaID =
   "cartulary.generated_artifact_policy.v1";
 const contractFamilyRegistrySchemaID = "cartulary.contract_family_registry.v1";
@@ -81,13 +71,11 @@ const frontendImportBoundariesSchemaID =
 const bootstrapAdminSchemaID = "cartulary.bootstrap_admin.v1";
 const serviceBackedMakeTargetBaselineSchemaID =
   "cartulary.scheduler_work_unit_duration_baselines.v2";
-const toolRunSummarySchemaID = "cartulary.tool_run_summary.v4";
+const toolRunSummarySchemaID = "cartulary.tool_run_summary.v5";
 const fallowReachabilityOwnerSchemaID =
   "cartulary.fallow_reachability_owner.v1";
 const fallowStaticSummarySchemaID = "cartulary.fallow_static_summary.v1";
 const agentFinalizeSummarySchemaID = "cartulary.agent_finalize_summary.v3";
-const frontendPhaseRegistrySchemaID = "cartulary.frontend_phase_registry.v5";
-const frontendPhaseTestMapSchemaID = "cartulary.frontend_phase_test_map.v4";
 const testAccountingClassificationSchemaID =
   "cartulary.test_accounting_classification.v2";
 const testSupportInventorySchemaID = "cartulary.test_support_inventory.v1";
@@ -112,8 +100,6 @@ const frontendVisualFixtureRegistrySchemaID =
 const schedulerSummaryCommonSchemaID = "cartulary.scheduler_summary.common.v10";
 const schedulerSummaryCommonSchemaIDs = new Set([schedulerSummaryCommonSchemaID]);
 
-const phaseStatusValues = new Set(["active", "planned", "retired"]);
-const phaseNamePattern = /^phase(?:0|[1-9]\d*)$/;
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const snakeIDPattern = /^[a-z][a-z0-9_]*$/;
 const sha256Pattern = /^[a-f0-9]{64}$/;
@@ -594,7 +580,7 @@ const toolRunSummaryKeys = new Set([
   "evidence_targets",
   "helper_units",
   "counts",
-  "phase_accounting",
+  "step_accounting",
   "failure_class",
   "failure_reason",
   "failures",
@@ -648,7 +634,6 @@ const toolRunFailureReasons = new Set([
   "child_target_failure",
   "tool_diagnostic_failure",
   "scheduler_accounting_error",
-  "frontend_row_accounting",
   "test_accounting_unmapped",
   "artifact_error",
   "cleanup_error",
@@ -658,7 +643,7 @@ const toolRunFailureReasons = new Set([
   "unknown_failure",
 ]);
 const toolRunCountKeys = new Set([
-  "phases",
+  "steps",
   "tests",
   "failed",
   "non_test",
@@ -850,118 +835,6 @@ function repoFile(root, relativePath) {
 
 function readShapeFile(file, label = file) {
   return readJsonObject(file, label);
-}
-
-function validateFrontendSchemaArtifacts(root) {
-  validateSchemaSync(
-    frontendPhaseRegistrySchemaID,
-    readShapeFile(repoFile(root, "tools/frontend_phase_registry.json")),
-  );
-  const mapDir = repoFile(root, "tools/frontend_phase_maps");
-  for (const filename of readdirSync(mapDir).filter((name) =>
-    name.endsWith(".json"),
-  )) {
-    validateSchemaSync(
-      frontendPhaseTestMapSchemaID,
-      readShapeFile(path.join(mapDir, filename)),
-    );
-  }
-  validateSchemaSync(
-    frontendVisualFixtureRegistrySchemaID,
-    readShapeFile(repoFile(root, "tools/frontend_visual_fixture_registry.json")),
-  );
-}
-
-function validatePhaseRegistryShape(file) {
-  const registry = readShapeFile(file, file);
-  assertObjectKeys(registry, new Set(["schema_id", "phases"]), file);
-  requireSchemaID(registry, phaseRegistrySchemaID, file);
-  const entries = requireObjectArray(registry.phases, `${file}.phases`, {
-    nonEmpty: true,
-  });
-  const phases = [];
-  const orders = [];
-  for (const [index, entry] of entries.entries()) {
-    const label = `${file}.phases[${index + 1}]`;
-    assertObjectKeys(
-      entry,
-      entry.status === "retired"
-        ? new Set([
-            "phase",
-            "order",
-            "status",
-            "label",
-            "manifest_path",
-            "ledger_path",
-            "scope",
-            "normative_owners",
-            "retired_reason",
-            "retained_artifacts",
-          ])
-        : new Set([
-            "phase",
-            "order",
-            "status",
-            "label",
-            "manifest_path",
-            "ledger_path",
-            "scope",
-            "normative_owners",
-          ]),
-      label,
-    );
-    phases.push(
-      requireString(entry.phase, `${label}.phase`, {
-        pattern: phaseNamePattern,
-      }),
-    );
-    orders.push(requireInteger(entry.order, `${label}.order`, { min: 0 }));
-    requireEnum(entry.status, `${label}.status`, phaseStatusValues);
-    requireString(entry.label, `${label}.label`);
-    requireRepoRelativePath(entry.manifest_path, `${label}.manifest_path`, {
-      extension: ".json",
-    });
-    requireRepoRelativePath(entry.ledger_path, `${label}.ledger_path`, {
-      extension: ".md",
-    });
-    requireString(entry.scope, `${label}.scope`);
-    requireString(entry.normative_owners, `${label}.normative_owners`);
-  }
-  assertUnique(phases, `${file}.phases.phase`);
-  assertUnique(orders, `${file}.phases.order`);
-}
-
-function validatePhaseMapShape(file) {
-  validatePhaseManifestShapeFile(file);
-}
-
-function validatePhasePolicyExceptionsShape(file) {
-  const manifest = readShapeFile(file, file);
-  assertObjectKeys(manifest, new Set(["schema_id", "exceptions"]), file);
-  requireSchemaID(manifest, phasePolicyExceptionsSchemaID, file);
-  const entries = requireObjectArray(manifest.exceptions, `${file}.exceptions`);
-  const ids = [];
-  for (const [index, entry] of entries.entries()) {
-    const label = `${file}.exceptions[${index + 1}]`;
-    assertObjectKeys(
-      entry,
-      new Set([
-        "id",
-        "type",
-        "owner",
-        "reason",
-        "expires_before_phase",
-        "expires_on",
-        "selection",
-      ]),
-      label,
-    );
-    ids.push(requireString(entry.id, `${label}.id`));
-    requireString(entry.type, `${label}.type`);
-    requireString(entry.owner, `${label}.owner`);
-    requireString(entry.reason, `${label}.reason`);
-  }
-  assertUnique(ids, `${file}.exceptions.id`);
 }
 
 function validateExecutionTopologyShape(file) {
@@ -2984,8 +2857,8 @@ function validateToolRunSummaryShape(file) {
     toolRunCountKeys,
   );
   validateNonNegativeIntegerObject(
-    summary.phase_accounting,
-    `${file}.phase_accounting`,
+    summary.step_accounting,
+    `${file}.step_accounting`,
     toolRunPhaseAccountingKeys,
   );
   requireNullableEnum(
@@ -4311,15 +4184,6 @@ function validateFallowReachabilityOwnerShape(file) {
 
 function validateKind(kind, file, root = repoRoot) {
   switch (kind) {
-    case "phase-registry":
-      validatePhaseRegistryShape(file);
-      return;
-    case "phase-map":
-      validatePhaseMapShape(file);
-      return;
-    case "phase-policy-exceptions":
-      validatePhasePolicyExceptionsShape(file);
-      return;
     case "execution-topology":
       validateExecutionTopologyShape(file);
       return;

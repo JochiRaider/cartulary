@@ -405,6 +405,6 @@ fi
   --results-root "${preflight_results_root}" \
   --run-id "${preflight_run_id}" \
   --target "toolchain-drift" \
-  --phase-label "toolchain-drift" \
+  --step-label "toolchain-drift" \
   --needle "package.json: engines.node mismatch: expected $node_version, got $node_version_alt" \
   --label "Make toolchain-drift diagnostic"

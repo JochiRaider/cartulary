@@ -12,7 +12,7 @@ import {
   resolveOutputMode as resolveHarnessOutputMode,
 } from "../contract/index.mjs";
 
-export const toolRunSummarySchemaID = "cartulary.tool_run_summary.v4";
+export const toolRunSummarySchemaID = "cartulary.tool_run_summary.v5";
 
 const failureClasses = failureClassOrder;
 const failureReasons = failureReasonOrder;
@@ -130,7 +130,7 @@ function slowestText(entry) {
   return `${entry.id}:${entry.duration_ms}`;
 }
 
-function phaseAccountingFromCounts(counts = {}) {
+function stepAccountingFromCounts(counts = {}) {
   return {
     authoritative: counts.authoritative ?? 0,
     support: counts.support ?? 0,
@@ -150,7 +150,7 @@ function phaseAccountingFromCounts(counts = {}) {
 
 function countsForToolSummary(counts = {}) {
   return {
-    phases: counts.phases ?? 0,
+    steps: counts.steps ?? 0,
     tests: counts.tests ?? 0,
     failed: counts.failed ?? 0,
     non_test: counts.non_test ?? 0,
@@ -304,7 +304,7 @@ export function buildToolRunSummary({
   evidenceTargets = [],
   helperUnits = [],
   counts = {},
-  phaseAccounting = {},
+  stepAccounting = {},
   failureClass = null,
   failureReason = null,
   failures = [],
@@ -365,9 +365,9 @@ export function buildToolRunSummary({
     evidence_targets: sortTargetRefs(evidenceTargets),
     helper_units: sortTargetRefs(helperUnits),
     counts: countsForToolSummary(counts),
-    phase_accounting: {
-      ...phaseAccountingFromCounts(counts),
-      ...phaseAccounting,
+    step_accounting: {
+      ...stepAccountingFromCounts(counts),
+      ...stepAccounting,
     },
     failure_class: normalizedFailureClass,
     failure_reason: normalizedFailureReason,
@@ -386,7 +386,7 @@ export function toolSummaryPath(runRoot) {
 
 export function resultLine(summary, summaryJsonPath) {
   const counts = summary.counts ?? {};
-  const phase = summary.phase_accounting ?? {};
+  const step = summary.step_accounting ?? {};
   const workUnits =
     summary.work_units?.[0]?.total !== undefined
       ? `${summary.work_units[0].completed}/${summary.work_units[0].total}`
@@ -395,7 +395,7 @@ export function resultLine(summary, summaryJsonPath) {
     hasApplicableCount(counts, "tests") && counts.tests > 0
       ? counts.tests
       : "-";
-  const phaseApplicable = [
+  const stepApplicable = [
     "authoritative",
     "support",
     "raw",
@@ -403,9 +403,9 @@ export function resultLine(summary, summaryJsonPath) {
     "unowned_regression",
     "unmapped",
     "missing",
-  ].some((key) => Number(phase[key] ?? 0) > 0);
-  const missing = phaseApplicable ? (phase.missing ?? 0) : "-";
-  const unmapped = phaseApplicable && phase.unmapped > 0 ? phase.unmapped : "-";
+  ].some((key) => Number(step[key] ?? 0) > 0);
+  const missing = stepApplicable ? (step.missing ?? 0) : "-";
+  const unmapped = stepApplicable && step.unmapped > 0 ? step.unmapped : "-";
   return `[RESULT] target=${summary.target} status=${summary.status} duration_ms=${summary.duration_ms} work_units=${workUnits} tests=${tests} failed=${counts.failed ?? 0} missing=${missing} unmapped=${unmapped} slowest=${slowestText(summary.slowest?.[0])} run_root=${summary.run_root} summary_json=${terminalArtifactPath(summary.run_root, summaryJsonPath)}\n`;
 }
 

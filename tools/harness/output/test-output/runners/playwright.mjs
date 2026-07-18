@@ -17,7 +17,7 @@ import {
   selectPlaywrightManifestEntries as selectPlaywrightManifestEntriesAdapter,
   selectPlaywrightEntries,
   vitestEntryTitles,
-} from "../phase-manifest-adapter.mjs";
+} from "../catalog-manifest-adapter.mjs";
 import {
   flattenPlaywrightSuites,
   readPlaywrightSelectionReport as readPlaywrightSelectionReportAdapter,
@@ -31,9 +31,9 @@ import {
   testCoverageBuckets,
 } from "../../../contract/test-output-context.mjs";
 import {
-  createBasePhaseContext,
-  writePhaseArtifacts,
-} from "../phase-artifacts.mjs";
+  createBaseStepContext,
+  writeStepArtifacts,
+} from "../step-artifacts.mjs";
 
 let cachedGoModulePath;
 
@@ -216,7 +216,7 @@ function normalizeAccountingRule(rule, label, scope) {
   return {
     ...rule,
     coverage,
-    phase: typeof rule.phase === "string" ? rule.phase : "",
+    step: typeof rule.step === "string" ? rule.step : "",
     reason: rule.reason.trim(),
   };
 }
@@ -310,7 +310,7 @@ function accountingManifestClassification(
   runner,
   owner,
   title = "",
-  fallbackPhase = "",
+  fallbackStep = "",
 ) {
   const manifest = loadTestAccountingClassification();
   const rules = manifest[runner] ?? [];
@@ -339,7 +339,7 @@ function accountingManifestClassification(
     }
     return {
       coverage: rule.coverage,
-      phase: rule.phase || fallbackPhase,
+      step: rule.step || fallbackStep,
       id: "",
       owner,
     };
@@ -347,19 +347,19 @@ function accountingManifestClassification(
   return null;
 }
 
-function inferPhaseFromText(value) {
+function inferStepFromText(value) {
   if (!value) {
     return "";
   }
   const patterns = [
-    /\bphase(?:\s|_|-)?(\d+)\b/i,
+    /\bstep(?:\s|_|-)?(\d+)\b/i,
     /\b[UIE][-_](\d+)-\d+\b/,
     /\b[UIE]_(\d+)_\d+\b/,
   ];
   for (const pattern of patterns) {
     const match = value.match(pattern);
     if (match) {
-      return `phase${match[1]}`;
+      return `step${match[1]}`;
     }
   }
   return "";
@@ -388,14 +388,14 @@ function printBlock(header, fields) {
   process.stderr.write(`${lines.join("\n")}\n`);
 }
 
-function showPhaseDetailOutput(context) {
+function showStepDetailOutput(context) {
   return verboseOutput() || context.target === "adhoc";
 }
 
-function createInventoryItem({ coverage, phase, id, owner, name }) {
+function createInventoryItem({ coverage, step, id, owner, name }) {
   return {
     coverage,
-    phase,
+    step,
     id: id ?? "",
     package_or_file: owner,
     symbol_or_title: name,
@@ -404,7 +404,7 @@ function createInventoryItem({ coverage, phase, id, owner, name }) {
 
 function readManifestScopeEnv() {
   return {
-    phase: requiredEnv("CARTULARY_MANIFEST_PHASE"),
+    step: requiredEnv("CARTULARY_CATALOG_OWNER_ID"),
     coverage: requiredEnv("CARTULARY_MANIFEST_COVERAGE"),
     executionDependency: optionalEnv("CARTULARY_MANIFEST_EXECUTION_DEPENDENCY"),
   };
@@ -416,7 +416,7 @@ function manifestCoverageToInventoryCoverage(coverage) {
 
 function evaluateFlatTitleManifest(
   summary,
-  { phase, entries, inventoryCoverage },
+  { step, entries, inventoryCoverage },
 ) {
   const executedKeys = new Set(
     summary.inventory
@@ -455,19 +455,19 @@ function evaluateFlatTitleManifest(
     .sort();
 
   return {
-    phase,
+    step,
     missingIDs,
     unexpectedIDs,
     forbiddenIDFiles: Array.from(
-      loadManifestIndex().forbiddenFilesByPhase.get(phase) ?? [],
+      loadManifestIndex().forbiddenFilesByStep.get(step) ?? [],
     ).sort(),
   };
 }
 
-function finalizeManifestAwareRunnerPhase(
+function finalizeManifestAwareRunnerStep(
   context,
   {
-    manifestAware,
+    catalogAware,
     runner,
     section = "",
     summary,
@@ -476,21 +476,21 @@ function finalizeManifestAwareRunnerPhase(
     manifestMismatchArtifacts = () => ({}),
     manifestMismatchDetailFields = () => ({}),
     failureDetailFields = (dossier) => dossier,
-    extraWritePhaseDetails = {},
+    extraWriteStepDetails = {},
   },
 ) {
   let status = selectedSlicePassed ? "pass" : "fail";
   let manifestSummary = null;
   let manifestMismatch = null;
-  let phaseCounts = summary.counts;
-  let phaseDossiers = summary.dossiers;
+  let stepCounts = summary.counts;
+  let stepDossiers = summary.dossiers;
   const emptySelectionAllowed =
     runner === "vitest" &&
     optionalEnv("CARTULARY_VITEST_ALLOW_EMPTY_SELECTION") === "1" &&
     (summary.counts?.tests ?? 0) === 0 &&
     summary.dossiers.length === 0;
 
-  if (manifestAware && selectedSlicePassed && !emptySelectionAllowed) {
+  if (catalogAware && selectedSlicePassed && !emptySelectionAllowed) {
     const scope = readManifestScopeEnv();
     const selectedIDs =
       runner === "playwright"
@@ -507,7 +507,7 @@ function finalizeManifestAwareRunnerPhase(
       selectedPlaywrightEntries ??
       (runner === "playwright"
         ? selectPlaywrightEntries(
-            scope.phase,
+            scope.step,
             scope.coverage,
             scope.executionDependency,
           )
@@ -518,7 +518,7 @@ function finalizeManifestAwareRunnerPhase(
           })
       ).filter((entry) => selectedIDs.size === 0 || selectedIDs.has(entry.id));
     const verification = evaluateFlatTitleManifest(summary, {
-      phase: scope.phase,
+      step: scope.step,
       entries,
       inventoryCoverage: manifestCoverageToInventoryCoverage(scope.coverage),
     });
@@ -540,20 +540,20 @@ function finalizeManifestAwareRunnerPhase(
     }
   }
 
-  if (status === "fail" && !manifestMismatch && phaseDossiers.length === 0) {
-    phaseCounts = {
+  if (status === "fail" && !manifestMismatch && stepDossiers.length === 0) {
+    stepCounts = {
       ...createCounts(),
-      ...(phaseCounts ?? {}),
-      failed: (phaseCounts?.failed ?? 0) + 1,
-      non_test: (phaseCounts?.non_test ?? 0) + 1,
-      non_test_failed: (phaseCounts?.non_test_failed ?? 0) + 1,
+      ...(stepCounts ?? {}),
+      failed: (stepCounts?.failed ?? 0) + 1,
+      non_test: (stepCounts?.non_test ?? 0) + 1,
+      non_test_failed: (stepCounts?.non_test_failed ?? 0) + 1,
     };
-    phaseDossiers = [
+    stepDossiers = [
       {
         failure_class: "harness",
         failure_reason: "tool_diagnostic_failure",
         coverage: "non_test",
-        phase: inferPhaseFromText(context.label),
+        step: inferStepFromText(context.label),
         id: "",
         runner,
         package_or_file: `(${runner} runner)`,
@@ -565,14 +565,14 @@ function finalizeManifestAwareRunnerPhase(
     ];
   }
 
-  writePhaseArtifacts(context, {
+  writeStepArtifacts(context, {
     status,
-    phase: inferPhaseFromText(context.label),
-    counts: phaseCounts,
+    step: inferStepFromText(context.label),
+    counts: stepCounts,
     owners: summary.owners,
     inventory: summary.inventory,
-    dossiers: phaseDossiers,
-    ...extraWritePhaseDetails,
+    dossiers: stepDossiers,
+    ...extraWriteStepDetails,
     manifestSummary,
     manifestMismatch,
     artifacts,
@@ -582,7 +582,7 @@ function finalizeManifestAwareRunnerPhase(
     return 0;
   }
   if (manifestMismatch) {
-    if (showPhaseDetailOutput(context)) {
+    if (showStepDetailOutput(context)) {
       printBlock(`manifest mismatch: ${context.label}`, {
         missing_ids: renderList(manifestMismatch.missing_ids),
         unexpected_ids: renderList(manifestMismatch.unexpected_ids),
@@ -592,8 +592,8 @@ function finalizeManifestAwareRunnerPhase(
     }
     return 1;
   }
-  if (showPhaseDetailOutput(context)) {
-    for (const dossier of phaseDossiers) {
+  if (showStepDetailOutput(context)) {
+    for (const dossier of stepDossiers) {
       printBlock(`failure: ${context.label}`, failureDetailFields(dossier));
     }
   }
@@ -608,11 +608,11 @@ function normalizePlaywrightFile(file) {
   return normalizePath(path.join("apps/web", "e2e", normalized));
 }
 
-function isForbiddenFile(file, phase) {
-  if (!phase) {
+function isForbiddenFile(file, step) {
+  if (!step) {
     return false;
   }
-  const files = loadManifestIndex().forbiddenFilesByPhase.get(phase);
+  const files = loadManifestIndex().forbiddenFilesByStep.get(step);
   return files ? files.has(file) : false;
 }
 
@@ -620,7 +620,7 @@ function loadFrontendPlaywrightIndex() {
   return loadFrontendPlaywrightIndexAdapter(repoRoot);
 }
 
-function classifyPlaywrightCase(file, title, phaseLabel) {
+function classifyPlaywrightCase(file, title, stepLabel) {
   const normalizedFile = normalizePlaywrightFile(file);
   const manifested = loadManifestIndex().manifestPlaywright.get(
     `${normalizedFile}::${title}`,
@@ -632,15 +632,15 @@ function classifyPlaywrightCase(file, title, phaseLabel) {
   if (authoritative) {
     return {
       coverage: "authoritative",
-      phase: authoritative.phase,
+      step: authoritative.step,
       id: authoritative.id,
       owner: normalizedFile,
     };
   }
-  if (frontendManifested && /\bauthoritative\b/i.test(phaseLabel)) {
+  if (frontendManifested && /\bauthoritative\b/i.test(stepLabel)) {
     return {
       coverage: frontendManifested.coverage,
-      phase: frontendManifested.phase,
+      step: frontendManifested.step,
       id: frontendManifested.id,
       owner: normalizedFile,
     };
@@ -648,7 +648,7 @@ function classifyPlaywrightCase(file, title, phaseLabel) {
   if (manifested && manifested.coverage !== "authoritative") {
     return {
       coverage: "support",
-      phase: manifested.phase,
+      step: manifested.step,
       id: manifested.id,
       owner: normalizedFile,
     };
@@ -656,32 +656,32 @@ function classifyPlaywrightCase(file, title, phaseLabel) {
   if (frontendManifested) {
     return {
       coverage: frontendManifested.coverage,
-      phase: frontendManifested.phase,
+      step: frontendManifested.step,
       id: frontendManifested.id,
       owner: normalizedFile,
     };
   }
-  const inferredPhase =
-    inferPhaseFromText(normalizedFile) ||
-    inferPhaseFromText(title) ||
-    inferPhaseFromText(phaseLabel);
+  const inferredStep =
+    inferStepFromText(normalizedFile) ||
+    inferStepFromText(title) ||
+    inferStepFromText(stepLabel);
   if (claimsConformanceRowTitle(title)) {
     return {
       coverage: "unmapped",
-      phase: inferredPhase,
+      step: inferredStep,
       id: "",
       owner: normalizedFile,
     };
   }
   const support =
     normalizedFile.includes(".support.") ||
-    isForbiddenFile(normalizedFile, inferredPhase) ||
-    /\bsupport\b/i.test(phaseLabel) ||
-    /\bsmoke\b/i.test(phaseLabel);
+    isForbiddenFile(normalizedFile, inferredStep) ||
+    /\bsupport\b/i.test(stepLabel) ||
+    /\bsmoke\b/i.test(stepLabel);
   if (support) {
     return {
       coverage: "support",
-      phase: inferredPhase,
+      step: inferredStep,
       id: "",
       owner: normalizedFile,
     };
@@ -691,10 +691,10 @@ function classifyPlaywrightCase(file, title, phaseLabel) {
       "playwright",
       normalizedFile,
       title,
-      inferredPhase,
+      inferredStep,
     ) ?? {
       coverage: "unmapped",
-      phase: inferredPhase,
+      step: inferredStep,
       id: "",
       owner: normalizedFile,
     }
@@ -730,7 +730,7 @@ function timingWindowDurationMs(window) {
   return window.endMs - window.startMs;
 }
 
-function summarizePlaywrightTiming(specs, phase, phaseLabel, selection = null) {
+function summarizePlaywrightTiming(specs, step, stepLabel, selection = null) {
   const files = new Map();
   const entryTimings = [];
   const totalWindow = { startMs: null, endMs: null };
@@ -743,7 +743,7 @@ function summarizePlaywrightTiming(specs, phase, phaseLabel, selection = null) {
     const file = normalizePlaywrightFile(spec.file ?? "");
     const classification =
       selection?.classify?.(file, spec.title ?? "") ??
-      classifyPlaywrightCase(spec.file ?? "", spec.title ?? "", phaseLabel);
+      classifyPlaywrightCase(spec.file ?? "", spec.title ?? "", stepLabel);
     if (!files.has(file)) {
       files.set(file, {
         file,
@@ -792,7 +792,7 @@ function summarizePlaywrightTiming(specs, phase, phaseLabel, selection = null) {
       if (classification.id) {
         entryTimings.push({
           id: classification.id,
-          phase: classification.phase,
+          step: classification.step,
           file,
           title: spec.title ?? "(missing title)",
           executed_duration_ms: entryExecutedDurationMs,
@@ -816,7 +816,7 @@ function summarizePlaywrightTiming(specs, phase, phaseLabel, selection = null) {
     .sort((left, right) => left.file.localeCompare(right.file));
 
   return {
-    phase,
+    step,
     files: fileSummaries,
     entries: entryTimings.sort((left, right) =>
       left.id.localeCompare(right.id, undefined, { numeric: true }),
@@ -838,14 +838,14 @@ function summarizePlaywrightTiming(specs, phase, phaseLabel, selection = null) {
       ? "playwright_result_timestamps"
       : hasDuration
         ? "playwright_result_durations"
-        : "phase_window_fallback",
+        : "step_window_fallback",
   };
 }
 
-function createPlaywrightSelection({ manifestAware }) {
+function createPlaywrightSelection({ catalogAware }) {
   const reportSlice = optionalEnv("CARTULARY_REPORT_SLICE") === "1";
 
-  if (manifestAware && reportSlice) {
+  if (catalogAware && reportSlice) {
     const scope = readManifestScopeEnv();
     const selectionReport = optionalEnv("CARTULARY_PLAYWRIGHT_SELECTION_REPORT");
     const reportSelection = readPlaywrightSelectionReport(
@@ -859,7 +859,7 @@ function createPlaywrightSelection({ manifestAware }) {
           coverage: manifestCoverageToInventoryCoverage(
             test.coverage ?? scope.coverage,
           ),
-          phase: test.phase,
+          step: test.step,
           id: test.id,
           owner: test.file,
         },
@@ -869,7 +869,7 @@ function createPlaywrightSelection({ manifestAware }) {
       reportSelection
         ? reportSelection.tests.map((test) => `${test.file}::${test.title}`)
         : selectPlaywrightManifestEntries(
-            scope.phase,
+            scope.step,
             scope.coverage,
             scope.executionDependency,
           ).flatMap((entry) =>
@@ -910,7 +910,7 @@ function createPlaywrightSelection({ manifestAware }) {
   };
 }
 
-function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
+function summarizePlaywrightRun(reportFile, stepLabel, selection = null) {
   const report = JSON.parse(readFileSync(reportFile, "utf8"));
   const owners = new Set();
   const inventory = [];
@@ -931,7 +931,7 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
     const coverage =
       coverageOverride !== ""
         ? normalizeTestCoverage(coverageOverride)
-        : /\bsupport\b/i.test(phaseLabel)
+        : /\bsupport\b/i.test(stepLabel)
           ? "support"
           : "unmapped";
     const message = (report.errors ?? [])
@@ -940,13 +940,13 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
     dossiers.push({
       failure_class: "harness",
       coverage,
-      phase: inferPhaseFromText(phaseLabel),
+      step: inferStepFromText(stepLabel),
       id: "",
       runner: "playwright",
       package_or_file: "(playwright setup)",
       symbol_or_title: "(playwright setup)",
       message: (message ?? "playwright setup failure").split("\n")[0],
-      reproduce: requiredEnv("CARTULARY_PHASE_COMMAND"),
+      reproduce: requiredEnv("CARTULARY_STEP_COMMAND"),
       raw: relToRepo(reportFile),
     });
     counts.failed += 1;
@@ -965,13 +965,13 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
     dossiers.push({
       failure_class: "harness",
       coverage: "non_test",
-      phase: inferPhaseFromText(phaseLabel),
+      step: inferStepFromText(stepLabel),
       id: "",
       runner: "playwright",
       package_or_file: "(playwright runner)",
       symbol_or_title: "(playwright runner)",
       message: topLevelErrorSummary.split("\n")[0],
-      reproduce: requiredEnv("CARTULARY_PHASE_COMMAND"),
+      reproduce: requiredEnv("CARTULARY_STEP_COMMAND"),
       raw: relToRepo(reportFile),
     });
     counts.failed += 1;
@@ -982,7 +982,7 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
     const normalizedFile = normalizePlaywrightFile(spec.file ?? "");
     const classification =
       selection?.classify?.(normalizedFile, spec.title ?? "") ??
-      classifyPlaywrightCase(spec.file ?? "", spec.title ?? "", phaseLabel);
+      classifyPlaywrightCase(spec.file ?? "", spec.title ?? "", stepLabel);
     owners.add(classification.owner);
     const executedResults = [];
     for (const test of spec.tests ?? []) {
@@ -1009,7 +1009,7 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
       inventory.push(
         createInventoryItem({
           coverage: classification.coverage,
-          phase: classification.phase,
+          step: classification.step,
           id: classification.id,
           owner: classification.owner,
           name: spec.title ?? "(missing title)",
@@ -1044,7 +1044,7 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
         `${spec.title ?? "playwright spec"} failed`;
       dossiers.push({
         coverage: classification.coverage,
-        phase: classification.phase,
+        step: classification.step,
         id: classification.id,
         runner: "playwright",
         package_or_file: classification.owner,
@@ -1066,18 +1066,18 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
     const coverage =
       coverageOverride !== ""
         ? normalizeTestCoverage(coverageOverride)
-        : /\bsupport\b/i.test(phaseLabel)
+        : /\bsupport\b/i.test(stepLabel)
           ? "support"
           : "unmapped";
     dossiers.push({
       coverage,
-      phase: inferPhaseFromText(phaseLabel),
+      step: inferStepFromText(stepLabel),
       id: "",
       runner: "playwright",
       package_or_file: "(playwright selection)",
       symbol_or_title: "(playwright selection)",
-      message: "phase matched zero tests",
-      reproduce: requiredEnv("CARTULARY_PHASE_COMMAND"),
+      message: "step matched zero tests",
+      reproduce: requiredEnv("CARTULARY_STEP_COMMAND"),
       raw: relToRepo(reportFile),
     });
     counts.failed += 1;
@@ -1091,16 +1091,16 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
     dossiers,
     playwrightTiming: summarizePlaywrightTiming(
       specs,
-      inferPhaseFromText(phaseLabel),
-      phaseLabel,
+      inferStepFromText(stepLabel),
+      stepLabel,
       selection,
     ),
   };
 }
 
-function selectPlaywrightManifestEntries(phase, coverage, executionDependency) {
+function selectPlaywrightManifestEntries(step, coverage, executionDependency) {
   return selectPlaywrightManifestEntriesAdapter(repoRoot, {
-    phase,
+    step,
     coverage,
     executionDependency,
   });
@@ -1114,13 +1114,13 @@ function selectedPlaywrightEntriesFromReport(reportFile, scope) {
   return selectedPlaywrightEntriesFromReportAdapter(repoRoot, reportFile, scope);
 }
 
-export function handlePlaywrightPhase({ manifestAware }) {
-  const context = createBasePhaseContext("playwright");
+export function handlePlaywrightStep({ catalogAware }) {
+  const context = createBaseStepContext("playwright");
   const reportSlice = optionalEnv("CARTULARY_REPORT_SLICE") === "1";
-  const reportFile = requiredEnv("CARTULARY_PHASE_RUNNER_LOG");
+  const reportFile = requiredEnv("CARTULARY_STEP_RUNNER_LOG");
   const selectionReport = optionalEnv("CARTULARY_PLAYWRIGHT_SELECTION_REPORT");
-  const stdoutLog = optionalEnv("CARTULARY_PHASE_STDOUT_LOG");
-  const stderrLog = optionalEnv("CARTULARY_PHASE_STDERR_LOG");
+  const stdoutLog = optionalEnv("CARTULARY_STEP_STDOUT_LOG");
+  const stderrLog = optionalEnv("CARTULARY_STEP_STDERR_LOG");
   const outputDir = optionalEnv("CARTULARY_PLAYWRIGHT_OUTPUT_DIR");
   const serverLog = optionalEnv("CARTULARY_WEB_E2E_SERVER_LOG");
   const webLog = optionalEnv("CARTULARY_WEB_E2E_WEB_LOG");
@@ -1130,7 +1130,7 @@ export function handlePlaywrightPhase({ manifestAware }) {
   const summary = summarizePlaywrightRun(
     reportFile,
     context.label,
-    createPlaywrightSelection({ manifestAware }),
+    createPlaywrightSelection({ catalogAware }),
   );
   if (reportSlice && summary.playwrightTiming) {
     const timing = summary.playwrightTiming;
@@ -1157,8 +1157,8 @@ export function handlePlaywrightPhase({ manifestAware }) {
   const selectedSlicePassed =
     summary.dossiers.length === 0 && (context.exitStatus === 0 || reportSlice);
 
-  return finalizeManifestAwareRunnerPhase(context, {
-    manifestAware,
+  return finalizeManifestAwareRunnerStep(context, {
+    catalogAware,
     runner: "playwright",
     summary,
     selectedSlicePassed,
@@ -1171,7 +1171,7 @@ export function handlePlaywrightPhase({ manifestAware }) {
       server_log: serverLog,
       web_log: webLog,
     },
-    extraWritePhaseDetails: {
+    extraWriteStepDetails: {
       playwrightTiming: summary.playwrightTiming,
     },
     manifestMismatchArtifacts: () => ({

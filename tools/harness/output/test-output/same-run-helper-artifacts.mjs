@@ -97,15 +97,15 @@ function appendArtifact(target, seen, entry, { repoRoot, runDir, label }) {
 function helperProducerArtifacts(helper, { repoRoot, runDir }) {
   const artifacts = [];
   const seen = new Set();
-  for (const [index, phase] of (helper.phase_summaries ?? []).entries()) {
-    const label = `helper ${helper.target} phase ${index + 1}`;
+  for (const [index, step] of (helper.step_summaries ?? []).entries()) {
+    const label = `helper ${helper.target} step ${index + 1}`;
     appendArtifact(
       artifacts,
       seen,
       {
-        role: "phase_summary",
+        role: "step_summary",
         format: "json",
-        path: phase.artifact,
+        path: step.artifact,
       },
       { repoRoot, runDir, label },
     );
@@ -115,7 +115,7 @@ function helperProducerArtifacts(helper, { repoRoot, runDir }) {
       {
         role: "runner_json",
         format: "json",
-        path: phase.runner_json,
+        path: step.runner_json,
       },
       { repoRoot, runDir, label },
     );
@@ -125,7 +125,7 @@ function helperProducerArtifacts(helper, { repoRoot, runDir }) {
       {
         role: "stdout_log",
         format: "log",
-        path: phase.stdout_log,
+        path: step.stdout_log,
       },
       { repoRoot, runDir, label },
     );
@@ -135,7 +135,7 @@ function helperProducerArtifacts(helper, { repoRoot, runDir }) {
       {
         role: "stderr_log",
         format: "log",
-        path: phase.stderr_log,
+        path: step.stderr_log,
       },
       { repoRoot, runDir, label },
     );
@@ -172,7 +172,7 @@ export function writeSameRunHelperArtifactRefs(
       continue;
     }
     const declaredInputs = producerArtifacts.filter(
-      (artifact) => artifact.role === "phase_summary",
+      (artifact) => artifact.role === "step_summary",
     );
     const inputDigest = stableDigest({
       run_id: runId,

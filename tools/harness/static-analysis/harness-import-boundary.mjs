@@ -36,7 +36,6 @@ const knownHarnessOwnerRoots = new Set([
   "generated-artifacts",
   "migration",
   "output",
-  "phase-accounting",
   "readiness",
   "scheduler",
   "smoke",
@@ -57,7 +56,6 @@ const frontendOwnerFacadePaths = new Set(ownerFacadePaths.frontend ?? []);
 const browserOwnerFacadePaths = new Set(ownerFacadePaths.browser ?? []);
 const durationAccountingOwnerFacadePaths = new Set(ownerFacadePaths.duration_accounting ?? []);
 const evidenceAccountingOwnerFacadePaths = new Set(ownerFacadePaths.evidence_accounting ?? []);
-const phaseAccountingOwnerFacadePaths = new Set(ownerFacadePaths.phase_accounting ?? []);
 const serviceBackedExecutionOwnerFacadePaths = new Set(
   ownerFacadePaths.service_backed_execution ?? [],
 );
@@ -310,29 +308,8 @@ function privateFrontendCatchAllImportViolation(edge) {
     target: edge.target,
     message:
       `${edge.source} ${edgeVerb(edge)} ${edge.target}; frontend harness helpers must use ` +
-      "the declared phase-accounting, output, execution, readiness, browser, " +
+      "the declared catalog, output, execution, readiness, browser, " +
       "generated-artifact, or static-analysis owner facade.",
-  };
-}
-
-function isPrivatePhaseAccountingImplementationImport(edge) {
-  if (!edge.target.startsWith("tools/harness/phase-accounting/")) {
-    return false;
-  }
-  if (phaseAccountingOwnerFacadePaths.has(edge.target)) {
-    return false;
-  }
-  return subsystemForPath(edge.source) !== "phase-accounting";
-}
-
-function privatePhaseAccountingImplementationImportViolation(edge) {
-  return {
-    rule: "forbidden_private_phase_accounting_import",
-    source: edge.source,
-    target: edge.target,
-    message:
-      `${edge.source} ${edgeVerb(edge)} ${edge.target}; non-owner harness code must use ` +
-      "the declared phase-accounting facade for phase, frontend row, or planner contracts.",
   };
 }
 
@@ -534,9 +511,6 @@ export function collectHarnessImportBoundaryViolations(
   const privateFrontendViolations = edges
     .filter((edge) => isPrivateFrontendCatchAllImport(edge))
     .map(privateFrontendCatchAllImportViolation);
-  const privatePhaseAccountingViolations = edges
-    .filter((edge) => isPrivatePhaseAccountingImplementationImport(edge))
-    .map(privatePhaseAccountingImplementationImportViolation);
   const privateBrowserViolations = edges
     .filter((edge) => isPrivateBrowserImplementationImport(edge))
     .map(privateBrowserImplementationImportViolation);
@@ -561,7 +535,6 @@ export function collectHarnessImportBoundaryViolations(
       ...privateCoreViolations,
       ...privateBackendViolations,
       ...privateFrontendViolations,
-      ...privatePhaseAccountingViolations,
       ...privateBrowserViolations,
       ...privateSchedulerBrowserViolations,
       ...sccViolations,

@@ -15,8 +15,8 @@ import {
 
 function usage() {
   process.stderr.write(`usage:
-  cartulary-runner.mjs service-backed-target --target <target> --phase-label <label> --service-wrapper <test-services|none>
-  cartulary-runner.mjs summary-target --target <target> --child-target <target> --status <pass|fail> [--phase-label <label>] [--projection <target>]
+  cartulary-runner.mjs service-backed-target --target <target> --step-label <label> --service-wrapper <test-services|none>
+  cartulary-runner.mjs summary-target --target <target> --child-target <target> --status <pass|fail> [--step-label <label>] [--projection <target>]
   cartulary-runner.mjs go-target <target-or-command> [...]
   cartulary-runner.mjs target-summary <target> [pass|fail] [...]
 `);
@@ -85,11 +85,11 @@ function targetPublicExitCode(context, target, fallbackStatus) {
 function serviceBackedTarget(context, argv) {
   const options = parseFlagArgs(argv);
   const target = options.target || "";
-  const phaseLabel = options.phase_label || "";
+  const stepLabel = options.step_label || "";
   const serviceWrapper = options.service_wrapper || "";
   if (
     !target ||
-    !phaseLabel ||
+    !stepLabel ||
     !serviceWrapper ||
     options.projection !== undefined
   ) {
@@ -105,8 +105,8 @@ function serviceBackedTarget(context, argv) {
   }
   const env = runnerEnv(context, serviceBackedEnv);
   const schedulerArgs = [
-    context.runPhaseScript,
-    phaseLabel,
+    context.runStepScript,
+    stepLabel,
     "--",
     context.nodeBin,
     context.serviceBackedScheduleScript,
@@ -168,7 +168,7 @@ function summaryTarget(context, argv) {
   const childTarget = options.child_target || "";
   const requestedStatus = options.status || "";
   const projection = options.projection || "";
-  const phaseLabel = options.phase_label || `${target} child ${childTarget}`;
+  const stepLabel = options.step_label || `${target} child ${childTarget}`;
   if (
     !target ||
     !childTarget ||
@@ -180,8 +180,8 @@ function summaryTarget(context, argv) {
 
   const childStatus = runWithContext(
     context,
-    context.runPhaseScript,
-    [phaseLabel, "--", context.makeBin, "--no-print-directory", childTarget],
+    context.runStepScript,
+    [stepLabel, "--", context.makeBin, "--no-print-directory", childTarget],
     {
       env: runnerEnv(context, {
         CARTULARY_TEST_TARGET: target,

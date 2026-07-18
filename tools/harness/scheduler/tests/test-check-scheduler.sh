@@ -625,7 +625,7 @@ write_summary() {
   "critical_path_wall_duration_ms": 1,
   "teardown_duration_ms": 0,
   "counts": {
-    "phases": 1,
+    "steps": 1,
     "tests": 0,
     "failed": 0,
     "authoritative": 0,
@@ -661,7 +661,7 @@ write_failure_summary() {
   "critical_path_wall_duration_ms": 1,
   "teardown_duration_ms": 0,
   "counts": {
-    "phases": 1,
+    "steps": 1,
     "tests": 1,
     "failed": 1,
     "authoritative": 1,
@@ -706,7 +706,7 @@ write_security_failure_summary() {
   "critical_path_wall_duration_ms": 1,
   "teardown_duration_ms": 0,
   "counts": {
-    "phases": 1,
+    "steps": 1,
     "tests": 0,
     "failed": 1,
     "authoritative": 0,
@@ -750,7 +750,7 @@ write_config_failure_summary() {
   "critical_path_wall_duration_ms": 1,
   "teardown_duration_ms": 0,
   "counts": {
-    "phases": 1,
+    "steps": 1,
     "tests": 0,
     "failed": 1,
     "authoritative": 0,
@@ -772,7 +772,7 @@ write_config_failure_summary() {
   "failure_class": "config",
   "failure_reason": "configuration_error",
   "failure_classes": { "product": 0, "security": 0, "config": 1, "infra": 0, "harness": 0, "artifact": 0, "timing": 0, "interrupted": 0, "unknown": 0 },
-  "failure_reasons": { "usage_error": 0, "configuration_error": 1, "preflight_error": 0, "service_start_error": 0, "service_readiness_timeout": 0, "fixture_error": 0, "resource_conflict": 0, "test_assertion_failure": 0, "security_finding": 0, "child_target_failure": 0, "tool_diagnostic_failure": 0, "scheduler_accounting_error": 0, "frontend_row_accounting": 0, "test_accounting_unmapped": 0, "artifact_error": 0, "cleanup_error": 0, "duration_baseline_drift": 0, "timeout_failure": 0, "cancelled_or_interrupted": 0, "unknown_failure": 0 },
+  "failure_reasons": { "usage_error": 0, "configuration_error": 1, "preflight_error": 0, "service_start_error": 0, "service_readiness_timeout": 0, "fixture_error": 0, "resource_conflict": 0, "test_assertion_failure": 0, "security_finding": 0, "child_target_failure": 0, "tool_diagnostic_failure": 0, "scheduler_accounting_error": 0, "test_accounting_unmapped": 0, "artifact_error": 0, "cleanup_error": 0, "duration_baseline_drift": 0, "timeout_failure": 0, "cancelled_or_interrupted": 0, "unknown_failure": 0 },
   "failures": [
     { "failure_class": "config", "failure_reason": "configuration_error", "kind": "failure", "source": "shell", "target": "${target}", "runner": "shell", "label": "bootstrap node runtime", "message": "Node runtime bootstrap failed: unable to download", "artifact": ".cartulary/test-results/${CARTULARY_TEST_RUN_ID}/${target}/${target}/stderr.log" }
   ],
@@ -781,19 +781,19 @@ write_config_failure_summary() {
 JSON
 }
 
-write_phase_summary() {
+write_step_summary() {
   if [[ -z "${CARTULARY_TEST_RESULTS_DIR:-}" || -z "${CARTULARY_TEST_RUN_ID:-}" ]]; then
     return 0
   fi
   local artifact_target="${CARTULARY_TEST_TARGET:-adhoc}"
-  local phase_dir="${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${artifact_target}/${target}"
-  mkdir -p "$phase_dir"
-  printf '{"ok":true}\n' >"${phase_dir}/runner.json"
-  printf 'phase stdout for %s\n' "$target" >"${phase_dir}/stdout.log"
-  printf 'phase stderr for %s\n' "$target" >"${phase_dir}/stderr.log"
-  cat >"${phase_dir}/phase-summary.json" <<JSON
+  local step_dir="${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${artifact_target}/${target}"
+  mkdir -p "$step_dir"
+  printf '{"ok":true}\n' >"${step_dir}/runner.json"
+  printf 'step stdout for %s\n' "$target" >"${step_dir}/stdout.log"
+  printf 'step stderr for %s\n' "$target" >"${step_dir}/stderr.log"
+  cat >"${step_dir}/step-summary.json" <<JSON
 {
-  "schema_id": "cartulary.test_phase_summary.v3",
+  "schema_id": "cartulary.test_step_summary.v1",
   "label": "${target}",
   "target": "${artifact_target}",
   "runner": "shell",
@@ -803,7 +803,7 @@ write_phase_summary() {
   "wall_duration_ms": 1,
   "critical_path_wall_duration_ms": 1,
   "counts": {
-    "phases": 1,
+    "steps": 1,
     "tests": 0,
     "failed": 0,
     "authoritative": 0,
@@ -817,9 +817,9 @@ write_phase_summary() {
     "packages": 0
   },
   "artifacts": {
-    "runner_json": "${phase_dir}/runner.json",
-    "stdout_log": "${phase_dir}/stdout.log",
-    "stderr_log": "${phase_dir}/stderr.log"
+    "runner_json": "${step_dir}/runner.json",
+    "stdout_log": "${step_dir}/stdout.log",
+    "stderr_log": "${step_dir}/stderr.log"
   }
 }
 JSON
@@ -870,7 +870,7 @@ fi
 change_active -1
 
 echo "fake pass for $target"
-write_phase_summary
+write_step_summary
 write_summary
 EOF
   chmod +x "${dir}/fake-make"
@@ -1576,7 +1576,7 @@ const policyUnits = [
 const policyProfile = schedulerCapacityProfileLimits(
   "test_slice",
   testSliceDefaultCapacityProfile,
-  "phase slice policy profile",
+  "test slice policy profile",
   { env: {} },
 );
 policyProfile.limits.set("browser_stage_visual", 1);
@@ -1585,7 +1585,7 @@ const resolvedPolicy = resolveSchedulerResourceLimits({
   scheduler: "test_slice",
   resourceLimits: policyProfile.limits,
   resourceLimitSources: policyProfile.sources,
-  label: "phase slice policy resolver",
+  label: "test slice policy resolver",
   workUnits: policyUnits,
   pruneToClaims: true,
 });
@@ -2365,7 +2365,7 @@ cat >"${full_envelope_dir}/results/envelope/browser-e2e-webserver-backed/target-
   "executed_duration_ms": 56941,
   "logical_duration_ms": 56941,
   "counts": {
-    "phases": 1,
+    "steps": 1,
     "tests": 1,
     "failed": 0
   }
@@ -2760,8 +2760,8 @@ assert_contains "$success_events" "end service" "success service completed"
 assert_contains "$success_events" "end meta" "success meta completed"
 assert_not_contains "$success_events" "browser" "success check schedule has no browser tail"
 assert_contains "$success_events" "test-target setup setup" "success setup receives target-owned identity"
-assert_file_present "${success_dir}/results/success/setup/setup/phase-summary.json" "success setup target-owned helper phase summary"
-assert_file_absent "${success_dir}/results/success/adhoc/setup/phase-summary.json" "success setup helper is not adhoc-owned"
+assert_file_present "${success_dir}/results/success/setup/setup/step-summary.json" "success setup target-owned helper step summary"
+assert_file_absent "${success_dir}/results/success/adhoc/setup/step-summary.json" "success setup helper is not adhoc-owned"
 success_summary="${success_dir}/results/success/run-summary.json"
 success_target_summary="${success_dir}/results/success/check/target-summary.json"
 success_scheduler_summary="${success_dir}/results/success/check/scheduler-summary.json"
@@ -2799,10 +2799,10 @@ assert_equals "$(json_field "$success_summary" "summary_targets.expected.length"
 assert_equals "$(json_field "$success_summary" "evidence_targets.present.length")" "3" "success evidence target count"
 assert_equals "$(json_field "$success_summary" "helper_units.total")" "2" "success helper unit count"
 assert_equals "$(json_field "$success_summary" "helper_units.artifacts.0.target")" "setup" "success helper artifact target"
-assert_contains "$(json_field "$success_summary" "helper_units.artifacts.0.phase_summaries.0.artifact")" "/setup/setup/phase-summary.json" "success helper artifact phase summary path"
-assert_contains "$(json_field "$success_summary" "helper_units.artifacts.0.phase_summaries.0.runner_json")" "/setup/setup/runner.json" "success helper artifact runner path"
-assert_contains "$(json_field "$success_summary" "helper_units.artifacts.0.phase_summaries.0.stdout_log")" "/setup/setup/stdout.log" "success helper artifact stdout path"
-assert_contains "$(json_field "$success_summary" "helper_units.artifacts.0.phase_summaries.0.stderr_log")" "/setup/setup/stderr.log" "success helper artifact stderr path"
+assert_contains "$(json_field "$success_summary" "helper_units.artifacts.0.step_summaries.0.artifact")" "/setup/setup/step-summary.json" "success helper artifact step summary path"
+assert_contains "$(json_field "$success_summary" "helper_units.artifacts.0.step_summaries.0.runner_json")" "/setup/setup/runner.json" "success helper artifact runner path"
+assert_contains "$(json_field "$success_summary" "helper_units.artifacts.0.step_summaries.0.stdout_log")" "/setup/setup/stdout.log" "success helper artifact stdout path"
+assert_contains "$(json_field "$success_summary" "helper_units.artifacts.0.step_summaries.0.stderr_log")" "/setup/setup/stderr.log" "success helper artifact stderr path"
 assert_check_scheduler_artifacts "$success_dir" success check pass - 5 finish
 assert_equals "$(json_field "$success_scheduler_summary" "completed_work_units")" "5" "success scheduler completed count"
 "$NODE_BIN" - "$success_scheduler_summary" "$success_scheduler_events" <<'EOF'

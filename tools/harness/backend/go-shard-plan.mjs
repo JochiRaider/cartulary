@@ -101,7 +101,7 @@ function addAggregate(aggregates, row, mode) {
       name: row.execution_family,
       mode,
       label: row.execution_label ?? row.label ?? row.execution_family,
-      phase: row.manifest_phase,
+      owner: row.owner_id,
       section: row.section,
       coverage: row.coverage,
       execution_dependency: row.execution_dependency,
@@ -154,14 +154,14 @@ function postgresFixtureForSymbol(row, symbol) {
   };
 }
 
-function buildExecutionItems(root, rows, { phase = "", defaultCheckOnly = false } = {}) {
+function buildExecutionItems(root, rows, { owner = "", defaultCheckOnly = false } = {}) {
   const modulePath = loadGoModulePath(root);
   const baselines = readGoDurationBaselineMaps(root, "", { allowMissing: true });
   const selectedRows = rows.filter((row) => {
-    if (!phase) {
+    if (!owner) {
       return !defaultCheckOnly || row.default_check_required === true;
     }
-    return row.manifest_phase === phase && (!defaultCheckOnly || row.default_check_required === true);
+    return row.owner_id === owner && (!defaultCheckOnly || row.default_check_required === true);
   });
   const aggregates = new Map();
   const executableItems = [];
@@ -179,7 +179,7 @@ function buildExecutionItems(root, rows, { phase = "", defaultCheckOnly = false 
         const { weightMs, weightSource } = rawItemWeight(baselines, key);
         executableItems.push({
           target: row.target,
-          manifest_phase: row.manifest_phase,
+          owner_id: row.owner_id,
           aggregate_name: row.execution_family,
           kind: "raw",
           id: `${row.id}:${pkg}`,
@@ -220,7 +220,7 @@ function buildExecutionItems(root, rows, { phase = "", defaultCheckOnly = false 
         );
         executableItems.push({
           target: row.target,
-          manifest_phase: row.manifest_phase,
+          owner_id: row.owner_id,
           aggregate_name: row.execution_family,
           kind: itemKind,
           id: row.id,
@@ -259,7 +259,7 @@ function buildExecutionItems(root, rows, { phase = "", defaultCheckOnly = false 
         );
         executableItems.push({
           target: row.target,
-          manifest_phase: row.manifest_phase,
+          owner_id: row.owner_id,
           aggregate_name: row.execution_family,
           kind: "support",
           id: row.id,
@@ -522,16 +522,16 @@ function scenarioShardSuffix(scenarioID) {
   return scenarioID.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
-function shardName(aggregateName, index, phase = "", bin = {}) {
-  const phasePrefix = phase ? `${phase}-` : "";
+function shardName(aggregateName, index, owner = "", bin = {}) {
+  const ownerPrefix = owner ? `${owner}-` : "";
   const semanticName = aggregateName
     .toLowerCase()
     .replace(/[^a-z0-9]+/gu, "-")
     .replace(/^-|-$/gu, "");
   if (bin.scenario_id) {
-    return `${phasePrefix}${semanticName}-${scenarioShardSuffix(bin.scenario_id)}`;
+    return `${ownerPrefix}${semanticName}-${scenarioShardSuffix(bin.scenario_id)}`;
   }
-  return `${phasePrefix}${semanticName}-shard-${String(index + 1).padStart(2, "0")}`;
+  return `${ownerPrefix}${semanticName}-shard-${String(index + 1).padStart(2, "0")}`;
 }
 
 function schedulerProfileForShard(items, weightMs) {
@@ -584,13 +584,13 @@ export function collectGoShardPlanFromRows(root = process.cwd(), rows = [], opti
   if (!Array.isArray(rows)) {
     throw new Error("collectGoShardPlanFromRows requires normalized target-plan rows");
   }
-  const phase = typeof options.phase === "string" ? options.phase.trim() : "";
+  const owner = typeof options.owner === "string" ? options.owner.trim() : "";
   const defaultCheckOnly = options.defaultCheckOnly === true;
   const requestedTargetMs = normalizePositiveInteger(
     options.targetMs,
     Number.NaN,
   );
-  const { baselines, aggregates, executableItems } = buildExecutionItems(root, rows, { phase, defaultCheckOnly });
+  const { baselines, aggregates, executableItems } = buildExecutionItems(root, rows, { owner, defaultCheckOnly });
   const itemsByAggregate = new Map();
   for (const item of executableItems) {
     if (!itemsByAggregate.has(item.aggregate_name)) {
@@ -626,7 +626,7 @@ export function collectGoShardPlanFromRows(root = process.cwd(), rows = [], opti
         }
       }
       shards.push({
-        name: shardName(aggregateName, index, phase, bin),
+        name: shardName(aggregateName, index, owner, bin),
         target: targets.size === 1 ? Array.from(targets)[0] : Array.from(targets).sort(compareStrings).join(","),
         aggregate_name: aggregateName,
         ...(bin.scenario_id ? { scenario_id: bin.scenario_id } : {}),
@@ -646,7 +646,7 @@ export function collectGoShardPlanFromRows(root = process.cwd(), rows = [], opti
           .map((item) => ({
             kind: item.kind,
             target: item.target,
-            manifest_phase: item.manifest_phase ?? "",
+            owner_id: item.owner_id ?? "",
             id: item.id,
             primary_evidence_owner: item.primary_evidence_owner ?? "",
             symbol: item.symbol,
@@ -705,7 +705,7 @@ export function collectGoShardPlanFromRows(root = process.cwd(), rows = [], opti
     .sort(
       (left, right) =>
         compareStrings(left.target, right.target) ||
-        compareStrings(left.phase, right.phase) ||
+        compareStrings(left.owner, right.owner) ||
         compareStrings(left.name, right.name),
     );
 
@@ -718,7 +718,7 @@ export function collectGoShardPlanFromRows(root = process.cwd(), rows = [], opti
 
   return {
     schema_id: "cartulary.go_shard_plan.v3",
-    phase: phase || "",
+    owner: owner || "",
     default_shard_target_ms: baselines.defaultShardTargetMs,
     shard_target_ms_by_target: Object.fromEntries(
       [...baselines.shardTargetMsByTarget.entries()].sort(([left], [right]) =>
@@ -844,17 +844,17 @@ function loadDiscoveredPlan(root, options) {
 
 function main(argv) {
   const args = [...argv];
-  let phase = "";
+  let owner = "";
   for (let index = 0; index < args.length;) {
-    if (args[index] === "--phase") {
-      phase = args[index + 1] ?? "";
+    if (args[index] === "--owner") {
+      owner = args[index + 1] ?? "";
       args.splice(index, 2);
       continue;
     }
     index += 1;
   }
   const [command, target, name] = args;
-  const plan = loadDiscoveredPlan(process.cwd(), { phase });
+  const plan = loadDiscoveredPlan(process.cwd(), { owner });
   switch (command) {
     case "json":
       process.stdout.write(`${JSON.stringify(plan, null, 2)}\n`);

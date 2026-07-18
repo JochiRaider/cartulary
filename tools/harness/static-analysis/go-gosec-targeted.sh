@@ -15,7 +15,7 @@ GOSEC_PATTERNS="${GOSEC_PATTERNS:-./cmd/... ./internal/... ./db/... ./tools/...}
 GOSEC_TARGETED_RUNTIME_RULES="${GOSEC_TARGETED_RUNTIME_RULES:-G122,G301,G302,G303,G304,G305,G306,G307}"
 GOSEC_TARGETED_RUNTIME_FLAGS="${GOSEC_TARGETED_RUNTIME_FLAGS:-}"
 GOSEC_TARGETED_RUNTIME_PATTERNS="${GOSEC_TARGETED_RUNTIME_PATTERNS:-./cmd/... ./internal/...}"
-profile_metadata="${CARTULARY_PHASE_ARTIFACT_DIR:+${CARTULARY_PHASE_ARTIFACT_DIR}/security-profiles.jsonl}"
+profile_metadata="${CARTULARY_STEP_ARTIFACT_DIR:+${CARTULARY_STEP_ARTIFACT_DIR}/security-profiles.jsonl}"
 
 if [[ "$GO_BIN" != */* ]] && command -v "$GO_BIN" >/dev/null 2>&1; then
   GO_BIN="$(command -v "$GO_BIN")"

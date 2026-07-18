@@ -6,34 +6,34 @@ import { handleRunSummary } from "./run-summary.mjs";
 import { handleSharedExecution } from "./shared-execution.mjs";
 import { handleTargetSummary } from "./target-summary.mjs";
 import { handleTimingSpan } from "./timing.mjs";
-import { handleGoPhase } from "./runners/go.mjs";
-import { handlePlaywrightPhase } from "./runners/playwright.mjs";
-import { handleShellPhase } from "./runners/shell.mjs";
-import { handleVitestPhase } from "./runners/vitest.mjs";
+import { handleGoStep } from "./runners/go.mjs";
+import { handlePlaywrightStep } from "./runners/playwright.mjs";
+import { handleShellStep } from "./runners/shell.mjs";
+import { handleVitestStep } from "./runners/vitest.mjs";
 
 function main() {
   const [command, ...rest] = process.argv.slice(2);
   switch (command) {
-    case "shell-phase":
-      process.exit(handleShellPhase());
+    case "shell-step":
+      process.exit(handleShellStep());
       break;
-    case "go-phase":
-      process.exit(handleGoPhase({ manifestAware: false }));
+    case "go-step":
+      process.exit(handleGoStep({ catalogAware: false }));
       break;
-    case "go-manifest-phase":
-      process.exit(handleGoPhase({ manifestAware: true }));
+    case "go-catalog-step":
+      process.exit(handleGoStep({ catalogAware: true }));
       break;
-    case "vitest-phase":
-      process.exit(handleVitestPhase({ manifestAware: false }));
+    case "vitest-step":
+      process.exit(handleVitestStep({ catalogAware: false }));
       break;
-    case "vitest-manifest-phase":
-      process.exit(handleVitestPhase({ manifestAware: true }));
+    case "vitest-catalog-step":
+      process.exit(handleVitestStep({ catalogAware: true }));
       break;
-    case "playwright-phase":
-      process.exit(handlePlaywrightPhase({ manifestAware: false }));
+    case "playwright-step":
+      process.exit(handlePlaywrightStep({ catalogAware: false }));
       break;
-    case "playwright-manifest-phase":
-      process.exit(handlePlaywrightPhase({ manifestAware: true }));
+    case "playwright-catalog-step":
+      process.exit(handlePlaywrightStep({ catalogAware: true }));
       break;
     case "go-json-stream":
       process.exit(handleGoJSONStream());
