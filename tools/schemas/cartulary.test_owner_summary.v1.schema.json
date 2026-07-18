@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test_owner_summary.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id", "command_id", "run_id", "owner_id", "selected_rows",
+    "source_snapshot_digest", "catalog_semantic_digest", "verification_semantic_digest",
+    "runtime_profile_digest", "resource_profile_digest", "fixture_profile_digest",
+    "target_id", "started_at", "finished_at", "duration_ms", "status",
+    "completion_scope", "counts", "unused_inputs", "primary_failure", "artifacts"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.test_owner_summary.v1" },
+    "command_id": { "type": "string", "pattern": "^cartulary\\.harness\\.command\\.[a-z0-9_]+\\.v[0-9]+$" },
+    "run_id": { "$ref": "cartulary.test_slice_plan.v1#/$defs/nonempty" },
+    "owner_id": { "$ref": "cartulary.test_family_manifest.v1#/$defs/owner_id" },
+    "selected_rows": { "$ref": "cartulary.test_slice_plan.v1#/$defs/row_ids" },
+    "source_snapshot_digest": { "$ref": "cartulary.test_slice_plan.v1#/$defs/digest" },
+    "catalog_semantic_digest": { "$ref": "cartulary.test_slice_plan.v1#/$defs/digest" },
+    "verification_semantic_digest": { "$ref": "cartulary.test_slice_plan.v1#/$defs/digest" },
+    "runtime_profile_digest": { "$ref": "cartulary.test_slice_plan.v1#/$defs/digest" },
+    "resource_profile_digest": { "$ref": "cartulary.test_slice_plan.v1#/$defs/digest" },
+    "fixture_profile_digest": { "$ref": "cartulary.test_slice_plan.v1#/$defs/digest" },
+    "target_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "started_at": { "$ref": "cartulary.test_slice_plan.v1#/$defs/timestamp" },
+    "finished_at": { "$ref": "cartulary.test_slice_plan.v1#/$defs/timestamp" },
+    "duration_ms": { "type": "integer", "minimum": 0 },
+    "status": { "enum": ["pass", "fail"] },
+    "completion_scope": { "enum": ["full_owner", "selected_subset"] },
+    "counts": { "$ref": "cartulary.test_slice_scheduler_summary.v1#/$defs/counts" },
+    "unused_inputs": { "$ref": "cartulary.test_slice_plan.v1#/$defs/unique_strings" },
+    "primary_failure": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/primary_failure" }] },
+    "artifacts": { "$ref": "#/$defs/artifacts" }
+  },
+  "$defs": {
+    "primary_failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["row_id", "failure_class", "failure_reason", "exit_code"],
+      "properties": {
+        "row_id": { "$ref": "cartulary.test_family_manifest.v1#/$defs/row_id" },
+        "failure_class": { "enum": ["product", "artifact"] },
+        "failure_reason": { "type": "string", "minLength": 1 },
+        "exit_code": { "type": "integer", "minimum": 1, "maximum": 255 }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_accounting", "owner_summary", "plan", "scheduler_summary", "tool_run_summary"],
+      "properties": {
+        "evidence_accounting": { "type": "string", "minLength": 1 },
+        "owner_summary": { "type": "string", "minLength": 1 },
+        "plan": { "type": "string", "minLength": 1 },
+        "scheduler_summary": { "type": "string", "minLength": 1 },
+        "tool_run_summary": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

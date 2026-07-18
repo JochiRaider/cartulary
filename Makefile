@@ -245,7 +245,7 @@ include tools/task_surface.generated.mk
 # Owner-first targets remain hidden from generated help until the WS-09
 # task-surface cutover. Their command contracts and execution are live so the
 # owner scheduler and diagnostics can be validated before v1 is retired.
-.PHONY: test-slice service-backed-test-slice explain-test-owner owner-task-guide
+.PHONY: test-slice service-backed-test-slice explain-test-owner owner-task-guide test-evidence-audit
 
 test-slice:
 	$(Q)$(call RUN_MAKE_NODE_TOOL,test-slice,OWNER="$(OWNER)" ROWS="$(ROWS)" VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" PLAYWRIGHT_WORKERS="$(PLAYWRIGHT_WORKERS)" JSON="$(JSON)" MAKE="$(MAKE)" GO="$(GO)" PNPM="$(PNPM)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
@@ -260,6 +260,9 @@ explain-test-owner:
 # recipe before WS-09. It is deleted when task-guide v2 becomes public.
 owner-task-guide:
 	$(Q)$(call RUN_MAKE_NODE_TOOL,owner-task-guide,ROLE="$(ROLE)" OWNER="$(OWNER)" JSON="$(JSON)")
+
+test-evidence-audit:
+	$(Q)$(call RUN_MAKE_NODE_TOOL,test-evidence-audit,OWNER="$(OWNER)" EVIDENCE_ROOTS_FILE="$(EVIDENCE_ROOTS_FILE)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
 
 .PHONY: graph-projection-fixture-candidate
 graph-projection-fixture-candidate:

@@ -6,6 +6,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 
+import { validateSchemaSync } from "../contract/index.mjs";
 import { loadTestCatalog } from "../test-catalog/test-catalog.mjs";
 import { parseStrictJSON } from "../test-catalog/semantic-json.mjs";
 import { buildSourceSnapshot } from "../owner-slice/source-snapshot.mjs";
@@ -199,6 +200,11 @@ function readManifest(root, ownerID, manifestPath) {
   }
   if (!stat.isFile() || stat.isSymbolicLink()) usage("EVIDENCE_ROOTS_FILE must be a non-symlink regular file");
   const manifest = parseStrictJSON(readFileSync(file, "utf8"), file);
+  try {
+    validateSchemaSync("cartulary.test_evidence_root_manifest.v1", manifest);
+  } catch (error) {
+    usage(`EVIDENCE_ROOTS_FILE is schema-invalid: ${error.message}`);
+  }
   if (manifest.schema_id !== "cartulary.test_evidence_root_manifest.v1") usage("EVIDENCE_ROOTS_FILE has an unsupported schema_id");
   if (manifest.owner_id !== ownerID) usage("EVIDENCE_ROOTS_FILE owner_id does not match OWNER");
   if (!Array.isArray(manifest.entries) || manifest.entries.length === 0) usage("EVIDENCE_ROOTS_FILE entries must be non-empty");
@@ -265,7 +271,24 @@ function expectedIdentity(root, ownerID, rowIDs) {
   };
 }
 
-function artifactReasons(artifact, expected, common, targetID, ownerID) {
+function authorizedSkip(catalog, rowID, timestamp) {
+  const row = catalog.rowByID.get(rowID);
+  if (!row) return false;
+  return row.verification_ids.some((verificationID) => {
+    const policy = catalog.verification.verificationByID.get(verificationID)?.verification?.skip_policy;
+    return policy?.mode === "authorize" &&
+      policy.owner_id === row.owner_id &&
+      Date.parse(policy.expires_at) > Date.parse(timestamp) &&
+      String(policy.approval_ref ?? "").trim() !== "";
+  });
+}
+
+function artifactReasons(artifact, expected, common, targetID, ownerID, catalog, timestamp) {
+  try {
+    validateSchemaSync("cartulary.test_evidence_accounting.v1", artifact);
+  } catch {
+    return ["schema_validation_failed"];
+  }
   const reasons = [];
   if (artifact.schema_id !== "cartulary.test_evidence_accounting.v1") reasons.push("unsupported_schema");
   if (artifact.owner_id !== ownerID) reasons.push("owner_mismatch");
@@ -286,6 +309,13 @@ function artifactReasons(artifact, expected, common, targetID, ownerID) {
   }
   if ((artifact.observed_rows ?? []).some((row) => !successfulStates.has(row.terminal_state))) {
     reasons.push("unsuccessful_terminal_record");
+  }
+  if (
+    (artifact.observed_rows ?? []).some(
+      (row) => row.terminal_state === "skipped_authorized" && !authorizedSkip(catalog, row.row_id, timestamp),
+    )
+  ) {
+    reasons.push("invalid_skip_authorization");
   }
   if (artifact.status !== "pass") reasons.push("artifact_status_not_pass");
   return [...new Set(reasons)].sort(asciiCompare);
@@ -335,7 +365,15 @@ export function auditOwnerEvidence(root, { ownerID, manifestPath, timestamp = ne
       runRoot = safeRunRoot(root, entry.run_root);
       loaded = readAccountingArtifact(runRoot, entry.target_id, ownerID);
       const expected = expectedIdentity(root, ownerID, rowIDs);
-      const reasons = artifactReasons(loaded.artifact, expected, common, entry.target_id, ownerID);
+      const reasons = artifactReasons(
+        loaded.artifact,
+        expected,
+        common,
+        entry.target_id,
+        ownerID,
+        catalog,
+        timestamp,
+      );
       if (reasons.length > 0) {
         rejectedArtifacts.push({ target_id: entry.target_id, run_root: entry.run_root, artifact_path: path.relative(root, loaded.path).replaceAll("\\", "/"), reasons });
       } else {

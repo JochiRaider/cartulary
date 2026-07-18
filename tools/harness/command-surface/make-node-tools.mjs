@@ -175,6 +175,20 @@ export const makeNodeTools = {
   "service-backed-test-slice": ownerSliceTool("service-backed-test-slice"),
   "explain-test-owner": ownerDiagnosticTool("explain", "explain-test-owner"),
   "owner-task-guide": ownerDiagnosticTool("task-guide", "owner-task-guide"),
+  "test-evidence-audit": {
+    inputs: ["OWNER", "EVIDENCE_ROOTS_FILE"],
+    runtimeEnv: ["CARTULARY_TEST_RESULTS_DIR", "CARTULARY_TEST_RUN_ID"],
+    script: "./tools/harness/evidence-accounting/evidence-audit-cli.mjs",
+    usage: "usage: make test-evidence-audit OWNER=<owner-id> EVIDENCE_ROOTS_FILE=<path>",
+    buildArgs(env) {
+      return [
+        "--owner",
+        value(env, "OWNER"),
+        "--evidence-roots-file",
+        value(env, "EVIDENCE_ROOTS_FILE"),
+      ];
+    },
+  },
   "task-surface-report": {
     inputs: ["TASK_SURFACE_REPORT_ARGS"],
     script: "./tools/harness/generated-artifacts/task-surface-report-cli.mjs",

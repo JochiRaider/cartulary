@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:d69439bf9f59a97461257a5534b1f518e8f7083a08d17781ba886cd9b632292e",
+  "input_digest": "sha256:7d40cd5f54ecc2e0d64a5ab8fa4cdb489cc563472ea134c685146e407a2e2300",
   "inputs": [
     {
       "path": "tools/browser_e2e_duration_baselines.json",
@@ -212,7 +212,7 @@
     {
       "path": "tools/harness/execution/runners/go.mjs",
       "role": "renderer_source",
-      "hash": "sha256:b1708b5242a138830842df91b7dae97210594d45aa066563ef5eca60a1c15957"
+      "hash": "sha256:e0296349278665590790bc580983e37d0a7690333bdf030ac789f0926a36fc49"
     },
     {
       "path": "tools/harness/execution/runners/playwright.mjs",
@@ -222,12 +222,12 @@
     {
       "path": "tools/harness/execution/runners/shell.mjs",
       "role": "renderer_source",
-      "hash": "sha256:3d057b1e16be52a8ea62004ec50f77729e2257048f32749c56cf29a96fb84ed1"
+      "hash": "sha256:991b9464d5d29b337a348e5b0bf5efd29bcf2541f289d11302c4fa4f08d7b5a4"
     },
     {
       "path": "tools/harness/execution/runners/vitest.mjs",
       "role": "renderer_source",
-      "hash": "sha256:d10f2c062c343fa674dd0f2d4e42ab7fe5ea0b108071fbf1d193e34cadcbb822"
+      "hash": "sha256:3623054680d91ab88c30dcb6037acae885af210892000f4b563ad9ac2e419f1a"
     },
     {
       "path": "tools/harness/execution/service-backed/index.mjs",

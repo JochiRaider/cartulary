@@ -10,9 +10,9 @@
 | Baseline branch | `revision/grid-adapter` |
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
-| Tracker state | `IN_PROGRESS` — WS-07 owner slice and evidence APIs |
+| Tracker state | `CHECKPOINT` — WS-07 complete; WS-08 not activated |
 | Active start | Clean tree at `ddfd2afa` |
-| Active tasks | T-035 |
+| Active tasks | None |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -493,7 +493,7 @@ WS-06 closure is recorded in `tools/delivery_identity_followup_ledger.json`. It 
 | WS-04 | Migrate backend rows | DONE | WS-03 | 456 backend dispositions and focused tests | Revert complete owner slices, never individual aliases. |
 | WS-05 | Migrate frontend rows | DONE | WS-03 | 87 frontend dispositions and browser accounting tests | Revert complete owner slices with fixture metadata. |
 | WS-06 | Rename tests, symbols, fixtures, and goldens | DONE | WS-04, WS-05 | Semantic scan, visual digest report, and production follow-up closure ledger | Revert complete rename slices; no duplicate old/new tests. |
-| WS-07 | Replace slice, audit, schema, and artifact APIs | IN_PROGRESS | WS-03–WS-06 | Successor CLI contract/smoke tests | Revert the whole interface checkpoint before atomic cutover. |
+| WS-07 | Replace slice, audit, schema, and artifact APIs | DONE | WS-03–WS-06 | Successor CLI contract/smoke tests | Revert the whole interface checkpoint before atomic cutover. |
 | WS-08 | Migrate browser stages and scheduler topology | TODO | WS-05, WS-07 | Owner-based DAG, lifecycle, and browser tests | Revert authored topology and generated outputs together. |
 | WS-09 | Update task surface, generation, finalization, and baselines | TODO | WS-07, WS-08 | Generated surface/drift and fresh baseline plan | Revert owner inputs plus regenerated outputs together. |
 | WS-10 | Atomic deletion and hard cutover | TODO | WS-02–WS-09 | Deletion manifest and zero-reference scans | Revert the entire cutover commit; never add shims. |
@@ -720,7 +720,7 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-032 | Implement owner-slice planning/execution | WS-07 | DONE | T-015,T-022,T-027 | Deterministic plan contracts, exact Go/Vitest execution, managed-service smoke, and fail-closed selection fixtures | Both successor slice targets work. |
 | T-033 | Implement owner diagnostics/task guide | WS-07 | DONE | T-032 | Text/JSON contract tests and exact catalog-topology reconciliation | Commands report exact owner topology. |
 | T-034 | Implement owner evidence accounting/audit | WS-07 | DONE | T-032 | Exact runner/accounting and retained-root audit fixtures; focused real-row execution | Fresh compatible target partitions reconcile and incomplete or incompatible evidence fails closed. |
-| T-035 | Replace schemas and artifact identities | WS-07 | IN_PROGRESS | T-032,T-034 | Schema attachment/drift checks | No successor artifact uses delivery phase identity. |
+| T-035 | Replace schemas and artifact identities | WS-07 | DONE | T-032,T-034 | Four attached successor schemas, retained artifact smoke, old-ID rejection, and drift checks | No successor artifact uses delivery phase identity. |
 | T-036 | Migrate browser stages/runtime profiles | WS-08 | TODO | T-027,T-032 | Browser plan tests | Selection derives from catalog resources. |
 | T-037 | Migrate scheduler DAG and lifecycle | WS-08 | TODO | T-036 | Scheduler/lifecycle tests | Phase ordering has no execution role. |
 | T-038 | Regenerate owner-first topology | WS-08 | TODO | T-037 | Generation/drift evidence | Authored and generated topology agree. |
@@ -1150,6 +1150,20 @@ Each entry must include:
 - Skipped checks: schema attachment and retained CLI artifact validation are T-035; Playwright accounting and browser topology are WS-08; generated public command ownership is T-039; broad `make check`, finalization, and release validation remain WS-11.
 - Next safe task: T-035 only. Attach the evidence-root, accounting, owner-summary, and audit-summary schemas; emit uniform owner shards and tool/scheduler references; add the audit CLI fixtures; and hard-reject retired artifact IDs.
 - Rollback boundary: revert the complete T-034 checkpoint, including the NLSpec/root-manifest decision, tracker dependency correction, runner adapters, accounting/audit core, fixtures, and execution integration. Do not restore fixed evidence-root variables, target-wide pass inference, identical cross-gate row inventories, or newest-root discovery.
+
+#### 2026-07-18 — T-035 schema/artifact checkpoint and WS-07 closure
+
+- Branch/commit at start: `revision/grid-adapter` at clean T-034 checkpoint `44b8c200`. T-035 and WS-07 are `DONE`; no task or workstream remains active until a separate tracker-only WS-08 activation checkpoint.
+- Schema result: `cartulary.test_evidence_root_manifest.v1`, `cartulary.test_evidence_accounting.v1`, `cartulary.test_owner_summary.v1`, and `cartulary.test_evidence_audit_summary.v1` are closed, attached public contracts. The slice scheduler schema now requires accounting, owner-summary, plan, scheduler-summary, tool-summary, and work-unit-log references. The verification contract owns default-forbid or time-bounded authorized-skip metadata with the four adopted reason codes; an absent, mismatched, or expired authorization cannot close audit evidence.
+- Artifact result: owner slices retain the plan, scheduler summary, tool-run summary, and uniform `<target>/owners/<owner-id>/` accounting and owner-summary shards. Every retained object validates before success, target-local JSON continues to emit exactly the scheduler summary, and tool/scheduler/owner summaries cross-reference the same artifact set without duplicating row details. The audit CLI retains its schema summary and wrapper summary, exits `11` for incompatible artifacts, and exits `2` without setup for missing usage.
+- Compatibility result: successor validators reject retired frontend accounting schema IDs. Audit fixtures validate exact disjoint target partitions, full-owner slice closure, duplicate-row rejection, current semantic identities, caller-root containment, and retained CLI output. No old artifact reader, translator, or fallback was introduced.
+- Authored files changed: the NLSpec schema status, hidden pre-cutover Make/command dispatch, evidence audit CLI/core, owner-slice CLI, schema attachment owner, four new schemas, the slice scheduler schema, the verification schema, and harness contract fixtures. Generated file changed only through `make phase-schedules`: `tools/execution_topology_render_index.json`, whose fingerprint still includes runner adapters until T-040 removes phase schedule generation.
+- Reconciliation: the catalog remains 46 owners, 169 families, 833 rows, and 1,377 exact selectors; 548 authoritative and 265 auxiliary dispositions remain unchanged.
+- Passed validation: `make format` at `.cartulary/test-results/20260718T043144Z-p4752`; `make harness-contract` with 73 tests at `.cartulary/test-results/20260718T043150Z-p7270`; `make json-shape-check` at `.cartulary/test-results/20260718T043212Z-p8252`; real retained owner-slice smoke at `.cartulary/test-results/20260718T043219Z-p8705`; `make generate-drift` at `.cartulary/test-results/20260718T043237Z-p9210`; `make generated-artifact-policy-check` at `.cartulary/test-results/20260718T043246Z-p11106`; script and Markdown lint at `.cartulary/test-results/20260718T043246Z-p11281` and `.cartulary/test-results/20260718T043247Z-p11656`; and `make test-fast` with 1,295 passing tests at `.cartulary/test-results/20260718T043313Z-p13638`.
+- Resolved failures: the first `make json-shape-check` failed because the still-live v1 phase schedule fingerprint detected the T-034 runner-adapter changes. `make phase-schedules` at `.cartulary/test-results/20260718T042901Z-p965` regenerated the permitted index and the rerun passed. This is migration-related generation debt assigned to T-040, not a product failure.
+- Skipped checks: Playwright exact accounting, browser stage/runtime-profile migration, generic scheduler lifecycle, and owner-first topology are WS-08. Public generated task-surface cutover is WS-09. Broad `make check`, finalization, evidence audits for all owners, and release validation remain WS-11.
+- Next safe task: create a tracker-only WS-08 activation checkpoint with T-036 as the sole active task, then replace browser phase batches and legacy IDs with catalog-derived semantic stage/runtime-profile groups. Do not begin scheduler or generated-topology work concurrently.
+- Rollback boundary: revert the complete T-035 checkpoint, including all four schemas, attachments, artifact writers, audit CLI dispatch, verification skip policy, generated phase-schedule index refresh, fixtures, and tracker evidence. Never preserve a partial artifact family or restore flat owner paths or legacy schema acceptance.
 
 ## 17. First-resumer checklist
 

@@ -92,10 +92,13 @@
     "artifacts": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["plan", "scheduler_summary", "work_unit_logs"],
+      "required": ["evidence_accounting", "owner_summary", "plan", "scheduler_summary", "tool_run_summary", "work_unit_logs"],
       "properties": {
+        "evidence_accounting": { "type": "string", "minLength": 1 },
+        "owner_summary": { "type": "string", "minLength": 1 },
         "plan": { "type": "string", "minLength": 1 },
         "scheduler_summary": { "type": "string", "minLength": 1 },
+        "tool_run_summary": { "type": "string", "minLength": 1 },
         "work_unit_logs": { "type": "array", "items": { "$ref": "#/$defs/log_ref" } }
       }
     }

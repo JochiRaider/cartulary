@@ -6,6 +6,15 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { validateSchemaSync } from "../contract/index.mjs";
+import {
+  buildTestEvidenceAccounting,
+  buildTestOwnerSummary,
+} from "../evidence-accounting/index.mjs";
+import {
+  buildToolRunSummary,
+  fileArtifactRef,
+  normalizeOutputMode,
+} from "../output/index.mjs";
 import { executeOwnerSlicePlan, retainOwnerSliceUnitLogs } from "./execution.mjs";
 import { buildOwnerSlicePlan, OwnerSliceUsageError } from "./plan.mjs";
 
@@ -69,10 +78,17 @@ function identityFields(plan) {
 }
 
 function schedulerSummary(plan, execution, logs, startedAt, finishedAt) {
-  const failedRows = execution.unit_results
-    .filter((result) => result.status !== "passed")
-    .flatMap((result) => result.row_ids)
-    .sort();
+  const counts = {
+    selected: execution.row_results.length,
+    passed: 0,
+    failed: 0,
+    infrastructure_failed: 0,
+    skipped_dependency: 0,
+    cancelled: 0,
+    skipped_authorized: 0,
+  };
+  for (const result of execution.row_results) counts[result.terminal_state] += 1;
+  const ownerPrefix = `${plan.target}/owners/${plan.owner_id}`;
   return {
     schema_id: "cartulary.test_slice_scheduler_summary.v1",
     ...identityFields(plan),
@@ -82,15 +98,7 @@ function schedulerSummary(plan, execution, logs, startedAt, finishedAt) {
     finished_at: finishedAt,
     duration_ms: execution.duration_ms,
     selection: plan.selection,
-    counts: {
-      selected: plan.selected_rows.length,
-      passed: plan.selected_rows.length - failedRows.length,
-      failed: failedRows.length,
-      infrastructure_failed: 0,
-      skipped_dependency: 0,
-      cancelled: 0,
-      skipped_authorized: 0,
-    },
+    counts,
     unused_inputs: plan.unused_inputs,
     work_units: execution.unit_results.map((result) => ({
       work_unit_id: result.work_unit_id,
@@ -103,11 +111,75 @@ function schedulerSummary(plan, execution, logs, startedAt, finishedAt) {
       failure_reason: result.failure_reason,
     })),
     artifacts: {
+      evidence_accounting: `${ownerPrefix}/test-evidence-accounting.json`,
+      owner_summary: `${ownerPrefix}/test-owner-summary.json`,
       plan: `${plan.target}/test-slice-plan.json`,
       scheduler_summary: `${plan.target}/test-slice-scheduler-summary.json`,
+      tool_run_summary: `${plan.target}/tool-run-summary.json`,
       work_unit_logs: logs,
     },
   };
+}
+
+function ownerArtifactPaths(plan) {
+  const prefix = `${plan.target}/owners/${plan.owner_id}`;
+  return {
+    evidence_accounting: `${prefix}/test-evidence-accounting.json`,
+    owner_summary: `${prefix}/test-owner-summary.json`,
+    plan: `${plan.target}/test-slice-plan.json`,
+    scheduler_summary: `${plan.target}/test-slice-scheduler-summary.json`,
+    tool_run_summary: `${plan.target}/tool-run-summary.json`,
+  };
+}
+
+function retainJSON(file, value) {
+  validateSchemaSync(value.schema_id, value);
+  writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+function toolSummary(plan, execution, paths, startedAt, finishedAt, resultRoot, runRoot) {
+  const status = execution.status;
+  const failure = execution.row_results.find((row) => row.terminal_state !== "passed");
+  return buildToolRunSummary({
+    target: plan.target,
+    command: ["make", plan.target],
+    status,
+    exitCode: status === "pass" ? 0 : failure?.terminal_state === "failed" ? 10 : 11,
+    startedAt,
+    completedAt: finishedAt,
+    durationMs: execution.duration_ms,
+    outputMode: normalizeOutputMode(),
+    resultRoot,
+    runId: plan.run_id,
+    runRoot,
+    summaryArtifacts: [
+      fileArtifactRef("test_evidence_accounting", paths.evidence_accounting),
+      fileArtifactRef("test_owner_summary", paths.owner_summary),
+      fileArtifactRef("test_slice_plan", paths.plan),
+      fileArtifactRef("test_slice_scheduler_summary", paths.scheduler_summary),
+      fileArtifactRef("tool_run_summary", paths.tool_run_summary),
+    ],
+    workUnits: execution.unit_results.map((result) => ({
+      id: result.work_unit_id,
+      completed: result.row_results.length,
+      total: result.row_ids.length,
+      status: result.status,
+    })),
+    counts: {
+      tests: execution.row_results.length,
+      failed: execution.row_results.filter((row) => row.terminal_state !== "passed").length,
+    },
+    failureClass: status === "pass" ? null : failure?.terminal_state === "failed" ? "product" : "artifact",
+    failureReason: status === "pass" ? null : failure?.terminal_state === "failed" ? "test_assertion_failure" : "scheduler_accounting_error",
+    failures: status === "pass" ? [] : [{
+      target: plan.target,
+      work_unit: plan.work_units.find((unit) => unit.row_ids.includes(failure.row_id))?.work_unit_id ?? "",
+      failure_class: failure?.terminal_state === "failed" ? "product" : "artifact",
+      failure_reason: failure?.terminal_state === "failed" ? "test_assertion_failure" : "scheduler_accounting_error",
+      headline: failure?.failure_reason ?? "owner evidence accounting failed",
+    }],
+    rerunCommands: [`make ${plan.target} OWNER=${plan.owner_id}`],
+  });
 }
 
 function retainPlan(plan, targetDir) {
@@ -137,13 +209,29 @@ async function main() {
   const execution = executeOwnerSlicePlan(root, plan);
   const logs = retainOwnerSliceUnitLogs(targetDir, execution);
   const finishedAt = new Date().toISOString();
+  const ownerDir = path.join(targetDir, "owners", plan.owner_id);
+  mkdirSync(ownerDir, { recursive: true });
+  const paths = ownerArtifactPaths(plan);
+  const accounting = buildTestEvidenceAccounting(plan, execution, logs, startedAt, finishedAt);
+  retainJSON(path.join(ownerDir, "test-evidence-accounting.json"), accounting);
+  const ownerSummary = buildTestOwnerSummary(plan, accounting, paths);
+  retainJSON(path.join(ownerDir, "test-owner-summary.json"), ownerSummary);
   const summary = schedulerSummary(plan, execution, logs, startedAt, finishedAt);
-  validateSchemaSync(summary.schema_id, summary);
-  writeFileSync(
+  retainJSON(
     path.join(targetDir, "test-slice-scheduler-summary.json"),
-    `${JSON.stringify(summary, null, 2)}\n`,
-    "utf8",
+    summary,
   );
+  const runRoot = path.dirname(targetDir);
+  const retainedToolSummary = toolSummary(
+    plan,
+    execution,
+    paths,
+    startedAt,
+    finishedAt,
+    path.relative(root, resultsRoot()).replaceAll("\\", "/"),
+    path.relative(root, runRoot).replaceAll("\\", "/"),
+  );
+  retainJSON(path.join(targetDir, "tool-run-summary.json"), retainedToolSummary);
   if (options.jsonValue === "1") {
     process.stdout.write(`${JSON.stringify(summary)}\n`);
   } else if (summary.status === "pass") {

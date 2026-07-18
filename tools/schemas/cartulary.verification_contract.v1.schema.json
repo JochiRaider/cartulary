@@ -27,6 +27,7 @@
             "items": { "enum": ["go_test", "vitest", "playwright", "shell", "static_check", "artifact_audit", "release_check"] }
           },
           "public_target": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "skip_policy": { "$ref": "#/$defs/skipPolicy" },
           "status": { "const": "active" },
           "documentation_refs": { "$ref": "#/$defs/strings" }
         }
@@ -36,6 +37,28 @@
   "$defs": {
     "ownerId": { "type": "string", "pattern": "^(?:module|platform|app|web|package|harness)\\.(?!phase[0-9]+$|fe_p[0-9]+$)[a-z][a-z0-9_]{0,62}$", "maxLength": 191 },
     "verificationId": { "type": "string", "pattern": "^(?:module|platform|app|web|package|harness)\\.(?!phase[0-9]+\\.|fe_p[0-9]+\\.)[a-z][a-z0-9_]{0,62}\\.verification\\.(?!phase[0-9]+$|fe_p[0-9]+$)[a-z][a-z0-9_]{0,62}$", "maxLength": 191 },
-    "strings": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+    "strings": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "skipPolicy": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": { "mode": { "const": "forbid" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "reason_code", "owner_id", "approval_ref", "expires_at"],
+          "properties": {
+            "mode": { "const": "authorize" },
+            "reason_code": { "enum": ["known_product_defect", "external_dependency_unavailable", "platform_compatibility_exception", "temporary_quarantine"] },
+            "owner_id": { "$ref": "#/$defs/ownerId" },
+            "approval_ref": { "type": "string", "minLength": 1, "maxLength": 500 },
+            "expires_at": { "type": "string", "format": "date-time", "pattern": "Z$" }
+          }
+        }
+      ]
+    }
   }
 }

@@ -403,7 +403,7 @@ test("runner adapters require one exact terminal observation per selected row", 
   );
 });
 
-test("owner accounting closes exact rows and preserves subset completion scope", () => {
+test("owner accounting closes exact rows and preserves subset completion scope", async () => {
   const catalog = loadTestCatalog(repoRoot);
   const row = catalog.rows.find((entry) => entry.owner_id === "platform.config" && entry.runner === "go");
   assert.ok(row);
@@ -446,10 +446,22 @@ test("owner accounting closes exact rows and preserves subset completion scope",
   assert.deepEqual(accounting.observed_rows.map((entry) => entry.row_id), [row.row_id]);
   const summary = buildTestOwnerSummary(plan, accounting, {
     evidence_accounting: "test-slice/owners/platform.config/test-evidence-accounting.json",
+    owner_summary: "test-slice/owners/platform.config/test-owner-summary.json",
+    plan: "test-slice/test-slice-plan.json",
+    scheduler_summary: "test-slice/test-slice-scheduler-summary.json",
+    tool_run_summary: "test-slice/tool-run-summary.json",
   });
   assert.equal(summary.completion_scope, "selected_subset");
   assert.equal(summary.counts.passed, 1);
   assert.equal(summary.primary_failure, null);
+  await validateSchema(accounting.schema_id, accounting);
+  await validateSchema(summary.schema_id, summary);
+  await assert.rejects(
+    validateSchema("cartulary.test_evidence_accounting.v1", {
+      ...accounting,
+      schema_id: "cartulary.frontend_row_accounting.v5",
+    }),
+  );
   assert.throws(
     () => buildTestEvidenceAccounting(plan, { ...execution, row_results: [] }, logs, accounting.started_at, accounting.finished_at),
     /do not exactly match/u,
@@ -471,6 +483,10 @@ test("owner evidence audit accepts exact target partitions and rejects duplicate
       const identity = loadOwnerAccountingSelection(repoRoot, { ownerID, rowIDs });
       writeJSONFile(path.join(ownerDir, "test-evidence-accounting.json"), {
         schema_id: "cartulary.test_evidence_accounting.v1",
+        command_id: targetID === "test-slice"
+          ? "cartulary.harness.command.test_slice.v1"
+          : "cartulary.harness.command.fixture_target.v1",
+        run_id: `fixture-${targetID}`,
         target_id: targetID,
         owner_id: ownerID,
         selected_rows: rowIDs,
@@ -480,9 +496,37 @@ test("owner evidence audit accepts exact target partitions and rejects duplicate
         runtime_profile_digest: identity.runtime_profile_digest,
         resource_profile_digest: identity.resource_profile_digest,
         fixture_profile_digest: identity.fixture_profile_digest,
+        started_at: "2026-07-18T00:00:00.000Z",
+        finished_at: "2026-07-18T00:00:00.001Z",
+        duration_ms: 1,
         status: "pass",
-        expected_rows: rowIDs.map((rowID) => ({ row_id: rowID })),
-        observed_rows: rowIDs.map((rowID) => ({ row_id: rowID, terminal_state: "passed" })),
+        expected_rows: identity.expected_rows.map((row) => ({
+          row_id: row.row_id,
+          owner_id: row.owner_id,
+          family_id: row.family_id,
+          verification_ids: row.verification_ids,
+          runner: row.runner,
+          selector_digest: row.selector_digest,
+          evidence_class: row.evidence_class,
+          evidence_target_id: row.target_name,
+          runtime_profile_id: row.runtime_profile_id,
+          resource_profile_id: row.resource_profile_id,
+          fixture_profile_id: row.fixture_profile_id,
+        })),
+        observed_rows: rowIDs.map((rowID) => ({
+          row_id: rowID,
+          terminal_state: "passed",
+          logical_duration_ms: 1,
+          executed_duration_ms: 1,
+          attempts: [{
+            attempt: 1,
+            terminal_state: "passed",
+            exit_code: 0,
+            duration_ms: 1,
+            artifact_refs: [],
+          }],
+          failure: null,
+        })),
       });
       entries.push({ target_id: targetID, run_root: path.relative(repoRoot, runRoot) });
     }
@@ -500,6 +544,45 @@ test("owner evidence audit accepts exact target partitions and rejects duplicate
     });
     assert.equal(summary.status, "pass");
     assert.equal(summary.accepted_artifacts.length, partitions.size);
+
+    const cliResults = path.join(resultRoot, "cli-results");
+    const cli = spawnSync(
+      process.execPath,
+      [
+        path.join(repoRoot, "tools/harness/evidence-accounting/evidence-audit-cli.mjs"),
+        "--owner",
+        ownerID,
+        "--evidence-roots-file",
+        path.relative(repoRoot, manifestFile),
+      ],
+      {
+        cwd: repoRoot,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          CARTULARY_TEST_RESULTS_DIR: cliResults,
+          CARTULARY_TEST_RUN_ID: "audit-pass",
+        },
+      },
+    );
+    assert.equal(cli.status, 0, cli.stderr);
+    const retainedAudit = JSON.parse(
+      readFileSync(
+        path.join(cliResults, "audit-pass", "test-evidence-audit", "test-evidence-audit-summary.json"),
+        "utf8",
+      ),
+    );
+    assert.equal(retainedAudit.schema_id, "cartulary.test_evidence_audit_summary.v1");
+    assert.equal(retainedAudit.status, "pass");
+    assert.equal(
+      JSON.parse(
+        readFileSync(
+          path.join(cliResults, "audit-pass", "test-evidence-audit", "tool-run-summary.json"),
+          "utf8",
+        ),
+      ).schema_id,
+      "cartulary.tool_run_summary.v4",
+    );
 
     const first = entries[0];
     const artifactFile = path.join(repoRoot, first.run_root, first.target_id, "owners", ownerID, "test-evidence-accounting.json");
