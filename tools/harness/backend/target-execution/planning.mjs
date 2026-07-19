@@ -14,7 +14,54 @@ import { compareStrings } from "./util.mjs";
 
 function targetRows(ctx) {
   if (!ctx.targetPlanRows) {
-    const ownerRows = collectTargetPlanRows(ctx.repoRoot).filter((row) => {
+    const allRows = collectTargetPlanRows(ctx.repoRoot);
+    if (ctx.scheduledScope !== "") {
+      const supportedScopes = new Set(["all", "default_check", "rows"]);
+      if (!supportedScopes.has(ctx.scheduledScope)) {
+        throw new Error(`unknown scheduled Go selection scope ${ctx.scheduledScope}`);
+      }
+      if (ctx.scheduledScope !== "rows" && ctx.scheduledRowIDs.length > 0) {
+        throw new Error(
+          `scheduled Go selection scope ${ctx.scheduledScope} must not declare row IDs`,
+        );
+      }
+      if (ctx.scheduledScope === "rows" && ctx.scheduledRowIDs.length === 0) {
+        throw new Error("scheduled Go row selection scope requires row IDs");
+      }
+      if (ctx.scheduledScope === "all") {
+        ctx.targetPlanRows = allRows;
+        return ctx.targetPlanRows;
+      }
+      if (ctx.scheduledScope === "default_check") {
+        ctx.targetPlanRows = allRows.filter(
+          (row) => row.default_check_required === true,
+        );
+        return ctx.targetPlanRows;
+      }
+      const scheduledIDs = new Set(ctx.scheduledRowIDs);
+      if (scheduledIDs.size !== ctx.scheduledRowIDs.length) {
+        throw new Error("scheduled Go row selection contains duplicate row IDs");
+      }
+      const sortedScheduledIDs = [...ctx.scheduledRowIDs].sort(compareStrings);
+      if (
+        sortedScheduledIDs.some(
+          (rowID, index) => rowID !== ctx.scheduledRowIDs[index],
+        )
+      ) {
+        throw new Error("scheduled Go row selection must be sorted");
+      }
+      const knownIDs = new Set(allRows.map((row) => row.id));
+      const missingIDs = [...scheduledIDs].filter((rowID) => !knownIDs.has(rowID));
+      if (missingIDs.length > 0) {
+        throw new Error(`scheduled Go row selection contains unknown row ${missingIDs.sort(compareStrings)[0]}`);
+      }
+      ctx.targetPlanRows = allRows.filter((row) => scheduledIDs.has(row.id));
+      return ctx.targetPlanRows;
+    }
+    if (ctx.scheduledRowIDs.length > 0) {
+      throw new Error("scheduled Go row IDs require a selection scope");
+    }
+    const ownerRows = allRows.filter((row) => {
       if (!ctx.ownerSelection) {
         return true;
       }

@@ -51,7 +51,10 @@ import {
   validatePreparedArtifactIdentity,
   validateSchema,
 } from "../contract/index.mjs";
-import { collectGoShardsForTarget } from "../backend/backend-shard-plan.mjs";
+import {
+  collectGoShardsForTargetFromRows,
+} from "../backend/backend-shard-plan.mjs";
+import { collectTargetPlanRows } from "../backend/backend-target-plan.mjs";
 import { renderServiceBackedScheduleManifest } from "../generated-artifacts/index.mjs";
 import {
   loadHarnessHelperOwnership,
@@ -3209,26 +3212,92 @@ test("visual snapshot update reuses profile-aware sessions without validation fi
 
 test("service-backed Go shard units are executable by their declared targets", () => {
   const { serviceBacked } = renderedArtifacts();
-  const shardNamesByTarget = new Map();
-  function shardsForTarget(target) {
-    if (!shardNamesByTarget.has(target)) {
-      shardNamesByTarget.set(
-        target,
-        new Set(collectGoShardsForTarget(repoRoot, target).map((shard) => shard.name)),
-      );
-    }
-    return shardNamesByTarget.get(target);
-  }
+  const planRows = collectTargetPlanRows(repoRoot);
 
   for (const schedule of serviceBacked.schedules ?? []) {
-    for (const unit of schedule.work_units ?? []) {
-      if (unit.kind !== "go_shard") {
-        continue;
-      }
+    const goUnits = (schedule.work_units ?? []).filter(
+      (unit) => unit.kind === "go_shard" || unit.kind === "aggregate_finalize",
+    );
+    const selectionByTarget = new Map();
+    for (const unit of goUnits.filter(
+      (candidate) => candidate.kind === "aggregate_finalize",
+    )) {
+      const selectionScope = unit.env?.CARTULARY_GO_SCHEDULE_SCOPE ?? "";
+      const selectionRows = unit.env?.CARTULARY_GO_SCHEDULED_ROW_IDS ?? "";
       assert.ok(
-        shardsForTarget(unit.target).has(unit.shard),
-        `${schedule.target ?? schedule.name} schedules ${unit.shard} for ${unit.target}, but that target cannot execute the shard`,
+        ["all", "default_check", "rows"].includes(selectionScope),
+        `${schedule.target ?? schedule.name} ${unit.id} must carry a closed scheduled Go scope`,
       );
+      const selectedRowIDs = selectionRows.split(",").filter(Boolean);
+      if (selectionScope === "rows") {
+        assert.ok(
+          selectedRowIDs.length > 0,
+          `${schedule.target ?? schedule.name} ${unit.id} explicit Go scope must carry rows`,
+        );
+        assert.deepEqual(
+          selectedRowIDs,
+          [...new Set(selectedRowIDs)].sort((left, right) =>
+            left.localeCompare(right),
+          ),
+          `${schedule.target ?? schedule.name} ${unit.id} scheduled Go rows must be sorted and unique`,
+        );
+      } else {
+        assert.equal(
+          selectionRows,
+          "",
+          `${schedule.target ?? schedule.name} ${unit.id} ${selectionScope} scope must not carry row IDs`,
+        );
+      }
+      const selectionValue = `${selectionScope}\u0000${selectionRows}`;
+      assert.equal(
+        selectionByTarget.has(unit.target),
+        false,
+        `${schedule.target ?? schedule.name} ${unit.target} must have one Go selection owner`,
+      );
+      selectionByTarget.set(unit.target, selectionValue);
+    }
+    for (const unit of goUnits.filter(
+      (candidate) => candidate.kind === "go_shard",
+    )) {
+      assert.ok(
+        selectionByTarget.has(unit.target),
+        `${schedule.target ?? schedule.name} ${unit.id} must resolve through its aggregate selection owner`,
+      );
+      assert.equal(
+        unit.env?.CARTULARY_GO_SCHEDULE_SCOPE,
+        undefined,
+        `${schedule.target ?? schedule.name} ${unit.id} must not duplicate target-wide selection state`,
+      );
+    }
+    for (const [target, selectionValue] of selectionByTarget) {
+      const [selectionScope, selectionRows] = selectionValue.split("\u0000");
+      const selectedIDs = new Set(selectionRows.split(",").filter(Boolean));
+      const selectedRows =
+        selectionScope === "all"
+          ? planRows
+          : selectionScope === "default_check"
+            ? planRows.filter((row) => row.default_check_required === true)
+            : planRows.filter((row) => selectedIDs.has(row.id));
+      if (selectionScope === "rows") {
+        assert.equal(
+          selectedRows.length,
+          selectedIDs.size,
+          `${schedule.target ?? schedule.name} ${target} scheduled Go row universe must resolve exactly`,
+        );
+      }
+      const executableShardNames = new Set(
+        collectGoShardsForTargetFromRows(repoRoot, selectedRows, target).map(
+          (shard) => shard.name,
+        ),
+      );
+      for (const unit of goUnits.filter(
+        (candidate) => candidate.kind === "go_shard" && candidate.target === target,
+      )) {
+        assert.ok(
+          executableShardNames.has(unit.shard),
+          `${schedule.target ?? schedule.name} schedules ${unit.shard} for ${target} outside its declared row universe`,
+        );
+      }
     }
   }
 });

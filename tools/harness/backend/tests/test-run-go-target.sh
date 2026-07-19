@@ -444,6 +444,32 @@ bootstrap_app_shared_command="$(
 assert_contains "$bootstrap_app_shared_command" "TestFirstAdminBootstrap_Integration" "backend-integration app selector"
 assert_not_contains "$bootstrap_app_shared_command" "TestEntityAliasMigration31" "backend-integration app excludes platform support selector"
 
+scheduled_process_command="$(
+  CARTULARY_GO_SCHEDULE_SCOPE=rows \
+    CARTULARY_GO_SCHEDULED_ROW_IDS='app.server.process.a_fresh_process_reaches_health_and_ready_only_af_c93818219a' \
+    NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-process app.server.process
+)"
+assert_contains "$scheduled_process_command" "TestReadyState_Process" "scheduled Go row universe selector"
+assert_not_contains "$scheduled_process_command" "TestFirstAdminBootstrap_Process" "scheduled Go row universe excludes full-target peers"
+
+scheduled_selection_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-scheduled-selection.XXXXXX")"
+cleanup_paths+=("$scheduled_selection_results")
+scheduled_selection_error="$scheduled_selection_results/error.log"
+if CARTULARY_GO_SCHEDULE_SCOPE=rows CARTULARY_GO_SCHEDULED_ROW_IDS='unknown.scheduled.row' \
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-process app.server.process \
+  >"$scheduled_selection_error" 2>&1; then
+  fail "unknown scheduled Go row unexpectedly succeeded"
+fi
+assert_contains "$(<"$scheduled_selection_error")" "scheduled Go row selection contains unknown row unknown.scheduled.row" "unknown scheduled Go row rejection"
+
+if CARTULARY_GO_SCHEDULE_SCOPE=rows \
+  CARTULARY_GO_SCHEDULED_ROW_IDS='app.server.process.a_real_process_requiring_bootstrap_becomes_ready_41afb1f3e5,app.server.process.a_fresh_process_reaches_health_and_ready_only_af_c93818219a' \
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-process app.server.process \
+  >"$scheduled_selection_error" 2>&1; then
+  fail "unsorted scheduled Go rows unexpectedly succeeded"
+fi
+assert_contains "$(<"$scheduled_selection_error")" "scheduled Go row selection must be sorted" "unsorted scheduled Go row rejection"
+
 incidents_incidents_shared_command="$(
   NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support module.incidents.support_integration
 )"

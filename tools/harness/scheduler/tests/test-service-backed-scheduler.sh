@@ -1830,6 +1830,68 @@ if (summary.failures.length !== 1 || summary.failure_class !== "product" || summ
 }
 EOF
 
+partial_go_failure_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-partial-go-failure.XXXXXX")"
+cleanup_paths+=("$partial_go_failure_dir")
+write_fake_make "$partial_go_failure_dir"
+write_fake_go_target_runner "$partial_go_failure_dir"
+partial_go_failure_manifest="${partial_go_failure_dir}/manifest.json"
+write_manifest "$partial_go_failure_manifest" test-service-backed \
+  'go_shards|backend-store|0|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1|backend' \
+  'make_target|backend-process|1|"go_cpu": 1|backend'
+"$NODE_BIN" - "$partial_go_failure_manifest" <<'EOF'
+const fs = require("node:fs");
+const [manifestFile] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+const schedule = manifest.schedules[0];
+schedule.stop_on_first_failure = true;
+schedule.resource_limits.go_cpu = 2;
+schedule.resource_limits.go_io = 3;
+const shards = schedule.work_units.filter((unit) => unit.kind === "go_shard");
+if (shards.length < 2) {
+  throw new Error(`partial-start fixture requires at least two shards, got ${shards.length}`);
+}
+shards[0].priority = 1000;
+for (const shard of shards.slice(1)) {
+  shard.priority = 0;
+  shard.needs = [...(shard.needs ?? []), "backend-process"];
+}
+const failure = schedule.work_units.find((unit) => unit.target === "backend-process");
+if (!failure) {
+  throw new Error("partial-start fixture missing backend-process failure unit");
+}
+failure.priority = 900;
+failure.needs = [`go_shard:${shards[0].shard}`];
+failure.resource_claims = { go_cpu: 2, go_io: 3 };
+fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
+EOF
+set +e
+partial_go_failure_output="$(
+  FAKE_FAIL_TARGET=backend-process \
+  FAKE_FAIL_WRITES_SUMMARY=1 \
+    run_scheduler "$partial_go_failure_dir" "$partial_go_failure_manifest" test-service-backed partial-go-failure 2>&1
+)"
+partial_go_failure_status=$?
+set -e
+if [[ "$partial_go_failure_status" != "10" ]]; then
+  printf '%s\n' "$partial_go_failure_output" >&2
+fi
+assert_equals "$partial_go_failure_status" "10" "partial Go failure scheduler status"
+assert_contains "$partial_go_failure_output" "failure_class=product reason=test_assertion_failure" "partial Go failure keeps primary classification"
+assert_occurrences "$(cat "${partial_go_failure_dir}/make.log")" "start capture backend-store" "1" "partial Go failure starts exactly one shard"
+assert_not_contains "$(cat "${partial_go_failure_dir}/make.log")" "start finalize backend-store" "partial Go failure skips incomplete aggregate collation"
+assert_file_absent "${partial_go_failure_dir}/results/partial-go-failure/backend-store/target-summary.json" "partial Go failure target summary"
+"$NODE_BIN" - "${partial_go_failure_dir}/results/partial-go-failure/test-service-backed/scheduler-summary.json" <<'EOF'
+const fs = require("node:fs");
+const [summaryFile] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+if (summary.finalizer_count !== 1 || summary.finalizer_failures !== 0) {
+  throw new Error(`unexpected partial-start finalizer summary ${summary.finalizer_count}/${summary.finalizer_failures}`);
+}
+if (summary.failures.length !== 1 || summary.failure_class !== "product" || summary.failure_reason !== "test_assertion_failure") {
+  throw new Error(`partial-start failure was amplified: ${JSON.stringify(summary.failures)}`);
+}
+EOF
+
 browser_backend_overlap_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-browser-backend-overlap.XXXXXX")"
 cleanup_paths+=("$browser_backend_overlap_dir")
 write_fake_make "$browser_backend_overlap_dir"

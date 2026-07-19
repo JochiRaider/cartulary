@@ -95,6 +95,13 @@ function browserGroupSelectionEnv(group) {
   return env;
 }
 
+function goScheduleSelectionEnv(source) {
+  return {
+    CARTULARY_GO_SCHEDULE_SCOPE:
+      source.default_check_required === true ? "default_check" : "all",
+  };
+}
+
 function browserGroupEnvFromPlan(browserWorkerSlotPlan, group) {
   return mergeEnv(
     browserGroupWorkerEnvFromPlan(browserWorkerSlotPlan, group),
@@ -327,6 +334,7 @@ export function expandServiceBackedScheduleForCheck({
     }
 
     const shards = collectServiceBackedGoShards(repoRoot, source, scheduleTarget);
+    const selectionEnv = goScheduleSelectionEnv(source);
     expanded.push({
       id: `${scheduleTarget}:finalize:${source.target}`,
       kind: "aggregate_finalize",
@@ -341,6 +349,7 @@ export function expandServiceBackedScheduleForCheck({
       count_in_total: false,
       counts_started: false,
       resource_claims: {},
+      env: selectionEnv,
       service_session: {
         target: scheduleTarget,
       },
@@ -628,6 +637,7 @@ export function expandServiceBackedSchedule({
     }
 
     const shards = collectServiceBackedGoShards(repoRoot, source, scheduleTarget);
+    const selectionEnv = goScheduleSelectionEnv(source);
     aggregate.push({
       id: `finalize:${source.target}`,
       kind: "aggregate_finalize",
@@ -643,6 +653,7 @@ export function expandServiceBackedSchedule({
       count_in_total: false,
       counts_started: false,
       resource_claims: {},
+      env: selectionEnv,
       shard_names: shards.map((shard) => shard.name),
       unblock_label: source.target,
       command: command("go_shard_finalize", {

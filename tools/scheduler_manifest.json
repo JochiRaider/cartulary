@@ -4602,6 +4602,9 @@
           "count_in_total": false,
           "counts_started": false,
           "resource_claims": {},
+          "env": {
+            "CARTULARY_GO_SCHEDULE_SCOPE": "default_check"
+          },
           "service_session": {
             "target": "check-service-backed"
           },
@@ -4691,6 +4694,9 @@
           "count_in_total": false,
           "counts_started": false,
           "resource_claims": {},
+          "env": {
+            "CARTULARY_GO_SCHEDULE_SCOPE": "default_check"
+          },
           "service_session": {
             "target": "check-service-backed"
           },
@@ -4791,6 +4797,9 @@
           "count_in_total": false,
           "counts_started": false,
           "resource_claims": {},
+          "env": {
+            "CARTULARY_GO_SCHEDULE_SCOPE": "default_check"
+          },
           "service_session": {
             "target": "check-service-backed"
           },
@@ -11560,6 +11569,9 @@
           "count_in_total": false,
           "counts_started": false,
           "resource_claims": {},
+          "env": {
+            "CARTULARY_GO_SCHEDULE_SCOPE": "all"
+          },
           "shard_names": [
             "module-workbook-store-shard-01",
             "module-graphprojection-storage-shard-01",
@@ -11649,6 +11661,9 @@
           "count_in_total": false,
           "counts_started": false,
           "resource_claims": {},
+          "env": {
+            "CARTULARY_GO_SCHEDULE_SCOPE": "all"
+          },
           "shard_names": [
             "module-timeline-integration-shard-02",
             "module-timeline-integration-shard-01",
@@ -11734,6 +11749,9 @@
           "count_in_total": false,
           "counts_started": false,
           "resource_claims": {},
+          "env": {
+            "CARTULARY_GO_SCHEDULE_SCOPE": "all"
+          },
           "shard_names": [
             "module-entities-support-integration-shard-01",
             "module-incidents-support-integration-shard-02",
@@ -11790,6 +11808,9 @@
           "count_in_total": false,
           "counts_started": false,
           "resource_claims": {},
+          "env": {
+            "CARTULARY_GO_SCHEDULE_SCOPE": "all"
+          },
           "shard_names": [
             "app-server-process-shard-01",
             "module-recovery-process-shard-01",
@@ -15684,6 +15705,9 @@
           "count_in_total": false,
           "counts_started": false,
           "resource_claims": {},
+          "env": {
+            "CARTULARY_GO_SCHEDULE_SCOPE": "all"
+          },
           "shard_names": [
             "module-workbook-store-shard-01",
             "module-graphprojection-storage-shard-01",
@@ -15773,6 +15797,9 @@
           "count_in_total": false,
           "counts_started": false,
           "resource_claims": {},
+          "env": {
+            "CARTULARY_GO_SCHEDULE_SCOPE": "all"
+          },
           "shard_names": [
             "module-timeline-integration-shard-02",
             "module-timeline-integration-shard-01",
@@ -15858,6 +15885,9 @@
           "count_in_total": false,
           "counts_started": false,
           "resource_claims": {},
+          "env": {
+            "CARTULARY_GO_SCHEDULE_SCOPE": "all"
+          },
           "shard_names": [
             "module-entities-support-integration-shard-01",
             "module-incidents-support-integration-shard-02",
@@ -15914,6 +15944,9 @@
           "count_in_total": false,
           "counts_started": false,
           "resource_claims": {},
+          "env": {
+            "CARTULARY_GO_SCHEDULE_SCOPE": "all"
+          },
           "shard_names": [
             "app-server-process-shard-01",
             "module-recovery-process-shard-01",
@@ -19796,6 +19829,9 @@
           "count_in_total": false,
           "counts_started": false,
           "resource_claims": {},
+          "env": {
+            "CARTULARY_GO_SCHEDULE_SCOPE": "default_check"
+          },
           "shard_names": [
             "module-workbook-store-shard-01",
             "module-graphprojection-storage-shard-01",
@@ -19883,6 +19919,9 @@
           "count_in_total": false,
           "counts_started": false,
           "resource_claims": {},
+          "env": {
+            "CARTULARY_GO_SCHEDULE_SCOPE": "default_check"
+          },
           "shard_names": [
             "module-timeline-integration-shard-02",
             "module-timeline-integration-shard-01",
@@ -19949,6 +19988,9 @@
           "count_in_total": false,
           "counts_started": false,
           "resource_claims": {},
+          "env": {
+            "CARTULARY_GO_SCHEDULE_SCOPE": "default_check"
+          },
           "shard_names": [
             "module-recovery-process-shard-01",
             "app-server-process-shard-01",

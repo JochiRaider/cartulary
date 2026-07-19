@@ -384,7 +384,7 @@ export async function emitExecutionFamily(
         emission.execution_dependency,
         family,
         emission.packages,
-        rows === null || ctx.selectedRowIDs.length > 0 ? emission.ids ?? [] : [],
+        emission.ids ?? [],
       );
     } else if (emission.mode === "support") {
       result = await emitGoRawStep(

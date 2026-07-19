@@ -96,6 +96,11 @@ export function createGoTargetContext(options = {}) {
       .split(",")
       .map((value) => value.trim())
       .filter(Boolean),
+    scheduledScope: String(env.CARTULARY_GO_SCHEDULE_SCOPE || "").trim(),
+    scheduledRowIDs: String(env.CARTULARY_GO_SCHEDULED_ROW_IDS || "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean),
     invocation: null,
     targetPlanRows: null,
     shardPlan: null,

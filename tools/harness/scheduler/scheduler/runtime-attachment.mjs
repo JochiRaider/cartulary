@@ -115,9 +115,10 @@ function defaultBrowserSessionFinalizerEnv({ unit, runtime }) {
   };
 }
 
-function defaultGoShardEnv({ unit, serviceEnv }) {
+function defaultGoShardEnv({ unit, serviceEnv, selectionEnv }) {
   return {
     ...serviceEnv,
+    ...selectionEnv,
     ...unit.env,
     CARTULARY_TEST_TARGET: unit.target,
     CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
@@ -139,6 +140,7 @@ function runtimeBinaryIDsForUnit(unit) {
 function defaultGoFinalizerEnv({ unit, testOutputScript }) {
   return {
     ...process.env,
+    ...unit.env,
     CARTULARY_TEST_TARGET: unit.aggregateTarget,
     TEST_OUTPUT_SCRIPT: testOutputScript,
     CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
@@ -231,6 +233,21 @@ export function attachSchedulerRuntimeCommands(
     schedule.workUnits
       .filter((unit) => unit.kind === "go_shard")
       .map((unit) => [goShardIdentity(unit.aggregateTarget, unit.shard), unit.id]),
+  );
+  const goSelectionEnvByTarget = new Map(
+    schedule.workUnits
+      .filter((unit) => unit.kind === "aggregate_finalize")
+      .map((unit) => [
+        unit.aggregateTarget,
+        Object.fromEntries(
+          Object.entries(unit.env ?? {}).filter(([name]) =>
+            [
+              "CARTULARY_GO_SCHEDULE_SCOPE",
+              "CARTULARY_GO_SCHEDULED_ROW_IDS",
+            ].includes(name),
+          ),
+        ),
+      ]),
   );
 
   for (const unit of schedule.workUnits) {
@@ -372,6 +389,7 @@ export function attachSchedulerRuntimeCommands(
               unit,
               runtime,
               serviceEnv: await unitServiceEnv(unit),
+              selectionEnv: goSelectionEnvByTarget.get(unit.aggregateTarget) ?? {},
             }),
             runtimeBinaryEnv(runtime, runtimeBinaryIDsForUnit(unit)),
           ),
@@ -386,7 +404,10 @@ export function attachSchedulerRuntimeCommands(
           );
           return shardUnitID !== undefined && startedUnitIDs.has(shardUnitID);
         });
-        if (startedShardNames.length === 0) {
+        if (
+          startedShardNames.length === 0 ||
+          startedShardNames.length !== unit.shardNames.length
+        ) {
           return noOpRuntimeCommand();
         }
         return goFinalizerRuntimeCommand({
