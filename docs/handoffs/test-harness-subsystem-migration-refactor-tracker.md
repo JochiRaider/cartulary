@@ -10,9 +10,9 @@
 | Baseline branch | `revision/grid-adapter` |
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
-| Tracker state | `CHECKPOINT` — WS-11 complete; WS-12 activation pending |
-| Active start | WS-11/T-049 completion checkpoint |
-| Active tasks | None |
+| Tracker state | `IN_PROGRESS` — WS-12 final-byte validation and handoff |
+| Active start | WS-12/T-051 activation checkpoint |
+| Active tasks | T-051 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -498,7 +498,7 @@ WS-06 closure is recorded in `tools/delivery_identity_followup_ledger.json`. It 
 | WS-09 | Update task surface, generation, finalization, and baselines | DONE | WS-07, WS-08 | Generated surface/drift and fresh baseline plan | Revert owner inputs plus regenerated outputs together. |
 | WS-10 | Atomic deletion and hard cutover | DONE | WS-02–WS-09 | Deletion manifest and zero-reference scans | Revert the entire cutover commit; never add shims. |
 | WS-11 | Focused and broad verification | DONE | WS-10 | Successful fresh run roots and audit summaries | Forward-fix or revert the full cutover; old evidence is invalid. |
-| WS-12 | Validate and finalize the stable post-cutover handoff | TODO | WS-11 | Authoritative retained-run evidence and handoff log | Reopen tracker if any closure invariant fails. |
+| WS-12 | Validate and finalize the stable post-cutover handoff | IN_PROGRESS | WS-11 | Authoritative retained-run evidence and handoff log | Reopen tracker if any closure invariant fails. |
 
 Before WS-10, old and new implementations may coexist only on unmerged migration branches to enable comparison. Public authority remains singular, and no dual-reader or dual-writer state may be merged. WS-10 is one cohesive checkpoint. After WS-10, remediation is a forward fix or full checkpoint revert, never a compatibility shim.
 
@@ -737,7 +737,7 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-048 | Refresh retained baselines and repeat broad checks | WS-11 | DONE | T-047 | Finalized root and second results | No phase baseline is reused. |
 | T-049 | Run release check | WS-11 | DONE | T-048 | Release-check result | Public/release harness changes pass. |
 | T-050 | Capture reconciliation and remove crosswalk | WS-10 | DONE | T-045 | Final reconciliation report | Temporary compatibility-free migration input removed before authoritative source snapshots. |
-| T-051 | Complete handoff and closure audit | WS-12 | TODO | T-049 | Handoff log and clean status | Section 15 is fully satisfied. |
+| T-051 | Complete handoff and closure audit | WS-12 | IN_PROGRESS | T-049 | Handoff log and clean status | Section 15 is fully satisfied. |
 
 ## 13. Verification matrix
 
@@ -1654,6 +1654,12 @@ Each entry must include:
 - Release rehearsal: `.cartulary/test-results/t049-release` passed all 14 release work units in 634.731 seconds. Its embedded `check` passed 125/125 work units and 478 tests with zero failed, missing, or unmapped observations; release-owned `browser-e2e-support` passed and emitted four owner shards. Release visual/accessibility comparison passed without maintenance updates.
 - Audit closure: 46 ignored manifests under `.cartulary/audits/t049/` contain only exact partitions derived by `deriveRequiredEvidencePartitions`. The corresponding `.cartulary/test-results/t049-audit-*` roots all pass. Aggregate counts are 833 active rows, 194 required target partitions, 194 accepted partitions, and zero rejected partitions; every accepted artifact has source snapshot `sha256:049c91a8fda834130ee301777a9224befc479f5c2d2b40f4021a7439f5912092`, catalog digest `sha256:0b438fc9d1811d536fdea5e5299fde3fcd079322ca75a3547c11d7fd84526944`, and verification digest `sha256:6c4b33052cf1c0646066c9420dcb4c137807f7ffc5d7fafe3f49f8d0d58e8e57`. There are no missing, duplicate, incompatible, unsuccessful, unsafe, or unauthorized partitions.
 - Workstream transition: T-049 and WS-11 are `DONE`; WS-12 and T-051 remain `TODO` in this checkpoint. Commit this tracker record before activating the final workstream. T-049 evidence is provisional migration acceptance and MUST NOT substitute for the final-byte T-051 replay after the tracker transition changes source identity.
+
+#### 2026-07-19 — WS-12 / T-051 activation checkpoint
+
+- Branch/commit at start: `revision/grid-adapter` at clean WS-11 closure commit `490c313f`. WS-12 is the only `IN_PROGRESS` workstream and T-051 is the sole active task; all implementation and provisional release workstreams are closed.
+- Active scope: stabilize the final tracker/handoff wording and Section 15 dispositions, prepare one optimistic no-further-edits closure candidate, and run finalization, structural/focused gates, all 46 owner slices, all 29 service-backed slices, every required evidence partition, one warm plus five qualifying measured checks, release rehearsal, and 46 exact owner audits against those candidate bytes. T-049 roots are diagnostic/provisional inputs only and cannot enter final manifests.
+- Failure rule and next safe task: any source mutation, generated drift, retry, interruption, inventory mismatch, timing rejection, release failure, or audit rejection invalidates the complete final candidate. Restore T-051 to `IN_PROGRESS`, record the failed checkpoint, forward-fix, and restart authoritative validation under fresh `final-t051-*` identities. Commit the optimistic closure bytes unchanged only after every Section 15 criterion is true; make no tracked edit afterward.
 
 ## 17. First-resumer checklist
 
