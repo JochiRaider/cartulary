@@ -10,9 +10,9 @@
 | Baseline branch | `revision/grid-adapter` |
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
-| Tracker state | `IN_PROGRESS` — WS-11 validation and release rehearsal |
-| Active start | T-049 release rehearsal after the third T-048 timing-window candidate |
-| Active tasks | T-049 |
+| Tracker state | `CHECKPOINT` — WS-11 complete; WS-12 activation pending |
+| Active start | WS-11/T-049 completion checkpoint |
+| Active tasks | None |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -497,7 +497,7 @@ WS-06 closure is recorded in `tools/delivery_identity_followup_ledger.json`. It 
 | WS-08 | Migrate browser stages and scheduler topology | DONE | WS-05, WS-07 | Owner-based DAG, lifecycle, and browser tests | Revert authored topology and generated outputs together. |
 | WS-09 | Update task surface, generation, finalization, and baselines | DONE | WS-07, WS-08 | Generated surface/drift and fresh baseline plan | Revert owner inputs plus regenerated outputs together. |
 | WS-10 | Atomic deletion and hard cutover | DONE | WS-02–WS-09 | Deletion manifest and zero-reference scans | Revert the entire cutover commit; never add shims. |
-| WS-11 | Focused and broad verification | IN_PROGRESS | WS-10 | Successful fresh run roots and audit summaries | Forward-fix or revert the full cutover; old evidence is invalid. |
+| WS-11 | Focused and broad verification | DONE | WS-10 | Successful fresh run roots and audit summaries | Forward-fix or revert the full cutover; old evidence is invalid. |
 | WS-12 | Validate and finalize the stable post-cutover handoff | TODO | WS-11 | Authoritative retained-run evidence and handoff log | Reopen tracker if any closure invariant fails. |
 
 Before WS-10, old and new implementations may coexist only on unmerged migration branches to enable comparison. Public authority remains singular, and no dual-reader or dual-writer state may be merged. WS-10 is one cohesive checkpoint. After WS-10, remediation is a forward fix or full checkpoint revert, never a compatibility shim.
@@ -735,7 +735,7 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-046 | Run focused verification matrix | WS-11 | DONE | T-045A | Command results/run roots | All focused gates pass. |
 | T-047 | Run agent finalization and first warm check | WS-11 | DONE | T-046 | Successful warm run root | Fresh broad evidence exists. |
 | T-048 | Refresh retained baselines and repeat broad checks | WS-11 | DONE | T-047 | Finalized root and second results | No phase baseline is reused. |
-| T-049 | Run release check | WS-11 | IN_PROGRESS | T-048 | Release-check result | Public/release harness changes pass. |
+| T-049 | Run release check | WS-11 | DONE | T-048 | Release-check result | Public/release harness changes pass. |
 | T-050 | Capture reconciliation and remove crosswalk | WS-10 | DONE | T-045 | Final reconciliation report | Temporary compatibility-free migration input removed before authoritative source snapshots. |
 | T-051 | Complete handoff and closure audit | WS-12 | TODO | T-049 | Handoff log and clean status | Section 15 is fully satisfied. |
 
@@ -1646,6 +1646,14 @@ Each entry must include:
 - Recovery checkpoint: the artifact-ownership, independent-fixture identity, and support-evidence routing fixes were committed together at `00593076`. `.cartulary/test-results/t048-agent-finalize-no-input-r6` passed on that clean checkpoint with `generated=unchanged`, zero updated files, and no retained-only action selected.
 - Exact-byte candidate: these uncommitted tracker bytes mark T-048 `DONE` and make T-049 the sole active task. They reserve unmeasured warm root `.cartulary/test-results/t048-timing-r3-warm`, measured roots `.cartulary/test-results/t048-timing-r3-measured-1` through `t048-timing-r3-measured-5`, health roots with matching `-health` suffixes, and ignored record `.cartulary/performance/t048-qualifying-window-r3.json`. No source, generated, tool-pin, scheduler-capacity, or tracker byte may change during the six-run window.
 - Acceptance and commit condition: all six checks must pass consecutively without retry, interruption, cleanup error, hidden provisioning, missing/unmapped evidence, or source and inventory drift. All five measured roots must have identical semantic command, target, row, artifact-role, scheduler work-unit, capacity, and cleanup inventories; each explicit 155-second readiness/1.25 balance gate must pass; `check-service-backed` must remain at or below 155,000 ms; and the nearest-rank five-sample p90/maximum must be strictly below 120 seconds. Commit these candidate bytes unchanged only after the ignored record contains the exact host, source/catalog/verification identities, roots, external wall observations, inventory comparison, and acceptance result. On any failure, restore T-048 as active and reject the complete r3 family.
+
+#### 2026-07-19 — T-049 release rehearsal, owner audit, and WS-11 closure
+
+- Evidence-target partitions: exact current-source roots pass for `backend-unit`, `backend-store`, `backend-integration`, `backend-process`, `frontend-unit`, `frontend-import-boundary-check`, `generate-drift`, `generated-artifact-policy-check`, `browser-e2e-webserver-backed`, `browser-e2e-stateful`, `browser-e2e-measurement`, `browser-e2e-a11y`, and `browser-e2e-visual` under `.cartulary/test-results/t049-gate-*`. Public `.cartulary/test-results/t049-gate-test` passed 619 tests and owns `backend-integration-support`; no internal helper was invoked directly. Visual runs used ordinary comparison with update mode unset and changed no accepted golden.
+- Owner acceptance: all 46 ASCII-sorted `.cartulary/test-results/t049-owner-*` full-owner slices pass, every owner summary reports `completion_scope=full_owner`, and the union contains exactly 833 selected rows. All 29 catalog-applicable `.cartulary/test-results/t049-service-*` slices pass with each selected count equal to the current owner explanation; their union contains 344 service-backed rows. Service-slice roots are acceptance evidence only and are absent from audit manifests.
+- Release rehearsal: `.cartulary/test-results/t049-release` passed all 14 release work units in 634.731 seconds. Its embedded `check` passed 125/125 work units and 478 tests with zero failed, missing, or unmapped observations; release-owned `browser-e2e-support` passed and emitted four owner shards. Release visual/accessibility comparison passed without maintenance updates.
+- Audit closure: 46 ignored manifests under `.cartulary/audits/t049/` contain only exact partitions derived by `deriveRequiredEvidencePartitions`. The corresponding `.cartulary/test-results/t049-audit-*` roots all pass. Aggregate counts are 833 active rows, 194 required target partitions, 194 accepted partitions, and zero rejected partitions; every accepted artifact has source snapshot `sha256:049c91a8fda834130ee301777a9224befc479f5c2d2b40f4021a7439f5912092`, catalog digest `sha256:0b438fc9d1811d536fdea5e5299fde3fcd079322ca75a3547c11d7fd84526944`, and verification digest `sha256:6c4b33052cf1c0646066c9420dcb4c137807f7ffc5d7fafe3f49f8d0d58e8e57`. There are no missing, duplicate, incompatible, unsuccessful, unsafe, or unauthorized partitions.
+- Workstream transition: T-049 and WS-11 are `DONE`; WS-12 and T-051 remain `TODO` in this checkpoint. Commit this tracker record before activating the final workstream. T-049 evidence is provisional migration acceptance and MUST NOT substitute for the final-byte T-051 replay after the tracker transition changes source identity.
 
 ## 17. First-resumer checklist
 
