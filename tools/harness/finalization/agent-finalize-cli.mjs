@@ -129,8 +129,8 @@ const actionRegistry = [
     mutating: true,
     cache: {
       eligible: true,
-      inputProfileID: "agent_finalize.duration_baseline_refresh.v1",
-      actionContractVersion: "v1",
+      inputProfileID: "agent_finalize.duration_baseline_refresh.v2",
+      actionContractVersion: "v2",
     },
     substeps: [
       {
@@ -160,20 +160,6 @@ const actionRegistry = [
         commandKind: "make_target",
         requiresResultsDir: true,
         mutatesRepo: true,
-      },
-      {
-        id: "generate-after-duration-baselines",
-        target: "generate",
-        commandKind: "make_target",
-        requiresResultsDir: false,
-        mutatesRepo: true,
-      },
-      {
-        id: "generate-drift-after-duration-baselines",
-        target: "generate-drift",
-        commandKind: "make_target",
-        requiresResultsDir: false,
-        mutatesRepo: false,
       },
     ],
   },

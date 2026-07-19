@@ -90,7 +90,7 @@ const profileDefinitions = {
     ],
     outputPaths: [],
   },
-  "agent_finalize.duration_baseline_refresh.v1": {
+  "agent_finalize.duration_baseline_refresh.v2": {
     prefixes: ["contracts/", "tools/"],
     suffixes: commonSuffixes,
     files: [
@@ -108,15 +108,10 @@ const profileDefinitions = {
       "CARTULARY_AGENT_FINALIZE_TEST_CACHE_OUTPUT",
     ],
     outputPaths: [
-      "tools/browser_e2e_batch_manifest.json",
       "tools/browser_e2e_duration_baselines.json",
-      "tools/execution_topology_render_index.json",
       "tools/go_test_duration_baselines.json",
       "tools/harness_smoke_duration_baselines.json",
-      "tools/scheduler_manifest.json",
       "tools/service_backed_make_target_duration_baselines.json",
-      "tools/task_surface.generated.mk",
-      "tools/task_surface_manifest.json",
     ],
   },
   "agent_finalize.duration_baseline_coverage.v1": {
