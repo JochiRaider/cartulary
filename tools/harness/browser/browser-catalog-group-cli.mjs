@@ -16,6 +16,7 @@ import {
 import { adaptPlaywrightReport } from "../execution/runners/playwright.mjs";
 import { loadTestCatalog } from "../test-catalog/index.mjs";
 import { resolveBrowserBatchStage } from "./browser-batch-manifest.mjs";
+import { selectedBrowserGroupRowIDs } from "./browser-group-selection.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "../../..");
@@ -68,7 +69,8 @@ function executionTarget(group) {
 }
 
 function groupRows(catalog, group) {
-  const rows = group.selectedRowIDs.map((rowID) => {
+  const selectedRowIDs = selectedBrowserGroupRowIDs(group);
+  const rows = selectedRowIDs.map((rowID) => {
     const row = catalog.rowByID.get(rowID);
     if (!row || row.runner !== "playwright") {
       throw new Error(`browser group ${group.name} references non-Playwright catalog row ${rowID}`);
@@ -81,7 +83,7 @@ function groupRows(catalog, group) {
     }
     return row;
   });
-  const selected = [...group.selectedRowIDs].sort();
+  const selected = [...selectedRowIDs].sort();
   const resolved = rows.map((row) => row.row_id).sort();
   if (JSON.stringify(selected) !== JSON.stringify(resolved)) {
     throw new Error(`browser group ${group.name} catalog selection is ambiguous`);

@@ -2014,6 +2014,7 @@
           "browser_stage": "webserver-backed",
           "browser_session_group": "default-check-browser-shared",
           "env": {
+            "CARTULARY_TARGET_EVIDENCE_SCOPE": "default_check",
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default"
           },
           "browser_session_finalizer": true,
@@ -2057,6 +2058,7 @@
           "browser_stage": "stateful",
           "browser_session_group": "default-check-stateful-isolated",
           "env": {
+            "CARTULARY_TARGET_EVIDENCE_SCOPE": "default_check",
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default"
           },
           "browser_session_finalizer": true,
@@ -11874,6 +11876,7 @@
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
           "env": {
+            "CARTULARY_TARGET_EVIDENCE_SCOPE": "all",
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default"
           },
           "browser_session_finalizer": false,
@@ -11919,6 +11922,7 @@
           "browser_stage": "stateful",
           "browser_session_group": "browser-stateful-default",
           "env": {
+            "CARTULARY_TARGET_EVIDENCE_SCOPE": "all",
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default"
           },
           "browser_session_finalizer": false,
@@ -11954,6 +11958,7 @@
           "browser_stage": "measurement",
           "browser_session_group": "browser-e2e-measurement-default",
           "env": {
+            "CARTULARY_TARGET_EVIDENCE_SCOPE": "all",
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default"
           },
           "browser_session_finalizer": false,
@@ -11989,6 +11994,7 @@
           "browser_stage": "visual",
           "browser_session_group": "browser-e2e-visual-default",
           "env": {
+            "CARTULARY_TARGET_EVIDENCE_SCOPE": "all",
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default"
           },
           "browser_session_finalizer": false,
@@ -12024,6 +12030,7 @@
           "browser_stage": "a11y",
           "browser_session_group": "browser-e2e-a11y-default",
           "env": {
+            "CARTULARY_TARGET_EVIDENCE_SCOPE": "all",
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default"
           },
           "browser_session_finalizer": false,
@@ -20051,6 +20058,7 @@
           "browser_stage": "webserver-backed",
           "browser_session_group": "default-check-browser-shared",
           "env": {
+            "CARTULARY_TARGET_EVIDENCE_SCOPE": "default_check",
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default"
           },
           "browser_session_finalizer": true,
@@ -20092,6 +20100,7 @@
           "browser_stage": "stateful",
           "browser_session_group": "default-check-stateful-isolated",
           "env": {
+            "CARTULARY_TARGET_EVIDENCE_SCOPE": "default_check",
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default"
           },
           "browser_session_finalizer": true,

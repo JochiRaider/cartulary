@@ -246,7 +246,11 @@ async function emitTargetSummary(ctx, status) {
   if (!ctx.testTarget) {
     return 0;
   }
-  return await runHelper(ctx, ["target-summary", ctx.testTarget, status]);
+  return await runHelper(
+    ctx,
+    ["target-summary", ctx.testTarget, status],
+    { CARTULARY_TARGET_EVIDENCE_FINALIZE: "1" },
+  );
 }
 
 async function emitGoTargetInvocationSpan(ctx, status) {

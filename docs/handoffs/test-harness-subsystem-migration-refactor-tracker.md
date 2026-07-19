@@ -11,8 +11,8 @@
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
 | Tracker state | `IN_PROGRESS` — WS-11 validation and release rehearsal |
-| Active start | T-048 based on the T-047 third exact-byte warm-check closure candidate from `260d3728` |
-| Active tasks | T-048 |
+| Active start | T-047 retained-evidence recovery based on rejected warm root `t047-check-warm-r3` |
+| Active tasks | T-047 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -733,8 +733,8 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-045 | Regenerate all permitted outputs | WS-10 | DONE | T-042,T-043,T-044 | Generated drift checks | Clean owner-first generated tree. |
 | T-045A | Prove atomic v2 parity and retirement | WS-10 | DONE | T-050 | NLSpec/schema/task-surface/topology parity and zero-reference report | v2 is complete and no v1 alias, reader, writer, catalog, or artifact identity is active. |
 | T-046 | Run focused verification matrix | WS-11 | DONE | T-045A | Command results/run roots | All focused gates pass. |
-| T-047 | Run agent finalization and first warm check | WS-11 | DONE | T-046 | Successful warm run root | Fresh broad evidence exists. |
-| T-048 | Refresh retained baselines and repeat broad checks | WS-11 | IN_PROGRESS | T-047 | Finalized root and second results | No phase baseline is reused. |
+| T-047 | Run agent finalization and first warm check | WS-11 | IN_PROGRESS | T-046 | Successful warm run root | Fresh broad evidence exists. |
+| T-048 | Refresh retained baselines and repeat broad checks | WS-11 | TODO | T-047 | Finalized root and second results | No phase baseline is reused. |
 | T-049 | Run release check | WS-11 | TODO | T-048 | Release-check result | Public/release harness changes pass. |
 | T-050 | Capture reconciliation and remove crosswalk | WS-10 | DONE | T-045 | Final reconciliation report | Temporary compatibility-free migration input removed before authoritative source snapshots. |
 | T-051 | Complete handoff and closure audit | WS-12 | TODO | T-049 | Handoff log and clean status | Section 15 is fully satisfied. |
@@ -1501,6 +1501,19 @@ Each entry must include:
 - Source checkpoint: scheduled Go selection, complete-aggregate finalization, and selected-row emission recovery were committed at `260d3728`. Clean no-input `.cartulary/test-results/t047-agent-finalize-no-input-r4` then passed with `generated=unchanged`, zero updated or restored tracked files, all selected structural/schema/coverage actions passing, and every retained-run-only action exactly not selected.
 - Candidate procedure: these uncommitted tracker bytes mark T-047 `DONE`, make T-048 the sole active task, and reserve fresh `.cartulary/test-results/t047-check-warm-r3`. The failed `t047-check-warm` and `t047-check-warm-r2` roots plus both forward-fix diagnostic checks remain permanently rejected. This full warm `make check` must retain all 125 planned work units, complete selected-row accounting, paired owner evidence, normal acquisition-aware finalization, zero missing/unmapped rows, and zero unexpected tracked mutation on this exact source snapshot.
 - Commit condition and next safe task: commit this candidate unchanged only if `t047-check-warm-r3` passes without retry, provisioning contamination, cleanup amplification, source change, or artifact loss. Once committed, T-048 must consume that exact root with `make agent-finalize RESULTS_DIR=.cartulary/test-results/t047-check-warm-r3` before any later full check.
+
+#### 2026-07-18 — T-047 retained-owner-evidence rejection and recovery
+
+- Failed evidence: `.cartulary/test-results/t047-check-warm-r3` reported a passing 125/125 scheduler run in 106.05 seconds with 478 tests and zero failed, missing, or unmapped observations, so the exact-byte transition was committed at `99d6d24f`. The first required T-048 action, `.cartulary/test-results/t048-retained-finalize-r1`, then correctly failed at retained-run preflight before mutation because the warm root contains zero `test-evidence-accounting.json` and zero `test-owner-summary.json` artifacts. The warm root and failed finalizer root are diagnostic-only and must never refresh baselines or close T-047/T-048.
+- Classification and restored state: this is a harness retained-artifact completeness defect, not product failure or permission to weaken finalizer preflight. T-047 is restored as the sole active task and T-048 is `TODO`. A scheduler pass is insufficient when selected row-bearing target finalizers emit empty target summaries or omit their owner shards; future closure inspection must explicitly count and validate paired owner artifacts before committing a transition.
+- Initial boundary evidence: all 62 generated service-backed Go shards started and completed, and both selected browser stages executed their groups, but their aggregate finalizers returned successful no-ops with empty logs and target summaries containing zero children. Direct public browser targets continue to emit owner shards, so the defect is in acquisition-aware scheduler aggregation rather than the evidence schemas or finalizer preflight. Forward-fix the scheduler's producer-start identity boundary, add end-to-end retained-owner-artifact assertions, validate a fresh full warm check under a new run ID, and commit a new exact-byte transition only after retained preflight accepts that root.
+
+#### 2026-07-19 — T-047 target-partition evidence and browser-subset forward fix
+
+- Root cause and contract decision: the retained-evidence omission was target-wide rather than limited to aggregate Go finalizers. Five Go targets, `frontend-unit`, three shell targets, and scheduler-owned browser stages did not share one producer for paired owner shards. The forward fix makes successful target-summary emission finalize the existing owner-accounting schemas from exact runner observations, preserves the uniform owner-shard layout, references every shard from the target tool summary, and reuses an existing shard only for the same complete source/catalog/verification/run/target/owner/row identity. No command, row, schema, catalog total, compatibility reader, or alternate artifact layout was added.
+- Additional over-selection defect: diagnostic `.cartulary/test-results/t047-target-evidence-service-r1` completed every ordinary scheduler unit but failed both browser finalizers because the browser group adapter reopened the full generated batch group and ignored the scheduler's exact selected-row environment. The adapter now requires a non-empty, ASCII-sorted, unique subset contained by that generated group and applies it before Playwright title construction. Contract fixtures cover exact reuse, missing observations, contradictory scope, stale-scope reuse, and invalid browser subsets.
+- Focused implementation evidence: `.cartulary/test-results/t047-target-evidence-shell-r1`, `t047-target-evidence-policy-r1`, and `t047-target-evidence-import-r1` emitted their one-row shell owner shards; `.cartulary/test-results/t047-target-evidence-go-r2` emitted 24 paired owner shards closing all 176 `backend-unit` rows; `.cartulary/test-results/t047-target-evidence-vitest-r5` emitted 22 pairs closing all 310 `frontend-unit` rows. Failed `t047-target-evidence-go-r1` and `t047-target-evidence-vitest-r1` through `r3` exposed fail-closed set-projection and title-alias adapter defects and remain diagnostic-only.
+- Scheduler proof: `.cartulary/test-results/t047-target-evidence-service-r2` passed all 89 service-backed work units. Its owner shard unions exactly matched generated `default_check` selections: `backend-store=66`, `backend-integration=99`, `backend-process=10`, `browser-e2e-stateful=4`, and `browser-e2e-webserver-backed=62`. Both browser owner indexes passed, all five target tool summaries referenced every emitted owner shard, and the run retained 60 paired owner partitions overall. This root is focused diagnostic evidence only; it is not a full warm `check` and cannot close T-047 or feed retained finalization.
 
 ## 17. First-resumer checklist
 

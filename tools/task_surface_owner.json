@@ -1182,7 +1182,8 @@
       "command": [
         "./tools/harness/generated-artifacts/check-generate-drift.sh"
       ],
-      "test_target": "self"
+      "test_target": "self",
+      "success_summary": true
     },
     "generated-artifact-policy-check": {
       "prerequisites": [
@@ -1195,7 +1196,8 @@
         "$(NODE_BIN)",
         "./tools/harness/generated-artifacts/check-generated-artifact-policy.mjs"
       ],
-      "test_target": "self"
+      "test_target": "self",
+      "success_summary": true
     },
     "json-shape-check": {
       "prerequisites": [

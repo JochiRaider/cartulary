@@ -120,6 +120,7 @@ if [[ "${run_status}" -ne 0 && "${status}" -eq 0 ]]; then
   status="${run_status}"
 fi
 
+export CARTULARY_TARGET_EVIDENCE_FINALIZE=1
 if [[ "${status}" -eq 0 ]]; then
   emit_target_summary pass
   exit 0

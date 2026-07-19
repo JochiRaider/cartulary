@@ -431,13 +431,15 @@ generate-drift: export CARTULARY_TEST_TARGET ?= generate-drift
 generate-drift:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,generate-drift)
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory codegen-toolchain; fi
-	$(Q)$(RUN_STEP_SCRIPT) "generate-drift" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) ./tools/harness/generated-artifacts/check-generate-drift.sh
+	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "generate-drift" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) ./tools/harness/generated-artifacts/check-generate-drift.sh
+	$(call RUN_TARGET_SUMMARY,generate-drift,pass)
 
 generated-artifact-policy-check: export CARTULARY_TEST_TARGET ?= generated-artifact-policy-check
 generated-artifact-policy-check:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,generated-artifact-policy-check)
-	$(Q)$(RUN_STEP_SCRIPT) "generated-artifact-policy-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) ./tools/harness/generated-artifacts/check-generated-artifact-policy.mjs
+	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "generated-artifact-policy-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) ./tools/harness/generated-artifacts/check-generated-artifact-policy.mjs
+	$(call RUN_TARGET_SUMMARY,generated-artifact-policy-check,pass)
 
 json-shape-check: export CARTULARY_TEST_TARGET ?= json-shape-check
 json-shape-check:

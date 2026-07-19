@@ -102,6 +102,13 @@ function goScheduleSelectionEnv(source) {
   };
 }
 
+function browserTargetEvidenceSelectionEnv(source) {
+  return {
+    CARTULARY_TARGET_EVIDENCE_SCOPE:
+      source.default_check_required === true ? "default_check" : "all",
+  };
+}
+
 function browserGroupEnvFromPlan(browserWorkerSlotPlan, group) {
   return mergeEnv(
     browserGroupWorkerEnvFromPlan(browserWorkerSlotPlan, group),
@@ -252,6 +259,7 @@ export function expandServiceBackedScheduleForCheck({
         browser_session_group: completeSessionGroup,
         env: {
           ...(source.env ?? {}),
+          ...browserTargetEvidenceSelectionEnv(source),
           CARTULARY_BROWSER_RUNTIME_PROFILE_ID:
             completeSessionInfo?.runtimeProfileID || "default",
         },
@@ -562,6 +570,7 @@ export function expandServiceBackedSchedule({
         browser_session_group: completeSessionGroup,
         env: {
           ...(source.env ?? {}),
+          ...browserTargetEvidenceSelectionEnv(source),
           CARTULARY_BROWSER_RUNTIME_PROFILE_ID:
             completeSessionInfo?.runtimeProfileID || "default",
         },

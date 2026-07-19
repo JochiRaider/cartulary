@@ -241,6 +241,7 @@ function attachRuntime(
       CARTULARY_TEST_TARGET: unit.target,
       CARTULARY_BROWSER_SESSION_GROUP: unitBrowserSessionKey(unit),
       CARTULARY_BROWSER_STAGE: unit.browserStage,
+      CARTULARY_TARGET_EVIDENCE_FINALIZE: "1",
       TEST_OUTPUT_SCRIPT: testOutputScript,
     }),
   });

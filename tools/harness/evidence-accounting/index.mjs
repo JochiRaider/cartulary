@@ -4,6 +4,10 @@ export {
   loadOwnerAccountingSelection,
 } from "./catalog-accounting.mjs";
 export {
+  finalizeTargetOwnerEvidence,
+  targetOwnerEvidenceArtifactPaths,
+} from "./target-evidence.mjs";
+export {
   auditOwnerEvidence,
   buildTestEvidenceAccounting,
   buildTestOwnerSummary,

@@ -87,13 +87,17 @@ import {
   buildTestOwnerSummary,
   deriveRequiredEvidencePartitions,
   evidenceTargetForCatalogRow,
+  finalizeTargetOwnerEvidence,
   loadOwnerAccountingSelection,
 } from "../evidence-accounting/index.mjs";
 import { adaptGoInvocation } from "../execution/runners/go.mjs";
 import { adaptPlaywrightReport } from "../execution/runners/playwright.mjs";
 import { adaptShellInvocation } from "../execution/runners/shell.mjs";
 import { adaptVitestInvocation } from "../execution/runners/vitest.mjs";
-import { buildBrowserStageSchedule } from "../browser/index.mjs";
+import {
+  buildBrowserStageSchedule,
+  selectedBrowserGroupRowIDs,
+} from "../browser/index.mjs";
 import { resolveBrowserBatchStage } from "../browser/browser-batch-manifest.mjs";
 import {
   assertDocumentationAccessAllowed,
@@ -675,6 +679,196 @@ test("owner accounting closes exact rows and preserves subset completion scope",
     () => buildTestEvidenceAccounting(plan, { ...execution, row_results: [] }, logs, accounting.started_at, accounting.finished_at),
     /do not exactly match/u,
   );
+});
+
+test("target evidence finalization closes exact runner observations and scope", async () => {
+  const resultsRoot = mkdtempSync(
+    path.join(repoRoot, "tmp", "target-evidence-finalization."),
+  );
+  try {
+    const catalog = loadTestCatalog(repoRoot);
+    const taskSurface = readJSON("tools/task_surface_manifest.json");
+    const targetByCommand = new Map(
+      taskSurface.targets.map((entry) => [entry.command_id, entry.name]),
+    );
+    const targetForRow = (row) =>
+      evidenceTargetForCatalogRow(row, { commandTargetByID: targetByCommand });
+    const cases = [
+      ["go", "backend-unit"],
+      ["vitest", "frontend-unit"],
+      ["playwright", "browser-e2e-webserver-backed"],
+      ["shell", "generate-drift"],
+    ].map(([runner, targetID]) => {
+      const row = catalog.rows.find(
+        (entry) => entry.runner === runner && targetForRow(entry) === targetID,
+      );
+      assert.ok(row, `${runner} target evidence fixture row`);
+      return { row, runner, targetID };
+    });
+
+    for (const { row, runner, targetID } of cases) {
+      const runID = `target-evidence-${runner}`;
+      const targetDir = path.join(resultsRoot, runID, targetID);
+      if (runner === "go") {
+        writeJSONFile(path.join(targetDir, "fixture", "step-summary.json"), {
+          started_at: "2026-07-18T00:00:00.000Z",
+          finished_at: "2026-07-18T00:00:00.010Z",
+          inventory: row.selector.tests.map((symbol) => ({
+            id: row.row_id,
+            symbol_or_title: symbol,
+          })),
+        });
+      } else if (runner === "vitest") {
+        writeJSONFile(
+          path.join(targetDir, "raw", "frontend-unit", "runner.json"),
+          {
+            startTime: Date.parse("2026-07-18T00:00:00.000Z"),
+            testResults: [{
+              name: path.join(repoRoot, row.selector.file),
+              endTime: Date.parse("2026-07-18T00:00:00.010Z"),
+              assertionResults: row.selector.titles.map((title) => ({
+                fullName: title,
+                status: "passed",
+                duration: 1,
+              })),
+            }],
+          },
+        );
+      } else if (runner === "playwright") {
+        writeJSONFile(
+          path.join(
+            targetDir,
+            "browser-groups",
+            "fixture",
+            "browser-group-result.json",
+          ),
+          {
+            schema_id: "cartulary.browser_group_result.v1",
+            target_id: targetID,
+            stage_id: "webserver-backed",
+            group_id: "target-evidence-fixture",
+            runtime_profile_id: row.runtime_profile_id,
+            fixture_profile_ids: [row.fixture_profile_id],
+            resource_profile_ids: [row.resource_profile_id],
+            selected_rows: [row.row_id],
+            started_at: "2026-07-18T00:00:00.000Z",
+            finished_at: "2026-07-18T00:00:00.010Z",
+            duration_ms: 10,
+            status: "pass",
+            exit_code: 0,
+            row_results: [{
+              row_id: row.row_id,
+              terminal_state: "passed",
+              duration_ms: 10,
+              exit_code: 0,
+              failure_reason: null,
+            }],
+            artifacts: {
+              playwright_report: `${targetID}/browser-groups/fixture/report.json`,
+              stdout: `${targetID}/browser-groups/fixture/stdout.log`,
+              stderr: `${targetID}/browser-groups/fixture/stderr.log`,
+            },
+          },
+        );
+      }
+
+      const options = {
+        targetID,
+        requestedStatus: "pass",
+        resultsDir: resultsRoot,
+        runID,
+        env: {
+          CARTULARY_TARGET_EVIDENCE_SCOPE: "rows",
+          CARTULARY_TARGET_EVIDENCE_ROW_IDS: row.row_id,
+        },
+      };
+      const finalized = finalizeTargetOwnerEvidence(repoRoot, options);
+      assert.equal(finalized.status, "pass");
+      assert.equal(finalized.reused, false);
+      assert.deepEqual(finalized.shards.flatMap((shard) => shard.selected_rows), [
+        row.row_id,
+      ]);
+      const ownerDir = path.join(targetDir, "owners", row.owner_id);
+      assert.equal(
+        JSON.parse(
+          readFileSync(path.join(ownerDir, "test-evidence-accounting.json")),
+        ).status,
+        "pass",
+      );
+      assert.equal(
+        JSON.parse(readFileSync(path.join(ownerDir, "test-owner-summary.json")))
+          .status,
+        "pass",
+      );
+      assert.equal(finalizeTargetOwnerEvidence(repoRoot, options).reused, true);
+    }
+
+    const goCase = cases.find((entry) => entry.runner === "go");
+    assert.ok(goCase);
+    assert.throws(
+      () =>
+        finalizeTargetOwnerEvidence(repoRoot, {
+          targetID: goCase.targetID,
+          requestedStatus: "pass",
+          resultsDir: resultsRoot,
+          runID: "target-evidence-missing",
+          env: {
+            CARTULARY_TARGET_EVIDENCE_SCOPE: "rows",
+            CARTULARY_TARGET_EVIDENCE_ROW_IDS: goCase.row.row_id,
+          },
+        }),
+      /Go selector mismatch/u,
+    );
+    assert.equal(
+      existsSync(
+        path.join(
+          resultsRoot,
+          "target-evidence-missing",
+          goCase.targetID,
+          "owners",
+        ),
+      ),
+      false,
+    );
+    assert.throws(
+      () =>
+        finalizeTargetOwnerEvidence(repoRoot, {
+          targetID: goCase.targetID,
+          requestedStatus: "pass",
+          resultsDir: resultsRoot,
+          runID: "target-evidence-contradictory",
+          env: {
+            CARTULARY_TARGET_EVIDENCE_SCOPE: "rows",
+            CARTULARY_TARGET_EVIDENCE_ROW_IDS: goCase.row.row_id,
+            CARTULARY_GO_SCHEDULE_SCOPE: "all",
+          },
+        }),
+      /selection scopes disagree/u,
+    );
+    assert.equal(
+      existsSync(
+        path.join(
+          resultsRoot,
+          "target-evidence-contradictory",
+          goCase.targetID,
+        ),
+      ),
+      false,
+    );
+    assert.throws(
+      () =>
+        finalizeTargetOwnerEvidence(repoRoot, {
+          targetID: goCase.targetID,
+          requestedStatus: "pass",
+          resultsDir: resultsRoot,
+          runID: "target-evidence-go",
+          env: { CARTULARY_TARGET_EVIDENCE_SCOPE: "all" },
+        }),
+      /do not match the selected row scope/u,
+    );
+  } finally {
+    rmSync(resultsRoot, { recursive: true, force: true });
+  }
 });
 
 test("owner evidence audit accepts exact target partitions and rejects duplicate row evidence", () => {
@@ -3150,6 +3344,52 @@ test("catalog browser scheduler digest is deterministic and delivery-independent
       unit.needs.every((need) => first.workUnits.some((candidate) => candidate.id === need)),
     ),
     "validation finalizers must depend on exact scheduled unit identities",
+  );
+});
+
+test("scheduled browser groups preserve exact generated row subsets", () => {
+  const manifest = path.join(repoRoot, "tools", "browser_e2e_batch_manifest.json");
+  const stage = resolveBrowserBatchStage(manifest, "stateful");
+  const group = stage.groups.find((entry) => entry.selectedRowIDs.length > 1);
+  assert.ok(group);
+  assert.deepEqual(selectedBrowserGroupRowIDs(group, {}), group.selectedRowIDs);
+  const subset = [...group.selectedRowIDs].sort().slice(0, 1);
+  assert.deepEqual(
+    selectedBrowserGroupRowIDs(group, {
+      CARTULARY_BROWSER_SELECTED_ROW_IDS: subset.join(","),
+    }),
+    subset,
+  );
+  assert.throws(
+    () =>
+      selectedBrowserGroupRowIDs(group, {
+        CARTULARY_BROWSER_SELECTED_ROW_IDS: "",
+      }),
+    /must be non-empty, sorted, and unique/u,
+  );
+  assert.throws(
+    () =>
+      selectedBrowserGroupRowIDs(group, {
+        CARTULARY_BROWSER_SELECTED_ROW_IDS: [
+          group.selectedRowIDs[1],
+          group.selectedRowIDs[0],
+        ].join(","),
+      }),
+    /must be non-empty, sorted, and unique/u,
+  );
+  assert.throws(
+    () =>
+      selectedBrowserGroupRowIDs(group, {
+        CARTULARY_BROWSER_SELECTED_ROW_IDS: `${subset[0]},${subset[0]}`,
+      }),
+    /must be non-empty, sorted, and unique/u,
+  );
+  assert.throws(
+    () =>
+      selectedBrowserGroupRowIDs(group, {
+        CARTULARY_BROWSER_SELECTED_ROW_IDS: "module.unknown.browser.row",
+      }),
+    /outside the generated group/u,
   );
 });
 

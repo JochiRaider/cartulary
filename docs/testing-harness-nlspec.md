@@ -332,6 +332,12 @@ Default browser schedule generation MUST apply `default_check` after evidence-cl
 
 Default browser projection artifacts MUST expose the exact selected owner rows. Retained `cartulary.test_evidence_accounting.v1` artifacts MUST use the plan's `resolved_row_ids` without broadening. A target-level browser run MUST account for its catalog-selected target inventory in the uniform `<target>/owners/<owner-id>/` shard layout, and its tool-run summary MUST reference the target's `cartulary.browser_owner_index.v1`; absence of one runner family MUST NOT be represented as success for a row that was selected but did not execute.
 
+A scheduler- or owner-slice-selected browser group MUST apply its exact sorted
+row-ID subset after resolving the generated batch group and before constructing
+Playwright title filters. The subset MUST be non-empty, unique, and contained by
+the generated group. Reopening a full batch group by stage and group name MUST NOT
+discard, broaden, or replace the scheduler-owned row selection.
+
 `cartulary.browser_e2e_batch_manifest.v6` MUST be generated from the active catalog plus authored stage/runtime/fixture/isolation policy. Every generated group MUST contain exactly one selector file and a sorted non-empty set of semantic catalog row IDs; delivery-phase IDs, phase-selected batches, title-prefix inference, and runtime translation of retired IDs are forbidden. Across a direct evidence target, every applicable Playwright catalog row MUST occur in exactly one generated group for its stage and runtime profile.
 
 The `browser-e2e-stateful` public target MAY use generated `stateful_partition` groups when each partition declares explicit semantic row IDs and an explicit browser session group. Partitioning MUST preserve the same row inventory as the unpartitioned target. An empty adapter invocation MUST be omitted rather than represented as product success. Direct execution MUST reset between selector-file partitions. Scheduler execution MUST serialize stateful partitions that share a browser session group in authored order, and each partition's reset MUST complete before the next partition starts. Distinct browser session groups MAY overlap only when each group owns an isolated retained lifecycle. The `network_flow_claimed` profile MUST always have a distinct startup session for stateful, accessibility, visual, measurement, and webserver-backed evidence. Partitioning MUST NOT remove reset, taint, teardown, route-token, runtime identity, evidence-accounting, or target-summary evidence.
@@ -1493,6 +1499,27 @@ Verified by: TH-HARNESS-AC-065
 **TH-HARNESS-REQ-272**
 `cartulary.test_owner_summary.v1` MUST aggregate only the resolved row inventory. It MUST expose selected, passed, failed, infrastructure-failed, dependency-skipped, cancelled, and authorized-skipped counts; unused inputs; primary failure; artifact references; and whether the invocation closed `full_owner` or `selected_subset`. A selected subset MUST NOT be represented as full-owner closure.
 Verified by: TH-HARNESS-AC-065
+
+**TH-HARNESS-REQ-276**
+Every successful public target that selects active catalog rows MUST finalize paired
+`<target>/owners/<owner-id>/test-evidence-accounting.json` and
+`<target>/owners/<owner-id>/test-owner-summary.json` shards before target-summary
+success. Go and Vitest adapters MUST prove the exact registered symbol or title
+inventory, Playwright adapters MUST prove the exact selected row results, and a
+shell row MUST prove the selected target command identity. Aggregate process or
+target success alone MUST NOT close an absent, duplicate, failed, or unmapped
+selected case. A target-wide diagnostic test outside the selected catalog
+partition MUST NOT be promoted into owner evidence or broaden the retained row
+scope; exact-row execution MUST reject such an unexpected case.
+
+Target-level selection scope is an atomic tuple: `all`, `default_check`, or exact
+sorted row IDs. Only `rows` scope carries row IDs. A partial or contradictory tuple
+MUST fail before owner evidence is written. Repeated target-summary aggregation MAY
+reuse already-written shards only when their source, catalog, verification, target,
+run, owner, and exact selected-row identities match; it MUST NOT broaden or narrow
+the retained scope. The target tool-run summary MUST reference every paired owner
+shard. Browser targets additionally retain the target browser-owner index.
+Verified by: TH-HARNESS-AC-065, TH-HARNESS-AC-066, TH-HARNESS-AC-071
 
 **TH-HARNESS-REQ-273**
 `cartulary.test_evidence_audit_summary.v1` MUST identify every required target/root,

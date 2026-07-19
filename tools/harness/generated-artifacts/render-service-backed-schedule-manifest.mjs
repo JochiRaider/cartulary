@@ -797,6 +797,7 @@ function browserSource(
     class: "browser",
     target: stage.target,
     browser_stage: stageName,
+    default_check_required: options.defaultCheckOnly === true,
     ...(sessionGroup
       ? {
           browser_session_group: sessionGroup.name,

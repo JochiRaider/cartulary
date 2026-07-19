@@ -99,6 +99,7 @@ function defaultBrowserStageCompleteEnv({ unit, runtime }) {
     CARTULARY_TEST_TARGET: unit.target,
     CARTULARY_BROWSER_SESSION_GROUP: browserSessionKeyFor(unit),
     CARTULARY_BROWSER_STAGE: unit.browserStage,
+    CARTULARY_TARGET_EVIDENCE_FINALIZE: "1",
     CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
   };
 }
