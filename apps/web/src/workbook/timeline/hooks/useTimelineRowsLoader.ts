@@ -1,6 +1,7 @@
 import type { ViewContract } from "@cartulary/view-contracts";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useMemo } from "react";
+import { flushSync } from "react-dom";
 import { apiPath } from "../../../services/browserApi";
 import {
   fetchWorkbookJSON,
@@ -313,7 +314,16 @@ export function useTimelineRowsLoader({
         });
       acceptCommittedTimelineRows(committedRows);
       rowsRef.current = hydratedRows;
-      setRows(hydratedRows);
+      if (options.viewportContinuityToken === undefined) {
+        setRows(hydratedRows);
+      } else {
+        // Continuity-bearing callers restore focus as soon as loadRows
+        // resolves. Commit the authoritative row tree first so a deferred
+        // concurrent render cannot replace the newly focused grid cell.
+        flushSync(() => {
+          setRows(hydratedRows);
+        });
+      }
       advanceViewportContinuity(options.viewportContinuityToken);
       setDismissedMentionsByRow((current) => {
         const next = { ...current };

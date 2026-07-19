@@ -1036,15 +1036,18 @@ describe("support TimelineWorkbook", () => {
     const notice = await screen.findByTestId(
       autoResolutionNoticeTestId(mentionItemRef),
     );
-    fireEvent.click(
-      within(notice).getByTestId(
-        autoResolutionUndoButtonTestId(mentionItemRef),
-      ),
+    const undoButton = within(notice).getByTestId(
+      autoResolutionUndoButtonTestId(mentionItemRef),
     );
+    const preservedScroll = setTimelineGridScroll(240, 140);
+    undoButton.focus();
+    expect(document.activeElement).toBe(undoButton);
+    fireEvent.click(undoButton);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(4);
     });
+    await expectTimelineFocusAndScroll("record-1", preservedScroll);
     expect(
       screen.queryByTestId(autoResolutionNoticeTestId(mentionItemRef)),
     ).toBeNull();

@@ -11,7 +11,7 @@
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
 | Tracker state | `IN_PROGRESS` — WS-12 final-byte validation recovery |
-| Active start | T-051 rejected timing window recovery checkpoint |
+| Active start | T-051 focus-continuity forward-fix checkpoint |
 | Active tasks | T-051 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
@@ -1667,6 +1667,14 @@ Each entry must include:
 - Rejected timing window: `final-t051-timing-warm` passed 125/125 units and 478 tests in 115,091 ms; external elapsed time was 116.97 seconds, `check-service-backed` was 109,112 ms, and `final-t051-timing-warm-health` passed the 155-second and lane-balance rules. `final-t051-timing-measured-1` then failed after 67/125 completed units because `browser-e2e-webserver-backed/functional-support-default-autoresolve` reported one product `test_assertion_failure`; the remaining measured roots were not run. The complete warm/measured attempt is rejected rather than averaged, retried in place, or represented as qualifying evidence.
 - Failure evidence and diagnosis boundary: the structured failure is retained under `.cartulary/test-results/final-t051-timing-measured-1`, with the Playwright trace and error context below `browser-e2e-webserver-backed/browser-groups/functional-support-default-autoresolve/`. The first grid-focus continuity assertion passed; after the auto-resolution Undo control received focus and disappeared, the second assertion timed out because the Timeline grid cell remained inspector-active but was not the active element. This is a render-order focus-continuity defect exposed under check concurrency, not an artifact-identity, catalog, fixture, or scheduler-classification failure.
 - Recovery and next safe task: this checkpoint restores T-051 and WS-12 to `IN_PROGRESS` and leaves every Section 15 criterion unchecked. Forward-fix the Timeline mention-action focus restoration so continuity remains stable across delayed row/notice renders, add regression coverage for an action whose focused control unmounts, and validate the exact autoresolve browser partition plus focused unit gates. Commit that fix with this tracker record, then prepare a fresh optimistic closure candidate using `final-t051r2-*` roots and restart the complete authoritative T-051 matrix; no `final-t051-*` root is admissible for final closure.
+
+#### 2026-07-19 — T-051 focus-continuity forward fix
+
+- Remediation: continuity-bearing Timeline row reloads now synchronously commit their authoritative row tree before `loadRows` resolves. Mention-action callers therefore restore focus only after the replacement grid cell is mounted; later concurrent row rendering can no longer replace that focused anchor. Ordinary initial and background reloads retain scheduled React rendering, so the stronger ordering is limited to the explicit viewport-continuity boundary.
+- Regression coverage: `WorkbookShell.support.test.tsx` now focuses the auto-resolution Undo control, confirms it owns focus, lets the successful action remove it, and requires the same Timeline summary grid cell plus the preserved two-axis scroll position afterward. This covers the real failure shape rather than weakening the browser assertion or teaching the test to focus the cell itself.
+- Validation: `t051-focus-fix-format`, `t051-focus-fix-frontend-unit`, `t051-focus-fix-typecheck`, `t051-focus-fix-import-boundary`, and `t051-focus-fix-biome` passed. The exact catalog row `module.entities.browser.the_browser_workbook_shows_auto_resolution_only_758d41a16f` passed independently in `t051-focus-fix-autoresolve`, `t051-focus-fix-autoresolve-r2`, and `t051-focus-fix-autoresolve-r3`, each with one selected row, one passing test, complete owner evidence, and no missing or unmapped result.
+- Compatibility and risk disposition: no product API, artifact schema, catalog identity, command surface, fixture behavior, or compatibility path changed. The fix strengthens the existing focus/viewport continuity contract and avoids a timing-only test workaround. The rejected `final-t051-*` snapshot remains diagnostic only because this source change invalidates it.
+- Next safe task: commit this implementation, regression, and tracker record together while T-051 remains `IN_PROGRESS`. Prepare fresh optimistic closure bytes and reserve only `final-t051r2-*` identities, then restart every authoritative finalization, gate, evidence partition, owner slice, service-backed slice, timing, release, and audit step from the beginning.
 
 ## 17. First-resumer checklist
 
