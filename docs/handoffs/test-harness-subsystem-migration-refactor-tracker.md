@@ -11,8 +11,8 @@
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
 | Tracker state | `IN_PROGRESS` — WS-11 validation and release rehearsal |
-| Active start | T-047 warm-readiness recovery based on rejected root `t047-check-warm-r7` |
-| Active tasks | T-047 |
+| Active start | T-048 based on the T-047 eighth exact-byte warm-check closure candidate from `9d9d4a12` |
+| Active tasks | T-048 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -733,8 +733,8 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-045 | Regenerate all permitted outputs | WS-10 | DONE | T-042,T-043,T-044 | Generated drift checks | Clean owner-first generated tree. |
 | T-045A | Prove atomic v2 parity and retirement | WS-10 | DONE | T-050 | NLSpec/schema/task-surface/topology parity and zero-reference report | v2 is complete and no v1 alias, reader, writer, catalog, or artifact identity is active. |
 | T-046 | Run focused verification matrix | WS-11 | DONE | T-045A | Command results/run roots | All focused gates pass. |
-| T-047 | Run agent finalization and first warm check | WS-11 | IN_PROGRESS | T-046 | Successful warm run root | Fresh broad evidence exists. |
-| T-048 | Refresh retained baselines and repeat broad checks | WS-11 | TODO | T-047 | Finalized root and second results | No phase baseline is reused. |
+| T-047 | Run agent finalization and first warm check | WS-11 | DONE | T-046 | Successful warm run root | Fresh broad evidence exists. |
+| T-048 | Refresh retained baselines and repeat broad checks | WS-11 | IN_PROGRESS | T-047 | Finalized root and second results | No phase baseline is reused. |
 | T-049 | Run release check | WS-11 | TODO | T-048 | Release-check result | Public/release harness changes pass. |
 | T-050 | Capture reconciliation and remove crosswalk | WS-10 | DONE | T-045 | Final reconciliation report | Temporary compatibility-free migration input removed before authoritative source snapshots. |
 | T-051 | Complete handoff and closure audit | WS-12 | TODO | T-049 | Handoff log and clean status | Section 15 is fully satisfied. |
@@ -1556,6 +1556,7 @@ Each entry must include:
 - Regression proof: generated and contract tests require exactly one harness-server producer, the `embedded-web-assets` dependency, retained deployable-server selection, and absence of the false deployable-server browser edge. The first `.cartulary/test-results/t047-runtime-topology-extended` replay rejected a stale 37-unit/old-edge snapshot; after correcting that exact inventory fixture, `.cartulary/test-results/t047-runtime-topology-extended-r2` passed all 36 cases with no missing or failed child. `.cartulary/test-results/t047-runtime-topology-contract-r1` passed all 82 Node contract tests, and `.cartulary/test-results/t047-runtime-topology-execution` passed the execution smoke tier.
 - Generated and focused proof: `t047-runtime-topology-generate-r1`, `t047-runtime-topology-format`, `t047-runtime-topology-drift`, `t047-runtime-topology-policy`, `t047-runtime-topology-json`, and the matching script, shell, Markdown, and Biome lint roots passed. Generated task-surface, scheduler, and render-index changes were produced only through `make generate`. Public `.cartulary/test-results/t047-runtime-topology-build-r1` reused deterministic harness-server input key `sha256:e320b5463aeb4615f4c6b6d9b7f9e778fddbafac7e19a455dc2cd17851435e18` and output digest `sha256:d65ae0f6dbc90705c21d6cf34dad65e86c09c53377f79a5c63d9f850261d3dd0` after ordinary Make prerequisites.
 - Evidence disposition and next safe task: the failed extended root is diagnostic-only; every passing root above is focused recovery evidence and not a T-047 warm-check root. Validate formatting, generation/drift, schema/policy, contracts, and lints on these exact tracker bytes, then commit the specification, authored topology/task surface, expansion logic, generated projections, regressions, and tracker together while T-047 remains active. On the clean commit, run mutation-free no-input finalization before preparing a fresh exact-byte closure candidate; the full check must start the harness producer only after embedded assets and pass explicit owner-artifact, readiness-budget, and lane-balance validation.
+- Eighth candidate: `.cartulary/test-results/t047-agent-finalize-no-input-r9` passed on clean `9d9d4a12` with `generated=unchanged`, zero file mutations, and every retained-run-only action exactly skipped. These exact uncommitted tracker bytes mark T-047 complete, activate T-048, and reserve `.cartulary/test-results/t047-check-warm-r8`. Commit this transition unchanged only if the reserved check passes without retry or prewarming, retains complete paired owner evidence, schedules the harness-server producer only after embedded assets, and passes finalizer-equivalent readiness-budget and lane-balance validation.
 
 ## 17. First-resumer checklist
 
