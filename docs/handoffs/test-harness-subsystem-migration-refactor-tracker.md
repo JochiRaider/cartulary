@@ -11,8 +11,8 @@
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
 | Tracker state | `IN_PROGRESS` — WS-11 validation and release rehearsal |
-| Active start | T-047 recovery based on clean acquisition-aware commit `8d8ff8cd` |
-| Active tasks | T-047 |
+| Active start | T-048 based on the T-047 third exact-byte warm-check closure candidate from `260d3728` |
+| Active tasks | T-048 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -733,8 +733,8 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-045 | Regenerate all permitted outputs | WS-10 | DONE | T-042,T-043,T-044 | Generated drift checks | Clean owner-first generated tree. |
 | T-045A | Prove atomic v2 parity and retirement | WS-10 | DONE | T-050 | NLSpec/schema/task-surface/topology parity and zero-reference report | v2 is complete and no v1 alias, reader, writer, catalog, or artifact identity is active. |
 | T-046 | Run focused verification matrix | WS-11 | DONE | T-045A | Command results/run roots | All focused gates pass. |
-| T-047 | Run agent finalization and first warm check | WS-11 | IN_PROGRESS | T-046 | Successful warm run root | Fresh broad evidence exists. |
-| T-048 | Refresh retained baselines and repeat broad checks | WS-11 | TODO | T-047 | Finalized root and second results | No phase baseline is reused. |
+| T-047 | Run agent finalization and first warm check | WS-11 | DONE | T-046 | Successful warm run root | Fresh broad evidence exists. |
+| T-048 | Refresh retained baselines and repeat broad checks | WS-11 | IN_PROGRESS | T-047 | Finalized root and second results | No phase baseline is reused. |
 | T-049 | Run release check | WS-11 | TODO | T-048 | Release-check result | Public/release harness changes pass. |
 | T-050 | Capture reconciliation and remove crosswalk | WS-10 | DONE | T-045 | Final reconciliation report | Temporary compatibility-free migration input removed before authoritative source snapshots. |
 | T-051 | Complete handoff and closure audit | WS-12 | TODO | T-049 | Handoff log and clean status | Section 15 is fully satisfied. |
@@ -1495,6 +1495,12 @@ Each entry must include:
 - End-to-end diagnostic: `.cartulary/test-results/t047-selection-owner-check-diagnostic-r2` passed the real public `make check` path with 125/125 work units, 478 tests, zero failures, zero missing rows, and zero artifact/finalizer failures in 99.77 seconds. It proves the failed `backend-process` path is repaired but remains diagnostic-only because final generated fingerprints and this tracker record were not yet stable exact closure bytes.
 - Passed validation: exact final source bytes passed `format`, ordinary generation, `generate-drift`, generated policy, JSON shape, `harness-contract`, the 3/3 fast and execution tiers, the 2/2 lifecycle tier, the complete 36/36 extended tier including zero-start and partial-start finalizers, task-surface density, script/shell/Markdown/Biome lint, and `git diff --check`. Final roots use the `t047-selection-final2-*` prefix; the final extended root is `.cartulary/test-results/t047-selection-final2-extended`. Generated scheduler topology and render fingerprints changed only through `make generate`. Temporary `KEEP_TEST_TMP=1` diagnostic scratch directories were moved to trash after inspection and remain recoverable there.
 - Next safe task: commit this specification, scheduler selection/finalization, report emission, generated topology, regression, and tracker recovery checkpoint together while T-047 remains active. On the clean commit, rerun no-input finalization under `t047-agent-finalize-no-input-r4`; only a mutation-free pass may precede a fresh uncommitted T-047-complete/T-048-active closure candidate reserving `.cartulary/test-results/t047-check-warm-r3`. Never consume `t047-check-warm`, `t047-check-warm-r2`, or either diagnostic check root as retained evidence.
+
+#### 2026-07-18 — T-047 third exact-byte closure candidate and T-048 activation
+
+- Source checkpoint: scheduled Go selection, complete-aggregate finalization, and selected-row emission recovery were committed at `260d3728`. Clean no-input `.cartulary/test-results/t047-agent-finalize-no-input-r4` then passed with `generated=unchanged`, zero updated or restored tracked files, all selected structural/schema/coverage actions passing, and every retained-run-only action exactly not selected.
+- Candidate procedure: these uncommitted tracker bytes mark T-047 `DONE`, make T-048 the sole active task, and reserve fresh `.cartulary/test-results/t047-check-warm-r3`. The failed `t047-check-warm` and `t047-check-warm-r2` roots plus both forward-fix diagnostic checks remain permanently rejected. This full warm `make check` must retain all 125 planned work units, complete selected-row accounting, paired owner evidence, normal acquisition-aware finalization, zero missing/unmapped rows, and zero unexpected tracked mutation on this exact source snapshot.
+- Commit condition and next safe task: commit this candidate unchanged only if `t047-check-warm-r3` passes without retry, provisioning contamination, cleanup amplification, source change, or artifact loss. Once committed, T-048 must consume that exact root with `make agent-finalize RESULTS_DIR=.cartulary/test-results/t047-check-warm-r3` before any later full check.
 
 ## 17. First-resumer checklist
 
