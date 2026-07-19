@@ -11,7 +11,7 @@
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
 | Tracker state | `IN_PROGRESS` — WS-11 validation and release rehearsal |
-| Active start | T-048 based on the T-047 eighth exact-byte warm-check closure candidate from `9d9d4a12` |
+| Active start | T-048 timing-window recovery after the first qualifying candidate exceeded the strict check cap |
 | Active tasks | T-048 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
@@ -1610,6 +1610,18 @@ Each entry must include:
 - Retained input proof: `.cartulary/test-results/t048-pre-refresh-warm-r5` passed all 125 work units and 478 tests with zero failed or missing observations in 114.114 seconds, retained 109 passing accounting/summary pairs, and passed the explicit 155-second readiness and 1.25 lane-balance gate at `.cartulary/test-results/t048-pre-refresh-warm-r5-health`. Its exact candidate source was committed unchanged at `43a2b5c3`.
 - Finalizer proof: `.cartulary/test-results/t048-retained-finalize-r5` accepted that exact latest root, passed scheduler health and schema validation, refreshed all four baseline families, generated projections once, and passed baseline coverage plus the complete duration-drift suite. The frozen pre-mutation identity allowed 62 observed browser rows to remain admissible after the earlier Go baseline writer changed tracked maintenance bytes; no stale-source override or fallback reader was used.
 - Stabilized baseline scope: the refresh retains 371 named Go test weights, 51 Go package overheads, five raw aggregates, 62 browser row weights, 23 scheduler work-unit weights, and three harness-smoke target weights. The resulting six tracked baseline/generated files are the only finalizer mutations and remain T-048 maintenance inputs, not benchmark or product-conformance claims.
+
+#### 2026-07-19 — T-048 qualifying timing candidate and T-049 activation
+
+- Stabilization checkpoint: commit `0245f10c` records the reviewed retained baseline refresh and generated schedule. `.cartulary/test-results/t048-agent-finalize-no-input-r4` then passed with `generated=unchanged`, zero updated files, and no retained-only action selected.
+- Exact-byte candidate: these uncommitted tracker bytes mark T-048 `DONE` and activate T-049. They reserve unmeasured warm root `.cartulary/test-results/t048-timing-warm`, measured roots `.cartulary/test-results/t048-timing-measured-1` through `t048-timing-measured-5`, and ignored host/inventory/timing record `.cartulary/performance/t048-qualifying-window.json`. No source, generated, tool-pin, scheduler-capacity, or tracker byte may change during the six-run window.
+- Acceptance and commit condition: the unmeasured check and all five consecutive measured checks must pass without retry, interruption, cleanup error, hidden provisioning, stale/missing/unmapped evidence, or inventory drift. Each measured root must retain identical command, target, row, artifact, and scheduler inventories; satisfy the 155,000 ms `check-service-backed` cap and non-isolated peer-lane balance; and pass the explicit 155-second readiness/1.25 balance gate. With five samples, nearest-rank p90 is the maximum, which must be strictly below 120 seconds. Commit these candidate bytes unchanged only after the ignored record captures the supported WSL2 x86_64 host, 24 logical CPUs, memory context, default capacities, tool pins, semantic digests, external wall observations, exact roots, and accepted comparison result; on any failure restore T-048 as active and reject the entire window.
+
+#### 2026-07-19 — T-048 first qualifying timing-window rejection
+
+- Rejected evidence: the unmeasured `.cartulary/test-results/t048-timing-warm` and measured roots `t048-timing-measured-1` and `t048-timing-measured-2` passed the complete 125-unit/478-test check in 115.623, 114.856, and 114.371 seconds. Measured `.cartulary/test-results/t048-timing-measured-3` also passed functionally with the same declared 125-unit capacity vector, 478 tests, 109 paired owner partitions, and `check-service-backed=118397ms`, but its check scheduler duration was 124.125 seconds and external wall observation was 126.03 seconds.
+- Disposition: the third measured sample violates the strict `<120000ms` maximum and therefore the nearest-rank five-sample p90 requirement. The entire candidate window is rejected without averaging, substitution, or retry; reserved measured roots 4 and 5 were intentionally not started. Ignored `.cartulary/performance/t048-qualifying-window.json` records the rejected host, source, roots, and observations. T-048 is restored as the sole active task and T-049 returns to `TODO`.
+- Next safe action: commit this rejection checkpoint, reserve a completely new warm-plus-five run-ID family on a fresh exact-byte candidate, and restart the six-run window from the beginning. Do not reuse any `t048-timing-*` root in T-048 acceptance, retained finalization, T-049 evidence, or final handoff.
 
 ## 17. First-resumer checklist
 
