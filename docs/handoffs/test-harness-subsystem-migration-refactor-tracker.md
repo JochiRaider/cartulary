@@ -11,8 +11,8 @@
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
 | Tracker state | `IN_PROGRESS` — WS-11 validation and release rehearsal |
-| Active start | T-048 based on the T-047 fourth exact-byte warm-check closure candidate from `b9ddcefb` |
-| Active tasks | T-048 |
+| Active start | T-047 warm-readiness recovery based on rejected root `t047-check-warm-r4` |
+| Active tasks | T-047 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -733,8 +733,8 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-045 | Regenerate all permitted outputs | WS-10 | DONE | T-042,T-043,T-044 | Generated drift checks | Clean owner-first generated tree. |
 | T-045A | Prove atomic v2 parity and retirement | WS-10 | DONE | T-050 | NLSpec/schema/task-surface/topology parity and zero-reference report | v2 is complete and no v1 alias, reader, writer, catalog, or artifact identity is active. |
 | T-046 | Run focused verification matrix | WS-11 | DONE | T-045A | Command results/run roots | All focused gates pass. |
-| T-047 | Run agent finalization and first warm check | WS-11 | DONE | T-046 | Successful warm run root | Fresh broad evidence exists. |
-| T-048 | Refresh retained baselines and repeat broad checks | WS-11 | IN_PROGRESS | T-047 | Finalized root and second results | No phase baseline is reused. |
+| T-047 | Run agent finalization and first warm check | WS-11 | IN_PROGRESS | T-046 | Successful warm run root | Fresh broad evidence exists. |
+| T-048 | Refresh retained baselines and repeat broad checks | WS-11 | TODO | T-047 | Finalized root and second results | No phase baseline is reused. |
 | T-049 | Run release check | WS-11 | TODO | T-048 | Release-check result | Public/release harness changes pass. |
 | T-050 | Capture reconciliation and remove crosswalk | WS-10 | DONE | T-045 | Final reconciliation report | Temporary compatibility-free migration input removed before authoritative source snapshots. |
 | T-051 | Complete handoff and closure audit | WS-12 | TODO | T-049 | Handoff log and clean status | Section 15 is fully satisfied. |
@@ -1516,6 +1516,11 @@ Each entry must include:
 - Scheduler proof: `.cartulary/test-results/t047-target-evidence-service-r2` passed all 89 service-backed work units. Its owner shard unions exactly matched generated `default_check` selections: `backend-store=66`, `backend-integration=99`, `backend-process=10`, `browser-e2e-stateful=4`, and `browser-e2e-webserver-backed=62`. Both browser owner indexes passed, all five target tool summaries referenced every emitted owner shard, and the run retained 60 paired owner partitions overall. This root is focused diagnostic evidence only; it is not a full warm `check` and cannot close T-047 or feed retained finalization.
 - Clean finalizer checkpoint: after the target-partition fix was committed at `b9ddcefb`, `.cartulary/test-results/t047-agent-finalize-no-input-r5` passed with `generated=unchanged`, zero updated files, no retained input, and every retained-run-only action exactly skipped. The tracked tree remained clean.
 - Closure-candidate procedure: these exact uncommitted tracker bytes mark T-047 `DONE`, make T-048 the sole active task, and reserve `.cartulary/test-results/t047-check-warm-r4`. Commit this candidate unchanged only if a warm-ready `make check` passes all planned work without retry or contamination, retains paired owner accounting and summary artifacts, and is accepted by retained-run preflight. On failure, restore T-047 as active and reject the root.
+
+#### 2026-07-19 — T-047 fourth warm-root rejection
+
+- Rejected evidence: `.cartulary/test-results/t047-check-warm-r4` passed all 125 work units in 116.526 seconds and retained 109 paired owner partitions containing 730 selected row records, but it is not warm acceptance evidence. Retained finalizer `.cartulary/test-results/t048-retained-finalize-r2` accepted the root's latest-run and owner-artifact identity preflight, then failed before mutation because `build-server-harness` took `20275ms`, exceeded the `15000ms` warm readiness threshold, and reported `over_threshold` in `check/pressure-summary.json`.
+- Recovery state: no tracked mutation occurred, T-047 is restored as the sole active task, and T-048 returns to `TODO`. The next exact-byte candidate must run after the build artifact is demonstrably warm and must pass retained-run preflight plus `scheduler-summary-timing-drift` before the transition is committed; aggregate check success and the global 120-second budget are necessary but not sufficient.
 
 ## 17. First-resumer checklist
 
