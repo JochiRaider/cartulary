@@ -11,6 +11,7 @@ export {
   validateTestCatalogImportBoundary,
 } from "./import-boundary.mjs";
 export {
+  commandTargetForEvidenceTarget,
   goTargetForFamily,
   targetForCatalogRow,
 } from "./target-routing.mjs";

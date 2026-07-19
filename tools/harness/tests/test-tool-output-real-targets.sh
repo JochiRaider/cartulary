@@ -32,9 +32,15 @@ run_target() {
   mkdir -p "$target_dir"
   (
     cd "$ROOT_DIR"
-    CARTULARY_OUTPUT_MODE=summary \
-    CARTULARY_TEST_RESULTS_DIR="${RESULTS_ROOT}" \
-    CARTULARY_TEST_RUN_ID="${RUN_PREFIX}-${label}" \
+    env -u CARTULARY_HARNESS_IDENTITY_PREPARED \
+      -u CARTULARY_TEST_RESULTS_DIR \
+      -u CARTULARY_TEST_RUN_ID \
+      -u CARTULARY_TEST_TARGET \
+      -u OWNER -u ROWS -u VITEST_MAX_WORKERS -u PLAYWRIGHT_WORKERS -u JSON \
+      -u MAKEFLAGS -u MFLAGS \
+      CARTULARY_OUTPUT_MODE=summary \
+      CARTULARY_TEST_RESULTS_DIR="${RESULTS_ROOT}" \
+      CARTULARY_TEST_RUN_ID="${RUN_PREFIX}-${label}" \
       "$MAKE_BIN" --no-print-directory "$target" "${make_args[@]}"
   ) >"${target_dir}/stdout.log" 2>"${target_dir}/stderr.log" || {
     local status=$?
@@ -181,9 +187,15 @@ run_machine_target() {
   mkdir -p "$target_dir"
   (
     cd "$ROOT_DIR"
-    CARTULARY_OUTPUT_MODE=machine \
-    CARTULARY_TEST_RESULTS_DIR="${RESULTS_ROOT}" \
-    CARTULARY_TEST_RUN_ID="${RUN_PREFIX}-${label}" \
+    env -u CARTULARY_HARNESS_IDENTITY_PREPARED \
+      -u CARTULARY_TEST_RESULTS_DIR \
+      -u CARTULARY_TEST_RUN_ID \
+      -u CARTULARY_TEST_TARGET \
+      -u OWNER -u ROWS -u VITEST_MAX_WORKERS -u PLAYWRIGHT_WORKERS -u JSON \
+      -u MAKEFLAGS -u MFLAGS \
+      CARTULARY_OUTPUT_MODE=machine \
+      CARTULARY_TEST_RESULTS_DIR="${RESULTS_ROOT}" \
+      CARTULARY_TEST_RUN_ID="${RUN_PREFIX}-${label}" \
       "$MAKE_BIN" --no-print-directory "$target"
   ) >"${target_dir}/stdout.log" 2>"${target_dir}/stderr.log"
   "$NODE_BIN" - "$target" "${target_dir}/stdout.log" "${target_dir}/stderr.log" <<'EOF'
@@ -218,7 +230,13 @@ run_invalid_usage_check() {
   set +e
   (
     cd "$ROOT_DIR"
-    "$MAKE_BIN" --no-print-directory explain-target TARGET=not-a-real-target DETAIL=summary
+    env -u CARTULARY_HARNESS_IDENTITY_PREPARED \
+      -u CARTULARY_TEST_RESULTS_DIR \
+      -u CARTULARY_TEST_RUN_ID \
+      -u CARTULARY_TEST_TARGET \
+      -u OWNER -u ROWS -u VITEST_MAX_WORKERS -u PLAYWRIGHT_WORKERS -u JSON \
+      -u MAKEFLAGS -u MFLAGS \
+      "$MAKE_BIN" --no-print-directory explain-target TARGET=not-a-real-target DETAIL=summary
   ) >"${target_dir}/stdout.log" 2>"${target_dir}/stderr.log"
   local status=$?
   set -e

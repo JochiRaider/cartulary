@@ -11,7 +11,11 @@ import {
   validateSchemaSync,
 } from "../contract/index.mjs";
 import { buildSourceSnapshot } from "../owner-slice/source-snapshot.mjs";
-import { loadTestCatalog, targetForCatalogRow } from "../test-catalog/index.mjs";
+import {
+  commandTargetForEvidenceTarget,
+  loadTestCatalog,
+  targetForCatalogRow,
+} from "../test-catalog/index.mjs";
 import { parseStrictJSON } from "../test-catalog/semantic-json.mjs";
 import { accountingRowsForTarget } from "./catalog-accounting.mjs";
 import {
@@ -526,7 +530,8 @@ export function finalizeTargetOwnerEvidence(
   if (requestedStatus !== "pass") return { status: "not_selected", shards: [] };
   const catalog = loadTestCatalog(root);
   const { commandByTarget, targetByCommand } = commandTargetContext(root);
-  const commandID = commandByTarget.get(targetID) ?? "";
+  const commandTargetID = commandTargetForEvidenceTarget(targetID);
+  const commandID = commandByTarget.get(commandTargetID) ?? "";
   const allTargetRows = catalog.rows.filter(
     (row) => rowTarget(row, targetByCommand) === targetID,
   );

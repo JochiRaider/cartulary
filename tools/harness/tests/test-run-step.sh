@@ -1137,6 +1137,17 @@ assert_file_present "$(artifact_path "$same_run_helper_ref")" "helper same-run a
 assert_equals "$(json_field "$(artifact_path "$same_run_helper_ref")" "reuse_scope")" "same_run_only" "helper same-run ref scope"
 assert_equals "$(json_field "$(artifact_path "$same_run_helper_ref")" "accounting_mode")" "helper_reused" "helper same-run ref accounting"
 assert_equals "$(json_field "$(artifact_path "$same_run_helper_ref")" "scheduler_reused")" "false" "helper same-run ref scheduler accounting"
+CARTULARY_OUTPUT_MODE=quiet \
+CARTULARY_TEST_RESULTS_DIR="$helper_run_results" \
+CARTULARY_TEST_RUN_ID="helper-run" \
+CARTULARY_TEST_TARGET="late-target" \
+  "$HELPER" "late target" -- bash -lc 'true' >/dev/null
+CARTULARY_TEST_RESULTS_DIR="$helper_run_results" \
+CARTULARY_TEST_RUN_ID="helper-run" \
+  "$ROOT_DIR/tools/harness/output/test-output.sh" target-summary late-target pass >/dev/null
+late_target_tool_summary="$helper_run_results/helper-run/late-target/tool-run-summary.json"
+assert_not_contains "$(<"$late_target_tool_summary")" '"role": "run_summary"' "late target excludes parent run summary"
+assert_not_contains "$(<"$late_target_tool_summary")" '"role": "run_tool_run_summary"' "late target excludes parent tool summary"
 explain_helper_summary="$(
   "$ROOT_DIR/tools/harness/diagnostics/explain-run-cli.mjs" --results-dir "$helper_run_results/helper-run" \
     2>&1

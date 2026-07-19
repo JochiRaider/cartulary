@@ -1297,6 +1297,12 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
   const runRoot = relToRepo(runRunRoot);
   const runSummaryFile = path.join(runRunRoot, "run-summary.json");
   const runToolSummaryFile = toolSummaryPath(runRunRoot);
+  let ownsRunArtifacts = false;
+  if (existsSync(runSummaryFile) && existsSync(runToolSummaryFile)) {
+    const runToolSummary = JSON.parse(readFileSync(runToolSummaryFile, "utf8"));
+    validateSchemaSync("cartulary.tool_run_summary.v5", runToolSummary);
+    ownsRunArtifacts = runToolSummary.target === targetSummary.target;
+  }
   const schedulerSummaryFile = schedulerSummaryPath(targetSummary.target);
   const schedulerSummary = existsSync(schedulerSummaryFile)
     ? loadSchedulerSummary(targetSummary.target)
@@ -1358,10 +1364,10 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
         targetSummary.target,
         { runID: runId },
       ).map((artifact) => fileArtifactRef(artifact.role, artifact.path)),
-      existsSync(runSummaryFile)
+      ownsRunArtifacts
         ? fileArtifactRef("run_summary", relToRepo(runSummaryFile))
         : null,
-      existsSync(runToolSummaryFile)
+      ownsRunArtifacts
         ? fileArtifactRef("run_tool_run_summary", relToRepo(runToolSummaryFile))
         : null,
       existsSync(schedulerSummaryFile)

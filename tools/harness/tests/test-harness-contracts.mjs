@@ -80,6 +80,7 @@ import { parseStrictJSON, semanticJSONDigest } from "../test-catalog/semantic-js
 import { collectTestCatalogImportViolations } from "../test-catalog/import-boundary.mjs";
 import { resolveRowSelector } from "../test-catalog/selector-resolution.mjs";
 import { validateSemanticIdentities } from "../test-catalog/semantic-identity-check-cli.mjs";
+import { commandTargetForEvidenceTarget } from "../test-catalog/target-routing.mjs";
 import {
   auditOwnerEvidence,
   accountingRowsForTarget,
@@ -299,6 +300,14 @@ test("owner evidence accounting projects exact catalog rows without delivery met
       `${familyID} must have one shared catalog target route`,
     );
   }
+  assert.equal(
+    commandTargetForEvidenceTarget("backend-integration-support"),
+    "backend-integration",
+  );
+  assert.equal(
+    commandTargetForEvidenceTarget("backend-unit"),
+    "backend-unit",
+  );
 });
 
 test("owner slice selection is exact, owner-qualified, and independent of default-check filtering", () => {
@@ -694,20 +703,21 @@ test("target evidence finalization closes exact runner observations and scope", 
     const targetForRow = (row) =>
       evidenceTargetForCatalogRow(row, { commandTargetByID: targetByCommand });
     const cases = [
-      ["go", "backend-unit"],
-      ["vitest", "frontend-unit"],
-      ["playwright", "browser-e2e-webserver-backed"],
-      ["shell", "generate-drift"],
-    ].map(([runner, targetID]) => {
+      ["go", "go", "backend-unit"],
+      ["go-support", "go", "backend-integration-support"],
+      ["vitest", "vitest", "frontend-unit"],
+      ["playwright", "playwright", "browser-e2e-webserver-backed"],
+      ["shell", "shell", "generate-drift"],
+    ].map(([caseID, runner, targetID]) => {
       const row = catalog.rows.find(
         (entry) => entry.runner === runner && targetForRow(entry) === targetID,
       );
       assert.ok(row, `${runner} target evidence fixture row`);
-      return { row, runner, targetID };
+      return { caseID, row, runner, targetID };
     });
 
-    for (const { row, runner, targetID } of cases) {
-      const runID = `target-evidence-${runner}`;
+    for (const { caseID, row, runner, targetID } of cases) {
+      const runID = `target-evidence-${caseID}`;
       const targetDir = path.join(resultsRoot, runID, targetID);
       if (runner === "go") {
         writeJSONFile(path.join(targetDir, "fixture", "step-summary.json"), {
@@ -789,12 +799,17 @@ test("target evidence finalization closes exact runner observations and scope", 
         row.row_id,
       ]);
       const ownerDir = path.join(targetDir, "owners", row.owner_id);
-      assert.equal(
-        JSON.parse(
-          readFileSync(path.join(ownerDir, "test-evidence-accounting.json")),
-        ).status,
-        "pass",
+      const accounting = JSON.parse(
+        readFileSync(path.join(ownerDir, "test-evidence-accounting.json")),
       );
+      assert.equal(accounting.status, "pass");
+      assert.equal(accounting.target_id, targetID);
+      if (targetID === "backend-integration-support") {
+        assert.equal(
+          accounting.command_id,
+          "cartulary.harness.command.backend_integration.v1",
+        );
+      }
       assert.equal(
         JSON.parse(readFileSync(path.join(ownerDir, "test-owner-summary.json")))
           .status,

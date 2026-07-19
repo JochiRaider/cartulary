@@ -18,6 +18,11 @@ export function goTargetForFamily(familyID) {
   return "backend-integration";
 }
 
+export function commandTargetForEvidenceTarget(targetID) {
+  if (targetID === "backend-integration-support") return "backend-integration";
+  return targetID;
+}
+
 export function targetForCatalogRow(row, { commandTargetByID = new Map() } = {}) {
   if (row.runner === "go") return goTargetForFamily(row.family_id);
   if (row.runner === "vitest") return "frontend-unit";
@@ -41,4 +46,3 @@ export function targetForCatalogRow(row, { commandTargetByID = new Map() } = {})
   }
   throw new Error(`catalog row ${row.row_id} has unsupported runner ${row.runner}`);
 }
-

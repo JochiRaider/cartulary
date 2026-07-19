@@ -1192,6 +1192,8 @@ Verified by: TH-HARNESS-AC-015
 
 **TH-HARNESS-REQ-152**
 Every v2 row-bearing evidence artifact MUST identify `schema_id`, `command_id`, `run_id`, `owner_id`, `selected_rows`, `source_snapshot_digest`, `catalog_semantic_digest`, `verification_semantic_digest`, `runtime_profile_digest`, `resource_profile_digest`, `fixture_profile_digest`, `started_at`, `finished_at`, and `duration_ms`. `selected_rows` MUST be sorted and duplicate-free. Missing identity fields make the artifact incompatible, not stale-by-age.
+
+An internal evidence partition MUST retain its own `target_id` while using the command identity of the public semantic command that owns the partition. The `backend-integration-support` partition therefore MUST use `target_id=backend-integration-support` and `command_id=cartulary.harness.command.backend_integration.v1`. This ownership route MUST be explicit catalog-side policy; runtime target-name inference and a new public or private support command identity are forbidden.
 Verified by: TH-HARNESS-AC-066
 
 **TH-HARNESS-REQ-153**
@@ -1587,6 +1589,8 @@ Verified by: TH-HARNESS-AC-067, TH-HARNESS-AC-071
 
 **TH-HARNESS-REQ-258**
 Every target named by a sequence step's `produces_summary_targets[]` MUST retain `<target>/target-summary.json` in the selected run root before the sequence aggregate emits its run summary or aggregate target summary. A target's `<target>/tool-run-summary.json` remains the wrapper-owned tool-run summary. Command-specific reports retained by the target, such as SeaweedFS compatibility or release-gate reports, MUST NOT substitute for `target-summary.json` when the target is a sequence-produced summary target.
+
+Artifact references follow the ownership direction. A target tool-run summary MUST reference artifacts owned by that target and MAY reference its nested scheduler or owner-partition artifacts. Only the aggregate target whose identity equals the enclosing root tool summary's target MAY reference the root `run-summary.json` and root `tool-run-summary.json`; every leaf or nested target MUST omit those parent artifacts. A child target's artifact inventory therefore MUST be identical whether it finalizes before or after the enclosing aggregate artifacts exist.
 Verified by: TH-HARNESS-AC-015, TH-HARNESS-AC-023, TH-HARNESS-AC-027
 
 Nested scheduler targets MUST expose their scheduler artifacts under their own target directory even when a parent aggregate also references them. `check-service-backed` MUST retain first-class `check-service-backed/scheduler-summary.json`, `check-service-backed/scheduler-events.jsonl`, and `check-service-backed/pressure-summary.json`; the pressure summary MUST report backend/browser lane timing, fixture class counts, resource-claim counts, planned child totals, executed child totals, and slowest child work. Parent `check` artifacts MAY link to those nested artifacts, but investigation tools MUST NOT require callers to mine a large parent scheduler summary to diagnose `check-service-backed`.
