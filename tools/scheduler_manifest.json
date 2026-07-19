@@ -243,6 +243,30 @@
           }
         },
         {
+          "target": "build-server-harness",
+          "priority": 39900,
+          "weight_ms": 10000,
+          "needs": [
+            "embedded-web-assets"
+          ],
+          "make_prerequisite_policy": "run",
+          "resource_claims": {
+            "host_cpu": 2,
+            "host_io": 2
+          },
+          "make_jobs": "host_cpu",
+          "command": {
+            "type": "make_target",
+            "target": "build-server-harness"
+          },
+          "readiness_attribution": {
+            "timing_role": "build_artifact",
+            "readiness_class": "build_artifact",
+            "warm_threshold_ms": 15000,
+            "reason": "harness server binary build artifact readiness"
+          }
+        },
+        {
           "target": "embedded-web-assets",
           "priority": 39750,
           "weight_ms": 10000,
@@ -426,7 +450,7 @@
           "needs": [
             "service_session:check-service-backed",
             "build-web",
-            "build-server",
+            "build-server-harness",
             "build-migrate"
           ],
           "completion_keys": [
@@ -474,7 +498,7 @@
           "needs": [
             "service_session:check-service-backed",
             "build-web",
-            "build-server",
+            "build-server-harness",
             "build-migrate"
           ],
           "completion_keys": [
@@ -4742,38 +4766,6 @@
             "type": "go_shard_finalize",
             "target": "backend-integration",
             "service_target": "check-service-backed"
-          }
-        },
-        {
-          "id": "build-server-harness",
-          "kind": "make_target",
-          "class": "backend",
-          "target": "build-server-harness",
-          "label": "build-server-harness",
-          "aggregate_target": "build-server-harness",
-          "priority": 35000,
-          "weight_ms": 1,
-          "needs": [],
-          "completion_keys": [
-            "build-server-harness"
-          ],
-          "failure_keys": [
-            "build-server-harness"
-          ],
-          "make_prerequisite_policy": "run",
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 1
-          },
-          "command": {
-            "type": "make_target",
-            "target": "build-server-harness"
-          },
-          "readiness_attribution": {
-            "timing_role": "build_artifact",
-            "readiness_class": "build_artifact",
-            "warm_threshold_ms": 15000,
-            "reason": "harness server binary build artifact readiness"
           }
         },
         {

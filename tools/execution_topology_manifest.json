@@ -918,7 +918,7 @@
         "service_backed_schedule": "check-service-backed",
         "needs": [
           "build-web",
-          "build-server",
+          "build-server-harness",
           "build-migrate",
           "build-operator",
           "test-service-images"
@@ -933,6 +933,18 @@
         "make_prerequisite_policy": "run",
         "priority_band": "build_readiness",
         "order": 0,
+        "needs": [
+          "embedded-web-assets"
+        ]
+      },
+      "build-server-harness": {
+        "schedules": [
+          "check"
+        ],
+        "profile": "build_readiness_server",
+        "make_prerequisite_policy": "run",
+        "priority_band": "build_readiness",
+        "order": 100,
         "needs": [
           "embedded-web-assets"
         ]

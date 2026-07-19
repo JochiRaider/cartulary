@@ -566,6 +566,7 @@ const expectedCheckWorkUnitPriorities = [
   ["shell-lint-toolchain", 49500],
   ["check-frontend-install", 49400],
   ["build-server", 40000],
+  ["build-server-harness", 39900],
   ["embedded-web-assets", 39750],
   ["build-web", 39500],
   ["build-migrate", 39000],
@@ -619,6 +620,16 @@ assert.equal(
   checkUnitByTarget.get("build-server")?.make_prerequisite_policy,
   "run",
   "scheduled build-server must run its Make prerequisites to prove the server binary",
+);
+assert.deepEqual(
+  checkUnitByTarget.get("build-server-harness")?.needs,
+  ["embedded-web-assets"],
+  "scheduled build-server-harness must depend on its complete embedded asset input",
+);
+assert.equal(
+  checkUnitByTarget.get("build-server-harness")?.make_prerequisite_policy,
+  "run",
+  "scheduled build-server-harness must run its Make prerequisites to prove the harness binary",
 );
 assert.deepEqual(
   checkUnitByTarget.get("embedded-web-assets")?.needs,
@@ -713,8 +724,18 @@ assert.equal(
 );
 assert.deepEqual(
   webserverStageSession?.needs,
-  ["service_session:check-service-backed", "build-web", "build-server", "build-migrate"],
-  "browser stage sessions must wait for service readiness and browser build artifacts",
+  [
+    "service_session:check-service-backed",
+    "build-web",
+    "build-server-harness",
+    "build-migrate",
+  ],
+  "browser stage sessions must wait for service readiness and their declared runtime artifacts",
+);
+assert.equal(
+  expandedCheckSchedule.work_units.filter((unit) => unit.target === "build-server-harness").length,
+  1,
+  "expanded check must retain exactly one harness-server producer",
 );
 const backendShard = expandedCheckSchedule.work_units.find(
   (unit) => unit.kind === "go_shard" && unit.target === "backend-store",

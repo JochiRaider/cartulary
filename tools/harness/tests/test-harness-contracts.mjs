@@ -4065,7 +4065,7 @@ test("authored browser topology rejects obsolete selection fields", () => {
 });
 
 test("default check service-backed browser work uses declared session groups", () => {
-  const { serviceBacked, expandedCheckSchedule } = renderedArtifacts();
+  const { serviceBacked, expandedCheckSchedule, taskSurface } = renderedArtifacts();
   const serviceCheck = serviceBacked.schedules.find(
     (schedule) => schedule.target === "check-service-backed",
   );
@@ -4092,6 +4092,41 @@ test("default check service-backed browser work uses declared session groups", (
   const browserSessions = check.work_units.filter(
     (unit) => unit.kind === "browser_stage_session",
   );
+  const harnessServerTarget = taskSurface.targets.find(
+    (target) => target.name === "build-server-harness",
+  );
+  assert.deepEqual(
+    harnessServerTarget?.default_inclusion_sets,
+    ["check"],
+    "the harness server must be an explicit default-check readiness producer",
+  );
+  const harnessServerUnits = check.work_units.filter(
+    (unit) => unit.target === "build-server-harness",
+  );
+  assert.equal(
+    harnessServerUnits.length,
+    1,
+    "expanded check must retain exactly one harness-server producer",
+  );
+  assert.deepEqual(
+    harnessServerUnits[0].needs,
+    ["embedded-web-assets"],
+    "the harness server must wait for its complete embedded asset input",
+  );
+  assert.ok(
+    check.work_units.some((unit) => unit.target === "build-server"),
+    "the independent deployable-server build gate must remain selected",
+  );
+  for (const session of browserSessions) {
+    assert.ok(session.needs.includes("build-web"));
+    assert.ok(session.needs.includes("build-server-harness"));
+    assert.ok(session.needs.includes("build-migrate"));
+    assert.equal(
+      session.needs.includes("build-server"),
+      false,
+      "browser sessions must consume the harness server rather than the deployable build",
+    );
+  }
   const statefulSource = browserSources.find((source) => source.browser_stage === "stateful");
   const expectedStatefulSessionGroups = [
     ...new Set(statefulSource.groups.map((group) => group.browser_session_group)),

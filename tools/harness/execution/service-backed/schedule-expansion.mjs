@@ -40,7 +40,7 @@ import {
 import { readinessAttributionForMakeTarget } from "../../scheduler/scheduler-manifest.mjs";
 
 const serviceSessionResource = "suite_service_stack";
-const buildServerTarget = "build-server";
+const buildServerHarnessTarget = "build-server-harness";
 const buildMigrateTarget = "build-migrate";
 const buildWebTarget = "build-web";
 const testServiceImagesTarget = "test-service-images";
@@ -141,7 +141,7 @@ function serviceSessionNeeds(parentNeeds) {
 }
 
 function browserStageExtraNeeds(parentNeeds) {
-  return [buildWebTarget, buildServerTarget, buildMigrateTarget].filter((need) =>
+  return [buildWebTarget, buildServerHarnessTarget, buildMigrateTarget].filter((need) =>
     parentNeeds.includes(need),
   );
 }
