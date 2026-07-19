@@ -11,7 +11,7 @@
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
 | Tracker state | `IN_PROGRESS` — WS-11 validation and release rehearsal |
-| Active start | T-047 warm-readiness recovery based on rejected root `t047-check-warm-r4` |
+| Active start | T-047 warm-readiness recovery based on rejected root `t047-check-warm-r5` |
 | Active tasks | T-047 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
@@ -1521,6 +1521,12 @@ Each entry must include:
 
 - Rejected evidence: `.cartulary/test-results/t047-check-warm-r4` passed all 125 work units in 116.526 seconds and retained 109 paired owner partitions containing 730 selected row records, but it is not warm acceptance evidence. Retained finalizer `.cartulary/test-results/t048-retained-finalize-r2` accepted the root's latest-run and owner-artifact identity preflight, then failed before mutation because `build-server-harness` took `20275ms`, exceeded the `15000ms` warm readiness threshold, and reported `over_threshold` in `check/pressure-summary.json`.
 - Recovery state: no tracked mutation occurred, T-047 is restored as the sole active task, and T-048 returns to `TODO`. The next exact-byte candidate must run after the build artifact is demonstrably warm and must pass retained-run preflight plus `scheduler-summary-timing-drift` before the transition is committed; aggregate check success and the global 120-second budget are necessary but not sufficient.
+- Fifth candidate: `.cartulary/test-results/t047-agent-finalize-no-input-r6` passed on clean committed recovery bytes with no mutation. These uncommitted bytes mark T-047 `DONE`, activate T-048, and reserve `.cartulary/test-results/t047-check-warm-r5`. Commit them unchanged only after the reserved check passes, retains the complete paired owner families, and the public `scheduler-summary-timing-drift RESULTS_DIR=.cartulary/test-results/t047-check-warm-r5` accepts readiness and lane health.
+
+#### 2026-07-19 — T-047 fifth warm-root rejection
+
+- Rejected evidence: `.cartulary/test-results/t047-check-warm-r5` passed 125/125 in 120.519 seconds with the complete 109 paired owner partitions, but the finalizer-equivalent warm-health invocation rejected it. `build-server-harness` occupied the check scheduler for `20852ms` and retained `warm_status=over_threshold` against `15000ms`; the build-artifact record was a miss with `reason_code=cache_record_invalid`. An earlier timing-drift probe without explicit `TARGET=check`, budget, and balance inputs performed structural-only validation and is not warm-health acceptance.
+- Warm proof and next candidate guard: `.cartulary/test-results/t047-build-server-harness-warm-probe-r1` immediately reused the exact current build-artifact key with `state=hit` and zero target command duration. T-047 remains active. The next closure candidate must use the same byte-identical build inputs, retain all owner evidence, and pass `scheduler-summary-timing-drift` with `TARGET=check`, `SCHEDULER_WARM_CHECK_BUDGET_MS=155000`, and `SCHEDULER_WARM_CHECK_BALANCE_RATIO=1.25` before commit.
 
 ## 17. First-resumer checklist
 
