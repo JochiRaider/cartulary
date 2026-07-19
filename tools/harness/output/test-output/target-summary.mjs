@@ -1769,15 +1769,27 @@ export function handleTargetSummary(args) {
     preserveExistingToolSummary,
   } = parseTargetSummaryArgs(args);
   if (process.env.CARTULARY_TARGET_EVIDENCE_FINALIZE === "1") {
-    const evidence = finalizeTargetOwnerEvidence(repoRoot, {
-      targetID: target,
-      requestedStatus,
-      resultsDir: resultsRoot,
-      runID: runId,
-      env: process.env,
-    });
+    let evidence;
+    try {
+      evidence = finalizeTargetOwnerEvidence(repoRoot, {
+        targetID: target,
+        requestedStatus,
+        resultsDir: resultsRoot,
+        runID: runId,
+        env: process.env,
+      });
+    } catch (error) {
+      const artifactError = new Error(
+        error instanceof Error ? error.message : String(error),
+        { cause: error },
+      );
+      artifactError.publicExitCode = 11;
+      throw artifactError;
+    }
     if (evidence.status === "fail") {
-      throw new Error(`target owner evidence failed for ${target}`);
+      const artifactError = new Error(`target owner evidence failed for ${target}`);
+      artifactError.publicExitCode = 11;
+      throw artifactError;
     }
   }
   const summary = summarizeTargetDir(target);

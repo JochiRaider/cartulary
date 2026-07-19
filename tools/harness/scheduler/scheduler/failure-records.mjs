@@ -216,6 +216,8 @@ function schedulerFallbackFailureRecord(record, scheduleTarget) {
   const label = record?.label ?? scheduleTarget;
   const normalized = record?.status === 10
     ? { failure_class: "product", failure_reason: "test_assertion_failure" }
+    : record?.status === 11
+      ? { failure_class: "artifact", failure_reason: "artifact_error" }
     : record?.status === 12 && record?.kind === "finalizer"
       ? { failure_class: "harness", failure_reason: "cleanup_error" }
       : record?.status === 13

@@ -304,6 +304,12 @@ Embedded web asset preparation is a build-artifact producer in the current profi
 
 All permitted cache families MUST be content-addressed. A valid key MUST include the cache schema ID, cache scope, profile ID, platform identity where relevant, declared tool or runtime versions, declared command/profile inputs, helper implementation digests, and every declared output contract needed by the profile. Broad timestamp-only caching is not a valid harness cache mechanism.
 
+Cached Go build-artifact profiles MUST pass `-buildvcs=false`. Git revision and
+dirty-worktree stamping are undeclared repository-state inputs and MUST NOT alter a
+binary whose cache key is otherwise unchanged. Source-snapshot, release, and audit
+provenance remain owned by their retained harness evidence; a cached binary MUST NOT
+silently acquire a second provenance identity from ambient Git metadata.
+
 Readiness, build-artifact, and static-analysis cache hits MAY skip only the deterministic provisioning, build, or analyzer command guarded by the cache profile. Static-analysis cache hits MUST be limited to closed non-security profiles whose keys include tool version or binary digest, configuration digests, selected input digests, helper implementation digests, analyzer arguments, and output stamp digests. They MUST NOT skip the public target wrapper, public target summary emission, failure classification, output validation, drift comparison, security scan execution, service lifecycle, service readiness, fixture cleanup, runtime reset, scratch database apply, object-store mutation, destructive-operation guard, or aggregate success/failure computation. Build-artifact and static-analysis cache hits inside `make check`, `make ci`, or `make release-check` MUST NOT be reported as scheduler `reused` work in the current profile.
 
 Test-service image readiness is a readiness cache profile only. Its cache key MUST include the testservices binary digest, image-owner source digests, helper implementation digests, and toolchain pins. A cache hit MUST still prove that every pinned service image named by the testservices helper is locally present before accepting the readiness stamp; missing images invalidate the stamp and force the ordinary image warmup command. This cache profile MUST NOT replace service startup readiness, test service lifecycle evidence, browser reset, cleanup, fixture preparation, or product-conformance evidence.

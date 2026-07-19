@@ -69,5 +69,6 @@ try {
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
   process.stderr.write(`${message}\n`);
-  process.exit(1);
+  const publicExitCode = Number(error?.publicExitCode);
+  process.exit(Number.isInteger(publicExitCode) && publicExitCode > 0 ? publicExitCode : 1);
 }

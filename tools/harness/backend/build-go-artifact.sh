@@ -11,9 +11,9 @@ go_cache_dir="${GO_CACHE_DIR:?GO_CACHE_DIR is required}"
 go_mod_cache_dir="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}"
 go_build_tags="${GO_BUILD_TAGS:-}"
 
-go_build_args=()
+go_build_args=(-buildvcs=false)
 if [[ -n "$go_build_tags" ]]; then
-  go_build_args=(-tags "$go_build_tags")
+  go_build_args+=(-tags "$go_build_tags")
 fi
 
 mkdir -p "$(dirname "$output")" "$go_cache_dir" "$go_mod_cache_dir"

@@ -706,6 +706,78 @@ write_summary() {
 JSON
 }
 
+write_browser_evidence() {
+  local repo_root="${FAKE_SCHEDULER_REPO_ROOT:?}"
+  local stage="${CARTULARY_BROWSER_STAGE:?}"
+  local group="${CARTULARY_BROWSER_GROUP_NAME:-fixture}"
+  local group_dir="${CARTULARY_TEST_RESULTS_DIR:?}/${CARTULARY_TEST_RUN_ID:?}/${target}/browser-groups/${group}"
+  mkdir -p "$group_dir"
+  "$NODE_BIN" --input-type=module - "$repo_root" "$target" "$stage" "$group" "$group_dir/browser-group-result.json" <<'JS'
+import fs from "node:fs";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+
+const [repoRoot, targetID, stageID, groupID, outputFile] = process.argv.slice(2);
+const catalogModule = await import(pathToFileURL(path.join(repoRoot, "tools/harness/test-catalog/index.mjs")));
+const taskSurface = JSON.parse(fs.readFileSync(path.join(repoRoot, "tools/task_surface_manifest.json"), "utf8"));
+const targetByCommand = new Map(taskSurface.targets.map((entry) => [entry.command_id, entry.name]));
+const catalog = catalogModule.loadTestCatalog(repoRoot);
+const exactRows = String(process.env.CARTULARY_BROWSER_SELECTED_ROW_IDS ?? "")
+  .split(/[\n,]/u)
+  .map((entry) => entry.trim())
+  .filter(Boolean);
+const targetRows = catalog.rows
+  .filter((row) => catalogModule.targetForCatalogRow(row, { commandTargetByID: targetByCommand }) === targetID)
+  .sort((left, right) => left.row_id.localeCompare(right.row_id));
+const byID = new Map(targetRows.map((row) => [row.row_id, row]));
+let rows = exactRows.length > 0 ? exactRows.map((rowID) => {
+  const row = byID.get(rowID);
+  if (!row) throw new Error(`fake browser evidence row ${rowID} is not selected by ${targetID}`);
+  return row;
+}) : targetRows;
+if (exactRows.length === 0) {
+  const manifest = JSON.parse(fs.readFileSync(process.env.FAKE_SCHEDULER_MANIFEST, "utf8"));
+  const groupNames = [...new Set(manifest.schedules
+    .flatMap((schedule) => schedule.work_units)
+    .filter((unit) => unit.kind === "browser_group" && unit.target === targetID)
+    .map((unit) => unit.browser_group.name))].sort();
+  const groupIndex = groupNames.indexOf(groupID);
+  if (groupIndex < 0) throw new Error(`fake browser evidence group ${groupID} is absent from the scheduler manifest`);
+  rows = targetRows.filter((_row, index) => index % groupNames.length === groupIndex);
+}
+if (rows.length === 0) throw new Error(`fake browser evidence found no rows for ${targetID}`);
+const relativeGroup = path.relative(repoRoot, path.dirname(outputFile));
+const result = {
+  schema_id: "cartulary.browser_group_result.v1",
+  target_id: targetID,
+  stage_id: stageID,
+  group_id: groupID,
+  runtime_profile_id: rows[0].runtime_profile_id,
+  fixture_profile_ids: [...new Set(rows.map((row) => row.fixture_profile_id))].sort(),
+  resource_profile_ids: [...new Set(rows.map((row) => row.resource_profile_id))].sort(),
+  selected_rows: rows.map((row) => row.row_id),
+  started_at: "2026-01-01T00:00:00.000Z",
+  finished_at: "2026-01-01T00:00:00.001Z",
+  duration_ms: 1,
+  status: "pass",
+  exit_code: 0,
+  row_results: rows.map((row) => ({
+    row_id: row.row_id,
+    terminal_state: "passed",
+    duration_ms: 1,
+    exit_code: 0,
+    failure_reason: null,
+  })),
+  artifacts: {
+    playwright_report: `${relativeGroup}/playwright-report.json`,
+    stdout: `${relativeGroup}/stdout.log`,
+    stderr: `${relativeGroup}/stderr.log`,
+  },
+};
+fs.writeFileSync(outputFile, `${JSON.stringify(result, null, 2)}\n`);
+JS
+}
+
 change_active 1
 sleep "$sleep_duration"
 change_active -1
@@ -717,6 +789,9 @@ if [[ "${FAKE_FAIL_TARGET:-}" == "$target" && \
   exit "${FAKE_FAIL_STATUS:-7}"
 fi
 
+if [[ "${FAKE_SKIP_BROWSER_EVIDENCE:-0}" != "1" ]]; then
+  write_browser_evidence
+fi
 write_summary
 echo "fake browser group pass for $target"
 EOF
@@ -1140,6 +1215,8 @@ run_scheduler() {
   CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT="${CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT:-}" \
   CARTULARY_BROWSER_E2E_SESSION_SCRIPT="${browser_session_script}" \
   CARTULARY_BROWSER_E2E_GROUP_RUNNER="${browser_group_runner}" \
+  FAKE_SCHEDULER_REPO_ROOT="$ROOT_DIR" \
+  FAKE_SCHEDULER_MANIFEST="$manifest" \
   MAKE="${dir}/fake-make" \
   CARTULARY_TEST_GO_TARGET_RUNNER="${go_target_runner}" \
   NODE_BIN="$NODE_BIN" \
@@ -1364,6 +1441,17 @@ assert_contains "$browser_output" "[SCHEDULER] test-service-backed start work_un
 assert_contains "$browser_output" "[SUMMARY] target=test-service-backed status=pass" "browser quiet scheduler shows success summary"
 assert_not_contains "$browser_output" "claims={browser_stack:1" "browser default output hides resource claims"
 assert_scheduler_artifacts "$browser_dir" browser test-service-backed pass - start
+
+set +e
+browser_missing_evidence_output="$(
+  FAKE_SKIP_BROWSER_EVIDENCE=1 \
+    run_scheduler "$browser_dir" "$browser_manifest" test-service-backed browser-missing-evidence 2>&1
+)"
+browser_missing_evidence_status=$?
+set -e
+assert_equals "$browser_missing_evidence_status" "11" "missing browser evidence scheduler status"
+assert_contains "$browser_missing_evidence_output" "failure_class=artifact reason=artifact_error" "missing browser evidence classification"
+assert_scheduler_artifacts "$browser_dir" browser-missing-evidence test-service-backed fail - finalize-finish artifact artifact_error
 
 eager_finalizer_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-eager-finalizer.XXXXXX")"
 cleanup_paths+=("$eager_finalizer_dir")

@@ -10352,7 +10352,9 @@
       "name": "harness-smoke-cache-artifact",
       "backing_scripts": [
         "tools/harness/readiness/tests/test-cache-artifact.sh",
-        "tools/harness/readiness/cache-artifact.sh"
+        "tools/harness/readiness/cache-artifact.sh",
+        "tools/harness/backend/tests/test-build-go-artifact.sh",
+        "tools/harness/backend/build-go-artifact.sh"
       ]
     },
     {

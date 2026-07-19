@@ -130,4 +130,6 @@ run_cache
 assert_equals "$(grep -c '^run$' "$command_log")" "6" "missing output executes command"
 assert_equals "$(json_field "$artifact_file" 'value.reason_code')" "output_missing" "missing output reason"
 
+bash "$ROOT_DIR/tools/harness/backend/tests/test-build-go-artifact.sh"
+
 echo "cache artifact tests passed"
