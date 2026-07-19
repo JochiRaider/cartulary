@@ -343,7 +343,7 @@
           "priority": 38500,
           "weight_ms": 10000,
           "needs": [
-            "toolchain-drift"
+            "embedded-web-assets"
           ],
           "make_prerequisite_policy": "run",
           "resource_claims": {

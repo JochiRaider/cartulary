@@ -302,6 +302,8 @@ The current profile permits only these local acceleration cache families:
 
 Embedded web asset preparation is a build-artifact producer in the current profile. When the embedded output is consumed by Go `//go:embed`, the publisher MUST update the embedded source-tree artifact atomically from Go embed's point of view. It MUST NOT delete or rewrite a directory of hashed frontend assets in place while concurrently scheduled Go compilation can traverse that directory. Harness-only readiness stamps, cache records, and other operational metadata MUST remain outside the embedded content root unless the owning product spec explicitly makes that file served application content.
 
+Every cached Go binary whose transitive package closure consumes the embedded web asset root MUST depend on the complete embedded asset producer tuple before compilation starts and MUST include that root in its build-artifact cache key. The authored execution topology MUST represent the same dependency whenever the producer and consumer are scheduled together. A source-file-only key, ambient Make ordering, or concurrent publisher/consumer execution is not valid evidence for such a binary.
+
 All permitted cache families MUST be content-addressed. A valid key MUST include the cache schema ID, cache scope, profile ID, platform identity where relevant, declared tool or runtime versions, declared command/profile inputs, helper implementation digests, and every declared output contract needed by the profile. Broad timestamp-only caching is not a valid harness cache mechanism.
 
 Cached Go build-artifact profiles MUST pass `-buildvcs=false`. Git revision and

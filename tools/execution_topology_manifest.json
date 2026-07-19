@@ -982,7 +982,7 @@
         "priority_band": "build_readiness",
         "order": 1500,
         "needs": [
-          "toolchain-drift"
+          "embedded-web-assets"
         ]
       },
       "build-web": {

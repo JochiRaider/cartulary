@@ -632,6 +632,16 @@ assert.equal(
   "scheduled build-server-harness must run its Make prerequisites to prove the harness binary",
 );
 assert.deepEqual(
+  checkUnitByTarget.get("build-operator")?.needs,
+  ["embedded-web-assets"],
+  "scheduled build-operator must depend on its complete transitive embedded asset input",
+);
+assert.equal(
+  checkUnitByTarget.get("build-operator")?.make_prerequisite_policy,
+  "run",
+  "scheduled build-operator must run its Make prerequisites to prove the operator binary",
+);
+assert.deepEqual(
   checkUnitByTarget.get("embedded-web-assets")?.needs,
   ["build-web"],
   "scheduled embedded-web-assets must depend on build-web as its frontend dist producer",

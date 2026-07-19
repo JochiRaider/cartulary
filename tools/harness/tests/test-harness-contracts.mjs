@@ -4064,6 +4064,22 @@ test("authored browser topology rejects obsolete selection fields", () => {
   }
 });
 
+test("operator build owns its transitive embedded asset input", () => {
+  const makefile = readFileSync(path.join(repoRoot, "Makefile"), "utf8");
+  const rule = makefile
+    .split("\n")
+    .find((line) => line.startsWith("$(OPERATOR_BIN):"));
+  const recipe = makefile
+    .split("\n")
+    .find((line) => line.includes('--profile build-operator --cache-dir'));
+  assert.ok(rule, "Makefile must declare the operator binary rule");
+  assert.match(rule, /\$\(EMBEDDED_WEB_ASSET_STAMP\)/u);
+  assert.match(rule, /\$\(EMBEDDED_WEB_ASSET_ARCHIVE\)/u);
+  assert.match(rule, /\$\(EMBEDDED_WEB_ASSET_READY_STAMP\)/u);
+  assert.ok(recipe, "Makefile must declare the operator build-artifact cache recipe");
+  assert.match(recipe, /--input-dir "\$\(EMBEDDED_WEB_ASSET_DIR\)"/u);
+});
+
 test("default check service-backed browser work uses declared session groups", () => {
   const { serviceBacked, expandedCheckSchedule, taskSurface } = renderedArtifacts();
   const serviceCheck = serviceBacked.schedules.find(
@@ -4112,6 +4128,13 @@ test("default check service-backed browser work uses declared session groups", (
     harnessServerUnits[0].needs,
     ["embedded-web-assets"],
     "the harness server must wait for its complete embedded asset input",
+  );
+  const operatorUnits = check.work_units.filter((unit) => unit.target === "build-operator");
+  assert.equal(operatorUnits.length, 1, "expanded check must retain exactly one operator producer");
+  assert.deepEqual(
+    operatorUnits[0].needs,
+    ["embedded-web-assets"],
+    "the operator must wait for its complete transitive embedded asset input",
   );
   assert.ok(
     check.work_units.some((unit) => unit.target === "build-server"),
