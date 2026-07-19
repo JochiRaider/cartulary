@@ -1605,6 +1605,12 @@ Each entry must include:
 - Forward-fix checkpoint: commit `d5bd8713` landed the frozen retained source identity, exact-root binding, action-contract invalidation, normalized wrapper failure promotion, and regression coverage. `make agent-finalize` without `RESULTS_DIR` passed at `.cartulary/test-results/t048-agent-finalize-no-input-r3` with `generated=unchanged`, zero updated files, and no retained actions selected.
 - Candidate procedure: these exact uncommitted tracker bytes reserve `.cartulary/test-results/t048-pre-refresh-warm-r5`. Run one complete `make check` and the explicit `155000` ms readiness-budget/`1.25` lane-balance health gate against this source. Commit these bytes unchanged only if the check closes all 125 work units and its retained evidence is complete, successful, uncontaminated, and warm; then consume that exact latest compatible root immediately with retained finalization before any tracked edit or later full check.
 
+#### 2026-07-19 — T-048 retained refresh and baseline stabilization
+
+- Retained input proof: `.cartulary/test-results/t048-pre-refresh-warm-r5` passed all 125 work units and 478 tests with zero failed or missing observations in 114.114 seconds, retained 109 passing accounting/summary pairs, and passed the explicit 155-second readiness and 1.25 lane-balance gate at `.cartulary/test-results/t048-pre-refresh-warm-r5-health`. Its exact candidate source was committed unchanged at `43a2b5c3`.
+- Finalizer proof: `.cartulary/test-results/t048-retained-finalize-r5` accepted that exact latest root, passed scheduler health and schema validation, refreshed all four baseline families, generated projections once, and passed baseline coverage plus the complete duration-drift suite. The frozen pre-mutation identity allowed 62 observed browser rows to remain admissible after the earlier Go baseline writer changed tracked maintenance bytes; no stale-source override or fallback reader was used.
+- Stabilized baseline scope: the refresh retains 371 named Go test weights, 51 Go package overheads, five raw aggregates, 62 browser row weights, 23 scheduler work-unit weights, and three harness-smoke target weights. The resulting six tracked baseline/generated files are the only finalizer mutations and remain T-048 maintenance inputs, not benchmark or product-conformance claims.
+
 ## 17. First-resumer checklist
 
 1. Read this tracker, `docs/testing-harness-nlspec.md`, `docs/domain.md`, Core 00 through Core 04, and owner NLSpecs implicated by the first selected rows.

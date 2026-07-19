@@ -1,6 +1,169 @@
 {
   "schema_id": "cartulary.scheduler_work_unit_duration_baselines.v2",
-  "note": "Scheduler work-unit duration weights generated from compatible successful scheduler and owner-accounting artifacts. Refresh with make service-backed-make-target-duration-baselines RESULTS_DIR=<dir>.",
+  "note": "Scheduler work-unit duration weights generated from successful scheduler artifacts. Refresh with make service-backed-make-target-duration-baselines RESULTS_DIR=<dir>.",
   "default_work_unit_weight_ms": 10000,
-  "work_units": {}
+  "work_units": {
+    "check|check|check-service-backed:browser-e2e-stateful:stateful-default-auth-and-incident-directory|browser-e2e-stateful": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-stateful:stateful-default-auth-and-incident-directory",
+      "aggregate_target": "browser-e2e-stateful",
+      "weight_ms": 12402
+    },
+    "check|check|check-service-backed:browser-e2e-stateful:stateful-default-clock|browser-e2e-stateful": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-stateful:stateful-default-clock",
+      "aggregate_target": "browser-e2e-stateful",
+      "weight_ms": 6487
+    },
+    "check|check|check-service-backed:browser-e2e-stateful:stateful-default-session-recovery|browser-e2e-stateful": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-stateful:stateful-default-session-recovery",
+      "aggregate_target": "browser-e2e-stateful",
+      "weight_ms": 13829
+    },
+    "check|check|check-service-backed:browser-e2e-stateful:stateful-default-workbook|browser-e2e-stateful": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-stateful:stateful-default-workbook",
+      "aggregate_target": "browser-e2e-stateful",
+      "weight_ms": 6719
+    },
+    "check|check|check-service-backed:browser-e2e-webserver-backed:functional-support-default-auth-and-incident-directory|browser-e2e-webserver-backed": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:functional-support-default-auth-and-incident-directory",
+      "aggregate_target": "browser-e2e-webserver-backed",
+      "weight_ms": 49004
+    },
+    "check|check|check-service-backed:browser-e2e-webserver-backed:functional-support-default-autoresolve|browser-e2e-webserver-backed": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:functional-support-default-autoresolve",
+      "aggregate_target": "browser-e2e-webserver-backed",
+      "weight_ms": 27156
+    },
+    "check|check|check-service-backed:browser-e2e-webserver-backed:functional-support-default-collaboration|browser-e2e-webserver-backed": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:functional-support-default-collaboration",
+      "aggregate_target": "browser-e2e-webserver-backed",
+      "weight_ms": 44873
+    },
+    "check|check|check-service-backed:browser-e2e-webserver-backed:functional-support-default-enterprise-auth|browser-e2e-webserver-backed": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:functional-support-default-enterprise-auth",
+      "aggregate_target": "browser-e2e-webserver-backed",
+      "weight_ms": 10956
+    },
+    "check|check|check-service-backed:browser-e2e-webserver-backed:functional-support-default-evidence|browser-e2e-webserver-backed": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:functional-support-default-evidence",
+      "aggregate_target": "browser-e2e-webserver-backed",
+      "weight_ms": 21775
+    },
+    "check|check|check-service-backed:browser-e2e-webserver-backed:functional-support-default-history|browser-e2e-webserver-backed": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:functional-support-default-history",
+      "aggregate_target": "browser-e2e-webserver-backed",
+      "weight_ms": 20286
+    },
+    "check|check|check-service-backed:browser-e2e-webserver-backed:functional-support-default-incident-administration|browser-e2e-webserver-backed": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:functional-support-default-incident-administration",
+      "aggregate_target": "browser-e2e-webserver-backed",
+      "weight_ms": 22354
+    },
+    "check|check|check-service-backed:browser-e2e-webserver-backed:functional-support-default-keyboard|browser-e2e-webserver-backed": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:functional-support-default-keyboard",
+      "aggregate_target": "browser-e2e-webserver-backed",
+      "weight_ms": 25659
+    },
+    "check|check|check-service-backed:browser-e2e-webserver-backed:functional-support-default-mentions-lifecycle|browser-e2e-webserver-backed": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:functional-support-default-mentions-lifecycle",
+      "aggregate_target": "browser-e2e-webserver-backed",
+      "weight_ms": 9224
+    },
+    "check|check|check-service-backed:browser-e2e-webserver-backed:functional-support-default-mentions-resolve|browser-e2e-webserver-backed": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:functional-support-default-mentions-resolve",
+      "aggregate_target": "browser-e2e-webserver-backed",
+      "weight_ms": 10626
+    },
+    "check|check|check-service-backed:browser-e2e-webserver-backed:functional-support-default-merge|browser-e2e-webserver-backed": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:functional-support-default-merge",
+      "aggregate_target": "browser-e2e-webserver-backed",
+      "weight_ms": 9350
+    },
+    "check|check|check-service-backed:browser-e2e-webserver-backed:functional-support-default-network-flow|browser-e2e-webserver-backed": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:functional-support-default-network-flow",
+      "aggregate_target": "browser-e2e-webserver-backed",
+      "weight_ms": 7403
+    },
+    "check|check|check-service-backed:browser-e2e-webserver-backed:functional-support-default-reference-pack|browser-e2e-webserver-backed": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:functional-support-default-reference-pack",
+      "aggregate_target": "browser-e2e-webserver-backed",
+      "weight_ms": 6939
+    },
+    "check|check|check-service-backed:browser-e2e-webserver-backed:functional-support-default-restore|browser-e2e-webserver-backed": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:functional-support-default-restore",
+      "aggregate_target": "browser-e2e-webserver-backed",
+      "weight_ms": 24888
+    },
+    "check|check|check-service-backed:browser-e2e-webserver-backed:functional-support-default-sentinel|browser-e2e-webserver-backed": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:functional-support-default-sentinel",
+      "aggregate_target": "browser-e2e-webserver-backed",
+      "weight_ms": 45047
+    },
+    "check|check|check-service-backed:browser-e2e-webserver-backed:functional-support-default-timeline-workbook|browser-e2e-webserver-backed": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:functional-support-default-timeline-workbook",
+      "aggregate_target": "browser-e2e-webserver-backed",
+      "weight_ms": 14039
+    },
+    "check|check|check-service-backed:browser-e2e-webserver-backed:functional-support-default-workbook-assessments|browser-e2e-webserver-backed": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:functional-support-default-workbook-assessments",
+      "aggregate_target": "browser-e2e-webserver-backed",
+      "weight_ms": 9271
+    },
+    "check|check|check-service-backed:browser-e2e-webserver-backed:functional-support-default-workbook-generic|browser-e2e-webserver-backed": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:functional-support-default-workbook-generic",
+      "aggregate_target": "browser-e2e-webserver-backed",
+      "weight_ms": 18923
+    },
+    "check|check|check-service-backed:browser-e2e-webserver-backed:functional-support-default-workbook|browser-e2e-webserver-backed": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:functional-support-default-workbook",
+      "aggregate_target": "browser-e2e-webserver-backed",
+      "weight_ms": 13481
+    }
+  },
+  "updated_at": "2026-07-19T07:27:13.048Z"
 }
