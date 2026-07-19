@@ -11,7 +11,7 @@
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
 | Tracker state | `IN_PROGRESS` — WS-12 final-byte validation recovery |
-| Active start | T-051 focus-continuity forward-fix checkpoint |
+| Active start | T-051 second timing-window rejection checkpoint |
 | Active tasks | T-051 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
@@ -1675,6 +1675,14 @@ Each entry must include:
 - Validation: `t051-focus-fix-format`, `t051-focus-fix-frontend-unit`, `t051-focus-fix-typecheck`, `t051-focus-fix-import-boundary`, and `t051-focus-fix-biome` passed. The exact catalog row `module.entities.browser.the_browser_workbook_shows_auto_resolution_only_758d41a16f` passed independently in `t051-focus-fix-autoresolve`, `t051-focus-fix-autoresolve-r2`, and `t051-focus-fix-autoresolve-r3`, each with one selected row, one passing test, complete owner evidence, and no missing or unmapped result.
 - Compatibility and risk disposition: no product API, artifact schema, catalog identity, command surface, fixture behavior, or compatibility path changed. The fix strengthens the existing focus/viewport continuity contract and avoids a timing-only test workaround. The rejected `final-t051-*` snapshot remains diagnostic only because this source change invalidates it.
 - Next safe task: commit this implementation, regression, and tracker record together while T-051 remains `IN_PROGRESS`. Prepare fresh optimistic closure bytes and reserve only `final-t051r2-*` identities, then restart every authoritative finalization, gate, evidence partition, owner slice, service-backed slice, timing, release, and audit step from the beginning.
+
+#### 2026-07-19 — T-051 second authoritative closure candidate rejected during timing acceptance
+
+- Candidate and completed evidence: parent commit `b3a06ee8` plus the optimistic closure bytes produced source snapshot `sha256:f93074e4d9c358bddb83a07fbb893ee424316cfd030296f13c0cfcfff74e3643`. No-input finalization, zero-diff format/generation, structural/contract/boundary/focused/lint/security gates, every required direct evidence partition, public `make test`, all 46 full-owner slices totaling 833 rows, and all 29 service-backed slices totaling 344 rows passed. `module.revisions` preserved its parent scheduler artifacts and emitted coherent child identities. These successful roots are diagnostic only because the timing rejection invalidates the complete candidate.
+- Timing rejection: `final-t051r2-timing-warm` passed in `115237ms` (`117.10s` external wall time) with `check-service-backed=109819ms`; `final-t051r2-timing-measured-1` passed in `111289ms` (`113.15s` external) with `check-service-backed=105838ms`. `final-t051r2-timing-measured-2` was functionally successful and its service-backed health gate remained below the independent `155000ms` cap, but the aggregate duration was `130868ms` (`132.67s` external), violating the strict nearest-rank p90/maximum `<120000ms` acceptance rule.
+- Root cause and classification: retained service telemetry records PostgreSQL readiness attempt one failing after `16178ms`, attempt two failing after `15752ms`, and attempt three succeeding after `1314ms`. The same step passed on attempt one in `2540ms` for the warm run and `2650ms` for measured run one. The contaminated run's service-session critical-path work grew to `36132ms` from `6919ms`/`6168ms`, while its critical browser group was faster than the prior run. This is a retry/provisioning-readiness timing contamination, not a product-test regression, and the timing protocol rejects rather than averages it.
+- Interruption and admissibility: after measured run two had already invalidated the complete six-run window, `final-t051r2-timing-measured-3` was intentionally stopped at 34 of 125 scheduler work units instead of consuming another full run; measured runs four and five were not started. Every `final-t051r2-*` root, including the fully passing gates and owner evidence, is therefore diagnostic-only and cannot enter final audit manifests or closure claims.
+- Recovery and next safe task: this checkpoint restores T-051 and WS-12 to `IN_PROGRESS` and leaves every Section 15 criterion unchecked. Stabilize the service readiness context, prepare fresh optimistic closure bytes using only `final-t051r3-*` identities, and restart finalization, all gates, all direct partitions, all 46 owner slices, all 29 service-backed slices, the entire warm-plus-five timing window, release, and all 46 audits from the beginning. No retry, interruption, stale root, or digest override is admissible.
 
 ## 17. First-resumer checklist
 
