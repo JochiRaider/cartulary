@@ -270,14 +270,28 @@ export function writeStepArtifacts(context, details) {
       ? existingTargetSummary.extensions
       : {};
   const existingTargetExtensions = existingTargetExtensionsRaw;
-  const failureRecords = [
-    ...failuresFromDossiers(details.dossiers ?? [], {
+  const dossierFailureRecords = failuresFromDossiers(details.dossiers ?? [], {
+    target: context.target,
+    label: context.label,
+    command: context.command,
+    runner: context.runner,
+    step: details.step,
+  });
+  const finalizerFailureRecords = (finalizeSummary?.failures ?? []).map(
+    (failure) => ({
+      failure_class: failure.failure_class,
+      failure_reason: failure.failure_reason,
       target: context.target,
-      label: context.label,
-      command: context.command,
-      runner: context.runner,
-      step: details.step,
+      child_target: failure.target ?? undefined,
+      label: failure.substep_id ?? failure.action_id,
+      headline: failure.headline,
+      reproduce: context.command,
+      artifacts: failure.summary_json ? [failure.summary_json] : [],
     }),
+  );
+  const failureRecords = [
+    ...finalizerFailureRecords,
+    ...(finalizerFailureRecords.length > 0 ? [] : dossierFailureRecords),
     ...(details.manifestMismatch
       ? [
           manifestMismatchFailureRecord(details.manifestMismatch, {
@@ -287,16 +301,6 @@ export function writeStepArtifacts(context, details) {
           }),
         ]
       : []),
-    ...(finalizeSummary?.failures ?? []).map((failure) => ({
-      failure_class: failure.failure_class,
-      failure_reason: failure.failure_reason,
-      target: context.target,
-      child_target: failure.target ?? undefined,
-      label: failure.substep_id ?? failure.action_id,
-      headline: failure.headline,
-      reproduce: context.command,
-      artifacts: failure.summary_json ? [failure.summary_json] : [],
-    })),
     ...(details.failures ?? []),
   ];
   const failureFields = failureFieldsForJSON(

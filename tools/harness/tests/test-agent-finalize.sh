@@ -82,14 +82,16 @@ if [[ -z "$target" ]]; then
 fi
 printf '%s\n' "$target" >>"$FAKE_MAKE_LOG"
 if [[ -n "${FAKE_MAKE_ENV_LOG:-}" ]]; then
-  printf '%s\tRESULTS_DIR=%s\tARGS=%s\tTEST_ROOT=%s\tRUN_ID=%s\tTEST_TARGET=%s\tPREPARED=%s\n' \
+  printf '%s\tRESULTS_DIR=%s\tARGS=%s\tTEST_ROOT=%s\tRUN_ID=%s\tTEST_TARGET=%s\tPREPARED=%s\tRETAINED_ROOT=%s\tRETAINED_SOURCE=%s\n' \
     "$target" \
     "${RESULTS_DIR:-}" \
     "$*" \
     "${CARTULARY_TEST_RESULTS_DIR:-}" \
     "${CARTULARY_TEST_RUN_ID:-}" \
     "${CARTULARY_TEST_TARGET:-}" \
-    "${CARTULARY_HARNESS_IDENTITY_PREPARED:-}" >>"$FAKE_MAKE_ENV_LOG"
+    "${CARTULARY_HARNESS_IDENTITY_PREPARED:-}" \
+    "${CARTULARY_RETAINED_RESULTS_DIR:-}" \
+    "${CARTULARY_RETAINED_SOURCE_SNAPSHOT_DIGEST:-}" >>"$FAKE_MAKE_ENV_LOG"
 fi
 if [[ "${FAKE_REQUIRE_COMPLETE_PREPARED_IDENTITY:-}" == "1" ]]; then
   if [[ "${CARTULARY_HARNESS_IDENTITY_PREPARED:-}" != "1" ||
@@ -511,7 +513,12 @@ assert_equals "$(grep -c '^generate-drift$' "$results_log")" "1" "RESULTS_DIR in
 assert_contains "$(cat "$results_env_log")" $'scheduler-event-order-drift\tRESULTS_DIR='"$retained_dir" "scheduler health substep receives retained run first"
 assert_contains "$(cat "$results_env_log")" $'scheduler-summary-timing-drift\tRESULTS_DIR='"$retained_dir"$'\tARGS=--no-print-directory scheduler-summary-timing-drift TARGET=check ' "scheduler timing substep selects retained check target"
 assert_contains "$(cat "$results_env_log")" $'go-test-duration-baselines\tRESULTS_DIR='"$retained_dir" "RESULTS_DIR substep receives retained run"
+retained_source_digest="$(json_field "$(find "$retained_dir" -name test-evidence-accounting.json -print -quit)" 'value.source_snapshot_digest')"
+assert_contains "$(cat "$results_env_log")" $'browser-e2e-duration-baselines\tRESULTS_DIR='"$retained_dir"$'\tARGS=--no-print-directory browser-e2e-duration-baselines\tTEST_ROOT=' "browser baseline substep executes in the retained finalizer context"
+assert_contains "$(cat "$results_env_log")" $'RETAINED_ROOT='"$retained_dir"$'\tRETAINED_SOURCE='"$retained_source_digest" "retained substeps receive the pre-mutation source identity"
 assert_contains "$(cat "$results_env_log")" $'generate\tRESULTS_DIR=' "RESULTS_DIR is stripped from non-retained substeps"
+assert_contains "$(cat "$results_env_log")" $'generate\tRESULTS_DIR=\t' "non-retained generated refresh has no retained RESULTS_DIR"
+assert_not_contains "$(awk -F '\t' '$1 == "generate" { print }' "$results_env_log")" "RETAINED_SOURCE=$retained_source_digest" "retained source identity must not leak into non-retained generate substeps"
 assert_not_contains "$(cat "$results_env_log")" $'generate\tRESULTS_DIR='"$retained_dir" "RESULTS_DIR must not leak into non-retained generate substep"
 
 older_parent="$TMP_DIR/retained-selection"

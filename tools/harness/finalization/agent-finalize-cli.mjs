@@ -124,13 +124,13 @@ const actionRegistry = [
   {
     actionID: "duration_baseline_refresh",
     description:
-      "Refresh advisory harness duration-baseline artifacts from compatible successful owner evidence, then refresh generated scheduling artifacts that consume those baselines.",
+      "Refresh advisory harness duration-baseline artifacts from compatible successful owner evidence.",
     requiresResultsDir: true,
     mutating: true,
     cache: {
       eligible: true,
-      inputProfileID: "agent_finalize.duration_baseline_refresh.v2",
-      actionContractVersion: "v2",
+      inputProfileID: "agent_finalize.duration_baseline_refresh.v3",
+      actionContractVersion: "v3",
     },
     substeps: [
       {
@@ -192,8 +192,8 @@ const actionRegistry = [
     mutating: false,
     cache: {
       eligible: true,
-      inputProfileID: "agent_finalize.duration_baseline_drift_validation.v1",
-      actionContractVersion: "v1",
+      inputProfileID: "agent_finalize.duration_baseline_drift_validation.v2",
+      actionContractVersion: "v2",
     },
     substeps: [
       {
@@ -340,6 +340,7 @@ const retainedRunPreflight = createRetainedRunPreflight({
   repoRoot,
   resultsDirInput,
 });
+const retainedRunIdentity = retainedRunPreflight.currentIdentity();
 
 function selectedActionDefinitions() {
   return plannedActionDefinitions(actionRegistry, resultsDirInput);
@@ -606,8 +607,11 @@ function runMakeSubstep(definition, substep) {
   };
   if (definition.requiresResultsDir && resultsDirInput) {
     childEnv.CARTULARY_RETAINED_RESULTS_DIR = resultsDirInput;
+    childEnv.CARTULARY_RETAINED_SOURCE_SNAPSHOT_DIGEST =
+      retainedRunIdentity.source_snapshot_digest;
   } else {
     delete childEnv.CARTULARY_RETAINED_RESULTS_DIR;
+    delete childEnv.CARTULARY_RETAINED_SOURCE_SNAPSHOT_DIGEST;
   }
   delete childEnv.ALLOW_OLDER_RESULTS_DIR;
   removeMakeInputSources(childEnv, ["ALLOW_OLDER_RESULTS_DIR"]);

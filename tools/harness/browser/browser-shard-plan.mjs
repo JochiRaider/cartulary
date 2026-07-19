@@ -554,8 +554,28 @@ function collectObservedBrowserEntryDurations(
   resultsDir,
 ) {
   const catalog = loadTestCatalog(repoRoot);
+  const retainedSourceDigest = String(
+    process.env.CARTULARY_RETAINED_SOURCE_SNAPSHOT_DIGEST ?? "",
+  ).trim();
+  const retainedResultsDir = String(
+    process.env.CARTULARY_RETAINED_RESULTS_DIR ?? "",
+  ).trim();
+  if (retainedSourceDigest) {
+    if (!/^sha256:[a-f0-9]{64}$/u.test(retainedSourceDigest)) {
+      throw new Error("invalid retained source-snapshot digest from agent-finalize");
+    }
+    if (
+      !retainedResultsDir ||
+      path.resolve(retainedResultsDir) !== path.resolve(resultsDir)
+    ) {
+      throw new Error(
+        "retained source-snapshot identity requires the matching agent-finalize results root",
+      );
+    }
+  }
   const currentIdentity = {
-    source_snapshot_digest: buildSourceSnapshot(repoRoot).digest,
+    source_snapshot_digest:
+      retainedSourceDigest || buildSourceSnapshot(repoRoot).digest,
     catalog_semantic_digest: catalog.summary.catalog_semantic_digest,
     verification_semantic_digest: catalog.summary.verification_semantic_digest,
   };

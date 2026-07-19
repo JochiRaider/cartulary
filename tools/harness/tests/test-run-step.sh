@@ -376,6 +376,54 @@ assert_equals "$(json_field "$short_failure_summary" "failures.0.failure_class")
 assert_matches "$(json_field "$short_failure_summary" "start_time")" '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$' "short failure millisecond start time"
 assert_matches "$(json_field "$short_failure_summary" "end_time")" '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$' "short failure millisecond end time"
 
+finalizer_failure_results="$(mktemp -d "$ROOT_DIR/tmp/finalizer-failure.XXXXXX")"
+cleanup_paths+=("$finalizer_failure_results")
+finalizer_failure_command="$finalizer_failure_results/fail-finalizer.sh"
+cat >"$finalizer_failure_command" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+target_dir="$(dirname "${CARTULARY_STEP_ARTIFACT_DIR:?}")"
+cat >"$target_dir/finalize-summary.json" <<'JSON'
+{
+  "target": "agent-finalize",
+  "status": "fail",
+  "failures": [
+    {
+      "action_id": "duration_baseline_drift_validation",
+      "substep_id": "duration-baseline-drift-suite",
+      "target": "duration-baseline-drift-suite",
+      "failure_class": "timing",
+      "failure_reason": "duration_baseline_drift",
+      "headline": "duration baseline drift fixture",
+      "summary_json": null
+    }
+  ]
+}
+JSON
+echo "synthetic finalizer wrapper failure" >&2
+exit 2
+SH
+chmod +x "$finalizer_failure_command"
+set +e
+finalizer_failure_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="$finalizer_failure_results" \
+  CARTULARY_TEST_RUN_ID="finalizer-failure" \
+  CARTULARY_TEST_TARGET="agent-finalize" \
+    "$HELPER" "agent-finalize" -- "$finalizer_failure_command" \
+    2>&1
+)"
+finalizer_failure_status=$?
+set -e
+assert_equals "$finalizer_failure_status" "2" "finalizer wrapper failure status"
+assert_contains "$finalizer_failure_output" "failure_class=timing" "finalizer wrapper promotes normalized failure class"
+assert_contains "$finalizer_failure_output" "reason=duration_baseline_drift" "finalizer wrapper promotes normalized failure reason"
+finalizer_failure_summary="$finalizer_failure_results/finalizer-failure/agent-finalize/tool-run-summary.json"
+assert_equals "$(json_field "$finalizer_failure_summary" "failure_class")" "timing" "finalizer wrapper summary class"
+assert_equals "$(json_field "$finalizer_failure_summary" "failure_reason")" "duration_baseline_drift" "finalizer wrapper summary reason"
+assert_equals "$(json_field "$finalizer_failure_summary" "failures.0.child_target")" "duration-baseline-drift-suite" "finalizer wrapper child target"
+assert_json_field_absent "$finalizer_failure_summary" "failures.1" "finalizer wrapper omits duplicate generic shell failure"
+
 browser_start_failure_results="$(mktemp -d "$ROOT_DIR/tmp/browser-start-failure.XXXXXX")"
 cleanup_paths+=("$browser_start_failure_results")
 set +e
@@ -1983,8 +2031,8 @@ if [[ "$go_pkg_setup_status" -eq 0 ]]; then
   fail "run-go-step package setup: expected non-zero exit status"
 fi
 assert_contains "$go_pkg_setup_output" "failure: run-go-step step1 package setup smoke" "run-go-step package setup label"
-assert_contains "$go_pkg_setup_output" "coverage=support" "run-go-step package setup coverage"
-assert_contains "$go_pkg_setup_output" "step=step1" "run-go-step package setup step"
+assert_contains "$go_pkg_setup_output" "coverage=unmapped" "run-go-step package setup coverage"
+assert_contains "$go_pkg_setup_output" "step=-" "run-go-step package setup step"
 assert_contains "$go_pkg_setup_output" "symbol_or_title=(package setup)" "run-go-step package setup title"
 assert_contains "$go_pkg_setup_output" "message=start shared process harnesses: package setup failed" "run-go-step package setup message"
 

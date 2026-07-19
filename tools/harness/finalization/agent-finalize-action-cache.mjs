@@ -90,7 +90,7 @@ const profileDefinitions = {
     ],
     outputPaths: [],
   },
-  "agent_finalize.duration_baseline_refresh.v2": {
+  "agent_finalize.duration_baseline_refresh.v3": {
     prefixes: ["contracts/", "tools/"],
     suffixes: commonSuffixes,
     files: [
@@ -127,7 +127,7 @@ const profileDefinitions = {
     ],
     outputPaths: [],
   },
-  "agent_finalize.duration_baseline_drift_validation.v1": {
+  "agent_finalize.duration_baseline_drift_validation.v2": {
     prefixes: ["tools/"],
     suffixes: commonSuffixes,
     files: ["Makefile", "contracts/verification/registry.json"],

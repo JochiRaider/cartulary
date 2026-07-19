@@ -246,4 +246,68 @@ if (!Object.values(baseline.entries).every((entry) => entry.weight_ms === 25)) {
 }
 JS
 
+retained_source_digest="sha256:1111111111111111111111111111111111111111111111111111111111111111"
+RESULTS_ROOT="$results_dir" RETAINED_SOURCE_DIGEST="$retained_source_digest" "$NODE_BIN" --input-type=module - <<'JS'
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
+
+const root = path.resolve(process.env.RESULTS_ROOT);
+const stack = [root];
+let accountingFile = "";
+while (stack.length > 0 && !accountingFile) {
+  const current = stack.pop();
+  for (const entry of readdirSync(current, { withFileTypes: true })) {
+    const next = path.join(current, entry.name);
+    if (entry.isDirectory()) stack.push(next);
+    else if (entry.isFile() && entry.name === "test-evidence-accounting.json") {
+      accountingFile = next;
+      break;
+    }
+  }
+}
+if (!accountingFile) throw new Error("browser accounting fixture is unavailable");
+const accounting = JSON.parse(readFileSync(accountingFile, "utf8"));
+accounting.source_snapshot_digest = process.env.RETAINED_SOURCE_DIGEST;
+writeFileSync(accountingFile, `${JSON.stringify(accounting, null, 2)}\n`);
+JS
+
+set +e
+stale_output="$($NODE_BIN "$PLANNER" check-baseline-drift --baseline-file "$refresh_baseline" "$results_dir" 2>&1)"
+stale_status=$?
+set -e
+if [[ "$stale_status" -eq 0 ]]; then
+  fail "standalone browser drift unexpectedly accepted a stale source identity"
+fi
+assert_contains "$stale_output" "no observed Playwright timings" "standalone stale source rejection"
+
+CARTULARY_RETAINED_RESULTS_DIR="$results_dir" \
+CARTULARY_RETAINED_SOURCE_SNAPSHOT_DIGEST="$retained_source_digest" \
+  "$NODE_BIN" "$PLANNER" check-baseline-drift --baseline-file "$refresh_baseline" "$results_dir" >/dev/null
+
+set +e
+mismatched_root_output="$(
+  CARTULARY_RETAINED_RESULTS_DIR="$tmp_dir/not-the-retained-root" \
+  CARTULARY_RETAINED_SOURCE_SNAPSHOT_DIGEST="$retained_source_digest" \
+    "$NODE_BIN" "$PLANNER" check-baseline-drift --baseline-file "$refresh_baseline" "$results_dir" 2>&1
+)"
+mismatched_root_status=$?
+set -e
+if [[ "$mismatched_root_status" -eq 0 ]]; then
+  fail "retained source identity unexpectedly accepted a different results root"
+fi
+assert_contains "$mismatched_root_output" "requires the matching agent-finalize results root" "retained root binding"
+
+set +e
+malformed_identity_output="$(
+  CARTULARY_RETAINED_RESULTS_DIR="$results_dir" \
+  CARTULARY_RETAINED_SOURCE_SNAPSHOT_DIGEST="not-a-digest" \
+    "$NODE_BIN" "$PLANNER" check-baseline-drift --baseline-file "$refresh_baseline" "$results_dir" 2>&1
+)"
+malformed_identity_status=$?
+set -e
+if [[ "$malformed_identity_status" -eq 0 ]]; then
+  fail "malformed retained source identity unexpectedly passed"
+fi
+assert_contains "$malformed_identity_output" "invalid retained source-snapshot digest" "malformed retained identity"
+
 echo "browser shard plan tests passed"

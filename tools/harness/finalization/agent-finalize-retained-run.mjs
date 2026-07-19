@@ -364,6 +364,9 @@ export function createRetainedRunPreflight({
 
   return {
     baseSelection,
+    currentIdentity() {
+      return { ...currentIdentity };
+    },
     latestSuccessfulCheckRun,
     validate,
     validateRetainedRunArtifacts,

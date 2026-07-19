@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 2,
-  "input_digest": "sha256:ba81f2b300af40e24ec3838851ed13cebcb0158f2767c1687f557ef5fa7ea1aa",
+  "input_digest": "sha256:ba6493cc08e6c538efef611a31ba3f1baa7b0a59e14ad372a349341b784ec34c",
   "inputs": [
     {
       "path": "contracts/verification/owners/app.operator.json",
@@ -457,7 +457,7 @@
     {
       "path": "tools/harness/browser/browser-shard-plan.mjs",
       "role": "renderer_source",
-      "hash": "sha256:e3e493ec2fd72f7f664b2a9e8bb664092253567c27c7df4eb484e5511383d5b8"
+      "hash": "sha256:335c07cf5ca90cdfafda56e8d22b143f1c91a4c1049bdecae1043cb69da3ffe3"
     },
     {
       "path": "tools/harness/browser/browser-stage-scheduler-cli.mjs",
