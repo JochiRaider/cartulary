@@ -10,9 +10,9 @@
 | Baseline branch | `revision/grid-adapter` |
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
-| Tracker state | `IN_PROGRESS` — WS-12 final-byte validation recovery |
-| Active start | T-051 second timing-window rejection checkpoint |
-| Active tasks | T-051 |
+| Tracker state | `COMPLETE` — owner-first harness migration closed |
+| Active start | Migration complete — authoritative final-byte validation accepted |
+| Active tasks | None |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -498,7 +498,7 @@ WS-06 closure is recorded in `tools/delivery_identity_followup_ledger.json`. It 
 | WS-09 | Update task surface, generation, finalization, and baselines | DONE | WS-07, WS-08 | Generated surface/drift and fresh baseline plan | Revert owner inputs plus regenerated outputs together. |
 | WS-10 | Atomic deletion and hard cutover | DONE | WS-02–WS-09 | Deletion manifest and zero-reference scans | Revert the entire cutover commit; never add shims. |
 | WS-11 | Focused and broad verification | DONE | WS-10 | Successful fresh run roots and audit summaries | Forward-fix or revert the full cutover; old evidence is invalid. |
-| WS-12 | Validate and finalize the stable post-cutover handoff | IN_PROGRESS | WS-11 | Authoritative retained-run evidence and handoff log | Reopen tracker if any closure invariant fails. |
+| WS-12 | Validate and finalize the stable post-cutover handoff | DONE | WS-11 | Authoritative retained-run evidence and handoff log | Reopen tracker if any closure invariant fails. |
 
 Before WS-10, old and new implementations may coexist only on unmerged migration branches to enable comparison. Public authority remains singular, and no dual-reader or dual-writer state may be merged. WS-10 is one cohesive checkpoint. After WS-10, remediation is a forward fix or full checkpoint revert, never a compatibility shim.
 
@@ -737,7 +737,7 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-048 | Refresh retained baselines and repeat broad checks | WS-11 | DONE | T-047 | Finalized root and second results | No phase baseline is reused. |
 | T-049 | Run release check | WS-11 | DONE | T-048 | Release-check result | Public/release harness changes pass. |
 | T-050 | Capture reconciliation and remove crosswalk | WS-10 | DONE | T-045 | Final reconciliation report | Temporary compatibility-free migration input removed before authoritative source snapshots. |
-| T-051 | Complete handoff and closure audit | WS-12 | IN_PROGRESS | T-049 | Handoff log and clean status | Section 15 is fully satisfied. |
+| T-051 | Complete handoff and closure audit | WS-12 | DONE | T-049 | Handoff log and clean status | Section 15 is fully satisfied. |
 
 ## 13. Verification matrix
 
@@ -804,28 +804,28 @@ If a target fails, record the target, exit status, relevant summary artifact or 
 
 The migration is complete only when every statement below is true:
 
-- [ ] All 548 baseline rows have exactly one reviewed terminal disposition and every retained new row has provenance.
-- [ ] One unified owner catalog is the only executable test-ownership source.
-- [ ] Every retained row has one primary owner, valid verification IDs, a resolvable selector, explicit evidence class, and runtime/resource metadata.
-- [ ] No `unowned_regression`, subsystem special-case registry, frontend ownership namespace, or phase exception mechanism remains.
-- [ ] No backend/frontend phase registry or phase map remains active or referenced.
-- [ ] All 26 Markdown phase ledgers and every generator, digest, drift check, ignore, finalizer step, and topology consumer are deleted.
-- [ ] No public or private phase-slice, phase-ledger, phase-schedule, explain-phase, or frontend-phase-audit interface remains.
-- [ ] `PHASE`, `PHASE_NAMESPACE`, base-phase joins, and phase-author roles are absent from the harness command contract.
-- [ ] No old phase schema reader, artifact fallback, alias target, dual catalog, or compatibility shim remains.
-- [ ] No product, harness, release, visual, security, or conformance validator reads `docs/` or `docs/spec/`.
-- [ ] Executable requirements are schema-valid machine contracts outside documentation directories and reference current adopted owners.
-- [ ] Unsupported, draft-only, documentation-only, obsolete, and duplicate rows have been removed with recorded reasons.
-- [ ] Delivery-phase identity is absent from harness/test paths, symbols, titles, fixtures, scenario IDs, artifact identities, and generated topology.
-- [ ] Remaining uses of “phase” are reviewed product/runtime concepts or semantic execution steps.
-- [ ] Path-only visual moves preserve bytes, and all visual/accessibility evidence resolves through owner IDs.
-- [ ] Generated artifacts are owner-first, reproducible through Make, and drift-clean.
-- [ ] Successor commands, task guidance, diagnostics, owner slices, and evidence audits pass their contract tests.
-- [ ] Every generated evidence-class gate is either passing or exactly `not_applicable_zero_rows`; no required row is manually skipped.
-- [ ] A fresh successful warm check supplies retained baselines; no historical phase run closes evidence.
-- [ ] `make agent-finalize`, the repeated broad verification, and `make release-check` pass from a clean tree.
-- [ ] The temporary migration crosswalk has been removed after its final reconciliation report is retained.
-- [ ] Production-source follow-ups have explicit owners and do not leak delivery-phase identity into the completed harness.
+- [x] All 548 baseline rows have exactly one reviewed terminal disposition and every retained new row has provenance.
+- [x] One unified owner catalog is the only executable test-ownership source.
+- [x] Every retained row has one primary owner, valid verification IDs, a resolvable selector, explicit evidence class, and runtime/resource metadata.
+- [x] No `unowned_regression`, subsystem special-case registry, frontend ownership namespace, or phase exception mechanism remains.
+- [x] No backend/frontend phase registry or phase map remains active or referenced.
+- [x] All 26 Markdown phase ledgers and every generator, digest, drift check, ignore, finalizer step, and topology consumer are deleted.
+- [x] No public or private phase-slice, phase-ledger, phase-schedule, explain-phase, or frontend-phase-audit interface remains.
+- [x] `PHASE`, `PHASE_NAMESPACE`, base-phase joins, and phase-author roles are absent from the harness command contract.
+- [x] No old phase schema reader, artifact fallback, alias target, dual catalog, or compatibility shim remains.
+- [x] No product, harness, release, visual, security, or conformance validator reads `docs/` or `docs/spec/`.
+- [x] Executable requirements are schema-valid machine contracts outside documentation directories and reference current adopted owners.
+- [x] Unsupported, draft-only, documentation-only, obsolete, and duplicate rows have been removed with recorded reasons.
+- [x] Delivery-phase identity is absent from harness/test paths, symbols, titles, fixtures, scenario IDs, artifact identities, and generated topology.
+- [x] Remaining uses of “phase” are reviewed product/runtime concepts or semantic execution steps.
+- [x] Path-only visual moves preserve bytes, and all visual/accessibility evidence resolves through owner IDs.
+- [x] Generated artifacts are owner-first, reproducible through Make, and drift-clean.
+- [x] Successor commands, task guidance, diagnostics, owner slices, and evidence audits pass their contract tests.
+- [x] Every generated evidence-class gate is either passing or exactly `not_applicable_zero_rows`; no required row is manually skipped.
+- [x] A fresh successful warm check supplies retained baselines; no historical phase run closes evidence.
+- [x] `make agent-finalize`, the repeated broad verification, and `make release-check` pass from a clean tree.
+- [x] The temporary migration crosswalk has been removed after its final reconciliation report is retained.
+- [x] Production-source follow-ups have explicit owners and do not leak delivery-phase identity into the completed harness.
 
 ## 16. Handoff protocol and log
 
@@ -1683,6 +1683,14 @@ Each entry must include:
 - Root cause and classification: retained service telemetry records PostgreSQL readiness attempt one failing after `16178ms`, attempt two failing after `15752ms`, and attempt three succeeding after `1314ms`. The same step passed on attempt one in `2540ms` for the warm run and `2650ms` for measured run one. The contaminated run's service-session critical-path work grew to `36132ms` from `6919ms`/`6168ms`, while its critical browser group was faster than the prior run. This is a retry/provisioning-readiness timing contamination, not a product-test regression, and the timing protocol rejects rather than averages it.
 - Interruption and admissibility: after measured run two had already invalidated the complete six-run window, `final-t051r2-timing-measured-3` was intentionally stopped at 34 of 125 scheduler work units instead of consuming another full run; measured runs four and five were not started. Every `final-t051r2-*` root, including the fully passing gates and owner evidence, is therefore diagnostic-only and cannot enter final audit manifests or closure claims.
 - Recovery and next safe task: this checkpoint restores T-051 and WS-12 to `IN_PROGRESS` and leaves every Section 15 criterion unchecked. Stabilize the service readiness context, prepare fresh optimistic closure bytes using only `final-t051r3-*` identities, and restart finalization, all gates, all direct partitions, all 46 owner slices, all 29 service-backed slices, the entire warm-plus-five timing window, release, and all 46 audits from the beginning. No retry, interruption, stale root, or digest override is admissible.
+
+#### 2026-07-19 — T-051 third authoritative closure candidate and final handoff
+
+- Readiness and candidate identity: after the second rejection commit `597f4f94`, public `make test-service-images` plus `t051-service-readiness-diagnostic` completed with first-attempt PostgreSQL/object-store startup in `1346ms`/`2843ms`, no retry, and no tracked mutation. These optimistic bytes mark T-051/WS-12 and the migration complete, check every Section 15 criterion, and retain reconciliation checksum `sha256:39d9dbc8b96a9dd619d6b038fe67f478ec8e5871f906d72608855b4b6d9ad7fa`.
+- Reserved roots: finalization uses `final-t051r3-agent-finalize`; structural/focused gates use target-specific `final-t051r3-gate-*`; exact evidence partitions use `final-t051r3-evidence-*`, with public `make test` owning `backend-integration-support`; 46 full-owner and 29 service-backed roots use `final-t051r3-owner-<owner-slug>` and `final-t051r3-service-<owner-slug>`. Release uses `final-t051r3-release` and owns `browser-e2e-support`.
+- Timing and audit identities: the qualifying window uses `final-t051r3-timing-warm`, `final-t051r3-timing-measured-1` through `-5`, paired `-health` roots, and ignored `.cartulary/performance/final-t051r3-qualifying-window.json`. ASCII-sorted owner manifests live under `.cartulary/audits/final-t051r3/`, and audits use `final-t051r3-audit-<owner-slug>`.
+- Inventory and admissibility: require 46 owners, 169 families, 833 rows, 1,377 selectors, exactly 29 service-backed owners, the reviewed 20-golden visual set unchanged, exact source/catalog/verification digests, no retries or contamination, and every required partition exactly once. No older, `final-t051-*`, `final-t051r2-*`, diagnostic, interrupted, manually skipped, compatibility, or source-incompatible root is admissible.
+- Commit and handoff rule: validate these exact bytes end to end. Require all gates and partitions, all owner/service slices, one warm plus five measured checks with identical inventories, five passing health gates, `check-service-backed <=155000ms`, nearest-rank p90/maximum `<120000ms`, release success, and all 46 audits. On any failure restore active T-051 and use fresh identities. Commit this candidate unchanged only after every condition passes, then make no tracked edit; that clean commit plus ignored exact-byte evidence is the complete handoff.
 
 ## 17. First-resumer checklist
 
