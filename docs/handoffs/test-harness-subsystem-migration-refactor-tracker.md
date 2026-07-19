@@ -10,8 +10,8 @@
 | Baseline branch | `revision/grid-adapter` |
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
-| Tracker state | `IN_PROGRESS` — WS-12 final-byte validation and handoff |
-| Active start | WS-12/T-051 activation checkpoint |
+| Tracker state | `IN_PROGRESS` — WS-12 final-byte validation recovery |
+| Active start | T-051 rejected timing window recovery checkpoint |
 | Active tasks | T-051 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
@@ -1660,6 +1660,13 @@ Each entry must include:
 - Branch/commit at start: `revision/grid-adapter` at clean WS-11 closure commit `490c313f`. WS-12 is the only `IN_PROGRESS` workstream and T-051 is the sole active task; all implementation and provisional release workstreams are closed.
 - Active scope: stabilize the final tracker/handoff wording and Section 15 dispositions, prepare one optimistic no-further-edits closure candidate, and run finalization, structural/focused gates, all 46 owner slices, all 29 service-backed slices, every required evidence partition, one warm plus five qualifying measured checks, release rehearsal, and 46 exact owner audits against those candidate bytes. T-049 roots are diagnostic/provisional inputs only and cannot enter final manifests.
 - Failure rule and next safe task: any source mutation, generated drift, retry, interruption, inventory mismatch, timing rejection, release failure, or audit rejection invalidates the complete final candidate. Restore T-051 to `IN_PROGRESS`, record the failed checkpoint, forward-fix, and restart authoritative validation under fresh `final-t051-*` identities. Commit the optimistic closure bytes unchanged only after every Section 15 criterion is true; make no tracked edit afterward.
+
+#### 2026-07-19 — T-051 authoritative closure candidate rejected during timing acceptance
+
+- Rejected candidate identity: parent commit `7448a80a` plus the uncommitted optimistic closure bytes produced source snapshot `sha256:39779e1c5ba4fec4297c3928cc92070e4c17000e133590331a8f9ccfedd8da9b`. No-input `final-t051-agent-finalize`, structural/focused gates, every required direct evidence partition, public `final-t051-evidence-test`, all 46 `final-t051-owner-*` slices totaling 833 rows, and all 29 `final-t051-service-*` slices totaling 344 service-backed rows passed on that exact snapshot. Those roots are diagnostic only after this rejection and cannot enter a later closure manifest.
+- Rejected timing window: `final-t051-timing-warm` passed 125/125 units and 478 tests in 115,091 ms; external elapsed time was 116.97 seconds, `check-service-backed` was 109,112 ms, and `final-t051-timing-warm-health` passed the 155-second and lane-balance rules. `final-t051-timing-measured-1` then failed after 67/125 completed units because `browser-e2e-webserver-backed/functional-support-default-autoresolve` reported one product `test_assertion_failure`; the remaining measured roots were not run. The complete warm/measured attempt is rejected rather than averaged, retried in place, or represented as qualifying evidence.
+- Failure evidence and diagnosis boundary: the structured failure is retained under `.cartulary/test-results/final-t051-timing-measured-1`, with the Playwright trace and error context below `browser-e2e-webserver-backed/browser-groups/functional-support-default-autoresolve/`. The first grid-focus continuity assertion passed; after the auto-resolution Undo control received focus and disappeared, the second assertion timed out because the Timeline grid cell remained inspector-active but was not the active element. This is a render-order focus-continuity defect exposed under check concurrency, not an artifact-identity, catalog, fixture, or scheduler-classification failure.
+- Recovery and next safe task: this checkpoint restores T-051 and WS-12 to `IN_PROGRESS` and leaves every Section 15 criterion unchecked. Forward-fix the Timeline mention-action focus restoration so continuity remains stable across delayed row/notice renders, add regression coverage for an action whose focused control unmounts, and validate the exact autoresolve browser partition plus focused unit gates. Commit that fix with this tracker record, then prepare a fresh optimistic closure candidate using `final-t051r2-*` roots and restart the complete authoritative T-051 matrix; no `final-t051-*` root is admissible for final closure.
 
 ## 17. First-resumer checklist
 
