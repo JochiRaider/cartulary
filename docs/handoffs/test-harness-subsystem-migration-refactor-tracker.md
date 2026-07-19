@@ -11,8 +11,8 @@
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
 | Tracker state | `IN_PROGRESS` — WS-11 validation and release rehearsal |
-| Active start | T-046 based on clean T-045A commit `4f2c2097` |
-| Active tasks | None — T-046 complete; T-047 not yet active |
+| Active start | T-047 based on clean T-046 closure commit `17ab641e` |
+| Active tasks | T-047 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -733,7 +733,7 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-045 | Regenerate all permitted outputs | WS-10 | DONE | T-042,T-043,T-044 | Generated drift checks | Clean owner-first generated tree. |
 | T-045A | Prove atomic v2 parity and retirement | WS-10 | DONE | T-050 | NLSpec/schema/task-surface/topology parity and zero-reference report | v2 is complete and no v1 alias, reader, writer, catalog, or artifact identity is active. |
 | T-046 | Run focused verification matrix | WS-11 | DONE | T-045A | Command results/run roots | All focused gates pass. |
-| T-047 | Run agent finalization and first warm check | WS-11 | TODO | T-046 | Successful warm run root | Fresh broad evidence exists. |
+| T-047 | Run agent finalization and first warm check | WS-11 | IN_PROGRESS | T-046 | Successful warm run root | Fresh broad evidence exists. |
 | T-048 | Refresh retained baselines and repeat broad checks | WS-11 | TODO | T-047 | Finalized root and second results | No phase baseline is reused. |
 | T-049 | Run release check | WS-11 | TODO | T-048 | Release-check result | Public/release harness changes pass. |
 | T-050 | Capture reconciliation and remove crosswalk | WS-10 | DONE | T-045 | Final reconciliation report | Temporary compatibility-free migration input removed before authoritative source snapshots. |
@@ -1445,6 +1445,11 @@ Each entry must include:
 - Browser and aggregate evidence: public roots `t046r7-browser-webserver-backed`, `t046r7-browser-stateful`, `t046r7-browser-measurement`, `t046r7-browser-a11y`, `t046r7-browser-visual`, and `t046r7-browser-all` all passed. Default and `network_flow_claimed` sessions remained isolated; all finalizers completed; no retained claim, `adhoc` identity, unknown failure, golden update, or parent-artifact loss occurred. Ordinary visual comparison passed with the accepted 20 goldens unchanged. Public `.cartulary/test-results/t046r7-public-test` passed 619 tests with 2/2 aggregate work units, zero missing/unmapped rows, explicit passing `backend-integration-support`, and browser-support rows routed through the public webserver-backed functional-support groups rather than a private helper invocation.
 - Disposition, skips, and rollback: T-046 is `DONE`; all earlier r1-r6 and ad-hoc recovery roots remain diagnostic-only. The r7 closure used no retry, source-digest override, older-root discovery, compatibility reader, unauthorized skip, or direct internal target. T-047 through T-051, warm `make check`, retained finalization, timing acceptance, release rehearsal, and owner audits remain unclaimed. The forward rollback boundary is commits `546e886d`, `525a2bec`, `2f4e6d69`, and `9e5e542c` plus their tracker records; revert each cohesive checkpoint rather than retaining a partial identity/session/virtual-target model.
 - Next safe task: commit this T-046 closure record without activating another task. In a separate tracker-only checkpoint, activate T-047 as the sole task while WS-11 remains the only `IN_PROGRESS` workstream; then run no-input finalization before producing the closure-candidate warm check.
+
+#### 2026-07-18 — T-047 activation checkpoint
+
+- Branch/commit at start: `revision/grid-adapter` at clean T-046 closure commit `17ab641e`. WS-11 remains the only `IN_PROGRESS` workstream; T-046 is `DONE`; T-047 is now the sole active task; T-048 through T-051 remain `TODO`.
+- Next safe task: run `make agent-finalize` without `RESULTS_DIR`, review every mutation or advisory result, and stabilize any tracked maintenance output while T-047 remains active. Only then prepare the T-047-complete/T-048-active closure-candidate bytes and run the reserved `t047-check-warm` full warm check against those exact bytes.
 
 ## 17. First-resumer checklist
 
