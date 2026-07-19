@@ -393,6 +393,8 @@ assert_contains "${frontend_install_script}" 'config get store-dir' "frontend in
 assert_contains "${frontend_install_script}" 'config get confirmModulesPurge' "frontend install validates pnpm purge config"
 assert_contains "${frontend_install_script}" 'env CI=true "$pnpm" install --frozen-lockfile' "frontend install uses non-interactive frozen pnpm install"
 assert_contains "${generated_make}" 'RUN_MAKE_NODE_TOOL = env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PUBLIC_INPUT_NAMES))" NODE_BIN="$(NODE_BIN)" $(2) ./tools/harness/execution/run-make-node-tool.sh $(1)' "generated Make node-tool macro"
+assert_contains "${generated_make}" 'TASK_SURFACE_PREFLIGHT_INPUT_NAMES = $(sort $(TASK_SURFACE_PUBLIC_INPUT_NAMES) $(TASK_SURFACE_COMMAND_LINE_INPUT_NAMES))' "generated Make preflight discovers command-line inputs"
+assert_contains "${generated_make}" 'RUN_PUBLIC_PREFLIGHT = env CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PREFLIGHT_INPUT_NAMES))" $(RUN_HARNESS_PREFLIGHT) $(1)' "generated Make preflight validates discovered command-line inputs"
 assert_contains "${generated_make}" 'TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV = ' "generated Make public input strip env"
 assert_not_contains "${generated_make}" 'BASELINE_FILE="$(BASELINE_FILE)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)" DETAIL="$(DETAIL)"' "generated Make old global node-tool env block"
 assert_not_contains "${generated_make}" "TASK_SURFACE_HARNESS_TIER_" "generated Make harness tier variables"

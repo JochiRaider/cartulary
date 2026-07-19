@@ -388,11 +388,11 @@ preflight_log="${preflight_dir}/toolchain-drift-preflight.log"
 
 set +e
 env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_TARGET \
-  make --no-print-directory -C "${preflight_dir}" \
   CARTULARY_TEST_RESULTS_DIR="${preflight_results_root}" \
   CARTULARY_TEST_RUN_ID="${preflight_run_id}" \
   CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES=1 \
   NODE_BIN="${NODE_BIN}" \
+  make --no-print-directory -C "${preflight_dir}" \
   toolchain-drift \
   >"${preflight_log}" 2>&1
 preflight_status=$?

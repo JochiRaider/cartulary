@@ -1,15 +1,18 @@
 export function browserStageCompleteRuntimeCommand({
   browserSessionScript,
+  emitPassSummary = true,
   env,
   leaseFile,
   shouldStopSession,
   target,
   testOutputCommand,
 }) {
-  const commands = [
-    `${testOutputCommand} target-summary ${JSON.stringify(target)} pass --quiet-success`,
-    "summary_status=$?",
-  ];
+  const commands = emitPassSummary
+    ? [
+        `${testOutputCommand} target-summary ${JSON.stringify(target)} pass --quiet-success`,
+        "summary_status=$?",
+      ]
+    : ["summary_status=0"];
   if (shouldStopSession) {
     commands.push(
       `${JSON.stringify(browserSessionScript)} --session-stop --lease-file ${JSON.stringify(leaseFile)}`,

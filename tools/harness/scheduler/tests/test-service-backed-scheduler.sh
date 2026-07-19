@@ -1786,6 +1786,50 @@ if (!summary.skipped_work_units.some((entry) => entry.id?.includes("stateful-def
 }
 EOF
 
+early_failure_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-early-failure.XXXXXX")"
+cleanup_paths+=("$early_failure_dir")
+write_fake_make "$early_failure_dir"
+write_fake_go_target_runner "$early_failure_dir"
+early_failure_manifest="${early_failure_dir}/manifest.json"
+write_manifest "$early_failure_manifest" test-service-backed \
+  'make_target|backend-process|100|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend' \
+  'go_shards|backend-store|0|"postgres": 1, "object_store": 1|backend||backend-process' \
+  'make_target|browser-e2e-webserver-backed|9|"postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed|backend-process'
+"$NODE_BIN" - "$early_failure_manifest" <<'EOF'
+const fs = require("node:fs");
+const [manifestFile] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+manifest.schedules[0].stop_on_first_failure = true;
+fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
+EOF
+set +e
+early_failure_output="$(
+  FAKE_FAIL_TARGET=backend-process \
+  FAKE_FAIL_WRITES_SUMMARY=1 \
+    run_scheduler "$early_failure_dir" "$early_failure_manifest" test-service-backed early-failure 2>&1
+)"
+early_failure_status=$?
+set -e
+assert_equals "$early_failure_status" "10" "early failure scheduler status"
+assert_contains "$early_failure_output" "failure_class=product reason=test_assertion_failure" "early failure keeps primary classification"
+assert_not_contains "$early_failure_output" "missing shared report metadata" "never-started Go shards do not create artifact failures"
+assert_not_contains "$early_failure_output" "session lease" "never-started browser session does not create cleanup failure"
+assert_not_contains "$(cat "${early_failure_dir}/make.log")" "start finalize" "never-started Go shards skip aggregate collation"
+assert_not_contains "$(cat "${early_failure_dir}/make.log")" "stop browser-session" "never-started browser session skips stop"
+assert_file_absent "${early_failure_dir}/results/early-failure/backend-store/target-summary.json" "never-started Go target summary"
+assert_file_absent "${early_failure_dir}/results/early-failure/browser-e2e-webserver-backed/target-summary.json" "never-started browser target summary"
+"$NODE_BIN" - "${early_failure_dir}/results/early-failure/test-service-backed/scheduler-summary.json" <<'EOF'
+const fs = require("node:fs");
+const [summaryFile] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+if (summary.finalizer_count !== 2 || summary.finalizer_failures !== 0) {
+  throw new Error(`unexpected early-failure finalizer summary ${summary.finalizer_count}/${summary.finalizer_failures}`);
+}
+if (summary.failures.length !== 1 || summary.failure_class !== "product" || summary.failure_reason !== "test_assertion_failure") {
+  throw new Error(`early failure was amplified: ${JSON.stringify(summary.failures)}`);
+}
+EOF
+
 browser_backend_overlap_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-browser-backend-overlap.XXXXXX")"
 cleanup_paths+=("$browser_backend_overlap_dir")
 write_fake_make "$browser_backend_overlap_dir"

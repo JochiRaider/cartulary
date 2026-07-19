@@ -48,7 +48,21 @@ run_make_capture() {
   shift 2
 
   set +e
-  "$@" >"${stdout_file}" 2>"${stderr_file}"
+  env \
+    -u OWNER \
+    -u ROWS \
+    -u JSON \
+    -u PLAYWRIGHT_WORKERS \
+    -u VITEST_MAX_WORKERS \
+    -u CARTULARY_MAKE_INPUT_SOURCES \
+    -u CARTULARY_TEST_CATALOG_ROW_IDS \
+    -u CARTULARY_TEST_OWNER \
+    -u CARTULARY_TEST_RUN_ID \
+    -u CARTULARY_TEST_TARGET \
+    -u CARTULARY_STEP_ARTIFACT_DIR \
+    -u CARTULARY_HARNESS_IDENTITY_PREPARED \
+    CARTULARY_TEST_RESULTS_DIR="${tmp_dir}/child-results" \
+    "$@" >"${stdout_file}" 2>"${stderr_file}"
   local status=$?
   set -e
   printf '%s' "${status}"
@@ -92,7 +106,7 @@ wrong_target_status="$(
   run_make_capture "${wrong_target_stdout}" "${wrong_target_stderr}" make --no-print-directory target-plan UNDECLARED_INPUT=unexpected
 )"
 assert_equals "${wrong_target_status}" "2" "wrong-target Make variable status"
-assert_contains "$(cat "${wrong_target_stderr}")" "UNDECLARED_INPUT is not declared for target target-plan" "wrong-target Make variable diagnostic"
+assert_contains "$(cat "${wrong_target_stderr}")" "CARTULARY_MAKE_INPUT_SOURCES contains unknown input UNDECLARED_INPUT" "wrong-target Make variable diagnostic"
 assert_equals "$(cat "${wrong_target_stdout}")" "" "wrong-target Make variable stdout"
 
 internal_stdout="${tmp_dir}/internal.stdout"

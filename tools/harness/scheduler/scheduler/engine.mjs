@@ -1175,6 +1175,7 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
   const running = new Map();
   const completedKeys = new Set();
   const failedKeys = new Map();
+  const startedUnitIDs = new Set();
   const activeClaims = new Map();
   const retainedClaims = createRetainedClaimTracker(activeClaims);
   const unitsByCompletionKey = new Map();
@@ -1218,6 +1219,7 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
   });
 
   const startUnit = async (unit) => {
+    startedUnitIDs.add(unit.id);
     if (counted(unit) || unit.countsStarted !== false) {
       started += 1;
     }
@@ -1229,7 +1231,13 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
     }
     addResourceClaims(unit, activeClaims);
     const commandSpec = typeof unit.command === "function"
-      ? await unit.command({ unit, logFile })
+      ? await unit.command({
+          unit,
+          logFile,
+          completedKeys: new Set(completedKeys),
+          failedKeys: new Map(failedKeys),
+          startedUnitIDs: new Set(startedUnitIDs),
+        })
       : unit.command;
     const promise = runCommand(
       repoRoot,

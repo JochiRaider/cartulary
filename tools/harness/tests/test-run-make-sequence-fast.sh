@@ -1258,16 +1258,16 @@ chmod +x "${fake_go}"
 CARTULARY_TEST_RESULTS_DIR="${stale_embed_dir}/results" \
 CARTULARY_TEST_RUN_ID="stale-embed" \
 CARTULARY_BUILD_CACHE_DIR="${stale_embed_dir}/cache/build" \
-  make --no-print-directory build-server \
-    GO="${fake_go}" \
-    GO_CACHE_DIR="${stale_embed_dir}/gocache" \
-    GO_MOD_CACHE_DIR="${stale_embed_dir}/gomod" \
-    SERVER_BIN="${stale_embed_dir}/server" \
-    WEB_DIST_INDEX="${stale_embed_dir}/web-dist/index.html" \
-    EMBEDDED_WEB_ASSET_DIR="${stale_embed_dir}/embed/dist" \
-    EMBEDDED_WEB_ASSET_ARCHIVE="${stale_embed_dir}/embed/dist/web-assets.zip" \
-    EMBEDDED_WEB_ASSET_STAMP="${stale_embed_dir}/frontend-embed/web-assets.stamp" \
-    EMBEDDED_WEB_ASSET_READY_STAMP="${stale_embed_dir}/frontend-embed/web-assets.ready" \
+GO="${fake_go}" \
+GO_CACHE_DIR="${stale_embed_dir}/gocache" \
+GO_MOD_CACHE_DIR="${stale_embed_dir}/gomod" \
+SERVER_BIN="${stale_embed_dir}/server" \
+WEB_DIST_INDEX="${stale_embed_dir}/web-dist/index.html" \
+EMBEDDED_WEB_ASSET_DIR="${stale_embed_dir}/embed/dist" \
+EMBEDDED_WEB_ASSET_ARCHIVE="${stale_embed_dir}/embed/dist/web-assets.zip" \
+EMBEDDED_WEB_ASSET_STAMP="${stale_embed_dir}/frontend-embed/web-assets.stamp" \
+EMBEDDED_WEB_ASSET_READY_STAMP="${stale_embed_dir}/frontend-embed/web-assets.ready" \
+  make -e --no-print-directory build-server \
   >/dev/null
 assert_file_present "${stale_embed_dir}/embed/dist/web-assets.zip" "stale embedded web archive is rebuilt"
 assert_file_present "${stale_embed_dir}/frontend-embed/web-assets.stamp" "stale embedded web stamp is refreshed"

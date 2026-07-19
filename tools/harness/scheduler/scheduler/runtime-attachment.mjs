@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+
 import {
   browserGroupRuntimeCommand,
   browserSessionFilesFor,
@@ -28,6 +30,22 @@ async function defaultBrowserEnvReader(file) {
 
 async function defaultProcessEnv() {
   return process.env;
+}
+
+function noOpRuntimeCommand() {
+  return {
+    command: process.execPath,
+    args: ["-e", ""],
+    env: process.env,
+  };
+}
+
+function browserSessionCompletionKey(unit) {
+  return `browser_stage_session:${browserSessionKeyFor(unit)}`;
+}
+
+function goShardIdentity(aggregateTarget, shard) {
+  return `${aggregateTarget}\u0000${shard}`;
 }
 
 function defaultServiceTargetForUnit(unit) {
@@ -209,6 +227,11 @@ export function attachSchedulerRuntimeCommands(
   const skipped = new Set(skipKinds);
   const serviceTarget = (unit) => serviceTargetForUnit(unit);
   const unitServiceEnv = async (unit) => serviceEnvFor(unit, serviceTarget(unit));
+  const goShardUnitIDs = new Map(
+    schedule.workUnits
+      .filter((unit) => unit.kind === "go_shard")
+      .map((unit) => [goShardIdentity(unit.aggregateTarget, unit.shard), unit.id]),
+  );
 
   for (const unit of schedule.workUnits) {
     if (skipped.has(unit.kind)) {
@@ -289,8 +312,13 @@ export function attachSchedulerRuntimeCommands(
     if (unit.kind === "browser_stage_complete") {
       const files = runtime.browserSessionFiles.get(browserSessionKeyFor(unit));
       const shouldStopSession = unit.browserSessionFinalizer !== false;
-      unit.command = async () =>
-        browserStageCompleteCommand({
+      unit.command = async ({ completedKeys = new Set() } = {}) => {
+        const sessionCompleted = completedKeys.has(browserSessionCompletionKey(unit));
+        const leaseExists = existsSync(files.leaseFile);
+        if (!sessionCompleted && !leaseExists) {
+          return noOpRuntimeCommand();
+        }
+        return browserStageCompleteCommand({
           browserSessionScript: runtime.browserSessionScript,
           env: schedulerChildEnv(
             await browserStageCompleteEnv({
@@ -300,17 +328,23 @@ export function attachSchedulerRuntimeCommands(
             }),
             runtimeBinaryEnv(runtime, ["server-harness", "migrate"]),
           ),
+          emitPassSummary: unit.needs.every((need) => completedKeys.has(need)),
           leaseFile: files.leaseFile,
           shouldStopSession,
           target: unit.target,
           testOutputCommand: runtime.testOutputCommand,
         });
+      };
       continue;
     }
     if (unit.kind === "browser_session_finalizer") {
       const files = runtime.browserSessionFiles.get(browserSessionKeyFor(unit));
-      unit.command = async () =>
-        browserSessionFinalizerCommand({
+      unit.command = async ({ completedKeys = new Set() } = {}) => {
+        const sessionCompleted = completedKeys.has(browserSessionCompletionKey(unit));
+        if (!sessionCompleted && !existsSync(files.leaseFile)) {
+          return noOpRuntimeCommand();
+        }
+        return browserSessionFinalizerCommand({
           browserSessionScript: runtime.browserSessionScript,
           env: schedulerChildEnv(
             await browserSessionFinalizerEnv({
@@ -322,6 +356,7 @@ export function attachSchedulerRuntimeCommands(
           ),
           leaseFile: files.leaseFile,
         });
+      };
       continue;
     }
     if (unit.kind === "go_shard") {
@@ -344,13 +379,22 @@ export function attachSchedulerRuntimeCommands(
       continue;
     }
     if (unit.kind === "aggregate_finalize") {
-      unit.command = async () =>
-        goFinalizerRuntimeCommand({
+      unit.command = async ({ startedUnitIDs = new Set() } = {}) => {
+        const startedShardNames = unit.shardNames.filter((shard) => {
+          const shardUnitID = goShardUnitIDs.get(
+            goShardIdentity(unit.aggregateTarget, shard),
+          );
+          return shardUnitID !== undefined && startedUnitIDs.has(shardUnitID);
+        });
+        if (startedShardNames.length === 0) {
+          return noOpRuntimeCommand();
+        }
+        return goFinalizerRuntimeCommand({
           command: goTargetRunner,
           commandPrefix: goTargetRunnerPrefix,
           aggregateTarget: unit.aggregateTarget,
           metadataDir: aggregateMetadataDirForUnit(unit),
-          shardNames: unit.shardNames,
+          shardNames: startedShardNames,
           env: schedulerChildEnv(
             await goFinalizerEnv({
               unit,
@@ -360,6 +404,7 @@ export function attachSchedulerRuntimeCommands(
             }),
           ),
         });
+      };
     }
   }
 

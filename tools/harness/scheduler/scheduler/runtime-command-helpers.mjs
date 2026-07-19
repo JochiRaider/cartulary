@@ -230,6 +230,7 @@ export function browserGroupRuntimeCommand({
 
 export function browserStageCompleteCommand({
   browserSessionScript,
+  emitPassSummary,
   env,
   leaseFile,
   shouldStopSession,
@@ -238,6 +239,7 @@ export function browserStageCompleteCommand({
 }) {
   return browserStageCompleteRuntimeCommand({
     browserSessionScript,
+    emitPassSummary,
     env,
     leaseFile,
     shouldStopSession,

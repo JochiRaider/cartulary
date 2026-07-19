@@ -66,8 +66,10 @@ TASK_SURFACE_CHECK_OVERRIDE_NAMES := \
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT \
   CARTULARY_SERVICE_BACKED_POSTGRES_RESET_LIMIT \
   CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT
-task_surface_input_source = $(if $(filter command line command line override override,$(origin $(1))),cli,$(if $(filter environment environment override,$(origin $(1))),env,$(if $(filter undefined,$(origin $(1))),unset,file)))
+task_surface_input_source = $(if $(findstring command line,$(origin $(1))),cli,$(if $(findstring environment,$(origin $(1))),env,$(if $(filter undefined,$(origin $(1))),unset,file)))
 TASK_SURFACE_INPUT_SOURCES = $(foreach name,$(1),$(name)=$(call task_surface_input_source,$(name)))
+TASK_SURFACE_COMMAND_LINE_INPUT_NAMES = $(filter-out GNUMAKEFLAGS MAKEFLAGS MFLAGS MAKEOVERRIDES,$(foreach name,$(.VARIABLES),$(if $(findstring command line,$(origin $(name))),$(name))))
+TASK_SURFACE_PREFLIGHT_INPUT_NAMES = $(sort $(TASK_SURFACE_PUBLIC_INPUT_NAMES) $(TASK_SURFACE_COMMAND_LINE_INPUT_NAMES))
 task_surface_override_env = $(if $(filter undefined,$(origin $(1))),,$(1)="$($(1))")
 TASK_SURFACE_CHECK_SCHEDULER_OVERRIDE_ENV = $(foreach name,$(TASK_SURFACE_CHECK_OVERRIDE_NAMES),$(call task_surface_override_env,$(name)))
 TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV = $(foreach name,$(TASK_SURFACE_PUBLIC_INPUT_NAMES),-u $(name))
@@ -75,7 +77,7 @@ TASK_SURFACE_RUN_ENV = NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_
 TASK_SURFACE_GO_ENV = GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" NODE_BIN="$(NODE_BIN)"
 TASK_SURFACE_SERVICE_SCHEDULE_ENV = $(TASK_SURFACE_RUN_ENV) TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" RUN_SERVICE_BACKED_SCHEDULE_SCRIPT="$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT)" SCHEDULER_MANIFEST="$(TASK_SURFACE_CANONICAL_SCHEDULER_MANIFEST)" CARTULARY_RUNNER_SCRIPT="$(CARTULARY_RUNNER_SCRIPT)"
 RUN_MAKE_NODE_TOOL = env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PUBLIC_INPUT_NAMES))" NODE_BIN="$(NODE_BIN)" $(2) ./tools/harness/execution/run-make-node-tool.sh $(1)
-RUN_PUBLIC_PREFLIGHT = env CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PUBLIC_INPUT_NAMES))" $(RUN_HARNESS_PREFLIGHT) $(1)
+RUN_PUBLIC_PREFLIGHT = env CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PREFLIGHT_INPUT_NAMES))" $(RUN_HARNESS_PREFLIGHT) $(1)
 RUN_TARGET_SUMMARY_COMMAND = env $(TASK_SURFACE_RUN_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) target-summary $(1) $(2) $(3)
 RUN_TARGET_SUMMARY = $(Q)$(call RUN_TARGET_SUMMARY_COMMAND,$(1),$(2),)
 RUN_RETAINED_TARGET_SUMMARY = CARTULARY_OUTPUT_MODE=quiet $(call RUN_TARGET_SUMMARY_COMMAND,$(1),$(2),--quiet-success --suppress-machine-output --preserve-existing-tool-summary)
