@@ -11,7 +11,7 @@
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
 | Tracker state | `IN_PROGRESS` — WS-11 validation and release rehearsal |
-| Active start | T-048 timing-window recovery after the first qualifying candidate exceeded the strict check cap |
+| Active start | T-048 artifact-inventory recovery after the second timing candidate exposed alternating parent artifacts |
 | Active tasks | T-048 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
@@ -1622,6 +1622,17 @@ Each entry must include:
 - Rejected evidence: the unmeasured `.cartulary/test-results/t048-timing-warm` and measured roots `t048-timing-measured-1` and `t048-timing-measured-2` passed the complete 125-unit/478-test check in 115.623, 114.856, and 114.371 seconds. Measured `.cartulary/test-results/t048-timing-measured-3` also passed functionally with the same declared 125-unit capacity vector, 478 tests, 109 paired owner partitions, and `check-service-backed=118397ms`, but its check scheduler duration was 124.125 seconds and external wall observation was 126.03 seconds.
 - Disposition: the third measured sample violates the strict `<120000ms` maximum and therefore the nearest-rank five-sample p90 requirement. The entire candidate window is rejected without averaging, substitution, or retry; reserved measured roots 4 and 5 were intentionally not started. Ignored `.cartulary/performance/t048-qualifying-window.json` records the rejected host, source, roots, and observations. T-048 is restored as the sole active task and T-049 returns to `TODO`.
 - Next safe action: commit this rejection checkpoint, reserve a completely new warm-plus-five run-ID family on a fresh exact-byte candidate, and restart the six-run window from the beginning. Do not reuse any `t048-timing-*` root in T-048 acceptance, retained finalization, T-049 evidence, or final handoff.
+
+#### 2026-07-19 — T-048 second qualifying timing candidate and T-049 activation
+
+- Recovery checkpoint: the first-window rejection was committed at `e28c7b29`. `.cartulary/test-results/t048-agent-finalize-no-input-r5` passed on that clean checkpoint with `generated=unchanged`, zero updated files, and three source-compatible structural cache hits.
+- Exact-byte candidate: these uncommitted tracker bytes again mark T-048 `DONE` and activate T-049. They reserve unmeasured warm root `.cartulary/test-results/t048-timing-r2-warm`, measured roots `.cartulary/test-results/t048-timing-r2-measured-1` through `t048-timing-r2-measured-5`, and ignored evidence record `.cartulary/performance/t048-qualifying-window-r2.json`. The same six-run acceptance, identical-inventory, 155-second service/readiness, 1.25 balance, and strict `<120000ms` nearest-rank p90/maximum rules apply. Commit these bytes unchanged only if all six checks qualify; otherwise restore T-048 active and reject the complete r2 family.
+
+#### 2026-07-19 — T-048 second qualifying timing-window artifact rejection
+
+- Timing and health result: the r2 warm root and all five measured roots passed 125/125 work units and 478 tests with 109 paired owner partitions. Measured scheduler durations were 114.067, 115.594, 113.531, 114.731, and 113.958 seconds, so nearest-rank p90/maximum was 115.594 seconds; every `check-service-backed` duration remained below 110 seconds and all five explicit 155-second readiness/1.25 balance gates passed.
+- Inventory failure: normalized command/target identities, all 125 scheduler work-unit IDs, 730 selected row IDs, source/catalog/verification identities, capacity vectors, and the 3,600-file count remained stable. The retained artifact-role inventory did not: `otel-conformance/tool-run-summary.json` included parent-root `run_summary` and `run_tool_run_summary` roles in measured roots 1, 3, and 5 but omitted them in roots 2 and 4. The parent files eventually existed in every root, proving timing-sensitive parent/child artifact enumeration rather than a legitimate command or evidence difference.
+- Disposition and forward action: the entire r2 family is rejected despite passing timing; ignored `.cartulary/performance/t048-qualifying-window-r2.json` records the comparison and exact roots. T-048 is active and T-049 is `TODO`. Diagnose the aggregation boundary, make child target summaries exclude parent run-level artifacts independent of completion order, add deterministic race/order regressions, validate and commit the cohesive harness fix, then restart a fresh warm-plus-five window under a third run-ID family. No r2 root may close T-048 or enter later release/audit manifests.
 
 ## 17. First-resumer checklist
 
