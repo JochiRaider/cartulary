@@ -457,6 +457,27 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
     expect(scrollIntoViewCalls).toEqual([targetTestId]);
   });
 
+  it("aligns an editor portaled outside the grid shell through the stable document", async () => {
+    const { page, scrollIntoViewCalls, targetTestId } =
+      installGridTargetFixture({
+        currentScroll: { left: 8, top: 120 },
+        isTargetVisible: () => true,
+        targetOutsideGrid: true,
+      });
+
+    await expect(
+      scrollGridTargetIntoView({
+        intervalMs: 0,
+        page,
+        surface: testTimelineViewSchemaId,
+        targetTestId,
+        timeoutMs: 50,
+      }),
+    ).resolves.toEqual({ left: 8, top: 120 });
+
+    expect(scrollIntoViewCalls).toEqual([targetTestId]);
+  });
+
   it("scans grid offsets until a virtualized target is mounted", async () => {
     const { grid, page, scrollIntoViewCalls, targetTestId } =
       installGridTargetFixture({
@@ -908,6 +929,7 @@ function installGridTargetFixture(
     outerScrollable?: boolean;
     scrollHeight?: number;
     scrollWidth?: number;
+    targetOutsideGrid?: boolean;
     targetTestId?: string;
   } = {},
 ) {
@@ -923,12 +945,17 @@ function installGridTargetFixture(
       <div class="${gridScrollportClassName()}">
         ${mountedRows}
         ${
-          options.includeTarget === false
+          options.includeTarget === false || options.targetOutsideGrid === true
             ? ""
             : `<input data-testid="${targetTestId}" />`
         }
       </div>
     </div>
+    ${
+      options.includeTarget !== false && options.targetOutsideGrid === true
+        ? `<input data-testid="${targetTestId}" />`
+        : ""
+    }
   `;
 
   const shell = document.querySelector(dataTestIdSelector(gridTestId));

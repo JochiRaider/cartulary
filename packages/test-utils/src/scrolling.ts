@@ -260,7 +260,8 @@ async function alignVisibleGridTarget(options: {
   const aligned = (await evaluateGrid((element, rawTargetSelector) => {
     const targetSelector =
       typeof rawTargetSelector === "string" ? rawTargetSelector : "";
-    const mountedTarget = element.querySelector<HTMLElement>(targetSelector);
+    const mountedTarget =
+      element.ownerDocument.querySelector<HTMLElement>(targetSelector);
     if (mountedTarget === null || !mountedTarget.isConnected) {
       return false;
     }
