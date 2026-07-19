@@ -27,6 +27,7 @@ import { formatResourceMap } from "./scheduler-resources.mjs";
 import { schedulerAutoLimitResolvers } from "./scheduler-resource-policy.mjs";
 import {
   countVisibleCompletedUnit,
+  finalizer,
   finalizerRunningDisplayUnits,
   isDryRunFromMakeFlags,
   replayFailedAggregateLogsBeforeFinalizer,
@@ -394,9 +395,7 @@ async function main() {
   schedule.totalWorkUnits = schedule.workUnits.filter(
     (unit) => unit.countInTotal !== false,
   ).length;
-  schedule.finalizerCount = schedule.workUnits.filter(
-    (unit) => unit.kind === "aggregate_finalize",
-  ).length;
+  schedule.finalizerCount = schedule.workUnits.filter(finalizer).length;
   schedule.children = Array.from(
     new Set(
       schedule.workUnits

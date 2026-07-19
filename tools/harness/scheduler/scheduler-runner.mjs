@@ -8,3 +8,4 @@ export {
   runNormalizedSchedule,
   writeSchedulerDryRun,
 } from "./scheduler/engine.mjs";
+export { finalizer } from "./scheduler/state.mjs";

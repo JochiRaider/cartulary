@@ -27,7 +27,7 @@ export function finalizer(unit) {
     unit.kind === "finalizer" ||
     unit.kind === "aggregate_finalize" ||
     unit.kind === "browser_session_finalizer" ||
-    unit.browser_session_finalizer === true
+    unit.browserSessionFinalizer === true
   );
 }
 

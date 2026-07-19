@@ -82,7 +82,28 @@ if [[ -z "$target" ]]; then
 fi
 printf '%s\n' "$target" >>"$FAKE_MAKE_LOG"
 if [[ -n "${FAKE_MAKE_ENV_LOG:-}" ]]; then
-  printf '%s\tRESULTS_DIR=%s\tARGS=%s\n' "$target" "${RESULTS_DIR:-}" "$*" >>"$FAKE_MAKE_ENV_LOG"
+  printf '%s\tRESULTS_DIR=%s\tARGS=%s\tTEST_ROOT=%s\tRUN_ID=%s\tTEST_TARGET=%s\tPREPARED=%s\n' \
+    "$target" \
+    "${RESULTS_DIR:-}" \
+    "$*" \
+    "${CARTULARY_TEST_RESULTS_DIR:-}" \
+    "${CARTULARY_TEST_RUN_ID:-}" \
+    "${CARTULARY_TEST_TARGET:-}" \
+    "${CARTULARY_HARNESS_IDENTITY_PREPARED:-}" >>"$FAKE_MAKE_ENV_LOG"
+fi
+if [[ "${FAKE_REQUIRE_COMPLETE_PREPARED_IDENTITY:-}" == "1" ]]; then
+  if [[ "${CARTULARY_HARNESS_IDENTITY_PREPARED:-}" != "1" ||
+        -z "${CARTULARY_TEST_RESULTS_DIR:-}" ||
+        -z "${CARTULARY_TEST_RUN_ID:-}" ||
+        -z "${CARTULARY_TEST_TARGET:-}" ]]; then
+    printf 'prepared identity is incomplete for child target %s\n' "$target" >&2
+    exit 2
+  fi
+  if [[ "${CARTULARY_TEST_TARGET}" != "$target" ]]; then
+    printf 'prepared identity target %s does not match child target %s\n' \
+      "$CARTULARY_TEST_TARGET" "$target" >&2
+    exit 2
+  fi
 fi
 if [[ "${FAKE_REJECT_RESULTS_DIR_LEAK:-}" == "1" ]]; then
   case "$target" in
@@ -686,15 +707,19 @@ wrapper_dir="$TMP_DIR/wrapper"
 mkdir -p "$wrapper_dir"
 wrapper_make="$wrapper_dir/fake-make"
 wrapper_log="$wrapper_dir/make.log"
+wrapper_env_log="$wrapper_dir/make-env.log"
 write_fake_make "$wrapper_make"
 (
   cd "$ROOT_DIR"
+  CARTULARY_HARNESS_IDENTITY_PREPARED=1 \
   CARTULARY_TEST_TARGET=agent-finalize \
   CARTULARY_TEST_RESULTS_DIR="$wrapper_dir/results" \
   CARTULARY_TEST_RUN_ID="wrapper-summary" \
   CARTULARY_AGENT_FINALIZE_DISABLE_ACTION_CACHE=1 \
   MAKE="$wrapper_make" \
   FAKE_MAKE_LOG="$wrapper_log" \
+  FAKE_MAKE_ENV_LOG="$wrapper_env_log" \
+  FAKE_REQUIRE_COMPLETE_PREPARED_IDENTITY=1 \
   RESULTS_DIR="" \
     "$RUN_STEP" "agent-finalize" -- "$NODE_BIN" "$SCRIPT"
 ) >"$wrapper_dir/stdout.log" 2>"$wrapper_dir/stderr.log"
@@ -702,6 +727,9 @@ wrapper_output="$(cat "$wrapper_dir/stdout.log")"
 assert_contains "$wrapper_output" "[FINALIZE] generated=" "wrapper summary finalize line"
 assert_contains "$wrapper_output" "finalize_json=agent-finalize/finalize-summary.json" "wrapper artifact finalize ref"
 assert_contains "$(cat "$wrapper_dir/results/wrapper-summary/agent-finalize/tool-run-summary.json")" "finalize_summary" "tool summary finalize artifact"
+if [[ -n "$(awk -F '\t' '$6 != "TEST_TARGET=" $1 || $7 != "PREPARED=1" { print }' "$wrapper_env_log")" ]]; then
+  fail "wrapper child substeps must retain complete prepared identity with their own target"
+fi
 
 machine_dir="$TMP_DIR/machine"
 mkdir -p "$machine_dir"

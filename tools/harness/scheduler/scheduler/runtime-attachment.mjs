@@ -92,6 +92,7 @@ function defaultBrowserSessionFinalizerEnv({ unit, runtime }) {
     CARTULARY_TEST_SERVICES_BIN: runtime.cartularyTestServicesBin,
     CARTULARY_TEST_TARGET: unit.target,
     CARTULARY_BROWSER_SESSION_GROUP: browserSessionKeyFor(unit),
+    CARTULARY_BROWSER_STAGE: unit.browserStage,
     CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
   };
 }

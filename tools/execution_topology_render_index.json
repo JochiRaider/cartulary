@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 2,
-  "input_digest": "sha256:cb69be7f9a2ab0b691b5747b09838f2cf37918e04372c6eae4d94680bb1e7ccf",
+  "input_digest": "sha256:9f4b23caae914900970f417cab7f25b8d805d7bc3ee3feab912faa74c565160d",
   "inputs": [
     {
       "path": "contracts/verification/owners/app.operator.json",
@@ -787,7 +787,7 @@
     {
       "path": "tools/harness/scheduler/scheduler-runner.mjs",
       "role": "renderer_source",
-      "hash": "sha256:94578b06ac11e18a269da1216d31c14e394f64729426d62aaf292d91a315d682"
+      "hash": "sha256:ddb265a6d84f2b803939ae7a7b777cfd5777ed4de29094310efe8b59d97e3e03"
     },
     {
       "path": "tools/harness/scheduler/scheduler-runtime.mjs",
@@ -842,7 +842,7 @@
     {
       "path": "tools/harness/scheduler/scheduler/runtime-attachment.mjs",
       "role": "renderer_source",
-      "hash": "sha256:10a3a0ef08b682e6aab62a3b3d286a85554c5834b2144d5fa491ea238e02e661"
+      "hash": "sha256:4101e696bea55c6a0ab5ca3f15652a277e2df59922828a66e09220fc32644302"
     },
     {
       "path": "tools/harness/scheduler/scheduler/runtime-command-helpers.mjs",
@@ -857,7 +857,7 @@
     {
       "path": "tools/harness/scheduler/scheduler/state.mjs",
       "role": "renderer_source",
-      "hash": "sha256:3db9761419d45f97f276890172d3cc8a620bb909899bc60fe719ca0ef906bf87"
+      "hash": "sha256:3c7b2f8345916d956248bbfc3e6041f1b02261465427840532e9da5fbad13307"
     },
     {
       "path": "tools/harness/scheduler/scheduler/summary-timing-drift.mjs",
@@ -867,7 +867,7 @@
     {
       "path": "tools/harness/scheduler/service-backed-schedule-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:931f54d02de31c194850425f315ff20651bde24b7460d1bdcb4afa2297bf20cf"
+      "hash": "sha256:481f75cae71a4674e480c0996e5dad8656bd06dfeb4ace8488f423f44920ad60"
     },
     {
       "path": "tools/harness/test-catalog/catalog-check.mjs",

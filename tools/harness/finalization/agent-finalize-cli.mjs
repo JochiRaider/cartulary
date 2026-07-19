@@ -631,7 +631,11 @@ function runMakeSubstep(definition, substep) {
     removeMakeInputSources(childEnv, ["RESULTS_DIR"]);
     scrubMakeCommandVariable(childEnv, "RESULTS_DIR");
   }
-  delete childEnv.CARTULARY_TEST_TARGET;
+  // Finalizer substeps intentionally share the parent run root so their
+  // artifacts can be collected into one finalization result. Complete the
+  // prepared identity with the child target instead of leaving a partial
+  // parent tuple for the public Make preflight.
+  childEnv.CARTULARY_TEST_TARGET = definition.target;
   const makeVarArgs = Object.entries(definition.makeVars ?? {}).map(
     ([key, value]) => `${key}=${value}`,
   );
