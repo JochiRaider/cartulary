@@ -11,8 +11,8 @@
 | Baseline commit | `37cfdd727b3172046fbc3c5194d896a1197a381c` |
 | Baseline worktree | Clean |
 | Tracker state | `IN_PROGRESS` — WS-11 validation and release rehearsal |
-| Active start | T-048 third timing-window preparation after artifact-ownership and support-evidence recovery |
-| Active tasks | T-048 |
+| Active start | T-049 release rehearsal after the third T-048 timing-window candidate |
+| Active tasks | T-049 |
 | Migration mode | Hard cutover; no aliases, compatibility readers, dual catalogs, or retained phase interfaces |
 | Completion model | Binary; partial owner adoption is not a releasable end state |
 
@@ -734,8 +734,8 @@ Exit: every binary completion criterion in Section 15 is true and another engine
 | T-045A | Prove atomic v2 parity and retirement | WS-10 | DONE | T-050 | NLSpec/schema/task-surface/topology parity and zero-reference report | v2 is complete and no v1 alias, reader, writer, catalog, or artifact identity is active. |
 | T-046 | Run focused verification matrix | WS-11 | DONE | T-045A | Command results/run roots | All focused gates pass. |
 | T-047 | Run agent finalization and first warm check | WS-11 | DONE | T-046 | Successful warm run root | Fresh broad evidence exists. |
-| T-048 | Refresh retained baselines and repeat broad checks | WS-11 | IN_PROGRESS | T-047 | Finalized root and second results | No phase baseline is reused. |
-| T-049 | Run release check | WS-11 | TODO | T-048 | Release-check result | Public/release harness changes pass. |
+| T-048 | Refresh retained baselines and repeat broad checks | WS-11 | DONE | T-047 | Finalized root and second results | No phase baseline is reused. |
+| T-049 | Run release check | WS-11 | IN_PROGRESS | T-048 | Release-check result | Public/release harness changes pass. |
 | T-050 | Capture reconciliation and remove crosswalk | WS-10 | DONE | T-045 | Final reconciliation report | Temporary compatibility-free migration input removed before authoritative source snapshots. |
 | T-051 | Complete handoff and closure audit | WS-12 | TODO | T-049 | Handoff log and clean status | Section 15 is fully satisfied. |
 
@@ -1640,6 +1640,12 @@ Each entry must include:
 - Independent-child identity fix: `t048-artifact-recovery-full-smoke-r1` rejected an obsolete aggregate-role expectation after the first narrow fix. The refined aggregate-owner rule preserved legitimate sequence-root roles. `t048-artifact-recovery-full-smoke-r2` then exposed the real-target smoke fixture inheriting a prepared parent identity while assigning an independent result root and run ID. Every independent Make probe now clears the complete prepared identity, parent target/selector controls, and inherited Make overrides before normal preflight; no partial tuple or parent-only input is reused.
 - Internal evidence ownership fix: `t048-artifact-recovery-full-smoke-r3` reached the public `make test-fast` fixture and failed closed because `backend-integration-support` has row-bearing evidence but intentionally has no public command ID. The explicit catalog-side evidence route now retains `target_id=backend-integration-support` while using the existing semantic owner `command_id=cartulary.harness.command.backend_integration.v1`. No command, schema, compatibility identity, row route, or public target was added. Contract coverage finalizes a real support row and asserts both identities.
 - Validation and evidence disposition: direct step execution, `.cartulary/test-results/t048-support-evidence-fix-contract`, `t048-support-evidence-fix-execution-smoke`, and the complete `.cartulary/test-results/t048-artifact-recovery-full-smoke-r4` tier pass. Format/generation, generation drift, generated policy, JSON shape, script/shell/Markdown/Biome lint, and generated fingerprint refresh also pass under target-specific roots; the intentionally invalid multi-goal root reuse was rejected by identity preflight after its first passing target and is not a code failure. All r1-r3 recovery roots remain diagnostic-only. Commit this cohesive specification/implementation/generated/test/tracker checkpoint while T-048 remains active, rerun no-input finalization on the clean commit, and prepare a fresh exact-byte r3 warm-plus-five candidate. No earlier timing or recovery root is admissible for T-048 closure.
+
+#### 2026-07-19 — T-048 third qualifying timing candidate and T-049 activation
+
+- Recovery checkpoint: the artifact-ownership, independent-fixture identity, and support-evidence routing fixes were committed together at `00593076`. `.cartulary/test-results/t048-agent-finalize-no-input-r6` passed on that clean checkpoint with `generated=unchanged`, zero updated files, and no retained-only action selected.
+- Exact-byte candidate: these uncommitted tracker bytes mark T-048 `DONE` and make T-049 the sole active task. They reserve unmeasured warm root `.cartulary/test-results/t048-timing-r3-warm`, measured roots `.cartulary/test-results/t048-timing-r3-measured-1` through `t048-timing-r3-measured-5`, health roots with matching `-health` suffixes, and ignored record `.cartulary/performance/t048-qualifying-window-r3.json`. No source, generated, tool-pin, scheduler-capacity, or tracker byte may change during the six-run window.
+- Acceptance and commit condition: all six checks must pass consecutively without retry, interruption, cleanup error, hidden provisioning, missing/unmapped evidence, or source and inventory drift. All five measured roots must have identical semantic command, target, row, artifact-role, scheduler work-unit, capacity, and cleanup inventories; each explicit 155-second readiness/1.25 balance gate must pass; `check-service-backed` must remain at or below 155,000 ms; and the nearest-rank five-sample p90/maximum must be strictly below 120 seconds. Commit these candidate bytes unchanged only after the ignored record contains the exact host, source/catalog/verification identities, roots, external wall observations, inventory comparison, and acceptance result. On any failure, restore T-048 as active and reject the complete r3 family.
 
 ## 17. First-resumer checklist
 
