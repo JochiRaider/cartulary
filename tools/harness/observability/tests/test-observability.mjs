@@ -268,6 +268,10 @@ function verifyRun(runDir) {
   const first = reconstructObservability(runDir);
   const beforeReadOnly = digestTree(runDir);
   const retained = loadRetainedObservability(runDir);
+  assert.ok(
+    retained.context.measurement_contracts.some((contract) => contract.target === "release-browser-readiness"),
+    "execution context must retain check-internal performance measurement subjects",
+  );
   assert.deepEqual(digestTree(runDir), beforeReadOnly, "retained validation must be read-only");
   assert.equal(deterministicBytes(first), deterministicBytes(retained));
   const invocation = retained.built[0].result;

@@ -449,8 +449,10 @@ export function captureExecutionContext(runDir, metadata = {}) {
   const catalog = loadTestCatalog(repoRoot);
   const manifest = readJSON(path.join(repoRoot, "tools", "task_surface_manifest.json"));
   const executionTopology = readJSON(path.join(repoRoot, "tools", "execution_topology_manifest.json"));
-  const requiredTargets = new Set(manifest.observability_policy.required_targets);
-  const measurementContracts = [...requiredTargets]
+  const measurementTargets = new Set(
+    manifest.observability_policy.target_measurement_profiles.map((binding) => binding.target),
+  );
+  const measurementContracts = [...measurementTargets]
     .sort((left, right) => left.localeCompare(right))
     .map((observedTarget) => measurementContract(observedTarget, catalog, manifest, executionTopology));
   const workloadContracts = measurementContracts.map((contract) => ({

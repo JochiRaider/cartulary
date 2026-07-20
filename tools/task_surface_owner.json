@@ -9881,6 +9881,7 @@
     },
     {
       "name": "release-browser-readiness",
+      "command_id": "cartulary.harness.command.release_browser_readiness.v1",
       "backing_scripts": [
         "tools/harness/execution/cartulary-runner-cli.mjs",
         "tools/harness/scheduler/service-backed-schedule-cli.mjs"

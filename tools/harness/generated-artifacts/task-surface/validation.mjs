@@ -420,6 +420,15 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
         if (!target || !new Set(["public", "check_internal"]).has(target.target_class)) {
           errors.push(`${label}.target must name a public or check-internal target`);
         }
+        if (target?.target_class === "check_internal") {
+          if (typeof target.command_id !== "string" || !commandIDPattern.test(target.command_id)) {
+            errors.push(`${label}.target must declare a valid command_id`);
+          } else if (commandIDs.has(target.command_id)) {
+            errors.push(`${label}.target command_id duplicates ${commandIDs.get(target.command_id)}`);
+          } else {
+            commandIDs.set(target.command_id, target.name);
+          }
+        }
         if (measurementTargets.has(binding?.target)) {
           errors.push(`${label}.target duplicates ${binding?.target}`);
         }

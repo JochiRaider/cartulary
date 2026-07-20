@@ -3043,6 +3043,12 @@ test("observability dispositions and sequence identities fail closed", () => {
   unowned.observability_policy.excluded_targets[0].owner_section = "";
   assert.match(errorsFor(unowned), /owner_section must be a Section reference/);
 
+  const unownedMeasurementIdentity = structuredClone(taskSurface);
+  delete unownedMeasurementIdentity.targets.find(
+    (target) => target.name === "release-browser-readiness",
+  ).command_id;
+  assert.match(errorsFor(unownedMeasurementIdentity), /target must declare a valid command_id/);
+
   const duplicateSequence = structuredClone(taskSurface);
   duplicateSequence.sequences.lint.steps[1].target = duplicateSequence.sequences.lint.steps[0].target;
   assert.match(errorsFor(duplicateSequence), /occurrence aliases are unsupported/);

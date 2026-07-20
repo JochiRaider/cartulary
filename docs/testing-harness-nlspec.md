@@ -818,8 +818,13 @@ consume that owner's retained slice evidence. Duplicate target steps are invalid
 until an occurrence-aware artifact contract is adopted. Generated task-surface
 projections MUST preserve the policy and validation MUST enumerate the complete
 public surface against it, rejecting omissions, overlap, unknown targets, and
-unowned exclusions. Defaults, runtime-family inference, and target-name inference
-are forbidden. `scheduler-event-order-drift` and
+unowned exclusions. A check-internal target MAY have a measurement-profile
+binding outside the public disposition sets only when a named acceptance gate
+requires that exact aggregate child; `release-browser-readiness` is the sole
+such target. Execution-context capture and performance qualification MUST retain
+and evaluate every measurement-profile binding, including this check-internal
+subject. Defaults, runtime-family inference, and target-name inference are
+forbidden. `scheduler-event-order-drift` and
 `scheduler-summary-timing-drift` are explicitly `out_of_scope`: they validate
 caller-selected retained evidence, so their duration describes that external
 evidence selection rather than a stable command workload.
@@ -1710,9 +1715,10 @@ state; host, toolchain, externally available capacity, workload/evidence, and
 execution-policy digests; start, end, terminal status, interruption, retry
 count, warm eligibility, and a bounded sorted contamination-reason set. Source
 identity MUST include a sorted retained measurement-contract catalog for every
-required public target, with command ID, canonical inputs, measurement profile,
-eligibility, gates, workload/evidence digest, and target-scoped execution-policy
-digest. Externally available capacity MUST NOT incorporate target-declared
+required public target and separately bound check-internal measurement subject,
+with command ID, canonical inputs, measurement profile, eligibility, gates,
+workload/evidence digest, and target-scoped execution-policy digest. Externally
+available capacity MUST NOT incorporate target-declared
 logical scheduler limits; those limits belong to the target-scoped execution
 policy. Source
 artifact references MUST be normalized relative to the retained run, so an
