@@ -118,6 +118,7 @@ const topologyTopLevelKeys = new Set([
   "task_surface_owner",
   "check_schedules",
   "service_backed_schedules",
+  "sequence_schedules",
   "browser_e2e_batch",
 ]);
 const generatedArtifactPolicyKeys = new Set([
@@ -868,7 +869,7 @@ function validateTaskSurfaceOwnerShape(file) {
   const errors = collectTaskSurfaceManifestErrors({
     schema_id: taskSurfaceSchemaID,
     ...projection,
-  });
+  }, { requireSequenceTopology: false });
   if (errors.length > 0) {
     throw new Error(
       `${file} is invalid:\n${errors.map((error) => `  - ${error}`).join("\n")}`,
@@ -4304,6 +4305,10 @@ function validateAll(root) {
   );
   validateDurationBaselineShape(
     repoFile(root, "tools/service_backed_make_target_duration_baselines.json"),
+  );
+  validateSchemaSync(
+    "cartulary.harness_public_target_duration_baselines.v1",
+    readShapeFile(repoFile(root, "tools/harness_public_target_duration_baselines.json")),
   );
   validateBootstrapAdminShape(
     repoFile(root, "configs/dev/bootstrap-admin.json"),

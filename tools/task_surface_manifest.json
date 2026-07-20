@@ -1,5 +1,569 @@
 {
   "schema_id": "cartulary.task_surface_manifest.v15",
+  "observability_policy": {
+    "scope": "cartulary.harness.execution",
+    "required_targets": [
+      "agent-finalize",
+      "backend-integration",
+      "backend-module-boundary-check",
+      "backend-process",
+      "backend-store",
+      "backend-unit",
+      "benchmark-claim-check",
+      "browser-e2e",
+      "browser-e2e-a11y",
+      "browser-e2e-measurement",
+      "browser-e2e-stateful",
+      "browser-e2e-visual",
+      "browser-e2e-webserver-backed",
+      "check",
+      "ci",
+      "frontend-fallow-static",
+      "frontend-import-boundary-check",
+      "frontend-typecheck",
+      "frontend-unit",
+      "generate-drift",
+      "generated-artifact-policy-check",
+      "go-gosec-audit",
+      "go-gosec-targeted",
+      "go-test-duration-baseline-coverage",
+      "go-vulncheck",
+      "harness-contract",
+      "json-shape-check",
+      "lint",
+      "lint-biome",
+      "lint-markdown",
+      "lint-scripts",
+      "lint-shell",
+      "migration-drift",
+      "otel-conformance",
+      "release-check",
+      "release-readiness-evidence",
+      "scheduler-event-order-drift",
+      "scheduler-summary-timing-drift",
+      "seaweedfs-compatibility",
+      "seaweedfs-migration-preservation",
+      "seaweedfs-release-evidence",
+      "seaweedfs-release-gate",
+      "service-backed-test-slice",
+      "standup-operational-recovery-smoke",
+      "standup-package-smoke",
+      "test",
+      "test-evidence-audit",
+      "test-fast",
+      "test-slice",
+      "toolchain-drift"
+    ],
+    "excluded_targets": [
+      {
+        "target": "harness-observability-check",
+        "owner_section": "Section 15",
+        "reason": "Post-run diagnostic validation cannot recursively observe itself."
+      },
+      {
+        "target": "harness-otel-export",
+        "owner_section": "Section 15",
+        "reason": "Explicit post-run delivery observes retained invocations and is outside ordinary test execution."
+      },
+      {
+        "target": "harness-performance-check",
+        "owner_section": "Section 14",
+        "reason": "Post-run performance acceptance validates completed observation windows and cannot be sampled recursively."
+      },
+      {
+        "target": "harness-public-target-duration-baselines",
+        "owner_section": "Section 10.5",
+        "reason": "Baseline maintenance consumes completed observation windows and cannot recursively observe itself."
+      }
+    ],
+    "out_of_scope_targets": [
+      {
+        "target": "bootstrap",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "bootstrap-node-runtime",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "browser-e2e-duration-baseline-drift",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "browser-e2e-duration-baselines",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "browser-e2e-visual-update",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "build",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "build-migrate",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "build-operator",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "build-server",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "build-server-harness",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "build-web",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "clean",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "db-migrate",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "db-reset",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "db-up",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "dev",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "distclean",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "doctor",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "explain-run",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "explain-target",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "explain-test-owner",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "fixture-report",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "format",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "frontend-install",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "frontend-toolchain",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "generate",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "go-test-duration-baseline-drift",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "go-test-duration-baselines",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "harness-smoke-duration-baseline-drift",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "harness-smoke-duration-baselines",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "help",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "help-all",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "object-store-init",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "object-store-reset",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "playwright-install",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "service-backed-make-target-duration-baseline-drift",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "service-backed-make-target-duration-baselines",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "services-down",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "services-up",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "target-plan",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "target-plan-json",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "task-guide",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "task-surface-report",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      }
+    ],
+    "measurement_profiles": [
+      {
+        "profile_id": "standard_no_regression",
+        "canonical_inputs": {},
+        "observation_eligibility": "direct_or_aggregate_exact_once",
+        "warm_up_policy": "one_discarded_then_three_consecutive",
+        "performance_gates": [
+          "wall_no_regression"
+        ]
+      },
+      {
+        "profile_id": "backend_improvement",
+        "canonical_inputs": {},
+        "observation_eligibility": "direct_or_aggregate_exact_once",
+        "warm_up_policy": "one_discarded_then_three_consecutive",
+        "performance_gates": [
+          "backend_unit_wall_improvement",
+          "backend_finalization_union_improvement"
+        ]
+      },
+      {
+        "profile_id": "module_auth_slice_no_regression",
+        "canonical_inputs": {
+          "OWNER": "module.auth",
+          "ROWS": "omitted"
+        },
+        "observation_eligibility": "direct_or_aggregate_exact_once",
+        "warm_up_policy": "one_discarded_then_three_consecutive",
+        "performance_gates": [
+          "wall_no_regression"
+        ]
+      },
+      {
+        "profile_id": "module_auth_audit_no_regression",
+        "canonical_inputs": {
+          "OWNER": "module.auth",
+          "EVIDENCE_ROOTS_FILE": "retained-module.auth-slice-evidence"
+        },
+        "observation_eligibility": "direct_only",
+        "warm_up_policy": "one_discarded_then_three_consecutive",
+        "performance_gates": [
+          "wall_no_regression"
+        ]
+      },
+      {
+        "profile_id": "release_browser_reference_candidate",
+        "canonical_inputs": {},
+        "observation_eligibility": "direct_or_aggregate_exact_once",
+        "warm_up_policy": "one_discarded_then_three_consecutive",
+        "performance_gates": [
+          "release_browser_readiness_wall_improvement"
+        ],
+        "allowed_policy_transition": "browser_stack_capacity_1_to_2"
+      },
+      {
+        "profile_id": "release_check_improvement",
+        "canonical_inputs": {},
+        "observation_eligibility": "direct_only",
+        "warm_up_policy": "one_discarded_then_three_consecutive",
+        "performance_gates": [
+          "release_check_wall_improvement"
+        ]
+      }
+    ],
+    "target_measurement_profiles": [
+      {
+        "target": "agent-finalize",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "backend-integration",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "backend-module-boundary-check",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "backend-process",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "backend-store",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "backend-unit",
+        "profile_id": "backend_improvement"
+      },
+      {
+        "target": "benchmark-claim-check",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "browser-e2e",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "browser-e2e-a11y",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "browser-e2e-measurement",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "browser-e2e-stateful",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "browser-e2e-visual",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "browser-e2e-webserver-backed",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "check",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "ci",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "frontend-fallow-static",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "frontend-import-boundary-check",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "frontend-typecheck",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "frontend-unit",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "generate-drift",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "generated-artifact-policy-check",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "go-gosec-audit",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "go-gosec-targeted",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "go-test-duration-baseline-coverage",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "go-vulncheck",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "harness-contract",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "json-shape-check",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "lint",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "lint-biome",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "lint-markdown",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "lint-scripts",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "lint-shell",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "migration-drift",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "otel-conformance",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "release-browser-readiness",
+        "profile_id": "release_browser_reference_candidate"
+      },
+      {
+        "target": "release-check",
+        "profile_id": "release_check_improvement"
+      },
+      {
+        "target": "release-readiness-evidence",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "scheduler-event-order-drift",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "scheduler-summary-timing-drift",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "seaweedfs-compatibility",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "seaweedfs-migration-preservation",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "seaweedfs-release-evidence",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "seaweedfs-release-gate",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "service-backed-test-slice",
+        "profile_id": "module_auth_slice_no_regression"
+      },
+      {
+        "target": "standup-operational-recovery-smoke",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "standup-package-smoke",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "test",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "test-evidence-audit",
+        "profile_id": "module_auth_audit_no_regression"
+      },
+      {
+        "target": "test-fast",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "test-slice",
+        "profile_id": "module_auth_slice_no_regression"
+      },
+      {
+        "target": "toolchain-drift",
+        "profile_id": "standard_no_regression"
+      }
+    ]
+  },
   "compact_help": {
     "entries": [
       {
@@ -312,6 +876,16 @@
           "description": "inspect run summary artifacts"
         },
         {
+          "target": "harness-observability-check",
+          "usage": "RESULTS_DIR=<root|run-dir>",
+          "description": "reconstruct and validate retained harness diagnostics"
+        },
+        {
+          "target": "harness-otel-export",
+          "usage": "RESULTS_DIR=<root|run-dir> HARNESS_OTLP_ENDPOINT=<url>",
+          "description": "explicitly export retained harness diagnostics"
+        },
+        {
           "target": "fixture-report",
           "usage": "RESULTS_DIR=<root|run-dir>",
           "description": "report fixture cost hotspots"
@@ -367,6 +941,16 @@
           "target": "go-test-duration-baseline-drift",
           "usage": "RESULTS_DIR=<dir>",
           "description": "verify Go shard baseline freshness"
+        },
+        {
+          "target": "harness-performance-check",
+          "usage": "EVIDENCE_ROOTS_FILE=<manifest>",
+          "description": "compare warm baseline and candidate performance windows"
+        },
+        {
+          "target": "harness-public-target-duration-baselines",
+          "usage": "EVIDENCE_ROOTS_FILE=<manifest>",
+          "description": "refresh qualified public-target performance baselines"
         },
         {
           "target": "browser-e2e-duration-baselines",
@@ -510,16 +1094,33 @@
             "backend-unit",
             "frontend-typecheck",
             "frontend-unit"
-          ]
+          ],
+          "needs": [],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         },
         {
           "type": "step",
           "target": "test-fast-service-backed",
           "produces_summary_targets": [
             "test-fast-service-backed"
-          ]
+          ],
+          "needs": [
+            "test-local"
+          ],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         }
-      ]
+      ],
+      "execution_mode": "serial",
+      "max_jobs": 1,
+      "resource_limits": {
+        "process": 1
+      }
     },
     "test": {
       "summary_groups": [
@@ -557,16 +1158,33 @@
             "backend-unit",
             "frontend-typecheck",
             "frontend-unit"
-          ]
+          ],
+          "needs": [],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         },
         {
           "type": "step",
           "target": "test-service-backed",
           "produces_summary_targets": [
             "test-service-backed"
-          ]
+          ],
+          "needs": [
+            "test-local"
+          ],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         }
-      ]
+      ],
+      "execution_mode": "serial",
+      "max_jobs": 1,
+      "resource_limits": {
+        "process": 1
+      }
     },
     "lint": {
       "summary_groups": [
@@ -594,58 +1212,103 @@
             "lint-go-format",
             "lint-go-vet",
             "lint-go-staticcheck"
-          ]
+          ],
+          "needs": [],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         },
         {
           "type": "step",
           "target": "lint-biome",
           "produces_summary_targets": [
             "lint-biome"
-          ]
+          ],
+          "needs": [],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         },
         {
           "type": "step",
           "target": "frontend-import-boundary-check",
           "produces_summary_targets": [
             "frontend-import-boundary-check"
-          ]
+          ],
+          "needs": [],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         },
         {
           "type": "step",
           "target": "backend-module-boundary-check",
           "produces_summary_targets": [
             "backend-module-boundary-check"
-          ]
+          ],
+          "needs": [],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         },
         {
           "type": "step",
           "target": "lint-scripts",
           "produces_summary_targets": [
             "lint-scripts"
-          ]
+          ],
+          "needs": [],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         },
         {
           "type": "step",
           "target": "lint-markdown",
           "produces_summary_targets": [
             "lint-markdown"
-          ]
+          ],
+          "needs": [],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         },
         {
           "type": "step",
           "target": "lint-shell",
           "produces_summary_targets": [
             "lint-shell"
-          ]
+          ],
+          "needs": [],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         },
         {
           "type": "step",
           "target": "frontend-typecheck",
           "produces_summary_targets": [
             "frontend-typecheck"
-          ]
+          ],
+          "needs": [],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         }
-      ]
+      ],
+      "execution_mode": "dag",
+      "max_jobs": 4,
+      "resource_limits": {
+        "process": 4
+      }
     },
     "ci": {
       "summary_groups": [
@@ -680,34 +1343,72 @@
           "target": "check",
           "produces_summary_targets": [
             "check"
-          ]
+          ],
+          "needs": [],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 100
         },
         {
           "type": "step",
           "target": "harness-contract",
           "produces_summary_targets": [
             "harness-contract"
-          ]
+          ],
+          "needs": [
+            "check"
+          ],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         },
         {
           "type": "step",
           "target": "go-gosec-audit",
           "produces_summary_targets": [
             "go-gosec-audit"
-          ]
+          ],
+          "needs": [
+            "check"
+          ],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         },
         {
           "type": "step",
           "target": "deployable-shape",
           "produces_summary_targets": [
             "deployable-shape"
-          ]
+          ],
+          "needs": [
+            "check"
+          ],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         },
         {
           "type": "step",
-          "target": "duration-baseline-drift-suite"
+          "target": "duration-baseline-drift-suite",
+          "needs": [
+            "check"
+          ],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         }
-      ]
+      ],
+      "execution_mode": "dag",
+      "max_jobs": 4,
+      "resource_limits": {
+        "process": 4
+      }
     },
     "release-check": {
       "summary_groups": [
@@ -747,7 +1448,8 @@
           "summary_targets": [
             "browser-e2e-support",
             "browser-e2e-visual",
-            "browser-e2e-a11y"
+            "browser-e2e-a11y",
+            "release-browser-readiness"
           ]
         },
         {
@@ -763,43 +1465,90 @@
           "target": "check",
           "produces_summary_targets": [
             "check"
-          ]
+          ],
+          "needs": [],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 100
         },
         {
           "type": "step",
           "target": "harness-contract",
           "produces_summary_targets": [
             "harness-contract"
-          ]
+          ],
+          "needs": [
+            "check"
+          ],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         },
         {
           "type": "step",
           "target": "go-gosec-audit",
           "produces_summary_targets": [
             "go-gosec-audit"
-          ]
+          ],
+          "needs": [
+            "check"
+          ],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         },
         {
           "type": "step",
           "target": "license-report",
           "produces_summary_targets": [
             "license-report"
-          ]
+          ],
+          "needs": [
+            "check"
+          ],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         },
         {
           "type": "step",
           "target": "sbom",
           "produces_summary_targets": [
             "sbom"
-          ]
+          ],
+          "needs": [
+            "check"
+          ],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         },
         {
           "type": "step",
-          "target": "seaweedfs-compatibility"
+          "target": "seaweedfs-compatibility",
+          "needs": [
+            "check"
+          ],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         },
         {
           "type": "step",
-          "target": "seaweedfs-migration-preservation"
+          "target": "seaweedfs-migration-preservation",
+          "needs": [
+            "check"
+          ],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         },
         {
           "type": "step",
@@ -809,7 +1558,17 @@
             "seaweedfs-compatibility",
             "seaweedfs-migration-preservation",
             "seaweedfs-release-gate"
-          ]
+          ],
+          "needs": [
+            "seaweedfs-compatibility",
+            "seaweedfs-migration-preservation",
+            "license-report",
+            "sbom"
+          ],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         },
         {
           "type": "step",
@@ -819,44 +1578,71 @@
             "build-server",
             "build-migrate",
             "build-operator"
-          ]
+          ],
+          "needs": [
+            "check"
+          ],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         },
         {
           "type": "step",
           "target": "deployable-shape",
           "produces_summary_targets": [
             "deployable-shape"
-          ]
+          ],
+          "needs": [
+            "build"
+          ],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         },
         {
           "type": "step",
-          "target": "browser-e2e-support",
+          "target": "release-browser-readiness",
+          "skip_prerequisites": true,
           "produces_summary_targets": [
-            "browser-e2e-support"
-          ]
-        },
-        {
-          "type": "step",
-          "target": "browser-e2e-visual",
-          "produces_summary_targets": [
-            "browser-e2e-visual"
-          ]
-        },
-        {
-          "type": "step",
-          "target": "browser-e2e-a11y",
-          "produces_summary_targets": [
-            "browser-e2e-a11y"
-          ]
+            "browser-e2e-support",
+            "browser-e2e-visual",
+            "browser-e2e-a11y",
+            "release-browser-readiness"
+          ],
+          "needs": [
+            "check"
+          ],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         },
         {
           "type": "step",
           "target": "release-readiness-evidence",
           "produces_summary_targets": [
             "release-readiness-evidence"
-          ]
+          ],
+          "needs": [
+            "harness-contract",
+            "go-gosec-audit",
+            "seaweedfs-release-gate",
+            "deployable-shape",
+            "release-browser-readiness"
+          ],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
         }
-      ]
+      ],
+      "execution_mode": "dag",
+      "max_jobs": 6,
+      "resource_limits": {
+        "process": 6
+      }
     }
   },
   "make_recipes": {
@@ -1492,6 +2278,22 @@
       "type": "node_tool",
       "prerequisites": []
     },
+    "harness-observability-check": {
+      "type": "node_tool",
+      "prerequisites": []
+    },
+    "harness-otel-export": {
+      "type": "node_tool",
+      "prerequisites": []
+    },
+    "harness-performance-check": {
+      "type": "node_tool",
+      "prerequisites": []
+    },
+    "harness-public-target-duration-baselines": {
+      "type": "node_tool",
+      "prerequisites": []
+    },
     "explain-test-owner": {
       "type": "owner_command",
       "prerequisites": [
@@ -1834,7 +2636,8 @@
       "command": [
         "$(NODE_BIN)",
         "--test",
-        "./tools/harness/tests/test-harness-contracts.mjs"
+        "./tools/harness/tests/test-harness-contracts.mjs",
+        "./tools/harness/observability/tests/test-observability.mjs"
       ],
       "test_target": "self",
       "success_summary": true
@@ -2270,6 +3073,21 @@
         "CI": "1"
       },
       "sequence": "ci"
+    },
+    "release-browser-readiness": {
+      "type": "service_backed_schedule",
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
+        "build-web",
+        "build-server-harness",
+        "build-migrate",
+        "$(TEST_SERVICES_BIN)",
+        "test-service-images"
+      ],
+      "step_label": "release browser readiness",
+      "service_wrapper": "test-services",
+      "test_target": "self"
     },
     "release-check": {
       "type": "sequence",
@@ -5912,8 +6730,369 @@
               "children",
               "logs",
               "progress",
-              "accounting"
+              "accounting",
+              "performance"
             ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "harness-observability-check",
+      "backing_scripts": [
+        "tools/harness/observability/observability-check-cli.mjs",
+        "tools/harness/observability/observability.mjs"
+      ],
+      "output_policy": {
+        "output_class": "human_summary",
+        "artifact_policy": "none",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": null
+      },
+      "command_id": "cartulary.harness.command.harness_observability_check.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "diagnostic_synthesis",
+          "owner_section": "Section 4"
+        },
+        {
+          "behavior": "security_boundary",
+          "owner_section": "Section 15"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "none",
+          "owner_section": "Section 8"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "RESULTS_DIR",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": true,
+            "type": "result_selector",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          },
+          {
+            "name": "RUN_ID",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "run_id",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          }
+        ]
+      }
+    },
+    {
+      "name": "harness-otel-export",
+      "backing_scripts": [
+        "tools/harness/observability/observability.mjs",
+        "tools/harness/observability/otel-export-cli.mjs"
+      ],
+      "output_policy": {
+        "output_class": "human_summary",
+        "artifact_policy": "none",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": null
+      },
+      "command_id": "cartulary.harness.command.harness_otel_export.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "diagnostic_synthesis",
+          "owner_section": "Section 4"
+        },
+        {
+          "behavior": "security_boundary",
+          "owner_section": "Section 15"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "help_discovery",
+      "side_effects": [
+        {
+          "class": "external_network",
+          "owner_section": "Section 15",
+          "endpoint_input": "HARNESS_OTLP_ENDPOINT",
+          "protocol": "OTLP JSON over HTTPS or loopback HTTP",
+          "privacy_contract": "Section 15.3",
+          "redirect_policy": "disabled",
+          "timeout_contract": "10 seconds per signal",
+          "failure_contract": "configuration exit 2; delivery exit 1; export command only"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "RESULTS_DIR",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": true,
+            "type": "result_selector",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          },
+          {
+            "name": "RUN_ID",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "run_id",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          },
+          {
+            "name": "HARNESS_OTLP_ENDPOINT",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "url",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "redacted_value",
+            "child_forwarding": "argv"
+          },
+          {
+            "name": "HARNESS_OTLP_HEADERS_FILE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "path",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "redacted_value",
+            "child_forwarding": "argv"
+          }
+        ]
+      }
+    },
+    {
+      "name": "harness-performance-check",
+      "backing_scripts": [
+        "tools/harness/observability/observability.mjs",
+        "tools/harness/observability/performance-check-cli.mjs"
+      ],
+      "output_policy": {
+        "output_class": "human_summary",
+        "artifact_policy": "none",
+        "success_budget": {
+          "stdout_lines": 120,
+          "stdout_bytes": 8000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": null
+      },
+      "command_id": "cartulary.harness.command.harness_performance_check.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "diagnostic_synthesis",
+          "owner_section": "Section 4"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "none",
+          "owner_section": "Section 10"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "EVIDENCE_ROOTS_FILE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": true,
+            "type": "path",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          }
+        ]
+      }
+    },
+    {
+      "name": "harness-public-target-duration-baselines",
+      "backing_scripts": [
+        "tools/harness/observability/observability.mjs",
+        "tools/harness/observability/public-target-baselines-cli.mjs"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v5"
+      },
+      "command_id": "cartulary.harness.command.harness_public_target_duration_baselines.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "diagnostic_synthesis",
+          "owner_section": "Section 4"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "generated_artifacts",
+          "owner_section": "Section 10",
+          "file_families": [
+            "harness public target duration baselines"
+          ]
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "EVIDENCE_ROOTS_FILE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "path",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
           }
         ]
       }
@@ -7715,6 +8894,7 @@
       "name": "harness-contract-tests",
       "backing_scripts": [
         "tools/harness/tests/test-harness-contracts.mjs",
+        "tools/harness/observability/tests/test-observability.mjs",
         "tools/harness/readiness/tests/test-dev-services-lifecycle.sh"
       ],
       "target_class": "check_internal",
@@ -7725,6 +8905,7 @@
       "name": "harness-contract",
       "backing_scripts": [
         "tools/harness/tests/test-harness-contracts.mjs",
+        "tools/harness/observability/tests/test-observability.mjs",
         "tools/harness/readiness/tests/test-dev-services-lifecycle.sh"
       ],
       "output_policy": {
@@ -8606,6 +9787,10 @@
     },
     {
       "name": "test-fast",
+      "backing_scripts": [
+        "tools/harness/execution/run-make-sequence.sh",
+        "tools/harness/execution/sequence-schedule-cli.mjs"
+      ],
       "output_policy": {
         "output_class": "aggregate_summary_with_artifacts",
         "artifact_policy": "run_and_target_summaries",
@@ -8694,6 +9879,10 @@
     },
     {
       "name": "test",
+      "backing_scripts": [
+        "tools/harness/execution/run-make-sequence.sh",
+        "tools/harness/execution/sequence-schedule-cli.mjs"
+      ],
       "output_policy": {
         "output_class": "aggregate_summary_with_artifacts",
         "artifact_policy": "run_and_target_summaries",
@@ -8769,6 +9958,10 @@
     },
     {
       "name": "lint",
+      "backing_scripts": [
+        "tools/harness/execution/run-make-sequence.sh",
+        "tools/harness/execution/sequence-schedule-cli.mjs"
+      ],
       "output_policy": {
         "output_class": "aggregate_summary_with_artifacts",
         "artifact_policy": "run_and_target_summaries",
@@ -9160,7 +10353,8 @@
     {
       "name": "ci",
       "backing_scripts": [
-        "tools/harness/execution/run-make-sequence.sh"
+        "tools/harness/execution/run-make-sequence.sh",
+        "tools/harness/execution/sequence-schedule-cli.mjs"
       ],
       "output_policy": {
         "output_class": "aggregate_summary_with_artifacts",
@@ -9234,9 +10428,22 @@
       }
     },
     {
+      "name": "release-browser-readiness",
+      "backing_scripts": [
+        "tools/harness/execution/cartulary-runner-cli.mjs",
+        "tools/harness/scheduler/service-backed-schedule-cli.mjs"
+      ],
+      "target_class": "check_internal",
+      "default_inclusion_sets": [
+        "release-check"
+      ],
+      "lifecycle_state": "candidate_child"
+    },
+    {
       "name": "release-check",
       "backing_scripts": [
-        "tools/harness/execution/run-make-sequence.sh"
+        "tools/harness/execution/run-make-sequence.sh",
+        "tools/harness/execution/sequence-schedule-cli.mjs"
       ],
       "output_policy": {
         "output_class": "aggregate_summary_with_artifacts",
@@ -10258,6 +11465,7 @@
         "harness-smoke-check-scheduler",
         "harness-smoke-service-backed-scheduler-matrix",
         "harness-smoke-run-make-sequence",
+        "harness-smoke-observability",
         "harness-smoke-run-go-target",
         "harness-smoke-frontend-import-boundaries",
         "harness-smoke-fallow-static"
@@ -10314,6 +11522,7 @@
         "harness-smoke-check-scheduler",
         "harness-smoke-service-backed-scheduler-matrix",
         "harness-smoke-run-make-sequence",
+        "harness-smoke-observability",
         "harness-smoke-run-go-target",
         "harness-smoke-frontend-import-boundaries",
         "harness-smoke-fallow-static",
@@ -10440,6 +11649,20 @@
       "name": "harness-smoke-run-make-sequence",
       "backing_scripts": [
         "tools/harness/tests/test-run-make-sequence.sh"
+      ]
+    },
+    {
+      "name": "harness-smoke-observability",
+      "backing_scripts": [
+        "tools/harness/observability/tests/test-observability.mjs",
+        "tools/harness/observability/observability.mjs",
+        "tools/harness/observability/observability-check-cli.mjs",
+        "tools/harness/observability/otel-export-cli.mjs",
+        "tools/harness/observability/performance-check-cli.mjs"
+      ],
+      "command": [
+        "$(NODE_BIN)",
+        "./tools/harness/observability/tests/test-observability.mjs"
       ]
     },
     {

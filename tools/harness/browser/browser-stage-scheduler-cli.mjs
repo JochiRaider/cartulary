@@ -198,7 +198,7 @@ export function buildBrowserStageSchedule(stage, manifestPath, options = {}) {
     target,
     kind: "test_slice",
     prefix: "BROWSER-SCHEDULER",
-    eventSchemaID: "cartulary.scheduler_event.v6",
+    eventSchemaID: "cartulary.scheduler_event.v7",
     summarySchemaID: "cartulary.service_backed_scheduler_summary.v10",
     resourceScheduler: "test_slice",
     stopOnFirstFailure: false,

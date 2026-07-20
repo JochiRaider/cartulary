@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_public_target_duration_baselines.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "status", "source_commit", "profile_digests", "targets"],
+  "properties": {
+    "schema_id": { "const": "cartulary.harness_public_target_duration_baselines.v1" },
+    "status": { "enum": ["seed", "qualified"] },
+    "source_commit": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+    "source_snapshot_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "profile_digests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host", "capacity", "workload", "toolchain"],
+      "properties": {
+        "host": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "capacity": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "workload": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "toolchain": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["target", "gate", "samples_ms", "median_ms", "mad_ms", "no_regression_limit_ms", "required_improvement_ms"],
+        "properties": {
+          "target": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
+          "gate": { "enum": ["no_regression", "required_improvement"] },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cartulary\\.harness\\.command\\.[a-z][a-z0-9_]*\\.v[1-9][0-9]*$"
+          },
+          "measurement_profile_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+          "execution_policy_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "sample_roots": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 3,
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+          },
+          "samples_ms": { "type": "array", "minItems": 1, "maxItems": 3, "items": { "type": "number", "exclusiveMinimum": 0 } },
+          "median_ms": { "type": "number", "exclusiveMinimum": 0 },
+          "mad_ms": { "type": "number", "minimum": 0 },
+          "no_regression_limit_ms": { "type": "number", "exclusiveMinimum": 0 },
+          "required_improvement_ms": { "type": "number", "minimum": 0 }
+        }
+      }
+    },
+    "seed_evidence": { "type": "string", "maxLength": 256 },
+    "rejected_roots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["root", "reasons"],
+        "properties": {
+          "root": { "type": "string", "minLength": 1, "maxLength": 4096 },
+          "reasons": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "const": "qualified" } },
+        "required": ["status"]
+      },
+      "then": {
+        "required": ["source_snapshot_sha256", "rejected_roots"],
+        "properties": {
+          "targets": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["command_id", "measurement_profile_id", "execution_policy_sha256", "sample_roots"],
+              "properties": {
+                "sample_roots": { "type": "array", "minItems": 3, "maxItems": 3 },
+                "samples_ms": { "type": "array", "minItems": 3, "maxItems": 3 }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

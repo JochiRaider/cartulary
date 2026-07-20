@@ -2945,7 +2945,7 @@ test("machine task-surface owner defines public output classes and side effects"
     .join("\n")}\n`;
   assert.equal(
     createHash("sha256").update(publicIdentityBytes).digest("hex"),
-    "c8d79ef540543949a6266b386317efdde91e6af5122d479064847e376a2caed3",
+    "a6f7f954a565d90f0f28597ba4549aa1e4c7fe3eae6457f0e049da2e0ac80b1f",
     "public target and command ID inventory changed; revise the authored owner and this explicit interface digest together",
   );
   for (const target of publicTargets) {
@@ -2964,6 +2964,45 @@ test("machine task-surface owner defines public output classes and side effects"
       `${target.name} side effects must match the authored owner`,
     );
   }
+});
+
+test("observability dispositions and sequence identities fail closed", () => {
+  const { taskSurface, browserBatch, serviceBacked } = renderedArtifacts();
+  const errorsFor = (candidate) => collectTaskSurfaceManifestErrors(candidate, {
+    browserBatchManifest: browserBatch,
+    serviceBackedScheduleManifest: serviceBacked,
+  }).join("\n");
+
+  const omitted = structuredClone(taskSurface);
+  omitted.observability_policy.required_targets = omitted.observability_policy.required_targets
+    .filter((target) => target !== "backend-unit");
+  omitted.observability_policy.target_measurement_profiles = omitted.observability_policy.target_measurement_profiles
+    .filter((binding) => binding.target !== "backend-unit");
+  assert.match(errorsFor(omitted), /observability_policy omits public target backend-unit/);
+
+  const overlap = structuredClone(taskSurface);
+  overlap.observability_policy.excluded_targets.push({
+    target: "backend-unit",
+    owner_section: "Section 4",
+    reason: "invalid overlap fixture",
+  });
+  assert.match(errorsFor(overlap), /excluded_targets\[5\]\.target overlaps required disposition/);
+
+  const unknown = structuredClone(taskSurface);
+  unknown.observability_policy.out_of_scope_targets.push({
+    target: "unknown-public-command",
+    owner_section: "Section 4",
+    reason: "invalid unknown fixture",
+  });
+  assert.match(errorsFor(unknown), /target must name a public target/);
+
+  const unowned = structuredClone(taskSurface);
+  unowned.observability_policy.excluded_targets[0].owner_section = "";
+  assert.match(errorsFor(unowned), /owner_section must be a Section reference/);
+
+  const duplicateSequence = structuredClone(taskSurface);
+  duplicateSequence.sequences.lint.steps[1].target = duplicateSequence.sequences.lint.steps[0].target;
+  assert.match(errorsFor(duplicateSequence), /occurrence aliases are unsupported/);
 });
 
 test("owner task surface exposes only the v2 command family and private catalog check", () => {
@@ -3152,7 +3191,7 @@ function lifecycleFixtureSchedule(target, workUnits) {
     target,
     kind: "test_slice",
     prefix: "TEST-SCHEDULER",
-    eventSchemaID: "cartulary.scheduler_event.v6",
+    eventSchemaID: "cartulary.scheduler_event.v7",
     summarySchemaID: "cartulary.service_backed_scheduler_summary.v10",
     resourceScheduler: "test_slice",
     stopOnFirstFailure: false,
@@ -3277,7 +3316,7 @@ const schedule = {
   target: "test-scheduler-interrupt",
   kind: "test_slice",
   prefix: "TEST-SCHEDULER",
-  eventSchemaID: "cartulary.scheduler_event.v6",
+  eventSchemaID: "cartulary.scheduler_event.v7",
   summarySchemaID: "cartulary.service_backed_scheduler_summary.v10",
   resourceScheduler: "test_slice",
   stopOnFirstFailure: false,
@@ -4632,7 +4671,7 @@ test("harness import boundary consumes the authored helper ownership registry", 
   const helperOwnership = loadHarnessHelperOwnership(repoRoot);
   const authoredOwnerFacadePaths = ownerFacadePathLists(helperOwnership);
   const report = collectHarnessImportBoundaryViolations(repoRoot);
-  assert.equal(helperOwnership.facades.length, 33);
+  assert.equal(helperOwnership.facades.length, 34);
   assert.deepEqual(
     Object.keys(report.owner_facades).sort(),
     Object.keys(authoredOwnerFacadePaths).sort(),
@@ -4864,7 +4903,7 @@ test("contract output and scheduler summaries preserve normalized public surface
       eventFile,
       [
         JSON.stringify({
-          schema_id: "cartulary.scheduler_event.v6",
+          schema_id: "cartulary.scheduler_event.v7",
           target: "check",
           event: "scheduler-start",
           seq: 1,
@@ -4872,7 +4911,7 @@ test("contract output and scheduler summaries preserve normalized public surface
           emitted_at: "2026-01-01T00:00:00.000Z",
         }),
         JSON.stringify({
-          schema_id: "cartulary.scheduler_event.v6",
+          schema_id: "cartulary.scheduler_event.v7",
           target: "check",
           event: "scheduler-finish",
           seq: 2,
@@ -4887,7 +4926,7 @@ test("contract output and scheduler summaries preserve normalized public surface
       eventFile,
       [
         JSON.stringify({
-          schema_id: "cartulary.scheduler_event.v6",
+          schema_id: "cartulary.scheduler_event.v7",
           target: "check",
           event: "scheduler-start",
           seq: 1,
@@ -4895,7 +4934,7 @@ test("contract output and scheduler summaries preserve normalized public surface
           emitted_at: "2026-01-01T00:00:00.010Z",
         }),
         JSON.stringify({
-          schema_id: "cartulary.scheduler_event.v6",
+          schema_id: "cartulary.scheduler_event.v7",
           target: "check",
           event: "scheduler-finish",
           seq: 2,

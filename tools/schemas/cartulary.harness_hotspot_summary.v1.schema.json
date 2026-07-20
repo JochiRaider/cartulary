@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_hotspot_summary.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "invocation_id", "status", "duration_ms", "scheduler_envelope_critical_path_ms", "actual_dependency_critical_path_ms", "queue_wait_ms", "resource_blocking_ms", "resource_blocking_by_resource", "finalization_union_ms", "attributed_union_ms", "unattributed_envelope_ms", "critical_path", "hotspots"],
+  "properties": {
+    "schema_id": { "const": "cartulary.harness_hotspot_summary.v1" },
+    "invocation_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]{0,127}$" },
+    "status": { "enum": ["complete", "partial"] },
+    "duration_ms": { "type": "number", "minimum": 0 },
+    "scheduler_envelope_critical_path_ms": { "type": "number", "minimum": 0 },
+    "actual_dependency_critical_path_ms": { "type": "number", "minimum": 0 },
+    "queue_wait_ms": { "type": "number", "minimum": 0 },
+    "resource_blocking_ms": { "type": "number", "minimum": 0 },
+    "resource_blocking_by_resource": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+      "additionalProperties": { "type": "number", "minimum": 0 }
+    },
+    "finalization_union_ms": { "type": "number", "minimum": 0 },
+    "attributed_union_ms": { "type": "number", "minimum": 0 },
+    "unattributed_envelope_ms": { "type": "number", "minimum": 0 },
+    "critical_path": { "type": "array", "items": { "type": "string", "pattern": "^[0-9a-f]{16}$" } },
+    "hotspots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rank", "span_id", "name", "phase", "duration_ms", "queue_wait_ms", "resource_blocking_ms"],
+        "properties": {
+          "rank": { "type": "integer", "minimum": 1 },
+          "span_id": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+          "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_.:-]{0,127}$" },
+          "phase": { "enum": ["target", "sequence_step", "scheduler_wait", "scheduler_work", "service", "runner", "artifact", "finalizer", "unattributed"] },
+          "duration_ms": { "type": "number", "minimum": 0 },
+          "queue_wait_ms": { "type": "number", "minimum": 0 },
+          "resource_blocking_ms": { "type": "number", "minimum": 0 }
+        }
+      }
+    },
+    "diagnostic": { "type": "string", "maxLength": 512 }
+  }
+}

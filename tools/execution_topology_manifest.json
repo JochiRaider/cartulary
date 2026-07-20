@@ -142,6 +142,77 @@
       "default_output_path": "operator"
     }
   ],
+  "sequence_schedules": [
+    {
+      "target": "test-fast",
+      "execution_mode": "serial",
+      "max_jobs": 1,
+      "resource_limits": { "process": 1 },
+      "steps": [
+        { "target": "test-local", "needs": [], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "test-fast-service-backed", "needs": ["test-local"], "resource_claims": { "process": 1 }, "priority": 0 }
+      ]
+    },
+    {
+      "target": "test",
+      "execution_mode": "serial",
+      "max_jobs": 1,
+      "resource_limits": { "process": 1 },
+      "steps": [
+        { "target": "test-local", "needs": [], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "test-service-backed", "needs": ["test-local"], "resource_claims": { "process": 1 }, "priority": 0 }
+      ]
+    },
+    {
+      "target": "lint",
+      "execution_mode": "dag",
+      "max_jobs": 4,
+      "resource_limits": { "process": 4 },
+      "steps": [
+        { "target": "lint-go", "needs": [], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "lint-biome", "needs": [], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "frontend-import-boundary-check", "needs": [], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "backend-module-boundary-check", "needs": [], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "lint-scripts", "needs": [], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "lint-markdown", "needs": [], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "lint-shell", "needs": [], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "frontend-typecheck", "needs": [], "resource_claims": { "process": 1 }, "priority": 0 }
+      ]
+    },
+    {
+      "target": "ci",
+      "execution_mode": "dag",
+      "max_jobs": 4,
+      "resource_limits": { "process": 4 },
+      "steps": [
+        { "target": "check", "needs": [], "resource_claims": { "process": 1 }, "priority": 100 },
+        { "target": "harness-contract", "needs": ["check"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "go-gosec-audit", "needs": ["check"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "deployable-shape", "needs": ["check"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "duration-baseline-drift-suite", "needs": ["check"], "resource_claims": { "process": 1 }, "priority": 0 }
+      ]
+    },
+    {
+      "target": "release-check",
+      "execution_mode": "dag",
+      "max_jobs": 6,
+      "resource_limits": { "process": 6 },
+      "steps": [
+        { "target": "check", "needs": [], "resource_claims": { "process": 1 }, "priority": 100 },
+        { "target": "harness-contract", "needs": ["check"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "go-gosec-audit", "needs": ["check"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "license-report", "needs": ["check"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "sbom", "needs": ["check"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "seaweedfs-compatibility", "needs": ["check"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "seaweedfs-migration-preservation", "needs": ["check"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "seaweedfs-release-gate", "needs": ["seaweedfs-compatibility", "seaweedfs-migration-preservation", "license-report", "sbom"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "build", "needs": ["check"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "deployable-shape", "needs": ["build"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "release-browser-readiness", "needs": ["check"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "release-readiness-evidence", "needs": ["harness-contract", "go-gosec-audit", "seaweedfs-release-gate", "deployable-shape", "release-browser-readiness"], "resource_claims": { "process": 1 }, "priority": 0 }
+      ]
+    }
+  ],
   "execution_dependencies": [
     {
       "id": "backend_unit",
@@ -1123,6 +1194,23 @@
             ]
           }
         }
+      },
+      {
+        "target": "release-browser-readiness",
+        "capacity_profile": "service_backed_full",
+        "resource_limits": {
+          "browser_stack": 2
+        },
+        "selectors": {
+          "backend": {
+            "enabled": false
+          },
+          "browser": {
+            "schedule_tags": [
+              "service_backed_release_browser"
+            ]
+          }
+        }
       }
     ]
   },
@@ -1198,6 +1286,9 @@
       {
         "name": "support",
         "target": "browser-e2e-support",
+        "schedule_tags": [
+          "service_backed_release_browser"
+        ],
         "groups": [
           {
             "name": "support",
@@ -1205,7 +1296,9 @@
             "kind": "support",
             "coverage": "supplemental",
             "execution_dependency": "browser_support",
-            "workers": "default"
+            "workers": "default",
+            "browser_session_group": "browser-e2e-support-default",
+            "browser_session_isolation_reason": "release support evidence owns an isolated fixture session"
           }
         ]
       },
@@ -1272,7 +1365,8 @@
         "name": "a11y",
         "target": "browser-e2e-a11y",
         "schedule_tags": [
-          "service_backed_full"
+          "service_backed_full",
+          "service_backed_release_browser"
         ],
         "groups": [
           {
@@ -1281,7 +1375,9 @@
             "kind": "a11y",
             "coverage": "authoritative",
             "execution_dependency": "browser_a11y",
-            "workers": "1"
+            "workers": "1",
+            "browser_session_group": "browser-e2e-a11y-default",
+            "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session"
           },
           {
             "name": "a11y-network-flow-claimed",
@@ -1300,7 +1396,8 @@
         "name": "visual",
         "target": "browser-e2e-visual",
         "schedule_tags": [
-          "service_backed_full"
+          "service_backed_full",
+          "service_backed_release_browser"
         ],
         "groups": [
           {
@@ -1309,7 +1406,9 @@
             "kind": "visual",
             "coverage": "authoritative",
             "execution_dependency": "browser_visual",
-            "workers": "1"
+            "workers": "1",
+            "browser_session_group": "browser-e2e-visual-default",
+            "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session"
           },
           {
             "name": "visual-network-flow-claimed",

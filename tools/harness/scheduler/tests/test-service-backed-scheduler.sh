@@ -266,7 +266,7 @@ if (events[0]?.event !== "scheduler-start") {
 if (events[events.length - 1]?.event !== "scheduler-finish") {
   throw new Error(`final scheduler event got ${events[events.length - 1]?.event} want scheduler-finish`);
 }
-if (!events.every((event) => event.schema_id === "cartulary.scheduler_event.v6")) {
+if (!events.every((event) => event.schema_id === "cartulary.scheduler_event.v7")) {
   throw new Error("unexpected scheduler event schema");
 }
 events.forEach((event, index) => {
@@ -2599,6 +2599,7 @@ const sourceTargets = (target) => (byTarget.get(target)?.work_unit_sources ?? []
 const testSources = sourceTargets("test-service-backed");
 const checkSources = sourceTargets("check-service-backed");
 const fastSources = sourceTargets("test-fast-service-backed");
+const releaseSources = sourceTargets("release-browser-readiness");
 const backendSourceTargets = (target) =>
   (byTarget.get(target)?.work_unit_sources ?? [])
     .filter((source) => source.class === "backend")
@@ -2630,6 +2631,9 @@ for (const target of ["test-service-backed", "test-fast-service-backed", "check-
   if (JSON.stringify(actualBackendTargets) !== JSON.stringify(expectedTargets)) {
     throw new Error(`${target} backend sources got ${actualBackendTargets} want ${expectedTargets}`);
   }
+}
+if (backendSourceTargets("release-browser-readiness").length !== 0) {
+  throw new Error("release-browser-readiness must contain browser work only");
 }
 const expectedCheckSources = testSources.filter(
   (target) =>
@@ -2666,6 +2670,36 @@ const actualBrowserTargets = (byTarget.get("test-service-backed")?.work_unit_sou
   .map((source) => source.target);
 if (JSON.stringify(actualBrowserTargets) !== JSON.stringify(expectedBrowserTargets)) {
   throw new Error(`service-backed browser sources got ${JSON.stringify(actualBrowserTargets)}`);
+}
+const expectedReleaseBrowserTargets = [
+  "browser-e2e-a11y",
+  "browser-e2e-support",
+  "browser-e2e-visual",
+];
+const actualReleaseBrowserTargets = releaseSources
+  .filter((target) => target.startsWith("browser-e2e-"))
+  .sort();
+if (JSON.stringify(actualReleaseBrowserTargets) !== JSON.stringify(expectedReleaseBrowserTargets)) {
+  throw new Error(`release browser sources got ${JSON.stringify(actualReleaseBrowserTargets)}`);
+}
+const releaseSchedule = byTarget.get("release-browser-readiness");
+if (releaseSchedule?.resource_limits?.browser_stack !== 2) {
+  throw new Error("release-browser-readiness must own exact browser_stack capacity two");
+}
+const expectedReleaseSessions = new Map([
+  ["support", ["browser-e2e-support-default"]],
+  ["visual", ["browser-e2e-visual-default", "browser-visual-network-flow-claimed"]],
+  ["a11y", ["browser-a11y-network-flow-claimed", "browser-e2e-a11y-default"]],
+]);
+for (const source of releaseSchedule?.work_unit_sources ?? []) {
+  if (source.class !== "browser") continue;
+  const actualGroups = Array.from(new Set((source.groups ?? []).map((group) => group.browser_session_group))).sort();
+  if (JSON.stringify(actualGroups) !== JSON.stringify(expectedReleaseSessions.get(source.browser_stage))) {
+    throw new Error(`release ${source.browser_stage} has unexpected session groups ${actualGroups}`);
+  }
+  if ((source.groups ?? []).some((group) => !group.browser_session_isolation_reason)) {
+    throw new Error(`release ${source.browser_stage} groups must declare session-isolation reasons`);
+  }
 }
 const webserverSource = (byTarget.get("test-service-backed")?.work_unit_sources ?? []).find(
   (candidate) => candidate.target === "browser-e2e-webserver-backed",

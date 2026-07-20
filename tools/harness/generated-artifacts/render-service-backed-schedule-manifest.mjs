@@ -17,7 +17,7 @@ import {
 } from "../execution/execution-dependencies.mjs";
 import {
   browserStageResource,
-  resourceLimitsForCapacityProfile,
+  normalizeResourceLimits,
 } from "../scheduler/scheduler-resources.mjs";
 import {
   runtimeBinaryDefaultEnvForIDs,
@@ -336,6 +336,10 @@ function backendSelector(scheduleProfile) {
     throw new Error(`${scheduleProfile.target}.selectors.backend must be an object when present`);
   }
   return {
+    enabled:
+      selector.enabled === undefined
+        ? true
+        : requireBoolean(selector.enabled, `${scheduleProfile.target}.selectors.backend.enabled`),
     serviceBacked:
       selector.service_backed === undefined
         ? true
@@ -495,6 +499,9 @@ function goShardResourceClaimsByExecutionFamily(profile) {
 
 function orderedServiceBackedBackendTargets(scheduleProfile) {
   const selector = backendSelector(scheduleProfile);
+  if (!selector.enabled) {
+    return [];
+  }
   const targetsWithRows = new Set(
     collectTargetPlanRows(repoRoot)
       .filter((row) => {
@@ -877,14 +884,16 @@ function selectedBrowserStages(scheduleProfile, browserStages) {
 
 function renderSchedule(profile, timing, scheduleProfile, browserStages) {
   const target = requireString(scheduleProfile.target, "schedules[].target");
-  if (scheduleProfile.resource_limits !== undefined) {
-    throw new Error(`${target}.resource_limits is obsolete; use capacity_profile`);
-  }
   const capacityProfile = requireString(scheduleProfile.capacity_profile, `${target}.capacity_profile`);
-  const profileLimits = resourceLimitsForCapacityProfile(capacityProfile, `${target}.capacity_profile`, {
+  const profileLimits = normalizeResourceLimits(
+    scheduleProfile.resource_limits,
+    `${target}.resource_limits`,
+    {
     scheduler: "service_backed",
+    capacityProfile,
     allowAuto: true,
-  });
+    },
+  );
   const resourceLimits = Object.fromEntries(profileLimits.limits.entries());
   const priorities = serviceBackedPriorityBands(profile);
   const backend = backendSelector(scheduleProfile);

@@ -105,6 +105,7 @@ export const validSideEffectClasses = new Set([
   "service_resource_mutation",
   "destructive_cleanup",
   "runtime_reset",
+  "external_network",
 ]);
 const sideEffectRequiredFields = Object.freeze({
   none: [],
@@ -121,6 +122,14 @@ const sideEffectRequiredFields = Object.freeze({
   ],
   destructive_cleanup: ["predicates_section"],
   runtime_reset: ["predicates_section"],
+  external_network: [
+    "endpoint_input",
+    "protocol",
+    "privacy_contract",
+    "redirect_policy",
+    "timeout_contract",
+    "failure_contract",
+  ],
 });
 const validGateSmokeRoles = new Set([
   "public_make_wrapper",
@@ -171,6 +180,7 @@ export function validateTaskSurfaceManifest(manifest, manifestPath) {
 
 export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
   const errors = [];
+  const requireSequenceTopology = options.requireSequenceTopology !== false;
   if (manifest.schema_id !== taskSurfaceSchemaID) {
     errors.push(`schema_id must be ${taskSurfaceSchemaID}`);
   }
@@ -311,6 +321,132 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
     }
   }
 
+  const observabilityPolicy = manifest.observability_policy;
+  if (!observabilityPolicy || typeof observabilityPolicy !== "object" || Array.isArray(observabilityPolicy)) {
+    errors.push("observability_policy must be declared");
+  } else {
+    if (observabilityPolicy.scope !== "cartulary.harness.execution") {
+      errors.push("observability_policy.scope must be cartulary.harness.execution");
+    }
+    const requiredObservabilityTargets = new Set();
+    if (!Array.isArray(observabilityPolicy.required_targets) || observabilityPolicy.required_targets.length === 0) {
+      errors.push("observability_policy.required_targets must be a non-empty array");
+    } else {
+      for (const [index, targetName] of observabilityPolicy.required_targets.entries()) {
+        const label = `observability_policy.required_targets[${index + 1}]`;
+        const target = targets.get(targetName);
+        if (!target || target.target_class !== "public") errors.push(`${label} must name a public target`);
+        if (requiredObservabilityTargets.has(targetName)) errors.push(`observability_policy contains duplicate required target ${targetName}`);
+        requiredObservabilityTargets.add(targetName);
+      }
+    }
+    const dispositions = new Map(
+      [...requiredObservabilityTargets].map((target) => [target, "required"]),
+    );
+    for (const [property, disposition] of [
+      ["excluded_targets", "excluded"],
+      ["out_of_scope_targets", "out_of_scope"],
+    ]) {
+      const entries = observabilityPolicy[property];
+      if (!Array.isArray(entries)) {
+        errors.push(`observability_policy.${property} must be an array`);
+        continue;
+      }
+      const localTargets = new Set();
+      for (const [index, entry] of entries.entries()) {
+        const label = `observability_policy.${property}[${index + 1}]`;
+        if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+          errors.push(`${label} must be an object`);
+          continue;
+        }
+        const target = targets.get(entry.target);
+        if (!target || target.target_class !== "public") {
+          errors.push(`${label}.target must name a public target`);
+        }
+        if (localTargets.has(entry.target)) {
+          errors.push(`${label}.target duplicates ${entry.target}`);
+        }
+        localTargets.add(entry.target);
+        if (dispositions.has(entry.target)) {
+          errors.push(
+            `${label}.target overlaps ${dispositions.get(entry.target)} disposition`,
+          );
+        } else {
+          dispositions.set(entry.target, disposition);
+        }
+        if (typeof entry.owner_section !== "string" || !ownerSectionPattern.test(entry.owner_section)) {
+          errors.push(`${label}.owner_section must be a Section reference`);
+        }
+        if (typeof entry.reason !== "string" || entry.reason.trim() === "") {
+          errors.push(`${label}.reason must be non-empty`);
+        }
+      }
+    }
+    for (const target of targets.values()) {
+      if (target.target_class === "public" && !dispositions.has(target.name)) {
+        errors.push(`observability_policy omits public target ${target.name}`);
+      }
+    }
+    for (const target of dispositions.keys()) {
+      if (!targets.has(target)) {
+        errors.push(`observability_policy contains unknown target ${target}`);
+      }
+    }
+
+    const profileIDs = new Set();
+    if (!Array.isArray(observabilityPolicy.measurement_profiles) || observabilityPolicy.measurement_profiles.length === 0) {
+      errors.push("observability_policy.measurement_profiles must be a non-empty array");
+    } else {
+      for (const [index, profile] of observabilityPolicy.measurement_profiles.entries()) {
+        const label = `observability_policy.measurement_profiles[${index + 1}]`;
+        if (!profile || typeof profile !== "object" || Array.isArray(profile)) {
+          errors.push(`${label} must be an object`);
+          continue;
+        }
+        if (profileIDs.has(profile.profile_id)) {
+          errors.push(`${label}.profile_id duplicates ${profile.profile_id}`);
+        }
+        profileIDs.add(profile.profile_id);
+      }
+    }
+    const measurementTargets = new Set();
+    const usedProfiles = new Set();
+    if (!Array.isArray(observabilityPolicy.target_measurement_profiles)) {
+      errors.push("observability_policy.target_measurement_profiles must be an array");
+    } else {
+      for (const [index, binding] of observabilityPolicy.target_measurement_profiles.entries()) {
+        const label = `observability_policy.target_measurement_profiles[${index + 1}]`;
+        const target = targets.get(binding?.target);
+        if (!target || !new Set(["public", "check_internal"]).has(target.target_class)) {
+          errors.push(`${label}.target must name a public or check-internal target`);
+        }
+        if (measurementTargets.has(binding?.target)) {
+          errors.push(`${label}.target duplicates ${binding?.target}`);
+        }
+        measurementTargets.add(binding?.target);
+        if (!profileIDs.has(binding?.profile_id)) {
+          errors.push(`${label}.profile_id references unknown profile ${binding?.profile_id}`);
+        }
+        usedProfiles.add(binding?.profile_id);
+      }
+    }
+    for (const target of requiredObservabilityTargets) {
+      if (!measurementTargets.has(target)) {
+        errors.push(`observability_policy required target ${target} lacks a measurement profile`);
+      }
+    }
+    for (const target of measurementTargets) {
+      if (!requiredObservabilityTargets.has(target) && target !== "release-browser-readiness") {
+        errors.push(`observability_policy measurement target ${target} is not required`);
+      }
+    }
+    for (const profileID of profileIDs) {
+      if (!usedProfiles.has(profileID)) {
+        errors.push(`observability_policy measurement profile ${profileID} is unused`);
+      }
+    }
+  }
+
   const harnessChecks = new Map();
   if (!Array.isArray(manifest.harness_checks)) {
     errors.push("harness_checks[] must be an array");
@@ -401,6 +537,22 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
           `sequence ${name} must use summary_groups and step produces_summary_targets, not summary_profile`,
         );
       }
+      const resourceLimits = sequence.resource_limits;
+      if (requireSequenceTopology) {
+        const executionMode = sequence.execution_mode;
+        if (!new Set(["serial", "dag"]).has(executionMode)) {
+          errors.push(`sequence ${name}.execution_mode must be serial or dag`);
+        }
+        if (!Number.isInteger(sequence.max_jobs) || sequence.max_jobs < 1 || sequence.max_jobs > 16) {
+          errors.push(`sequence ${name}.max_jobs must be an integer from 1 through 16`);
+        }
+        if (executionMode === "serial" && sequence.max_jobs !== 1) {
+          errors.push(`sequence ${name}.max_jobs must be 1 for serial execution`);
+        }
+        if (!resourceLimits || typeof resourceLimits !== "object" || Array.isArray(resourceLimits)) {
+          errors.push(`sequence ${name}.resource_limits must be an object`);
+        }
+      }
       validateSummaryGroups(
         errors,
         summaryEntries,
@@ -423,6 +575,15 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
         errors.push(`sequence ${name} must declare steps[]`);
         continue;
       }
+      const sequenceTargets = new Set();
+      for (const [index, step] of sequence.steps.entries()) {
+        if (sequenceTargets.has(step?.target)) {
+          errors.push(
+            `sequence ${name} steps[${index + 1}].target duplicates ${step?.target}; occurrence aliases are unsupported`,
+          );
+        }
+        sequenceTargets.add(step?.target);
+      }
       for (const [index, step] of sequence.steps.entries()) {
         const label = `sequence ${name} steps[${index + 1}]`;
         if (!["step", "parallel"].includes(step?.type)) {
@@ -442,6 +603,9 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
             `${label} parallel step must declare jobs or jobs_variable`,
           );
         }
+        if (requireSequenceTopology && !Number.isInteger(step.priority)) {
+          errors.push(`${label}.priority must be an integer`);
+        }
         if (
           step.skip_prerequisites !== undefined &&
           typeof step.skip_prerequisites !== "boolean"
@@ -450,6 +614,26 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
         }
         if (step.type === "parallel" && step.skip_prerequisites === true) {
           errors.push(`${label}.skip_prerequisites is supported only for serial steps`);
+        }
+        if (requireSequenceTopology && !Array.isArray(step.needs ?? [])) {
+          errors.push(`${label}.needs must be an array`);
+        } else if (requireSequenceTopology) {
+          for (const dependency of step.needs ?? []) {
+            if (!sequence.steps.some((candidate) => candidate.target === dependency)) {
+              errors.push(`${label}.needs references non-sequence target ${dependency}`);
+            }
+          }
+        }
+        if (requireSequenceTopology && step.resource_claims !== undefined) {
+          if (!step.resource_claims || typeof step.resource_claims !== "object" || Array.isArray(step.resource_claims)) {
+            errors.push(`${label}.resource_claims must be an object`);
+          } else {
+            for (const [resource, claim] of Object.entries(step.resource_claims)) {
+              if (!Number.isInteger(claim) || claim < 1 || !Number.isInteger(resourceLimits?.[resource]) || claim > resourceLimits?.[resource]) {
+                errors.push(`${label}.resource_claims.${resource} must fit the sequence resource limit`);
+              }
+            }
+          }
         }
         validateNamedTargetList(
           errors,
@@ -460,6 +644,27 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
             required: false,
           },
         );
+      }
+      if (requireSequenceTopology) {
+        const dependencyMap = new Map(
+          sequence.steps.map((step) => [step.target, step.needs ?? []]),
+        );
+      const visiting = new Set();
+      const visited = new Set();
+      const visit = (target) => {
+        if (visiting.has(target)) {
+          errors.push(`sequence ${name} contains a dependency cycle at ${target}`);
+          return;
+        }
+        if (visited.has(target)) return;
+        visiting.add(target);
+        for (const dependency of dependencyMap.get(target) ?? []) {
+          if (dependencyMap.has(dependency)) visit(dependency);
+        }
+        visiting.delete(target);
+        visited.add(target);
+      };
+        for (const target of dependencyMap.keys()) visit(target);
       }
     }
   }

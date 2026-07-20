@@ -167,8 +167,8 @@ JSON
 }
 JSON
   cat >"$dir/check/scheduler-events.jsonl" <<'JSONL'
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"scheduler-start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"scheduler-finish","seq":2,"monotonic_ms":10,"emitted_at":"2026-01-01T00:00:00.010Z"}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"scheduler-start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"scheduler-finish","seq":2,"monotonic_ms":10,"emitted_at":"2026-01-01T00:00:00.010Z"}
 JSONL
   cat >"$dir/backend-unit/target-summary.json" <<'JSON'
 {
@@ -279,7 +279,7 @@ JSON
 }
 JSON
   cat >"$dir/check/scheduler-events.jsonl" <<'JSONL'
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"scheduler-start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"scheduler-start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}
 JSONL
 }
 

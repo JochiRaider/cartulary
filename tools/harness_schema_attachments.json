@@ -170,6 +170,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.harness_execution_context.v1",
+      "path": "tools/schemas/cartulary.harness_execution_context.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "top-level harness wrapper",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.harness_helper_ownership.v1",
       "path": "tools/schemas/cartulary.harness_helper_ownership.v1.schema.json",
       "classification": "owner_input",
@@ -177,10 +184,52 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.harness_hotspot_summary.v1",
+      "path": "tools/schemas/cartulary.harness_hotspot_summary.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "harness observability finalizer",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.harness_observability_index.v1",
+      "path": "tools/schemas/cartulary.harness_observability_index.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "harness observability finalizer",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.harness_performance_evidence_roots.v1",
+      "path": "tools/schemas/cartulary.harness_performance_evidence_roots.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "harness performance acceptance",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.harness_public_target_duration_baselines.v1",
+      "path": "tools/schemas/cartulary.harness_public_target_duration_baselines.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "harness performance baseliner",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.harness_schema_attachments.v1",
       "path": "tools/schemas/cartulary.harness_schema_attachments.v1.schema.json",
       "classification": "owner_input",
       "producer": "schema attachment owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.harness_sequence_event.v1",
+      "path": "tools/schemas/cartulary.harness_sequence_event.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "harness sequence runner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.harness_trace_bundle.v1",
+      "path": "tools/schemas/cartulary.harness_trace_bundle.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "harness observability finalizer",
       "validation": "json-shape-check"
     },
     {
@@ -254,8 +303,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.scheduler_event.v6",
-      "path": "tools/schemas/cartulary.scheduler_event.v6.schema.json",
+      "schema_id": "cartulary.scheduler_event.v7",
+      "path": "tools/schemas/cartulary.scheduler_event.v7.schema.json",
       "classification": "public_contract",
       "producer": "scheduler",
       "validation": "json-shape-check"
@@ -286,6 +335,13 @@
       "path": "tools/schemas/cartulary.schema_object_ownership_manifest.v1.schema.json",
       "classification": "owner_input",
       "producer": "database contract owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.sequence_scheduler_summary.v1",
+      "path": "tools/schemas/cartulary.sequence_scheduler_summary.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "sequence scheduler",
       "validation": "json-shape-check"
     },
     {

@@ -37,6 +37,7 @@ import {
   targetOwnerEvidenceArtifactPaths,
 } from "../../evidence-accounting/index.mjs";
 import { defaultTaskSurfaceManifestPath } from "../../generated-artifacts/task-surface/model.mjs";
+import { finalizeObservabilitySafely, observabilityRequiredTarget } from "../../observability/observability.mjs";
 import {
   artifactLine,
   directoryArtifactRef,
@@ -2223,13 +2224,31 @@ export function handleTargetSummary(args) {
   }
   const shouldSuppressMachineOutput =
     suppressMachineOutput || suppressChildSuccess();
+  if (!suppressChildSuccess() && observabilityRequiredTarget(targetSummary.target)) {
+    const observability = finalizeObservabilitySafely(path.join(resultsRoot, runId), {
+      target: targetSummary.target,
+      status: targetSummary.status === "pass" ? "passed" : "failed",
+    });
+    if (observability.status === "partial") {
+      const toolSummary = JSON.parse(readFileSync(targetToolSummaryFile, "utf8"));
+      toolSummary.warnings = [
+        ...(toolSummary.warnings ?? []),
+        {
+          kind: "harness_observability",
+          status: "partial",
+          diagnostic: observability.diagnostic,
+        },
+      ];
+      writeToolSummary(targetToolSummaryFile, toolSummary);
+    }
+  }
 
   if (finalStatus === "PASS") {
     if (machineOutput()) {
       if (!shouldSuppressMachineOutput) {
         process.stdout.write(
           compactJSONString(
-            targetToolSummary(targetSummary, targetToolSummaryRel),
+            JSON.parse(readFileSync(targetToolSummaryFile, "utf8")),
           ),
         );
       }
@@ -2257,7 +2276,7 @@ export function handleTargetSummary(args) {
     if (!shouldSuppressMachineOutput) {
       process.stdout.write(
         compactJSONString(
-          targetToolSummary(targetSummary, targetToolSummaryRel),
+          JSON.parse(readFileSync(targetToolSummaryFile, "utf8")),
         ),
       );
     }

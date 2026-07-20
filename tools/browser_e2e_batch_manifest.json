@@ -911,6 +911,9 @@
     {
       "name": "support",
       "target": "browser-e2e-support",
+      "schedule_tags": [
+        "service_backed_release_browser"
+      ],
       "groups": [
         {
           "name": "support-auth-support",
@@ -919,14 +922,15 @@
           "coverage": "supplemental",
           "execution_dependency": "browser_support",
           "workers": "default",
+          "browser_session_group": "browser-e2e-support-default",
+          "browser_session_isolation_reason": "release support evidence owns an isolated fixture session",
           "selected_row_ids": [
             "module.auth.browser_support.supplemental_browser_verifies_ordinary_shell_sel_f8a9da1957"
           ],
           "specs": [
             "apps/web/e2e/auth.support.spec.ts"
           ],
-          "runtime_profile_id": "default",
-          "browser_session_group": "browser-e2e-support-default"
+          "runtime_profile_id": "default"
         },
         {
           "name": "support-incident-support",
@@ -935,6 +939,8 @@
           "coverage": "supplemental",
           "execution_dependency": "browser_support",
           "workers": "default",
+          "browser_session_group": "browser-e2e-support-default",
+          "browser_session_isolation_reason": "release support evidence owns an isolated fixture session",
           "selected_row_ids": [
             "module.incidents.browser_support.supports_reserved_family_dispatch_precedence_pro_d831d613fa",
             "module.incidents.browser_support.supports_route_owned_incident_validation_errors_c277ce45ee",
@@ -943,8 +949,7 @@
           "specs": [
             "apps/web/e2e/incident.support.spec.ts"
           ],
-          "runtime_profile_id": "default",
-          "browser_session_group": "browser-e2e-support-default"
+          "runtime_profile_id": "default"
         },
         {
           "name": "support-keyboard",
@@ -953,14 +958,15 @@
           "coverage": "supplemental",
           "execution_dependency": "browser_support",
           "workers": "default",
+          "browser_session_group": "browser-e2e-support-default",
+          "browser_session_isolation_reason": "release support evidence owns an isolated fixture session",
           "selected_row_ids": [
             "module.timeline.browser_support.verify_full_keyboard_clipboard_contract_one_clic_ec36b90e7b"
           ],
           "specs": [
             "apps/web/e2e/keyboard.spec.ts"
           ],
-          "runtime_profile_id": "default",
-          "browser_session_group": "browser-e2e-support-default"
+          "runtime_profile_id": "default"
         },
         {
           "name": "support-timeline-support",
@@ -969,6 +975,8 @@
           "coverage": "supplemental",
           "execution_dependency": "browser_support",
           "workers": "default",
+          "browser_session_group": "browser-e2e-support-default",
+          "browser_session_isolation_reason": "release support evidence owns an isolated fixture session",
           "selected_row_ids": [
             "module.timeline.browser_support.keeps_a_pending_edit_anchored_to_its_record_unde_b5a6ab2768",
             "module.timeline.browser_support.keeps_repeated_scalar_grid_edits_out_of_the_rdg_3b2fc5f1f0",
@@ -977,8 +985,7 @@
           "specs": [
             "apps/web/e2e/timeline.support.spec.ts"
           ],
-          "runtime_profile_id": "default",
-          "browser_session_group": "browser-e2e-support-default"
+          "runtime_profile_id": "default"
         },
         {
           "name": "support-workbook-support",
@@ -987,14 +994,15 @@
           "coverage": "supplemental",
           "execution_dependency": "browser_support",
           "workers": "default",
+          "browser_session_group": "browser-e2e-support-default",
+          "browser_session_isolation_reason": "release support evidence owns an isolated fixture session",
           "selected_row_ids": [
             "module.workbook.browser_support.verify_browser_command_helpers_for_sort_filter_g_cfa68b33e4"
           ],
           "specs": [
             "apps/web/e2e/workbook.support.spec.ts"
           ],
-          "runtime_profile_id": "default",
-          "browser_session_group": "browser-e2e-support-default"
+          "runtime_profile_id": "default"
         }
       ]
     },
@@ -1278,7 +1286,8 @@
       "name": "a11y",
       "target": "browser-e2e-a11y",
       "schedule_tags": [
-        "service_backed_full"
+        "service_backed_full",
+        "service_backed_release_browser"
       ],
       "groups": [
         {
@@ -1288,6 +1297,8 @@
           "coverage": "authoritative",
           "execution_dependency": "browser_a11y",
           "workers": "1",
+          "browser_session_group": "browser-e2e-a11y-default",
+          "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
           "selected_row_ids": [
             "module.auth.accessibility.verify_session_mfa_incident_forbidden_loading_an_e8f5d5f3a9",
             "module.collaboration.accessibility.verify_conflict_state_resolver_controls_presence_2ec686e8dd",
@@ -1305,8 +1316,7 @@
           "specs": [
             "apps/web/e2e/workbook.a11y.spec.ts"
           ],
-          "runtime_profile_id": "default",
-          "browser_session_group": "browser-e2e-a11y-default"
+          "runtime_profile_id": "default"
         },
         {
           "name": "a11y-network-flow-claimed-workbook-a11y",
@@ -1331,7 +1341,8 @@
       "name": "visual",
       "target": "browser-e2e-visual",
       "schedule_tags": [
-        "service_backed_full"
+        "service_backed_full",
+        "service_backed_release_browser"
       ],
       "groups": [
         {
@@ -1341,6 +1352,8 @@
           "coverage": "authoritative",
           "execution_dependency": "browser_visual",
           "workers": "1",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
           "selected_row_ids": [
             "module.auth.visual.capture_the_anonymous_auth_gateway_across_initia_755030aa99",
             "module.collaboration.visual.capture_presence_markers_same_field_conflict_res_f0a62c52a1",
@@ -1370,8 +1383,7 @@
           "specs": [
             "apps/web/e2e/workbook.visual.spec.ts"
           ],
-          "runtime_profile_id": "default",
-          "browser_session_group": "browser-e2e-visual-default"
+          "runtime_profile_id": "default"
         },
         {
           "name": "visual-network-flow-claimed-workbook-visual",

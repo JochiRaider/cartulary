@@ -57,6 +57,10 @@
   target-plan-json \
   fixture-report \
   explain-run \
+  harness-observability-check \
+  harness-otel-export \
+  harness-performance-check \
+  harness-public-target-duration-baselines \
   explain-test-owner \
   explain-target \
   go-test-duration-baselines \
@@ -121,6 +125,7 @@
   check-harness-smoke \
   check-service-backed \
   ci \
+  release-browser-readiness \
   release-check \
   release-readiness-evidence \
   license-report \
@@ -243,6 +248,10 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'                                      TARGET=backend-store DETAIL=rows explain one target' \
 	'  make explain-run' \
 	'                                      RESULTS_DIR=<root|run-dir> inspect run summary artifacts' \
+	'  make harness-observability-check' \
+	'                                      RESULTS_DIR=<root|run-dir> reconstruct and validate retained harness diagnostics' \
+	'  make harness-otel-export' \
+	'                                      RESULTS_DIR=<root|run-dir> HARNESS_OTLP_ENDPOINT=<url> explicitly export retained harness diagnostics' \
 	'  make fixture-report' \
 	'                                      RESULTS_DIR=<root|run-dir> report fixture cost hotspots' \
 	'' \
@@ -263,6 +272,10 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'                                      verify Go shard baseline coverage' \
 	'  make go-test-duration-baseline-drift' \
 	'                                      RESULTS_DIR=<dir> verify Go shard baseline freshness' \
+	'  make harness-performance-check' \
+	'                                      EVIDENCE_ROOTS_FILE=<manifest> compare warm baseline and candidate performance windows' \
+	'  make harness-public-target-duration-baselines' \
+	'                                      EVIDENCE_ROOTS_FILE=<manifest> refresh qualified public-target performance baselines' \
 	'  make browser-e2e-duration-baselines' \
 	'                                      RESULTS_DIR=<dir> refresh browser spec duration baselines' \
 	'  make browser-e2e-duration-baseline-drift' \
@@ -585,6 +598,22 @@ explain-run:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,explain-run)
 	$(Q)$(call RUN_MAKE_NODE_TOOL,explain-run,RESULTS_DIR="$(RESULTS_DIR)" RUN_ID="$(RUN_ID)" TARGET="$(TARGET)" DETAIL="$(DETAIL)")
 
+harness-observability-check:
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,harness-observability-check)
+	$(Q)$(call RUN_MAKE_NODE_TOOL,harness-observability-check,RESULTS_DIR="$(RESULTS_DIR)" RUN_ID="$(RUN_ID)")
+
+harness-otel-export:
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,harness-otel-export)
+	$(Q)$(call RUN_MAKE_NODE_TOOL,harness-otel-export,RESULTS_DIR="$(RESULTS_DIR)" RUN_ID="$(RUN_ID)" HARNESS_OTLP_ENDPOINT="$(HARNESS_OTLP_ENDPOINT)" HARNESS_OTLP_HEADERS_FILE="$(HARNESS_OTLP_HEADERS_FILE)")
+
+harness-performance-check:
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,harness-performance-check)
+	$(Q)$(call RUN_MAKE_NODE_TOOL,harness-performance-check,EVIDENCE_ROOTS_FILE="$(EVIDENCE_ROOTS_FILE)")
+
+harness-public-target-duration-baselines:
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,harness-public-target-duration-baselines)
+	$(Q)$(call RUN_MAKE_NODE_TOOL,harness-public-target-duration-baselines,EVIDENCE_ROOTS_FILE="$(EVIDENCE_ROOTS_FILE)")
+
 explain-test-owner:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,explain-test-owner)
@@ -745,7 +774,8 @@ harness-contract:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,harness-contract)
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP); fi
-	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "harness-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) --test ./tools/harness/tests/test-harness-contracts.mjs; status=$$?; if [ "$$status" -eq 0 ]; then $(call RUN_RETAINED_TARGET_SUMMARY,harness-contract,pass); summary_status=$$?; else $(call RUN_RETAINED_TARGET_SUMMARY,harness-contract,fail); summary_status=$$?; fi; if [ "$$summary_status" -ne 0 ]; then exit "$$summary_status"; fi; exit "$$status"
+	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "harness-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) --test ./tools/harness/tests/test-harness-contracts.mjs ./tools/harness/observability/tests/test-observability.mjs; status=$$?; if [ "$$status" -eq 0 ]; then $(call RUN_RETAINED_TARGET_SUMMARY,harness-contract,pass); summary_status=$$?; else $(call RUN_RETAINED_TARGET_SUMMARY,harness-contract,fail); summary_status=$$?; fi; if [ "$$summary_status" -ne 0 ]; then \
+	  exit "$$summary_status"; fi; exit "$$status"
 
 lint-shell: export CARTULARY_TEST_TARGET ?= lint-shell
 lint-shell:
@@ -924,6 +954,11 @@ ci:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,ci)
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP); fi
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" $(RUN_MAKE_SEQUENCE_SCRIPT) --sequence ci
+
+release-browser-readiness: export CARTULARY_TEST_TARGET ?= release-browser-readiness
+release-browser-readiness: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+release-browser-readiness: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate $(TEST_SERVICES_BIN) test-service-images
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_SERVICE_SCHEDULE_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) service-backed-target --target release-browser-readiness --step-label "release browser readiness" --service-wrapper test-services
 
 release-check:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi

@@ -152,10 +152,10 @@
       "imported_schema_ids": [],
       "owner_contract_manifest_id": "opentelemetry.extensions_contract.v1",
       "owner_contract_manifest_ref": "contracts/extensions/owners/opentelemetry.contract-manifest.json",
-      "owner_contract_manifest_sha256": "0a55bcca1202e186cb56d91db5c5c60f163d6981e34530e4a523158d6cd87da5",
+      "owner_contract_manifest_sha256": "58dff7bf037aca2e67c2546feecb767a81427991f0eb6e718f0b28d53250bf30",
       "owner_document_ref": "docs/opentelemetry-instrumentation-nlspec.md#document:cartulary.opentelemetry_instrumentation.current.v1",
       "owner_document_schema_id": "cartulary.opentelemetry_instrumentation.current.v1",
-      "owner_document_sha256": "b31baa1e2d5c2843f359041f6acf64dbd7c8f84b31ee102b2025ddcb72015b99",
+      "owner_document_sha256": "925c579ace3a154496f0fa9b725df6de37bb6f7a5d86faa8cb6616b52db43b9e",
       "owner_document_version": "extensions-adoption-1",
       "required_status": "adopted/current"
     },
@@ -217,10 +217,10 @@
       ],
       "owner_contract_manifest_id": "testing_harness.extensions_contract.v2",
       "owner_contract_manifest_ref": "contracts/extensions/owners/testing_harness.contract-manifest.json",
-      "owner_contract_manifest_sha256": "a11eec19cd139bd6e4d9888e78ad72c85b82b53bcfb3395db7d7a4692a08faea",
+      "owner_contract_manifest_sha256": "df35a58ccecae2652090717bf2cbe419d2a391e4dd32783b46e7867f361b743f",
       "owner_document_ref": "docs/testing-harness-nlspec.md#document:cartulary.testing_harness.v2",
       "owner_document_schema_id": "cartulary.testing_harness.v2",
-      "owner_document_sha256": "61d120b42fac884034721510612af6fb6121662db67230292de693104fce1e89",
+      "owner_document_sha256": "21ecb7db53e53a602ff462e174a6cd9c3e7053183ece9409dea632b0b99defb9",
       "owner_document_version": "2.0.0",
       "required_status": "adopted/current"
     }

@@ -168,6 +168,14 @@
       "allowed_consumers": []
     },
     {
+      "key": "harness_observability",
+      "boundary_group": "scheduler_diagnostics",
+      "paths": [
+        "tools/harness/observability/observability.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
       "key": "owner_diagnostics",
       "boundary_group": "scheduler_diagnostics",
       "paths": [

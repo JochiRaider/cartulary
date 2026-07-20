@@ -108,7 +108,7 @@ cat >"$results_dir/backend-unit/scheduler-summary.json" <<'JSON'
 }
 JSON
 cat >"$results_dir/backend-unit/scheduler-events.jsonl" <<'JSONL'
-{"schema_id":"cartulary.scheduler_event.v6","target":"backend-unit","event":"fixture"}
+{"schema_id":"cartulary.scheduler_event.v7","target":"backend-unit","event":"fixture"}
 JSONL
 
 cat >"$shared_dir/backend-integration-auth-shard-01/runner.jsonl" <<'JSONL'

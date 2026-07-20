@@ -51,7 +51,7 @@ const defaultBrowserBatchManifestPath = path.join(
   "browser_e2e_batch_manifest.json",
 );
 const supportedSchemaID = "cartulary.scheduler_manifest.v2";
-const schedulerEventSchemaID = "cartulary.scheduler_event.v6";
+const schedulerEventSchemaID = "cartulary.scheduler_event.v7";
 const schedulerSummarySchemaID =
   "cartulary.service_backed_scheduler_summary.v10";
 const goCPUResource = "go_cpu";
@@ -245,6 +245,7 @@ function attachRuntime(
       TEST_OUTPUT_SCRIPT: testOutputScript,
     }),
   });
+  const lifecycleStepIndexes = new Map();
 
   return {
     ...schedule,
@@ -260,9 +261,19 @@ function attachRuntime(
     runningDisplayUnits: finalizerRunningDisplayUnits,
     countCompletedUnit: countVisibleCompletedUnit,
     beforeRun: async ({ reporter }) => {
-      if (!reporter.verbose) {
-        return;
-      }
+      await runLifecycle(repoRoot, testOutputScript, [
+        "run-start",
+        schedule.target,
+        "--steps",
+        String(schedule.totalWorkUnits),
+        "--summary-targets",
+        String(schedule.children.length),
+        "--helper-units",
+        "0",
+        "--jobs",
+        String(capacityDisplay),
+      ]);
+      if (!reporter.verbose) return;
       await runLifecycle(repoRoot, testOutputScript, [
         "target-start",
         schedule.target,
@@ -276,6 +287,7 @@ function attachRuntime(
       if (!reporter.verbose || unit.countInTotal === false) {
         return;
       }
+      lifecycleStepIndexes.set(unit.id, started);
       await runLifecycle(repoRoot, testOutputScript, [
         "step-start",
         schedule.target,
@@ -286,6 +298,18 @@ function attachRuntime(
         "scheduler",
         "--jobs",
         String(capacityDisplay),
+      ]);
+    },
+    afterUnitFinish: async ({ unit, result }) => {
+      const lifecycleStepIndex = lifecycleStepIndexes.get(unit.id);
+      if (lifecycleStepIndex === undefined) return;
+      await runLifecycle(repoRoot, testOutputScript, [
+        "step-finish",
+        schedule.target,
+        String(lifecycleStepIndex),
+        unit.label,
+        result.status === 0 ? "pass" : "fail",
+        String(Math.max(0, result.status)),
       ]);
     },
     beforeReplayLog: replayFailedAggregateLogsBeforeFinalizer,
@@ -316,6 +340,14 @@ function attachRuntime(
       started_count: started,
     }),
     afterSummary: async ({ requestedStatus }) => {
+      await runLifecycle(repoRoot, testOutputScript, [
+        "run-finish",
+        schedule.target,
+        requestedStatus,
+        requestedStatus === "pass" ? "0" : "1",
+      ]).catch((error) => {
+        if (requestedStatus === "pass") throw error;
+      });
       if (deferSummary) {
         return;
       }

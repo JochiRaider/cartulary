@@ -119,6 +119,15 @@ const expectedMakeEnvVars = {
     "RESULTS_DIR",
     "HARNESS_SMOKE_DURATION_BASELINE",
   ],
+  "harness-observability-check": ["RESULTS_DIR", "RUN_ID"],
+  "harness-otel-export": [
+    "RESULTS_DIR",
+    "RUN_ID",
+    "HARNESS_OTLP_ENDPOINT",
+    "HARNESS_OTLP_HEADERS_FILE",
+  ],
+  "harness-performance-check": ["EVIDENCE_ROOTS_FILE"],
+  "harness-public-target-duration-baselines": ["EVIDENCE_ROOTS_FILE"],
   "test-evidence-audit": [
     "OWNER",
     "EVIDENCE_ROOTS_FILE",
@@ -209,6 +218,36 @@ assertArgs("task-guide", { ROLE: "module-author", OWNER: "module.networkflow", J
   "module-author",
   "--json",
 ]);
+assertArgs(
+  "harness-observability-check",
+  { RESULTS_DIR: "/tmp/cartulary-results/run-a", RUN_ID: "run-a" },
+  ["--results-dir", "/tmp/cartulary-results/run-a", "--run-id", "run-a"],
+);
+assertArgs(
+  "harness-otel-export",
+  {
+    RESULTS_DIR: "/tmp/cartulary-results/run-a",
+    RUN_ID: "run-a",
+    HARNESS_OTLP_ENDPOINT: "https://collector.example",
+    HARNESS_OTLP_HEADERS_FILE: "/tmp/headers.json",
+  },
+  [
+    "--results-dir", "/tmp/cartulary-results/run-a",
+    "--endpoint", "https://collector.example",
+    "--run-id", "run-a",
+    "--headers-file", "/tmp/headers.json",
+  ],
+);
+assertArgs(
+  "harness-performance-check",
+  { EVIDENCE_ROOTS_FILE: "/tmp/performance-roots.json" },
+  ["--evidence-roots-file", "/tmp/performance-roots.json"],
+);
+assertArgs(
+  "harness-public-target-duration-baselines",
+  { EVIDENCE_ROOTS_FILE: "/tmp/performance-roots.json" },
+  ["--evidence-roots-file", "/tmp/performance-roots.json"],
+);
 assertArgs("test-slice", { OWNER: "platform.config", JSON: "1" }, [
   "--target",
   "test-slice",

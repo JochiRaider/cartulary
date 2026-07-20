@@ -3,18 +3,20 @@ import os from "node:os";
 import path from "node:path";
 
 import {
-  assignExecutionFamily,
+  assignCompatibilityGroup,
   captureNamedSharedReportsParallel,
+  warmGoTestDependencies,
 } from "./capture.mjs";
 import { createAggregateReport } from "./reports.mjs";
 import {
-  aggregateNames,
   rowsForScheduledAggregate,
   targetAggregates,
   targetShards,
+  unshardedCompatibilityGroups,
 } from "./planning.mjs";
 import {
   emitExecutionFamily,
+  emitExecutionFamiliesBatch,
   finishTarget,
   resolveFinalizerEmitJobs,
   runBounded,
@@ -27,22 +29,47 @@ import {
 } from "./util.mjs";
 
 export async function runUnshardedTarget(ctx, target) {
-  let status = 0;
-  for (const aggregateName of aggregateNames(ctx, target)) {
+  const groups = unshardedCompatibilityGroups(ctx, target);
+  const jobs = Math.min(4, Math.max(1, Math.floor(os.availableParallelism() / 4)));
+  await warmGoTestDependencies(ctx);
+  const captures = await runBounded(groups, jobs, async (group) => {
     try {
-      const captured = await assignExecutionFamily(ctx, target, aggregateName);
-      if (status === 0) {
-        status = await emitExecutionFamily(
-          ctx,
-          target,
-          aggregateName,
-          captured.usage,
-          captured.reportDir,
-        );
-      }
+      return { group, captured: await assignCompatibilityGroup(ctx, target, group), error: null };
     } catch (error) {
-      process.stderr.write(`${error.message}\n`);
-      status = Number.isInteger(error.exitCode) ? error.exitCode : 1;
+      return { group, captured: null, error };
+    }
+  });
+  let status = 0;
+  for (const capture of captures) {
+    if (!capture.error) continue;
+    process.stderr.write(`${capture.error.message}\n`);
+    if (status === 0) status = Number.isInteger(capture.error.exitCode) ? capture.error.exitCode : 1;
+  }
+  if (status === 0) {
+    const emissions = captures.flatMap(({ group, captured }) =>
+      group.families.map((family, index) => ({
+        target,
+        family,
+        rows: group.rows.filter((row) => row.execution_family === family),
+        reportDir: captured.reportDir,
+        usage: index === 0 ? captured.usage : "derived",
+      })),
+    ).sort((left, right) => left.family.localeCompare(right.family));
+    const batchEmissionStarted = captureStart();
+    const emissionStatuses = await emitExecutionFamiliesBatch(ctx, emissions, 4);
+    const batchEmissionWindow = captureFinish(batchEmissionStarted);
+    writeTargetTimingSpan(
+      ctx,
+      "report_collation",
+      `batch ingest ${target}`,
+      batchEmissionWindow,
+      emissionStatuses.every((emissionStatus) => emissionStatus === 0) ? "pass" : "fail",
+    );
+    for (const emissionStatus of emissionStatuses) {
+      if (emissionStatus !== 0) {
+        status = emissionStatus;
+        break;
+      }
     }
   }
   return await finishTarget(ctx, status);

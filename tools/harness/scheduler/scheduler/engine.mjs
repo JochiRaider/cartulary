@@ -456,6 +456,70 @@ class SchedulerReporter {
     this.maxActiveResourceClaims = new Map();
     this.schemaValidationEnabled = schedule.schemaValidationEnabled !== false;
     this.deferredSchemaRecords = [];
+    const producerByCompletionKey = new Map();
+    for (const unit of schedule.workUnits) {
+      for (const key of unitCompletionKeys(unit)) {
+        producerByCompletionKey.set(key, unit.id);
+      }
+    }
+    this.unitIDByLabel = new Map();
+    this.workUnitStates = new Map(
+      schedule.workUnits.map((unit, index) => {
+        this.unitIDByLabel.set(unit.label, unit.id);
+        return [unit.id, {
+          work_unit_id: unit.id,
+          manifest_ordinal: index + 1,
+          priority: Number.isInteger(unit.priority) ? unit.priority : 0,
+          dependencies: Array.from(new Set(unit.needs ?? [])).sort((left, right) => left.localeCompare(right)),
+          resource_claims: resourceMapToObject(unit.resourceClaims),
+          eligibility_monotonic_ms: (unit.needs ?? []).length === 0 ? 0 : null,
+          started_monotonic_ms: null,
+          terminal_monotonic_ms: null,
+          terminal_state: "pending",
+          wait_reason: null,
+          blocking_resources: [],
+          blocking_units: [],
+        }];
+      }),
+    );
+    this.dependencyEdges = schedule.workUnits
+      .flatMap((unit) => (unit.needs ?? []).map((need) => ({
+        from: producerByCompletionKey.get(need) ?? need,
+        to: unit.id,
+      })))
+      .sort((left, right) =>
+        left.to.localeCompare(right.to) || left.from.localeCompare(right.from),
+      );
+  }
+
+  markEligibleUnits(pending, completedKeys, failedKeys) {
+    const now = this.clock.monotonicMs();
+    for (const unit of pending) {
+      const state = this.workUnitStates.get(unit.id);
+      if (!state || state.eligibility_monotonic_ms !== null) continue;
+      const dependencies = unit.needs ?? [];
+      if (
+        dependencies.every((dependency) => completedKeys.has(dependency)) ||
+        dependencies.some((dependency) => failedKeys.has(dependency))
+      ) {
+        state.eligibility_monotonic_ms = now;
+      }
+    }
+  }
+
+  workUnitStateSnapshot() {
+    return [...this.workUnitStates.values()]
+      .sort((left, right) =>
+        left.manifest_ordinal - right.manifest_ordinal ||
+        left.work_unit_id.localeCompare(right.work_unit_id),
+      )
+      .map((state) => ({
+        ...state,
+        dependencies: [...state.dependencies],
+        resource_claims: { ...state.resource_claims },
+        blocking_resources: [...state.blocking_resources],
+        blocking_units: [...state.blocking_units],
+      }));
   }
 
   setSchemaValidationEnabled(enabled = true) {
@@ -499,7 +563,7 @@ class SchedulerReporter {
       workUnits: this.schedule.workUnits.filter(counted),
       artifacts: relToRepo(this.repoRoot, this.targetDir),
     });
-    if (!this.machine) {
+    if (!this.machine && (!this.schedule.quietHumanOutput || this.verbose)) {
       process.stdout.write(line);
     }
     this.progressRecorder.recordStart(line);
@@ -564,7 +628,16 @@ class SchedulerReporter {
   }
 
   startUnit(unit, logFile, state) {
-    this.startedAt.set(unit.id, this.clock.monotonicMs());
+    const startedMonotonicMs = this.clock.monotonicMs();
+    this.startedAt.set(unit.id, startedMonotonicMs);
+    const workUnitState = this.workUnitStates.get(unit.id);
+    if (workUnitState) {
+      workUnitState.eligibility_monotonic_ms ??= startedMonotonicMs;
+      workUnitState.started_monotonic_ms = startedMonotonicMs;
+      workUnitState.terminal_state = "running";
+      workUnitState.blocking_resources = [];
+      workUnitState.blocking_units = [];
+    }
     if (finalizer(unit)) {
       this.emit(
         "finalize-start",
@@ -612,6 +685,15 @@ class SchedulerReporter {
     const startedMonotonicMs = this.startedAt.get(unit.id) ?? now;
     const durationMs = Math.max(0, now - startedMonotonicMs);
     this.startedAt.delete(unit.id);
+    const workUnitState = this.workUnitStates.get(unit.id);
+    if (workUnitState) {
+      workUnitState.terminal_monotonic_ms = now;
+      workUnitState.terminal_state = result.status === 0
+        ? "passed"
+        : result.terminationReason === "cancelled_or_interrupted"
+          ? "interrupted"
+          : "failed";
+    }
     if (this.schedule.countCompletedUnit(unit, result)) {
       this.completedCount += 1;
     }
@@ -717,6 +799,22 @@ class SchedulerReporter {
   }
 
   async blocked(state, reason, blockedResources, { waitingOn = [], blockedUnits = [] } = {}) {
+    for (const blockedUnit of blockedUnits) {
+      const workUnitID = this.unitIDByLabel.get(blockedUnit.work_unit) ?? blockedUnit.work_unit;
+      const workUnitState = this.workUnitStates.get(workUnitID);
+      if (!workUnitState || workUnitState.eligibility_monotonic_ms === null) continue;
+      const resources = [...new Set(blockedUnit.blocked_resources ?? [])].sort((left, right) => left.localeCompare(right));
+      workUnitState.wait_reason = resources.length === 1 && resources[0] === "process"
+        ? "capacity"
+        : resources.length > 0
+          ? "resources"
+          : workUnitState.wait_reason;
+      workUnitState.blocking_resources = resources;
+      workUnitState.blocking_units = Array.from(state.running.values())
+        .filter((unit) => resources.some((resource) => unit.resourceClaims.has(resource)))
+        .map((unit) => unit.id)
+        .sort((left, right) => left.localeCompare(right));
+    }
     const blockerDiagnostics = schedulerBlockedDiagnostics({
       reason,
       blockedResources,
@@ -782,6 +880,18 @@ class SchedulerReporter {
       failed_dependency: failedDependency,
     };
     this.skippedWork.push(record);
+    const now = this.clock.monotonicMs();
+    const workUnitState = this.workUnitStates.get(unit.id);
+    if (workUnitState) {
+      workUnitState.eligibility_monotonic_ms ??= now;
+      workUnitState.terminal_monotonic_ms = now;
+      workUnitState.terminal_state = reason === "dependency_failure"
+        ? "skipped_dependency"
+        : reason === "cancelled_or_interrupted"
+          ? "interrupted"
+          : "cancelled";
+      workUnitState.wait_reason = reason === "dependency_failure" ? null : "scheduler_stop";
+    }
     this.emit(
       "skip",
       [
@@ -890,7 +1000,7 @@ class SchedulerReporter {
       // the target summary writer; scheduler progress remains in artifacts.
     } else if (this.verbose) {
       process.stdout.write(schedulerProgressLine(progressLine));
-    } else {
+    } else if (!this.schedule.quietHumanOutput) {
       process.stdout.write(humanProgressLine);
     }
     if (this.verbose && extra.writeLines) {
@@ -993,7 +1103,7 @@ class SchedulerReporter {
       topBlockers,
       artifacts: relToRepo(this.repoRoot, this.targetDir),
     });
-    if (!this.machine) {
+    if (!this.machine && (!this.schedule.quietHumanOutput || this.verbose)) {
       process.stdout.write(summaryLine);
     }
     this.progressRecorder.recordSummary(summaryLine);
@@ -1117,6 +1227,8 @@ class SchedulerReporter {
       active_resource_claims: resourceMapToObject(state.activeClaims),
       resource_limits: resourceMapToObject(this.schedule.resourceLimits),
       resource_limit_sources: resourceLimitSourcesToObject(this.schedule.resourceLimitSources),
+      dependency_edges: this.dependencyEdges,
+      work_unit_states: this.workUnitStateSnapshot(),
     };
     if (this.schedule.showFinalizing) {
       base.pending_finalizers = pendingFinalizerCount(state.pending);
@@ -1176,6 +1288,7 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
   const reporter = await createReporter(repoRoot, schedule);
   const pending = [...schedule.workUnits];
   const running = new Map();
+  const settledResults = new Map();
   const completedKeys = new Set();
   const failedKeys = new Map();
   const startedUnitIDs = new Set();
@@ -1252,13 +1365,17 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
         signal: finalizer(unit) ? null : workAbortController.signal,
         timeoutMs: unit.timeoutMs ?? 0,
       },
-    ).then(async (result) => ({
-      id: unit.id,
-      label: unit.label,
-      status: result.status,
-      logFile,
-      terminationReason: result.terminationReason,
-    }));
+    ).then(async (result) => {
+      const settled = {
+        id: unit.id,
+        label: unit.label,
+        status: result.status,
+        logFile,
+        terminationReason: result.terminationReason,
+      };
+      settledResults.set(unit.id, settled);
+      return settled;
+    });
     running.set(promise, unit);
     reporter.startUnit(unit, logFile, stateSnapshot());
   };
@@ -1274,6 +1391,7 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
       if (!schedule.stopOnFirstFailure) {
         skipFailedDependencyUnits({ pending, failedKeys, reporter, stateSnapshot });
       }
+      reporter.markEligibleUnits(pending, completedKeys, failedKeys);
 
       if (!stopScheduling || finalizerOnly) {
         while (true) {
@@ -1345,8 +1463,10 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
       }
 
       const delay = progressDelay();
-      const result = await Promise.race([...running.keys(), delay.promise]);
-      if (result?.schedulerProgressTick === true) {
+      const raced = settledResults.size > 0
+        ? null
+        : await Promise.race([...running.keys(), delay.promise]);
+      if (raced?.schedulerProgressTick === true) {
         const blockedNow = blockedSnapshot({
           pending,
           completedKeys,
@@ -1367,6 +1487,25 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
         continue;
       }
       delay.cancel();
+
+      // Child close notifications that arrive in the same event-loop turn are
+      // drained in authored topology order. This keeps terminal evidence and
+      // primary-failure selection stable without hiding meaningful completion
+      // order across separate turns.
+      await new Promise((resolve) => setImmediate(resolve));
+      const finishedCandidates = Array.from(running.values())
+        .filter((unit) => settledResults.has(unit.id))
+        .sort(
+          (left, right) =>
+            (left.order ?? Number.MAX_SAFE_INTEGER) - (right.order ?? Number.MAX_SAFE_INTEGER) ||
+            left.id.localeCompare(right.id),
+        );
+      const selected = finishedCandidates[0];
+      if (!selected) {
+        throw new Error(`${schedule.kind} scheduler observed a completion without a settled work unit`);
+      }
+      const result = settledResults.get(selected.id);
+      settledResults.delete(selected.id);
 
       let finishedUnit = null;
       for (const [promise, candidate] of running.entries()) {
@@ -1436,6 +1575,8 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
     const requestedStatus = firstFailure === 0 ? "pass" : "fail";
     reporter.finishLifecycle(stateSnapshot());
     const summary = await reporter.summary(requestedStatus, { started, failedWorkUnit: firstFailureLabel });
+    await reporter.close();
+    reporterClosed = true;
     if (schedule.afterSummary) {
       await schedule.afterSummary({
         reporter,
@@ -1446,8 +1587,6 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
         testOutputScript,
       });
     }
-    await reporter.close();
-    reporterClosed = true;
     if (schedule.validateSummaryTiming !== false) {
       const timingDrift = validateSchedulerSummaryTiming(reporter.eventsPath);
       if (timingDrift.errors.length > 0) {

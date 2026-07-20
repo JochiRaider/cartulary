@@ -1,9 +1,58 @@
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
+
 import { targetStartStats } from "./target-start-stats.mjs";
-import { repoRoot } from "../../contract/index.mjs";
-import { resolveRunId } from "../../contract/test-output-context.mjs";
+import { repoRoot, secureWriteFile, validateSchemaSync } from "../../contract/index.mjs";
+import { resolveResultsRoot, resolveRunId } from "../../contract/test-output-context.mjs";
 import { normalizeOutputMode, verboseOutput } from "../tool-output.mjs";
 
 const runId = resolveRunId();
+const resultsRoot = resolveResultsRoot();
+
+function sequenceToken(sequence) {
+  const token = String(sequence ?? "")
+    .trim()
+    .replaceAll(/[^A-Za-z0-9_.-]+/gu, "-")
+    .replaceAll(/^-+|-+$/gu, "")
+    .slice(0, 128);
+  if (!token) throw new Error("sequence label has no safe retained identity");
+  return token;
+}
+
+function sequenceEventFile(sequence) {
+  return path.join(resultsRoot, runId, sequenceToken(sequence), "sequence-events.jsonl");
+}
+
+function retainedSequenceEvents(sequence) {
+  const file = sequenceEventFile(sequence);
+  if (!existsSync(file)) return [];
+  return readFileSync(file, "utf8")
+    .split(/\r?\n/u)
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+}
+
+function appendSequenceEvent(sequence, eventFields) {
+  const file = sequenceEventFile(sequence);
+  const events = retainedSequenceEvents(sequence);
+  const now = new Date();
+  const firstMs = events.length > 0 ? Date.parse(events[0].emitted_at) : now.getTime();
+  const event = {
+    schema_id: "cartulary.harness_sequence_event.v1",
+    run_id: runId,
+    sequence: sequenceToken(sequence),
+    seq: events.length + 1,
+    event: eventFields.event,
+    emitted_at: now.toISOString(),
+    monotonic_ms: Math.max(0, now.getTime() - firstMs),
+    ...eventFields,
+  };
+  validateSchemaSync(event.schema_id, event);
+  secureWriteFile(file, `${events.map((item) => JSON.stringify(item)).join("\n")}${events.length > 0 ? "\n" : ""}${JSON.stringify(event)}\n`, {
+    allowedRoot: path.join(resultsRoot, runId),
+  });
+  return event;
+}
 
 function parseLifecycleOptions(args) {
   const options = { positional: [], force: false };
@@ -64,9 +113,6 @@ export function handleRunStart(args) {
       "usage: test-output.mjs run-start <label> --steps <n> --summary-targets <n> [--helper-units <n>] --jobs <n> [--force]",
     );
   }
-  if (!shouldEmitLifecycle(options)) {
-    return 0;
-  }
   const workUnits = parseNonNegativeInteger(options.steps, "steps");
   const summaryTargets = parseNonNegativeInteger(
     options.summary_targets,
@@ -77,6 +123,10 @@ export function handleRunStart(args) {
     "helper-units",
   );
   const jobs = parseNonNegativeInteger(options.jobs, "jobs");
+  appendSequenceEvent(label, { event: "sequence_started", status: "running" });
+  if (!shouldEmitLifecycle(options)) {
+    return 0;
+  }
   process.stdout.write(
     `[RUN] ${label} work_units=${workUnits} summary_targets=${summaryTargets} helper_units=${helperUnits} jobs=${jobs} run_id=${runId}\n`,
   );
@@ -93,15 +143,155 @@ export function handleStepStart(args) {
       "usage: test-output.mjs step-start <label> <index> <total> <target> [--mode <mode>] [--jobs <n>] [--force]",
     );
   }
-  if (!shouldEmitLifecycle(options)) {
-    return 0;
-  }
   const index = parseNonNegativeInteger(indexText, "index");
   const total = parseNonNegativeInteger(totalText, "total");
   const jobs = parseNonNegativeInteger(jobsText, "jobs");
+  const needs = parseTargetListValue(options.needs);
+  const retainedMode = mode === "parallel" ? "scheduler" : mode;
+  if (options.eligibility_retained !== "1") {
+    appendSequenceEvent(label, {
+      event: "step_eligible",
+      step_index: index,
+      target,
+      mode: retainedMode,
+      jobs,
+      needs,
+      resource_claims: options.resource_class ? { [options.resource_class]: 1 } : {},
+      status: "pending",
+    });
+  }
+  appendSequenceEvent(label, {
+    event: "step_started",
+    step_index: index,
+    target,
+    mode: retainedMode,
+    jobs,
+    needs,
+    resource_claims: options.resource_class ? { [options.resource_class]: 1 } : {},
+    status: "running",
+  });
+  if (!shouldEmitLifecycle(options)) {
+    return 0;
+  }
   process.stdout.write(
     `[STEP] ${label} ${index}/${total} ${target} mode=${mode} jobs=${jobs}\n`,
   );
+  return 0;
+}
+
+export function handleStepEligible(args) {
+  const options = parseLifecycleOptions(args);
+  const [label, indexText, target] = options.positional;
+  if (!label || !indexText || !target) {
+    throw new Error("usage: test-output.mjs step-eligible <label> <index> <target> [--needs <a,b>] [--resource-class <class>]");
+  }
+  appendSequenceEvent(label, {
+    event: "step_eligible",
+    step_index: parseNonNegativeInteger(indexText, "index"),
+    target,
+    mode: "scheduler",
+    jobs: 1,
+    needs: parseTargetListValue(options.needs),
+    resource_claims: options.resource_class ? { [options.resource_class]: 1 } : {},
+    status: "pending",
+  });
+  return 0;
+}
+
+export function handleStepFinish(args) {
+  const options = parseLifecycleOptions(args);
+  const [label, indexText, target, status, exitCodeText] = options.positional;
+  if (!label || !indexText || !target || !status || exitCodeText === undefined) {
+    throw new Error("usage: test-output.mjs step-finish <label> <index> <target> <pass|fail|interrupted> <exit-code>");
+  }
+  const index = parseNonNegativeInteger(indexText, "index");
+  const exitCode = parseNonNegativeInteger(exitCodeText, "exit-code");
+  const retained = retainedSequenceEvents(label);
+  const prior = retained
+    .filter((event) => event.event === "step_started" && event.step_index === index)
+    .at(-1);
+  const eligible = retained
+    .filter((event) => event.event === "step_eligible" && event.step_index === index)
+    .at(-1);
+  const now = new Date();
+  const endedMonotonicMs = retained.length > 0
+    ? Math.max(0, now.getTime() - Date.parse(retained[0].emitted_at))
+    : 0;
+  const event = appendSequenceEvent(label, {
+    event: "step_finished",
+    step_index: index,
+    target,
+    needs: [...(prior?.needs ?? eligible?.needs ?? [])],
+    resource_claims: { ...(prior?.resource_claims ?? eligible?.resource_claims ?? {}) },
+    mode: prior?.mode ?? eligible?.mode ?? "scheduler",
+    jobs: prior?.jobs ?? eligible?.jobs ?? 1,
+    status,
+    exit_code: exitCode,
+    eligible_at: eligible?.emitted_at ?? prior?.emitted_at ?? now.toISOString(),
+    started_at: prior?.emitted_at ?? now.toISOString(),
+    ended_at: now.toISOString(),
+    eligible_monotonic_ms: eligible?.monotonic_ms ?? prior?.monotonic_ms ?? endedMonotonicMs,
+    started_monotonic_ms: prior?.monotonic_ms ?? endedMonotonicMs,
+    ended_monotonic_ms: endedMonotonicMs,
+    duration_ms: prior ? Math.max(0, Date.now() - Date.parse(prior.emitted_at)) : 0,
+  });
+  if (shouldEmitLifecycle(options)) {
+    process.stdout.write(`[STEP] ${label} ${index} ${target} status=${status} duration_ms=${event.duration_ms}\n`);
+  }
+  return 0;
+}
+
+export function handleStepCancelled(args) {
+  const options = parseLifecycleOptions(args);
+  const [label, indexText, target] = options.positional;
+  if (!label || !indexText || !target) {
+    throw new Error("usage: test-output.mjs step-cancelled <label> <index> <target>");
+  }
+  const retained = retainedSequenceEvents(label);
+  const eligible = retained
+    .filter((event) => event.event === "step_eligible" && event.step_index === parseNonNegativeInteger(indexText, "index"))
+    .at(-1);
+  const now = new Date();
+  const endedMonotonicMs = retained.length > 0
+    ? Math.max(0, now.getTime() - Date.parse(retained[0].emitted_at))
+    : 0;
+  appendSequenceEvent(label, {
+    event: "step_skipped",
+    step_index: parseNonNegativeInteger(indexText, "index"),
+    target,
+    needs: [...(eligible?.needs ?? [])],
+    resource_claims: { ...(eligible?.resource_claims ?? {}) },
+    mode: eligible?.mode ?? "scheduler",
+    jobs: eligible?.jobs ?? 1,
+    status: "interrupted",
+    exit_code: 130,
+    eligible_at: eligible?.emitted_at ?? now.toISOString(),
+    ended_at: now.toISOString(),
+    eligible_monotonic_ms: eligible?.monotonic_ms ?? endedMonotonicMs,
+    ended_monotonic_ms: endedMonotonicMs,
+    skip_reason: "interrupted",
+    duration_ms: 0,
+  });
+  return 0;
+}
+
+export function handleRunFinish(args) {
+  const options = parseLifecycleOptions(args);
+  const [label, status, exitCodeText] = options.positional;
+  if (!label || !status || exitCodeText === undefined) {
+    throw new Error("usage: test-output.mjs run-finish <label> <pass|fail|interrupted> <exit-code>");
+  }
+  const exitCode = parseNonNegativeInteger(exitCodeText, "exit-code");
+  const prior = retainedSequenceEvents(label).find((event) => event.event === "sequence_started");
+  const event = appendSequenceEvent(label, {
+    event: status === "interrupted" ? "sequence_interrupted" : "sequence_finished",
+    status,
+    exit_code: exitCode,
+    duration_ms: prior ? Math.max(0, Date.now() - Date.parse(prior.emitted_at)) : 0,
+  });
+  if (shouldEmitLifecycle(options)) {
+    process.stdout.write(`[RUN] ${label} status=${status} duration_ms=${event.duration_ms}\n`);
+  }
   return 0;
 }
 

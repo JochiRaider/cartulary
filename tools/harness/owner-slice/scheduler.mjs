@@ -13,7 +13,7 @@ import {
   testSliceDefaultCapacityProfile,
 } from "../scheduler/scheduler-resource-policy.mjs";
 
-const eventSchemaID = "cartulary.scheduler_event.v6";
+const eventSchemaID = "cartulary.scheduler_event.v7";
 const summarySchemaID = "cartulary.service_backed_scheduler_summary.v10";
 const ownerSliceOnlyInputs = Object.freeze([
   "OWNER",

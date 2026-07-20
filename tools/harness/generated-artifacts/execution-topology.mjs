@@ -911,15 +911,135 @@ function validateServiceBackedSchedules(manifestPath, topology, taskTargets) {
     if (!taskTargets.has(target)) {
       throw new Error(`${label}.target ${target} is missing from task_surface.targets`);
     }
-    if (schedule.resource_limits !== undefined) {
-      throw new Error(`${label}.resource_limits is obsolete; use capacity_profile`);
-    }
-    normalizeResourceLimits(undefined, label, {
+    normalizeResourceLimits(schedule.resource_limits, label, {
       scheduler: "service_backed",
       capacityProfile: requireString(schedule.capacity_profile, `${label}.capacity_profile`),
       allowAuto: true,
     });
   }
+}
+
+function normalizeSequenceSchedules(topology, taskSurfaceOwner, taskTargets) {
+  const ownerSequences = requireObject(taskSurfaceOwner.sequences, "task_surface_owner.sequences");
+  const schedules = [];
+  const seenSchedules = new Set();
+  for (const [index, rawSchedule] of requireArray(
+    topology.sequence_schedules,
+    "sequence_schedules",
+  ).entries()) {
+    const label = `sequence_schedules[${index + 1}]`;
+    validateAllowedKeys(
+      requireObject(rawSchedule, label),
+      new Set(["target", "execution_mode", "max_jobs", "resource_limits", "steps"]),
+      label,
+    );
+    const target = requireString(rawSchedule.target, `${label}.target`);
+    if (seenSchedules.has(target)) {
+      throw new Error(`${label}.target duplicates sequence schedule ${target}`);
+    }
+    seenSchedules.add(target);
+    const ownerSequence = ownerSequences[target];
+    if (!ownerSequence) {
+      throw new Error(`${label}.target ${target} has no task-surface sequence`);
+    }
+    if (!taskTargets.has(target)) {
+      throw new Error(`${label}.target ${target} is not a task-surface target`);
+    }
+    const executionMode = requireString(rawSchedule.execution_mode, `${label}.execution_mode`);
+    if (!new Set(["serial", "dag"]).has(executionMode)) {
+      throw new Error(`${label}.execution_mode must be serial or dag`);
+    }
+    const maxJobs = requirePositiveInteger(rawSchedule.max_jobs, `${label}.max_jobs`);
+    if (maxJobs > 16 || (executionMode === "serial" && maxJobs !== 1)) {
+      throw new Error(`${label}.max_jobs must be 1 for serial or at most 16 for dag`);
+    }
+    const resourceLimits = requireObject(rawSchedule.resource_limits, `${label}.resource_limits`);
+    for (const [resource, limit] of Object.entries(resourceLimits)) {
+      if (!/^[a-z][a-z0-9_]*$/u.test(resource)) {
+        throw new Error(`${label}.resource_limits has invalid resource ${resource}`);
+      }
+      requirePositiveInteger(limit, `${label}.resource_limits.${resource}`);
+    }
+    const ownerSteps = requireNonEmptyArray(ownerSequence.steps, `task_surface_owner.sequences.${target}.steps`);
+    const rawSteps = requireNonEmptyArray(rawSchedule.steps, `${label}.steps`);
+    if (rawSteps.length !== ownerSteps.length) {
+      throw new Error(`${label}.steps must bind every task-surface step exactly once`);
+    }
+    const stepTargets = new Set();
+    const steps = rawSteps.map((rawStep, stepIndex) => {
+      const stepLabel = `${label}.steps[${stepIndex + 1}]`;
+      validateAllowedKeys(
+        requireObject(rawStep, stepLabel),
+        new Set(["target", "needs", "resource_claims", "priority"]),
+        stepLabel,
+      );
+      const stepTarget = requireString(rawStep.target, `${stepLabel}.target`);
+      if (stepTargets.has(stepTarget)) {
+        throw new Error(`${stepLabel}.target duplicates ${stepTarget}; occurrence aliases are unsupported`);
+      }
+      stepTargets.add(stepTarget);
+      if (ownerSteps[stepIndex]?.target !== stepTarget) {
+        throw new Error(`${stepLabel}.target must bind task-surface step ${ownerSteps[stepIndex]?.target}`);
+      }
+      const needs = requireStringArray(rawStep.needs, `${stepLabel}.needs`);
+      const resourceClaims = requireObject(rawStep.resource_claims, `${stepLabel}.resource_claims`);
+      for (const [resource, claim] of Object.entries(resourceClaims)) {
+        requirePositiveInteger(claim, `${stepLabel}.resource_claims.${resource}`);
+        if (!Number.isInteger(resourceLimits[resource]) || claim > resourceLimits[resource]) {
+          throw new Error(`${stepLabel}.resource_claims.${resource} exceeds the declared limit`);
+        }
+      }
+      if (!Number.isInteger(rawStep.priority)) {
+        throw new Error(`${stepLabel}.priority must be an integer`);
+      }
+      return {
+        target: stepTarget,
+        needs,
+        resource_claims: objectFromEntries(Object.entries(resourceClaims)),
+        priority: rawStep.priority,
+      };
+    });
+    for (const [stepIndex, step] of steps.entries()) {
+      for (const dependency of step.needs) {
+        if (!stepTargets.has(dependency)) {
+          throw new Error(`${label}.steps[${stepIndex + 1}].needs references unknown step ${dependency}`);
+        }
+      }
+      if (executionMode === "serial") {
+        const expected = stepIndex === 0 ? [] : [steps[stepIndex - 1].target];
+        if (JSON.stringify(step.needs) !== JSON.stringify(expected)) {
+          throw new Error(`${label}.steps[${stepIndex + 1}].needs must encode serial predecessor order`);
+        }
+      }
+    }
+    const visiting = new Set();
+    const visited = new Set();
+    const byTarget = new Map(steps.map((step) => [step.target, step]));
+    const visit = (stepTarget) => {
+      if (visiting.has(stepTarget)) {
+        throw new Error(`${label} contains a dependency cycle at ${stepTarget}`);
+      }
+      if (visited.has(stepTarget)) return;
+      visiting.add(stepTarget);
+      for (const dependency of byTarget.get(stepTarget).needs) visit(dependency);
+      visiting.delete(stepTarget);
+      visited.add(stepTarget);
+    };
+    for (const stepTarget of byTarget.keys()) visit(stepTarget);
+    schedules.push({
+      target,
+      execution_mode: executionMode,
+      max_jobs: maxJobs,
+      resource_limits: objectFromEntries(Object.entries(resourceLimits)),
+      steps,
+    });
+  }
+  for (const target of Object.keys(ownerSequences)) {
+    if (!seenSchedules.has(target)) {
+      throw new Error(`sequence_schedules omits task-surface sequence ${target}`);
+    }
+  }
+  return schedules;
 }
 
 function normalizeTopology(raw, taskSurfaceOwner, root, manifestPath, taskSurfaceOwnerPath) {
@@ -935,6 +1055,7 @@ function normalizeTopology(raw, taskSurfaceOwner, root, manifestPath, taskSurfac
   validateExecutionDependencyTargets(dependencies, taskTargets);
   const runtimeBinaries = normalizeRuntimeBinaries(raw, taskTargets);
   const goTargets = normalizeGoTargets(raw, dependencyByID, runtimeBinaries);
+  const sequenceSchedules = normalizeSequenceSchedules(raw, taskSurfaceOwner, taskTargets);
   validateBrowserBatch(raw, dependencyByID, taskTargets);
   const checkSchedules = renderCheckSchedulesFromTopology(raw, taskTargets, taskTargetEntries);
   validateServiceBackedSchedules(manifestPath, raw, taskTargets);
@@ -947,6 +1068,7 @@ function normalizeTopology(raw, taskSurfaceOwner, root, manifestPath, taskSurfac
     executionDependencyByID: dependencyByID,
     runtimeBinaries,
     goTargets,
+    sequenceSchedules,
     taskSurface: clone(taskSurfaceOwner),
     taskSurfaceOwnerPath,
     checkScheduleProfile: clone(raw.check_schedules),
@@ -988,6 +1110,24 @@ export function loadExecutionTopology(options = {}) {
 
 export function renderTaskSurfaceManifest(topology) {
   const taskSurface = clone(topology.taskSurface);
+  const sequenceSchedules = new Map(
+    topology.sequenceSchedules.map((schedule) => [schedule.target, schedule]),
+  );
+  for (const [target, sequence] of Object.entries(taskSurface.sequences)) {
+    const schedule = sequenceSchedules.get(target);
+    if (!schedule) {
+      throw new Error(`sequence ${target} has no execution-topology schedule`);
+    }
+    sequence.execution_mode = schedule.execution_mode;
+    sequence.max_jobs = schedule.max_jobs;
+    sequence.resource_limits = clone(schedule.resource_limits);
+    sequence.steps = sequence.steps.map((step, index) => ({
+      ...step,
+      needs: [...schedule.steps[index].needs],
+      resource_claims: clone(schedule.steps[index].resource_claims),
+      priority: schedule.steps[index].priority,
+    }));
+  }
   delete taskSurface.schema_id;
   return {
     schema_id: taskSurfaceSchemaID,
@@ -1214,6 +1354,7 @@ export function topologySummary(topology) {
     go_targets: topology.goTargets.targets.length,
     raw_go_aggregates: topology.goTargets.rawAggregates.length,
     task_targets: topology.taskSurface.targets.length,
+    sequence_schedules: topology.sequenceSchedules.length,
     check_schedules: topology.checkSchedules.length,
     service_backed_schedules: topology.serviceBackedSchedules.schedules.length,
     browser_stages: topology.browserBatch.stages.length,

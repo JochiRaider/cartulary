@@ -1943,6 +1943,52 @@ function writeSummary(checks, status) {
   writeFileSync(path.join(outDir, "otel-conformance-summary.json"), `${JSON.stringify(summary, null, 2)}\n`);
 }
 
+function validateHarnessTelemetryBoundary(checks) {
+  const profileFile = "tools/harness/observability/observability.mjs";
+  const exportFile = "tools/harness/observability/otel-export-cli.mjs";
+  const profile = readFileSync(path.join(repoRoot, profileFile), "utf8");
+  const exporter = readFileSync(path.join(repoRoot, exportFile), "utf8");
+  const rootPackage = JSON.parse(readFileSync(path.join(repoRoot, "package.json"), "utf8"));
+  const dependencies = {
+    ...(rootPackage.dependencies ?? {}),
+    ...(rootPackage.devDependencies ?? {}),
+  };
+  assert(
+    profile.includes('export const harnessScope = "cartulary.harness.execution"') &&
+      !profile.includes("OTEL_") &&
+      !profile.includes("internal/platform/telemetry") &&
+      !profile.includes("fetch("),
+    "harness diagnostics use only their delegated scope, ignore inherited OTEL variables, do not import application telemetry, and cannot export during local reconstruction",
+    checks,
+    "import_boundary.harness_profile",
+  );
+  assert(
+    Object.keys(dependencies).every((name) => !name.startsWith("@opentelemetry/")) &&
+      exporter.includes("HARNESS_OTLP_ENDPOINT") &&
+      exporter.includes('redirect: "error"'),
+    "harness diagnostics add no JavaScript OTel SDK and network delivery remains explicit with redirects disabled",
+    checks,
+    "import_boundary.harness_dependencies_and_export",
+  );
+  const applicationRoots = ["internal", "apps", "packages"];
+  const scopeViolations = [];
+  for (const root of applicationRoots) {
+    const files = [];
+    walkFiles(root, () => true, files);
+    for (const file of files) {
+      if ([".go", ".ts", ".tsx", ".js", ".mjs"].some((suffix) => file.endsWith(suffix)) && readFileSync(path.join(repoRoot, file), "utf8").includes("cartulary.harness.execution")) {
+        scopeViolations.push(file);
+      }
+    }
+  }
+  assert(
+    scopeViolations.length === 0,
+    `application sources cannot emit the harness scope${scopeViolations.length ? `; violations ${scopeViolations.join(", ")}` : ""}`,
+    checks,
+    "import_boundary.application_harness_scope",
+  );
+}
+
 function main() {
   const checks = [];
   try {
@@ -1952,6 +1998,7 @@ function main() {
     validateConfigHazardMatrix(readJSON(configHazardMatrixPath), checks);
     validateConformanceStatus(readJSON(conformanceStatusPath), checks);
     validateImportBoundary(readJSON(importBoundaryPath), checks);
+    validateHarnessTelemetryBoundary(checks);
     validateVerificationOwner(checks);
     validateGoldenCorpus(readJSON(corpusManifestPath), readJSON(dependencyClassificationPath), checks);
     validateNoRepoAdoptionTODOs(checks);

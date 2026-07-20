@@ -5,11 +5,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { failureHeadlineForSummary } from "../contract/index.mjs";
+import { printObservabilityPerformance } from "../observability/observability.mjs";
 import { resolveRetainedLogArtifacts } from "./retained-artifact-resolver.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");
-const validDetails = new Set(["summary", "children", "logs", "progress", "accounting"]);
+const validDetails = new Set(["summary", "children", "logs", "progress", "accounting", "performance"]);
 const coverageBuckets = [
   "authoritative",
   "support",
@@ -22,7 +23,7 @@ const toolRunSummarySchemaID = "cartulary.tool_run_summary.v5";
 
 function usage() {
   process.stderr.write(
-    "usage: print-explain-run.mjs --results-dir <root|run-dir> [--run-id <id>] [--target <target>] [--detail summary|children|logs|progress|accounting]\n",
+    "usage: print-explain-run.mjs --results-dir <root|run-dir> [--run-id <id>] [--target <target>] [--detail summary|children|logs|progress|accounting|performance]\n",
   );
   process.exit(2);
 }
@@ -725,6 +726,17 @@ function main() {
   }
   if (options.detail === "accounting") {
     writeAccountingDetail(runSummary, targetSummary);
+    return;
+  }
+  if (options.detail === "performance") {
+    for (const item of printObservabilityPerformance(runDir, target)) {
+      process.stdout.write(
+        `[PERFORMANCE] target=${item.target} duration=${formatDuration(item.duration_ms)} scheduler_envelope=${formatDuration(item.scheduler_envelope_critical_path_ms)} actual_dependency_critical_path=${formatDuration(item.actual_dependency_critical_path_ms)} queue_wait=${formatDuration(item.queue_wait_ms)} resource_blocking=${formatDuration(item.resource_blocking_ms)} attributed_union=${formatDuration(item.attributed_union_ms)} unattributed_envelope=${formatDuration(item.unattributed_envelope_ms)}\n`,
+      );
+      for (const hotspot of item.hotspots.slice(0, 10)) {
+        process.stdout.write(`[HOTSPOT] rank=${hotspot.rank} phase=${hotspot.phase} name=${hotspot.name} duration=${formatDuration(hotspot.duration_ms)}\n`);
+      }
+    }
     return;
   }
   if (toolSummary) {

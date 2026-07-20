@@ -216,12 +216,51 @@ export const makeNodeTools = {
     script: "./tools/harness/diagnostics/explain-run-cli.mjs",
     resultDir: { mode: "required", flag: "--results-dir" },
     usage:
-      "usage: make explain-run RESULTS_DIR=<root|run-dir> [RUN_ID=<id>] [TARGET=<target>] [DETAIL=summary|children|logs|progress|accounting]",
+      "usage: make explain-run RESULTS_DIR=<root|run-dir> [RUN_ID=<id>] [TARGET=<target>] [DETAIL=summary|children|logs|progress|accounting|performance]",
     buildArgs(env) {
       const args = ["--detail", value(env, "DETAIL") || "summary"];
       optionalFlag(args, env, "RUN_ID", "--run-id");
       optionalFlag(args, env, "TARGET", "--target");
       return args;
+    },
+  },
+  "harness-observability-check": {
+    inputs: ["RUN_ID"],
+    script: "./tools/harness/observability/observability-check-cli.mjs",
+    resultDir: { mode: "required", flag: "--results-dir" },
+    usage: "usage: make harness-observability-check RESULTS_DIR=<root|run-dir> [RUN_ID=<id>]",
+    buildArgs(env) {
+      const args = [];
+      optionalFlag(args, env, "RUN_ID", "--run-id");
+      return args;
+    },
+  },
+  "harness-otel-export": {
+    inputs: ["RUN_ID", "HARNESS_OTLP_ENDPOINT", "HARNESS_OTLP_HEADERS_FILE"],
+    script: "./tools/harness/observability/otel-export-cli.mjs",
+    resultDir: { mode: "required", flag: "--results-dir" },
+    usage: "usage: make harness-otel-export RESULTS_DIR=<root|run-dir> [RUN_ID=<id>] HARNESS_OTLP_ENDPOINT=<url> [HARNESS_OTLP_HEADERS_FILE=<0600-json-file>]",
+    buildArgs(env) {
+      const args = ["--endpoint", value(env, "HARNESS_OTLP_ENDPOINT")];
+      optionalFlag(args, env, "RUN_ID", "--run-id");
+      optionalFlag(args, env, "HARNESS_OTLP_HEADERS_FILE", "--headers-file");
+      return args;
+    },
+  },
+  "harness-performance-check": {
+    inputs: ["EVIDENCE_ROOTS_FILE"],
+    script: "./tools/harness/observability/performance-check-cli.mjs",
+    usage: "usage: make harness-performance-check EVIDENCE_ROOTS_FILE=<manifest>",
+    buildArgs(env) {
+      return ["--evidence-roots-file", value(env, "EVIDENCE_ROOTS_FILE")];
+    },
+  },
+  "harness-public-target-duration-baselines": {
+    inputs: ["EVIDENCE_ROOTS_FILE"],
+    script: "./tools/harness/observability/public-target-baselines-cli.mjs",
+    usage: "usage: make harness-public-target-duration-baselines EVIDENCE_ROOTS_FILE=<baseline-window>",
+    buildArgs(env) {
+      return ["--evidence-roots-file", value(env, "EVIDENCE_ROOTS_FILE")];
     },
   },
   "explain-target": {

@@ -266,6 +266,12 @@ JSON
         write_summary seaweedfs-migration-preservation
         write_summary seaweedfs-release-gate
         ;;
+      release-browser-readiness)
+        write_summary browser-e2e-support
+        write_summary browser-e2e-visual
+        write_summary browser-e2e-a11y
+        write_summary release-browser-readiness
+        ;;
       *)
         write_summary "${target}"
         ;;
@@ -283,7 +289,7 @@ sequence_manifest="${manifest_dir}/task_surface_manifest.json"
 const fs = require("node:fs");
 const [source, destination] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(source, "utf8"));
-for (const name of ["alpha", "beta", "gamma", "smoke", "dry-run"]) {
+for (const name of ["alpha", "beta", "gamma", "smoke", "generic-resource", "dry-run"]) {
   let target = manifest.targets.find((entry) => entry.name === name);
   if (!target) {
     target = { name, target_class: "internal_helper", default_inclusion_sets: [], lifecycle_state: "candidate_child" };
@@ -302,21 +308,39 @@ for (const name of ["alpha", "beta", "gamma", "smoke", "dry-run"]) {
   manifest.make_recipes[name] = { type: "aggregate", prerequisites: ["help"] };
 }
 manifest.sequences.smoke = {
+  execution_mode: "dag",
+  max_jobs: 3,
+  resource_limits: { process: 3 },
   summary_groups: [
     { name: "alpha-group", summary_targets: ["alpha"] },
     { name: "beta-group", summary_targets: ["beta"] },
     { name: "gamma-group", summary_targets: ["gamma"] },
   ],
   steps: [
-    { type: "step", target: "alpha", produces_summary_targets: ["alpha"] },
-    { type: "parallel", target: "beta", jobs: 3, produces_summary_targets: ["beta"] },
-    { type: "step", target: "gamma", skip_prerequisites: true, produces_summary_targets: ["gamma"] },
+    { type: "step", target: "alpha", priority: 30, needs: [], resource_claims: { process: 1 }, produces_summary_targets: ["alpha"] },
+    { type: "parallel", target: "beta", priority: 20, needs: ["alpha"], resource_claims: { process: 1 }, jobs: 3, produces_summary_targets: ["beta"] },
+    { type: "step", target: "gamma", priority: 10, needs: ["beta"], resource_claims: { process: 1 }, skip_prerequisites: true, produces_summary_targets: ["gamma"] },
   ],
 };
 manifest.make_recipes.smoke = { type: "sequence", prerequisites: [], sequence: "smoke" };
-manifest.sequences["dry-run"] = {
+manifest.sequences["generic-resource"] = {
+  execution_mode: "dag",
+  max_jobs: 3,
+  resource_limits: { process: 3, fixture_lane: 1 },
   summary_groups: [],
-  steps: [{ type: "step", target: "alpha", produces_summary_targets: ["alpha"] }],
+  steps: [
+    { type: "step", target: "alpha", priority: 20, needs: [], resource_claims: { process: 1, fixture_lane: 1 }, produces_summary_targets: ["alpha"] },
+    { type: "step", target: "beta", priority: 10, needs: [], resource_claims: { process: 1, fixture_lane: 1 }, produces_summary_targets: ["beta"] },
+    { type: "step", target: "gamma", priority: 0, needs: ["alpha", "beta"], resource_claims: { process: 1 }, produces_summary_targets: ["gamma"] },
+  ],
+};
+manifest.make_recipes["generic-resource"] = { type: "sequence", prerequisites: [], sequence: "generic-resource" };
+manifest.sequences["dry-run"] = {
+  execution_mode: "serial",
+  max_jobs: 1,
+  resource_limits: { process: 1 },
+  summary_groups: [],
+  steps: [{ type: "step", target: "alpha", priority: 10, needs: [], resource_claims: { process: 1 }, produces_summary_targets: ["alpha"] }],
 };
 manifest.make_recipes["dry-run"] = { type: "sequence", prerequisites: [], sequence: "dry-run" };
 fs.writeFileSync(destination, `${JSON.stringify(manifest, null, 2)}\n`);
@@ -347,10 +371,80 @@ assert_contains "${success_output}" "[RESULT] target=smoke status=pass" "success
 assert_contains "${success_output}" "[ARTIFACTS] target=smoke" "success artifact output"
 assert_file_present "${success_dir}/results/success/smoke/target-summary.json" "success target summary"
 assert_equals "$(json_field "${success_dir}/results/success/smoke/target-summary.json" "target")" "smoke" "success target summary identity"
+assert_file_present "${success_dir}/results/success/smoke/scheduler-events.jsonl" "success scheduler events"
+assert_file_present "${success_dir}/results/success/smoke/scheduler-summary.json" "success scheduler summary"
+assert_file_present "${success_dir}/results/success/smoke/sequence-events.jsonl" "success sequence events"
+"${NODE_BIN:-node}" - \
+  "${success_dir}/results/success/smoke/scheduler-events.jsonl" \
+  "${success_dir}/results/success/smoke/scheduler-summary.json" \
+  "${success_dir}/results/success/smoke/sequence-events.jsonl" <<'EOF'
+const fs = require("node:fs");
+const [schedulerEventsFile, schedulerSummaryFile, sequenceEventsFile] = process.argv.slice(2);
+const lines = (file) => fs.readFileSync(file, "utf8").trim().split(/\r?\n/).map(JSON.parse);
+const schedulerEvents = lines(schedulerEventsFile);
+const schedulerSummary = JSON.parse(fs.readFileSync(schedulerSummaryFile, "utf8"));
+const sequenceEvents = lines(sequenceEventsFile);
+if (schedulerSummary.schema_id !== "cartulary.sequence_scheduler_summary.v1" || schedulerSummary.scheduler_kind !== "sequence") {
+  throw new Error("sequence must retain its typed shared-scheduler summary");
+}
+for (const [index, event] of schedulerEvents.entries()) {
+  if (event.schema_id !== "cartulary.scheduler_event.v7" || event.scheduler_kind !== "sequence" || event.seq !== index + 1) {
+    throw new Error("sequence scheduler events must be contiguous v7 evidence");
+  }
+}
+const terminalSchedulerEvent = schedulerEvents.at(-1);
+const edgeTokens = terminalSchedulerEvent.dependency_edges.map((edge) => `${edge.from}->${edge.to}`);
+if (JSON.stringify(edgeTokens) !== JSON.stringify(["alpha->beta", "beta->gamma"])) {
+  throw new Error(`unexpected retained dependency edges ${JSON.stringify(edgeTokens)}`);
+}
+if (!terminalSchedulerEvent.work_unit_states.every((state) => state.terminal_state === "passed")) {
+  throw new Error("all successful sequence work units must be terminal in retained state");
+}
+for (const [index, event] of sequenceEvents.entries()) {
+  if (event.schema_id !== "cartulary.harness_sequence_event.v1" || event.seq !== index + 1) {
+    throw new Error("sequence lifecycle events must be contiguous typed evidence");
+  }
+  if (index > 0 && event.monotonic_ms < sequenceEvents[index - 1].monotonic_ms) {
+    throw new Error("sequence lifecycle evidence must be monotonic");
+  }
+}
+if (sequenceEvents[0].event !== "sequence_started" || sequenceEvents.at(-1).event !== "sequence_finished") {
+  throw new Error("sequence lifecycle must have exact start and finish boundaries");
+}
+const terminalByTarget = new Map(sequenceEvents.filter((event) => event.event === "step_finished").map((event) => [event.target, event]));
+for (const [target, index] of [["alpha", 1], ["beta", 2], ["gamma", 3]]) {
+  const terminal = terminalByTarget.get(target);
+  if (terminal?.step_index !== index || terminal.mode !== "dag" || terminal.status !== "pass") {
+    throw new Error(`sequence lifecycle lost authored identity for ${target}`);
+  }
+}
+EOF
 assert_contains "$(cat "${success_dir}/make.log")" "--output-sync=target -j3 beta" "parallel make invocation"
 assert_contains "$(cat "${success_dir}/make-env.log")" "target=alpha skip=unset satisfied=unset" "normal sequence step clears inherited prerequisite state"
 assert_contains "$(cat "${success_dir}/make-env.log")" "target=beta skip=unset satisfied=unset" "parallel sequence step clears inherited prerequisite state"
 assert_contains "$(cat "${success_dir}/make-env.log")" "target=gamma skip=1 satisfied=1" "explicit skip sequence step owns prerequisite state"
+
+generic_resource_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-generic-resource.XXXXXX")"
+cleanup_paths+=("${generic_resource_dir}")
+write_fake_make "${generic_resource_dir}"
+MAKE="${generic_resource_dir}/fake-make" \
+FAKE_MAKE_LOG="${generic_resource_dir}/make.log" \
+CARTULARY_TEST_RESULTS_DIR="${generic_resource_dir}/results" \
+CARTULARY_TEST_RUN_ID="generic-resource" \
+TASK_SURFACE_MANIFEST="${sequence_manifest}" \
+  "${SCRIPT}" --sequence generic-resource >/dev/null
+"${NODE_BIN:-node}" - "${generic_resource_dir}/results/generic-resource/generic-resource/scheduler-summary.json" "${generic_resource_dir}/results/generic-resource/generic-resource/scheduler-events.jsonl" <<'EOF'
+const fs = require("node:fs");
+const [summaryFile, eventsFile] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+const events = fs.readFileSync(eventsFile, "utf8").trim().split(/\r?\n/).map(JSON.parse);
+if (summary.resource_limits.fixture_lane !== 1 || summary.max_active_resource_claims.fixture_lane !== 1) {
+  throw new Error("generic logical resource capacity was not enforced");
+}
+if (!events.some((event) => event.event === "blocked" && event.blocked_resources.includes("fixture_lane"))) {
+  throw new Error("generic logical resource contention was not retained");
+}
+EOF
 
 leaf_budget_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-leaf-budget.XXXXXX")"
 cleanup_paths+=("${leaf_budget_dir}")
@@ -531,7 +625,8 @@ dry_run_output="$(
 assert_not_contains "${dry_run_output}" "[RUN]" "script dry-run run start output"
 assert_not_contains "${dry_run_output}" "[STEP]" "script dry-run step output"
 assert_file_absent "${dry_run_dir}/results/dry-run/run-summary.json" "script dry-run summary"
-assert_contains "$(cat "${dry_run_dir}/make.log")" "--no-print-directory alpha" "script dry-run child make"
+assert_contains "${dry_run_output}" "[DRY-RUN] dry-run" "script scheduler dry-run plan"
+assert_file_absent "${dry_run_dir}/make.log" "script dry-run child make"
 
 harness_quiet_dir="$(mktemp -d "${ROOT_DIR}/tmp/harness-smoke-quiet.XXXXXX")"
 cleanup_paths+=("${harness_quiet_dir}")

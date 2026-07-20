@@ -18,6 +18,7 @@ const validInputTypes = new Set([
   "run_id",
   "task_surface_report_args",
   "target_name",
+  "url",
 ]);
 const validEmptyStringRules = new Set(["invalid", "omitted", "false"]);
 const validInputNormalizations = new Set([

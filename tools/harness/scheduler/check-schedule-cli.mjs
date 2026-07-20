@@ -47,7 +47,7 @@ const defaultManifestPath = path.join(
   "scheduler_manifest.json",
 );
 const supportedSchemaID = "cartulary.scheduler_manifest.v2";
-const schedulerEventSchemaID = "cartulary.scheduler_event.v6";
+const schedulerEventSchemaID = "cartulary.scheduler_event.v7";
 const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v10";
 const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
 const packageReadinessTarget = "check-frontend-install";
@@ -108,6 +108,7 @@ function attachRuntime(
       unit.target === packageReadinessTarget && (unit.needs ?? []).length === 0,
   );
   let runStartEmitted = false;
+  const lifecycleStepIndexes = new Map();
   const emitRunStart = async () => {
     if (runStartEmitted) {
       return;
@@ -171,12 +172,24 @@ function attachRuntime(
         await emitRunStart();
       }
       await serviceSessionRuntime.afterUnitFinish(context.unit, context.result);
+      const lifecycleStepIndex = lifecycleStepIndexes.get(context.unit.id);
+      if (lifecycleStepIndex !== undefined) {
+        await runLifecycle(repoRoot, testOutputScript, [
+          "step-finish",
+          schedule.target,
+          String(lifecycleStepIndex),
+          context.unit.label,
+          context.result.status === 0 ? "pass" : "fail",
+          String(Math.max(0, context.result.status)),
+        ]);
+      }
     },
     beforeUnitStart: async ({ unit, started, total, reporter }) => {
       await serviceSessionRuntime.beforeUnitStart(unit);
       if (!reporter.verbose || unit.countInTotal === false) {
         return;
       }
+      lifecycleStepIndexes.set(unit.id, started);
       await runLifecycle(repoRoot, testOutputScript, [
         "step-start",
         schedule.target,
@@ -300,6 +313,16 @@ function attachRuntime(
         summaryArgs,
         requestedStatus === "pass" ? process.stdout : process.stderr,
       ).catch((error) => {
+        if (requestedStatus === "pass") {
+          throw error;
+        }
+      });
+      await runLifecycle(repoRoot, testOutputScript, [
+        "run-finish",
+        schedule.target,
+        requestedStatus,
+        requestedStatus === "pass" ? "0" : "1",
+      ]).catch((error) => {
         if (requestedStatus === "pass") {
           throw error;
         }

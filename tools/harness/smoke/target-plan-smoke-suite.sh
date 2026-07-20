@@ -92,14 +92,19 @@ if (!rawPgtest || rawPgtest.fixture_policy?.postgres !== "template_clone" || !Nu
   process.exit(1);
 }
 const serviceBackedGoRows = rows.filter((row) => row.service_backed && row.runner_family === "go_test");
-if (serviceBackedGoRows.length === 0 || !serviceBackedGoRows.every((row) => validPolicies.has(row.fixture_policy?.postgres))) {
+const serviceBackedPostgresRows = serviceBackedGoRows.filter((row) => Number(row.resource_claims?.postgres ?? 0) > 0);
+if (
+  serviceBackedGoRows.length === 0 ||
+  serviceBackedPostgresRows.length === 0 ||
+  !serviceBackedPostgresRows.every((row) => validPolicies.has(row.fixture_policy?.postgres))
+) {
   process.exit(1);
 }
-const packageResetRows = serviceBackedGoRows.filter((row) => row.fixture_policy?.postgres === "package_reset" && row.coverage !== "raw");
+const packageResetRows = serviceBackedPostgresRows.filter((row) => row.fixture_policy?.postgres === "package_reset" && row.coverage !== "raw");
 if (!packageResetRows.every((row) => Number.isInteger(row.fixture_budget?.postgres?.max_package_resets))) {
   process.exit(1);
 }
-const transactionRows = serviceBackedGoRows.filter((row) => row.fixture_policy?.postgres === "transaction");
+const transactionRows = serviceBackedPostgresRows.filter((row) => row.fixture_policy?.postgres === "transaction");
 if (!transactionRows.every((row) => Number.isInteger(row.fixture_budget?.postgres?.max_transactions))) {
   process.exit(1);
 }
@@ -157,11 +162,16 @@ if (
   process.exit(1);
 }
 const authoritative = plan.shards.flatMap((shard) => shard.items).filter((item) => item.kind === "authoritative");
+const postgresAuthoritative = authoritative.filter((item) => item.postgres_fixture_policy !== "");
 const validPolicies = new Set(["template_clone", "package_reset", "migration_scratch", "transaction", "group_clone"]);
-if (authoritative.length === 0 || !authoritative.every((item) => validPolicies.has(item.postgres_fixture_policy))) {
+if (
+  authoritative.length === 0 ||
+  postgresAuthoritative.length === 0 ||
+  !postgresAuthoritative.every((item) => validPolicies.has(item.postgres_fixture_policy))
+) {
   process.exit(1);
 }
-const packageReset = authoritative.filter((item) => item.postgres_fixture_policy === "package_reset");
+const packageReset = postgresAuthoritative.filter((item) => item.postgres_fixture_policy === "package_reset");
 if (!packageReset.every((item) => Number.isInteger(item.postgres_fixture_budget?.max_package_resets))) {
   process.exit(1);
 }

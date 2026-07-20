@@ -336,7 +336,7 @@ if (events[0]?.event !== "scheduler-start") {
 if (events[events.length - 1]?.event !== "scheduler-finish") {
   throw new Error(`final scheduler event got ${events[events.length - 1]?.event} want scheduler-finish`);
 }
-if (!events.every((event) => event.schema_id === "cartulary.scheduler_event.v6")) {
+if (!events.every((event) => event.schema_id === "cartulary.scheduler_event.v7")) {
   throw new Error("unexpected scheduler event schema");
 }
 events.forEach((event, index) => {
@@ -835,12 +835,12 @@ write_nested_scheduler_progress() {
   local nested_dir="${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${target}"
   mkdir -p "$nested_dir"
   if [[ "$target" == "partial-service" ]]; then
-    printf '{"schema_id":"cartulary.scheduler_event.v6","target":"partial-service","event":"progress","seq":1,"monotonic_ms":1,"emitted_at":"2026-01-01T00:00:00.001Z"' >"${nested_dir}/scheduler-events.jsonl"
+    printf '{"schema_id":"cartulary.scheduler_event.v7","target":"partial-service","event":"progress","seq":1,"monotonic_ms":1,"emitted_at":"2026-01-01T00:00:00.001Z"' >"${nested_dir}/scheduler-events.jsonl"
     return 0
   fi
   {
     printf 'not-json-diagnostic\n'
-    printf '%s\n' '{"schema_id":"cartulary.scheduler_event.v6","target":"service","event":"progress","seq":1,"monotonic_ms":1,"emitted_at":"2026-01-01T00:00:00.001Z","pending":2,"running":1,"total_work_units":6,"blocked":2,"completed":3,"pending_finalizers":0,"running_finalizers":0,"blocked_reason":"resources","blocked_resources":["go_io"],"waiting_on":["backend-store"],"blocked_units":[],"active_resource_claims":{"go_cpu":1},"resource_limits":{"go_cpu":1,"go_io":1},"active_groups":{"backend-integration":1},"blocked_by":["go_io"],"unblocks_after":"backend-integration/shard-a","slowest_running":{"label":"backend-integration/shard-a","duration_ms":1234}}'
+    printf '%s\n' '{"schema_id":"cartulary.scheduler_event.v7","target":"service","event":"progress","seq":1,"monotonic_ms":1,"emitted_at":"2026-01-01T00:00:00.001Z","pending":2,"running":1,"total_work_units":6,"blocked":2,"completed":3,"pending_finalizers":0,"running_finalizers":0,"blocked_reason":"resources","blocked_resources":["go_io"],"waiting_on":["backend-store"],"blocked_units":[],"active_resource_claims":{"go_cpu":1},"resource_limits":{"go_cpu":1,"go_io":1},"active_groups":{"backend-integration":1},"blocked_by":["go_io"],"unblocks_after":"backend-integration/shard-a","slowest_running":{"label":"backend-integration/shard-a","duration_ms":1234}}'
   } >"${nested_dir}/scheduler-events.jsonl"
 }
 
@@ -1848,25 +1848,25 @@ if (timing.scheduler_total_duration_ms !== 91) {
 EOF
 mkdir -p "${event_order_dir}/valid/check" "${event_order_dir}/sequence/check" "${event_order_dir}/monotonic/check" "${event_order_dir}/wall/check" "${event_order_dir}/skew/check"
 cat >"${event_order_dir}/valid/check/scheduler-events.jsonl" <<'JSONL'
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"finish","seq":2,"monotonic_ms":5,"emitted_at":"2026-01-01T00:00:00.005Z"}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"finish","seq":2,"monotonic_ms":5,"emitted_at":"2026-01-01T00:00:00.005Z"}
 JSONL
 cat >"${event_order_dir}/sequence/check/scheduler-events.jsonl" <<'JSONL'
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"finish","seq":3,"monotonic_ms":5,"emitted_at":"2026-01-01T00:00:00.005Z"}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"finish","seq":3,"monotonic_ms":5,"emitted_at":"2026-01-01T00:00:00.005Z"}
 JSONL
 cat >"${event_order_dir}/monotonic/check/scheduler-events.jsonl" <<'JSONL'
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"start","seq":1,"monotonic_ms":10,"emitted_at":"2026-01-01T00:00:00.010Z"}
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"finish","seq":2,"monotonic_ms":5,"emitted_at":"2026-01-01T00:00:00.005Z"}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"start","seq":1,"monotonic_ms":10,"emitted_at":"2026-01-01T00:00:00.010Z"}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"finish","seq":2,"monotonic_ms":5,"emitted_at":"2026-01-01T00:00:00.005Z"}
 JSONL
 cat >"${event_order_dir}/wall/check/scheduler-events.jsonl" <<'JSONL'
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:02.000Z"}
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"finish","seq":2,"monotonic_ms":5,"emitted_at":"2026-01-01T00:00:01.000Z"}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:02.000Z"}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"finish","seq":2,"monotonic_ms":5,"emitted_at":"2026-01-01T00:00:01.000Z"}
 JSONL
 cat >"${event_order_dir}/skew/check/scheduler-events.jsonl" <<'JSONL'
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:02.000Z"}
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"clock-skew","seq":2,"monotonic_ms":1,"emitted_at":"2026-01-01T00:00:03.000Z"}
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"finish","seq":3,"monotonic_ms":5,"emitted_at":"2026-01-01T00:00:01.000Z"}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:02.000Z"}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"clock-skew","seq":2,"monotonic_ms":1,"emitted_at":"2026-01-01T00:00:03.000Z"}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"finish","seq":3,"monotonic_ms":5,"emitted_at":"2026-01-01T00:00:01.000Z"}
 JSONL
 assert_contains "$("$NODE_BIN" "$ROOT_DIR/tools/harness/diagnostics/scheduler-event-order-drift-cli.mjs" "${event_order_dir}/valid" 2>&1)" "scheduler event order verified" "valid scheduler event order drift fixture"
 set +e
@@ -1889,8 +1889,8 @@ summary_timing_dir="$(mktemp -d "${ROOT_DIR}/tmp/scheduler-summary-timing.XXXXXX
 cleanup_paths+=("$summary_timing_dir")
 mkdir -p "${summary_timing_dir}/valid/check" "${summary_timing_dir}/stale/check"
 cat >"${summary_timing_dir}/valid/check/scheduler-events.jsonl" <<'JSONL'
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"scheduler-start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"scheduler-finish","seq":2,"monotonic_ms":120000,"emitted_at":"2026-01-01T00:02:00.000Z"}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"scheduler-start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"scheduler-finish","seq":2,"monotonic_ms":120000,"emitted_at":"2026-01-01T00:02:00.000Z"}
 JSONL
 cat >"${summary_timing_dir}/valid/check/scheduler-summary.json" <<'JSON'
 {
@@ -1980,7 +1980,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 const [root] = process.argv.slice(2);
-const schemaID = "cartulary.scheduler_event.v6";
+const schemaID = "cartulary.scheduler_event.v7";
 const startWallMs = Date.parse("2026-01-01T00:00:00.000Z");
 const emittedAt = (ms) => new Date(startWallMs + ms).toISOString();
 
@@ -2229,12 +2229,12 @@ assert_equals "$warm_visual_status" "1" "warm check visual-in-default fixture st
 assert_contains "$warm_visual_output" "default warm check includes explicit browser evidence unit check-service-backed:browser-e2e-visual:visual" "warm check visual-in-default fixture output"
 mkdir -p "${summary_timing_dir}/critical/linked/check" "${summary_timing_dir}/critical/unlinked/check"
 cat >"${summary_timing_dir}/critical/linked/check/scheduler-events.jsonl" <<'JSONL'
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"scheduler-start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"start","seq":2,"monotonic_ms":1,"emitted_at":"2026-01-01T00:00:00.001Z","work_unit_id":"setup","work_unit":"setup"}
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"finish","seq":3,"monotonic_ms":50000,"emitted_at":"2026-01-01T00:00:50.000Z","work_unit_id":"setup","work_unit":"setup","status":0,"duration_ms":50000}
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"start","seq":4,"monotonic_ms":50000,"emitted_at":"2026-01-01T00:00:50.000Z","work_unit_id":"build","work_unit":"build"}
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"finish","seq":5,"monotonic_ms":120000,"emitted_at":"2026-01-01T00:02:00.000Z","work_unit_id":"build","work_unit":"build","status":0,"duration_ms":70000}
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"scheduler-finish","seq":6,"monotonic_ms":120000,"emitted_at":"2026-01-01T00:02:00.000Z"}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"scheduler-start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"start","seq":2,"monotonic_ms":1,"emitted_at":"2026-01-01T00:00:00.001Z","work_unit_id":"setup","work_unit":"setup"}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"finish","seq":3,"monotonic_ms":50000,"emitted_at":"2026-01-01T00:00:50.000Z","work_unit_id":"setup","work_unit":"setup","status":0,"duration_ms":50000}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"start","seq":4,"monotonic_ms":50000,"emitted_at":"2026-01-01T00:00:50.000Z","work_unit_id":"build","work_unit":"build"}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"finish","seq":5,"monotonic_ms":120000,"emitted_at":"2026-01-01T00:02:00.000Z","work_unit_id":"build","work_unit":"build","status":0,"duration_ms":70000}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"scheduler-finish","seq":6,"monotonic_ms":120000,"emitted_at":"2026-01-01T00:02:00.000Z"}
 JSONL
 cat >"${summary_timing_dir}/critical/linked/check/scheduler-summary.json" <<'JSON'
 {
@@ -2294,10 +2294,10 @@ parent_work_unit_dir="$(mktemp -d "${ROOT_DIR}/tmp/scheduler-parent-work-unit.XX
 cleanup_paths+=("$parent_work_unit_dir")
 mkdir -p "${parent_work_unit_dir}/stale/check" "${parent_work_unit_dir}/stale/check-service-backed"
 cat >"${parent_work_unit_dir}/stale/check/scheduler-events.jsonl" <<'JSONL'
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"scheduler-start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"start","seq":2,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z","work_unit_id":"check-service-backed","work_unit":"check-service-backed","work_unit_type":"make_target","aggregate_target":"check-service-backed","nested_scheduler":{"type":"service_backed","target":"check-service-backed"}}
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"finish","seq":3,"monotonic_ms":121233,"emitted_at":"2026-01-01T00:02:01.233Z","work_unit_id":"check-service-backed","work_unit":"check-service-backed","status":0,"duration_ms":121233}
-{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"scheduler-finish","seq":4,"monotonic_ms":121233,"emitted_at":"2026-01-01T00:02:01.233Z"}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"scheduler-start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"start","seq":2,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z","work_unit_id":"check-service-backed","work_unit":"check-service-backed","work_unit_type":"make_target","aggregate_target":"check-service-backed","nested_scheduler":{"type":"service_backed","target":"check-service-backed"}}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"finish","seq":3,"monotonic_ms":121233,"emitted_at":"2026-01-01T00:02:01.233Z","work_unit_id":"check-service-backed","work_unit":"check-service-backed","status":0,"duration_ms":121233}
+{"schema_id":"cartulary.scheduler_event.v7","target":"check","event":"scheduler-finish","seq":4,"monotonic_ms":121233,"emitted_at":"2026-01-01T00:02:01.233Z"}
 JSONL
 cat >"${parent_work_unit_dir}/stale/check/scheduler-summary.json" <<'JSON'
 {

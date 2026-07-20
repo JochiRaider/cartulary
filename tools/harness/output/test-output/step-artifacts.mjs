@@ -40,6 +40,7 @@ import {
 } from "../../contract/test-output-context.mjs";
 import { loadGovulncheckFindingsFile } from "./security-diagnostics.mjs";
 import { targetOwnerEvidenceArtifactPaths } from "../../evidence-accounting/index.mjs";
+import { finalizeObservabilitySafely, observabilityRequiredTarget } from "../../observability/observability.mjs";
 
 const resultsRoot = resolveResultsRoot();
 
@@ -383,6 +384,9 @@ export function writeStepArtifacts(context, details) {
     stepSummarySchemaID,
     summary,
   );
+  if (process.env.CARTULARY_DEFER_TOOL_SUMMARY === "1") {
+    return;
+  }
   const runRootAbs = path.join(resultsRoot, runId);
   const runRoot = relToRepo(runRootAbs);
   const toolSummaryFile = toolSummaryPath(targetRunRoot);
@@ -519,6 +523,23 @@ export function writeStepArtifacts(context, details) {
     },
   });
   writeToolSummary(toolSummaryFile, toolSummary);
+  if (!suppressChildSuccess() && observabilityRequiredTarget(context.target)) {
+    const observability = finalizeObservabilitySafely(path.dirname(targetRunRoot), {
+      target: context.target,
+      status: details.status === "pass" ? "passed" : "failed",
+    });
+    if (observability.status === "partial") {
+      toolSummary.warnings = [
+        ...(toolSummary.warnings ?? []),
+        {
+          kind: "harness_observability",
+          status: "partial",
+          diagnostic: observability.diagnostic,
+        },
+      ];
+      writeToolSummary(toolSummaryFile, toolSummary);
+    }
+  }
 
   if (details.status !== "pass" && !suppressChildSuccess()) {
     if (machineOutput()) {

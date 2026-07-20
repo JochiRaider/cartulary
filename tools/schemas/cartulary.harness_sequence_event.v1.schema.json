@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_sequence_event.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "run_id", "sequence", "seq", "event", "emitted_at", "monotonic_ms", "status"],
+  "properties": {
+    "schema_id": { "const": "cartulary.harness_sequence_event.v1" },
+    "run_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$" },
+    "sequence": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
+    "seq": { "type": "integer", "minimum": 1 },
+    "event": { "enum": ["sequence_started", "step_eligible", "step_started", "step_finished", "step_skipped", "sequence_finished", "sequence_interrupted"] },
+    "emitted_at": { "type": "string", "format": "date-time" },
+    "monotonic_ms": { "type": "number", "minimum": 0 },
+    "step_index": { "type": "integer", "minimum": 1 },
+    "target": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
+    "needs": { "type": "array", "items": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" } },
+    "resource_claims": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+      "additionalProperties": { "type": "integer", "minimum": 1 }
+    },
+    "mode": { "enum": ["serial", "dag", "scheduler"] },
+    "jobs": { "type": "integer", "minimum": 1 },
+    "status": { "enum": ["pending", "running", "pass", "fail", "interrupted"] },
+    "exit_code": { "type": "integer", "minimum": 0 },
+    "duration_ms": { "type": "number", "minimum": 0 },
+    "eligible_at": { "type": "string", "format": "date-time" },
+    "started_at": { "type": "string", "format": "date-time" },
+    "ended_at": { "type": "string", "format": "date-time" },
+    "eligible_monotonic_ms": { "type": "number", "minimum": 0 },
+    "started_monotonic_ms": { "type": "number", "minimum": 0 },
+    "ended_monotonic_ms": { "type": "number", "minimum": 0 },
+    "skip_reason": { "enum": ["dependency_failed", "scheduler_stop", "interrupted"] },
+    "failed_dependency": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "event": { "enum": ["step_finished", "step_skipped"] } },
+        "required": ["event"]
+      },
+      "then": {
+        "required": [
+          "step_index",
+          "target",
+          "needs",
+          "resource_claims",
+          "mode",
+          "exit_code",
+          "eligible_at",
+          "ended_at",
+          "eligible_monotonic_ms",
+          "ended_monotonic_ms"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "schema_id": "cartulary.harness_public_target_duration_baselines.v1",
+  "status": "seed",
+  "source_commit": "00522cfed1b6e5ca0936fb703de96c4c019544f3",
+  "profile_digests": {
+    "host": "c31c805927c8912d7b56ec09c32cc91b8597404122198b80c923970c546f542d",
+    "capacity": "bd042c914469a69fa6ffda55f0f96e65e968d3a34a64aecd58790dada66d2df1",
+    "workload": "ff7d5a4d9cab0b3ff2fae01ca0537fd19ad884b6c4bca98fce4b533ae9a88f1d",
+    "toolchain": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac"
+  },
+  "targets": [
+    {
+      "target": "backend-output-finalizer",
+      "gate": "required_improvement",
+      "samples_ms": [16655],
+      "median_ms": 16655,
+      "mad_ms": 0,
+      "no_regression_limit_ms": 17655,
+      "required_improvement_ms": 1665.5
+    },
+    {
+      "target": "backend-unit",
+      "gate": "required_improvement",
+      "samples_ms": [87244],
+      "median_ms": 87244,
+      "mad_ms": 0,
+      "no_regression_limit_ms": 91606.2,
+      "required_improvement_ms": 8724.4
+    },
+    {
+      "target": "check",
+      "gate": "no_regression",
+      "samples_ms": [124565],
+      "median_ms": 124565,
+      "mad_ms": 0,
+      "no_regression_limit_ms": 130793.25,
+      "required_improvement_ms": 12456.5
+    },
+    {
+      "target": "release-browser-readiness",
+      "gate": "required_improvement",
+      "samples_ms": [297490],
+      "median_ms": 297490,
+      "mad_ms": 0,
+      "no_regression_limit_ms": 312364.5,
+      "required_improvement_ms": 29749
+    },
+    {
+      "target": "release-check",
+      "gate": "required_improvement",
+      "samples_ms": [733069],
+      "median_ms": 733069,
+      "mad_ms": 0,
+      "no_regression_limit_ms": 769722.45,
+      "required_improvement_ms": 73306.9
+    }
+  ],
+  "seed_evidence": ".cartulary/test-results/20260720T141740Z-p2992081; diagnostic only, not a qualified performance window"
+}

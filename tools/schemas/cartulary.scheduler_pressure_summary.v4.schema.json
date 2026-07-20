@@ -29,7 +29,7 @@
   "properties": {
     "schema_id": { "const": "cartulary.scheduler_pressure_summary.v4" },
     "target": { "type": "string", "minLength": 1 },
-    "scheduler_kind": { "enum": ["check", "service_backed", "test_slice"] },
+    "scheduler_kind": { "enum": ["check", "service_backed", "test_slice", "sequence"] },
     "status": { "$ref": "cartulary.harness.defs.v1#/$defs/status" },
     "total_work_units": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
     "completed_work_units": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },

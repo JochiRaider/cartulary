@@ -5844,6 +5844,7 @@
           "env": {
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default"
           },
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
           "command": {
             "type": "browser_stage_session_start",
             "service_target": "test-service-backed",
@@ -5963,6 +5964,7 @@
           "env": {
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default"
           },
+          "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
           "command": {
             "type": "browser_stage_session_start",
             "service_target": "test-service-backed",
@@ -8472,6 +8474,7 @@
               "web.design.visual.run_the_owned_stack_playwright_visual_suite_with_9b08711878"
             ],
             "browser_session_group": "browser-e2e-visual-default",
+            "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
             "priority": 36000,
             "weight_ms": 10000,
             "resource_claims": {
@@ -8602,6 +8605,7 @@
               "web.design.accessibility.verify_global_accessibility_matrix_for_keyboard_90088a3666"
             ],
             "browser_session_group": "browser-e2e-a11y-default",
+            "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
             "priority": 36000,
             "weight_ms": 10000,
             "resource_claims": {
@@ -12448,6 +12452,7 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default"
           },
           "browser_session_finalizer": false,
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
           "command": {
             "type": "browser_stage_complete",
             "service_target": "test-service-backed",
@@ -12484,6 +12489,7 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default"
           },
           "browser_session_finalizer": false,
+          "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
           "command": {
             "type": "browser_stage_complete",
             "service_target": "test-service-backed",
@@ -12758,6 +12764,7 @@
           },
           "browser_stage": "visual",
           "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
           "command": {
             "type": "browser_session_finalizer",
             "service_target": "test-service-backed",
@@ -12827,6 +12834,7 @@
           },
           "browser_stage": "a11y",
           "browser_session_group": "browser-e2e-a11y-default",
+          "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
           "command": {
             "type": "browser_session_finalizer",
             "service_target": "test-service-backed",
@@ -20936,6 +20944,1073 @@
             "type": "browser_stage_complete",
             "service_target": "check-service-backed",
             "browser_stage": "stateful"
+          }
+        }
+      ],
+      "finalizers": []
+    },
+    {
+      "target": "release-browser-readiness",
+      "scheduler_kind": "service_backed",
+      "capacity_profile": "service_backed_full",
+      "resource_limits": {
+        "postgres": 32,
+        "object_store": 32,
+        "go_cpu": "auto",
+        "go_io": "auto",
+        "postgres_reset": "auto",
+        "postgres_clone": "auto",
+        "process": 6,
+        "seaweedfs_fixture": 2,
+        "browser_stack": 2,
+        "browser_stage_visual": 1,
+        "browser_stage_a11y": 1,
+        "browser_stage_support": 1
+      },
+      "stop_on_first_failure": false,
+      "progress_tick_seconds": 30,
+      "validate_timing": true,
+      "summary_groups": [],
+      "work_units": [
+        {
+          "id": "browser-stage-session:browser-e2e-support-default",
+          "kind": "browser_stage_session",
+          "class": "browser",
+          "target": "browser-e2e-support",
+          "label": "browser-e2e-support-default/stage-session",
+          "aggregate_target": "browser-e2e-support",
+          "priority": 36000,
+          "weight_ms": 50000,
+          "needs": [],
+          "completion_keys": [
+            "browser_stage_session:browser-e2e-support-default"
+          ],
+          "failure_keys": [
+            "browser_stage_session:browser-e2e-support-default"
+          ],
+          "resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_support": 1,
+            "object_store": 1,
+            "postgres": 1,
+            "process": 1
+          },
+          "retained_resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_support": 1,
+            "process": 1
+          },
+          "browser_stage": "support",
+          "browser_session_group": "browser-e2e-support-default",
+          "env": {
+            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default"
+          },
+          "browser_session_isolation_reason": "release support evidence owns an isolated fixture session",
+          "command": {
+            "type": "browser_stage_session_start",
+            "service_target": "release-browser-readiness",
+            "browser_stage": "support"
+          }
+        },
+        {
+          "id": "browser-stage-session:browser-e2e-visual-default",
+          "kind": "browser_stage_session",
+          "class": "browser",
+          "target": "browser-e2e-visual",
+          "label": "browser-e2e-visual-default/stage-session",
+          "aggregate_target": "browser-e2e-visual",
+          "priority": 36000,
+          "weight_ms": 20000,
+          "needs": [],
+          "completion_keys": [
+            "browser_stage_session:browser-e2e-visual-default"
+          ],
+          "failure_keys": [
+            "browser_stage_session:browser-e2e-visual-default"
+          ],
+          "resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_visual": 1,
+            "object_store": 1,
+            "postgres": 1,
+            "process": 1
+          },
+          "retained_resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_visual": 1,
+            "process": 1
+          },
+          "browser_stage": "visual",
+          "browser_session_group": "browser-e2e-visual-default",
+          "env": {
+            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default"
+          },
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "command": {
+            "type": "browser_stage_session_start",
+            "service_target": "release-browser-readiness",
+            "browser_stage": "visual"
+          }
+        },
+        {
+          "id": "browser-stage-session:browser-visual-network-flow-claimed",
+          "kind": "browser_stage_session",
+          "class": "browser",
+          "target": "browser-e2e-visual",
+          "label": "browser-visual-network-flow-claimed/stage-session",
+          "aggregate_target": "browser-e2e-visual",
+          "priority": 36000,
+          "weight_ms": 20000,
+          "needs": [],
+          "completion_keys": [
+            "browser_stage_session:browser-visual-network-flow-claimed"
+          ],
+          "failure_keys": [
+            "browser_stage_session:browser-visual-network-flow-claimed"
+          ],
+          "resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_visual": 1,
+            "object_store": 1,
+            "postgres": 1,
+            "process": 1
+          },
+          "retained_resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_visual": 1,
+            "process": 1
+          },
+          "browser_stage": "visual",
+          "browser_session_group": "browser-visual-network-flow-claimed",
+          "env": {
+            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "network_flow_claimed"
+          },
+          "browser_session_isolation_reason": "claimed Network Flow visual evidence requires immutable startup-only extension configuration",
+          "command": {
+            "type": "browser_stage_session_start",
+            "service_target": "release-browser-readiness",
+            "browser_stage": "visual"
+          }
+        },
+        {
+          "id": "browser-stage-session:browser-a11y-network-flow-claimed",
+          "kind": "browser_stage_session",
+          "class": "browser",
+          "target": "browser-e2e-a11y",
+          "label": "browser-a11y-network-flow-claimed/stage-session",
+          "aggregate_target": "browser-e2e-a11y",
+          "priority": 36000,
+          "weight_ms": 20000,
+          "needs": [],
+          "completion_keys": [
+            "browser_stage_session:browser-a11y-network-flow-claimed"
+          ],
+          "failure_keys": [
+            "browser_stage_session:browser-a11y-network-flow-claimed"
+          ],
+          "resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_a11y": 1,
+            "object_store": 1,
+            "postgres": 1,
+            "process": 1
+          },
+          "retained_resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_a11y": 1,
+            "process": 1
+          },
+          "browser_stage": "a11y",
+          "browser_session_group": "browser-a11y-network-flow-claimed",
+          "env": {
+            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "network_flow_claimed"
+          },
+          "browser_session_isolation_reason": "claimed Network Flow accessibility evidence requires immutable startup-only extension configuration",
+          "command": {
+            "type": "browser_stage_session_start",
+            "service_target": "release-browser-readiness",
+            "browser_stage": "a11y"
+          }
+        },
+        {
+          "id": "browser-stage-session:browser-e2e-a11y-default",
+          "kind": "browser_stage_session",
+          "class": "browser",
+          "target": "browser-e2e-a11y",
+          "label": "browser-e2e-a11y-default/stage-session",
+          "aggregate_target": "browser-e2e-a11y",
+          "priority": 36000,
+          "weight_ms": 20000,
+          "needs": [],
+          "completion_keys": [
+            "browser_stage_session:browser-e2e-a11y-default"
+          ],
+          "failure_keys": [
+            "browser_stage_session:browser-e2e-a11y-default"
+          ],
+          "resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_a11y": 1,
+            "object_store": 1,
+            "postgres": 1,
+            "process": 1
+          },
+          "retained_resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_a11y": 1,
+            "process": 1
+          },
+          "browser_stage": "a11y",
+          "browser_session_group": "browser-e2e-a11y-default",
+          "env": {
+            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default"
+          },
+          "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
+          "command": {
+            "type": "browser_stage_session_start",
+            "service_target": "release-browser-readiness",
+            "browser_stage": "a11y"
+          }
+        },
+        {
+          "id": "browser-e2e-visual:visual-network-flow-claimed-workbook-visual",
+          "kind": "browser_group",
+          "class": "browser",
+          "target": "browser-e2e-visual",
+          "label": "browser-e2e-visual/visual-network-flow-claimed-workbook-visual",
+          "aggregate_target": "browser-e2e-visual",
+          "priority": 36000,
+          "weight_ms": 10000,
+          "needs": [
+            "browser_stage_session:browser-visual-network-flow-claimed"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-visual:visual-network-flow-claimed-workbook-visual"
+          ],
+          "failure_keys": [
+            "browser_group:browser-e2e-visual:visual-network-flow-claimed-workbook-visual"
+          ],
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 1
+          },
+          "browser_stage": "visual",
+          "browser_session_group": "browser-visual-network-flow-claimed",
+          "browser_group": {
+            "id": "browser-e2e-visual:visual-network-flow-claimed-workbook-visual",
+            "name": "visual-network-flow-claimed-workbook-visual",
+            "kind": "visual",
+            "target": "browser-e2e-visual",
+            "aggregate_target": "browser-e2e-visual",
+            "coverage": "supplemental",
+            "execution_dependency": "browser_visual",
+            "workers": "1",
+            "runtime_profile_id": "network_flow_claimed",
+            "selected_row_ids": [
+              "module.networkflow.visual.capture_deterministic_claimed_network_analysis_a_47b1c2cce6"
+            ],
+            "browser_session_group": "browser-visual-network-flow-claimed",
+            "browser_session_isolation_reason": "claimed Network Flow visual evidence requires immutable startup-only extension configuration",
+            "priority": 36000,
+            "weight_ms": 10000,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {
+            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "network_flow_claimed",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.networkflow.visual.capture_deterministic_claimed_network_analysis_a_47b1c2cce6",
+            "CARTULARY_BROWSER_SESSION_GROUP": "browser-visual-network-flow-claimed",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "9",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "6"
+          },
+          "command": {
+            "type": "browser_group",
+            "service_target": "release-browser-readiness",
+            "browser_stage": "visual",
+            "group_id": "browser-e2e-visual:visual-network-flow-claimed-workbook-visual"
+          }
+        },
+        {
+          "id": "browser-e2e-visual:visual-workbook-visual",
+          "kind": "browser_group",
+          "class": "browser",
+          "target": "browser-e2e-visual",
+          "label": "browser-e2e-visual/visual-workbook-visual",
+          "aggregate_target": "browser-e2e-visual",
+          "priority": 36000,
+          "weight_ms": 10000,
+          "needs": [
+            "browser_stage_session:browser-e2e-visual-default"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-visual:visual-workbook-visual"
+          ],
+          "failure_keys": [
+            "browser_group:browser-e2e-visual:visual-workbook-visual"
+          ],
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 1
+          },
+          "browser_stage": "visual",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_group": {
+            "id": "browser-e2e-visual:visual-workbook-visual",
+            "name": "visual-workbook-visual",
+            "kind": "visual",
+            "target": "browser-e2e-visual",
+            "aggregate_target": "browser-e2e-visual",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_visual",
+            "workers": "1",
+            "runtime_profile_id": "default",
+            "selected_row_ids": [
+              "module.auth.visual.capture_the_anonymous_auth_gateway_across_initia_755030aa99",
+              "module.collaboration.visual.capture_presence_markers_same_field_conflict_res_f0a62c52a1",
+              "module.collaboration.visual.the_visual_harness_asserts_deterministic_timelin_22b64f5dec",
+              "module.collaboration.visual.the_visual_harness_asserts_same_field_conflict_m_c472bd3f9c",
+              "module.collaboration.visual.the_visual_harness_asserts_syncing_same_field_co_df11cd99bc",
+              "module.entities.visual.capture_unresolved_token_resolved_chip_auto_reso_d3b74bd9d7",
+              "module.entities.visual.the_visual_harness_captures_unresolved_mention_a_4b882068c7",
+              "module.evidence.visual.capture_evidence_count_affordance_available_requ_cfada809e4",
+              "module.evidence.visual.the_visual_harness_captures_blocked_evidence_acc_779473e830",
+              "module.evidence.visual.the_visual_harness_captures_evidence_surface_acc_8c22a3c9bc",
+              "module.evidence.visual.the_visual_harness_captures_requested_evidence_a_1eb50235af",
+              "module.savedviews.visual.capture_saved_view_selector_active_chips_grouped_3da7859cdc",
+              "module.timeline.visual.the_visual_harness_captures_a_deterministic_grou_ac01b2d810",
+              "module.timeline.visual.the_visual_harness_captures_a_deterministic_time_a19d57e206",
+              "module.timeline.visual.the_visual_harness_drives_the_real_timeline_work_0977c1d4cf",
+              "module.workbook.visual.capture_default_timeline_workbook_shell_with_vie_c06bbcbee0",
+              "module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea",
+              "module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67",
+              "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc",
+              "module.workbook.visual.the_visual_harness_captures_a_required_coordinat_a38d329f28",
+              "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
+              "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
+              "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
+              "web.design.visual.run_the_owned_stack_playwright_visual_suite_with_9b08711878"
+            ],
+            "browser_session_group": "browser-e2e-visual-default",
+            "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+            "priority": 36000,
+            "weight_ms": 10000,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {
+            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.auth.visual.capture_the_anonymous_auth_gateway_across_initia_755030aa99,module.collaboration.visual.capture_presence_markers_same_field_conflict_res_f0a62c52a1,module.collaboration.visual.the_visual_harness_asserts_deterministic_timelin_22b64f5dec,module.collaboration.visual.the_visual_harness_asserts_same_field_conflict_m_c472bd3f9c,module.collaboration.visual.the_visual_harness_asserts_syncing_same_field_co_df11cd99bc,module.entities.visual.capture_unresolved_token_resolved_chip_auto_reso_d3b74bd9d7,module.entities.visual.the_visual_harness_captures_unresolved_mention_a_4b882068c7,module.evidence.visual.capture_evidence_count_affordance_available_requ_cfada809e4,module.evidence.visual.the_visual_harness_captures_blocked_evidence_acc_779473e830,module.evidence.visual.the_visual_harness_captures_evidence_surface_acc_8c22a3c9bc,module.evidence.visual.the_visual_harness_captures_requested_evidence_a_1eb50235af,module.savedviews.visual.capture_saved_view_selector_active_chips_grouped_3da7859cdc,module.timeline.visual.the_visual_harness_captures_a_deterministic_grou_ac01b2d810,module.timeline.visual.the_visual_harness_captures_a_deterministic_time_a19d57e206,module.timeline.visual.the_visual_harness_drives_the_real_timeline_work_0977c1d4cf,module.workbook.visual.capture_default_timeline_workbook_shell_with_vie_c06bbcbee0,module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea,module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67,module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc,module.workbook.visual.the_visual_harness_captures_a_required_coordinat_a38d329f28,package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba,web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c,web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967,web.design.visual.run_the_owned_stack_playwright_visual_suite_with_9b08711878",
+            "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-visual-default",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "9",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "5"
+          },
+          "command": {
+            "type": "browser_group",
+            "service_target": "release-browser-readiness",
+            "browser_stage": "visual",
+            "group_id": "browser-e2e-visual:visual-workbook-visual"
+          }
+        },
+        {
+          "id": "browser-e2e-a11y:a11y-network-flow-claimed-workbook-a11y",
+          "kind": "browser_group",
+          "class": "browser",
+          "target": "browser-e2e-a11y",
+          "label": "browser-e2e-a11y/a11y-network-flow-claimed-workbook-a11y",
+          "aggregate_target": "browser-e2e-a11y",
+          "priority": 36000,
+          "weight_ms": 10000,
+          "needs": [
+            "browser_stage_session:browser-a11y-network-flow-claimed"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-a11y:a11y-network-flow-claimed-workbook-a11y"
+          ],
+          "failure_keys": [
+            "browser_group:browser-e2e-a11y:a11y-network-flow-claimed-workbook-a11y"
+          ],
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 1
+          },
+          "browser_stage": "a11y",
+          "browser_session_group": "browser-a11y-network-flow-claimed",
+          "browser_group": {
+            "id": "browser-e2e-a11y:a11y-network-flow-claimed-workbook-a11y",
+            "name": "a11y-network-flow-claimed-workbook-a11y",
+            "kind": "a11y",
+            "target": "browser-e2e-a11y",
+            "aggregate_target": "browser-e2e-a11y",
+            "coverage": "supplemental",
+            "execution_dependency": "browser_a11y",
+            "workers": "1",
+            "runtime_profile_id": "network_flow_claimed",
+            "selected_row_ids": [
+              "module.networkflow.accessibility.verify_claimed_network_analysis_keyboard_focus_a_c81856fdc1"
+            ],
+            "browser_session_group": "browser-a11y-network-flow-claimed",
+            "browser_session_isolation_reason": "claimed Network Flow accessibility evidence requires immutable startup-only extension configuration",
+            "priority": 36000,
+            "weight_ms": 10000,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {
+            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "network_flow_claimed",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.networkflow.accessibility.verify_claimed_network_analysis_keyboard_focus_a_c81856fdc1",
+            "CARTULARY_BROWSER_SESSION_GROUP": "browser-a11y-network-flow-claimed",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "9",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "8"
+          },
+          "command": {
+            "type": "browser_group",
+            "service_target": "release-browser-readiness",
+            "browser_stage": "a11y",
+            "group_id": "browser-e2e-a11y:a11y-network-flow-claimed-workbook-a11y"
+          }
+        },
+        {
+          "id": "browser-e2e-a11y:a11y-workbook-a11y",
+          "kind": "browser_group",
+          "class": "browser",
+          "target": "browser-e2e-a11y",
+          "label": "browser-e2e-a11y/a11y-workbook-a11y",
+          "aggregate_target": "browser-e2e-a11y",
+          "priority": 36000,
+          "weight_ms": 10000,
+          "needs": [
+            "browser_stage_session:browser-e2e-a11y-default"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-a11y:a11y-workbook-a11y"
+          ],
+          "failure_keys": [
+            "browser_group:browser-e2e-a11y:a11y-workbook-a11y"
+          ],
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 1
+          },
+          "browser_stage": "a11y",
+          "browser_session_group": "browser-e2e-a11y-default",
+          "browser_group": {
+            "id": "browser-e2e-a11y:a11y-workbook-a11y",
+            "name": "a11y-workbook-a11y",
+            "kind": "a11y",
+            "target": "browser-e2e-a11y",
+            "aggregate_target": "browser-e2e-a11y",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_a11y",
+            "workers": "1",
+            "runtime_profile_id": "default",
+            "selected_row_ids": [
+              "module.auth.accessibility.verify_session_mfa_incident_forbidden_loading_an_e8f5d5f3a9",
+              "module.collaboration.accessibility.verify_conflict_state_resolver_controls_presence_2ec686e8dd",
+              "module.entities.accessibility.verify_mention_chip_states_and_manual_resolution_e5964739d3",
+              "module.evidence.accessibility.verify_evidence_icon_buttons_blocked_states_erro_0ec80f90e2",
+              "module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d",
+              "module.workbook.accessibility.verify_coordination_surfaces_and_full_keyboard_c_83c0845d3e",
+              "module.workbook.accessibility.verify_grid_navigation_edit_entry_exit_paste_fee_3de2b0afac",
+              "module.workbook.accessibility.verify_inspector_tabs_relationship_links_evidenc_9ee9fd9ea2",
+              "module.workbook.accessibility.verify_keyboard_open_close_panel_navigation_esc_42b98cf08e",
+              "module.workbook.accessibility.verify_shell_regions_tabs_switchers_menus_inspec_c481421159",
+              "package.grid_adapter.accessibility.verify_grid_cells_editors_group_rows_active_cell_3156bd379d",
+              "web.design.accessibility.verify_global_accessibility_matrix_for_keyboard_90088a3666"
+            ],
+            "browser_session_group": "browser-e2e-a11y-default",
+            "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
+            "priority": 36000,
+            "weight_ms": 10000,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {
+            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.auth.accessibility.verify_session_mfa_incident_forbidden_loading_an_e8f5d5f3a9,module.collaboration.accessibility.verify_conflict_state_resolver_controls_presence_2ec686e8dd,module.entities.accessibility.verify_mention_chip_states_and_manual_resolution_e5964739d3,module.evidence.accessibility.verify_evidence_icon_buttons_blocked_states_erro_0ec80f90e2,module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d,module.workbook.accessibility.verify_coordination_surfaces_and_full_keyboard_c_83c0845d3e,module.workbook.accessibility.verify_grid_navigation_edit_entry_exit_paste_fee_3de2b0afac,module.workbook.accessibility.verify_inspector_tabs_relationship_links_evidenc_9ee9fd9ea2,module.workbook.accessibility.verify_keyboard_open_close_panel_navigation_esc_42b98cf08e,module.workbook.accessibility.verify_shell_regions_tabs_switchers_menus_inspec_c481421159,package.grid_adapter.accessibility.verify_grid_cells_editors_group_rows_active_cell_3156bd379d,web.design.accessibility.verify_global_accessibility_matrix_for_keyboard_90088a3666",
+            "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-a11y-default",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "9",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "7"
+          },
+          "command": {
+            "type": "browser_group",
+            "service_target": "release-browser-readiness",
+            "browser_stage": "a11y",
+            "group_id": "browser-e2e-a11y:a11y-workbook-a11y"
+          }
+        },
+        {
+          "id": "browser-e2e-support:support-auth-support",
+          "kind": "browser_group",
+          "class": "browser",
+          "target": "browser-e2e-support",
+          "label": "browser-e2e-support/support-auth-support",
+          "aggregate_target": "browser-e2e-support",
+          "priority": 36000,
+          "weight_ms": 10000,
+          "needs": [
+            "browser_stage_session:browser-e2e-support-default"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-support:support-auth-support"
+          ],
+          "failure_keys": [
+            "browser_group:browser-e2e-support:support-auth-support"
+          ],
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 1
+          },
+          "browser_stage": "support",
+          "browser_session_group": "browser-e2e-support-default",
+          "browser_group": {
+            "id": "browser-e2e-support:support-auth-support",
+            "name": "support-auth-support",
+            "kind": "support",
+            "target": "browser-e2e-support",
+            "aggregate_target": "browser-e2e-support",
+            "coverage": "supplemental",
+            "execution_dependency": "browser_support",
+            "workers": "default",
+            "runtime_profile_id": "default",
+            "selected_row_ids": [
+              "module.auth.browser_support.supplemental_browser_verifies_ordinary_shell_sel_f8a9da1957"
+            ],
+            "browser_session_group": "browser-e2e-support-default",
+            "browser_session_isolation_reason": "release support evidence owns an isolated fixture session",
+            "priority": 36000,
+            "weight_ms": 10000,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {
+            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.auth.browser_support.supplemental_browser_verifies_ordinary_shell_sel_f8a9da1957",
+            "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-support-default",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "9",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "0",
+            "PLAYWRIGHT_WORKERS": "1"
+          },
+          "command": {
+            "type": "browser_group",
+            "service_target": "release-browser-readiness",
+            "browser_stage": "support",
+            "group_id": "browser-e2e-support:support-auth-support"
+          }
+        },
+        {
+          "id": "browser-e2e-support:support-incident-support",
+          "kind": "browser_group",
+          "class": "browser",
+          "target": "browser-e2e-support",
+          "label": "browser-e2e-support/support-incident-support",
+          "aggregate_target": "browser-e2e-support",
+          "priority": 36000,
+          "weight_ms": 10000,
+          "needs": [
+            "browser_stage_session:browser-e2e-support-default"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-support:support-incident-support"
+          ],
+          "failure_keys": [
+            "browser_group:browser-e2e-support:support-incident-support"
+          ],
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 1
+          },
+          "browser_stage": "support",
+          "browser_session_group": "browser-e2e-support-default",
+          "browser_group": {
+            "id": "browser-e2e-support:support-incident-support",
+            "name": "support-incident-support",
+            "kind": "support",
+            "target": "browser-e2e-support",
+            "aggregate_target": "browser-e2e-support",
+            "coverage": "supplemental",
+            "execution_dependency": "browser_support",
+            "workers": "default",
+            "runtime_profile_id": "default",
+            "selected_row_ids": [
+              "module.incidents.browser_support.supports_reserved_family_dispatch_precedence_pro_d831d613fa",
+              "module.incidents.browser_support.supports_route_owned_incident_validation_errors_c277ce45ee",
+              "module.incidents.browser_support.supports_zero_membership_extension_discovery_and_2d096f2dcd"
+            ],
+            "browser_session_group": "browser-e2e-support-default",
+            "browser_session_isolation_reason": "release support evidence owns an isolated fixture session",
+            "priority": 36000,
+            "weight_ms": 10000,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {
+            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.incidents.browser_support.supports_reserved_family_dispatch_precedence_pro_d831d613fa,module.incidents.browser_support.supports_route_owned_incident_validation_errors_c277ce45ee,module.incidents.browser_support.supports_zero_membership_extension_discovery_and_2d096f2dcd",
+            "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-support-default",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "9",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "1",
+            "PLAYWRIGHT_WORKERS": "1"
+          },
+          "command": {
+            "type": "browser_group",
+            "service_target": "release-browser-readiness",
+            "browser_stage": "support",
+            "group_id": "browser-e2e-support:support-incident-support"
+          }
+        },
+        {
+          "id": "browser-e2e-support:support-keyboard",
+          "kind": "browser_group",
+          "class": "browser",
+          "target": "browser-e2e-support",
+          "label": "browser-e2e-support/support-keyboard",
+          "aggregate_target": "browser-e2e-support",
+          "priority": 36000,
+          "weight_ms": 10000,
+          "needs": [
+            "browser_stage_session:browser-e2e-support-default"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-support:support-keyboard"
+          ],
+          "failure_keys": [
+            "browser_group:browser-e2e-support:support-keyboard"
+          ],
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 1
+          },
+          "browser_stage": "support",
+          "browser_session_group": "browser-e2e-support-default",
+          "browser_group": {
+            "id": "browser-e2e-support:support-keyboard",
+            "name": "support-keyboard",
+            "kind": "support",
+            "target": "browser-e2e-support",
+            "aggregate_target": "browser-e2e-support",
+            "coverage": "supplemental",
+            "execution_dependency": "browser_support",
+            "workers": "default",
+            "runtime_profile_id": "default",
+            "selected_row_ids": [
+              "module.timeline.browser_support.verify_full_keyboard_clipboard_contract_one_clic_ec36b90e7b"
+            ],
+            "browser_session_group": "browser-e2e-support-default",
+            "browser_session_isolation_reason": "release support evidence owns an isolated fixture session",
+            "priority": 36000,
+            "weight_ms": 10000,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {
+            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.timeline.browser_support.verify_full_keyboard_clipboard_contract_one_clic_ec36b90e7b",
+            "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-support-default",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "9",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "2",
+            "PLAYWRIGHT_WORKERS": "1"
+          },
+          "command": {
+            "type": "browser_group",
+            "service_target": "release-browser-readiness",
+            "browser_stage": "support",
+            "group_id": "browser-e2e-support:support-keyboard"
+          }
+        },
+        {
+          "id": "browser-e2e-support:support-timeline-support",
+          "kind": "browser_group",
+          "class": "browser",
+          "target": "browser-e2e-support",
+          "label": "browser-e2e-support/support-timeline-support",
+          "aggregate_target": "browser-e2e-support",
+          "priority": 36000,
+          "weight_ms": 10000,
+          "needs": [
+            "browser_stage_session:browser-e2e-support-default"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-support:support-timeline-support"
+          ],
+          "failure_keys": [
+            "browser_group:browser-e2e-support:support-timeline-support"
+          ],
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 1
+          },
+          "browser_stage": "support",
+          "browser_session_group": "browser-e2e-support-default",
+          "browser_group": {
+            "id": "browser-e2e-support:support-timeline-support",
+            "name": "support-timeline-support",
+            "kind": "support",
+            "target": "browser-e2e-support",
+            "aggregate_target": "browser-e2e-support",
+            "coverage": "supplemental",
+            "execution_dependency": "browser_support",
+            "workers": "default",
+            "runtime_profile_id": "default",
+            "selected_row_ids": [
+              "module.timeline.browser_support.keeps_a_pending_edit_anchored_to_its_record_unde_b5a6ab2768",
+              "module.timeline.browser_support.keeps_repeated_scalar_grid_edits_out_of_the_rdg_3b2fc5f1f0",
+              "module.timeline.browser_support.verify_one_click_focused_editing_rejected_transi_0e2d9a8f10"
+            ],
+            "browser_session_group": "browser-e2e-support-default",
+            "browser_session_isolation_reason": "release support evidence owns an isolated fixture session",
+            "priority": 36000,
+            "weight_ms": 10000,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {
+            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.timeline.browser_support.keeps_a_pending_edit_anchored_to_its_record_unde_b5a6ab2768,module.timeline.browser_support.keeps_repeated_scalar_grid_edits_out_of_the_rdg_3b2fc5f1f0,module.timeline.browser_support.verify_one_click_focused_editing_rejected_transi_0e2d9a8f10",
+            "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-support-default",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "9",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "3",
+            "PLAYWRIGHT_WORKERS": "1"
+          },
+          "command": {
+            "type": "browser_group",
+            "service_target": "release-browser-readiness",
+            "browser_stage": "support",
+            "group_id": "browser-e2e-support:support-timeline-support"
+          }
+        },
+        {
+          "id": "browser-e2e-support:support-workbook-support",
+          "kind": "browser_group",
+          "class": "browser",
+          "target": "browser-e2e-support",
+          "label": "browser-e2e-support/support-workbook-support",
+          "aggregate_target": "browser-e2e-support",
+          "priority": 36000,
+          "weight_ms": 10000,
+          "needs": [
+            "browser_stage_session:browser-e2e-support-default"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-support:support-workbook-support"
+          ],
+          "failure_keys": [
+            "browser_group:browser-e2e-support:support-workbook-support"
+          ],
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 1
+          },
+          "browser_stage": "support",
+          "browser_session_group": "browser-e2e-support-default",
+          "browser_group": {
+            "id": "browser-e2e-support:support-workbook-support",
+            "name": "support-workbook-support",
+            "kind": "support",
+            "target": "browser-e2e-support",
+            "aggregate_target": "browser-e2e-support",
+            "coverage": "supplemental",
+            "execution_dependency": "browser_support",
+            "workers": "default",
+            "runtime_profile_id": "default",
+            "selected_row_ids": [
+              "module.workbook.browser_support.verify_browser_command_helpers_for_sort_filter_g_cfa68b33e4"
+            ],
+            "browser_session_group": "browser-e2e-support-default",
+            "browser_session_isolation_reason": "release support evidence owns an isolated fixture session",
+            "priority": 36000,
+            "weight_ms": 10000,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {
+            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.workbook.browser_support.verify_browser_command_helpers_for_sort_filter_g_cfa68b33e4",
+            "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-support-default",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "9",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "4",
+            "PLAYWRIGHT_WORKERS": "1"
+          },
+          "command": {
+            "type": "browser_group",
+            "service_target": "release-browser-readiness",
+            "browser_stage": "support",
+            "group_id": "browser-e2e-support:support-workbook-support"
+          }
+        },
+        {
+          "id": "browser-stage-complete:visual",
+          "kind": "browser_stage_complete",
+          "class": "browser",
+          "target": "browser-e2e-visual",
+          "label": "browser-e2e-visual/complete",
+          "aggregate_target": "browser-e2e-visual",
+          "priority": 36000,
+          "weight_ms": 1,
+          "needs": [
+            "browser_group:browser-e2e-visual:visual-workbook-visual",
+            "browser_group:browser-e2e-visual:visual-network-flow-claimed-workbook-visual"
+          ],
+          "completion_keys": [
+            "browser-e2e-visual"
+          ],
+          "failure_keys": [
+            "browser-e2e-visual"
+          ],
+          "count_in_total": false,
+          "counts_started": false,
+          "resource_claims": {},
+          "release_retained_resource_claims": {},
+          "browser_stage": "visual",
+          "browser_session_group": "browser-e2e-visual-default",
+          "env": {
+            "CARTULARY_TARGET_EVIDENCE_SCOPE": "all",
+            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default"
+          },
+          "browser_session_finalizer": false,
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "command": {
+            "type": "browser_stage_complete",
+            "service_target": "release-browser-readiness",
+            "browser_stage": "visual"
+          }
+        },
+        {
+          "id": "browser-stage-complete:a11y",
+          "kind": "browser_stage_complete",
+          "class": "browser",
+          "target": "browser-e2e-a11y",
+          "label": "browser-e2e-a11y/complete",
+          "aggregate_target": "browser-e2e-a11y",
+          "priority": 36000,
+          "weight_ms": 1,
+          "needs": [
+            "browser_group:browser-e2e-a11y:a11y-workbook-a11y",
+            "browser_group:browser-e2e-a11y:a11y-network-flow-claimed-workbook-a11y"
+          ],
+          "completion_keys": [
+            "browser-e2e-a11y"
+          ],
+          "failure_keys": [
+            "browser-e2e-a11y"
+          ],
+          "count_in_total": false,
+          "counts_started": false,
+          "resource_claims": {},
+          "release_retained_resource_claims": {},
+          "browser_stage": "a11y",
+          "browser_session_group": "browser-e2e-a11y-default",
+          "env": {
+            "CARTULARY_TARGET_EVIDENCE_SCOPE": "all",
+            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default"
+          },
+          "browser_session_finalizer": false,
+          "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
+          "command": {
+            "type": "browser_stage_complete",
+            "service_target": "release-browser-readiness",
+            "browser_stage": "a11y"
+          }
+        },
+        {
+          "id": "browser-stage-complete:support",
+          "kind": "browser_stage_complete",
+          "class": "browser",
+          "target": "browser-e2e-support",
+          "label": "browser-e2e-support/complete",
+          "aggregate_target": "browser-e2e-support",
+          "priority": 36000,
+          "weight_ms": 1,
+          "needs": [
+            "browser_group:browser-e2e-support:support-auth-support",
+            "browser_group:browser-e2e-support:support-incident-support",
+            "browser_group:browser-e2e-support:support-keyboard",
+            "browser_group:browser-e2e-support:support-timeline-support",
+            "browser_group:browser-e2e-support:support-workbook-support"
+          ],
+          "completion_keys": [
+            "browser-e2e-support"
+          ],
+          "failure_keys": [
+            "browser-e2e-support"
+          ],
+          "count_in_total": false,
+          "counts_started": false,
+          "resource_claims": {},
+          "release_retained_resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_support": 1,
+            "process": 1
+          },
+          "browser_stage": "support",
+          "browser_session_group": "browser-e2e-support-default",
+          "env": {
+            "CARTULARY_TARGET_EVIDENCE_SCOPE": "all",
+            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default"
+          },
+          "browser_session_finalizer": true,
+          "browser_session_isolation_reason": "release support evidence owns an isolated fixture session",
+          "command": {
+            "type": "browser_stage_complete",
+            "service_target": "release-browser-readiness",
+            "browser_stage": "support"
+          }
+        },
+        {
+          "id": "browser-session-finalizer:browser-e2e-visual-default",
+          "kind": "browser_session_finalizer",
+          "class": "browser",
+          "target": "browser-e2e-visual",
+          "label": "browser-e2e-visual-default/session-finalizer",
+          "aggregate_target": "browser-e2e-visual",
+          "priority": 36000,
+          "weight_ms": 1,
+          "needs": [
+            "browser_group:browser-e2e-visual:visual-workbook-visual"
+          ],
+          "completion_keys": [
+            "browser_session_finalizer:browser-e2e-visual-default"
+          ],
+          "failure_keys": [
+            "browser_session_finalizer:browser-e2e-visual-default"
+          ],
+          "count_in_total": false,
+          "counts_started": false,
+          "resource_claims": {},
+          "release_retained_resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_visual": 1,
+            "process": 1
+          },
+          "browser_stage": "visual",
+          "browser_session_group": "browser-e2e-visual-default",
+          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
+          "command": {
+            "type": "browser_session_finalizer",
+            "service_target": "release-browser-readiness",
+            "browser_session_group": "browser-e2e-visual-default"
+          }
+        },
+        {
+          "id": "browser-session-finalizer:browser-visual-network-flow-claimed",
+          "kind": "browser_session_finalizer",
+          "class": "browser",
+          "target": "browser-e2e-visual",
+          "label": "browser-visual-network-flow-claimed/session-finalizer",
+          "aggregate_target": "browser-e2e-visual",
+          "priority": 36000,
+          "weight_ms": 1,
+          "needs": [
+            "browser_group:browser-e2e-visual:visual-network-flow-claimed-workbook-visual"
+          ],
+          "completion_keys": [
+            "browser_session_finalizer:browser-visual-network-flow-claimed"
+          ],
+          "failure_keys": [
+            "browser_session_finalizer:browser-visual-network-flow-claimed"
+          ],
+          "count_in_total": false,
+          "counts_started": false,
+          "resource_claims": {},
+          "release_retained_resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_visual": 1,
+            "process": 1
+          },
+          "browser_stage": "visual",
+          "browser_session_group": "browser-visual-network-flow-claimed",
+          "browser_session_isolation_reason": "claimed Network Flow visual evidence requires immutable startup-only extension configuration",
+          "command": {
+            "type": "browser_session_finalizer",
+            "service_target": "release-browser-readiness",
+            "browser_session_group": "browser-visual-network-flow-claimed"
+          }
+        },
+        {
+          "id": "browser-session-finalizer:browser-e2e-a11y-default",
+          "kind": "browser_session_finalizer",
+          "class": "browser",
+          "target": "browser-e2e-a11y",
+          "label": "browser-e2e-a11y-default/session-finalizer",
+          "aggregate_target": "browser-e2e-a11y",
+          "priority": 36000,
+          "weight_ms": 1,
+          "needs": [
+            "browser_group:browser-e2e-a11y:a11y-workbook-a11y"
+          ],
+          "completion_keys": [
+            "browser_session_finalizer:browser-e2e-a11y-default"
+          ],
+          "failure_keys": [
+            "browser_session_finalizer:browser-e2e-a11y-default"
+          ],
+          "count_in_total": false,
+          "counts_started": false,
+          "resource_claims": {},
+          "release_retained_resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_a11y": 1,
+            "process": 1
+          },
+          "browser_stage": "a11y",
+          "browser_session_group": "browser-e2e-a11y-default",
+          "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
+          "command": {
+            "type": "browser_session_finalizer",
+            "service_target": "release-browser-readiness",
+            "browser_session_group": "browser-e2e-a11y-default"
+          }
+        },
+        {
+          "id": "browser-session-finalizer:browser-a11y-network-flow-claimed",
+          "kind": "browser_session_finalizer",
+          "class": "browser",
+          "target": "browser-e2e-a11y",
+          "label": "browser-a11y-network-flow-claimed/session-finalizer",
+          "aggregate_target": "browser-e2e-a11y",
+          "priority": 36000,
+          "weight_ms": 1,
+          "needs": [
+            "browser_group:browser-e2e-a11y:a11y-network-flow-claimed-workbook-a11y"
+          ],
+          "completion_keys": [
+            "browser_session_finalizer:browser-a11y-network-flow-claimed"
+          ],
+          "failure_keys": [
+            "browser_session_finalizer:browser-a11y-network-flow-claimed"
+          ],
+          "count_in_total": false,
+          "counts_started": false,
+          "resource_claims": {},
+          "release_retained_resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_a11y": 1,
+            "process": 1
+          },
+          "browser_stage": "a11y",
+          "browser_session_group": "browser-a11y-network-flow-claimed",
+          "browser_session_isolation_reason": "claimed Network Flow accessibility evidence requires immutable startup-only extension configuration",
+          "command": {
+            "type": "browser_session_finalizer",
+            "service_target": "release-browser-readiness",
+            "browser_session_group": "browser-a11y-network-flow-claimed"
           }
         }
       ],

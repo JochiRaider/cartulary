@@ -224,6 +224,18 @@ manifest.sequences["dry-run"] = {
   summary_groups: [],
   steps: [{ type: "step", target: "alpha", produces_summary_targets: ["alpha"] }],
 };
+for (const name of ["smoke", "aggregate-missing", "fail-smoke", "dry-run"]) {
+  const sequence = manifest.sequences[name];
+  sequence.execution_mode = "serial";
+  sequence.max_jobs = 1;
+  sequence.resource_limits = { process: 1 };
+  sequence.steps = sequence.steps.map((step, index) => ({
+    ...step,
+    needs: index === 0 ? [] : [sequence.steps[index - 1].target],
+    resource_claims: { process: 1 },
+    priority: 0,
+  }));
+}
 fs.writeFileSync(destination, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
 
@@ -333,6 +345,26 @@ assert_equals "$(json_field "${failure_summary}" "counts.non_test_failed")" "1" 
 assert_equals "$(json_field "${failure_summary}" "failure_class")" "harness" "failure class"
 assert_equals "$(json_field "${failure_summary}" "failure_classes.harness")" "1" "failure helper count"
 assert_contains "$(cat "${failure_dir}/make-env.log")" "target=fail-step test_target=" "sequence failing helper target env not forwarded"
+"${NODE_BIN:-node}" - \
+  "${failure_results}/failure/fail-smoke/scheduler-events.jsonl" \
+  "${failure_results}/failure/fail-smoke/sequence-events.jsonl" <<'EOF'
+const fs = require("node:fs");
+const readLines = (file) => fs.readFileSync(file, "utf8").trim().split(/\r?\n/).map(JSON.parse);
+const [schedulerFile, sequenceFile] = process.argv.slice(2);
+const schedulerEvents = readLines(schedulerFile);
+const sequenceEvents = readLines(sequenceFile);
+const skipped = schedulerEvents.find((event) => event.event === "skip" && event.work_unit_id === "beta");
+if (skipped?.skip_reason !== "dependency_failure" || skipped.failed_dependency !== "fail-step") {
+  throw new Error("dependent work must retain the causal failure skip");
+}
+const sequenceSkip = sequenceEvents.find((event) => event.event === "step_skipped" && event.target === "beta");
+if (sequenceSkip?.skip_reason !== "dependency_failed" || sequenceSkip.failed_dependency !== "fail-step") {
+  throw new Error("sequence adapter must preserve the dependency skip cause");
+}
+if (sequenceEvents.at(-1)?.event !== "sequence_finished" || sequenceEvents.at(-1)?.status !== "fail") {
+  throw new Error("ordinary child failure must close, not interrupt, the sequence lifecycle");
+}
+EOF
 
 dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-dry-run.XXXXXX")"
 cleanup_paths+=("${dry_run_dir}")
@@ -354,8 +386,9 @@ dry_run_output="$(
 assert_not_contains "${dry_run_output}" "[RUN]" "script dry-run run start output"
 assert_not_contains "${dry_run_output}" "[STEP]" "script dry-run step output"
 assert_file_absent "${dry_run_dir}/results/dry-run/run-summary.json" "script dry-run summary"
-assert_contains "$(cat "${dry_run_dir}/make.log")" "--no-print-directory alpha" "script dry-run child make"
-assert_contains "$(cat "${dry_run_dir}/make-env.log")" "target=alpha test_target=" "script dry-run target env not forwarded"
+assert_contains "${dry_run_output}" "[DRY-RUN] dry-run" "script scheduler dry-run plan"
+assert_file_absent "${dry_run_dir}/make.log" "script dry-run child make"
+assert_file_absent "${dry_run_dir}/make-env.log" "script dry-run child make env"
 
 invalid_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-invalid.XXXXXX")"
 cleanup_paths+=("${invalid_dir}")
@@ -424,6 +457,7 @@ check_harness_smoke_block="$(extract_target_definition check-harness-smoke)"
 test_service_backed_block="$(extract_target_definition test-service-backed)"
 test_fast_service_backed_block="$(extract_target_definition test-fast-service-backed)"
 check_service_backed_block="$(extract_target_definition check-service-backed)"
+release_browser_readiness_block="$(extract_target_definition release-browser-readiness)"
 task_guide_block="$(extract_target_definition task-guide)"
 target_plan_block="$(extract_target_definition target-plan)"
 fixture_report_block="$(extract_target_definition fixture-report)"
@@ -443,6 +477,7 @@ assert_contains "${ci_block}" "--sequence ci" "make ci manifest sequence"
 assert_contains "${ci_block}" "ci: export CI := 1" "make ci exports CI"
 assert_contains "${release_check_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT)' "make release-check helper invocation"
 assert_contains "${release_check_block}" "--sequence release-check" "make release-check manifest sequence"
+assert_not_contains "${release_check_block}" 'CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT' "release-check outer browser stack capacity override"
 assert_not_contains "${test_block}" "--summary-profile test" "make test no inline summary profile"
 assert_not_contains "${test_block}" "--parallel-step test-local:3 --step test-service-backed" "make test no inline sequence"
 assert_not_contains "${test_block}" "--step browser-e2e" "make test no final serial browser step"
@@ -520,7 +555,7 @@ const expectedBrowser = [
 if (JSON.stringify(browser?.summaryTargets) !== JSON.stringify(expectedBrowser)) {
   throw new Error("test browser summary group must derive browser leaves from schedules");
 }
-for (const target of ["test-service-backed", "test-fast-service-backed", "check-service-backed"]) {
+for (const target of ["test-service-backed", "test-fast-service-backed", "check-service-backed", "release-browser-readiness"]) {
   const children = serviceBackedScheduleChildren(context, target);
   if (children.length === 0) {
     throw new Error(`${target} must derive target-summary children from the service-backed schedule`);
@@ -553,6 +588,72 @@ for (const target of ["check"]) {
 if (releaseTargets.includes("run-harness-smoke-extended")) {
   throw new Error("release-check sequence must not block on run-harness-smoke-extended");
 }
+for (const sequenceName of ["lint", "ci", "release-check"]) {
+  if (manifest.sequences[sequenceName].execution_mode !== "dag") {
+    throw new Error(`${sequenceName} must use the shared DAG sequence mode`);
+  }
+}
+for (const sequenceName of ["ci", "release-check"]) {
+  const sequence = manifest.sequences[sequenceName];
+  const byTarget = new Map(sequence.steps.map((step) => [step.target, step]));
+  const checkStep = sequence.steps.find((step) => step.target === "check");
+  if (JSON.stringify(checkStep?.needs ?? null) !== "[]") {
+    throw new Error(`${sequenceName} check must be the dependency root`);
+  }
+  for (const step of sequence.steps.filter((entry) => entry.target !== "check")) {
+    const pending = [...(step.needs ?? [])];
+    const visited = new Set();
+    let reachesCheck = false;
+    while (pending.length > 0) {
+      const dependency = pending.pop();
+      if (dependency === "check") {
+        reachesCheck = true;
+        break;
+      }
+      if (visited.has(dependency)) continue;
+      visited.add(dependency);
+      pending.push(...(byTarget.get(dependency)?.needs ?? []));
+    }
+    if (!reachesCheck) {
+      throw new Error(`${sequenceName}:${step.target} must transitively begin after check`);
+    }
+  }
+}
+const releaseSequence = manifest.sequences["release-check"];
+if (releaseSequence.resource_limits?.browser_stack !== undefined) {
+  throw new Error("release-check must delegate browser-stack capacity to the release browser schedule");
+}
+for (const target of ["browser-e2e-support", "browser-e2e-visual", "browser-e2e-a11y"]) {
+  if (releaseSequence.steps.some((entry) => entry.target === target)) {
+    throw new Error(`${target} direct leaf must not enter the release sequence DAG`);
+  }
+}
+const releaseBrowser = releaseSequence.steps.find((entry) => entry.target === "release-browser-readiness");
+if (JSON.stringify(releaseBrowser?.needs ?? null) !== JSON.stringify(["check"])) {
+  throw new Error("release-browser-readiness must begin after check");
+}
+if (releaseBrowser?.skip_prerequisites !== true) {
+  throw new Error("release-browser-readiness must reuse release prerequisites");
+}
+const expectedReleaseBrowserSummaries = [
+  "browser-e2e-support",
+  "browser-e2e-visual",
+  "browser-e2e-a11y",
+  "release-browser-readiness",
+];
+if (JSON.stringify(releaseBrowser?.produces_summary_targets ?? null) !== JSON.stringify(expectedReleaseBrowserSummaries)) {
+  throw new Error("release-browser-readiness must retain distinct browser and aggregate summaries");
+}
+const releaseReadiness = releaseSequence.steps.find((entry) => entry.target === "release-readiness-evidence");
+if (!(releaseReadiness?.needs ?? []).includes("release-browser-readiness")) {
+  throw new Error("release-readiness-evidence must wait for release-browser-readiness");
+}
+const seaweedGate = releaseSequence.steps.find((entry) => entry.target === "seaweedfs-release-gate");
+for (const prerequisite of ["seaweedfs-compatibility", "seaweedfs-migration-preservation", "license-report", "sbom"]) {
+  if (!(seaweedGate?.needs ?? []).includes(prerequisite)) {
+    throw new Error(`seaweedfs-release-gate must wait for ${prerequisite}`);
+  }
+}
 EOF
 assert_contains "${manifest_content}" "\"harness_checks\"" "manifest logical harness checks"
 assert_contains "${manifest_content}" "harness-smoke-run-make-sequence-fast" "harness smoke fast make sequence check"
@@ -562,9 +663,11 @@ assert_not_contains "${manifest_content}" "harness-smoke-run-go-target-fast" "re
 assert_contains "${test_service_backed_block}" 'service-backed-target --target test-service-backed --step-label "test service-backed" --service-wrapper test-services' "test service-backed scheduler invocation"
 assert_contains "${test_fast_service_backed_block}" 'service-backed-target --target test-fast-service-backed --step-label "test-fast service-backed" --service-wrapper test-services' "test-fast service-backed scheduler invocation"
 assert_contains "${check_service_backed_block}" 'service-backed-target --target check-service-backed --step-label "check service-backed" --service-wrapper test-services' "check service-backed scheduler invocation"
+assert_contains "${release_browser_readiness_block}" 'service-backed-target --target release-browser-readiness --step-label "release browser readiness" --service-wrapper test-services' "release browser readiness scheduler invocation"
 assert_not_contains "${test_service_backed_block}" "--jobs" "test service-backed fixed scheduler jobs"
 assert_not_contains "${test_fast_service_backed_block}" "--jobs" "test-fast service-backed fixed scheduler jobs"
 assert_not_contains "${check_service_backed_block}" "--jobs" "check service-backed fixed scheduler jobs"
+assert_not_contains "${release_browser_readiness_block}" "--jobs" "release browser readiness fixed scheduler jobs"
 assert_not_contains "${makefile_content}" "RUN_SUMMARY =" "unused run summary helper variable"
 assert_not_contains "${makefile_content}" "RUN_SUMMARY_CMD =" "unused run summary command variable"
 assert_not_contains "${makefile_content}" "bash -lc './tools/harness/readiness/tests/test-check-toolchain-pins.sh &&" "old serialized harness smoke chain"

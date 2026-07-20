@@ -1,0 +1,553 @@
+# Test Harness Observability and Wall-Clock Optimization Tracker
+
+## 1. Tracker control
+
+| Field | Value |
+| --- | --- |
+| State | ACTIVE |
+| Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
+| Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
+| Current source | Uncommitted implementation worktree based on `00522cfed1b6e5ca0936fb703de96c4c019544f3` |
+| Last updated | 2026-07-20 |
+| Active item | T-001 |
+| Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
+| Product behavior | Preserved |
+| Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
+
+Status values are `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `DEFERRED`, and
+`DROPPED`. Exactly one task is `IN_PROGRESS` until all work is terminal. A task
+becomes `DONE` only after its evidence and exit condition are both satisfied.
+The 2026-07-20 remediation audit reopened work whose implementation presence was
+mistaken for demonstrated conformance. Historical status transitions and roots
+remain in this tracker for provenance, but every root collected before the
+remediation audit is diagnostic-only and cannot qualify T-001 or T-012.
+
+## 2. Authority and locked decisions
+
+Authority order is Core 00 through Core 04 for product behavior, Core 05 for
+claim-bearing benchmark publication, `docs/testing-harness-nlspec.md` for
+harness mechanics, `docs/opentelemetry-instrumentation-nlspec.md` for the
+application telemetry boundary, and `docs/domain.md` for product vocabulary.
+
+The domain vocabulary review is complete and requires no edit. Targets, spans,
+runners, work units, resource claims, and duration baselines are
+implementation-support terms, not product-domain concepts.
+
+Locked decisions:
+
+- Native harness JSON remains authoritative; OTLP payloads are derived
+  diagnostics.
+- Local diagnostic generation is the default. Network export is a separate,
+  explicit post-run command and inherited `OTEL_*` variables have no effect.
+- The application telemetry scopes, `cartulary.module` registry, runtime
+  bootstrap, and browser prohibition are unchanged.
+- Public command IDs, selected tests, owner and evidence routing, failure
+  precedence, artifact roles, and cleanup behavior are preserved.
+- Generated roots and lockfiles are never hand-edited. This effort adds no OTel
+  SDK dependency.
+- Code-level profiles, cold tool provisioning, hosted-CI dashboards, and Core
+  05 publication are outside this effort.
+
+## 3. Current-state baseline
+
+The retained run
+`.cartulary/test-results/20260720T141740Z-p2992081` is diagnostic seed evidence,
+not a qualifying baseline. It recorded:
+
+| Observation | Duration |
+| --- | ---: |
+| `release-check` wall | 733.069 s |
+| Standalone release browser targets | 297.490 s |
+| `check` wall | 124.565 s |
+| `backend-unit` scheduler occupancy | 87.244 s |
+| Recorded backend Go capture/execution spans | 12.595 s |
+| Post-scheduler/finalizer tail | 16.655 s |
+| Cold license-tool provisioning | 43.280 s |
+
+T-001 must replace this seed with three consecutive warm observations for every
+in-scope public testing command. Aggregate runs may supply leaf observations;
+commands absent from aggregates must be invoked directly. Failed, interrupted,
+stale, capacity-mismatched, source-mismatched, or retry-contaminated runs remain
+retained but cannot enter the accepted sample set.
+
+The current authored inventory classifies 50 public testing entry points as
+observability-required, four post-run diagnostic/export/maintenance commands
+as owner-cited exclusions, and 43 public commands as explicitly out of scope.
+The provisional machine profile is frozen by these digests:
+
+| Profile component | SHA-256 |
+| --- | --- |
+| Host | `c31c805927c8912d7b56ec09c32cc91b8597404122198b80c923970c546f542d` |
+| Capacity | `bd042c914469a69fa6ffda55f0f96e65e968d3a34a64aecd58790dada66d2df1` |
+| Workload/evidence inventory | `ff7d5a4d9cab0b3ff2fae01ca0537fd19ad884b6c4bca98fce4b533ae9a88f1d` |
+| Toolchain | `877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac` |
+
+These digests and the single seed observation are not a completed baseline.
+The evidence-roots manifest still requires three exact warm baseline roots and
+three exact candidate roots per covered target.
+
+## 4. Target architecture and public contracts
+
+Every public target receives exactly one authored observability disposition of
+`required`, `excluded`, or `out_of_scope`. An exclusion or out-of-scope entry
+must cite an owner reason. Every required target also owns one stable
+measurement profile covering canonical inputs, direct or aggregate eligibility,
+warm-up policy, and performance gate. Non-test development, cleanup, and
+interactive commands are normally out of scope but may still appear as child
+spans inside a traced aggregate.
+
+One top-level invocation maps to one trace. Stable span classes are invocation,
+sequence step, scheduler wait, scheduler work unit, service lifecycle, runner,
+artifact/finalization, and report collation. Span names are low-cardinality;
+target, command, family, runner, work-unit, status, timing-bucket, wait-reason,
+and logical-resource identities use closed attributes. Error messages, raw
+commands, output, paths, environment values, headers, credentials, hostnames,
+SQL, and product-authored data are forbidden.
+
+The local artifact tree is:
+
+```text
+<run-root>/_shared/harness-observability/
+  execution-context.json
+  observability-index.json
+  <invocation-id>/
+    trace-bundle.json
+    trace.otlp.json
+    metrics.otlp.json
+    hotspot-summary.json
+```
+
+Trace and span IDs are deterministic nonzero lowercase hexadecimal identifiers
+derived from run identity plus stable source occurrence. Source artifact
+digests make reconstruction auditable. Existing scheduler
+`critical_path_wall_duration_ms` remains the full scheduler envelope. The
+hotspot summary separately records the actual dependency critical path, queue
+wait, resource-blocked time, union-based direct-child coverage, and unattributed
+parent-envelope time.
+
+Public additions:
+
+- `make harness-observability-check RESULTS_DIR=<root|run-dir> [RUN_ID=<id>]`
+- `make harness-otel-export RESULTS_DIR=<root|run-dir> [RUN_ID=<id>] HARNESS_OTLP_ENDPOINT=<url> [HARNESS_OTLP_HEADERS_FILE=<0600-json-file>]`
+- `make explain-run ... DETAIL=performance`
+- `make harness-performance-check EVIDENCE_ROOTS_FILE=<manifest>`
+- `make harness-public-target-duration-baselines EVIDENCE_ROOTS_FILE=<baseline-window>`
+
+Collector export accepts HTTPS or loopback HTTP, rejects credentials, query,
+and fragment components, disables redirects, appends `/v1/traces` and
+`/v1/metrics`, never retains header values, and never mutates the selected run.
+Ordinary test commands perform no network export. Local diagnostic failure
+retains a partial marker and warning without changing the underlying test
+result; the explicit observability check fails closed.
+
+## 5. Implementation tracker
+
+| ID | Work item | Workstream | Status | Depends on | Owner | Evidence/artifact | Exit condition |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| T-001 | Collect the clean serial reference window and generate the qualified public-target duration baseline | WS-00 baseline | IN_PROGRESS | T-007 | harness performance | exact retained execution contexts, baseline roots manifest, and generated baseline artifact | one discarded warm-up and three accepted observations exist for every required measurement profile |
+| T-002 | Correct observability, artifact, security, scheduler, and performance requirements and tracker ownership | WS-01 specification | DONE | none | harness specification | `docs/testing-harness-nlspec.md`; requirements and acceptance crosswalk | every behavior has one normative owner and every measurement identity is reproducible |
+| T-003 | Add the application-versus-harness OTel boundary | WS-01 specification | DONE | T-002 | telemetry specification | `docs/opentelemetry-instrumentation-nlspec.md`; OTel conformance fixtures | application scopes and runtime signals remain unchanged |
+| T-004 | Add explicit target dispositions, stable measurement profiles, retained execution context, corrected schemas, attachments, and generated projections | WS-01 contracts | DONE | T-002, T-003 | harness contracts | closed public inventory, authored schemas, and reproducible generated projections | omissions, overlap, unknowns, duplicates, and unowned exclusions fail generation |
+| T-005 | Implement retained-provenance deterministic reconstruction and interval-union hotspot analysis | WS-02 observability | DONE | T-004 | diagnostics | immutable context plus deterministic native, trace, metric, hotspot, and digest fixtures | retained roots reconstruct independently of the checkout and explicit graph parentage, paths, waits, gaps, and digests validate |
+| T-006 | Unify sequence and scheduler lifecycle evidence, topology ownership, cancellation, and deterministic failure behavior | WS-02 observability | DONE | T-005 | execution runtime | scheduler v7, shared sequence scheduler, and lifecycle fixtures | required transitions and dependencies are attributable exactly once under success, failure, and interruption |
+| T-007 | Make local validation read-only and exact-selected; correct OTLP export, privacy, and failure semantics | WS-02 observability | DONE | T-005, T-006 | diagnostics/export | tamper, exact-selection, OTLP decode, failure-class, redirect, timeout, and egress fixtures | selected source evidence is never mutated and export conforms exactly |
+| T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | TODO | T-001 | backend runner | retained 255-test parity run and expected process reduction | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
+| T-009 | Batch per-family output ingestion and parallelize deterministic report emission | WS-03 optimization | TODO | T-008 | output/finalizers | batch worker implemented; retained parity is green; qualified improvement gate remains open | output identity is stable and the hotspot clears its gate |
+| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | TODO | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
+| T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | TODO | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
+| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
+| T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
+
+Provisional implementation currently present in the worktree (none of these
+statements closes a reopened task until its corrected exit condition passes):
+
+- The harness NLSpec owns observability coverage, reconstruction, privacy,
+  failure isolation, export, and performance-window behavior. The OTel NLSpec
+  delegates the harness profile and preserves application telemetry behavior.
+- Seven authored observability/performance schemas are attached to the harness
+  registry. Generated contracts, task-surface outputs, scheduler inputs, and
+  browser projections were produced through `make generate`.
+- `tools/harness/observability/` reconstructs traces from authoritative native
+  evidence with built-in Node facilities, validates closed/redacted bundles,
+  renders performance diagnostics, checks evidence windows, and performs only
+  explicit post-run OTLP export.
+- Normal finalization records an observability warning in retained structured
+  output when generation is partial; it does not change the underlying test
+  result or consume the command's stderr budget.
+- Backend-unit exact-symbol compatibility grouping reduced the observed Go
+  process count from 34 to 30. Deterministic batch ingestion and bounded report
+  emission are implemented, but T-009 remains open until a qualifying baseline
+  establishes and clears its improvement gate.
+- Shared DAG execution is implemented for `lint`, `ci`, and `release-check`.
+  The first release layout was rejected after it exposed shared Compose service
+  interference; the corrected browser-only service-backed aggregate is
+  generated but still needs focused and full release execution evidence.
+
+## 6. Optimization contracts
+
+Backend exact-symbol rows share one process only when package selection,
+runtime-binary set, fixture and isolation policy, and evidence class match. Raw
+selectors remain separate. Compatible groups run with
+`clamp(floor(availableParallelism/4), 1, 4)` workers. Missing, duplicate,
+unexpected, crashed, or partial Go JSON output fails closed.
+
+Batch emission may perform independent parsing and file writes concurrently,
+but final summaries, artifact arrays, and failure selection use the existing
+deterministic orders.
+
+`check` remains the first dependency of `ci` and `release-check`. After it
+passes, harness-contract, security, licensing/SBOM, builds, SeaweedFS leaves,
+and browser readiness may overlap under declared resource claims. The SeaweedFS
+release gate waits for compatibility, migration, license, and SBOM. Release
+readiness waits for every required release summary. Direct browser leaf targets
+remain isolated. The release sequence invokes one internal
+`release-browser-readiness` service-backed schedule rather than concurrently
+invoking direct leaf targets against shared development services. That schedule
+owns one isolated test-services stack, admits at most two browser sessions, and
+retains distinct support, visual, accessibility, and aggregate summaries. Its
+five sessions preserve default versus claimed Network Flow runtime profiles and
+carry explicit isolation reasons. Every additional isolation boundary requires
+an owner reason.
+
+## 7. Verification and acceptance
+
+Trace fixtures cover direct targets, nested sequences, parallel siblings,
+scheduler waits, resource blockers, shared services, repeated targets,
+finalizers, failure, interruption, malformed clocks, missing artifacts, and
+byte-identical reconstruction. Privacy fixtures inject credentials, URLs,
+paths, commands, environment values, SQL-like text, and product-like output.
+Export fixtures use a local receiver and prove endpoint construction, payload
+decoding, no redirects, timeout behavior, redaction, and zero ordinary-run
+egress.
+
+For a three-sample warm set, let `m` be the median duration and `d` the median
+absolute deviation. The no-regression limit is
+`m + max(1000 ms, 3d, 0.05m)`. A required hotspot improves only when the
+candidate median is at least `max(1000 ms, 3d, 0.10m)` below the baseline
+median. Required improvement gates are backend-unit, backend finalization,
+release browser readiness, and release-check. All other covered commands use
+the no-regression limit. The separate one-warm-plus-five-measured `make check`
+acceptance with maximum below 120 seconds remains controlling.
+
+Verification order is schema and unit fixtures; generated policy and drift;
+harness and OTel conformance; focused backend, sequence, browser, exporter, and
+observability targets; `test-fast`; `check`; `ci`; `release-check`; performance
+windows; then `agent-finalize` against the successful full warm root.
+
+### Current evidence ledger
+
+Successful retained evidence on the current worktree lineage:
+
+| Command/evidence | Run root | Result and diagnostic value |
+| --- | --- | --- |
+| `make run-harness-smoke-extended` | `.cartulary/test-results/20260720T171451Z-p3532051` | PASS, 180.115 s; lifecycle and harness fixture coverage before the release-browser correction |
+| `make json-shape-check` | `.cartulary/test-results/20260720T171827Z-p3575733` | PASS |
+| `make generated-artifact-policy-check` | `.cartulary/test-results/20260720T171829Z-p3576053` | PASS |
+| `make generate-drift` | `.cartulary/test-results/20260720T171830Z-p3576225` | PASS |
+| `make harness-contract` | `.cartulary/test-results/20260720T171840Z-p3579100` | PASS, 21.840 s |
+| `make otel-conformance` | `.cartulary/test-results/20260720T171903Z-p3579927` | PASS |
+| `make lint-shell` | `.cartulary/test-results/20260720T171910Z-p3582860` | PASS |
+| `make lint-scripts` | `.cartulary/test-results/20260720T171923Z-p3583763` | PASS |
+| `make backend-unit` | `.cartulary/test-results/20260720T171939Z-p3584225` | PASS, 255 tests in 13.110 s; actual dependency critical path 4.790 s, batch finalizer 2.990 s, unattributed envelope 0.610 s |
+| `make test-fast` | `.cartulary/test-results/20260720T172016Z-p3587832` | PASS, 651 tests in 124.185 s |
+| `make check` | `.cartulary/test-results/20260720T172228Z-p3629581` | PASS, 122.369 s; observability check PASS, but above the strict 120 s acceptance and not a qualifying five-run window |
+| `make ci` | `.cartulary/test-results/20260720T172600Z-p3716898` | PASS, 146.607 s; nested `check` 117.158 s and four post-check steps overlapped |
+| `make generate` | `.cartulary/test-results/20260720T174945Z-p3997826` | PASS after the browser-only release schedule correction |
+
+The backend, `check`, and `ci` roots pass strict observability reconstruction.
+Their measurements are useful diagnostics only; they are not interchangeable
+with the exact three-root baseline/candidate windows.
+
+Failed, contaminated, or incomplete evidence retained for diagnosis:
+
+| Run root | Classification | Finding and disposition |
+| --- | --- | --- |
+| `.cartulary/test-results/20260720T172842Z-p3834220` | Contaminated; exclude | Initial `release-check` ran direct browser leaves and SeaweedFS work concurrently against shared development Compose services. Browser observations were lost and SeaweedFS was recreated. Replaced by the isolated `release-browser-readiness` schedule. |
+| `.cartulary/test-results/20260720T174659Z-p3995630` | Failed generation; exclude | A stage-wide release session group mixed default and claimed Network Flow profiles. The schedule now preserves five profile-compatible sessions with group-level isolation reasons. |
+| `.cartulary/test-results/20260720T175017Z-p3999438` | Failed fixture; exclude | The fast sequence smoke fake did not emit the three browser leaf summaries produced by the new aggregate. The fixture was updated. |
+| `.cartulary/test-results/20260720T175230Z-p4005166` | Interrupted; exclude | Follow-up execution smoke rerun was interrupted before aggregate finalization; retained child artifacts are incomplete. |
+
+The current post-correction generated state still requires a fresh
+`generate-drift`, harness-contract/OTel pass, focused
+`release-browser-readiness`, complete execution smoke, and full
+`release-check`. Do not reuse any excluded root for T-001 or T-012.
+
+## 8. Handoff protocol and log
+
+Every status transition appends a dated record with source commit and worktree
+state, completed work, substantive files or contracts changed, commands and run
+roots, failed or contaminated evidence, generated status, and the one next
+active task. A resumer first validates the current active task and its
+dependencies, then continues from retained evidence rather than repeating
+completed work.
+
+### 2026-07-20 — Tracker creation
+
+- Source: clean `revision/grid-adapter` at `00522cfed1b6e5ca0936fb703de96c4c019544f3`.
+- Completed: authority review, domain classification, initial hotspot scan, and
+  successor tracker creation.
+- Active: T-001 baseline and command-inventory freeze.
+- Retained seed: `.cartulary/test-results/20260720T141740Z-p2992081`.
+- Qualification warning: the seed is a single observation and does not satisfy
+  the three-observation performance contract.
+
+### 2026-07-20 — Specification, observability, and backend implementation
+
+- Source: uncommitted implementation worktree based on
+  `00522cfed1b6e5ca0936fb703de96c4c019544f3`; authored and generated changes are
+  present.
+- Completed: T-002 through T-008. The harness and telemetry owner documents,
+  policy metadata, seven schemas, deterministic reconstruction, lifecycle
+  capture, local validation/finalization, explicit OTLP export, backend exact
+  symbol grouping, and batch report machinery are implemented.
+- Contract state: native JSON remains authoritative, no OTel SDK dependency was
+  added, ordinary test execution has no network export, and application OTel
+  scopes/bootstrap remain unchanged. `docs/domain.md` was reviewed without edit.
+- Verification: use the successful roots in the current evidence ledger. The
+  retained backend run proves 255 selected tests and the 34-to-30 process
+  reduction; `check` and `ci` demonstrate the shared scheduler and local trace
+  reconstruction.
+- Acceptance warning: T-009 remains open because its baseline-derived finalizer
+  improvement threshold cannot be evaluated from the seed observation.
+- Active: T-001 remains the only `IN_PROGRESS` task.
+
+### 2026-07-20 — Release scheduling correction and current handoff
+
+- Source: same uncommitted worktree; generated outputs were refreshed by
+  `make generate` at
+  `.cartulary/test-results/20260720T174945Z-p3997826`.
+- Finding: the first release DAG incorrectly overlapped direct browser leaves
+  and SeaweedFS commands that reconfigured the same development Compose stack.
+  The failed run is retained at
+  `.cartulary/test-results/20260720T172842Z-p3834220` and is excluded from all
+  performance windows.
+- Correction: `release-check` now invokes one browser-only
+  `release-browser-readiness` service-backed schedule after `check`; it uses the
+  isolated test-services wrapper, receives browser-stack capacity two at the
+  release Make boundary, retains the three leaf summaries plus its aggregate,
+  and preserves default/claimed runtime-profile session boundaries.
+- Fixture follow-up: the sequence smoke fake now emits the aggregate's browser
+  child summaries. The next public smoke rerun was interrupted, so it does not
+  qualify as verification.
+- Generated status: current authored topology and generated files agree as of
+  the successful `make generate`; post-correction drift and broad checks remain
+  to be rerun.
+- Next active task: T-001. First finish post-correction verification in the
+  prescribed order, then collect exact three-observation baseline/candidate
+  windows. Do not advance T-009, T-010, T-011, or T-012 from diagnostic timings
+  alone.
+
+### 2026-07-20 — Remediation audit and status correction
+
+- Source: the same staged implementation worktree based on
+  `00522cfed1b6e5ca0936fb703de96c4c019544f3`; no prior root or log entry was
+  deleted or reinterpreted.
+- Audit finding: implementation presence did not satisfy the adopted contracts.
+  In particular, public-target coverage was incomplete, parameterized workload
+  identities were not stable, retained roots inherited profiles from the
+  current checkout, validation rewrote selected evidence, scheduler causality
+  was incomplete, sequence execution duplicated scheduling policy, OTLP names
+  diverged from the specification, and baseline regeneration had no owner.
+- Status correction: T-002 and T-004 through T-008 are reopened. T-003 remains
+  complete because the application-versus-harness boundary itself is unchanged,
+  but it is revalidated as a dependency of T-004. T-001 now follows the
+  corrected measurement and validation substrate; candidate optimizations
+  follow T-001.
+- Diagnostic-only probes after the audit: `make generate-drift` passed at
+  `.cartulary/test-results/20260720T181200Z-p4022613`;
+  `make json-shape-check` passed at
+  `.cartulary/test-results/20260720T181214Z-p4025502`; `make harness-contract`
+  exited successfully; and `make otel-conformance` passed at
+  `.cartulary/test-results/20260720T181240Z-p4026615`. These roots predate the
+  remediation and cannot enter reference or candidate windows.
+- Active: T-002 is the only `IN_PROGRESS` task. The next transition is T-002 to
+  `DONE` and T-004 to `IN_PROGRESS` after the corrected normative ownership and
+  measurement definitions are complete.
+
+### 2026-07-20 — T-002 specification correction complete
+
+- Source: staged implementation worktree based on
+  `00522cfed1b6e5ca0936fb703de96c4c019544f3`; worktree remains intentionally
+  dirty for the remediation.
+- Completed: T-002. The harness specification now owns explicit three-way public
+  target dispositions, canonical measurement profiles, immutable retained
+  execution context, read-only exact-run checks, scheduler v7 and sequence
+  topology, union timing, schedule-owned browser capacity, exporter failure
+  classes, complete backend compatibility, and the sole baseline writer.
+- Boundary revalidation: T-003 remains complete. The application instrumentation
+  scope, bootstrap, configuration, browser prohibition, and dependencies did not
+  change; only the harness-owned diagnostic profile was refined.
+- Verification: `make lint-markdown` passed at
+  `.cartulary/test-results/20260720T183906Z-p4036805`; `git diff --check` passed.
+  This root is specification-workstream evidence, not a qualifying performance
+  observation.
+- Generated status: not yet refreshed; schema and owner-input changes belong to
+  active T-004 and must be followed by `make generate`.
+- Active: T-004 is the only `IN_PROGRESS` task.
+
+### 2026-07-20 — T-004 contracts and projections complete
+
+- Source: staged remediation worktree at
+  `00522cfed1b6e5ca0936fb703de96c4c019544f3`; the worktree remains
+  intentionally dirty and no qualifying performance root was collected.
+- Completed: T-004. The task-surface owner now accounts for every public target
+  exactly once across required, excluded, and out-of-scope dispositions; all
+  required measurements bind an authored profile. Execution topology owns
+  sequence dependencies, priorities, generic resource claims, and capacities.
+  The attachment registry now adopts execution context and scheduler v7 while
+  retiring the staged scheduler v6 and mutating observability-check summary.
+- Contract fixtures: generation rejects disposition omissions, overlap,
+  unknown targets, unowned exclusions, duplicate sequence targets, missing
+  profiles, dependency cycles, and topology/task-surface divergence. Two
+  duplicate `target` members found in the prior owner JSON were removed rather
+  than allowed to remain parser-dependent.
+- Verification: `make generate` passed at
+  `.cartulary/test-results/20260720T191615Z-p4068960`;
+  `make json-shape-check` passed at
+  `.cartulary/test-results/20260720T191620Z-p4070424`;
+  `make generated-artifact-policy-check` passed at
+  `.cartulary/test-results/20260720T191443Z-p4060533`;
+  `make generate-drift` passed at
+  `.cartulary/test-results/20260720T191443Z-p4060550`; and
+  `make harness-contract` passed at
+  `.cartulary/test-results/20260720T191814Z-p4073065`.
+- Excluded diagnostics: failed generation and contract roots from this slice are
+  retained for investigation only. They exposed stale owner-document digests,
+  missing help placement, attachment ordering, duplicate JSON members, and the
+  expected public-interface digest update; none is eligible for performance
+  evidence.
+- Active: T-005 is the only `IN_PROGRESS` task. Retained execution context and
+  deterministic reconstruction must complete before scheduler/sequence
+  lifecycle work begins.
+
+### 2026-07-20 — T-005 retained provenance and reconstruction complete
+
+- Source: staged remediation worktree at
+  `00522cfed1b6e5ca0936fb703de96c4c019544f3`; no reference or candidate
+  performance window was started.
+- Completed: T-005. Every required top-level wrapper now captures an immutable
+  execution context and derives its trace, OTLP payloads, hotspot summary, and
+  digest-bearing index from run-relative native evidence. Read-only loading
+  verifies context, source, and derived-artifact digests before independently
+  reconstructing and byte-comparing the bundle. Current-checkout policy and
+  profile values are not substituted into retained roots.
+- Reconstruction semantics: target parentage comes only from explicit retained
+  summary relationships; scheduler dependency paths come from retained v7
+  edges; direct-child attribution, per-resource blocking, and backend/report
+  finalization use interval unions. Exact `cartulary.harness` service and metric
+  identifiers are emitted, and external owner-only result roots do not leak
+  absolute paths.
+- Fixtures: the observability golden covers explicit nested parentage,
+  monotonic scheduler boundaries, dependency paths, resource and capacity
+  waits, overlapping finalizers, hostile source values, malformed clocks,
+  multiple parents, source and derived tampering, deterministic bytes,
+  read-only verification, and an external result root.
+- Verification: `make generate` passed at
+  `.cartulary/test-results/20260720T193341Z-p4089526`; the Make-owned
+  `make harness-contract` run passed at
+  `.cartulary/test-results/20260720T193347Z-p4090998`, including the
+  observability golden. Its own retained observability bundle also passes
+  independent loading; it remains performance-ineligible because the source is
+  intentionally dirty.
+- Excluded diagnostic: `make run-harness-smoke-extended` failed at
+  `.cartulary/test-results/20260720T193013Z-p4082069` because the legacy
+  sequence lifecycle producer still emitted retired event tokens. That is the
+  controlling T-006 defect, not qualifying T-005 evidence.
+- Active: T-006 is the only `IN_PROGRESS` task. The sequence runtime must now
+  compile topology-owned schedules through the shared scheduler and retire the
+  duplicate Bash DAG lifecycle.
+
+### 2026-07-20 — T-006 shared sequence scheduler complete
+
+- Source: staged remediation worktree at
+  `00522cfed1b6e5ca0936fb703de96c4c019544f3`; the worktree remains
+  intentionally dirty and all roots in this slice are diagnostic-only.
+- Completed: T-006. Task-surface serial and DAG sequences now compile the
+  execution-topology schedule into the existing scheduler engine under
+  `scheduler_kind=sequence`. The former Bash scheduler is a thin Node launcher;
+  it no longer parses colon-delimited topology, accounts resources, selects
+  failures, polls children, or owns cancellation.
+- Lifecycle and scheduling semantics: generic logical resources, topology
+  priorities and dependencies, dependency skips, running-sibling drain,
+  process-group interruption, shared finalizer rules, deterministic same-turn
+  completion draining, and public summary order use the common engine. Retained
+  scheduler v7 state and the sequence-event adapter use monotonic boundaries,
+  exact dependency edges, authored step identity, resource claims, and one
+  terminal transition per started or skipped step. The release browser schedule
+  itself owns `browser_stack=2`; the obsolete parent Make override and its stale
+  fixture expectation are removed.
+- Contract changes: `cartulary.sequence_scheduler_summary.v1` gives shared
+  sequence summaries an exact schema identity, and scheduler pressure evidence
+  accepts the `sequence` kind. The scheduler event writer is closed before
+  public target-summary finalization, preventing observability from reading a
+  partially flushed event stream.
+- Verification: `make generate` passed at
+  `.cartulary/test-results/20260720T195017Z-p4122461`;
+  `make json-shape-check` passed at
+  `.cartulary/test-results/20260720T195029Z-p4123993`;
+  `make harness-contract` passed at
+  `.cartulary/test-results/20260720T195036Z-p4124388` in 22.660 s;
+  `make run-harness-smoke-extended` passed at
+  `.cartulary/test-results/20260720T195429Z-p4167515` in 159.755 s;
+  `make lint-shell` passed at
+  `.cartulary/test-results/20260720T195721Z-p15094`;
+  `make lint-scripts` passed at
+  `.cartulary/test-results/20260720T195739Z-p16041`;
+  `make generate-drift` passed at
+  `.cartulary/test-results/20260720T195758Z-p16493`; and
+  `make generated-artifact-policy-check` passed at
+  `.cartulary/test-results/20260720T195757Z-p16480`. The focused sequence suites
+  also pass directly and now assert typed scheduler/sequence evidence, causal
+  dependency skips, dry-run non-execution, and arbitrary logical-resource
+  contention.
+- Excluded diagnostic: the first extended smoke rerun at
+  `.cartulary/test-results/20260720T195118Z-p4125762` retained a stale fixture
+  that expected release-browser capacity from a parent environment override.
+  The schedule was already correct; the fixture was updated to require
+  schedule-owned capacity two. This failed root is excluded from all
+  qualification windows.
+- Active: T-007 is the only `IN_PROGRESS` task. Exact selected read-only
+  validation, OTLP export behavior, privacy, timeout, redirect, and zero-egress
+  fixtures must close before reference baseline collection.
+
+### 2026-07-20 — T-007 read-only validation and explicit export complete
+
+- Source: staged remediation worktree at
+  `00522cfed1b6e5ca0936fb703de96c4c019544f3`; the worktree remains
+  intentionally dirty and no root from this slice is performance-qualified.
+- Completed: T-007. `harness-observability-check` now resolves only an explicit
+  run directory or result root plus `RUN_ID`, loads and independently
+  reconstructs the retained bundle entirely in memory, and emits no summary or
+  other mutation into the selected run. Missing, partial, malformed, tampered,
+  or nondeterministic evidence exits `11`; invalid selection exits `2`.
+- Export boundary: `harness-otel-export` uses the same exact read-only loader,
+  accepts only HTTPS or loopback HTTP without encoded authority ambiguity,
+  appends the two OTLP signal paths exactly once, disables redirects, performs
+  no retries, and applies the fixed 10,000 ms request timeout. Endpoint, header,
+  permission, selection, or retained-input configuration fails with exit `2`;
+  resolution, connection, redirect, timeout, HTTP, or other delivery failure
+  exits `1`. Diagnostics contain no endpoint, path, or header value.
+- Fixtures: the observability golden verifies exact run-directory and
+  root-plus-ID selection, result-root ambiguity rejection, read-only success
+  and tamper failure by whole-tree digest, hostile endpoint and header shapes,
+  byte-counted header values, symlink and mode rejection, exact OTLP decoding
+  through a loopback receiver, redirect and non-success rejection, timeout,
+  bounded failure text, source-tree immutability, and zero ordinary-run fetches.
+- Verification: exact public checks passed against
+  `.cartulary/test-results/20260720T195036Z-p4124388` both as a run directory and
+  as `.cartulary/test-results` plus `RUN_ID`; `make otel-conformance` passed at
+  `.cartulary/test-results/20260720T200409Z-p24040`;
+  `make harness-contract` passed at
+  `.cartulary/test-results/20260720T200613Z-p28610` in 22.860 s;
+  `make lint-scripts` passed at
+  `.cartulary/test-results/20260720T200646Z-p29651`;
+  `make json-shape-check` passed at
+  `.cartulary/test-results/20260720T200646Z-p29659`;
+  `make generated-artifact-policy-check` passed at
+  `.cartulary/test-results/20260720T200646Z-p29666`; and
+  `make generate-drift` passed at
+  `.cartulary/test-results/20260720T200708Z-p30670`.
+- Active: T-001 is the only `IN_PROGRESS` task. The next step is to preserve
+  this candidate worktree in a local safety commit, derive a clean reference
+  commit with the corrected measurement substrate and serial policies, and
+  collect the exact warm reference window before changing candidate code.

@@ -91,6 +91,19 @@ Verified by: TH-HARNESS-AC-016, TH-HARNESS-AC-071
 The current normative imported format dependencies are JSON Schema Draft 2020-12, RFC 8785 JSON Canonicalization Scheme with its verified errata, SHA-256 as specified by FIPS 180-4, and RFC 3339 timestamps constrained by Section 8. A later revision MUST replace an imported dependency explicitly; implementation-library defaults MUST NOT silently change the format contract.
 Verified by: TH-HARNESS-AC-062, TH-HARNESS-AC-066, TH-HARNESS-AC-071
 
+**TH-HARNESS-REQ-021**
+Repository test-harness observability is a harness diagnostic subsystem, not
+application runtime telemetry. This NLSpec owns harness trace reconstruction,
+harness performance metrics, retained diagnostic artifacts, explicit post-run
+OTLP export, and the public commands that inspect or export them. The adopted
+OpenTelemetry source and protocol baseline is consumed from
+`docs/opentelemetry-instrumentation-nlspec.md`; this NLSpec MUST NOT duplicate or
+silently rebaseline it. Application telemetry scopes, application
+`cartulary.module` attributes, deployment telemetry configuration, and the
+server telemetry bootstrap MUST NOT become harness configuration or harness
+evidence owners.
+Verified by: TH-HARNESS-AC-072, TH-HARNESS-AC-076
+
 ## 3. Terminology
 
 | Term                     | Meaning                                                                                                                                                    |
@@ -128,6 +141,10 @@ Verified by: TH-HARNESS-AC-062, TH-HARNESS-AC-066, TH-HARNESS-AC-071
 | cleanup tier             | A named cleanup scope such as repo-local clean, repo-local distclean, service-suite cleanup, browser-stack cleanup, or stale janitor cleanup.              |
 | stale janitor            | A cleanup routine that removes previously generated DBs, buckets, containers, or browser fixtures only when proof predicates match.                        |
 | diagnostic-only artifact | An artifact retained for human investigation whose internal shape is not a machine-readable harness conformance contract.                                  |
+| harness observability bundle | A deterministic diagnostic projection of native retained harness evidence into one invocation trace, OTLP request payloads, and one hotspot summary. |
+| invocation trace         | One trace rooted at a top-level public harness invocation. Child targets, sequence steps, scheduler work, services, runners, and finalizers are spans or links inside that trace. |
+| actual dependency critical path | The longest observed dependency-respecting chain of executable and wait intervals. It is distinct from the scheduler envelope stored in `critical_path_wall_duration_ms`. |
+| unattributed envelope    | Parent wall time not covered by the union of its directly attributable child intervals; overlapping child time is counted once. |
 | test owner               | The one module, platform, application, package, or harness boundary accountable for a catalog row's verification postcondition.                         |
 | test family              | An owner-qualified semantic grouping of related catalog rows; it is not a runner, file, target, evidence class, or delivery milestone.                 |
 | catalog row              | One active cross-runner executable evidence contract with one owner, exact selectors, verification references, and execution profiles.                 |
@@ -710,6 +727,10 @@ Public aggregate targets MAY be represented in scheduler manifests by typed inte
 | `target-plan-json` | `cartulary.harness.command.target_plan_json.v1` | `help_discovery` | `helper_only` | `machine_stdout_json` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  |
 | `fixture-report` | `cartulary.harness.command.fixture_report.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  |
 | `explain-run` | `cartulary.harness.command.explain_run.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  |
+| `harness-observability-check` | `cartulary.harness.command.harness_observability_check.v1` | `generated_drift` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4), `security_boundary` (Section 15) | `none` | `public_active` | Read-only validation of deterministic harness diagnostic projection for one exact retained run. |
+| `harness-otel-export` | `cartulary.harness.command.harness_otel_export.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4), `security_boundary` (Section 15) | `external_network` | `public_active` | Explicit post-run OTLP export; ordinary harness commands never invoke it. |
+| `harness-performance-check` | `cartulary.harness.command.harness_performance_check.v1` | `generated_drift` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4), `failure_normalization` (Section 9) | `none` | `public_active` | Validates exact baseline and candidate evidence roots under Section 10.5. |
+| `harness-public-target-duration-baselines` | `cartulary.harness.command.harness_public_target_duration_baselines.v1` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `diagnostic_synthesis` (Section 4), `failure_normalization` (Section 9) | `retained_artifacts`, `generated_artifacts` | `public_active` | Sole writer of the public-target duration baseline artifact from an exact qualified baseline window. |
 | `explain-test-owner` | `cartulary.harness.command.explain_test_owner.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` | Read-only catalog and topology explanation for one owner. |
 | `explain-target` | `cartulary.harness.command.explain_target.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  |
 | `go-test-duration-baselines` | `cartulary.harness.command.go_test_duration_baselines.v1` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `generated_artifacts` | `public_active` |  |
@@ -782,6 +803,62 @@ Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-004, TH-HARNESS-AC-020, TH-HARNESS
 | `service_resource_mutation` | Creates, modifies, or deletes service resources such as scratch databases, buckets, fixture resources, or local service bootstrap resources. | Target row declares ownership mode, resource families, and lifecycle machine. |
 | `destructive_cleanup` | Deletes files, directories, services, databases, buckets, or other resources. | Target row cites Section 13 predicates. |
 | `runtime_reset` | Mutates test runtime state through the test-only reset boundary. | Target row cites Section 12 predicates. |
+| `external_network` | Sends a caller-selected diagnostic payload to an external endpoint. | Target row cites the exact input, protocol, privacy, timeout, redirect, and failure contract. |
+
+**TH-HARNESS-REQ-077**
+The authored task-surface owner MUST declare a closed `observability_policy`
+that assigns every public target exactly one explicit disposition of `required`,
+`excluded`, or `out_of_scope`. An `excluded` or `out_of_scope` entry MUST have a
+nonempty owner section and reason. Every required target MUST bind exactly one
+stable measurement profile; its target-row command ID and resolved profile's
+canonical inputs, direct or aggregate eligibility, warm-up policy, and
+performance gate form the measurement identity. Parameterized
+slice and audit profiles MUST use `OWNER=module.auth`; the audit profile MUST
+consume that owner's retained slice evidence. Duplicate target steps are invalid
+until an occurrence-aware artifact contract is adopted. Generated task-surface
+projections MUST preserve the policy and validation MUST enumerate the complete
+public surface against it, rejecting omissions, overlap, unknown targets, and
+unowned exclusions. Defaults, runtime-family inference, and target-name inference
+are forbidden.
+Verified by: TH-HARNESS-AC-072, TH-HARNESS-AC-073
+
+**TH-HARNESS-REQ-078**
+Every successful, failed, or interrupted top-level invocation with
+`observability.disposition=required` MUST attempt local observability
+finalization after native summaries and cleanup evidence are stable. One
+top-level invocation produces one invocation trace. Nested public targets are
+child spans selected from sequence, scheduler, summary-group, and timing
+relationships; they MUST NOT become disconnected root traces merely because
+their Make targets are independently public.
+Verified by: TH-HARNESS-AC-073, TH-HARNESS-AC-074
+
+**TH-HARNESS-REQ-079**
+The current public observability and performance-maintenance commands are
+`harness-observability-check`, `harness-otel-export`, and
+`harness-performance-check`, plus the sole baseline writer
+`harness-public-target-duration-baselines`; `explain-run` additionally accepts
+`DETAIL=performance`. `harness-observability-check` reads one retained run,
+reconstructs the selected invocation bundle in memory, validates retained
+output and deterministic equivalence, and fails with `artifact_error`, exit
+`11`, on missing, partial, malformed, unsafe, or nondeterministic evidence.
+It MUST be strictly read-only and MUST NOT create a check-summary artifact in
+the selected run. Check and export selection MUST name an exact retained run
+directory or provide a result root together with `RUN_ID`; newest-run selection
+is forbidden for these commands.
+`harness-performance-check` reads the exact evidence-roots manifest supplied by
+the caller and fails with `duration_baseline_drift`, exit `13`, when Section
+10.5 acceptance fails.
+Verified by: TH-HARNESS-AC-073, TH-HARNESS-AC-079
+
+**TH-HARNESS-REQ-080**
+`harness-otel-export` is the only current public harness network-export
+surface. It MUST read a complete validated retained bundle without modifying
+the selected run. `HARNESS_OTLP_ENDPOINT` is required and accepted from the
+Make command line only. `HARNESS_OTLP_HEADERS_FILE` is optional and accepted
+from the Make command line only. No ordinary test, aggregate, scheduler,
+summary, finalizer, or explanation command may perform telemetry network
+export.
+Verified by: TH-HARNESS-AC-076
 
 ### 4.4 Direct Script and Package Boundary
 
@@ -986,7 +1063,7 @@ Each `inputs[]` row MUST contain `name`, `binding`, `allowed_sources`, `required
 | `summary_emission` | One of `none`, `value`, `redacted_value`, or `source_and_value`. |
 | `child_forwarding` | One of `none`, `argv`, `runtime_env`, or `argv_and_runtime_env`; undeclared public harness inputs MUST NOT reach child environments. |
 
-The closed target-local public input set in the current profile consists only of documented uses of `ROLE`, `OWNER`, `ROWS`, `TARGET`, `RESULTS_DIR`, explicit retained-evidence root selectors, `ALLOW_OLDER_RESULTS_DIR`, `RUN_ID`, `DETAIL`, `JSON`, worker controls, fixture report limits, duration-maintenance knobs, scheduler timing knobs, destructive-safety controls, and the explicit Govulncheck database override. A public target accepts one of these names only when it appears in the normative input matrix below.
+The closed target-local public input set in the current profile consists only of documented uses of `ROLE`, `OWNER`, `ROWS`, `TARGET`, `RESULTS_DIR`, explicit retained-evidence root selectors, `ALLOW_OLDER_RESULTS_DIR`, `RUN_ID`, `DETAIL`, `JSON`, worker controls, fixture report limits, duration-maintenance knobs, scheduler timing knobs, destructive-safety controls, the explicit Govulncheck database override, and the explicit `HARNESS_OTLP_ENDPOINT` and `HARNESS_OTLP_HEADERS_FILE` post-run export inputs. A public target accepts one of these names only when it appears in the normative input matrix below.
 
 `frontend-fallow-static` accepts no target-local Make variables in the current Fallow static profile. A future changed-code audit base such as `FALLOW_CHANGED_SINCE` MUST be added to this registry before it becomes public input.
 
@@ -1014,10 +1091,15 @@ Verified by: TH-HARNESS-AC-002, TH-HARNESS-AC-029
 | `target-plan`, `target-plan-json`, `fixture-report`, `explain-run`, `scheduler-event-order-drift`, `scheduler-summary-timing-drift` | `TARGET` | `target_name` | no | Make command line, environment, Makefile default | none | all target rows accepted by the target | omitted | `trim` | public or scheduler target name present in the task-surface manifest | `usage_error`, exit `2` | value | argv |
 | `fixture-report` | `RESULTS_DIR` | `result_selector` | no | Make command line, environment, Makefile default | `.cartulary/test-results` | default result root | omitted | `path_token` | existing result root or retained run root | `usage_error`, exit `2` | value | argv |
 | `fixture-report`, `explain-run` | `RUN_ID` | `run_id` | no | Make command line, environment, Makefile default | none | latest retained run under selected result root for human investigation only | omitted | `trim` | Section 6.2 `run_id_v1` | `usage_error`, exit `2` | value | argv |
+| `harness-observability-check`, `harness-otel-export` | `RUN_ID` | `run_id` | conditionally yes | Make command line only | none | allowed only when `RESULTS_DIR` is itself one exact retained run directory | invalid when `RESULTS_DIR` is a result root | `trim` | Section 6.2 `run_id_v1` | `usage_error`, exit `2` | value | argv |
 | `fixture-report` | `FIXTURE_THRESHOLD_MS` | `positive_integer` | no | Make command line, environment, Makefile default | `30000` | `30000` | omitted | `trim` | `1..999999999` | `usage_error`, exit `2` | value | argv |
 | `fixture-report` | `FIXTURE_TOP` | `positive_integer` | no | Make command line, environment, Makefile default | `5` | `5` | omitted | `trim` | `1..999999999` | `usage_error`, exit `2` | value | argv |
-| `explain-run`, `go-test-duration-baselines`, `browser-e2e-duration-baselines`, `service-backed-make-target-duration-baselines`, `harness-smoke-duration-baselines` | `RESULTS_DIR` | `result_selector` | yes | Make command line, environment, Makefile default | none | missing required input | invalid | `path_token` | existing result root or retained run root | `usage_error`, exit `2` | value | argv |
-| `explain-run` | `DETAIL` | `enum` | no | Make command line, environment, Makefile default | `summary` | `summary` | omitted | `trim` | `summary`, `children`, `logs`, `progress`, `accounting` | `usage_error`, exit `2` | value | argv |
+| `explain-run`, `harness-observability-check`, `harness-otel-export`, `go-test-duration-baselines`, `browser-e2e-duration-baselines`, `service-backed-make-target-duration-baselines`, `harness-smoke-duration-baselines` | `RESULTS_DIR` | `result_selector` | yes | Make command line, environment, Makefile default | none | missing required input | invalid | `path_token` | existing result root or retained run root; check/export additionally obey the exact-selection `RUN_ID` row | `usage_error`, exit `2` | value | argv |
+| `explain-run` | `DETAIL` | `enum` | no | Make command line, environment, Makefile default | `summary` | `summary` | omitted | `trim` | `summary`, `children`, `logs`, `progress`, `accounting`, `performance` | `usage_error`, exit `2` | value | argv |
+| `harness-otel-export` | `HARNESS_OTLP_ENDPOINT` | `url` | yes | Make command line only | none | missing required input | invalid | `trim` | HTTPS base URL or loopback HTTP URL with no credentials, query, or fragment | `usage_error`, exit `2` | redacted value | argv |
+| `harness-otel-export` | `HARNESS_OTLP_HEADERS_FILE` | `path` | no | Make command line only | none | no extra headers | omitted | `path_token` | owner-only non-symlink regular JSON file with bounded string header values | `configuration_error`, exit `2` | redacted value | argv |
+| `harness-performance-check` | `EVIDENCE_ROOTS_FILE` | `path` | yes | Make command line only | none | missing manifest | invalid | `path_token` | existing non-symlink regular file containing `cartulary.harness_performance_evidence_roots.v1` | `usage_error`, exit `2` when missing or malformed | value | argv |
+| `harness-public-target-duration-baselines` | `EVIDENCE_ROOTS_FILE` | `path` | yes | Make command line only | none | missing baseline window | invalid | `path_token` | existing non-symlink regular file containing exactly three accepted baseline roots per required measurement profile | `usage_error`, exit `2` when missing or malformed | value | argv |
 | `explain-target` | `TARGET` | `target_name` | yes | Make command line, environment, Makefile default | none | missing required input | invalid | `trim` | public or scheduler target name present in the task-surface manifest | `usage_error`, exit `2` | value | argv |
 | `explain-target` | `DETAIL` | `enum` | no | Make command line, environment, Makefile default | `summary` | `summary` | omitted | `trim` | `summary`, `rows`, `artifacts` | `usage_error`, exit `2` | value | argv |
 | `go-test-duration-baselines` | `PRUNE_OBSERVED_PACKAGES` | `exact_1_bool` | no | Make command line, environment, Makefile default | `false` | false | false | `trim` | exact `1` means true | `usage_error`, exit `2` | value | argv |
@@ -1330,7 +1412,7 @@ The following schema IDs are public contracts. Schema file paths are repository 
 | `cartulary.check_scheduler_summary.v10`          | `tools/schemas/cartulary.check_scheduler_summary.v10.schema.json`          | present           | Check scheduler          | Before scheduler target success.          |
 | `cartulary.service_backed_scheduler_summary.v10` | `tools/schemas/cartulary.service_backed_scheduler_summary.v10.schema.json` | present           | Service-backed scheduler | Before scheduler target success.          |
 | `cartulary.test_slice_scheduler_summary.v1`     | `tools/schemas/cartulary.test_slice_scheduler_summary.v1.schema.json`     | present           | Owner-slice scheduler    | Before an owner-slice scheduler target succeeds. |
-| `cartulary.scheduler_event.v6`                  | `tools/schemas/cartulary.scheduler_event.v6.schema.json`                  | present           | Scheduler                | During scheduler JSONL validation.        |
+| `cartulary.scheduler_event.v7`                  | `tools/schemas/cartulary.scheduler_event.v7.schema.json`                  | present           | Scheduler                | During scheduler JSONL validation.        |
 | `cartulary.scheduler_pressure_summary.v4`       | `tools/schemas/cartulary.scheduler_pressure_summary.v4.schema.json`       | present           | Scheduler reporter       | Before scheduler target success.          |
 | `cartulary.fixture_tier_proof.v2`               | `tools/schemas/cartulary.fixture_tier_proof.v2.schema.json`               | present           | Scheduler reporter and fixture-proof validators | Before a retained fixture-tier proof artifact is accepted. |
 | `cartulary.test_slice_plan.v2`                  | `tools/schemas/cartulary.test_slice_plan.v2.schema.json`                  | present           | Owner-slice planner      | Before setup, retained plan emission, or owner-slice JSON output is accepted. |
@@ -1548,6 +1630,90 @@ Verified by: TH-HARNESS-AC-064, TH-HARNESS-AC-071
 `cartulary.documentation_read_exceptions.v1` is a required current schema attachment. It MUST use Draft 2020-12, constant `schema_id`, closed enums, required fields, and `additionalProperties=false`; its policy validator MUST reject an unknown field, purpose, operation, missing owner, or unsafe path before scanning executable behavior.
 Verified by: TH-HARNESS-AC-067, TH-HARNESS-AC-071
 
+**TH-HARNESS-REQ-277**
+The required harness-observability schema attachments are
+`cartulary.harness_execution_context.v1`,
+`cartulary.harness_observability_index.v1`,
+`cartulary.harness_trace_bundle.v1`,
+`cartulary.harness_hotspot_summary.v1`,
+`cartulary.harness_sequence_event.v1`,
+`cartulary.harness_public_target_duration_baselines.v1`,
+and `cartulary.harness_performance_evidence_roots.v1`. Each schema MUST be Draft
+2020-12, require its exact schema ID, close unknown fields, and validate before
+the corresponding artifact or check succeeds.
+Verified by: TH-HARNESS-AC-073, TH-HARNESS-AC-074, TH-HARNESS-AC-079
+
+**TH-HARNESS-REQ-278**
+The observability index path is
+`<run-root>/_shared/harness-observability/observability-index.json`. It MUST
+contain the run ID, generated status, sorted required, excluded, and
+out-of-scope target
+dispositions, a run-relative execution-context reference and digest, sorted
+invocation records, source artifact digests, and any bounded partial-generation
+diagnostic. Each invocation record identifies one
+directory named by a stable invocation ID and references its trace bundle,
+OTLP trace payload, OTLP metric payload, and hotspot summary by normalized
+run-relative path plus lowercase SHA-256.
+Verified by: TH-HARNESS-AC-073, TH-HARNESS-AC-074
+
+**TH-HARNESS-REQ-279**
+The trace bundle is a deterministic projection of native evidence. It MUST
+contain one nonzero 32-hex trace ID, one nonzero 16-hex span ID per span, exactly
+one root span, valid parent references or closed links, RFC3339 start and end
+timestamps, nonnegative durations, a closed span class and status, sorted
+source artifact references, and closed safe attributes. Stable input bytes MUST
+produce byte-identical normalized trace, metric, and hotspot output. Native
+evidence remains authoritative when a projection disagrees.
+Verified by: TH-HARNESS-AC-074, TH-HARNESS-AC-075
+
+**TH-HARNESS-REQ-280**
+The OTLP JSON artifacts MUST be valid JSON encodings of
+`ExportTraceServiceRequest` and `ExportMetricsServiceRequest` under the adopted
+protocol baseline. Their resource uses `service.name=cartulary.harness`; their
+only instrumentation scope is `cartulary.harness.execution` with the adopted
+harness contract version, null schema URL, and no scope attributes. The trace
+payload MUST contain the same trace/span IDs, parentage, timestamps, statuses,
+and allowed attributes as the native trace bundle. Metric names and dimensions
+are closed by Section 10.5.
+Verified by: TH-HARNESS-AC-075, TH-HARNESS-AC-076
+
+**TH-HARNESS-REQ-281**
+`sequence-events.jsonl` is retained below the aggregate target directory. Each
+record validates as `cartulary.harness_sequence_event.v1`; sequence-local `seq`
+starts at one and has no gaps. Events are exactly `sequence_started`,
+`step_eligible`, `step_started`, `step_finished`, `step_skipped`,
+`sequence_finished`, or `sequence_interrupted`. Each terminal step event
+records normalized status, exit code, wall and monotonic boundaries, step ID,
+target, dependencies, and execution mode without raw command or environment
+data.
+Verified by: TH-HARNESS-AC-074, TH-HARNESS-AC-077
+
+**TH-HARNESS-REQ-282**
+Harness-observability artifacts are owner-only diagnostic secret-bearing
+artifacts. A partial local generation MUST retain a schema-valid index with
+`status=partial` and a closed diagnostic class; it MUST NOT replace a prior
+product, harness, cleanup, or artifact result. A normal invocation MAY report
+the partial diagnostic as a warning. The explicit observability check MUST
+reject it.
+Verified by: TH-HARNESS-AC-073, TH-HARNESS-AC-078
+
+**TH-HARNESS-REQ-283**
+The top-level wrapper MUST retain
+`<run-root>/_shared/harness-observability/execution-context.json` as
+`cartulary.harness_execution_context.v1` before derived observability output is
+accepted. The context MUST contain the exact run, invocation, public target and
+command identities; commit and source-snapshot digest; clean or dirty source
+state; host, toolchain, externally available capacity, workload/evidence, and
+execution-policy digests; start, end, terminal status, interruption, retry
+count, warm eligibility, and a bounded sorted contamination-reason set. Source
+artifact references MUST be normalized relative to the retained run, so an
+owner-only root may be moved outside the checkout without exposing absolute
+paths. Derived artifacts and all qualification checks MUST consume this retained
+context and MUST NOT recompute historical profiles from the current checkout.
+Roots without this context or with a mismatched context digest remain
+diagnostic-only.
+Verified by: TH-HARNESS-AC-073, TH-HARNESS-AC-074, TH-HARNESS-AC-079
+
 ### 8.1 Artifact Families
 
 | Artifact family                                      | Producer                                        | Path under run root                                             | Schema policy                                                 | Ordering and nullability                                                              | Retention and cleanup                                        |
@@ -1559,8 +1725,13 @@ Verified by: TH-HARNESS-AC-067, TH-HARNESS-AC-071
 | Target summary                                       | Target summary generator                        | `<target>/target-summary.json`                                  | `cartulary.test_target_summary.v4`                            | Child/totals rollups ordered by registry order                                        | Retained.                                                    |
 | Run summary                                          | Run summary generator                           | `run-summary.json` or aggregate dir                             | `cartulary.test_run_summary.v6`                               | Work units and artifact dirs ordered deterministically                                | Retained.                                                    |
 | Same-run helper artifact reference                   | Run summary generator                           | `_shared/same-run-helper-artifacts/*.json`                      | `cartulary.same_run_helper_artifact_ref.v2`                    | Helper target, producer work-unit ID, declared inputs, producer artifact digests, consumer refs, same-run scope, and non-scheduler-reuse accounting | Retained with the run root; diagnostic only.                 |
+| Harness execution context                            | Top-level wrapper                               | `_shared/harness-observability/execution-context.json`          | `cartulary.harness_execution_context.v1`                       | Immutable invocation, source, environment, policy, terminal, eligibility, and contamination identity | Owner-only diagnostic; removed with the run root. |
+| Harness observability index                          | Observability finalizer                         | `_shared/harness-observability/observability-index.json`        | `cartulary.harness_observability_index.v1`                     | Context ref/digest, required/excluded/out-of-scope targets, invocation refs, source digests, status, and bounded diagnostic in schema order | Owner-only diagnostic; removed with the run root. |
+| Harness invocation bundle                            | Observability finalizer                         | `_shared/harness-observability/<invocation-id>/*`               | Native trace and hotspot schemas plus adopted OTLP JSON shape | Deterministic IDs, source refs, spans, metrics, paths, gaps, and digests | Owner-only diagnostic; removed with the run root. |
+| Harness sequence event stream                        | Sequence scheduler                              | `<aggregate-target>/sequence-events.jsonl`                      | `cartulary.harness_sequence_event.v1`                          | Strict sequence-local order with one terminal event per started or skipped step | Retained with aggregate target evidence. |
+| Harness public-target duration baselines             | Performance maintenance target                  | `tools/harness_public_target_duration_baselines.json`           | `cartulary.harness_public_target_duration_baselines.v1`        | Command IDs, workload and host profile, samples, median, deviation, and derived gates in target order | Checked-in maintenance artifact; regenerated only by its Make target. |
 | Scheduler summary                                    | Scheduler                                       | `<target>/scheduler-summary.json`                               | Scheduler summary schema by scheduler type                    | Work units by manifest ordinal; resources by registry order                           | Retained.                                                    |
-| Scheduler event stream                               | Scheduler                                       | `<target>/scheduler-events.jsonl`                               | `cartulary.scheduler_event.v6`                                | `seq` strictly increases with no gaps                                                 | Retained.                                                    |
+| Scheduler event stream                               | Scheduler                                       | `<target>/scheduler-events.jsonl`                               | `cartulary.scheduler_event.v7`                                | `seq` strictly increases with no gaps                                                 | Retained.                                                    |
 | Scheduler progress summary                           | Scheduler reporter                              | `<target>/progress-summary.log`                                 | diagnostic-only                                               | Bounded progress snapshots                                                            | Retained.                                                    |
 | Scheduler pressure summary                           | Scheduler reporter                              | `<target>/pressure-summary.json`                                | `cartulary.scheduler_pressure_summary.v4`                      | Closed current-profile fields are defined below; ordering is target, lane, resource, fixture-class, row fixture pressure, execution-family fixture pressure, fixture proofs, fixture-tier proof artifacts, readiness attribution, and slowest-work lexical order after producer timestamps are normalized | Retained.                                                    |
 | Govulncheck findings                                 | Govulncheck wrapper                             | `<target>/<row-id>/govulncheck-findings.json`                    | `cartulary.govulncheck_findings.v1`                            | Finding IDs and counts in deterministic order; symbol-reachable findings are blocking | Retained with the row; promoted by target summary as artifact refs and supplemental security extension data. |
@@ -2218,6 +2389,154 @@ scratch database across tests or runs, leave state outside the owned stack, or
 treat a retained database as completed cleanup before service teardown passes.
 Verified by: TH-HARNESS-AC-061
 
+**TH-HARNESS-REQ-370**
+Every scheduler kind, including `sequence`, MUST emit
+`cartulary.scheduler_event.v7` evidence that represents each work unit with its
+manifest ordinal, priority, declared dependency edges, normalized resource
+claims, eligibility instant, start instant, and terminal instant and state.
+Eligibility is the first scheduler iteration in which all declared dependencies
+are complete or the unit becomes terminally dependency-blocked. Queue wait is
+elapsed time from eligibility to start. A unit that never starts records its
+terminal dependency or cancellation state without a fabricated execution
+duration. All boundaries use the scheduler process's monotonic clock; child
+processes MUST NOT synthesize monotonic values from wall-clock timestamps.
+Verified by: TH-HARNESS-AC-074, TH-HARNESS-AC-077
+
+**TH-HARNESS-REQ-371**
+For every eligible but unstarted interval, the scheduler MUST retain the closed
+wait reason `resources`, `earlier_overlapping_ready`, `capacity`, or
+`scheduler_stop`, plus sorted blocking logical resources and blocking unit IDs.
+The event stream MUST retain wait-start and wait-end boundaries even when the
+interval is zero. Resource-blocked duration is the union of intervals
+attributable to one logical resource; overlapping observations MUST NOT be
+summed.
+Verified by: TH-HARNESS-AC-074, TH-HARNESS-AC-077
+
+**TH-HARNESS-REQ-372**
+The actual dependency critical path is computed over observed dependency edges
+using each node's queue-wait and execution intervals. For each node, path cost
+is its attributable duration plus the maximum predecessor path cost, with
+manifest ordinal and stable ID tie-breakers. The hotspot summary MUST name the
+ordered path as `critical_path` and its duration as
+`actual_dependency_critical_path_ms`. It MUST NOT rewrite
+or reinterpret scheduler `critical_path_wall_duration_ms`, which remains the
+full scheduler envelope under TH-HARNESS-REQ-303.
+Verified by: TH-HARNESS-AC-074
+
+**TH-HARNESS-REQ-373**
+Unattributed envelope time is parent duration minus the union of directly
+attributed child intervals clipped to the parent interval. Negative results
+clamp to zero and set a bounded clock/accounting warning. Child durations MUST
+NOT be summed when they overlap. Sequence-step, scheduler-work, service,
+runner, report-collation, and finalizer intervals participate only under their
+direct parent.
+Verified by: TH-HARNESS-AC-074
+
+**TH-HARNESS-REQ-374**
+Task-surface sequences that declare dependency and resource topology MUST run
+through the existing scheduler engine under `scheduler_kind=sequence`. Serial
+sequences compile to the same engine as one-edge-per-step DAGs. Public command
+and summary metadata remains owned by the task-surface owner; dependency,
+resource claim, priority, capacity, and finalizer metadata remains owned by
+execution topology. Validation MUST require an exact one-to-one binding before
+execution and MUST reject duplicate target steps, cycles, unknown dependencies,
+unknown resources, and infeasible claims. `check` is the first dependency of `ci`
+and `release-check`; post-check work may overlap only as declared. Cancellation,
+process-group interruption, first-failure selection by observed completion,
+running-sibling drain, dependency skips, finalizers, and public summary order
+remain governed by Sections 9 and 10. A shell launcher, when retained, MUST only
+validate argv and launch this engine; it MUST NOT implement scheduling policy.
+Verified by: TH-HARNESS-AC-077, TH-HARNESS-AC-078
+
+**TH-HARNESS-REQ-375**
+The execution-topology row for `release-browser-readiness` itself owns logical
+`browser_stack` capacity two; no parent target or environment override may alter
+that schedule identity. The reference profile uses the same isolated schedule
+with capacity one, and the candidate profile changes only the retained
+execution-policy digest to capacity two. The schedule produces five
+profile-compatible sessions and the existing support, visual, accessibility,
+and aggregate summaries. Direct public browser leaves retain isolated stack
+behavior. A session beyond the compatible default schedule requires an
+immutable `browser_session_isolation_reason`; resets, runtime profiles, visual
+comparison mode, redaction, and cleanup are unchanged.
+Verified by: TH-HARNESS-AC-077, TH-HARNESS-AC-078
+
+### 10.5 Harness Observability Metrics and Performance Acceptance
+
+**TH-HARNESS-REQ-376**
+The current harness metric registry is closed to
+`cartulary.harness.invocation.duration`,
+`cartulary.harness.dependency.critical_path`,
+`cartulary.harness.scheduler.queue_wait`,
+`cartulary.harness.scheduler.resource_blocking`, and
+`cartulary.harness.invocation.unattributed`. Duration units are milliseconds.
+Allowed dimensions are the closed safe
+target, command, family, runner, work-unit kind, status, timing bucket, wait
+reason, and logical-resource tokens present in the native bundle. Run IDs,
+paths, process IDs, test output, and raw symbol names are forbidden metric
+dimensions.
+Verified by: TH-HARNESS-AC-075, TH-HARNESS-AC-076
+
+**TH-HARNESS-REQ-377**
+A qualifying public-target baseline contains exactly three consecutive
+successful warm observations for each required measurement profile. Baseline
+and candidate observations MUST match command ID, canonical inputs,
+source-snapshot digest, clean source state, workload/evidence digest, host
+profile, externally available capacity, and toolchain digest. Their retained
+execution-policy digests MUST also match except for a profile whose contract
+names one intentional policy change; release browser readiness permits only the
+declared capacity-one reference to capacity-two candidate change. Let `m` be the
+median duration and `d`
+the median absolute deviation. The no-regression limit is
+`m + max(1000, 3*d, 0.05*m)` milliseconds. A required hotspot improves only
+when its candidate median is at least `max(1000, 3*d, 0.10*m)` milliseconds
+below the baseline median. Failed, interrupted, stale, retried, source- or
+capacity-mismatched observations are retained as rejected evidence and do not
+enter either set. Performance acceptance MUST consume retained execution
+contexts, record every rejected root and reason, and MUST NOT derive a historical
+profile from the current checkout or trust manifest-declared digests over the
+root's retained context.
+Verified by: TH-HARNESS-AC-079
+
+**TH-HARNESS-REQ-378**
+Required improvement gates are backend-unit total wall time, backend report
+collation/finalization interval union, release browser-readiness wall time, and release-check
+wall time. Every other required public testing command uses the no-regression
+limit. Aggregate runs MAY provide leaf samples when the trace proves the same
+command, canonical inputs, workload, and capacity contract exactly once;
+otherwise the command MUST be run directly. The checker derives target mappings
+from verified retained traces; the evidence-roots manifest contains only
+explicit ordered baseline and candidate root lists and MUST NOT repeat root
+arrays per target. Default `make check` MUST NOT enforce these three-sample drift gates.
+TH-HARNESS-REQ-355 remains the independent controlling five-run `make check`
+acceptance.
+Verified by: TH-HARNESS-AC-079
+
+**TH-HARNESS-REQ-379**
+Compatible pure backend-unit exact-symbol groups MUST be partitioned directly
+by normalized package selection, runtime-binary set, complete fixture and
+isolation policy, and authoritative or support evidence class, then execute with
+`clamp(floor(available_parallelism/4),1,4)` workers. All exact symbols in one
+compatible package/runtime/fixture/isolation/evidence-class group MAY share one
+Go JSON process. Raw package selectors remain separate. Report parsing and
+artifact writes MAY overlap, but stable row ordering, target-summary ordering,
+and Section 9 primary-failure ordering MUST be applied after all bounded work
+settles. Capture or report-worker failure MUST preserve any already successful
+row evidence and select one primary failure through the existing taxonomy.
+Verified by: TH-HARNESS-AC-078
+
+**TH-HARNESS-REQ-380**
+`harness-public-target-duration-baselines` is the sole writer of
+`tools/harness_public_target_duration_baselines.json`. It MUST accept only an
+exact baseline-window manifest with three accepted retained observations per
+required measurement profile, independently verify each context and bundle,
+derive samples from verified traces, compute the Section 10.5 statistics, write
+deterministic normalized bytes, and retain a bounded maintenance summary. The
+writer MUST reject cold, dirty, failed, interrupted, retried, duplicate,
+profile-mismatched, missing-command, and wrong-cardinality roots. Hand editing,
+partial refresh, inferred roots, and newest-run selection are forbidden.
+Verified by: TH-HARNESS-AC-079
+
 `work_units[].timeout_seconds` is optional and, when present, MUST be an integer from `1` through `3600`. It is a scheduler-owned watchdog around the whole child process group, not a product-performance assertion. Expiry MUST terminate the child group, retain the partial redacted log, record `failure_class=timing` and `failure_reason=timeout_failure`, return `13`, drain already-running independent work, mark dependency-blocked work `skipped_dependency`, and then run finalizers. A finalizer has its own timeout and MUST NOT inherit the aborted work signal. Omitting the field delegates deadlines to the narrower service, browser, runner, or child-target contract. Product assertions MUST have exactly one scheduler attempt; scheduler watchdog expiry MUST NOT create a retry.
 Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-030, TH-HARNESS-AC-065
 
@@ -2294,9 +2613,9 @@ For the `check` scheduler, priority assignments MUST preserve the service-backed
 
 | Event field             | Rule                                                                         |
 | ----------------------- | ---------------------------------------------------------------------------- |
-| `schema_id`             | `cartulary.scheduler_event.v6`.                                              |
+| `schema_id`             | `cartulary.scheduler_event.v7`.                                              |
 | `target`                | Public target or scheduler target identity.                                  |
-| `scheduler_kind`        | Scheduler family `check`, `service_backed`, or `test_slice`.                 |
+| `scheduler_kind`        | Scheduler family `check`, `service_backed`, `test_slice`, or `sequence`.     |
 | `seq`                   | Starts at `1`, increments by `1`, no gaps.                                   |
 | `event`                 | Compact event token such as `scheduler-started`, `unit-started`, or `progress`. |
 | `monotonic_ms`          | Non-decreasing scheduler-relative monotonic time.                            |
@@ -3168,6 +3487,50 @@ Verified by: TH-HARNESS-AC-067, TH-HARNESS-AC-070
 An ambiguous semantic match blocks closure. The scanner MUST report the matched token and normalized location without opening or copying unrelated document content.
 Verified by: TH-HARNESS-AC-067
 
+**TH-HARNESS-REQ-612**
+Harness observability may emit only the closed attributes and metrics in
+Sections 8 and 10. It MUST NOT emit raw commands or arguments, environment
+names or values, absolute or source-provided paths, hostnames, process IDs,
+headers, URLs, SQL text, runner output, error messages, stack traces, test
+symbols, product-authored values, or artifact contents. Failures use only the
+existing low-cardinality failure class and failure reason tokens.
+The trace bundle MAY identify a digested source artifact by its normalized,
+repository-relative retained-artifact path; that reconstruction identity MUST
+NOT be copied into OTLP attributes or metrics.
+Verified by: TH-HARNESS-AC-075, TH-HARNESS-AC-076
+
+**TH-HARNESS-REQ-613**
+Ordinary harness processes MUST ignore inherited variables whose names begin
+with `OTEL_` for harness-observability behavior. They MUST NOT initialize an
+OTel SDK, autoconfiguration provider, exporter, resource detector, or default
+localhost endpoint. The explicit export command receives only its declared
+Make inputs through argv; product and browser child processes MUST NOT receive
+the export endpoint or header material.
+Verified by: TH-HARNESS-AC-076
+
+**TH-HARNESS-REQ-614**
+`HARNESS_OTLP_ENDPOINT` MUST be an absolute URL with scheme `https`, except that
+`http` is allowed for `localhost`, `127.0.0.0/8`, or `[::1]`. User information,
+query, fragment, non-HTTP schemes, encoded authority ambiguity, and redirects
+are invalid. The exporter appends `/v1/traces` and `/v1/metrics` to the base
+path exactly once and applies a ten-second request timeout with no automatic
+retry. Invalid endpoint, selection, or header configuration is
+`configuration_error`, exit `2`; collector resolution, connection, timeout,
+redirect, or non-success delivery failure is a bounded
+`tool_diagnostic_failure`, exit `1`, of the export command only. Neither class
+may modify source evidence.
+Verified by: TH-HARNESS-AC-076
+
+**TH-HARNESS-REQ-615**
+An optional header file MUST be a non-symlink regular file no larger than 64
+KiB and owner-readable only; on POSIX, group or other permission bits are
+invalid. Its JSON value is a closed object of at most 32 ASCII header names to
+string values of at most 4096 bytes each. `host`, `content-length`,
+`content-type`, and connection-management headers are forbidden. The path and
+all values are redacted from output and retained diagnostics. Header files and
+selected retained runs are never modified.
+Verified by: TH-HARNESS-AC-076
+
 ### 15.1 Secret Pattern Table
 
 | Secret class               | Match rule                                                                          | Redaction token                      |
@@ -3454,24 +3817,32 @@ A later step MUST NOT compensate for an earlier failure, and evidence from diffe
 | TH-HARNESS-AC-069 | Sections 3, 16 | Evidence-to-gate applicability | Owners with each evidence class, zero-row classes, informative measurement, claim measurement, and unknown target fixtures | Generated applicability matrix and owner audit | `0` only when every active row maps to exact required gates | Bounded applicability summary | Bounded routing diagnostic | Generated owner/evidence/gate matrix | Human applicability skip, informative evidence closes release, or private target satisfies gate | none |
 | TH-HARNESS-AC-070 | Sections 1, 4, 15, 16 | Atomic v1 retirement | Current tree plus old target, variable, schema, artifact, reader, alias, dual-write, and delivery-identity fixtures | Task-surface parity, semantic scan, schema attachment validation, and repository reference scan | `0` only when no active v1 surface remains | Bounded retirement summary | Bounded compatibility diagnostic | Removed-identity report and v2 registry parity | Any v1 public command, reader, fallback, phase catalog, or ledger remains live | generated outputs regenerated through Make |
 | TH-HARNESS-AC-071 | Sections 1-17 | Harness v2 parity and adoption | Revised NLSpec, schemas, catalog, topology, task surface, generated outputs, focused owner evidence, warm check, and release evidence | Editorial lint, `json-shape-check`, generated-policy/drift, harness contract, owner slices, `agent-finalize`, warm `check`, and `release-check` | Success only when every required target passes from one coherent v2 change set | Existing bounded summaries | Exact failing target diagnostic | Current v2 schemas, task surface, catalog, topology, run roots, finalizer, and release artifacts | Partial adoption, missing schema, generated drift, unresolved requirement, or historical evidence closes a gate | ordinary target cleanup succeeds |
+| TH-HARNESS-AC-072 | Sections 2, 4 | Observability ownership and coverage | Complete public task surface; required, excluded, out-of-scope, omission, overlap, unknown, duplicate-sequence, unowned-reason, parameterized-profile, and application-boundary fixtures | Task-surface validation, harness contract, and OTel conformance | Every public target has exactly one explicit disposition, every required target has one canonical measurement profile, and every public testing entry point is required | Bounded coverage summary | Bounded owner or boundary diagnostic | Authored policy and generated projection digests | Default or target-name inference, omission, overlap, ownerless disposition, unstable input profile, duplicate sequence occurrence, or application scope widening passes | none |
+| TH-HARNESS-AC-073 | Sections 4, 8 | Local observability lifecycle | Direct, aggregate, external-root, source-change, dirty, retry, failure, interruption, contamination, tamper, and partial-generation fixtures | Top-level context capture, observability finalizer, and explicit observability check | One retained context and trace per top-level required invocation; complete bundles validate independently of the checkout; partial bundles warn normally and fail the explicit check | Bounded result and artifact refs | Bounded artifact diagnostic | Context, index, per-invocation artifacts, and source digests | Current checkout changes historical identity, absolute path leaks, normal result changes, tampered evidence is rewritten, or partial output passes explicit validation | selected retained run byte-for-byte unchanged by the check |
+| TH-HARNESS-AC-074 | Sections 8, 10 | Trace graph and timing accounting | Direct/nested sequence, scheduler dependency, all wait reasons, overlapping-child, blocker, service, runner, clock-skew, finalizer, failure, and interruption fixtures | Golden in-memory reconstruction and schema checks | Explicit parentage and links, interval unions, queue waits, resource blocking, dependency critical path, and unattributed time match exact expected values | Bounded trace summary | Bounded graph/accounting diagnostic | Native trace and hotspot bundle | Temporal containment invents parentage, child/finalizer durations are summed across overlap, dependency edges disappear, or scheduler envelope semantics change | scratch output removed |
+| TH-HARNESS-AC-075 | Sections 8, 10, 15 | OTLP shape and privacy | Valid bundle plus hostile paths, commands, environment, credentials, SQL-like text, symbols, output, and error strings | OTLP decoding, allowlist validation, and redaction scan | Trace and metric payloads decode, match native identity, and contain only registered names/attributes | Bounded shape summary | Bounded privacy or shape diagnostic | OTLP trace/metric payload digests | Forbidden literal or unknown attribute reaches payload | scratch capture removed |
+| TH-HARNESS-AC-076 | Sections 2, 4, 15 | Explicit exporter containment | Disabled ordinary runs, hostile `OTEL_*`, exact and ambiguous selection, valid HTTPS/loopback endpoints, invalid URLs, header permissions/shapes, redirect, timeout, and receiver failure | Fake collector and process-network fixtures | Ordinary runs make no telemetry request; explicit export sends exact payloads; configuration exits `2`; delivery exits `1` | Bounded count and endpoint class | Bounded configuration or exporter diagnostic with secrets absent | Fake collector request digests | Newest-run fallback, inherited env egress, redirect follow, timeout drift, header leak, failure-code collapse, or source mutation passes | fake collector stopped; source run unchanged |
+| TH-HARNESS-AC-077 | Sections 8, 10 | Sequence and browser scheduling | Serial, parallel, simultaneous failure, dependency failure, interruption, generic resource contention, cycles, unknown dependencies, release dependency, and capacity-one/two browser fixtures | Shared scheduler matrix, generated topology, and browser lifecycle tests | DAG order, deterministic event bytes and failure order, capacity, summary projection, process-group cancellation, resets, isolated leaves, finalizers, and cleanup match the adopted contract | Existing bounded sequence/browser summaries | Existing bounded scheduler diagnostic | Scheduler v7 events, scheduler summaries, and leaf target summaries | Shell owns scheduler policy, release dependency starts early, more than declared stacks overlap, sibling leaks, or direct leaf shares a stack | all started stacks cleaned |
+| TH-HARNESS-AC-078 | Sections 9, 10 | Backend and finalizer optimization parity | Compatible/incompatible direct compatibility keys, raw and isolated selectors, missing/extra/duplicate/partial Go JSON, capture and worker exceptions, concurrent failure, and emission fixtures | Backend target plan, runner fixtures, backend-unit, and artifact comparison | Process grouping and bounded concurrency reduce work while every row, partial success, artifact, and primary failure remains exact | Existing bounded target summary | Bounded row, artifact, or failure diagnostic | Before/after process and interval-union finalizer accounting | Family-level inference merges rows, raw selector merges, partial success drops, artifact order changes, or race masks failure | ordinary target cleanup |
+| TH-HARNESS-AC-079 | Sections 4, 8, 10, 17 | Public-target performance acceptance | Exact three-sample baseline/candidate lists; median, MAD, boundary, ordering, duplicate, failed, cold, retried, dirty, every digest mismatch, missing-command, aggregate-leaf, parameterized-profile, policy-change, hotspot, no-regression, and check-window fixtures | Baseline writer, performance checker, retained-run inspection, and canonical check acceptance | Exact Section 10.5 formulas and cardinality pass for required hotspots and covered commands while TH-HARNESS-REQ-355 remains satisfied | Bounded performance summary | `duration_baseline_drift`, exit `13`, with every rejected-root reason | Verified root refs, derived target mappings, medians, deviations, limits, and verdicts | Hand-edited baseline, inferred/newest root, mismatched or failed run, summed finalizers, blanket percentage, or moved required work passes | retained inputs unchanged; baseline writes only after complete validation |
 
 ### 17.1 Requirement-to-Acceptance Traceability
 
 | Requirement range         | Owner section                      | Acceptance criteria                                     |
 | ------------------------- | ---------------------------------- | ------------------------------------------------------- |
-| `TH-HARNESS-REQ-001..049` | Status, scope, authority, owner model | TH-HARNESS-AC-013, TH-HARNESS-AC-015, TH-HARNESS-AC-016, TH-HARNESS-AC-026, TH-HARNESS-AC-029, TH-HARNESS-AC-062, TH-HARNESS-AC-063, TH-HARNESS-AC-066, TH-HARNESS-AC-071 |
-| `TH-HARNESS-REQ-050..099` | Public command surface             | TH-HARNESS-AC-001, TH-HARNESS-AC-004, TH-HARNESS-AC-005, TH-HARNESS-AC-018, TH-HARNESS-AC-020, TH-HARNESS-AC-023, TH-HARNESS-AC-027, TH-HARNESS-AC-028, TH-HARNESS-AC-038, TH-HARNESS-AC-039, TH-HARNESS-AC-040, TH-HARNESS-AC-041, TH-HARNESS-AC-042, TH-HARNESS-AC-045, TH-HARNESS-AC-046, TH-HARNESS-AC-056, TH-HARNESS-AC-058, TH-HARNESS-AC-064, TH-HARNESS-AC-070, TH-HARNESS-AC-071 |
+| `TH-HARNESS-REQ-001..049` | Status, scope, authority, owner model | TH-HARNESS-AC-013, TH-HARNESS-AC-015, TH-HARNESS-AC-016, TH-HARNESS-AC-026, TH-HARNESS-AC-029, TH-HARNESS-AC-062, TH-HARNESS-AC-063, TH-HARNESS-AC-066, TH-HARNESS-AC-071, TH-HARNESS-AC-072 |
+| `TH-HARNESS-REQ-050..099` | Public command surface             | TH-HARNESS-AC-001, TH-HARNESS-AC-004, TH-HARNESS-AC-005, TH-HARNESS-AC-018, TH-HARNESS-AC-020, TH-HARNESS-AC-023, TH-HARNESS-AC-027, TH-HARNESS-AC-028, TH-HARNESS-AC-038, TH-HARNESS-AC-039, TH-HARNESS-AC-040, TH-HARNESS-AC-041, TH-HARNESS-AC-042, TH-HARNESS-AC-045, TH-HARNESS-AC-046, TH-HARNESS-AC-056, TH-HARNESS-AC-058, TH-HARNESS-AC-064, TH-HARNESS-AC-070, TH-HARNESS-AC-071, TH-HARNESS-AC-072, TH-HARNESS-AC-073, TH-HARNESS-AC-076, TH-HARNESS-AC-079 |
 | `TH-HARNESS-REQ-100..149` | Configuration                      | TH-HARNESS-AC-002, TH-HARNESS-AC-003, TH-HARNESS-AC-021, TH-HARNESS-AC-028, TH-HARNESS-AC-029, TH-HARNESS-AC-064 |
 | `TH-HARNESS-REQ-150..199` | Result roots and artifact identity | TH-HARNESS-AC-003, TH-HARNESS-AC-015, TH-HARNESS-AC-064, TH-HARNESS-AC-066, TH-HARNESS-AC-067, TH-HARNESS-AC-071 |
 | `TH-HARNESS-REQ-200..249` | Output modes                       | TH-HARNESS-AC-004, TH-HARNESS-AC-005, TH-HARNESS-AC-023 |
-| `TH-HARNESS-REQ-250..299` | Artifacts and schemas              | TH-HARNESS-AC-000, TH-HARNESS-AC-004, TH-HARNESS-AC-015, TH-HARNESS-AC-019, TH-HARNESS-AC-025, TH-HARNESS-AC-028, TH-HARNESS-AC-031, TH-HARNESS-AC-048, TH-HARNESS-AC-049, TH-HARNESS-AC-062, TH-HARNESS-AC-064, TH-HARNESS-AC-065, TH-HARNESS-AC-066, TH-HARNESS-AC-071 |
+| `TH-HARNESS-REQ-250..299` | Artifacts and schemas              | TH-HARNESS-AC-000, TH-HARNESS-AC-004, TH-HARNESS-AC-015, TH-HARNESS-AC-019, TH-HARNESS-AC-025, TH-HARNESS-AC-028, TH-HARNESS-AC-031, TH-HARNESS-AC-048, TH-HARNESS-AC-049, TH-HARNESS-AC-062, TH-HARNESS-AC-064, TH-HARNESS-AC-065, TH-HARNESS-AC-066, TH-HARNESS-AC-071, TH-HARNESS-AC-073, TH-HARNESS-AC-074, TH-HARNESS-AC-075, TH-HARNESS-AC-079 |
 | `TH-HARNESS-REQ-300..349` | Failure and exit codes             | TH-HARNESS-AC-013, TH-HARNESS-AC-014, TH-HARNESS-AC-032, TH-HARNESS-AC-064, TH-HARNESS-AC-065, TH-HARNESS-AC-066, TH-HARNESS-AC-067 |
-| `TH-HARNESS-REQ-350..399` | Scheduler                          | TH-HARNESS-AC-006, TH-HARNESS-AC-018, TH-HARNESS-AC-021, TH-HARNESS-AC-024, TH-HARNESS-AC-030, TH-HARNESS-AC-059, TH-HARNESS-AC-060, TH-HARNESS-AC-061, TH-HARNESS-AC-063, TH-HARNESS-AC-064, TH-HARNESS-AC-065 |
+| `TH-HARNESS-REQ-350..399` | Scheduler                          | TH-HARNESS-AC-006, TH-HARNESS-AC-018, TH-HARNESS-AC-021, TH-HARNESS-AC-024, TH-HARNESS-AC-030, TH-HARNESS-AC-059, TH-HARNESS-AC-060, TH-HARNESS-AC-061, TH-HARNESS-AC-063, TH-HARNESS-AC-064, TH-HARNESS-AC-065, TH-HARNESS-AC-074, TH-HARNESS-AC-077, TH-HARNESS-AC-078, TH-HARNESS-AC-079 |
 | `TH-HARNESS-REQ-400..449` | Services                           | TH-HARNESS-AC-007, TH-HARNESS-AC-010, TH-HARNESS-AC-017, TH-HARNESS-AC-033, TH-HARNESS-AC-049, TH-HARNESS-AC-056 |
 | `TH-HARNESS-REQ-450..499` | Reset route                        | TH-HARNESS-AC-008, TH-HARNESS-AC-034, TH-HARNESS-AC-035, TH-HARNESS-AC-050, TH-HARNESS-AC-051, TH-HARNESS-AC-052, TH-HARNESS-AC-053, TH-HARNESS-AC-054, TH-HARNESS-AC-056 |
 | `TH-HARNESS-REQ-500..549` | Cleanup                            | TH-HARNESS-AC-009, TH-HARNESS-AC-010, TH-HARNESS-AC-028, TH-HARNESS-AC-036 |
 | `TH-HARNESS-REQ-550..599` | Platform                           | TH-HARNESS-AC-012                                       |
-| `TH-HARNESS-REQ-600..649` | Security and redaction             | TH-HARNESS-AC-003, TH-HARNESS-AC-011, TH-HARNESS-AC-015, TH-HARNESS-AC-036, TH-HARNESS-AC-056, TH-HARNESS-AC-067 |
+| `TH-HARNESS-REQ-600..649` | Security and redaction             | TH-HARNESS-AC-003, TH-HARNESS-AC-011, TH-HARNESS-AC-015, TH-HARNESS-AC-036, TH-HARNESS-AC-056, TH-HARNESS-AC-067, TH-HARNESS-AC-075, TH-HARNESS-AC-076 |
 | `TH-HARNESS-REQ-650..699` | Product integration                | TH-HARNESS-AC-013, TH-HARNESS-AC-016, TH-HARNESS-AC-026, TH-HARNESS-AC-043, TH-HARNESS-AC-044, TH-HARNESS-AC-047, TH-HARNESS-AC-049, TH-HARNESS-AC-050, TH-HARNESS-AC-051, TH-HARNESS-AC-052, TH-HARNESS-AC-053, TH-HARNESS-AC-054, TH-HARNESS-AC-055, TH-HARNESS-AC-056, TH-HARNESS-AC-062, TH-HARNESS-AC-066, TH-HARNESS-AC-068, TH-HARNESS-AC-069, TH-HARNESS-AC-070, TH-HARNESS-AC-071 |
 
 ## 18. Sources and Evidence Limits

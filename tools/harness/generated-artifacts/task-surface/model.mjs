@@ -120,6 +120,9 @@ export function sequenceDefinition(manifest, name) {
   }
   return {
     name,
+    executionMode: sequence.execution_mode ?? "serial",
+    maxJobs: sequence.max_jobs ?? 1,
+    resourceLimits: sequence.resource_limits ?? {},
     summaryGroups: sequence.summary_groups ?? [],
     steps: sequence.steps.map((step) => ({
       type: step.type,
@@ -127,6 +130,9 @@ export function sequenceDefinition(manifest, name) {
       jobs: step.jobs,
       jobsVariable: step.jobs_variable,
       skipPrerequisites: step.skip_prerequisites === true,
+      needs: [...(step.needs ?? [])],
+      resourceClaims: step.resource_claims ?? {},
+      priority: step.priority,
       producesSummaryTargets: [...(step.produces_summary_targets ?? [])],
     })),
   };

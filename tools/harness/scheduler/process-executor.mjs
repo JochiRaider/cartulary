@@ -63,7 +63,9 @@ export function runLifecycle(repoRoot, testOutputScript, args, stream = process.
         resolve();
         return;
       }
-      reject(new Error(`${testOutputScript} ${args.join(" ")} exited ${closeStatus}`));
+      const error = new Error(`${testOutputScript} ${args.join(" ")} exited ${closeStatus}`);
+      error.exitCode = closeStatus;
+      reject(error);
     };
     const command = testOutputScript.endsWith(".mjs")
       ? env.NODE_BIN || process.env.NODE_BIN || process.execPath

@@ -23,6 +23,25 @@ When this NLSpec conflicts with Core 00 through Core 04 outside the telemetry su
 **OTEL-REQ-004**
 The key words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY** are normative inside this NLSpec. **MUST** and **MUST NOT** define conformance requirements. **SHOULD** and **SHOULD NOT** define strong defaults whose exceptions must remain compatible with all MUST-level requirements. **MAY** defines optional behavior whose omission semantics are explicit.
 
+**OTEL-REQ-148**
+This NLSpec owns Cartulary application runtime telemetry. Repository test-harness
+diagnostic reconstruction and explicit post-run export are a separate harness
+profile owned by `docs/testing-harness-nlspec.md`. That profile consumes the
+pinned OpenTelemetry and semantic-convention baseline from this NLSpec but does
+not add an application instrumentation scope, widen `cartulary.module`, alter
+deployment telemetry configuration, install an application SDK, or become
+application conformance evidence.
+
+**OTEL-REQ-149**
+The harness profile scope `cartulary.harness.execution` is valid only in
+owner-only retained harness diagnostics and the explicit harness exporter.
+Application runtime packages MUST NOT emit it. Harness packages MUST NOT import
+the application telemetry bootstrap, use application provider accessors, read
+deployment `telemetry.*` configuration, or propagate harness exporter material
+to product or browser processes. Inherited `OTEL_*` variables MUST NOT
+configure the harness profile. Static conformance MUST enforce both dependency
+directions.
+
 ## 2. Purpose
 
 **OTEL-REQ-005**
@@ -1487,6 +1506,7 @@ The update gate MUST compare span names, span kinds, span status policy, span ev
 - **OTEL-AC-044:** Any OTel dependency, SDK, exporter, semantic-convention, generated-constant, resource-detector, log-bridge, instrumentation-adapter, metric-view, sampler, or retry-behavior update runs the golden corpus and records a §4.5 classification before merge. The comparison includes SDK instrument registration identity, exported metric-stream identity, Resource schema URL, retry envelope, non-transfer rules, and sampler profile behavior.
 - **OTEL-AC-045:** A dependency-only update can be accepted without NLSpec revision only when the normalized corpus is `registry_equivalent`.
 - **OTEL-AC-046:** Any `additive_non_breaking`, `privacy_tightening`, or `breaking_shape_change` result requires NLSpec revision and updated acceptance criteria before adoption. Sampler migration, Resource schema-url adoption, View-renaming change, Prometheus exporter adoption, or any non-registry-equivalent change is non-conformant without such revision.
+- **OTEL-AC-047:** Static boundary fixtures prove that repository harness diagnostics use only scope `cartulary.harness.execution`, cannot import or configure application telemetry bootstrap, and remain unchanged under hostile inherited `OTEL_*` values. Application packages cannot emit the harness scope. The harness profile introduces no harness OTel SDK dependency and makes no network request during an ordinary test invocation.
 
 ## 16. Resolved adoption decisions
 
@@ -1537,6 +1557,7 @@ This NLSpec is complete for implementation when all of the following are true:
 - Retry jitter is bounded, testable, and non-blocking for product hot paths.
 - Runtime telemetry failures do not alter product-visible behavior or committed state.
 - Browser direct export is absent.
+- Repository harness diagnostics are delegated to the testing-harness NLSpec, remain isolated from application telemetry bootstrap and configuration, and use only scope `cartulary.harness.execution`.
 - Non-transferred OpenTelemetry concepts are explicitly forbidden or deferred.
 - Golden telemetry corpus comparison is required for OTel dependency, SDK, exporter, semantic-convention, generated-constant, sampler, metric-view, and retry-behavior updates.
 - All acceptance criteria in §15 are binary and pass.

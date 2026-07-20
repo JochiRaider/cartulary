@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { handleGoJSONStream } from "./go-json-stream.mjs";
-import { handleRunStart, handleStepStart, handleTargetStart } from "./lifecycle.mjs";
+import { handleRunFinish, handleRunStart, handleStepCancelled, handleStepEligible, handleStepFinish, handleStepStart, handleTargetStart } from "./lifecycle.mjs";
 import { handleRunSummary } from "./run-summary.mjs";
 import { handleSharedExecution } from "./shared-execution.mjs";
 import { handleTargetSummary } from "./target-summary.mjs";
@@ -55,6 +55,18 @@ function main() {
       break;
     case "step-start":
       process.exit(handleStepStart(rest));
+      break;
+    case "step-eligible":
+      process.exit(handleStepEligible(rest));
+      break;
+    case "step-finish":
+      process.exit(handleStepFinish(rest));
+      break;
+    case "step-cancelled":
+      process.exit(handleStepCancelled(rest));
+      break;
+    case "run-finish":
+      process.exit(handleRunFinish(rest));
       break;
     case "target-start":
       process.exit(handleTargetStart(rest));
