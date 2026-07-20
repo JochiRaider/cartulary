@@ -499,6 +499,75 @@ type EvidenceGridProjection struct {
 	EditedAt           pgtype.Timestamptz `json:"edited_at"`
 }
 
+type ExtensionJobCancellationObservation struct {
+	CancellationRequestID     string             `json:"cancellation_request_id"`
+	JobID                     pgtype.UUID        `json:"job_id"`
+	ObservedAt                pgtype.Timestamptz `json:"observed_at"`
+	ObservedBeforeFinalCommit bool               `json:"observed_before_final_commit"`
+}
+
+type ExtensionJobCommitProof struct {
+	JobID                   pgtype.UUID        `json:"job_id"`
+	OwnerProfileID          string             `json:"owner_profile_id"`
+	OperationKind           string             `json:"operation_kind"`
+	FinalCommitID           string             `json:"final_commit_id"`
+	IdempotencyIdentity     []byte             `json:"idempotency_identity"`
+	NormalizedRequestSha256 string             `json:"normalized_request_sha256"`
+	TerminalResult          []byte             `json:"terminal_result"`
+	TerminalResultSha256    string             `json:"terminal_result_sha256"`
+	ResourceRefs            []byte             `json:"resource_refs"`
+	AuditCorrelationID      pgtype.Text        `json:"audit_correlation_id"`
+	CommittedAt             pgtype.Timestamptz `json:"committed_at"`
+}
+
+type ExtensionMigrationLedger struct {
+	ProfileID                 string             `json:"profile_id"`
+	MigrationLineageID        string             `json:"migration_lineage_id"`
+	MigrationID               string             `json:"migration_id"`
+	FromStateVersion          int32              `json:"from_state_version"`
+	ToStateVersion            int32              `json:"to_state_version"`
+	MigrationDefinitionSha256 string             `json:"migration_definition_sha256"`
+	CommittedAt               pgtype.Timestamptz `json:"committed_at"`
+	ResultingStateVersion     int32              `json:"resulting_state_version"`
+}
+
+type ExtensionStagedObject struct {
+	StagingID           string             `json:"staging_id"`
+	OwnerProfileID      string             `json:"owner_profile_id"`
+	StorageIdentity     string             `json:"storage_identity"`
+	ExpectedByteSize    int64              `json:"expected_byte_size"`
+	ExpectedSha256      string             `json:"expected_sha256"`
+	StagedAt            pgtype.Timestamptz `json:"staged_at"`
+	StagingExpiresAt    pgtype.Timestamptz `json:"staging_expires_at"`
+	ReadyAt             pgtype.Timestamptz `json:"ready_at"`
+	PublishedAt         pgtype.Timestamptz `json:"published_at"`
+	AbandonedAt         pgtype.Timestamptz `json:"abandoned_at"`
+	State               string             `json:"state"`
+	DeleteState         string             `json:"delete_state"`
+	DeleteAttemptCount  int32              `json:"delete_attempt_count"`
+	NextDeleteAttemptAt pgtype.Timestamptz `json:"next_delete_attempt_at"`
+	LastDeleteErrorCode pgtype.Text        `json:"last_delete_error_code"`
+}
+
+type ExtensionStagedObjectReference struct {
+	StagingID         string             `json:"staging_id"`
+	OwnerResourceKind string             `json:"owner_resource_kind"`
+	OwnerResourceID   string             `json:"owner_resource_id"`
+	ExpectedByteSize  int64              `json:"expected_byte_size"`
+	ExpectedSha256    string             `json:"expected_sha256"`
+	CommittedAt       pgtype.Timestamptz `json:"committed_at"`
+}
+
+type ExtensionStateMetadatum struct {
+	ProfileID          string             `json:"profile_id"`
+	MigrationLineageID string             `json:"migration_lineage_id"`
+	StateVersion       int32              `json:"state_version"`
+	LastMigrationID    pgtype.Text        `json:"last_migration_id"`
+	MetadataVersion    int32              `json:"metadata_version"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
 type GraphProjectionEdge struct {
 	ProjectionRunID string `json:"projection_run_id"`
 	GraphViewID     string `json:"graph_view_id"`
@@ -924,31 +993,33 @@ type IndicatorStateInterval struct {
 }
 
 type Job struct {
-	JobID                  pgtype.UUID        `json:"job_id"`
-	ScopeKind              string             `json:"scope_kind"`
-	IncidentID             pgtype.UUID        `json:"incident_id"`
-	Status                 string             `json:"status"`
-	Cancelable             bool               `json:"cancelable"`
-	SubmittedByUserID      pgtype.UUID        `json:"submitted_by_user_id"`
-	SubmittedAt            pgtype.Timestamptz `json:"submitted_at"`
-	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
-	ProgressCompleted      int32              `json:"progress_completed"`
-	ProgressTotal          pgtype.Int4        `json:"progress_total"`
-	StartedAt              pgtype.Timestamptz `json:"started_at"`
-	FinishedAt             pgtype.Timestamptz `json:"finished_at"`
-	RetainedUntil          pgtype.Timestamptz `json:"retained_until"`
-	ResultSummaryJson      []byte             `json:"result_summary_json"`
-	ErrorSummaryJson       []byte             `json:"error_summary_json"`
-	Message                pgtype.Text        `json:"message"`
-	AuthPolicy             string             `json:"auth_policy"`
-	HandlerName            pgtype.Text        `json:"handler_name"`
-	HandlerPayloadJson     []byte             `json:"handler_payload_json"`
-	HandlerAttempts        int32              `json:"handler_attempts"`
-	HandlerMaxAttempts     int32              `json:"handler_max_attempts"`
-	HandlerLeaseOwner      pgtype.Text        `json:"handler_lease_owner"`
-	HandlerLeaseExpiresAt  pgtype.Timestamptz `json:"handler_lease_expires_at"`
-	HandlerLastAttemptedAt pgtype.Timestamptz `json:"handler_last_attempted_at"`
-	HandlerLastError       pgtype.Text        `json:"handler_last_error"`
+	JobID                   pgtype.UUID        `json:"job_id"`
+	ScopeKind               string             `json:"scope_kind"`
+	IncidentID              pgtype.UUID        `json:"incident_id"`
+	Status                  string             `json:"status"`
+	Cancelable              bool               `json:"cancelable"`
+	SubmittedByUserID       pgtype.UUID        `json:"submitted_by_user_id"`
+	SubmittedAt             pgtype.Timestamptz `json:"submitted_at"`
+	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
+	ProgressCompleted       int32              `json:"progress_completed"`
+	ProgressTotal           pgtype.Int4        `json:"progress_total"`
+	StartedAt               pgtype.Timestamptz `json:"started_at"`
+	FinishedAt              pgtype.Timestamptz `json:"finished_at"`
+	RetainedUntil           pgtype.Timestamptz `json:"retained_until"`
+	ResultSummaryJson       []byte             `json:"result_summary_json"`
+	ErrorSummaryJson        []byte             `json:"error_summary_json"`
+	Message                 pgtype.Text        `json:"message"`
+	AuthPolicy              string             `json:"auth_policy"`
+	HandlerName             pgtype.Text        `json:"handler_name"`
+	HandlerPayloadJson      []byte             `json:"handler_payload_json"`
+	HandlerAttempts         int32              `json:"handler_attempts"`
+	HandlerMaxAttempts      int32              `json:"handler_max_attempts"`
+	HandlerLeaseOwner       pgtype.Text        `json:"handler_lease_owner"`
+	HandlerLeaseExpiresAt   pgtype.Timestamptz `json:"handler_lease_expires_at"`
+	HandlerLastAttemptedAt  pgtype.Timestamptz `json:"handler_last_attempted_at"`
+	HandlerLastError        pgtype.Text        `json:"handler_last_error"`
+	ExtensionOwnerProfileID pgtype.Text        `json:"extension_owner_profile_id"`
+	ExtensionJobKind        pgtype.Text        `json:"extension_job_kind"`
 }
 
 type NetworkFlowIndicatorBinding struct {

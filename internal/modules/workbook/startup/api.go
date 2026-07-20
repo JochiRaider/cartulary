@@ -68,14 +68,15 @@ type ClearedPointer struct {
 }
 
 type Record struct {
-	IncidentID           uuid.UUID
-	SelectedSheetRef     []byte
-	SelectedViewSchemaID *string
-	SelectedSavedView    *SavedViewRecord
-	Source               string
-	ClearedPointers      []ClearedPointer
-	HomeSheetRef         []byte
-	DefaultSheetRef      []byte
+	IncidentID                     uuid.UUID
+	SelectedSheetRef               []byte
+	SelectedViewSchemaID           *string
+	SelectedSavedView              *SavedViewRecord
+	Source                         string
+	ClearedPointers                []ClearedPointer
+	HomeSheetRef                   []byte
+	DefaultSheetRef                []byte
+	ExtensionWorkspaceAvailability ExtensionWorkspaceAvailability
 }
 
 type DefaultPreferencesPutRequest struct {
@@ -209,15 +210,24 @@ func BuildStartupResource(record Record) map[string]any {
 	if record.SelectedSavedView != nil {
 		savedView = BuildSavedViewResource(*record.SelectedSavedView)
 	}
+	availability := record.ExtensionWorkspaceAvailability
+	if availability.SchemaID == "" {
+		availability = ExtensionWorkspaceAvailability{
+			SchemaID:   ExtensionWorkspaceAvailabilitySchemaID,
+			IncidentID: record.IncidentID.String(),
+			Workspaces: []ExtensionWorkspaceAvailabilityRow{},
+		}
+	}
 	return map[string]any{
-		"incident_id":             record.IncidentID,
-		"selected_sheet_ref":      decodeOptionalJSON(record.SelectedSheetRef),
-		"selected_view_schema_id": record.SelectedViewSchemaID,
-		"selected_saved_view":     savedView,
-		"source":                  record.Source,
-		"cleared_pointers":        cleared,
-		"home_sheet_ref":          decodeOptionalJSON(record.HomeSheetRef),
-		"default_sheet_ref":       decodeOptionalJSON(record.DefaultSheetRef),
+		"incident_id":                      record.IncidentID,
+		"selected_sheet_ref":               decodeOptionalJSON(record.SelectedSheetRef),
+		"selected_view_schema_id":          record.SelectedViewSchemaID,
+		"selected_saved_view":              savedView,
+		"source":                           record.Source,
+		"cleared_pointers":                 cleared,
+		"home_sheet_ref":                   decodeOptionalJSON(record.HomeSheetRef),
+		"default_sheet_ref":                decodeOptionalJSON(record.DefaultSheetRef),
+		"extension_workspace_availability": availability,
 	}
 }
 

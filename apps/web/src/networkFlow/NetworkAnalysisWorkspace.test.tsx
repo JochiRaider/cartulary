@@ -12,8 +12,23 @@ import {
   waitFor,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { NetworkAnalysisWorkspace } from "./NetworkAnalysisWorkspace";
+import { ExtensionAvailabilityProvider } from "../extensions/ExtensionAvailabilityContext";
+import { readyExtensionAvailability } from "../testing/extensionAvailabilityTestSupport";
+import { NetworkAnalysisWorkspace as ProductionNetworkAnalysisWorkspace } from "./NetworkAnalysisWorkspace";
+
+function NetworkAnalysisWorkspace(
+  props: ComponentProps<typeof ProductionNetworkAnalysisWorkspace>,
+) {
+  return (
+    <ExtensionAvailabilityProvider
+      controller={readyExtensionAvailability(props.incidentId)}
+    >
+      <ProductionNetworkAnalysisWorkspace {...props} />
+    </ExtensionAvailabilityProvider>
+  );
+}
 
 const tableId = "nft_11111111111111111111111111111111";
 const rowId =

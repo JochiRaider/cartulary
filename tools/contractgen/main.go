@@ -21,17 +21,38 @@ type artifact struct {
 }
 
 type family struct {
-	Dir         string
-	GoName      string
-	TSName      string
-	Artifacts   []artifact
-	OutputOrder int
+	Dir                       string
+	GoName                    string
+	TSName                    string
+	TypeScriptRuntimePrefixes []string
+	Artifacts                 []artifact
+	OutputOrder               int
 }
 
 func main() {
 	root, err := repoRoot()
 	if err != nil {
 		fatal(err)
+	}
+	if outputPath := os.Getenv("CARTULARY_EXTENSION_TRACEABILITY_OUTPUT"); outputPath != "" {
+		document, err := os.ReadFile(filepath.Join(root, "docs", "extension-subsystem-nlspec.md"))
+		if err != nil {
+			fatal(err)
+		}
+		output, err := marshalExtensionTraceabilityMappingSource(document)
+		if err != nil {
+			fatal(err)
+		}
+		if err := os.WriteFile(outputPath, output, 0o600); err != nil {
+			fatal(err)
+		}
+		return
+	}
+	if outputRoot := os.Getenv("CARTULARY_EXTENSION_MANIFEST_OUTPUT"); outputRoot != "" {
+		if err := refreshExtensionOwnerInputs(root, outputRoot); err != nil {
+			fatal(err)
+		}
+		return
 	}
 
 	families, err := loadFamilies(root)
@@ -176,6 +197,9 @@ func collectArtifacts(root, familyDir string) ([]artifact, error) {
 		if err != nil {
 			return fmt.Errorf("canonicalize %s: %w", path, err)
 		}
+		if familyDir == "extensions" {
+			canonicalJSON += "\n"
+		}
 
 		relativePath, err := filepath.Rel(root, path)
 		if err != nil {
@@ -195,6 +219,13 @@ func collectArtifacts(root, familyDir string) ([]artifact, error) {
 
 	if err := validateContractFamily(root, familyDir); err != nil {
 		return nil, err
+	}
+	if familyDir == "extensions" {
+		generated, err := deriveExtensionArtifacts(root)
+		if err != nil {
+			return nil, fmt.Errorf("derive extension artifacts: %w", err)
+		}
+		artifacts = append(artifacts, generated...)
 	}
 
 	sort.Slice(artifacts, func(i, j int) bool {
@@ -473,10 +504,14 @@ func writeTypeScript(root string, families []family) error {
 	buffer.WriteString("}\n\n")
 
 	for _, current := range families {
+		typeScriptArtifacts, err := typeScriptRuntimeArtifacts(current)
+		if err != nil {
+			return err
+		}
 		buffer.WriteString("export const ")
 		buffer.WriteString(current.TSName)
 		buffer.WriteString(": readonly Artifact[] = [\n")
-		for _, currentArtifact := range current.Artifacts {
+		for _, currentArtifact := range typeScriptArtifacts {
 			buffer.WriteString("  {\n")
 			buffer.WriteString("    path: ")
 			buffer.WriteString(marshalJSONString(currentArtifact.Path))
@@ -524,6 +559,26 @@ func writeTypeScript(root string, families []family) error {
 		return err
 	}
 	return os.WriteFile(indexPath, []byte(indexContent), 0o644) // #nosec G306 -- generated repo source files intentionally keep normal source permissions.
+}
+
+func typeScriptRuntimeArtifacts(current family) ([]artifact, error) {
+	selected := make([]artifact, 0, len(current.Artifacts))
+	matched := make([]bool, len(current.TypeScriptRuntimePrefixes))
+	for _, currentArtifact := range current.Artifacts {
+		for index, prefix := range current.TypeScriptRuntimePrefixes {
+			if currentArtifact.Path == strings.TrimSuffix(prefix, "/") || strings.HasPrefix(currentArtifact.Path, prefix) {
+				selected = append(selected, currentArtifact)
+				matched[index] = true
+				break
+			}
+		}
+	}
+	for index, ok := range matched {
+		if !ok {
+			return nil, fmt.Errorf("contract family %s TypeScript runtime prefix %s matches no artifact", current.Dir, current.TypeScriptRuntimePrefixes[index])
+		}
+	}
+	return selected, nil
 }
 
 func marshalJSONString(value string) string {

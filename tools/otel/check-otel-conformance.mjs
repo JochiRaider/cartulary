@@ -24,6 +24,7 @@ const corpusManifestPath = "internal/testutil/golden/otel/corpus_manifest.json";
 const dependencyClassificationPath = "internal/testutil/golden/otel/dependency_update_classification.json";
 const verificationContractPath = "contracts/verification/owners/platform.telemetry.json";
 const publicErrorRegistryPath = "contracts/errors/index.json";
+const generatedArtifactPolicyPath = "tools/generated_artifact_policy.json";
 const expectedDigest = "3f8f80a2ed04521dfe29e50fcddd7f7de70145a6aee01959f985a65fbb4c8632";
 const otelCommit = "d4a91bddb53b4c308df3e40171a60059183efd88";
 const semconvCommit = "e018fe6f91862f5ed63c082f87697cddac596784";
@@ -915,9 +916,15 @@ function validateImportBoundary(boundary, checks) {
 
   const browserExcludeSuffixes = boundary.browser_source_exclude_suffixes ?? [];
   const runtimePatterns = boundary.forbidden_browser_runtime_patterns ?? [];
+  const generatedArtifactPolicy = readJSON(generatedArtifactPolicyPath);
+  const generatedRoots = (generatedArtifactPolicy.generated_roots ?? []).map((entry) => entry.path);
   const browserSourceFiles = [];
   for (const root of boundary.browser_source_roots ?? []) {
-    walkFiles(root, (relative) => frontendSourceFile(relative, browserExcludeSuffixes), browserSourceFiles);
+    walkFiles(
+      root,
+      (relative) => frontendSourceFile(relative, browserExcludeSuffixes) && !underAny(relative, generatedRoots),
+      browserSourceFiles,
+    );
   }
   const browserSourceViolations = scanForbiddenPatterns(browserSourceFiles, runtimePatterns);
   assert(
@@ -929,7 +936,11 @@ function validateImportBoundary(boundary, checks) {
 
   const runtimeSourceFiles = [];
   for (const root of boundary.browser_runtime_source_roots ?? []) {
-    walkFiles(root, (relative) => frontendSourceFile(relative, browserExcludeSuffixes), runtimeSourceFiles);
+    walkFiles(
+      root,
+      (relative) => frontendSourceFile(relative, browserExcludeSuffixes) && !underAny(relative, generatedRoots),
+      runtimeSourceFiles,
+    );
   }
   const dynamicViolations = dynamicImportViolations(runtimeSourceFiles, runtimePatterns);
   assert(

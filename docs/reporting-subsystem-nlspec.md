@@ -4,6 +4,7 @@ status: adopted/current
 document_class: nlspec
 profile: snapshot_reporting
 schema_id: cartulary.reporting_subsystem_nlspec.v1
+document_version: 1.1.0
 ---
 
 # 1. Status, scope, and authority
@@ -187,6 +188,39 @@ The companion edits in Table 5-C record the owner status required for this NLSpe
 | Report Composition NLSpec | `closed` | `cartulary.report_composition.v1` authoring and schema ownership for digest-bound compositions consumed by Reporting. |
 | Graph Projection NLSpec | `closed` | Completed digest-bound graph projection output lifecycle and consumer validation. |
 | Reporting derivation profile | `closed` | `cartulary.reporting_derivation_profile.v1` is the versioned owner for snapshot-to-export-model derivation decisions referenced by `derivation_version`. |
+
+**REQ-RPT-019a**
+Reporting imports the adopted Extensions Subsystem typed participant boundary
+without transferring report, snapshot, render, release, composition, or
+redaction ownership. Its shared-owner participant ID is
+`snapshot_reporting.render_export_v1`. The participant accepts only the
+digest-bound `cartulary.extension_snapshot_reporting_participant_context.v1`
+specialization and returns only its matching closed result. Reporting invokes a
+profile only when its canonical descriptor selects
+`snapshot_reporting_mode='participant'`, its exact specialization and packaged
+binding pass admission, and the resolved claim/state matrix permits the
+operation. `no_participation` means no call and no implicit data discovery.
+
+Participant input is a scoped immutable snapshot/export-model view, never live
+workbook state or unrestricted storage. Participant validation, ordering, the
+64 MiB input/output ceilings, cancellation and deadlines use the shared
+Extensions/Core 01 protocol. Reporting remains the sole owner of how a valid
+participant result is admitted to a report model and rendered output. An absent,
+inactive, malformed, incompatible, over-limit, timed-out, or unregistered
+participant follows the adopted shared invocation matrix and never falls back to
+package scanning, profile callbacks, a compatibility reader, or silent omission.
+
+**REQ-RPT-019b**
+Every Reporting schema-validation rule used by the Extensions participant
+surface MUST carry its complete condition annotation, and every procedural
+participant validator MUST publish a closed decision table. Those declarations
+are the sole Reporting input to the generated extension validation-condition
+registry. A reachable undeclared condition, an extra or stale declaration, or an
+emitted condition absent from that registry is a conformance failure. Reporting
+validation results use the shared precedence: invocation failure, structural
+invalidity, overflow at `4097+` findings, remaining schema defects, valid
+findings, then valid empty result; `257..4096` is the ordinary 256-item bound
+violation.
 
 # 6. Concepts, identifiers, and source-family mapping
 
@@ -2976,6 +3010,8 @@ A conforming implementation MUST satisfy Table 27-A.
 | `RPT-AC-DIAGRAM-LAYOUT-001` | Manual layout succeeds only through render paths that honor exact positions, emits deterministic safe SVG, emits no `.mmd`, and fails for `output_kind='mermaid'` with `manual_layout_not_supported_for_output_kind`. |
 | `RPT-AC-PREVIEW-001` | `cartulary.report_composition_preview_source.v1` is accepted only for `internal_draft`, binds by `preview_source_sha256`, and never becomes approval or external-release evidence. |
 | `RPT-AC-CLICK-002` | `click_step.v1.ordinal` and `click_step.v1.at` use `positive_integer`, reject non-integer JSON number forms and out-of-bound values, and remain contiguous `1..N`. |
+| `RPT-AC-EXTENSIONS-001` | Reporting invokes only the admitted `snapshot_reporting.render_export_v1` specialization for profiles selecting participant mode, never invokes `no_participation`, and retains sole ownership of result admission and rendering. |
+| `RPT-AC-EXTENSIONS-002` | Reporting participant schemas and procedural validators declare every reachable condition, emit no unregistered condition, and apply the shared validation-result precedence and exact finding-count boundaries. |
 | `RPT-AC-TRACE-001` | Table 27-B maps every `REQ-RPT-*` requirement, including suffixed requirements, to at least one acceptance criterion or fixture. |
 
 ## 27.3 Requirement traceability
@@ -2990,7 +3026,7 @@ Table 27-B is the normative requirement-to-acceptance map. A numeric range inclu
 | `REQ-RPT-001..REQ-RPT-006` | `RPT-AC-AUTH-001`, `RPT-AC-CORE-001` |
 | `REQ-RPT-007..REQ-RPT-012` | `RPT-AC-LINT-001`, `RPT-AC-SCHEMA-002`, `RPT-AC-TRACE-001` |
 | `REQ-RPT-013..REQ-RPT-016` | `RPT-AC-CORE-001`, `RPT-AC-SANDBOX-001`, `RPT-AC-REVEAL-001` |
-| `REQ-RPT-017..REQ-RPT-019` | `RPT-AC-CORE-001`, `RPT-AC-AUTH-001` |
+| `REQ-RPT-017..REQ-RPT-019` | `RPT-AC-CORE-001`, `RPT-AC-AUTH-001`, `RPT-AC-EXTENSIONS-001`, `RPT-AC-EXTENSIONS-002` |
 | `REQ-RPT-020..REQ-RPT-024` | `RPT-AC-ID-001`, `RPT-AC-COMP-001`, `RPT-AC-COMP-002`, `RPT-AC-KIND-001`, `RPT-FIX-003` |
 | `REQ-RPT-025..REQ-RPT-027` | `RPT-AC-DERIVE-001`, `RPT-AC-DERIVE-002`, `RPT-AC-DERIVE-003`, `RPT-AC-COMP-001`, `RPT-AC-COMP-002`, `RPT-AC-GRAPH-005`, `RPT-AC-OPT-001`, `RPT-AC-OPT-002`, `RPT-FIX-039`, `RPT-FIX-046`, `RPT-FIX-059`, `RPT-FIX-060`, `RPT-FIX-064`, `RPT-FIX-073` |
 | `REQ-RPT-028..REQ-RPT-032` | `RPT-AC-KIND-001`, `RPT-AC-OPT-001`, `RPT-AC-OPT-002`, `RPT-AC-OPT-003`, `RPT-AC-REDACT-003`, `RPT-FIX-017`, `RPT-FIX-030`, `RPT-FIX-049` |

@@ -118,6 +118,35 @@
       "status": "active"
     },
     {
+      "row_id": "platform.config.unit.extension_runtime_defaults_and_bounds_8528ff7cc9",
+      "owner_id": "platform.config",
+      "family_id": "platform.config.unit",
+      "collaborator_ids": [
+        "module.extensions"
+      ],
+      "verification_ids": [
+        "platform.config.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/config",
+        "tests": [
+          "TestExtensionRuntimeConfig_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-144",
+        "docs/handoffs/extensions-subsystem-implementation-tracker.md#es-10"
+      ]
+    },
+    {
       "row_id": "platform.config.unit.filesystem_root_validation_rejects_non_absolute_ed2c3e652c",
       "owner_id": "platform.config",
       "family_id": "platform.config.unit",

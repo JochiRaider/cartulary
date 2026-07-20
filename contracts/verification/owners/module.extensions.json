@@ -1,0 +1,24 @@
+{
+  "schema_id": "cartulary.verification_contract.v1",
+  "owner_id": "module.extensions",
+  "verifications": [
+    {
+      "verification_id": "module.extensions.verification.behavior_contract",
+      "behavior_class": "product",
+      "profile": "base",
+      "requirement": "The Extensions coordination boundary implements every adopted claim, configuration, dependency, state, protocol, publication, and browser-lifecycle postcondition through exact owner-bound selectors.",
+      "evidence_kinds": ["go_test", "playwright", "vitest"],
+      "status": "active",
+      "documentation_refs": ["docs/extension-subsystem-nlspec.md#28-acceptance-criteria"]
+    },
+    {
+      "verification_id": "module.extensions.verification.contract_accounting",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "requirement": "Every Extensions acceptance branch resolves exactly once to an active owner-bound selector and compatible terminal evidence without broad-target, historical, or implementation-inferred substitution.",
+      "evidence_kinds": ["artifact_audit", "go_test", "static_check"],
+      "status": "active",
+      "documentation_refs": ["docs/extension-subsystem-nlspec.md#29-coordinated-adoption-gates-and-required-companion-amendments"]
+    }
+  ]
+}

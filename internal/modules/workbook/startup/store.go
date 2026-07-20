@@ -202,6 +202,11 @@ func (s *Store) Resolve(ctx context.Context, incidentID uuid.UUID, userID uuid.U
 		IncidentID:      incidentID,
 		HomeSheetRef:    cloneBytes(homeRef),
 		DefaultSheetRef: cloneBytes(defaultRef),
+		ExtensionWorkspaceAvailability: ExtensionWorkspaceAvailability{
+			SchemaID:   ExtensionWorkspaceAvailabilitySchemaID,
+			IncidentID: incidentID.String(),
+			Workspaces: s.workspaceAvailability.AvailableWorkspaces(role),
+		},
 	}
 	for _, candidate := range []struct {
 		source string

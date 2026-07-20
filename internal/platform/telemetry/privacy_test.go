@@ -186,7 +186,7 @@ func TestRedactionDropMetricRecordsOnlyWhenNonRecursive(t *testing.T) {
 func TestResourceIdentityFailsWhenResourceAttributeLeavesRegistry(t *testing.T) {
 	cfg := validTelemetryBootstrapConfig(t)
 	cfg.Telemetry.Resource.DeploymentEnvironmentName = "/var/lib/cartulary"
-	if _, err := BuildResourceIdentity(cfg, nil); err == nil {
+	if _, err := BuildResourceIdentity(cfg, resolvedClaimIdentity(t)); err == nil {
 		t.Fatal("expected unsafe deployment environment resource value to fail")
 	}
 }

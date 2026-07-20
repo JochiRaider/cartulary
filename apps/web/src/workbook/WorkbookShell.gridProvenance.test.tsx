@@ -265,6 +265,11 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
       if (url.includes("/api/v1/incidents/incident-1/workbook-startup")) {
         return successEnvelope({
           incident_id: "incident-1",
+          extension_workspace_availability: {
+            schema_id: "cartulary.extension_workspace_availability.v1",
+            incident_id: "incident-1",
+            workspaces: [],
+          },
           selected_sheet_ref: { kind: "view_schema", id: timelineViewSchemaId },
           selected_view_schema_id: timelineViewSchemaId,
           selected_saved_view: null,

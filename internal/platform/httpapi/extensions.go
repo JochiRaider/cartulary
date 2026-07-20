@@ -1,19 +1,29 @@
 package httpapi
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"sort"
 	"strings"
 	"sync"
+
+	contractsgen "github.com/JochiRaider/cartulary/internal/gen/contracts"
 )
 
 type ExtensionProfile struct {
 	ProfileID     string               `json:"profile_id"`
+	Claimable     bool                 `json:"claimable"`
 	Claimed       bool                 `json:"claimed"`
+	ContractMajor *int                 `json:"contract_major"`
 	RouteFamilies []string             `json:"route_families"`
+	WorkspaceKeys []string             `json:"workspace_keys"`
+	Capabilities  []string             `json:"capabilities"`
 	Workspaces    []ExtensionWorkspace `json:"-"`
 }
 
-// ExtensionWorkspace is application-composition metadata. It is deliberately
-// excluded from GET /api/v1/extensions, whose public response remains stable.
+// ExtensionWorkspace is application-composition authorization metadata. Public
+// discovery emits only its workspace key.
 type ExtensionWorkspace struct {
 	WorkspaceKey string
 	MinimumRole  string
@@ -27,59 +37,48 @@ type ReservedExtensionMatch struct {
 
 var (
 	extensionProfilesMu      = sync.RWMutex{}
-	currentProfileExtensions = []ExtensionProfile{
-		{
-			ProfileID: "enterprise_authentication",
-			Claimed:   false,
-			RouteFamilies: []string{
-				"/api/v1/auth/oidc",
-				"/api/v1/auth/providers",
-				"/api/v1/auth/saml",
-				"/api/v1/users/{user_id}/auth-bindings",
-			},
-		},
-		{
-			ProfileID: "import",
-			Claimed:   true,
-			RouteFamilies: []string{
-				"/api/v1/import-sessions",
-			},
-		},
-		{
-			ProfileID: "incident_portability",
-			Claimed:   true,
-			RouteFamilies: []string{
-				"/api/v1/incident-bundles",
-			},
-		},
-		{
-			ProfileID: "network_flow_activity",
-			Claimed:   false,
-			RouteFamilies: []string{
-				"/api/v1/incidents/{incident_id}/network-flow",
-			},
-			Workspaces: []ExtensionWorkspace{
-				{WorkspaceKey: "network_analysis", MinimumRole: "viewer"},
-			},
-		},
-		{
-			ProfileID: "reference_pack",
-			Claimed:   true,
-			RouteFamilies: []string{
-				"/api/v1/reference-packs",
-			},
-		},
-		{
-			ProfileID: "snapshot_reporting",
-			Claimed:   true,
-			RouteFamilies: []string{
-				"/api/v1/incidents/{incident_id}/report-compositions",
-				"/api/v1/releases",
-				"/api/v1/snapshots",
-			},
-		},
-	}
+	currentProfileExtensions = mustGeneratedExtensionProfiles()
 )
+
+func mustGeneratedExtensionProfiles() []ExtensionProfile {
+	artifact, ok := contractsgen.ExtensionArtifactsIndex["contracts/extensions/generated/profile-registry.json"]
+	if !ok {
+		panic("generated extension profile registry is not packaged")
+	}
+	digest := sha256.Sum256([]byte(artifact.JSON))
+	if hex.EncodeToString(digest[:]) != artifact.SHA256 {
+		panic("generated extension profile registry digest mismatch")
+	}
+	var registry struct {
+		SchemaID string `json:"schema_id"`
+		Profiles []struct {
+			ProfileID     string   `json:"profile_id"`
+			Claimable     bool     `json:"claimable"`
+			ContractMajor *int     `json:"contract_major"`
+			RouteFamilies []string `json:"route_families"`
+			WorkspaceKeys []string `json:"workspace_keys"`
+			CapabilityIDs []string `json:"capability_ids"`
+		} `json:"profiles"`
+	}
+	if err := json.Unmarshal([]byte(artifact.JSON), &registry); err != nil || registry.SchemaID != "cartulary.extension_profile_registry.v1" {
+		panic("generated extension profile registry is invalid")
+	}
+	profiles := make([]ExtensionProfile, 0, len(registry.Profiles))
+	for _, descriptor := range registry.Profiles {
+		claimed := descriptor.ProfileID != "enterprise_authentication" && descriptor.ProfileID != "network_flow_activity"
+		workspaces := make([]ExtensionWorkspace, 0, len(descriptor.WorkspaceKeys))
+		for _, workspaceKey := range descriptor.WorkspaceKeys {
+			workspaces = append(workspaces, ExtensionWorkspace{WorkspaceKey: workspaceKey, MinimumRole: "viewer"})
+		}
+		profiles = append(profiles, ExtensionProfile{
+			ProfileID: descriptor.ProfileID, Claimable: descriptor.Claimable, Claimed: claimed,
+			ContractMajor: cloneInt(descriptor.ContractMajor), RouteFamilies: descriptor.RouteFamilies,
+			WorkspaceKeys: descriptor.WorkspaceKeys, Capabilities: descriptor.CapabilityIDs, Workspaces: workspaces,
+		})
+	}
+	sort.Slice(profiles, func(i, j int) bool { return profiles[i].ProfileID < profiles[j].ProfileID })
+	return profiles
+}
 
 func CurrentExtensionProfiles() []ExtensionProfile {
 	extensionProfilesMu.RLock()
@@ -199,10 +198,22 @@ func cloneExtensionProfiles(profiles []ExtensionProfile) []ExtensionProfile {
 	for _, profile := range profiles {
 		cloned = append(cloned, ExtensionProfile{
 			ProfileID:     profile.ProfileID,
+			Claimable:     profile.Claimable,
 			Claimed:       profile.Claimed,
+			ContractMajor: cloneInt(profile.ContractMajor),
 			RouteFamilies: append([]string(nil), profile.RouteFamilies...),
+			WorkspaceKeys: append([]string(nil), profile.WorkspaceKeys...),
+			Capabilities:  append([]string(nil), profile.Capabilities...),
 			Workspaces:    append([]ExtensionWorkspace(nil), profile.Workspaces...),
 		})
 	}
 	return cloned
+}
+
+func cloneInt(value *int) *int {
+	if value == nil {
+		return nil
+	}
+	clone := *value
+	return &clone
 }

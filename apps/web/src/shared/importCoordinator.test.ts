@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { readyExtensionAvailability } from "../testing/extensionAvailabilityTestSupport";
 import { errorResponse, jsonResponse } from "../testing/fetchMockTestSupport";
 import {
   approveSelectAndApplyExtensionImport,
@@ -11,6 +12,7 @@ const fingerprint = "a".repeat(64);
 
 describe("extension import coordinator stages", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
+  const availability = readyExtensionAvailability();
 
   beforeEach(() => {
     vi.spyOn(document, "cookie", "get").mockReturnValue(
@@ -29,6 +31,7 @@ describe("extension import coordinator stages", () => {
     installHappyPath(fetchMock);
     const progress: string[] = [];
     const discovery = await uploadAndDiscoverExtensionImport({
+      availability,
       incidentId: "incident-1",
       file: csvFile(),
       transactionPrefix: "network-flow-import",
@@ -37,8 +40,9 @@ describe("extension import coordinator stages", () => {
 
     const preview = await previewExtensionImportMapping<{
       readonly mapping_fingerprint: string;
-    }>({ discovery, candidate: mappingCandidate() });
+    }>({ availability, discovery, candidate: mappingCandidate() });
     const refs = await approveSelectAndApplyExtensionImport({
+      availability,
       discovery,
       candidate: mappingCandidate(),
       expectedMappingFingerprint: preview.owner_result.mapping_fingerprint,
@@ -78,6 +82,7 @@ describe("extension import coordinator stages", () => {
   it("blocks selection and apply when durable approval returns a stale fingerprint", async () => {
     installHappyPath(fetchMock, { durableFingerprint: "b".repeat(64) });
     const discovery = await uploadAndDiscoverExtensionImport({
+      availability,
       incidentId: "incident-1",
       file: csvFile(),
       transactionPrefix: "network-flow-import",
@@ -85,6 +90,7 @@ describe("extension import coordinator stages", () => {
 
     await expect(
       approveSelectAndApplyExtensionImport({
+        availability,
         discovery,
         candidate: mappingCandidate(),
         expectedMappingFingerprint: fingerprint,
@@ -99,6 +105,7 @@ describe("extension import coordinator stages", () => {
   it("preserves public preview errors and creates no durable mapping", async () => {
     installHappyPath(fetchMock, { previewError: true });
     const discovery = await uploadAndDiscoverExtensionImport({
+      availability,
       incidentId: "incident-1",
       file: csvFile(),
       transactionPrefix: "network-flow-import",
@@ -106,6 +113,7 @@ describe("extension import coordinator stages", () => {
 
     await expect(
       previewExtensionImportMapping({
+        availability,
         discovery,
         candidate: mappingCandidate(),
       }),

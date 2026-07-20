@@ -34,6 +34,18 @@ first_admin_manifest_path = "/etc/cartulary/bootstrap-admin.json"
 [network_flow_activity]
 claimed = false
 
+[import]
+claimed = true
+
+[incident_portability]
+claimed = true
+
+[reference_pack]
+claimed = true
+
+[snapshot_reporting]
+claimed = true
+
 [limits.object_blobs]
 max_declared_byte_size = 536870912
 

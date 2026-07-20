@@ -1217,10 +1217,20 @@ set -euo pipefail
 
 if [[ "${1:-}" == "run" && "${2:-}" == "./tools/embedwebassets" ]]; then
   output=""
+  asset_manifest=""
+  client_support_registry=""
   while [[ "$#" -gt 0 ]]; do
     case "$1" in
       --output)
         output="$2"
+        shift 2
+        ;;
+      --asset-manifest)
+        asset_manifest="$2"
+        shift 2
+        ;;
+      --client-support-registry)
+        client_support_registry="$2"
         shift 2
         ;;
       *)
@@ -1228,12 +1238,14 @@ if [[ "${1:-}" == "run" && "${2:-}" == "./tools/embedwebassets" ]]; then
         ;;
     esac
   done
-  if [[ -z "${output}" ]]; then
-    echo "fake embedwebassets requires --output" >&2
+  if [[ -z "${output}" || -z "${asset_manifest}" || -z "${client_support_registry}" ]]; then
+    echo "fake embedwebassets requires all packaged outputs" >&2
     exit 2
   fi
   mkdir -p "$(dirname "${output}")"
   printf 'fake embedded web archive\n' >"${output}"
+  printf '{"assets":[],"schema_id":"cartulary.client_asset_set_manifest.v1"}\n' >"${asset_manifest}"
+  printf '{"asset_set_sha256":"fake","client_build_class":"standard","client_build_id":"fake","profiles":[],"schema_id":"cartulary.client_extension_support_registry.v1"}\n' >"${client_support_registry}"
   exit 0
 fi
 
@@ -1270,6 +1282,8 @@ EMBEDDED_WEB_ASSET_READY_STAMP="${stale_embed_dir}/frontend-embed/web-assets.rea
   make -e --no-print-directory build-server \
   >/dev/null
 assert_file_present "${stale_embed_dir}/embed/dist/web-assets.zip" "stale embedded web archive is rebuilt"
+assert_file_present "${stale_embed_dir}/embed/dist/client-asset-set-manifest.json" "stale client asset manifest is rebuilt"
+assert_file_present "${stale_embed_dir}/embed/dist/client-extension-support-registry.json" "stale client support registry is rebuilt"
 assert_file_present "${stale_embed_dir}/frontend-embed/web-assets.stamp" "stale embedded web stamp is refreshed"
 assert_file_present "${stale_embed_dir}/frontend-embed/web-assets.ready" "stale embedded web ready stamp is refreshed"
 assert_file_absent "${stale_embed_dir}/embed/dist/index.html" "stale embedded web fixture must not restore legacy loose index"

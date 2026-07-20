@@ -7,12 +7,12 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
 
+	contractsgen "github.com/JochiRaider/cartulary/internal/gen/contracts"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi/webassets"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 )
@@ -27,9 +27,9 @@ func TestNewHandler_ServesEmbeddedRootAndAssets(t *testing.T) {
 		t.Fatalf("NewHandler(): %v", err)
 	}
 
-	expectedRoot, err := webassets.ReadIndexHTML()
+	expectedRoot, err := webassets.ReadBrowserRootHTML()
 	if err != nil {
-		t.Fatalf("ReadIndexHTML(): %v", err)
+		t.Fatalf("ReadBrowserRootHTML(): %v", err)
 	}
 
 	rootRequest := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -209,6 +209,60 @@ func TestNewHandler_KeepsReservedExtensionRouting(t *testing.T) {
 	}
 }
 
+func TestNewHandler_ExtensionAdmissionGateClosesRequestsAndReadiness(t *testing.T) {
+	t.Parallel()
+
+	gate := &testAdmissionGate{}
+	handler, err := NewHandler(Options{Dependencies: DependencySet{
+		Admission: gate,
+		Readiness: ReadinessCheckFunc(func(context.Context) ReadinessState { return ReadyReadinessState() }),
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertGate := func(wantReason string, wantReadiness string) {
+		t.Helper()
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/auth/providers", nil)
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, request)
+		if recorder.Code != http.StatusServiceUnavailable || !strings.Contains(recorder.Body.String(), `"reason_code":"`+wantReason+`"`) {
+			t.Fatalf("gated response = %d %s", recorder.Code, recorder.Body.String())
+		}
+
+		readyRequest := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+		readyRecorder := httptest.NewRecorder()
+		handler.ServeHTTP(readyRecorder, readyRequest)
+		if readyRecorder.Code != http.StatusServiceUnavailable || !strings.Contains(readyRecorder.Body.String(), `"status":"`+wantReadiness+`"`) {
+			t.Fatalf("gated readiness = %d %s", readyRecorder.Code, readyRecorder.Body.String())
+		}
+		healthRecorder := httptest.NewRecorder()
+		handler.ServeHTTP(healthRecorder, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+		if healthRecorder.Code != http.StatusOK {
+			t.Fatalf("liveness closed with admission: %d", healthRecorder.Code)
+		}
+	}
+
+	assertGate("extension_publication_pending", ReadinessStatusStartingDependencyProbe)
+	gate.reason = "published_component_lost"
+	assertGate("extension_integrity_failure", ReadinessStatusFatalIntegrityFailure)
+	gate.open = true
+	request := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("ready admission response = %d %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+type testAdmissionGate struct {
+	open   bool
+	reason string
+}
+
+func (g *testAdmissionGate) AdmissionOpen() bool { return g.open }
+func (g *testAdmissionGate) FatalReason() string { return g.reason }
+
 type readinessFailingStore struct {
 	err error
 }
@@ -299,17 +353,21 @@ func TestNewHandler_KeepsUnclaimedReservedExtensionRootsUnavailable(t *testing.T
 func TestCurrentExtensionProfilesMatchExtensionContractRegistry(t *testing.T) {
 	t.Parallel()
 
-	payload, err := os.ReadFile("../../../contracts/extensions/index.json")
-	if err != nil {
-		t.Fatalf("read extension contract registry: %v", err)
+	artifact, ok := contractsgen.ExtensionArtifactsIndex["contracts/extensions/generated/profile-registry.json"]
+	if !ok {
+		t.Fatal("generated extension contract registry is not packaged")
 	}
 	var registry struct {
 		Profiles []struct {
-			ProfileID string   `json:"profile_id"`
-			Families  []string `json:"route_families"`
+			ProfileID     string   `json:"profile_id"`
+			Claimable     bool     `json:"claimable"`
+			ContractMajor int      `json:"contract_major"`
+			Families      []string `json:"route_families"`
+			WorkspaceKeys []string `json:"workspace_keys"`
+			Capabilities  []string `json:"capability_ids"`
 		} `json:"profiles"`
 	}
-	if err := json.Unmarshal(payload, &registry); err != nil {
+	if err := json.Unmarshal([]byte(artifact.JSON), &registry); err != nil {
 		t.Fatalf("decode extension contract registry: %v", err)
 	}
 	runtimeProfiles := CurrentExtensionProfiles()
@@ -323,6 +381,12 @@ func TestCurrentExtensionProfilesMatchExtensionContractRegistry(t *testing.T) {
 		}
 		if strings.Join(gotProfile.RouteFamilies, ",") != strings.Join(wantProfile.Families, ",") {
 			t.Fatalf("extension contract route families mismatch for %s: runtime=%v contract=%v", wantProfile.ProfileID, gotProfile.RouteFamilies, wantProfile.Families)
+		}
+		if !gotProfile.Claimable || gotProfile.ContractMajor == nil || *gotProfile.ContractMajor != wantProfile.ContractMajor {
+			t.Fatalf("extension contract recognition mismatch for %s: runtime=%#v contract=%#v", wantProfile.ProfileID, gotProfile, wantProfile)
+		}
+		if strings.Join(gotProfile.WorkspaceKeys, ",") != strings.Join(wantProfile.WorkspaceKeys, ",") || len(gotProfile.Capabilities) != len(wantProfile.Capabilities) {
+			t.Fatalf("extension contract workspace/capability mismatch for %s", wantProfile.ProfileID)
 		}
 	}
 }

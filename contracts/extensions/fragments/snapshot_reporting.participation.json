@@ -1,0 +1,88 @@
+{
+  "facts": [
+    {
+      "admission_validation": {
+        "dependency_probes": [],
+        "post_migration_algorithm_ref": null,
+        "preflight_algorithm_ref": null,
+        "schema_id": "cartulary.extension_admission_validation.v1"
+      },
+      "fact_kind": "admission_validation",
+      "owner_contract_ref": "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019a",
+      "profile_id": "snapshot_reporting"
+    },
+    {
+      "conformance_manifest_id": "snapshot_reporting.conformance.v1",
+      "fact_kind": "conformance_manifest",
+      "owner_contract_ref": "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019a",
+      "profile_id": "snapshot_reporting"
+    },
+    {
+      "contribution": {"kind":"http_route_family","contribution_id":"snapshot_reporting.report_compositions_route","route_family":"/api/v1/incidents/{incident_id}/report-compositions"},
+      "fact_kind": "contribution",
+      "owner_contract_ref": "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019a",
+      "profile_id": "snapshot_reporting"
+    },
+    {
+      "contribution": {"kind":"http_route_family","contribution_id":"snapshot_reporting.releases_route","route_family":"/api/v1/releases"},
+      "fact_kind": "contribution",
+      "owner_contract_ref": "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019a",
+      "profile_id": "snapshot_reporting"
+    },
+    {
+      "contribution": {"kind":"http_route_family","contribution_id":"snapshot_reporting.snapshots_route","route_family":"/api/v1/snapshots"},
+      "fact_kind": "contribution",
+      "owner_contract_ref": "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019a",
+      "profile_id": "snapshot_reporting"
+    },
+    {
+      "contribution": {"kind":"incident_portability_participant","contribution_id":"snapshot_reporting.bundle_participant","participant_id":"snapshot_reporting.bundle_participant_v1","participant_contract_ref":"docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019a","participant_contract_sha256":"7ebbef9bda6de2ff4df65a36dec25251599a360707d4390ccfdfaa82efcca5b0"},
+      "fact_kind": "contribution",
+      "owner_contract_ref": "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019a",
+      "profile_id": "snapshot_reporting"
+    },
+    {
+      "contribution": {"kind":"snapshot_reporting_participant","contribution_id":"snapshot_reporting.render_export","participant_id":"snapshot_reporting.render_export_v1","participant_contract_ref":"docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019a","participant_contract_sha256":"e5b43d539a8ce0070b368d7c6fd06e643c6d3d78a4741d2ac687cc4307cdf8d1"},
+      "fact_kind": "contribution",
+      "owner_contract_ref": "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019a",
+      "profile_id": "snapshot_reporting"
+    },
+    {
+      "egress_contract_ref": null,
+      "egress_mode": "none",
+      "fact_kind": "egress",
+      "owner_contract_ref": "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019a",
+      "profile_id": "snapshot_reporting"
+    },
+    {
+      "blocking_predicate": null,
+      "fact_kind": "portability",
+      "incident_portability_mode": "participant",
+      "owner_contract_ref": "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019a",
+      "participant_id": "snapshot_reporting.bundle_participant_v1",
+      "profile_id": "snapshot_reporting"
+    },
+    {
+      "fact_kind": "snapshot_reporting",
+      "owner_contract_ref": "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019a",
+      "participant_id": "snapshot_reporting.render_export_v1",
+      "profile_id": "snapshot_reporting",
+      "snapshot_reporting_mode": "participant"
+    },
+    {
+      "fact_kind": "state_ownership",
+      "owner_contract_ref": "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019a",
+      "profile_id": "snapshot_reporting",
+      "state_ownership": {
+        "kind": "core_managed"
+      }
+    }
+  ],
+  "owner_document_ref": "docs/reporting-subsystem-nlspec.md#document:cartulary.reporting_subsystem_nlspec.v1",
+  "owner_document_schema_id": "cartulary.reporting_subsystem_nlspec.v1",
+  "owner_document_sha256": "72f8948f5492264a198a6ffdfe3ec9c7bce820917361d728d400bafc9a139bc1",
+  "owner_document_version": "1.1.0",
+  "owner_fragment_id": "snapshot_reporting.participation.v1",
+  "owner_id": "reporting",
+  "schema_id": "cartulary.extension_owner_fragment.v1"
+}

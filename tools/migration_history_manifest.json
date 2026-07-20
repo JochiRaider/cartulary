@@ -200,6 +200,12 @@
       "filename": "00033_network_flow_keyset_indexes.sql",
       "sha256": "c3ad83864d52d51ab31dceb12287747a7c26dd6847ead413f2798370eb552c11",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 34,
+      "filename": "00034_extension_coordination.sql",
+      "sha256": "097909a22d1e7e71e0d900a0509c547b3a6f21ecdcc52cedbeb2c15eaf48e2ca",
+      "historical_phase_shaped": false
     }
   ]
 }

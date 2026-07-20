@@ -87,7 +87,7 @@ export const networkFlowMappingMetadata = networkFlowMappingRegistry;
 export const networkFlowErrorMetadata = getNetworkFlowErrorRegistry();
 export const networkFlowPresentationMetadata = networkFlowPresentationRegistry;
 
-const supportedNetworkFlowContractMajors = new Set([1]);
+const supportedNetworkFlowContractMajors = new Set([2]);
 
 export function isSupportedNetworkFlowContract(
   descriptor: {

@@ -143,7 +143,7 @@ func TestEnterpriseAuthenticationConfig_Unit(t *testing.T) {
 	t.Run("rejects provider manifest when unclaimed", func(t *testing.T) {
 		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[enterprise_authentication]\nprovider_manifest_path = \"/etc/cartulary/enterprise-auth-providers.json\"\n"
 		err := loadInvalidConfig(t, content, nil)
-		requireDiagnostic(t, err, "enterprise_authentication.provider_manifest_path", "profile_incompatible_binding")
+		requireDiagnostic(t, err, "enterprise_authentication.provider_manifest_path", "extension_config_without_claim")
 	})
 
 	t.Run("requires provider manifest when claimed", func(t *testing.T) {
@@ -236,7 +236,36 @@ func TestNetworkFlowActivityConfigDefaultsAndClaimability(t *testing.T) {
 	t.Run("rejects key-ring manifest path while unclaimed", func(t *testing.T) {
 		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[network_flow_activity]\nclaimed = false\nkey_ring_manifest_path = \"/etc/cartulary/network-flow-key-rings.json\"\n"
 		err := loadInvalidConfig(t, content, nil)
-		requireDiagnostic(t, err, "network_flow_activity.key_ring_manifest_path", "profile_incompatible_binding")
+		requireDiagnostic(t, err, "network_flow_activity.key_ring_manifest_path", "extension_config_without_claim")
+	})
+}
+
+func TestExtensionRuntimeConfig_Unit(t *testing.T) {
+	t.Run("preserves explicit continuing claims and applies closed runtime defaults", func(t *testing.T) {
+		cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), nil)
+		if !cfg.Import.Claimed || !cfg.IncidentPortability.Claimed || !cfg.ReferencePack.Claimed || !cfg.SnapshotReporting.Claimed {
+			t.Fatalf("explicit claim set was not retained: import=%t portability=%t reference=%t reporting=%t", cfg.Import.Claimed, cfg.IncidentPortability.Claimed, cfg.ReferencePack.Claimed, cfg.SnapshotReporting.Claimed)
+		}
+		if cfg.Timeouts.Extensions.ProcessLeaseAcquireSeconds != 30 || cfg.Timeouts.Extensions.ProcessLeaseLossDetectionSeconds != 5 || cfg.Timeouts.Extensions.CancellationGraceSeconds != 2 {
+			t.Fatalf("extension timeout defaults = %#v", cfg.Timeouts.Extensions)
+		}
+		if cfg.Intervals.Extensions.StagedObjectSweepSeconds != 300 || cfg.Limits.Extensions.StagedObjectCleanupBatch != 1000 || cfg.Limits.Extensions.MaxNonterminalJobsPerProfile != 100000 {
+			t.Fatalf("extension interval/limit defaults = %#v/%#v", cfg.Intervals.Extensions, cfg.Limits.Extensions)
+		}
+	})
+
+	t.Run("retains explicitly configured zero cancellation grace", func(t *testing.T) {
+		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[timeouts.extensions]\ncancellation_grace_seconds = 0\n"
+		cfg := mustLoadConfig(t, content, nil)
+		if cfg.Timeouts.Extensions.CancellationGraceSeconds != 0 {
+			t.Fatalf("zero cancellation grace defaulted to %d", cfg.Timeouts.Extensions.CancellationGraceSeconds)
+		}
+	})
+
+	t.Run("rejects runtime values outside closed bounds", func(t *testing.T) {
+		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[timeouts.extensions]\nprocess_lease_loss_detection_seconds = 31\n"
+		err := loadInvalidConfig(t, content, nil)
+		requireDiagnostic(t, err, "timeouts.extensions.process_lease_loss_detection_seconds", "value_above_maximum")
 	})
 }
 

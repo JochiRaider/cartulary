@@ -4,6 +4,7 @@ status: adopted/current
 document_class: nlspec
 profile: snapshot_reporting
 schema_id: cartulary.report_composition_nlspec.v1
+document_version: 1.1.0
 ---
 
 # 1. Status, Scope, And Authority
@@ -862,6 +863,21 @@ Validation issues MUST sort by Table 12-D1 for `issues[]`, `stage`, and first-fa
 **REQ-RC-076**
 Validation codes MUST use Table 12-E. A conforming implementation MAY add non-normative warning codes only under an extension namespace beginning with `x_`. It MUST NOT add new error codes without revising this table.
 
+**REQ-RC-076a**
+Report Composition consumes no generic Extensions transaction, portability,
+backup/restore, Snapshot/Reporting participant, state-presence, or capability
+interface. Its authoring and validation boundaries remain those defined by this
+NLSpec. Every composition schema-validation rule MUST nevertheless carry its
+complete condition annotation, and every procedural composition validator MUST
+publish a closed decision table for the generated Extensions
+validation-condition registry. A reachable undeclared condition, an extra or
+stale declaration, or an emitted condition absent from that registry is a
+conformance failure. When a composition validator is invoked through a shared
+validation boundary, result selection uses invocation failure, structural
+invalidity, overflow at `4097+` findings, remaining schema defects, valid
+findings, then valid empty result; `257..4096` is the ordinary 256-item bound
+violation.
+
 **Table 12-E. Validation Codes**
 
 | Code | Severity | Stage | Required meaning |
@@ -1009,6 +1025,7 @@ Every requirement in this NLSpec MUST trace to at least one acceptance criterion
 | `RC-AC-VALID-001` | Validation output is machine-testable. | §12 | Validation summaries use declared stages, issue codes, and safe details only. | Validation emits raw sensitive values or undocumented codes. |
 | `RC-AC-VALID-002` | Validation source semantics are closed. | §12 | `draft`, `version`, and `inline` validation requests follow Table 12-B1 and external-release validation requires a full validation context. | A validation request silently ignores forbidden members or claims release validity without required context. |
 | `RC-AC-VALID-003` | Validation context and issue ordering are closed. | §12 | `cartulary.report_composition_validation_context.v1` carries the full render context, null means local-only validation, `internal_review` behaves as an internal scope, malformed context fails with exact codes, and issues sort by Table 12-D1. | Implementations infer snapshot, redaction, graph, output, or render-profile context from live state or partial request fields, or first failure depends on traversal order. |
+| `RC-AC-VALID-004` | Extension validation-condition accounting is complete without adding a generic participant. | §12 | Every reachable schema/procedural condition is declared and registered, result precedence and finding bounds are exact, and all generic participant surfaces remain unconsumed. | A validator emits an undeclared condition, classifies an ambiguous result differently, or Composition acquires an implicit generic participant. |
 | `RC-AC-BUILDER-001` | Builder UI is a composition-data author. | §13 | Builder emits route requests, validation requests, and preview requests only. | Builder edits generated source, workbook records, templates, or release bytes. |
 | `RC-AC-PREVIEW-001` | Preview boundary is Reporting-owned. | §13 | Authoritative preview creates an `internal_draft` Reporting attempt, not approvable release bytes. | Client preview or builder bytes are treated as reviewable output. |
 | `RC-AC-PREVIEW-002` | Preview source digest bytes are closed. | §6 | `cartulary.report_composition_preview_source.v1` contains materialized draft/version arrays and binds by `preview_source_sha256`; immutable preview keeps `composition_sha256` separate. | Draft previews reuse release `composition_sha256` or omit materialized source arrays from the digest input. |
@@ -1033,7 +1050,7 @@ Table 14-C is normative. A numeric range includes suffixed requirements whose nu
 | `REQ-RC-051..REQ-RC-059` | `RC-AC-TEXT-001`, `RC-FIX-009` |
 | `REQ-RC-060..REQ-RC-063` | `RC-AC-DIAGRAM-001`, `RC-AC-DIAGRAM-LAYOUT-001`, `RC-AC-DIAGRAM-LAYOUT-002`, `RC-AC-DIAGRAM-LAYOUT-004`, `RC-FIX-010`, `RC-FIX-016`, `RC-FIX-017`, `RC-FIX-024`, `RC-FIX-025`, `RC-FIX-026`, `RC-FIX-027` |
 | `REQ-RC-064..REQ-RC-071` | `RC-AC-OPS-001`, `RC-AC-OPS-002`, `RC-FIX-006`, `RC-FIX-018`, `RC-FIX-022` |
-| `REQ-RC-072..REQ-RC-076` | `RC-AC-VALID-001`, `RC-AC-VALID-002`, `RC-AC-VALID-003`, `RC-FIX-015`, `RC-FIX-020` |
+| `REQ-RC-072..REQ-RC-076` | `RC-AC-VALID-001`, `RC-AC-VALID-002`, `RC-AC-VALID-003`, `RC-AC-VALID-004`, `RC-FIX-015`, `RC-FIX-020` |
 | `REQ-RC-077..REQ-RC-083` | `RC-AC-BUILDER-001`, `RC-AC-DIAGRAM-LAYOUT-004`, `RC-AC-PREVIEW-001`, `RC-FIX-012`, `RC-FIX-027` |
 | `REQ-RC-084..REQ-RC-084` | `RC-AC-TRACE-001`, `RC-FIX-023` |
 | `REQ-RC-085` | `RC-AC-AUTH-001`, `RC-AC-TRACE-001` |

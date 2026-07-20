@@ -71,6 +71,7 @@
         "owner_document",
         "owner_sections",
         "generated_outputs",
+        "typescript_runtime_artifact_prefixes",
         "activation_dependency_ids",
         "description"
       ],
@@ -98,6 +99,17 @@
           "minItems": 1,
           "uniqueItems": true,
           "items": { "$ref": "#/$defs/repo_path" }
+        },
+        "typescript_runtime_artifact_prefixes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240,
+            "pattern": "^contracts/[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*/?$"
+          }
         },
         "activation_dependency_ids": {
           "type": "array",

@@ -3,11 +3,56 @@ package main
 import (
 	"archive/zip"
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestWriteClientBuildContractsBindsExactStaticMapping(t *testing.T) {
+	t.Parallel()
+
+	sourceDir := t.TempDir()
+	mustWriteFile(t, filepath.Join(sourceDir, "index.html"), "<html></html>")
+	mustWriteFile(t, filepath.Join(sourceDir, "assets", "app.js"), "console.log('ok');")
+	supportSource := filepath.Join(t.TempDir(), "client-support.json")
+	mustWriteFile(t, supportSource, `{"schema_id":"cartulary.extension_client_support_registry_source.v1","client_build_class":"standard","rows":[{"profile_id":"network_flow_activity","contract_major":2,"workspace_keys":["network_analysis"],"capability_ids":[],"public_schema_ids":[],"client_asset_set_id":"network_flow_activity.standard.v2"}]}`)
+	manifestPath := filepath.Join(t.TempDir(), "client-asset-set-manifest.json")
+	supportPath := filepath.Join(t.TempDir(), "client-extension-support-registry.json")
+
+	if err := writeClientBuildContracts(sourceDir, supportSource, manifestPath, supportPath); err != nil {
+		t.Fatalf("write client build contracts: %v", err)
+	}
+	manifestBytes, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+	var manifest clientAssetManifest
+	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+		t.Fatalf("decode manifest: %v", err)
+	}
+	if len(manifest.Assets) != 2 || manifest.Assets[0].LogicalPath != "assets/app.js" || manifest.Assets[1].LogicalPath != "index.html" {
+		t.Fatalf("unexpected manifest rows: %#v", manifest.Assets)
+	}
+	supportBytes, err := os.ReadFile(supportPath)
+	if err != nil {
+		t.Fatalf("read client support: %v", err)
+	}
+	var support clientSupportRegistry
+	if err := json.Unmarshal(supportBytes, &support); err != nil {
+		t.Fatalf("decode client support: %v", err)
+	}
+	digest := sha256.Sum256(manifestBytes)
+	if support.AssetSetSHA256 != hex.EncodeToString(digest[:]) || support.ClientBuildID != "cartulary.web.standard.sha256:"+support.AssetSetSHA256 {
+		t.Fatalf("client support is not bound to manifest: %#v", support)
+	}
+	if len(support.Profiles) != 1 || support.Profiles[0].SupportedContractMajors[0] != 2 || support.Profiles[0].WorkspaceKeys[0] != "network_analysis" {
+		t.Fatalf("unexpected support profiles: %#v", support.Profiles)
+	}
+}
 
 func TestWriteArchiveIsDeterministicAndServesRootEntries(t *testing.T) {
 	t.Parallel()

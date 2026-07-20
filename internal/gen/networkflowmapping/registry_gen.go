@@ -51,7 +51,7 @@ type MappingRegistry struct {
 var Registry = MappingRegistry{
 	SchemaID:            "cartulary.network_flow.mapping_registry.v1",
 	ProfileID:           "network_flow_activity",
-	DocumentVersion:     "1.2.0",
+	DocumentVersion:     "2.0.0",
 	TargetKind:          "network_flow_table",
 	TargetTableSchemaID: "cartulary.network_flow_table.v1",
 	SystemDerivations: []SystemDerivation{

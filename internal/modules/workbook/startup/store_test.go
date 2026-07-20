@@ -181,6 +181,9 @@ func TestExtensionWorkspaceStartupRoundTripAndClaimLossFallback(t *testing.T) {
 	if startup.SelectedViewSchemaID != nil || startup.SelectedSavedView != nil {
 		t.Fatalf("extension startup must not synthesize base or saved-view identity: %#v", startup)
 	}
+	if rows := startup.ExtensionWorkspaceAvailability.Workspaces; len(rows) != 1 || rows[0].ExtensionProfileID != "network_flow_activity" || rows[0].WorkspaceKey != "network_analysis" {
+		t.Fatalf("claimed startup availability mismatch: %#v", startup.ExtensionWorkspaceAvailability)
+	}
 
 	unclaimedProfiles := []httpapi.ExtensionProfile{
 		{
@@ -204,6 +207,9 @@ func TestExtensionWorkspaceStartupRoundTripAndClaimLossFallback(t *testing.T) {
 	}
 	if len(fallback.HomeSheetRef) != 0 {
 		t.Fatalf("claim-loss fallback must atomically clear persisted home pointer: %s", fallback.HomeSheetRef)
+	}
+	if len(fallback.ExtensionWorkspaceAvailability.Workspaces) != 0 {
+		t.Fatalf("claim-loss availability must be empty: %#v", fallback.ExtensionWorkspaceAvailability)
 	}
 
 	persisted, err := unclaimedStore.GetUserPreferences(context.Background(), result.Incident.ID, actor.ID)

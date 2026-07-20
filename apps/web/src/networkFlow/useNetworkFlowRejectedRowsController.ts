@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import type { ExtensionAvailabilityController } from "../extensions/extensionAvailability";
 import { queryNetworkFlowRejectedRows } from "./networkFlowClient";
 import type { NetworkFlowRequestError } from "./networkFlowErrors";
 import {
@@ -12,6 +13,7 @@ import {
 import { useNetworkFlowPagedQuery } from "./useNetworkFlowPagedQuery";
 
 export function useNetworkFlowRejectedRowsController({
+  availability,
   activeTableId,
   apiBase,
   enabled,
@@ -19,6 +21,7 @@ export function useNetworkFlowRejectedRowsController({
   onError,
   onIncidentAccessLost,
 }: {
+  readonly availability: ExtensionAvailabilityController;
   readonly activeTableId: string | null;
   readonly apiBase: string | undefined;
   readonly enabled: boolean;
@@ -36,6 +39,7 @@ export function useNetworkFlowRejectedRowsController({
         throw new Error("network_flow_table_not_selected");
       }
       const result = await queryNetworkFlowRejectedRows({
+        availability,
         apiBase,
         incidentId,
         tableId: activeTableId,
@@ -44,7 +48,7 @@ export function useNetworkFlowRejectedRowsController({
       });
       return { items: result.diagnostics, paging: result.paging };
     },
-    [activeTableId, apiBase, incidentId],
+    [activeTableId, apiBase, availability, incidentId],
   );
   const paged = useNetworkFlowPagedQuery({
     enabled: enabled && activeTableId !== null,

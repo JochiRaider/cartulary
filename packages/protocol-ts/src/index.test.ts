@@ -76,7 +76,7 @@ describe("@cartulary/protocol-ts facade", () => {
     ]);
     expect(
       families.extensionArtifacts.map((artifact) => artifact.path),
-    ).toEqual(["contracts/extensions/index.json"]);
+    ).toContain("contracts/extensions/generated/profile-registry.json");
 
     const artifact: ContractArtifact = requireContractArtifact(
       "contracts/view-schemas/index.json",
@@ -151,7 +151,7 @@ describe("@cartulary/protocol-ts facade", () => {
 
   it("exposes extension registry profiles through facade helpers", () => {
     const registry = parseContractArtifact<ExtensionRegistryContract>(
-      "contracts/extensions/index.json",
+      "contracts/extensions/generated/profile-registry.json",
     );
 
     expect(getExtensionRegistryContract()).toEqual(registry);
@@ -177,8 +177,8 @@ describe("@cartulary/protocol-ts facade", () => {
   it("decodes exact Network Flow contracts without exposing payload data on failure", () => {
     expect(networkFlowContractDescriptor).toEqual({
       profile_id: "network_flow_activity",
-      contract_major: 1,
-      document_version: "1.2.0",
+      contract_major: 2,
+      document_version: "2.0.0",
     });
 
     const valid = networkFlowDecoders.tableList.decode({
@@ -223,6 +223,44 @@ describe("@cartulary/protocol-ts facade", () => {
       ok: true,
       value: {
         data: { extensions: [] },
+        meta: { request_id: "request-test" },
+      },
+    });
+
+    expect(
+      extensionDiscoveryDecoder.decode({
+        data: {
+          extensions: [
+            {
+              profile_id: "network_flow_activity",
+              claimable: true,
+              claimed: true,
+              contract_major: 2,
+              route_families: ["/api/v1/incidents/{incident_id}/network-flow"],
+              workspace_keys: ["network_analysis"],
+              capabilities: [],
+              future_additive_member: { executable: "must-remain-inert" },
+            },
+          ],
+        },
+        meta: { request_id: "request-test" },
+      }),
+    ).toEqual({
+      ok: true,
+      value: {
+        data: {
+          extensions: [
+            {
+              profile_id: "network_flow_activity",
+              claimable: true,
+              claimed: true,
+              contract_major: 2,
+              route_families: ["/api/v1/incidents/{incident_id}/network-flow"],
+              workspace_keys: ["network_analysis"],
+              capabilities: [],
+            },
+          ],
+        },
         meta: { request_id: "request-test" },
       },
     });

@@ -1,0 +1,72 @@
+{
+  "facts": [
+    {
+      "claimable": true,
+      "contract_major": 1,
+      "fact_kind": "recognized_profile",
+      "owner_contract_ref": "docs/spec/00_document_set_status_and_precedence.md#req:REQ-00-065",
+      "primary_owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#document:cartulary.core01.current.v1",
+      "primary_owner_id": "core01",
+      "profile_id": "enterprise_authentication"
+    },
+    {
+      "claimable": true,
+      "contract_major": 1,
+      "fact_kind": "recognized_profile",
+      "owner_contract_ref": "docs/spec/00_document_set_status_and_precedence.md#req:REQ-00-065",
+      "primary_owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#document:cartulary.core01.current.v1",
+      "primary_owner_id": "core01",
+      "profile_id": "import"
+    },
+    {
+      "claimable": true,
+      "contract_major": 1,
+      "fact_kind": "recognized_profile",
+      "owner_contract_ref": "docs/spec/00_document_set_status_and_precedence.md#req:REQ-00-065",
+      "primary_owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#document:cartulary.core01.current.v1",
+      "primary_owner_id": "core01",
+      "profile_id": "incident_portability"
+    },
+    {
+      "claimable": true,
+      "contract_major": 2,
+      "fact_kind": "recognized_profile",
+      "owner_contract_ref": "docs/spec/00_document_set_status_and_precedence.md#req:REQ-00-065",
+      "primary_owner_contract_ref": "docs/network-flow-activity-nlspec.md#document:cartulary.network_flow_activity.current.v2",
+      "primary_owner_id": "network_flow_activity",
+      "profile_id": "network_flow_activity"
+    },
+    {
+      "dependency_profile_id": "import",
+      "fact_kind": "runtime_dependency",
+      "owner_contract_ref": "docs/spec/00_document_set_status_and_precedence.md#req:REQ-00-065",
+      "profile_id": "network_flow_activity",
+      "required_contract_major": 1
+    },
+    {
+      "claimable": true,
+      "contract_major": 1,
+      "fact_kind": "recognized_profile",
+      "owner_contract_ref": "docs/spec/00_document_set_status_and_precedence.md#req:REQ-00-065",
+      "primary_owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#document:cartulary.core01.current.v1",
+      "primary_owner_id": "core01",
+      "profile_id": "reference_pack"
+    },
+    {
+      "claimable": true,
+      "contract_major": 1,
+      "fact_kind": "recognized_profile",
+      "owner_contract_ref": "docs/spec/00_document_set_status_and_precedence.md#req:REQ-00-065",
+      "primary_owner_contract_ref": "docs/reporting-subsystem-nlspec.md#document:cartulary.reporting_subsystem_nlspec.v1",
+      "primary_owner_id": "reporting",
+      "profile_id": "snapshot_reporting"
+    }
+  ],
+  "owner_document_ref": "docs/spec/00_document_set_status_and_precedence.md#document:cartulary.core00.current.v1",
+  "owner_document_schema_id": "cartulary.core00.current.v1",
+  "owner_document_sha256": "106451bfa440fea1a1913e000ad1ac2d52cf58f112323371a8456337a21c19b9",
+  "owner_document_version": "extensions-adoption-1",
+  "owner_fragment_id": "core00.extension_recognition.v1",
+  "owner_id": "core00",
+  "schema_id": "cartulary.extension_owner_fragment.v1"
+}

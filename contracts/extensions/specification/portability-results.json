@@ -1,0 +1,7 @@
+{
+  "schema_id":"cartulary.extension_portability_result_contract_set.v1",
+  "export_result":{"schema_id":"cartulary.incident_portability_extension_export_result.v1","members":["findings","logical_members","participant_id","profile_id","result_version"],"publication":"incident_bundle_owner_only","side_effects":"forbidden"},
+  "import_result":{"schema_id":"cartulary.incident_portability_extension_import_result.v1","members":["findings","participant_id","prepared_input","profile_id","result_version","staged_outputs"],"mutation":"shared_transaction_only","preparation_side_effects":"forbidden","staged_output_capability":"operation_scoped"},
+  "limits":{"participant_input_max_bytes":67108864,"aggregate_input_max_bytes":67108864,"aggregate_prepared_result_max_bytes":67108864},
+  "compatibility_adapter":false
+}

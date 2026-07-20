@@ -293,6 +293,10 @@ func TestAttachRouteContract_Integration(t *testing.T) {
 			t.Fatalf("first attach object_blob_id got %#v want %s", first["object_blob_id"], firstBlobID)
 		}
 	})
+	// The application-process lease intentionally forbids overlapping runtimes on
+	// one database. The dependency-error cases below replace the server with
+	// different object-store adapters, so release the characterization server first.
+	harness.Server.Close()
 
 	t.Run("object-store dependency errors use owner public mapping", func(t *testing.T) {
 		requireObjectStoreDependencyErrorsUseOwnerPublicMapping(

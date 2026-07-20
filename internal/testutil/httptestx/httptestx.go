@@ -87,6 +87,10 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 	if err != nil {
 		t.Fatalf("start app runtime: %v", err)
 	}
+	if err := runtime.ActivatePublication(); err != nil {
+		runtime.Close()
+		t.Fatalf("activate app runtime publication: %v", err)
+	}
 
 	server := &Server{
 		Runtime: runtime,

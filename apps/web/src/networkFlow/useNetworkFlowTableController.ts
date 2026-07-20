@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
+import type { ExtensionAvailabilityController } from "../extensions/extensionAvailability";
 import {
   listNetworkFlowTables,
   renameNetworkFlowTable,
@@ -34,11 +35,13 @@ export type NetworkFlowTableMutationState =
   | { readonly kind: "deleting"; readonly tableId: string };
 
 export function useNetworkFlowTableController({
+  availability,
   apiBase,
   enabled,
   incidentId,
   onIncidentAccessLost,
 }: {
+  readonly availability: ExtensionAvailabilityController;
   readonly apiBase: string | undefined;
   readonly enabled: boolean;
   readonly incidentId: string;
@@ -97,6 +100,7 @@ export function useNetworkFlowTableController({
       );
       try {
         const nextTables = await listNetworkFlowTables({
+          availability,
           apiBase,
           incidentId,
           signal: controller.signal,
@@ -134,7 +138,7 @@ export function useNetworkFlowTableController({
         setError(requestError);
       }
     },
-    [apiBase, enabled, handleProtectedFailure, incidentId],
+    [availability, apiBase, enabled, handleProtectedFailure, incidentId],
   );
 
   useEffect(() => {
@@ -157,6 +161,7 @@ export function useNetworkFlowTableController({
       setError(null);
       try {
         const table = await renameNetworkFlowTable({
+          availability,
           apiBase,
           baseTableVersion: options.baseTableVersion,
           displayName: options.displayName,
@@ -192,6 +197,7 @@ export function useNetworkFlowTableController({
       }
     },
     [
+      availability,
       apiBase,
       enabled,
       handleProtectedFailure,
@@ -215,6 +221,7 @@ export function useNetworkFlowTableController({
       setError(null);
       try {
         await softDeleteNetworkFlowTable({
+          availability,
           apiBase,
           baseTableVersion: options.baseTableVersion,
           incidentId,
@@ -249,6 +256,7 @@ export function useNetworkFlowTableController({
       }
     },
     [
+      availability,
       apiBase,
       enabled,
       handleProtectedFailure,

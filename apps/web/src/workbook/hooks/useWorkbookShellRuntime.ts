@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import type { ExtensionAvailabilityController } from "../../extensions/extensionAvailability";
 import { apiPath } from "../../services/browserApi";
 import { fetchWorkbookJSON, readEnvelope } from "../../services/workbookApi";
 import { workbookLayoutStateFromSavedViewLayoutJson } from "../models/workbookQuery";
@@ -9,7 +10,10 @@ import {
   workbookStartupQueryFromURLParams,
 } from "../models/workbookStartup";
 import { workbookContractForViewSchemaId } from "../models/workbookSurfaceQueryRuntime";
-import { knownWorkbookViewSchemaId } from "../models/workbookSurfaceRegistry";
+import {
+  knownWorkbookViewSchemaId,
+  timelineViewSchemaId,
+} from "../models/workbookSurfaceRegistry";
 import { useWorkbookLayoutController } from "./useWorkbookLayoutController";
 import { useWorkbookQueryController } from "./useWorkbookQueryController";
 import { useWorkbookSavedViewController } from "./useWorkbookSavedViewController";
@@ -28,11 +32,15 @@ export function useWorkbookShellRuntime({
   incidentId,
   onIncidentAccessLost,
   surfaceSelectionVersionRef,
+  extensionAvailability,
+  onExtensionAvailabilityChange,
 }: {
   readonly apiBase?: string | undefined;
   readonly incidentId: string;
   readonly onIncidentAccessLost?: (() => void) | undefined;
   readonly surfaceSelectionVersionRef: WorkbookShellMutableRef<number>;
+  readonly extensionAvailability: ExtensionAvailabilityController;
+  readonly onExtensionAvailabilityChange: () => void;
 }) {
   const startupController = useWorkbookStartupController({
     apiBase,
@@ -112,6 +120,11 @@ export function useWorkbookShellRuntime({
     const startupQuery = workbookStartupQueryFromURLParams(params);
     const selectionVersionAtRequest = surfaceSelectionVersionRef.current;
     const loadStartup = async () => {
+      const availabilityTag = extensionAvailability.reserve();
+      if (availabilityTag === null) {
+        selectWorkbookSurface(timelineViewSchemaId);
+        return;
+      }
       const result = await fetchWorkbookJSON<WorkbookStartupEnvelope>(
         apiPath(
           apiBase,
@@ -122,11 +135,33 @@ export function useWorkbookShellRuntime({
         return;
       }
       const envelope = readEnvelope<WorkbookStartupEnvelope>(result.payload);
+      const startupRecord = envelope.data as Record<string, unknown>;
+      if (
+        !extensionAvailability.acceptWorkbookStartup(
+          availabilityTag,
+          startupRecord.extension_workspace_availability,
+        )
+      ) {
+        onExtensionAvailabilityChange();
+        selectWorkbookSurface(timelineViewSchemaId);
+        return;
+      }
+      onExtensionAvailabilityChange();
       const startup = normalizeWorkbookStartupSelection(envelope.data);
       if (!startup) {
         return;
       }
       if (selectionVersionAtRequest !== surfaceSelectionVersionRef.current) {
+        return;
+      }
+      if (
+        startup.selectedSheetRef.kind === "extension_workspace" &&
+        !extensionAvailability.isRenderable({
+          extensionProfileId: startup.selectedSheetRef.extension_profile_id,
+          workspaceKey: startup.selectedSheetRef.workspace_key,
+        })
+      ) {
+        selectWorkbookSurface(timelineViewSchemaId);
         return;
       }
       const nextSurface =
@@ -170,8 +205,11 @@ export function useWorkbookShellRuntime({
     applyQueryStateForSurface,
     applyLayoutStateForSurface,
     applyStartupIdentity,
+    extensionAvailability,
     incidentId,
     params,
+    onExtensionAvailabilityChange,
+    selectWorkbookSurface,
     surfaceSelectionVersionRef,
     upsertSavedView,
   ]);

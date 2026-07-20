@@ -107,12 +107,15 @@ function isNestedCheckServiceBackedEvent(record) {
   );
 }
 
-function nestedTimingEnvelope(reporter, completedWork, parentTiming) {
+export function nestedTimingEnvelope(reporter, completedWork, parentTiming) {
+  const projectedEvents = reporter.eventRecords.filter(isNestedCheckServiceBackedEvent);
   const started = Math.min(
     ...completedWork.map((record) => record.started_monotonic_ms).filter(Number.isFinite),
+    ...projectedEvents.map((record) => record.monotonic_ms).filter(Number.isFinite),
   );
   const completed = Math.max(
     ...completedWork.map((record) => record.finished_monotonic_ms).filter(Number.isFinite),
+    ...projectedEvents.map((record) => record.monotonic_ms).filter(Number.isFinite),
   );
   if (!Number.isFinite(started) || !Number.isFinite(completed) || completed < started) {
     return parentTiming;

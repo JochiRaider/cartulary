@@ -1812,6 +1812,40 @@ EOF
 
 event_order_dir="$(mktemp -d "${ROOT_DIR}/tmp/scheduler-event-order.XXXXXX")"
 cleanup_paths+=("$event_order_dir")
+"$NODE_BIN" --input-type=module - "$ROOT_DIR" <<'EOF'
+const [rootDir] = process.argv.slice(2);
+const { nestedTimingEnvelope } = await import(
+  `file://${rootDir}/tools/harness/scheduler/scheduler/engine.mjs`
+);
+const reporter = {
+  clock: {
+    wallTimestamp(monotonicMs) {
+      return new Date(Date.UTC(2026, 0, 1) + monotonicMs).toISOString();
+    },
+  },
+  eventRecords: [
+    {
+      event: "finish",
+      work_unit_id: "check-service-backed:backend-store:shard-01",
+      monotonic_ms: 101,
+    },
+  ],
+};
+const timing = nestedTimingEnvelope(
+  reporter,
+  [{ started_monotonic_ms: 10, finished_monotonic_ms: 100 }],
+  { scheduler_started_monotonic_ms: 0, scheduler_completed_monotonic_ms: 200 },
+);
+if (timing.scheduler_started_monotonic_ms !== 10) {
+  throw new Error(`nested start got ${timing.scheduler_started_monotonic_ms} want 10`);
+}
+if (timing.scheduler_completed_monotonic_ms !== 101) {
+  throw new Error(`nested completion got ${timing.scheduler_completed_monotonic_ms} want 101`);
+}
+if (timing.scheduler_total_duration_ms !== 91) {
+  throw new Error(`nested duration got ${timing.scheduler_total_duration_ms} want 91`);
+}
+EOF
 mkdir -p "${event_order_dir}/valid/check" "${event_order_dir}/sequence/check" "${event_order_dir}/monotonic/check" "${event_order_dir}/wall/check" "${event_order_dir}/skew/check"
 cat >"${event_order_dir}/valid/check/scheduler-events.jsonl" <<'JSONL'
 {"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}

@@ -51,6 +51,7 @@ describe("networkFlowClient route identity", () => {
         },
       ]),
     ).toBe(false);
-    expect(isSupportedNetworkFlowContract({ contract_major: 2 })).toBe(false);
+    expect(isSupportedNetworkFlowContract({ contract_major: 2 })).toBe(true);
+    expect(isSupportedNetworkFlowContract({ contract_major: 1 })).toBe(false);
   });
 });

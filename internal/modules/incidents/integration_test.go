@@ -653,24 +653,24 @@ func TestExtensionDiscoveryReturnsExactZeroMembershipShapeWithoutLeaks_Integrati
 		if !ok {
 			t.Fatalf("unexpected extension item payload: %T", raw)
 		}
-		if len(item) != 3 {
+		if len(item) != 7 {
 			t.Fatalf("extension discovery must not leak provider secrets or claim maps: %#v", item)
 		}
-		if _, ok := item["profile_id"]; !ok {
-			t.Fatalf("missing profile_id in extension item %d: %#v", index, item)
-		}
-		if _, ok := item["claimed"]; !ok {
-			t.Fatalf("missing claimed in extension item %d: %#v", index, item)
-		}
-		if _, ok := item["route_families"]; !ok {
-			t.Fatalf("missing route_families in extension item %d: %#v", index, item)
-		}
 		wantClaimed := want.ProfileID == "import" || want.ProfileID == "incident_portability" || want.ProfileID == "reference_pack" || want.ProfileID == "snapshot_reporting"
-		if item["profile_id"] != want.ProfileID || item["claimed"] != wantClaimed {
+		if item["profile_id"] != want.ProfileID || item["claimable"] != want.Claimable || item["claimed"] != wantClaimed {
 			t.Fatalf("unexpected extension item %d: %#v", index, item)
+		}
+		if want.ContractMajor == nil || item["contract_major"] != float64(*want.ContractMajor) {
+			t.Fatalf("unexpected extension contract major for %s: got %v want %v", want.ProfileID, item["contract_major"], want.ContractMajor)
 		}
 		if gotFamilies := OrderedRouteFamilies(t, item["route_families"]); strings.Join(gotFamilies, ",") != strings.Join(want.RouteFamilies, ",") {
 			t.Fatalf("unexpected route families for %s: got %v want %v", want.ProfileID, gotFamilies, want.RouteFamilies)
+		}
+		if gotWorkspaces := OrderedRouteFamilies(t, item["workspace_keys"]); strings.Join(gotWorkspaces, ",") != strings.Join(want.WorkspaceKeys, ",") {
+			t.Fatalf("unexpected workspace keys for %s: got %v want %v", want.ProfileID, gotWorkspaces, want.WorkspaceKeys)
+		}
+		if capabilities := OrderedRouteFamilies(t, item["capabilities"]); len(capabilities) != 0 {
+			t.Fatalf("capabilities must remain disabled for %s: %v", want.ProfileID, capabilities)
 		}
 	}
 	if got := OrderedProfileIDs(t, extensions); strings.Join(got, ",") != strings.Join(ContractProfileIDs(wantProfiles), ",") {

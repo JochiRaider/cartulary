@@ -21,6 +21,7 @@
     "deployment_admin",
     "entities",
     "evidence",
+    "extensions",
     "graphprojection",
     "harness_support",
     "imports",
@@ -74,6 +75,16 @@
       ],
       "downstream_surfaces": ["migration runner", "migration drift", "operator reset/reimport diagnostics"],
       "notes": "Current production DDL line marker used to reject incompatible historical goose ledgers."
+    },
+    {
+      "id": "extension-coordination",
+      "owner": "extensions",
+      "profiles": ["base", "network_flow_activity"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^extension_.*$" }
+      ],
+      "downstream_surfaces": ["extension state admission", "shared transactions", "staged-object cleanup", "extension job reconciliation", "backup and restore"],
+      "notes": "Generic coordination metadata and proof state only; authoritative profile tables remain with their named profile owners."
     },
     {
       "id": "deployment-admin-and-recovery",

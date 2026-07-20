@@ -684,9 +684,9 @@ Verified by: AC-402
 ##### 3.3.3.1 Runtime extension discovery and reserved-unclaimed extension semantics
 
 **REQ-01-542**
-`GET /api/v1/extensions` MUST be a base-profile deployment-scoped discovery route. It MUST return the common success envelope with `data.extensions[]`. `extensions[]` MUST be ordered by `profile_id asc`. Each `extensions[]` item MUST contain exactly `profile_id`, `claimed`, and `route_families[]`. This route MUST expose only deployment extension-claim state and reserved family roots. It MUST NOT expose provider secrets, provider metadata or claim maps, reference-pack version state, snapshot or release state, incident-bundle state, or other live extension-family payload.
+`GET /api/v1/extensions` MUST be a base-profile deployment-scoped discovery route. It MUST return the common success envelope with `data.extensions[]`. `extensions[]` MUST be ordered by `profile_id asc`. Each producer item MUST contain exactly `profile_id`, `claimable`, `claimed`, `contract_major`, `route_families[]`, `workspace_keys[]`, and `capabilities[]`. `claimable` and `contract_major` MUST equal Core 00; `claimed=true` only after atomic startup publication; route and workspace arrays MUST equal the generated descriptor; and `capabilities[]` MUST equal `[]`. This route MUST expose only those recognition, claim, reservation, and workspace identity facts. It MUST NOT expose provider secrets, provider metadata or claim maps, reference-pack version state, snapshot or release state, incident-bundle state, implementation or document versions, registry digests, or other live extension-family payload.
 Profiles: base
-Verified by: AC-370
+Verified by: AC-370, EXT-AC-156, EXT-AC-157
 
 **REQ-01-543**
 `data.extensions[]` MUST enumerate all extension discovery identifiers, including unclaimed recognized ones. The discovery `profile_id` values are exactly:
@@ -698,13 +698,13 @@ Verified by: AC-370
 - `reference_pack`
 - `snapshot_reporting`
 
-Clients MUST ignore unknown additive members on each item and MUST ignore unknown future `profile_id` values.
+Compatible decoders MUST reject a missing or malformed known member but ignore unknown additive members after enforcing the enclosing response limit. They MUST ignore unknown future `profile_id` values and MUST never execute an unknown member, profile, workspace, or capability.
 `network_flow_activity` is an adopted/current claimable extension profile.
 Its discovery item MUST serialize the deployment's validated claim state; a
 claimed runtime is available only after the Network Flow Activity NLSpec and
 Core 04 startup requirements have passed.
 Profiles: base
-Verified by: AC-370
+Verified by: AC-370, EXT-AC-156, EXT-AC-157
 
 **REQ-01-544**
 `route_families[]` MUST list reserved family roots rather than full per-route inventories. `route_families[]` MUST be ordered by route-family string asc. The current-profile mapping is exactly:
@@ -729,8 +729,9 @@ Verified by: AC-370
 
 A `route_families[]` entry for an unclaimed profile reserves dispatch behavior
 only. It does not expose the profile's public routes while `claimed=false`.
+The current workspace mapping is exactly `network_flow_activity -> ["network_analysis"]`; every other current profile maps to `[]`. The current capability mapping is `[]` for every profile.
 Profiles: base
-Verified by: AC-370, AC-371
+Verified by: AC-370, AC-371, EXT-AC-156, EXT-AC-157
 
 **REQ-01-545**
 `GET /api/v1/extensions` is a singleton discovery route. It MUST reject `limit`, `cursor_token`, and pagination aliases with `400`, `error.code = invalid_pagination_request`, and `error.details.reason_code = pagination_not_supported`.
@@ -738,7 +739,7 @@ Profiles: base
 Verified by: AC-370
 
 **REQ-01-546**
-For `GET /api/v1/extensions`, `claimed=true` means the deployment currently claims that extension profile for conformance. `claimed` MUST NOT imply that the corresponding route family currently contains resources or that the current caller is authorized for every route in that family. A claimed extension family with zero current resources or a claimed family route denied by ordinary authorization or family-specific policy MUST use the ordinary claimed-family behavior rather than `extension_profile_not_claimed`.
+For `GET /api/v1/extensions`, `claimed=true` means the profile belongs to the one immutable resolved claim set published for the process. `claimed` MUST NOT imply that the corresponding route family currently contains resources or that the current caller is authorized for every route or workspace in that family. A claimed extension family with zero current resources or a claimed family route denied by ordinary authorization or family-specific policy MUST use the ordinary claimed-family behavior rather than `extension_profile_not_claimed`.
 Profiles: base
 Verified by: AC-370, AC-371
 
@@ -2234,7 +2235,7 @@ Profiles: base
 Verified by: AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-231
 
 **REQ-01-151.1**
-`GET /api/v1/incidents/{incident_id}/workbook-startup` MUST expose workbook startup selection using the ordered fallback owned by Core 03 §2.4. The route MUST accept either legacy `view_schema_id=<id>` or general `sheet_ref_kind=view_schema|saved_view|extension_workspace&sheet_ref_id=<id>` query selectors for an explicit launch pointer; for `extension_workspace`, `sheet_ref_id` carries `workspace_key` and the query MUST also include `extension_profile_id=<extension_profile_id>`. Supplying legacy and general selector forms together MUST fail with `400` and `error.code = invalid_startup_request`. A successful response MUST include `incident_id`, `selected_sheet_ref`, `selected_view_schema_id`, `selected_saved_view`, `source`, `cleared_pointers[]`, `home_sheet_ref`, and `default_sheet_ref`. `selected_view_schema_id` is the base schema used by workbook query routes for `view_schema` and `saved_view` selections; it MUST be JSON `null` when the selected sheet is an `extension_workspace`. `selected_sheet_ref` is the selected startup identity and MAY be a distinct `saved_view` reference or a claimed extension-workspace reference. The route MUST NOT treat an empty saved-view list as absence of any pack-independent base-profile surface identified by `view_schema`.
+`GET /api/v1/incidents/{incident_id}/workbook-startup` MUST expose workbook startup selection using the ordered fallback owned by Core 03 §2.4. The route MUST accept either legacy `view_schema_id=<id>` or general `sheet_ref_kind=view_schema|saved_view|extension_workspace&sheet_ref_id=<id>` query selectors for an explicit launch pointer; for `extension_workspace`, `sheet_ref_id` carries `workspace_key` and the query MUST also include `extension_profile_id=<extension_profile_id>`. Supplying legacy and general selector forms together MUST fail with `400` and `error.code = invalid_startup_request`. A successful response MUST include `incident_id`, `selected_sheet_ref`, `selected_view_schema_id`, `selected_saved_view`, `source`, `cleared_pointers[]`, `home_sheet_ref`, `default_sheet_ref`, and `extension_workspace_availability`. `extension_workspace_availability` MUST contain exactly `schema_id='cartulary.extension_workspace_availability.v1'`, the addressed `incident_id`, and `workspaces[]`; each row contains exactly `extension_profile_id` and `workspace_key`, rows are unique and sorted by profile then workspace key, and a row is present only for a claimed profile workspace the current caller is authorized to open for that incident at response construction. The route MUST use `Cache-Control: no-store`; ETag reuse and HTTP `304` are forbidden. Error responses omit the member. `selected_view_schema_id` is the base schema used by workbook query routes for `view_schema` and `saved_view` selections; it MUST be JSON `null` when the selected sheet is an `extension_workspace`. `selected_sheet_ref` is the selected startup identity and MAY be a distinct `saved_view` reference or a claimed extension-workspace reference. The route MUST NOT treat an empty saved-view list as absence of any pack-independent base-profile surface identified by `view_schema`.
 
 For request-validation failures on this route, `error.details.reason_code` MUST use the `invalid_startup_request` registry. The base-profile registry is exactly:
 
@@ -3029,6 +3030,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `invalid_auth_request` | `400` | `false` | A local-account login request is malformed, omits a required member, includes an unknown or forbidden member, supplies `null` where forbidden, uses an unsupported `second_factor.kind`, or carries an invalid TOTP assertion shape. |  |  |  |
 | `invalid_enterprise_auth_request` | `400` | `false` | An enterprise-auth discovery or initiation request is malformed, omits a required member, includes an unknown or forbidden member, supplies `null` where forbidden, or uses a `return_to` value not allowed by the current profile. |  |  |  |
 | `extension_profile_not_claimed` | `404` | `false` | The request path matches a reserved extension route family for a profile the deployment does not currently claim. `error.details` MUST include `profile_id` and `route_family`. |  |  |  |
+| `extension_capability_not_supported` | `409` | `false` | A request, bundle, descriptor, browser action, or internal activation attempts a nonempty extension capability in contract major `1`; no capability behavior executes. |  |  |  |
 | `authorization_denied` | `403` | `false` | The request is authenticated, the route or operation is currently matched, and the authenticated caller lacks the current authorization required by that route or operation. | REQ-01-234 | base | AC-427 |
 | `auth_provider_not_found` | `404` | `false` | The addressed enterprise-auth `provider_key` does not identify a configured enterprise-auth provider allowed by the active route. |  |  |  |
 | `auth_provider_disabled` | `409` | `false` | The addressed enterprise-auth provider exists but is not currently enabled for interactive sign-in. |  |  |  |
@@ -3590,7 +3592,7 @@ Boundary values that are syntactically valid but do not equal the current commit
 | `malformed_metadata_json` | The `metadata` part cannot be parsed as JSON or contains duplicate object member names. |
 | `invalid_reference_pack_mode` | The supplied `reference_pack_mode` is not one of the current-profile incident-bundle export tokens. |
 | `invalid_optional_sections` | `optional_sections[]` is not an array of current-profile optional-section tokens, or it contains one or more unknown or non-string members. |
-| `invalid_required_capabilities` | `required_capabilities[]` is not an array of current-profile capability tokens, contains one or more unknown or non-string members, or names a capability the current deployment cannot emit at export admission. |
+| `invalid_required_capabilities` | `required_capabilities[]` is not an array or contains a non-string member; any schema-valid nonempty array instead uses `extension_capability_not_supported`. |
 | `history_mode_not_supported` | The request attempted to set `history_mode` to anything other than the fixed current-profile `full` behavior. |
 | `blob_mode_not_supported` | The request attempted to set `blob_mode` to anything other than the fixed current-profile `full` behavior. |
 
@@ -3611,7 +3613,7 @@ Boundary values that are syntactically valid but do not equal the current commit
 | `signature_mismatch` | Bundle signature verification failed where supported or required. |
 | `blob_hash_mismatch` | One or more blob bytes did not match the required `blobs/sha256/<sha256-lower-hex>` path digest. |
 | `duplicate_incident_id` | The target deployment already contains the exported `incident_id`. |
-| `unsupported_required_capability` | The bundle requires a capability the target deployment does not implement. |
+| `extension_capability_not_supported` | The bundle supplies a nonempty `required_capabilities[]`; capability activation is disabled in extension contract major `1`. |
 | `remote_fetch_required` | Import would require a remote fetch, which the current profile forbids. |
 | `archive_extracted_bytes_exceeded` | The extracted regular-file byte total exceeds `limits.incident_bundles.max_extracted_bytes`. |
 | `archive_compression_ratio_exceeded` | The extracted regular-file byte total exceeds `compressed_bytes * limits.archives.max_compression_ratio`. |
@@ -6413,7 +6415,7 @@ Profiles: incident_portability
 Verified by: AC-164, AC-166, AC-236
 
 **REQ-01-438**
-If `required_capabilities[]` names a capability the target deployment does not implement, import MUST fail closed. Optional embedded sections MAY be ignored when unsupported unless the corresponding capability is listed in `required_capabilities[]`.
+`required_capabilities[]` MUST be present in the manifest and MUST equal `[]`. Any nonempty value is unsupported in extension contract major `1` and import MUST fail before participant invocation with `extension_capability_not_supported`. Optional embedded sections are governed by their explicit owner/version rules and MUST NOT be activated through capability tokens.
 Profiles: incident_portability
 Verified by: AC-164, AC-166, AC-236
 
@@ -6471,7 +6473,7 @@ Profiles: incident_portability
 Verified by: AC-167, AC-168, AC-236
 
 **REQ-01-446**
-If `reference_pack_mode='embedded'`, pack payloads MAY be embedded under `ext/reference_packs/**`. If `optional_sections` contains `snapshots`, immutable snapshot descriptors and rendered artifacts MAY be embedded under `ext/snapshots/**`. Unsupported or missing optional embedded sections MUST NOT block import of the core incident state unless the relevant capability is named in `required_capabilities[]`.
+If `reference_pack_mode='embedded'`, pack payloads MAY be embedded under `ext/reference_packs/**`. If `optional_sections` contains `snapshots`, immutable snapshot descriptors and rendered artifacts MAY be embedded under `ext/snapshots/**`. Unsupported or missing optional embedded sections MUST NOT block import of the core incident state. Capability tokens MUST NOT alter this rule.
 Profiles: incident_portability
 Verified by: AC-167, AC-168, AC-236
 
@@ -6510,7 +6512,7 @@ Import MUST fail closed on any of the following:
 - extracted regular-file bytes exceeding `limits.incident_bundles.max_extracted_bytes`,
 - extracted regular-file bytes exceeding `compressed_bytes * limits.archives.max_compression_ratio`,
 - extracted regular-file member count exceeding `limits.archives.max_members`,
-- unsupported `required_capabilities[]` entry,
+- any nonempty `required_capabilities[]`, using `extension_capability_not_supported`,
 - duplicate `incident_id`,
 - submitter missing, inactive, or no longer holding `deployment_admin` immediately before final publication,
 - any import path that would require a live remote fetch to complete.
@@ -7568,7 +7570,7 @@ Verified by: AC-273, AC-274, AC-275
 | --- | --- |
 | `reference_pack_mode` omission rule | Omitted means `refs_only`; explicit `null` is invalid; omission and explicit `refs_only` compare equal |
 | `optional_sections[]` omission rule | Omitted means `[]`; explicit `null` is invalid; explicit `[]` compares equal to omission; allowed tokens are exactly `snapshots` and `reference_packs`; order is non-semantic and canonicalized ascending |
-| `required_capabilities[]` omission rule | Omitted means `[]`; explicit `null` is invalid; explicit `[]` compares equal to omission; recognized capability tokens are exactly `snapshots` and `reference_packs`; order is non-semantic and canonicalized ascending; the current implementation emits no required optional-section capabilities, so a non-empty export request fails with `invalid_required_capabilities` unless a later owner revision declares and implements that capability |
+| `required_capabilities[]` omission rule | Omitted means `[]`; explicit `null` is invalid; explicit `[]` compares equal to omission; every nonempty array fails with `extension_capability_not_supported`; no current capability token is recognized |
 | Durable export descriptor | `bundle_id`, `incident_id`, `exported_at`, `manifest_sha256`, `reference_pack_mode`, `optional_sections[]`, `required_capabilities[]`, fixed `history_mode='full'`, fixed `blob_mode='full'` |
 | Import boundary | No durable import resource exists in the current profile; import is create-only into an empty incident namespace; successful publication creates the importer bootstrap membership under REQ-01-609 |
 
@@ -7584,12 +7586,12 @@ Verified by: AC-273, AC-274, AC-275
 
 
 **REQ-01-484**
-`POST /api/v1/incident-bundles/export` MUST accept a JSON object with required `incident_id` and required `client_txn_id`. It MAY include optional `reference_pack_mode`, optional `optional_sections[]`, and optional `required_capabilities[]`. For `reference_pack_mode`, omission means `refs_only`, explicit JSON `null` is invalid, omission and explicit `refs_only` MUST compare equal for idempotency and replay, and the allowed current-profile values are exactly `refs_only` and `embedded`. For `optional_sections[]`, omission means `[]`, explicit JSON `null` is invalid, explicit `[]` compares equal to omission, the allowed current-profile tokens are exactly `snapshots` and `reference_packs`, caller order is non-semantic, duplicate members coalesce by exact token equality, and the canonical normalized form is the unique exact-token set sorted ascending. For `required_capabilities[]`, omission means `[]`, explicit JSON `null` is invalid, explicit `[]` compares equal to omission, the recognized current-profile tokens are exactly `snapshots` and `reference_packs`, caller order is non-semantic, duplicate members coalesce by exact token equality, and the canonical normalized form is the unique exact-token set sorted ascending. A non-empty `required_capabilities[]` export request MUST fail with `400`, `error.code='invalid_incident_bundle_request'`, and `error.details.reason_code='invalid_required_capabilities'` unless every named capability is implemented for export by the target deployment. The current implementation supports no required optional-section export capabilities. Unknown tokens in either array or any `reference_pack_mode` value outside the closed current-profile vocabulary are invalid and MUST NOT be silently ignored or dropped at export admission. The current profile MUST NOT expose user-tunable partial-history or partial-blob request modes; if `history_mode` or `blob_mode` is supplied, the route MUST fail closed. Export MUST run as an incident-scoped background job whose job read and cancel authorization re-derives both current `deployment_admin` and current membership in the exported incident; cancel MUST additionally require the submitter relationship or current incident role `admin`. The durable export descriptor under `GET /api/v1/incident-bundles/{bundle_id}` MUST exist only after successful export, MUST reject pagination, and MUST expose at minimum `bundle_id`, `incident_id`, `exported_at`, `manifest_sha256`, `reference_pack_mode`, `optional_sections[]`, `required_capabilities[]`, fixed `history_mode='full'`, and fixed `blob_mode='full'`. The durable export descriptor and the emitted `manifest.json` MUST both serialize the resolved `reference_pack_mode` and the canonicalized `optional_sections[]` and `required_capabilities[]` values rather than caller order. On successful export, the terminal common-job summary MUST use `result_summary.code='incident_bundle_exported'` and MUST emit exactly one `resource_refs[]` item `{ kind: 'incident_bundle', id: <bundle_id>, route: '/api/v1/incident-bundles/{bundle_id}' }`.
+`POST /api/v1/incident-bundles/export` MUST accept a JSON object with required `incident_id` and required `client_txn_id`. It MAY include optional `reference_pack_mode`, optional `optional_sections[]`, and optional `required_capabilities[]`. For `reference_pack_mode`, omission means `refs_only`, explicit JSON `null` is invalid, omission and explicit `refs_only` MUST compare equal for idempotency and replay, and the allowed current-profile values are exactly `refs_only` and `embedded`. For `optional_sections[]`, omission means `[]`, explicit JSON `null` is invalid, explicit `[]` compares equal to omission, the allowed current-profile tokens are exactly `snapshots` and `reference_packs`, caller order is non-semantic, duplicate members coalesce by exact token equality, and the canonical normalized form is the unique exact-token set sorted ascending. For `required_capabilities[]`, omission means `[]`, explicit JSON `null` is invalid, and explicit `[]` compares equal to omission. A nonempty value MUST fail without side effects with `extension_capability_not_supported`; no token is admitted. Unknown optional-section tokens or any `reference_pack_mode` value outside the closed current-profile vocabulary are invalid and MUST NOT be silently ignored or dropped at export admission. The current profile MUST NOT expose user-tunable partial-history or partial-blob request modes; if `history_mode` or `blob_mode` is supplied, the route MUST fail closed. Export MUST run as an incident-scoped background job whose job read and cancel authorization re-derives both current `deployment_admin` and current membership in the exported incident; cancel MUST additionally require the submitter relationship or current incident role `admin`. The durable export descriptor under `GET /api/v1/incident-bundles/{bundle_id}` MUST exist only after successful export, MUST reject pagination, and MUST expose at minimum `bundle_id`, `incident_id`, `exported_at`, `manifest_sha256`, `reference_pack_mode`, `optional_sections[]`, `required_capabilities=[]`, fixed `history_mode='full'`, and fixed `blob_mode='full'`. The durable export descriptor and emitted `manifest.json` MUST both serialize the resolved `reference_pack_mode`, canonicalized `optional_sections[]`, and empty `required_capabilities[]`. On successful export, the terminal common-job summary MUST use `result_summary.code='incident_bundle_exported'` and MUST emit exactly one `resource_refs[]` item `{ kind: 'incident_bundle', id: <bundle_id>, route: '/api/v1/incident-bundles/{bundle_id}' }`.
 Profiles: incident_portability
 Verified by: AC-273, AC-274
 
 **REQ-01-485**
-`POST /api/v1/incident-bundles/import` MUST use the shared upload-envelope contract in §17.1.1. Within that contract, metadata MUST contain required `client_txn_id`. For this route, the `file` part media type MUST be one of the exact values declared for `POST /api/v1/incident-bundles/import` in REQ-01-552. Those media-type values are envelope gates only; bundle-member validation, integrity verification, and archive-limit enforcement remain byte-based. Route-scoped normalized request comparison for idempotency MUST include SHA-256 of the exact uploaded file bytes. Multipart boundary text, part order, advisory filename, and non-semantic part headers or parameters MUST NOT affect normalized comparison. Import MUST run as a deployment-scoped `deployment_admin` background job because no target incident exists until a successful import transaction commits. Import-job admission MUST bind the job to the server-derived submitting internal `user_id`, and final publication MUST create the target-local initial-admin membership, workbook-preference objects, and membership audit event under REQ-01-609. The current profile defines no durable import resource; on success the terminal job result summary MUST use `result_summary.code='incident_bundle_imported'` and MUST emit exactly one `resource_refs[]` item `{ kind: 'incident', id: <incident_id>, route: '/api/v1/incidents/{incident_id}' }`. Import remains create-only into an empty incident namespace. The current profile MUST reject clone, merge, identifier-remap, remote-fetch, initial-admin selection, adoption workflow, or equivalent alternative import modes.
+`POST /api/v1/incident-bundles/import` MUST use the shared upload-envelope contract in §17.1.1. Within that contract, metadata MUST contain required `client_txn_id`. For this route, the `file` part media type MUST be one of the exact values declared for `POST /api/v1/incident-bundles/import` in REQ-01-552. Those media-type values are envelope gates only; bundle-member validation, integrity verification, and archive-limit enforcement remain byte-based. Route-scoped normalized request comparison for idempotency MUST include SHA-256 of the exact uploaded file bytes. Multipart boundary text, part order, advisory filename, and non-semantic part headers or parameters MUST NOT affect normalized comparison. A schema-valid nonempty manifest `required_capabilities[]` MUST fail before participant invocation with `extension_capability_not_supported`. Import MUST run as a deployment-scoped `deployment_admin` background job because no target incident exists until a successful import transaction commits. Import-job admission MUST bind the job to the server-derived submitting internal `user_id`, and final publication MUST create the target-local initial-admin membership, workbook-preference objects, and membership audit event under REQ-01-609. The current profile defines no durable import resource; on success the terminal job result summary MUST use `result_summary.code='incident_bundle_imported'` and MUST emit exactly one `resource_refs[]` item `{ kind: 'incident', id: <incident_id>, route: '/api/v1/incidents/{incident_id}' }`. Import remains create-only into an empty incident namespace. The current profile MUST reject clone, merge, identifier-remap, remote-fetch, initial-admin selection, adoption workflow, or equivalent alternative import modes.
 Profiles: incident_portability
 Verified by: AC-275, AC-442
 
@@ -8315,3 +8317,34 @@ Verified by: AC-351, AC-352
 The binding-management routes in REQ-01-537..REQ-01-540 are part of the Enterprise Authentication Extension Profile but are not part of the `/api/v1/auth/*` protocol route family. They bind only existing local users addressed by stable `user_id`. Successful provider-auth callback MUST update `last_auth_at` on the resolved active binding only. After a successful rotate or retire, the superseded or retired `provider_subject` MUST fail future callbacks with `409`, `error.code = provider_identity_rejected`, and `error.details.reason_code = no_linked_user`. Switching providers is not a rotate operation in the current profile; the supported path is create a new active binding for the second provider and, if desired, retire the prior provider binding separately. These binding-management routes MUST reuse the common success and error envelopes, MUST reuse `auth_provider_not_found`, `user_version_conflict`, and `client_txn_conflict` where applicable, MUST use `auth_binding_not_found` when `{user_id, auth_binding_id}` identifies no visible current binding target, and MUST use `auth_binding_conflict` with the reason-code registry in §3.3.6.2 for active-binding state conflicts.
 Profiles: enterprise_authentication
 Verified by: AC-349, AC-350, AC-351, AC-352
+
+## 21. Coordinated Extensions Subsystem companion contracts
+
+This section is active through the same atomic adoption as `docs/extension-subsystem-nlspec.md`. It supersedes the narrower prior rule; no compatibility producer or partial contract remains current.
+
+For the adopted Extensions companion manifest, this owner document has `owner_document_schema_id='cartulary.core01.current.v1'` and `owner_document_version='extensions-adoption-1'`.
+
+**REQ-01-629**
+Every extension operation that commits state owned by more than one owner MUST use the typed transaction-participant protocol owned by the Extensions NLSpec. The resolved participant set contains `1..16384` participants in ascending `participant_id` order. Each participant input and their aggregate are bounded to `67108864` canonical bytes; aggregate prepare-result bytes are bounded to `67108864`. Input construction, side-effect-free prepare, result validation, serialization-lock acquisition, in-transaction validation, write, shared proof/outbox/result publication, and one commit execute in the declared order. Validation stops at the first invalid participant in participant order. Cancellation and the effective inherited-minimum monotonic deadline are sampled before and after every step and invocation. A proven commit returns success or replay; proven absent commit returns the owner-selected cancellation, timeout, or conflict; indeterminate outcome is fatal. Automatic retry is forbidden.
+Profiles: base
+Verified by: EXT-AC-152, EXT-AC-153
+
+**REQ-01-630**
+Authoritative non-database extension bytes MUST use the shared staged-object lifecycle. Allocation writes every declared default explicitly; failed or indeterminate upload becomes durable `abandoned`/`pending` before ordinary failure is returned; unpublished bytes become logically inaccessible at expiry before storage access. Cleanup eligibility, ordering, retry count and delay, dependency degradation, and result classification are exactly those in EXT-REQ-192. One deployment executes at most one sweep; missed intervals coalesce into one follow-up sweep. The janitor commits inaccessible state before deletion and MUST hold no database transaction or row lock during physical deletion. A committed-reference contradiction is fatal.
+Profiles: base
+Verified by: EXT-AC-154
+
+**REQ-01-631**
+Incident Portability export and import use distinct result schemas. Export may return only `cartulary.extension_portability_export_result.v1`. Import participant invocation is side-effect-free preparation returning only `cartulary.extension_portability_import_preparation_result.v1`; the participant receives a read-only bundle accessor and, when needed, a process-local scoped staged-output capability that cannot publish or mutate authoritative state. Per-participant and aggregate import input each stop at `67108864` bytes. Every authoritative import mutation and staged-output publication occurs later through REQ-01-629 in one final transaction. The prior combined portability participant result has no alias or reader. Bundle compatibility exists only when this owner section explicitly admits the exact logical bundle version.
+Profiles: incident_portability
+Verified by: EXT-AC-144
+
+**REQ-01-632**
+Operational restore v1 accepts only a stopped target whose authoritative data, extension metadata and ledgers, authoritative object references, and nonterminal extension jobs are empty. It rejects a running or nonempty target before mutation. Restore processes numeric `restore_order_group` values ascending and each binding in a group sequentially, validates a binding before advancing, selects only the exact packaged current or declared historical codec by ID and digest, invokes no inactive profile code, and never serves a failed target. Derived extension state remains absent and may rebuild only after a later successful claim completes compatibility, migration, final validation, and publication admission.
+Profiles: base
+Verified by: AC-428, EXT-AC-155
+
+**REQ-01-633**
+Stage 6 publishes one immutable plan and opens one admission gate only after every mandatory listener, WebSocket gate, job-dequeue gate, and worker is ready. Unexpected termination of any such required component before bind, between bind and serving, or while serving is fatal `published_component_lost`; an individual handled operation failure is not component loss. Component loss closes readiness and admission, preserves committed state and durable queued jobs, drains under Core 04, exits `70`, and forbids in-process component restart or plan republish. Recovery is a new externally supervised process.
+Profiles: base
+Verified by: EXT-AC-158

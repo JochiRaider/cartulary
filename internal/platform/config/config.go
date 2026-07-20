@@ -64,7 +64,13 @@ type Config struct {
 	Roots                    RootBindings                   `toml:"roots"`
 	Bootstrap                BootstrapConfig                `toml:"bootstrap"`
 	EnterpriseAuthentication EnterpriseAuthenticationConfig `toml:"enterprise_authentication"`
+	Import                   ClaimConfig                    `toml:"import"`
+	IncidentPortability      ClaimConfig                    `toml:"incident_portability"`
 	NetworkFlowActivity      NetworkFlowActivityConfig      `toml:"network_flow_activity"`
+	ReferencePack            ClaimConfig                    `toml:"reference_pack"`
+	SnapshotReporting        ClaimConfig                    `toml:"snapshot_reporting"`
+	Timeouts                 TimeoutConfig                  `toml:"timeouts"`
+	Intervals                IntervalConfig                 `toml:"intervals"`
 	Limits                   LimitConfig                    `toml:"limits"`
 	Telemetry                TelemetryConfig                `toml:"telemetry"`
 }
@@ -102,6 +108,39 @@ type NetworkFlowActivityConfig struct {
 	KeyRingManifestPath string `toml:"key_ring_manifest_path"`
 }
 
+type ClaimConfig struct {
+	Claimed bool `toml:"claimed"`
+}
+
+type TimeoutConfig struct {
+	Extensions ExtensionTimeoutConfig `toml:"extensions"`
+}
+
+type ExtensionTimeoutConfig struct {
+	MigrationLockSeconds                int64 `toml:"migration_lock_seconds"`
+	ProfileMigrationSeconds             int64 `toml:"profile_migration_seconds"`
+	ValidationSeconds                   int64 `toml:"validation_seconds"`
+	ReconciliationSeconds               int64 `toml:"reconciliation_seconds"`
+	ShutdownDrainSeconds                int64 `toml:"shutdown_drain_seconds"`
+	ProcessLeaseAcquireSeconds          int64 `toml:"process_lease_acquire_seconds"`
+	ProcessLeaseLossDetectionSeconds    int64 `toml:"process_lease_loss_detection_seconds"`
+	PublicationSeconds                  int64 `toml:"publication_seconds"`
+	TransactionParticipantSeconds       int64 `toml:"transaction_participant_seconds"`
+	CancellationGraceSeconds            int64 `toml:"cancellation_grace_seconds"`
+	StagedObjectCleanupSeconds          int64 `toml:"staged_object_cleanup_seconds"`
+	PortabilityParticipantSeconds       int64 `toml:"portability_participant_seconds"`
+	SnapshotReportingParticipantSeconds int64 `toml:"snapshot_reporting_participant_seconds"`
+	BackupRestoreParticipantSeconds     int64 `toml:"backup_restore_participant_seconds"`
+}
+
+type IntervalConfig struct {
+	Extensions ExtensionIntervalConfig `toml:"extensions"`
+}
+
+type ExtensionIntervalConfig struct {
+	StagedObjectSweepSeconds int64 `toml:"staged_object_sweep_seconds"`
+}
+
 type LimitConfig struct {
 	ObjectBlobs     ObjectBlobLimits     `toml:"object_blobs"`
 	Imports         ImportLimits         `toml:"imports"`
@@ -109,6 +148,7 @@ type LimitConfig struct {
 	ReferencePacks  ReferencePackLimits  `toml:"reference_packs"`
 	IncidentBundles IncidentBundleLimits `toml:"incident_bundles"`
 	Previews        PreviewLimits        `toml:"previews"`
+	Extensions      ExtensionLimits      `toml:"extensions"`
 }
 
 type ObjectBlobLimits struct {
@@ -140,6 +180,11 @@ type IncidentBundleLimits struct {
 type PreviewLimits struct {
 	MaxPreviewablePayloadBytes int64 `toml:"max_previewable_payload_bytes"`
 	MaxTextInlineBytes         int64 `toml:"max_text_inline_bytes"`
+}
+
+type ExtensionLimits struct {
+	StagedObjectCleanupBatch     int64 `toml:"staged_object_cleanup_batch"`
+	MaxNonterminalJobsPerProfile int64 `toml:"max_nonterminal_jobs_per_profile"`
 }
 
 type TelemetryConfig struct {

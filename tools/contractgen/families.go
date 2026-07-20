@@ -23,17 +23,18 @@ type contractFamilyRegistry struct {
 }
 
 type contractFamilyEntry struct {
-	FamilyID                string   `json:"family_id"`
-	ContractRoot            string   `json:"contract_root"`
-	GenerationStatus        string   `json:"generation_status"`
-	GoName                  string   `json:"go_name"`
-	TSName                  string   `json:"ts_name"`
-	OutputOrder             int      `json:"output_order"`
-	OwnerDocument           string   `json:"owner_document"`
-	OwnerSections           []string `json:"owner_sections"`
-	GeneratedOutputs        []string `json:"generated_outputs"`
-	ActivationDependencyIDs []string `json:"activation_dependency_ids"`
-	Description             string   `json:"description"`
+	FamilyID                  string   `json:"family_id"`
+	ContractRoot              string   `json:"contract_root"`
+	GenerationStatus          string   `json:"generation_status"`
+	GoName                    string   `json:"go_name"`
+	TSName                    string   `json:"ts_name"`
+	OutputOrder               int      `json:"output_order"`
+	OwnerDocument             string   `json:"owner_document"`
+	OwnerSections             []string `json:"owner_sections"`
+	GeneratedOutputs          []string `json:"generated_outputs"`
+	TypeScriptRuntimePrefixes []string `json:"typescript_runtime_artifact_prefixes"`
+	ActivationDependencyIDs   []string `json:"activation_dependency_ids"`
+	Description               string   `json:"description"`
 }
 
 func loadFamilies(root string) ([]family, error) {
@@ -127,6 +128,19 @@ func activeFamiliesFromRegistry(root string, registry contractFamilyRegistry) ([
 		if len(entry.GeneratedOutputs) == 0 {
 			return nil, fmt.Errorf("%s.generated_outputs must not be empty", label)
 		}
+		if len(entry.TypeScriptRuntimePrefixes) == 0 {
+			return nil, fmt.Errorf("%s.typescript_runtime_artifact_prefixes must not be empty", label)
+		}
+		seenTypeScriptPrefixes := map[string]struct{}{}
+		for _, prefix := range entry.TypeScriptRuntimePrefixes {
+			if _, duplicate := seenTypeScriptPrefixes[prefix]; duplicate {
+				return nil, fmt.Errorf("%s.typescript_runtime_artifact_prefixes contains duplicate %s", label, prefix)
+			}
+			seenTypeScriptPrefixes[prefix] = struct{}{}
+			if !strings.HasPrefix(prefix, entry.ContractRoot+"/") || strings.Contains(prefix, "..") {
+				return nil, fmt.Errorf("%s.typescript_runtime_artifact_prefixes entry %s must stay within %s", label, prefix, entry.ContractRoot)
+			}
+		}
 		if strings.TrimSpace(entry.Description) == "" {
 			return nil, fmt.Errorf("%s.description is required", label)
 		}
@@ -134,10 +148,11 @@ func activeFamiliesFromRegistry(root string, registry contractFamilyRegistry) ([
 		switch entry.GenerationStatus {
 		case "active":
 			active = append(active, family{
-				Dir:         dir,
-				GoName:      entry.GoName,
-				TSName:      entry.TSName,
-				OutputOrder: entry.OutputOrder,
+				Dir:                       dir,
+				GoName:                    entry.GoName,
+				TSName:                    entry.TSName,
+				TypeScriptRuntimePrefixes: append([]string(nil), entry.TypeScriptRuntimePrefixes...),
+				OutputOrder:               entry.OutputOrder,
 			})
 		case "planned":
 			if len(entry.ActivationDependencyIDs) == 0 {

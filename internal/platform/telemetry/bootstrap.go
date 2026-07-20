@@ -48,14 +48,16 @@ type Runtime struct {
 }
 
 type BootstrapOptions struct {
-	ClaimedExtensionProfiles []string
+	ResolvedClaims *ResolvedClaimIdentity
 }
 
 type BootstrapOption func(*BootstrapOptions)
 
-func WithClaimedExtensionProfiles(profileIDs []string) BootstrapOption {
+func WithResolvedClaimIdentity(identity ResolvedClaimIdentity) BootstrapOption {
 	return func(options *BootstrapOptions) {
-		options.ClaimedExtensionProfiles = append([]string(nil), profileIDs...)
+		copy := identity
+		copy.ProfileIDs = append([]string(nil), identity.ProfileIDs...)
+		options.ResolvedClaims = &copy
 	}
 }
 
@@ -74,7 +76,14 @@ func Bootstrap(_ context.Context, cfg config.Config, env map[string]string, opts
 	if err != nil {
 		return nil, err
 	}
-	resource, err := BuildResourceIdentity(cfg, options.ClaimedExtensionProfiles)
+	if options.ResolvedClaims == nil {
+		return nil, config.NewDiagnosticsError(config.Diagnostic{
+			Path:       "telemetry.resource.profile_claims",
+			ReasonCode: "invalid_telemetry_config",
+			Message:    "resolved claim identity is required before telemetry bootstrap",
+		})
+	}
+	resource, err := BuildResourceIdentity(cfg, *options.ResolvedClaims)
 	if err != nil {
 		return nil, err
 	}

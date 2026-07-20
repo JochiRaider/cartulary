@@ -144,6 +144,7 @@ const contractFamilyEntryKeys = new Set([
   "owner_document",
   "owner_sections",
   "generated_outputs",
+  "typescript_runtime_artifact_prefixes",
   "activation_dependency_ids",
   "description",
 ]);
@@ -226,7 +227,6 @@ const networkFlowContractIndexKeys = new Set([
   "profile_id",
   "contract_major",
   "document_version",
-  "route_root",
   "family_id",
   "owner_id",
   "verification_ids",
@@ -254,18 +254,8 @@ const networkFlowRouteContractKeys = new Set([
   "profile_id",
   "contract_major",
   "route_root",
-  "extension_discovery",
   "import_integration",
   "routes",
-]);
-const networkFlowExtensionDiscoveryKeys = new Set([
-  "profile_id",
-  "contract_major",
-  "document_version",
-  "route_root",
-  "claim_required",
-  "unclaimed_error_code",
-  "reserved_route_family",
 ]);
 const networkFlowImportIntegrationKeys = new Set([
   "target_kind",
@@ -1111,6 +1101,26 @@ function validateContractFamilyRegistryShape(file) {
           );
         }
       }
+      const typeScriptRuntimePrefixes = requireStringArray(
+        entry.typescript_runtime_artifact_prefixes,
+        `${label}.typescript_runtime_artifact_prefixes`,
+        { nonEmpty: true },
+      );
+      assertUnique(
+        typeScriptRuntimePrefixes,
+        `${label}.typescript_runtime_artifact_prefixes`,
+      );
+      for (const prefix of typeScriptRuntimePrefixes) {
+        if (
+          !prefix.startsWith(`${contractRoot}/`) ||
+          prefix.includes("..") ||
+          !/^contracts\/[A-Za-z0-9._@+-]+(?:\/[A-Za-z0-9._@+-]+)*\/?$/u.test(prefix)
+        ) {
+          throw new Error(
+            `${label}.typescript_runtime_artifact_prefixes[] must stay within ${contractRoot}`,
+          );
+        }
+      }
       const activationDependencies = requireStringArray(
         entry.activation_dependency_ids,
         `${label}.activation_dependency_ids`,
@@ -1684,13 +1694,8 @@ function validateNetworkFlowContractIndexShape(file) {
   assertRequiredKeys(contractIndex, networkFlowContractIndexKeys, file);
   requireSchemaID(contractIndex, networkFlowContractIndexSchemaID, file);
   requireExact(contractIndex.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(contractIndex.contract_major, 1, `${file}.contract_major`);
-  requireExact(contractIndex.document_version, "1.2.0", `${file}.document_version`);
-  requireExact(
-    contractIndex.route_root,
-    "/api/v1/incidents/{incident_id}/network-flow",
-    `${file}.route_root`,
-  );
+  requireExact(contractIndex.contract_major, 2, `${file}.contract_major`);
+  requireExact(contractIndex.document_version, "2.0.0", `${file}.document_version`);
   requireExact(contractIndex.family_id, "network-flow", `${file}.family_id`);
   requireExact(contractIndex.owner_id, "module.networkflow", `${file}.owner_id`);
   requireExactArray(
@@ -1810,7 +1815,7 @@ function validateNetworkFlowPresentationShape(file) {
   assertRequiredKeys(presentation, rootKeys, file);
   requireSchemaID(presentation, "cartulary.network_flow.presentation.v1", file);
   requireExact(presentation.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(presentation.document_version, "1.2.0", `${file}.document_version`);
+  requireExact(presentation.document_version, "2.0.0", `${file}.document_version`);
   const grids = requireObjectArray(presentation.grid_schemas, `${file}.grid_schemas`);
   requireExactArrayLength(grids, 3, `${file}.grid_schemas`);
   const expectedIDs = [
@@ -1895,7 +1900,7 @@ function validateNetworkFlowMappingRegistryShape(file) {
   assertRequiredKeys(registry, rootKeys, file);
   requireSchemaID(registry, "cartulary.network_flow.mapping_registry.v1", file);
   requireExact(registry.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(registry.document_version, "1.2.0", `${file}.document_version`);
+  requireExact(registry.document_version, "2.0.0", `${file}.document_version`);
   requireExact(registry.target_kind, "network_flow_table", `${file}.target_kind`);
   requireExact(registry.target_table_schema_id, "cartulary.network_flow_table.v1", `${file}.target_table_schema_id`);
   const derivations = requireObjectArray(registry.system_derivations, `${file}.system_derivations`);
@@ -1943,30 +1948,11 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
   assertRequiredKeys(routeContracts, networkFlowRouteContractKeys, file);
   requireSchemaID(routeContracts, "cartulary.network_flow_route_contracts.v1", file);
   requireExact(routeContracts.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(routeContracts.contract_major, 1, `${file}.contract_major`);
+  requireExact(routeContracts.contract_major, 2, `${file}.contract_major`);
   requireExact(
     routeContracts.route_root,
     "/api/v1/incidents/{incident_id}/network-flow",
     `${file}.route_root`,
-  );
-
-  const discovery = requireObject(routeContracts.extension_discovery, `${file}.extension_discovery`);
-  assertObjectKeys(discovery, networkFlowExtensionDiscoveryKeys, `${file}.extension_discovery`);
-  assertRequiredKeys(discovery, networkFlowExtensionDiscoveryKeys, `${file}.extension_discovery`);
-  requireExact(discovery.profile_id, "network_flow_activity", `${file}.extension_discovery.profile_id`);
-  requireExact(discovery.contract_major, 1, `${file}.extension_discovery.contract_major`);
-  requireExact(discovery.document_version, "1.2.0", `${file}.extension_discovery.document_version`);
-  requireExact(discovery.route_root, routeContracts.route_root, `${file}.extension_discovery.route_root`);
-  requireExact(discovery.claim_required, true, `${file}.extension_discovery.claim_required`);
-  requireExact(
-    discovery.unclaimed_error_code,
-    "extension_profile_not_claimed",
-    `${file}.extension_discovery.unclaimed_error_code`,
-  );
-  requireExact(
-    discovery.reserved_route_family,
-    routeContracts.route_root,
-    `${file}.extension_discovery.reserved_route_family`,
   );
 
   const integration = requireObject(routeContracts.import_integration, `${file}.import_integration`);
@@ -2290,7 +2276,7 @@ function validateNetworkFlowErrorContractsShape(file) {
   assertRequiredKeys(errorContracts, networkFlowErrorContractKeys, file);
   requireSchemaID(errorContracts, "cartulary.network_flow_error_contracts.v1", file);
   requireExact(errorContracts.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(errorContracts.contract_major, 1, `${file}.contract_major`);
+  requireExact(errorContracts.contract_major, 2, `${file}.contract_major`);
   assertExactIDSet(
     new Set(requireStringArray(errorContracts.retry_actions, `${file}.retry_actions`, { nonEmpty: true })),
     new Set([
@@ -2433,7 +2419,7 @@ function validateNetworkFlowPublicSchemaBundle(file, publicSchemaIDs) {
   requireExact(bundle.$id, "cartulary.network_flow_public_schemas.v1", `${file}.$id`);
   requireSchemaID(bundle, "cartulary.network_flow_public_schemas.v1", file);
   requireExact(bundle.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(bundle.contract_major, 1, `${file}.contract_major`);
+  requireExact(bundle.contract_major, 2, `${file}.contract_major`);
   const defs = requireObject(bundle.$defs, `${file}.$defs`);
   const actualSchemaIDs = new Set();
   for (const [defName, def] of Object.entries(defs)) {

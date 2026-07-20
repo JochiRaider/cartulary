@@ -12,7 +12,7 @@ func TestBootstrapNoSDKExportDisabled(t *testing.T) {
 	runtime, err := Bootstrap(context.Background(), cfg, map[string]string{
 		"OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4318",
 		"OTEL_TRACES_EXPORTER":        "otlp",
-	})
+	}, WithResolvedClaimIdentity(resolvedClaimIdentity(t)))
 	if err != nil {
 		t.Fatalf("bootstrap export-disabled telemetry: %v", err)
 	}
@@ -42,7 +42,7 @@ func TestBootstrapActivatesExplicitOTLPHTTPExport(t *testing.T) {
 
 	runtime, err := Bootstrap(context.Background(), cfg, map[string]string{
 		"CARTULARY_SECRET_OTEL_TOKEN": "safe-secret-value",
-	})
+	}, WithResolvedClaimIdentity(resolvedClaimIdentity(t)))
 	if err != nil {
 		t.Fatalf("bootstrap explicit OTLP/HTTP export: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestBootstrapIgnoresHostileOTelEnvironment(t *testing.T) {
 		"OTEL_TRACES_EXPORTER":          "otlp",
 		"OTEL_TRACES_SAMPLER":           "always_on",
 		"OTEL_TRACES_SAMPLER_ARG":       "1.0",
-	})
+	}, WithResolvedClaimIdentity(resolvedClaimIdentity(t)))
 	if err != nil {
 		t.Fatalf("bootstrap should ignore upstream OTel env while export is disabled: %v", err)
 	}

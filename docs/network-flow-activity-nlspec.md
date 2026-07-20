@@ -1,8 +1,8 @@
 ---
 title: Network Flow Activity NLSpec
 status: adopted/current
-document_version: 1.2.0
-contract_major: 1
+document_version: 2.0.0
+contract_major: 2
 profile_id: network_flow_activity
 document_class: nlspec
 ---
@@ -11,9 +11,9 @@ document_class: nlspec
 
 Status: `adopted/current`.
 
-This NLSpec defines the implementation-conformance contract for the `network_flow_activity` extension profile. Its adoption dependencies and gates in Tables 1-B, 3-A, and 24-A are closed for version `1.2.0`, including the required Core, Graph Projection, Testing Harness, timezone-ruleset, fixture, import-preview, and presentation contracts.
+This NLSpec defines the implementation-conformance contract for the `network_flow_activity` extension profile. Its adoption dependencies and gates in Tables 1-B, 3-A, and 24-A are closed for version `2.0.0`, including the required Core, Extensions Subsystem, Graph Projection, Testing Harness, timezone-ruleset, fixture, import-preview, and presentation contracts.
 
-Document version: `1.2.0`. Contract major: `1`.
+Document version: `2.0.0`. Contract major: `2`. The state schema remains version `1`; the public-contract major change removes the competing profile-local discovery shape and does not reinterpret durable Network Flow state.
 
 **NF-REQ-001**
 The `network_flow_activity` extension profile MUST own only the following behavior families:
@@ -50,7 +50,7 @@ Omission behavior: an implementation that ignores research reports, UI guides, i
 ### 1.1 Version and compatibility
 
 **NF-REQ-006a**
-The closed Network Flow contract-discovery metadata MUST expose `profile_id`, `contract_major`, `document_version`, and `route_root`. `document_version` MUST equal `1.2.0`, and `route_root` MUST equal `/api/v1/incidents/{incident_id}/network-flow`. A client or deployment that does not support the declared `contract_major` MUST treat the extension contract as unavailable and MUST NOT infer compatibility from the HTTP route version alone. The Base Profile `GET /api/v1/extensions` resource remains owned by Core 01 §3.3.3.1 and MUST retain that owner's closed public item shape; the contract-discovery metadata is a repo-local derived contract artifact, not an additive public response member.
+Network Flow MUST NOT define or emit profile-local contract-discovery metadata. Core 01 `GET /api/v1/extensions` is the sole discovery owner and emits this profile through the generic seven-member item with `profile_id='network_flow_activity'`, `claimable=true`, `contract_major=2`, reserved route family `/api/v1/incidents/{incident_id}/network-flow`, `workspace_keys=['network_analysis']`, and `capabilities=[]`; only `claimed` varies with the published resolved claim set. `document_version`, singular `route_root`, a profile-local item, a second decoder, and a compatibility alias are forbidden. A client that does not support major `2` omits the workspace without affecting Base behavior.
 
 **Table 1-A. Contract version-change registry**
 
@@ -58,12 +58,12 @@ The closed Network Flow contract-discovery metadata MUST expose `profile_id`, `c
 | --- | --- |
 | Editorial correction that changes no observable behavior | Increment patch version only. |
 | New immutable source profile advertised through discovery | Increment minor version. |
-| New additive capability whose availability is explicitly advertised | Increment minor version. |
+| New additive capability | Requires a later adopted Extensions capability contract and the version action that contract assigns; contract major `2` advertises none. |
 | New public route, request member, response member, error code, or closed token not explicitly reserved as additive | Increment contract major and affected schema IDs. |
 | Changed default, limit, ordering, normalization, identity, digest, lifecycle, authorization, disclosure, or audit behavior | Increment contract major and every affected schema or algorithm ID. |
 | Changed source aliases, requiredness, transform, empty-value policy, or timestamp interpretation | Introduce a new immutable `source_profile_id`; do not mutate the prior profile. |
 
-Patch-version changes MUST NOT alter canonical bytes, identifiers, persisted resources, route status codes, error selection, audit output, fixture output, or caller-visible UI semantic state. Minor-version capabilities MUST remain unavailable unless extension discovery advertises them.
+Patch-version changes MUST NOT alter canonical bytes, identifiers, persisted resources, route status codes, error selection, audit output, fixture output, or caller-visible UI semantic state. Capability facts and nonempty capability arrays are invalid in contract major `2`; attempted activation fails with `extension_capability_not_supported`.
 
 ### 1.2 Normative dependency registry
 
@@ -74,11 +74,12 @@ Table 1-B MUST contain an adopted document version and exact imported section or
 
 | Dependency | Imported contract | Required adopted version and locator |
 | --- | --- | --- |
-| Core 00 | Extension ownership, precedence, and adopted-document registry. | Adopted current-profile Core 00 revision at owner artifact `155b5f64`; locator: `docs/spec/00_document_set_status_and_precedence.md` §§4.2, 4.3, 5, 5.1; `REQ-00-003`, `REQ-00-064`. |
-| Core 01 | Extension discovery, extension import target/result union, common transaction boundary, and public envelopes. | Adopted current-profile Core 01 revisions at owner artifacts `89580f0c`, `90401fb2`, and `08fa716e`; locator: `docs/spec/01_architecture_storage_and_view_contracts.md` §§3.3.3.1, 3.3.6.1, 3.3.6.2, 3.3.7, 3.3.9.1, 3.3.10.1, 17, 17.2; `REQ-01-542..548`, `REQ-01-618..620d`, `REQ-01-240..242`, `REQ-01-151.1`. |
-| Core 02 | Canonical IP-literal indicator type, indicator find/create transaction participation, and explicit no-private-purge boundary. | Adopted current-profile Core 02 revision at owner artifact `344486e7`; locator: `docs/spec/02_domain_model_schema_and_history.md` §§10.2, 14.4, 18; `REQ-02-074A..074C`, `REQ-02-210`, registry token row for `indicator.indicator_type`. |
-| Core 03 | Extension-contributed incident tab and resource-invalidation event. | Adopted current-profile Core 03 revision at owner artifact `08fa716e`; locator: `docs/spec/03_workbook_interaction_collaboration_and_workflows.md` §§2, 4.3.1; `REQ-03-004`, `REQ-03-011A`, `REQ-03-030`, `REQ-03-067..072`. |
-| Core 04 | Route authorization, cursor protection, audit delivery, deployment-secret lifecycle, and retention. | Adopted current-profile Core 04 revisions at owner artifacts `3b942fe0`, `90401fb2`, `cd645750`, `71258589`, and `663c8684`; locator: `docs/spec/04_security_deployment_and_conformance.md` §§2, 3, 9.1B, 12.3; `REQ-04-123..142`, `AC-475..477`; Core 01 §3.3.7 owns cursor wire shape. |
+| Core 00 | Extension ownership, recognition, primary-owner provenance, precedence, and adoption. | `cartulary.core00.current.v1`, version `extensions-adoption-1`, SHA-256 `3358cc76a3f5a7db45d5373929c43a35e6a1ef0149eea977ca5938edb068f90f`; `REQ-00-065`. |
+| Core 01 | Generic seven-member discovery, import target/result union, bounded transaction boundary, staged objects, backup/restore, and public envelopes. | `cartulary.core01.current.v1`, version `extensions-adoption-1`, SHA-256 `9ad58e1339ab2bc2fa7f32e43cb2bf2f1739877406b80acbe6d8e80440c44627`; `REQ-01-151.1`, `REQ-01-542`, `REQ-01-629..633`. |
+| Core 02 | Authoritative-state presence, canonical IP-literal indicator type, indicator transaction participation, and explicit no-private-purge boundary. | `cartulary.core02.current.v1`, version `extensions-adoption-1`, SHA-256 `79803b2d0b65cfec99e8fd053d2e3be0cab5540a442d5d19b1e47ca49e825454`; `REQ-02-074A..074C`, `REQ-02-210`, `REQ-02-261`. |
+| Core 03 | Extension-contributed incident workspace, availability generation, stable Base identity, and resource invalidation. | `cartulary.core03.current.v1`, version `extensions-adoption-1`, SHA-256 `79afa553168703b6acfd3977562566962b8c1cf107caa55962636d4b0b3e00c5`; `REQ-03-011A`, `REQ-03-303`. |
+| Core 04 | Closed inactive configuration, validation precedence, lease/publication lifecycle, authorization, cursor protection, audit, secrets, and retention. | `cartulary.core04.current.v1`, version `extensions-adoption-1`, SHA-256 `67583e759aea19b52ca1718b53537d6c1ca1328f4a83031267891c916542658b`; `REQ-04-123..146`. |
+| Extensions Subsystem NLSpec | Owner manifests and fragments, generated registry, state coordination, bindings/codecs, participants, and conformance accounting. | Adopted/current `docs/extension-subsystem-nlspec.md` version `0.6.0`, SHA-256 `1d10578b2d10df2bfa17e3ab48d0cd3ad0cf36a1f0c285b8875f5df4109e2440`; `EXT-REQ-001..236`, `EXT-AC-001..158`. This dependency closed in the same atomic companion revision. |
 | Graph Projection NLSpec | Ephemeral projection request, property and metadata mapping, result, and error interface. | Adopted/current Graph Projection NLSpec `docs/graph_projection_nlspec.md`; owner artifacts `4e446354`, `f177fb6b`, `81941bba`; locator: front matter `status: adopted/current`, §§4, 5.1.1, 10.0, 10.9, 12, 13, 14; `GP-AC-033`, `GP-AC-053`, `GP-AC-069`. |
 | Testing Harness NLSpec | Contract artifact generation, fixture execution, and drift checks. | Adopted/current Testing Harness NLSpec `docs/testing-harness-nlspec.md`; locator: front matter `status: adopted/current`, §§8, 11, 12, 16, 17; `TH-HARNESS-REQ-657..663`, `TH-HARNESS-AC-049..055`, schemas `cartulary.network_flow_fixture_manifest.v1`, `cartulary.network_flow_activity_accounting.v2`, `cartulary.network_flow_timezone_ruleset_provenance.v1`. |
 
@@ -125,7 +126,7 @@ This NLSpec may be marked `status: adopted/current` only while every adoption ga
 | Gate ID | Owner artifact | Required adoption change | Required evidence before adoption |
 | --- | --- | --- | --- |
 | `NF-GATE-001` | Core 00 | Add `network_flow_activity` to the extension-profile model and adopted-subsystem map. | Core 00 lists this NLSpec as adopted for the extension boundary only. |
-| `NF-GATE-002` | Core 01 | Add `network_flow_activity` to extension discovery returned by `GET /api/v1/extensions`, with route family `/api/v1/incidents/{incident_id}/network-flow`. | Extension discovery fixture returns the route family only when the profile is claimed. |
+| `NF-GATE-002` | Core 01 | Add `network_flow_activity` to the sole generic extension discovery producer with major `2`, its reserved route family, `workspace_keys=['network_analysis']`, and `capabilities=[]`. | Both claimed and unclaimed fixtures contain the same reserved route/workspace facts; only `claimed` changes, and no profile-local producer or decoder exists. |
 | `NF-GATE-003` | Core 01 | Extend import apply to permit extension-owned analytical import targets that produce durable extension resources rather than Core `record_id` rows. | Import contract names `target_kind='network_flow_table'` as an extension result target. |
 | `NF-GATE-004` | Core 01 | Permit terminal import results to reference `network_flow_table` resources when `target_kind='network_flow_table'`. | Import result schema accepts extension resource references without treating them as saved views or record-envelope rows. |
 | `NF-GATE-005` | Core 03 | Admit extension-contributed top-level incident tabs without adding `Network Analysis` to the Base Profile built-in tab list. | Base built-in tabs remain Timeline, Hosts, Identities, Evidence, and Notes; `Network Analysis` appears only when the extension is claimed. |
@@ -2690,8 +2691,8 @@ The adopted top-level deployment-configuration namespace for this profile is
 
 | Key | Type | Required | Default and omitted behavior |
 | --- | --- | ---: | --- |
-| `claimed` | boolean | No | `false`. |
-| `key_ring_manifest_path` | string | Required only when `claimed=true` | No default. It MUST be absent when `claimed=false`. |
+| `claimed` | boolean | No | `false`; Core 04 owns claim parsing and resolution. |
+| `key_ring_manifest_path` | string | Required only when `claimed=true` | No default; `inactive_policy='forbidden'`, `inactive_value_schema_ref=null`, and it MUST be absent when `claimed=false`. |
 
 `key_ring_manifest_path` MUST be an absolute normalized path with no NUL,
 shell-variable form, `~`, or lexical `.` or `..` segment. Explicit `null` is
@@ -3091,6 +3092,13 @@ An implementation claiming `network_flow_activity` MUST satisfy every acceptance
 | `NF-AC-105` | Every route returns its exact success status, exact closed data schema, Table 21-A status, exhaustive reason code, safe details, and retry action. |
 | `NF-AC-106` | Every document dependency has an adopted version and immutable locator, every blocker in §24 is closed, and every Table 22-A fixture has concrete immutable bytes before adopted/current status is claimed. |
 | `NF-AC-107` | Import cancellation before commit leaves no table, while cancellation or worker failure after commit recovers and publishes the one committed success without duplicate table creation. |
+| `NF-AC-108` | The owner manifest and fragment resolve exactly to document version `2.0.0`, contract major `2`, Import major `1`, the reserved route/workspace, empty capabilities, and no competing discovery fact. |
+| `NF-AC-109` | State presence uses only the four authoritative logical families, permits metadata-only empty state under `empty_state_policy='allowed'`, and never treats jobs, ledgers, caches, projections, or staged objects as state. |
+| `NF-AC-110` | Fresh initialization is empty and invokes only the final validator; current state version `1` requires no profile migration definition, while an omitted, extra, or code-inferred migration fails contract generation. |
+| `NF-AC-111` | Inactive Network Flow configuration rejects `key_ring_manifest_path` structurally without defaulting, retaining, resolving, reading, invoking profile code, or performing DNS, connection, or other egress. |
+| `NF-AC-112` | Every authoritative family has one required PostgreSQL backup binding and digest-bound codec; restore is stopped-empty, group-ordered, sequential, validated before advance, and invokes no inactive profile code. |
+| `NF-AC-113` | Import apply, indicator link, invalidation, and backup/restore use only their declared typed contributions; profile-owned job, worker, portability, reporting, and persisted rebuild declarations are exactly empty. |
+| `NF-AC-114` | A standard client renders `network_analysis` only for major `2` at the current authorized availability generation; all capability facts and nonempty capability arrays fail with `extension_capability_not_supported`. |
 
 ## 24. Core amendments and adoption blocker checklist
 
@@ -3102,7 +3110,7 @@ This NLSpec may remain `adopted/current` only while the adoption checklist in Ta
 | Blocker ID | Required closure |
 | --- | --- |
 | `NF-BLOCK-001` | Core 00 recognizes `network_flow_activity` as an adopted extension profile. |
-| `NF-BLOCK-002` | Core 01 extension discovery lists the route family only when the profile is claimed. |
+| `NF-BLOCK-002` | Core 01 generic discovery always reserves the route family and `network_analysis` workspace for this recognized profile, emits major `2` and `capabilities=[]`, and varies only `claimed`; no profile-local discovery item or compatibility reader exists. |
 | `NF-BLOCK-003` | Core 01 import terminal result references admit `kind='network_flow_table'`. |
 | `NF-BLOCK-004` | Core 03 admits extension-contributed top-level incident tabs without expanding base built-in tabs. |
 | `NF-BLOCK-005` | Core 04 adds Network Flow route-family authorization/conformance hooks. |
@@ -3118,6 +3126,127 @@ This NLSpec may remain `adopted/current` only while the adoption checklist in Ta
 | `NF-BLOCK-015` | The adopted Graph Projection contract accepts the exact ephemeral adapter input, property/metadata mappings, arbitrary-precision counter strings, and outcome mappings in §14.4. |
 | `NF-BLOCK-016` | The adopted Testing Harness contract can execute immutable fixture manifests, failure injection, fake clock, authorization transitions, and audit-count assertions required by §23. |
 | `NF-BLOCK-017` | `tzdb-2026c` fixture data and transition expectations are vendored or immutably identified for timestamp conformance, with the required provenance record validated by `make json-shape-check`. |
+
+## 25. Extensions owner declarations
+
+**NF-REQ-181**
+The primary owner document identity is
+`cartulary.network_flow_activity.current.v2`, version `2.0.0`. Its only runtime
+dependency is `profile_id='import'`, `required_contract_major=1`, bound to the
+exact Import owner manifest version and digest selected by the Extensions
+dependency declaration set. The recognized profile is claimable at contract
+major `2`; it declares exactly route family
+`/api/v1/incidents/{incident_id}/network-flow`, workspace key
+`network_analysis`, and no capability. The claim key is
+`network_flow_activity.claimed`. Those facts come only from the Core 00 owner
+fragment and this primary owner fragment; source code, route registration,
+configuration, tests, and prose search are forbidden fact sources.
+
+**NF-REQ-182**
+The `cartulary.extension_state_presence_manifest.v1` owner declaration for this
+profile uses `migration_lineage_id='network_flow_activity.state_v1'`, current
+state version `1`, minimum migratable version `1`, and
+`empty_state_policy='allowed'`. Its authoritative logical families are exactly,
+in ascending UTF-8 order:
+
+1. `network_flow_activity.indicator_bindings`;
+2. `network_flow_activity.rejected_row_diagnostics`;
+3. `network_flow_activity.rows`;
+4. `network_flow_activity.tables`.
+
+State is present if and only if at least one member exists in one of those four
+families. Generic extension metadata, the migration ledger, Core Import jobs and
+resource references, caches, ephemeral graph projections, staged objects,
+temporary files, indexes, and configuration never make Network Flow state
+present. Metadata with no authoritative member is valid empty state because the
+policy is `allowed`; it is not synthetic state.
+
+The `cartulary.extension_state_initialization_definition.v1` declaration has
+`kind='empty'`. It invokes no Network Flow code, constructs no authoritative
+member, and then invokes exactly
+`network_flow_activity.validate_state_v1` through its digest-bound packaged
+algorithm reference. There are no `cartulary.extension_migration_definition.v1`
+objects while current and minimum versions are both `1`; an omitted migration
+path is valid only for the `1 -> 1` case, and an extra migration is invalid.
+
+**NF-REQ-183**
+The `cartulary.extension_profile_configuration_contract.v1` declaration contains
+exactly `network_flow_activity.claimed` and
+`network_flow_activity.key_ring_manifest_path`. The claim row is Core 04 owned.
+The path row has `inactive_policy='forbidden'` and
+`inactive_value_schema_ref=null`; `syntax_only` is not selected and there is no
+inactive-value schema for this profile. Its active `value_schema_ref` is the
+owner schema `cartulary.network_flow_key_ring_manifest_path.v1`, the namespace
+schema is `cartulary.network_flow_activity.configuration_namespace.v1`, omission
+is `required`, resolution is `regular_file_ref`, and diagnostics are
+`name_only`. While unclaimed, presence of the path
+fails structural admission with `profile_incompatible_binding` before any
+default, configuration view, value retention, reference or secret resolution,
+file access, DNS lookup, connection, egress, or Network Flow invocation. While
+claimed, §20.1 is the sole value and secret-handling contract.
+
+**NF-REQ-184**
+The `cartulary.extension_physical_state_binding.v1` declaration contains exactly
+four authoritative PostgreSQL bindings, one for each NF-REQ-182 family. Every
+binding uses `backup_inclusion='required'`, a digest-bound
+`cartulary.network_flow_activity.postgres_rows.v1` codec, the shared PostgreSQL
+post-restore structural validator, and `rebuild_algorithm_id=null`. Restore
+order groups are `100` for `tables`, `200` for `rows`, `300` for
+`rejected_row_diagnostics`, and `400` for `indicator_bindings`; bindings within
+a group execute sequentially by binding ID. Historical codec declarations and
+derived physical bindings are empty in version `2.0.0`. Backup/restore operates
+on a stopped empty target, validates each binding before advancing, never invokes
+Network Flow code while inactive, and never serves a failed target. There is no
+persisted derived state to rebuild after claim; the graph remains an ephemeral
+query result.
+
+**NF-REQ-185**
+The profile declares exactly these integration contributions:
+
+- one `http_route_family` for the NF-REQ-181 route;
+- one `incident_workspace` for `network_analysis`;
+- one `import_target` for `network_flow_table`;
+- resource kinds `network_flow_table` and `network_flow_indicator_binding`;
+- one `websocket_invalidation` contribution covering those resource kinds;
+- typed cross-owner transaction participants
+  `network_flow_activity.import_apply_v1` and
+  `network_flow_activity.indicator_link_v1`;
+- one typed backup/restore participant
+  `network_flow_activity.backup_restore_v1`.
+
+Every participant reference and digest is owner-authored and must match the
+shared-owner registry. The profile declares no portability participant because
+`incident_portability_mode='blocked_when_present'` uses the NF-REQ-182 state
+predicate. It declares `snapshot_reporting_mode='no_participation'`, no
+profile-owned job kind, no profile-owned worker kind, no derived-state rebuild
+algorithm, and no egress. Import scheduling remains Core Import behavior and is
+not reclassified as a Network Flow job. Empty declarations are normative; the
+generator must reject inferred entries from packages, SQL, or runtime behavior.
+
+**NF-REQ-186**
+The profile admission-validation declaration has no preflight algorithm, exactly
+`network_flow_activity.validate_state_v1` as the post-migration algorithm, and
+`dependency_probes=[]`. Schema-validation conditions are supplied only by
+annotated owner schemas. Procedural conditions are supplied by the closed
+Network Flow validation decision tables in this document. Every reachable
+invalid condition must appear in the generated validation-condition registry;
+an undeclared condition or an emitted unregistered condition blocks admission.
+Validation results use the shared precedence: invocation failure, structural
+invalidity, overflow at `4097+` findings, remaining schema defects, valid
+findings, then valid empty result; `257..4096` is the ordinary 256-item bound
+violation.
+
+**NF-REQ-187**
+The only supported browser build class is `standard`. Its generated support row
+must name profile `network_flow_activity`, contract major `2`, workspace
+`network_analysis`, and an empty capability set. Browser eligibility is the
+intersection of generic discovery, that exact packaged support row, current
+authorization/availability, and the current local epoch/generation. A stale,
+unauthorized, unsupported-major, missing-support, or capability-bearing profile
+must not render. All nonempty capability facts and arrays are invalid, and every
+attempted activation returns `extension_capability_not_supported`. Base workbook
+state and stable client/WebSocket identities survive every Network Flow
+availability transition.
 
 ## Appendix E. Future-only decision backlog and rationale
 

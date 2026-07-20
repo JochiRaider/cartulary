@@ -1,0 +1,59 @@
+{
+  "facts": [
+    {
+      "claim_config_key": "enterprise_authentication.claimed",
+      "configuration_contract_ref": "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-143",
+      "configuration_contract_sha256": "3cdae6d791c9d269158e145b02ecfcf00d61a4f6957bf4faa702fdd29ea1d2ff",
+      "fact_kind": "claim_configuration",
+      "owner_contract_ref": "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-143",
+      "profile_id": "enterprise_authentication"
+    },
+    {
+      "claim_config_key": "import.claimed",
+      "configuration_contract_ref": "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-143",
+      "configuration_contract_sha256": "a1bb4bc2a72ee8c98a18312a90d79dc784172bb5e455d739414481e0bf0f485e",
+      "fact_kind": "claim_configuration",
+      "owner_contract_ref": "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-143",
+      "profile_id": "import"
+    },
+    {
+      "claim_config_key": "incident_portability.claimed",
+      "configuration_contract_ref": "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-143",
+      "configuration_contract_sha256": "3078b3ed556651ecfb9c5d330e3c1cda4125deb1c938ffe07453d71aa80ca9b4",
+      "fact_kind": "claim_configuration",
+      "owner_contract_ref": "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-143",
+      "profile_id": "incident_portability"
+    },
+    {
+      "claim_config_key": "network_flow_activity.claimed",
+      "configuration_contract_ref": "docs/network-flow-activity-nlspec.md#schema:cartulary.extension_profile_configuration_contract.v1",
+      "configuration_contract_sha256": "053941c77fc4e96026b6491dcbba84e3109a05de9fc58e75b664034da063cd85",
+      "fact_kind": "claim_configuration",
+      "owner_contract_ref": "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-143",
+      "profile_id": "network_flow_activity"
+    },
+    {
+      "claim_config_key": "reference_pack.claimed",
+      "configuration_contract_ref": "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-143",
+      "configuration_contract_sha256": "8ed6cd5e32a211ebbdbff98e2a5c13cd7f49579bc3fe2f941acaaf8426e34dbd",
+      "fact_kind": "claim_configuration",
+      "owner_contract_ref": "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-143",
+      "profile_id": "reference_pack"
+    },
+    {
+      "claim_config_key": "snapshot_reporting.claimed",
+      "configuration_contract_ref": "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-143",
+      "configuration_contract_sha256": "d13e73e57ac4c43b05ba7ef4a1281fb8c565cf8e6b8f6f87eafcab55a93324a0",
+      "fact_kind": "claim_configuration",
+      "owner_contract_ref": "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-143",
+      "profile_id": "snapshot_reporting"
+    }
+  ],
+  "owner_document_ref": "docs/spec/04_security_deployment_and_conformance.md#document:cartulary.core04.current.v1",
+  "owner_document_schema_id": "cartulary.core04.current.v1",
+  "owner_document_sha256": "da7ff2d94e96125b5bf117e9eb35103fb2d96ea8cf12275c05db8447d832074d",
+  "owner_document_version": "extensions-adoption-1",
+  "owner_fragment_id": "core04.extension_claim_configuration.v1",
+  "owner_id": "core04",
+  "schema_id": "cartulary.extension_owner_fragment.v1"
+}

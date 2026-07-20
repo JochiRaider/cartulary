@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -77,8 +79,9 @@ var (
 	errorEntryKeys            = stringSet("code", "http_status", "summary")
 	reasonRegistryEntryKeys   = stringSet("error_code", "reason_codes")
 	reasonCodeEntryKeys       = stringSet("code", "summary")
-	extensionRegistryKeys     = stringSet("$schema", "registry_id", "note", "profiles")
-	extensionProfileKeys      = stringSet("profile_id", "route_families")
+	extensionInputCatalogKeys = stringSet("$schema", "schema_id", "extensions_document_version", "extensions_document_sha256", "artifacts")
+	extensionInputEntryKeys   = stringSet("path", "schema_id", "owner_id", "artifact_class")
+	extensionArtifactClasses  = stringSet("owner_contract_manifest", "owner_fragment", "profile_contract", "shared_owner_resolution", "specification_input", "build_input", "validation_input", "traceability_input")
 	wsIndexKeys               = stringSet("$schema", "$id", "title", "description", "type", "additionalProperties", "properties", "required")
 )
 
@@ -115,10 +118,10 @@ func validateContractInput(familyDir, relativePath string, value any) error {
 		}
 		return validateErrorRegistry(value)
 	case "extensions":
-		if relativePath != "index.json" {
-			return fmt.Errorf("unexpected extensions artifact %s", relativePath)
+		if relativePath == "index.json" {
+			return validateExtensionInputCatalog(value)
 		}
-		return validateExtensionRegistry(value)
+		return validateExtensionAuthoredArtifact(value, relativePath)
 	case "ws":
 		if relativePath != "index.schema.json" {
 			return fmt.Errorf("unexpected websocket artifact %s", relativePath)
@@ -130,6 +133,9 @@ func validateContractInput(familyDir, relativePath string, value any) error {
 }
 
 func validateContractFamily(root, familyDir string) error {
+	if familyDir == "extensions" {
+		return validateExtensionContractFamily(root)
+	}
 	if familyDir != "view-schemas" {
 		return nil
 	}
@@ -1019,52 +1025,204 @@ func validateErrorRegistry(value any) error {
 	return nil
 }
 
-func validateExtensionRegistry(value any) error {
+func validateExtensionInputCatalog(value any) error {
 	object, err := asObject(value, "contracts/extensions/index.json")
 	if err != nil {
 		return err
 	}
-	if err := requireAllowedKeys(object, extensionRegistryKeys, "contracts/extensions/index.json"); err != nil {
+	if err := requireAllowedKeys(object, extensionInputCatalogKeys, "contracts/extensions/index.json"); err != nil {
 		return err
 	}
 	if err := requireDraftSchema(object, "contracts/extensions/index.json"); err != nil {
 		return err
 	}
-	if _, err := requiredString(object, "registry_id", "contracts/extensions/index.json"); err != nil {
+	if schemaID, err := requiredString(object, "schema_id", "contracts/extensions/index.json"); err != nil {
 		return err
+	} else if schemaID != "cartulary.extension_authored_input_catalog.v1" {
+		return fmt.Errorf("contracts/extensions/index.json.schema_id must be cartulary.extension_authored_input_catalog.v1")
 	}
-	if _, err := requiredString(object, "note", "contracts/extensions/index.json"); err != nil {
+	if version, err := requiredString(object, "extensions_document_version", "contracts/extensions/index.json"); err != nil {
 		return err
+	} else if version != "0.6.0" {
+		return fmt.Errorf("contracts/extensions/index.json.extensions_document_version must be 0.6.0")
 	}
-	profiles, err := objectArray(object["profiles"], "profiles")
+	if digest, err := requiredString(object, "extensions_document_sha256", "contracts/extensions/index.json"); err != nil {
+		return err
+	} else if !isLowerSHA256(digest) {
+		return fmt.Errorf("contracts/extensions/index.json.extensions_document_sha256 must be lowercase SHA-256")
+	}
+	artifacts, err := objectArray(object["artifacts"], "artifacts")
 	if err != nil {
 		return err
 	}
-	seen := map[string]struct{}{}
-	for index, profile := range profiles {
-		label := fmt.Sprintf("profiles[%d]", index+1)
-		if err := requireAllowedKeys(profile, extensionProfileKeys, label); err != nil {
+	if len(artifacts) == 0 {
+		return fmt.Errorf("contracts/extensions/index.json.artifacts must not be empty")
+	}
+	previousPath := ""
+	seenPaths := map[string]struct{}{}
+	for index, entry := range artifacts {
+		label := fmt.Sprintf("artifacts[%d]", index+1)
+		if err := requireAllowedKeys(entry, extensionInputEntryKeys, label); err != nil {
 			return err
 		}
-		profileID, err := requiredString(profile, "profile_id", label)
+		path, err := requiredString(entry, "path", label)
 		if err != nil {
 			return err
 		}
-		if _, exists := seen[profileID]; exists {
-			return fmt.Errorf("duplicate extension profile %s", profileID)
+		if !validExtensionCatalogPath(path) {
+			return fmt.Errorf("%s.path must be a normalized relative JSON path", label)
 		}
-		seen[profileID] = struct{}{}
-		routes, err := stringArray(profile["route_families"], label+".route_families", true)
+		if previousPath != "" && previousPath >= path {
+			return fmt.Errorf("contracts/extensions/index.json.artifacts must be unique and sorted by path")
+		}
+		previousPath = path
+		if _, duplicate := seenPaths[path]; duplicate {
+			return fmt.Errorf("duplicate extension artifact path %s", path)
+		}
+		seenPaths[path] = struct{}{}
+		if _, err := requiredString(entry, "schema_id", label); err != nil {
+			return err
+		}
+		if _, err := requiredString(entry, "owner_id", label); err != nil {
+			return err
+		}
+		artifactClass, err := requiredString(entry, "artifact_class", label)
 		if err != nil {
 			return err
 		}
-		for _, route := range routes {
-			if !strings.HasPrefix(route, "/") {
-				return fmt.Errorf("%s.route_families must contain route paths", label)
-			}
+		if _, ok := extensionArtifactClasses[artifactClass]; !ok {
+			return fmt.Errorf("%s.artifact_class is not recognized", label)
 		}
 	}
 	return nil
+}
+
+func validateExtensionAuthoredArtifact(value any, relativePath string) error {
+	object, err := asObject(value, "contracts/extensions/"+relativePath)
+	if err != nil {
+		return err
+	}
+	if _, err := requiredString(object, "schema_id", "contracts/extensions/"+relativePath); err != nil {
+		return err
+	}
+	return validateExtensionArtifactShape(value, relativePath)
+}
+
+func validateExtensionContractFamily(root string) error {
+	baseDir := filepath.Join(root, "contracts", "extensions")
+	contractRoot, err := os.OpenRoot(baseDir)
+	if err != nil {
+		return fmt.Errorf("open extensions contract root: %w", err)
+	}
+	defer contractRoot.Close()
+	rawIndex, err := contractRoot.ReadFile("index.json")
+	if err != nil {
+		return fmt.Errorf("read extensions input catalog: %w", err)
+	}
+	decoded, err := decodeContract(rawIndex)
+	if err != nil {
+		return fmt.Errorf("decode extensions input catalog: %w", err)
+	}
+	if err := validateExtensionInputCatalog(decoded); err != nil {
+		return err
+	}
+	index, err := asObject(decoded, "contracts/extensions/index.json")
+	if err != nil {
+		return err
+	}
+	documentDigest, _ := requiredString(index, "extensions_document_sha256", "contracts/extensions/index.json")
+	documentBytes, err := os.ReadFile(filepath.Join(root, "docs", "extension-subsystem-nlspec.md"))
+	if err != nil {
+		return fmt.Errorf("read Extensions NLSpec for authored-input binding: %w", err)
+	}
+	actualDocumentDigest := sha256.Sum256(documentBytes)
+	if hex.EncodeToString(actualDocumentDigest[:]) != documentDigest {
+		return fmt.Errorf("contracts/extensions/index.json.extensions_document_sha256 is stale")
+	}
+
+	entries, _ := objectArray(index["artifacts"], "artifacts")
+	indexed := make(map[string]string, len(entries))
+	indexedObjects := make(map[string]map[string]any, len(entries))
+	for entryIndex, entry := range entries {
+		label := fmt.Sprintf("artifacts[%d]", entryIndex+1)
+		path, _ := requiredString(entry, "path", label)
+		schemaID, _ := requiredString(entry, "schema_id", label)
+		raw, err := contractRoot.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("%s.path references missing artifact %s", label, path)
+		}
+		value, err := decodeContract(raw)
+		if err != nil {
+			return fmt.Errorf("decode indexed extension artifact %s: %w", path, err)
+		}
+		object, err := asObject(value, "contracts/extensions/"+path)
+		if err != nil {
+			return err
+		}
+		actualSchemaID, err := requiredString(object, "schema_id", "contracts/extensions/"+path)
+		if err != nil {
+			return err
+		}
+		if actualSchemaID != schemaID {
+			return fmt.Errorf("%s.schema_id does not match indexed artifact %s", label, path)
+		}
+		catalogOwnerID, _ := requiredString(entry, "owner_id", label)
+		if actualOwnerID, hasOwnerID := object["owner_id"].(string); hasOwnerID && actualOwnerID != catalogOwnerID {
+			return fmt.Errorf("%s.owner_id does not match indexed artifact %s", label, path)
+		}
+		indexed[path] = schemaID
+		indexedObjects[path] = object
+	}
+
+	discovered := map[string]struct{}{}
+	if err := filepath.WalkDir(baseDir, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() || entry.Name() == "index.json" || !strings.HasSuffix(entry.Name(), ".json") {
+			return nil
+		}
+		relative, err := filepath.Rel(baseDir, path)
+		if err != nil {
+			return err
+		}
+		relative = filepath.ToSlash(relative)
+		discovered[relative] = struct{}{}
+		if _, ok := indexed[relative]; !ok {
+			return fmt.Errorf("unexpected extensions artifact %s", relative)
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	for path := range indexed {
+		if _, ok := discovered[path]; !ok {
+			return fmt.Errorf("indexed extensions artifact %s is missing", path)
+		}
+	}
+	if err := validateExtensionOwnerBindings(root, indexedObjects); err != nil {
+		return err
+	}
+	if err := validateExtensionTraceabilityRanges(root, indexedObjects); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validExtensionCatalogPath(path string) bool {
+	if path == "" || strings.Contains(path, "\\") || strings.HasPrefix(path, "/") || !strings.HasSuffix(path, ".json") {
+		return false
+	}
+	clean := filepath.ToSlash(filepath.Clean(path))
+	return clean == path && path != "." && path != ".." && !strings.HasPrefix(path, "../") && !strings.Contains(path, "/../")
+}
+
+func isLowerSHA256(value string) bool {
+	if len(value) != sha256.Size*2 {
+		return false
+	}
+	decoded, err := hex.DecodeString(value)
+	return err == nil && hex.EncodeToString(decoded) == value
 }
 
 func validateWSIndex(value any) error {

@@ -21,7 +21,6 @@ import {
   fetchJSON,
   publicErrorView,
 } from "../services/browserApi";
-import { isNetworkFlowClaimed } from "../services/networkFlowContractAdapter";
 import type {
   WorkbookAccountApplicationMenuProps,
   WorkbookAccountModel,
@@ -1230,9 +1229,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
               }
               currentUserLabel={currentUserLabel}
               incidentId={route.incidentId}
-              networkFlowActivityClaimed={isNetworkFlowClaimed(
-                extensionProfiles,
-              )}
+              extensionProfiles={extensionProfiles}
               onIncidentAccessLost={handleIncidentAccessLost}
               onIncidentSnapshot={handleIncidentSnapshot}
               renderIncidentControls={(props) => (

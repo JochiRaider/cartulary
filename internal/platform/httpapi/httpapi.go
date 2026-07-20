@@ -37,6 +37,7 @@ type DependencySet struct {
 	CursorCodec       *pagination.Codec
 	ExtensionProfiles []ExtensionProfile
 	Readiness         ReadinessChecker
+	Admission         AdmissionGate
 	PublicErrorFaults PublicErrorFaultStore
 	ModuleOverrides   map[string]any
 	Now               func() time.Time
@@ -100,6 +101,11 @@ type PublicErrorFaultStore interface {
 	ConsumePublicErrorFault(method string, path string) (PublicErrorFault, bool)
 }
 
+type AdmissionGate interface {
+	AdmissionOpen() bool
+	FatalReason() string
+}
+
 type requestIDContextKey struct{}
 
 var requestIDSequence uint64
@@ -111,7 +117,7 @@ func NewHandler(options ...Options) (http.Handler, error) {
 	}
 	option.Dependencies.ExtensionProfiles = ResolveExtensionProfiles(option.Dependencies.ExtensionProfiles)
 
-	rootHTML, err := webassets.ReadIndexHTML()
+	rootHTML, err := webassets.ReadBrowserRootHTML()
 	if err != nil {
 		return nil, fmt.Errorf("load embedded web root: %w", err)
 	}
@@ -141,6 +147,14 @@ func NewHandler(options ...Options) (http.Handler, error) {
 		_, _ = fmt.Fprintln(w, "ok")
 	})
 	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		if admission := option.Dependencies.Admission; admission != nil && !admission.AdmissionOpen() {
+			status := ReadinessStatusStartingDependencyProbe
+			if admission.FatalReason() != "" {
+				status = ReadinessStatusFatalIntegrityFailure
+			}
+			_ = writeJSON(w, http.StatusServiceUnavailable, ReadinessState{SchemaID: ReadinessSchemaID, Status: status})
+			return
+		}
 		state := readiness.CheckReadiness(r.Context())
 		status := http.StatusServiceUnavailable
 		if state.Status == ReadinessStatusReady {
@@ -165,8 +179,28 @@ func NewHandler(options ...Options) (http.Handler, error) {
 	if option.Dependencies.Config.Telemetry.Enabled {
 		handler = telemetry.HTTPMiddleware(handler, option.Dependencies.Config.Telemetry.Resource.ServiceVersion)
 	}
+	handler = withAdmissionGate(handler, option.Dependencies.Admission)
 
 	return withRequestID(handler, option.RequestIDSequence), nil
+}
+
+func withAdmissionGate(next http.Handler, admission AdmissionGate) http.Handler {
+	if admission == nil {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if admission.AdmissionOpen() || r.URL.Path == "/healthz" || r.URL.Path == "/readyz" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		reasonCode := "extension_publication_pending"
+		if admission.FatalReason() != "" {
+			reasonCode = "extension_integrity_failure"
+		}
+		_ = WriteErrorWithOptions(w, r, http.StatusServiceUnavailable, "service_unavailable", "service unavailable", map[string]any{
+			"reason_code": reasonCode,
+		}, ErrorOptions{Retryable: true})
+	})
 }
 
 func withUnclaimedReservedExtensionFamilies(next http.Handler, profiles []ExtensionProfile) http.Handler {

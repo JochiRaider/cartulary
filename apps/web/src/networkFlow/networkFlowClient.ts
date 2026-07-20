@@ -1,3 +1,8 @@
+import type { ExtensionAvailabilityController } from "../extensions/extensionAvailability";
+import {
+  networkAnalysisWorkspaceKey,
+  networkFlowActivityProfileId,
+} from "../extensions/extensionWorkspaceIdentities";
 import { apiPath, clientTxnID } from "../services/browserApi";
 import type {
   NetworkFlowContributorPageRequest,
@@ -27,13 +32,17 @@ import {
   decodeNetworkFlowTableQueryResult,
 } from "../services/networkFlowContractAdapter";
 import { fetchWorkbookJSON } from "../services/workbookApi";
-import type { WorkbookSheetRef } from "../shared/workbookSheetRef";
 import { networkFlowRequestError } from "./networkFlowErrors";
 import type {
   NetworkFlowAcceptedPageRequest,
   NetworkFlowRejectedPageRequest,
 } from "./networkFlowQueryModel";
 
+export {
+  networkAnalysisSheetRef,
+  networkAnalysisWorkspaceKey,
+  networkFlowActivityProfileId,
+} from "../extensions/extensionWorkspaceIdentities";
 export type {
   NetworkFlowContributor,
   NetworkFlowContributorPageRequest,
@@ -54,9 +63,6 @@ export type {
   NetworkFlowTableScope,
 } from "../services/networkFlowContractAdapter";
 
-export const networkFlowActivityProfileId = "network_flow_activity";
-export const networkAnalysisWorkspaceKey = "network_analysis";
-
 function networkFlowResponseData(payload: unknown): unknown {
   if (
     payload === null ||
@@ -67,17 +73,6 @@ function networkFlowResponseData(payload: unknown): unknown {
     throw new Error("invalid_network_flow_success_envelope");
   }
   return payload.data;
-}
-
-export function networkAnalysisSheetRef(): Extract<
-  WorkbookSheetRef,
-  { kind: "extension_workspace" }
-> {
-  return {
-    kind: "extension_workspace",
-    extension_profile_id: networkFlowActivityProfileId,
-    workspace_key: networkAnalysisWorkspaceKey,
-  } as const;
 }
 
 export function networkAnalysisURLSelected(params: URLSearchParams): boolean {
@@ -101,11 +96,13 @@ export function writeNetworkAnalysisURL(incidentId: string): void {
 }
 
 export async function listNetworkFlowTables(options: {
+  readonly availability: ExtensionAvailabilityController;
   readonly apiBase?: string | undefined;
   readonly incidentId: string;
   readonly signal?: AbortSignal | undefined;
 }): Promise<NetworkFlowTable[]> {
-  const result = await fetchWorkbookJSON<unknown>(
+  const result = await fetchNetworkFlowJSON<unknown>(
+    options.availability,
     apiPath(
       options.apiBase,
       `/api/v1/incidents/${options.incidentId}/network-flow/tables`,
@@ -120,6 +117,7 @@ export async function listNetworkFlowTables(options: {
 }
 
 export async function renameNetworkFlowTable(options: {
+  readonly availability: ExtensionAvailabilityController;
   readonly apiBase?: string | undefined;
   readonly baseTableVersion: number;
   readonly displayName: string;
@@ -131,7 +129,8 @@ export async function renameNetworkFlowTable(options: {
     base_table_version: options.baseTableVersion,
     display_name: options.displayName,
   };
-  const result = await fetchWorkbookJSON<unknown>(
+  const result = await fetchNetworkFlowJSON<unknown>(
+    options.availability,
     tableURL(options),
     requestInit({ method: "PATCH", body: JSON.stringify(request) }, undefined),
   );
@@ -144,6 +143,7 @@ export async function renameNetworkFlowTable(options: {
 }
 
 export async function softDeleteNetworkFlowTable(options: {
+  readonly availability: ExtensionAvailabilityController;
   readonly apiBase?: string | undefined;
   readonly baseTableVersion: number;
   readonly incidentId: string;
@@ -153,7 +153,8 @@ export async function softDeleteNetworkFlowTable(options: {
     client_txn_id: clientTxnID("nf-table-delete"),
     base_table_version: options.baseTableVersion,
   };
-  const result = await fetchWorkbookJSON<unknown>(
+  const result = await fetchNetworkFlowJSON<unknown>(
+    options.availability,
     tableURL(options),
     requestInit({ method: "DELETE", body: JSON.stringify(request) }, undefined),
   );
@@ -166,6 +167,7 @@ export async function softDeleteNetworkFlowTable(options: {
 }
 
 export async function queryNetworkFlowTable(options: {
+  readonly availability: ExtensionAvailabilityController;
   readonly apiBase?: string | undefined;
   readonly incidentId: string;
   readonly tableId: string;
@@ -175,7 +177,8 @@ export async function queryNetworkFlowTable(options: {
   readonly rows: NetworkFlowRow[];
   readonly paging: NetworkFlowPaging;
 }> {
-  const result = await fetchWorkbookJSON<unknown>(
+  const result = await fetchNetworkFlowJSON<unknown>(
+    options.availability,
     apiPath(
       options.apiBase,
       `/api/v1/incidents/${options.incidentId}/network-flow/tables/${options.tableId}/query`,
@@ -198,6 +201,7 @@ export async function queryNetworkFlowTable(options: {
 }
 
 export async function queryNetworkFlowRejectedRows(options: {
+  readonly availability: ExtensionAvailabilityController;
   readonly apiBase?: string | undefined;
   readonly incidentId: string;
   readonly tableId: string;
@@ -207,7 +211,8 @@ export async function queryNetworkFlowRejectedRows(options: {
   readonly diagnostics: NetworkFlowDiagnostic[];
   readonly paging: NetworkFlowPaging;
 }> {
-  const result = await fetchWorkbookJSON<unknown>(
+  const result = await fetchNetworkFlowJSON<unknown>(
+    options.availability,
     apiPath(
       options.apiBase,
       `/api/v1/incidents/${options.incidentId}/network-flow/tables/${options.tableId}/rejected-rows/query`,
@@ -233,6 +238,7 @@ export async function queryNetworkFlowRejectedRows(options: {
 }
 
 export async function queryNetworkFlowGraph(options: {
+  readonly availability: ExtensionAvailabilityController;
   readonly apiBase?: string | undefined;
   readonly filters: NonNullable<NetworkFlowGraphQueryRequest["filters"]>;
   readonly incidentId: string;
@@ -252,7 +258,8 @@ export async function queryNetworkFlowGraph(options: {
       include_example_row_refs: true,
     },
   };
-  const result = await fetchWorkbookJSON<unknown>(
+  const result = await fetchNetworkFlowJSON<unknown>(
+    options.availability,
     apiPath(
       options.apiBase,
       `/api/v1/incidents/${options.incidentId}/network-flow/graphs/query`,
@@ -272,12 +279,14 @@ export async function queryNetworkFlowGraph(options: {
 }
 
 export async function queryNetworkFlowContributors(options: {
+  readonly availability: ExtensionAvailabilityController;
   readonly apiBase?: string | undefined;
   readonly incidentId: string;
   readonly request: NetworkFlowContributorPageRequest;
   readonly signal?: AbortSignal | undefined;
 }): Promise<NetworkFlowContributorResult> {
-  const result = await fetchWorkbookJSON<unknown>(
+  const result = await fetchNetworkFlowJSON<unknown>(
+    options.availability,
     apiPath(
       options.apiBase,
       `/api/v1/incidents/${options.incidentId}/network-flow/graphs/contributors/query`,
@@ -299,6 +308,7 @@ export async function queryNetworkFlowContributors(options: {
 }
 
 export async function linkNetworkFlowIndicator(options: {
+  readonly availability: ExtensionAvailabilityController;
   readonly apiBase?: string | undefined;
   readonly incidentId: string;
   readonly selector: NetworkFlowIndicatorSelector;
@@ -313,7 +323,8 @@ export async function linkNetworkFlowIndicator(options: {
     observation_mode: "binding_only",
     confirm_exact_value: options.confirmExactValue,
   };
-  const result = await fetchWorkbookJSON<unknown>(
+  const result = await fetchNetworkFlowJSON<unknown>(
+    options.availability,
     apiPath(
       options.apiBase,
       `/api/v1/incidents/${options.incidentId}/network-flow/indicator-links`,
@@ -332,11 +343,13 @@ export async function linkNetworkFlowIndicator(options: {
 }
 
 export async function getNetworkFlowBindingSourceRowLimit(options: {
+  readonly availability: ExtensionAvailabilityController;
   readonly apiBase?: string | undefined;
   readonly incidentId: string;
   readonly signal?: AbortSignal | undefined;
 }): Promise<number> {
-  const result = await fetchWorkbookJSON<unknown>(
+  const result = await fetchNetworkFlowJSON<unknown>(
+    options.availability,
     apiPath(
       options.apiBase,
       `/api/v1/incidents/${options.incidentId}/network-flow/source-profiles`,
@@ -368,4 +381,12 @@ function requestInit(
   signal: AbortSignal | undefined,
 ): RequestInit {
   return signal === undefined ? init : { ...init, signal };
+}
+
+function fetchNetworkFlowJSON<T>(
+  availability: ExtensionAvailabilityController,
+  input: RequestInfo | URL,
+  init?: RequestInit,
+) {
+  return availability.runRequest(() => fetchWorkbookJSON<T>(input, init));
 }

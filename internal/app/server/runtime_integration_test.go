@@ -107,6 +107,9 @@ func TestFirstAdminBootstrap_Integration(t *testing.T) {
 			t.Fatalf("start runtime with canonical bootstrap manifest: %v", err)
 		}
 		defer runtime.Close()
+		if runtime.Extensions == nil || len(runtime.Extensions.RegistrySHA256()) != 64 {
+			t.Fatal("runtime did not retain the admitted immutable Extensions coordinator")
+		}
 
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM users WHERE is_active = true AND is_deployment_admin = true`, 1)
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 1)
@@ -148,6 +151,9 @@ func TestFirstAdminBootstrap_Integration(t *testing.T) {
 		}
 		if got := audit.After["mfa_required"]; got != true {
 			t.Fatalf("unexpected startup audit MFA payload: %#v", audit.After)
+		}
+		if err := runtime.ActivatePublication(); err != nil {
+			t.Fatalf("activate publication after bootstrap commit: %v", err)
 		}
 
 		server := httptest.NewServer(runtime.Handler)

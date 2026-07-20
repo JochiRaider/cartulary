@@ -1,0 +1,23 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "module.reportcomposition",
+  "rows": [
+    {
+      "row_id": "module.reportcomposition.unit.traceability_fixture_corpus",
+      "owner_id": "module.reportcomposition",
+      "family_id": "module.reportcomposition.unit",
+      "collaborator_ids": ["module.reporting"],
+      "verification_ids": ["module.reportcomposition.verification.fixture_corpus"],
+      "runner": "go",
+      "selector": {"package": "./internal/modules/reportcomposition", "tests": ["TestReportCompositionTraceabilityAndFixtureCorpus"]},
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": ["docs/report-composition-nlspec.md#15-acceptance-criteria"]
+    }
+  ]
+}

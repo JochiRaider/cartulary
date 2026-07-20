@@ -418,6 +418,11 @@ describe("WorkbookShell surface selection", () => {
         return successEnvelope({
           incident_id: "incident-1",
           ...startupSelection,
+          extension_workspace_availability: {
+            schema_id: "cartulary.extension_workspace_availability.v1",
+            incident_id: "incident-1",
+            workspaces: [],
+          },
           cleared_pointers: [],
           home_sheet_ref: null,
           default_sheet_ref: null,
@@ -1192,6 +1197,11 @@ describe("WorkbookShell surface selection", () => {
     delayedStartup.resolve(
       successEnvelope({
         incident_id: "incident-1",
+        extension_workspace_availability: {
+          schema_id: "cartulary.extension_workspace_availability.v1",
+          incident_id: "incident-1",
+          workspaces: [],
+        },
         selected_sheet_ref: { kind: "view_schema", id: evidenceViewSchemaId },
         selected_view_schema_id: evidenceViewSchemaId,
         selected_saved_view: null,

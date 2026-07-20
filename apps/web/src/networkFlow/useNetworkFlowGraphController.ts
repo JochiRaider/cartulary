@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ExtensionAvailabilityController } from "../extensions/extensionAvailability";
 import type {
   NetworkFlowContributor,
   NetworkFlowContributorPageRequest,
@@ -34,6 +35,7 @@ export type NetworkFlowGraphScopeMode =
 export type NetworkFlowGraphSelection = NetworkFlowGraphSelector;
 
 export function useNetworkFlowGraphController({
+  availability,
   activeTableId,
   apiBase,
   enabled,
@@ -43,6 +45,7 @@ export function useNetworkFlowGraphController({
   query,
   tables,
 }: {
+  readonly availability: ExtensionAvailabilityController;
   readonly activeTableId: string | null;
   readonly apiBase: string | undefined;
   readonly enabled: boolean;
@@ -145,6 +148,7 @@ export function useNetworkFlowGraphController({
     setGraphLoadState("loading");
     onError(null);
     void queryNetworkFlowGraph({
+      availability,
       apiBase,
       filters: [...query.filters],
       incidentId,
@@ -183,6 +187,7 @@ export function useNetworkFlowGraphController({
       });
     return () => controller.abort();
   }, [
+    availability,
     apiBase,
     enabled,
     graphGeneration,
@@ -230,6 +235,7 @@ export function useNetworkFlowGraphController({
       );
       try {
         const result = await queryNetworkFlowContributors({
+          availability,
           apiBase,
           incidentId,
           request,
@@ -278,7 +284,7 @@ export function useNetworkFlowGraphController({
         onError(requestError);
       }
     },
-    [apiBase, incidentId, onError, onIncidentAccessLost],
+    [availability, apiBase, incidentId, onError, onIncidentAccessLost],
   );
 
   const selectionKey =

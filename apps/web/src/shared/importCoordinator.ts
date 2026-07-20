@@ -1,3 +1,4 @@
+import type { ExtensionAvailabilityController } from "../extensions/extensionAvailability";
 import { apiPath, clientTxnID, extractError } from "../services/browserApi";
 import { requestMultipartJSON } from "../services/httpTransport";
 import {
@@ -87,6 +88,7 @@ export class ImportMappingPreviewStaleError extends Error {
 }
 
 export async function uploadAndDiscoverExtensionImport(options: {
+  readonly availability: ExtensionAvailabilityController;
   readonly apiBase?: string | undefined;
   readonly incidentId: string;
   readonly file: File;
@@ -95,14 +97,23 @@ export async function uploadAndDiscoverExtensionImport(options: {
 }): Promise<ExtensionImportDiscovery> {
   options.onProgress?.("Uploading import.");
   const uploadJob = await uploadImportSession(options);
-  const discovered = await pollJob(options.apiBase, uploadJob.job_id);
+  const discovered = await pollJob(
+    options.availability,
+    options.apiBase,
+    uploadJob.job_id,
+  );
   const sessionId = importSessionIdFromJob(discovered);
   if (sessionId === null) {
     throw new Error("import_session_not_returned");
   }
   options.onProgress?.("Discovering source columns.");
-  const unit = await firstImportUnit(options.apiBase, sessionId);
+  const unit = await firstImportUnit(
+    options.availability,
+    options.apiBase,
+    sessionId,
+  );
   const preview = await fetchImportPreview(
+    options.availability,
     options.apiBase,
     sessionId,
     unit.import_unit_id,
@@ -111,6 +122,7 @@ export async function uploadAndDiscoverExtensionImport(options: {
 }
 
 export async function previewExtensionImportMapping<OwnerResult>(options: {
+  readonly availability: ExtensionAvailabilityController;
   readonly apiBase?: string | undefined;
   readonly discovery: ExtensionImportDiscovery;
   readonly candidate: ExtensionMappingCandidate;
@@ -119,6 +131,7 @@ export async function previewExtensionImportMapping<OwnerResult>(options: {
   const envelope = await postImportJSON<{
     readonly data: ExtensionMappingPreviewResource<OwnerResult>;
   }>(
+    options.availability,
     options.apiBase,
     `/api/v1/import-sessions/${discovery.sessionId}/units/${discovery.unit.import_unit_id}/mapping-preview`,
     {
@@ -132,6 +145,7 @@ export async function previewExtensionImportMapping<OwnerResult>(options: {
 }
 
 export async function approveSelectAndApplyExtensionImport(options: {
+  readonly availability: ExtensionAvailabilityController;
   readonly apiBase?: string | undefined;
   readonly discovery: ExtensionImportDiscovery;
   readonly candidate: ExtensionMappingCandidate;
@@ -144,6 +158,7 @@ export async function approveSelectAndApplyExtensionImport(options: {
   const mappingEnvelope = await postImportJSON<{
     readonly data: DiscoveredImportUnit;
   }>(
+    options.availability,
     options.apiBase,
     `/api/v1/import-sessions/${discovery.sessionId}/units/${discovery.unit.import_unit_id}/mapping`,
     {
@@ -174,6 +189,7 @@ export async function approveSelectAndApplyExtensionImport(options: {
   }
 
   await postImportJSON(
+    options.availability,
     options.apiBase,
     `/api/v1/import-sessions/${discovery.sessionId}/units/${discovery.unit.import_unit_id}/select`,
     { client_txn_id: clientTxnID(`${options.transactionPrefix}-select`) },
@@ -181,15 +197,21 @@ export async function approveSelectAndApplyExtensionImport(options: {
 
   options.onProgress?.("Applying import.");
   const applyEnvelope = await postImportJSON<{ data: JobResource }>(
+    options.availability,
     options.apiBase,
     `/api/v1/import-sessions/${discovery.sessionId}/apply`,
     { client_txn_id: clientTxnID(`${options.transactionPrefix}-apply`) },
   );
-  const applied = await pollJob(options.apiBase, applyEnvelope.data.job_id);
+  const applied = await pollJob(
+    options.availability,
+    options.apiBase,
+    applyEnvelope.data.job_id,
+  );
   return applied.result_summary?.resource_refs ?? [];
 }
 
 async function uploadImportSession(options: {
+  readonly availability: ExtensionAvailabilityController;
   readonly apiBase?: string | undefined;
   readonly incidentId: string;
   readonly file: File;
@@ -210,6 +232,7 @@ async function uploadImportSession(options: {
   );
   form.append("file", options.file, options.file.name);
   const result = await fetchUploadJSON<{ data: JobResource }>(
+    options.availability,
     options.apiBase,
     "/api/v1/import-sessions",
     form,
@@ -218,12 +241,15 @@ async function uploadImportSession(options: {
 }
 
 async function firstImportUnit(
+  availability: ExtensionAvailabilityController,
   apiBase: string | undefined,
   sessionId: string,
 ): Promise<DiscoveredImportUnit> {
-  const result = await fetchWorkbookJSON<{
-    readonly data: { readonly import_units: readonly DiscoveredImportUnit[] };
-  }>(apiPath(apiBase, `/api/v1/import-sessions/${sessionId}/units`));
+  const result = await availability.runRequest(() =>
+    fetchWorkbookJSON<{
+      readonly data: { readonly import_units: readonly DiscoveredImportUnit[] };
+    }>(apiPath(apiBase, `/api/v1/import-sessions/${sessionId}/units`)),
+  );
   if (!result.ok) {
     throw new Error(parseErrorMessage(result.payload));
   }
@@ -237,14 +263,17 @@ async function firstImportUnit(
 }
 
 async function fetchImportPreview(
+  availability: ExtensionAvailabilityController,
   apiBase: string | undefined,
   sessionId: string,
   unitId: string,
 ): Promise<DiscoveredImportPreview> {
-  const result = await fetchWorkbookJSON<{ data: DiscoveredImportPreview }>(
-    apiPath(
-      apiBase,
-      `/api/v1/import-sessions/${sessionId}/units/${unitId}/preview`,
+  const result = await availability.runRequest(() =>
+    fetchWorkbookJSON<{ data: DiscoveredImportPreview }>(
+      apiPath(
+        apiBase,
+        `/api/v1/import-sessions/${sessionId}/units/${unitId}/preview`,
+      ),
     ),
   );
   if (!result.ok) {
@@ -254,12 +283,15 @@ async function fetchImportPreview(
 }
 
 async function pollJob(
+  availability: ExtensionAvailabilityController,
   apiBase: string | undefined,
   jobId: string,
 ): Promise<JobResource> {
   for (let attempt = 0; attempt < 30; attempt += 1) {
-    const result = await fetchWorkbookJSON<{ data: JobResource }>(
-      apiPath(apiBase, `/api/v1/jobs/${jobId}`),
+    const result = await availability.runRequest(() =>
+      fetchWorkbookJSON<{ data: JobResource }>(
+        apiPath(apiBase, `/api/v1/jobs/${jobId}`),
+      ),
     );
     if (!result.ok) {
       throw new Error(parseErrorMessage(result.payload));
@@ -277,15 +309,18 @@ async function pollJob(
 }
 
 async function postImportJSON<T extends object = Record<string, unknown>>(
+  availability: ExtensionAvailabilityController,
   apiBase: string | undefined,
   path: string,
   body: Record<string, unknown>,
   method = "POST",
 ): Promise<T> {
-  const result = await fetchWorkbookJSON<T>(apiPath(apiBase, path), {
-    method,
-    body: JSON.stringify(body),
-  });
+  const result = await availability.runRequest(() =>
+    fetchWorkbookJSON<T>(apiPath(apiBase, path), {
+      method,
+      body: JSON.stringify(body),
+    }),
+  );
   if (!result.ok) {
     throw new Error(parseErrorMessage(result.payload));
   }
@@ -293,11 +328,14 @@ async function postImportJSON<T extends object = Record<string, unknown>>(
 }
 
 async function fetchUploadJSON<T>(
+  availability: ExtensionAvailabilityController,
   apiBase: string | undefined,
   path: string,
   body: FormData,
 ): Promise<T> {
-  const response = await requestMultipartJSON<T>(apiPath(apiBase, path), body);
+  const response = await availability.runRequest(() =>
+    requestMultipartJSON<T>(apiPath(apiBase, path), body),
+  );
   const payload = response.payload;
   if (!response.ok) {
     const error = extractError(payload);

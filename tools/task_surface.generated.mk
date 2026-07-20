@@ -1006,7 +1006,7 @@ build-server-harness:
 
 embedded-web-assets: export CARTULARY_TEST_TARGET ?= embedded-web-assets
 embedded-web-assets: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-embedded-web-assets: $(EMBEDDED_WEB_ASSET_STAMP) $(EMBEDDED_WEB_ASSET_ARCHIVE) $(EMBEDDED_WEB_ASSET_READY_STAMP)
+embedded-web-assets: $(EMBEDDED_WEB_ASSET_STAMP) $(EMBEDDED_WEB_ASSET_ARCHIVE) $(EMBEDDED_CLIENT_ASSET_MANIFEST) $(EMBEDDED_CLIENT_SUPPORT_REGISTRY) $(EMBEDDED_WEB_ASSET_READY_STAMP)
 
 build-migrate: export CARTULARY_TEST_TARGET ?= build-migrate
 build-migrate:

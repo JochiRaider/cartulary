@@ -1,0 +1,40 @@
+{
+  "anchors": [
+    {
+      "anchor_id": "cartulary.core00.current.v1",
+      "anchor_kind": "document",
+      "anchor_sha256": "106451bfa440fea1a1913e000ad1ac2d52cf58f112323371a8456337a21c19b9",
+      "closure_categories": [],
+      "end_byte": 60848,
+      "start_byte": 0
+    },
+    {
+      "anchor_id": "REQ-00-065",
+      "anchor_kind": "req",
+      "anchor_sha256": "f85099fd38bf47cac2b8a12f3f53665460cc66fffe68706bb922035a17cee080",
+      "closure_categories": [
+        "identity_canonicalization_ordering",
+        "public_interfaces"
+      ],
+      "end_byte": 10584,
+      "start_byte": 8477
+    }
+  ],
+  "owner_contract_manifest_id": "core00.extensions_contract.v1",
+  "owner_document": {
+    "byte_length": 60848,
+    "owner_document_ref": "docs/spec/00_document_set_status_and_precedence.md#document:cartulary.core00.current.v1",
+    "owner_document_schema_id": "cartulary.core00.current.v1",
+    "owner_document_sha256": "106451bfa440fea1a1913e000ad1ac2d52cf58f112323371a8456337a21c19b9",
+    "owner_document_version": "extensions-adoption-1"
+  },
+  "owner_fragments": [
+    {
+      "owner_fragment_id": "core00.extension_recognition.v1",
+      "owner_fragment_ref": "contracts/extensions/fragments/core00.recognition.json",
+      "owner_fragment_sha256": "b53b91fec826cfe29352329a24ccf41b4e435c5740f6e15227dde731a8e4b095"
+    }
+  ],
+  "owner_id": "core00",
+  "schema_id": "cartulary.extension_owner_contract_manifest.v1"
+}

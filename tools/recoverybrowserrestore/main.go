@@ -129,7 +129,7 @@ func run() error {
 		return fmt.Errorf("start source runtime: %w", err)
 	}
 	defer sourceRuntime.Close()
-	sourceServer, sourceOrigin, err := startRuntimeServer(sourceRuntime.Handler)
+	sourceServer, sourceOrigin, err := startRuntimeServer(sourceRuntime.Handler, sourceRuntime.ActivatePublication)
 	if err != nil {
 		return fmt.Errorf("start source server: %w", err)
 	}
@@ -252,6 +252,10 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("listen target server: %w", err)
 	}
+	if err := runtime.ActivatePublication(); err != nil {
+		_ = listener.Close()
+		return fmt.Errorf("activate target publication: %w", err)
+	}
 	origin := "http://" + listener.Addr().String()
 	server := &http.Server{
 		Handler:           runtime.Handler,
@@ -309,10 +313,18 @@ func run() error {
 	return server.Shutdown(shutdownCtx)
 }
 
-func startRuntimeServer(handler http.Handler) (*http.Server, string, error) {
+func startRuntimeServer(handler http.Handler, activatePublication func() error) (*http.Server, string, error) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return nil, "", err
+	}
+	if activatePublication == nil {
+		_ = listener.Close()
+		return nil, "", errors.New("extension_publication_failed")
+	}
+	if err := activatePublication(); err != nil {
+		_ = listener.Close()
+		return nil, "", fmt.Errorf("activate publication: %w", err)
 	}
 	server := &http.Server{
 		Handler:           handler,

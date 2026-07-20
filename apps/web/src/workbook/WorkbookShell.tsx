@@ -10,7 +10,9 @@ import {
 } from "@cartulary/ui-contracts";
 import { requireViewContract } from "@cartulary/view-contracts";
 import {
+  lazy,
   type ReactNode,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -21,7 +23,15 @@ import {
   IncidentCollaborationSession,
   useIncidentCollaborationSession,
 } from "../collaboration/IncidentCollaborationSession";
+import { ExtensionAvailabilityProvider } from "../extensions/ExtensionAvailabilityContext";
+import { ExtensionAvailabilityController } from "../extensions/extensionAvailability";
+import {
+  networkAnalysisSheetRef,
+  networkAnalysisWorkspaceKey,
+  networkFlowActivityProfileId,
+} from "../extensions/extensionWorkspaceIdentities";
 import { apiPath } from "../services/browserApi";
+import type { GeneratedExtensionProfileResource } from "../services/extensionContractAdapter";
 import { fetchWorkbookJSON, readEnvelope } from "../services/workbookApi";
 import { workbookSheetRefKey } from "../shared/workbookSheetRef";
 import type {
@@ -65,12 +75,6 @@ import {
   tabStripStyle,
   topBarQuerySlotStyle,
 } from "./components/WorkbookShellStyles";
-import {
-  NetworkFlowFeature,
-  networkAnalysisSheetRef,
-  networkAnalysisWorkspaceKey,
-  networkFlowActivityProfileId,
-} from "./features/NetworkFlowFeature";
 import { useIncidentControlsDrawer } from "./hooks/useIncidentControlsDrawer";
 import { useWorkbookIncidentIdentity } from "./hooks/useWorkbookIncidentIdentity";
 import { useWorkbookPendingGridFocus } from "./hooks/useWorkbookPendingGridFocus";
@@ -107,7 +111,7 @@ type WorkbookShellProps = {
     | undefined;
   currentUserLabel?: string | undefined;
   initialIncidentIdentity?: WorkbookIncidentIdentity | undefined;
-  networkFlowActivityClaimed?: boolean | undefined;
+  extensionProfiles?: readonly GeneratedExtensionProfileResource[] | undefined;
   onIncidentSnapshot?:
     | ((incident: WorkbookIncidentSnapshot) => void)
     | undefined;
@@ -147,8 +151,17 @@ const extensionWorkspaceRenderers: Readonly<
   [extensionWorkspaceRegistryKey(
     networkFlowActivityProfileId,
     networkAnalysisWorkspaceKey,
-  )]: (props) => <NetworkFlowFeature {...props} />,
+  )]: (props) => (
+    <Suspense fallback={null}>
+      <LazyNetworkFlowFeature {...props} />
+    </Suspense>
+  ),
 };
+
+const LazyNetworkFlowFeature = lazy(async () => {
+  const feature = await import("./features/NetworkFlowFeature");
+  return { default: feature.NetworkFlowFeature };
+});
 
 function WorkbookShellContent({
   incidentId,
@@ -158,12 +171,26 @@ function WorkbookShellContent({
   accountApplicationMenu,
   currentUserLabel,
   initialIncidentIdentity,
-  networkFlowActivityClaimed = false,
+  extensionProfiles = [],
   onIncidentSnapshot,
   onIncidentAccessLost,
   renderIncidentControls,
 }: WorkbookShellProps) {
   const collaborationSession = useIncidentCollaborationSession();
+  const extensionAvailability = useMemo(
+    () =>
+      new ExtensionAvailabilityController({
+        clientInstanceId: collaborationSession.clientInstanceId,
+        incidentId,
+      }),
+    [collaborationSession.clientInstanceId, incidentId],
+  );
+  const [extensionAvailabilityRevision, setExtensionAvailabilityRevision] =
+    useState(0);
+  extensionAvailability.setDiscovery(extensionProfiles);
+  const handleExtensionAvailabilityChange = useCallback(() => {
+    setExtensionAvailabilityRevision((current) => current + 1);
+  }, []);
   const responsiveLayout = useWorkbookResponsiveLayout();
   const responsiveBand = responsiveLayout.chromeMode;
   const surfaceSelectionVersionRef = useRef(0);
@@ -172,6 +199,8 @@ function WorkbookShellContent({
     incidentId,
     onIncidentAccessLost,
     surfaceSelectionVersionRef,
+    extensionAvailability,
+    onExtensionAvailabilityChange: handleExtensionAvailabilityChange,
   });
   const {
     activeContract,
@@ -270,13 +299,18 @@ function WorkbookShellContent({
     }
   }, [account?.user_id]);
 
+  const networkFlowActivityAvailable = extensionAvailability.isRenderable({
+    extensionProfileId: networkFlowActivityProfileId,
+    workspaceKey: networkAnalysisWorkspaceKey,
+  });
+
   useEffect(() => {
-    if (!networkFlowActivityClaimed && networkAnalysisActive) {
+    if (!networkFlowActivityAvailable && networkAnalysisActive) {
       selectWorkbookSurface(timelineViewSchemaId);
     }
   }, [
     networkAnalysisActive,
-    networkFlowActivityClaimed,
+    networkFlowActivityAvailable,
     selectWorkbookSurface,
   ]);
 
@@ -378,6 +412,18 @@ function WorkbookShellContent({
     if (startupSheetRef.kind !== "extension_workspace") {
       return null;
     }
+    if (
+      !extensionAvailability.isRenderable({
+        extensionProfileId: startupSheetRef.extension_profile_id,
+        workspaceKey: startupSheetRef.workspace_key,
+      })
+    ) {
+      return (
+        <p style={shellContentNoticeStyle}>
+          This extension workspace is not currently available.
+        </p>
+      );
+    }
     const renderer =
       extensionWorkspaceRenderers[
         extensionWorkspaceRegistryKey(
@@ -392,12 +438,20 @@ function WorkbookShellContent({
         </p>
       );
     }
-    return renderer({
-      apiBase,
-      currentIncidentRole,
-      incidentId,
-      onIncidentAccessLost,
-    });
+    const lifecycleKey = `${extensionAvailability.currentTag()?.epochId ?? "disabled"}:${extensionAvailabilityRevision}`;
+    return (
+      <ExtensionAvailabilityProvider
+        controller={extensionAvailability}
+        key={lifecycleKey}
+      >
+        {renderer({
+          apiBase,
+          currentIncidentRole,
+          incidentId,
+          onIncidentAccessLost,
+        })}
+      </ExtensionAvailabilityProvider>
+    );
   })();
   const selectBaseWorkbookSurface = useCallback(
     (
@@ -535,7 +589,7 @@ function WorkbookShellContent({
           </div>
         )}
         <div style={systemViewSlotStyle}>
-          {networkFlowActivityClaimed ? (
+          {networkFlowActivityAvailable ? (
             <button
               aria-current={networkAnalysisActive ? "page" : undefined}
               data-testid={networkAnalysisTestId("tab")}

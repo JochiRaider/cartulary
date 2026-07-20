@@ -533,11 +533,28 @@ The instrumentation subsystem MUST attach the following resource attributes to a
 | `telemetry.sdk.name` | SDK-required | SDK-provided | Do not override. | SDK value only. |
 | `telemetry.sdk.version` | SDK-required | SDK-provided | Do not override. | SDK value only. |
 | `cartulary.deployment.profile` | Required | Deployment profile | Always export. | Low-cardinality deployment profile token only. |
-| `cartulary.profile.claims` | Required | Core 00/Core 01 claimed profile set | Always export. | String scalar per this section; profile identifiers only; no incident data. |
+| `cartulary.profile.claims` | Required | Digest-bound immutable Core 00/Core 01 resolved claim-set identity | Always export. | String scalar per this section; profile identifiers only; no incident data. |
 
 `service.instance.id` MUST be a canonical lowercase UUID v4 and MUST NOT be the nil UUID. When omitted or explicitly null, the default generator MUST create a fresh canonical lowercase UUID v4 for each process start. Configured arbitrary strings, Unicode text, hostnames, process IDs, container IDs, filesystem paths, object-store identifiers, incident identifiers, user identifiers, and uppercase or non-v4 UUID forms are invalid before provider activation. Operators MUST NOT use even structurally valid UUID v4 values to encode host, user, incident, customer, path, object-store, or process identity; Cartulary enforces the structural predicate only and treats this provenance-opacity statement as an unenforced operator invariant.
 
-`cartulary.profile.claims` MUST be a string scalar. Its input set is `base` plus every currently claimed extension `profile_id` from the Core 00/Core 01 profile vocabulary. Duplicate tokens coalesce by exact token equality. Serialization sorts tokens by ascending ASCII byte order, joins them with comma, uses no spaces, and defines no escaping because profile IDs cannot contain comma. If only the Base Profile is claimed, the emitted value is exactly `base`. The empty string is invalid. A deployment claiming Import, Incident Portability, Reference Pack, and Snapshot and Reporting emits exactly `base,import,incident_portability,reference_pack,snapshot_reporting`.
+`cartulary.profile.claims` MUST be a string scalar. Its only input is the immutable
+resolved claim-set identity published by the Extensions admission boundary: the exact
+canonical `profile_ids[]` set and its verified
+`extension_resolved_claim_set_sha256_v1` digest. Telemetry bootstrap MUST recompute the
+digest over the canonical identity, fail before provider activation on mismatch, and
+MUST NOT reread configuration, infer recognition from implementation packages, keep a
+profile vocabulary, or accept a separate claim list. The identity's extension profile
+IDs MUST already be unique and ascending by UTF-8 bytes; duplicate, unsorted, `base`,
+or syntactically invalid members are invalid rather than normalized by telemetry.
+
+Serialization adds `base`, sorts the complete token set by ascending ASCII byte order,
+joins tokens with comma, uses no spaces, and defines no escaping because profile IDs
+cannot contain comma. If only the Base Profile is claimed, the emitted value is exactly
+`base`. The empty string is invalid. A deployment claiming Import, Incident
+Portability, Reference Pack, and Snapshot and Reporting emits exactly
+`base,import,incident_portability,reference_pack,snapshot_reporting`. A future
+syntactically valid profile admitted through the digest-bound identity requires no
+OpenTelemetry code or vocabulary change.
 
 **OTEL-REQ-032**
 No other resource attribute may be emitted in this revision unless an SDK requires a `telemetry.sdk.*` attribute by specification. If an SDK injects a default resource attribute outside this registry, bootstrap MUST remove it, overwrite the provider resource with the closed registry, or fail startup before provider activation.

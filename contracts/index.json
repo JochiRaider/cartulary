@@ -18,6 +18,7 @@
         "packages/protocol-ts/src/generated/contracts.ts",
         "packages/protocol-ts/src/generated/index.ts"
       ],
+      "typescript_runtime_artifact_prefixes": ["contracts/openapi/"],
       "activation_dependency_ids": [],
       "description": "Public HTTP/OpenAPI contract artifacts."
     },
@@ -35,6 +36,7 @@
         "packages/protocol-ts/src/generated/contracts.ts",
         "packages/protocol-ts/src/generated/index.ts"
       ],
+      "typescript_runtime_artifact_prefixes": ["contracts/ws/"],
       "activation_dependency_ids": [],
       "description": "WebSocket and invalidation contract artifacts."
     },
@@ -52,6 +54,7 @@
         "packages/protocol-ts/src/generated/contracts.ts",
         "packages/protocol-ts/src/generated/index.ts"
       ],
+      "typescript_runtime_artifact_prefixes": ["contracts/view-schemas/"],
       "activation_dependency_ids": [],
       "description": "Workbook view-schema contract artifacts."
     },
@@ -69,6 +72,7 @@
         "packages/protocol-ts/src/generated/contracts.ts",
         "packages/protocol-ts/src/generated/index.ts"
       ],
+      "typescript_runtime_artifact_prefixes": ["contracts/errors/"],
       "activation_dependency_ids": [],
       "description": "Public error and reason-code registry artifacts."
     },
@@ -85,6 +89,11 @@
         "internal/gen/contracts/contracts_gen.go",
         "packages/protocol-ts/src/generated/contracts.ts",
         "packages/protocol-ts/src/generated/index.ts"
+      ],
+      "typescript_runtime_artifact_prefixes": [
+        "contracts/extensions/generated/client-support-registry.json",
+        "contracts/extensions/generated/descriptors/",
+        "contracts/extensions/generated/profile-registry.json"
       ],
       "activation_dependency_ids": [],
       "description": "Extension profile discovery contract artifacts."
@@ -103,6 +112,7 @@
         "packages/protocol-ts/src/generated/contracts.ts",
         "packages/protocol-ts/src/generated/index.ts"
       ],
+      "typescript_runtime_artifact_prefixes": ["contracts/network-flow/"],
       "activation_dependency_ids": [],
       "description": "Network Flow Activity extension contracts derived from the adopted owner inputs."
     }

@@ -1,6 +1,9 @@
 package telemetry
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"regexp"
 	"strings"
 	"testing"
@@ -11,14 +14,13 @@ import (
 func TestResourceIdentityClosedRegistry(t *testing.T) {
 	cfg := validTelemetryBootstrapConfig(t)
 	cfg.Telemetry.Resource.DeploymentEnvironmentName = "test"
-	resource, err := BuildResourceIdentity(cfg, []string{
-		"snapshot_reporting",
+	resource, err := BuildResourceIdentity(cfg, resolvedClaimIdentity(t,
 		"import",
-		"reference_pack",
 		"incident_portability",
 		"network_flow_activity",
-		"import",
-	})
+		"reference_pack",
+		"snapshot_reporting",
+	))
 	if err != nil {
 		t.Fatalf("build resource identity: %v", err)
 	}
@@ -55,7 +57,7 @@ func TestResourceIdentityClosedRegistry(t *testing.T) {
 func TestResourceIdentityOmitsOptionalNullDeploymentEnvironment(t *testing.T) {
 	cfg := validTelemetryBootstrapConfig(t)
 	cfg.Telemetry.Resource.DeploymentEnvironmentName = ""
-	resource, err := BuildResourceIdentity(cfg, nil)
+	resource, err := BuildResourceIdentity(cfg, resolvedClaimIdentity(t))
 	if err != nil {
 		t.Fatalf("build resource identity: %v", err)
 	}
@@ -90,7 +92,7 @@ func TestExternalResourceContributionRejectsSchemaURLAndDetectorAttributes(t *te
 
 func TestResourceInstanceIDOpacityPredicate(t *testing.T) {
 	cfg := validTelemetryBootstrapConfig(t)
-	resource, err := BuildResourceIdentity(cfg, nil)
+	resource, err := BuildResourceIdentity(cfg, resolvedClaimIdentity(t))
 	if err != nil {
 		t.Fatalf("build resource identity with generated instance id: %v", err)
 	}
@@ -100,7 +102,7 @@ func TestResourceInstanceIDOpacityPredicate(t *testing.T) {
 	}
 
 	cfg.Telemetry.Resource.ServiceInstanceID = "10000000-0000-4000-8000-000000000001"
-	resource, err = BuildResourceIdentity(cfg, nil)
+	resource, err = BuildResourceIdentity(cfg, resolvedClaimIdentity(t))
 	if err != nil {
 		t.Fatalf("build resource identity with configured opaque instance id: %v", err)
 	}
@@ -115,23 +117,47 @@ func TestResourceInstanceIDOpacityPredicate(t *testing.T) {
 		"10000000-0000-4000-8000-0000000000AA",
 	} {
 		cfg.Telemetry.Resource.ServiceInstanceID = invalid
-		if _, err := BuildResourceIdentity(cfg, nil); err == nil {
+		if _, err := BuildResourceIdentity(cfg, resolvedClaimIdentity(t)); err == nil {
 			t.Fatalf("unsafe service.instance.id %q should fail resource construction", invalid)
 		}
 	}
 }
 
-func TestResourceIdentityRejectsUnknownProfileClaim(t *testing.T) {
+func TestResourceIdentityTrustsDigestBoundFutureProfileWithoutLocalVocabulary(t *testing.T) {
 	cfg := validTelemetryBootstrapConfig(t)
-	_, err := BuildResourceIdentity(cfg, []string{"unsupported_profile"})
-	if err == nil {
-		t.Fatal("expected unknown profile claim to fail")
+	resource, err := BuildResourceIdentity(cfg, resolvedClaimIdentity(t, "future_profile"))
+	if err != nil {
+		t.Fatalf("future profile from canonical claim identity should not require telemetry vocabulary: %v", err)
+	}
+	if got := attributesByKey(resource)["cartulary.profile.claims"]; got != "base,future_profile" {
+		t.Fatalf("unexpected future profile serialization %q", got)
+	}
+}
+
+func TestResourceIdentityRejectsUnboundOrNoncanonicalClaimIdentity(t *testing.T) {
+	cfg := validTelemetryBootstrapConfig(t)
+	for name, identity := range map[string]ResolvedClaimIdentity{
+		"missing digest": {ProfileIDs: []string{}},
+		"digest mismatch": {
+			ProfileIDs: []string{"import"},
+			SHA256:     strings.Repeat("0", 64),
+		},
+		"duplicate": resolvedClaimIdentity(t, "import", "import"),
+		"unsorted":  resolvedClaimIdentity(t, "snapshot_reporting", "import"),
+		"base":      resolvedClaimIdentity(t, "base"),
+		"bad token": resolvedClaimIdentity(t, "BAD"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := BuildResourceIdentity(cfg, identity); err == nil {
+				t.Fatal("expected invalid resolved claim identity to fail")
+			}
+		})
 	}
 }
 
 func TestRuntimeResourceIdentityIsCopied(t *testing.T) {
 	cfg := validTelemetryBootstrapConfig(t)
-	runtime, err := Bootstrap(t.Context(), cfg, nil, WithClaimedExtensionProfiles([]string{"import"}))
+	runtime, err := Bootstrap(t.Context(), cfg, nil, WithResolvedClaimIdentity(resolvedClaimIdentity(t, "import")))
 	if err != nil {
 		t.Fatalf("bootstrap telemetry runtime: %v", err)
 	}
@@ -145,6 +171,21 @@ func TestRuntimeResourceIdentityIsCopied(t *testing.T) {
 	}
 	if attrs["cartulary.profile.claims"] != "base,import" {
 		t.Fatalf("unexpected runtime profile claims: %q", attrs["cartulary.profile.claims"])
+	}
+}
+
+func resolvedClaimIdentity(t testing.TB, profileIDs ...string) ResolvedClaimIdentity {
+	t.Helper()
+	canonicalBytes, err := json.Marshal(struct {
+		ProfileIDs []string `json:"profile_ids"`
+	}{ProfileIDs: append([]string{}, profileIDs...)})
+	if err != nil {
+		t.Fatalf("encode resolved claim identity: %v", err)
+	}
+	digest := sha256.Sum256(canonicalBytes)
+	return ResolvedClaimIdentity{
+		ProfileIDs: append([]string(nil), profileIDs...),
+		SHA256:     hex.EncodeToString(digest[:]),
 	}
 }
 

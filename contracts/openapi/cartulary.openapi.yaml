@@ -5130,48 +5130,64 @@
           "profile_id": {
             "$ref": "#/components/schemas/ExtensionProfileID"
           },
+          "claimable": {
+            "type": "boolean"
+          },
           "claimed": {
             "type": "boolean"
           },
+          "contract_major": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "route_families": {
             "type": "array",
+            "uniqueItems": true,
             "items": {
               "$ref": "#/components/schemas/ExtensionRouteFamily"
+            }
+          },
+          "workspace_keys": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,63}$"
+            }
+          },
+          "capabilities": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,63}$"
             }
           }
         },
         "required": [
           "profile_id",
+          "claimable",
           "claimed",
-          "route_families"
+          "contract_major",
+          "route_families",
+          "workspace_keys",
+          "capabilities"
         ]
       },
       "ExtensionProfileID": {
         "type": "string",
-        "enum": [
-          "enterprise_authentication",
-          "import",
-          "incident_portability",
-          "network_flow_activity",
-          "reference_pack",
-          "snapshot_reporting"
-        ]
+        "pattern": "^[a-z][a-z0-9_]{0,63}$"
       },
       "ExtensionRouteFamily": {
         "type": "string",
-        "enum": [
-          "/api/v1/auth/oidc",
-          "/api/v1/auth/providers",
-          "/api/v1/auth/saml",
-          "/api/v1/import-sessions",
-          "/api/v1/incidents/{incident_id}/network-flow",
-          "/api/v1/incidents/{incident_id}/report-compositions",
-          "/api/v1/incident-bundles",
-          "/api/v1/reference-packs",
-          "/api/v1/releases",
-          "/api/v1/snapshots",
-          "/api/v1/users/{user_id}/auth-bindings"
-        ]
+        "pattern": "^/api/v1/[^?#%\\\\]+$"
       },
       "WorkbookQueryMeta": {
         "type": "object",
@@ -8276,6 +8292,50 @@
           "reason_code"
         ]
       },
+      "ExtensionWorkspaceAvailabilityRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "extension_profile_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "workspace_key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          }
+        },
+        "required": [
+          "extension_profile_id",
+          "workspace_key"
+        ]
+      },
+      "ExtensionWorkspaceAvailability": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_id": {
+            "type": "string",
+            "const": "cartulary.extension_workspace_availability.v1"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspaces": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/ExtensionWorkspaceAvailabilityRow"
+            }
+          }
+        },
+        "required": [
+          "schema_id",
+          "incident_id",
+          "workspaces"
+        ]
+      },
       "WorkbookStartupResource": {
         "type": "object",
         "additionalProperties": false,
@@ -8335,6 +8395,9 @@
                 "type": "null"
               }
             ]
+          },
+          "extension_workspace_availability": {
+            "$ref": "#/components/schemas/ExtensionWorkspaceAvailability"
           }
         },
         "required": [
@@ -8345,7 +8408,8 @@
           "source",
           "cleared_pointers",
           "home_sheet_ref",
-          "default_sheet_ref"
+          "default_sheet_ref",
+          "extension_workspace_availability"
         ]
       },
       "WorkbookStartupEnvelope": {

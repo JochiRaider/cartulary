@@ -441,18 +441,24 @@ func TestOpenAPIExtensionDiscoveryExposesClosedContract(t *testing.T) {
 	if resource["type"] != "object" || resource["additionalProperties"] != false {
 		t.Fatalf("extension profile resource must be a closed object schema: %#v", resource)
 	}
-	if required := toStrings(t, resource["required"]); !equalStringSlices(required, []string{"profile_id", "claimed", "route_families"}) {
+	if required := toStrings(t, resource["required"]); !equalStringSlices(required, []string{"profile_id", "claimable", "claimed", "contract_major", "route_families", "workspace_keys", "capabilities"}) {
 		t.Fatalf("unexpected extension profile required fields: %v", required)
 	}
 	properties := openAPIObjectAt(t, resource, "properties")
-	if len(properties) != 3 {
-		t.Fatalf("extension profile resource must expose only profile_id, claimed, and route_families: %#v", properties)
+	if len(properties) != 7 {
+		t.Fatalf("extension profile resource must expose exactly seven members: %#v", properties)
 	}
 	if profileID := openAPIObjectAt(t, properties, "profile_id"); profileID["$ref"] != "#/components/schemas/ExtensionProfileID" {
 		t.Fatalf("unexpected extension profile_id schema: %#v", profileID)
 	}
 	if claimed := openAPIObjectAt(t, properties, "claimed"); claimed["type"] != "boolean" {
 		t.Fatalf("unexpected extension claimed schema: %#v", claimed)
+	}
+	if claimable := openAPIObjectAt(t, properties, "claimable"); claimable["type"] != "boolean" {
+		t.Fatalf("unexpected extension claimable schema: %#v", claimable)
+	}
+	if contractMajor := openAPIObjectAt(t, properties, "contract_major"); len(contractMajor["oneOf"].([]any)) != 2 {
+		t.Fatalf("unexpected extension contract_major schema: %#v", contractMajor)
 	}
 	routeFamilies := openAPIObjectAt(t, properties, "route_families", "items")
 	if routeFamilies["$ref"] != "#/components/schemas/ExtensionRouteFamily" {
@@ -463,28 +469,16 @@ func TestOpenAPIExtensionDiscoveryExposesClosedContract(t *testing.T) {
 	if profileIDSchema["type"] != "string" {
 		t.Fatalf("extension profile id schema must be string: %#v", profileIDSchema)
 	}
-	if enum := toStrings(t, profileIDSchema["enum"]); !equalStringSlices(enum, []string{"enterprise_authentication", "import", "incident_portability", "network_flow_activity", "reference_pack", "snapshot_reporting"}) {
-		t.Fatalf("unexpected extension profile id enum: %v", enum)
+	if profileIDSchema["pattern"] != "^[a-z][a-z0-9_]{0,63}$" {
+		t.Fatalf("extension profile id must remain forward-compatible: %#v", profileIDSchema)
 	}
 
 	routeFamilySchema := openAPIObjectAt(t, schemas, "ExtensionRouteFamily")
 	if routeFamilySchema["type"] != "string" {
 		t.Fatalf("extension route family schema must be string: %#v", routeFamilySchema)
 	}
-	if enum := toStrings(t, routeFamilySchema["enum"]); !equalStringSlices(enum, []string{
-		"/api/v1/auth/oidc",
-		"/api/v1/auth/providers",
-		"/api/v1/auth/saml",
-		"/api/v1/import-sessions",
-		"/api/v1/incidents/{incident_id}/network-flow",
-		"/api/v1/incidents/{incident_id}/report-compositions",
-		"/api/v1/incident-bundles",
-		"/api/v1/reference-packs",
-		"/api/v1/releases",
-		"/api/v1/snapshots",
-		"/api/v1/users/{user_id}/auth-bindings",
-	}) {
-		t.Fatalf("unexpected extension route family enum: %v", enum)
+	if routeFamilySchema["pattern"] == nil {
+		t.Fatalf("extension route family must use an open grammar, not a current-value enum: %#v", routeFamilySchema)
 	}
 }
 
@@ -505,14 +499,23 @@ func TestExtensionDiscoveryReturnsExactSingletonProfileShape_Unit(t *testing.T) 
 
 	for index, want := range wantProfiles {
 		got := extensions[index]
-		if len(got) != 3 {
-			t.Fatalf("extension resource must expose only profile_id, claimed, and route_families: %#v", got)
+		if len(got) != 7 {
+			t.Fatalf("extension resource must expose exactly seven members: %#v", got)
 		}
-		if got["profile_id"] != want.ProfileID || got["claimed"] != httpapi.ExtensionProfileClaimed(want.ProfileID) {
+		if got["profile_id"] != want.ProfileID || got["claimable"] != want.Claimable || got["claimed"] != httpapi.ExtensionProfileClaimed(want.ProfileID) {
 			t.Fatalf("unexpected extension resource at index %d: %#v", index, got)
+		}
+		if want.ContractMajor == nil || got["contract_major"] != *want.ContractMajor {
+			t.Fatalf("unexpected contract_major at index %d: got %v want %v", index, got["contract_major"], want.ContractMajor)
 		}
 		if families := toStrings(t, got["route_families"]); !equalStringSlices(families, want.RouteFamilies) {
 			t.Fatalf("unexpected route_families at index %d: got %v want %v", index, families, want.RouteFamilies)
+		}
+		if workspaces := toStrings(t, got["workspace_keys"]); !equalStringSlices(workspaces, want.WorkspaceKeys) {
+			t.Fatalf("unexpected workspace_keys at index %d: got %v want %v", index, workspaces, want.WorkspaceKeys)
+		}
+		if capabilities := toStrings(t, got["capabilities"]); len(capabilities) != 0 {
+			t.Fatalf("capabilities must remain disabled: %v", capabilities)
 		}
 	}
 }
@@ -931,11 +934,10 @@ func timeRef(year int, month int, day int, hour int, minute int) time.Time {
 
 type extensionProfileContract struct {
 	ProfileID     string   `json:"profile_id"`
+	Claimable     bool     `json:"claimable"`
+	ContractMajor *int     `json:"contract_major"`
 	RouteFamilies []string `json:"route_families"`
-}
-
-type extensionRegistry struct {
-	Profiles []extensionProfileContract `json:"profiles"`
+	WorkspaceKeys []string `json:"workspace_keys"`
 }
 
 func requireErrorContract(t testing.TB, code string, httpStatus int) {
@@ -947,7 +949,16 @@ func requireErrorContract(t testing.TB, code string, httpStatus int) {
 func currentProfileExtensions(t testing.TB) []extensionProfileContract {
 	t.Helper()
 
-	var registry extensionRegistry
-	contracttest.DecodeExtensionRegistry(t, &registry)
-	return append([]extensionProfileContract(nil), registry.Profiles...)
+	profiles := contracttest.CurrentProfileExtensions(t)
+	result := make([]extensionProfileContract, 0, len(profiles))
+	for _, profile := range profiles {
+		result = append(result, extensionProfileContract{
+			ProfileID:     profile.ProfileID,
+			Claimable:     profile.Claimable,
+			ContractMajor: profile.ContractMajor,
+			RouteFamilies: append([]string(nil), profile.RouteFamilies...),
+			WorkspaceKeys: append([]string(nil), profile.WorkspaceKeys...),
+		})
+	}
+	return result
 }

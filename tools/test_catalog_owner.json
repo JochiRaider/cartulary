@@ -47,6 +47,11 @@
       "status": "active"
     },
     {
+      "owner_id": "module.extensions",
+      "manifest_path": "tools/test_families/module.extensions.json",
+      "status": "active"
+    },
+    {
       "owner_id": "module.graphprojection",
       "manifest_path": "tools/test_families/module.graphprojection.json",
       "status": "active"
@@ -99,6 +104,11 @@
     {
       "owner_id": "module.reference_data",
       "manifest_path": "tools/test_families/module.reference_data.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.reportcomposition",
+      "manifest_path": "tools/test_families/module.reportcomposition.json",
       "status": "active"
     },
     {

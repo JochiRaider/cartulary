@@ -12,6 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -362,7 +363,18 @@ func getWorkbookStartup(t testing.TB, baseURL string, incidentID string, args ..
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected startup status: got %d body=%#v", resp.StatusCode, httptestx.ReadJSONBody(t, resp))
 	}
-	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+	if got := resp.Header.Get("Cache-Control"); got != "no-store" {
+		t.Fatalf("workbook startup Cache-Control=%q, want no-store", got)
+	}
+	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+	availability, ok := data["extension_workspace_availability"].(map[string]any)
+	if !ok || availability["schema_id"] != workbookstartup.ExtensionWorkspaceAvailabilitySchemaID || availability["incident_id"] != incidentID {
+		t.Fatalf("invalid workbook extension availability: %#v", data["extension_workspace_availability"])
+	}
+	if _, ok := availability["workspaces"].([]any); !ok {
+		t.Fatalf("workbook extension availability workspaces must be an array: %#v", availability)
+	}
+	return data
 }
 
 func requireSheetRef(t testing.TB, value any, wantKind string, wantID string) {
@@ -396,6 +408,15 @@ func requireExtensionStartupSelection(t testing.TB, data map[string]any, wantSou
 		t.Fatalf("unexpected extension startup selection: got %#v want source=%q with null base identities", data, wantSource)
 	}
 	requireExtensionSheetRef(t, data["selected_sheet_ref"])
+	availability := data["extension_workspace_availability"].(map[string]any)
+	rows := availability["workspaces"].([]any)
+	if len(rows) != 1 {
+		t.Fatalf("extension startup availability rows=%#v, want one", rows)
+	}
+	row := rows[0].(map[string]any)
+	if row["extension_profile_id"] != "network_flow_activity" || row["workspace_key"] != "network_analysis" || len(row) != 2 {
+		t.Fatalf("unexpected extension startup availability row: %#v", row)
+	}
 }
 
 func requireStartupSelection(t testing.TB, data map[string]any, wantSource string, wantKind string, wantID string, wantViewSchemaID string) {

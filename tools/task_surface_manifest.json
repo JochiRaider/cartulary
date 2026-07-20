@@ -2466,6 +2466,8 @@
       "prerequisites": [
         "$(EMBEDDED_WEB_ASSET_STAMP)",
         "$(EMBEDDED_WEB_ASSET_ARCHIVE)",
+        "$(EMBEDDED_CLIENT_ASSET_MANIFEST)",
+        "$(EMBEDDED_CLIENT_SUPPORT_REGISTRY)",
         "$(EMBEDDED_WEB_ASSET_READY_STAMP)"
       ],
       "type": "artifact_binding",

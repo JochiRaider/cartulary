@@ -1,0 +1,60 @@
+{
+  "anchors": [
+    {
+      "anchor_id": "cartulary.reporting_subsystem_nlspec.v1",
+      "anchor_kind": "document",
+      "anchor_sha256": "72f8948f5492264a198a6ffdfe3ec9c7bce820917361d728d400bafc9a139bc1",
+      "closure_categories": [],
+      "end_byte": 312573,
+      "start_byte": 0
+    },
+    {
+      "anchor_id": "REQ-RPT-019a",
+      "anchor_kind": "req",
+      "anchor_sha256": "e1b5aa3d13e24103d4f9aa42cfa6631686ddd9cb4e44af8af3fe0a4ebd138187",
+      "closure_categories": [
+        "authorization",
+        "conformance_evidence",
+        "errors_precedence_retry",
+        "identity_canonicalization_ordering",
+        "request_response_schemas",
+        "scalar_collection_bounds",
+        "security_secrets_egress",
+        "snapshot_reporting"
+      ],
+      "end_byte": 21034,
+      "start_byte": 19681
+    },
+    {
+      "anchor_id": "REQ-RPT-019b",
+      "anchor_kind": "req",
+      "anchor_sha256": "a27561594456312bc9190a54692004b4f1e89e23668338e2120b800e77f167d1",
+      "closure_categories": [
+        "conformance_evidence",
+        "errors_precedence_retry",
+        "request_response_schemas",
+        "scalar_collection_bounds",
+        "security_secrets_egress"
+      ],
+      "end_byte": 21835,
+      "start_byte": 21036
+    }
+  ],
+  "owner_contract_manifest_id": "reporting.extensions_contract.v1",
+  "owner_document": {
+    "byte_length": 312573,
+    "owner_document_ref": "docs/reporting-subsystem-nlspec.md#document:cartulary.reporting_subsystem_nlspec.v1",
+    "owner_document_schema_id": "cartulary.reporting_subsystem_nlspec.v1",
+    "owner_document_sha256": "72f8948f5492264a198a6ffdfe3ec9c7bce820917361d728d400bafc9a139bc1",
+    "owner_document_version": "1.1.0"
+  },
+  "owner_fragments": [
+    {
+      "owner_fragment_id": "snapshot_reporting.participation.v1",
+      "owner_fragment_ref": "contracts/extensions/fragments/snapshot_reporting.participation.json",
+      "owner_fragment_sha256": "ba715b67b140e7a0d36710ca7d513869739d499b2a71e95cbf3bca626252eaee"
+    }
+  ],
+  "owner_id": "reporting",
+  "schema_id": "cartulary.extension_owner_contract_manifest.v1"
+}

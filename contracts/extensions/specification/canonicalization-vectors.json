@@ -1,0 +1,9 @@
+{
+  "schema_id":"cartulary.extension_canonicalization_vector_set.v1",
+  "vectors":[
+    {"vector_id":"object_key_order","input":{"z":0,"a":1},"canonical_json":"{\"a\":1,\"z\":0}\n","valid":true},
+    {"vector_id":"explicit_null_preserved","input":{"value":null},"canonical_json":"{\"value\":null}\n","valid":true},
+    {"vector_id":"integer_only","input":{"value":1},"canonical_json":"{\"value\":1}\n","valid":true},
+    {"vector_id":"maximum_depth_plus_one","input":null,"canonical_json":null,"valid":false}
+  ]
+}

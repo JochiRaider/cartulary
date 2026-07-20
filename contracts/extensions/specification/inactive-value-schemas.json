@@ -1,0 +1,9 @@
+{
+  "schema_id":"cartulary.extension_inactive_value_schema_set.v1",
+  "closed_vocabulary":["additionalProperties","enum","items","maxItems","maxLength","maxProperties","maximum","minItems","minLength","minProperties","minimum","pattern","properties","required","type"],
+  "forbidden_vocabulary":["$dynamicRef","$ref","contentEncoding","contentMediaType","default","deprecated","examples","format","readOnly","writeOnly"],
+  "schemas":[
+    {"inactive_value_schema_id":"cartulary.extension.inactive.empty_object.v1","schema":{"type":"object","properties":{},"required":[],"additionalProperties":false}}
+  ],
+  "effects":{"defaulting":false,"reference_resolution":false,"secret_resolution":false,"view_creation":false,"retention":false,"egress":false,"profile_invocation":false}
+}

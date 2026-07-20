@@ -19,8 +19,12 @@ type ErrorContract = {
 };
 
 type ExtensionProfileContract = {
+  capability_ids: string[];
+  claimable: boolean;
+  contract_major: number;
   profile_id: string;
   route_families: string[];
+  workspace_keys: string[];
 };
 
 test("supports route-owned incident validation errors through browser-authenticated request probes", async ({
@@ -132,9 +136,13 @@ test("supports zero-membership extension discovery and singleton pagination reje
   const extensionsBody = (await extensionsResponse.json()) as {
     data: {
       extensions: Array<{
+        capabilities: string[];
+        claimable: boolean;
         profile_id: string;
         claimed: boolean;
+        contract_major: number;
         route_families: string[];
+        workspace_keys: string[];
       }>;
     };
   };
@@ -146,7 +154,11 @@ test("supports zero-membership extension discovery and singleton pagination reje
         profile.profile_id === "incident_portability" ||
         profile.profile_id === "snapshot_reporting" ||
         profile.profile_id === "reference_pack",
+      claimable: profile.claimable,
+      contract_major: profile.contract_major,
       route_families: profile.route_families,
+      workspace_keys: profile.workspace_keys,
+      capabilities: profile.capability_ids,
     })),
   );
 
@@ -251,7 +263,7 @@ function errorContract(code: string): ErrorContract {
 function extensionRegistry(): ExtensionProfileContract[] {
   return parseContractArtifact<{
     profiles: ExtensionProfileContract[];
-  }>("contracts/extensions/index.json").profiles;
+  }>("contracts/extensions/generated/profile-registry.json").profiles;
 }
 
 function extensionProfile(profileID: string): ExtensionProfileContract {

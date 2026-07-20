@@ -4,29 +4,12 @@
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "ExtensionProfileID".
  */
-export type ExtensionProfileID =
-  | "enterprise_authentication"
-  | "import"
-  | "incident_portability"
-  | "network_flow_activity"
-  | "reference_pack"
-  | "snapshot_reporting";
+export type ExtensionProfileID = string;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "ExtensionRouteFamily".
  */
-export type ExtensionRouteFamily =
-  | "/api/v1/auth/oidc"
-  | "/api/v1/auth/providers"
-  | "/api/v1/auth/saml"
-  | "/api/v1/import-sessions"
-  | "/api/v1/incidents/{incident_id}/network-flow"
-  | "/api/v1/incidents/{incident_id}/report-compositions"
-  | "/api/v1/incident-bundles"
-  | "/api/v1/reference-packs"
-  | "/api/v1/releases"
-  | "/api/v1/snapshots"
-  | "/api/v1/users/{user_id}/auth-bindings";
+export type ExtensionRouteFamily = string;
 
 export interface HttpsContractsCartularyLocalGeneratedCoreHttpV1 {
   [k: string]: unknown;
@@ -128,6 +111,10 @@ export interface ExtensionDiscoveryData {
  */
 export interface ExtensionProfileResource {
   profile_id: ExtensionProfileID;
+  claimable: boolean;
   claimed: boolean;
+  contract_major: number | null;
   route_families: ExtensionRouteFamily[];
+  workspace_keys: string[];
+  capabilities: string[];
 }

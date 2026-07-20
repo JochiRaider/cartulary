@@ -4,7 +4,9 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -19,8 +21,15 @@ type ResourceIdentity struct {
 	Attributes []attribute.KeyValue
 }
 
-func BuildResourceIdentity(cfg config.Config, claimedExtensionProfiles []string) (ResourceIdentity, error) {
-	profileClaims, err := SerializeProfileClaims(claimedExtensionProfiles)
+type ResolvedClaimIdentity struct {
+	ProfileIDs []string
+	SHA256     string
+}
+
+var resolvedClaimProfileIDPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
+
+func BuildResourceIdentity(cfg config.Config, resolvedClaims ResolvedClaimIdentity) (ResourceIdentity, error) {
+	profileClaims, err := SerializeProfileClaims(resolvedClaims)
 	if err != nil {
 		return ResourceIdentity{}, err
 	}
@@ -80,29 +89,49 @@ func ValidateExternalResourceContribution(candidate ResourceIdentity) error {
 	return nil
 }
 
-func SerializeProfileClaims(claimedExtensionProfiles []string) (string, error) {
-	claims := map[string]struct{}{"base": {}}
-	for _, profileID := range claimedExtensionProfiles {
-		profileID = strings.TrimSpace(profileID)
-		if profileID == "" || profileID == "base" {
-			continue
-		}
-		if !knownExtensionProfile(profileID) {
-			return "", config.NewDiagnosticsError(config.Diagnostic{
-				Path:       "telemetry.resource.profile_claims",
-				ReasonCode: "invalid_telemetry_config",
-				Message:    "profile claim is outside the current Core 00/Core 01 profile vocabulary",
-			})
-		}
-		claims[profileID] = struct{}{}
+func SerializeProfileClaims(resolvedClaims ResolvedClaimIdentity) (string, error) {
+	if err := validateResolvedClaimIdentity(resolvedClaims); err != nil {
+		return "", err
 	}
-
-	tokens := make([]string, 0, len(claims))
-	for token := range claims {
-		tokens = append(tokens, token)
-	}
+	tokens := append([]string{"base"}, resolvedClaims.ProfileIDs...)
 	sort.Strings(tokens)
 	return strings.Join(tokens, ","), nil
+}
+
+func validateResolvedClaimIdentity(identity ResolvedClaimIdentity) error {
+	fail := func(message string) error {
+		return config.NewDiagnosticsError(config.Diagnostic{
+			Path:       "telemetry.resource.profile_claims",
+			ReasonCode: "invalid_telemetry_config",
+			Message:    message,
+		})
+	}
+	if len(identity.SHA256) != sha256.Size*2 {
+		return fail("resolved claim identity requires a lowercase SHA-256 digest")
+	}
+	digestBytes, err := hex.DecodeString(identity.SHA256)
+	if err != nil || hex.EncodeToString(digestBytes) != identity.SHA256 {
+		return fail("resolved claim identity requires a lowercase SHA-256 digest")
+	}
+	for index, profileID := range identity.ProfileIDs {
+		if profileID == "base" || !resolvedClaimProfileIDPattern.MatchString(profileID) {
+			return fail("resolved claim identity contains an invalid profile identifier")
+		}
+		if index > 0 && identity.ProfileIDs[index-1] >= profileID {
+			return fail("resolved claim identity profile identifiers must be unique and canonically ordered")
+		}
+	}
+	canonicalBytes, err := json.Marshal(struct {
+		ProfileIDs []string `json:"profile_ids"`
+	}{ProfileIDs: append([]string{}, identity.ProfileIDs...)})
+	if err != nil {
+		return fail("resolved claim identity cannot be encoded")
+	}
+	computed := sha256.Sum256(canonicalBytes)
+	if !hmac.Equal(computed[:], digestBytes) {
+		return fail("resolved claim identity digest does not match its canonical profile set")
+	}
+	return nil
 }
 
 func IncidentHash64(secret string, incidentID string) (string, error) {
@@ -126,13 +155,4 @@ func IncidentHash64(secret string, incidentID string) (string, error) {
 	_, _ = mac.Write([]byte(strings.ToLower(parsed.String())))
 	sum := mac.Sum(nil)
 	return hex.EncodeToString(sum[:8]), nil
-}
-
-func knownExtensionProfile(profileID string) bool {
-	switch profileID {
-	case "enterprise_authentication", "import", "incident_portability", "network_flow_activity", "reference_pack", "snapshot_reporting":
-		return true
-	default:
-		return false
-	}
 }

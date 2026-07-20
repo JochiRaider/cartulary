@@ -1,0 +1,149 @@
+{
+  "facts": [
+    {
+      "admission_validation": {
+        "dependency_probes": [],
+        "post_migration_algorithm_ref": "docs/network-flow-activity-nlspec.md#algorithm:network_flow_activity.validate_state_v1",
+        "preflight_algorithm_ref": null,
+        "schema_id": "cartulary.extension_admission_validation.v1"
+      },
+      "fact_kind": "admission_validation",
+      "owner_contract_ref": "docs/network-flow-activity-nlspec.md#req:NF-REQ-186",
+      "profile_id": "network_flow_activity"
+    },
+    {
+      "conformance_manifest_id": "network_flow_activity.conformance.v2",
+      "fact_kind": "conformance_manifest",
+      "owner_contract_ref": "docs/network-flow-activity-nlspec.md#req:NF-REQ-181",
+      "profile_id": "network_flow_activity"
+    },
+    {
+      "contribution": {
+        "contribution_id": "network_flow_activity.route_family",
+        "kind": "http_route_family",
+        "route_family": "/api/v1/incidents/{incident_id}/network-flow"
+      },
+      "fact_kind": "contribution",
+      "owner_contract_ref": "docs/network-flow-activity-nlspec.md#req:NF-REQ-006a",
+      "profile_id": "network_flow_activity"
+    },
+    {
+      "contribution": {
+        "contribution_id": "network_flow_activity.network_analysis_workspace",
+        "kind": "incident_workspace",
+        "workspace_key": "network_analysis"
+      },
+      "fact_kind": "contribution",
+      "owner_contract_ref": "docs/network-flow-activity-nlspec.md#req:NF-REQ-006a",
+      "profile_id": "network_flow_activity"
+    },
+    {
+      "contribution": {
+        "contribution_id": "network_flow_activity.import_target",
+        "kind": "import_target",
+        "target_kind": "network_flow_table"
+      },
+      "fact_kind": "contribution",
+      "owner_contract_ref": "docs/network-flow-activity-nlspec.md#req:NF-REQ-185",
+      "profile_id": "network_flow_activity"
+    },
+    {
+      "contribution": {
+        "contribution_id": "network_flow_activity.import_apply",
+        "kind": "cross_owner_transaction_participant",
+        "participant_contract_ref": "docs/network-flow-activity-nlspec.md#req:NF-REQ-185",
+        "participant_contract_sha256": "7d8d73384cfab045a29441564ff656817b2ca00767df194e16e4d9da5862f656",
+        "participant_id": "network_flow_activity.import_apply_v1"
+      },
+      "fact_kind": "contribution",
+      "owner_contract_ref": "docs/network-flow-activity-nlspec.md#req:NF-REQ-185",
+      "profile_id": "network_flow_activity"
+    },
+    {
+      "contribution": {
+        "contribution_id": "network_flow_activity.indicator_link",
+        "kind": "cross_owner_transaction_participant",
+        "participant_contract_ref": "docs/network-flow-activity-nlspec.md#req:NF-REQ-185",
+        "participant_contract_sha256": "df0c345a35ee63d18be1491ab22f786813e92cad61a296b36e5bb2af207dc9cd",
+        "participant_id": "network_flow_activity.indicator_link_v1"
+      },
+      "fact_kind": "contribution",
+      "owner_contract_ref": "docs/network-flow-activity-nlspec.md#req:NF-REQ-185",
+      "profile_id": "network_flow_activity"
+    },
+    {
+      "contribution": {
+        "contribution_id": "network_flow_activity.network_flow_table_resource",
+        "kind": "extension_resource_kind",
+        "resource_kind": "network_flow_table"
+      },
+      "fact_kind": "contribution",
+      "owner_contract_ref": "docs/network-flow-activity-nlspec.md#req:NF-REQ-182",
+      "profile_id": "network_flow_activity"
+    },
+    {
+      "contribution": {
+        "contribution_id": "network_flow_activity.backup_restore",
+        "kind": "backup_restore_participant",
+        "participant_contract_ref": "docs/network-flow-activity-nlspec.md#req:NF-REQ-184",
+        "participant_contract_sha256": "b9e5a9ac55176dd464d7370f4099c1d37a192c772a3e02eee7a67a70661e4b19",
+        "participant_id": "network_flow_activity.backup_restore_v1"
+      },
+      "fact_kind": "contribution",
+      "owner_contract_ref": "docs/network-flow-activity-nlspec.md#req:NF-REQ-184",
+      "profile_id": "network_flow_activity"
+    },
+    {
+      "egress_contract_ref": null,
+      "egress_mode": "none",
+      "fact_kind": "egress",
+      "owner_contract_ref": "docs/network-flow-activity-nlspec.md#req:NF-REQ-185",
+      "profile_id": "network_flow_activity"
+    },
+    {
+      "blocking_predicate": {
+        "family_ids": [
+          "network_flow_activity.tables"
+        ],
+        "kind": "any_authoritative_state_present",
+        "schema_id": "cartulary.extension_state_blocking_predicate.v1"
+      },
+      "fact_kind": "portability",
+      "incident_portability_mode": "blocked_when_present",
+      "owner_contract_ref": "docs/network-flow-activity-nlspec.md#req:NF-REQ-185",
+      "participant_id": null,
+      "profile_id": "network_flow_activity"
+    },
+    {
+      "fact_kind": "snapshot_reporting",
+      "owner_contract_ref": "docs/network-flow-activity-nlspec.md#req:NF-REQ-185",
+      "participant_id": null,
+      "profile_id": "network_flow_activity",
+      "snapshot_reporting_mode": "no_participation"
+    },
+    {
+      "fact_kind": "state_ownership",
+      "owner_contract_ref": "docs/network-flow-activity-nlspec.md#req:NF-REQ-182",
+      "profile_id": "network_flow_activity",
+      "state_ownership": {
+        "current_state_version": 1,
+        "empty_state_policy": "allowed",
+        "final_state_validation_algorithm_id": "network_flow_activity.validate_state_v1",
+        "final_state_validation_algorithm_ref": "docs/network-flow-activity-nlspec.md#algorithm:network_flow_activity.validate_state_v1",
+        "initialization_definition_ref": "docs/network-flow-activity-nlspec.md#schema:cartulary.extension_state_initialization_definition.v1",
+        "initialization_definition_sha256": "ce2880c81cbd633e07efc6906b80820f648237d2200693e7a8076cd484a85cda",
+        "kind": "extension_versioned",
+        "migration_lineage_id": "network_flow_activity.state_v1",
+        "minimum_migratable_state_version": 1,
+        "state_presence_contract_ref": "docs/network-flow-activity-nlspec.md#schema:cartulary.extension_state_presence_manifest.v1"
+      }
+    }
+  ],
+  "owner_document_ref": "docs/network-flow-activity-nlspec.md#document:cartulary.network_flow_activity.current.v2",
+  "owner_document_schema_id": "cartulary.network_flow_activity.current.v2",
+  "owner_document_sha256": "14f8fdb92491ab60d567bae02fe8d5e9220a1edceb1699a644b8c9e91991973e",
+  "owner_document_version": "2.0.0",
+  "owner_fragment_id": "network_flow_activity.profile.v2",
+  "owner_id": "network_flow_activity",
+  "schema_id": "cartulary.extension_owner_fragment.v1"
+}

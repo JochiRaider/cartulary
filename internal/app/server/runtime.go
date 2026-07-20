@@ -36,11 +36,15 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/enterpriseauth"
+	"github.com/JochiRaider/cartulary/internal/platform/extensionstore"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi/webassets"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/processlease"
+	"github.com/JochiRaider/cartulary/internal/platform/processlifecycle"
 	"github.com/JochiRaider/cartulary/internal/platform/secretpurpose"
 	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
@@ -65,17 +69,26 @@ type Options struct {
 }
 
 type Runtime struct {
-	Config      config.Config
-	Handler     http.Handler
-	Postgres    *pgxpool.Pool
-	ObjectStore objectstore.Store
-	Jobs        *jobs.Manager
-	JobRunner   *jobs.Runner
-	WSHub       *platformws.Hub
-	Telemetry   *telemetry.Runtime
+	Config         config.Config
+	Handler        http.Handler
+	Extensions     *extensions.Coordinator
+	ExtensionState *extensions.StateRuntime
+	StagedJanitor  *extensions.StagedObjectJanitor
+	ExtensionPlan  extensions.PublicationPlan
+	ResolvedClaims extensions.ResolvedClaimSet
+	Postgres       *pgxpool.Pool
+	ObjectStore    objectstore.Store
+	Jobs           *jobs.Manager
+	JobRunner      *jobs.Runner
+	WSHub          *platformws.Hub
+	Telemetry      *telemetry.Runtime
+	ProcessLease   *processlease.Lease
+	Lifecycle      *processlifecycle.Controller
 
-	closeOnce sync.Once
-	cleanups  []func()
+	closeOnce            sync.Once
+	publicationOnce      sync.Once
+	cleanups             []func()
+	stagedJanitorContext context.Context
 }
 
 func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runtime, error) {
@@ -84,41 +97,10 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		return nil, err
 	}
 
-	profiles := httpapi.ResolveExtensionProfiles(options.HTTP.Dependencies.ExtensionProfiles)
-	if options.HTTP.Dependencies.ExtensionProfiles == nil {
-		profiles = applyConfigExtensionClaims(profiles, normalizedCfg)
-	}
-	secretPurposes := secretpurpose.NewRegistry()
-	if err := authn.RegisterMasterSecretPurpose(secretPurposes, options.Env); err != nil {
-		return nil, err
-	}
-	if err := config.RegisterTelemetrySecretPurposes(normalizedCfg, options.Env, secretPurposes); err != nil {
-		return nil, err
-	}
-	var enterpriseProviderDefinitions []authn.EnterpriseAuthProviderDefinition
-	if normalizedCfg.EnterpriseAuthentication.Claimed {
-		enterpriseProviderDefinitions, err = enterpriseauth.LoadProviderManifest(normalizedCfg, options.Env)
-		if err != nil {
-			return nil, err
-		}
-		if err := enterpriseauth.RegisterProviderSecretPurposes(enterpriseProviderDefinitions, options.Env, secretPurposes); err != nil {
-			return nil, err
-		}
-	}
-	telemetryRuntime, err := telemetry.Bootstrap(ctx, normalizedCfg, options.Env, telemetry.WithClaimedExtensionProfiles(claimedExtensionProfileIDs(profiles)))
-	if err != nil {
-		return nil, err
-	}
-
 	runtime := &Runtime{
 		Config:    normalizedCfg,
-		Telemetry: telemetryRuntime,
+		Lifecycle: processlifecycle.New(),
 	}
-	runtime.own(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(runtime.Config.Telemetry.Shutdown.FlushTimeoutMS)*time.Millisecond)
-		defer cancel()
-		_ = runtime.Telemetry.Shutdown(ctx)
-	})
 	now := options.Now
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
@@ -137,10 +119,131 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 			runtime.own(pool.Close)
 		}
 	}
+	if runtime.Postgres != nil {
+		lease, leaseErr := processlease.Acquire(
+			ctx,
+			processlease.PostgresBackend{Pool: runtime.Postgres},
+			time.Duration(normalizedCfg.Timeouts.Extensions.ProcessLeaseAcquireSeconds)*time.Second,
+			time.Duration(normalizedCfg.Timeouts.Extensions.ProcessLeaseLossDetectionSeconds)*time.Second,
+		)
+		if leaseErr != nil {
+			runtime.Close()
+			return nil, leaseErr
+		}
+		runtime.ProcessLease = lease
+		runtime.own(func() {
+			releaseCtx, cancel := context.WithTimeout(context.Background(), time.Duration(normalizedCfg.Timeouts.Extensions.ProcessLeaseLossDetectionSeconds)*time.Second)
+			defer cancel()
+			if lease.State() == processlease.StateHeld {
+				_ = lease.Release(releaseCtx)
+			} else {
+				lease.Close()
+			}
+		})
+		monitorCtx, cancelMonitor := context.WithCancel(context.Background())
+		runtime.own(cancelMonitor)
+		lease.StartMonitor(monitorCtx)
+		go runtime.watchProcessLease(monitorCtx)
+	}
+
+	extensionCoordinator, err := extensions.NewGeneratedCoordinator()
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("admit packaged extension registry: %w", err)
+	}
+	if clientSupportDigest, present, digestErr := webassets.ClientSupportRegistrySHA256(); digestErr != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("admit packaged browser contracts: %w", digestErr)
+	} else if present {
+		extensionCoordinator, err = extensionCoordinator.WithClientSupportRegistrySHA256(clientSupportDigest)
+		if err != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("bind packaged browser contracts: %w", err)
+		}
+	}
+	requestedClaims := configuredExtensionClaimIDs(extensionCoordinator.Descriptors(), normalizedCfg, options.HTTP.Dependencies.ExtensionProfiles)
+	claimResolution, err := extensionCoordinator.ResolveClaims(requestedClaims)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("resolve extension claims: %w", err)
+	}
+	extensionPlan, err := extensionCoordinator.BuildPublicationPlan(claimResolution)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("prepare extension publication: %w", err)
+	}
+	resolvedClaims := claimResolution.Claims()
+	profiles := extensionHTTPProfiles(extensionCoordinator.Descriptors(), resolvedClaims.ProfileIDs())
+	runtime.Extensions = extensionCoordinator
+	runtime.ExtensionPlan = extensionPlan
+	runtime.ResolvedClaims = resolvedClaims
+
+	secretPurposes := secretpurpose.NewRegistry()
+	if err := authn.RegisterMasterSecretPurpose(secretPurposes, options.Env); err != nil {
+		runtime.Close()
+		return nil, err
+	}
+	if err := config.RegisterTelemetrySecretPurposes(normalizedCfg, options.Env, secretPurposes); err != nil {
+		runtime.Close()
+		return nil, err
+	}
+	var enterpriseProviderDefinitions []authn.EnterpriseAuthProviderDefinition
+	if normalizedCfg.EnterpriseAuthentication.Claimed {
+		enterpriseProviderDefinitions, err = enterpriseauth.LoadProviderManifest(normalizedCfg, options.Env)
+		if err != nil {
+			runtime.Close()
+			return nil, err
+		}
+		if err := enterpriseauth.RegisterProviderSecretPurposes(enterpriseProviderDefinitions, options.Env, secretPurposes); err != nil {
+			runtime.Close()
+			return nil, err
+		}
+	}
+	telemetryRuntime, err := telemetry.Bootstrap(ctx, normalizedCfg, options.Env, telemetry.WithResolvedClaimIdentity(telemetry.ResolvedClaimIdentity{
+		ProfileIDs: resolvedClaims.ProfileIDs(),
+		SHA256:     resolvedClaims.SHA256(),
+	}))
+	if err != nil {
+		runtime.Close()
+		return nil, err
+	}
+	runtime.Telemetry = telemetryRuntime
+	runtime.own(func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Duration(runtime.Config.Telemetry.Shutdown.FlushTimeoutMS)*time.Millisecond)
+		defer cancel()
+		_ = runtime.Telemetry.Shutdown(shutdownCtx)
+	})
 
 	if err := ensureSchemaReady(ctx, runtime.Postgres, dbmigrations.Source()); err != nil {
 		runtime.Close()
 		return nil, err
+	}
+	var extensionStateStore *extensionstore.Store
+	if runtime.Postgres != nil {
+		stateStore, stateStoreErr := extensionstore.New(runtime.Postgres, networkflow.ExtensionStateFamilyCounters())
+		if stateStoreErr != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("compose extension state store: %w", stateStoreErr)
+		}
+		stateRuntime, stateRuntimeErr := extensions.NewStateRuntime(
+			stateStore,
+			map[string]extensions.StateValidator{
+				"network_flow_activity.validate_state_v1": networkflow.ValidateExtensionState,
+			},
+			nil,
+			now,
+			time.Duration(normalizedCfg.Timeouts.Extensions.MigrationLockSeconds)*time.Second,
+		)
+		if stateRuntimeErr != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("compose extension state runtime: %w", stateRuntimeErr)
+		}
+		if stateAdmissionErr := stateRuntime.AdmitClaims(ctx, extensionCoordinator, resolvedClaims); stateAdmissionErr != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("admit extension state: %w", stateAdmissionErr)
+		}
+		runtime.ExtensionState = stateRuntime
+		extensionStateStore = stateStore
 	}
 
 	if options.ObjectStore != nil {
@@ -155,6 +258,30 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		if client != nil {
 			runtime.own(func() { _ = client.Close() })
 		}
+	}
+	if extensionStateStore != nil && runtime.ObjectStore != nil {
+		janitor, janitorErr := extensions.NewStagedObjectJanitor(
+			extensionStateStore,
+			stagedObjectDeleter{store: runtime.ObjectStore},
+			nil,
+			now,
+			int(normalizedCfg.Limits.Extensions.StagedObjectCleanupBatch),
+		)
+		if janitorErr != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("compose staged-object janitor: %w", janitorErr)
+		}
+		cleanupCtx, cancelCleanup := context.WithTimeout(ctx, time.Duration(normalizedCfg.Timeouts.Extensions.StagedObjectCleanupSeconds)*time.Second)
+		cleanupErr := janitor.Sweep(cleanupCtx)
+		cancelCleanup()
+		if cleanupErr != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("initial staged-object cleanup: %w", cleanupErr)
+		}
+		janitorCtx, cancelJanitor := context.WithCancel(context.Background())
+		runtime.StagedJanitor = janitor
+		runtime.stagedJanitorContext = janitorCtx
+		runtime.own(cancelJanitor)
 	}
 	postgresHandle := instrumentedPostgres(normalizedCfg, runtime.Postgres)
 
@@ -283,6 +410,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		WSHub:             hub,
 		CursorCodec:       cursorCodec,
 		Readiness:         httpapi.NewDependencyReadinessChecker(runtime.Postgres, runtime.ObjectStore),
+		Admission:         runtime.Lifecycle,
 		PublicErrorFaults: testRuntimeDeps.PublicErrorFaults,
 		ModuleOverrides:   moduleOverrides,
 		ExtensionProfiles: profiles,
@@ -296,6 +424,10 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	}
 
 	runtime.Handler = handler
+	if runtime.ProcessLease != nil && runtime.ProcessLease.State() == processlease.StateLost {
+		runtime.Close()
+		return nil, processlease.ErrLeaseLost
+	}
 	return runtime, nil
 }
 
@@ -335,27 +467,71 @@ func instrumentedObjectStore(cfg config.Config, store objectstore.Store) objects
 	return objectstore.InstrumentStore(store, cfg.Telemetry.Resource.ServiceVersion)
 }
 
-func claimedExtensionProfileIDs(profiles []httpapi.ExtensionProfile) []string {
-	claimed := make([]string, 0, len(profiles))
-	for _, profile := range profiles {
-		if profile.Claimed {
-			claimed = append(claimed, profile.ProfileID)
+type stagedObjectDeleter struct {
+	store objectstore.Store
+}
+
+func (deleter stagedObjectDeleter) DeleteStagedObject(ctx context.Context, storageIdentity string) error {
+	if deleter.store == nil {
+		return fmt.Errorf("object store unavailable")
+	}
+	return deleter.store.DeleteObject(ctx, storageIdentity)
+}
+
+func configuredExtensionClaimIDs(descriptors []extensions.Descriptor, cfg config.Config, override []httpapi.ExtensionProfile) []string {
+	if override != nil {
+		claimed := make([]string, 0, len(override))
+		for _, profile := range override {
+			if profile.Claimed {
+				claimed = append(claimed, profile.ProfileID)
+			}
+		}
+		return claimed
+	}
+	claimed := make([]string, 0, len(descriptors))
+	for _, descriptor := range descriptors {
+		isClaimed := false
+		switch descriptor.ProfileID {
+		case "enterprise_authentication":
+			isClaimed = cfg.EnterpriseAuthentication.Claimed
+		case "import":
+			isClaimed = cfg.Import.Claimed
+		case "incident_portability":
+			isClaimed = cfg.IncidentPortability.Claimed
+		case "network_flow_activity":
+			isClaimed = cfg.NetworkFlowActivity.Claimed
+		case "reference_pack":
+			isClaimed = cfg.ReferencePack.Claimed
+		case "snapshot_reporting":
+			isClaimed = cfg.SnapshotReporting.Claimed
+		}
+		if isClaimed {
+			claimed = append(claimed, descriptor.ProfileID)
 		}
 	}
 	return claimed
 }
 
-func applyConfigExtensionClaims(profiles []httpapi.ExtensionProfile, cfg config.Config) []httpapi.ExtensionProfile {
-	claimed := append([]httpapi.ExtensionProfile(nil), profiles...)
-	for index := range claimed {
-		switch claimed[index].ProfileID {
-		case "enterprise_authentication":
-			claimed[index].Claimed = cfg.EnterpriseAuthentication.Claimed
-		case "network_flow_activity":
-			claimed[index].Claimed = cfg.NetworkFlowActivity.Claimed
-		}
+func extensionHTTPProfiles(descriptors []extensions.Descriptor, claimedProfileIDs []string) []httpapi.ExtensionProfile {
+	claimed := make(map[string]struct{}, len(claimedProfileIDs))
+	for _, profileID := range claimedProfileIDs {
+		claimed[profileID] = struct{}{}
 	}
-	return claimed
+	profiles := make([]httpapi.ExtensionProfile, 0, len(descriptors))
+	for _, descriptor := range descriptors {
+		_, isClaimed := claimed[descriptor.ProfileID]
+		contractMajor := descriptor.ContractMajor
+		workspaces := make([]httpapi.ExtensionWorkspace, 0, len(descriptor.WorkspaceKeys))
+		for _, workspaceKey := range descriptor.WorkspaceKeys {
+			workspaces = append(workspaces, httpapi.ExtensionWorkspace{WorkspaceKey: workspaceKey, MinimumRole: "viewer"})
+		}
+		profiles = append(profiles, httpapi.ExtensionProfile{
+			ProfileID: descriptor.ProfileID, Claimable: descriptor.Claimable, Claimed: isClaimed,
+			ContractMajor: &contractMajor, RouteFamilies: descriptor.RouteFamilies,
+			WorkspaceKeys: descriptor.WorkspaceKeys, Capabilities: descriptor.CapabilityIDs, Workspaces: workspaces,
+		})
+	}
+	return profiles
 }
 
 func revisionExtensionClaims(profiles []httpapi.ExtensionProfile) []revisions.ExtensionClaim {
@@ -369,13 +545,77 @@ func revisionExtensionClaims(profiles []httpapi.ExtensionProfile) []revisions.Ex
 	return claims
 }
 
+func (r *Runtime) ActivatePublication() error {
+	if r == nil || r.Lifecycle == nil {
+		return fmt.Errorf("extension_publication_failed")
+	}
+	if r.ProcessLease != nil && r.ProcessLease.State() != processlease.StateHeld {
+		return fmt.Errorf("extension_publication_failed")
+	}
+	if err := r.Lifecycle.Publish(); err != nil {
+		return err
+	}
+	r.publicationOnce.Do(func() {
+		if r.StagedJanitor != nil && r.stagedJanitorContext != nil {
+			go func() {
+				defer func() {
+					if recovered := recover(); recovered != nil && r.Lifecycle != nil {
+						r.Lifecycle.Fatal("published_component_lost")
+					}
+				}()
+				if err := r.StagedJanitor.Run(r.stagedJanitorContext, time.Duration(r.Config.Intervals.Extensions.StagedObjectSweepSeconds)*time.Second); err != nil && r.Lifecycle != nil {
+					r.Lifecycle.Fatal("published_component_lost")
+				}
+			}()
+		}
+	})
+	return nil
+}
+
+func (r *Runtime) FatalEvents() <-chan processlifecycle.FatalSignal {
+	if r == nil || r.Lifecycle == nil {
+		return nil
+	}
+	return r.Lifecycle.FatalEvents()
+}
+
+func (r *Runtime) watchProcessLease(ctx context.Context) {
+	if r == nil || r.ProcessLease == nil || r.Lifecycle == nil {
+		return
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case event := <-r.ProcessLease.Events():
+			switch event.State {
+			case processlease.StateUncertain:
+				r.Lifecycle.CloseAdmission()
+			case processlease.StateHeld:
+				if event.Previous == processlease.StateUncertain {
+					r.Lifecycle.RestoreAdmission()
+				}
+			case processlease.StateLost:
+				r.Lifecycle.Fatal("application_process_lease_lost")
+				return
+			}
+		}
+	}
+}
+
 func (r *Runtime) Close() {
 	if r == nil {
 		return
 	}
 	r.closeOnce.Do(func() {
+		if r.Lifecycle != nil {
+			r.Lifecycle.MarkTerminating()
+		}
 		for index := len(r.cleanups) - 1; index >= 0; index-- {
 			r.cleanups[index]()
+		}
+		if r.Lifecycle != nil {
+			r.Lifecycle.MarkExited()
 		}
 	})
 }

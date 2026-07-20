@@ -8,6 +8,200 @@ import (
 	"testing"
 )
 
+func TestValidateExtensionDependencyDeclarationsRejectsOmittedAndNullArrays(t *testing.T) {
+	valid := validExtensionDependencyDeclarationSet()
+	dependencies := valid["dependencies"].([]any)
+
+	for _, key := range []string{"imported_anchor_refs", "imported_schema_ids", "imported_algorithm_ids", "imported_artifacts"} {
+		t.Run("omitted "+key, func(t *testing.T) {
+			row := cloneJSONMap(t, dependencies[0].(map[string]any))
+			delete(row, key)
+			copySet := cloneJSONMap(t, valid)
+			copyRows := append([]any(nil), dependencies...)
+			copyRows[0] = row
+			copySet["dependencies"] = copyRows
+			requireErrorContains(t, validateExtensionDependencyDeclarations(copySet), key+" must be a present non-null array")
+		})
+		t.Run("null "+key, func(t *testing.T) {
+			row := cloneJSONMap(t, dependencies[0].(map[string]any))
+			row[key] = nil
+			copySet := cloneJSONMap(t, valid)
+			copyRows := append([]any(nil), dependencies...)
+			copyRows[0] = row
+			copySet["dependencies"] = copyRows
+			requireErrorContains(t, validateExtensionDependencyDeclarations(copySet), key+" must be a present non-null array")
+		})
+	}
+}
+
+func TestValidateExtensionOwnerFragmentRejectsCapabilities(t *testing.T) {
+	fragment := map[string]any{
+		"schema_id":                "cartulary.extension_owner_fragment.v1",
+		"owner_fragment_id":        "test.fragment.v1",
+		"owner_id":                 "test",
+		"owner_document_ref":       "docs/test.md#document:test.v1",
+		"owner_document_schema_id": "test.v1",
+		"owner_document_version":   "1.0.0",
+		"owner_document_sha256":    strings.Repeat("0", 64),
+		"facts": []any{map[string]any{
+			"fact_kind":          "capability",
+			"profile_id":         "test",
+			"owner_contract_ref": "docs/test.md#req:TEST-REQ-001",
+			"capability_id":      "test.capability",
+		}},
+	}
+	requireErrorContains(t, validateExtensionOwnerFragment(fragment, "fragment.json"), "capability facts are prohibited")
+}
+
+func TestValidateExtensionConfigurationRequiresInertSchemaReference(t *testing.T) {
+	contract := map[string]any{
+		"schema_id":                    "cartulary.extension_profile_configuration_contract.v1",
+		"configuration_contract_id":    "test.configuration.v1",
+		"profile_id":                   "test",
+		"configuration_contract_major": json.Number("1"),
+		"namespace_schema_id":          "test.configuration.v1",
+		"keys": []any{map[string]any{
+			"key":                       "test.value",
+			"inactive_policy":           "syntax_only",
+			"inactive_value_schema_ref": nil,
+		}},
+	}
+	requireErrorContains(t, validateExtensionConfigurationContract(contract, "configuration.json"), "syntax_only requires a non-null inactive_value_schema_ref")
+}
+
+func TestExtensionCanonicalDigestIncludesRequiredFinalLF(t *testing.T) {
+	value := map[string]any{"schema_id": "test.v1"}
+	digest, err := extensionCanonicalDigest(value)
+	if err != nil {
+		t.Fatalf("digest extension artifact: %v", err)
+	}
+	if digest != "a03b53978fe4447e8fd7539e7778e4764686c694690529ce76b9fe2e3b51f9ae" {
+		t.Fatalf("unexpected extension canonical digest %s", digest)
+	}
+}
+
+func TestValidateExtensionBindingSourcesRejectsUnsortedContributions(t *testing.T) {
+	bindings := make([]any, 0, len(requiredExtensionProfiles))
+	for _, profileID := range requiredExtensionProfiles {
+		bindings = append(bindings, map[string]any{
+			"profile_id":                   profileID,
+			"contract_major":               json.Number("1"),
+			"implementation_id":            "cartulary." + profileID + ".v1",
+			"state_ownership_kind":         "core_managed",
+			"implemented_contribution_ids": []any{},
+			"algorithm_ids":                []any{},
+			"participant_implementations":  []any{},
+		})
+	}
+	source := map[string]any{
+		"schema_id": "cartulary.extension_implementation_binding_source_set.v1",
+		"bindings":  bindings,
+	}
+	bindings[0].(map[string]any)["implemented_contribution_ids"] = []any{"z", "a"}
+	requireErrorContains(t, validateExtensionBindingSources(source), "must be sorted and unique")
+}
+
+func TestValidateExtensionParticipantContractEnforcesAggregateCeiling(t *testing.T) {
+	contract := map[string]any{
+		"schema_id":                "cartulary.extension_participant_contract.v1",
+		"participant_id":           "test.participant",
+		"profile_id":               "test",
+		"contribution_kind":        "incident_portability_participant",
+		"context_schema_id":        "test.context.v1",
+		"result_schema_id":         "test.result.v1",
+		"maximum_input_bytes":      json.Number("67108865"),
+		"maximum_result_bytes":     json.Number("67108864"),
+		"preparation_side_effects": "forbidden",
+		"mutation_protocol":        "shared_transaction_only",
+		"staged_output_capability": "operation_scoped",
+		"algorithm_ids":            []any{"test.prepare_v1"},
+	}
+	requireErrorContains(t, validateExtensionParticipantContract(contract, "participant.json"), "maximum_input_bytes must be in 1..67108864")
+}
+
+func TestDeriveExtensionArtifactsIsDeterministicAndPhaseFree(t *testing.T) {
+	root, err := repoRoot()
+	if err != nil {
+		t.Fatalf("resolve repository root: %v", err)
+	}
+	first, err := deriveExtensionArtifacts(root)
+	if err != nil {
+		t.Fatalf("derive extension artifacts: %v", err)
+	}
+	second, err := deriveExtensionArtifacts(root)
+	if err != nil {
+		t.Fatalf("derive extension artifacts again: %v", err)
+	}
+	if len(first) == 0 || len(first) != len(second) {
+		t.Fatalf("unexpected derived artifact counts %d and %d", len(first), len(second))
+	}
+	seen := map[string]artifact{}
+	for index := range first {
+		if first[index] != second[index] {
+			t.Fatalf("derived artifact %d is not byte-stable", index)
+		}
+		if strings.Contains(first[index].Path, "phase2") || strings.Contains(first[index].JSON, "cartulary.extensions.phase2.v1") {
+			t.Fatalf("derived artifact retains phase-shaped identity: %s", first[index].Path)
+		}
+		seen[first[index].Path] = first[index]
+	}
+	for _, requiredPath := range []string{
+		generatedExtensionPrefix + "profile-registry.json",
+		generatedExtensionPrefix + "registry-integrity.json",
+		generatedExtensionPrefix + "validation-condition-registry.json",
+		generatedExtensionPrefix + "implementation-bindings/network_flow_activity.json",
+	} {
+		if _, exists := seen[requiredPath]; !exists {
+			t.Fatalf("missing generated artifact %s", requiredPath)
+		}
+	}
+	registry := seen[generatedExtensionPrefix+"profile-registry.json"]
+	if !strings.HasSuffix(registry.JSON, "\n") || strings.HasSuffix(registry.JSON, "\n\n") {
+		t.Fatalf("registry does not use exactly one final LF")
+	}
+}
+
+func validExtensionDependencyDeclarationSet() map[string]any {
+	rows := make([]any, 0, len(requiredExtensionDependencies))
+	for _, dependencyID := range requiredExtensionDependencies {
+		rows = append(rows, map[string]any{
+			"dependency_id":                  dependencyID,
+			"owner_document_ref":             "docs/" + dependencyID + ".md#document:" + dependencyID + ".v1",
+			"owner_document_schema_id":       dependencyID + ".v1",
+			"owner_document_version":         "1.0.0",
+			"owner_document_sha256":          strings.Repeat("0", 64),
+			"owner_contract_manifest_ref":    "contracts/extensions/owners/" + dependencyID + ".json",
+			"owner_contract_manifest_id":     dependencyID + ".manifest.v1",
+			"owner_contract_manifest_sha256": strings.Repeat("1", 64),
+			"imported_anchor_refs":           []any{"docs/" + dependencyID + ".md#document:" + dependencyID + ".v1"},
+			"imported_schema_ids":            []any{},
+			"imported_algorithm_ids":         []any{},
+			"imported_artifacts":             []any{},
+			"required_status":                "adopted/current",
+		})
+	}
+	return map[string]any{
+		"schema_id":                   "cartulary.extension_dependency_declaration_set.v1",
+		"extensions_document_version": "0.6.0",
+		"dependencies":                rows,
+	}
+}
+
+func cloneJSONMap(t *testing.T, value map[string]any) map[string]any {
+	t.Helper()
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("marshal clone: %v", err)
+	}
+	var cloned map[string]any
+	decoder := json.NewDecoder(strings.NewReader(string(encoded)))
+	decoder.UseNumber()
+	if err := decoder.Decode(&cloned); err != nil {
+		t.Fatalf("decode clone: %v", err)
+	}
+	return cloned
+}
+
 func TestValidateViewSchemaRejectsUnknownKeys(t *testing.T) {
 	schema := validViewSchema("cartulary.view.test.v1")
 	schema["legacy_key"] = true
@@ -552,17 +746,18 @@ func validContractFamilyEntry(familyID, root, status, goName, tsName string, ord
 		activationDependencyIDs = []any{}
 	}
 	return map[string]any{
-		"family_id":                 familyID,
-		"contract_root":             root,
-		"generation_status":         status,
-		"go_name":                   goName,
-		"ts_name":                   tsName,
-		"output_order":              order,
-		"owner_document":            "docs/spec/01_architecture_storage_and_view_contracts.md",
-		"owner_sections":            []any{"3"},
-		"generated_outputs":         []any{"internal/gen/contracts/contracts_gen.go"},
-		"activation_dependency_ids": activationDependencyIDs,
-		"description":               "test family",
+		"family_id":                            familyID,
+		"contract_root":                        root,
+		"generation_status":                    status,
+		"go_name":                              goName,
+		"ts_name":                              tsName,
+		"output_order":                         order,
+		"owner_document":                       "docs/spec/01_architecture_storage_and_view_contracts.md",
+		"owner_sections":                       []any{"3"},
+		"generated_outputs":                    []any{"internal/gen/contracts/contracts_gen.go"},
+		"typescript_runtime_artifact_prefixes": []any{root + "/"},
+		"activation_dependency_ids":            activationDependencyIDs,
+		"description":                          "test family",
 	}
 }
 

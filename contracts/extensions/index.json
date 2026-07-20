@@ -1,48 +1,58 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "registry_id": "cartulary.extensions.phase2.v1",
-  "note": "Derived repo-local artifact from the owner docs chain. This file is not the behavioral authority.",
-  "profiles": [
-    {
-      "profile_id": "enterprise_authentication",
-      "route_families": [
-        "/api/v1/auth/oidc",
-        "/api/v1/auth/providers",
-        "/api/v1/auth/saml",
-        "/api/v1/users/{user_id}/auth-bindings"
-      ]
-    },
-    {
-      "profile_id": "import",
-      "route_families": [
-        "/api/v1/import-sessions"
-      ]
-    },
-    {
-      "profile_id": "incident_portability",
-      "route_families": [
-        "/api/v1/incident-bundles"
-      ]
-    },
-    {
-      "profile_id": "network_flow_activity",
-      "route_families": [
-        "/api/v1/incidents/{incident_id}/network-flow"
-      ]
-    },
-    {
-      "profile_id": "reference_pack",
-      "route_families": [
-        "/api/v1/reference-packs"
-      ]
-    },
-    {
-      "profile_id": "snapshot_reporting",
-      "route_families": [
-        "/api/v1/incidents/{incident_id}/report-compositions",
-        "/api/v1/releases",
-        "/api/v1/snapshots"
-      ]
-    }
+  "schema_id": "cartulary.extension_authored_input_catalog.v1",
+  "extensions_document_version": "0.6.0",
+  "extensions_document_sha256": "1d10578b2d10df2bfa17e3ab48d0cd3ad0cf36a1f0c285b8875f5df4109e2440",
+  "artifacts": [
+    {"path": "build/base-route-reservations.json", "schema_id": "cartulary.base_route_reservation_registry.v1", "owner_id": "core01", "artifact_class": "build_input"},
+    {"path": "build/client-support.json", "schema_id": "cartulary.extension_client_support_registry_source.v1", "owner_id": "web", "artifact_class": "build_input"},
+    {"path": "build/implementation-bindings.json", "schema_id": "cartulary.extension_implementation_binding_source_set.v1", "owner_id": "build", "artifact_class": "build_input"},
+    {"path": "build/network-flow-state-binding.json", "schema_id": "cartulary.extension_physical_state_binding.v1", "owner_id": "network_flow_activity", "artifact_class": "build_input"},
+    {"path": "dependencies.json", "schema_id": "cartulary.extension_dependency_declaration_set.v1", "owner_id": "extensions", "artifact_class": "specification_input"},
+    {"path": "fragments/core00.recognition.json", "schema_id": "cartulary.extension_owner_fragment.v1", "owner_id": "core00", "artifact_class": "owner_fragment"},
+    {"path": "fragments/core01.discovery.json", "schema_id": "cartulary.extension_owner_fragment.v1", "owner_id": "core01", "artifact_class": "owner_fragment"},
+    {"path": "fragments/core01.profile-classifications.json", "schema_id": "cartulary.extension_owner_fragment.v1", "owner_id": "core01", "artifact_class": "owner_fragment"},
+    {"path": "fragments/core04.claim-configuration.json", "schema_id": "cartulary.extension_owner_fragment.v1", "owner_id": "core04", "artifact_class": "owner_fragment"},
+    {"path": "fragments/network_flow_activity.profile.json", "schema_id": "cartulary.extension_owner_fragment.v1", "owner_id": "network_flow_activity", "artifact_class": "owner_fragment"},
+    {"path": "fragments/snapshot_reporting.participation.json", "schema_id": "cartulary.extension_owner_fragment.v1", "owner_id": "reporting", "artifact_class": "owner_fragment"},
+    {"path": "owners/core00.contract-manifest.json", "schema_id": "cartulary.extension_owner_contract_manifest.v1", "owner_id": "core00", "artifact_class": "owner_contract_manifest"},
+    {"path": "owners/core01.contract-manifest.json", "schema_id": "cartulary.extension_owner_contract_manifest.v1", "owner_id": "core01", "artifact_class": "owner_contract_manifest"},
+    {"path": "owners/core02.contract-manifest.json", "schema_id": "cartulary.extension_owner_contract_manifest.v1", "owner_id": "core02", "artifact_class": "owner_contract_manifest"},
+    {"path": "owners/core03.contract-manifest.json", "schema_id": "cartulary.extension_owner_contract_manifest.v1", "owner_id": "core03", "artifact_class": "owner_contract_manifest"},
+    {"path": "owners/core04.contract-manifest.json", "schema_id": "cartulary.extension_owner_contract_manifest.v1", "owner_id": "core04", "artifact_class": "owner_contract_manifest"},
+    {"path": "owners/network_flow_activity.contract-manifest.json", "schema_id": "cartulary.extension_owner_contract_manifest.v1", "owner_id": "network_flow_activity", "artifact_class": "owner_contract_manifest"},
+    {"path": "owners/opentelemetry.contract-manifest.json", "schema_id": "cartulary.extension_owner_contract_manifest.v1", "owner_id": "opentelemetry", "artifact_class": "owner_contract_manifest"},
+    {"path": "owners/report_composition.contract-manifest.json", "schema_id": "cartulary.extension_owner_contract_manifest.v1", "owner_id": "report_composition", "artifact_class": "owner_contract_manifest"},
+    {"path": "owners/reporting.contract-manifest.json", "schema_id": "cartulary.extension_owner_contract_manifest.v1", "owner_id": "reporting", "artifact_class": "owner_contract_manifest"},
+    {"path": "owners/testing_harness.contract-manifest.json", "schema_id": "cartulary.extension_owner_contract_manifest.v1", "owner_id": "testing_harness", "artifact_class": "owner_contract_manifest"},
+    {"path": "profiles/enterprise_authentication/configuration.json", "schema_id": "cartulary.extension_profile_configuration_contract.v1", "owner_id": "core04", "artifact_class": "profile_contract"},
+    {"path": "profiles/import/configuration.json", "schema_id": "cartulary.extension_profile_configuration_contract.v1", "owner_id": "core04", "artifact_class": "profile_contract"},
+    {"path": "profiles/incident_portability/configuration.json", "schema_id": "cartulary.extension_profile_configuration_contract.v1", "owner_id": "core04", "artifact_class": "profile_contract"},
+    {"path": "profiles/network_flow_activity/backup-participant.json", "schema_id": "cartulary.extension_participant_contract.v1", "owner_id": "network_flow_activity", "artifact_class": "profile_contract"},
+    {"path": "profiles/network_flow_activity/configuration.json", "schema_id": "cartulary.extension_profile_configuration_contract.v1", "owner_id": "network_flow_activity", "artifact_class": "profile_contract"},
+    {"path": "profiles/network_flow_activity/import-apply-transaction.json", "schema_id": "cartulary.extension_transaction_participant_contract.v1", "owner_id": "network_flow_activity", "artifact_class": "profile_contract"},
+    {"path": "profiles/network_flow_activity/indicator-bindings-codec.json", "schema_id": "cartulary.extension_backup_binding_codec.v1", "owner_id": "network_flow_activity", "artifact_class": "profile_contract"},
+    {"path": "profiles/network_flow_activity/indicator-link-transaction.json", "schema_id": "cartulary.extension_transaction_participant_contract.v1", "owner_id": "network_flow_activity", "artifact_class": "profile_contract"},
+    {"path": "profiles/network_flow_activity/portability-blocking-predicate.json", "schema_id": "cartulary.extension_state_blocking_predicate.v1", "owner_id": "network_flow_activity", "artifact_class": "profile_contract"},
+    {"path": "profiles/network_flow_activity/rejected-row-diagnostics-codec.json", "schema_id": "cartulary.extension_backup_binding_codec.v1", "owner_id": "network_flow_activity", "artifact_class": "profile_contract"},
+    {"path": "profiles/network_flow_activity/rows-codec.json", "schema_id": "cartulary.extension_backup_binding_codec.v1", "owner_id": "network_flow_activity", "artifact_class": "profile_contract"},
+    {"path": "profiles/network_flow_activity/state-initialization.json", "schema_id": "cartulary.extension_state_initialization_definition.v1", "owner_id": "network_flow_activity", "artifact_class": "profile_contract"},
+    {"path": "profiles/network_flow_activity/state-presence.json", "schema_id": "cartulary.extension_state_presence_manifest.v1", "owner_id": "network_flow_activity", "artifact_class": "profile_contract"},
+    {"path": "profiles/network_flow_activity/tables-codec.json", "schema_id": "cartulary.extension_backup_binding_codec.v1", "owner_id": "network_flow_activity", "artifact_class": "profile_contract"},
+    {"path": "profiles/reference_pack/configuration.json", "schema_id": "cartulary.extension_profile_configuration_contract.v1", "owner_id": "core04", "artifact_class": "profile_contract"},
+    {"path": "profiles/snapshot_reporting/configuration.json", "schema_id": "cartulary.extension_profile_configuration_contract.v1", "owner_id": "core04", "artifact_class": "profile_contract"},
+    {"path": "profiles/snapshot_reporting/portability-participant.json", "schema_id": "cartulary.extension_participant_contract.v1", "owner_id": "reporting", "artifact_class": "profile_contract"},
+    {"path": "profiles/snapshot_reporting/reporting-participant.json", "schema_id": "cartulary.extension_participant_contract.v1", "owner_id": "reporting", "artifact_class": "profile_contract"},
+    {"path": "shared-owner-resolutions.json", "schema_id": "cartulary.extension_shared_owner_resolution_set.v1", "owner_id": "extensions", "artifact_class": "shared_owner_resolution"},
+    {"path": "specification/canonicalization-vectors.json", "schema_id": "cartulary.extension_canonicalization_vector_set.v1", "owner_id": "extensions", "artifact_class": "specification_input"},
+    {"path": "specification/closure-mapping.json", "schema_id": "cartulary.extension_closure_derivation_source.v1", "owner_id": "extensions", "artifact_class": "specification_input"},
+    {"path": "specification/contract-definitions.json", "schema_id": "cartulary.extension_contract_definition_set.v1", "owner_id": "extensions", "artifact_class": "specification_input"},
+    {"path": "specification/generated-schema-sources.json", "schema_id": "cartulary.extension_generated_schema_source_set.v1", "owner_id": "extensions", "artifact_class": "specification_input"},
+    {"path": "specification/inactive-value-schemas.json", "schema_id": "cartulary.extension_inactive_value_schema_set.v1", "owner_id": "extensions", "artifact_class": "specification_input"},
+    {"path": "specification/portability-results.json", "schema_id": "cartulary.extension_portability_result_contract_set.v1", "owner_id": "extensions", "artifact_class": "specification_input"},
+    {"path": "specification/safe-logical-ref-vectors.json", "schema_id": "cartulary.extension_safe_logical_ref_vector_set.v1", "owner_id": "extensions", "artifact_class": "specification_input"},
+    {"path": "specification/shared-protocols.json", "schema_id": "cartulary.extension_shared_protocol_contract_set.v1", "owner_id": "extensions", "artifact_class": "specification_input"},
+    {"path": "traceability/mapping-source.json", "schema_id": "cartulary.extension_traceability_mapping_source.v1", "owner_id": "extensions", "artifact_class": "traceability_input"},
+    {"path": "validation/surfaces.json", "schema_id": "cartulary.extension_validation_surface_declaration_set.v1", "owner_id": "extensions", "artifact_class": "validation_input"}
   ]
 }

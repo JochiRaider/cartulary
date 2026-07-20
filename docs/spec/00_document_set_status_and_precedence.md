@@ -103,6 +103,24 @@ saved views, or any whole-incident purge claim.
 Profiles: base
 Verified by: AC-231
 
+**REQ-00-065**
+For the adopted Extensions companion manifest, this owner document has `owner_document_schema_id='cartulary.core00.current.v1'` and `owner_document_version='extensions-adoption-1'`.
+
+With `docs/extension-subsystem-nlspec.md` and every companion named by its coordinated-adoption gates adopted/current together, Core 00 recognizes exactly the six current profile identities listed below and is the sole authority for their claimability, current contract major, primary owner, and runtime dependencies. Generated descriptors, packaged code, route presence, deployment configuration, tests, and prose MUST NOT add, remove, recognize, retire, or reclassify a profile.
+
+| `profile_id` | `claimable` | Current contract major | Primary owner | Exact runtime dependencies |
+| --- | --- | ---: | --- | --- |
+| `enterprise_authentication` | `true` | `1` | Enterprise Authentication owner sections in Core 01/Core 04 | `[]` |
+| `import` | `true` | `1` | Import owner sections in Core 01 | `[]` |
+| `incident_portability` | `true` | `1` | Incident Portability owner sections in Core 01 | `[]` |
+| `network_flow_activity` | `true` | `2` | `docs/network-flow-activity-nlspec.md` version `2.0.0` | exactly `import@1` |
+| `reference_pack` | `true` | `1` | Reference Pack owner sections in Core 01 | `[]` |
+| `snapshot_reporting` | `true` | `1` | adopted Reporting and Report Composition owner documents | `[]` |
+
+Each `recognized_profile` owner fact MUST carry a non-null `primary_owner_contract_ref` that resolves to the exact adopted primary owner above. Every dependency declaration MUST bind the exact owner document version, document digest, owner-manifest identity, and owner-manifest digest. Capability facts are prohibited in extension contract major `1`; every required capability array is present and empty, and attempted activation fails with `extension_capability_not_supported`. This requirement is current through the atomic Extensions companion adoption; no pre-adoption recognition or capability contract remains current.
+Profiles: base
+Verified by: AC-231, EXT-AC-145, EXT-AC-146, EXT-AC-157
+
 **REQ-00-004**
 If an implementation claims an extension profile, it MUST satisfy the matching profile-specific requirements and acceptance criteria in Core 01 through Core 04.
 Profiles: import, snapshot_reporting, incident_portability, reference_pack, enterprise_authentication, network_flow_activity
@@ -152,7 +170,7 @@ Verified by: AC-231
 
 | Contract family | Primary owner | Allowed secondary sections | Ownership rule | Requirement ID | Profiles | Verified by |
 | --- | --- | --- | --- | --- | --- | --- |
-| Extension-profile recognition, claimability, and adopted-document status | Core 00 §4.2 and §5 | Core 01 extension discovery; Core 04 claim authorization and conformance; adopted extension NLSpec | Core 00 owns whether a bounded extension identity is recognized and whether it is claimable/current. Core 01 may enumerate only owner-recognized identities and owns the public discovery shape. Core 04 owns authorization and conformance consequences. An extension NLSpec owns behavior only after coordinated adoption. | REQ-00-064 | base | AC-231 |
+| Extension-profile recognition, claimability, current major, primary owner, dependencies, and adopted-document status | Core 00 §4.2 and §5 | Core 01 extension discovery; Core 04 claim authorization and conformance; adopted Extensions NLSpec | Core 00 alone owns whether an extension identity is recognized and claimable/current and assigns its current major, primary owner, and dependencies. Core 01 enumerates only Core-00-recognized identities and owns the public discovery shape. Core 04 owns authorization and lifecycle consequences. The Extensions NLSpec owns shared mechanics only after coordinated adoption and cannot create recognition. | REQ-00-064, REQ-00-065 | base | AC-231, EXT-AC-145, EXT-AC-146, EXT-AC-157 |
 | Adopted subsystem NLSpec deployment-config namespace | Adopted subsystem NLSpec for namespace-local keys; Core 04 §12 for artifact, discovery, overlay, unknown-key, and startup validation mechanics | Core 04 §12, subsystem NLSpec | Core 04 owns the deployment-config container and fail-closed validation mechanics. The adopted subsystem NLSpec owns only its closed key namespace and namespace-local cross-key rules. | REQ-00-052 | base | AC-231 |
 | Public success/error envelope and public error-code and reason-code registries | Core 01 §3.3.6, §3.3.6.1, and §3.3.6.2 | Core 03 §3.3.4; Core 04 §9.6, §9.9, and §9.10 | Secondary sections MAY require a specific code or payload member but MUST NOT assign a conflicting meaning, transport status, or retry hint. | REQ-00-006 | base | AC-231 |
 | Background-job resource shell, cancel semantics, retention semantics, and reusable `job_progress` payload members | Core 01 §3.3.9 and §3.3.9.1 | Core 01 §3.3.10.1; Core 03 §4.3.1 and §4.4; Core 04 §2 and §9.10; Appendix E and Appendix F | Core 01 owns the canonical HTTP job resource, cancel route semantics, post-terminal retention contract, the shared `scope`, `status`, `progress`, `cancelable`, `result_summary`, `error_summary`, and `retained_until` members reused by `job_progress`, the common `result_summary.code` rules, the shared `result_summary.resource_refs.kind`, `id`, and `route` semantics, and the fact that `job_progress` inherits those exact result-summary semantics from the canonical job resource. Core 03 owns only local client behavior under replay, resync, auth churn, and same-surface terminal-result rendering. Core 04 owns only authorization and conformance criteria. | REQ-00-024 | base | AC-231 |

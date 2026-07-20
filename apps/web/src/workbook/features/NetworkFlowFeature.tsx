@@ -1,11 +1,11 @@
 import type { ComponentProps } from "react";
-import { NetworkAnalysisWorkspace } from "../../networkFlow/NetworkAnalysisWorkspace";
-import { NetworkFlowGridLoadFixture } from "../../networkFlow/NetworkFlowGridLoadFixture";
 import {
   networkAnalysisSheetRef,
   networkAnalysisWorkspaceKey,
   networkFlowActivityProfileId,
-} from "../../networkFlow/networkFlowClient";
+} from "../../extensions/extensionWorkspaceIdentities";
+import { NetworkAnalysisWorkspace } from "../../networkFlow/NetworkAnalysisWorkspace";
+import { NetworkFlowGridLoadFixture } from "../../networkFlow/NetworkFlowGridLoadFixture";
 
 export function NetworkFlowFeature(
   props: ComponentProps<typeof NetworkAnalysisWorkspace>,

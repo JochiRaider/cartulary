@@ -448,8 +448,12 @@ describe("Incident landing", () => {
         extensions: [
           {
             profile_id: "incident_portability",
+            claimable: true,
             claimed: true,
+            contract_major: 1,
             route_families: ["/api/v1/incident-bundles"],
+            workspace_keys: [],
+            capabilities: [],
           },
         ],
       },
@@ -641,8 +645,12 @@ describe("Incident landing", () => {
         extensions: [
           {
             profile_id: "reference_pack",
+            claimable: true,
             claimed: true,
+            contract_major: 1,
             route_families: ["/api/v1/reference-packs"],
+            workspace_keys: [],
+            capabilities: [],
           },
         ],
       },
@@ -721,8 +729,12 @@ describe("Incident landing", () => {
         extensions: [
           {
             profile_id: "reference_pack" as const,
+            claimable: true,
             claimed: false,
+            contract_major: 1,
             route_families: ["/api/v1/reference-packs" as const],
+            workspace_keys: [],
+            capabilities: [],
           },
         ],
       },

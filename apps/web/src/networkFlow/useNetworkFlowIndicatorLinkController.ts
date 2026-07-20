@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ExtensionAvailabilityController } from "../extensions/extensionAvailability";
 import type {
   NetworkFlowIndicatorSelector,
   NetworkFlowIndicatorTarget,
@@ -20,6 +21,7 @@ export type NetworkFlowIndicatorLinkCandidate = {
 };
 
 export function useNetworkFlowIndicatorLinkController({
+  availability,
   activeCandidateKey,
   apiBase,
   enabled,
@@ -28,6 +30,7 @@ export function useNetworkFlowIndicatorLinkController({
   onGraphStale,
   onMessage,
 }: {
+  readonly availability: ExtensionAvailabilityController;
   readonly activeCandidateKey: string | null;
   readonly apiBase: string | undefined;
   readonly enabled: boolean;
@@ -57,6 +60,7 @@ export function useNetworkFlowIndicatorLinkController({
     }
     const controller = new AbortController();
     void getNetworkFlowBindingSourceRowLimit({
+      availability,
       apiBase,
       incidentId,
       signal: controller.signal,
@@ -78,7 +82,7 @@ export function useNetworkFlowIndicatorLinkController({
         }
       });
     return () => controller.abort();
-  }, [apiBase, enabled, incidentId, onError]);
+  }, [availability, apiBase, enabled, incidentId, onError]);
 
   const link = useCallback(
     async (options: {
@@ -101,6 +105,7 @@ export function useNetworkFlowIndicatorLinkController({
       onError(null);
       try {
         const result = await linkNetworkFlowIndicator({
+          availability,
           apiBase,
           confirmExactValue: options.confirmExactValue,
           incidentId,
@@ -140,7 +145,16 @@ export function useNetworkFlowIndicatorLinkController({
         return false;
       }
     },
-    [apiBase, enabled, incidentId, linking, onError, onGraphStale, onMessage],
+    [
+      availability,
+      apiBase,
+      enabled,
+      incidentId,
+      linking,
+      onError,
+      onGraphStale,
+      onMessage,
+    ],
   );
 
   return { bindingSourceRowLimit, link, linking };

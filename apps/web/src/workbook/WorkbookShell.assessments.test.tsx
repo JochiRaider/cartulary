@@ -33,6 +33,27 @@ const hostsViewSchemaId = "cartulary.view.hosts.v1";
 const identitiesViewSchemaId = "cartulary.view.identities.v1";
 const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
+function assessmentWorkbookStartup() {
+  return successEnvelope({
+    incident_id: "incident-1",
+    extension_workspace_availability: {
+      schema_id: "cartulary.extension_workspace_availability.v1",
+      incident_id: "incident-1",
+      workspaces: [],
+    },
+    selected_sheet_ref: {
+      kind: "view_schema",
+      id: assessmentsViewSchemaId,
+    },
+    selected_view_schema_id: assessmentsViewSchemaId,
+    selected_saved_view: null,
+    source: "explicit",
+    cleared_pointers: [],
+    home_sheet_ref: null,
+    default_sheet_ref: null,
+  });
+}
+
 describe("Assessment workbook surface", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
@@ -142,6 +163,9 @@ describe("Assessment workbook surface", () => {
           default_sheet_ref: null,
           home_sheet_ref: null,
         });
+      }
+      if (url.includes("/api/v1/incidents/incident-1/workbook-startup")) {
+        return assessmentWorkbookStartup();
       }
       if (url.includes("/api/v1/incidents/incident-1/saved-views")) {
         return successEnvelope({
@@ -321,6 +345,9 @@ describe("Assessment workbook surface", () => {
           home_sheet_ref: null,
         });
       }
+      if (url.includes("/api/v1/incidents/incident-1/workbook-startup")) {
+        return assessmentWorkbookStartup();
+      }
       if (url.includes(`/views/${hostsViewSchemaId}/query`)) {
         return successEnvelope({
           incident_id: "incident-1",
@@ -449,6 +476,9 @@ describe("Assessment workbook surface", () => {
           default_sheet_ref: null,
           home_sheet_ref: null,
         });
+      }
+      if (url.includes("/api/v1/incidents/incident-1/workbook-startup")) {
+        return assessmentWorkbookStartup();
       }
       if (url.includes(`/views/${hostsViewSchemaId}/query`)) {
         const value = stringFilterValue(parseRequestBody(init));

@@ -1,0 +1,85 @@
+{
+  "anchors": [
+    {
+      "anchor_id": "cartulary.core04.current.v1",
+      "anchor_kind": "document",
+      "anchor_sha256": "da7ff2d94e96125b5bf117e9eb35103fb2d96ea8cf12275c05db8447d832074d",
+      "closure_categories": [],
+      "end_byte": 474850,
+      "start_byte": 0
+    },
+    {
+      "anchor_id": "REQ-04-143",
+      "anchor_kind": "req",
+      "anchor_sha256": "bacb74dc861e4a3c095c4489610b9e3a5e76787f3d6d8299c0fcec4969c8bc2c",
+      "closure_categories": [
+        "errors_precedence_retry",
+        "idempotency_concurrency",
+        "public_interfaces",
+        "scalar_collection_bounds",
+        "security_secrets_egress"
+      ],
+      "end_byte": 471648,
+      "start_byte": 470798
+    },
+    {
+      "anchor_id": "REQ-04-144",
+      "anchor_kind": "req",
+      "anchor_sha256": "9f5cff8986ee2b9a041c0a783c88e32fe53e917be95316e2a1149ed5ceee08cb",
+      "closure_categories": [
+        "errors_precedence_retry",
+        "idempotency_concurrency",
+        "public_interfaces",
+        "scalar_collection_bounds",
+        "security_secrets_egress"
+      ],
+      "end_byte": 472827,
+      "start_byte": 471650
+    },
+    {
+      "anchor_id": "REQ-04-145",
+      "anchor_kind": "req",
+      "anchor_sha256": "738db5ac611d54b056af11446f60faaf3533d3fa6080a31c26b1a5a2832f4c4e",
+      "closure_categories": [
+        "errors_precedence_retry",
+        "idempotency_concurrency",
+        "public_interfaces",
+        "scalar_collection_bounds",
+        "security_secrets_egress"
+      ],
+      "end_byte": 473986,
+      "start_byte": 472829
+    },
+    {
+      "anchor_id": "REQ-04-146",
+      "anchor_kind": "req",
+      "anchor_sha256": "6716279fa4dff949051a00aa8dfb35f1f50a8fd81c5171bceea9cd85fa6025f1",
+      "closure_categories": [
+        "errors_precedence_retry",
+        "idempotency_concurrency",
+        "public_interfaces",
+        "scalar_collection_bounds",
+        "security_secrets_egress"
+      ],
+      "end_byte": 474849,
+      "start_byte": 473988
+    }
+  ],
+  "owner_contract_manifest_id": "core04.extensions_contract.v1",
+  "owner_document": {
+    "byte_length": 474850,
+    "owner_document_ref": "docs/spec/04_security_deployment_and_conformance.md#document:cartulary.core04.current.v1",
+    "owner_document_schema_id": "cartulary.core04.current.v1",
+    "owner_document_sha256": "da7ff2d94e96125b5bf117e9eb35103fb2d96ea8cf12275c05db8447d832074d",
+    "owner_document_version": "extensions-adoption-1"
+  },
+  "owner_fragments": [
+    {
+      "owner_fragment_id": "core04.extension_claim_configuration.v1",
+      "owner_fragment_ref": "contracts/extensions/fragments/core04.claim-configuration.json",
+      "owner_fragment_sha256": "d79ebb185404191760175a3b4647718793240711c5f2e838d9e4d634d484d712"
+    }
+  ],
+  "owner_id": "core04",
+  "schema_id": "cartulary.extension_owner_contract_manifest.v1"
+}

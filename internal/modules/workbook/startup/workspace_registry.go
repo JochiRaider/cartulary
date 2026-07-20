@@ -1,6 +1,7 @@
 package startup
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -11,6 +12,20 @@ import (
 // stores are intentionally outside this boundary.
 type WorkspaceResolver interface {
 	ResolveWorkspace(ref SheetRef, role string) string
+	AvailableWorkspaces(role string) []ExtensionWorkspaceAvailabilityRow
+}
+
+const ExtensionWorkspaceAvailabilitySchemaID = "cartulary.extension_workspace_availability.v1"
+
+type ExtensionWorkspaceAvailabilityRow struct {
+	ExtensionProfileID string `json:"extension_profile_id"`
+	WorkspaceKey       string `json:"workspace_key"`
+}
+
+type ExtensionWorkspaceAvailability struct {
+	SchemaID   string                              `json:"schema_id"`
+	IncidentID string                              `json:"incident_id"`
+	Workspaces []ExtensionWorkspaceAvailabilityRow `json:"workspaces"`
 }
 
 type WorkspaceRegistry struct {
@@ -68,6 +83,33 @@ func (r *WorkspaceRegistry) ResolveWorkspace(ref SheetRef, role string) string {
 		return "extension_workspace_not_visible"
 	}
 	return ""
+}
+
+func (r *WorkspaceRegistry) AvailableWorkspaces(role string) []ExtensionWorkspaceAvailabilityRow {
+	if r == nil {
+		return []ExtensionWorkspaceAvailabilityRow{}
+	}
+	rows := make([]ExtensionWorkspaceAvailabilityRow, 0)
+	for profileID, profile := range r.profiles {
+		if !profile.claimed {
+			continue
+		}
+		for workspaceKey, minimumRole := range profile.workspaces {
+			if roleAtLeast(role, minimumRole) {
+				rows = append(rows, ExtensionWorkspaceAvailabilityRow{
+					ExtensionProfileID: profileID,
+					WorkspaceKey:       workspaceKey,
+				})
+			}
+		}
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].ExtensionProfileID != rows[j].ExtensionProfileID {
+			return rows[i].ExtensionProfileID < rows[j].ExtensionProfileID
+		}
+		return rows[i].WorkspaceKey < rows[j].WorkspaceKey
+	})
+	return rows
 }
 
 func roleAtLeast(role string, minimumRole string) bool {

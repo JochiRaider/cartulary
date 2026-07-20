@@ -159,7 +159,9 @@ func validateConfigStructure(cfg *Config, presence configPresence) []Diagnostic 
 	validateBootstrapManifestPath(&cfg.Bootstrap, presence, &diagnostics)
 	validateEnterpriseAuthenticationConfig(&cfg.EnterpriseAuthentication, presence, &diagnostics)
 	validateNetworkFlowActivityConfig(&cfg.NetworkFlowActivity, presence, &diagnostics)
+	applyDefaultExtensionRuntimeValues(cfg, presence)
 	validateLimitRegistry(cfg.Limits, &diagnostics)
+	validateExtensionRuntimeValues(*cfg, &diagnostics)
 	validateTelemetryConfig(&cfg.Telemetry, presence, &diagnostics)
 
 	if len(diagnostics) > 0 {
@@ -379,8 +381,8 @@ func validateEnterpriseAuthenticationConfig(enterprise *EnterpriseAuthentication
 		if enterprise.ProviderManifestPath != "" || manifestPathDefined {
 			*diagnostics = append(*diagnostics, Diagnostic{
 				Path:       "enterprise_authentication.provider_manifest_path",
-				ReasonCode: "profile_incompatible_binding",
-				Message:    "enterprise provider manifest path is valid only when enterprise authentication is claimed",
+				ReasonCode: "extension_config_without_claim",
+				Message:    "enterprise_authentication.provider_manifest_path requires enterprise_authentication.claimed=true",
 			})
 		}
 		return
@@ -408,8 +410,8 @@ func validateNetworkFlowActivityConfig(networkFlow *NetworkFlowActivityConfig, p
 		if networkFlow.KeyRingManifestPath != "" || pathDefined {
 			*diagnostics = append(*diagnostics, Diagnostic{
 				Path:       path,
-				ReasonCode: "profile_incompatible_binding",
-				Message:    "Network Flow key-ring manifest path is valid only when Network Flow Activity is claimed",
+				ReasonCode: "extension_config_without_claim",
+				Message:    "network_flow_activity.key_ring_manifest_path requires network_flow_activity.claimed=true",
 			})
 		}
 		return
@@ -443,6 +445,48 @@ func applyDefaultLimitValues(cfg *Config, presence configPresence) {
 	applyDefaultInt64(&cfg.Limits.IncidentBundles.MaxExtractedBytes, DefaultIncidentBundleMaxExtractedBytes, presence, "limits", "incident_bundles", "max_extracted_bytes")
 	applyDefaultInt64(&cfg.Limits.Previews.MaxPreviewablePayloadBytes, DefaultPreviewMaxPreviewablePayloadBytes, presence, "limits", "previews", "max_previewable_payload_bytes")
 	applyDefaultInt64(&cfg.Limits.Previews.MaxTextInlineBytes, DefaultPreviewMaxTextInlineBytes, presence, "limits", "previews", "max_text_inline_bytes")
+}
+
+func applyDefaultExtensionRuntimeValues(cfg *Config, presence configPresence) {
+	timeouts := &cfg.Timeouts.Extensions
+	applyDefaultInt64(&timeouts.MigrationLockSeconds, 30, presence, "timeouts", "extensions", "migration_lock_seconds")
+	applyDefaultInt64(&timeouts.ProfileMigrationSeconds, 900, presence, "timeouts", "extensions", "profile_migration_seconds")
+	applyDefaultInt64(&timeouts.ValidationSeconds, 30, presence, "timeouts", "extensions", "validation_seconds")
+	applyDefaultInt64(&timeouts.ReconciliationSeconds, 300, presence, "timeouts", "extensions", "reconciliation_seconds")
+	applyDefaultInt64(&timeouts.ShutdownDrainSeconds, 30, presence, "timeouts", "extensions", "shutdown_drain_seconds")
+	applyDefaultInt64(&timeouts.ProcessLeaseAcquireSeconds, 30, presence, "timeouts", "extensions", "process_lease_acquire_seconds")
+	applyDefaultInt64(&timeouts.ProcessLeaseLossDetectionSeconds, 5, presence, "timeouts", "extensions", "process_lease_loss_detection_seconds")
+	applyDefaultInt64(&timeouts.PublicationSeconds, 30, presence, "timeouts", "extensions", "publication_seconds")
+	applyDefaultInt64(&timeouts.TransactionParticipantSeconds, 30, presence, "timeouts", "extensions", "transaction_participant_seconds")
+	applyDefaultInt64(&timeouts.CancellationGraceSeconds, 2, presence, "timeouts", "extensions", "cancellation_grace_seconds")
+	applyDefaultInt64(&timeouts.StagedObjectCleanupSeconds, 300, presence, "timeouts", "extensions", "staged_object_cleanup_seconds")
+	applyDefaultInt64(&timeouts.PortabilityParticipantSeconds, 300, presence, "timeouts", "extensions", "portability_participant_seconds")
+	applyDefaultInt64(&timeouts.SnapshotReportingParticipantSeconds, 300, presence, "timeouts", "extensions", "snapshot_reporting_participant_seconds")
+	applyDefaultInt64(&timeouts.BackupRestoreParticipantSeconds, 900, presence, "timeouts", "extensions", "backup_restore_participant_seconds")
+	applyDefaultInt64(&cfg.Intervals.Extensions.StagedObjectSweepSeconds, 300, presence, "intervals", "extensions", "staged_object_sweep_seconds")
+	applyDefaultInt64(&cfg.Limits.Extensions.StagedObjectCleanupBatch, 1000, presence, "limits", "extensions", "staged_object_cleanup_batch")
+	applyDefaultInt64(&cfg.Limits.Extensions.MaxNonterminalJobsPerProfile, 100000, presence, "limits", "extensions", "max_nonterminal_jobs_per_profile")
+}
+
+func validateExtensionRuntimeValues(cfg Config, diagnostics *[]Diagnostic) {
+	timeouts := cfg.Timeouts.Extensions
+	validateLimitValue(timeouts.MigrationLockSeconds, "timeouts.extensions.migration_lock_seconds", 1, 300, diagnostics)
+	validateLimitValue(timeouts.ProfileMigrationSeconds, "timeouts.extensions.profile_migration_seconds", 1, 7200, diagnostics)
+	validateLimitValue(timeouts.ValidationSeconds, "timeouts.extensions.validation_seconds", 1, 300, diagnostics)
+	validateLimitValue(timeouts.ReconciliationSeconds, "timeouts.extensions.reconciliation_seconds", 1, 3600, diagnostics)
+	validateLimitValue(timeouts.ShutdownDrainSeconds, "timeouts.extensions.shutdown_drain_seconds", 1, 300, diagnostics)
+	validateLimitValue(timeouts.ProcessLeaseAcquireSeconds, "timeouts.extensions.process_lease_acquire_seconds", 1, 300, diagnostics)
+	validateLimitValue(timeouts.ProcessLeaseLossDetectionSeconds, "timeouts.extensions.process_lease_loss_detection_seconds", 1, 30, diagnostics)
+	validateLimitValue(timeouts.PublicationSeconds, "timeouts.extensions.publication_seconds", 1, 300, diagnostics)
+	validateLimitValue(timeouts.TransactionParticipantSeconds, "timeouts.extensions.transaction_participant_seconds", 1, 300, diagnostics)
+	validateLimitValue(timeouts.CancellationGraceSeconds, "timeouts.extensions.cancellation_grace_seconds", 0, 30, diagnostics)
+	validateLimitValue(timeouts.StagedObjectCleanupSeconds, "timeouts.extensions.staged_object_cleanup_seconds", 30, 3600, diagnostics)
+	validateLimitValue(timeouts.PortabilityParticipantSeconds, "timeouts.extensions.portability_participant_seconds", 1, 3600, diagnostics)
+	validateLimitValue(timeouts.SnapshotReportingParticipantSeconds, "timeouts.extensions.snapshot_reporting_participant_seconds", 1, 3600, diagnostics)
+	validateLimitValue(timeouts.BackupRestoreParticipantSeconds, "timeouts.extensions.backup_restore_participant_seconds", 1, 7200, diagnostics)
+	validateLimitValue(cfg.Intervals.Extensions.StagedObjectSweepSeconds, "intervals.extensions.staged_object_sweep_seconds", 30, 3600, diagnostics)
+	validateLimitValue(cfg.Limits.Extensions.StagedObjectCleanupBatch, "limits.extensions.staged_object_cleanup_batch", 1, 10000, diagnostics)
+	validateLimitValue(cfg.Limits.Extensions.MaxNonterminalJobsPerProfile, "limits.extensions.max_nonterminal_jobs_per_profile", 1, 1000000, diagnostics)
 }
 
 func applyDefaultTelemetryValues(cfg *TelemetryConfig, presence configPresence) {

@@ -72,6 +72,11 @@
       "status": "active"
     },
     {
+      "owner_id": "module.extensions",
+      "contract_path": "contracts/verification/owners/module.extensions.json",
+      "status": "active"
+    },
+    {
       "owner_id": "module.graphprojection",
       "contract_path": "contracts/verification/owners/module.graphprojection.json",
       "status": "active"

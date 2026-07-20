@@ -90,9 +90,9 @@ Claimed extension profiles MAY contribute an extension workspace to the top-leve
 
 The stable `sheet_ref` identity for an extension workspace MUST use `kind='extension_workspace'` with exact `extension_profile_id` and `workspace_key` members as defined by Core 01 §3.3.10.1. Visible labels, icons, route segments, React component names, and inner workspace tab labels MUST NOT define identity. For Network Flow Activity, after that profile is adopted and claimed, the only current-profile extension workspace key is `workspace_key='network_analysis'` under `extension_profile_id='network_flow_activity'`; its user-facing label MAY be `Network Analysis`.
 
-The workbook shell MUST render an extension workspace entry only when all of the following are true at render time: the extension profile is claimed, the workspace key is declared by that claimed profile, and the current caller is authorized to open at least the workspace shell for the addressed incident. Unclaimed, undeclared, or unauthorized extension workspaces MUST be omitted from available workbook navigation and MUST fail closed when supplied as an explicit launch, home, default, presence, or deep-link target. Omission behavior MUST be indistinguishable from ordinary unavailability except for owner-approved error codes on explicit route requests.
+The workbook shell MUST render an extension workspace entry only when its exact `(extension_profile_id, workspace_key)` is in the intersection of: current discovery with `claimed=true`; the packaged `client_build_class='standard'` support row whose one major equals discovery; the current no-store workbook-startup `extension_workspace_availability`; and the client's current local availability epoch/generation. The support registry MUST contain a row for every claimable profile with workspaces; its Network Flow row is exactly major `2` and `network_analysis`; capability arrays are empty. Discovery does not authorize, packaged code does not claim support by itself, and a stale availability response never renders. Unclaimed, unsupported, mismatched-major, undeclared, stale, or unauthorized extension workspaces MUST be omitted from available workbook navigation and MUST fail closed when supplied as an explicit launch, home, default, presence, or deep-link target. Omission behavior MUST be indistinguishable from ordinary unavailability except for owner-approved errors on explicit route requests.
 Profiles: base, network_flow_activity
-Verified by: AC-078, AC-085, AC-086, AC-087, AC-088, AC-089, AC-090, AC-121, AC-122, AC-231
+Verified by: AC-078, AC-085, AC-086, AC-087, AC-088, AC-089, AC-090, AC-121, AC-122, AC-231, EXT-AC-156, EXT-AC-157
 
 ### 2.3 Saved views
 
@@ -2377,6 +2377,17 @@ Verified by: AC-231, AC-279
 Where the active surface exposes requester, collector, source, or audience text/ref pair semantics, the inspector or Parties view MUST support explicit `Create party from text`, `Link existing party`, `Clear party link`, `Clear party text`, and `Clear both` actions. Where the active surface exposes audience or attendee supplemental party-reference collection semantics, the implementation MUST support explicit same-surface link and clear actions for those references without replacing required source-preserving audience text. The implementation MAY expose those actions through any same-surface command set that preserves their distinct behavior and non-destructive defaults.
 Profiles: base
 Verified by: AC-231, AC-278, AC-279
+
+## 21. Coordinated extension-availability lifecycle
+
+For the adopted Extensions companion manifest, this owner document has `owner_document_schema_id='cartulary.core03.current.v1'` and `owner_document_version='extensions-adoption-1'`.
+
+**REQ-03-303**
+For each `(client_instance_id, incident_id)`, the client MUST maintain a cryptographically random 256-bit `extension_availability_epoch_id` and an unsigned 64-bit generation. One linearizable local operation reserves each next generation before workbook startup, before an extension route request, and upon current-authorization invalidation; concurrent reservations return distinct strictly increasing generations. Only a response tagged with the exact current epoch/generation may affect extension state. On a reservation at maximum generation, that same atomic operation creates a new epoch, resets to `1`, and clears only incident-local extension state. Unknown or capability-bearing facts are never executed.
+
+Missing or malformed availability, support mismatch, secure-randomness failure, staleness, authorization loss, and capability activation failure MUST hide extensions and clear their authoritative cache, derived cache, cursors, pending requests, queued extension mutations, optimistic extension mutations, and extension drafts as allocated by the owner cleanup matrix. These events MUST preserve Base caches, Base in-flight requests, the Base pending queue, Base optimistic state, Base drafts, `client_instance_id`, and the Core WebSocket resume identity. An open unavailable extension workspace runs the ordinary Base fallback. No protocol defect starts an automatic retry loop.
+Profiles: base
+Verified by: EXT-AC-156, EXT-AC-157
 
 **REQ-03-269**
 `Clear party text` MUST preserve any linked `party_id`. `Clear party link` MUST preserve any source-preserving party text. `Clear both` MUST clear both.

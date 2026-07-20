@@ -24,6 +24,7 @@ import {
   useState,
 } from "react";
 import { IncidentCollaborationBoundary } from "../collaboration/IncidentCollaborationSession";
+import { useExtensionAvailabilityController } from "../extensions/ExtensionAvailabilityContext";
 import type { WorkbookIncidentRole } from "../shared/workbookShellContracts";
 import { NetworkFlowMappingModal } from "./NetworkFlowMappingModal";
 import {
@@ -99,6 +100,7 @@ function NetworkAnalysisWorkspaceContent({
   incidentId,
   onIncidentAccessLost,
 }: NetworkAnalysisWorkspaceProps) {
+  const extensionAvailability = useExtensionAvailabilityController();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [mode, setMode] = useState<NetworkAnalysisMode>("rows");
   const [message, setMessage] = useState<string | null>(null);
@@ -138,6 +140,7 @@ function NetworkAnalysisWorkspaceContent({
   const canDelete =
     currentIncidentRole === "reviewer" || currentIncidentRole === "admin";
   const tableController = useNetworkFlowTableController({
+    availability: extensionAvailability,
     apiBase,
     enabled: canRead,
     incidentId,
@@ -145,6 +148,7 @@ function NetworkAnalysisWorkspaceContent({
   });
   const rowsController = useNetworkFlowRowsController({
     activeTableId: tableController.activeTableId,
+    availability: extensionAvailability,
     apiBase,
     enabled: mode === "rows",
     incidentId,
@@ -153,6 +157,7 @@ function NetworkAnalysisWorkspaceContent({
   });
   const rejectedRowsController = useNetworkFlowRejectedRowsController({
     activeTableId: tableController.activeTableId,
+    availability: extensionAvailability,
     apiBase,
     enabled: mode === "rejected",
     incidentId,
@@ -161,6 +166,7 @@ function NetworkAnalysisWorkspaceContent({
   });
   const graphController = useNetworkFlowGraphController({
     activeTableId: tableController.activeTableId,
+    availability: extensionAvailability,
     apiBase,
     enabled: mode === "graph",
     incidentId,
@@ -170,6 +176,7 @@ function NetworkAnalysisWorkspaceContent({
     tables: tableController.tables,
   });
   const importController = useNetworkFlowImportController({
+    availability: extensionAvailability,
     apiBase,
     canImport,
     incidentId,
@@ -201,6 +208,7 @@ function NetworkAnalysisWorkspaceContent({
   });
   const indicatorLinkController = useNetworkFlowIndicatorLinkController({
     activeCandidateKey: linkCandidate?.key ?? null,
+    availability: extensionAvailability,
     apiBase,
     enabled: canLink,
     incidentId,

@@ -202,7 +202,16 @@ func TestExtensionWorkspaceRegistrySeparatesClaimDeclarationAndVisibility(t *tes
 			},
 		},
 	}
-	store := workbookstartup.NewStore(nil, workbookstartup.NewWorkspaceRegistry(profiles))
+	registry := workbookstartup.NewWorkspaceRegistry(profiles)
+	store := workbookstartup.NewStore(nil, registry)
+	viewerRows := registry.AvailableWorkspaces("viewer")
+	if len(viewerRows) != 1 || viewerRows[0].ExtensionProfileID != "network_flow_activity" || viewerRows[0].WorkspaceKey != "network_analysis" {
+		t.Fatalf("viewer availability must contain only the claimed authorized workspace: %#v", viewerRows)
+	}
+	editorRows := registry.AvailableWorkspaces("editor")
+	if len(editorRows) != 2 || editorRows[0].ExtensionProfileID != "network_flow_activity" || editorRows[1].ExtensionProfileID != "restricted_extension" {
+		t.Fatalf("availability must be sorted and role-filtered: %#v", editorRows)
+	}
 
 	valid := []byte(`{"kind":"extension_workspace","extension_profile_id":"network_flow_activity","workspace_key":"network_analysis"}`)
 	if apiErr := store.ValidatePreferenceSheetRef(valid, "viewer", "home_sheet_ref"); apiErr != nil {

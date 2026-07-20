@@ -16,6 +16,7 @@ const (
 	ReadinessStatusReady                   = "ready"
 	ReadinessStatusDegradedDependency      = "degraded_dependency"
 	ReadinessStatusRecoveringDependency    = "recovering_dependency"
+	ReadinessStatusFatalIntegrityFailure   = "fatal_integrity_failure"
 
 	ReadinessReasonReady                 = "ready"
 	ReadinessReasonDependencyUnavailable = "dependency_unavailable"

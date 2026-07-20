@@ -1,0 +1,11 @@
+{
+  "schema_id":"cartulary.extension_safe_logical_ref_vector_set.v1",
+  "vectors":[
+    {"value":"cartulary:descriptor:network_flow_activity","valid":true},
+    {"value":"cartulary:artifact:sha256-0123456789abcdef","valid":true},
+    {"value":"cartulary:path:/secret","valid":false},
+    {"value":"cartulary:host:https://example.invalid","valid":false},
+    {"value":"cartulary:ref:contains space","valid":false},
+    {"value":"../escape:ref:value","valid":false}
+  ]
+}

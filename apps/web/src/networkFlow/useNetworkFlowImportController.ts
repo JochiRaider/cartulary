@@ -1,5 +1,6 @@
 import type { ChangeEvent } from "react";
 import { useCallback, useRef, useState } from "react";
+import type { ExtensionAvailabilityController } from "../extensions/extensionAvailability";
 import {
   decodeNetworkFlowImportPreviewResult,
   type NetworkFlowImportPreviewResult,
@@ -26,6 +27,7 @@ export type NetworkFlowImportStage =
   | "applying";
 
 export function useNetworkFlowImportController({
+  availability,
   apiBase,
   canImport,
   incidentId,
@@ -33,6 +35,7 @@ export function useNetworkFlowImportController({
   onImported,
   onMessage,
 }: {
+  readonly availability: ExtensionAvailabilityController;
   readonly apiBase: string | undefined;
   readonly canImport: boolean;
   readonly incidentId: string;
@@ -94,6 +97,7 @@ export function useNetworkFlowImportController({
       onError(null);
       try {
         const nextDiscovery = await uploadAndDiscoverExtensionImport({
+          availability,
           apiBase,
           incidentId,
           file,
@@ -114,7 +118,7 @@ export function useNetworkFlowImportController({
         }
       }
     },
-    [apiBase, canImport, incidentId, onError, onMessage, stage],
+    [availability, apiBase, canImport, incidentId, onError, onMessage, stage],
   );
 
   const requestPreview = useCallback(async () => {
@@ -138,6 +142,7 @@ export function useNetworkFlowImportController({
     onError(null);
     try {
       const resource = await previewExtensionImportMapping<unknown>({
+        availability,
         apiBase,
         discovery,
         candidate: extensionCandidate(candidate),
@@ -170,7 +175,7 @@ export function useNetworkFlowImportController({
         onError(importErrorMessage(caught));
       }
     }
-  }, [apiBase, discovery, draft, onError, onMessage, stage]);
+  }, [availability, apiBase, discovery, draft, onError, onMessage, stage]);
 
   const apply = useCallback(async () => {
     if (discovery === null || draft === null || preview === null) {
@@ -196,6 +201,7 @@ export function useNetworkFlowImportController({
     onError(null);
     try {
       const refs = await approveSelectAndApplyExtensionImport({
+        availability,
         apiBase,
         discovery,
         candidate: extensionCandidate(candidate),
@@ -232,6 +238,7 @@ export function useNetworkFlowImportController({
       onError(importErrorMessage(caught));
     }
   }, [
+    availability,
     apiBase,
     discovery,
     draft,

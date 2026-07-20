@@ -12,7 +12,7 @@ import (
 const (
 	OpenAPIContractPath   = "contracts/openapi/cartulary.openapi.yaml"
 	ErrorRegistryPath     = "contracts/errors/index.json"
-	ExtensionRegistryPath = "contracts/extensions/index.json"
+	ExtensionRegistryPath = "contracts/extensions/generated/profile-registry.json"
 	WSIndexPath           = "contracts/ws/index.schema.json"
 	ViewSchemaPrefix      = "contracts/view-schemas/"
 )
@@ -25,7 +25,11 @@ type ErrorContract struct {
 
 type ExtensionProfileContract struct {
 	ProfileID     string   `json:"profile_id"`
+	Claimable     bool     `json:"claimable"`
+	ContractMajor *int     `json:"contract_major"`
 	RouteFamilies []string `json:"route_families"`
+	WorkspaceKeys []string `json:"workspace_keys"`
+	CapabilityIDs []string `json:"capability_ids"`
 }
 
 type errorRegistryDocument struct {

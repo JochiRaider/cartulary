@@ -12,7 +12,20 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpruntime"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/processlease"
+	"github.com/JochiRaider/cartulary/internal/platform/processlifecycle"
 )
+
+func testRuntime(handler http.Handler, closeRuntime func()) serverRuntime {
+	return serverRuntime{
+		Handler:              handler,
+		Close:                closeRuntime,
+		ActivatePublication:  func() error { return nil },
+		FatalEvents:          make(chan processlifecycle.FatalSignal),
+		Fatal:                func(string) bool { return true },
+		ShutdownDrainSeconds: 1,
+	}
+}
 
 func TestServerRunnerWritesDiagnosticsAndReturnsFailure(t *testing.T) {
 	var stdout bytes.Buffer
@@ -25,8 +38,8 @@ func TestServerRunnerWritesDiagnosticsAndReturnsFailure(t *testing.T) {
 	runner := newServerRunner(&stdout, &stderr)
 	runner.loadConfig = func() (config.Config, error) { return config.Config{}, diagnostics }
 
-	if exitCode := runner.run(context.Background()); exitCode != 1 {
-		t.Fatalf("exit code got %d want 1", exitCode)
+	if exitCode := runner.run(context.Background()); exitCode != 2 {
+		t.Fatalf("exit code got %d want 2", exitCode)
 	}
 	if got, want := stderr.String(), diagnostics.JSON()+"\n"; got != want {
 		t.Fatalf("stderr got %q want %q", got, want)
@@ -38,22 +51,82 @@ func TestServerRunnerWritesDiagnosticsAndReturnsFailure(t *testing.T) {
 
 func TestServerRunnerClosesRuntimeAndMapsServeFailure(t *testing.T) {
 	var stdout bytes.Buffer
+	var stderr bytes.Buffer
 	closed := false
-	runner := newServerRunner(&stdout, io.Discard)
+	runner := newServerRunner(&stdout, &stderr)
 	runner.loadConfig = func() (config.Config, error) { return config.Config{}, nil }
-	runner.buildRuntime = func(context.Context, config.Config, Options) (http.Handler, func(), error) {
-		return http.NotFoundHandler(), func() { closed = true }, nil
+	runner.buildRuntime = func(context.Context, config.Config, Options) (serverRuntime, error) {
+		return testRuntime(http.NotFoundHandler(), func() { closed = true }), nil
 	}
 	runner.profile = failingServerProfile{}
 
-	if exitCode := runner.run(context.Background()); exitCode != 1 {
-		t.Fatalf("exit code got %d want 1", exitCode)
+	if exitCode := runner.run(context.Background()); exitCode != 70 {
+		t.Fatalf("exit code got %d want 70", exitCode)
 	}
 	if !closed {
 		t.Fatal("runtime was not closed")
 	}
-	if !strings.Contains(stdout.String(), "server exited") {
-		t.Fatalf("missing server exit diagnostic: %q", stdout.String())
+	if !strings.Contains(stderr.String(), `"reason_code":"published_component_lost"`) {
+		t.Fatalf("missing component loss diagnostic: %q", stderr.String())
+	}
+}
+
+func TestServerRunnerMapsListenerStartupFailureToExitTwo(t *testing.T) {
+	var stdout bytes.Buffer
+	runner := newServerRunner(&stdout, io.Discard)
+	runner.loadConfig = func() (config.Config, error) { return config.Config{}, nil }
+	runner.buildRuntime = func(context.Context, config.Config, Options) (serverRuntime, error) {
+		return testRuntime(http.NotFoundHandler(), nil), nil
+	}
+	runner.profile = startupFailingServerProfile{}
+
+	if exitCode := runner.run(context.Background()); exitCode != 2 {
+		t.Fatalf("exit code got %d want 2", exitCode)
+	}
+	if !strings.Contains(stdout.String(), "start server listener") {
+		t.Fatalf("missing listener startup diagnostic: %q", stdout.String())
+	}
+}
+
+func TestServerRunnerFatalLossClosesAdmissionDrainsAndExitsSeventy(t *testing.T) {
+	var stderr bytes.Buffer
+	fatalEvents := make(chan processlifecycle.FatalSignal, 1)
+	fatalEvents <- processlifecycle.FatalSignal{ReasonCode: "published_component_lost", ExitCode: 70}
+	activated := false
+	closed := false
+	runner := newServerRunner(io.Discard, &stderr)
+	runner.loadConfig = func() (config.Config, error) { return config.Config{}, nil }
+	runner.buildRuntime = func(context.Context, config.Config, Options) (serverRuntime, error) {
+		runtime := testRuntime(http.NotFoundHandler(), func() { closed = true })
+		runtime.ActivatePublication = func() error { activated = true; return nil }
+		runtime.FatalEvents = fatalEvents
+		return runtime, nil
+	}
+	runner.profile = drainingServerProfile{}
+
+	if exitCode := runner.run(context.Background()); exitCode != 70 {
+		t.Fatalf("exit code got %d want 70", exitCode)
+	}
+	if !activated || !closed {
+		t.Fatalf("publication/close = %t/%t", activated, closed)
+	}
+	if got := stderr.String(); got != "{\"code\":\"extension_integrity_failure\",\"reason_code\":\"published_component_lost\"}\n" {
+		t.Fatalf("fatal diagnostic = %q", got)
+	}
+}
+
+func TestServerRunnerPublicationActivationFailureIsStartupFailure(t *testing.T) {
+	runner := newServerRunner(io.Discard, io.Discard)
+	runner.loadConfig = func() (config.Config, error) { return config.Config{}, nil }
+	runner.buildRuntime = func(context.Context, config.Config, Options) (serverRuntime, error) {
+		runtime := testRuntime(http.NotFoundHandler(), nil)
+		runtime.ActivatePublication = func() error { return errors.New("publication rejected") }
+		return runtime, nil
+	}
+	runner.profile = readyServerProfile{}
+
+	if exitCode := runner.run(context.Background()); exitCode != 2 {
+		t.Fatalf("exit code got %d want 2", exitCode)
 	}
 }
 
@@ -61,14 +134,29 @@ func TestServerRunnerMapsRuntimeSetupFailure(t *testing.T) {
 	var stdout bytes.Buffer
 	runner := newServerRunner(&stdout, io.Discard)
 	runner.loadConfig = func() (config.Config, error) { return config.Config{}, nil }
-	runner.buildRuntime = func(context.Context, config.Config, Options) (http.Handler, func(), error) {
-		return nil, nil, errors.New("runtime unavailable")
+	runner.buildRuntime = func(context.Context, config.Config, Options) (serverRuntime, error) {
+		return serverRuntime{}, errors.New("runtime unavailable")
 	}
-	if exitCode := runner.run(context.Background()); exitCode != 1 {
-		t.Fatalf("exit code got %d want 1", exitCode)
+	if exitCode := runner.run(context.Background()); exitCode != 2 {
+		t.Fatalf("exit code got %d want 2", exitCode)
 	}
 	if !strings.Contains(stdout.String(), "setup runtime") {
 		t.Fatalf("missing runtime setup diagnostic: %q", stdout.String())
+	}
+}
+
+func TestServerRunnerMapsConfirmedLeaseLossToExitSeventy(t *testing.T) {
+	var stderr bytes.Buffer
+	runner := newServerRunner(io.Discard, &stderr)
+	runner.loadConfig = func() (config.Config, error) { return config.Config{}, nil }
+	runner.buildRuntime = func(context.Context, config.Config, Options) (serverRuntime, error) {
+		return serverRuntime{}, processlease.ErrLeaseLost
+	}
+	if exitCode := runner.run(context.Background()); exitCode != 70 {
+		t.Fatalf("exit code got %d want 70", exitCode)
+	}
+	if !strings.Contains(stderr.String(), `"reason_code":"application_process_lease_lost"`) {
+		t.Fatalf("missing lease-loss fatal diagnostic: %q", stderr.String())
 	}
 }
 
@@ -77,8 +165,8 @@ func TestServerRunnerWritesMigrationRemediationToStderr(t *testing.T) {
 	var stderr bytes.Buffer
 	runner := newServerRunner(&stdout, &stderr)
 	runner.loadConfig = func() (config.Config, error) { return config.Config{}, nil }
-	runner.buildRuntime = func(context.Context, config.Config, Options) (http.Handler, func(), error) {
-		return nil, nil, &postgres.MigrationRemediationError{
+	runner.buildRuntime = func(context.Context, config.Config, Options) (serverRuntime, error) {
+		return serverRuntime{}, &postgres.MigrationRemediationError{
 			Report: postgres.MigrationRemediationReport{
 				SchemaID:    "cartulary.migration_remediation_report.v1",
 				Boundary:    "prod_ddl_rebaseline_v1",
@@ -94,8 +182,8 @@ func TestServerRunnerWritesMigrationRemediationToStderr(t *testing.T) {
 			},
 		}
 	}
-	if exitCode := runner.run(context.Background()); exitCode != 1 {
-		t.Fatalf("exit code got %d want 1", exitCode)
+	if exitCode := runner.run(context.Background()); exitCode != 2 {
+		t.Fatalf("exit code got %d want 2", exitCode)
 	}
 	if stdout.Len() != 0 {
 		t.Fatalf("migration remediation emitted stdout: %q", stdout.String())
@@ -110,9 +198,9 @@ func TestServerRunnerCancellationDuringRuntimeSetupReturnsSuccess(t *testing.T) 
 	ctx, cancel := context.WithCancel(context.Background())
 	runner := newServerRunner(nil, nil)
 	runner.loadConfig = func() (config.Config, error) { return config.Config{}, nil }
-	runner.buildRuntime = func(context.Context, config.Config, Options) (http.Handler, func(), error) {
+	runner.buildRuntime = func(context.Context, config.Config, Options) (serverRuntime, error) {
 		cancel()
-		return nil, nil, context.Canceled
+		return serverRuntime{}, context.Canceled
 	}
 	if exitCode := runner.run(ctx); exitCode != 0 {
 		t.Fatalf("exit code got %d want 0", exitCode)
@@ -150,6 +238,31 @@ func (failingServerProfile) serve(context.Context, http.Handler, httpruntime.Opt
 	return errors.New("listener unavailable")
 }
 
+type startupFailingServerProfile struct{ failingServerProfile }
+
+func (startupFailingServerProfile) serve(context.Context, http.Handler, httpruntime.Options) error {
+	return &httpruntime.StartupError{Err: errors.New("address unavailable")}
+}
+
+type drainingServerProfile struct{ failingServerProfile }
+
+func (drainingServerProfile) serve(ctx context.Context, _ http.Handler, options httpruntime.Options) error {
+	if err := options.OnReady(); err != nil {
+		return &httpruntime.StartupError{Err: err}
+	}
+	<-ctx.Done()
+	return nil
+}
+
+type readyServerProfile struct{ failingServerProfile }
+
+func (readyServerProfile) serve(_ context.Context, _ http.Handler, options httpruntime.Options) error {
+	if err := options.OnReady(); err != nil {
+		return &httpruntime.StartupError{Err: err}
+	}
+	return nil
+}
+
 func TestServerRunnerRejectsHarnessEnvironmentBeforeConfigLoad(t *testing.T) {
 	for _, key := range harnessOnlyServerEnv {
 		t.Run(key, func(t *testing.T) {
@@ -162,8 +275,8 @@ func TestServerRunnerRejectsHarnessEnvironmentBeforeConfigLoad(t *testing.T) {
 				t.Fatal("production runner loaded config with a harness-only key")
 				return config.Config{}, nil
 			}
-			if exitCode := runner.run(context.Background()); exitCode != 1 {
-				t.Fatalf("exit code got %d want 1", exitCode)
+			if exitCode := runner.run(context.Background()); exitCode != 2 {
+				t.Fatalf("exit code got %d want 2", exitCode)
 			}
 			if !strings.Contains(stderr.String(), "harness_profile_required") {
 				t.Fatalf("missing profile diagnostic: %q", stderr.String())
@@ -187,7 +300,7 @@ func TestServerRunnerFailingDiagnosticsWriterDoesNotPanicOrSucceed(t *testing.T)
 			Message:    "unsupported schema",
 		})
 	}
-	if exitCode := runner.run(context.Background()); exitCode != 1 {
-		t.Fatalf("exit code got %d want 1", exitCode)
+	if exitCode := runner.run(context.Background()); exitCode != 2 {
+		t.Fatalf("exit code got %d want 2", exitCode)
 	}
 }

@@ -103,7 +103,8 @@ func TestServeRejectsMalformedAndClosedInheritedFD(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			err := Serve(context.Background(), http.NotFoundHandler(), Options{InheritedFD: tc.fd, Logger: discardLogger()})
-			if err == nil || !strings.Contains(err.Error(), tc.want) {
+			var startupErr *StartupError
+			if !errors.As(err, &startupErr) || !strings.Contains(startupErr.Unwrap().Error(), tc.want) {
 				t.Fatalf("Serve() error got %v want containing %q", err, tc.want)
 			}
 		})
@@ -120,8 +121,60 @@ func TestServeRejectsInheritedNonListenerFD(t *testing.T) {
 		InheritedFD: fileDescriptorString(file),
 		Logger:      discardLogger(),
 	})
-	if err == nil || !strings.Contains(err.Error(), "convert inherited http listener fd") {
+	var startupErr *StartupError
+	if !errors.As(err, &startupErr) || !strings.Contains(startupErr.Unwrap().Error(), "convert inherited http listener fd") {
 		t.Fatalf("non-listener fd error got %v", err)
+	}
+}
+
+func TestServeActivatesPublicationOnlyAfterListenerBind(t *testing.T) {
+	probe, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	address := probe.Addr().String()
+	activated := false
+	err = Serve(context.Background(), http.NotFoundHandler(), Options{
+		Address: address, Logger: discardLogger(), OnReady: func() error { activated = true; return nil },
+	})
+	if activated {
+		t.Fatal("publication activated before listener bind succeeded")
+	}
+	var startupErr *StartupError
+	if !errors.As(err, &startupErr) {
+		t.Fatalf("listener bind failure = %v", err)
+	}
+	_ = probe.Close()
+
+	publicationErr := errors.New("publication rejected")
+	err = Serve(context.Background(), http.NotFoundHandler(), Options{
+		Address: address, Logger: discardLogger(), OnReady: func() error { return publicationErr },
+	})
+	if !errors.As(err, &startupErr) || !errors.Is(err, publicationErr) {
+		t.Fatalf("publication activation failure = %v", err)
+	}
+	rebound, err := net.Listen("tcp", address)
+	if err != nil {
+		t.Fatalf("activation failure retained listener: %v", err)
+	}
+	_ = rebound.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	ready := make(chan struct{})
+	done := make(chan error, 1)
+	go func() {
+		done <- Serve(ctx, http.NotFoundHandler(), Options{
+			Address: address, Logger: discardLogger(), OnReady: func() error { close(ready); return nil },
+		})
+	}()
+	select {
+	case <-ready:
+	case <-time.After(time.Second):
+		t.Fatal("publication did not activate after listener bind")
+	}
+	cancel()
+	if err := waitServe(t, done); err != nil {
+		t.Fatalf("shutdown after publication: %v", err)
 	}
 }
 

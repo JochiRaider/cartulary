@@ -506,6 +506,7 @@ func (s *Service) handleWorkbookStartup(w http.ResponseWriter, r *http.Request) 
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
+	w.Header().Set("Cache-Control", "no-store")
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, workbookstartup.BuildStartupResource(record))
 }
 

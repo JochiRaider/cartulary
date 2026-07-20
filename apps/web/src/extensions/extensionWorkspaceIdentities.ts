@@ -1,0 +1,15 @@
+import type { WorkbookSheetRef } from "../shared/workbookSheetRef";
+
+export const networkFlowActivityProfileId = "network_flow_activity";
+export const networkAnalysisWorkspaceKey = "network_analysis";
+
+export function networkAnalysisSheetRef(): Extract<
+  WorkbookSheetRef,
+  { kind: "extension_workspace" }
+> {
+  return {
+    kind: "extension_workspace",
+    extension_profile_id: networkFlowActivityProfileId,
+    workspace_key: networkAnalysisWorkspaceKey,
+  };
+}

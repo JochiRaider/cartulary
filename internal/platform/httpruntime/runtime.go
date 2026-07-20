@@ -26,7 +26,18 @@ type Options struct {
 	ReadHeaderTimeout time.Duration
 	ShutdownTimeout   time.Duration
 	Logger            *slog.Logger
+	OnReady           func() error
 }
+
+type StartupError struct{ Err error }
+
+func (e *StartupError) Error() string { return "http listener startup failed" }
+func (e *StartupError) Unwrap() error { return e.Err }
+
+type ComponentLossError struct{ Err error }
+
+func (e *ComponentLossError) Error() string { return "published http listener terminated" }
+func (e *ComponentLossError) Unwrap() error { return e.Err }
 
 func Serve(ctx context.Context, handler http.Handler, options Options) error {
 	if err := ctx.Err(); err != nil {
@@ -36,7 +47,7 @@ func Serve(ctx context.Context, handler http.Handler, options Options) error {
 	options = normalizeOptions(options)
 	listener, inherited, err := openListener(options)
 	if err != nil {
-		return err
+		return &StartupError{Err: err}
 	}
 	defer listener.Close()
 
@@ -50,6 +61,11 @@ func Serve(ctx context.Context, handler http.Handler, options Options) error {
 	} else {
 		options.Logger.Info("starting cartulary bootstrap server", "addr", server.Addr)
 	}
+	if options.OnReady != nil {
+		if err := options.OnReady(); err != nil {
+			return &StartupError{Err: fmt.Errorf("activate publication: %w", err)}
+		}
+	}
 
 	serveDone := make(chan error, 1)
 	go func() {
@@ -61,7 +77,7 @@ func Serve(ctx context.Context, handler http.Handler, options Options) error {
 		if errors.Is(serveErr, http.ErrServerClosed) {
 			return nil
 		}
-		return serveErr
+		return &ComponentLossError{Err: serveErr}
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), options.ShutdownTimeout)
 		shutdownErr := server.Shutdown(shutdownCtx)
