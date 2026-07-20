@@ -8,10 +8,12 @@
 | Current implementation root | `internal/modules/extensions` |
 | Proposed target contract | `docs/extension-subsystem-nlspec.md` |
 | Planning framework | `docs/handoffs/cartulary_modular_refactor_planning_framework.md` |
+| Boundary-completeness input | `temp/analysis-notes.md` (informative and non-normative) |
 | Tracker output | `docs/handoffs/extensions-subsystem-implementation-tracker.md` |
 | Repository baseline | Branch `revision/grid-adapter`, commit `200f631152b76cf102bb6e3f81953de820978075` |
 | Initial dirty state | Pre-existing modification to `docs/extension-subsystem-nlspec.md`; initial SHA-256 `18fbd7f8c83e4a92ceec5bb0913a5443f454d8be4f96a2397df8627ec0915ee8` |
-| Planning status | Planning only. This tracker does not adopt the draft or establish implementation conformance. |
+| Planning status | Planning only. Boundary decisions selected; normative owner adoption pending. This tracker does not adopt the draft or establish implementation conformance. |
+| Boundary status | Decision state `SELECTED`; normative adoption state `BLOCKED`; implementation state `NOT_STARTED`. |
 | Allowed change in this task | This tracker file only. |
 | Required later authority | Implementation, tests, owner-document amendments, contracts, generation, migrations, configuration, Harness v2 inputs, and adoption require a later authorized task. |
 
@@ -21,6 +23,13 @@ coordinated-adoption gates therefore describe future closure work. Current behav
 remains owned by adopted Core 00 through Core 04 and the adopted subsystem owners.
 The local planning framework supplies planning doctrine and table structure only; it
 is not evidence that a package, contract, test, or command exists.
+
+`temp/analysis-notes.md` is informative source material for this revision. The
+boundary rules selected from it are recorded canonically in Section 6. Tracker
+decision selection is complete; target-contract boundary closure remains blocked.
+Uppercase normative language in this tracker governs mandatory execution of this
+plan only. Product-conformance authority arises only after each rule is incorporated
+into and adopted by its owning Core or subsystem document.
 
 Authority is applied in this order:
 
@@ -44,9 +53,10 @@ implementation convention.
 
 - `AGENTS.md`; the `refactor-tracker` skill, its tracker-format reference, and the
   modular refactor planning framework.
-- `docs/extension-subsystem-nlspec.md`, including all 236 `EXT-REQ-*` IDs, all 141
-  `EXT-AC-*` rows, Section 27 artifacts, and `EXT-GATE-001` through
-  `EXT-GATE-028`.
+- `docs/extension-subsystem-nlspec.md`, including the current 236 `EXT-REQ-*` IDs,
+  current 141 `EXT-AC-*` rows, Section 27 artifacts, and `EXT-GATE-001` through
+  `EXT-GATE-028`. Planned `EXT-AC-142` through `EXT-AC-158` do not exist
+  normatively until ES-01A amends the draft.
 - Core 00 through Core 04: `docs/spec/00_document_set_status_and_precedence.md`,
   `01_architecture_storage_and_view_contracts.md`,
   `02_domain_model_schema_and_history.md`,
@@ -62,6 +72,9 @@ implementation convention.
   current behavior is distributed across Core owners and `internal/modules/incidentbundles`.
 
 ### Repository evidence inspected
+
+- `temp/analysis-notes.md` as a non-normative boundary-completeness input; it is not
+  an owner document, contract, or implementation-conformance source.
 
 - Every file under `internal/modules/extensions`, including its testsupport package.
 - `internal/platform/httpapi/extensions.go`, `httpapi.go`, and their tests;
@@ -81,6 +94,22 @@ implementation convention.
 - Harness v2 verification registry, test-owner registry, family manifests, runner
   registry, runtime/resource/fixture profiles, execution topology, render index,
   schema attachments, and evidence-audit command surface.
+
+### Fixed planning assumptions and dependencies
+
+- BC-001 through BC-017 are selected and are not reopened by this tracker revision.
+- Network Flow's empty authoritative state is valid and therefore selects
+  `empty_state_policy=allowed`.
+- Portability import mutates only through the shared transaction protocol.
+- Restore v1 targets a stopped empty deployment.
+- Browser contract v1 has exactly one `standard` build class.
+- Capability advertisement remains entirely disabled in v1.
+- PostgreSQL advisory locking is permitted supporting implementation guidance, not a
+  normative mechanism or required storage coupling.
+- The system remains statically packaged; runtime-downloadable executable extensions
+  remain deferred.
+- Existing requirements are amended in later normative work. No new `EXT-REQ` or
+  `EXT-GATE` ID is allocated; exactly 17 acceptance IDs are planned.
 
 ### Explicit non-goals
 
@@ -210,7 +239,7 @@ and shared-owner behavior with their existing authorities.
 | Server assembly performs partial claim application and telemetry derivation before any generic coordinator exists. | `internal/app/server/runtime.go` | Partial publication and inconsistent claim consumers. | must_fix | Application assembly injecting Core 04/Extensions coordinator | Introduce one resolved claim-set result and atomic publication plan in a later slice. |
 | Contract identity is phase-shaped. | `registry_id=cartulary.extensions.phase2.v1` | Historical delivery identity could leak into runtime and compatibility. | must_fix | Extensions generator/Core 00 contract family | Replace after owner inputs are adopted; do not alias or compatibility-read it. |
 | Generated contract validation permits only one narrow extension artifact. | `tools/contractgen/validation.go` | Section 27 artifacts cannot be represented or drift-checked. | must_fix | Contract tooling/Extensions generator | Add authored schemas/owner inputs first, then generator outputs and drift checks. |
-| Network Flow currently owns a competing discovery shape/major 1 while the draft targets major 2. | Adopted Network Flow NLSpec and current contracts | Premature target implementation would break adopted behavior. | must_fix | Core 00/01/03/04 plus Network Flow owner | Follow the nine-step coordinated amendment and promotion order; no intermediate adoption. |
+| Network Flow currently owns a competing discovery shape/major 1 while the selected target requires major 2. | Adopted Network Flow NLSpec and current contracts | Premature target implementation would break adopted behavior. | must_fix | Core 00/01/03/04 plus Network Flow owner | Follow the ten-step coordinated amendment and promotion order; no intermediate adoption. |
 | Current browser trusts discovery and local code support without a digest-bound support registry/availability generation. | App startup and workbook shell | Stale or unsupported UI can render. | must_fix | Core 03/web application/client build | Add generated support registry and no-store availability epoch/generation atomically. |
 | Generic extension state metadata, migration ledger, presence manifest, physical binding, and codec artifacts are absent. | SQL/config/contract searches | State adoption cannot be proven by code alone. | must_fix | Extensions generator, profile owners, backup owner | Author schemas/migrations only after companion owner authorization. |
 | Cross-owner transaction semantics are implemented profile-by-profile. | Network Flow module/store participant composition | Inconsistent deadlines, ordering, replay, and final commit. | must_fix | Core 01 transaction coordinator | Characterize current behavior, then adopt one bounded protocol with typed participants. |
@@ -227,33 +256,71 @@ and shared-owner behavior with their existing authorities.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | WF-00 | Authority and baseline freeze | root | none | WF-01 | Freeze exact draft, adopted owners, worktree, public contracts, and source digests. | Owner docs, tracker | Markdown/source lint; recorded digests | No source ambiguity and no owner contradiction selected. |
 | WF-01 | Characterization closure | chain | WF-00 | WF-02, WF-03, WF-04 | Add exact pre-change evidence for every observable current boundary. | Existing backend/web tests and future owner rows | Narrow current owner slices | Every risky move has pre-change evidence. |
-| WF-02 | Companion-owner coordination | chain | WF-00, WF-01 | WF-03, WF-04, WF-05, WF-06 | Amend Core/profile/shared owners or record exact permitted no-change parity. | Core 00-04, Network Flow, Reporting, Composition, OTel, domain, Harness | Normative-source and documentation checks | All owner versions/digests/anchors are adoption-ready; draft remains draft. |
-| WF-03 | Owner manifests and canonical generation | chain | WF-02 | WF-04, WF-08 | Produce digest-bound inputs, descriptors, registry, integrity, closure, schemas, and projections. | `contracts/**`, generator inputs, generated roots | `make generate-drift`, JSON shape, artifact policy | All artifacts are generator-owned and byte-stable. |
-| WF-04 | Runtime coordination and publication | chain | WF-01, WF-02, WF-03 | WF-05, WF-06, WF-07 | Implement claim resolution, admission, bindings, dependencies, lease, publication, diagnostics, and fatal lifecycle. | Extensions facade, app server, config/platform adapters | Backend unit/process/integration; security | No listener/worker/route is partially published. |
-| WF-05 | Core discovery and dispatch | parallel | WF-02, WF-03, WF-04 | WF-07, WF-09 | Move producer/decoder/reservation/dispatch to generated generic contracts without transferring Core ownership. | Core OpenAPI, HTTP runtime, Extensions query facade | Go integration/browser support | One seven-member producer and one dispatch precedence. |
-| WF-06 | State, migration, jobs, transactions, and storage | parallel | WF-02, WF-03, WF-04 | WF-08, WF-09 | Add scoped generic coordination while preserving profile-owned state and Core shared protocols. | Extensions, Core 01 transaction/storage/jobs, profile stores/migrations | Service-backed owner slices, migration drift | State and commit outcomes satisfy every closed matrix. |
-| WF-07 | Browser support and lifecycle | parallel | WF-02, WF-03, WF-04, WF-05 | WF-09 | Add support registry, availability generation, eligibility intersection, fallback, and cleanup. | Web app, generated protocol/UI contracts, workbook startup | Typecheck, unit, browser/stateful/a11y/visual as allocated | Base state remains stable and stale extension state cannot render. |
-| WF-08 | Named-profile and shared-owner adoption | parallel | WF-02, WF-03, WF-06 | WF-09 | Adopt Network Flow major 2 and typed portability/reporting/backup participation without ownership transfer. | Network Flow, Incident Bundle, Reporting, Composition, backup | Affected full-owner slices | Every participant and parity row resolves to its primary owner. |
-| WF-09 | Harness v2 onboarding and traceability | chain | WF-03, WF-05, WF-06, WF-07, WF-08 | WF-10 | Register owner-first contracts, exact selectors/profiles, clause traceability, paired shards, and evidence audit. | Verification/owner/family/topology authored inputs and generated projections | Harness contract, task guide, full-owner slices, evidence audit | Both Extensions verification IDs and every imported-owner obligation close. |
+| WF-02 | Companion-owner coordination | chain | WF-00, WF-01 | WF-02A | Amend Core/profile/shared owners or record exact permitted no-change parity. | Core 00-04, Network Flow, Reporting, Composition, OTel, domain, Harness | Normative-source and documentation checks | All owner versions/digests/anchors are adoption-ready; draft remains draft. |
+| WF-02A | Normative boundary closure | chain | WF-02 | WF-03, WF-04, WF-05, WF-06, WF-07, WF-08 | Apply BC-001 through BC-017 to the draft and companion-owner amendment set; assign exact owner anchors, schemas, algorithms, acceptance criteria, and selectors while the Extensions NLSpec remains draft. | Draft, Core/profile/shared owner documents, traceability inputs | Normative-source, traceability, and documentation checks | Every BC row has exact target anchors and an active acceptance/verification mapping; no generation or implementation starts from the pre-closure draft. |
+| WF-03 | Owner manifests and canonical generation | chain | WF-02A | WF-04, WF-08 | Produce digest-bound inputs, descriptors, registry, integrity, closure, schemas, and projections. | `contracts/**`, generator inputs, generated roots | `make generate-drift`, JSON shape, artifact policy | All artifacts are generator-owned and byte-stable. |
+| WF-04 | Runtime coordination and publication | chain | WF-01, WF-02A, WF-03 | WF-05, WF-06, WF-07 | Implement claim resolution, admission, bindings, dependencies, lease, publication, diagnostics, and fatal lifecycle. | Extensions facade, app server, config/platform adapters | Backend unit/process/integration; security | No listener/worker/route is partially published. |
+| WF-05 | Core discovery and dispatch | parallel | WF-02A, WF-03, WF-04 | WF-07, WF-09 | Move producer/decoder/reservation/dispatch to generated generic contracts without transferring Core ownership. | Core OpenAPI, HTTP runtime, Extensions query facade | Go integration/browser support | One seven-member producer and one dispatch precedence. |
+| WF-06 | State, migration, jobs, transactions, and storage | parallel | WF-02A, WF-03, WF-04 | WF-08, WF-09 | Add scoped generic coordination while preserving profile-owned state and Core shared protocols. | Extensions, Core 01 transaction/storage/jobs, profile stores/migrations | Service-backed owner slices, migration drift | State and commit outcomes satisfy every closed matrix. |
+| WF-07 | Browser support and lifecycle | parallel | WF-02A, WF-03, WF-04, WF-05 | WF-09 | Add support registry, availability generation, eligibility intersection, fallback, and cleanup. | Web app, generated protocol/UI contracts, workbook startup | Typecheck, unit, browser/stateful/a11y/visual as allocated | Base state remains stable and stale extension state cannot render. |
+| WF-08 | Named-profile and shared-owner adoption | parallel | WF-02A, WF-03, WF-06 | WF-09 | Adopt Network Flow major 2 and typed portability/reporting/backup participation without ownership transfer. | Network Flow, Incident Bundle, Reporting, Composition, backup | Affected full-owner slices | Every participant and parity row resolves to its primary owner. |
+| WF-09 | Harness v2 onboarding and traceability | chain | WF-03, WF-05, WF-06, WF-07, WF-08 | WF-10 | Register owner-first contracts, exact selectors/profiles, clause traceability, paired shards, and evidence audit. | Verification/owner/family/topology authored inputs and generated projections | Harness contract, task guide, full-owner slices, evidence audit | Both Extensions verification IDs, all planned boundary acceptance criteria, and every imported-owner obligation exist and resolve. |
 | WF-10 | Atomic adoption and final handoff | chain | WF-09 | none | Execute all gates, audit retained roots, and promote all companions together. | Owner docs and status metadata only after evidence | Full drift/check/release gates plus exact-root audit | All 28 gates are `DONE`; no intermediate artifact claimed adoption. |
+
+No schema generation, implementation, browser conversion, or participant work may
+begin from the pre-closure draft. WF-03 through WF-08 MUST consume the WF-02A
+closure set, and WF-09 MUST reject any planned boundary criterion that is absent,
+unresolved, or lacks an exact selector.
+
+### Canonical boundary-closure ledger
+
+This table is the sole tracker definition of the selected boundary rules. Other
+sections reference BC IDs rather than restating the rules. `SELECTED` records a
+planning decision, not normative adoption. Owner requirement anchors become exact
+under ES-01A through ES-04; verification IDs and selectors become exact under ES-05.
+
+| BC ID | Planned acceptance | Required target rule | Normative owners | Main slices | Decision | Normative adoption | Implementation | Required future bindings |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| BC-001 | EXT-AC-142 | Add `empty_state_policy=allowed\|forbidden`; metadata never makes state present; empty initialization is permitted only when allowed; metadata-present/empty state is valid only under `allowed`; Network Flow selects `allowed`. | Extensions, Core 02, Network Flow | ES-01A, ES-02, ES-03, ES-11 | SELECTED | BLOCKED | NOT_STARTED | Owner anchors: ES-01A through ES-03; verification/selectors: ES-05. |
+| BC-002 | EXT-AC-143 | Establish one validation precedence: invocation failure, structural invalidity, overflow, remaining schema defects, valid findings, valid empty result. Counts `257..4096` violate 256-bound schemas; `4097+` selects overflow. | Extensions, Core 04 | ES-01A, ES-02, ES-10 | SELECTED | BLOCKED | NOT_STARTED | Owner anchors: ES-01A and ES-02; verification/selectors: ES-05. |
+| BC-003 | EXT-AC-144 | Split portability export/import results; make import side-effect-free preparation followed by shared transaction participation; add scoped staged-output capability; set participant and aggregate import input ceilings to 64 MiB. | Extensions, Core 01, Incident Portability, profile owners | ES-01A, ES-02, ES-04, ES-11 | SELECTED | BLOCKED | NOT_STARTED | Owner anchors: ES-01A, ES-02, and ES-04; verification/selectors: ES-05. |
+| BC-004 | EXT-AC-145 | Add authored `cartulary.extension_dependency_declaration_set.v1`; arrays are always present; null is invalid; manifests supply versions/digests; generation emits the snapshot. | Extensions and dependency owners | ES-01A, ES-06, ES-07 | SELECTED | BLOCKED | NOT_STARTED | Owner anchors: ES-01A; declaration/schema bindings: ES-06; verification/selectors: ES-05. |
+| BC-005 | EXT-AC-146 | Add `recognized_profile.primary_owner_contract_ref`; define the sole source of every descriptor member; reject missing/multiple scalar sources and duplicate set members; prohibit prose or code inference. | Core 00, Extensions generator | ES-01A, ES-02, ES-06, ES-07 | SELECTED | BLOCKED | NOT_STARTED | Owner anchors: ES-01A and ES-02; generator bindings: ES-06; verification/selectors: ES-05. |
+| BC-006 | EXT-AC-147 | Add condition annotations for generated schema rules and closed decision tables for procedural validators; every admitted validation surface must have a complete condition inventory; unregistered emitted conditions fail conformance. | Extensions plus every validation owner | ES-01A, ES-02 through ES-04, ES-06, ES-07, ES-10 | SELECTED | BLOCKED | NOT_STARTED | Owner anchors: ES-01A through ES-04; registry bindings: ES-06; verification/selectors: ES-05. |
+| BC-007 | EXT-AC-148 | Replace every “at least” closure-category derivation with an exact subject/contribution-kind mapping; generated subject rows permit no owner-authored not-applicable reason; only fixed baseline rows retain their enumerated reasons. | Extensions generator | ES-01A, ES-06, ES-07 | SELECTED | BLOCKED | NOT_STARTED | Owner anchors: ES-01A; generator bindings: ES-06; verification/selectors: ES-05. |
+| BC-008 | EXT-AC-149 | Close clause kinds, parent kinds, zero-based ordinals, half-open byte ranges, parent scope, clause-ID digest input, and document-clause mapping; add authored `cartulary.extension_traceability_mapping_source.v1`. | Extensions documentation tooling, Harness | ES-01A, ES-05, ES-06, ES-07, ES-09 | SELECTED | BLOCKED | NOT_STARTED | Owner anchors: ES-01A; Harness and selector bindings: ES-05; schema bindings: ES-06. |
+| BC-009 | EXT-AC-150 | Add non-null inactive schema reference exactly for `syntax_only`; restrict its vocabulary to inert structural validation; while inactive apply no required/default omission policy, create no configuration view, perform no resolution, and discard accepted values. | Extensions, Core 04, profile owners | ES-01A, ES-02, ES-03, ES-10 | SELECTED | BLOCKED | NOT_STARTED | Owner anchors: ES-01A through ES-03; verification/selectors: ES-05. |
+| BC-010 | EXT-AC-151 | Define `unacquired -> acquiring -> held -> uncertain -> held/lost`, plus release; uncertainty closes admission immediately; proof must come from the original lease session; loss is irreversible and exits 70; initial acquisition timeout exits 2. | Core 04, platform lease adapter | ES-01A, ES-02, ES-10 | SELECTED | BLOCKED | NOT_STARTED | Owner anchors: ES-01A and ES-02; verification/selectors: ES-05. |
+| BC-011 | EXT-AC-152 | Define checked/saturating local deadline calculation, inherited deadline minimum, `now >= deadline` expiry, commit/cancellation/timeout precedence, equal-deadline tiebreak, and zero-grace behavior. | Core 04, Core 01 | ES-01A, ES-02, ES-10, ES-11 | SELECTED | BLOCKED | NOT_STARTED | Owner anchors: ES-01A and ES-02; verification/selectors: ES-05. |
+| BC-012 | EXT-AC-153 | Bound participants to `1..16384`; bound per-participant and aggregate input to 64 MiB; bound aggregate prepare results to 64 MiB; stop at the first invalid validator in participant order; sample cancellation around every step and invocation. | Core 01, Extensions | ES-01A, ES-02, ES-04, ES-11 | SELECTED | BLOCKED | NOT_STARTED | Owner anchors: ES-01A, ES-02, and ES-04; verification/selectors: ES-05. |
+| BC-013 | EXT-AC-154 | Define every allocated staged-object default; define the exact expiry/retry eligibility predicate and ordering; abandon upload failures immediately; prohibit holding a database transaction during deletion; serialize sweeps and coalesce missed intervals. | Core 01 object storage | ES-01A, ES-02, ES-11 | SELECTED | BLOCKED | NOT_STARTED | Owner anchors: ES-01A and ES-02; verification/selectors: ES-05. |
+| BC-014 | EXT-AC-155 | Restore v1 only into a stopped empty target; process groups numerically and bindings sequentially; validate before advancing; failed targets never serve; no inactive profile code; rebuild derived state only after successful claim. | Core 01 backup, profile owners | ES-01A, ES-02 through ES-04, ES-11 | SELECTED | BLOCKED | NOT_STARTED | Owner anchors: ES-01A through ES-04; verification/selectors: ES-05. |
+| BC-015 | EXT-AC-156 | Add `client_build_class='standard'`; require one support row for every claimable profile with workspaces; require Network Flow major 2 and `network_analysis`; linearize generation reservation and epoch rollover. | Core 01, Core 03, web | ES-01A, ES-02, ES-12 | SELECTED | BLOCKED | NOT_STARTED | Owner anchors: ES-01A and ES-02; verification/selectors: ES-05. |
+| BC-016 | EXT-AC-157 | Prohibit capability facts and all nonempty capability arrays in v1; use `extension_capability_not_supported`; retain empty wire arrays for future compatibility; require a later capability contract before activation. | Core 00, Extensions | ES-01A, ES-02, ES-06, ES-09, ES-12 | SELECTED | BLOCKED | NOT_STARTED | Owner anchors: ES-01A and ES-02; registry bindings: ES-06; verification/selectors: ES-05. |
+| BC-017 | EXT-AC-158 | Add fatal `published_component_lost` for unexpected termination of a publication-plan listener, dequeue gate, or worker; distinguish individual operation failures; close readiness/admission, drain, preserve committed state, and exit 70; no in-process restart. | Core 04, Core 01 jobs/runtime | ES-01A, ES-02, ES-10, ES-11 | SELECTED | BLOCKED | NOT_STARTED | Owner anchors: ES-01A and ES-02; verification/selectors: ES-05. |
+
+ES-01A through ES-05 MUST replace each future-binding statement with exact owner
+requirement anchors, verification IDs, and selector-family identifiers. The adopted
+closure MUST contain no `TODO`, “appropriate,” “as needed,” “at least,” or
+implementer-selected fallback for any BC rule.
 
 ### Companion-owner amendment plan
 
-| Owner | Required amendment or parity decision | Ownership guardrail | Gate dependencies | Completion evidence | Status |
-| --- | --- | --- | --- | --- | --- |
-| Core 00 | Adopt the shared subsystem, manifest association, current majors, `network_flow_activity@2`, and `network_flow_activity -> import@1`. | Recognition, claimability, retirement, and current major remain Core 00 only. | EXT-GATE-001, 013, 017 | Adopted Core revision, owner manifest, generated parity | TODO |
-| Core 01 | Adopt strict seven-member producer/tolerant decoder, Base reservation registry, availability/no-store member, dispatch precedence, bounded transactions, staged objects, jobs, backup/participant interfaces, final commit, and recovery. | Public routes, envelopes, errors, transaction shell, object storage, and physical backup orchestration remain Core 01. | EXT-GATE-002, 003, 017, 022, 025, 026 | OpenAPI/owner anchors, route parity, participant and failure-injection evidence | TODO |
-| Core 02 | Adopt or confirm extension-resource, authoritative/derived family, state-presence exclusion, and no cross-owner authoritative-write boundaries. | No implicit Core record/view/saved-view promotion. | EXT-GATE-004 | Owner manifest and Core-record boundary tests | TODO |
-| Core 03 | Adopt epoch/generation, stable client/WebSocket identity, eligibility intersection, lazy loading, fallback, unsupported-major and authorization-loss consequences. | Browser/workbook behavior remains Core 03/web owned. | EXT-GATE-005, 017, 021 | Web owner rows, browser/stateful evidence, support-registry parity | TODO |
-| Core 04 | Adopt inactive syntax-only processing, all deadlines, process lease, Stage 6, readiness degradation, diagnostics, fatal lifecycle, and exit codes. | Deployment config, authorization, readiness, and process exit remain Core 04. | EXT-GATE-006, 015, 023 | Config/process/security owner rows | TODO |
-| Network Flow Activity | Publish owner manifest/fragments; remove competing discovery; adopt major 2 unless EXT-REQ-231 exception is fully proven; declare dependency, state, initialization, migrations, bindings/codecs, jobs, participants, rebuilds, and blocker. | Network Flow resources/routes/algorithms remain `module.networkflow`. | EXT-GATE-007, 016, 017, 024 | Full `module.networkflow` and `web.networkflow` evidence | TODO |
-| Incident Portability | Import closed participant context/result/finding, logical refs, declarative inactive blocker, and invocation matrix when the interface changes. | Public incident-bundle workflow remains Core/Incident Bundle owned. | EXT-GATE-018 | Amended Core anchors or exact no-change parity accounting | TODO |
-| Physical backup owner | Import binding/codec/ordering/invocation contracts when changed. | Physical backup orchestration remains platform/Core owned. | EXT-GATE-003, 016, 018 | Codec vectors, restore tests, or exact no-change parity | TODO |
-| Reporting | Import generic descriptor/claim/compatibility/state-presence/participant lifecycle only if its interface changes. | Snapshot, render, release, and report model remain Reporting owned. | EXT-GATE-008, 018 | Amended owner anchors or exact no-change parity | TODO |
-| Report Composition | Import only the generic interfaces it actually consumes. | Authoring, validation, preview, and composition schema remain Composition owned. | EXT-GATE-008, 018 | Amended owner anchors or exact no-change parity | TODO |
-| OpenTelemetry | Derive `cartulary.profile.claims` from canonical resolved claim set and digest; prohibit profile secrets/content. | Telemetry signal shape remains OpenTelemetry owned. | EXT-GATE-010 | OTel conformance/golden corpus and privacy tests | TODO |
-| Domain vocabulary | Add adopted extension terms and remove stale discovery/unclaim/migration/multiprocess/client-support language after owners adopt. | Domain document remains terminology reference, never behavior owner. | EXT-GATE-011 | Markdown/domain review | TODO |
-| Testing Harness v2 | Add authored owner contracts/rows/profiles/topology; amend NLSpec only if a new public command, runner, schema family, or execution-profile contract is needed. | Harness owns mechanics only and cannot derive product behavior from the draft. | EXT-GATE-009, 020, 027, 028 | Harness contract, full-owner shards, exact-root audit | TODO |
+| Owner | Required amendment or parity decision | Boundary closures | Ownership guardrail | Gate dependencies | Completion evidence | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| Core 00 | Adopt the shared subsystem, manifest association, current majors, `network_flow_activity@2`, and `network_flow_activity -> import@1`. | BC-005, BC-016 | Recognition, claimability, retirement, and current major remain Core 00 only. | EXT-GATE-001, 013, 017 | Adopted Core revision, owner manifest, generated parity | TODO |
+| Core 01 | Adopt strict seven-member producer/tolerant decoder, Base reservation registry, availability/no-store member, dispatch precedence, bounded transactions, staged objects, jobs, backup/participant interfaces, final commit, and recovery. | BC-003, BC-011 through BC-015, BC-017 | Public routes, envelopes, errors, transaction shell, object storage, and physical backup orchestration remain Core 01. | EXT-GATE-002, 003, 017, 022, 025, 026 | OpenAPI/owner anchors, route parity, participant and failure-injection evidence | TODO |
+| Core 02 | Adopt or confirm extension-resource, authoritative/derived family, state-presence exclusion, and no cross-owner authoritative-write boundaries. | BC-001 | No implicit Core record/view/saved-view promotion. | EXT-GATE-004 | Owner manifest and Core-record boundary tests | TODO |
+| Core 03 | Adopt epoch/generation, stable client/WebSocket identity, eligibility intersection, lazy loading, fallback, unsupported-major and authorization-loss consequences. | BC-015 | Browser/workbook behavior remains Core 03/web owned. | EXT-GATE-005, 017, 021 | Web owner rows, browser/stateful evidence, support-registry parity | TODO |
+| Core 04 | Adopt inactive syntax-only processing, all deadlines, process lease, Stage 6, readiness degradation, diagnostics, fatal lifecycle, and exit codes. | BC-002, BC-009 through BC-011, BC-017 | Deployment config, authorization, readiness, and process exit remain Core 04. | EXT-GATE-006, 015, 023 | Config/process/security owner rows | TODO |
+| Network Flow Activity | Publish owner manifest/fragments; remove competing discovery; adopt major 2; declare dependency, state, initialization, migrations, bindings/codecs, jobs, participants, rebuilds, and blocker. | BC-001, BC-009, BC-014, BC-015 | Network Flow resources/routes/algorithms remain `module.networkflow`. | EXT-GATE-007, 016, 017, 024 | Full `module.networkflow` and `web.networkflow` evidence | TODO |
+| Incident Portability | Import closed export/import results, scoped staged-output capability, participant context/result/finding, logical refs, declarative inactive blocker, and invocation matrix when the interface changes. | BC-003, BC-012 | Public incident-bundle workflow remains Core/Incident Bundle owned. | EXT-GATE-018 | Amended Core anchors or exact no-change parity accounting | TODO |
+| Physical backup owner | Import binding, codec, ordering, restore-target, and invocation contracts when changed. | BC-014 | Physical backup orchestration remains platform/Core owned. | EXT-GATE-003, 016, 018 | Codec vectors, restore tests, or exact no-change parity | TODO |
+| Reporting | Import generic descriptor/claim/compatibility/state-presence/participant lifecycle only if its interface changes. | BC-003, BC-012 | Snapshot, render, release, and report model remain Reporting owned. | EXT-GATE-008, 018 | Amended owner anchors or exact no-change parity | TODO |
+| Report Composition | Import only the generic interfaces it actually consumes. | BC-003, BC-012 | Authoring, validation, preview, and composition schema remain Composition owned. | EXT-GATE-008, 018 | Amended owner anchors or exact no-change parity | TODO |
+| OpenTelemetry | Derive `cartulary.profile.claims` from canonical resolved claim set and digest; prohibit profile secrets/content. | none | Telemetry signal shape remains OpenTelemetry owned. | EXT-GATE-010 | OTel conformance/golden corpus and privacy tests | TODO |
+| Domain vocabulary | Add adopted extension terms and remove stale discovery/unclaim/migration/multiprocess/client-support language after owners adopt. | BC-001 through BC-017 (terminology only) | Domain document remains terminology reference, never behavior owner. | EXT-GATE-011 | Markdown/domain review | TODO |
+| Testing Harness v2 | Add authored owner contracts/rows/profiles/topology; amend NLSpec only if a new public command, runner, schema family, or execution-profile contract is needed. | BC-006, BC-008 | Harness owns mechanics only and cannot derive product behavior from the draft. | EXT-GATE-009, 020, 027, 028 | Harness contract, full-owner shards, exact-root audit | TODO |
 
 ### Section 27 artifact and generation plan
 
@@ -264,40 +331,46 @@ and topology render outputs are generated through repository-owned generators.
 
 | Artifact or schema family | Authored owner/input | Generated or runtime consumers | Dependencies and validation | Status |
 | --- | --- | --- | --- | --- |
+| `cartulary.extension_dependency_declaration_set.v1` | Extensions specification owner; dependency owners supply manifest versions and digests | Exact input to dependency snapshot generation | Arrays always present; null invalid; complete owner/version/digest vectors; BC-004 | TODO |
 | `cartulary.extension_dependency_snapshot.v1` | Adopted dependency identities/versions/digests | Extensions generator and adoption accounting | Owner manifests; canonical/digest/drift vectors | TODO |
 | `cartulary.extension_owner_contract_manifest.v1` | One manifest per dependency owner document | Locator validator, snapshot, integrity, runtime admission | Exact document digest/anchors/fragments; symlink-safe path tests | TODO |
 | `cartulary.extension_owner_fragment.v1` | Contributing named owner documents | Owner-input registry and descriptor derivation | Adopted fragment IDs/paths/digests only | TODO |
 | `cartulary.extension_owner_input_registry.v1` | Generator input from validated manifests/fragments | Descriptor and registry generation | Fact identity, duplicate/order/collision vectors | TODO |
 | `cartulary.extension_owner_fact_identity.v1` | Extensions schema and derivation vectors | Generator ordering/collision/accounting | EXT-REQ-205 vectors | TODO |
-| Profile configuration contract/view | Extensions shape; named profile content; Core 04 view | Claim resolution and diagnostics | Inactive policy, bounds, secret refs, omission/null tests | TODO |
-| Descriptor-source schema | Extensions schema; ephemeral construction only | Generator in-memory normalization | Must never persist, package, hash, log, or drift-check instances | TODO |
-| Descriptor schema and per-profile descriptors | Generated from owner input | Discovery, bindings, client support, accounting | One per recognized profile; canonical/digest/parity | TODO |
+| Profile configuration contract/view | Extensions shape; named profile content; Core 04 view | Claim resolution and diagnostics | Inactive policy, bounds, secret refs, omission/null tests; BC-009 | TODO |
+| Inactive-value schema family | Profile configuration owners under the closed Extensions vocabulary | Inert validation of unclaimed `syntax_only` values | Non-null schema reference; structural vocabulary only; no defaulting, view, resolution, retention, or egress; BC-009 | TODO |
+| Descriptor-source schema | Extensions schema; ephemeral construction only | Generator in-memory normalization | Sole source for each member; missing/multiple scalar and duplicate-set rejection; never persist, package, hash, log, or drift-check instances; BC-005 | TODO |
+| Descriptor schema and per-profile descriptors | Generated from owner input, including `recognized_profile.primary_owner_contract_ref` | Discovery, bindings, client support, accounting | One per recognized profile; exact source mapping; canonical/digest/parity; BC-005 | TODO |
 | Profile registry schema and canonical registry | Extensions generator | Runtime admission, discovery input, build package | Zero-profile and current-profile vectors; root digest | TODO |
 | Registry integrity object | Extensions generator/build packaging | Runtime admission and static accounting | Exact artifact/static-support identity/digest sets | TODO |
 | Base route reservation registry | Core 01 authored route ownership, generated registry | HTTP dispatch overlap validator | Packaged handler parity and no extension capture | TODO |
-| Client support registry and client asset-set manifest | Web build inputs and generated asset manifest | Browser eligibility intersection | Descriptor major/workspace/capability/schema and asset digest parity | TODO |
+| Client support registry and client asset-set manifest | Web build inputs and generated asset manifest | Browser eligibility intersection | `client_build_class='standard'`; one row per claimable profile with workspaces; descriptor major/workspace/capability/schema and asset digest parity; BC-015, BC-016 | TODO |
 | Workspace availability | Core 01 plus Extensions result | Workbook startup and web controller | No-store response, epoch/generation, auth intersection | TODO |
-| Publication plan and six component schemas | Extensions/Core 04 | Application startup Stage 6 coordinator | Atomic serving, deadlines, lease/readiness/fatal tests | TODO |
+| Publication plan and six component schemas | Extensions/Core 04 | Application startup Stage 6 coordinator | Atomic serving, deadlines, lease/readiness, `published_component_lost`, drain, and fatal tests; BC-010, BC-011, BC-017 | TODO |
 | Implementation binding schema and packaged bindings | Build plus profile implementations | Runtime admission | Descriptor/contribution/state/job/participant parity | TODO |
 | Admission validation/context/result schemas | Extensions | Profile preflight/post-migration calls | Closed scoped context, result precedence, timeout tests | TODO |
 | Migration context/apply/validation/final-state schemas | Extensions shape; profile definitions | Migration coordinator | Pending-state validation, exact-once final validation, bounds | TODO |
-| State-presence manifest/digest/vectors | Each versioned profile plus generator | Migration, backup, portability, accounting | Authoritative/derived classification and exclusion parity | TODO |
-| State-initialization definition/context/result | Extensions shape; each versioned profile | Fresh-state coordinator | Empty/algorithm variants and final validation | TODO |
-| Physical state binding | Build plus durable profile owner | Backup/restore and integrity | Storage kind, state family, codec/rebuild parity | TODO |
+| State-presence manifest/digest/vectors | Each versioned profile plus generator | Migration, backup, portability, accounting | `empty_state_policy`, authoritative/derived classification, presence exclusion, and all metadata/state combinations; BC-001 | TODO |
+| State-initialization definition/context/result | Extensions shape; each versioned profile | Fresh-state coordinator | Every initialization default, empty/algorithm variants, and final validation; BC-001 | TODO |
+| Physical state binding | Build plus durable profile owner | Backup/restore and integrity | Storage kind, state family, codec/rebuild parity, stopped-empty restore target and numeric/sequential ordering; BC-014 | TODO |
 | Backup binding codec and vectors | Build, backup owner, durable profile | Physical backup/restore | Framing, limits, order, empty/historical/unsupported cases | TODO |
 | State metadata and migration-ledger logical schemas | Extensions | PostgreSQL/profile state coordinator | Authored migrations, immutability, replay, restore | TODO |
 | Job-kind contracts | Extensions shape; profile content | Core jobs and profile workers | Proof/cancel/idempotency/resource-result parity | TODO |
 | Job commit proof and cancellation observation | Core 01 jobs plus Extensions | Reconciliation/replay | Proof precedence, contradiction, bounds | TODO |
-| Transaction participant contract/context/result/finding | Core 01 plus Extensions | Cross-owner coordinator and participants | Operation order, keys, deadlines, conflict/commit matrices | TODO |
-| Participant specialization and portability/reporting/backup contexts/results | Applicable shared and profile owners | Incident Bundle, Reporting, Composition, backup | Invocation matrix and no implicit participation | TODO |
+| Transaction participant contract/context/result/finding | Core 01 plus Extensions | Cross-owner coordinator and participants | Participant count `1..16384`; 64 MiB per-participant/aggregate input and aggregate-result limits; ordered validation, cancellation sampling, deadlines, conflict/commit matrices; BC-011, BC-012 | TODO |
+| Participant specialization and portability/reporting/backup contexts/results | Applicable shared and profile owners | Incident Bundle, Reporting, Composition, backup | Closed invocation matrix, transaction binding limits, and no implicit participation; BC-003, BC-012, BC-014 | TODO |
+| Operation-specific portability export/import results | Extensions plus Incident Portability | Side-effect-free import preparation, shared transaction participation, and export publication | Absent/malformed/incompatible payloads; 64 MiB ceilings; scoped staged-output capability; rollback/commit/indeterminate outcomes; BC-003 | TODO |
 | State blocking predicate | Extensions plus applicable profile | Inactive portability checks | Declarative state only; no inactive profile code | TODO |
-| Staged-object logical schema | Core 01 object storage plus Extensions | Transaction publication and cleanup | Access cutoff, cleanup outcomes, fatal contradictions | TODO |
-| Validation-condition registry | Generator plus every validation owner | Startup/runtime diagnostics and accounting | One row per reachable invalid condition; safe formatter parity | TODO |
+| Staged-object logical schema | Core 01 object storage plus Extensions | Transaction publication and cleanup | Every allocated default; exact expiry/retry predicate/order; immediate upload abandonment; transaction-free deletion; serialized/coalesced sweeps; BC-013 | TODO |
+| `cartulary.extension_validation_surface_declaration.v1` | Each schema or procedural-algorithm owner | Complete input to validation-condition registry generation | Schema condition annotations; closed procedural decision tables; emitted-condition completeness; BC-006 | TODO |
+| Validation-condition registry | Generator plus every validation owner | Startup/runtime diagnostics and accounting | One row per reachable invalid condition; unregistered emitted conditions fail; safe formatter parity; BC-002, BC-006 | TODO |
 | Startup finding schema | Core 04 plus Extensions | Startup diagnostics/readiness | Closed message/details/path/order/overflow | TODO |
+| Fatal-condition and process-lifecycle registries | Core 04 plus Core 01 jobs/runtime | Readiness, admission, drain, process supervision, and exit handling | Closed lease and component-loss states; operation-failure distinction; no in-process restart; exit `2`/`70`; BC-010, BC-017 | TODO |
 | Per-profile contract closure catalog | Extensions generator | Conformance manifest/accounting | Complete baseline and owner obligations; no owner reduction | TODO |
 | Conformance manifest and index | Named profile owners plus generator | Static adoption accounting | One per claimable profile; unclaimable omission | TODO |
 | Registry accounting object | Extensions generator | Adoption gate only | Named deterministic predicates/current digests; no run result as input | TODO |
-| Clause traceability object | Specification owner/document tooling | Static adoption accounting | Exact source digest, all clauses/requirements/criteria/verifications | TODO |
+| `cartulary.extension_traceability_mapping_source.v1` | Extensions specification owner | Exact input to acceptance/verification and document/clause mappings | Closed kinds, parent kinds/scope, zero-based ordinals, half-open byte ranges, clause-ID digest input; BC-008 | TODO |
+| Clause traceability object | Specification owner/document tooling | Static adoption accounting | Exact source digest, all clauses/requirements/criteria/verifications, exact acceptance-to-selector mappings; BC-008 | TODO |
 | Canonicalization and normative-source-lint vectors | Extensions/document tooling | Generator/linter tests | Exact Markdown subset and boundary/overflow vectors | TODO |
 | `extension_safe_logical_ref_v1` and vectors | Extensions | Diagnostics, indexes, findings | Grammar, secrecy, traversal and overflow tests | TODO |
 | Verification registry/owner contracts | Harness verification owners | Catalog validator and evidence accounting | Add both immutable `module.extensions` IDs atomically | TODO |
@@ -323,7 +396,7 @@ inputs and generator-owned projections. The two immutable product verification I
 
 Imported Core, web, platform, application, and named-profile behavior remains routed
 through those primary owners' verification IDs; `module.extensions` must not duplicate
-it. The initial exact selectors below are decision-complete planned identities. If an
+it. The initial exact selectors below are selected planned identities. If an
 adopted owner later reallocates a postcondition, change the owning row and traceability
 together; do not duplicate the selector.
 
@@ -356,37 +429,42 @@ continues until then.
 
 | Requirement IDs | Workstream | Primary owner | Affected artifacts/code | Dependencies | Validation posture | Completion state |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| EXT-REQ-001, 002, 003, 004, 005, 174 | WF-00, WF-02 | Extensions spec plus imported owners | Dependency snapshot/manifests and source posture | Core 00-04 and named owners | Source/anchor/dependency validation | TODO |
-| EXT-REQ-006 through 014 | WF-00, WF-09 | Extensions spec/document tooling | Normative source and identifier traceability | Exact draft bytes and Harness IDs | Linter, uniqueness, bidirectional mapping | TODO |
+| EXT-REQ-001, 002, 003, 004, 005, 174 | WF-00, WF-02, WF-02A | Extensions spec plus imported owners | Dependency declarations/snapshot/manifests and source posture; BC-004 | Core 00-04 and named owners | Source/anchor/dependency validation | TODO |
+| EXT-REQ-006 through 014 | WF-00, WF-02A, WF-09 | Extensions spec/document tooling | Normative source and identifier traceability; BC-008 | Exact draft bytes and Harness IDs | Linter, uniqueness, bidirectional mapping | TODO |
 | EXT-REQ-015 through 019 | WF-00, WF-04 | Extensions spec/Core boundaries | Runtime non-goals and subsystem facade | Owner allocation | Negative architecture/security tests | TODO |
-| EXT-REQ-020, 021, 022, 023, 175, 203 | WF-03 | Extensions generator | Scalars, locators, manifests, safe refs | Owner document digests | Grammar, traversal, symlink, digest vectors | TODO |
-| EXT-REQ-024, 025, 026, 027, 176, 177, 204, 205, 206 | WF-02, WF-03 | Named owners plus Extensions generator | Owner fragments/input/fact identities | Adopted manifests | Determinism, omission, identity/collision tests | TODO |
-| EXT-REQ-028 through 033 | WF-02 | Core 00 | Recognized profile facts and adoption state | Companion owner revisions | Core/registry/discovery parity | TODO |
-| EXT-REQ-034 through 040, 178, 209 | WF-03 | Extensions generator/profile owners | Descriptor-source/configuration/descriptor schemas | Owner input registry | Closed-shape/default/ephemeral/digest tests | TODO |
-| EXT-REQ-041 through 046, 179, 180 | WF-03 | Extensions generator/build | Registry, canonical JSON, integrity and package roots | Descriptors/bindings/static support | Canonical, bound, integrity, zero-profile vectors | TODO |
-| EXT-REQ-047 through 053, 184, 207, 208, 213, 214, 215 | WF-02, WF-04 | Core 04 plus Extensions | Claim config/view, lease, publication, deadlines | Registry, bindings, platform config | Config/process/readiness/fatal tests | TODO |
+| EXT-REQ-020, 021, 022, 023, 175, 203 | WF-02A, WF-03 | Extensions generator | Scalars, locators, manifests, safe refs; BC-004 | Owner document digests | Grammar, traversal, symlink, digest vectors | TODO |
+| EXT-REQ-024, 025, 026, 027, 176, 177, 204, 205, 206 | WF-02, WF-02A, WF-03 | Named owners plus Extensions generator | Owner fragments/input/fact identities; BC-005, BC-006 | Adopted manifests | Determinism, omission, identity/collision tests | TODO |
+| EXT-REQ-028 through 033 | WF-02, WF-02A | Core 00 | Recognized profile facts and adoption state; BC-005, BC-016 | Companion owner revisions | Core/registry/discovery parity | TODO |
+| EXT-REQ-034 through 040, 178, 209 | WF-02A, WF-03 | Extensions generator/profile owners | Descriptor-source/configuration/descriptor schemas; BC-005, BC-009 | Owner input registry | Closed-shape/default/ephemeral/digest tests | TODO |
+| EXT-REQ-041 through 046, 179, 180 | WF-02A, WF-03 | Extensions generator/build | Registry, dependency snapshot, canonical JSON, integrity and package roots; BC-004, BC-005 | Descriptors/bindings/static support | Canonical, bound, integrity, zero-profile vectors | TODO |
+| EXT-REQ-047 through 053, 184, 207, 208, 213, 214, 215 | WF-02, WF-02A, WF-04 | Core 04 plus Extensions | Claim config/view, lease, publication, deadlines; BC-009 through BC-011, BC-017 | Registry, bindings, platform config | Config/process/readiness/fatal tests | TODO |
 | EXT-REQ-054 through 058, 187 | WF-04 | Extensions coordinator | Claim/dependency/admission algorithm | Config, descriptors, bindings | Order, preflight, no-side-effect, no-listener tests | TODO |
 | EXT-REQ-059 through 064, 185 | WF-04 | Extensions coordinator/profile owners | Runtime dependency graph/probes | Resolved claims and owner contracts | Cycle/order/probe/timeout tests | TODO |
-| EXT-REQ-065 through 067, 181, 182 | WF-03, WF-04 | Build plus Extensions | Implementation binding and parity | Registry/integrity/profile implementation | Missing/extra/mismatch admission tests | TODO |
+| EXT-REQ-065 through 067, 181, 182 | WF-02A, WF-03, WF-04 | Build plus Extensions | Implementation binding and parity; BC-012, BC-016 | Registry/integrity/profile implementation | Missing/extra/mismatch admission tests | TODO |
 | EXT-REQ-068 through 072, 210 | WF-03 | Extensions generator/Core 01 | Collision and Base reservation registries | Canonical facts/routes/dependencies | Every collision/multiplicity/route-overlap case | TODO |
-| EXT-REQ-073 through 079, 196 | WF-03, WF-04, WF-07 | Extensions/Core 03/profile owners | Compatibility matrices and support registry | Descriptor/binding/state/schema versions | Matrix and unsupported-value tests | TODO |
-| EXT-REQ-080 through 086, 194, 195, 231 | WF-02, WF-05 | Core 01 | OpenAPI discovery producer/decoder | Core 00 facts and registry | Strict seven-member producer/tolerant decoder/parity | TODO |
-| EXT-REQ-087 through 094 | WF-02, WF-03, WF-08 | Named owners plus generator | Contribution registry/participant bindings | Adopted fragments/descriptors | Closed-kind/duplicate/parity tests | TODO |
+| EXT-REQ-073 through 079, 196 | WF-02A, WF-03, WF-04, WF-07 | Extensions/Core 03/profile owners | Compatibility matrices, capability prohibition, and support registry; BC-015, BC-016 | Descriptor/binding/state/schema versions | Matrix and unsupported-value tests | TODO |
+| EXT-REQ-080 through 086, 194, 195, 231 | WF-02, WF-02A, WF-05 | Core 01 | OpenAPI discovery producer/decoder; BC-005, BC-016 | Core 00 facts and registry | Strict seven-member producer/tolerant decoder/parity | TODO |
+| EXT-REQ-087 through 094 | WF-02, WF-02A, WF-03, WF-08 | Named owners plus generator | Contribution registry/participant bindings; BC-003, BC-007, BC-012 | Adopted fragments/descriptors | Closed-kind/duplicate/parity tests | TODO |
 | EXT-REQ-095 through 099 | WF-05 | Core 01/platform HTTP | Reservation and dispatch | Base/extension registries | Exact precedence and claimed/unclaimed outcomes | TODO |
-| EXT-REQ-100 through 109, 197, 201, 211, 212, 220 | WF-07 | Core 03/web application | Client support, availability, workspace lifecycle | Discovery/auth/browser assets | Unit/browser/stateful selectors and Base preservation | TODO |
-| EXT-REQ-110 through 114, 200, 226 | WF-06 | Core 02/profile state owners/Extensions | Resource/state ownership, closure catalog | Profile descriptors/state families | No-promotion/no-cross-write/closure tests | TODO |
-| EXT-REQ-115 through 119, 192, 219 | WF-06 | Core 01 transaction owner | Participant protocol and staged publication | Jobs/storage/owner participants | Ordered failure/cancel/deadline/commit tests | TODO |
-| EXT-REQ-120 through 129, 188, 189, 190, 216, 217, 234 | WF-06 | Extensions plus profile state owners | State metadata, initialization, migration, ledger | Bindings/state presence/locks | Fresh/current/migrated/restored and resumability tests | TODO |
-| EXT-REQ-130 through 135, 191, 193, 218 | WF-06 | Core 01 jobs plus profile owners | Job contracts/proof/reconciliation/failure isolation | Resolved claim and transaction results | Proof/cancel/replay/fatal tests | TODO |
-| EXT-REQ-136 through 145, 198, 199, 221, 222, 223, 232, 235 | WF-06, WF-08 | Backup, Incident Portability, Reporting, profile owners | Presence/bindings/codecs/participant specializations | State metadata and owner amendments/parity | Backup/restore/portability/reporting matrices | TODO |
-| EXT-REQ-146 through 153 | WF-02, WF-04 | Core 04 plus profile security owners | Config, secret refs, authorization, egress | Owner configuration contracts | Syntax-only/egress/secret-negative/security tests | TODO |
+| EXT-REQ-100 through 109, 197, 201, 211, 212, 220 | WF-02A, WF-07 | Core 03/web application | Client support, availability, workspace lifecycle; BC-015, BC-016 | Discovery/auth/browser assets | Unit/browser/stateful selectors and Base preservation | TODO |
+| EXT-REQ-110 through 114, 200, 226 | WF-02A, WF-06 | Core 02/profile state owners/Extensions | Resource/state ownership, closure catalog; BC-001, BC-007 | Profile descriptors/state families | No-promotion/no-cross-write/closure tests | TODO |
+| EXT-REQ-115 through 119, 192, 219 | WF-02A, WF-06 | Core 01 transaction owner | Participant protocol and staged publication; BC-011 through BC-013 | Jobs/storage/owner participants | Ordered failure/cancel/deadline/commit tests | TODO |
+| EXT-REQ-120 through 129, 188, 189, 190, 216, 217, 234 | WF-02A, WF-06 | Extensions plus profile state owners | State metadata, initialization, migration, ledger; BC-001 | Bindings/state presence/locks | Fresh/current/migrated/restored and resumability tests | TODO |
+| EXT-REQ-130 through 135, 191, 193, 218 | WF-02A, WF-06 | Core 01 jobs plus profile owners | Job contracts/proof/reconciliation/failure isolation; BC-017 | Resolved claim and transaction results | Proof/cancel/replay/fatal tests | TODO |
+| EXT-REQ-136 through 145, 198, 199, 221, 222, 223, 232, 235 | WF-02A, WF-06, WF-08 | Backup, Incident Portability, Reporting, profile owners | Presence/bindings/codecs/participant specializations; BC-003, BC-012, BC-014 | State metadata and owner amendments/parity | Backup/restore/portability/reporting matrices | TODO |
+| EXT-REQ-146 through 153 | WF-02, WF-02A, WF-04 | Core 04 plus profile security owners | Config, secret refs, authorization, egress; BC-009 | Owner configuration contracts | Syntax-only/egress/secret-negative/security tests | TODO |
 | EXT-REQ-154 through 158 | WF-02, WF-04 | OpenTelemetry/audit owners | Claim-set telemetry and audit fields | Canonical resolved claims | OTel conformance/privacy and audit tests | TODO |
-| EXT-REQ-159 through 163, 186, 224, 225, 233 | WF-03, WF-04 | Extensions generator plus Core 04 | Validation registry, startup findings, messages, paths, formatters, exits | All validation owners | Exact precedence/path/order/overflow/fatal tests | TODO |
-| EXT-REQ-164 through 167, 183, 202, 227, 228, 229, 230, 236 | WF-03, WF-09 | Extensions spec/generator plus Harness v2 | Section 27 artifacts, accounting, traceability, selectors/evidence | All owners and generated inputs | Static accounting, limits, full-owner shards, evidence audit | TODO |
+| EXT-REQ-159 through 163, 186, 224, 225, 233 | WF-02A, WF-03, WF-04 | Extensions generator plus Core 04 | Validation registry, startup findings, messages, paths, formatters, exits; BC-002, BC-006, BC-011, BC-017 | All validation owners | Exact precedence/path/order/overflow/fatal tests | TODO |
+| EXT-REQ-164 through 167, 183, 202, 227, 228, 229, 230, 236 | WF-02A, WF-03, WF-09 | Extensions spec/generator plus Harness v2 | Section 27 artifacts, accounting, traceability, selectors/evidence; BC-004, BC-006 through BC-008 | All owners and generated inputs | Static accounting, limits, full-owner shards, evidence audit | TODO |
 | EXT-REQ-168 through 171 | WF-10 | Coordinated document owners | Adoption statuses and companion revisions | All gates/evidence | Atomic promotion audit | TODO |
 | EXT-REQ-172, 173 | WF-00 | Future owner | No current executable package surface | Future NLSpec | Negative upload/installation/execution tests | DEFERRED |
 
 ### Acceptance-criterion traceability ledger
+
+The first eleven rows inventory the 141 acceptance criteria currently present in the
+draft. The final row reserves 17 planned criteria. The BC ledger supplies their exact
+one-to-one allocation; they become normative criteria only when ES-01A adds them to
+the draft. After ES-01A, the fixed acceptance count is 158.
 
 | Acceptance IDs | Workstream | Primary owner set | Affected artifacts | Dependencies | Validation posture | Completion state |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -402,17 +480,18 @@ continues until then.
 | EXT-AC-097 through 110 | WF-03, WF-04, WF-05, WF-07, WF-09 | Spec/generator/Core 01/03/04/Network Flow | Traceability, owner facts, config, lease, client support | Manifests and exact selectors | Static/process/browser/full-owner | TODO |
 | EXT-AC-111 through 121 | WF-03, WF-06, WF-08 | Core 01/Extensions/profile/shared owners | Transactions, staged objects, migrations, jobs, codecs, closure | State/participant contracts | Failure injection and canonical vectors | TODO |
 | EXT-AC-122 through 141 | WF-03, WF-04, WF-07, WF-09, WF-10 | Generator/Harness/Core 04/web/all affected owners | Accounting, selectors, lint, artifacts, fatal/browser/evidence | All current digests and retained roots | Static/full-owner/evidence audit/docs | TODO |
+| EXT-AC-142 through 158 (planned) | WF-02A, WF-03 through WF-09 | Owners identified by BC-001 through BC-017 | Boundary schemas, algorithms, tables, registries, and runtime matrices | ES-01A owner anchors; ES-05 verification IDs and exact selector families | One planned criterion per BC row; boundary scenario inventory; primary-owner executable evidence | BLOCKED |
 
 ### Adoption-gate traceability ledger
 
-| Gate IDs | Workstream | Primary owner set | Affected artifacts | Dependencies | Validation posture | Completion state |
-| --- | --- | --- | --- | --- | --- | --- |
-| EXT-GATE-001 through 006 | WF-02, WF-04, WF-05, WF-06, WF-07 | Core 00 through Core 04 | Core revisions, registry facts, discovery, transactions, client lifecycle, config/process | Characterization and draft retained as draft | Core owner evidence and parity | TODO |
-| EXT-GATE-007 through 011 | WF-02, WF-07, WF-08 | Network Flow, Reporting, Composition, Harness, OTel, domain | Owner manifests/fragments, major action, participants, telemetry, vocabulary | Core companion amendments | Affected full-owner/parity evidence | TODO |
-| EXT-GATE-012 through 016 | WF-03, WF-04, WF-06, WF-09 | Generator/build/Core 04/state owners | Complete artifacts, manifests, integrity, diagnostics, state/migration/codec | All authored owners | Generation/drift/limit/process/service-backed | TODO |
-| EXT-GATE-017 through 022 | WF-03, WF-05, WF-07, WF-08, WF-09 | Core 01, Network Flow, shared owners, web, generator | Generic discovery, participants, closure, traceability, client support, Base reservations | Companion adoption | Static parity plus exact owner rows | TODO |
-| EXT-GATE-023 through 026 | WF-04, WF-06, WF-09 | Core 04/Core 01/Extensions | Lease/fatal, initialization/migration, transaction, staged-object evidence | Implemented failure injection | Exact v2 selectors and terminal row records | TODO |
-| EXT-GATE-027, EXT-GATE-028 | WF-09, WF-10 | Harness v2/document tooling/all owners | Full-owner shards, evidence audit, source lint, acceptance continuity, limit selectors | Every prior gate | Explicit-root audit and documentation/static gates | TODO |
+| Gate IDs | Workstream | Primary owner set | Affected artifacts | BC prerequisites | Dependencies | Validation posture | Completion state |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| EXT-GATE-001 through 006 | WF-02A, WF-04, WF-05, WF-06, WF-07 | Core 00 through Core 04 | Core revisions, registry facts, discovery, transactions, client lifecycle, config/process | BC-001 through BC-003, BC-005, BC-009 through BC-017 | Characterization and boundary-closed draft retained as draft | Core owner evidence and parity | TODO |
+| EXT-GATE-007 through 011 | WF-02A, WF-07, WF-08 | Network Flow, Reporting, Composition, Harness, OTel, domain | Owner manifests/fragments, major action, participants, telemetry, vocabulary | BC-001, BC-003, BC-008, BC-014, BC-015 | Core companion amendments | Affected full-owner/parity evidence | TODO |
+| EXT-GATE-012 through 016 | WF-02A, WF-03, WF-04, WF-06, WF-09 | Generator/build/Core 04/state owners | Complete artifacts, manifests, integrity, diagnostics, state/migration/codec | BC-001, BC-004 through BC-007, BC-009, BC-013, BC-014 | All authored owners | Generation/drift/limit/process/service-backed | TODO |
+| EXT-GATE-017 through 022 | WF-02A, WF-03, WF-05, WF-07, WF-08, WF-09 | Core 01, Network Flow, shared owners, web, generator | Generic discovery, participants, closure, traceability, client support, Base reservations | BC-003, BC-005, BC-007, BC-008, BC-015, BC-016 | Companion adoption | Static parity plus exact owner rows | TODO |
+| EXT-GATE-023 through 026 | WF-02A, WF-04, WF-06, WF-09 | Core 04/Core 01/Extensions | Lease/fatal, initialization/migration, transaction, staged-object evidence | BC-001, BC-010 through BC-014, BC-017 | Implemented failure injection | Exact v2 selectors and terminal row records | TODO |
+| EXT-GATE-027, EXT-GATE-028 | WF-02A, WF-09, WF-10 | Harness v2/document tooling/all owners | Full-owner shards, evidence audit, source lint, acceptance continuity, limit selectors | BC-001 through BC-017 | Every prior gate and all 158 acceptance criteria | Explicit-root audit and documentation/static gates | TODO |
 
 ## 7. Proposed Refactor Slice Plan
 
@@ -427,39 +506,40 @@ migration steps are never rolled back or reinterpreted by a down migration.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | ES-00 | none | Freeze current route, envelopes, reservations, claim/config, workbook, telemetry, Network Flow, state, jobs, and accounting behavior. `requires later authorization` | Existing owner tests only | Missing characterization can hide drift. | Exact tests named in Section 4 before movement. | `make task-guide ROLE=module-author OWNER=<current-owner>` then narrow owner slices | Remove only new characterization tests if invalid; no production change. | Every critical freeze row has passing owner-aligned evidence or `BLOCKED: missing characterization`. |
 | ES-01 | ES-00 | Revise the draft while retaining `status: draft`; close source lint, IDs, anchors, imports, and manifest model. `requires later authorization` | Draft and document tooling | Draft changes could invalidate all locators/digests. | Normative-source golden vectors and traceability extraction. | `make lint-markdown` plus future normative-source target | Revert the draft revision; preserve current owners. | Exact draft digest is accepted and contains no open delegation or required placeholder. |
-| ES-02 | ES-01 | Amend Core 00, 01, 03, and 04 together; Core 02 confirms/adopts its narrower boundaries. `requires later authorization` | Core owner documents | Accidental ownership transfer or partial generic discovery. | Owner-section traceability and current contract characterization. | Documentation/owner contract validation targets | Revert the complete companion-doc set together. | Core manifests/anchors are digest-bound; draft still not adopted. |
-| ES-03 | ES-02 | Amend Network Flow and state-owning profile owners, defaulting to Network Flow major 2; declare dependencies/state/init/migrations/bindings/codecs/jobs/participants/rebuilds. `requires later authorization` | Network Flow owner and profile owner inputs | Major/version mismatch; competing discovery remains. | Existing Network Flow full-owner rows plus planned major-2 selectors. | `make test-slice OWNER=module.networkflow`; affected browser slices | Revert owner inputs as a unit; retain current major 1 behavior. | No competing discovery item remains in proposed owner set; no runtime change yet. |
-| ES-04 | ES-02, ES-03 | Amend Incident Portability, physical backup, Reporting, and Composition only where imported interfaces change; otherwise emit exact no-change parity. `requires later authorization` | Core shared sections and named NLSpecs | Generic interface could usurp shared-owner behavior. | Participant matrix and no-participation/no-change assertions. | Affected owner task guides/slices | Revert each owner amendment and its parity row together. | Every shared owner has an amended anchor or exact digest-bound no-change parity result. |
-| ES-05 | ES-02, ES-03, ES-04 | Register Harness v2 contracts/owner/families/selectors/topology and revise OTel; amend Harness NLSpec only for a new public mechanic. `requires later authorization` | Verification registry, test-owner/family manifests, topology profiles, OTel owner | Zero-row owner, duplicate ownership, unregistered runner/profile, hard-coded OTel set. | Exact planned selectors and OTel golden/privacy tests. | `make harness-contract`; owner task guide; `make otel-conformance` | Revert all `module.extensions` authored rows/profiles and OTel change together. | Both IDs resolve, family is nonempty, exact selectors/profiles validate, and OTel consumes canonical claim identity. |
-| ES-06 | ES-05 | Author owner manifests/fragments and every Section 27 schema/input; extend generator and generation manifests. `requires later authorization` | `contracts/**`, generator code, authored schemas/manifests | Hand-editing outputs, stale locators, inconsistent byte limits. | Canonicalization, locator, identity, bounds, zero-profile and overflow vectors. | `make generate`; `make generate-drift`; JSON shape and artifact policy | Revert authored inputs/generator; regenerate old outputs. | Every required authored input is owner-bound and generator consumes no prose search or implementation-derived fact. |
-| ES-07 | ES-06 | Generate dependency snapshot, owner input, descriptors, registry/integrity, closure/manifests/accounting/traceability, bindings, state, codec, client, and Base reservation projections. `requires later authorization` | Generated roots and packaged assets via generators only | Partial or stale generated set; phase-shaped alias survives. | Artifact identity/digest/parity and package-root tests. | `make generate-drift`; `make harness-contract` | Regenerate from last passing authored input commit; never edit outputs. | Full artifact set is byte-stable, current, packaged, and contains no phase/v1 compatibility alias. |
+| ES-01A | ES-01 | Apply the exact BC-001 through BC-017 rules to the draft; amend existing owning requirements; add EXT-AC-142 through EXT-AC-158; update Section 27 artifacts, clause traceability, canonical limits, and gate mappings; retain `status: draft`. `requires later authorization` | Draft and document tooling | A rule could remain split, contradictory, unbounded, or allocated to the wrong owner. | Every BC boundary vector and source-lint/traceability check. | `make lint-markdown` plus future normative-source and traceability targets | Revert the complete boundary-closure edit; preserve ES-01 source foundations. | Every BC row has exact draft anchors, one acceptance criterion, complete omission/bound/error behavior, and no conflicting normative sentence. |
+| ES-02 | ES-01A | Amend Core 00, 01, 03, and 04 together; Core 02 confirms/adopts BC-001; allocate Core anchors for BC-001 through BC-003, BC-005, and BC-009 through BC-017. `requires later authorization` | Core owner documents | Accidental ownership transfer or partial generic discovery. | Owner-section traceability and current contract characterization. | Documentation/owner contract validation targets | Revert the complete companion-doc set together. | Core manifests/anchors are digest-bound; every allocated BC has an exact Core anchor; draft still not adopted. |
+| ES-03 | ES-02 | Amend Network Flow and state-owning profile owners for BC-001, BC-009, BC-014, and BC-015; require Network Flow major 2; declare dependencies/state/init/migrations/bindings/codecs/jobs/participants/rebuilds. `requires later authorization` | Network Flow owner and profile owner inputs | Major/version mismatch; competing discovery remains. | Existing Network Flow full-owner rows plus planned major-2 selectors. | `make test-slice OWNER=module.networkflow`; affected browser slices | Revert owner inputs as a unit; retain current major 1 behavior. | No competing discovery item remains in proposed owner set; every allocated BC has an exact profile-owner anchor; no runtime change yet. |
+| ES-04 | ES-02, ES-03 | Amend Incident Portability, physical backup, Reporting, and Composition for BC-003, BC-006, BC-012, and BC-014 where imported interfaces change; otherwise emit exact no-change parity. `requires later authorization` | Core shared sections and named NLSpecs | Generic interface could usurp shared-owner behavior. | Participant matrix and no-participation/no-change assertions. | Affected owner task guides/slices | Revert each owner amendment and its parity row together. | Every allocated BC resolves to an amended shared-owner anchor or exact digest-bound no-change parity result. |
+| ES-05 | ES-02, ES-03, ES-04 | Register Harness v2 contracts/owner/families/selectors/topology, including exact selectors for EXT-AC-142 through EXT-AC-158, and revise OTel; amend Harness NLSpec only for a new public mechanic. `requires later authorization` | Verification registry, test-owner/family manifests, topology profiles, OTel owner | Zero-row owner, duplicate ownership, unregistered runner/profile, hard-coded OTel set. | Exact planned selectors, every BC scenario family, and OTel golden/privacy tests. | `make harness-contract`; owner task guide; `make otel-conformance` | Revert all `module.extensions` authored rows/profiles and OTel change together. | Both IDs resolve, family is nonempty, every planned BC criterion has a primary-owner verification ID and exact selector family, profiles validate, and OTel consumes canonical claim identity. |
+| ES-06 | ES-01A, ES-05 | Author owner manifests/fragments and every Section 27 schema/input, including dependency declarations, validation surfaces, traceability mappings, inactive-value schemas, and operation-specific portability results; extend generator and generation manifests. `requires later authorization` | `contracts/**`, generator code, authored schemas/manifests | Hand-editing outputs, stale locators, incomplete condition inventories, inconsistent byte limits. | Canonicalization, locator, identity, declaration, validation-condition, traceability, bounds, zero-profile and overflow vectors. | `make generate`; `make generate-drift`; JSON shape and artifact policy | Revert authored inputs/generator; regenerate old outputs. | Every required authored input is owner-bound and generator consumes no prose search or implementation-derived fact. |
+| ES-07 | ES-06 | Generate dependency snapshot, owner input, descriptors, registry/integrity, validation-condition registry, closure/manifests/accounting/traceability, bindings, state, codec, client, portability, and Base reservation projections. `requires later authorization` | Generated roots and packaged assets via generators only | Partial or stale generated set; phase-shaped alias survives. | Artifact identity/digest/parity and package-root tests, including BC-004 through BC-008. | `make generate-drift`; `make harness-contract` | Regenerate from last passing authored input commit; never edit outputs. | Full artifact set is byte-stable, current, packaged, and contains no phase/v1 compatibility alias. |
 | ES-08 | ES-00, ES-02, ES-06, ES-07 | Introduce a deep Extensions coordination facade for immutable registry queries, claim resolution, bindings, dependencies, admission, and publication-plan output. `requires later authorization` | `internal/modules/extensions`, app/server ports, platform adapters | Facade could absorb Core/platform/profile ownership. | Unit selectors for claims/dependencies/collisions/bindings. | `make test-slice OWNER=module.extensions` | Keep current profile structs/route path behind adapter until parity passes. | Callers depend on narrow DTOs/ports; coordinator owns no profile behavior or transport/storage adapter. |
 | ES-09 | ES-08 | Switch Core 01 discovery/reservation/dispatch and application assembly to generated registry facts and atomic Stage 6 publication. `requires later authorization` | HTTP runtime, server assembly, OpenAPI, Extensions query facade | Public response major change and partial routing. | Discovery/dispatch integration, process atomic publication, Base reservation parity. | Module/app/platform owner slices and `make backend-process` | Feature-branch rollback to characterized three-field/current dispatch implementation; no mixed producer. | One generic producer/decoder, one reservation registry, no listener/worker before serving, and no competing Network Flow discovery. |
-| ES-10 | ES-08, ES-09 | Implement Core 04 config views, process lease, deadlines, readiness/fatal lifecycle, validation registry diagnostics, and safe errors. `requires later authorization` | Config, app server, Extensions validation, telemetry/log adapters | Secret disclosure, wrong exit, partial startup, lease split brain. | Config, process lease/fatal, path/message/details/overflow, secret-negative tests. | Owner slices; `make go-gosec-targeted`; OTel conformance | Disable new coordinator before serving and fall back only to the fully characterized current runtime on the branch. | Exit 2/70, lease/readiness/timeout and diagnostic matrices all close. |
-| ES-11 | ES-08, ES-10 | Implement state presence, metadata/ledger, initialization/migration, jobs/proof, Core 01 transactions, staged objects, backup codecs, portability/reporting participation. `requires later authorization` | Extensions, Core platform, profile modules, authored migrations | Durable partial effects, cross-owner access, data loss, unsupported restore. | All fresh/current/migrated/restored, ordered failure, cleanup and matrix selectors. | Service-backed full-owner slices; `make migration-drift` | Stop before schema publication where possible; never down-migrate committed profile state. | Every state/transaction/job/storage/participant result is closed, resumable, and owner-correct. |
-| ES-12 | ES-07, ES-09, ES-10 | Move browser to support-registry/availability/auth intersection, lazy loading, fallback, stable identity, and exact cleanup. `requires later authorization` | `apps/web`, generated TS/UI contracts, workbook startup | Base cache/draft/queue loss or stale UI render. | Planned Vitest/Playwright browser/stateful selectors; existing a11y/visual allocations. | `make frontend-typecheck`; unit and browser targets | Restore current discovery consumer as one complete version; never dual-read. | Unsupported/stale/unauthorized extensions cannot render and Base state survives every transition. |
+| ES-10 | ES-08, ES-09 | Implement the BC-002, BC-006, BC-009, BC-010, BC-011, and BC-017 runtime matrices: Core 04 config views, validation precedence, process lease, deadlines, readiness/fatal lifecycle, validation registry diagnostics, and safe errors. `requires later authorization` | Config, app server, Extensions validation, telemetry/log adapters | Secret disclosure, wrong exit, partial startup, lease split brain. | Config, process lease/fatal, path/message/details/overflow, secret-negative tests. | Owner slices; `make go-gosec-targeted`; OTel conformance | Disable new coordinator before serving and fall back only to the fully characterized current runtime on the branch. | Exit 2/70, lease/readiness/timeout, component-loss, and diagnostic matrices all close. |
+| ES-11 | ES-08, ES-10 | Implement the BC-001, BC-003, BC-011, BC-012, BC-013, BC-014, and BC-017 runtime matrices: state presence, metadata/ledger, initialization/migration, jobs/proof, Core 01 transactions, staged objects, backup codecs, portability/reporting participation. `requires later authorization` | Extensions, Core platform, profile modules, authored migrations | Durable partial effects, cross-owner access, data loss, unsupported restore. | All fresh/current/migrated/restored, ordered failure, cleanup and matrix selectors. | Service-backed full-owner slices; `make migration-drift` | Stop before schema publication where possible; never down-migrate committed profile state. | Every state/transaction/job/storage/participant result is closed, resumable, and owner-correct. |
+| ES-12 | ES-07, ES-09, ES-10 | Implement BC-015 and BC-016: move browser to the standard support-registry/availability/auth intersection, prohibit capability activation, add lazy loading, fallback, stable identity, and exact cleanup. `requires later authorization` | `apps/web`, generated TS/UI contracts, workbook startup | Base cache/draft/queue loss, stale UI render, or unsupported capability activation. | Planned Vitest/Playwright browser/stateful selectors; every nonempty capability rejection; existing a11y/visual allocations. | `make frontend-typecheck`; unit and browser targets | Restore current discovery consumer as one complete version; never dual-read. | Unsupported/stale/unauthorized extensions and nonempty capabilities cannot render; Base state survives every transition. |
 | ES-13 | ES-09, ES-10, ES-11, ES-12 | Execute full-owner slices and all required evidence-class gates; finalize paired shards and exact-root audit. `requires later authorization` | Harness artifacts only | Selected subset or broad target falsely claimed as closure. | Every active exact selector once; no unmapped/skipped/unexpected result. | Full-owner `test-slice`, service-backed slices, browser gates, `test-evidence-audit` | Retain failed roots for diagnosis; do not promote. | Compatible successful roots close every affected owner/target/row partition. |
-| ES-14 | ES-13 | Run static registry/traceability/drift accounting and promote the draft and all companions together. `requires later authorization` | Owner statuses/manifests and generated projections | Intermediate adopted/current state. | All 141 acceptance criteria and 28 gates. | `make check`, `make harness-contract`, release-required gates, exact-root audit | Revert the entire promotion-status commit if any post-promotion gate fails; preserve implementation/data. | All gates are `DONE`, all digests/evidence current, and no older competing contract remains current. |
+| ES-14 | ES-13 | Run static registry/traceability/drift accounting and promote the draft and all companions together. `requires later authorization` | Owner statuses/manifests and generated projections | Intermediate adopted/current state. | All 158 acceptance criteria and 28 gates. | `make check`, `make harness-contract`, release-required gates, exact-root audit | Revert the entire promotion-status commit if any post-promotion gate fails; preserve implementation/data. | All 158 criteria and all gates are `DONE`, all digests/evidence current, and no older competing contract remains current. |
 
 ### Mandatory atomic-adoption sequence
 
-The following order is mandatory and maps directly to ES-01 through ES-14. It may be
+The following order is mandatory and maps directly to ES-00 through ES-14. It may be
 implemented as an ordered change series, but no intermediate change may mark the
 Extensions NLSpec adopted/current or expose partially coordinated behavior:
 
-1. revise the Extensions NLSpec and retain `status: draft`;
-2. revise Core 00, Core 01, Core 03, and Core 04;
-3. revise affected profile owners and state-owning migrations;
-4. revise Incident Portability, Reporting, and Report Composition when imported
-   interfaces change, otherwise record exact no-change parity;
-5. register Harness v2 verification/owner/family/selectors/topology, amend the Harness
-   NLSpec only for a new public mechanic, and revise OpenTelemetry;
-6. generate every Section 27 extension artifact, clause-traceability object, and v2
-   projection;
-7. execute every affected full-owner slice and required evidence-class gate;
-8. audit explicit compatible retained roots and execute static registry,
+1. characterize current behavior;
+2. revise source/lint foundations and retain `status: draft`;
+3. apply BC-001 through BC-017 to the draft;
+4. amend Core owners;
+5. amend profile and shared owners, recording exact no-change parity only where the
+   imported interface does not change;
+6. register Harness/OpenTelemetry inputs and exact boundary selectors;
+7. author contracts and generate every Section 27 extension artifact,
+   clause-traceability object, and v2 projection;
+8. implement runtime, participant, and browser behavior;
+9. execute owner evidence, explicit-root audit, and static registry,
    clause-traceability, and drift accounting;
-9. promote the Extensions NLSpec and every required companion revision together.
+10. promote the Extensions NLSpec and every required companion revision atomically.
 
 ## 8. Validation Plan
 
@@ -469,6 +549,41 @@ conformance commands. Run `make task-guide` before owner slices and
 `make agent-finalize` before broad end-of-run verification in the later authorized
 implementation task. `make agent-finalize` is intentionally not run for this
 tracker-only task because it may refresh harness-maintenance artifacts.
+
+### Boundary acceptance scenario inventory
+
+Each planned criterion MUST cover every applicable enum token and state transition,
+plus minimum, maximum, maximum-plus-one, empty, omitted, and explicit-null inputs.
+The cases below are the minimum executable inventory; owner decision tables MAY add
+cases but MUST NOT remove or merge outcomes that have different normative effects.
+
+| BC ID | Minimum executable scenarios for its planned acceptance criterion |
+| --- | --- |
+| BC-001 | Every metadata/state-presence combination under `allowed` and `forbidden`; empty initialization; metadata-only input; omitted and explicit-null policy. |
+| BC-002 | Invocation failure, structural invalidity, overflow, remaining schema defect, valid findings, and valid empty result; counts 0, 256, 257, 4096, and 4097. |
+| BC-003 | Absent, malformed, incompatible, minimum, 64 MiB, and 64 MiB-plus-one payloads; prepared import, rollback, committed publication, and indeterminate commit; scoped staged-output denial. |
+| BC-004 | Present empty arrays; omitted arrays; explicit null; missing, duplicate, extra, and stale dependency declarations; manifest version/digest mismatch. |
+| BC-005 | Exactly one scalar source; missing and multiple scalar sources; duplicate set members; stale owner reference; attempted prose/code inference. |
+| BC-006 | Complete schema annotations and procedural decision tables; missing, duplicate, stale, extra, and unregistered emitted conditions. |
+| BC-007 | Every subject/contribution-kind mapping; generated subject with a not-applicable reason; every permitted and unrecognized fixed-baseline reason. |
+| BC-008 | Every clause/parent kind; root and child scope; ordinal zero and maximum-plus-one; empty and adjacent half-open ranges; invalid overlap/out-of-bounds; digest and document-clause mismatch. |
+| BC-009 | Syntax-only present, omitted, defaulted, explicit-null, reference-shaped, and structurally invalid values; prohibited view creation, resolution, retention, and egress attempts. |
+| BC-010 | Initial acquisition success/timeout; every lease transition; uncertainty recovery on the original session; different-session proof; session loss; detection timeout; release; forbidden reacquisition after loss. |
+| BC-011 | Checked and saturated local deadlines; inherited earlier/equal/later deadlines; cancellation before, at, and after deadline; cancellation before, during, and after proven commit; equal-deadline tiebreak and zero grace. |
+| BC-012 | Participant counts 1 and 16384; count 0 and 16385; per-participant and aggregate bytes at 0, 64 MiB, and 64 MiB-plus-one; aggregate results at the same boundary; first-invalid ordering; malformed result; cancellation around every step/invocation. |
+| BC-013 | Every staged-object initial default; noncandidate, expiry candidate, and retry candidate; upload failure; each deletion result; transaction-held deletion attempt; sweep overlap, missed interval coalescing, startup failure, and serving-dependency failure. |
+| BC-014 | Stopped-empty, running, and nonempty targets; numeric group order and sequential binding order; validation failure isolation; inactive restore attempt; failed target serving attempt; derived rebuild before and after successful claim. |
+| BC-015 | Required standard support row; omitted API-only profile; Network Flow major/workspace mismatch; stale/current generation; concurrent reservation; epoch rollover; minimum and overflow generation values. |
+| BC-016 | Empty wire arrays; every nonempty capability fact/array surface; capability activation attempt; exact `extension_capability_not_supported` outcome. |
+| BC-017 | Individual operation failure versus termination of each publication-plan listener, dequeue gate, and worker; readiness/admission closure, drain completion/timeout, committed-state preservation, exit 70, and prohibited restart. |
+
+For this tracker-only revision, validation is limited to `git diff --check`,
+`make lint-markdown`, `make json-shape-check`, and
+`make generated-artifact-policy-check`, plus structural searches for all BC and
+planned acceptance IDs, their owner/slice/verification/completion references, and
+stale completion claims. Generation, formatting, implementation suites, and
+`make agent-finalize` are out of scope because no production, contract, generated,
+or Harness input changes in this revision.
 
 | Validation layer | Command | Scope | Required before implementation? | Notes |
 | --- | --- | --- | --- | --- |
@@ -508,12 +623,13 @@ tracker-only task because it may refresh harness-maintenance artifacts.
 | T-003 | Map proposed requirements, criteria, gates, artifacts, and owners | WF-00 | DONE | T-002 | Section 6 ledgers | Every EXT ID and Section 27 artifact is mapped. |
 | T-004 | Freeze current observable behavior | WF-01 | TODO | T-003 | Section 4 characterization matrix | Every critical boundary has pre-change owner evidence. |
 | T-005 | Coordinate draft and companion owners | WF-02 | BLOCKED | T-004 | ES-01 through ES-05 | Requires later authorization and owner adoption decisions. |
-| T-006 | Build owner-manifest and canonical generation pipeline | WF-03 | BLOCKED | T-005 | Section 27 artifact set | Requires later authorization; generated outputs are drift-free. |
+| T-005A | Close selected boundary decisions in normative sources | WF-02A | BLOCKED | T-005 | BC-001 through BC-017; ES-01A through ES-05 | Requires later authorization; every BC has exact owner anchors, one active acceptance criterion, and exact primary-owner verification mappings. |
+| T-006 | Build owner-manifest and canonical generation pipeline | WF-03 | BLOCKED | T-005A | Section 27 artifact set | Requires later authorization; generated outputs are drift-free. |
 | T-007 | Implement runtime coordinator and atomic publication | WF-04 | BLOCKED | T-006 | Extensions facade/application ports | Requires later authorization; no partial serving. |
 | T-008 | Adopt Core discovery/reservation/dispatch | WF-05 | BLOCKED | T-007 | OpenAPI/route parity | Requires later authorization and coordinated major action. |
 | T-009 | Implement state/migration/jobs/transaction/storage coordination | WF-06 | BLOCKED | T-007 | State/participant artifacts and migrations | Requires later authorization; all matrices pass. |
 | T-010 | Adopt browser support/lifecycle behavior | WF-07 | BLOCKED | T-006, T-008 | Support registry and browser rows | Requires later authorization; Base state preserved. |
-| T-011 | Adopt Network Flow and shared-owner participation | WF-08 | BLOCKED | T-005, T-009 | Owner amendments/parity | Requires later authorization; no ownership transfer. |
+| T-011 | Adopt Network Flow and shared-owner participation | WF-08 | BLOCKED | T-005A, T-009 | Owner amendments/parity | Requires later authorization; no ownership transfer. |
 | T-012 | Onboard Harness v2 owner and evidence | WF-09 | BLOCKED | T-006, T-008, T-009, T-010, T-011 | Two verification IDs, owner/family/topology, paired shards | Requires later authorization and implemented exact selectors. |
 | T-013 | Audit and atomically promote | WF-10 | BLOCKED | T-012 | All 28 gates and exact-root audit | Every binary criterion is `DONE`; companions promote together. |
 | T-014 | Independently distributed executable extensions | future | DEFERRED | none | Draft Section 30 | A later adopted NLSpec explicitly authorizes the surface. |
@@ -522,7 +638,8 @@ tracker-only task because it may refresh harness-maintenance artifacts.
 
 | ID | Work item | Workstream | Status | Depends on | Evidence or artifact | Exit condition |
 | --- | --- | --- | --- | --- | --- | --- |
-| G-001 | Close EXT-GATE-001 through EXT-GATE-006 | WF-02 through WF-07 | BLOCKED | T-004 | Core owner revisions and owner evidence | Requires later authorization; all six Core gates pass. |
+| G-000 | Establish normative boundary prerequisites | WF-02A | BLOCKED | T-005A | Adopted owner anchors plus active EXT-AC-142 through EXT-AC-158 verification mappings | Every BC row has adopted owner anchors and active acceptance/verification mappings before G-001. |
+| G-001 | Close EXT-GATE-001 through EXT-GATE-006 | WF-02A through WF-07 | BLOCKED | G-000 | Core owner revisions and owner evidence | Requires later authorization; all six Core gates pass. |
 | G-002 | Close EXT-GATE-007 through EXT-GATE-011 | WF-02, WF-07, WF-08, WF-09 | BLOCKED | G-001 | Profile/shared/Harness/OTel/domain amendments or parity | Requires later authorization; all five companion gates pass. |
 | G-003 | Close EXT-GATE-012 through EXT-GATE-016 | WF-03, WF-04, WF-06, WF-09 | BLOCKED | G-001, G-002 | Complete generated/runtime/state artifacts | Requires later authorization; all five artifact/runtime gates pass. |
 | G-004 | Close EXT-GATE-017 through EXT-GATE-022 | WF-03, WF-05, WF-07, WF-08, WF-09 | BLOCKED | G-003 | Discovery/participant/closure/client/reservation parity | Requires later authorization; all six integration gates pass. |
@@ -571,7 +688,7 @@ tracker-only task because it may refresh harness-maintenance artifacts.
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-07-19 | Codex planning session | Decision-complete tracker validated. | Tracker plus recorded inspected corpus. | Required validation commands and final worktree/hash audit. | Tracker checks pass; no production implementation performed. | All behavior-changing work intentionally blocked on later authority. | Next authorized session starts at ES-00, not at production edits. |
+| 2026-07-19 | Codex planning session | Tracker decision selection is complete; target-contract boundary closure remains blocked. | Tracker plus recorded inspected corpus and informative `temp/analysis-notes.md`. | Required validation commands and final worktree/hash audit. | Selected BC-001 through BC-017 recorded; no normative or production implementation performed. | Normative adoption, implementation, and evidence remain blocked on later authority. | Next authorized session starts at ES-00 and proceeds through ES-01A before generation or production edits. |
 
 ### Tracker validation
 
@@ -579,6 +696,7 @@ tracker-only task because it may refresh harness-maintenance artifacts.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-19 | Codex planning session | Final tracker validation | Tracker; retained summaries under `.cartulary/test-results` are ignored runtime evidence, not authored changes. | `git diff --check`; `make lint-markdown`; `make json-shape-check` | All passed. JSON-shape run root: `.cartulary/test-results/20260719T223232Z-p9`. | none | Preserve results in handoff. |
 | 2026-07-19 | Codex planning session | Generated policy validation | Generated-artifact policy and retained target summary | `make generated-artifact-policy-check`; `make explain-run RESULTS_DIR=.cartulary/test-results/20260719T223232Z-p9 TARGET=generated-artifact-policy-check DETAIL=summary`; escalated rerun of `make generated-artifact-policy-check` | Initial sandboxed run failed as harness `unknown_failure` because `spawnSync git` returned `EPERM`; retained summary identified the sandbox cause. Escalated exact rerun passed at `.cartulary/test-results/20260719T223316Z-p21698`. | none | Cite the successful rerun and the diagnosed initial failure. |
+| 2026-07-19 | Codex boundary-closure revision | Tracker-only boundary validation | Tracker only; no normative, contract, generated, Harness, or production input changed. | `git diff --check`; `make lint-markdown`; `make json-shape-check`; `make generated-artifact-policy-check`; structural BC/AC and stale-claim searches | All passed. JSON-shape root: `.cartulary/test-results/20260720T034056Z-p18996`; generated-policy root: `.cartulary/test-results/20260720T034110Z-p19402`. | Normative adoption remains blocked. | Skip generation, formatting, implementation suites, and `make agent-finalize` because this is a tracker-only revision. |
 
 ## 11. Open Questions and Blockers
 
@@ -586,15 +704,21 @@ Only blockers to safe implementation or adoption are listed. Absence of current
 `module.extensions` rows or generic runtime code is established repository state, not
 a discovery `TODO:`.
 
+No design question remains open for BC-001 through BC-017. Their selected rules are
+fixed by the canonical ledger. Remaining states are authority, implementation, and
+evidence blockers; reopening a selected rule requires a separately authorized
+decision change and corresponding tracker revision.
+
 | ID | Question or blocker | Why it matters | Needed authority or evidence | Current status |
 | --- | --- | --- | --- | --- |
 | RB-001 | The target NLSpec is draft and none of its coordinated adoption gates may be treated as current behavior. | Implementing the target over adopted owners would create competing contracts. | Later authorized coordinated owner-document task and all gate evidence. | BLOCKED |
-| RB-002 | Network Flow is currently adopted at document version 1.2.0/contract major 1 while the draft default action is major 2. | Discovery and client compatibility cannot be changed piecemeal. | Core 00 status/major action plus Network Flow/Core 01/03/04 companion adoption; EXT-REQ-231 proof only if choosing the exceptional major-1 path. | BLOCKED |
+| RB-002 | Network Flow is currently adopted at document version 1.2.0/contract major 1 while BC-015 requires major 2. | Discovery and client compatibility cannot be changed piecemeal. | Core 00 status/major action plus Network Flow/Core 01/03/04 companion adoption and major-2 owner evidence. | BLOCKED |
 | RB-003 | No `module.extensions` verification contract, owner row, family manifest, or topology profile exists. | Owner slices, paired shards, and evidence audit cannot close. | ES-05 Harness-authored inputs and implemented exact selectors. | BLOCKED |
 | RB-004 | Generic extension owner manifests, generator, registry integrity, bindings, state metadata/ledger, codecs, closure, and accounting artifacts do not exist. | Runtime admission or adoption cannot be inferred from code/routes/database. | ES-06/ES-07 later authorized contract/generator work. | BLOCKED |
 | RB-005 | Current code lacks the process lease, Stage 6 atomic publication, generic migration/final-validation coordinator, and complete transaction/staged-object protocol. | Failure cases could publish partial behavior or corrupt durable state. | ES-08 through ES-11 implementation plus exact process/service-backed evidence. | BLOCKED |
 | RB-006 | No compatible successful retained roots exist for future Extensions rows. | Static registry success or broad target success cannot prove execution. | ES-13 full-owner/evidence-class runs and explicit evidence-root manifest. | BLOCKED |
 | RB-007 | Every production, test, owner, contract, migration, config, generated, and harness change is outside this tracker-only task. | The planning write boundary must not be mistaken for implementation authority. | A later explicit implementation authorization. | BLOCKED |
+| RB-008 | The 17 selected boundary rules are not yet present in adopted owner documents. | Generation or implementation against the pre-closure draft would preserve ambiguity and could create divergent contracts. | ES-01A through ES-04 owner amendments, ES-05 active verification mappings, and G-000 closure. | BLOCKED |
 
 If companion review reveals two adopted primary owners claiming incompatible behavior,
 add a new blocker with the exact text `BLOCKED: owner contradiction`, cite both exact
@@ -620,8 +744,15 @@ or a broad test target passing is never sufficient by itself.
   bindings, state, migrations, jobs, transactions, backup/restore, portability,
   reporting, browser, security, diagnostics, and conformance accounting.
 - [x] Every current/adjoining responsibility has a keep/move/split/defer decision.
-- [x] Every `EXT-REQ-*`, `EXT-AC-*`, and `EXT-GATE-*` ID is present in a traceability
-  ledger with workstream, owner, artifacts, dependencies, validation, and state.
+- [x] All current 236 `EXT-REQ-*` IDs, current 141 `EXT-AC-*` IDs, and 28
+  `EXT-GATE-*` IDs are present in traceability ledgers with workstream, owner,
+  artifacts, dependencies, validation, and state.
+- [x] BC-001 through BC-017 occur exactly once as target-rule definitions in the
+  canonical ledger, preserve `SELECTED`/`BLOCKED`/`NOT_STARTED` state, identify
+  owners and slices, and map one-to-one to planned EXT-AC-142 through EXT-AC-158.
+- [x] Every planned boundary criterion has a required owner-anchor, verification-ID,
+  exact-selector, scenario-inventory, gate-prerequisite, and completion path through
+  ES-01A through ES-05 and G-000.
 - [x] Every Section 27 artifact/schema family has an authored owner, generated/runtime
   consumer, dependency, and validation posture.
 - [x] Every workflow and slice has dependencies, validation, rollback, and an exact
@@ -636,12 +767,19 @@ or a broad test target passing is never sufficient by itself.
 
 - [ ] ES-00 characterization closes every route, envelope, claim, reserved-route,
   startup/fatal, migration, transaction, browser, and accounting boundary.
+- [ ] ES-01A incorporates every selected BC rule into the draft, amends existing
+  requirements, creates EXT-AC-142 through EXT-AC-158, and leaves no conflicting,
+  omitted, unbounded, or implementer-selected behavior.
 - [ ] All required Core, profile, shared-owner, OpenTelemetry, domain, and Harness
   companion amendments or exact permitted no-change parity records are adopted.
+- [ ] Every BC row has exact adopted owner requirement anchors plus active
+  primary-owner verification IDs and exact selector families; G-000 is `DONE`.
 - [ ] Every owner locator/manifest/fragment resolves against exact current digests;
   no required placeholder or open delegation remains.
-- [ ] Every Section 27 authored input exists and every generated artifact/projection
-  regenerates byte-identically with no drift; generated roots were not hand-edited.
+- [ ] Every Section 27 authored input exists, including dependency declarations,
+  validation-surface declarations, traceability mappings, inactive-value schemas,
+  and operation-specific portability results; every generated artifact/projection
+  regenerates byte-identically with no drift and generated roots were not hand-edited.
 - [ ] Core 00 alone controls recognition, claimability, retirement, and current major;
   Core 01 alone owns public discovery/reservation/dispatch and shared protocols.
 - [ ] The Extensions coordinator exposes a small facade and owns only generic
@@ -670,8 +808,9 @@ or a broad test target passing is never sufficient by itself.
   rejected.
 - [ ] Static registry accounting, clause traceability, source lint, acceptance
   continuity, canonical limits, generated drift, owner evidence, documentation checks,
-  and all `EXT-GATE-001` through `EXT-GATE-028` are `DONE`.
-- [ ] The mandatory nine-step sequence completed and the Extensions NLSpec plus every
+  all 158 acceptance criteria, and all `EXT-GATE-001` through `EXT-GATE-028` are
+  `DONE`.
+- [ ] The mandatory ten-step sequence completed and the Extensions NLSpec plus every
   required companion revision was promoted atomically; no intermediate artifact ever
   claimed the generic subsystem current.
 - [ ] Core 05 remains outside implementation conformance unless a separately adopted,
