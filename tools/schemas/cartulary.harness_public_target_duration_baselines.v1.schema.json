@@ -41,6 +41,9 @@
           },
           "workload_evidence_profile_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
           "execution_policy_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "allowed_policy_transition": {
+            "enum": ["serial_to_topology_dag", "browser_stack_capacity_1_to_2"]
+          },
           "sample_provider_target": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
           "sample_roots": {
             "type": "array",

@@ -3,9 +3,10 @@
   "$id": "cartulary.harness_performance_evidence_roots.v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_id", "baseline_roots", "candidate_roots"],
+  "required": ["schema_id", "mode", "baseline_roots"],
   "properties": {
     "schema_id": { "const": "cartulary.harness_performance_evidence_roots.v1" },
+    "mode": { "enum": ["baseline", "comparison"] },
     "baseline_roots": {
       "type": "array",
       "minItems": 3,
@@ -18,5 +19,21 @@
       "uniqueItems": true,
       "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "mode": { "const": "baseline" } },
+        "required": ["mode"]
+      },
+      "then": { "not": { "required": ["candidate_roots"] } }
+    },
+    {
+      "if": {
+        "properties": { "mode": { "const": "comparison" } },
+        "required": ["mode"]
+      },
+      "then": { "required": ["candidate_roots"] }
+    }
+  ]
 }

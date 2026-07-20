@@ -23,6 +23,14 @@ import {
   loadRetainedObservability,
   reconstructObservability,
 } from "../observability.mjs";
+import { validateSchemaSync } from "../../contract/index.mjs";
+import {
+  collectRetainedObservations,
+  compareQualifiedBaselines,
+  intervalUnionMs,
+  median,
+  qualificationReasons,
+} from "../performance-evidence.mjs";
 import {
   deliver,
   exporterTimeoutMs,
@@ -37,6 +45,8 @@ const rootDir = path.resolve(import.meta.dirname, "../../../..");
 const fixtureRoot = mkdtempSync(path.join(rootDir, ".cartulary", "test-results", "observability-contract-"));
 const checkCLI = path.join(rootDir, "tools", "harness", "observability", "observability-check-cli.mjs");
 const exporterCLI = path.join(rootDir, "tools", "harness", "observability", "otel-export-cli.mjs");
+const performanceCheckCLI = path.join(rootDir, "tools", "harness", "observability", "performance-check-cli.mjs");
+const publicBaselinesCLI = path.join(rootDir, "tools", "harness", "observability", "public-target-baselines-cli.mjs");
 
 function writeJSON(file, value) {
   mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
@@ -187,6 +197,60 @@ function toolRootWithNestedTargetFixture(runDir) {
   });
 }
 
+function performanceArtifact({
+  standardMedian = 13_000,
+  improvementMedian = 17_000,
+  transitionPolicy = "b".repeat(64),
+} = {}) {
+  const target = ({
+    name,
+    gate,
+    medianMs,
+    policy = "a".repeat(64),
+    transition,
+  }) => ({
+    target: name,
+    gate,
+    command_id: `cartulary.harness.command.${name.replaceAll("-", "_")}.v1`,
+    measurement_profile_id: `${name.replaceAll("-", "_")}_profile`,
+    canonical_inputs: {},
+    workload_evidence_profile_sha256: "c".repeat(64),
+    execution_policy_sha256: policy,
+    ...(transition ? { allowed_policy_transition: transition } : {}),
+    sample_provider_target: name,
+    sample_roots: ["root-1", "root-2", "root-3"],
+    samples_ms: [medianMs, medianMs, medianMs],
+    median_ms: medianMs,
+    mad_ms: 0,
+    no_regression_limit_ms: name === "standard-target" ? 13_000 : medianMs + 1000,
+    required_improvement_ms: name === "improvement-target" ? 3000 : 1000,
+  });
+  return {
+    schema_id: "cartulary.harness_public_target_duration_baselines.v1",
+    status: "qualified",
+    source_commit: "abcdef1",
+    source_snapshot_sha256: "d".repeat(64),
+    profile_digests: {
+      host: "e".repeat(64),
+      capacity: "f".repeat(64),
+      workload: "1".repeat(64),
+      toolchain: "2".repeat(64),
+    },
+    targets: [
+      target({ name: "standard-target", gate: "no_regression", medianMs: standardMedian }),
+      target({ name: "improvement-target", gate: "required_improvement", medianMs: improvementMedian }),
+      target({
+        name: "transition-target",
+        gate: "no_regression",
+        medianMs: 10_000,
+        policy: transitionPolicy,
+        transition: "serial_to_topology_dag",
+      }),
+    ],
+    rejected_roots: [],
+  };
+}
+
 function digestTree(dir) {
   const result = new Map();
   function visit(current) {
@@ -228,6 +292,21 @@ try {
   const runDir = path.join(fixtureRoot, "20260720T120000Z-p1");
   const targetDir = sourceFixture(runDir);
   const retained = verifyRun(runDir);
+  const eligibleRetained = {
+    ...retained,
+    context: {
+      ...retained.context,
+      contamination_reasons: [],
+      source_state: "clean",
+      status: "passed",
+      interrupted: false,
+      retry_count: 0,
+      warm_eligibility: "eligible",
+    },
+  };
+  const retainedObservations = collectRetainedObservations(eligibleRetained, runDir);
+  assert.equal(retainedObservations.observations.get("harness-contract")?.length, 1);
+  assert.equal(retainedObservations.observations.get("harness-contract")?.[0].value, 10_000);
 
   const toolRootRunDir = path.join(fixtureRoot, "20260720T120011Z-p2");
   toolRootWithNestedTargetFixture(toolRootRunDir);
@@ -240,6 +319,137 @@ try {
       (span) => span.phase === "target" && span.name === "json-shape-check",
     ),
   );
+
+  assert.equal(median([9000, 1000, 5000]), 5000);
+  assert.equal(intervalUnionMs([
+    { start_time_unix_nano: "0", end_time_unix_nano: "5000000000" },
+    { start_time_unix_nano: "3000000000", end_time_unix_nano: "7000000000" },
+    { start_time_unix_nano: "9000000000", end_time_unix_nano: "10000000000" },
+  ]), 8000);
+  const baselinePerformance = performanceArtifact({
+    standardMedian: 10_000,
+    improvementMedian: 20_000,
+    transitionPolicy: "a".repeat(64),
+  });
+  const boundaryPerformance = performanceArtifact();
+  assert.deepEqual(compareQualifiedBaselines(
+    baselinePerformance,
+    boundaryPerformance,
+  ).failures, [], "exact performance boundaries must pass");
+  const failedPerformance = performanceArtifact({
+    standardMedian: 13_001,
+    improvementMedian: 17_001,
+  });
+  assert.deepEqual(compareQualifiedBaselines(
+    baselinePerformance,
+    failedPerformance,
+  ).failures, ["improvement-target", "standard-target"]);
+  assert.throws(
+    () => compareQualifiedBaselines(
+      baselinePerformance,
+      performanceArtifact({ transitionPolicy: "a".repeat(64) }),
+    ),
+    /did not apply declared policy transition/u,
+  );
+  const mismatchedHost = performanceArtifact();
+  for (const field of ["host", "capacity", "workload", "toolchain"]) {
+    const mismatchedEnvironment = structuredClone(mismatchedHost);
+    mismatchedEnvironment.profile_digests[field] = "3".repeat(64);
+    assert.throws(
+      () => compareQualifiedBaselines(baselinePerformance, mismatchedEnvironment),
+      new RegExp(`mismatched ${field} profile`, "u"),
+    );
+  }
+  for (const [field, value, message] of [
+    ["gate", "required_improvement", /mismatched gate/u],
+    ["command_id", "cartulary.harness.command.different.v1", /mismatched command_id/u],
+    ["measurement_profile_id", "different_profile", /mismatched measurement_profile_id/u],
+    ["workload_evidence_profile_sha256", "4".repeat(64), /mismatched workload_evidence_profile_sha256/u],
+    ["canonical_inputs", { OWNER: "different" }, /mismatched canonical inputs/u],
+  ]) {
+    const mismatchedContract = performanceArtifact();
+    mismatchedContract.targets[0][field] = value;
+    assert.throws(
+      () => compareQualifiedBaselines(baselinePerformance, mismatchedContract),
+      message,
+    );
+  }
+  const undeclaredPolicyChange = performanceArtifact();
+  undeclaredPolicyChange.targets[0].execution_policy_sha256 = "5".repeat(64);
+  assert.throws(
+    () => compareQualifiedBaselines(baselinePerformance, undeclaredPolicyChange),
+    /undeclared execution-policy change/u,
+  );
+  const duplicateTarget = performanceArtifact();
+  duplicateTarget.targets.push(structuredClone(duplicateTarget.targets[0]));
+  assert.throws(
+    () => compareQualifiedBaselines(baselinePerformance, duplicateTarget),
+    /duplicates target identities/u,
+  );
+  const missingTarget = performanceArtifact();
+  missingTarget.targets.pop();
+  assert.throws(
+    () => compareQualifiedBaselines(baselinePerformance, missingTarget),
+    /target inventories differ/u,
+  );
+  const baselineRootsManifest = {
+    schema_id: "cartulary.harness_performance_evidence_roots.v1",
+    mode: "baseline",
+    baseline_roots: ["root-1", "root-2", "root-3"],
+  };
+  validateSchemaSync("cartulary.harness_performance_evidence_roots.v1", baselineRootsManifest);
+  validateSchemaSync("cartulary.harness_performance_evidence_roots.v1", {
+    ...baselineRootsManifest,
+    mode: "comparison",
+    candidate_roots: ["candidate-1", "candidate-2", "candidate-3"],
+  });
+  assert.throws(
+    () => validateSchemaSync("cartulary.harness_performance_evidence_roots.v1", {
+      ...baselineRootsManifest,
+      candidate_roots: ["candidate-1"],
+    }),
+  );
+  assert.throws(
+    () => validateSchemaSync("cartulary.harness_performance_evidence_roots.v1", {
+      ...baselineRootsManifest,
+      mode: "comparison",
+    }),
+  );
+  const baselineManifestFile = path.join(fixtureRoot, "baseline-roots.json");
+  const comparisonManifestFile = path.join(fixtureRoot, "comparison-roots.json");
+  writeJSON(baselineManifestFile, baselineRootsManifest);
+  writeJSON(comparisonManifestFile, {
+    ...baselineRootsManifest,
+    mode: "comparison",
+    candidate_roots: ["candidate-1", "candidate-2", "candidate-3"],
+  });
+  assert.equal(spawnSync(process.execPath, [performanceCheckCLI], { encoding: "utf8" }).status, 2);
+  assert.equal(spawnSync(process.execPath, [publicBaselinesCLI], { encoding: "utf8" }).status, 2);
+  assert.equal(
+    spawnSync(process.execPath, [performanceCheckCLI, "--evidence-roots-file", baselineManifestFile], { encoding: "utf8" }).status,
+    2,
+  );
+  assert.equal(
+    spawnSync(process.execPath, [publicBaselinesCLI, "--evidence-roots-file", comparisonManifestFile], { encoding: "utf8" }).status,
+    2,
+  );
+  const eligibleContext = {
+    contamination_reasons: [],
+    source_state: "clean",
+    status: "passed",
+    interrupted: false,
+    retry_count: 0,
+    warm_eligibility: "eligible",
+  };
+  for (const [field, value, reason] of [
+    ["source_state", "dirty", "dirty_source"],
+    ["status", "failed", "failed_execution"],
+    ["interrupted", true, "interrupted_execution"],
+    ["retry_count", 1, "retry_observed"],
+    ["warm_eligibility", "ineligible", "external_activity"],
+  ]) {
+    assert.ok(qualificationReasons({ ...eligibleContext, [field]: value }).includes(reason));
+  }
 
   const beforeCheck = digestTree(runDir);
   const exactCheck = spawnSync(process.execPath, [checkCLI, "--results-dir", runDir], { encoding: "utf8" });

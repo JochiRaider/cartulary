@@ -1101,8 +1101,8 @@ Verified by: TH-HARNESS-AC-002, TH-HARNESS-AC-029
 | `explain-run` | `DETAIL` | `enum` | no | Make command line, environment, Makefile default | `summary` | `summary` | omitted | `trim` | `summary`, `children`, `logs`, `progress`, `accounting`, `performance` | `usage_error`, exit `2` | value | argv |
 | `harness-otel-export` | `HARNESS_OTLP_ENDPOINT` | `url` | yes | Make command line only | none | missing required input | invalid | `trim` | HTTPS base URL or loopback HTTP URL with no credentials, query, or fragment | `usage_error`, exit `2` | redacted value | argv |
 | `harness-otel-export` | `HARNESS_OTLP_HEADERS_FILE` | `path` | no | Make command line only | none | no extra headers | omitted | `path_token` | owner-only non-symlink regular JSON file with bounded string header values | `configuration_error`, exit `2` | redacted value | argv |
-| `harness-performance-check` | `EVIDENCE_ROOTS_FILE` | `path` | yes | Make command line only | none | missing manifest | invalid | `path_token` | existing non-symlink regular file containing `cartulary.harness_performance_evidence_roots.v1` | `usage_error`, exit `2` when missing or malformed | value | argv |
-| `harness-public-target-duration-baselines` | `EVIDENCE_ROOTS_FILE` | `path` | yes | Make command line only | none | missing baseline window | invalid | `path_token` | existing non-symlink regular file containing exactly three accepted baseline roots per required measurement profile | `usage_error`, exit `2` when missing or malformed | value | argv |
+| `harness-performance-check` | `EVIDENCE_ROOTS_FILE` | `path` | yes | Make command line only | none | missing manifest | invalid | `path_token` | existing non-symlink regular `cartulary.harness_performance_evidence_roots.v1` manifest with `mode=comparison`, explicit baseline roots, and explicit candidate roots | `usage_error`, exit `2` when missing or malformed | value | argv |
+| `harness-public-target-duration-baselines` | `EVIDENCE_ROOTS_FILE` | `path` | yes | Make command line only | none | missing baseline window | invalid | `path_token` | existing non-symlink regular `cartulary.harness_performance_evidence_roots.v1` manifest with `mode=baseline` and exactly three accepted baseline roots per required measurement profile | `usage_error`, exit `2` when missing or malformed | value | argv |
 | `explain-target` | `TARGET` | `target_name` | yes | Make command line, environment, Makefile default | none | missing required input | invalid | `trim` | public or scheduler target name present in the task-surface manifest | `usage_error`, exit `2` | value | argv |
 | `explain-target` | `DETAIL` | `enum` | no | Make command line, environment, Makefile default | `summary` | `summary` | omitted | `trim` | `summary`, `rows`, `artifacts` | `usage_error`, exit `2` | value | argv |
 | `go-test-duration-baselines` | `PRUNE_OBSERVED_PACKAGES` | `exact_1_bool` | no | Make command line, environment, Makefile default | `false` | false | false | `trim` | exact `1` means true | `usage_error`, exit `2` | value | argv |
@@ -2520,9 +2520,11 @@ wall time. Every other required public testing command uses the no-regression
 limit. Aggregate runs MAY provide leaf samples when the trace proves the same
 command, canonical inputs, workload, and capacity contract exactly once;
 otherwise the command MUST be run directly. The checker derives target mappings
-from verified retained traces; the evidence-roots manifest contains only
-explicit ordered baseline and candidate root lists and MUST NOT repeat root
-arrays per target. Default `make check` MUST NOT enforce these three-sample drift gates.
+from verified retained traces. A `mode=baseline` evidence-roots manifest contains
+only an explicit ordered `baseline_roots` list. A `mode=comparison` manifest
+contains explicit ordered `baseline_roots` and `candidate_roots` lists. Neither
+mode repeats root arrays per target. Default `make check` MUST NOT enforce these
+three-sample drift gates.
 TH-HARNESS-REQ-355 remains the independent controlling five-run `make check`
 acceptance.
 Verified by: TH-HARNESS-AC-079
@@ -2543,7 +2545,7 @@ Verified by: TH-HARNESS-AC-078
 **TH-HARNESS-REQ-380**
 `harness-public-target-duration-baselines` is the sole writer of
 `tools/harness_public_target_duration_baselines.json`. It MUST accept only an
-exact baseline-window manifest with three accepted retained observations per
+exact `mode=baseline` window manifest with three accepted retained observations per
 required measurement profile, independently verify each context and bundle,
 derive samples from verified traces, compute the Section 10.5 statistics, write
 deterministic normalized bytes, and retain a bounded maintenance summary. The

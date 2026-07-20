@@ -3,7 +3,7 @@ import path from "node:path";
 import { repoRoot } from "../contract/index.mjs";
 import { loadRetainedObservability, resolveExactRunDir } from "./observability.mjs";
 
-const syntheticTarget = "backend-output-finalizer";
+export const backendFinalizerTarget = "backend-output-finalizer";
 
 export function median(values) {
   const sorted = [...values].sort((left, right) => left - right);
@@ -54,7 +54,7 @@ function contractsByTarget(context) {
   return result;
 }
 
-function qualificationReasons(context) {
+export function qualificationReasons(context) {
   const reasons = new Set(context.contamination_reasons);
   if (context.source_state !== "clean") reasons.add("dirty_source");
   if (context.status !== "passed") reasons.add("failed_execution");
@@ -79,6 +79,10 @@ function addObservation(result, target, value, context, contract, runDir) {
 export function collectRootObservations(root) {
   const runDir = resolveExactRunDir(root);
   const retained = loadRetainedObservability(runDir);
+  return collectRetainedObservations(retained, runDir);
+}
+
+export function collectRetainedObservations(retained, runDir) {
   const context = retained.context;
   const reasons = qualificationReasons(context);
   const result = new Map();
@@ -94,8 +98,21 @@ export function collectRootObservations(root) {
       reasons.push("failed_execution");
       continue;
     }
+    const rootContract = contracts.get(context.target);
+    if (!rootContract) {
+      reasons.push("missing_command_id");
+      continue;
+    }
+    addObservation(
+      result,
+      context.target,
+      durationMs(rootSpan),
+      context,
+      rootContract,
+      runDir,
+    );
     for (const span of invocation.result.bundle.spans.filter(
-      (item) => item.phase === "target" && item.status === "OK",
+      (item) => item.span_id !== rootSpan.span_id && item.phase === "target" && item.status === "OK",
     )) {
       const contract = contracts.get(span.name);
       if (!contract) continue;
@@ -104,9 +121,11 @@ export function collectRootObservations(root) {
       }
       addObservation(result, span.name, durationMs(span), context, contract, runDir);
     }
-    const backend = invocation.result.bundle.spans.find(
-      (span) => span.phase === "target" && span.name === "backend-unit",
-    );
+    const backend = context.target === "backend-unit"
+      ? rootSpan
+      : invocation.result.bundle.spans.find(
+        (span) => span.phase === "target" && span.name === "backend-unit",
+      );
     if (backend) {
       const descendants = new Set([backend.span_id]);
       let changed = true;
@@ -125,7 +144,7 @@ export function collectRootObservations(root) {
       const value = intervalUnionMs(finalizers);
       if (value > 0) {
         const contract = contracts.get("backend-unit");
-        addObservation(result, syntheticTarget, value, context, contract, runDir);
+        addObservation(result, backendFinalizerTarget, value, context, contract, runDir);
       }
     }
   }
@@ -244,7 +263,7 @@ function targetStatistics(target, contract, allSamples, gate = gateFor(contract)
   if (contracts.some((sample) => JSON.stringify(sample.canonical_inputs) !== canonical)) {
     throw new Error(`${target} observations have mismatched canonical inputs`);
   }
-  if (target !== syntheticTarget) {
+  if (target !== backendFinalizerTarget) {
     for (const sample of samples.filter((item) => item.context.target === target)) {
       if (sample.context.command_id !== contract.command_id) {
         throw new Error(`${target} direct observation has mismatched command ID`);
@@ -273,6 +292,9 @@ function targetStatistics(target, contract, allSamples, gate = gateFor(contract)
     canonical_inputs: contract.canonical_inputs,
     workload_evidence_profile_sha256: contract.workload_evidence_profile_sha256,
     execution_policy_sha256: contract.execution_policy_sha256,
+    ...(contract.allowed_policy_transition === undefined
+      ? {}
+      : { allowed_policy_transition: contract.allowed_policy_transition }),
     sample_provider_target: samples[0].provider_target,
     sample_roots: samples.map((sample) => rootRef(sample.root, sample.context)),
     samples_ms: values,
@@ -289,9 +311,9 @@ export function buildQualifiedBaseline(roots) {
   for (const [target, contract] of [...window.policy].sort(([left], [right]) => left.localeCompare(right))) {
     targets.push(targetStatistics(target, contract, window.observations.get(target) ?? []));
   }
-  const finalizerSamples = window.observations.get(syntheticTarget) ?? [];
+  const finalizerSamples = window.observations.get(backendFinalizerTarget) ?? [];
   targets.push(targetStatistics(
-    syntheticTarget,
+    backendFinalizerTarget,
     window.policy.get("backend-unit"),
     finalizerSamples,
     "required_improvement",
@@ -328,5 +350,87 @@ export function buildQualifiedBaseline(roots) {
 }
 
 export function comparePerformanceWindows(baselineRoots, candidateRoots) {
-  return { baseline: qualifiedWindow(baselineRoots), candidate: qualifiedWindow(candidateRoots) };
+  return compareQualifiedBaselines(
+    buildQualifiedBaseline(baselineRoots),
+    buildQualifiedBaseline(candidateRoots),
+  );
+}
+
+function sameJSON(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+export function compareQualifiedBaselines(baseline, candidate) {
+  for (const field of ["host", "capacity", "workload", "toolchain"]) {
+    if (baseline.profile_digests[field] !== candidate.profile_digests[field]) {
+      throw new Error(`baseline and candidate have mismatched ${field} profile`);
+    }
+  }
+  const baselineTargets = new Map(baseline.targets.map((row) => [row.target, row]));
+  const candidateTargets = new Map(candidate.targets.map((row) => [row.target, row]));
+  if (baselineTargets.size !== baseline.targets.length) {
+    throw new Error("baseline duplicates target identities");
+  }
+  if (candidateTargets.size !== candidate.targets.length) {
+    throw new Error("candidate duplicates target identities");
+  }
+  const expectedTargets = [...baselineTargets.keys()].sort((left, right) => left.localeCompare(right));
+  const actualTargets = [...candidateTargets.keys()].sort((left, right) => left.localeCompare(right));
+  if (!sameJSON(expectedTargets, actualTargets)) {
+    throw new Error("baseline and candidate target inventories differ");
+  }
+  const rows = [];
+  const failures = [];
+  for (const target of expectedTargets) {
+    const baselineRow = baselineTargets.get(target);
+    const candidateRow = candidateTargets.get(target);
+    for (const field of [
+      "gate",
+      "command_id",
+      "measurement_profile_id",
+      "workload_evidence_profile_sha256",
+    ]) {
+      if (baselineRow[field] !== candidateRow[field]) {
+        throw new Error(`${target} baseline and candidate have mismatched ${field}`);
+      }
+    }
+    if (!sameJSON(baselineRow.canonical_inputs, candidateRow.canonical_inputs)) {
+      throw new Error(`${target} baseline and candidate have mismatched canonical inputs`);
+    }
+    const transition = baselineRow.allowed_policy_transition;
+    if (transition !== candidateRow.allowed_policy_transition) {
+      throw new Error(`${target} baseline and candidate have mismatched policy transition contracts`);
+    }
+    if (transition === undefined) {
+      if (baselineRow.execution_policy_sha256 !== candidateRow.execution_policy_sha256) {
+        throw new Error(`${target} has an undeclared execution-policy change`);
+      }
+    } else if (baselineRow.execution_policy_sha256 === candidateRow.execution_policy_sha256) {
+      throw new Error(`${target} did not apply declared policy transition ${transition}`);
+    }
+    const limit = baselineRow.gate === "required_improvement"
+      ? baselineRow.median_ms - baselineRow.required_improvement_ms
+      : baselineRow.no_regression_limit_ms;
+    const passed = candidateRow.median_ms <= limit;
+    if (!passed) failures.push(target);
+    rows.push({
+      target,
+      gate: baselineRow.gate,
+      baseline_median_ms: baselineRow.median_ms,
+      baseline_mad_ms: baselineRow.mad_ms,
+      candidate_median_ms: candidateRow.median_ms,
+      limit_ms: limit,
+      status: passed ? "pass" : "fail",
+    });
+  }
+  return {
+    baseline,
+    candidate,
+    rows,
+    failures,
+    rejected_roots: {
+      baseline: baseline.rejected_roots,
+      candidate: candidate.rejected_roots,
+    },
+  };
 }
