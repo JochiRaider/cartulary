@@ -1019,6 +1019,49 @@ test("owner evidence audit accepts exact target partitions and rejects duplicate
   }
 });
 
+test("suppressed Make node-tool children do not capture top-level observability", () => {
+  const resultRoot = mkdtempSync(path.join(repoRoot, "tmp", "suppressed-node-tool."));
+  const runID = "nested-finalizer-child";
+  try {
+    const result = spawnSync(
+      process.execPath,
+      [
+        path.join(repoRoot, "tools/harness/execution/run-make-node-tool-cli.mjs"),
+        "go-test-duration-baseline-coverage",
+      ],
+      {
+        cwd: repoRoot,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+          CARTULARY_TEST_RESULTS_DIR: resultRoot,
+          CARTULARY_TEST_RUN_ID: runID,
+          CARTULARY_TEST_TARGET: "go-test-duration-baseline-coverage",
+        },
+      },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(
+      existsSync(path.join(resultRoot, runID, "_shared", "harness-observability")),
+      false,
+    );
+    assert.equal(
+      existsSync(
+        path.join(
+          resultRoot,
+          runID,
+          "go-test-duration-baseline-coverage",
+          "tool-run-summary.json",
+        ),
+      ),
+      true,
+    );
+  } finally {
+    rmSync(resultRoot, { recursive: true, force: true });
+  }
+});
+
 test("owner diagnostics project exact catalog topology and evidence-derived guidance", async () => {
   const catalog = loadTestCatalog(repoRoot);
   const ownerRows = catalog.rows.filter((row) => row.owner_id === "module.networkflow");
@@ -3205,6 +3248,21 @@ function lifecycleFixtureSchedule(target, workUnits) {
   };
 }
 
+async function withFixtureSchedulerArtifacts(fixture, callback) {
+  const names = ["CARTULARY_TEST_RESULTS_DIR", "CARTULARY_TEST_RUN_ID"];
+  const previous = new Map(names.map((name) => [name, process.env[name]]));
+  process.env.CARTULARY_TEST_RESULTS_DIR = path.join(fixture, "results");
+  process.env.CARTULARY_TEST_RUN_ID = "fixture-run";
+  try {
+    return await callback();
+  } finally {
+    for (const [name, value] of previous) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  }
+}
+
 test("generic scheduler drains independent work, skips failed dependencies, and always finalizes", async () => {
   const fixture = mkdtempSync(path.join(repoRoot, "tmp", "scheduler-lifecycle."));
   const independentMarker = path.join(fixture, "independent");
@@ -3224,11 +3282,12 @@ test("generic scheduler drains independent work, skips failed dependencies, and 
       command: `require('node:fs').writeFileSync(${JSON.stringify(finalizerMarker)}, 'done')`,
     }),
   ];
-  const result = await runNormalizedSchedule({
-    repoRoot,
-    schedule: lifecycleFixtureSchedule(target, units),
-    testOutputScript: "",
-  });
+  const result = await withFixtureSchedulerArtifacts(fixture, async () =>
+    await runNormalizedSchedule({
+      repoRoot,
+      schedule: lifecycleFixtureSchedule(target, units),
+      testOutputScript: "",
+    }));
   assert.equal(result.status, 10, "product failure must remain primary after cleanup");
   assert.equal(existsSync(independentMarker), true, "independent work must drain");
   assert.equal(existsSync(finalizerMarker), true, "finalizer must run after failed and skipped work");
@@ -3261,11 +3320,12 @@ test("scheduler watchdog and cancellation terminate work while preserving finali
       command: `require('node:fs').writeFileSync(${JSON.stringify(finalizerMarker)}, 'done')`,
     }),
   ];
-  const timed = await runNormalizedSchedule({
-    repoRoot,
-    schedule: lifecycleFixtureSchedule(target, units),
-    testOutputScript: "",
-  });
+  const timed = await withFixtureSchedulerArtifacts(fixture, async () =>
+    await runNormalizedSchedule({
+      repoRoot,
+      schedule: lifecycleFixtureSchedule(target, units),
+      testOutputScript: "",
+    }));
   assert.equal(timed.status, 13);
   assert.equal(existsSync(finalizerMarker), true, "timeout must not suppress cleanup");
 
@@ -3341,7 +3401,11 @@ process.exitCode = result.status;
 `);
     const result = spawnSync(process.execPath, [runner], {
       cwd: repoRoot,
-      env: process.env,
+      env: {
+        ...process.env,
+        CARTULARY_TEST_RESULTS_DIR: path.join(fixture, "results"),
+        CARTULARY_TEST_RUN_ID: "fixture-run",
+      },
       encoding: "utf8",
       timeout: 5_000,
     });

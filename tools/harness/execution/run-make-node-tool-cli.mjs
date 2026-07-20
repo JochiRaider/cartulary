@@ -34,6 +34,7 @@ import {
   normalizeOutputMode,
   quietLikeOutput,
   resultLine,
+  suppressChildSuccess,
   terminalArtifactPath,
   toolRunSummarySchemaID,
   toolSummaryPath,
@@ -226,7 +227,7 @@ async function runWrapped(target, invocation) {
   summary.exit_code = publicExitCodeForSummary(summary);
   await validateSchema(toolRunSummarySchemaID, summary);
   secureWriteFile(summaryFile, prettyJSONString(summary));
-  if (observabilityRequiredTarget(target)) {
+  if (!suppressChildSuccess() && observabilityRequiredTarget(target)) {
     const observability = finalizeObservabilitySafely(runRootAbs, {
       target,
       status: summary.status === "pass" ? "passed" : "failed",

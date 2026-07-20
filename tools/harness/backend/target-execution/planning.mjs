@@ -278,67 +278,6 @@ function aggregateSpec(ctx, target, family) {
   };
 }
 
-export function rowsExecutionSpec(ctx, target, rows) {
-  return {
-    regex: aggregateRegex(rows),
-    args: [...targetGoTestArgs(ctx, target), ...aggregatePackages(rows)],
-  };
-}
-
-export function rowsPostgresFixturePolicy(rows) {
-  return {
-    tests: fixturePolicyAssignments(rows, "tests").join(","),
-    packages: fixturePolicyAssignments(rows, "packages").join(","),
-    resetTests: resetTableAssignments(rows, "tests").join(","),
-    resetPackages: resetTableAssignments(rows, "packages").join(","),
-  };
-}
-
-function stableValue(value) {
-  if (Array.isArray(value)) return value.map(stableValue);
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.keys(value).sort(compareStrings).map((key) => [key, stableValue(value[key])]),
-    );
-  }
-  return value;
-}
-
-export function unshardedCompatibilityGroups(ctx, target) {
-  const groups = new Map();
-  for (const family of aggregateNames(ctx, target)) {
-    const rows = rowsForAggregate(ctx, target, family);
-    const raw = rows.some((row) => row.coverage === "raw" || Boolean(row.raw_selector));
-    const key = raw
-      ? `raw:${family}`
-      : JSON.stringify(stableValue({
-          packages: aggregatePackages(rows),
-          runtime_binaries: [...new Set(rows.flatMap((row) => row.runtime_binaries ?? []))].sort(compareStrings),
-          fixture_profiles: [...new Set(rows.map((row) => row.fixture_profile_id ?? "none"))].sort(compareStrings),
-          fixture_policies: [...new Set(rows.map((row) => JSON.stringify(stableValue(row.fixture_policy ?? {}))))].sort(compareStrings),
-          shard_isolation: [...new Set(rows.map((row) => Boolean(row.shard_isolation)))],
-          evidence_classes: [...new Set(rows.map((row) => row.evidence_class ?? ""))].sort(compareStrings),
-        }));
-    if (!groups.has(key)) groups.set(key, { raw, families: [], rows: [] });
-    const group = groups.get(key);
-    group.families.push(family);
-    group.rows.push(...rows);
-  }
-  return [...groups.values()]
-    .map((group) => ({
-      ...group,
-      families: group.families.sort(compareStrings),
-      rows: group.rows.sort((left, right) => compareStrings(left.id, right.id)),
-    }))
-    .sort((left, right) => compareStrings(left.families[0], right.families[0]))
-    .map((group, index) => ({
-      ...group,
-      name: group.families.length === 1
-        ? group.families[0]
-        : `${target}-compat-${String(index + 1).padStart(2, "0")}`,
-    }));
-}
-
 function shardSpec(ctx, target, name) {
   const shard = findShard(ctx, target, name);
   return {

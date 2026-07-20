@@ -1,5 +1,4 @@
 import { spawn } from "node:child_process";
-import { Worker } from "node:worker_threads";
 import path from "node:path";
 
 import { collectAggregateEmissions } from "../go-target-aggregate.mjs";
@@ -9,7 +8,6 @@ import {
   secureWriteFile,
 } from "../../contract/index.mjs";
 import { testCoverageBuckets } from "../../contract/test-output-context.mjs";
-import { handleGoStep } from "../../output/test-output/runners/go.mjs";
 import {
   prepareStepArtifactDir,
   targetDir,
@@ -290,7 +288,7 @@ async function emitReportStepSummary(
 ) {
   const step = loadStepWindow(reportDir, mode);
   const stepDir = prepareStepArtifactDir(ctx, label);
-  const stepEnv = {
+  return await runHelper(ctx, [helperCommand], {
     CARTULARY_TEST_TARGET: ctx.testTarget,
     CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
     CARTULARY_STEP_LABEL: label,
@@ -307,58 +305,7 @@ async function emitReportStepSummary(
     CARTULARY_STEP_RUNNER_LOG: path.join(reportDir, "runner.jsonl"),
     CARTULARY_STEP_STDERR_LOG: path.join(reportDir, "stderr.log"),
     ...extraEnv,
-  };
-  if (ctx.directBatchIngestion === true) {
-    stepEnv.CARTULARY_DEFER_TOOL_SUMMARY = "1";
-    const previous = new Map();
-    for (const [name, value] of Object.entries(stepEnv)) {
-      previous.set(name, Object.hasOwn(process.env, name) ? process.env[name] : undefined);
-      process.env[name] = value;
-    }
-    try {
-      return handleGoStep({ catalogAware: helperCommand === "go-catalog-step" });
-    } finally {
-      for (const [name, value] of previous) {
-        if (value === undefined) delete process.env[name];
-        else process.env[name] = value;
-      }
-    }
-  }
-  return await runHelper(ctx, [helperCommand], stepEnv);
-}
-
-function reportStepTask(
-  ctx,
-  helperCommand,
-  label,
-  reportDir,
-  mode,
-  extraEnv = {},
-) {
-  const step = loadStepWindow(reportDir, mode);
-  const stepDir = prepareStepArtifactDir(ctx, label);
-  return {
-    catalogAware: helperCommand === "go-catalog-step",
-    env: {
-      CARTULARY_TEST_TARGET: ctx.testTarget,
-      CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
-      CARTULARY_DEFER_TOOL_SUMMARY: "1",
-      CARTULARY_STEP_LABEL: label,
-      CARTULARY_STEP_DIR: stepDir,
-      CARTULARY_STEP_COMMAND: step.command,
-      CARTULARY_STEP_START_TIME: step.startTime,
-      CARTULARY_STEP_END_TIME: step.endTime,
-      CARTULARY_STEP_LOGICAL_DURATION_MS: String(step.durationMs),
-      CARTULARY_STEP_EXECUTED_DURATION_MS: String(step.durationMs),
-      CARTULARY_STEP_WALL_DURATION_MS: String(step.wallDurationMs),
-      CARTULARY_STEP_EXIT_STATUS: String(step.exitStatus),
-      CARTULARY_REPORT_SLICE: "1",
-      CARTULARY_STEP_ACCOUNTING_MODE: mode,
-      CARTULARY_STEP_RUNNER_LOG: path.join(reportDir, "runner.jsonl"),
-      CARTULARY_STEP_STDERR_LOG: path.join(reportDir, "stderr.log"),
-      ...extraEnv,
-    },
-  };
+  });
 }
 
 function packagePatternsEnv(packages) {
@@ -473,81 +420,4 @@ export async function emitExecutionFamily(
     }
   }
   return status;
-}
-
-export function executionFamilyTasks(
-  ctx,
-  target,
-  family,
-  usage,
-  reportDir,
-  rows = null,
-) {
-  const tasks = [];
-  const emissions = collectAggregateEmissions(
-    rows ?? rowsForAggregate(ctx, target, family),
-  );
-  for (const [index, emission] of emissions.entries()) {
-    const mode = index === 0 ? usage : "derived";
-    if (emission.mode === "manifest") {
-      tasks.push(reportStepTask(ctx, "go-catalog-step", emission.label, reportDir, mode, {
-        CARTULARY_CATALOG_OWNER_ID: emission.owner_id,
-        CARTULARY_MANIFEST_SECTION: emission.section,
-        CARTULARY_MANIFEST_COVERAGE: emission.coverage,
-        CARTULARY_MANIFEST_EXECUTION_DEPENDENCY: emission.execution_dependency,
-        CARTULARY_EXECUTION_FAMILY: family,
-        CARTULARY_GO_PACKAGE_PATTERNS: packagePatternsEnv(emission.packages),
-        ...(emission.ids?.length > 0
-          ? { CARTULARY_MANIFEST_SELECTED_IDS: emission.ids.join("\n") }
-          : {}),
-      }));
-      continue;
-    }
-    if (emission.mode === "support" || emission.mode === "raw") {
-      tasks.push(reportStepTask(ctx, "go-step", emission.label, reportDir, mode, {
-        CARTULARY_GO_TEST_REGEX: emission.regex,
-        CARTULARY_ACCOUNTING_COVERAGE: emission.mode === "support" ? "support" : "raw",
-        CARTULARY_GO_PACKAGE_PATTERNS: packagePatternsEnv(emission.packages),
-      }));
-      continue;
-    }
-    throw new Error(`unsupported execution family emission mode ${emission.mode}`);
-  }
-  return tasks;
-}
-
-export async function emitExecutionFamiliesBatch(ctx, emissions, jobs) {
-  const tasks = emissions.flatMap((emission, familyIndex) =>
-    executionFamilyTasks(
-      ctx,
-      emission.target,
-      emission.family,
-      emission.usage,
-      emission.reportDir,
-      emission.rows,
-    ).map((task) => ({ ...task, familyIndex })),
-  ).map((task, index) => ({ ...task, index }));
-  if (tasks.length === 0) return [];
-  const workerCount = Math.min(tasks.length, Math.max(1, jobs));
-  const partitions = Array.from({ length: workerCount }, () => []);
-  for (const [index, task] of tasks.entries()) partitions[index % workerCount].push(task);
-  const results = await Promise.all(partitions.map((workerTasks) =>
-    new Promise((resolve, reject) => {
-      const worker = new Worker(new URL("./go-report-batch-worker.mjs", import.meta.url), {
-        workerData: { tasks: workerTasks },
-      });
-      worker.once("message", resolve);
-      worker.once("error", reject);
-      worker.once("exit", (code) => {
-        if (code !== 0) reject(new Error(`Go report batch worker exited ${code}`));
-      });
-    }),
-  ));
-  const byFamily = new Array(emissions.length).fill(0);
-  for (const result of results.flat().sort((left, right) => left.index - right.index)) {
-    if (result.status !== 0 && byFamily[result.familyIndex] === 0) {
-      byFamily[result.familyIndex] = result.status;
-    }
-  }
-  return byFamily;
 }

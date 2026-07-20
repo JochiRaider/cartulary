@@ -267,11 +267,44 @@ function targetSummaries(runDir) {
   return summaries;
 }
 
-function invocationRoots(runDir) {
+function toolInvocationRoot(file) {
+  const tool = readJSON(file);
+  return {
+    target: tool.target,
+    file,
+    type: "tool",
+    summary: {
+      ...tool,
+      label: tool.target,
+      start_time: tool.started_at,
+      end_time: tool.completed_at,
+    },
+  };
+}
+
+function invocationRoots(runDir, expectedTarget = "") {
   const runSummaryFile = path.join(runDir, "run-summary.json");
   if (existsSync(runSummaryFile)) {
     const summary = readJSON(runSummaryFile);
     return [{ target: summary.label, summary, file: runSummaryFile, type: "run" }];
+  }
+  if (expectedTarget) {
+    const expectedTargetSummary = path.join(runDir, expectedTarget, "target-summary.json");
+    if (existsSync(expectedTargetSummary)) {
+      const summary = readJSON(expectedTargetSummary);
+      if (summary.target !== expectedTarget) {
+        throw new Error("retained top-level target summary identity mismatch");
+      }
+      return [{ target: summary.target, summary, file: expectedTargetSummary, type: "target" }];
+    }
+    const expectedToolSummary = path.join(runDir, expectedTarget, "tool-run-summary.json");
+    if (existsSync(expectedToolSummary)) {
+      const root = toolInvocationRoot(expectedToolSummary);
+      if (root.target !== expectedTarget) {
+        throw new Error("retained top-level tool summary identity mismatch");
+      }
+      return [root];
+    }
   }
   const summaries = targetSummaries(runDir);
   const referenced = new Set();
@@ -291,18 +324,7 @@ function invocationRoots(runDir) {
     .filter(existsSync)
     .map((file) => ({ file, tool: readJSON(file) }));
   if (tools.length !== 1) return [];
-  const { file, tool } = tools[0];
-  return [{
-    target: tool.target,
-    file,
-    type: "tool",
-    summary: {
-      ...tool,
-      label: tool.target,
-      start_time: tool.started_at,
-      end_time: tool.completed_at,
-    },
-  }];
+  return [toolInvocationRoot(tools[0].file)];
 }
 
 function stripDigestPrefix(value) {
@@ -325,34 +347,54 @@ function currentSourceState() {
   return status.trim() === "" ? "clean" : "dirty";
 }
 
-function commandIdentity(target) {
-  const manifest = readJSON(path.join(repoRoot, "tools", "task_surface_manifest.json"));
+function measurementContract(target, catalog, manifest, executionTopology) {
   const targetEntry = manifest.targets.find((entry) => entry.name === target);
   const binding = manifest.observability_policy.target_measurement_profiles
     .find((entry) => entry.target === target);
   const profile = manifest.observability_policy.measurement_profiles
     .find((entry) => entry.profile_id === binding?.profile_id);
+  if (!targetEntry || !binding || !profile) {
+    throw new Error(`required observability target ${target} has no retained measurement contract`);
+  }
+  const canonicalInputs = profile.canonical_inputs ?? {};
+  const targetExecutionPolicy = {
+    target,
+    sequence: manifest.sequences?.[target] ?? null,
+    service_backed_schedule:
+      executionTopology.service_backed_schedules?.schedules?.find((entry) => entry.target === target) ?? null,
+  };
   return {
-    commandID: targetEntry?.command_id ?? `cartulary.harness.command.${safeToken(target).replaceAll(/[.:-]/gu, "_")}.v1`,
-    canonicalInputs: profile?.canonical_inputs ?? {},
+    target,
+    command_id: targetEntry.command_id,
+    measurement_profile_id: binding.profile_id,
+    canonical_inputs: canonicalInputs,
+    observation_eligibility: profile.observation_eligibility,
+    performance_gates: [...profile.performance_gates],
+    ...(profile.allowed_policy_transition === undefined
+      ? {}
+      : { allowed_policy_transition: profile.allowed_policy_transition }),
+    workload_evidence_profile_sha256: sha256(
+      `${catalog.semantic_digest}\u0000${catalog.verification.semantic_digest}\u0000${targetEntry.command_id}\u0000${canonicalJSON(canonicalInputs)}`,
+    ),
+    execution_policy_sha256: sha256(canonicalJSON(targetExecutionPolicy)),
   };
 }
 
-function retainedCapacity(runDir) {
-  const logicalResources = {};
-  for (const file of sourceFiles(runDir).filter((candidate) => path.basename(candidate) === "scheduler-events.jsonl")) {
-    const events = parseJSONLines(file, runDir);
-    for (const [resource, rawLimit] of Object.entries(events.at(-1)?.resource_limits ?? {})) {
-      if (Number.isInteger(rawLimit) && rawLimit > 0) {
-        logicalResources[resource] = Math.max(logicalResources[resource] ?? 0, rawLimit);
-      }
+function invocationCanonicalInputs(contract) {
+  return Object.fromEntries(Object.entries(contract.canonical_inputs).map(([name, expected]) => {
+    const supplied = String(process.env[name] ?? "").trim();
+    if (expected === "omitted") return [name, supplied === "" ? "omitted" : supplied];
+    if (name === "EVIDENCE_ROOTS_FILE" && expected === "retained-module.auth-slice-evidence") {
+      return [name, supplied === "" ? "omitted" : expected];
     }
-  }
+    return [name, supplied === "" ? "omitted" : supplied];
+  }));
+}
+
+function retainedCapacity() {
   return {
     available_parallelism: Math.max(1, os.availableParallelism()),
-    logical_resources: Object.fromEntries(
-      Object.entries(logicalResources).sort(([left], [right]) => left.localeCompare(right)),
-    ),
+    logical_resources: {},
   };
 }
 
@@ -397,16 +439,33 @@ export function captureExecutionContext(runDir, metadata = {}) {
     validateSchemaSync(retained.schema_id, retained);
     return retained;
   }
-  const roots = invocationRoots(resolvedRunDir);
+  const roots = invocationRoots(resolvedRunDir, metadata.target ?? "");
   if (roots.length !== 1) {
     throw new Error(`retained run must identify exactly one top-level invocation; found ${roots.length}`);
   }
   const root = roots[0];
   const target = metadata.target ?? root.target;
   const interval = intervalForSummary(root.summary, target);
-  const { commandID, canonicalInputs } = commandIdentity(target);
   const catalog = loadTestCatalog(repoRoot);
-  const capacity = retainedCapacity(resolvedRunDir);
+  const manifest = readJSON(path.join(repoRoot, "tools", "task_surface_manifest.json"));
+  const executionTopology = readJSON(path.join(repoRoot, "tools", "execution_topology_manifest.json"));
+  const requiredTargets = new Set(manifest.observability_policy.required_targets);
+  const measurementContracts = [...requiredTargets]
+    .sort((left, right) => left.localeCompare(right))
+    .map((observedTarget) => measurementContract(observedTarget, catalog, manifest, executionTopology));
+  const workloadContracts = measurementContracts.map((contract) => ({
+    target: contract.target,
+    command_id: contract.command_id,
+    measurement_profile_id: contract.measurement_profile_id,
+    canonical_inputs: contract.canonical_inputs,
+    workload_evidence_profile_sha256: contract.workload_evidence_profile_sha256,
+  }));
+  const rootContract = measurementContracts.find((contract) => contract.target === target);
+  if (!rootContract) {
+    throw new Error(`top-level target ${target} has no retained measurement contract`);
+  }
+  const capacity = retainedCapacity();
+  const invocationInputs = invocationCanonicalInputs(rootContract);
   const hostProfile = {
     architecture: process.arch,
     platform: process.platform,
@@ -434,8 +493,11 @@ export function captureExecutionContext(runDir, metadata = {}) {
     run_id: path.basename(resolvedRunDir),
     invocation_id: safeToken(target),
     target,
-    command_id: commandID,
-    canonical_inputs: canonicalInputs,
+    command_id: rootContract.command_id,
+    canonical_inputs: invocationInputs,
+    measurement_contracts: measurementContracts,
+    measurement_contracts_sha256: sha256(canonicalJSON(measurementContracts)),
+    workload_contracts_sha256: sha256(canonicalJSON(workloadContracts)),
     commit: currentCommit(),
     source_snapshot_sha256: stripDigestPrefix(buildSourceSnapshot(repoRoot).digest),
     source_state: sourceState,
@@ -444,7 +506,7 @@ export function captureExecutionContext(runDir, metadata = {}) {
     available_capacity: capacity,
     capacity_profile_sha256: sha256(canonicalJSON(capacity)),
     workload_evidence_profile_sha256: sha256(
-      `${catalog.semantic_digest}\u0000${catalog.verification.semantic_digest}\u0000${commandID}\u0000${canonicalJSON(canonicalInputs)}`,
+      `${catalog.semantic_digest}\u0000${catalog.verification.semantic_digest}\u0000${rootContract.command_id}\u0000${canonicalJSON(invocationInputs)}`,
     ),
     execution_policy_sha256: currentExecutionPolicyDigest(),
     started_at: new Date(interval.start).toISOString(),
@@ -512,26 +574,45 @@ function summaryStatus(summary) {
   return summary?.status === "pass" ? "pass" : "fail";
 }
 
-function targetSpans(runDir, root, traceID, rootSpan) {
+function targetSpans(runDir, root, traceID, rootSpan, retainedTargetIDs) {
   const result = [];
-  const summaries = targetSummaries(runDir);
+  const allSummaries = targetSummaries(runDir);
   const spanByTarget = new Map([[root.target, rootSpan]]);
   const itemsByTarget = new Map();
-  for (const item of summaries) {
+  for (const item of allSummaries) {
     if (itemsByTarget.has(item.summary.target)) {
       throw new Error(`duplicate retained target summary ${item.summary.target}`);
     }
     itemsByTarget.set(item.summary.target, item);
   }
-  const parentByTarget = new Map();
-  for (const item of summaries) {
-    for (const child of item.summary.children?.expected ?? []) {
-      if (!itemsByTarget.has(child)) continue;
-      if (parentByTarget.has(child) && parentByTarget.get(child) !== item.summary.target) {
-        throw new Error(`retained target ${child} has multiple explicit summary parents`);
-      }
-      parentByTarget.set(child, item.summary.target);
+  const childrenByTarget = new Map();
+  for (const item of allSummaries) {
+    const children = (item.summary.children?.expected ?? [])
+      .filter((child) => itemsByTarget.has(child));
+    childrenByTarget.set(item.summary.target, children);
+  }
+  const reaches = (from, to, visiting = new Set()) => {
+    if (from === to) return true;
+    if (visiting.has(from)) return false;
+    visiting.add(from);
+    for (const child of childrenByTarget.get(from) ?? []) {
+      if (reaches(child, to, visiting)) return true;
     }
+    return false;
+  };
+  const summaries = allSummaries.filter((item) => retainedTargetIDs.has(item.summary.target));
+  const retainedTargets = summaries.map((item) => item.summary.target);
+  const parentByTarget = new Map();
+  for (const child of retainedTargets.filter((target) => target !== root.target)) {
+    const candidates = retainedTargets
+      .filter((candidate) => candidate !== child && reaches(candidate, child))
+      .sort((left, right) => left.localeCompare(right));
+    const nearest = candidates.filter((candidate) =>
+      !candidates.some((other) => other !== candidate && reaches(candidate, other)));
+    if (nearest.length > 1) {
+      throw new Error(`retained target ${child} has ambiguous explicit summary parents`);
+    }
+    parentByTarget.set(child, nearest[0] ?? root.target);
   }
   const pending = summaries
     .filter((item) => item.summary.target !== root.target)
@@ -553,19 +634,19 @@ function targetSpans(runDir, root, traceID, rootSpan) {
         throw new Error(`retained target ${item.summary.target} escapes explicit parent ${parentTarget}`);
       }
       const occurrence = `${runRelative(runDir, item.file)}:target`;
-    const span = makeSpan({
-      traceID,
-      occurrence,
-      parentSpanID: parent.span_id,
-      name: item.summary.target,
-      phase: "target",
-      status: summaryStatus(item.summary),
-      start: interval.start,
-      end: interval.end,
-      attrs: { "harness.target": item.summary.target },
-    });
-    spanByTarget.set(item.summary.target, span);
-    result.push(span);
+      const span = makeSpan({
+        traceID,
+        occurrence,
+        parentSpanID: parent.span_id,
+        name: item.summary.target,
+        phase: "target",
+        status: summaryStatus(item.summary),
+        start: interval.start,
+        end: interval.end,
+        attrs: { "harness.target": item.summary.target },
+      });
+      spanByTarget.set(item.summary.target, span);
+      result.push(span);
       pending.splice(index, 1);
       progressed = true;
     }
@@ -1010,7 +1091,9 @@ function buildInvocation(runDir, runID, root, allSourceFiles, contextRecord) {
     end: interval.end,
     attrs: { "harness.target": root.target },
   });
-  const targets = targetSpans(runDir, root, traceID, rootSpan);
+  const retainedTargetIDs = new Set(contextRecord.context.measurement_contracts.map((contract) => contract.target));
+  retainedTargetIDs.add(root.target);
+  const targets = targetSpans(runDir, root, traceID, rootSpan, retainedTargetIDs);
   const sequence = sequenceSpans(runDir, root, traceID, rootSpan);
   const scheduler = schedulerSpans(runDir, root, traceID, rootSpan, targets.spanByTarget);
   scheduler.queueWaitMs += sequence.queueWaitMs;
@@ -1094,15 +1177,17 @@ export function reconstructObservability(runDir, {
 } = {}) {
   const resolvedRunDir = path.resolve(runDir);
   const runID = path.basename(resolvedRunDir);
-  const roots = invocationRoots(resolvedRunDir);
-  if (roots.length !== 1) throw new Error(`retained run must have exactly one top-level invocation; found ${roots.length}`);
-  const contextRecord = suppliedContextRecord ?? (write
+  const existingContextRecord = suppliedContextRecord ??
+    (existsSync(contextPath(resolvedRunDir)) ? loadRetainedExecutionContext(resolvedRunDir) : null);
+  const contextRecord = existingContextRecord ?? (write
     ? (() => {
         const context = captureExecutionContext(resolvedRunDir);
         const file = contextPath(resolvedRunDir);
         return { context, file, sha256: sha256(readFileSync(file)) };
       })()
     : loadRetainedExecutionContext(resolvedRunDir));
+  const roots = invocationRoots(resolvedRunDir, contextRecord.context.target);
+  if (roots.length !== 1) throw new Error(`retained run must have exactly one top-level invocation; found ${roots.length}`);
   if (
     contextRecord.context.target !== roots[0].target ||
     contextRecord.context.invocation_id !== safeToken(roots[0].target)

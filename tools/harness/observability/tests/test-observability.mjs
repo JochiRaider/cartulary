@@ -18,6 +18,7 @@ import os from "node:os";
 import path from "node:path";
 
 import {
+  captureExecutionContext,
   deterministicBytes,
   loadRetainedObservability,
   reconstructObservability,
@@ -72,7 +73,7 @@ function schedulerEvent(seq, event, monotonicMs, detail = {}) {
   ];
   return {
     schema_id: "cartulary.scheduler_event.v7",
-    target: "observability-fixture",
+    target: "harness-contract",
     scheduler_kind: "sequence",
     seq,
     event,
@@ -97,18 +98,18 @@ function schedulerEvent(seq, event, monotonicMs, detail = {}) {
 }
 
 function sourceFixture(runDir) {
-  const targetDir = path.join(runDir, "observability-fixture");
+  const targetDir = path.join(runDir, "harness-contract");
   writeJSON(path.join(targetDir, "target-summary.json"), {
-    target: "observability-fixture",
+    target: "harness-contract",
     status: "pass",
     start_time: "2026-07-20T12:00:00.000Z",
     end_time: "2026-07-20T12:00:10.000Z",
     wall_duration_ms: 10_000,
     critical_path_wall_duration_ms: 9_000,
-    children: { expected: ["alpha", "beta"] },
+    children: { expected: ["json-shape-check", "generated-artifact-policy-check", "toolchain-drift"] },
   });
   writeJSON(path.join(targetDir, "tool-run-summary.json"), {
-    target: "observability-fixture",
+    target: "harness-contract",
     status: "pass",
     hostile_fixture_values: [
       "secret-user:secret-pass",
@@ -117,26 +118,26 @@ function sourceFixture(runDir) {
     ],
   });
   writeJSON(path.join(runDir, "alpha", "target-summary.json"), {
-    target: "alpha",
+    target: "json-shape-check",
     status: "pass",
     start_time: "2026-07-20T12:00:01.000Z",
     end_time: "2026-07-20T12:00:04.000Z",
-    children: { expected: ["gamma"] },
+    children: { expected: ["toolchain-drift"] },
   });
   writeJSON(path.join(runDir, "beta", "target-summary.json"), {
-    target: "beta",
+    target: "generated-artifact-policy-check",
     status: "pass",
     start_time: "2026-07-20T12:00:04.000Z",
     end_time: "2026-07-20T12:00:07.000Z",
   });
   writeJSON(path.join(runDir, "gamma", "target-summary.json"), {
-    target: "gamma",
+    target: "toolchain-drift",
     status: "pass",
     start_time: "2026-07-20T12:00:02.000Z",
     end_time: "2026-07-20T12:00:03.000Z",
   });
   writeJSON(path.join(targetDir, "step-summary.json"), {
-    target: "observability-fixture",
+    target: "harness-contract",
     label: "fixture-runner",
     runner: "node",
     status: "pass",
@@ -171,6 +172,21 @@ function sourceFixture(runDir) {
   return targetDir;
 }
 
+function toolRootWithNestedTargetFixture(runDir) {
+  writeJSON(path.join(runDir, "agent-finalize", "tool-run-summary.json"), {
+    target: "agent-finalize",
+    status: "pass",
+    started_at: "2026-07-20T12:00:00.000Z",
+    completed_at: "2026-07-20T12:00:10.000Z",
+  });
+  writeJSON(path.join(runDir, "json-shape-check", "target-summary.json"), {
+    target: "json-shape-check",
+    status: "pass",
+    start_time: "2026-07-20T12:00:01.000Z",
+    end_time: "2026-07-20T12:00:09.000Z",
+  });
+}
+
 function digestTree(dir) {
   const result = new Map();
   function visit(current) {
@@ -198,8 +214,8 @@ function verifyRun(runDir) {
   assert.equal(invocation.hotspot.finalization_union_ms, 1000, "overlapping finalizers must be unioned");
   assert.equal(invocation.traceOTLP.resourceSpans[0].resource.attributes[0].value.stringValue, "cartulary.harness");
   assert(invocation.metricsOTLP.resourceMetrics[0].scopeMetrics[0].metrics.every((metric) => metric.name.startsWith("cartulary.harness.")));
-  const gamma = invocation.bundle.spans.find((span) => span.name === "gamma" && span.phase === "target");
-  const alpha = invocation.bundle.spans.find((span) => span.name === "alpha" && span.phase === "target");
+  const gamma = invocation.bundle.spans.find((span) => span.name === "toolchain-drift" && span.phase === "target");
+  const alpha = invocation.bundle.spans.find((span) => span.name === "json-shape-check" && span.phase === "target");
   assert.equal(gamma.parent_span_id, alpha.span_id, "target parentage must use explicit retained summaries");
   const rendered = deterministicBytes(retained);
   for (const forbidden of ["secret-user:secret-pass", "/home/private/source/file.go", "SELECT secret FROM credentials", os.homedir()]) {
@@ -212,6 +228,18 @@ try {
   const runDir = path.join(fixtureRoot, "20260720T120000Z-p1");
   const targetDir = sourceFixture(runDir);
   const retained = verifyRun(runDir);
+
+  const toolRootRunDir = path.join(fixtureRoot, "20260720T120011Z-p2");
+  toolRootWithNestedTargetFixture(toolRootRunDir);
+  captureExecutionContext(toolRootRunDir, { target: "agent-finalize", status: "passed" });
+  const toolRootResult = reconstructObservability(toolRootRunDir);
+  assert.equal(toolRootResult.context.target, "agent-finalize");
+  assert.equal(toolRootResult.built[0].root.target, "agent-finalize");
+  assert.ok(
+    toolRootResult.built[0].result.bundle.spans.some(
+      (span) => span.phase === "target" && span.name === "json-shape-check",
+    ),
+  );
 
   const beforeCheck = digestTree(runDir);
   const exactCheck = spawnSync(process.execPath, [checkCLI, "--results-dir", runDir], { encoding: "utf8" });
@@ -411,8 +439,8 @@ try {
   const rootSummary = JSON.parse(readFileSync(rootSummaryFile, "utf8"));
   const betaSummaryFile = path.join(runDir, "beta", "target-summary.json");
   const betaSummary = JSON.parse(readFileSync(betaSummaryFile, "utf8"));
-  writeJSON(betaSummaryFile, { ...betaSummary, children: { expected: ["gamma"] } });
-  assert.throws(() => reconstructObservability(runDir, { write: false }), /multiple explicit summary parents/u);
+  writeJSON(betaSummaryFile, { ...betaSummary, children: { expected: ["toolchain-drift"] } });
+  assert.throws(() => reconstructObservability(runDir, { write: false }), /ambiguous explicit summary parents/u);
   writeJSON(betaSummaryFile, betaSummary);
 
   writeJSON(rootSummaryFile, { ...rootSummary, start_time: "malformed-clock" });

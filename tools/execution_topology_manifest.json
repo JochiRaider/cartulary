@@ -165,51 +165,51 @@
     },
     {
       "target": "lint",
-      "execution_mode": "dag",
-      "max_jobs": 4,
-      "resource_limits": { "process": 4 },
+      "execution_mode": "serial",
+      "max_jobs": 1,
+      "resource_limits": { "process": 1 },
       "steps": [
         { "target": "lint-go", "needs": [], "resource_claims": { "process": 1 }, "priority": 0 },
-        { "target": "lint-biome", "needs": [], "resource_claims": { "process": 1 }, "priority": 0 },
-        { "target": "frontend-import-boundary-check", "needs": [], "resource_claims": { "process": 1 }, "priority": 0 },
-        { "target": "backend-module-boundary-check", "needs": [], "resource_claims": { "process": 1 }, "priority": 0 },
-        { "target": "lint-scripts", "needs": [], "resource_claims": { "process": 1 }, "priority": 0 },
-        { "target": "lint-markdown", "needs": [], "resource_claims": { "process": 1 }, "priority": 0 },
-        { "target": "lint-shell", "needs": [], "resource_claims": { "process": 1 }, "priority": 0 },
-        { "target": "frontend-typecheck", "needs": [], "resource_claims": { "process": 1 }, "priority": 0 }
+        { "target": "lint-biome", "needs": ["lint-go"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "frontend-import-boundary-check", "needs": ["lint-biome"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "backend-module-boundary-check", "needs": ["frontend-import-boundary-check"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "lint-scripts", "needs": ["backend-module-boundary-check"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "lint-markdown", "needs": ["lint-scripts"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "lint-shell", "needs": ["lint-markdown"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "frontend-typecheck", "needs": ["lint-shell"], "resource_claims": { "process": 1 }, "priority": 0 }
       ]
     },
     {
       "target": "ci",
-      "execution_mode": "dag",
-      "max_jobs": 4,
-      "resource_limits": { "process": 4 },
+      "execution_mode": "serial",
+      "max_jobs": 1,
+      "resource_limits": { "process": 1 },
       "steps": [
         { "target": "check", "needs": [], "resource_claims": { "process": 1 }, "priority": 100 },
         { "target": "harness-contract", "needs": ["check"], "resource_claims": { "process": 1 }, "priority": 0 },
-        { "target": "go-gosec-audit", "needs": ["check"], "resource_claims": { "process": 1 }, "priority": 0 },
-        { "target": "deployable-shape", "needs": ["check"], "resource_claims": { "process": 1 }, "priority": 0 },
-        { "target": "duration-baseline-drift-suite", "needs": ["check"], "resource_claims": { "process": 1 }, "priority": 0 }
+        { "target": "go-gosec-audit", "needs": ["harness-contract"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "deployable-shape", "needs": ["go-gosec-audit"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "duration-baseline-drift-suite", "needs": ["deployable-shape"], "resource_claims": { "process": 1 }, "priority": 0 }
       ]
     },
     {
       "target": "release-check",
-      "execution_mode": "dag",
-      "max_jobs": 6,
-      "resource_limits": { "process": 6 },
+      "execution_mode": "serial",
+      "max_jobs": 1,
+      "resource_limits": { "process": 1 },
       "steps": [
         { "target": "check", "needs": [], "resource_claims": { "process": 1 }, "priority": 100 },
         { "target": "harness-contract", "needs": ["check"], "resource_claims": { "process": 1 }, "priority": 0 },
-        { "target": "go-gosec-audit", "needs": ["check"], "resource_claims": { "process": 1 }, "priority": 0 },
-        { "target": "license-report", "needs": ["check"], "resource_claims": { "process": 1 }, "priority": 0 },
-        { "target": "sbom", "needs": ["check"], "resource_claims": { "process": 1 }, "priority": 0 },
-        { "target": "seaweedfs-compatibility", "needs": ["check"], "resource_claims": { "process": 1 }, "priority": 0 },
-        { "target": "seaweedfs-migration-preservation", "needs": ["check"], "resource_claims": { "process": 1 }, "priority": 0 },
-        { "target": "seaweedfs-release-gate", "needs": ["seaweedfs-compatibility", "seaweedfs-migration-preservation", "license-report", "sbom"], "resource_claims": { "process": 1 }, "priority": 0 },
-        { "target": "build", "needs": ["check"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "go-gosec-audit", "needs": ["harness-contract"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "license-report", "needs": ["go-gosec-audit"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "sbom", "needs": ["license-report"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "seaweedfs-compatibility", "needs": ["sbom"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "seaweedfs-migration-preservation", "needs": ["seaweedfs-compatibility"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "seaweedfs-release-gate", "needs": ["seaweedfs-migration-preservation"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "build", "needs": ["seaweedfs-release-gate"], "resource_claims": { "process": 1 }, "priority": 0 },
         { "target": "deployable-shape", "needs": ["build"], "resource_claims": { "process": 1 }, "priority": 0 },
-        { "target": "release-browser-readiness", "needs": ["check"], "resource_claims": { "process": 1 }, "priority": 0 },
-        { "target": "release-readiness-evidence", "needs": ["harness-contract", "go-gosec-audit", "seaweedfs-release-gate", "deployable-shape", "release-browser-readiness"], "resource_claims": { "process": 1 }, "priority": 0 }
+        { "target": "release-browser-readiness", "needs": ["deployable-shape"], "resource_claims": { "process": 1 }, "priority": 0 },
+        { "target": "release-readiness-evidence", "needs": ["release-browser-readiness"], "resource_claims": { "process": 1 }, "priority": 0 }
       ]
     }
   ],
@@ -1199,7 +1199,7 @@
         "target": "release-browser-readiness",
         "capacity_profile": "service_backed_full",
         "resource_limits": {
-          "browser_stack": 2
+          "browser_stack": 1
         },
         "selectors": {
           "backend": {

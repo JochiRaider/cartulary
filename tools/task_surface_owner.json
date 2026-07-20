@@ -39,8 +39,6 @@
       "otel-conformance",
       "release-check",
       "release-readiness-evidence",
-      "scheduler-event-order-drift",
-      "scheduler-summary-timing-drift",
       "seaweedfs-compatibility",
       "seaweedfs-migration-preservation",
       "seaweedfs-release-evidence",
@@ -112,6 +110,8 @@
       { "target": "object-store-init", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
       { "target": "object-store-reset", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
       { "target": "playwright-install", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
+      { "target": "scheduler-event-order-drift", "owner_section": "Section 10", "reason": "Post-run scheduler diagnostics consume caller-selected retained evidence and are validation tools rather than stable execution workloads." },
+      { "target": "scheduler-summary-timing-drift", "owner_section": "Section 10", "reason": "Post-run scheduler diagnostics consume caller-selected retained evidence and are validation tools rather than stable execution workloads." },
       { "target": "service-backed-make-target-duration-baseline-drift", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
       { "target": "service-backed-make-target-duration-baselines", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
       { "target": "services-down", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
@@ -151,6 +151,14 @@
         "performance_gates": ["wall_no_regression"]
       },
       {
+        "profile_id": "aggregate_sequence_no_regression",
+        "canonical_inputs": {},
+        "observation_eligibility": "direct_or_aggregate_exact_once",
+        "warm_up_policy": "one_discarded_then_three_consecutive",
+        "performance_gates": ["wall_no_regression"],
+        "allowed_policy_transition": "serial_to_topology_dag"
+      },
+      {
         "profile_id": "release_browser_reference_candidate",
         "canonical_inputs": {},
         "observation_eligibility": "direct_or_aggregate_exact_once",
@@ -163,7 +171,8 @@
         "canonical_inputs": {},
         "observation_eligibility": "direct_only",
         "warm_up_policy": "one_discarded_then_three_consecutive",
-        "performance_gates": ["release_check_wall_improvement"]
+        "performance_gates": ["release_check_wall_improvement"],
+        "allowed_policy_transition": "serial_to_topology_dag"
       }
     ],
     "target_measurement_profiles": [
@@ -181,7 +190,7 @@
       { "target": "browser-e2e-visual", "profile_id": "standard_no_regression" },
       { "target": "browser-e2e-webserver-backed", "profile_id": "standard_no_regression" },
       { "target": "check", "profile_id": "standard_no_regression" },
-      { "target": "ci", "profile_id": "standard_no_regression" },
+      { "target": "ci", "profile_id": "aggregate_sequence_no_regression" },
       { "target": "frontend-fallow-static", "profile_id": "standard_no_regression" },
       { "target": "frontend-import-boundary-check", "profile_id": "standard_no_regression" },
       { "target": "frontend-typecheck", "profile_id": "standard_no_regression" },
@@ -194,7 +203,7 @@
       { "target": "go-vulncheck", "profile_id": "standard_no_regression" },
       { "target": "harness-contract", "profile_id": "standard_no_regression" },
       { "target": "json-shape-check", "profile_id": "standard_no_regression" },
-      { "target": "lint", "profile_id": "standard_no_regression" },
+      { "target": "lint", "profile_id": "aggregate_sequence_no_regression" },
       { "target": "lint-biome", "profile_id": "standard_no_regression" },
       { "target": "lint-markdown", "profile_id": "standard_no_regression" },
       { "target": "lint-scripts", "profile_id": "standard_no_regression" },
@@ -204,8 +213,6 @@
       { "target": "release-browser-readiness", "profile_id": "release_browser_reference_candidate" },
       { "target": "release-check", "profile_id": "release_check_improvement" },
       { "target": "release-readiness-evidence", "profile_id": "standard_no_regression" },
-      { "target": "scheduler-event-order-drift", "profile_id": "standard_no_regression" },
-      { "target": "scheduler-summary-timing-drift", "profile_id": "standard_no_regression" },
       { "target": "seaweedfs-compatibility", "profile_id": "standard_no_regression" },
       { "target": "seaweedfs-migration-preservation", "profile_id": "standard_no_regression" },
       { "target": "seaweedfs-release-evidence", "profile_id": "standard_no_regression" },

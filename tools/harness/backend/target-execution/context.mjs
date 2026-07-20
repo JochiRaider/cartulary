@@ -102,8 +102,6 @@ export function createGoTargetContext(options = {}) {
       .map((value) => value.trim())
       .filter(Boolean),
     invocation: null,
-    directBatchIngestion: false,
-    goTestDependenciesWarmed: false,
     targetPlanRows: null,
     shardPlan: null,
   };

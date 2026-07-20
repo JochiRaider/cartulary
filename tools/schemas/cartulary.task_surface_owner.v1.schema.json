@@ -101,7 +101,7 @@
                 }
               },
               "allowed_policy_transition": {
-                "const": "browser_stack_capacity_1_to_2"
+                "enum": ["browser_stack_capacity_1_to_2", "serial_to_topology_dag"]
               }
             }
           }

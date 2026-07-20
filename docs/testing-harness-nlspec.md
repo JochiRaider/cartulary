@@ -819,7 +819,10 @@ until an occurrence-aware artifact contract is adopted. Generated task-surface
 projections MUST preserve the policy and validation MUST enumerate the complete
 public surface against it, rejecting omissions, overlap, unknown targets, and
 unowned exclusions. Defaults, runtime-family inference, and target-name inference
-are forbidden.
+are forbidden. `scheduler-event-order-drift` and
+`scheduler-summary-timing-drift` are explicitly `out_of_scope`: they validate
+caller-selected retained evidence, so their duration describes that external
+evidence selection rather than a stable command workload.
 Verified by: TH-HARNESS-AC-072, TH-HARNESS-AC-073
 
 **TH-HARNESS-REQ-078**
@@ -1706,6 +1709,12 @@ command identities; commit and source-snapshot digest; clean or dirty source
 state; host, toolchain, externally available capacity, workload/evidence, and
 execution-policy digests; start, end, terminal status, interruption, retry
 count, warm eligibility, and a bounded sorted contamination-reason set. Source
+identity MUST include a sorted retained measurement-contract catalog for every
+required public target, with command ID, canonical inputs, measurement profile,
+eligibility, gates, workload/evidence digest, and target-scoped execution-policy
+digest. Externally available capacity MUST NOT incorporate target-declared
+logical scheduler limits; those limits belong to the target-scoped execution
+policy. Source
 artifact references MUST be normalized relative to the retained run, so an
 owner-only root may be moved outside the checkout without exposing absolute
 paths. Derived artifacts and all qualification checks MUST consume this retained
@@ -2479,13 +2488,19 @@ Verified by: TH-HARNESS-AC-075, TH-HARNESS-AC-076
 
 **TH-HARNESS-REQ-377**
 A qualifying public-target baseline contains exactly three consecutive
-successful warm observations for each required measurement profile. Baseline
-and candidate observations MUST match command ID, canonical inputs,
-source-snapshot digest, clean source state, workload/evidence digest, host
-profile, externally available capacity, and toolchain digest. Their retained
-execution-policy digests MUST also match except for a profile whose contract
-names one intentional policy change; release browser readiness permits only the
-declared capacity-one reference to capacity-two candidate change. Let `m` be the
+successful warm observations for each required measurement profile. Within
+each baseline or candidate window, observations MUST match commit,
+source-snapshot digest, and clean source state. Across the baseline and
+candidate windows, observations MUST match command ID, canonical inputs,
+workload/evidence digest, host profile, externally available capacity, and
+toolchain digest. Distinct clean reference and candidate commits and source
+snapshots are expected and MUST remain explicitly retained rather than being
+treated as a cross-window invariant. Target-scoped execution-policy digests
+MUST match except for a profile whose contract names one intentional policy
+change. The `lint`, `ci`, and `release-check` aggregate profiles permit only the
+declared serial-reference to topology-DAG candidate change; release browser
+readiness permits only the declared capacity-one reference to capacity-two
+candidate change. Let `m` be the
 median duration and `d`
 the median absolute deviation. The no-regression limit is
 `m + max(1000, 3*d, 0.05*m)` milliseconds. A required hotspot improves only

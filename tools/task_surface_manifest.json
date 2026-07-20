@@ -39,8 +39,6 @@
       "otel-conformance",
       "release-check",
       "release-readiness-evidence",
-      "scheduler-event-order-drift",
-      "scheduler-summary-timing-drift",
       "seaweedfs-compatibility",
       "seaweedfs-migration-preservation",
       "seaweedfs-release-evidence",
@@ -253,6 +251,16 @@
         "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
       },
       {
+        "target": "scheduler-event-order-drift",
+        "owner_section": "Section 10",
+        "reason": "Post-run scheduler diagnostics consume caller-selected retained evidence and are validation tools rather than stable execution workloads."
+      },
+      {
+        "target": "scheduler-summary-timing-drift",
+        "owner_section": "Section 10",
+        "reason": "Post-run scheduler diagnostics consume caller-selected retained evidence and are validation tools rather than stable execution workloads."
+      },
+      {
         "target": "service-backed-make-target-duration-baseline-drift",
         "owner_section": "Section 4",
         "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
@@ -338,6 +346,16 @@
         ]
       },
       {
+        "profile_id": "aggregate_sequence_no_regression",
+        "canonical_inputs": {},
+        "observation_eligibility": "direct_or_aggregate_exact_once",
+        "warm_up_policy": "one_discarded_then_three_consecutive",
+        "performance_gates": [
+          "wall_no_regression"
+        ],
+        "allowed_policy_transition": "serial_to_topology_dag"
+      },
+      {
         "profile_id": "release_browser_reference_candidate",
         "canonical_inputs": {},
         "observation_eligibility": "direct_or_aggregate_exact_once",
@@ -354,7 +372,8 @@
         "warm_up_policy": "one_discarded_then_three_consecutive",
         "performance_gates": [
           "release_check_wall_improvement"
-        ]
+        ],
+        "allowed_policy_transition": "serial_to_topology_dag"
       }
     ],
     "target_measurement_profiles": [
@@ -416,7 +435,7 @@
       },
       {
         "target": "ci",
-        "profile_id": "standard_no_regression"
+        "profile_id": "aggregate_sequence_no_regression"
       },
       {
         "target": "frontend-fallow-static",
@@ -468,7 +487,7 @@
       },
       {
         "target": "lint",
-        "profile_id": "standard_no_regression"
+        "profile_id": "aggregate_sequence_no_regression"
       },
       {
         "target": "lint-biome",
@@ -504,14 +523,6 @@
       },
       {
         "target": "release-readiness-evidence",
-        "profile_id": "standard_no_regression"
-      },
-      {
-        "target": "scheduler-event-order-drift",
-        "profile_id": "standard_no_regression"
-      },
-      {
-        "target": "scheduler-summary-timing-drift",
         "profile_id": "standard_no_regression"
       },
       {
@@ -1225,7 +1236,9 @@
           "produces_summary_targets": [
             "lint-biome"
           ],
-          "needs": [],
+          "needs": [
+            "lint-go"
+          ],
           "resource_claims": {
             "process": 1
           },
@@ -1237,7 +1250,9 @@
           "produces_summary_targets": [
             "frontend-import-boundary-check"
           ],
-          "needs": [],
+          "needs": [
+            "lint-biome"
+          ],
           "resource_claims": {
             "process": 1
           },
@@ -1249,7 +1264,9 @@
           "produces_summary_targets": [
             "backend-module-boundary-check"
           ],
-          "needs": [],
+          "needs": [
+            "frontend-import-boundary-check"
+          ],
           "resource_claims": {
             "process": 1
           },
@@ -1261,7 +1278,9 @@
           "produces_summary_targets": [
             "lint-scripts"
           ],
-          "needs": [],
+          "needs": [
+            "backend-module-boundary-check"
+          ],
           "resource_claims": {
             "process": 1
           },
@@ -1273,7 +1292,9 @@
           "produces_summary_targets": [
             "lint-markdown"
           ],
-          "needs": [],
+          "needs": [
+            "lint-scripts"
+          ],
           "resource_claims": {
             "process": 1
           },
@@ -1285,7 +1306,9 @@
           "produces_summary_targets": [
             "lint-shell"
           ],
-          "needs": [],
+          "needs": [
+            "lint-markdown"
+          ],
           "resource_claims": {
             "process": 1
           },
@@ -1297,17 +1320,19 @@
           "produces_summary_targets": [
             "frontend-typecheck"
           ],
-          "needs": [],
+          "needs": [
+            "lint-shell"
+          ],
           "resource_claims": {
             "process": 1
           },
           "priority": 0
         }
       ],
-      "execution_mode": "dag",
-      "max_jobs": 4,
+      "execution_mode": "serial",
+      "max_jobs": 1,
       "resource_limits": {
-        "process": 4
+        "process": 1
       }
     },
     "ci": {
@@ -1371,7 +1396,7 @@
             "go-gosec-audit"
           ],
           "needs": [
-            "check"
+            "harness-contract"
           ],
           "resource_claims": {
             "process": 1
@@ -1385,7 +1410,7 @@
             "deployable-shape"
           ],
           "needs": [
-            "check"
+            "go-gosec-audit"
           ],
           "resource_claims": {
             "process": 1
@@ -1396,7 +1421,7 @@
           "type": "step",
           "target": "duration-baseline-drift-suite",
           "needs": [
-            "check"
+            "deployable-shape"
           ],
           "resource_claims": {
             "process": 1
@@ -1404,10 +1429,10 @@
           "priority": 0
         }
       ],
-      "execution_mode": "dag",
-      "max_jobs": 4,
+      "execution_mode": "serial",
+      "max_jobs": 1,
       "resource_limits": {
-        "process": 4
+        "process": 1
       }
     },
     "release-check": {
@@ -1493,7 +1518,7 @@
             "go-gosec-audit"
           ],
           "needs": [
-            "check"
+            "harness-contract"
           ],
           "resource_claims": {
             "process": 1
@@ -1507,7 +1532,7 @@
             "license-report"
           ],
           "needs": [
-            "check"
+            "go-gosec-audit"
           ],
           "resource_claims": {
             "process": 1
@@ -1521,7 +1546,7 @@
             "sbom"
           ],
           "needs": [
-            "check"
+            "license-report"
           ],
           "resource_claims": {
             "process": 1
@@ -1532,7 +1557,7 @@
           "type": "step",
           "target": "seaweedfs-compatibility",
           "needs": [
-            "check"
+            "sbom"
           ],
           "resource_claims": {
             "process": 1
@@ -1543,7 +1568,7 @@
           "type": "step",
           "target": "seaweedfs-migration-preservation",
           "needs": [
-            "check"
+            "seaweedfs-compatibility"
           ],
           "resource_claims": {
             "process": 1
@@ -1560,10 +1585,7 @@
             "seaweedfs-release-gate"
           ],
           "needs": [
-            "seaweedfs-compatibility",
-            "seaweedfs-migration-preservation",
-            "license-report",
-            "sbom"
+            "seaweedfs-migration-preservation"
           ],
           "resource_claims": {
             "process": 1
@@ -1580,7 +1602,7 @@
             "build-operator"
           ],
           "needs": [
-            "check"
+            "seaweedfs-release-gate"
           ],
           "resource_claims": {
             "process": 1
@@ -1612,7 +1634,7 @@
             "release-browser-readiness"
           ],
           "needs": [
-            "check"
+            "deployable-shape"
           ],
           "resource_claims": {
             "process": 1
@@ -1626,10 +1648,6 @@
             "release-readiness-evidence"
           ],
           "needs": [
-            "harness-contract",
-            "go-gosec-audit",
-            "seaweedfs-release-gate",
-            "deployable-shape",
             "release-browser-readiness"
           ],
           "resource_claims": {
@@ -1638,10 +1656,10 @@
           "priority": 0
         }
       ],
-      "execution_mode": "dag",
-      "max_jobs": 6,
+      "execution_mode": "serial",
+      "max_jobs": 1,
       "resource_limits": {
-        "process": 6
+        "process": 1
       }
     }
   },

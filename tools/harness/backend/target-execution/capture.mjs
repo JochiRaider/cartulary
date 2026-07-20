@@ -24,8 +24,6 @@ import {
   isCrossTargetSharedReport,
   resolveExecutionFamilyPostgresFixturePolicy,
   resolveExecutionFamilySpec,
-  rowsExecutionSpec,
-  rowsPostgresFixturePolicy,
   runtimeRowsForExecution,
 } from "./planning.mjs";
 import {
@@ -94,10 +92,7 @@ async function acquireDirectoryLock(lockDir, label, timeoutSeconds, metadata) {
   }
 }
 
-export async function warmGoTestDependencies(ctx) {
-  if (ctx.goTestDependenciesWarmed === true) {
-    return;
-  }
+async function warmGoTestDependencies(ctx) {
   const warmRoot = path.join(ctx.goModCacheDir, ".cartulary-go-test-warm");
   const lockDir = path.join(warmRoot, "lock");
   const timeoutSeconds = Number.parseInt(
@@ -113,7 +108,6 @@ export async function warmGoTestDependencies(ctx) {
   const warmKey = hashGoTestDependencyInputs(ctx);
   const stampFile = path.join(warmRoot, `${warmKey}.stamp`);
   if (existsSync(stampFile)) {
-    ctx.goTestDependenciesWarmed = true;
     return;
   }
   await acquireDirectoryLock(
@@ -127,7 +121,6 @@ export async function warmGoTestDependencies(ctx) {
   );
   try {
     if (existsSync(stampFile)) {
-      ctx.goTestDependenciesWarmed = true;
       return;
     }
     for (const args of [
@@ -153,7 +146,6 @@ export async function warmGoTestDependencies(ctx) {
     rmSync(stampFile, { force: true });
     writeFileSync(stampFile, readFileSync(`${stampFile}.${process.pid}`));
     rmSync(`${stampFile}.${process.pid}`, { force: true });
-    ctx.goTestDependenciesWarmed = true;
   } finally {
     rmSync(lockDir, { recursive: true, force: true });
   }
@@ -380,15 +372,6 @@ export async function assignExecutionFamily(ctx, target, familyOrShard) {
     return { ...captured, usage: "reused" };
   }
   return captured;
-}
-
-export async function assignCompatibilityGroup(ctx, target, group) {
-  const spec = rowsExecutionSpec(ctx, target, group.rows);
-  const policy = rowsPostgresFixturePolicy(group.rows);
-  if (runtimeBinaryIDsForRows(group.rows).length > 0) {
-    validateRuntimeBinaries(ctx, group.rows, prepareSharedArtifactDir(ctx, group.name));
-  }
-  return await captureGoReport(ctx, group.name, spec.regex, spec.args, policy);
 }
 
 function writeShardMetadata(metadataDir, sharedName, captured) {
