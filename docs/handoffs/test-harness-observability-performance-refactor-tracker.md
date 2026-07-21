@@ -1017,3 +1017,35 @@ completed work.
 - Active: T-001 remains the only `IN_PROGRESS` task. Correct and validate the
   direct identity contract, commit a new clean source snapshot, then restart
   every reference baseline profile from a fresh discarded warm-up.
+
+### 2026-07-21 — T-001 direct duration-coverage identity correction complete
+
+- Source: implementation commit
+  `cd8e066b` on the serial reference branch; all validation roots below were
+  collected from the immediately preceding dirty implementation state and are
+  diagnostic-only.
+- Completed correction: the generated `RUN_MAKE_NODE_TOOL` boundary now marks
+  the exact public target as using the identity already validated by its Make
+  preflight. The duration-baseline coverage tool declares the retained result
+  root and run ID as child runtime environment. The resolver's strict rule is
+  unchanged: an unprepared caller cannot reuse a non-empty root, including a
+  root containing an imitated invocation-start marker.
+- Focused proof: the exact public command passed at
+  `.cartulary/test-results/20260721T150657Z-p3925814` and then three consecutive
+  times at `.cartulary/test-results/20260721T150759Z-p3930152`,
+  `.cartulary/test-results/20260721T150800Z-p3930200`, and
+  `.cartulary/test-results/20260721T150802Z-p3930242`. Each retained the
+  `go-test-duration-baseline-coverage/tool-run-summary.json` artifact under its
+  own preflighted root.
+- Contract and drift proof: `make harness-contract` passed at
+  `.cartulary/test-results/20260721T150707Z-p3925897`, including the negative
+  unprepared/non-empty collision fixtures. `make generate-drift` passed at
+  `.cartulary/test-results/20260721T150740Z-p3926876`, `make json-shape-check`
+  passed at `.cartulary/test-results/20260721T150750Z-p3929775`, and
+  `make generated-artifact-policy-check` passed at
+  `.cartulary/test-results/20260721T150808Z-p3930324`. Generated task-surface
+  projections were produced only by `make generate`.
+- Active: T-001 remains the only `IN_PROGRESS` task. Every required profile now
+  restarts from the clean tracker-completion commit containing this ledger
+  entry; all roots from `0ea8d0cdb01684089cd58001f8524cbcdc13bd49` and all
+  dirty validation roots above remain diagnostic-only.
