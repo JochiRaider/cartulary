@@ -5712,9 +5712,11 @@ if (
     const edge = page.getByTestId(/^network-flow-edge-/).first();
     await expect(edge).toBeVisible();
     await edge.getByRole("button", { name: "Select edge" }).click();
-    await expect(
-      page.getByTestId(networkAnalysisTestId("contributor-drawer")),
-    ).toBeVisible();
+    const contributorDrawer = page.getByTestId(
+      networkAnalysisTestId("contributor-drawer"),
+    );
+    await expect(contributorDrawer).toBeVisible();
+    await expect(contributorDrawer).toContainText("visual-flow");
     await assertViewportVisualRegression(
       page,
       "network-flow-analysis-graph-contributors",
