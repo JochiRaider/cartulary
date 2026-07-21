@@ -950,3 +950,38 @@ completed work.
 - Active: T-001 remains the only `IN_PROGRESS` task. Add the websocket semantic
   boundary, prove the exact lifecycle row repeatedly and the broad `test` path,
   commit a new clean source snapshot, and restart every baseline profile.
+
+### 2026-07-21 — T-001 Network Flow lifecycle-settlement correction complete
+
+- Source: clean correction commit
+  `d68790dcdfdb22bc9530b833c2c892e47817c0ae`; the validation roots below were
+  collected immediately before that commit and remain diagnostic-only because
+  their source state was dirty.
+- Completed correction: the Network Flow opening helper now exposes a bounded
+  pre-navigation incident callback. The lifecycle fixture uses it to attach the
+  existing incident socket monitor before the workbook websocket is created,
+  records a message boundary before deletion, and waits for the exact
+  `extension_resource_changed` event with profile `network_flow_activity`,
+  resource kind `network_flow_table`, change kind `remove`, and a non-empty
+  resource ID before submitting recovery import. Product event processing,
+  import-generation cancellation, upload/jobs, and topology are unchanged.
+- Focused proof: the exact
+  `module.networkflow.browser_stateful.verify_protected_network_analysis_state_is_disca_21a5de1ebf`
+  row passed three consecutive final-shape service-backed owner slices at
+  `.cartulary/test-results/20260721T133224Z-p2196030`,
+  `.cartulary/test-results/20260721T133313Z-p2211348`, and
+  `.cartulary/test-results/20260721T133406Z-p2226135`, with one selected test
+  executed exactly once per root. Three earlier dirty focused roots also passed
+  before the monitor reference received its type-safe shape and remain
+  diagnostic-only.
+- Regression proof: `make frontend-typecheck` passed at
+  `.cartulary/test-results/20260721T133206Z-p2195569`; `make test` passed at
+  `.cartulary/test-results/20260721T133508Z-p2240942` with 651 tests, zero
+  failures, and both aggregate work units complete in 220.914 s. `make format`
+  passed at `.cartulary/test-results/20260721T132704Z-p2143082`.
+- Excluded deterministic failure: broad root `20260721T133029Z-p2190479`
+  exposed and retained the initial TypeScript closure-narrowing error; no
+  runtime test was admitted from it.
+- Active: T-001 remains the only `IN_PROGRESS` task. Every baseline warm-up and
+  accepted observation restarts from the clean tracker-completion commit
+  containing this ledger entry. All prior roots remain diagnostic-only.
