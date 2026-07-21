@@ -856,3 +856,30 @@ completed work.
   and accepted observation now restarts from the clean tracker-completion
   commit containing this ledger entry. All roots from
   `c997c00cbf31dbd1a128d6692685112f0a8fc620` and earlier remain diagnostic-only.
+
+### 2026-07-21 — T-001 grouped-conflict qualification correction opened
+
+- Source: clean serial reference snapshot
+  `e5dc295349606c5a2dff067212cd4f9596fa2a90` before this correction.
+- Qualification finding: accepted `test` observation
+  `.cartulary/test-results/20260721T125804Z-p1804662` failed because the
+  collaboration fixture expected the inline grid editor to remain mounted
+  after a same-field conflict. This scenario deliberately groups rows by
+  capture state and sorts them by the edited synopsis. Applying the remote
+  synopsis moves the row within the grouped/sorted projection and legitimately
+  unmounts its editor. Retained page state proves the conflict resolver held the
+  local and remote values and the remounted row exposed the conflict marker.
+- Required correction: use the existing grouped-projection branch of
+  `driveRealTimelineSummaryConflict` for this call by declaring that the edited
+  cell is expected to unmount. Continue to require the remounted conflict
+  marker, resolver, exact local and remote values, save-state transition, and
+  server result. Preserve product grouping, sorting, conflict behavior, helper
+  defaults for stable cells, timeouts, and browser topology.
+- Excluded evidence: failed root `20260721T125804Z-p1804662` and the preceding
+  accepted `test` root `20260721T125418Z-p1734532` are ineligible. The completed
+  release and CI windows from
+  `e5dc295349606c5a2dff067212cd4f9596fa2a90` also become diagnostic-only after
+  this source correction; no root from that snapshot may be migrated.
+- Active: T-001 remains the only `IN_PROGRESS` task. Correct the scenario
+  declaration, prove the exact collaboration row repeatedly and the broad test
+  path, commit a new clean source snapshot, and restart every baseline profile.
