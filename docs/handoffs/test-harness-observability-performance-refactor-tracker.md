@@ -688,3 +688,31 @@ completed work.
   and three-observation windows now restart from the clean tracker-completion
   commit that contains this ledger entry; every earlier source root remains
   diagnostic-only.
+
+### 2026-07-21 — T-001 readiness-fixture qualification correction opened
+
+- Source: clean serial reference snapshot
+  `e2fd5ba2bc38f9f202bde1911ff7849c108bc90a` before this correction.
+- Qualification finding: accepted `release-check` observation
+  `.cartulary/test-results/20260721T083833Z-p1760362` failed in the
+  `dev service lifecycle guards are mutation-safe` harness-contract fixture.
+  The fixture configured mocked PostgreSQL and object-store readiness deadlines
+  to one second. `wait_object_store` starts that deadline before building and
+  launching the CORS proxy, so process scheduling under release load can cross
+  the one-second boundary before the first mocked probe is attempted. The
+  resulting `state=unknown health=unknown` is a fixture timing failure, not a
+  service, product, or production-readiness failure.
+- Required correction: give the mocked lifecycle fixture a bounded scheduling
+  margin that is independent of production readiness configuration. Preserve
+  the production wait loops, deadlines, diagnostics, proxy lifecycle, and
+  service commands unchanged. Repeated focused harness-contract runs must prove
+  that the stubbed first probe is reached under ordinary host load.
+- Excluded evidence: the release warm-up
+  `20260721T083022Z-p1611432`, failed accepted attempt
+  `20260721T083833Z-p1760362`, and every other warm-up or accepted observation
+  collected from `e2fd5ba2bc38f9f202bde1911ff7849c108bc90a` remain retained for
+  diagnosis but are ineligible after the source correction. No measurement
+  window or individual target root from that snapshot may be migrated.
+- Active: T-001 remains the only `IN_PROGRESS` task. Correct the test-only
+  deadline, run repeated harness-contract and fast regression proof, commit a
+  new clean reference snapshot, and restart the complete baseline manifest.
