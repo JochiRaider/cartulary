@@ -1083,3 +1083,57 @@ completed work.
 - Active: T-001 remains the only `IN_PROGRESS` task. Correct and validate focus
   continuity, commit a new clean snapshot, then restart every reference
   baseline profile from a new discarded warm-up.
+
+### 2026-07-21 — T-001 Timeline mention-focus continuity correction complete
+
+- Source: implementation commit
+  `1455fbcaa51db24133ea1e5faf6d4f03514e3adf` on the serial reference branch;
+  all validation roots below were collected from the immediately preceding
+  dirty implementation state and remain diagnostic-only.
+- Corrected diagnosis: the opened entry's late-reconciliation hypothesis was
+  incomplete. Instrumented retained root
+  `.cartulary/test-results/20260721T165540Z-p636165` proved that Undo created
+  the focus-bearing `row-inspect` continuity token, then the same mutation's
+  lower-strength live-update path created a `scroll-only` token in the same
+  user-interaction generation and superseded it. The replacement token never
+  reached an advance boundary, so no owner remained able to restore focus.
+  The temporary diagnostic instrumentation was removed before validation.
+- Completed correction: Timeline focus and scroll restoration now have one
+  owner. Mention actions no longer run a private synchronous/frame/timeout
+  focus helper. The viewport-continuity controller retains its active request
+  synchronously, coalesces same-interaction `scroll-only` work into the active
+  semantic request, and advances that request instead of replacing it. A new
+  pointer, keyboard, or wheel interaction creates a new generation and may
+  supersede or cancel older work. The controller continues its existing
+  bounded retries until the semantic target is connected, focused, and fully
+  visible, then clears immediately. Its redundant uncancellable inner
+  animation-frame loop was removed.
+- Rejected tactical variant: an intermediate one-second post-success polling
+  window fixed the focus row but overrode a later intentional visual-fixture
+  scroll. Failed broad root
+  `.cartulary/test-results/20260721T171020Z-p806897` and focused visual root
+  `.cartulary/test-results/20260721T171511Z-p875851` retain that evidence. The
+  polling variant was removed; no visual golden, product mutation, inspector
+  behavior, timeout, public command, or browser topology changed.
+- Focused proof: the exact
+  `module.entities.browser.the_browser_workbook_shows_auto_resolution_only_758d41a16f`
+  row passed three consecutive final-shape service-backed owner slices at
+  `.cartulary/test-results/20260721T171942Z-p899832`,
+  `.cartulary/test-results/20260721T172042Z-p915612`, and
+  `.cartulary/test-results/20260721T172138Z-p930665`, with one selected test
+  executed exactly once per root. Earlier failed focused roots
+  `20260721T164826Z-p592076`, `20260721T165117Z-p612444`, and
+  `20260721T165540Z-p636165` are retained as diagnostic progression only.
+- Regression proof: `make frontend-unit` passed at
+  `.cartulary/test-results/20260721T171906Z-p897784`;
+  `make frontend-typecheck` passed at
+  `.cartulary/test-results/20260721T171933Z-p899443`; focused
+  `make browser-e2e-visual` passed without golden changes at
+  `.cartulary/test-results/20260721T172240Z-p945537`; and `make test` passed at
+  `.cartulary/test-results/20260721T172458Z-p964463` with 651 tests, zero
+  failures, and both aggregate work units complete in 233.741 s.
+- Active: T-001 remains the only `IN_PROGRESS` task. Every required reference
+  profile restarts from the clean tracker-completion commit containing this
+  ledger entry. All roots from
+  `15af60c9448ceca088875637ed64c3163219b722` and all dirty correction roots
+  above remain diagnostic-only and cannot enter the qualified baseline window.
