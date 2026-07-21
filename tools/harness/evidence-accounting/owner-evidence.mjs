@@ -342,7 +342,14 @@ export function auditOwnerEvidence(root, { ownerID, manifestPath, timestamp = ne
     if (!knownTargets.has(entry.target_id)) usage(`unknown evidence target ${entry.target_id}`);
   }
   const supplied = new Map(manifest.entries.map((entry) => [entry.target_id, entry]));
-  const missing = [...required.keys()].filter((targetID) => !supplied.has(targetID));
+  const sliceEntry = supplied.get("test-slice");
+  const leafEvidence = new Map(
+    [...required].filter(([targetID]) => targetID !== "test-slice"),
+  );
+  const requiredEvidence = sliceEntry
+    ? new Map([["test-slice", required.get("test-slice")]])
+    : leafEvidence;
+  const missing = [...requiredEvidence.keys()].filter((targetID) => !supplied.has(targetID));
   if (missing.length > 0) usage(`missing required evidence targets: ${missing.join(", ")}`);
 
   const snapshot = buildSourceSnapshot(root);
@@ -356,11 +363,11 @@ export function auditOwnerEvidence(root, { ownerID, manifestPath, timestamp = ne
   const requiredTargets = [];
   const unusedInputs = [];
   for (const entry of manifest.entries) {
-    if (!required.has(entry.target_id)) {
+    if (!requiredEvidence.has(entry.target_id)) {
       unusedInputs.push({ ...entry });
       continue;
     }
-    const rowIDs = required.get(entry.target_id);
+    const rowIDs = requiredEvidence.get(entry.target_id);
     requiredTargets.push({ target_id: entry.target_id, run_root: entry.run_root, row_ids: rowIDs });
     let runRoot;
     let loaded;
@@ -402,7 +409,7 @@ export function auditOwnerEvidence(root, { ownerID, manifestPath, timestamp = ne
     rejected_artifacts: rejectedArtifacts,
     counts: {
       active_rows: catalog.rows.filter((row) => row.owner_id === ownerID).length,
-      required_target_partitions: required.size,
+      required_target_partitions: requiredEvidence.size,
       accepted_target_partitions: acceptedArtifacts.length,
       rejected_target_partitions: rejectedArtifacts.length,
     },

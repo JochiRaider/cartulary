@@ -894,8 +894,7 @@ test("owner evidence audit accepts exact target partitions and rejects duplicate
     const catalog = loadTestCatalog(repoRoot);
     const source = buildSourceSnapshot(repoRoot);
     const entries = [];
-    for (const [targetID, rowIDs] of partitions) {
-      const runRoot = path.join(resultRoot, `run-${targetID}`);
+    const writeAccounting = (runRoot, targetID, rowIDs) => {
       const ownerDir = path.join(runRoot, targetID, "owners", ownerID);
       mkdirSync(ownerDir, { recursive: true });
       const identity = loadOwnerAccountingSelection(repoRoot, { ownerID, rowIDs });
@@ -946,6 +945,10 @@ test("owner evidence audit accepts exact target partitions and rejects duplicate
           failure: null,
         })),
       });
+    };
+    for (const [targetID, rowIDs] of [...partitions].filter(([targetID]) => targetID !== "test-slice")) {
+      const runRoot = path.join(resultRoot, `run-${targetID}`);
+      writeAccounting(runRoot, targetID, rowIDs);
       entries.push({ target_id: targetID, run_root: path.relative(repoRoot, runRoot) });
     }
     entries.sort((left, right) => left.target_id < right.target_id ? -1 : left.target_id > right.target_id ? 1 : 0);
@@ -961,7 +964,28 @@ test("owner evidence audit accepts exact target partitions and rejects duplicate
       timestamp: "2026-07-18T00:00:00.000Z",
     });
     assert.equal(summary.status, "pass");
-    assert.equal(summary.accepted_artifacts.length, partitions.size);
+    assert.equal(summary.accepted_artifacts.length, partitions.size - 1);
+
+    const sliceRows = partitions.get("test-slice");
+    const sliceRunRoot = path.join(resultRoot, "run-test-slice");
+    writeAccounting(sliceRunRoot, "test-slice", sliceRows);
+    const sliceManifestFile = path.join(resultRoot, "slice-evidence-roots.json");
+    writeJSONFile(sliceManifestFile, {
+      schema_id: "cartulary.test_evidence_root_manifest.v1",
+      owner_id: ownerID,
+      entries: [{
+        target_id: "test-slice",
+        run_root: path.relative(repoRoot, sliceRunRoot),
+      }],
+    });
+    const sliceSummary = auditOwnerEvidence(repoRoot, {
+      ownerID,
+      manifestPath: path.relative(repoRoot, sliceManifestFile),
+      timestamp: "2026-07-18T00:00:00.000Z",
+    });
+    assert.equal(sliceSummary.status, "pass");
+    assert.equal(sliceSummary.counts.required_target_partitions, 1);
+    assert.deepEqual(sliceSummary.accepted_artifacts[0].row_ids, sliceRows);
 
     const cliResults = path.join(resultRoot, "cli-results");
     const cli = spawnSync(

@@ -976,7 +976,13 @@ physical run root MAY be named by multiple explicit target entries. A known supp
 target that is not applicable to the selected owner MUST be reported in
 `unused_inputs`; an unknown or duplicate target is `usage_error`. Missing required
 target entries are `usage_error`; unsafe roots or incompatible contents are
-`artifact_error`.
+`artifact_error`. As an atomic alternative to leaf target partitions, a manifest
+MAY contain one `target_id=test-slice` entry whose retained accounting artifact
+selects the owner's complete active row set. In that mode the auditor MUST verify
+the full-owner selection and all compatibility fields directly from that artifact;
+it MUST treat any additional supplied target entries as unused and MUST NOT infer,
+split, or search for leaf evidence. A partial or service-backed-only slice MUST NOT
+satisfy the full-owner alternative.
 Verified by: TH-HARNESS-AC-064, TH-HARNESS-AC-066
 
 **TH-HARNESS-REQ-122**
