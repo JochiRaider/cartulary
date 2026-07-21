@@ -7,7 +7,7 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | Serial reference substrate plus qualification-fixture corrections `b1067ca059fb1d3863535cc401de5cbdf69b6f48`; safety candidate lineage begins at `528ef57d03c12dd47c0991a03380b0167ae54459` |
+| Current source | Serial reference substrate plus qualification-fixture corrections `7d7a87e19a8052981b1a309a496fd1a46da3f1a3`; safety candidate lineage begins at `528ef57d03c12dd47c0991a03380b0167ae54459` |
 | Last updated | 2026-07-21 |
 | Active item | T-001 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
@@ -742,3 +742,33 @@ completed work.
 - Active: T-001 remains the only `IN_PROGRESS` task. The complete baseline
   manifest now restarts from the clean tracker-completion commit containing
   this ledger entry; all earlier source roots remain diagnostic-only.
+
+### 2026-07-21 — T-001 browser-discovery qualification correction opened
+
+- Source: clean serial reference snapshot
+  `7d7a87e19a8052981b1a309a496fd1a46da3f1a3` before this correction.
+- Qualification finding: two consecutive broad `test` windows failed in
+  different browser groups while direct browser and release windows remained
+  green. Root `20260721T104005Z-p3266085` retained a 350-pixel Network Flow
+  timestamp-text golden delta with identical content, layout, and font-manifest
+  digest; it is excluded as a visual-render diagnostic. In the restarted
+  window, root `20260721T104851Z-p3402375` failed while Network Flow displayed
+  the healthy intermediate status `Discovering source columns.` The shared
+  import helper exhausted Playwright's generic five-second expectation before
+  the real discovery request completed under the broad scheduler's observed
+  five concurrent browser stacks.
+- Required correction: make the Network Flow import helper wait up to 30
+  seconds for its semantic mapping-dialog readiness boundary, consistent with
+  other real upload/import helpers. Do not add sleeps, retries, newest-result
+  fallback, or product changes. Preserve the import request, UI states,
+  application deadlines, browser topology, golden bytes, and failure behavior.
+  Repeated claimed-profile stateful and broad service-backed evidence must pass
+  before a new clean reference snapshot is admitted.
+- Excluded evidence: both failed `test` windows, including their earlier
+  passing warm-ups and accepted attempts, are ineligible. Every release,
+  owner-slice, audit, browser, lint, or test-fast observation collected from
+  `7d7a87e19a8052981b1a309a496fd1a46da3f1a3` also remains diagnostic-only after
+  this source correction; no root may be migrated or rewritten.
+- Active: T-001 remains the only `IN_PROGRESS` task. Correct the helper,
+  complete focused and broad browser regression proof, commit a new clean
+  source snapshot, and restart the complete baseline manifest.
