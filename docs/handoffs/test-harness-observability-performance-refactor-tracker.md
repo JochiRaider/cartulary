@@ -7,7 +7,7 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | Serial reference substrate plus qualification-fixture corrections `7d7a87e19a8052981b1a309a496fd1a46da3f1a3`; safety candidate lineage begins at `528ef57d03c12dd47c0991a03380b0167ae54459` |
+| Current source | Serial reference substrate plus qualification corrections through the `x/text` security fix `45d54ef7`; safety candidate lineage begins at `528ef57d03c12dd47c0991a03380b0167ae54459` |
 | Last updated | 2026-07-21 |
 | Active item | T-001 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
@@ -1137,3 +1137,49 @@ completed work.
   ledger entry. All roots from
   `15af60c9448ceca088875637ed64c3163219b722` and all dirty correction roots
   above remain diagnostic-only and cannot enter the qualified baseline window.
+
+### 2026-07-21 — T-001 Go vulnerability qualification correction complete
+
+- Source: clean pre-correction measurement snapshot
+  `ada4993b5fe7f56c8864293bb1472d780982a5a6`; implementation commit
+  `45d54ef7` contains the correction. The tracker-completion commit containing
+  this entry is the next clean reference source.
+- Qualification finding: `ci` warm-up root
+  `.cartulary/test-results/20260721T195208Z-p2706015` failed the required
+  `go-vulncheck` gate with four symbol-reachable instances of `GO-2026-5970`
+  (`CVE-2026-56852`), an infinite-loop vulnerability in
+  `golang.org/x/text`. The retained findings identify `v0.37.0` as affected,
+  `v0.39.0` as fixed, and the reachable path through pgx SCRAM normalization
+  into the PostgreSQL test harness. The scan database was last modified on
+  2026-07-17; the earlier direct pass used stale cached vulnerability data and
+  cannot qualify a later aggregate that saw the current database.
+- Completed correction: the runtime module requirement is now
+  `golang.org/x/text v0.39.0`; tool-owned module reconciliation also advanced
+  the compatible indirect `golang.org/x/sync` requirement to `v0.21.0` and
+  refreshed only those checksums. The immutable Network Flow Unicode 17
+  normalization sources and provenance remain correctly attributed to their
+  vendored `x/text v0.37.0` source snapshot; generated Unicode tables and
+  product behavior are unchanged.
+- Validation proof: `make go-vulncheck` passed at
+  `.cartulary/test-results/20260721T195629Z-p2788014`; `make build-server`
+  passed at `.cartulary/test-results/20260721T195647Z-p2788519`;
+  `make generate-drift` passed at
+  `.cartulary/test-results/20260721T195708Z-p2798028`; `make toolchain-drift`
+  passed at `.cartulary/test-results/20260721T195708Z-p2798029`; and
+  `make test-fast` passed at
+  `.cartulary/test-results/20260721T195726Z-p2801325` with 651 tests, zero
+  failures, and both aggregate work units complete. These roots were produced
+  before the clean implementation/tracker commits and remain diagnostic-only.
+- Excluded measurement evidence: every warm-up and accepted observation from
+  source snapshot `ada4993b5fe7f56c8864293bb1472d780982a5a6` is
+  diagnostic-only, including all completed direct profiles and the `lint`,
+  `test-fast`, and `test` aggregate windows. Failed `test` roots
+  `20260721T191059Z-p2131856` and `20260721T192730Z-p2314125` are additionally
+  excluded for independent browser interaction and worker-teardown
+  infrastructure failures; each exact affected row then passed three
+  consecutive diagnostic owner slices. Failed `ci` root
+  `20260721T195208Z-p2706015` is excluded for the security finding. No root
+  from this snapshot may be migrated into the restarted baseline.
+- Active: T-001 remains the only `IN_PROGRESS` task. Restart every required
+  profile from the clean tracker-completion commit with a fresh discarded
+  warm-up. Retain all prior roots for diagnosis and rejection-reason evidence.
