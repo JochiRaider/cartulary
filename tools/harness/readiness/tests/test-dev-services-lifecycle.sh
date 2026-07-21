@@ -128,8 +128,8 @@ run_service() {
       FAKE_DOCKER_LOG="$docker_log" \
       FAKE_GO_LOG="$go_log" \
       CARTULARY_RUNTIME_DIR="$tmp_dir/runtime" \
-      CARTULARY_POSTGRES_READY_TIMEOUT_SECONDS=1 \
-      CARTULARY_OBJECT_STORE_READY_TIMEOUT_SECONDS=1 \
+      CARTULARY_POSTGRES_READY_TIMEOUT_SECONDS=5 \
+      CARTULARY_OBJECT_STORE_READY_TIMEOUT_SECONDS=5 \
       "$@"
   ) >"$run_stdout" 2>"$run_stderr"
   run_status=$?
