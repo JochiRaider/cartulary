@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | Safety snapshot `528ef57d03c12dd47c0991a03380b0167ae54459`; reference lineage `87d418f8d7e921b792292aa752e6df1024576c5f` |
+| Current source | Serial reference substrate `91b7a277851876c4b705445c2770e7a14f3598f8`; safety candidate lineage begins at `528ef57d03c12dd47c0991a03380b0167ae54459` |
 | Last updated | 2026-07-21 |
-| Active item | T-005 |
+| Active item | T-001 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -144,11 +144,11 @@ result; the explicit observability check fails closed.
 
 | ID | Work item | Workstream | Status | Depends on | Owner | Evidence/artifact | Exit condition |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T-001 | Collect the clean serial reference window and generate the qualified public-target duration baseline | WS-00 baseline | TODO | T-007 | harness performance | exact retained execution contexts, baseline roots manifest, and generated baseline artifact | one discarded warm-up and three accepted observations exist for every required measurement profile |
+| T-001 | Collect the clean serial reference window and generate the qualified public-target duration baseline | WS-00 baseline | IN_PROGRESS | T-007 | harness performance | exact retained execution contexts, baseline roots manifest, and generated baseline artifact | one discarded warm-up and three accepted observations exist for every required measurement profile |
 | T-002 | Correct observability, artifact, security, scheduler, and performance requirements and tracker ownership | WS-01 specification | DONE | none | harness specification | `docs/testing-harness-nlspec.md`; requirements and acceptance crosswalk | every behavior has one normative owner and every measurement identity is reproducible |
 | T-003 | Add the application-versus-harness OTel boundary | WS-01 specification | DONE | T-002 | telemetry specification | `docs/opentelemetry-instrumentation-nlspec.md`; OTel conformance fixtures | application scopes and runtime signals remain unchanged |
 | T-004 | Add explicit target dispositions, stable measurement profiles, retained execution context, corrected schemas, attachments, and generated projections | WS-01 contracts | DONE | T-002, T-003 | harness contracts | closed public inventory, authored schemas, and reproducible generated projections | omissions, overlap, unknowns, duplicates, and unowned exclusions fail generation |
-| T-005 | Implement retained-provenance deterministic reconstruction and interval-union hotspot analysis | WS-02 observability | IN_PROGRESS | T-004 | diagnostics | immutable context plus deterministic native, trace, metric, hotspot, and digest fixtures | retained roots reconstruct independently of the checkout and explicit graph parentage, paths, waits, gaps, and digests validate |
+| T-005 | Implement retained-provenance deterministic reconstruction and interval-union hotspot analysis | WS-02 observability | DONE | T-004 | diagnostics | immutable context plus deterministic native, trace, metric, hotspot, and digest fixtures | retained roots reconstruct independently of the checkout and explicit graph parentage, paths, waits, gaps, and digests validate |
 | T-006 | Unify sequence and scheduler lifecycle evidence, topology ownership, cancellation, and deterministic failure behavior | WS-02 observability | DONE | T-005 | execution runtime | scheduler v7, shared sequence scheduler, and lifecycle fixtures | required transitions and dependencies are attributable exactly once under success, failure, and interruption |
 | T-007 | Make local validation read-only and exact-selected; correct OTLP export, privacy, and failure semantics | WS-02 observability | DONE | T-005, T-006 | diagnostics/export | tamper, exact-selection, OTLP decode, failure-class, redirect, timeout, and egress fixtures | selected source evidence is never mutated and export conforms exactly |
 | T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | TODO | T-001 | backend runner | retained 255-test parity run and expected process reduction | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
@@ -584,3 +584,46 @@ completed work.
   scheduler-finalization semantics, regenerate adopted contracts through
   `make generate`, and verify exact read-only loading before restarting T-001
   from a new clean reference commit.
+
+### 2026-07-21 — T-005 invocation-boundary correction complete
+
+- Source: clean serial reference substrate commit
+  `91b7a277851876c4b705445c2770e7a14f3598f8`; the validation roots below were
+  collected immediately before that commit and remain diagnostic-only because
+  their source state was dirty.
+- Completed: T-005. Public preflight now retains
+  `cartulary.harness_invocation_start.v1` before prerequisite work, including a
+  sorted recursive snapshot of generated Make target-prerequisite edges. The
+  terminal execution context binds the marker and edge snapshot; its root span
+  covers the public invocation envelope. Reconstruction filters and parents
+  target summaries through retained invocation, summary, sequence, or scheduler
+  relationships. Performance qualification rejects a missing boundary as
+  `artifact_incomplete`.
+- Scheduler boundary: direct browser targets defer observability while the
+  in-scheduler target summary is produced, then finalize only after terminal
+  scheduler summary, pressure, progress, and event evidence is closed. Child
+  scheduler invocations remain suppressed and cannot replace the aggregate's
+  top-level boundary.
+- Focused defect proof: direct `seaweedfs-release-evidence` passed at
+  `.cartulary/test-results/20260721T041917Z-p2486191`; its complete context spans
+  161.975 s, retains nine prerequisite edges, and passes exact read-only
+  reconstruction across 36 sources. Direct `browser-e2e` passed at
+  `.cartulary/test-results/20260721T042215Z-p2507131`; its complete context spans
+  263.846 s, retains five prerequisite edges, and passes exact read-only
+  reconstruction across 66 sources. Neither root is eligible for T-001.
+- Verification: `make generate` passed at
+  `.cartulary/test-results/20260721T041832Z-p2483554`; `make harness-contract`
+  passed at `.cartulary/test-results/20260721T041844Z-p2485089`;
+  `make json-shape-check` passed at
+  `.cartulary/test-results/20260721T042733Z-p2540037`;
+  `make generated-artifact-policy-check` passed at
+  `.cartulary/test-results/20260721T042736Z-p2540394`; `make generate-drift`
+  passed at `.cartulary/test-results/20260721T042738Z-p2540575`;
+  `make lint-scripts` passed at
+  `.cartulary/test-results/20260721T042747Z-p2543482`; `make otel-conformance`
+  passed at `.cartulary/test-results/20260721T042749Z-p2543827`; and
+  `make lint-markdown` passed at
+  `.cartulary/test-results/20260721T042812Z-p2546905`.
+- Active: T-001 is the only `IN_PROGRESS` task. All reference warm-ups and
+  accepted observations must be recollected from the next clean commit; no
+  pre-correction root may be migrated or rewritten.
