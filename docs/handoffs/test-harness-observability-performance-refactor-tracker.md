@@ -922,3 +922,31 @@ completed work.
   accepted observation restarts from the clean tracker-completion commit
   containing this ledger entry. All roots from
   `e5dc295349606c5a2dff067212cd4f9596fa2a90` and earlier remain diagnostic-only.
+
+### 2026-07-21 — T-001 Network Flow lifecycle-settlement correction opened
+
+- Source: clean serial reference snapshot
+  `c33f7097be36094c8794636d427bc326fb847298` before this correction.
+- Qualification finding: accepted `test` observation
+  `.cartulary/test-results/20260721T131801Z-p2075751` failed during the recovery
+  import in the Network Flow lifecycle scenario. The retained network trace
+  proves that the second upload was accepted three milliseconds after the
+  delete response and its background job succeeded with a valid import-session
+  resource in about 27 ms. The fixture had waited only for the locally updated
+  empty workspace, not for the client's replayable
+  `extension_resource_changed/remove` event. That later event legitimately
+  clears protected state and increments the import operation generation, so it
+  can invalidate a recovery import started before lifecycle settlement.
+- Required correction: install the existing incident websocket monitor before
+  workbook navigation, record its message boundary before deletion, and wait
+  for the exact Network Flow table-removal event for the deleted resource
+  before submitting the recovery import. Preserve product event handling,
+  import cancellation, upload/job behavior, the 30-second semantic dialog
+  deadline, and browser topology. Do not add sleeps, retries, or product-side
+  self-event suppression as a test workaround.
+- Excluded evidence: failed root `20260721T131801Z-p2075751` and discarded
+  warm-up root `20260721T131414Z-p2005889` are diagnostic-only. No root from
+  `c33f7097be36094c8794636d427bc326fb847298` may enter a qualified window.
+- Active: T-001 remains the only `IN_PROGRESS` task. Add the websocket semantic
+  boundary, prove the exact lifecycle row repeatedly and the broad `test` path,
+  commit a new clean source snapshot, and restart every baseline profile.
