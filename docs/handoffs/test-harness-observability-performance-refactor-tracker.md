@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | T-008 implementation based on T-001 checkpoint `ecd2ef40`; retained target-local reference snapshots are recorded in the v2 baseline |
+| Current source | T-009 implementation based on T-008 checkpoint `1c97ec89`; retained target-local reference snapshots are recorded in the v2 baseline |
 | Last updated | 2026-07-21 |
-| Active item | T-009 |
+| Active item | T-010 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -159,8 +159,8 @@ result; the explicit observability check fails closed.
 | T-006 | Unify sequence and scheduler lifecycle evidence, topology ownership, cancellation, and deterministic failure behavior | WS-02 observability | DONE | T-005 | execution runtime | scheduler v7, shared sequence scheduler, and lifecycle fixtures | required transitions and dependencies are attributable exactly once under success, failure, and interruption |
 | T-007 | Make local validation read-only and exact-selected; correct OTLP export, privacy, and failure semantics | WS-02 observability | DONE | T-005, T-006 | diagnostics/export | tamper, exact-selection, OTLP decode, failure-class, redirect, timeout, and egress fixtures | selected source evidence is never mutated and export conforms exactly |
 | T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | DONE | T-001 | backend runner | retained 255-test parity run and 30-process plan/run proof | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
-| T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | IN_PROGRESS | T-008 | output/finalizers | worker failure fixtures and retained parity evidence; quantitative gate remains T-012-owned | output identity, partial-success retention, and primary-failure selection are stable |
-| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | TODO | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
+| T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | DONE | T-008 | output/finalizers | worker failure fixtures and retained parity evidence; quantitative gate remains T-012-owned | output identity, partial-success retention, and primary-failure selection are stable |
+| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | IN_PROGRESS | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
 | T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | TODO | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
 | T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
 | T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
@@ -182,9 +182,9 @@ statements closes a reopened task until its corrected exit condition passes):
   output when generation is partial; it does not change the underlying test
   result or consume the command's stderr budget.
 - Backend-unit exact-symbol compatibility grouping reduced the observed Go
-  process count from 34 to 30. Deterministic batch ingestion and bounded report
-  emission are implemented, but T-009 remains open until a qualifying baseline
-  establishes and clears its improvement gate.
+  process count from 34 to 30. Physical reports are parsed once, and immutable
+  family projections emit through the six-worker host-derived pool. Functional
+  parity is closed; the quantitative comparison remains T-012-owned.
 - Shared DAG execution is implemented for `lint`, `ci`, and `release-check`.
   The first release layout was rejected after it exposed shared Compose service
   interference; the corrected browser-only service-backed aggregate is
@@ -202,9 +202,11 @@ On the current 24-CPU host this resolves to six workers and four Go scheduler
 threads per child. Missing, duplicate, unexpected, crashed, or partial Go JSON
 output fails closed.
 
-Batch emission may perform independent parsing and file writes concurrently,
-but final summaries, artifact arrays, and failure selection use the existing
-deterministic orders.
+Each physical Go report is parsed and validated exactly once. Explicit frozen
+family-projection requests then merge and emit concurrently through the same
+host-derived pool as capture. All workers settle before final summaries,
+artifact arrays, diagnostics, and primary failures are selected in authored
+order. Successful worker output remains eligible when a sibling fails.
 
 `check` remains the first dependency of `ci` and `release-check`. After it
 passes, harness-contract, security, licensing/SBOM, builds, SeaweedFS leaves,
@@ -1368,3 +1370,47 @@ completed work.
 - Active: T-009 is the only `IN_PROGRESS` task. It will eliminate repeated
   physical report parsing and parallelize immutable family requests before any
   T-010 topology work begins.
+
+### 2026-07-21 — T-009 backend report finalization complete
+
+- Source: T-008 checkpoint `1c97ec89`; worktree implementation was validated
+  before this mandatory T-009 checkpoint.
+- Completed: T-009. Every completed physical Go report is read and JSON-
+  validated exactly once into a frozen record. Frozen family requests then
+  merge and emit independently through the same host-derived pool as capture;
+  on this host that is six workers. All workers settle before target summary
+  emission, diagnostics, and authored-order primary-failure selection.
+  Successful family evidence is preserved when a sibling parser or emitter
+  fails. The undeclared `CARTULARY_GO_TARGET_FINALIZER_EMIT_JOBS` environment
+  control was removed with no alias or ignored compatibility path.
+- Artifact-completion correction: failed retained root
+  `.cartulary/test-results/20260721T231625Z-p4003786` exposed a real race once
+  parsing moved immediately behind capture: the child process had closed while
+  its artifact write streams were still draining, producing an incomplete
+  family projection. Capture completion now waits for both stdout and stderr
+  write-stream `finish` events before publishing the physical report's
+  `complete` marker. Consecutive corrected `backend-unit` roots
+  `20260721T231719Z-p4006027` and `20260721T231740Z-p4007834` each passed all
+  255 tests across 30 physical packages with zero failed or missing tests.
+- Determinism and failure coverage: focused fixtures prove bounded concurrency,
+  stable result indexing under simultaneous worker failures, partial-success
+  preservation, frozen parsed records, rejection of malformed physical JSON,
+  and byte-equivalent repeated projections after the source report is made
+  unreadable as valid JSON. Existing runner fixtures continue to cover missing,
+  duplicate, unexpected, partial, crashed, and missing-metadata evidence and
+  stable failure classification.
+- Verification: `harness-contract` passed at
+  `.cartulary/test-results/20260721T231806Z-p4009638`; final `backend-unit`
+  parity passed at `20260721T231740Z-p4007834` in `9.493 s`; `test-fast`
+  passed at `20260721T231831Z-p4010588` with 651 tests and both aggregate work
+  units complete; and `lint-biome` passed at
+  `.cartulary/test-results/20260721T232100Z-p4051497`. Native backend
+  finalization is now fully attributed through the `report_collation` interval
+  union. These dirty-worktree roots are functional evidence only; no
+  performance threshold was evaluated or relaxed.
+- Performance disposition: the backend total and finalizer improvement gates
+  remain exclusively T-012-owned and require strict evidence from the later
+  frozen candidate commit.
+- Active: T-010 is the only `IN_PROGRESS` task. Topology-owned adaptive
+  sequence resources must be complete and checkpointed before browser capacity
+  changes begin.

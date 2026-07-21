@@ -195,11 +195,40 @@ async function runGoTestCapture(ctx, regex, args, reportDir, policy = {}) {
     }
   });
   return await new Promise((resolve, reject) => {
-    child.on("error", reject);
+    let childClosed = false;
+    let childStatus = 1;
+    let stdoutFinished = false;
+    let stderrFinished = false;
+    let settled = false;
+    const finish = () => {
+      if (settled || !childClosed || !stdoutFinished || !stderrFinished) return;
+      settled = true;
+      resolve(childStatus);
+    };
+    const fail = (error) => {
+      if (settled) return;
+      settled = true;
+      stdoutStream.destroy();
+      stderrStream.destroy();
+      reject(error);
+    };
+    stdoutStream.on("error", fail);
+    stderrStream.on("error", fail);
+    stdoutStream.on("finish", () => {
+      stdoutFinished = true;
+      finish();
+    });
+    stderrStream.on("finish", () => {
+      stderrFinished = true;
+      finish();
+    });
+    child.on("error", fail);
     child.on("close", (status) => {
+      childStatus = status ?? 1;
+      childClosed = true;
       stdoutStream.end();
       stderrStream.end();
-      resolve(status ?? 1);
+      finish();
     });
   });
 }

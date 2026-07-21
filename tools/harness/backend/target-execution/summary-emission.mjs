@@ -206,23 +206,6 @@ export function writeFinalizerFailureStep(
   );
 }
 
-export function resolveFinalizerEmitJobs(ctx, count) {
-  if (count <= 0) {
-    return 0;
-  }
-  const configured = ctx.env.CARTULARY_GO_TARGET_FINALIZER_EMIT_JOBS;
-  if (configured) {
-    const parsed = Number.parseInt(configured, 10);
-    if (!Number.isInteger(parsed) || parsed < 1) {
-      throw new Error(
-        `invalid CARTULARY_GO_TARGET_FINALIZER_EMIT_JOBS=${configured}`,
-      );
-    }
-    return Math.min(count, parsed);
-  }
-  return Math.min(count, 4);
-}
-
 export async function runBounded(items, jobs, worker) {
   if (items.length === 0) {
     return [];
@@ -240,6 +223,19 @@ export async function runBounded(items, jobs, worker) {
     }),
   );
   return results;
+}
+
+export async function runSettledBounded(items, jobs, worker) {
+  return await runBounded(items, jobs, async (item, index) => {
+    try {
+      return Object.freeze({
+        value: await worker(item, index),
+        error: null,
+      });
+    } catch (error) {
+      return Object.freeze({ value: null, error });
+    }
+  });
 }
 
 async function emitTargetSummary(ctx, status) {

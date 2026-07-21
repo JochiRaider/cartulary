@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -7,6 +13,11 @@ import { collectCompatibleCaptureGroups } from "../go-target-aggregate.mjs";
 import { collectGoShardPlanFromRows } from "../go-shard-plan.mjs";
 import { collectTargetPlanRows } from "../target-plan.mjs";
 import { resolveBackendWorkerPool } from "../target-execution/worker-policy.mjs";
+import {
+  createUnshardedFamilyReport,
+  parsePhysicalReport,
+} from "../target-execution/reports.mjs";
+import { runSettledBounded } from "../target-execution/summary-emission.mjs";
 
 const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-service-go-batching-"));
 
@@ -140,6 +151,73 @@ try {
     ]),
     /duplicates an exact symbol/u,
   );
+
+  const physicalReportDir = path.join(root, "physical-report");
+  mkdirSync(physicalReportDir, { recursive: true });
+  const physicalFiles = {
+    "runner.jsonl": `${JSON.stringify({ Action: "pass", Test: "TestSynthetic" })}\n`,
+    "stderr.log": "",
+    "command.txt": "env go test -json -run '^TestSynthetic$' ./internal/modules/synthetic\n",
+    "start_time.txt": "2026-01-01T00:00:00Z\n",
+    "end_time.txt": "2026-01-01T00:00:01Z\n",
+    "duration_ms.txt": "1000\n",
+    "exit_status.txt": "0\n",
+  };
+  for (const [name, value] of Object.entries(physicalFiles)) {
+    writeFileSync(path.join(physicalReportDir, name), value);
+  }
+  const parsedPhysical = parsePhysicalReport(physicalReportDir);
+  assert.ok(Object.isFrozen(parsedPhysical));
+  writeFileSync(path.join(physicalReportDir, "runner.jsonl"), "not-json\n");
+  const reportContext = {
+    resultsRoot: path.join(root, "results"),
+    runId: "parse-once",
+  };
+  const firstProjection = createUnshardedFamilyReport(reportContext, "family-one", [
+    Object.freeze({ name: "physical", usage: "actual", report: parsedPhysical }),
+  ]);
+  const secondProjection = createUnshardedFamilyReport(reportContext, "family-two", [
+    Object.freeze({ name: "physical", usage: "actual", report: parsedPhysical }),
+  ]);
+  const projectedFiles = [
+    "runner.jsonl",
+    "stderr.log",
+    "command.txt",
+    "start_time.txt",
+    "end_time.txt",
+    "duration_ms.txt",
+    "wall_duration_ms.txt",
+    "exit_status.txt",
+  ];
+  for (const name of projectedFiles) {
+    assert.equal(
+      readFileSync(path.join(firstProjection.reportDir, name), "utf8"),
+      readFileSync(path.join(secondProjection.reportDir, name), "utf8"),
+      `${name} projection bytes`,
+    );
+  }
+  assert.match(
+    readFileSync(path.join(firstProjection.reportDir, "runner.jsonl"), "utf8"),
+    /TestSynthetic/u,
+  );
+  assert.throws(() => parsePhysicalReport(physicalReportDir), /malformed JSON/u);
+
+  let activeWorkers = 0;
+  let maximumWorkers = 0;
+  const settled = await runSettledBounded([0, 1, 2, 3, 4], 2, async (value) => {
+    activeWorkers += 1;
+    maximumWorkers = Math.max(maximumWorkers, activeWorkers);
+    await new Promise((resolve) => setTimeout(resolve, value % 2 === 0 ? 4 : 1));
+    activeWorkers -= 1;
+    if (value === 1 || value === 3) throw new Error(`worker-${value}`);
+    return `value-${value}`;
+  });
+  assert.equal(maximumWorkers, 2);
+  assert.deepEqual(
+    settled.map((result) => result.error?.message ?? result.value),
+    ["value-0", "worker-1", "value-2", "worker-3", "value-4"],
+  );
+  assert.ok(settled.every(Object.isFrozen));
 
   const oversizedRows = [row(301), row(302)];
   const oversizedPlan = plan(oversizedRows, { [symbol(301)]: 13_000, [symbol(302)]: 1_000 });

@@ -384,8 +384,8 @@ function measurementContract(target, catalog, manifest, executionTopology) {
           child_gomaxprocs: "max(1,floor(available_parallelism/workers))",
         },
         report_projection: {
-          physical_report_parse: "once_per_family_projection",
-          emission: "serial_authored_family_order",
+          physical_report_parse: "once_per_physical_report",
+          emission: "parallel_host_derived_pool",
         },
       },
     } : {}),
