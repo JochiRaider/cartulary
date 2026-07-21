@@ -772,3 +772,31 @@ completed work.
 - Active: T-001 remains the only `IN_PROGRESS` task. Correct the helper,
   complete focused and broad browser regression proof, commit a new clean
   source snapshot, and restart the complete baseline manifest.
+
+### 2026-07-21 — T-001 browser-discovery qualification correction complete
+
+- Source: clean correction commit
+  `fa05592de09df6206c2847f744d9bf6141bab21f`; the validation roots below were
+  collected immediately before that commit and remain diagnostic-only because
+  their source state was dirty.
+- Completed correction: the Network Flow import helper now gives the semantic
+  mapping-dialog readiness boundary an explicit 30-second deadline. The
+  browser still waits on the real dialog state without a sleep or retry, and
+  the import request, intermediate status, application deadlines, execution
+  topology, golden bytes, and product behavior are unchanged.
+- Focused proof: three consecutive `make browser-e2e-stateful` runs passed at
+  `.cartulary/test-results/20260721T105458Z-p3471070`,
+  `.cartulary/test-results/20260721T105801Z-p3492880`, and
+  `.cartulary/test-results/20260721T110100Z-p3514228`. Each run completed both
+  stateful sessions and their finalizers with scheduler capacity
+  `browser_stack=1`; the previously failing claimed Network Flow profile
+  reached its mapping dialog successfully in every observation.
+- Regression proof: `make test-fast` passed at
+  `.cartulary/test-results/20260721T110405Z-p3535521` with 651 tests, zero
+  failures, and both aggregate work units complete in 160.452 s. `make format`
+  passed at `.cartulary/test-results/20260721T105448Z-p3468716` before the
+  repeated browser checks.
+- Active: T-001 remains the only `IN_PROGRESS` task. The complete baseline
+  manifest restarts from the clean tracker-completion commit containing this
+  ledger entry. Every root from this correction and every earlier reference
+  source remains diagnostic-only; none may be migrated into the new window.
