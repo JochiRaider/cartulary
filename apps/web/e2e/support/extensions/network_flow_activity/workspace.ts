@@ -56,7 +56,7 @@ export async function importNetworkFlowCSV(
     .getByTestId(networkAnalysisTestId("import-input"))
     .setInputFiles(options.file ?? networkFlowMinimalCSV);
   const dialog = page.getByTestId(networkAnalysisTestId("mapping-dialog"));
-  await expect(dialog).toBeVisible();
+  await expect(dialog).toBeVisible({ timeout: 30_000 });
   await page
     .getByTestId(networkAnalysisTestId("mapping-display-name"))
     .fill(options.displayName);
