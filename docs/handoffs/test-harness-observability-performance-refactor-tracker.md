@@ -892,3 +892,33 @@ completed work.
 - Active: T-001 remains the only `IN_PROGRESS` task. Correct the scenario
   declaration, prove the exact collaboration row repeatedly and the broad test
   path, commit a new clean source snapshot, and restart every baseline profile.
+
+### 2026-07-21 — T-001 grouped-conflict qualification correction complete
+
+- Source: clean correction commit
+  `be31f9a06a3531484b9aa8aeab98d0bba39073a9`; the validation roots below were
+  collected immediately before that commit and remain diagnostic-only because
+  their source state was dirty.
+- Completed correction: the grouped/sorted collaboration scenario now uses the
+  shared helper's two projection opt-outs, so it does not require either the
+  transient inline editor or the transient remounted marker. The helper still
+  requires `Conflict`, a visible resolver, exact saved and unsaved values, and
+  the scenario still selects `Use my unsaved value`, waits for `Saved`, and
+  verifies that exact value through the server API. Stable-cell callers retain
+  the stricter mounted-editor and marker defaults.
+- Focused proof: the exact
+  `module.collaboration.browser_stateful.verify_multi_client_live_row_update_presence_anc_4c65a275c1`
+  row passed three consecutive service-backed owner slices at
+  `.cartulary/test-results/20260721T130634Z-p1890248`,
+  `.cartulary/test-results/20260721T130730Z-p1905550`, and
+  `.cartulary/test-results/20260721T130826Z-p1920400`, with one selected test
+  executed exactly once per root.
+- Regression proof: `make test` passed at
+  `.cartulary/test-results/20260721T130935Z-p1935289` with 651 tests, zero
+  failures, and both aggregate work units complete in 215.685 s. `make format`
+  passed at `.cartulary/test-results/20260721T130609Z-p1887772` before the
+  repeated focused checks.
+- Active: T-001 remains the only `IN_PROGRESS` task. Every baseline warm-up and
+  accepted observation restarts from the clean tracker-completion commit
+  containing this ledger entry. All roots from
+  `e5dc295349606c5a2dff067212cd4f9596fa2a90` and earlier remain diagnostic-only.
