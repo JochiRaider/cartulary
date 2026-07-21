@@ -3,6 +3,7 @@ package processlease
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -19,6 +20,11 @@ func TestPostgresApplicationProcessLease_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
+	warmCtx, cancelWarm := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelWarm()
+	if err := warmPostgresLeaseSessions(warmCtx, pool, 2); err != nil {
+		t.Fatalf("warm postgres process lease sessions: %v", err)
+	}
 	backend := PostgresBackend{Pool: pool}
 
 	first, err := Acquire(context.Background(), backend, 100*time.Millisecond, 40*time.Millisecond)
@@ -60,6 +66,24 @@ func TestPostgresApplicationProcessLease_Integration(t *testing.T) {
 	if err := lost.Release(context.Background()); !errors.Is(err, ErrInvalidTransition) {
 		t.Fatalf("lost process lease was releasable/reacquirable: %v", err)
 	}
+}
+
+func warmPostgresLeaseSessions(ctx context.Context, pool *pgxpool.Pool, count int) error {
+	connections := make([]*pgxpool.Conn, 0, count)
+	defer func() {
+		for _, connection := range connections {
+			connection.Release()
+		}
+	}()
+
+	for index := 0; index < count; index++ {
+		connection, err := pool.Acquire(ctx)
+		if err != nil {
+			return fmt.Errorf("acquire session %d of %d: %w", index+1, count, err)
+		}
+		connections = append(connections, connection)
+	}
+	return nil
 }
 
 func waitForPostgresLeaseState(t *testing.T, lease *Lease, want State) {
