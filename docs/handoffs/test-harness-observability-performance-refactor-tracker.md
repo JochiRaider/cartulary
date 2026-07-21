@@ -1049,3 +1049,37 @@ completed work.
   restarts from the clean tracker-completion commit containing this ledger
   entry; all roots from `0ea8d0cdb01684089cd58001f8524cbcdc13bd49` and all
   dirty validation roots above remain diagnostic-only.
+
+### 2026-07-21 — T-001 Timeline mention-focus continuity correction opened
+
+- Source: clean serial reference snapshot
+  `15af60c9448ceca088875637ed64c3163219b722` before this correction.
+- Qualification finding: discarded `test` warm-up root
+  `.cartulary/test-results/20260721T163540Z-p517797` failed row
+  `module.entities.browser.the_browser_workbook_shows_auto_resolution_only_758d41a16f`
+  after a successful auto-resolution Undo request. The notice disappeared, the
+  relationship became unresolved, the inspected row remained visible, and the
+  grid retained its inspector-active semantics, but the Timeline synopsis cell
+  lost DOM focus for the full five-second assertion window.
+- Root cause: focus return is an existing behavior contract, already asserted
+  by the component test that focuses the Undo button before activation. The
+  live implementation restores focus only synchronously, on the next animation
+  frame, and at timeout zero. A later React/grid reconciliation can replace the
+  focused cell after those attempts, leaving focus on the document even though
+  the action and viewport continuity succeeded.
+- Required correction: make mention-action focus return bounded and resilient
+  across late reconciliation. Re-resolve the semantic cell on each attempt,
+  retry for a short closed window, and stop immediately if the user moves focus
+  to a different connected element. Preserve mention mutation behavior,
+  viewport/scroll continuity, inspector selection, accessibility intent,
+  timeouts, public commands, and browser topology. Add component coverage for
+  late target replacement and user-directed focus cancellation, then prove the
+  exact service-backed row repeatedly and the broad `test` path.
+- Excluded evidence: every warm-up and accepted observation from source
+  snapshot `15af60c9448ceca088875637ed64c3163219b722` is diagnostic-only. This
+  includes all completed direct-profile windows and their retained module-auth
+  audit fixture. Auth slice root `20260721T153554Z-p111938` is independently
+  excluded for `retry_observed`. No root from this snapshot may be migrated.
+- Active: T-001 remains the only `IN_PROGRESS` task. Correct and validate focus
+  continuity, commit a new clean snapshot, then restart every reference
+  baseline profile from a new discarded warm-up.
