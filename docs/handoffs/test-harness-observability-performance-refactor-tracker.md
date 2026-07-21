@@ -7,7 +7,7 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | Serial reference substrate `3242235b03837825d248975060cb963e9f70ae95`; safety candidate lineage begins at `528ef57d03c12dd47c0991a03380b0167ae54459` |
+| Current source | Serial reference substrate plus lease-fixture correction `218aa49906a2894293a8d9a4ed723273daecf881`; safety candidate lineage begins at `528ef57d03c12dd47c0991a03380b0167ae54459` |
 | Last updated | 2026-07-21 |
 | Active item | T-001 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
@@ -657,3 +657,34 @@ completed work.
   verify the focused lease row, run the harness contract and fast regression
   gates, commit a new clean reference source, and restart every baseline
   measurement profile from that exact source.
+
+### 2026-07-21 — T-001 lease-fixture qualification correction complete
+
+- Source: clean correction commit
+  `218aa49906a2894293a8d9a4ed723273daecf881`; the validation roots below were
+  collected immediately before that commit and remain diagnostic-only because
+  their source state was dirty.
+- Completed correction: the real PostgreSQL integration fixture now opens and
+  releases two pool sessions under a separate five-second setup deadline before
+  exercising the unchanged 100 ms and 20 ms lease-acquisition cases. Holding
+  both setup sessions until warm-up is complete forces the pool to establish
+  both physical connections. The subsequent short intervals therefore measure
+  advisory-lock acquisition and contention, including crash-release and
+  loss-detection behavior, rather than lazy connection establishment.
+- Focused proof: the exact
+  `app.server.integration.extension_application_process_lease_43130392c4` row
+  passed against three fresh harness-owned PostgreSQL stacks at roots
+  `.cartulary/test-results/20260721T063845Z-p174574`,
+  `.cartulary/test-results/20260721T063852Z-p174825`, and
+  `.cartulary/test-results/20260721T063859Z-p175020`, with one selected test
+  executed exactly once in 4.781 s, 5.029 s, and 4.785 s respectively.
+- Regression proof: `make harness-contract` passed independently at
+  `.cartulary/test-results/20260721T063915Z-p177564` and
+  `.cartulary/test-results/20260721T063945Z-p178538`; `make test-fast` passed at
+  `.cartulary/test-results/20260721T064047Z-p179753` with 651 tests and two of
+  two work units complete in 163.555 s. Product lease code, configuration,
+  error mapping, and the Core 04 contract are unchanged.
+- Active: T-001 remains the only `IN_PROGRESS` task. Its discarded warm-ups
+  and three-observation windows now restart from the clean tracker-completion
+  commit that contains this ledger entry; every earlier source root remains
+  diagnostic-only.
