@@ -7,7 +7,7 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | Serial reference substrate `91b7a277851876c4b705445c2770e7a14f3598f8`; safety candidate lineage begins at `528ef57d03c12dd47c0991a03380b0167ae54459` |
+| Current source | Serial reference substrate `3242235b03837825d248975060cb963e9f70ae95`; safety candidate lineage begins at `528ef57d03c12dd47c0991a03380b0167ae54459` |
 | Last updated | 2026-07-21 |
 | Active item | T-001 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
@@ -627,3 +627,33 @@ completed work.
 - Active: T-001 is the only `IN_PROGRESS` task. All reference warm-ups and
   accepted observations must be recollected from the next clean commit; no
   pre-correction root may be migrated or rewritten.
+
+### 2026-07-21 — T-001 lease-fixture qualification correction opened
+
+- Source: clean serial reference substrate
+  `3242235b03837825d248975060cb963e9f70ae95` before this correction.
+- Qualification finding: consecutive broad reference windows exposed a flaky
+  timing assumption in
+  `TestPostgresApplicationProcessLease_Integration`. The fixture constructs a
+  lazy `pgxpool` and gives the first `processlease.Acquire` call only 100 ms, so
+  under broad-suite load that interval can expire while opening the first
+  network session before any advisory-lock attempt occurs. The production
+  contract and default remain unchanged: Core 04 requires acquisition within
+  the configured timeout and the adopted configuration range is 1 through 300
+  seconds with a 30-second default.
+- Required correction: pre-establish the real PostgreSQL sessions used by the
+  fixture before starting its deliberately short acquisition and contention
+  checks. Keep `processlease.Acquire`, the PostgreSQL backend, production
+  defaults, error mapping, and product semantics unchanged. Add focused proof
+  that session warm-up failure is reported before the lease assertions.
+- Excluded evidence: `ci` root `20260721T055637Z-p3613990` and `test` root
+  `20260721T063045Z-p101648` failed at the invalid fixture boundary. The prior
+  failed `ci` root `20260721T054534Z-p3200942` remains excluded for its listener
+  conflict. Every warm-up and accepted observation collected from source
+  `3242235b03837825d248975060cb963e9f70ae95` remains diagnostic-only because the
+  fixture source correction changes the reference snapshot; no root will be
+  migrated, rewritten, or mixed into the replacement window.
+- Active: T-001 remains the only `IN_PROGRESS` task. Correct and repeatedly
+  verify the focused lease row, run the harness contract and fast regression
+  gates, commit a new clean reference source, and restart every baseline
+  measurement profile from that exact source.
