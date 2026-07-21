@@ -486,6 +486,8 @@ test("Verify multi-client live row update, presence anchoring, reset/invalidate 
     });
     await driveRealTimelineSummaryConflict({
       baseRowVersion: 1,
+      expectConflictMarker: false,
+      expectEditedCellMounted: false,
       localValue: "end-to-end.collaboration local conflict",
       page,
       patchController,
