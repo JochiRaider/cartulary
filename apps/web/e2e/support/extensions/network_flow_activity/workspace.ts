@@ -19,12 +19,16 @@ export const networkFlowMinimalCSV = fileURLToPath(
 export async function openNetworkFlowIncident(
   page: Page,
   prefix: string,
+  options: {
+    readonly onIncidentCreated?: (incidentId: string) => void;
+  } = {},
 ): Promise<string> {
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey(prefix),
     `Network Flow ${prefix} real application evidence`,
   );
+  options.onIncidentCreated?.(incidentId);
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   return incidentId;
@@ -33,9 +37,12 @@ export async function openNetworkFlowIncident(
 export async function openClaimedNetworkAnalysis(
   page: Page,
   prefix: string,
+  options: {
+    readonly onIncidentCreated?: (incidentId: string) => void;
+  } = {},
 ): Promise<string> {
   expectNetworkFlowRuntimeProfile("network_flow_claimed");
-  const incidentId = await openNetworkFlowIncident(page, prefix);
+  const incidentId = await openNetworkFlowIncident(page, prefix, options);
   const tab = page.getByTestId(networkAnalysisTestId("tab"));
   await expect(tab).toBeVisible();
   await tab.click();

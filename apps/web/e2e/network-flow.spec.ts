@@ -10,6 +10,7 @@ import {
   openNetworkFlowIncident,
 } from "./support/extensions/network_flow_activity/workspace";
 import { apiBase } from "./support/runtime/configuration";
+import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 
 test("Network Flow unclaimed workspace remains unavailable", async ({
   page,
@@ -234,7 +235,19 @@ test("Network Analysis alias collision requires explicit approval", async ({
 test("Verify Network Analysis clears protected grid, inspector, graph, contributor, and selection state after lifecycle loss and refetches after recovery.", async ({
   page,
 }) => {
-  await openClaimedNetworkAnalysis(page, "NETWORKFLOWSTATE");
+  const socketMonitorRef: {
+    current: ReturnType<typeof installIncidentSocketMonitor> | null;
+  } = { current: null };
+  await openClaimedNetworkAnalysis(page, "NETWORKFLOWSTATE", {
+    onIncidentCreated: (incidentId) => {
+      socketMonitorRef.current = installIncidentSocketMonitor(page, incidentId);
+    },
+  });
+  const lifecycleSocket = socketMonitorRef.current;
+  if (lifecycleSocket === null) {
+    throw new Error("network_flow_lifecycle_socket_monitor_not_installed");
+  }
+  await lifecycleSocket.waitForMessage("hello_ack");
   await importNetworkFlowCSV(page, { displayName: "lifecycle-source" });
   await page.getByTestId(networkAnalysisTestId("mode-graph")).click();
   const edge = page.getByTestId(/^network-flow-edge-/).first();
@@ -245,6 +258,7 @@ test("Verify Network Analysis clears protected grid, inspector, graph, contribut
   ).toBeVisible();
   await page.getByTestId(networkAnalysisTestId("contributor-close")).click();
 
+  const deleteEventStartAt = lifecycleSocket.messageCount();
   await page.getByTestId(networkAnalysisTestId("delete-trigger")).click();
   await page
     .getByTestId(networkAnalysisTestId("delete-confirmation"))
@@ -260,6 +274,15 @@ test("Verify Network Analysis clears protected grid, inspector, graph, contribut
   await expect(
     page.getByLabel("Empty Network Analysis workspace"),
   ).toBeVisible();
+  await lifecycleSocket.waitForMessage("extension_resource_changed", {
+    startAt: deleteEventStartAt,
+    matches: (message) =>
+      message.payload.extension_profile_id === "network_flow_activity" &&
+      message.payload.resource_kind === "network_flow_table" &&
+      message.payload.change_kind === "remove" &&
+      typeof message.payload.resource_id === "string" &&
+      message.payload.resource_id.length > 0,
+  });
 
   await importNetworkFlowCSV(page, { displayName: "recovery-source" });
   await expect(
